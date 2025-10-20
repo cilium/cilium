@@ -9,6 +9,7 @@ import (
 	"net"
 	"syscall"
 	"testing"
+	"unsafe"
 
 	"github.com/cilium/hive/hivetest"
 
@@ -234,20 +235,30 @@ type testBPFSocketDestroyer struct {
 func newTestBPFSocketDestroyer(tb testing.TB) socketDestroyerTester {
 	tb.Helper()
 
-	sockRevNat4Map := bpf.NewMapDeprecated(maps.SockRevNat4MapName,
-		ebpf.LRUHash,
+	sockRevNat4Map := bpf.NewMap(
+		&ebpf.MapSpec{
+			Name:       maps.SockRevNat4MapName,
+			Type:       ebpf.LRUHash,
+			KeySize:    uint32(unsafe.Sizeof(maps.SockRevNat4Key{})),
+			ValueSize:  uint32(unsafe.Sizeof(maps.SockRevNat4Value{})),
+			MaxEntries: maps.MaxSockRevNat4MapEntries,
+			Flags:      0,
+		},
 		&maps.SockRevNat4Key{},
 		&maps.SockRevNat4Value{},
-		maps.MaxSockRevNat4MapEntries,
-		0,
 	)
 	require.NoError(tb, sockRevNat4Map.OpenOrCreate())
-	sockRevNat6Map := bpf.NewMapDeprecated(maps.SockRevNat6MapName,
-		ebpf.LRUHash,
+	sockRevNat6Map := bpf.NewMap(
+		&ebpf.MapSpec{
+			Name:       maps.SockRevNat6MapName,
+			Type:       ebpf.LRUHash,
+			KeySize:    uint32(unsafe.Sizeof(maps.SockRevNat6Key{})),
+			ValueSize:  uint32(unsafe.Sizeof(maps.SockRevNat6Value{})),
+			MaxEntries: maps.MaxSockRevNat6MapEntries,
+			Flags:      0,
+		},
 		&maps.SockRevNat6Key{},
 		&maps.SockRevNat6Value{},
-		maps.MaxSockRevNat6MapEntries,
-		0,
 	)
 	require.NoError(tb, sockRevNat6Map.OpenOrCreate())
 	progs, filterSetter, err := loader.LoadSockTerm(hivetest.Logger(tb), sockRevNat4Map, sockRevNat6Map)
