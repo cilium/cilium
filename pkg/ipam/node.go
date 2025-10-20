@@ -780,9 +780,8 @@ func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
 }
 
 // handleIPReleaseResponse handles IPs agent has already responded to
+// caller must hold mutex lock
 func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) bool {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
 	if n.resource.Status.IPAM.ReleaseIPs != nil {
 		if status, ok := n.resource.Status.IPAM.ReleaseIPs[markedIP]; ok {
 			switch status {
@@ -798,12 +797,6 @@ func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) 
 		}
 	}
 	return false
-}
-
-func (n *Node) deleteLocalReleaseStatus(ip string) {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-	delete(n.ipv4Alloc.ipReleaseStatus, ip)
 }
 
 // handleIPRelease implements IP release handshake needed for releasing excess IPs on the node.
@@ -822,6 +815,8 @@ func (n *Node) deleteLocalReleaseStatus(ip string) {
 func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (instanceMutated bool, err error) {
 	var ipsToMark []string
 	var ipsToRelease []string
+
+	n.mutex.Lock()
 
 	// Update timestamps for IPs from this iteration
 	releaseTS := time.Now()
@@ -846,7 +841,7 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			// can be freed up. If the selected interface changes or if this IP is not excess anymore, remove entry
 			// from local maps.
 			delete(n.ipv4Alloc.ipsMarkedForRelease, markedIP)
-			n.deleteLocalReleaseStatus(markedIP)
+			delete(n.ipv4Alloc.ipReleaseStatus, markedIP)
 			continue
 		}
 		// Check if the IP release waiting period elapsed
@@ -861,7 +856,6 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 		ipsToMark = append(ipsToMark, markedIP)
 	}
 
-	n.mutex.Lock()
 	for _, ip := range ipsToMark {
 		n.logger.Load().Debug(
 			"Marking IP for release",
