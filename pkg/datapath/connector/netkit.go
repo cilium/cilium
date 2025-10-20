@@ -28,8 +28,8 @@ func SetupNetkit(defaultLogger *slog.Logger, id string, cfg LinkConfig, l2Mode b
 	lxcIfName := Endpoint2IfName(id)
 	tmpIfName := Endpoint2TempIfName(id)
 
-	netkit, link, err := SetupNetkitWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, l2Mode, sysctl)
-	return netkit, link, tmpIfName, err
+	netkit, peer, err := SetupNetkitWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, l2Mode, sysctl)
+	return netkit, peer, tmpIfName, err
 }
 
 // SetupNetkitWithNames sets up the net interface, the peer interface and fills up some
@@ -55,11 +55,11 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 		// from changing the addrs.
 		epHostMAC, err = mac.GenerateRandMAC()
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %w", err)
+			return nil, nil, fmt.Errorf("unable to generate host mac addr: %w", err)
 		}
 		epLXCMAC, err = mac.GenerateRandMAC()
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %w", err)
+			return nil, nil, fmt.Errorf("unable to generate peer mac addr: %w", err)
 		}
 	}
 	netkit := &netlink.Netkit{
