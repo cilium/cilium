@@ -45,7 +45,6 @@ func registerMapSweeper(params mapSweeperParams) {
 			logger:          params.Logger,
 			EndpointManager: params.EndpointManager,
 		},
-		params.BandwidthManager,
 		params.LBConfig,
 		params.KPRConfig)
 

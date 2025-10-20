@@ -1262,7 +1262,7 @@ func newCiliumThrottleSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "edt_id"),
 		ValueSize:  56,
 		Value:      anyTypeByName(btf, "edt_info"),
-		MaxEntries: 65536,
+		MaxEntries: 65535,
 		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}

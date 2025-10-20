@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -50,18 +49,16 @@ type PrefixedMap struct {
 type MapSweeper struct {
 	logger *slog.Logger
 	endpointManager
-	bwManager dptypes.BandwidthManager
-	lbConfig  loadbalancer.Config
-	kprCfg    kpr.KPRConfig
+	lbConfig loadbalancer.Config
+	kprCfg   kpr.KPRConfig
 }
 
 // newMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func newMapSweeper(logger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
+func newMapSweeper(logger *slog.Logger, g endpointManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
 	return &MapSweeper{
 		logger:          logger,
 		endpointManager: g,
-		bwManager:       bwm,
 		lbConfig:        lbConfig,
 		kprCfg:          kprCfg,
 	}
@@ -198,10 +195,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !option.Config.EnableIPv6FragmentsTracking {
 		maps = append(maps, "cilium_ipv6_frag_datagrams")
-	}
-
-	if !ms.bwManager.Enabled() {
-		maps = append(maps, "cilium_throttle")
 	}
 
 	if !option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
