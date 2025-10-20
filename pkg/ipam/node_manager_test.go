@@ -700,15 +700,19 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 	node.instanceSync.Trigger()
 
 	require.Eventually(t, func() bool {
+		node.mutex.Lock()
+		defer node.mutex.Unlock()
+
 		status, exists := node.resource.Status.IPAM.ReleaseIPs[releasedIP]
 		return exists && string(status) == ipamOption.IPAMReadyForRelease
 	}, 10*time.Second, time.Second)
 
-	// Now simulate the operator releasing the IP and marking it as released
 	node.mutex.Lock()
+
+	// Now simulate the operator releasing the IP and marking it as released
 	delete(node.resource.Spec.IPAM.Pool, releasedIP)
 	node.resource.Status.IPAM.ReleaseIPs[releasedIP] = ipamOption.IPAMReleased
-	node.mutex.Unlock()
+
 	// Also mark it as released in the internal ipReleaseStatus map
 	node.ipv4Alloc.ipReleaseStatus[releasedIP] = ipamOption.IPAMReleased
 
@@ -718,6 +722,9 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		node.resource.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
 	}
 	node.resource.Spec.IPAM.Pool[releasedIP] = ipamTypes.AllocationIP{Resource: "eni-test"}
+
+	node.mutex.Unlock()
+
 	node.ops.AllocateIPs(context.Background(), &AllocationAction{
 		IPv4: IPAllocationAction{
 			AvailableForAllocation: 1,
@@ -729,6 +736,10 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		node.PopulateIPReleaseStatus(node.resource)
+
+		node.mutex.Lock()
+		defer node.mutex.Unlock()
+
 		_, inReleaseStatus := node.ipv4Alloc.ipReleaseStatus[releasedIP]
 		_, inMarkedForRelease := node.ipv4Alloc.ipsMarkedForRelease[releasedIP]
 		_, inReleaseIPs := node.resource.Status.IPAM.ReleaseIPs[releasedIP]
