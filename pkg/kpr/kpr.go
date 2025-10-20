@@ -17,35 +17,45 @@ var Cell = cell.Module(
 )
 
 type KPRFlags struct {
-	KubeProxyReplacement bool
-	EnableSocketLB       bool `mapstructure:"bpf-lb-sock"`
+	KubeProxyReplacement     bool
+	EnableSocketLB           bool `mapstructure:"bpf-lb-sock"`
+	EnableSocketLBHostnsOnly bool `mapstructure:"bpf-lb-sock-hostns-only"`
 }
 
 var defaultFlags = KPRFlags{
-	KubeProxyReplacement: false,
-	EnableSocketLB:       false,
+	KubeProxyReplacement:     false,
+	EnableSocketLB:           false,
+	EnableSocketLBHostnsOnly: false,
 }
 
 func (def KPRFlags) Flags(flags *pflag.FlagSet) {
 	flags.Bool("kube-proxy-replacement", def.KubeProxyReplacement, "Enable kube-proxy replacement")
 
 	flags.Bool("bpf-lb-sock", def.EnableSocketLB, "Enable socket-based LB for E/W traffic")
+	flags.Bool("bpf-lb-sock-hostns-only", def.EnableSocketLBHostnsOnly,
+		"Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
 }
 
 type KPRConfig struct {
-	KubeProxyReplacement bool
-	EnableSocketLB       bool
+	KubeProxyReplacement     bool
+	EnableSocketLB           bool
+	EnableSocketLBHostnsOnly bool
 }
 
 func NewKPRConfig(flags KPRFlags) (KPRConfig, error) {
 	//nolint:staticcheck
 	cfg := KPRConfig{
-		KubeProxyReplacement: flags.KubeProxyReplacement,
-		EnableSocketLB:       flags.EnableSocketLB,
+		KubeProxyReplacement:     flags.KubeProxyReplacement,
+		EnableSocketLB:           flags.EnableSocketLB,
+		EnableSocketLBHostnsOnly: flags.EnableSocketLBHostnsOnly,
 	}
 
 	if flags.KubeProxyReplacement {
 		cfg.EnableSocketLB = true
+	}
+
+	if !cfg.EnableSocketLB {
+		cfg.EnableSocketLBHostnsOnly = false
 	}
 
 	return cfg, nil

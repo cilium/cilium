@@ -227,11 +227,6 @@ func probeKubeProxyReplacementOptions(logger *slog.Logger, lbConfig loadbalancer
 	} else {
 		option.Config.EnableSocketLBTracing = false
 		option.Config.EnableSocketLBPodConnectionTermination = false
-
-		if option.Config.BPFSocketLBHostnsOnly {
-			option.Config.BPFSocketLBHostnsOnly = false
-			logger.Warn(fmt.Sprintf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB))
-		}
 	}
 
 	return nil

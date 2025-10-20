@@ -295,9 +295,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.MasqueradeInterfaces, []string{}, "Limit iptables-based egress masquerading to interfaces selector")
 	option.BindEnv(vp, option.MasqueradeInterfaces)
 
-	flags.Bool(option.BPFSocketLBHostnsOnly, false, "Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
-	option.BindEnv(vp, option.BPFSocketLBHostnsOnly)
-
 	flags.Bool(option.EnableSocketLBPodConnectionTermination, true, "Enable terminating connections to deleted service backends when socket-LB is enabled")
 	flags.MarkHidden(option.EnableSocketLBPodConnectionTermination)
 	option.BindEnv(vp, option.EnableSocketLBPodConnectionTermination)

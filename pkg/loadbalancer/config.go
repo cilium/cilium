@@ -539,7 +539,7 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		EnableIPv4:                             cfg.EnableIPv4,
 		EnableIPv6:                             cfg.EnableIPv6,
 		KubeProxyReplacement:                   kprCfg.KubeProxyReplacement,
-		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
+		BPFSocketLBHostnsOnly:                  kprCfg.EnableSocketLBHostnsOnly,
 		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
 		EnableHealthCheckLoadBalancerIP:        cfg.EnableHealthCheckLoadBalancerIP,

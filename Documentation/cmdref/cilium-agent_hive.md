@@ -24,6 +24,7 @@ cilium-agent hive [flags]
       --bpf-lb-mode string                                        BPF load balancing mode ("snat", "dsr", "hybrid") (default "snat")
       --bpf-lb-mode-annotation                                    Enable service-level annotation for configuring BPF load balancing mode
       --bpf-lb-sock                                               Enable socket-based LB for E/W traffic
+      --bpf-lb-sock-hostns-only                                   Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).
       --bpf-lb-source-range-all-types                             Propagate loadbalancerSourceRanges to all corresponding service types
       --bpf-node-map-max uint32                                   Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --bpf-policy-map-max int                                    Maximum number of entries in endpoint policy map (per endpoint) (default 16384)

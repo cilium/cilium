@@ -429,9 +429,6 @@ const (
 	// EnableSocketLBTracing is the name for the option to enable the socket LB tracing
 	EnableSocketLBTracing = "trace-sock"
 
-	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
-	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
-
 	// EnableSocketLBPodConnectionTermination enables termination of pod connections
 	// to deleted service backends when socket-LB is enabled.
 	EnableSocketLBPodConnectionTermination = "bpf-lb-sock-terminate-pod-connections"
@@ -1377,7 +1374,6 @@ type DaemonConfig struct {
 	// CLI options
 
 	BPFRoot                       string
-	BPFSocketLBHostnsOnly         bool
 	CGroupRoot                    string
 	BPFCompileDebug               string
 	ConfigFile                    string
@@ -2464,7 +2460,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableTCX = vp.GetBool(EnableTCX)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
-	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)

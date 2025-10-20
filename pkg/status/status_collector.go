@@ -301,7 +301,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		SocketLBTracing:       &models.KubeProxyReplacementFeaturesSocketLBTracing{},
 		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
-		BpfSocketLBHostnsOnly: d.statusParams.DaemonConfig.BPFSocketLBHostnsOnly,
+		BpfSocketLBHostnsOnly: d.statusParams.KPRConfig.EnableSocketLBHostnsOnly,
 	}
 	if d.statusParams.KPRConfig.KubeProxyReplacement {
 		features.NodePort.Enabled = true
