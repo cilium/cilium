@@ -106,6 +106,14 @@ func (c ClusterInfo) ValidateRemoteConfig(config CiliumClusterConfig) error {
 		return err
 	}
 
+	versionCheckResult, err := CheckVersionCompatibility(config.Version)
+	if err != nil {
+		return err
+	}
+	if versionCheckResult == VersionCompatibilityIncompatible {
+		return fmt.Errorf("remote cluster is running unsupported Cilium version %q", config.Version)
+	}
+
 	if c.ExtendedClusterMeshEnabled() && (c.MaxConnectedClusters != config.Capabilities.MaxConnectedClusters) {
 		return fmt.Errorf("mismatched MaxConnectedClusters; local=%d, remote=%d", c.MaxConnectedClusters, config.Capabilities.MaxConnectedClusters)
 	}
