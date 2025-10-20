@@ -23,3 +23,5 @@ DECLARE_CONFIG(__u8, eth_header_length, "Length of the Ethernet header on this d
 ASSIGN_CONFIG(__u8, eth_header_length, __ETH_HLEN)
 #define ETH_HLEN CONFIG(eth_header_length)
 #endif
+
+DECLARE_CONFIG(__u32, vtep_mask, "VXLAN tunnel endpoint network mask")
