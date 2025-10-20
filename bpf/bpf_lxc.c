@@ -107,10 +107,12 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		 * redirect services based on user configured policies. Per packet LB should
 		 * not override LB decisions made for local-redirect services in bpf_sock.
 		 */
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(ENABLE_SOCKET_LB_FULL)
-		if (unlikely(lb4_svc_is_localredirect(svc)))
-			goto skip_service_lookup;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
+
+		if (is_defined(ENABLE_LOCAL_REDIRECT_POLICY) && CONFIG(enable_full_socket_lb)) {
+			if (unlikely(lb4_svc_is_localredirect(svc)))
+				goto skip_service_lookup;
+		}
+
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
 				false, &cluster_id, ext_err, ENDPOINT_NETNS_COOKIE);
@@ -182,11 +184,13 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		if (lb6_svc_is_l7_punt_proxy(svc))
 			goto skip_service_lookup;
 #endif /* ENABLE_L7_LB */
+
 		/* See comment in __per_packet_lb_svc_xlate_4. */
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(ENABLE_SOCKET_LB_FULL)
-		if (unlikely(lb6_svc_is_localredirect(svc)))
-			goto skip_service_lookup;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
+		if (is_defined(ENABLE_LOCAL_REDIRECT_POLICY) && CONFIG(enable_full_socket_lb)) {
+			if (unlikely(lb6_svc_is_localredirect(svc)))
+				goto skip_service_lookup;
+		}
+
 		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
 				false, ext_err, ENDPOINT_NETNS_COOKIE);

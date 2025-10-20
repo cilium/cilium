@@ -300,8 +300,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if h.kprCfg.EnableSocketLB {
 		if option.Config.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
-		} else {
-			cDefinesMap["ENABLE_SOCKET_LB_FULL"] = "1"
 		}
 		if option.Config.EnableSocketLBPeer {
 			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"

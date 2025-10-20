@@ -637,6 +637,8 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	cfg.PolicyVerdictLogFilter = ep.GetPolicyVerdictLogFilter()
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
+
+	cfg.EnableFullSocketLb = lnc.KPRConfig.EnableSocketLB && !option.Config.BPFSocketLBHostnsOnly
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 
 	// Per-packet LB is needed if all LB cases can not be handled in bpf_sock.

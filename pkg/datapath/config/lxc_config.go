@@ -14,6 +14,8 @@ type BPFLXC struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Enable full SocketLB.
+	EnableFullSocketLb bool `config:"enable_full_socket_lb"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Enable per-packet load-balancing.
@@ -49,7 +51,7 @@ type BPFLXC struct {
 }
 
 func NewBPFLXC(node Node) *BPFLXC {
-	return &BPFLXC{0x5dc, false, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFLXC{0x5dc, false, false, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
