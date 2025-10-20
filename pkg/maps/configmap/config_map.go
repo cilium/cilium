@@ -8,18 +8,11 @@ import (
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/ebpf"
 )
 
 const (
 	// MapName name of map used to pin map for datapath
 	MapName = "cilium_runtime_config"
-
-	// MaxEntries represents the maximum number of config entries.
-	// Initially defined as 256, so that downgrade from a future version having more than one
-	// entry works without necessarily resizing the map. Entries not known by the datapath
-	// version are simply ignored.
-	MaxEntries = 256
 )
 
 // Index is the index to the runtime config array.
@@ -68,21 +61,6 @@ type configMap struct {
 	bpfMap *bpf.Map
 }
 
-func newConfigMap() *configMap {
-	var index Index
-	var value Value
-
-	return &configMap{
-		bpfMap: bpf.NewMap(MapName,
-			ebpf.Array,
-			&index,
-			&value,
-			MaxEntries,
-			0,
-		),
-	}
-}
-
 // LoadMap loads the pre-initialized config map for access.
 // This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 // It needs to initialized beforehand via the Cilium Agent.
@@ -98,23 +76,11 @@ func LoadMap(logger *slog.Logger) (Map, error) {
 	return &configMap{bpfMap: m}, nil
 }
 
-func (m *configMap) init() error {
-	if err := m.bpfMap.OpenOrCreate(); err != nil {
-		return fmt.Errorf("failed to init bpf map: %w", err)
-	}
-
-	return nil
-}
-
-func (m *configMap) close() error {
-	if err := m.bpfMap.Close(); err != nil {
-		return fmt.Errorf("failed to close bpf map: %w", err)
-	}
-
-	return nil
-}
-
 func (m *configMap) Get(index Index) (uint64, error) {
+	if m.bpfMap == nil {
+		return 0, fmt.Errorf("config map not started")
+	}
+
 	v, err := m.bpfMap.Lookup(&index)
 	if err != nil {
 		return 0, fmt.Errorf("failed to lookup entry: %w", err)
@@ -129,6 +95,10 @@ func (m *configMap) Get(index Index) (uint64, error) {
 }
 
 func (m *configMap) Update(index Index, val uint64) error {
+	if m.bpfMap == nil {
+		return fmt.Errorf("config map not started")
+	}
+
 	value := Value(val)
 	return m.bpfMap.Update(&index, &value)
 }
