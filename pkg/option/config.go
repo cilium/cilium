@@ -423,9 +423,6 @@ const (
 	// DatapathMode is the name of the DatapathMode option
 	DatapathMode = "datapath-mode"
 
-	// EnableSocketLB is the name for the option to enable the socket LB
-	EnableSocketLB = "bpf-lb-sock"
-
 	// EnableSocketLBTracing is the name for the option to enable the socket LB tracing
 	EnableSocketLBTracing = "trace-sock"
 
