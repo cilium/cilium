@@ -257,6 +257,7 @@
 /.github/workflows/*ingress*.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*kpr*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.github/actions/cl2-modules/ @cilium/sig-scalability
+/.github/actions/cl2-modules/l7 @cilium/envoy @cilium/sig-scalability
 /.github/workflows/*scale*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*perf*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-aks.yaml @cilium/azure @cilium/ipsec @cilium/github-sec @cilium/ci-structure
