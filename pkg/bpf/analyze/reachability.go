@@ -229,11 +229,6 @@ func findBranch(iter *BlockIterator) *asm.Instruction {
 		return nil
 	}
 
-	// Only consider jumps that check the dst register against an immediate value.
-	if branch.OpCode.Source() != asm.ImmSource {
-		return nil
-	}
-
 	return branch
 }
 
@@ -326,27 +321,12 @@ func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error 
 		return r.unpredictableBlock(b, vars)
 	}
 
-	deref := findDereference(iter, branch.Dst)
-	if deref == nil {
+	jump, err := predictBranch(branch, iter, vars)
+	if errors.Is(err, errUnpredictable) {
 		return r.unpredictableBlock(b, vars)
 	}
-
-	load := findMapLoad(iter, deref.Src)
-	if load == nil {
-		return r.unpredictableBlock(b, vars)
-	}
-
-	// TODO(tb): evalBranch doesn't currently take the deref's offset field into
-	// account so it can't deal with variables over 8 bytes in size. Improve it
-	// to be more robust and remove this limitation.
-	vs := lookupVariable(load, vars)
-	if vs == nil || !vs.Constant() || vs.Size() > 8 {
-		return r.unpredictableBlock(b, vars)
-	}
-
-	jump, err := evalBranch(branch, vs)
 	if err != nil {
-		return fmt.Errorf("evaluating branch of block %d: %w", b.id, err)
+		return fmt.Errorf("predicting branch of block %d: %w", b.id, err)
 	}
 
 	// If the branch is always taken, only visit the branch target.
@@ -357,6 +337,50 @@ func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error 
 
 	// Otherwise, only visit the fallthrough target.
 	return r.visitBlock(b.fthrough, vars)
+}
+
+var errUnpredictable = errors.New("unpredictable branch")
+
+// predictBranch attempts to predict the outcome of the given branch
+// instruction.
+//
+// If the branch cannot be predicted, it returns [errUnpredictable]. If the
+// returned bool it true, the branch is always taken. If false, the branch is
+// never taken.
+func predictBranch(branch *asm.Instruction, iter *BlockIterator, vars map[mapOffset]VariableSpec) (bool, error) {
+	switch branch.OpCode.Source() {
+	// Immediate comparisons are limited to 32 bits since that's the size of the
+	// imm field in a (double-wide) branch insn. In an imm comparison, the dst
+	// field register contains the dereferenced value of the config variable.
+	case asm.ImmSource:
+		deref := findDereference(iter, branch.Dst)
+		if deref == nil {
+			return false, errUnpredictable
+		}
+
+		load := findMapLoad(iter, deref.Src)
+		if load == nil {
+			return false, errUnpredictable
+		}
+
+		// TODO(tb): evalBranch doesn't currently take the deref's offset field into
+		// account so it can't deal with variables over 8 bytes in size. Improve it
+		// to be more robust and remove this limitation.
+		vs := lookupVariable(load, vars)
+		if vs == nil || !vs.Constant() || vs.Size() > 8 {
+			return false, errUnpredictable
+		}
+
+		jump, err := evalBranch(branch, vs)
+		if err != nil {
+			return false, fmt.Errorf("evaluating branch: %w", err)
+		}
+
+		return jump, nil
+
+	default:
+		return false, errUnpredictable
+	}
 }
 
 // lookupVariable retrieves the VariableSpec for the given load instruction from
