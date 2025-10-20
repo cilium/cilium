@@ -43,9 +43,13 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.authentication.mutual.spire.install.server.priorityClassName "system-node-critical") }}
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
       shareProcessNamespace: true
-      {{- with .Values.authentication.mutual.spire.install.server.podSecurityContext }}
       securityContext:
+      {{- with .Values.authentication.mutual.spire.install.server.podSecurityContext }}
         {{- toYaml . | nindent 8 }}
+      {{- else }}
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -55,6 +59,8 @@ spec:
       {{- if gt (len .Values.authentication.mutual.spire.install.server.initContainers) 0 }}
         {{- toYaml .Values.authentication.mutual.spire.install.server.initContainers | nindent 8 }}
       {{- else }}
+      # This is a temporary fix to correct invalid permissions on spire-data directory for existing
+      # deployments. After 1.18 reach EOL it should be safe to remove this
       - name: chown-data
         image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.initImage | quote }}
         imagePullPolicy: {{ .Values.authentication.mutual.spire.install.initImage.pullPolicy }}
@@ -76,12 +82,9 @@ spec:
           - -c
           - |
             {{- tpl (.Files.Get "files/spire/init.bash") . | nindent 12 }}
-        securityContext:
         {{- with .Values.authentication.mutual.spire.install.server.securityContext }}
+        securityContext:
           {{- toYaml . | nindent 10 }}
-        {{- else }}
-          runAsUser: 1000
-          runAsGroup: 1000
         {{- end }}
       - name: spire-server
         {{- if eq (typeOf .Values.authentication.mutual.spire.install.server.image) "string" }}
@@ -126,12 +129,9 @@ spec:
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
-        securityContext:
         {{- with .Values.authentication.mutual.spire.install.server.securityContext }}
+        securityContext:
           {{- toYaml . | nindent 10 }}
-        {{- else }}
-          runAsUser: 1000
-          runAsGroup: 1000
         {{- end }}
       {{- with .Values.authentication.mutual.spire.install.server.affinity }}
       affinity:
@@ -150,9 +150,7 @@ spec:
         configMap:
           name: spire-server
       - name: spire-server-socket
-        hostPath:
-          path: /var/run/spire-server/sockets
-          type: DirectoryOrCreate
+        emptyDir: {}
   {{- if .Values.authentication.mutual.spire.install.server.dataStorage.enabled }}
   volumeClaimTemplates:
   - metadata:
