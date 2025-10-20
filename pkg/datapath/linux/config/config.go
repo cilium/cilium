@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
@@ -174,7 +173,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	cDefinesMap["ENDPOINTS_MAP_SIZE"] = fmt.Sprintf("%d", lxcmap.MaxEntries)
 	cDefinesMap["METRICS_MAP_SIZE"] = fmt.Sprintf("%d", metricsmap.MaxEntries)
-	cDefinesMap["CONFIG_MAP_SIZE"] = fmt.Sprintf("%d", configmap.MaxEntries)
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
 	cDefinesMap["NODE_MAP_SIZE"] = fmt.Sprintf("%d", h.nodeMap.Size())
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
