@@ -146,7 +146,12 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
  * policy (the cil_to_container BPF program) is bypassed.
  */
 	use_fast_redirect = should_fast_redirect(ctx, from_host);
-	if (is_defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && !use_fast_redirect) {
+	if (is_defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && !use_fast_redirect &&
+	    /* We need to enforce policies at the source in case of netkit
+	     * devices because we can't redirect to proxy from bpf_lxc. That
+	     * needs a fix upstream.
+	     */
+	    (!is_defined(ENABLE_NETKIT) || ctx_get_ingress_ifindex(ctx) > 0)) {
 		set_identity_mark(ctx, seclabel, magic);
 
 # if !defined(ENABLE_NODEPORT)

@@ -816,6 +816,11 @@ func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, opts *option.IntOption
 	if option.Config.EnableEndpointRoutes {
 		fmt.Fprint(w, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
+
+	if option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2 {
+		fmt.Fprint(w, "#define ENABLE_NETKIT 1\n")
+	}
 }
 
 // WriteNetdevConfig writes the BPF configuration for the endpoint to a writer.
