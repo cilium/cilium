@@ -15,7 +15,7 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -95,27 +95,31 @@ func createPolicyMapFromDaemonConfig(in struct {
 	*option.DaemonConfig
 	PolicyConfig
 	MetricsRegistry *metrics.Registry
+	SpecRegistry    *registry.MapSpecRegistry
 }) (out struct {
 	cell.Out
 
 	IPv4Map bpf.MapOut[*PolicyMap4]
 	IPv6Map bpf.MapOut[*PolicyMap6]
-	defines.NodeOut
 }) {
-	out.NodeDefines = map[string]string{
-		"EGRESS_POLICY_MAP_SIZE": fmt.Sprint(in.EgressGatewayPolicyMapMax),
-	}
-
 	if !in.EnableEgressGateway {
 		return
 	}
 
 	if in.EnableIPv4 {
-		out.IPv4Map = bpf.NewMapOut(createPolicyMap4(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName))
+		m, err := createPolicyMap4(in.Lifecycle, in.MetricsRegistry, in.SpecRegistry, in.PolicyConfig, ebpf.PinByName)
+		if err != nil {
+			return
+		}
+		out.IPv4Map = bpf.NewMapOut(m)
 	}
 
 	if in.EnableIPv6 {
-		out.IPv6Map = bpf.NewMapOut(createPolicyMap6(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName))
+		m, err := createPolicyMap6(in.Lifecycle, in.MetricsRegistry, in.SpecRegistry, in.PolicyConfig, ebpf.PinByName)
+		if err != nil {
+			return
+		}
+		out.IPv6Map = bpf.NewMapOut(m)
 	}
 
 	return
@@ -124,71 +128,98 @@ func createPolicyMapFromDaemonConfig(in struct {
 // CreatePrivatePolicyMap4 creates an unpinned IPv4 policy map.
 //
 // Useful for testing.
-func CreatePrivatePolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) *PolicyMap4 {
-	return createPolicyMap4(lc, registry, cfg, ebpf.PinNone)
+func CreatePrivatePolicyMap4(lc cell.Lifecycle, metricsRegistry *metrics.Registry, specRegistry *registry.MapSpecRegistry, cfg PolicyConfig) (*PolicyMap4, error) {
+	return createPolicyMap4(lc, metricsRegistry, specRegistry, cfg, ebpf.PinNone)
 }
 
 // CreatePrivatePolicyMap6 creates an unpinned IPv6 policy map.
 //
 // Useful for testing.
-func CreatePrivatePolicyMap6(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig) *PolicyMap6 {
-	return createPolicyMap6(lc, registry, cfg, ebpf.PinNone)
+func CreatePrivatePolicyMap6(lc cell.Lifecycle, metricsRegistry *metrics.Registry, specRegistry *registry.MapSpecRegistry, cfg PolicyConfig) (*PolicyMap6, error) {
+	return createPolicyMap6(lc, metricsRegistry, specRegistry, cfg, ebpf.PinNone)
 }
 
-func createPolicyMap4(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *PolicyMap4 {
-	m := bpf.NewMapDeprecated(
-		PolicyMapName4,
-		ebpf.LPMTrie,
-		&EgressPolicyKey4{},
-		&EgressPolicyVal4{},
-		cfg.EgressGatewayPolicyMapMax,
-		0,
-	).WithPressureMetric(registry)
+func createPolicyMap4(
+	lc cell.Lifecycle,
+	metricsRegistry *metrics.Registry,
+	specRegistry *registry.MapSpecRegistry,
+	cfg PolicyConfig, pinning ebpf.PinType,
+) (*PolicyMap4, error) {
+	err := specRegistry.ModifyMapSpec(PolicyMapName4, func(spec *ebpf.MapSpec) error {
+		spec.MaxEntries = uint32(cfg.EgressGatewayPolicyMapMax)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	m := &PolicyMap4{}
 
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
+			spec, err := specRegistry.Get(PolicyMapName4)
+			if err != nil {
+				return nil
+			}
+
+			m.m = bpf.NewMap(spec, &EgressPolicyKey4{}, &EgressPolicyVal4{}).WithPressureMetric(metricsRegistry)
+
 			switch pinning {
 			case ebpf.PinNone:
-				return m.CreateUnpinned()
+				return m.m.CreateUnpinned()
 			case ebpf.PinByName:
-				return m.OpenOrCreate()
+				return m.m.OpenOrCreate()
 			}
 			return fmt.Errorf("received unexpected pin type: %d", pinning)
 		},
 		OnStop: func(cell.HookContext) error {
-			return m.Close()
+			return m.m.Close()
 		},
 	})
 
-	return &PolicyMap4{m}
+	return m, nil
 }
 
-func createPolicyMap6(lc cell.Lifecycle, registry *metrics.Registry, cfg PolicyConfig, pinning ebpf.PinType) *PolicyMap6 {
-	m := bpf.NewMapDeprecated(
-		PolicyMapName6,
-		ebpf.LPMTrie,
-		&EgressPolicyKey6{},
-		&EgressPolicyVal6{},
-		cfg.EgressGatewayPolicyMapMax,
-		0,
-	).WithPressureMetric(registry)
+func createPolicyMap6(
+	lc cell.Lifecycle,
+	metricsRegistry *metrics.Registry,
+	specRegistry *registry.MapSpecRegistry,
+	cfg PolicyConfig,
+	pinning ebpf.PinType,
+) (*PolicyMap6, error) {
+	err := specRegistry.ModifyMapSpec(PolicyMapName6, func(spec *ebpf.MapSpec) error {
+		spec.MaxEntries = uint32(cfg.EgressGatewayPolicyMapMax)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	m := &PolicyMap6{}
 
 	lc.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
+			spec, err := specRegistry.Get(PolicyMapName6)
+			if err != nil {
+				return nil
+			}
+
+			m.m = bpf.NewMap(spec, &EgressPolicyKey6{}, &EgressPolicyVal6{}).WithPressureMetric(metricsRegistry)
+
 			switch pinning {
 			case ebpf.PinNone:
-				return m.CreateUnpinned()
+				return m.m.CreateUnpinned()
 			case ebpf.PinByName:
-				return m.OpenOrCreate()
+				return m.m.OpenOrCreate()
 			}
 			return fmt.Errorf("received unexpected pin type: %d", pinning)
 		},
 		OnStop: func(cell.HookContext) error {
-			return m.Close()
+			return m.m.Close()
 		},
 	})
 
-	return &PolicyMap6{m}
+	return m, nil
 }
 
 // OpenPinnedPolicyMap4 opens an existing pinned IPv4 policy map.
