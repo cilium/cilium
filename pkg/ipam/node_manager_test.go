@@ -671,9 +671,13 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 
 	node.PopulateIPReleaseStatus(node.resource)
 
+	node.mutex.Lock()
+
 	// Verify it's marked for release in the CiliumNode resource
 	require.Contains(t, node.resource.Status.IPAM.ReleaseIPs, releasedIP)
 	require.Equal(t, ipamOption.IPAMMarkForRelease, string(node.resource.Status.IPAM.ReleaseIPs[releasedIP]))
+
+	node.mutex.Unlock()
 
 	// Fake acknowledge IP for release like agent would
 	testipam.FakeAcknowledgeReleaseIps(node.resource)
