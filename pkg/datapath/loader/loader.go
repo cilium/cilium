@@ -639,6 +639,13 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 
+	// Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
+	// Most services with L7 LB flag can not be redirected to their proxy port
+	// in bpf_sock, so we must check for those via per packet LB as well.
+	// Furthermore, since SCTP cannot be handled as part of bpf_sock, also
+	// enable per-packet LB is SCTP is enabled.
+	cfg.EnablePerPacketLb = (lnc.KPRConfig.EnableSocketLB && option.Config.BPFSocketLBHostnsOnly) || option.Config.EnableEnvoyConfig || option.Config.EnableSCTP
+
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),

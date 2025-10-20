@@ -7,7 +7,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV6
-#undef ENABLE_PER_PACKET_LB
 #define SERVICE_NO_BACKEND_RESPONSE
 
 #define CLIENT_IP		v6_pod_one
@@ -26,6 +25,7 @@ static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x
 #include "lib/bpf_lxc.h"
 
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
+ASSIGN_CONFIG(bool, enable_per_packet_lb, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

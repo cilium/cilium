@@ -9,10 +9,10 @@
 #define ENABLE_IPV6 1
 #undef ENABLE_HEALTH_CHECK
 #define ENABLE_LOCAL_REDIRECT_POLICY 1
-#define ENABLE_SOCKET_LB_HOST_ONLY 1
 
 #include "lib/bpf_lxc.h"
 
+ASSIGN_CONFIG(bool, enable_per_packet_lb, true)
 ASSIGN_CONFIG(__u64, endpoint_netns_cookie, 5000)
 
 #include "lib/lb.h"

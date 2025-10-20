@@ -11,6 +11,9 @@
 ASSIGN_CONFIG(bool, policy_deny_response_enabled, true)
 
 #include <bpf_lxc.c>
+
+ASSIGN_CONFIG(bool, enable_per_packet_lb, true)
+
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/policy.h"

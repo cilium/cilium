@@ -57,6 +57,8 @@
 /* Set the LXC source address to be the address of the backend pod */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = BACKEND_IP})
 
+ASSIGN_CONFIG(bool, enable_per_packet_lb, true)
+
 #include "lib/ipcache.h"
 #include "lib/policy.h"
 

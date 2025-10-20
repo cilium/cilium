@@ -9,6 +9,8 @@
 
 #include <lib/static_data.h>
 
+DECLARE_CONFIG(bool, enable_per_packet_lb, "Enable per-packet load-balancing")
+
 DECLARE_CONFIG(__u16, endpoint_id, "The endpoint's security ID")
 #define LXC_ID CONFIG(endpoint_id) /* Backwards compatibility */
 

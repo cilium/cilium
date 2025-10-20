@@ -57,21 +57,8 @@
 #include "lib/policy_log.h"
 #include "lib/vtep.h"
 
-/* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
- * Most services with L7 LB flag can not be redirected to their proxy port
- * in bpf_sock, so we must check for those via per packet LB as well.
- * Furthermore, since SCTP cannot be handled as part of bpf_sock, also
- * enable per-packet LB is SCTP is enabled.
- */
-#if !defined(ENABLE_SOCKET_LB_FULL) || \
-    defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
-    defined(ENABLE_L7_LB)               || \
-    defined(ENABLE_SCTP)                || \
-    defined(ENABLE_CLUSTER_AWARE_ADDRESSING)
-# define ENABLE_PER_PACKET_LB 1
-#endif
-
-#ifdef ENABLE_PER_PACKET_LB
+#define ENABLE_PER_PACKET_LB (CONFIG(enable_per_packet_lb) ||		\
+			      is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING))
 
 #ifdef ENABLE_IPV4
 static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4,
@@ -224,8 +211,6 @@ skip_service_lookup:
 }
 #endif /* ENABLE_IPV6 */
 
-#endif
-
 #if defined(ENABLE_ARP_PASSTHROUGH) && defined(ENABLE_ARP_RESPONDER)
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
 #endif
@@ -326,7 +311,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	/* After a per-packet LB action, we only want the CT lookup to match	\
 	 * in forward direction.						\
 	 */									\
-	if (is_defined(ENABLE_PER_PACKET_LB) && DIR == CT_EGRESS) {		\
+	if (ENABLE_PER_PACKET_LB && DIR == CT_EGRESS) {				\
 		struct ct_state ct_state_new = {};				\
 		__u32 cluster_id;						\
 		__u16 proxy_port;						\
@@ -394,7 +379,7 @@ int NAME(struct __ctx_buff *ctx)						\
 										\
 	ct_buffer.l4_off = ETH_HLEN + hdrlen;					\
 										\
-	if (is_defined(ENABLE_PER_PACKET_LB) && DIR == CT_EGRESS) {		\
+	if (ENABLE_PER_PACKET_LB && DIR == CT_EGRESS) {				\
 		struct ct_state ct_state_new = {};				\
 		__u16 proxy_port;						\
 										\
@@ -490,11 +475,11 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			   daddr->p4, *dst_sec_identity);
 	}
 
-#ifdef ENABLE_PER_PACKET_LB
-	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
-	hairpin_flow = ct_state_new.loopback;
-#endif /* ENABLE_PER_PACKET_LB */
+	if (ENABLE_PER_PACKET_LB) {
+		/* Restore ct_state from per packet lb handling in the previous tail call. */
+		lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
+		hairpin_flow = ct_state_new.loopback;
+	}
 
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 	if (!ct_buffer)
@@ -811,7 +796,7 @@ int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 }
 
 TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_EGRESS, tail_ipv6_ct_egress, CT_EGRESS,
-		is_defined(ENABLE_PER_PACKET_LB),
+		ENABLE_PER_PACKET_LB,
 		CILIUM_CALL_IPV6_FROM_LXC_CONT, tail_handle_ipv6_cont)
 
 static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
@@ -846,13 +831,13 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	if (!from_l7lb && unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
 
-#ifdef ENABLE_PER_PACKET_LB
-	/* will tailcall internally or return error */
-	return __per_packet_lb_svc_xlate_6(ctx, ip6, ext_err);
-#else
+	if (ENABLE_PER_PACKET_LB) {
+		/* will tailcall internally or return error */
+		return __per_packet_lb_svc_xlate_6(ctx, ip6, ext_err);
+	}
+
 	/* won't be a tailcall, see TAIL_CT_LOOKUP6 */
 	return tail_ipv6_ct_egress(ctx);
-#endif /* ENABLE_PER_PACKET_LB */
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_LXC)
@@ -914,11 +899,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-#ifdef ENABLE_PER_PACKET_LB
-	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id, true);
-	hairpin_flow = ct_state_new.loopback;
-#endif /* ENABLE_PER_PACKET_LB */
+	if (ENABLE_PER_PACKET_LB) {
+		/* Restore ct_state from per packet lb handling in the previous tail call. */
+		lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id, true);
+		hairpin_flow = ct_state_new.loopback;
+	}
 
 	/* Determine the destination category for policy fallback. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
@@ -1365,7 +1350,7 @@ int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 }
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress, CT_EGRESS,
-		is_defined(ENABLE_PER_PACKET_LB),
+		ENABLE_PER_PACKET_LB,
 		CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont)
 
 static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
@@ -1412,13 +1397,13 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 	}
 #endif /* ENABLE_MULTICAST */
 
-#ifdef ENABLE_PER_PACKET_LB
-	/* will tailcall internally or return error */
-	return __per_packet_lb_svc_xlate_4(ctx, ip4, ext_err);
-#else
+	if (ENABLE_PER_PACKET_LB) {
+		/* will tailcall internally or return error */
+		return __per_packet_lb_svc_xlate_4(ctx, ip4, ext_err);
+	}
+
 	/* won't be a tailcall, see TAIL_CT_LOOKUP4 */
 	return tail_ipv4_ct_egress(ctx);
-#endif /* ENABLE_PER_PACKET_LB */
 }
 
 __declare_tail(CILIUM_CALL_IPV4_FROM_LXC)
@@ -1622,18 +1607,18 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
 
-#if defined(ENABLE_PER_PACKET_LB)
-		loopback_addr = CONFIG(service_loopback_ipv6);
-		if (ret == CT_NEW &&
-		    ipv6_addr_equals((union v6addr *)&ip6->saddr, &loopback_addr) &&
-		    ct_has_loopback_egress_entry6(get_ct_map6(tuple), tuple)) {
-			ct_state_new.loopback = true;
-			break;
-		}
+		if (ENABLE_PER_PACKET_LB) {
+			loopback_addr = CONFIG(service_loopback_ipv6);
+			if (ret == CT_NEW &&
+			    ipv6_addr_equals((union v6addr *)&ip6->saddr, &loopback_addr) &&
+			    ct_has_loopback_egress_entry6(get_ct_map6(tuple), tuple)) {
+				ct_state_new.loopback = true;
+				break;
+			}
 
-		if (unlikely(ct_state->loopback))
-			break;
-#endif /* ENABLE_PER_PACKET_LB */
+			if (unlikely(ct_state->loopback))
+				break;
+		}
 
 		verdict = policy_can_ingress6(ctx, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV6,
@@ -1923,26 +1908,26 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		if (tc_index_from_ingress_proxy(ctx))
 			break;
 
-#if defined(ENABLE_PER_PACKET_LB)
-		/* When an endpoint connects to itself via service clusterIP, we need
-		 * to skip the policy enforcement. If we didn't, the user would have to
-		 * define policy rules to allow pods to talk to themselves. We still
-		 * want to execute the conntrack logic so that replies can be correctly
-		 * matched.
-		 *
-		 * If ip4.saddr is config service_loopback_ipv4, this is almost certainly
-		 * a loopback connection. Populate .loopback, so that policy enforcement
-		 * is bypassed.
-		 */
-		if (ret == CT_NEW && ip4->saddr == CONFIG(service_loopback_ipv4).be32 &&
-		    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
-			ct_state_new.loopback = true;
-			break;
-		}
+		if (ENABLE_PER_PACKET_LB) {
+			/* When an endpoint connects to itself via service clusterIP, we need
+			 * to skip the policy enforcement. If we didn't, the user would have to
+			 * define policy rules to allow pods to talk to themselves. We still
+			 * want to execute the conntrack logic so that replies can be correctly
+			 * matched.
+			 *
+			 * If ip4.saddr is config service_loopback_ipv4, this is almost certainly
+			 * a loopback connection. Populate .loopback, so that policy enforcement
+			 * is bypassed.
+			 */
+			if (ret == CT_NEW && ip4->saddr == CONFIG(service_loopback_ipv4).be32 &&
+			    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple)) {
+				ct_state_new.loopback = true;
+				break;
+			}
 
-		if (unlikely(ct_state->loopback))
-			break;
-#endif /* ENABLE_PER_PACKET_LB */
+			if (unlikely(ct_state->loopback))
+				break;
+		}
 
 		verdict = policy_can_ingress4(ctx, tuple, l4_off,
 					      is_untracked_fragment, src_label, SECLABEL_IPV4,

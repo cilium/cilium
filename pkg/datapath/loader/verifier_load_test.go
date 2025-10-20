@@ -11,11 +11,12 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(2) {
+		for permutation := range permute(3) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
 			cfg.Node.PolicyDenyResponseEnabled = permutation[1]
+			cfg.EnablePerPacketLb = permutation[2]
 			if !yield(cfg) {
 				return
 			}

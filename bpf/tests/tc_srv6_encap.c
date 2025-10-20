@@ -17,6 +17,9 @@
 #define ENABLE_SRV6_SRH_ENCAP
 
 #include "lib/bpf_lxc.h"
+
+ASSIGN_CONFIG(bool, enable_per_packet_lb, true)
+
 #include "lib/ipcache.h"
 #include "lib/policy.h"
 

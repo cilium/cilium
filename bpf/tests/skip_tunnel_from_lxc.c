@@ -32,6 +32,8 @@
  */
 #include "lib/bpf_lxc.h"
 
+ASSIGN_CONFIG(bool, enable_per_packet_lb, true)
+
 /*
  * Include test helpers
  */

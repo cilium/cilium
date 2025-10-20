@@ -16,6 +16,8 @@ type BPFLXC struct {
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+	// Enable per-packet load-balancing.
+	EnablePerPacketLb bool `config:"enable_per_packet_lb"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// The endpoint's security ID.
@@ -47,7 +49,7 @@ type BPFLXC struct {
 }
 
 func NewBPFLXC(node Node) *BPFLXC {
-	return &BPFLXC{0x5dc, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFLXC{0x5dc, false, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},

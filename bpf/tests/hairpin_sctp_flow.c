@@ -29,6 +29,8 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one })
 ASSIGN_CONFIG(union v4addr, service_loopback_ipv4, { .be32 = v4_svc_loopback })
 
+ASSIGN_CONFIG(bool, enable_per_packet_lb, true)
+
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"

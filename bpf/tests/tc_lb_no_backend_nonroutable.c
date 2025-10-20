@@ -21,6 +21,7 @@
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
 ASSIGN_CONFIG(union v4addr, service_loopback_ipv4, { .be32 = v4_svc_loopback })
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, false)
+ASSIGN_CONFIG(bool, enable_per_packet_lb, true)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
