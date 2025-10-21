@@ -9,13 +9,13 @@ on:
       sha:
         required: true
         type: string
-      result:
+      success:
         required: true
-        type: string
+        type: boolean
 
 jobs:
   merge-upload:
-    if: ${{ always() && inputs.result != 'skipped' }}
+    if: ${{ always() }}
     name: Merge and Upload Artifacts
     runs-on: ubuntu-24.04
     permissions:
@@ -51,16 +51,7 @@ jobs:
       statuses: write
     steps:
       - name: Set final commit status
-        if: ${{ inputs.result != 'skipped' }}
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.sha }}
-          status: ${{ inputs.result == 'abandoned' && 'failure' || inputs.result }}
-
-      - name: Set final commit status
-        if: ${{ inputs.result == 'skipped' }}
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.sha }}
-          status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
-          description: 'Skipped'
+          status: ${{ inputs.success && 'success' || 'failure' }}
