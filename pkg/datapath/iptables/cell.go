@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -27,13 +26,11 @@ var Cell = cell.Module(
 	cell.Config(defaultConfig),
 	cell.ProvidePrivate(func(
 		cfg *option.DaemonConfig,
-		tunnelCfg tunnel.Config,
 		ipsecCfg datapath.IPsecConfig,
 		wgConfig wgTypes.WireguardConfig,
 	) SharedConfig {
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
-			TunnelPort:                      tunnelCfg.Port(),
 			NodeIpsetNeeded:                 cfg.NodeIpsetNeeded(),
 			IptablesMasqueradingIPv4Enabled: cfg.IptablesMasqueradingIPv4Enabled(),
 			IptablesMasqueradingIPv6Enabled: cfg.IptablesMasqueradingIPv6Enabled(),
@@ -94,7 +91,6 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 type SharedConfig struct {
 	TunnelingEnabled                bool
-	TunnelPort                      uint16
 	NodeIpsetNeeded                 bool
 	IptablesMasqueradingIPv4Enabled bool
 	IptablesMasqueradingIPv6Enabled bool
