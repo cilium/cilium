@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/hive/shell"
 	"github.com/cilium/statedb"
 	"google.golang.org/grpc"
 
@@ -76,7 +77,6 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
-	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
@@ -159,7 +159,7 @@ var (
 		k8sSynced.CRDSyncCell,
 
 		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
-		shell.Cell,
+		shell.ServerCell(defaults.ShellSockPath),
 
 		// Cilium Agent Healthz endpoints (agent, kubeproxy, ...)
 		healthz.Cell,
