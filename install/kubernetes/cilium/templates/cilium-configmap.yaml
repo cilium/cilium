@@ -157,6 +157,20 @@ data:
   cilium-endpoint-gc-interval: {{ include "validateDuration" .Values.operator.endpointGCInterval | quote }}
   nodes-gc-interval: {{ include "validateDuration" .Values.operator.nodeGCInterval | quote }}
 
+{{- if (not (kindIs "invalid" .Values.identitySeedSalt)) }}
+  identity-seed-salt: {{ .Values.identitySeedSalt }}
+{{- else }}
+
+{{/* identity-seed-salt should be stable, so retrieve it from the existing configmap */}}
+{{- $previousCM := lookup "v1" "ConfigMap" (include "cilium.namespace" .) "cilium-config"  }}
+{{- if and $previousCM (hasKey $previousCM "data") (hasKey $previousCM.data "identity-seed-salt") }}
+  identity-seed-salt: {{ (index $previousCM.data "identity-seed-salt") }}
+{{- else }}
+  identity-seed-salt: {{ randAlphaNum 128 }}
+{{- end }}
+
+{{- end }}
+
 {{- if eq .Values.disableEndpointCRD true }}
   # Disable the usage of CiliumEndpoint CRD
   disable-endpoint-crd: "true"
