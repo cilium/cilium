@@ -86,22 +86,22 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.10-20251008.075427'
+          - kernel: '5.10-20251021.054756'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '5.15-20251008.075427'
+          - kernel: '5.15-20251021.054756'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.1-20251008.075427'
+          - kernel: '6.1-20251021.054756'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.6-20251008.075427'
+          - kernel: '6.6-20251021.054756'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: '6.12-20251008.075427'
+          - kernel: '6.12-20251021.054756'
             ci-kernel: '61'
           # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-          - kernel: 'bpf-next-20251008.075427'
+          - kernel: 'bpf-next-20251021.054756'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
