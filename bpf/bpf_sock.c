@@ -10,6 +10,10 @@
 
 #define SKIP_CALLS_MAP	1
 
+/* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
+ */
+#define SKIP_SRV6_HANDLING
+
 #include "lib/common.h"
 #include "lib/lb.h"
 #include "lib/endian.h"

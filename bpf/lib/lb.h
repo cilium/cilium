@@ -11,6 +11,7 @@
 #include "eps.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
+#include "srv6.h"
 
 #ifndef SKIP_CALLS_MAP
 #include "drop.h"
@@ -683,6 +684,10 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 	case IPPROTO_ICMPV6:
 		return DROP_UNSUPP_SERVICE_PROTO;
 	default:
+#ifdef ENABLE_SRV6
+		if (is_srv6_packet(ip6))
+			return 0;
+#endif /* ENABLE_SRV6 */
 		return DROP_UNKNOWN_L4;
 	}
 }
