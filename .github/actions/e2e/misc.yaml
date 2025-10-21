@@ -1,6 +1,6 @@
 - name: 'misc-1'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20251008.075427'
+  kernel: '5.10-20251021.054756'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -12,7 +12,7 @@
   ingress-controller: 'true'
 - name: 'misc-2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20251008.075427'
+  kernel: '6.6-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -23,7 +23,7 @@
   ingress-controller: 'true'
 - name: 'misc-3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20251008.075427'
+  kernel: '6.6-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -34,7 +34,7 @@
   ingress-controller: 'true'
 - name: 'misc-4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.6-20251008.075427'
+  kernel: '6.6-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -46,7 +46,7 @@
   ingress-controller: 'true'
 - name: 'misc-5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20251008.075427'
+  kernel: '6.12-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -57,7 +57,7 @@
   ingress-controller: 'true'
 - name: 'misc-6'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20251008.075427'
+  kernel: '6.12-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -69,7 +69,7 @@
   ingress-controller: 'true'
 - name: 'misc-7'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20251008.075427'
+  kernel: '5.15-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
