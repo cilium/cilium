@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -432,6 +433,25 @@ func DeleteK8sResourceWithWait[T any](ctx context.Context, t *Test, k8sClient k8
 		}
 		if err = w.Retry(err); err != nil {
 			t.Fatalf("Failed to ensure k8s resorce %s is deleted: %v", resourceName, err)
+		}
+	}
+}
+
+// DeleteK8sObjectWithWait deletes the provided unstructured k8s object and waits until it is deleted.
+func DeleteK8sObjectWithWait(ctx context.Context, t *Test, obj *unstructured.Unstructured) {
+	err := t.Context().K8sClient().DeleteGeneric(ctx, obj)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		t.Fatalf("Failed to delete k8s object %s: %v", obj.GetName(), err)
+	}
+	w := wait.NewObserver(ctx, wait.Parameters{Timeout: ShortTimeout})
+	defer w.Cancel()
+	for {
+		_, err := t.Context().K8sClient().GetGeneric(ctx, obj.GetNamespace(), obj.GetName(), obj)
+		if err != nil && k8serrors.IsNotFound(err) {
+			break // got expected not found
+		}
+		if err = w.Retry(err); err != nil {
+			t.Fatalf("Failed to ensure k8s object %s is deleted: %v", obj.GetName(), err)
 		}
 	}
 }

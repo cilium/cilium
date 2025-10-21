@@ -1,0 +1,28 @@
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumBGPPeeringPolicy
+metadata:
+  name: test-bgp-peering-policy
+spec:
+  virtualRouters:
+    - localASN: 65001
+      exportPodCIDR: true
+      serviceSelector:
+        matchLabels:
+          kind: echo
+      serviceAdvertisements:
+        - ClusterIP
+      neighbors:
+  {{ range . }}
+        - peerAddress: "{{ . }}"
+          peerASN: 65000
+          connectRetryTimeSeconds: 1
+          keepAliveTimeSeconds: 1
+          holdTimeSeconds: 3
+          advertisedPathAttributes:
+            - selectorType: PodCIDR
+              localPreference: 150
+              communities:
+                standard:
+                  - 65001:100
+{{ end }}

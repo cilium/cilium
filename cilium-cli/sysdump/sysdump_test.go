@@ -386,10 +386,6 @@ type fakeClient struct {
 	execs    map[execRequest]execResult
 }
 
-func (c *fakeClient) ListCiliumBGPPeeringPolicies(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
-	panic("implement me")
-}
-
 func (c *fakeClient) ListCiliumBGPClusterConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPClusterConfigList, error) {
 	panic("implement me")
 }

@@ -2175,18 +2175,20 @@ func (c *Collector) getEnvoyConfigTasks() []Task {
 func (c *Collector) getBGPControlPlaneTasks() []Task {
 	return []Task{
 		// BGPv1 resource
+		// NOTE: BGPv1 was removed in v1.19, this can be removed once v1.18 is out of support
 		{
 			Description: "Collecting Cilium BGP Peering Policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPPeeringPolicies(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGPeeringPoliciesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
-				}
-				return nil
+				return c.GatherResourceUnstructured(
+					ctx,
+					schema.GroupVersionResource{
+						Group:    "cilium.io",
+						Resource: "ciliumbgppeeringpolicies",
+						Version:  "v2alpha1",
+					},
+					fmt.Sprintf(k8sResourceFileName, "ciliumbgppeeringpolicies"),
+				)
 			},
 		},
 		// BGPv2 resources - can be either v2 or v2alpha1 version

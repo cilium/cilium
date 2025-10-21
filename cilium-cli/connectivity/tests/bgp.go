@@ -4,10 +4,16 @@
 package tests
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"text/template"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -19,7 +25,6 @@ import (
 )
 
 const (
-	bgpPeeringPolicyName = "test-bgp-peering-policy"
 	bgpAdvertisementName = "test-bgp-advertisement"
 	bgpPeerConfigName    = "test-bgp-peer-config"
 	bgpClusterConfigName = "test-bgp-cluster-config"
@@ -35,17 +40,19 @@ const (
 	bgpHoldTimeSeconds         = 3
 )
 
-func BGPAdvertisements(bgpAPIVersion uint8) check.Scenario {
+func BGPAdvertisements(bgpAPIVersion uint8, k8sResourceYAML string) check.Scenario {
 	return &bgpAdvertisements{
-		bgpAPIVersion: bgpAPIVersion,
-		ScenarioBase:  check.NewScenarioBase(),
+		bgpAPIVersion:   bgpAPIVersion,
+		ScenarioBase:    check.NewScenarioBase(),
+		k8sResourceYAML: k8sResourceYAML,
 	}
 }
 
 type bgpAdvertisements struct {
 	check.ScenarioBase
 
-	bgpAPIVersion uint8
+	bgpAPIVersion   uint8
+	k8sResourceYAML string
 }
 
 func (s *bgpAdvertisements) Name() string {
@@ -72,6 +79,7 @@ func (s *bgpAdvertisements) Run(ctx context.Context, t *check.Test) {
 
 		// configure BGP on Cilium
 		if s.bgpAPIVersion == 1 {
+			// NOTE: BGPv1 was removed in v1.19, this test can be removed once v1.18 is out of support
 			s.configureBGPv1Peering(ctx, t, ipFamily)
 		} else {
 			s.configureBGPv2Peering(ctx, t, ipFamily)
@@ -137,7 +145,7 @@ func (s *bgpAdvertisements) deleteK8sResources(ctx context.Context, t *check.Tes
 	clientV2 := t.Context().K8sClient().CiliumClientset.CiliumV2()
 
 	if s.bgpAPIVersion == 1 {
-		check.DeleteK8sResourceWithWait(ctx, t, clientV2Alpha1.CiliumBGPPeeringPolicies(), bgpPeeringPolicyName)
+		check.DeleteK8sObjectWithWait(ctx, t, s.getBGPv1PeeringPolicy(t, features.IPFamilyV4)) // family is not important for delete
 	} else {
 		if versioncheck.MustCompile(">=1.18.0")(t.Context().CiliumVersion) {
 			// cleanup v2 resources
@@ -154,55 +162,50 @@ func (s *bgpAdvertisements) deleteK8sResources(ctx context.Context, t *check.Tes
 }
 
 func (s *bgpAdvertisements) configureBGPv1Peering(ctx context.Context, t *check.Test, ipFamily features.IPFamily) {
-	ct := t.Context()
-	client := ct.K8sClient().CiliumClientset.CiliumV2alpha1()
 	s.deleteK8sResources(ctx, t)
 
-	peeringPolicy := &v2alpha1.CiliumBGPPeeringPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: bgpPeeringPolicyName,
-		},
-		Spec: v2alpha1.CiliumBGPPeeringPolicySpec{
-			VirtualRouters: []v2alpha1.CiliumBGPVirtualRouter{
-				{
-					LocalASN:      bgpCiliumASN,
-					ExportPodCIDR: ptr.To[bool](true),
-					ServiceSelector: &slimv1.LabelSelector{
-						MatchLabels: map[string]string{"kind": "echo"},
-					},
-					ServiceAdvertisements: []v2alpha1.BGPServiceAddressType{
-						v2alpha1.BGPClusterIPAddr,
-					},
-				},
-			},
-		},
+	obj := s.getBGPv1PeeringPolicy(t, ipFamily)
+	_, err := t.Context().K8sClient().ApplyGeneric(ctx, obj)
+	if err != nil {
+		t.Fatalf("failed to apply CiliumBGPPeeringPolicy: %v", err)
 	}
+}
+
+// getBGPv1PeeringPolicy returns BGPv1 peering policy from the k8sResourceYAML in the scenario.
+func (s *bgpAdvertisements) getBGPv1PeeringPolicy(t *check.Test, ipFamily features.IPFamily) *unstructured.Unstructured {
+	var (
+		peers []string
+		buf   bytes.Buffer
+	)
+	if s.k8sResourceYAML == "" {
+		t.Fatalf("k8sResourceYAML has to be provided in the test scenario")
+	}
+
 	prefix := "/32"
 	if ipFamily == features.IPFamilyV6 {
 		prefix = "/128"
 	}
-	for _, frr := range ct.FRRPods() {
-		peeringPolicy.Spec.VirtualRouters[0].Neighbors = append(peeringPolicy.Spec.VirtualRouters[0].Neighbors,
-			v2alpha1.CiliumBGPNeighbor{
-				PeerAddress:             frr.Address(ipFamily) + prefix,
-				PeerASN:                 bgpFRRASN,
-				ConnectRetryTimeSeconds: ptr.To[int32](bgpConnectRetryTimeSeconds),
-				KeepAliveTimeSeconds:    ptr.To[int32](bgpKeepAliveTimeSeconds),
-				HoldTimeSeconds:         ptr.To[int32](bgpHoldTimeSeconds),
-				AdvertisedPathAttributes: []v2alpha1.CiliumBGPPathAttributes{
-					{
-						SelectorType: v2alpha1.PodCIDRSelectorName,
-						Communities: &v2alpha1.BGPCommunities{
-							Standard: []v2alpha1.BGPStandardCommunity{bgpCommunityPodCIDR},
-						},
-					},
-				},
-			})
+	for _, frr := range t.Context().FRRPods() {
+		peers = append(peers, frr.Address(ipFamily)+prefix)
 	}
-	_, err := client.CiliumBGPPeeringPolicies().Create(ctx, peeringPolicy, metav1.CreateOptions{})
+
+	tpl, err := template.New("bgpp").Parse(s.k8sResourceYAML)
 	if err != nil {
-		t.Fatalf("failed to create CiliumBGPPeeringPolicy: %v", err)
+		t.Fatalf("failed creating template: %s", err)
 	}
+	err = tpl.Execute(&buf, peers)
+	if err != nil {
+		t.Fatalf("failed executing template: %s", err)
+	}
+
+	decoder := yaml.NewYAMLOrJSONDecoder(&buf, 4096)
+
+	obj := unstructured.Unstructured{}
+	err = decoder.Decode(&obj)
+	if err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("failed parsing resource YAML: %s", err)
+	}
+	return &obj
 }
 
 func (s *bgpAdvertisements) configureBGPv2Peering(ctx context.Context, t *check.Test, ipFamily features.IPFamily) {

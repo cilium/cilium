@@ -111,6 +111,9 @@ var (
 
 	//go:embed manifests/echo-ingress-from-cidr.yaml
 	echoIngressFromCIDRYAML string
+
+	//go:embed manifests/bgp-peering-policy.yaml
+	bgpPeeringPolicyYAML string
 )
 
 var (
