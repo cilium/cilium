@@ -341,10 +341,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: installation-and-perf
+    needs: [wait-for-images, installation-and-perf]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.installation-and-perf.result }}
+      result: ${{ needs.wait-for-images.result == 'success' && needs.installation-and-perf.result == 'success' && 'success' || 'failure' }}

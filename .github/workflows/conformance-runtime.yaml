@@ -569,11 +569,11 @@ jobs:
   commit-status-final:
     if: ${{ always() }}
     name: Commit Status Final
-    needs: setup-and-test
+    needs: [build-ginkgo-binary, setup-and-test]
     runs-on: ubuntu-24.04
     steps:
       - name: Set final commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.setup-and-test.result }}
+          status: ${{ needs.build-ginkgo-binary.result == 'success' && needs.setup-and-test.result == 'success' && 'success' || 'failure' }}

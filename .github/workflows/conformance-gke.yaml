@@ -442,10 +442,22 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() && !inputs.is-workflow-call }}
-    needs: installation-and-connectivity
+    needs: [generate-matrix, wait-for-images, installation-and-connectivity]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.installation-and-connectivity.result }}
+      # The generate-matrix can be legitimately empty, so we consider that as
+      # success. On older branches the generated matrix will get fewer entries
+      # since the k8s versions will reach EOL and get removed from the matrix.
+      result: >-
+        ${{ ((
+          needs.generate-matrix.result == 'success' &&
+          needs.wait-for-images.result == 'success' &&
+          needs.installation-and-connectivity.result != 'failure'
+        ) ||
+        (
+          needs.generate-matrix.result == 'success' &&
+          needs.generate-matrix.outputs.empty == 'true'
+        )) && 'success' || 'failure' }}

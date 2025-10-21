@@ -578,10 +578,10 @@ jobs:
   merge-upload-and-status:
     if: ${{ always() }}
     name: Merge Upload and Status
-    needs: setup-and-test
+    needs: [wait-for-images, generate-matrix, setup-and-test]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.setup-and-test.result }}
+      result: ${{ needs.wait-for-images.result == 'success' && needs.generate-matrix.result == 'success' && needs.setup-and-test.result == 'success' && 'success' || 'failure' }}

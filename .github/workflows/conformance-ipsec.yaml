@@ -132,10 +132,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: [conformance-aks-ipsec, conformance-eks-ipsec, conformance-gke-ipsec]
+    needs: [wait-for-images, conformance-aks-ipsec, conformance-eks-ipsec, conformance-gke-ipsec]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ (needs.conformance-aks-ipsec.result == 'failure' || needs.conformance-eks-ipsec.result == 'failure' || needs.conformance-gke-ipsec.result == 'failure') && 'failure' || 'success' }}
+      result: ${{ (needs.wait-for-images.result == 'success' && needs.conformance-aks-ipsec.result == 'success' && needs.conformance-eks-ipsec.result == 'success' && needs.conformance-gke-ipsec.result == 'success') && 'success' || 'failure' }}

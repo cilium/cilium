@@ -346,10 +346,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: gateway-api-conformance-test
+    needs: [wait-for-images, gateway-api-conformance-test]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.gateway-api-conformance-test.result }}
+      result: ${{ needs.wait-for-images.result == 'success' && needs.gateway-api-conformance-test.result == 'success' && 'success' || 'failure' }}
