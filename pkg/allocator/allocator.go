@@ -481,7 +481,7 @@ func (a *Allocator) ForeachCache(cb RangeFunc) {
 // Returns a triple of the selected ID ORed with prefixMask, the ID string and
 // the originally selected ID.
 func (a *Allocator) selectAvailableID() (idpool.ID, string, idpool.ID) {
-	if id := a.idPool.LeaseAvailableID(); id != idpool.NoID {
+	if id := a.idPool.LeaseAvailableID(nil); id != idpool.NoID {
 		unmaskedID := id
 		id |= a.prefixMask
 		return id, id.String(), unmaskedID

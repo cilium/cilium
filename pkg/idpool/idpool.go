@@ -4,6 +4,7 @@
 package idpool
 
 import (
+	"math/rand/v2"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -75,11 +76,16 @@ func NewIDPool(minID ID, maxID ID) *IDPool {
 
 // LeaseAvailableID returns an available ID at random from the pool.
 // Returns an ID or NoID if no there is no available ID in the pool.
-func (p *IDPool) LeaseAvailableID() ID {
+// If seed is supplied, it is used to seed a random number generator
+// for ID selection. This can make identity selection deterministic
+// but difficult to predict.
+//
+// If seed is supplied, it must be at least 32 bytes long
+func (p *IDPool) LeaseAvailableID(seed []byte) ID {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	return p.idCache.leaseAvailableID()
+	return p.leaseAvailableID(seed)
 }
 
 // AllocateID returns a random available ID. Unlike LeaseAvailableID, the ID is
@@ -88,7 +94,7 @@ func (p *IDPool) AllocateID() ID {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	return p.idCache.allocateID()
+	return p.allocateID(nil)
 }
 
 // Release returns a leased ID back to the pool.
@@ -159,24 +165,38 @@ func newIDCache(minID ID, maxID ID) *idCache {
 }
 
 // allocateID returns a random available ID without leasing it
-func (c *idCache) allocateID() ID {
-	for id := range c.ids {
-		delete(c.ids, id)
-		return id
+func (p *IDPool) allocateID(seed []byte) ID {
+	if len(seed) < 32 {
+		for id := range p.idCache.ids {
+			delete(p.idCache.ids, id)
+			return id
+		}
+		return NoID
 	}
 
-	return NoID
+	r := rand.NewChaCha8(([32]byte)(seed[0:32]))
+	count := uint64(p.maxID - p.minID)
+	for range 1000 {
+		id := ID(r.Uint64()%count) + p.minID
+		if _, ok := p.idCache.ids[id]; ok {
+			delete(p.idCache.ids, id)
+			return id
+		}
+	}
+
+	// fallback to non-seeded selection
+	return p.allocateID(nil)
 }
 
 // leaseAvailableID returns a random available ID.
-func (c *idCache) leaseAvailableID() ID {
-	id := c.allocateID()
+func (p *IDPool) leaseAvailableID(seed []byte) ID {
+	id := p.allocateID(seed)
 	if id == NoID {
 		return NoID
 	}
 
 	// Mark as leased
-	c.leased[id] = struct{}{}
+	p.idCache.leased[id] = struct{}{}
 
 	return id
 }
