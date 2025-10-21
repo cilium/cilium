@@ -577,7 +577,7 @@ func TestHTTPRuleRegexes(t *testing.T) {
 
 // Test the validation of CIDR rule prefix definitions
 func TestCIDRsanitize(t *testing.T) {
-	sel := &slim_metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}}
+	sel := EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}}}
 
 	cidr := CIDRRule{}
 	err := cidr.sanitize()

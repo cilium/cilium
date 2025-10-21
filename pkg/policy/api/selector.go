@@ -355,9 +355,13 @@ func (n *EndpointSelector) IsWildcard() bool {
 // It also muatates all label selector keys into Cilium's internal representation.
 // Check documentation of `EndpointSelector.sanitized` for more details.
 func (n *EndpointSelector) Sanitize() error {
+	return n.SanitizeWithKeyExteder(labels.DefaultKeyExtender)
+}
+
+func (n *EndpointSelector) SanitizeWithKeyExteder(extender labels.KeyExtender) error {
 	es := n
 	if !n.sanitized {
-		sanitizedEndpointSelector := NewESFromK8sLabelSelectorWithExtender(labels.DefaultKeyExtender, n.LabelSelector)
+		sanitizedEndpointSelector := NewESFromK8sLabelSelectorWithExtender(extender, n.LabelSelector)
 		es = &sanitizedEndpointSelector
 	}
 
