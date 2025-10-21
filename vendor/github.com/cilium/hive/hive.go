@@ -255,7 +255,7 @@ func (h *Hive) waitForSignalOrShutdown(log *slog.Logger) error {
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	select {
 	case sig := <-signals:
-		log.Info("Signal received", "signal", sig)
+		log.Info("Signal received", "signal", sig, "pid", os.Getpid(), "ppid", os.Getppid())
 		return nil
 	case err := <-h.shutdown:
 		return err
