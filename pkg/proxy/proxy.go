@@ -235,7 +235,7 @@ func (p *Proxy) createNewRedirect(
 		return 0, fmt.Errorf("unable to set rules on redirect: %w", err), nil
 	}
 
-	scopedLog.Info("Created new proxy instance",
+	scopedLog.Debug("Created new proxy instance",
 		logfields.Object, redirect,
 		logfields.ProxyPort, pp.ProxyPort)
 
