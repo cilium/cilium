@@ -182,9 +182,9 @@ func TestCIDRRuleGetAsEndpointSelectors(t *testing.T) {
 		},
 		{
 			name: "cidr group ls",
-			rule: CIDRRule{CIDRGroupSelector: &v1.LabelSelector{
+			rule: CIDRRule{CIDRGroupSelector: EndpointSelector{LabelSelector: &v1.LabelSelector{
 				MatchLabels: map[string]v1.MatchLabelsValue{"foo": "bar"},
-			}},
+			}}},
 			expected:   EndpointSelectorSlice{NewESFromLabels(labels.NewLabel("foo", "bar", "cidrgroup"))},
 			enableIPv4: true, enableIPv6: true,
 		},
@@ -348,11 +348,11 @@ func TestGetAsEndpointSelectorsWithExceptions(t *testing.T) {
 		{
 			name: "cidrgroup-ref",
 			rule: CIDRRule{
-				CIDRGroupSelector: &v1.LabelSelector{
+				CIDRGroupSelector: EndpointSelector{LabelSelector: &v1.LabelSelector{
 					MatchLabels: map[string]string{
 						"foo": "bar",
 					},
-				},
+				}},
 			},
 			matchesLabels:    []string{"cidrgroup:foo=bar"},
 			notMatchesLabels: []string{"cidr:1.1.1.1/32"},
@@ -360,11 +360,11 @@ func TestGetAsEndpointSelectorsWithExceptions(t *testing.T) {
 		{
 			name: "cidrgroup-ref-except",
 			rule: CIDRRule{
-				CIDRGroupSelector: &v1.LabelSelector{
+				CIDRGroupSelector: EndpointSelector{LabelSelector: &v1.LabelSelector{
 					MatchLabels: map[string]string{
 						"foo": "bar",
 					},
-				},
+				}},
 				ExceptCIDRs: []CIDR{"1.0.0.4/30"},
 			},
 			matchesLabels: []string{"cidrgroup:foo=bar"},
