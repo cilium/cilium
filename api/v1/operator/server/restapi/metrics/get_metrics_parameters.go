@@ -28,7 +28,6 @@ func NewGetMetricsParams() GetMetricsParams {
 //
 // swagger:parameters GetMetrics
 type GetMetricsParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }
