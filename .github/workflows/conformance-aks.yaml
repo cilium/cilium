@@ -291,6 +291,14 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=kubeProxyReplacement=true"
           fi
 
+          ADV_FEAT=$(echo '${{ inputs.extra-args }}' | jq -r '.["advanced-features"] // false')
+          if [[ "$ADV_FEAT" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
+              --helm-set enableIPv4Masquerade=true \
+              --helm-set localRedirectPolicy=true \
+              --helm-set egressGateway.enabled=true"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
