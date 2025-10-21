@@ -49,7 +49,6 @@ type KubernetesClient interface {
 	GetVersion(ctx context.Context) (string, error)
 	GetHelmMetadata(ctx context.Context, releaseName string, namespace string) (string, error)
 	GetHelmValues(ctx context.Context, releaseName string, namespace string) (string, error)
-	ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error)
 	ListCiliumBGPClusterConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPClusterConfigList, error)
 	ListCiliumBGPPeerConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeerConfigList, error)
 	ListCiliumBGPAdvertisements(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPAdvertisementList, error)
