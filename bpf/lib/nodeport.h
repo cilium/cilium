@@ -1475,8 +1475,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 			goto skip_service_lookup;
 		}
 		if (ret == DROP_UNKNOWN_L4) {
-			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
-			return CTX_ACT_OK;
+			return DROP_NO_SERVICE;
 		}
 		return ret;
 	}
@@ -2852,8 +2851,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			goto skip_service_lookup;
 		}
 		if (ret == DROP_UNKNOWN_L4) {
-			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
-			return CTX_ACT_OK;
+			return DROP_NO_SERVICE;
 		}
 		return ret;
 	}
