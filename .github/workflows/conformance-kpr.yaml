@@ -145,13 +145,25 @@ jobs:
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "advanced-features": true}'
 
+  conformance-aks-kpr-ipsec:
+    name: Conformance AKS with KPR + IPsec
+    needs: wait-for-images
+    uses: ./.github/workflows/conformance-aks.yaml
+    secrets: inherit
+    with:
+      PR-number: ${{ inputs.PR-number || github.ref_name }}
+      UID: 2
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      SHA: ${{ inputs.SHA || github.sha }}
+      extra-args: '{"kpr": true, "advanced-features": true, "ipsec": true}'
+
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: [conformance-eks-kpr, conformance-eks-kpr-ipsec, conformance-eks-kpr-wireguard, conformance-aks-kpr]
+    needs: [conformance-eks-kpr, conformance-eks-kpr-ipsec, conformance-eks-kpr-wireguard, conformance-aks-kpr, conformance-aks-kpr-ipsec]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ (needs.conformance-eks-kpr.result == 'success' && needs.conformance-eks-kpr-ipsec.result == 'success' && needs.conformance-eks-kpr-wireguard.result == 'success' && needs.conformance-aks-kpr.result == 'success') }}
+      success: ${{ (needs.conformance-eks-kpr.result == 'success' && needs.conformance-eks-kpr-ipsec.result == 'success' && needs.conformance-eks-kpr-wireguard.result == 'success' && needs.conformance-aks-kpr.result == 'success' && needs.conformance-aks-kpr-ipsec.result == 'success') }}
