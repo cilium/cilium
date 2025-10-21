@@ -271,8 +271,6 @@ jobs:
             --helm-set=cluster.name=${{ env.name }} \
             --helm-set=loadBalancer.l7.backend=envoy \
             --helm-set=azure.resourceGroup=${{ env.name }} \
-            --helm-set=kubeProxyReplacement=true \
-            --helm-set=bpf.masquerade=true \
             --helm-set=ipv4.enabled=true \
             --helm-set=ipv6.enabled=true \
             --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
@@ -284,6 +282,13 @@ jobs:
             echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true \
               --helm-set encryption.type=ipsec"
+          fi
+
+          # Check if KPR is requested via extra-args
+          KPR=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["kpr"] // false')
+          if [[ "$KPR" == "true" ]]; then
+            echo "::notice::KPR enabled - setting kpr=true for all matrix entries"
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=kubeProxyReplacement=true"
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
