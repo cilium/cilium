@@ -17,10 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/components"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	shell "github.com/cilium/cilium/pkg/shell/client"
 )
 
 var (
@@ -64,7 +64,7 @@ func init() {
 	RootCmd.AddCommand(cmdref.NewCmd(RootCmd))
 	RootCmd.AddCommand(newCmdCompletion(os.Stdout))
 	RootCmd.AddCommand(troubleshoot.Cmd)
-	RootCmd.AddCommand(shell.ShellCmd)
+	RootCmd.AddCommand(hive.CiliumShellCmd)
 	RootCmd.SetOut(os.Stdout)
 	RootCmd.SetErr(os.Stderr)
 }

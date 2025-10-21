@@ -18,19 +18,17 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/hive/script"
-
-	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	baseshell "github.com/cilium/cilium/pkg/shell"
 )
 
-var Cell = cell.Module(
-	"shell",
-	"Cilium debug shell",
+func ServerCell(defaultSocketPath string) cell.Cell {
+	return cell.Module(
+		"shell",
+		"Hive debug shell",
 
-	cell.Config(baseshell.DefaultConfig),
-	cell.Invoke(registerShell),
-)
+		cell.Config(Config{ShellSockPath: defaultSocketPath}),
+		cell.Invoke(registerShell),
+	)
+}
 
 // defaultCmdsToInclude specify which default script commands to include.
 // Most of them are for testing, so no need to clutter the shell
@@ -39,7 +37,14 @@ var defaultCmdsToInclude = []string{
 	"cat", "exec", "help",
 }
 
-func registerShell(in hive.ScriptCmds, log *slog.Logger, jg job.Group, c baseshell.Config) {
+func registerShell(in hive.ScriptCmds, log *slog.Logger, lc cell.Lifecycle, jobs job.Registry, health cell.Health, c Config) {
+	jg := jobs.NewGroup(health, lc)
+
+	if c.ShellSockPath == "" {
+		log.Info("Shell socket path not set, not starting shell server")
+		return
+	}
+
 	cmds := in.Map()
 	defCmds := script.DefaultCmds()
 	for _, name := range defaultCmdsToInclude {
@@ -56,18 +61,12 @@ type shell struct {
 	jg     job.Group
 	log    *slog.Logger
 	engine *script.Engine
-	config baseshell.Config
+	config Config
 }
 
 func (sh shell) listener(ctx context.Context, health cell.Health) error {
 	// Remove any old UNIX sock file from previous runs.
 	os.Remove(sh.config.ShellSockPath)
-
-	if _, err := os.Stat(defaults.RuntimePath); os.IsNotExist(err) {
-		if err := os.MkdirAll(defaults.RuntimePath, defaults.RuntimePathRights); err != nil {
-			return fmt.Errorf("could not create default runtime directory: %w", err)
-		}
-	}
 
 	var lc net.ListenConfig
 	l, err := lc.Listen(ctx, "unix", sh.config.ShellSockPath)
@@ -85,6 +84,7 @@ func (sh shell) listener(ctx context.Context, health cell.Health) error {
 	defer wg.Wait()
 
 	health.OK(fmt.Sprintf("Listening on %s", sh.config.ShellSockPath))
+	sh.log.Info("Shell listening", "socket", sh.config.ShellSockPath)
 	connCount := 0
 	for ctx.Err() == nil {
 		conn, err := l.Accept()
@@ -95,21 +95,24 @@ func (sh shell) listener(ctx context.Context, health cell.Health) error {
 			}
 			return fmt.Errorf("accept failed: %w", err)
 		}
+		connID := connCount
+		connCount++
+
 		sh.jg.Add(job.OneShot(
-			fmt.Sprintf("shell-%d", connCount),
+			fmt.Sprintf("shell-%d", connID),
 			func(ctx context.Context, h cell.Health) error {
-				sh.handleConn(ctx, conn)
+				sh.handleConn(ctx, connID, conn)
 				h.Close() // remove from health list
-				sh.log.Info("exited")
 				return nil
 			}))
-		connCount++
 	}
 	return nil
 }
 
-func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
-	const endMarker = "<<end>>"
+func (sh shell) handleConn(ctx context.Context, clientID int, conn net.Conn) {
+	sh.log.Info("Client connected", "id", clientID)
+	defer sh.log.Info("client disconnected", "id", clientID)
+
 	ctx, cancel := context.WithCancel(ctx)
 
 	// Wait for context cancellation in the background and close
@@ -128,13 +131,13 @@ func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
 	// Catch panics to make sure the script commands can't bring the runtime down.
 	defer func() {
 		if err := recover(); err != nil {
-			// Log the panic and also write it to cilium-dbg. We keep processing
+			// Log the panic and also write it to client. We keep processing
 			// more commands after this.
 			stack := make([]byte, 1024)
 			stack = stack[:runtime.Stack(stack, false)]
 			sh.log.Error("Panic in the shell handler",
-				logfields.Error, err,
-				logfields.Stacktrace, stack,
+				"error", err,
+				"stacktrace", stack,
 			)
 			fmt.Fprintf(conn, "PANIC: %s\n%s\n%s\n", err, stack, endMarker)
 		}
@@ -142,11 +145,22 @@ func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
 
 	s, err := script.NewState(ctx, "/tmp", nil)
 	if err != nil {
-		sh.log.Error("NewState", logfields.Error, err)
+		sh.log.Error("NewState", "error", err)
 		return
 	}
 
 	bio := bufio.NewReader(conn)
+
+	// Wrap the connection into a writer that cancels the context we use to execute
+	// commands. This allows interrupting the command without having to have the commands
+	// handle write errors.
+	writer := interceptingWriter{
+		conn: conn,
+		onError: func(error) {
+			cancel()
+		},
+	}
+
 	for {
 		bline, _, err := bio.ReadLine()
 		if err != nil {
@@ -157,17 +171,30 @@ func (sh shell) handleConn(ctx context.Context, conn net.Conn) {
 		case "stop", "exit", "quit":
 			return
 		}
-		err = sh.engine.ExecuteLine(s, line, conn)
+		err = sh.engine.ExecuteLine(s, line, writer)
 		if err != nil {
-			_, err = fmt.Fprintln(conn, err)
+			_, err = fmt.Fprintln(writer, err)
 			if err != nil {
 				break
 			}
 		}
 		// Send the "end of command output" marker
-		_, err = fmt.Fprintln(conn, endMarker)
+		_, err = fmt.Fprintln(writer, endMarker)
 		if err != nil {
 			break
 		}
 	}
+}
+
+type interceptingWriter struct {
+	conn    net.Conn
+	onError func(error)
+}
+
+func (iw interceptingWriter) Write(buf []byte) (int, error) {
+	n, err := iw.conn.Write(buf)
+	if err != nil {
+		iw.onError(err)
+	}
+	return n, err
 }
