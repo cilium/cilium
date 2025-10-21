@@ -2,7 +2,7 @@
 
 ## cilium-dbg shell
 
-Connect to the Cilium shell
+Connect to the shell
 
 ```
 cilium-dbg shell [command] [args]... [flags]

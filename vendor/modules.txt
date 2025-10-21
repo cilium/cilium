@@ -311,6 +311,7 @@ github.com/cilium/hive/job
 github.com/cilium/hive/script
 github.com/cilium/hive/script/internal/diff
 github.com/cilium/hive/script/scripttest
+github.com/cilium/hive/shell
 # github.com/cilium/linters v0.3.0
 ## explicit; go 1.24.0
 github.com/cilium/linters

@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/shell"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -75,8 +76,6 @@ import (
 	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
-	shellclient "github.com/cilium/cilium/pkg/shell/client"
-	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -151,7 +150,7 @@ var (
 		}),
 
 		// Shell for inspecting the operator. Listens on the 'shell.sock' UNIX socket.
-		shell.Cell,
+		shell.ServerCell(defaults.ShellSockPath),
 	)
 
 	// ControlPlane implements the control functions.
@@ -371,7 +370,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		MetricsCmd,
 		StatusCmd,
 		troubleshoot.Cmd,
-		shellclient.ShellCmd,
+		hive.CiliumShellCmd,
 		h.Command(),
 	)
 
@@ -431,6 +430,10 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 
 	// Register the user options in the logs
 	option.LogRegisteredSlogOptions(vp, logger)
+
+	// Create the run directory. Used at least by the shell.sock.
+	os.MkdirAll(defaults.RuntimePath, defaults.RuntimePathRights)
+
 	logger.Info("Cilium Operator", logfields.Version, version.Version)
 }
 
