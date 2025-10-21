@@ -54,7 +54,7 @@ runs:
           --conn-disrupt-test-restarts-path "./cilium-conn-disrupt-restarts" \
           --conn-disrupt-test-xfrm-errors-path "./cilium-conn-disrupt-xfrm-errors" \
           --flush-ct \
-          --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+          --sysdump-hubble-flows-count=10000000 --sysdump-hubble-flows-timeout=15m \
           --sysdump-output-filename "cilium-sysdump-conn-disrupt-test-${{ inputs.job-name }}-<ts>" \
           --junit-file "cilium-junits/conn-disrupt-test-${{ inputs.job-name }}.xml" \
           ${{ inputs.extra-connectivity-test-flags }} \
