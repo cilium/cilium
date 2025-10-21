@@ -1,6 +1,6 @@
 - name: 'wireguard-1'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.10-20251008.075427'
+  kernel: '5.10-20251021.054756'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -14,7 +14,7 @@
   ingress-controller: 'true'
 - name: 'wireguard-2'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.1-20251008.075427'
+  kernel: '6.1-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -30,7 +30,7 @@
   node-local-dns: 'true'
 - name: 'wireguard-3'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20251008.075427'
+  kernel: '6.12-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -44,7 +44,7 @@
   ingress-controller: 'true'
 - name: 'wireguard-4'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20251008.075427'
+  kernel: '5.15-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -58,7 +58,7 @@
   ingress-controller: 'true'
 - name: 'wireguard-5'
   # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20251008.075427'
+  kernel: '6.12-20251021.054756'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
