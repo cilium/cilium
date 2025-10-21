@@ -836,4 +836,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.upgrade-and-downgrade.result }}
+      success: ${{ needs.upgrade-and-downgrade.result == 'success' }}

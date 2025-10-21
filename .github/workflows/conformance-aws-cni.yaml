@@ -352,13 +352,27 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: installation-and-connectivity
+    needs: [generate-matrix, installation-and-connectivity]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.installation-and-connectivity.result }}
+      # The generate-matrix can be legitimately empty on older branches, so we
+      # consider that as success. On older branches the generated matrix will
+      # get fewer entries since the k8s versions will reach EOL and get removed
+      # from the matrix.
+      success: >-
+        ${{
+          needs.generate-matrix.result == 'success' &&
+        (
+          needs.installation-and-connectivity.result == 'success'
+          ||
+          (
+            needs.generate-matrix.outputs.empty == 'true' &&
+            github.ref_name != github.event.repository.default_branch
+          )
+        ) }}
 
   cleanup:
     name: Cleanup EKS Clusters

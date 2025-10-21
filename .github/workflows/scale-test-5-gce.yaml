@@ -381,4 +381,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.install-and-scaletest.result }}
+      success: ${{ needs.install-and-scaletest.result == 'success' }}

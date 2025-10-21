@@ -222,4 +222,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.integration-test.result }}
+      success: ${{ needs.integration-test.result == 'success' }}

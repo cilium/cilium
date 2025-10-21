@@ -257,4 +257,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
       sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
-      result: ${{ needs.installation-and-connectivity.result }}
+      success: ${{ needs.installation-and-connectivity.result == 'success' }}

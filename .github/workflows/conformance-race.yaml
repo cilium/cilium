@@ -109,4 +109,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.conformance-ginkgo-race.result }}
+      success: ${{ needs.conformance-ginkgo-race.result == 'success' }}

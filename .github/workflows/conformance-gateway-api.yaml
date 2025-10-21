@@ -352,4 +352,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.gateway-api-conformance-test.result }}
+      success: ${{ needs.gateway-api-conformance-test.result == 'success' }}

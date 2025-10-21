@@ -303,4 +303,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.install-and-fqdn-perf-test.result }}
+      success: ${{ needs.install-and-fqdn-perf-test.result == 'success' }}
