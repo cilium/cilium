@@ -6,6 +6,7 @@ package key
 import (
 	"maps"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/labelsfilter"
 
@@ -19,11 +20,15 @@ const (
 )
 
 // GlobalIdentity is the structure used to store an identity
+// Note: GlobalIdentity is immutable; use the mutator methods.
 type GlobalIdentity struct {
 	labels labels.LabelArray
 
 	// metadata contains metadata that are stored for example by the backends.
 	metadata map[any]any
+
+	// memoized key
+	key atomic.Pointer[string]
 }
 
 func MakeGlobalIdentity(labels labels.LabelArray) *GlobalIdentity {
@@ -38,11 +43,17 @@ func (gi *GlobalIdentity) Labels() labels.LabelArray {
 
 // GetKey encodes an Identity as string
 func (gi *GlobalIdentity) GetKey() string {
-	var str strings.Builder
-	for _, l := range gi.labels {
-		str.Write(l.FormatForKVStore())
+	if key := gi.key.Load(); key != nil {
+		return *key
 	}
-	return str.String()
+
+	var buf strings.Builder
+	for _, l := range gi.labels {
+		buf.Write(l.FormatForKVStore())
+	}
+	key := buf.String()
+	gi.key.Store(&key)
+	return key
 }
 
 func (gi *GlobalIdentity) String() string {
