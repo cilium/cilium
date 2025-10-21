@@ -67,10 +67,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.DisableCiliumEndpointCRDName)
 	option.BindEnv(vp, option.DisableCiliumEndpointCRDName)
 
-	flags.Bool(option.EnableIPv4EgressGateway, false, "")
-	flags.MarkHidden(option.EnableIPv4EgressGateway)
-	option.BindEnv(vp, option.EnableIPv4EgressGateway)
-
 	flags.Bool(option.EnableEgressGateway, false, "")
 	flags.MarkHidden(option.EnableEgressGateway)
 	option.BindEnv(vp, option.EnableEgressGateway)

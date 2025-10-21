@@ -530,10 +530,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableMasqueradeRouteSource, false, "Masquerade packets to the source IP provided from the routing layer rather than interface address")
 	option.BindEnv(vp, option.EnableMasqueradeRouteSource)
 
-	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
-	flags.MarkDeprecated(option.EnableIPv4EgressGateway, "Use --enable-egress-gateway instead")
-	option.BindEnv(vp, option.EnableIPv4EgressGateway)
-
 	flags.Bool(option.EnableEgressGateway, false, "Enable egress gateway")
 	option.BindEnv(vp, option.EnableEgressGateway)
 

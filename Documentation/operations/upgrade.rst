@@ -331,6 +331,8 @@ Removed Options
 * The previously deprecated ``--enable-node-port``, ``--enable-host-port``, and ``--enable-external-ips``
   flags have been removed. To enable the corresponding features, users must set ``--kube-proxy-replacement=true``.
 * The previously deprecated custom calls feature (``--enable-custom-calls``) has been removed.
+* The previously deprecated ``--enable-ipv4-egress-gateway`` flag has been removed. To enable the
+  corresponding features, users must set ``--enable-egress-gateway=true``.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
