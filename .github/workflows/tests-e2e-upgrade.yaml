@@ -584,4 +584,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.setup-and-test.result }}
+      success: ${{ needs.setup-and-test.result == 'success' }}
