@@ -1692,11 +1692,17 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	// In the case of an policy update it is possible that an
 	// endpoint has started regeneration before the policy was
 	// updated, and that the policy was updated before the said
-	// endpoint reached this point. In this case the endpoint's
-	// policy is going to be recomputed soon after and we do
-	// nothing here.
+	// endpoint reached this point. In this case, we need to
+	// ensure that the endpoint will be regenerated at least once
+	// afterward. This to ensure it doesn't get stuck with a
+	// detached policy.
 	if l4.users != nil {
 		l4.users[user] = struct{}{}
+	} else {
+		go user.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+			Reason:            "selector policy has changed because of another endpoint with the same identity",
+			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+		})
 	}
 
 	l4.mutex.Unlock()
