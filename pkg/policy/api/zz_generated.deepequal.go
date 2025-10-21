@@ -104,12 +104,8 @@ func (in *CIDRRule) DeepEqual(other *CIDRRule) bool {
 	if in.CIDRGroupRef != other.CIDRGroupRef {
 		return false
 	}
-	if (in.CIDRGroupSelector == nil) != (other.CIDRGroupSelector == nil) {
+	if !in.CIDRGroupSelector.DeepEqual(&other.CIDRGroupSelector) {
 		return false
-	} else if in.CIDRGroupSelector != nil {
-		if !in.CIDRGroupSelector.DeepEqual(other.CIDRGroupSelector) {
-			return false
-		}
 	}
 
 	if ((in.ExceptCIDRs != nil) && (other.ExceptCIDRs != nil)) || ((in.ExceptCIDRs == nil) != (other.ExceptCIDRs == nil)) {
