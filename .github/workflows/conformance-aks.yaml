@@ -299,6 +299,11 @@ jobs:
               --helm-set egressGateway.enabled=true"
           fi
 
+          WG=$(echo '${{ inputs.extra-args }}' | jq -r '.["wireguard"] // false')
+          if [[ "$WG" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=wireguard"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
