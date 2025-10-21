@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
@@ -35,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -84,9 +86,10 @@ type loader struct {
 	configWriter       datapath.ConfigWriter
 	nodeConfigNotifier *manager.NodeConfigNotifier
 
-	db           *statedb.DB
-	devices      statedb.Table[*tables.Device]
-	routeManager *routeReconciler.DesiredRouteManager
+	db              *statedb.DB
+	devices         statedb.Table[*tables.Device]
+	routeManager    *routeReconciler.DesiredRouteManager
+	mapSpecRegistry *registry.MapSpecRegistry
 }
 
 type Params struct {
@@ -101,6 +104,7 @@ type Params struct {
 	RouteManager       *routeReconciler.DesiredRouteManager
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
+	MapSpecRegistry    *registry.MapSpecRegistry
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -119,6 +123,7 @@ func newLoader(p Params) *loader {
 		configWriter:       p.ConfigWriter,
 		nodeConfigNotifier: p.NodeConfigNotifier,
 		routeManager:       p.RouteManager,
+		mapSpecRegistry:    p.MapSpecRegistry,
 
 		db:      p.DB,
 		devices: p.Devices,
@@ -737,7 +742,14 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*
 	return nil
 }
 
-func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, cArgs []string, device netlink.Link) error {
+func replaceOverlayDatapath(
+	ctx context.Context,
+	logger *slog.Logger,
+	lnc *datapath.LocalNodeConfiguration,
+	mapSpecRegistry *registry.MapSpecRegistry,
+	cArgs []string,
+	device netlink.Link,
+) error {
 	if err := compileOverlay(ctx, logger, cArgs); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
@@ -745,6 +757,10 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	spec, err := ebpf.LoadCollectionSpec(overlayObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
+	}
+
+	if err := takeMapSpecsFromRegistry(mapSpecRegistry, spec); err != nil {
+		return fmt.Errorf("taking map specs from registry: %w", err)
 	}
 
 	cfg := config.NewBPFOverlay(config.NodeConfig(lnc))
@@ -785,7 +801,13 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	return nil
 }
 
-func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
+func replaceWireguardDatapath(
+	ctx context.Context,
+	logger *slog.Logger,
+	lnc *datapath.LocalNodeConfiguration,
+	mapSpecRegistry *registry.MapSpecRegistry,
+	device netlink.Link,
+) (err error) {
 	if err := compileWireguard(ctx, logger); err != nil {
 		return fmt.Errorf("compiling wireguard program: %w", err)
 	}
@@ -793,6 +815,10 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	spec, err := ebpf.LoadCollectionSpec(wireguardObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
+	}
+
+	if err := takeMapSpecsFromRegistry(mapSpecRegistry, spec); err != nil {
+		return fmt.Errorf("taking map specs from registry: %w", err)
 	}
 
 	cfg := config.NewBPFWireguard(config.NodeConfig(lnc))
@@ -880,6 +906,10 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 	spec, hash, err := l.templateCache.fetchOrCompile(ctx, lnc, ep, &dirs, stats)
 	if err != nil {
 		return "", err
+	}
+
+	if err := takeMapSpecsFromRegistry(l.mapSpecRegistry, spec); err != nil {
+		return "", fmt.Errorf("taking map specs from registry: %w", err)
 	}
 
 	if ep.IsHost() {
@@ -977,4 +1007,27 @@ func (l *loader) HostDatapathInitialized() <-chan struct{} {
 
 func (l *loader) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration, lnCfg *datapath.LocalNodeConfiguration) error {
 	return l.configWriter.WriteEndpointConfig(w, lnCfg, e)
+}
+
+func takeMapSpecsFromRegistry(specReg *registry.MapSpecRegistry, spec *ebpf.CollectionSpec) error {
+	variableMaps := sets.New[string]()
+	for _, v := range spec.Variables {
+		variableMaps.Insert(v.MapName())
+	}
+
+	for mapName := range spec.Maps {
+		// We do not want to overwrite the map spec of variable maps.
+		if variableMaps.Has(mapName) {
+			continue
+		}
+
+		regSpec, err := specReg.Get(mapName)
+		if err != nil {
+			return err
+		}
+
+		spec.Maps[mapName] = regSpec
+	}
+
+	return nil
 }
