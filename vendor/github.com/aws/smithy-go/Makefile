@@ -13,7 +13,6 @@ REPOTOOLS_CMD_GENERATE_CHANGELOG = ${REPOTOOLS_MODULE}/cmd/generatechangelog@${R
 REPOTOOLS_CMD_CHANGELOG = ${REPOTOOLS_MODULE}/cmd/changelog@${REPOTOOLS_VERSION}
 REPOTOOLS_CMD_TAG_RELEASE = ${REPOTOOLS_MODULE}/cmd/tagrelease@${REPOTOOLS_VERSION}
 REPOTOOLS_CMD_MODULE_VERSION = ${REPOTOOLS_MODULE}/cmd/moduleversion@${REPOTOOLS_VERSION}
-REPOTOOLS_CMD_EACHMODULE = ${REPOTOOLS_MODULE}/cmd/eachmodule@${REPOTOOLS_VERSION}
 
 UNIT_TEST_TAGS=
 BUILD_TAGS=
@@ -56,11 +55,8 @@ ensure-gradle-up:
 
 verify: vet
 
-vet: vet-modules-.
-
-vet-modules-%:
-	go run ${REPOTOOLS_CMD_EACHMODULE} -p $(subst vet-modules-,,$@) \
-		"go vet ${BUILD_TAGS} --all ./..."
+vet:
+	go vet ${BUILD_TAGS} --all ./...
 
 cover:
 	go test ${BUILD_TAGS} -coverprofile c.out ./...
@@ -70,22 +66,21 @@ cover:
 ################
 # Unit Testing #
 ################
-.PHONY: test unit unit-race
+.PHONY: unit unit-race unit-test unit-race-test
 
-test: unit-race
+unit: verify
+	go test ${BUILD_TAGS} ${RUN_NONE} ./... && \
+	go test -timeout=1m ${UNIT_TEST_TAGS} ./...
 
-unit: verify unit-modules-.
+unit-race: verify
+	go test ${BUILD_TAGS} ${RUN_NONE} ./... && \
+	go test -timeout=1m ${UNIT_TEST_TAGS} -race -cpu=4 ./...
 
-unit-modules-%:
-	go run ${REPOTOOLS_CMD_EACHMODULE} -p $(subst unit-modules-,,$@) \
-		"go test -timeout=1m ${UNIT_TEST_TAGS} ./..."
+unit-test: verify
+	go test -timeout=1m ${UNIT_TEST_TAGS} ./...
 
-unit-race: verify unit-race-modules-.
-
-unit-race-modules-%:
-	go run ${REPOTOOLS_CMD_EACHMODULE} -p $(subst unit-race-modules-,,$@) \
-		"go test -timeout=1m ${UNIT_TEST_TAGS} -race -cpu=4 ./..."
-
+unit-race-test: verify
+	go test -timeout=1m ${UNIT_TEST_TAGS} -race -cpu=4 ./...
 
 #####################
 #  Release Process  #
