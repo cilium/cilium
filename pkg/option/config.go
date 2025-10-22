@@ -46,6 +46,18 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 )
 
+// Hive options
+const (
+	// HiveStartTimeout is the maximum time to wait for startup hooks to complete before timing out
+	HiveStartTimeout = "hive-start-timeout"
+
+	// HiveStopTimeout is the maximum time to wait for stop hooks to complete before timing out
+	HiveStopTimeout = "hive-stop-timeout"
+
+	// HiveLogThreshold is the time limit after which a slow hook is logged at Info level
+	HiveLogThreshold = "hive-log-threshold"
+)
+
 const (
 	// AgentHealthPort is the TCP port for agent health status API
 	AgentHealthPort = "agent-health-port"
@@ -1129,6 +1141,24 @@ func LogRegisteredSlogOptions(vp *viper.Viper, entry *slog.Logger) {
 	}
 }
 
+type HiveConfig struct {
+	// StartTimeout is the maximum time to wait for startup hooks to complete before timing out
+	StartTimeout time.Duration
+
+	// StopTimeout is the maximum time to wait for stop hooks to complete before timing out
+	StopTimeout time.Duration
+
+	// LogThreshold is the time limit after which a slow hook is logged at Info level
+	LogThreshold time.Duration
+}
+
+// Populate sets all hive options from the value from viper.
+func (c *HiveConfig) Populate(vp *viper.Viper) {
+	c.StartTimeout = vp.GetDuration(HiveStartTimeout)
+	c.StopTimeout = vp.GetDuration(HiveStopTimeout)
+	c.LogThreshold = vp.GetDuration(HiveLogThreshold)
+}
+
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	// Private sum of the config written to file. Used to check that the config is not changed
@@ -1171,6 +1201,9 @@ type DaemonConfig struct {
 
 	// Monitor contains the configuration for the node monitor.
 	Monitor *models.MonitorStatus
+
+	// HiveConfig contains the configuration for daemon hive.
+	HiveConfig HiveConfig
 
 	// AgentHealthPort is the TCP port for agent health status API
 	AgentHealthPort int
@@ -2420,6 +2453,8 @@ func (c *DaemonConfig) SetupLogging(vp *viper.Viper, tag string) {
 // to make sure that they honor logging-related options.
 func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	var err error
+
+	c.HiveConfig.Populate(vp)
 
 	c.AgentHealthPort = vp.GetInt(AgentHealthPort)
 	c.ClusterHealthPort = vp.GetInt(ClusterHealthPort)
