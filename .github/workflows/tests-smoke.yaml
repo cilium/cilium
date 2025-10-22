@@ -129,6 +129,41 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
+      - name: Generate CA, Server and Client certs for Operator Prometheus
+        id: gen_certs
+        run: |
+          CA_CERT=ca.crt
+          CLIENT_CERT=client.crt
+          CLIENT_KEY=client.key
+          SERVER_NAME=server.operator.prometheus
+
+          openssl genrsa -out ca.key 4096
+          openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 \
+            -subj "/CN=operator.prometheus" -out ${CA_CERT}
+
+          openssl genrsa -out tls.key 2048
+          openssl req -new -key tls.key -subj "/CN=${SERVER_NAME}" -out server.csr
+
+          openssl x509 -req -in server.csr -CA ${CA_CERT} -CAkey ca.key -CAcreateserial \
+            -out tls.crt -days 365 -sha256
+
+          openssl genrsa -out ${CLIENT_KEY} 2048
+          openssl req -new -key ${CLIENT_KEY} -subj "/CN=client.operator.prometheus" -out client.csr
+
+          openssl x509 -req -in client.csr -CA ${CA_CERT} -CAkey ca.key -CAcreateserial \
+            -out ${CLIENT_CERT} -days 365 -sha256
+
+          OPERATOR_PROMETHEUS_TLS_SECRET_NAME=operator-prometheus-tls-secret
+          kubectl -n kube-system create secret generic ${OPERATOR_PROMETHEUS_TLS_SECRET_NAME} \
+            --from-file=ca.crt=${CA_CERT} \
+            --from-file=tls.crt=tls.crt \
+            --from-file=tls.key=tls.key \
+            --from-file=${CLIENT_CERT}=${CLIENT_CERT} \
+            --from-file=${CLIENT_KEY}=${CLIENT_KEY}
+
+          echo operator_prometheus_tls_secret_name=${OPERATOR_PROMETHEUS_TLS_SECRET_NAME} >> $GITHUB_OUTPUT
+          echo server_name=${SERVER_NAME} >> $GITHUB_OUTPUT
+
       - name: Set up install variables
         id: vars
         run: |
@@ -139,6 +174,9 @@ jobs:
              --helm-set hubble.relay.enabled=true \
              --helm-set prometheus.enabled=true \
              --helm-set operator.prometheus.enabled=true \
+             --helm-set operator.prometheus.tls.enabled=true \
+             --helm-set operator.prometheus.tls.server.existingSecret=${{ steps.gen_certs.outputs.operator_prometheus_tls_secret_name }} \
+             --helm-set operator.prometheus.tls.server.mtls.enabled=true \
              --helm-set hubble.enabled=true \
              --helm-set=hubble.metrics.enabled=\"{dns,drop,tcp,flow,port-distribution,icmp,http}\" \
              --helm-set ingressController.enabled=true"
@@ -176,8 +214,28 @@ jobs:
           cilium_pod_ip=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].status.podIP}' )
           curl http://${cilium_pod_ip}:9962/metrics > metrics-agent.prom
 
+          kubectl get secret ${{ steps.gen_certs.outputs.operator_prometheus_tls_secret_name }} \
+            -n kube-system \
+            -o jsonpath='{.data.client\.crt}' \
+            | base64 -d > client.crt
+
+          kubectl get secret ${{ steps.gen_certs.outputs.operator_prometheus_tls_secret_name }} \
+            -n kube-system \
+            -o jsonpath='{.data.client\.key}' \
+            | base64 -d > client.key
+
+          kubectl get secret ${{ steps.gen_certs.outputs.operator_prometheus_tls_secret_name }} \
+            -n kube-system \
+            -o jsonpath='{.data.ca\.crt}' \
+            | base64 -d > ca.crt
+
           operator_ip=$(kubectl get pods -n kube-system -l io.cilium/app=operator -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}')
-          curl http://${operator_ip}:9963/metrics > metrics-operator.prom
+          curl --retry 5 \
+            --cert client.crt \
+            --key client.key \
+            --cacert ca.crt \
+            --resolve ${{ steps.gen_certs.outputs.server_name }}:9963:${operator_ip} \
+            https://${{ steps.gen_certs.outputs.server_name }}:9963/metrics > metrics-operator.prom
           # Install promtool binary release. `go install` doesn't work due to
           # https://github.com/prometheus/prometheus/issues/8852 and related issues.
           curl -sSL --remote-name-all https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/{prometheus-${PROM_VERSION}.linux-amd64.tar.gz,sha256sums.txt}
