@@ -414,9 +414,6 @@ const (
 	// to disable transparent mode even if IPSec is enabled
 	DNSProxyInsecureSkipTransparentModeCheck = "dnsproxy-insecure-skip-transparent-mode-check"
 
-	// MTUName is the name of the MTU option
-	MTUName = "mtu"
-
 	// RouteMetric is the name of the route-metric option
 	RouteMetric = "route-metric"
 
@@ -2525,7 +2522,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
-	c.MTU = vp.GetInt(MTUName)
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.ProcFs = vp.GetString(ProcFs)
 	c.RestoreState = vp.GetBool(Restore)
