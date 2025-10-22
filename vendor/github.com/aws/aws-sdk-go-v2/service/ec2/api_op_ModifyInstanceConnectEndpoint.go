@@ -50,13 +50,19 @@ type ModifyInstanceConnectEndpointInput struct {
 	// use PreserveClientIp , the value for IpAddressType must be ipv4 .
 	IpAddressType types.IpAddressType
 
-	// Indicates whether the client IP address is preserved as the source when you
-	// connect to a resource. The following are the possible values.
+	// Indicates whether the client IP address is preserved as the source. The
+	// following are the possible values.
 	//
-	//   - true - Use the IP address of the client. Your instance must have an IPv4
-	//   address.
+	//   - true - Use the client IP address as the source.
 	//
-	//   - false - Use the IP address of the network interface.
+	//   - false - Use the network interface IP address as the source.
+	//
+	// PreserveClientIp=true is only supported on IPv4 EC2 Instance Connect Endpoints.
+	// If modifying PreserveClientIp to true , either the endpoint's existing
+	// IpAddressType must be ipv4 , or if modifying IpAddressType in the same request,
+	// the new value must be ipv4 .
+	//
+	// Default: false
 	PreserveClientIp *bool
 
 	// Changes the security groups for the EC2 Instance Connect Endpoint. The new set
@@ -70,7 +76,8 @@ type ModifyInstanceConnectEndpointInput struct {
 
 type ModifyInstanceConnectEndpointOutput struct {
 
-	// Is true if the request succeeds and an error otherwise.
+	// The return value of the request. Returns true if the specified product code is
+	// owned by the requester and associated with the specified instance.
 	Return *bool
 
 	// Metadata pertaining to the operation's result.

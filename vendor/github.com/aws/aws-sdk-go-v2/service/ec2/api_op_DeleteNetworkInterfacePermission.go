@@ -53,7 +53,7 @@ type DeleteNetworkInterfacePermissionInput struct {
 // Contains the output for DeleteNetworkInterfacePermission.
 type DeleteNetworkInterfacePermissionOutput struct {
 
-	// Is true if the request succeeds and an error otherwise.
+	// Returns true if the request succeeds, otherwise returns an error.
 	Return *bool
 
 	// Metadata pertaining to the operation's result.
