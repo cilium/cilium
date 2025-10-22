@@ -56,6 +56,7 @@
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 #include "lib/vtep.h"
+#include "lib/tailcall_buffer.h"
 
 /* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
  * Most services with L7 LB flag can not be redirected to their proxy port
@@ -429,12 +430,6 @@ int NAME(struct __ctx_buff *ctx)						\
 	return ret;								\
 }
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer6);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer6 __section_maps_btf;
 
 #ifdef ENABLE_IPV6
 /* Handle egress IPv6 traffic from a container after service translation has been done
@@ -868,12 +863,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV6 */
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer4);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer4 __section_maps_btf;
 
 #ifdef ENABLE_IPV4
 /* Handle egress IPv4 traffic from a container after service translation has been done
