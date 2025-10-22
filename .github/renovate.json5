@@ -292,6 +292,22 @@
         "docker.io/library/golang"
       ],
     },
+    // Do not allow any updates for major.minor on stable release branches to avoid churn from linters.
+    {
+      enabled: false,
+      matchPackageNames: [
+        'quay.io/goswagger/swagger',
+      ],
+      matchBaseBranches: [
+        "v1.18",
+        "v1.17",
+        "v1.16",
+      ],
+      matchUpdateTypes: [
+        'major',
+        'minor',
+      ],
+    },
     {
       // Do not allow any major and minor updates into stable branches.
       "enabled": false,
