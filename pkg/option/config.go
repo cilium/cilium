@@ -420,18 +420,8 @@ const (
 	// DatapathMode is the name of the DatapathMode option
 	DatapathMode = "datapath-mode"
 
-	// EnableSocketLB is the name for the option to enable the socket LB
-	EnableSocketLB = "bpf-lb-sock"
-
 	// EnableSocketLBTracing is the name for the option to enable the socket LB tracing
 	EnableSocketLBTracing = "trace-sock"
-
-	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
-	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
-
-	// EnableSocketLBPodConnectionTermination enables termination of pod connections
-	// to deleted service backends when socket-LB is enabled.
-	EnableSocketLBPodConnectionTermination = "bpf-lb-sock-terminate-pod-connections"
 
 	// RoutingMode is the name of the option to choose between native routing and tunneling mode
 	RoutingMode = "routing-mode"
@@ -1374,7 +1364,6 @@ type DaemonConfig struct {
 	// CLI options
 
 	BPFRoot                       string
-	BPFSocketLBHostnsOnly         bool
 	CGroupRoot                    string
 	BPFCompileDebug               string
 	ConfigFile                    string
@@ -1853,10 +1842,6 @@ type DaemonConfig struct {
 	// NodeLabels is the list of label prefixes used to determine identity of a node (requires enabling of
 	// EnableNodeSelectorLabels)
 	NodeLabels []string
-
-	// EnableSocketLBPodConnectionTermination enables the termination of connections from pods
-	// to deleted service backends when socket-LB is enabled
-	EnableSocketLBPodConnectionTermination bool
 
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies bool
@@ -2461,9 +2446,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableTCX = vp.GetBool(EnableTCX)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
-	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
-	c.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
 	c.DirectRoutingSkipUnreachable = vp.GetBool(DirectRoutingSkipUnreachableName)
