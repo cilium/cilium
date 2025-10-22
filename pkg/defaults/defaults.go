@@ -249,10 +249,6 @@ const (
 	// EnableEndpointHealthChecking
 	EnableEndpointHealthChecking = true
 
-	// EnableHealthCheckLoadBalancerIP is the default value for
-	// EnableHealthCheckLoadBalancerIP
-	EnableHealthCheckLoadBalancerIP = false
-
 	// HealthCheckICMPFailureThreshold is the default value for HealthCheckICMPFailureThreshold
 	HealthCheckICMPFailureThreshold = 3
 
