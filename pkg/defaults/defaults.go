@@ -480,6 +480,9 @@ const (
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy = true
 
+	// EnableK8sClusterNetworkPolicy enables support for K8s ClusterNetworkPolicy.
+	EnableK8sClusterNetworkPolicy = false
+
 	// EnableCiliumNetworkPolicy enables support for Cilium Network Policy.
 	EnableCiliumNetworkPolicy = true
 
