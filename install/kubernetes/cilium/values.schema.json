@@ -4150,6 +4150,14 @@
       },
       "type": "object"
     },
+    "k8sClusterNetworkPolicy": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "k8sNetworkPolicy": {
       "properties": {
         "enabled": {
