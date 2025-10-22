@@ -209,6 +209,9 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.AlgorithmAnnotation != other.AlgorithmAnnotation {
 		return false
 	}
+	if in.EnableHealthCheckLoadBalancerIP != other.EnableHealthCheckLoadBalancerIP {
+		return false
+	}
 	if in.EnableHealthCheckNodePort != other.EnableHealthCheckNodePort {
 		return false
 	}
