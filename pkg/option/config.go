@@ -999,6 +999,9 @@ const (
 
 	// IPTracingOptionType specifies what IPv4 option type should be used to extract trace information from a packet
 	IPTracingOptionType = "ip-tracing-option-type"
+
+	// EnableCiliumNodeCRD is the name of the option to enable use of the CiliumNode CRD
+	EnableCiliumNodeCRDName = "enable-ciliumnode-crd"
 )
 
 // Default string arguments
@@ -1899,6 +1902,9 @@ type DaemonConfig struct {
 
 	// IPTracingOptionType determines whether to enable IP tracing, and if enabled what option type to use.
 	IPTracingOptionType uint
+
+	// EnableCiliumNodeCRD enables the use of CiliumNode CRD
+	EnableCiliumNodeCRD bool
 }
 
 var (
@@ -1958,6 +1964,8 @@ var (
 		ConnectivityProbeFrequencyRatio: defaults.ConnectivityProbeFrequencyRatio,
 
 		IPTracingOptionType: defaults.IPTracingOptionType,
+
+		EnableCiliumNodeCRD: defaults.EnableCiliumNodeCRD,
 	}
 )
 
@@ -2928,6 +2936,31 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 			logfields.Ratio, connectivityFreqRatio,
 		)
 		c.ConnectivityProbeFrequencyRatio = defaults.ConnectivityProbeFrequencyRatio
+	}
+}
+
+func (c *DaemonConfig) PopulateEnableCiliumNodeCRD(logger *slog.Logger, vp *viper.Viper) {
+	c.EnableCiliumNodeCRD = vp.GetBool(EnableCiliumNodeCRDName)
+	if !c.EnableCiliumNodeCRD && c.IPAMMode() != ipamOption.IPAMDelegatedPlugin {
+		logger.Warn(
+			fmt.Sprintf("Running Cilium with %s=%t requires using delegated plugin IPAM. Changing %s to %t.",
+				EnableCiliumNodeCRDName, c.EnableCiliumNodeCRD, EnableCiliumNodeCRDName, true),
+		)
+		c.EnableCiliumNodeCRD = true
+	}
+	if !c.EnableCiliumNodeCRD && c.IdentityAllocationMode != IdentityAllocationModeCRD {
+		logger.Warn(
+			fmt.Sprintf("Running Cilium with %s=%t requires identity allocation via CRDs. Changing %s to %t.",
+				EnableCiliumNodeCRDName, c.EnableCiliumNodeCRD, EnableCiliumNodeCRDName, true),
+		)
+		c.EnableCiliumNodeCRD = true
+	}
+	if !c.EnableCiliumNodeCRD && c.HealthCheckingEnabled() {
+		logger.Warn(
+			fmt.Sprintf("Running Cilium with %s=%t requires health checking to be disabled. Changing %s to %t.",
+				EnableCiliumNodeCRDName, c.EnableCiliumNodeCRD, EnableHealthChecking, false),
+		)
+		c.EnableHealthChecking = false
 	}
 }
 

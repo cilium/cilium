@@ -845,6 +845,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Uint8(option.IPTracingOptionType, 0, "Specifies what IPv4 option type should be used to extract trace information from a packet; a value of 0 (default) disables IP tracing.")
 	option.BindEnv(vp, option.IPTracingOptionType)
 
+	flags.Bool(option.EnableCiliumNodeCRDName, defaults.EnableCiliumNodeCRD, "Enable use of CiliumNode CRD")
+	flags.MarkHidden(option.EnableCiliumNodeCRDName)
+	option.BindEnv(vp, option.EnableCiliumNodeCRDName)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
 	}
@@ -887,6 +891,8 @@ func initDaemonConfigAndLogging(vp *viper.Viper) {
 
 	// slogloggercheck: using default logger for configuration initialization
 	option.Config.Populate(logging.DefaultSlogLogger, vp)
+	// slogloggercheck: using default logger for configuration initialization
+	option.Config.PopulateEnableCiliumNodeCRD(logging.DefaultSlogLogger, vp)
 
 	// add hooks after setting up metrics in the option.Config
 	logging.AddHandlers(metrics.NewLoggingHook())
