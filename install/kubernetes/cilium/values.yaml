@@ -1234,6 +1234,9 @@ endpointRoutes:
 k8sNetworkPolicy:
   # -- Enable support for K8s NetworkPolicy
   enabled: true
+k8sClusterNetworkPolicy:
+  # -- Enable support for K8s Cluster Network Policy
+  enabled: false
 # -- Enable endpoint lockdown on policy map overflow.
 endpointLockdownOnMapOverflow: false
 eni:
