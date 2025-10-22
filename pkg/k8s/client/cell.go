@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/connrotation"
 	mcsapi_clientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	policy_clientset "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned"
 
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
@@ -76,6 +77,7 @@ type (
 	SlimClientset       = slim_clientset.Clientset
 	APIExtClientset     = slim_apiext_clientset.Clientset
 	CiliumClientset     = cilium_clientset.Clientset
+	PolicyClientset     = policy_clientset.Clientset
 )
 
 // Clientset is a composition of the different client sets used by Cilium.
@@ -84,6 +86,7 @@ type Clientset interface {
 	kubernetes.Interface
 	apiext_clientset.Interface
 	cilium_clientset.Interface
+	policy_clientset.Interface
 	Getters
 
 	// Slim returns the slim client, which contains some of the same APIs as the
@@ -108,6 +111,7 @@ type compositeClientset struct {
 	*KubernetesClientset
 	*APIExtClientset
 	*CiliumClientset
+	*PolicyClientset
 	ClientsetGetters
 
 	controller        *controller.Manager
@@ -194,6 +198,11 @@ func newClientsetForUserAgent(params compositeClientsetParams, name string) (Cli
 	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(rc, httpClient)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create k8s client: %w", err)
+	}
+
+	client.PolicyClientset, err = policy_clientset.NewForConfigAndClient(rc, httpClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create policy k8s client: %w", err)
 	}
 
 	client.ClientsetGetters = ClientsetGetters{&client}

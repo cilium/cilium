@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity/key"
@@ -201,6 +202,17 @@ func NetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.
 		opts...,
 	)
 	return resource.New[*slim_networkingv1.NetworkPolicy](lc, lw, mp, resource.WithMetric("NetworkPolicy")), nil
+}
+
+func ClusterNetworkPolicyResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*policyv1alpha2.ClusterNetworkPolicy], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*policyv1alpha2.ClusterNetworkPolicyList](cs.PolicyV1alpha2().ClusterNetworkPolicies()),
+		opts...,
+	)
+	return resource.New[*policyv1alpha2.ClusterNetworkPolicy](lc, lw, mp, resource.WithMetric("ClusterNetworkPolicy")), nil
 }
 
 func CiliumNetworkPolicyResource(params CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {
