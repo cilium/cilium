@@ -6,10 +6,7 @@ package eventsmap
 import (
 	"fmt"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -37,16 +34,4 @@ func (v *Value) New() bpf.MapValue { return &Value{} }
 
 type eventsMap struct {
 	m *bpf.Map
-}
-
-// init creates the events map in the kernel.
-func (e *eventsMap) init(maxEntries int) error {
-	e.m = bpf.NewMapDeprecated(MapName,
-		ebpf.PerfEventArray,
-		&Key{},
-		&Value{},
-		maxEntries,
-		0).
-		WithEvents(option.Config.GetEventBufferConfig(MapName))
-	return e.m.Create()
 }

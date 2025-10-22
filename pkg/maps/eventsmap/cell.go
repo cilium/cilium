@@ -10,6 +10,8 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/registry"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell provides eventsmap.Map, which is the hive representation of the cilium
@@ -27,20 +29,32 @@ var (
 
 type Map any
 
-func newEventsMap(lifecycle cell.Lifecycle) bpf.MapOut[Map] {
+func newEventsMap(lifecycle cell.Lifecycle, mapSpecRegistry *registry.MapSpecRegistry) (bpf.MapOut[Map], error) {
 	eventsMap := &eventsMap{}
+
+	cpus, err := ebpf.PossibleCPU()
+	if err != nil {
+		return bpf.MapOut[Map]{}, fmt.Errorf("failed to get number of possible CPUs: %w", err)
+	}
+
+	err = mapSpecRegistry.ModifyMapSpec(MapName, func(ms *ebpf.MapSpec) error {
+		ms.MaxEntries = uint32(cpus)
+		return nil
+	})
+	if err != nil {
+		return bpf.MapOut[Map]{}, fmt.Errorf("failed to modify events map spec: %w", err)
+	}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
-			cpus, err := ebpf.PossibleCPU()
+			spec, err := mapSpecRegistry.Get(MapName)
 			if err != nil {
-				return fmt.Errorf("failed to get number of possible CPUs: %w", err)
+				return fmt.Errorf("failed to get events map spec: %w", err)
 			}
-			err = eventsMap.init(cpus)
-			if err != nil {
-				return fmt.Errorf("initializing events map: %w", err)
-			}
-			return nil
+
+			eventsMap.m = bpf.NewMap(spec, &Key{}, &Value{}).
+				WithEvents(option.Config.GetEventBufferConfig(MapName))
+			return eventsMap.m.Create()
 		},
 		OnStop: func(context cell.HookContext) error {
 			// We don't currently care for cleaning up.
@@ -48,5 +62,5 @@ func newEventsMap(lifecycle cell.Lifecycle) bpf.MapOut[Map] {
 		},
 	})
 
-	return bpf.NewMapOut(Map(eventsMap))
+	return bpf.NewMapOut(Map(eventsMap)), nil
 }
