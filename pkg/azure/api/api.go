@@ -68,12 +68,6 @@ func (t *httpClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func newTokenCredential(clientOptions *azcore.ClientOptions, userAssignedIdentityID string) (azcore.TokenCredential, error) {
-	if userAssignedIdentityID != "" {
-		return azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
-			ClientOptions: *clientOptions,
-			ID:            azidentity.ClientID(userAssignedIdentityID),
-		})
-	}
 	return azidentity.NewDefaultAzureCredential(&azidentity.DefaultAzureCredentialOptions{
 		ClientOptions: *clientOptions,
 	})
