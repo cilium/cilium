@@ -272,9 +272,10 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ env.job_name }}"
           job_status: "${{ job.status }}"
           junits-directory: 'report'
+          always_capture_sysdump: true
+          artifacts_suffix: "final"
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
