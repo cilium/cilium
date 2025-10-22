@@ -167,6 +167,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	})
 
 	// Env bindings
+
+	hive.RegisterFlags(vp, flags)
+
 	flags.Int(option.AgentHealthPort, defaults.AgentHealthPort, "TCP port for agent health status API")
 	option.BindEnv(vp, option.AgentHealthPort)
 
