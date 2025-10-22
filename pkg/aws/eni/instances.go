@@ -219,11 +219,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		m.logger.Warn("Unable to retrieve EC2 security group list", logfields.Error, err)
 		return time.Time{}
 	}
-	routeTables, err := m.api.GetRouteTables(ctx)
-	if err != nil {
-		m.logger.Warn("Unable to retrieve EC2 route table list", logfields.Error, err)
-		return time.Time{}
-	}
+	routeTables := ipamTypes.RouteTableMap{}
 
 	// An empty instanceID indicates that this is full resync, ENIs from all instances
 	// will be refetched from EC2 API and updated to the local cache. Otherwise only
