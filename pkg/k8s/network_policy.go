@@ -74,6 +74,40 @@ func isPodSelectorSelectingCluster(podSelector *slim_metav1.LabelSelector) bool 
 	return false
 }
 
+func processNamespaceSelector(ns *slim_metav1.LabelSelector) *slim_metav1.LabelSelector {
+	namespaceSelector := &slim_metav1.LabelSelector{
+		MatchLabels: make(map[string]string, len(ns.MatchLabels)),
+	}
+	// We use our own special label prefix for namespace metadata,
+	// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+	for k, v := range ns.MatchLabels {
+		namespaceSelector.MatchLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
+	}
+
+	// We use our own special label prefix for namespace metadata,
+	// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
+	for _, matchExp := range ns.MatchExpressions {
+		lsr := slim_metav1.LabelSelectorRequirement{
+			Key:      policy.JoinPath(k8sConst.PodNamespaceMetaLabels, matchExp.Key),
+			Operator: matchExp.Operator,
+		}
+		if matchExp.Values != nil {
+			lsr.Values = make([]string, len(matchExp.Values))
+			copy(lsr.Values, matchExp.Values)
+		}
+		namespaceSelector.MatchExpressions =
+			append(namespaceSelector.MatchExpressions, lsr)
+	}
+
+	// Empty namespace selector selects all namespaces (i.e., a namespace
+	// label exists).
+	if len(namespaceSelector.MatchLabels) == 0 && len(namespaceSelector.MatchExpressions) == 0 {
+		namespaceSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
+	}
+
+	return namespaceSelector
+}
+
 func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networkingv1.NetworkPolicyPeer) types.Selector {
 	if peer == nil {
 		return nil
@@ -95,36 +129,7 @@ func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networking
 	}
 
 	if peer.NamespaceSelector != nil {
-		namespaceSelector := &slim_metav1.LabelSelector{
-			MatchLabels: make(map[string]string, len(peer.NamespaceSelector.MatchLabels)),
-		}
-		// We use our own special label prefix for namespace metadata,
-		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
-		for k, v := range peer.NamespaceSelector.MatchLabels {
-			namespaceSelector.MatchLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
-		}
-
-		// We use our own special label prefix for namespace metadata,
-		// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
-		for _, matchExp := range peer.NamespaceSelector.MatchExpressions {
-			lsr := slim_metav1.LabelSelectorRequirement{
-				Key:      policy.JoinPath(k8sConst.PodNamespaceMetaLabels, matchExp.Key),
-				Operator: matchExp.Operator,
-			}
-			if matchExp.Values != nil {
-				lsr.Values = make([]string, len(matchExp.Values))
-				copy(lsr.Values, matchExp.Values)
-			}
-			namespaceSelector.MatchExpressions =
-				append(namespaceSelector.MatchExpressions, lsr)
-		}
-
-		// Empty namespace selector selects all namespaces (i.e., a namespace
-		// label exists).
-		if len(namespaceSelector.MatchLabels) == 0 && len(namespaceSelector.MatchExpressions) == 0 {
-			namespaceSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
-		}
-
+		namespaceSelector := processNamespaceSelector(peer.NamespaceSelector)
 		es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, namespaceSelector, podSelector)
 		return types.NewLabelSelector(es)
 	} else if podSelector != nil {
