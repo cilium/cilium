@@ -848,6 +848,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Uint8(option.IPTracingOptionType, 0, "Specifies what IPv4 option type should be used to extract trace information from a packet; a value of 0 (default) disables IP tracing.")
 	option.BindEnv(vp, option.IPTracingOptionType)
 
+	flags.Bool(option.EnableCiliumNodeCRDName, true, "Enable use of CiliumNode CRD")
+	flags.MarkHidden(option.EnableCiliumNodeCRDName)
+	option.BindEnv(vp, option.EnableCiliumNodeCRDName)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
 	}
