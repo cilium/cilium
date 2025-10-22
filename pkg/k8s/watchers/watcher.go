@@ -256,6 +256,8 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 type WatcherConfiguration interface {
 	// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy
 	K8sNetworkPolicyEnabled() bool
+	// K8sClusterNetworkPolicyEnabled returns true if cilium agent needs to support K8s ClusterNetworkPolicy
+	K8sClusterNetworkPolicyEnabled() bool
 }
 
 // enableK8sWatchers starts watchers for given resources.
