@@ -116,10 +116,7 @@ func (h *LoggingHook) Handle(ctx context.Context, record slog.Record) error {
 			panic(fmt.Sprintf("more than one subsys found in %s", record.Message))
 		}
 	}
-	if !logSysPresent {
-		return fmt.Errorf("log entry doesn't contain 'subsys' field: %s", record.Message)
-	}
-	if logSysValue.Kind() != slog.KindString {
+	if logSysPresent && logSysValue.Kind() != slog.KindString {
 		return fmt.Errorf("type of the 'subsystem' log entry field is not string but %s", logSysValue)
 	}
 
@@ -132,7 +129,11 @@ func (h *LoggingHook) Handle(ctx context.Context, record slog.Record) error {
 	}
 
 	// Increment the metric.
-	ErrorsWarnings.WithLabelValues(record.Level.String(), logSysValue.String()).Inc()
+	if logSysPresent {
+		ErrorsWarnings.WithLabelValues(record.Level.String(), logSysValue.String()).Inc()
+	} else {
+		ErrorsWarnings.WithLabelValues(record.Level.String(), "unspecified").Inc()
+	}
 
 	return nil
 }
