@@ -551,6 +551,9 @@ const (
 
 	// IPTracingOptionType is the default value for option.IPTracingOptionType
 	IPTracingOptionType = 0
+
+	// EnableCiliumNodeCRD is the default value for option.EnableCiliumNodeCRD
+	EnableCiliumNodeCRD = true
 )
 
 var (

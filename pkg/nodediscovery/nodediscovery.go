@@ -82,6 +82,11 @@ func NewNodeDiscovery(
 	cniConfigManager cni.CNIConfigManager,
 	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
 ) *NodeDiscovery {
+	if !option.Config.EnableCiliumNodeCRD {
+		logger.Info("CiliumNode CRD is disabled; skipping CiliumNode resource management")
+		return &NodeDiscovery{}
+	}
+
 	return &NodeDiscovery{
 		logger:           logger,
 		Manager:          manager,
@@ -158,6 +163,10 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 // WaitForKVStoreSync blocks until kvstore synchronization of node information
 // completed. It returns immediately in CRD mode.
 func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
+	if !option.Config.EnableCiliumNodeCRD { // Do not block if CiliumNode CRD is disabled
+		return nil
+	}
+
 	select {
 	case <-n.Registered:
 		return nil

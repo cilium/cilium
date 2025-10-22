@@ -421,6 +421,7 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	option.Config.SetupLogging(vp, binaryName)
 	// Populate the global config with the options from Viper
 	option.Config.Populate(logger, vp)
+	option.Config.PopulateEnableCiliumNodeCRD(logger, vp)
 
 	// Populate the operator config with the options from Viper
 	operatorOption.Config.Populate(logger, vp)
