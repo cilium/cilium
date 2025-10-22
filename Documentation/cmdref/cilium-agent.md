@@ -209,6 +209,9 @@ cilium-agent [flags]
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
       --health-check-icmp-failure-threshold int                   Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy. (default 3)
   -h, --help                                                      help for cilium-agent
+      --hive-log-threshold duration                               Time limit after which a slow hook is logged at Info level (default 100ms)
+      --hive-start-timeout duration                               Maximum time to wait for startup hooks to complete before timing out (default 5m0s)
+      --hive-stop-timeout duration                                Maximum time to wait for stop hooks to complete before timing out (default 1m0s)
       --http-idle-timeout uint                                    Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
       --http-max-grpc-timeout uint                                Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A "grpc-timeout" header may override this with a shorter value; defaults to 0 (unlimited)
       --http-normalize-path                                       Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution. (default true)
