@@ -203,6 +203,12 @@ jobs:
           fi
           echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
 
+      - name: Resolve full kernel version
+        id: kernel-version
+        uses: ./.github/actions/resolve-kernel-version
+        with:
+          kernel: ${{ matrix.kernel }}
+
       - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
@@ -275,7 +281,7 @@ jobs:
         uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
-          kernel: ${{ matrix.kernel }}
+          kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 

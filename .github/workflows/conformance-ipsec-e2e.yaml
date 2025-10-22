@@ -167,6 +167,12 @@ jobs:
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
+      - name: Resolve full kernel version
+        id: kernel-version
+        uses: ./.github/actions/resolve-kernel-version
+        with:
+          kernel: ${{ matrix.kernel }}
+
       - name: Derive Cilium installation config and junit type
         id: cilium-config
         uses: ./.github/actions/cilium-config
@@ -208,7 +214,7 @@ jobs:
         uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
-          kernel: ${{ matrix.kernel }}
+          kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
