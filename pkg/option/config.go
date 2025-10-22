@@ -944,6 +944,9 @@ const (
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy = "enable-k8s-networkpolicy"
 
+	// EnableK8sClusterNetworkPolicy enables support for K8s ClusterNetworkPolicy.
+	EnableK8sClusterNetworkPolicy = "enable-k8s-cluster-network-policy"
+
 	// EnableCiliumNetworkPolicy enables support for Cilium Network Policy.
 	EnableCiliumNetworkPolicy = "enable-cilium-network-policy"
 
@@ -1782,6 +1785,9 @@ type DaemonConfig struct {
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy bool
 
+	// EnableK8sClusterNetworkPolicy enables support for K8s ClusterNetworkPolicy.
+	EnableK8sClusterNetworkPolicy bool
+
 	// EnableCiliumNetworkPolicy enables support for Cilium Network Policy.
 	EnableCiliumNetworkPolicy bool
 
@@ -1877,6 +1883,7 @@ var (
 		EnableVTEP:                           defaults.EnableVTEP,
 		EnableBGPControlPlane:                defaults.EnableBGPControlPlane,
 		EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
+		EnableK8sClusterNetworkPolicy:        defaults.EnableK8sClusterNetworkPolicy,
 		EnableCiliumNetworkPolicy:            defaults.EnableCiliumNetworkPolicy,
 		EnableCiliumClusterwideNetworkPolicy: defaults.EnableCiliumClusterwideNetworkPolicy,
 		PolicyCIDRMatchMode:                  defaults.PolicyCIDRMatchMode,
@@ -2075,6 +2082,11 @@ func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
 // K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy, false otherwise.
 func (c *DaemonConfig) K8sNetworkPolicyEnabled() bool {
 	return c.EnableK8sNetworkPolicy
+}
+
+// K8sClusterNetworkPolicyEnabled returns true if cilium agent needs to support K8s ClusterNetworkPolicy, false otherwise.
+func (c *DaemonConfig) K8sClusterNetworkPolicyEnabled() bool {
+	return c.EnableK8sClusterNetworkPolicy
 }
 
 func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
@@ -2744,6 +2756,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
+	c.EnableK8sClusterNetworkPolicy = vp.GetBool(EnableK8sClusterNetworkPolicy)
 	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
 	c.EnableNodeSelectorLabels = vp.GetBool(EnableNodeSelectorLabels)
 	c.NodeLabels = vp.GetStringSlice(NodeLabels)
