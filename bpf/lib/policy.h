@@ -19,7 +19,7 @@ struct {
 	__type(key, struct policy_stats_key);
 	__type(value, struct policy_stats_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, POLICY_STATS_MAP_SIZE);
+	__uint(max_entries, 200);
 	__uint(map_flags, BPF_F_NO_COMMON_LRU);
 } cilium_policystats __section_maps_btf;
 
@@ -72,7 +72,7 @@ struct {
 	__type(key, struct policy_key);
 	__type(value, struct policy_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, POLICY_MAP_SIZE);
+	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_policy_v2 __section_maps_btf;
 

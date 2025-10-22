@@ -252,7 +252,7 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
 		// Rename the policy map to include the host's endpoint id.
-		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapNamePrefix, uint16(ep.GetID())),
 	}
 
 	return cfg, renames
@@ -398,7 +398,7 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
-		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapNamePrefix, uint16(ep.GetID())),
 	}
 
 	return cfg, renames
@@ -484,7 +484,7 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 		// Rename the calls map to include cilium_net's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
 		// Rename the policy map to include the host endpoint's id.
-		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapNamePrefix, uint16(ep.GetID())),
 	}
 
 	return cfg, renames
@@ -647,7 +647,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
-		"cilium_policy_v2": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+		"cilium_policy_v2": bpf.LocalMapName(policymap.MapNamePrefix, uint16(ep.GetID())),
 	}
 
 	return cfg, renames

@@ -10,11 +10,10 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
@@ -30,10 +29,13 @@ const (
 	// enforcement programs.
 	PolicyEgressCallMapName = "cilium_egresscall_policy"
 
-	// MapName is the prefix for endpoint-specific policy maps which map
+	// MapName is the name of the map as found in the datapath.
+	MapName = "cilium_policy_v2"
+
+	// MapNamePrefix is the prefix for endpoint-specific policy maps which map
 	// identity+ports+direction to whether the policy allows communication
 	// with that identity on that port for that direction.
-	MapName = "cilium_policy_v2_"
+	MapNamePrefix = MapName + "_"
 
 	// PolicyCallMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy
@@ -431,20 +433,17 @@ func parseEndpointID(mapPath string) (uint16, error) {
 	return 0, fmt.Errorf("malformed policy map name %q (missing '_')", mapPath)
 }
 
-func newPolicyMap(logger *slog.Logger, id uint16, maxEntries int, stats *StatsMap) (*PolicyMap, error) {
-	path := bpf.LocalMapPath(logger, MapName, id)
-	mapType := ebpf.LPMTrie
-	flags := bpf.GetMapMemoryFlags(mapType)
+func newPolicyMap(logger *slog.Logger, mapSpecRegistry *registry.MapSpecRegistry, id uint16, stats *StatsMap) (*PolicyMap, error) {
+	spec, err := mapSpecRegistry.Get(MapName)
+	if err != nil {
+		return nil, err
+	}
+
+	spec = spec.Copy()
+	spec.Name = bpf.LocalMapName(MapNamePrefix, id)
 
 	return &PolicyMap{
-		Map: bpf.NewMapDeprecated(
-			path,
-			mapType,
-			&PolicyKey{},
-			&PolicyEntry{},
-			maxEntries,
-			flags,
-		).WithGroupName("endpoint_policy"),
+		Map:   bpf.NewMap(spec, &PolicyKey{}, &PolicyEntry{}).WithGroupName("endpoint_policy"),
 		stats: stats,
 		epID:  id,
 	}, nil
@@ -477,24 +476,20 @@ func OpenPolicyMap(logger *slog.Logger, path string) (*PolicyMap, error) {
 }
 
 // initCallMap creates the policy call maps in the kernel.
-func initCallMaps() error {
-	policyCallMap := bpf.NewMapDeprecated(PolicyCallMapName,
-		ebpf.ProgramArray,
-		&CallKey{},
-		&CallValue{},
-		int(PolicyCallMaxEntries),
-		0,
-	)
+func initCallMaps(mapSpecReg *registry.MapSpecRegistry) error {
+	spec, err := mapSpecReg.Get(PolicyCallMapName)
+	if err != nil {
+		return err
+	}
+	policyCallMap := bpf.NewMap(spec, &CallKey{}, &CallValue{})
 	if err := policyCallMap.Create(); err != nil {
 		return err
 	}
 
-	policyEgressCallMap := bpf.NewMapDeprecated(PolicyEgressCallMapName,
-		ebpf.ProgramArray,
-		&CallKey{},
-		&CallValue{},
-		int(PolicyCallMaxEntries),
-		0,
-	)
+	spec, err = mapSpecReg.Get(PolicyEgressCallMapName)
+	if err != nil {
+		return err
+	}
+	policyEgressCallMap := bpf.NewMap(spec, &CallKey{}, &CallValue{})
 	return policyEgressCallMap.Create()
 }

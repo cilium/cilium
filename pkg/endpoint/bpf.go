@@ -135,7 +135,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		e.IPv4.String(),
-		e.getIdentity(), bpf.LocalMapName(policymap.MapName, e.ID),
+		e.getIdentity(), bpf.LocalMapName(policymap.MapNamePrefix, e.ID),
 		e.nodeMAC)
 
 	fw.WriteString("/*\n")
