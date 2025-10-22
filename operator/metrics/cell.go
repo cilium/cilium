@@ -22,6 +22,7 @@ var Cell = cell.Module(
 	"operator-metrics",
 	"Operator Metrics",
 
+	certloaderGroup,
 	cell.Config(defaultConfig),
 	// RegistryConfig implements the config type for the agent Cell,
 	// however the operator has a different flag name for this the
