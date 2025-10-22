@@ -110,11 +110,11 @@ func createPolicyMapFromDaemonConfig(in struct {
 		return
 	}
 
-	if in.EnableIPv4 {
+	if in.EnableIPv4 && in.EnableIPv4Masquerade {
 		out.IPv4Map = bpf.NewMapOut(createPolicyMap4(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName))
 	}
 
-	if in.EnableIPv6 {
+	if in.EnableIPv6 && in.EnableIPv6Masquerade {
 		out.IPv6Map = bpf.NewMapOut(createPolicyMap6(in.Lifecycle, in.MetricsRegistry, in.PolicyConfig, ebpf.PinByName))
 	}
 
