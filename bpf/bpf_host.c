@@ -55,6 +55,7 @@
 #include "lib/wireguard.h"
 #include "lib/l2_responder.h"
 #include "lib/vtep.h"
+#include "lib/tailcall_buffer.h"
 
  #define host_egress_policy_hook(ctx, src_sec_identity, ext_err) CTX_ACT_OK
  #define host_wg_encrypt_hook(ctx, proto, src_sec_identity)			\
@@ -72,19 +73,6 @@ static __always_inline bool allow_vlan(__u32 __maybe_unused ifindex, __u32 __may
 	VLAN_FILTER(ifindex, vlan_id);
 }
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer6);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer6 __section_maps_btf;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, __u32);
-	__type(value, struct ct_buffer4);
-	__uint(max_entries, 1);
-} cilium_tail_call_buffer4 __section_maps_btf;
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
