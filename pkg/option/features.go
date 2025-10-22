@@ -11,6 +11,7 @@ func NetworkPolicyEnabled(cfg *DaemonConfig) bool {
 	return cmp.Or(
 		cfg.EnablePolicy != NeverEnforce,
 		cfg.EnableK8sNetworkPolicy,
+		cfg.EnableK8sClusterNetworkPolicy,
 		cfg.EnableCiliumNetworkPolicy,
 		cfg.EnableCiliumClusterwideNetworkPolicy,
 		!cfg.DisableCiliumEndpointCRD,

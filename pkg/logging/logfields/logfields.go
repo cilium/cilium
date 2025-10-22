@@ -657,6 +657,12 @@ const (
 	// K8sNetworkPolicyName is the name of a K8sPolicyObject
 	K8sNetworkPolicyName = "k8sNetworkPolicyName"
 
+	// K8sClusterNetworkPolicy is a k8s ClusterNetworkPolicy object.
+	K8sClusterNetworkPolicy = "k8sClusterNetworkPolicy"
+
+	// K8sClusterNetworkPolicyName is the name of a K8sPolicyObject
+	K8sClusterNetworkPolicyName = "k8sClusterNetworkPolicyName"
+
 	// K8sIngress is a k8s Ingress service object
 	K8sIngress = "k8sIngress"
 
