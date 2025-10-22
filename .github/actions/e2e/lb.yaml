@@ -1,6 +1,5 @@
 - name: 'lb-1'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20251021.054756'
+  kernel: '5.15'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -12,8 +11,7 @@
   host-fw: 'true'
   ingress-controller: 'true'
 - name: 'lb-2'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.1-20251021.054756'
+  kernel: '6.1'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -26,8 +24,7 @@
   ingress-controller: 'true'
   bgp-control-plane: 'true'
 - name: 'lb-3'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20251021.054756'
+  kernel: '6.12'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -45,8 +42,7 @@
   # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
   # explains why 5.4 might cause north-south-loadbalancing tests to
   # fail.
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '5.15-20251021.054756'
+  kernel: '5.15'
   kube-proxy: 'iptables'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -57,8 +53,7 @@
   lb-acceleration: 'testing-only'
   ingress-controller: 'true'
 - name: 'lb-5'
-  # renovate: datasource=docker depName=quay.io/lvh-images/kind
-  kernel: '6.12-20251021.054756'
+  kernel: '6.12'
   kube-proxy: 'none'
   kpr: 'true'
   devices: '{eth0,eth1}'
@@ -67,4 +62,3 @@
   lb-mode: 'dsr'
   ingress-controller: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
-
