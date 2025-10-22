@@ -7,15 +7,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
-	"strconv"
 	"unsafe"
 
-	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -141,40 +138,30 @@ type srv6VRFMap struct {
 	*bpf.Map
 }
 
-func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4], bpf.MapOut[*VRFMap6], defines.NodeOut) {
-	nodeOut := defines.NodeOut{
-		NodeDefines: defines.Map{
-			"SRV6_VRF_MAP_SIZE": strconv.FormatUint(maxVRFEntries, 10),
-		},
-	}
-
+func newVRFMaps(dc *option.DaemonConfig, mapSpecRegistry *registry.MapSpecRegistry, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4], bpf.MapOut[*VRFMap6]) {
 	if !dc.EnableSRv6 {
-		return bpf.MapOut[*VRFMap4]{}, bpf.MapOut[*VRFMap6]{}, nodeOut
+		return bpf.MapOut[*VRFMap4]{}, bpf.MapOut[*VRFMap6]{}
 	}
 
-	m4 := bpf.NewMapDeprecated(
-		vrfMapName4,
-		ebpf.LPMTrie,
-		&VRFKey4{},
-		&VRFValue{},
-		maxVRFEntries,
-		unix.BPF_F_NO_PREALLOC,
-	)
-
-	m6 := bpf.NewMapDeprecated(
-		vrfMapName6,
-		ebpf.LPMTrie,
-		&VRFKey6{},
-		&VRFValue{},
-		maxVRFEntries,
-		unix.BPF_F_NO_PREALLOC,
-	)
+	m4 := &VRFMap4{}
+	m6 := &VRFMap6{}
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			spec, err := mapSpecRegistry.Get(vrfMapName4)
+			if err != nil {
+				return err
+			}
+			m4.Map = bpf.NewMap(spec, &VRFKey4{}, &VRFValue{})
 			if err := m4.OpenOrCreate(); err != nil {
 				return err
 			}
+
+			spec, err = mapSpecRegistry.Get(vrfMapName6)
+			if err != nil {
+				return err
+			}
+			m6.Map = bpf.NewMap(spec, &VRFKey6{}, &VRFValue{})
 			if err := m6.OpenOrCreate(); err != nil {
 				return err
 			}
@@ -187,7 +174,7 @@ func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4
 		},
 	})
 
-	return bpf.NewMapOut(&VRFMap4{m4}), bpf.NewMapOut(&VRFMap6{m6}), nodeOut
+	return bpf.NewMapOut(m4), bpf.NewMapOut(m6)
 }
 
 // OpenVRFMaps opens the SRv6 VRF maps on bpffs
