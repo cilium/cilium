@@ -81,6 +81,12 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 		}
 	}
 
+	if params.IPsecAgent.Enabled() || params.WGAgent.Enabled() {
+		if !option.Config.EnableCiliumNodeCRD {
+			return fmt.Errorf("CiliumNode CRD cannot be disabled when encryption is enabled with WireGuard (--%s) or IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
+		}
+	}
+
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
 	if params.IPsecAgent.Enabled() &&
@@ -404,7 +410,9 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 	}
 
 	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
-	params.NodeDiscovery.StartDiscovery(ctx)
+	if option.Config.EnableCiliumNodeCRD {
+		params.NodeDiscovery.StartDiscovery(ctx)
+	}
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
