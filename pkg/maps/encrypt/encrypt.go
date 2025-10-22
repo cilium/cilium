@@ -10,7 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -46,27 +46,26 @@ func (v EncryptValue) New() bpf.MapValue { return &EncryptValue{} }
 const (
 	// MapName name of map used to pin map for datapath
 	MapName = "cilium_encrypt_state"
-
-	// MaxEntries represents the maximum number of current encryption contexts
-	MaxEntries = 1
 )
 
 // newMap will construct a bpf.Map that is not open or created yet.
-func newMap(lc cell.Lifecycle, ipsecCfg datapath.IPsecConfig, dc *option.DaemonConfig) *encryptMap {
+func newMap(lc cell.Lifecycle, mapSpecRegistry *registry.MapSpecRegistry, ipsecCfg datapath.IPsecConfig, dc *option.DaemonConfig) *encryptMap {
 	if !ipsecCfg.Enabled() {
 		return &encryptMap{}
 	}
 
-	m := bpf.NewMapDeprecated(MapName,
-		ebpf.Array,
-		&EncryptKey{},
-		&EncryptValue{},
-		MaxEntries,
-		0,
-	).WithCache().WithEvents(dc.GetEventBufferConfig(MapName))
+	m := &encryptMap{}
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			spec, err := mapSpecRegistry.Get(MapName)
+			if err != nil {
+				return fmt.Errorf("Encrypt map spec not found: %w", err)
+			}
+
+			m.Map = bpf.NewMap(spec, &EncryptKey{}, &EncryptValue{}).
+				WithCache().WithEvents(dc.GetEventBufferConfig(MapName))
+
 			if err := m.OpenOrCreate(); err != nil {
 				return fmt.Errorf("Encrypt map create failed: %w", err)
 			}
@@ -78,7 +77,7 @@ func newMap(lc cell.Lifecycle, ipsecCfg datapath.IPsecConfig, dc *option.DaemonC
 		},
 	})
 
-	return &encryptMap{m}
+	return m
 }
 
 func (m *encryptMap) Update(key EncryptKey, value EncryptValue) error {
