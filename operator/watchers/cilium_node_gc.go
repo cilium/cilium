@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -68,13 +69,21 @@ func (c *ciliumNodeGCCandidate) Delete(nodeName string) {
 // RunCiliumNodeGC performs garbage collector for cilium node resource
 func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, ciliumNodes resource.Resource[*cilium_v2.CiliumNode], interval time.Duration, logger *slog.Logger,
 	mp workqueue.MetricsProvider) {
-	nodesInit(wg, clientset.Slim(), ctx.Done(), mp)
+	var candidateStore *ciliumNodeGCCandidate
+	if option.Config.DisableCiliumNodeCRD {
+		interval = 0
+		logger.Info("CiliumNode CRD is disabled, performing one-off garbage collection")
+	} else {
+		nodesInit(wg, clientset.Slim(), ctx.Done(), mp)
 
-	// wait for k8s nodes synced is done
-	select {
-	case <-slimNodeStoreSynced:
-	case <-ctx.Done():
-		return
+		// wait for k8s nodes synced is done
+		select {
+		case <-slimNodeStoreSynced:
+		case <-ctx.Done():
+			return
+		}
+		candidateStore = newCiliumNodeGCCandidate()
+		logger.Info("Starting to garbage collect stale CiliumNode custom resources")
 	}
 
 	ciliumNodeStore, err := ciliumNodes.Store(ctx)
@@ -82,9 +91,6 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 		return
 	}
 
-	logger.InfoContext(ctx, "Starting to garbage collect stale CiliumNode custom resources")
-
-	candidateStore := newCiliumNodeGCCandidate()
 	// create the controller to perform mark and sweep operation for cilium nodes
 	ctrlMgr.UpdateController("cilium-node-gc",
 		controller.ControllerParams{
@@ -114,6 +120,16 @@ func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterfac
 		nodeName := key.Name
 
 		scopedLog := logger.With(logfields.NodeName, nodeName)
+		// If CiliumNode CRD is disabled, delete all CiliumNode objects.
+		if option.Config.DisableCiliumNodeCRD {
+			err := client.Delete(ctx, nodeName, metav1.DeleteOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				scopedLog.ErrorContext(ctx, "Failed to delete CiliumNode", logfields.Error, err)
+				continue
+			}
+			continue
+		}
+
 		_, err := nodeGetter.GetK8sSlimNode(nodeName)
 		if err == nil {
 			scopedLog.DebugContext(ctx, "CiliumNode is valid, no garbage collection required")
