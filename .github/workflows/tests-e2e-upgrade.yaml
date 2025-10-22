@@ -92,7 +92,7 @@ jobs:
           destination_directory="/tmp/generated/e2e"
           mkdir -p "${destination_directory}"
 
-          cat ${work_dir}/* > "${destination_directory}/configs_merged.yaml"
+          cat ${work_dir}/*.yaml > "${destination_directory}/configs_merged.yaml"
 
           yq -o=json "${destination_directory}/configs_merged.yaml" | jq . > "${destination_directory}/configs.json"
 
@@ -182,6 +182,12 @@ jobs:
           CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
           echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
 
+      - name: Resolve full kernel version
+        id: kernel-version
+        uses: ./.github/actions/resolve-kernel-version
+        with:
+          kernel: ${{ matrix.kernel }}
+
       - name: Derive stable Cilium installation config
         if: ${{ matrix.skip-upgrade != 'true' }}
         id: cilium-stable-config
@@ -247,7 +253,7 @@ jobs:
         uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
-          kernel: ${{ matrix.kernel }}
+          kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
