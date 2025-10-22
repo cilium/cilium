@@ -19,7 +19,7 @@ require (
 	github.com/cilium/charts v0.0.0-20251001191925-641dfafd068d
 	github.com/cilium/coverbee v0.3.3-0.20240723084546-664438750fce
 	github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
-	github.com/cilium/ebpf v0.19.1-0.20251016154102-8f23ed69cf93
+	github.com/cilium/ebpf v0.19.1-0.20251013125301-c27ff922fc6a
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
 	github.com/cilium/hive v0.0.0-20251008073947-21f6f6e081b5

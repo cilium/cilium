@@ -523,11 +523,8 @@ func resolveKsymReferences(insns asm.Instructions) error {
 		return nil
 	}
 
-	err := kallsyms.AssignAddresses(symbols)
-	// Tolerate ErrRestrictedKernel during initial lookup, user may have all weak
-	// ksyms and a fallback path.
-	if err != nil && !errors.Is(err, ErrRestrictedKernel) {
-		return fmt.Errorf("resolve ksyms: %w", err)
+	if err := kallsyms.AssignAddresses(symbols); err != nil {
+		return fmt.Errorf("resolve ksym addresses: %w", err)
 	}
 
 	var missing []string
@@ -545,11 +542,6 @@ func resolveKsymReferences(insns asm.Instructions) error {
 	}
 
 	if len(missing) > 0 {
-		if err != nil {
-			// Program contains required ksyms, return the error from above.
-			return fmt.Errorf("resolve required ksyms: %s: %w", strings.Join(missing, ","), err)
-		}
-
 		return fmt.Errorf("kernel is missing symbol: %s", strings.Join(missing, ","))
 	}
 

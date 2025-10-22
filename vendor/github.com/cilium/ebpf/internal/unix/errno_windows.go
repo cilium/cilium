@@ -37,7 +37,6 @@ const (
 	EILSEQ      Errno = 42
 	ENOTSUP     Errno = 129
 	EOPNOTSUPP  Errno = 130
-	EOTHER      Errno = 131
 	ETIMEDOUT   Errno = 138
 	EWOULDBLOCK Errno = 140
 )
