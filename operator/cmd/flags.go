@@ -255,6 +255,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableK8sNetworkPolicy)
 	option.BindEnv(vp, option.EnableK8sNetworkPolicy)
 
+	flags.Bool(option.EnableK8sClusterNetworkPolicy, defaults.EnableK8sClusterNetworkPolicy, "Enable support for K8s ClusterNetworkPolicy")
+	flags.MarkHidden(option.EnableK8sClusterNetworkPolicy)
+	option.BindEnv(vp, option.EnableK8sClusterNetworkPolicy)
+
 	flags.Bool(option.EnableCiliumNetworkPolicy, defaults.EnableCiliumNetworkPolicy, "Enable support for Cilium Network Policy")
 	flags.MarkHidden(option.EnableCiliumNetworkPolicy)
 	option.BindEnv(vp, option.EnableCiliumNetworkPolicy)
