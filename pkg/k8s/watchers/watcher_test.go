@@ -21,6 +21,10 @@ func (f *fakeK8sWatcherConfiguration) K8sNetworkPolicyEnabled() bool {
 	return true
 }
 
+func (f *fakeK8sWatcherConfiguration) K8sClusterNetworkPolicyEnabled() bool {
+	return true
+}
+
 type fakeKVStoreConfig struct{}
 
 func (f *fakeKVStoreConfig) IsEnabled() bool {

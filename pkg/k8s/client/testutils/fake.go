@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	k8sTesting "k8s.io/client-go/testing"
 	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
+	policy_fake "sigs.k8s.io/network-policy-api/pkg/client/clientset/versioned/fake"
 	k8sYaml "sigs.k8s.io/yaml"
 
 	k8sclient "github.com/cilium/cilium/pkg/k8s/client"
@@ -65,6 +66,7 @@ type (
 	SlimFakeClientset       = slim_fake.Clientset
 	CiliumFakeClientset     = cilium_fake.Clientset
 	APIExtFakeClientset     = apiext_fake.Clientset
+	PolicyFakeClientset     = policy_fake.Clientset
 )
 
 type FakeClientset struct {
@@ -74,6 +76,7 @@ type FakeClientset struct {
 	*KubernetesFakeClientset
 	*CiliumFakeClientset
 	*APIExtFakeClientset
+	*PolicyFakeClientset
 	k8sclient.ClientsetGetters
 
 	ot *statedbObjectTracker
@@ -156,18 +159,22 @@ func NewFakeClientsetWithVersion(log *slog.Logger, ot *statedbObjectTracker, ver
 		CiliumFakeClientset:     cilium_fake.NewSimpleClientset(),
 		APIExtFakeClientset:     apiext_fake.NewSimpleClientset(),
 		MCSAPIFakeClientset:     mcsapi_fake.NewSimpleClientset(),
+		PolicyFakeClientset:     policy_fake.NewSimpleClientset(),
 		KubernetesFakeClientset: fake.NewSimpleClientset(),
 	}
 	client.KubernetesFakeClientset.Resources = resources
 	client.SlimFakeClientset.Resources = resources
 	client.CiliumFakeClientset.Resources = resources
 	client.APIExtFakeClientset.Resources = resources
+	client.MCSAPIFakeClientset.Resources = resources
+	client.PolicyFakeClientset.Resources = resources
 	client.ot = ot
 
 	otx := ot.For("*", testutils.Scheme, testutils.Decoder())
 	prependReactors(client.SlimFakeClientset, otx)
 	prependReactors(client.CiliumFakeClientset, otx)
 	prependReactors(client.MCSAPIFakeClientset, otx)
+	prependReactors(client.PolicyFakeClientset, otx)
 	prependReactors(client.APIExtFakeClientset, otx)
 
 	// Use a separate object tracker domain for the "kubernetes" objects. This is needed
