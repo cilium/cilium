@@ -1307,51 +1307,71 @@ set_v6_rtuple(const struct ipv6_ct_tuple *otuple,
 	rtuple->dport = ostate->to_sport;
 }
 
+struct snat_retry_ctx {
+	struct ipv6_ct_tuple rtuple;
+	struct ipv6_nat_entry rstate;
+	__u16 port;
+	__u16 min_port; /* host endianness */
+	__u16 max_port; /* host endianness */
+	bool success;
+};
+
+static __always_inline __u64
+snat_retry_cb(void *map __maybe_unused, const __u32 *retries,
+	      void *val __maybe_unused, struct snat_retry_ctx *ctx)
+{
+	ctx->rtuple.dport = bpf_htons(ctx->port);
+
+	if (__snat_create(&cilium_snat_v6_external, &ctx->rtuple, &ctx->rstate, true) == 0) {
+		ctx->success = true;
+		return 1;
+	}
+
+	ctx->port = __snat_clamp_port_range(ctx->min_port,
+					    ctx->max_port,
+					    *retries ? ctx->port + 1 :
+					    (__u16)get_prandom_u32());
+	return 0;
+}
+
 static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv6_ct_tuple *otuple,
 					       struct ipv6_nat_entry *ostate,
 					       const struct ipv6_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
 {
-	struct ipv6_ct_tuple rtuple = {};
-	struct ipv6_nat_entry rstate;
+	struct snat_retry_ctx snat_ctx = {};
 	__u32 *retries_hist;
 	__u32 retries;
 	int ret;
-	__u16 port;
 
-	memset(&rstate, 0, sizeof(rstate));
 	memset(ostate, 0, sizeof(*ostate));
 
-	rstate.to_daddr = otuple->saddr;
-	rstate.to_dport = otuple->sport;
+	snat_ctx.min_port = target->min_port;
+	snat_ctx.max_port = target->max_port;
+	snat_ctx.rstate.to_daddr = otuple->saddr;
+	snat_ctx.rstate.to_dport = otuple->sport;
 
 	ostate->to_saddr = target->addr;
 	/* .to_sport is selected below */
 
-	set_v6_rtuple(otuple, ostate, &rtuple);
+	set_v6_rtuple(otuple, ostate, &snat_ctx.rtuple);
 	/* .dport is selected below */
 
-	port = __snat_try_keep_port(target->min_port,
-				    target->max_port,
-				    bpf_ntohs(otuple->sport));
+	snat_ctx.port = __snat_try_keep_port(snat_ctx.min_port,
+					     snat_ctx.max_port,
+					     bpf_ntohs(otuple->sport));
 
 	ostate->common.needs_ct = needs_ct;
-	rstate.common.needs_ct = needs_ct;
-	rstate.common.created = bpf_mono_now();
+	snat_ctx.rstate.common.needs_ct = needs_ct;
+	snat_ctx.rstate.common.created = bpf_mono_now();
 
-#pragma unroll
-	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
-		rtuple.dport = bpf_htons(port);
-
-		if (__snat_create(&cilium_snat_v6_external, &rtuple, &rstate, true) == 0)
-			goto create_nat_entry;
-
-		port = __snat_clamp_port_range(target->min_port,
-					       target->max_port,
-					       retries ? port + 1 :
-					       (__u16)get_prandom_u32());
-	}
+	retries = (__u32)for_each_map_elem(&cilium_snat_v6_alloc_retries,
+					   snat_retry_cb, &snat_ctx, 0);
+	/* TODO */
+	retries--;
+	if (snat_ctx.success)
+		goto create_nat_entry;
 
 	retries_hist = map_lookup_elem(&cilium_snat_v6_alloc_retries, &(__u32){retries});
 	if (retries_hist)
@@ -1365,12 +1385,12 @@ create_nat_entry:
 	if (retries_hist)
 		++*retries_hist;
 
-	ostate->to_sport = rtuple.dport;
-	ostate->common.created = rstate.common.created;
+	ostate->to_sport = snat_ctx.rtuple.dport;
+	ostate->common.created = snat_ctx.rstate.common.created;
 
 	ret = __snat_create(&cilium_snat_v6_external, otuple, ostate, false);
 	if (ret < 0) {
-		map_delete_elem(&cilium_snat_v6_external, &rtuple); /* rollback */
+		map_delete_elem(&cilium_snat_v6_external, &snat_ctx.rtuple); /* rollback */
 		if (ext_err)
 			*ext_err = (__s8)ret;
 		ret = DROP_NAT_NO_MAPPING;
