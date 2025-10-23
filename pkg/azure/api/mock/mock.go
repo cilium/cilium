@@ -26,6 +26,7 @@ const (
 	GetInstance
 	GetInstances
 	GetVpcsAndSubnets
+	GetSubnetsByIDs
 	AssignPrivateIpAddressesVMSS
 	MaxOperation
 )
@@ -187,6 +188,36 @@ func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMa
 	}
 
 	return vnets, subnets, nil
+}
+
+func (a *API) GetSubnetsByIDs(ctx context.Context, nodeSubnetIDs []string) (ipamTypes.SubnetMap, error) {
+	a.rateLimit()
+	a.delaySim.Delay(GetSubnetsByIDs)
+
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	if err, ok := a.errors[GetSubnetsByIDs]; ok {
+		return nil, err
+	}
+
+	subnets := ipamTypes.SubnetMap{}
+
+	// Only return subnets that match the requested subnet IDs
+	subnetIDSet := make(map[string]struct{})
+	for _, id := range nodeSubnetIDs {
+		subnetIDSet[id] = struct{}{}
+	}
+
+	for _, s := range a.subnets {
+		if _, exists := subnetIDSet[s.subnet.ID]; exists {
+			sd := s.subnet.DeepCopy()
+			sd.AvailableAddresses = s.allocator.Free()
+			subnets[sd.ID] = sd
+		}
+	}
+
+	return subnets, nil
 }
 
 func (a *API) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error {
