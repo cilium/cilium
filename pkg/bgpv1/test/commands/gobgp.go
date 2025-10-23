@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"sort"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -36,6 +37,9 @@ const (
 
 	passwordFlag      = "password"
 	passwordFlagShort = "p"
+
+	familiesFlag      = "families"
+	familiesFlagShort = "f"
 )
 
 type GoBGPCmdContext struct {
@@ -196,6 +200,7 @@ func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			Flags: func(fs *pflag.FlagSet) {
 				fs.StringP(serverNameFlag, serverNameFlagShort, "", "Name of the GoBGP server instance. Can be omitted if only one instance is active.")
 				fs.StringP(passwordFlag, passwordFlagShort, "", "Authentication password used for the peer.")
+				fs.StringP(familiesFlag, familiesFlagShort, "ipv4/unicast,ipv6/unicast", "Comma-separated list of AFI/SAFIs enabled for the peer. If not specified, ipv4/unicast and ipv6/unicast are enabled.")
 			},
 			Detail: []string{
 				"Add a new peer with the given IP and remote ASN to the GoBGP server instance.",
@@ -221,24 +226,6 @@ func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 				Transport: &gobgpapi.Transport{
 					PassiveMode: true,
 				},
-				AfiSafis: []*gobgpapi.AfiSafi{
-					{
-						Config: &gobgpapi.AfiSafiConfig{
-							Family: &gobgpapi.Family{
-								Afi:  gobgpapi.Family_AFI_IP,
-								Safi: gobgpapi.Family_SAFI_UNICAST,
-							},
-						},
-					},
-					{
-						Config: &gobgpapi.AfiSafiConfig{
-							Family: &gobgpapi.Family{
-								Afi:  gobgpapi.Family_AFI_IP6,
-								Safi: gobgpapi.Family_SAFI_UNICAST,
-							},
-						},
-					},
-				},
 				GracefulRestart: &gobgpapi.GracefulRestart{
 					Enabled: true,
 				},
@@ -246,6 +233,29 @@ func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			_, err = fmt.Sscanf(args[1], "%d", &peer.Conf.PeerAsn)
 			if err != nil {
 				return nil, fmt.Errorf("could not parse remote-asn: %w", err)
+			}
+
+			families, err := s.Flags.GetString(familiesFlag)
+			if err != nil {
+				return nil, err
+			}
+			if families == "" {
+				return nil, fmt.Errorf("families have to be specified for the peer")
+			}
+			afiSafis := strings.Split(families, ",")
+			for _, afiSafi := range afiSafis {
+				afiSafiArr := strings.Split(afiSafi, "/")
+				if len(afiSafiArr) != 2 {
+					return nil, fmt.Errorf("invalid afi/safi format: %s", afiSafi)
+				}
+				peer.AfiSafis = append(peer.AfiSafis, &gobgpapi.AfiSafi{
+					Config: &gobgpapi.AfiSafiConfig{
+						Family: &gobgpapi.Family{
+							Afi:  gobgpapi.Family_Afi(types.ParseAfi(afiSafiArr[0])),
+							Safi: gobgpapi.Family_Safi(types.ParseSafi(afiSafiArr[1])),
+						},
+					},
+				})
 			}
 
 			password, err := s.Flags.GetString(passwordFlag)
