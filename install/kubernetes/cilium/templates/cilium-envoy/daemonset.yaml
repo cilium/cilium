@@ -22,10 +22,7 @@ spec:
   selector:
     matchLabels:
       k8s-app: cilium-envoy
-  {{- with .Values.envoy.updateStrategy }}
-  updateStrategy:
-    {{- toYaml . | trim | nindent 4 }}
-  {{- end }}
+  {{- include "envoy.updateStrategy" . | nindent 2 }}
   template:
     metadata:
       annotations:
@@ -224,10 +221,7 @@ spec:
       {{- if .Values.envoy.dnsPolicy }}
       dnsPolicy: {{ .Values.envoy.dnsPolicy }}
       {{- end }}
-      {{- with .Values.envoy.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "envoy.affinity" . | nindent 6  }}
       {{- with .Values.envoy.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
