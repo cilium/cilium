@@ -13,7 +13,9 @@
 
 #include "lib/bpf_lxc.h"
 
-ASSIGN_CONFIG(__u64, endpoint_netns_cookie, 5000)
+#define NETNS_COOKIE	5000
+
+ASSIGN_CONFIG(__u64, endpoint_netns_cookie, NETNS_COOKIE)
 
 #include "lib/lb.h"
 #include "lib/ipcache.h"
@@ -59,7 +61,7 @@ int v4_local_backend_to_service_setup(struct __ctx_buff *ctx)
 
 	/* Add the service in cilium_skip_lb4 to skip service translation for request originating from the local backend */
 	struct skip_lb4_key key = {
-		.netns_cookie = ENDPOINT_NETNS_COOKIE,
+		.netns_cookie = NETNS_COOKIE,
 		.address = V4_SERVICE_IP,
 		.port = SERVICE_PORT,
 	};
@@ -154,7 +156,7 @@ int v6_local_backend_to_service_setup(struct __ctx_buff *ctx)
 
 	/* Add the service in cilium_skip_lb6 to skip service translation for request originating from the local backend */
 	struct skip_lb6_key key __align_stack_8 = {
-		.netns_cookie = ENDPOINT_NETNS_COOKIE,
+		.netns_cookie = NETNS_COOKIE,
 		.port = SERVICE_PORT,
 	};
 	__u8 val = 0;
