@@ -261,7 +261,7 @@ spec:
           path: /sys/fs/bpf
           type: DirectoryOrCreate
       {{- end }}
-      {{- include "envoy.hostPathMounts.extra" . | nindent 8 }}
+      {{- include "envoy.hostPathMounts.extra" . | nindent 4 }}
       {{- range .Values.envoy.extraHostPathMounts }}
       - name: {{ .name }}
         hostPath:
