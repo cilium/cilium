@@ -67,7 +67,8 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 		return redirect_neigh(egress_ifindex, NULL, 0, 0);
 
 	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr,
-				  ctx_get_ifindex(ctx), 0);
+				  egress_ifindex ?: ctx_get_ifindex(ctx),
+				  egress_ifindex ? BPF_FIB_LOOKUP_OUTPUT : 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
@@ -376,7 +377,8 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 	ret = (__s8)fib_lookup_v6(ctx, &fib_params,
 				  (struct in6_addr *)egress_ip,
 				  (struct in6_addr *)daddr,
-				  ctx_get_ifindex(ctx), 0);
+				  egress_ifindex ?: ctx_get_ifindex(ctx),
+				  egress_ifindex ? BPF_FIB_LOOKUP_OUTPUT : 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
