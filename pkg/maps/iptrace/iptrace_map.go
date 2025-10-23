@@ -6,17 +6,12 @@ package iptrace
 import (
 	"fmt"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/pkg/bpf"
 )
 
 const (
 	// MapName is the name of the map.
 	MapName = "cilium_percpu_trace_id"
-
-	// MaxEntries represents the maximum number of trace ID entries.
-	MaxEntries = 1
 )
 
 // Key is the key for the IP trace map.
@@ -40,21 +35,4 @@ func (v *TraceId) New() bpf.MapValue { return new(TraceId) }
 // ipTraceMap is the trace map.
 type ipTraceMap struct {
 	*bpf.Map
-}
-
-// NewMap returns a new trace map.
-func NewMap() *ipTraceMap {
-	var ipopt Key
-	var traceid TraceId
-
-	return &ipTraceMap{
-		Map: bpf.NewMapDeprecated(
-			MapName,
-			ebpf.PerCPUArray,
-			&ipopt,
-			&traceid,
-			MaxEntries,
-			0,
-		),
-	}
 }
