@@ -169,7 +169,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	 */
 	if (1) {
 		union macaddr host_mac = CILIUM_HOST_MAC;
-		union macaddr router_mac = THIS_INTERFACE_MAC;
+		union macaddr router_mac = CONFIG(interface_mac);
 
 		ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
 			      (__u8 *)&host_mac.addr, METRIC_INGRESS);
@@ -202,7 +202,7 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 {
 	if (1) {
 		union macaddr host_mac = CILIUM_HOST_MAC;
-		union macaddr router_mac = THIS_INTERFACE_MAC;
+		union macaddr router_mac = CONFIG(interface_mac);
 		int ret;
 
 		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
@@ -476,7 +476,7 @@ __declare_tail(CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
 {
 	struct remote_endpoint_info fake_info = {0};
-	union macaddr mac = THIS_INTERFACE_MAC;
+	union macaddr mac = CONFIG(interface_mac);
 	union macaddr smac;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_CT_REPLY,
