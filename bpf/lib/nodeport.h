@@ -31,7 +31,6 @@ DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to (default: MTU set in node_config.h by agent)")
 ASSIGN_CONFIG(__u16, device_mtu, MTU)
-#define THIS_MTU CONFIG(device_mtu) /* Backwards compatibility */
 
 /* Evaluate the input values for detecting compilation errors.
  * Just blindly substituting this macro with the CTX_ACT_OK
@@ -181,7 +180,7 @@ static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused
 					   __u16 expanded_len __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
-	if (expanded_len > THIS_MTU)
+	if (expanded_len > CONFIG(device_mtu))
 		return true;
 #endif
 	return false;
@@ -599,7 +598,7 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 	union macaddr smac, dmac;
 	struct icmp6hdr icmp __align_stack_8 = {
 		.icmp6_type	= ICMPV6_PKT_TOOBIG,
-		.icmp6_mtu	= bpf_htonl(THIS_MTU - ohead),
+		.icmp6_mtu	= bpf_htonl(CONFIG(device_mtu) - ohead),
 	};
 	__u64 payload_len = sizeof(*ip6) + sizeof(icmp) + orig_dgram;
 	struct ipv6hdr ip __align_stack_8 = {
@@ -1984,7 +1983,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		.code		= ICMP_FRAG_NEEDED,
 		.un = {
 			.frag = {
-				.mtu = bpf_htons(THIS_MTU - ohead),
+				.mtu = bpf_htons(CONFIG(device_mtu) - ohead),
 			},
 		},
 	};
