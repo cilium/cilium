@@ -115,13 +115,13 @@ def plot_comparison(file1: str, file2: str, outdir: str):
 
         # Plot
         y_pos = np.arange(len(filtered_programs))
-        height = 0.35  # thickness of bars
+        bar_height = 0.35
 
         plt.figure(figsize=(12, len(filtered_programs) * 0.5))
-        bars_before = plt.barh(y_pos + height/2, before_vals,
-                               height, label="Before", alpha=0.7)
-        bars_after = plt.barh(y_pos - height/2, after_vals,
-                              height, label="After", alpha=0.7)
+        bars_before = plt.barh(y_pos + bar_height/2, before_vals,
+                               bar_height, label="Before", alpha=0.7)
+        bars_after = plt.barh(y_pos - bar_height/2, after_vals,
+                              bar_height, label="After", alpha=0.7)
 
         plt.yticks(y_pos, filtered_programs)
         plt.xlabel("insns_processed")
