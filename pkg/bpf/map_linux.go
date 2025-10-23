@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1682,4 +1683,8 @@ func (m *Map) exist() (bool, error) {
 	}
 
 	return false, nil
+}
+
+func (m *Map) PerfReader(perCPUBuffer int) (*perf.Reader, error) {
+	return perf.NewReader(m.m, perCPUBuffer)
 }

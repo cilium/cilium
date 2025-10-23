@@ -8,9 +8,6 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/perf"
-
 	"github.com/cilium/cilium/pkg/bpf"
 )
 
@@ -38,47 +35,12 @@ func (v *Value) String() string    { return fmt.Sprintf("%d", v.ProgID) }
 func (v *Value) New() bpf.MapValue { return &Value{} }
 
 type signalMap struct {
-	logger     *slog.Logger
-	oldBpfMap  *bpf.Map
-	ebpfMap    *ebpf.Map
-	maxEntries int
-}
-
-// initMap creates the signal map in the kernel.
-func initMap(logger *slog.Logger, maxEntries int) *signalMap {
-	return &signalMap{
-		logger:     logger,
-		maxEntries: maxEntries,
-		oldBpfMap: bpf.NewMapDeprecated(MapName,
-			ebpf.PerfEventArray,
-			&Key{},
-			&Value{},
-			maxEntries,
-			0,
-		),
-	}
-}
-
-func (sm *signalMap) open() error {
-	if err := sm.oldBpfMap.Create(); err != nil {
-		return err
-	}
-	path := bpf.MapPath(sm.logger, MapName)
-
-	var err error
-	sm.ebpfMap, err = ebpf.LoadPinnedMap(path, nil)
-	return err
-}
-
-func (sm *signalMap) close() error {
-	if sm.ebpfMap != nil {
-		return sm.ebpfMap.Close()
-	}
-	return nil
+	logger *slog.Logger
+	bpfMap *bpf.Map
 }
 
 func (sm *signalMap) NewReader() (PerfReader, error) {
-	return perf.NewReader(sm.ebpfMap, os.Getpagesize())
+	return sm.bpfMap.PerfReader(os.Getpagesize())
 }
 
 func (sm *signalMap) MapName() string {
