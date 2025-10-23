@@ -33,7 +33,10 @@ var (
 	k8sapi = &k8sMock{}
 )
 
-const testPoolID = ipamTypes.PoolID("global")
+const (
+	testPoolID               = ipamTypes.PoolID("global")
+	testExcessIPReleaseDelay = 2
+)
 
 type allocationImplementationMock struct {
 	// mutex protects all fields of this structure
@@ -449,7 +452,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 // - PreAllocate 4
 // - MaxAboveWatermark 4
 func TestNodeManagerReleaseAddress(t *testing.T) {
-	operatorOption.Config.ExcessIPReleaseDelay = 2
+	operatorOption.Config.ExcessIPReleaseDelay = testExcessIPReleaseDelay
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
@@ -520,7 +523,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 // being resolved
 func TestNodeManagerAbortRelease(t *testing.T) {
 	var wg sync.WaitGroup
-	operatorOption.Config.ExcessIPReleaseDelay = 2
+	operatorOption.Config.ExcessIPReleaseDelay = testExcessIPReleaseDelay
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
@@ -597,7 +600,8 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 // 3. Before being removed from status.ipam.release-ips, the same IP is reassigned to the pool (ie. AWS ENI in the case of AWS ENI IPAM)
 // 4. The IP is no longer considered excess, so the release handshake is aborted and the IP is deleted from status.ipam.release-ips
 func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
-	operatorOption.Config.ExcessIPReleaseDelay = 2
+	operatorOption.Config.ExcessIPReleaseDelay = testExcessIPReleaseDelay
+
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
@@ -646,7 +650,7 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		}
 
 		for _, ts := range node.ipv4Alloc.ipsMarkedForRelease {
-			if ts.Add(time.Duration(operatorOption.Config.ExcessIPReleaseDelay) * time.Second).Before(time.Now()) {
+			if ts.Add(time.Duration(testExcessIPReleaseDelay) * time.Second).Before(time.Now()) {
 				return true
 			}
 		}
@@ -677,10 +681,10 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 	require.Contains(t, node.resource.Status.IPAM.ReleaseIPs, releasedIP)
 	require.Equal(t, ipamOption.IPAMMarkForRelease, string(node.resource.Status.IPAM.ReleaseIPs[releasedIP]))
 
-	node.mutex.Unlock()
-
 	// Fake acknowledge IP for release like agent would
 	testipam.FakeAcknowledgeReleaseIps(node.resource)
+
+	node.mutex.Unlock()
 
 	// Run maintenance process again to process the acknowledgment
 	err = node.MaintainIPPool(context.Background())
