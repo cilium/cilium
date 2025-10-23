@@ -154,3 +154,23 @@ The template needs to allow overriding ports spec not just adding.
         {{- end }}
 {{- end }}
 
+{{/*
+Allow packagers to define update strategy for cilium-envoy pods.
+*/}}
+{{- define "envoy.updateStrategy" -}}
+{{- with .Values.envoy.updateStrategy }}
+updateStrategy:
+  {{- toYaml . | trim | nindent 2 }}
+  {{- end }}
+{{- end }}
+
+{{/*
+Allow packagers to define affinity for cilium-envoy pods.
+*/}}
+{{- define "envoy.affinity" -}}
+{{- with .Values.envoy.affinity }}
+affinity:
+  {{- toYaml . | nindent 2 }}     
+{{- end }}
+{{- end }}
+
