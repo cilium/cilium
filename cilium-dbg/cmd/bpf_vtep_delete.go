@@ -28,7 +28,11 @@ var bpfVtepDeleteCmd = &cobra.Command{
 			Fatalf("error parsing cidr %s: %s", args[0], err)
 		}
 
-		if err := vtep.LoadVTEPMap(log).Delete(vcidr.IP); err != nil {
+		m, err := vtep.LoadVTEPMap(log)
+		if err != nil {
+			Fatalf("error loading vtep map: %s\n", err)
+		}
+		if err := m.Delete(vcidr.IP); err != nil {
 			Fatalf("error deleting contents of map: %s\n", err)
 		}
 	},

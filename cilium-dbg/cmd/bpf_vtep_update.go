@@ -44,7 +44,13 @@ var bpfVtepUpdateCmd = &cobra.Command{
 			Fatalf("Unable to parse vtep mac '%s'", args[2])
 		}
 
-		if err := vtep.LoadVTEPMap(log).Update(vcidr, vip, vmac); err != nil {
+		m, err := vtep.LoadVTEPMap(log)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error loading vtep map: %s\n", err)
+			os.Exit(1)
+		}
+
+		if err := m.Update(vcidr, vip, vmac); err != nil {
 			fmt.Fprintf(os.Stderr, "error updating contents of map: %s\n", err)
 			os.Exit(1)
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -21,15 +22,26 @@ var Cell = cell.Module(
 	cell.Provide(newVTEPMap),
 )
 
-func newVTEPMap(lifecycle cell.Lifecycle, logger *slog.Logger, registry *metrics.Registry) bpf.MapOut[Map] {
+func newVTEPMap(lifecycle cell.Lifecycle, logger *slog.Logger, mapSpecRegistry *registry.MapSpecRegistry, metricsRegistry *metrics.Registry) bpf.MapOut[Map] {
 	if !option.Config.EnableVTEP {
 		return bpf.MapOut[Map]{}
 	}
 
-	vtepMap := newMap(logger, registry)
+	vtepMap := &vtepMap{
+		logger: logger,
+	}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
+			spec, err := mapSpecRegistry.Get(MapName)
+			if err != nil {
+				return err
+			}
+
+			vtepMap.bpfMap = bpf.NewMap(spec, &Key{}, &VtepEndpointInfo{}).
+				WithCache().WithPressureMetric(metricsRegistry).
+				WithEvents(option.Config.GetEventBufferConfig(MapName))
+
 			return vtepMap.init()
 		},
 		OnStop: func(context cell.HookContext) error {
