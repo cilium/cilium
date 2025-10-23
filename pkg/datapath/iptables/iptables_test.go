@@ -1046,7 +1046,7 @@ func TestNoTrackHostPorts(t *testing.T) {
 	})
 }
 
-func TestEncryptionRules(t *testing.T) {
+func TestWireguardEncryptionRules(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 
@@ -1088,6 +1088,64 @@ func TestEncryptionRules(t *testing.T) {
 			{args: "-t nat -A CILIUM_POST_nat -m mark --mark 0x00000d00/0x00000f00 -m comment --comment exclude encrypt/decrypt marks from nat CILIUM_POST_nat chain -j ACCEPT"},
 			{args: "-t filter -A CILIUM_FORWARD -m mark --mark 0x00000e00/0x00000f00 -m comment --comment exclude encrypt/decrypt marks from filter CILIUM_FORWARD chain -j ACCEPT"},
 			{args: "-t filter -A CILIUM_FORWARD -m mark --mark 0x00000d00/0x00000f00 -m comment --comment exclude encrypt/decrypt marks from filter CILIUM_FORWARD chain -j ACCEPT"},
+		}
+
+		assert.NoError(t, testMgr.addCiliumAcceptEncryptionRules())
+		assert.NoError(t, mockIp4tables.checkExpectations())
+		assert.NoError(t, mockIp6tables.checkExpectations())
+
+		mockIp4tables.expectations = []expectation{
+			{args: "-t raw -I CILIUM_PRE_raw -m mark --mark 0x00000d00/0x00000f00 -m comment --comment cilium-encryption-notrack: -j CT --notrack"},
+			{args: "-t raw -I CILIUM_PRE_raw -m mark --mark 0x00000e00/0x00000f00 -m comment --comment cilium-encryption-notrack: -j CT --notrack"},
+			{args: "-t raw -I CILIUM_OUTPUT_raw -m mark --mark 0x00000d00/0x00000f00 -m comment --comment cilium-encryption-notrack: -j CT --notrack"},
+			{args: "-t raw -I CILIUM_OUTPUT_raw -m mark --mark 0x00000e00/0x00000f00 -m comment --comment cilium-encryption-notrack: -j CT --notrack"},
+		}
+
+		mockIp6tables.expectations = []expectation{
+			{args: "-t raw -I CILIUM_PRE_raw -m mark --mark 0x00000d00/0x00000f00 -m comment --comment cilium-encryption-notrack: -j CT --notrack"},
+			{args: "-t raw -I CILIUM_PRE_raw -m mark --mark 0x00000e00/0x00000f00 -m comment --comment cilium-encryption-notrack: -j CT --notrack"},
+			{args: "-t raw -I CILIUM_OUTPUT_raw -m mark --mark 0x00000d00/0x00000f00 -m comment --comment cilium-encryption-notrack: -j CT --notrack"},
+			{args: "-t raw -I CILIUM_OUTPUT_raw -m mark --mark 0x00000e00/0x00000f00 -m comment --comment cilium-encryption-notrack: -j CT --notrack"},
+		}
+
+		assert.NoError(t, testMgr.addCiliumNoTrackEncryptionRules())
+		assert.NoError(t, mockIp4tables.checkExpectations())
+		assert.NoError(t, mockIp6tables.checkExpectations())
+	})
+}
+
+func TestIpsecEncryptionRules(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
+	testMgr := &Manager{
+		haveSocketMatch:      true,
+		haveBPFSocketAssign:  false,
+		ipEarlyDemuxDisabled: false,
+		sharedCfg: SharedConfig{
+			EnableIPv4:  true,
+			EnableIPv6:  true,
+			EnableIPSec: true,
+		},
+		ip4tables: mockIp4tables,
+		ip6tables: mockIp6tables,
+	}
+	t.Run("test adding iptables rules for ipsec encryption", func(t *testing.T) {
+
+		mockIp4tables.expectations = []expectation{
+			{args: "-t filter -A CILIUM_INPUT -p esp -m comment --comment exclude esp proto from filter CILIUM_INPUT chain -j ACCEPT"},
+			{args: "-t filter -A CILIUM_OUTPUT -p esp -m comment --comment exclude esp proto from filter CILIUM_OUTPUT chain -j ACCEPT"},
+			{args: "-t nat -A CILIUM_POST_nat -p esp -m comment --comment exclude esp proto from nat CILIUM_POST_nat chain -j ACCEPT"},
+			{args: "-t nat -A CILIUM_OUTPUT_nat -p esp -m comment --comment exclude esp proto from nat CILIUM_OUTPUT_nat chain -j ACCEPT"},
+			{args: "-t nat -A CILIUM_PRE_nat -p esp -m comment --comment exclude esp proto from nat CILIUM_PRE_nat chain -j ACCEPT"},
+			{args: "-t filter -A CILIUM_FORWARD -p esp -m comment --comment exclude esp proto from filter CILIUM_FORWARD chain -j ACCEPT"},
+		}
+
+		mockIp6tables.expectations = []expectation{
+			{args: "-t filter -A CILIUM_INPUT -p esp -m comment --comment exclude esp proto from filter CILIUM_INPUT chain -j ACCEPT"},
+			{args: "-t filter -A CILIUM_OUTPUT -p esp -m comment --comment exclude esp proto from filter CILIUM_OUTPUT chain -j ACCEPT"},
+			{args: "-t nat -A CILIUM_POST_nat -p esp -m comment --comment exclude esp proto from nat CILIUM_POST_nat chain -j ACCEPT"},
+			{args: "-t filter -A CILIUM_FORWARD -p esp -m comment --comment exclude esp proto from filter CILIUM_FORWARD chain -j ACCEPT"},
 		}
 
 		assert.NoError(t, testMgr.addCiliumAcceptEncryptionRules())

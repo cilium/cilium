@@ -1781,45 +1781,36 @@ func (m *Manager) addCiliumAcceptEncryptionRules() error {
 		return nil
 	}
 
-	insertAcceptEncrypt := func(ipt iptablesInterface, table, chain string) error {
-		matchDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
-		matchEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
-
-		comment := "exclude encrypt/decrypt marks from " + table + " " + chain + " chain"
-
-		if err := ipt.runProg([]string{
-			"-t", table,
-			"-A", chain,
-			"-m", "mark", "--mark", matchEncrypt,
-			"-m", "comment", "--comment", comment,
-			"-j", "ACCEPT"}); err != nil {
-			return err
-		}
-
-		return ipt.runProg([]string{
-			"-t", table,
-			"-A", chain,
-			"-m", "mark", "--mark", matchDecrypt,
-			"-m", "comment", "--comment", comment,
-			"-j", "ACCEPT"})
-	}
-
 	for _, chain := range ciliumChains {
 		switch chain.table {
 		case "filter", "nat":
 			if m.sharedCfg.EnableIPv4 {
-				if err := insertAcceptEncrypt(m.ip4tables, chain.table, chain.name); err != nil {
-					return err
+				if m.sharedCfg.EnableWireguard {
+					if err := insertAcceptEncryptMark(m.ip4tables, chain.table, chain.name); err != nil {
+						return err
+					}
+				} else if m.sharedCfg.EnableIPSec {
+					if err := insertAcceptEncryptIpsec(m.ip4tables, chain.table, chain.name); err != nil {
+						return err
+					}
 				}
 			}
+
 			// ip6tables chain exists only if chain.ipv6 is true
 			if m.sharedCfg.EnableIPv6 && chain.ipv6 {
-				if err := insertAcceptEncrypt(m.ip6tables, chain.table, chain.name); err != nil {
-					return err
+				if m.sharedCfg.EnableWireguard {
+					if err := insertAcceptEncryptMark(m.ip6tables, chain.table, chain.name); err != nil {
+						return err
+					}
+				} else if m.sharedCfg.EnableIPSec {
+					if err := insertAcceptEncryptIpsec(m.ip6tables, chain.table, chain.name); err != nil {
+						return err
+					}
 				}
 			}
 		}
 	}
+
 	return nil
 }
 
