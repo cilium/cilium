@@ -40,10 +40,7 @@ func Test_getCiliumHostIPsFromFile(t *testing.T) {
 #define HOST_ID 1
 #define WORLD_ID 2
 #define CILIUM_LB_MAP_MAX_ENTRIES 65536
-#define ENDPOINTS_MAP_SIZE 65535
 #define LPM_MAP_SIZE 16384
-#define IPCACHE_MAP_SIZE 512000
-#define POLICY_PROG_MAP_SIZE 65535
 #define TRACE_PAYLOAD_LEN 128ULL
 #ifndef CILIUM_NET_MAC
 #define CILIUM_NET_MAC { .addr = {0x26,0x11,0x70,0xcc,0xca,0x0c}}

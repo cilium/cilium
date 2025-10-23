@@ -52,9 +52,6 @@ func (p *PreFilter) WriteConfig(fw io.Writer) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 
-	fmt.Fprintf(fw, "#define CIDR4_HMAP_ELEMS %d\n", maxHKeys)
-	fmt.Fprintf(fw, "#define CIDR4_LMAP_ELEMS %d\n", maxLKeys)
-
 	fmt.Fprintf(fw, "#define CIDR4_FILTER\n")
 	fmt.Fprintf(fw, "#define CIDR4_LPM_PREFILTER\n")
 	fmt.Fprintf(fw, "#define CIDR6_FILTER\n")

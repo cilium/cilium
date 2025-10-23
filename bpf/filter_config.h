@@ -5,8 +5,6 @@
  * This is just a dummy header with dummy values to allow for test
  * compilation without the full code generation engine backend.
  */
-#define CIDR4_HMAP_ELEMS 1024
-#define CIDR4_LMAP_ELEMS 1024
 #define CIDR4_FILTER
 #define CIDR4_LPM_PREFILTER
 #define CIDR6_FILTER

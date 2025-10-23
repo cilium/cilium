@@ -21,6 +21,6 @@ struct {
 	__type(key, struct vtep_key);
 	__type(value, struct vtep_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, VTEP_MAP_SIZE);
+	__uint(max_entries, 8);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_vtep_map __section_maps_btf;

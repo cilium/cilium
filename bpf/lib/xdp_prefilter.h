@@ -7,12 +7,8 @@
 #include <bpf/section.h>
 #include <bpf/loader.h>
 
-#ifndef CIDR4_HMAP_ELEMS
-# define CIDR4_HMAP_ELEMS 1024
-#endif
-#ifndef CIDR4_LMAP_ELEMS
-# define CIDR4_LMAP_ELEMS 1024
-#endif
+#define CIDR4_HMAP_ELEMS (1024 * 1024 * 20)
+#define CIDR4_LMAP_ELEMS (1024 * 16)
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
