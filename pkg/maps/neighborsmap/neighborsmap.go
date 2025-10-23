@@ -5,13 +5,9 @@ package neighborsmap
 
 import (
 	"net"
-	"sync"
 	"unsafe"
 
-	"github.com/cilium/ebpf"
-
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -22,30 +18,9 @@ const (
 	Map6Name = "cilium_nodeport_neigh6"
 )
 
-var (
-	neigh4Map *bpf.Map
-	neigh6Map *bpf.Map
-	once      sync.Once
-)
-
-func neighMapsGet() (*bpf.Map, *bpf.Map) {
-	once.Do(func() {
-		neigh4Map = bpf.NewMapDeprecated(Map4Name,
-			ebpf.LRUHash,
-			&Key4{},
-			&Value{},
-			option.Config.NeighMapEntriesGlobal,
-			0,
-		)
-		neigh6Map = bpf.NewMapDeprecated(Map6Name,
-			ebpf.LRUHash,
-			&Key6{},
-			&Value{},
-			option.Config.NeighMapEntriesGlobal,
-			0,
-		)
-	})
-	return neigh4Map, neigh6Map
+type NeighborsMap struct {
+	IPv4Map *bpf.Map
+	IPv6Map *bpf.Map
 }
 
 // Key4 is the IPv4 for the IP-to-MAC address mappings.
@@ -82,41 +57,15 @@ func (k *Key6) New() bpf.MapKey { return &Key6{} }
 func (v *Value) String() string    { return v.Macaddr.String() }
 func (k *Value) New() bpf.MapValue { return &Value{} }
 
-// InitMaps creates the nodeport neighbors maps in the kernel.
-func InitMaps(ipv4, ipv6 bool) error {
-	neigh4Map, neigh6Map := neighMapsGet()
-	if ipv4 {
-		if err := neigh4Map.Create(); err != nil {
-			return err
-		}
-	}
-	if ipv6 {
-		if err := neigh6Map.Create(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // NeighRetire retires a cached neigh entry from the LRU cache
-func NeighRetire(ip net.IP) {
-	var neighMap *bpf.Map
-	if len(ip) == net.IPv4len {
-		neighMap, _ = neighMapsGet()
-	} else {
-		_, neighMap = neighMapsGet()
-	}
-	if err := neighMap.Open(); err != nil {
-		return
-	}
-	defer neighMap.Close()
+func (nm *NeighborsMap) NeighRetire(ip net.IP) {
 	if len(ip) == net.IPv4len {
 		key := &Key4{}
 		copy(key.Ipv4[:], ip.To4())
-		neighMap.Delete(key)
+		nm.IPv4Map.Delete(key)
 	} else {
 		key := &Key6{}
 		copy(key.Ipv6[:], ip.To16())
-		neighMap.Delete(key)
+		nm.IPv6Map.Delete(key)
 	}
 }
