@@ -311,8 +311,14 @@ func TestIpamManyNodes(t *testing.T) {
 				resource := &types.AzureInterface{
 					Name:          "eth0",
 					SecurityGroup: "sg1",
-					Addresses:     []types.AzureAddress{},
-					State:         types.StateSucceeded,
+					Addresses: []types.AzureAddress{
+						{
+							IP:     fmt.Sprintf("10.0.0.%d", i+10),
+							Subnet: "subnet-1",
+							State:  types.StateSucceeded,
+						},
+					},
+					State: types.StateSucceeded,
 				}
 				resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
 				allInstances.Update(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d", i), ipamTypes.InterfaceRevision{
