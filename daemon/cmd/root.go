@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	shell "github.com/cilium/cilium/pkg/shell/client"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -65,7 +64,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 	rootCmd.AddCommand(
 		cmdref.NewCmd(rootCmd),
-		shell.ShellCmd,
+		hive.CiliumShellCmd,
 		h.Command(),
 	)
 
