@@ -1,4 +1,4 @@
-#! 
+#! --bpf-lb-source-range-all-types=true
 
 # Start the test application
 hive start
