@@ -21,7 +21,6 @@ on:
     branches:
     - v1.18
     - ft/v1.18/**
-    - 'renovate/v1.18-**'
     paths-ignore:
     - 'Documentation/**'
   # Run every 8 hours
@@ -156,14 +155,14 @@ jobs:
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.7
+          go-version: 1.24.9
 
       - name: Set clang directory
         id: set_clang_dir
         run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@a7a1a882e2d06ebe05d5bb97c3e1f8c984ae96fc # v2.0.7
+        uses: KyleMayes/install-llvm-action@98e68e10c96dffcb7bfed8b2144541a66b49aa02 # v2.0.8
         with:
           version: "19.1.7"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}

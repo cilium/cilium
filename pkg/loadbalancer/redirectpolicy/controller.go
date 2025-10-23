@@ -169,8 +169,10 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 				if chanIsClosed(fesInitWatch) {
 					// Mark desired SkipLBs as initialized to allow pruning
 					c.desiredSkipLBInit(wtxn)
+
+					// All initializers marked done, we can stop tracking these.
+					initWatches = nil
 				}
-				initWatches = nil
 			}
 		}
 
@@ -329,6 +331,13 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 						Type:        lb.SVCTypeLocalRedirect,
 						ServiceName: lrpServiceName,
 						ServicePort: feM.feAddr.Port(),
+						//if we only have one frontend mapping, we dont need the frontend port name so it will not check the port name in the backend ports
+						PortName: func() lb.FEPortName {
+							if len(lrp.FrontendMappings) > 1 {
+								return feM.fePort
+							}
+							return lb.FEPortName("")
+						}(),
 					},
 				)
 				if err != nil {
@@ -395,8 +404,12 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 	newCount := len(beps)
 	orphanCount := 0
 	for be := range c.p.Writer.Backends().List(wtxn, lb.BackendByServiceName(lrpServiceName)) {
+		inst := be.GetInstance(lrpServiceName)
+		if inst == nil {
+			continue
+		}
 		if slices.ContainsFunc(beps, func(bep lb.BackendParams) bool {
-			return bep.Address == be.Address
+			return inst.DeepEqual(&bep)
 		}) {
 			newCount--
 		} else {

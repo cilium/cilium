@@ -64,9 +64,11 @@ cilium-agent hive dot-graph [flags]
       --enable-drift-checker                                      Enables support for config drift checker (default true)
       --enable-dynamic-config                                     Enables support for dynamic agent config (default true)
       --enable-dynamic-lifecycle-manager                          Enables support for dynamic lifecycle management
+      --enable-endpoint-health-checking                           Enable connectivity health checking between virtual endpoints (default true)
       --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                               Enable gops server (default true)
       --enable-health-check-nodeport                              Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
+      --enable-health-checking                                    Enable connectivity health checking (default true)
       --enable-hubble                                             Enable hubble server
       --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format.
       --enable-ingress-controller                                 Enables Envoy secret sync for Ingress controller related TLS secrets
@@ -136,7 +138,6 @@ cilium-agent hive dot-graph [flags]
       --hubble-redact-http-headers-deny strings                   HTTP headers to redact from flows
       --hubble-redact-http-urlquery                               Hubble redact http URL query from flows
       --hubble-redact-http-userinfo                               Hubble redact http user info from flows (default true)
-      --hubble-redact-kafka-apikey                                Hubble redact Kafka API key from flows
       --hubble-skip-unknown-cgroup-ids                            Skip Hubble events with unknown cgroup ids (default true)
       --hubble-socket-path string                                 Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")
       --hubble-tls-cert-file string                               Path to the public key file for the Hubble server. The file must contain PEM encoded data.

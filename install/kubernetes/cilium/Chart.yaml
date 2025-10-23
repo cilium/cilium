@@ -2,8 +2,8 @@ apiVersion: v2
 name: cilium
 displayName: Cilium
 home: https://cilium.io/
-version: 1.18.2
-appVersion: 1.18.2
+version: 1.18.3
+appVersion: 1.18.3
 kubeVersion: ">= 1.21.0-0"
 icon: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-solo.svg
 description: eBPF-based Networking, Security, and Observability
@@ -43,7 +43,7 @@ annotations:
       displayName: Cilium Local Redirect Policy
       description: |
         Cilium Local Redirect Policy allows local redirects to be configured
-        within a node to support use cases like Node-Local DNS or KIAM.
+        within a node to support use cases like Node-Local DNS.
     - kind: CiliumNode
       version: v2
       name: ciliumnodes.cilium.io

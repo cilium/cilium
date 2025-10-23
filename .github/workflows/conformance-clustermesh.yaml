@@ -22,7 +22,6 @@ on:
     branches:
       - v1.18
       - ft/v1.18/**
-      - 'renovate/v1.18-**'
     paths-ignore:
       - 'Documentation/**'
 
@@ -66,7 +65,7 @@ env:
   contextName2: kind-cluster2-${{ github.run_id }}
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
-  CERT_MANAGER_VERSION: v1.18.2
+  CERT_MANAGER_VERSION: v1.19.1
 
 jobs:
   echo-inputs:

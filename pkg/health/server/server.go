@@ -69,6 +69,9 @@ type Server struct {
 	localStatus  *healthModels.SelfStatus
 
 	nodesSeen map[string]struct{}
+
+	// Enable/disable periodic health and connectivity checks
+	enableActiveChecks bool
 }
 
 // DumpUptime returns the time that this server has been running.
@@ -386,9 +389,11 @@ func (s *Server) Serve() (err error) {
 		errors <- s.httpPathServer.Serve()
 	}()
 
-	go func() {
-		errors <- s.runActiveServices()
-	}()
+	if s.enableActiveChecks {
+		go func() {
+			errors <- s.runActiveServices()
+		}()
+	}
 
 	// Block for the first error, then return.
 	err = <-errors
@@ -424,13 +429,14 @@ func (s *Server) newServer(logger *slog.Logger, spec *healthApi.Spec) *healthApi
 }
 
 // NewServer creates a server to handle health requests.
-func NewServer(logger *slog.Logger, config Config) (*Server, error) {
+func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool) (*Server, error) {
 	server := &Server{
-		logger:       logger,
-		startTime:    time.Now(),
-		Config:       config,
-		connectivity: &healthReport{},
-		nodesSeen:    make(map[string]struct{}),
+		logger:             logger,
+		startTime:          time.Now(),
+		Config:             config,
+		connectivity:       &healthReport{},
+		nodesSeen:          make(map[string]struct{}),
+		enableActiveChecks: enableActiveChecks,
 	}
 
 	cl, err := ciliumPkg.NewClient(config.CiliumURI)
@@ -452,20 +458,20 @@ func getAddresses(logger *slog.Logger) []string {
 	addresses := make([]string, 0, 2)
 
 	if option.Config.EnableIPv4 {
-		if ipv4 := node.GetInternalIPv4(logger); ipv4 != nil {
-			addresses = append(addresses, ipv4.String())
+		if ip := node.GetInternalIPv4(logger); ip != nil {
+			addresses = append(addresses, ip.String())
 		} else {
-			// if Get ipv4 fails, then listen on all ipv4 addr.
-			addresses = append(addresses, "0.0.0.0")
+			// if Get ipv4 fails, then listen on all addresses.
+			return nil
 		}
 	}
 
 	if option.Config.EnableIPv6 {
-		if ipv6 := node.GetInternalIPv6(logger); ipv6 != nil {
-			addresses = append(addresses, ipv6.String())
+		if ip := node.GetInternalIPv6(logger); ip != nil {
+			addresses = append(addresses, ip.String())
 		} else {
-			// if Get ipv6 fails, then listen on all ipv6 addr.
-			addresses = append(addresses, "::")
+			// if Get ipv6 fails, then listen on all addresses.
+			return nil
 		}
 	}
 

@@ -70,14 +70,14 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Login to DockerHub
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         if: ${{ env.PUSH_TO_DOCKER_HUB == 'true' }}
         with:
           username: ${{ secrets.DOCKER_HUB_RELEASE_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_RELEASE_PASSWORD }}
 
       - name: Login to quay.io
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
@@ -124,7 +124,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Sign Container Image
         run: |
@@ -134,7 +134,7 @@ jobs:
           cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@aa0e114b2e19480f157109b9922bda359bd98b90 # v0.20.8
         with:
           artifact-name: sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -234,6 +234,16 @@ jobs:
     with:
       step: "4-post-release"
       version: ${{ github.ref_name }}
+    # This is the intended behavior of GitHub Actions. Declaring entries under
+    # "secrets:" grants the called workflow permission to read
+    # CILIUM_RELEASE_BOT_PEM and CILIUM_RELEASE_BOT_APP_ID. It does not pass
+    # literal values here; the values are resolved only in the called
+    # workflow's scope. If the called workflow sets an environment
+    # (e.g., environment: TestEnvironment), environment-scoped secrets are
+    # populated there and become available to its steps.
+    secrets:
+      CILIUM_RELEASE_BOT_PEM: ${{ secrets.CILIUM_RELEASE_BOT_PEM }}
+      CILIUM_RELEASE_BOT_APP_ID: ${{ secrets.CILIUM_RELEASE_BOT_APP_ID }}
 
   call-publish-helm:
     name: Publish Helm Chart
@@ -242,3 +252,13 @@ jobs:
     with:
       step: "5-publish-helm"
       version: ${{ github.ref_name }}
+    # This is the intended behavior of GitHub Actions. Declaring entries under
+    # "secrets:" grants the called workflow permission to read
+    # CILIUM_RELEASE_BOT_PEM and CILIUM_RELEASE_BOT_APP_ID. It does not pass
+    # literal values here; the values are resolved only in the called
+    # workflow's scope. If the called workflow sets an environment
+    # (e.g., environment: TestEnvironment), environment-scoped secrets are
+    # populated there and become available to its steps.
+    secrets:
+      CILIUM_RELEASE_BOT_PEM: ${{ secrets.CILIUM_RELEASE_BOT_PEM }}
+      CILIUM_RELEASE_BOT_APP_ID: ${{ secrets.CILIUM_RELEASE_BOT_APP_ID }}

@@ -1,0 +1,38 @@
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceImport
+metadata:
+  name: serviceimport-backend
+  namespace: gateway-conformance-infra
+  annotations:
+    multicluster.kubernetes.io/derived-service: serviceimport-backend
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-backend-ref-missing-serviceimport-port
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /serviceimport
+      backendRefs:
+        - name: serviceimport-backend
+          namespace: gateway-conformance-infra
+          group: multicluster.x-k8s.io
+          kind: ServiceImport
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: serviceimport-backend
+  namespace: gateway-conformance-infra
+spec:
+  ports:
+    - name: first-port
+      protocol: TCP
+      port: 8080
+      targetPort: 3000

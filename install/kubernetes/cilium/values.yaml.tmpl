@@ -1413,7 +1413,7 @@ hubble:
         #   --set hubble.redact.http.headers.deny="Authorization,Proxy-Authorization"
         deny: []
     kafka:
-      # -- Enables redacting Kafka's API key.
+      # -- Enables redacting Kafka's API key (deprecated, will be removed in v1.19).
       # Example:
       #
       #   redact:
@@ -2125,7 +2125,10 @@ readinessProbe:
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
 # Valid options are "true" or "false".
 # ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
-#kubeProxyReplacement: "false"
+  # @schema@
+  # type: [string, boolean]
+  # @schema@
+kubeProxyReplacement: "false"
 
 # -- healthz server bind address for the kube-proxy replacement.
 # To enable set the value to '0.0.0.0:10256' for all ipv4

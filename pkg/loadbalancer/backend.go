@@ -21,6 +21,8 @@ const (
 )
 
 // BackendParams defines the parameters of a backend for insertion into the backends table.
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type BackendParams struct {
 	Address L3n4Addr
 
@@ -58,7 +60,13 @@ type BackendParams struct {
 
 	// UnhealthyUpdatedAt is the timestamp for when [Unhealthy] was last updated. Zero
 	// value if never updated.
+	// +deepequal-gen=false
 	UnhealthyUpdatedAt time.Time
+}
+
+func (bep *BackendParams) DeepEqual(other *BackendParams) bool {
+	return bep.deepEqual(other) &&
+		bep.UnhealthyUpdatedAt.Equal(other.UnhealthyUpdatedAt)
 }
 
 // Backend is a composite of the per-service backend instances that share the same

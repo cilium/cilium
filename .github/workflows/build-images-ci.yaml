@@ -19,16 +19,33 @@ permissions:
   contents: read
   # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
+  # To be able to check if base images were built
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after || (github.event_name == 'merge_group' && github.run_id) }}
   cancel-in-progress: true
 
 jobs:
+  wait-for-base-images:
+    name: Wait for lint checks
+    uses: ./.github/workflows/wait-for-status-check.yaml
+    with:
+      # Only run this job if the event is pull_request_target and if the PR
+      # is not opened from a fork.
+      # This is to avoid waiting for base images on push to main or merge_group
+      # events as the lint-images-base does not run on those events.
+      if: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name }}
+      sha: ${{ github.event.pull_request.head.sha || github.sha }}
+      lint-workflows: "lint-images-base.yaml"
+      timeout-minutes: 2
+      poll-interval: 15
+
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
     runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    needs: wait-for-base-images
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
     strategy:
@@ -121,7 +138,7 @@ jobs:
              gc=false
 
       - name: Login to quay.io for CI
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -194,7 +211,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Restore Golang cache build from GitHub
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -240,7 +257,7 @@ jobs:
           fi
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: CI Build ${{ matrix.name }}
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
@@ -306,7 +323,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ matrix.name != 'cilium-cli' }}
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@aa0e114b2e19480f157109b9922bda359bd98b90 # v0.20.8
         with:
           artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -314,7 +331,7 @@ jobs:
 
       - name: Generate SBOM (race)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@aa0e114b2e19480f157109b9922bda359bd98b90 # v0.20.8
         with:
           artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -322,7 +339,7 @@ jobs:
 
       - name: Generate SBOM (unstripped)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
-        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+        uses: anchore/sbom-action@aa0e114b2e19480f157109b9922bda359bd98b90 # v0.20.8
         with:
           artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
           output-file: ./sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
@@ -406,3 +423,37 @@ jobs:
       checkout_ref: ${{ needs.build-and-push-prs.outputs.sha }}
       image_tag: ${{ needs.build-and-push-prs.outputs.sha }}
     secrets: inherit
+
+  pre-comment:
+    # Avoid running the "Trigger CI from renovate PRs" environment if we don't need to.
+    name: Pre-Comment
+    needs: build-and-push-prs
+    runs-on: ubuntu-24.04
+    if: ${{
+         github.event_name == 'pull_request_target' &&
+         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+        }}
+    steps:
+    - name: Debug
+      run: |
+        echo ${{ github.event.pull_request.user.login }}
+        echo ${{ github.event.event_name }}
+
+  comment:
+    name: Post test comment for Renovate PRs after images built
+    runs-on: ubuntu-24.04
+    needs: pre-comment
+    environment: "Trigger CI from renovate PRs"
+    if: ${{
+         github.event_name == 'pull_request_target' &&
+         github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
+        }}
+    steps:
+      - name: Post /test comment
+        env:
+          TOKEN: ${{ secrets.AUTO_COMMENT_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo ${TOKEN} | gh auth login --with-token
+          gh pr --repo ${GITHUB_REPOSITORY} comment ${PULL_REQUEST_NUMBER} --body "/test"

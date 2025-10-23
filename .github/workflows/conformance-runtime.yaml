@@ -21,7 +21,6 @@ on:
     branches:
       - v1.18
       - ft/v1.18/**
-      - 'renovate/v1.18-**'
     paths-ignore:
       - 'Documentation/**'
   # Run every 8 hours
@@ -61,7 +60,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.24.7
+  go-version: 1.24.9
 
 jobs:
   echo-inputs:
@@ -121,7 +120,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ginkgo runtime from GH cache
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -132,7 +131,7 @@ jobs:
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.7
+          go-version: 1.24.9
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -256,7 +255,7 @@ jobs:
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           test-name: runtime-tests
           install-dependencies: true
@@ -266,12 +265,12 @@ jobs:
           images-folder-parent: "/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.26"
+          lvh-version: "v0.0.27"
           mem: 14G
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.focus }} Ginkgo build from GitHub
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -282,7 +281,7 @@ jobs:
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.7
+          go-version: 1.24.9
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -318,7 +317,7 @@ jobs:
 
       - name: Setup runtime
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
@@ -373,7 +372,7 @@ jobs:
         id: prepare-tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
@@ -398,7 +397,7 @@ jobs:
         id: run-tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
@@ -407,7 +406,7 @@ jobs:
 
       - name: Copy tested features
         if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
@@ -421,7 +420,7 @@ jobs:
         # which is 'agent' and 'datapath' focus.
         if:  ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |

@@ -1,0 +1,32 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: gateway-conformance-infra-test
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tlsroute
+      namespace: gateway-conformance-infra
+  hostnames:
+    - abc.example.com
+  rules:
+    - backendRefs:
+        - name: tls-backend
+          port: 443
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-08-15T00:36:04Z"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-08-15T00:36:04Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: gateway-tlsroute
+        namespace: gateway-conformance-infra

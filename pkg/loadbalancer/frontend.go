@@ -9,6 +9,7 @@ import (
 	"iter"
 	"slices"
 	"strings"
+	"unsafe"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/api/v1/models"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -238,6 +240,26 @@ var (
 
 	FrontendByServiceName = frontendServiceIndex.Query
 )
+
+// LookupFrontendByTuple looks up a frontend with an address without constructing a L3n4Addr.
+// This is used in hubble code when doing lots of lookups with low hit rates and we want to avoid
+// constructing a unique L3n4Addr. On Go v1.24 this avoids a memory leak with [L3n4Addr] if they're
+// constructed faster than they're cleaned up. On Go v1.25 the issue no longer exists.
+// See also https://github.com/cilium/cilium/issues/41623
+//
+// Prefer [FrontendByAddress] over this.
+func LookupFrontendByTuple(txn statedb.ReadTxn, fes statedb.Table[*Frontend], addrCluster cmtypes.AddrCluster, proto L4Type, port uint16, scope uint8) (fe *Frontend, found bool) {
+	rep := l3n4AddrRep{
+		addrCluster: addrCluster,
+		L4Addr:      L4Addr{Protocol: proto, Port: port},
+		scope:       scope,
+	}
+	// Construct a temporary L3n4Addr without going via unique.Make.
+	h := &struct{ rep *l3n4AddrRep }{&rep}
+	l3n4Addr := (*L3n4Addr)(unsafe.Pointer(h))
+	fe, _, found = fes.Get(txn, FrontendByAddress(*l3n4Addr))
+	return
+}
 
 const (
 	FrontendTableName = "frontends"

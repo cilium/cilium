@@ -5,10 +5,10 @@ metadata:
   namespace: gateway-conformance-infra
 spec:
   parentRefs:
-  - name: same-namespace
+    - name: same-namespace
   rules:
-  - backendRefs:
-    - group: unknownkind.example.com
-      kind: NonExistent
-      name: infra-backend-v1
-      port: 8080
+    - backendRefs:
+        - group: unknownkind.example.com
+          kind: NonExistent
+          name: infra-backend-v1
+          port: 8080

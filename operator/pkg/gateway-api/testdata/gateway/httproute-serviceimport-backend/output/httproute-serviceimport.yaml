@@ -1,0 +1,39 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: serviceimport
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+      namespace: gateway-conformance-infra
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /serviceimport
+      backendRefs:
+        - name: serviceimport-backend
+          namespace: gateway-conformance-infra
+          group: multicluster.x-k8s.io
+          kind: ServiceImport
+          port: 8080
+
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: same-namespace
+        namespace: gateway-conformance-infra

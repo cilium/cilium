@@ -14,7 +14,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	k8syaml "sigs.k8s.io/yaml"
 )
 
@@ -96,6 +98,14 @@ func readInput(t *testing.T, file string) []client.Object {
 			obj := &gatewayv1.HTTPRoute{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
+		case "TLSRoute":
+			obj := &gatewayv1alpha2.TLSRoute{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
+		case "GRPCRoute":
+			obj := &gatewayv1.GRPCRoute{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
 		case "Gateway":
 			obj := &gatewayv1.Gateway{}
 			fromYaml(t, o, obj)
@@ -106,6 +116,10 @@ func readInput(t *testing.T, file string) []client.Object {
 			res = append(res, obj)
 		case "ReferenceGrant":
 			obj := &gatewayv1beta1.ReferenceGrant{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
+		case "ServiceImport":
+			obj := &mcsapiv1alpha1.ServiceImport{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
 		}

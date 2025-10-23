@@ -17,9 +17,6 @@ on:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
-  push:
-    branches:
-      - 'renovate/v1.18-**'
   # Run every 8 hours
   schedule:
     - cron:  '0 1/8 * * *'
@@ -50,7 +47,6 @@ concurrency:
     ${{ github.workflow }}
     ${{ github.event_name }}
     ${{
-      (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
@@ -121,7 +117,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ginkgo E2E from GH cache
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -132,7 +128,7 @@ jobs:
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.7
+          go-version: 1.24.9
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -305,7 +301,7 @@ jobs:
 
       - name: Provision LVH VMs
         id: provision-vh-vms
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           test-name: datapath-conformance
           install-dependencies: true
@@ -315,7 +311,7 @@ jobs:
           cpu: 4
           mem: 12G
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.26"
+          lvh-version: "v0.0.27"
           cmd: |
             git config --global --add safe.directory /host
             mv /host/helm /usr/bin
@@ -323,7 +319,7 @@ jobs:
 
       - name: Provision kind
         timeout-minutes: 5
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
@@ -340,7 +336,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.name }} Ginkgo build from GitHub
-        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -352,7 +348,7 @@ jobs:
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.24.7
+          go-version: 1.24.9
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -389,7 +385,7 @@ jobs:
       - name: Run tests
         id: run-tests
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
@@ -443,7 +439,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |

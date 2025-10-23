@@ -368,7 +368,7 @@ func (n *linuxNodeHandler) enableIPSecIPv4Do(newNode *nodeTypes.Node, nodeID uin
 }
 
 func (n *linuxNodeHandler) enableIPSecIPv4DoLocalHost(errs error) (bool, error) {
-	if !n.subnetEncryption() {
+	if !n.subnetEncryption() && n.nodeConfig.AllocCIDRIPv4 != nil {
 		localCIDR := n.nodeConfig.AllocCIDRIPv4.IPNet
 		return true, errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
 	}
@@ -603,7 +603,7 @@ func (n *linuxNodeHandler) enableIPSecIPv6Do(newNode *nodeTypes.Node, nodeID uin
 }
 
 func (n *linuxNodeHandler) enableIPSecIPv6DoLocalHost(errs error) (bool, error) {
-	if !n.subnetEncryption() {
+	if !n.subnetEncryption() && n.nodeConfig.AllocCIDRIPv6 != nil {
 		localCIDR := n.nodeConfig.AllocCIDRIPv6.IPNet
 		return true, errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
 	}

@@ -1153,6 +1153,10 @@ const (
 
 	HTTPRoute = "httpRoute"
 
+	TLSRoute = "tlsRoute"
+
+	GRPCRoute = "grpcRoute"
+
 	Secret = "secret"
 
 	Nodes = "nodes"

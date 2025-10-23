@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/health"
+	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -130,6 +131,8 @@ type Daemon struct {
 
 	lbConfig loadbalancer.Config
 	kprCfg   kpr.KPRConfig
+
+	healthConfig healthconfig.CiliumHealthConfig
 }
 
 func (d *Daemon) init() error {
@@ -314,6 +317,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		kprCfg:            params.KPRConfig,
 		ciliumHealth:      params.CiliumHealth,
 		endpointAPIFence:  params.EndpointAPIFence,
+		healthConfig:      params.HealthConfig,
 	}
 
 	// initialize endpointRestoreComplete channel as soon as possible so that subsystems
