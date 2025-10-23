@@ -140,7 +140,7 @@ $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
 	-$(CILIUM_CLI) --context=kind-clustermesh1 uninstall >/dev/null
-	$(CILIUM_CLI) --context=kind-clustermesh1 install \
+	$(CILIUM_CLI) --context=kind-clustermesh1 install --wait \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
 		--set=image.override=$(LOCAL_AGENT_IMAGE) \
@@ -152,7 +152,7 @@ kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a 
 	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
 	$(KUBECTL) --context=kind-clustermesh1 get secret -n kube-system cilium-ca -o yaml | \
 		$(KUBECTL) --context=kind-clustermesh2 replace --force -f -
-	$(CILIUM_CLI) --context=kind-clustermesh2 install \
+	$(CILIUM_CLI) --context=kind-clustermesh2 install --wait \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
 		--set=image.override=$(LOCAL_AGENT_IMAGE) \
