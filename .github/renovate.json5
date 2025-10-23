@@ -20,8 +20,12 @@
   "gitAuthor": "cilium-renovate[bot] <134692979+cilium-renovate[bot]@users.noreply.github.com>",
   "includePaths": [
     ".github/actions/bpftrace/**",
+    ".github/actions/cosign/**",
     ".github/actions/e2e/**",
     ".github/actions/kvstore/**",
+    ".github/actions/gather-metrics/**",
+    ".github/actions/merge-artifacts/**",
+    ".github/actions/post-logic/**",
     ".github/actions/ginkgo/**",
     ".github/actions/lvh-kind/**",
     ".github/actions/set-env-variables/action.yml",
