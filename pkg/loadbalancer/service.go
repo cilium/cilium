@@ -129,6 +129,14 @@ func (svc *Service) GetSourceRangesPolicy() SVCSourceRangesPolicy {
 	return SVCSourceRangesPolicyAllow
 }
 
+func (svc *Service) GetSourceRangesEnabled(svcType SVCType, lbSourceRangeAllTypes bool) bool {
+	if lbSourceRangeAllTypes {
+		return len(svc.SourceRanges) > 0
+	} else {
+		return len(svc.SourceRanges) > 0 && svcType == SVCTypeLoadBalancer
+	}
+}
+
 func (svc *Service) GetAnnotations() map[string]string {
 	return svc.Annotations
 }

@@ -818,6 +818,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	isRoutable := !svcKey.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
 
+	checkSourceRange := svc.GetSourceRangesEnabled(svcType, ops.cfg.LBSourceRangeAllTypes)
+
 	forwardingMode := loadbalancer.ToSVCForwardingMode(ops.cfg.LBMode, uint8(proto))
 	if ops.cfg.LBModeAnnotation && svc.ForwardingMode != loadbalancer.SVCForwardingModeUndef {
 		forwardingMode = svc.ForwardingMode
@@ -831,8 +833,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		SvcIntLocal:      svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SessionAffinity:  svc.SessionAffinity,
 		IsRoutable:       isRoutable,
-		SourceRangeDeny:  svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
-		CheckSourceRange: len(svc.SourceRanges) > 0,
+		CheckSourceRange: checkSourceRange,
+		SourceRangeDeny:  checkSourceRange && svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
 		L7LoadBalancer:   svc.ProxyRedirect.Redirects(fe.ServicePort),
 		LoopbackHostport: svc.LoopbackHostPort || proxyDelegation != loadbalancer.SVCProxyDelegationNone,
 		Quarantined:      false,
