@@ -873,7 +873,10 @@ func TestAllEgressMasqueradeCmds(t *testing.T) {
 	}
 }
 
-func testTunnelNoTrackRulesTunnelingEnabled(t *testing.T, port uint16) {
+func testTunnelRulesTunnelingEnabled(t *testing.T, port uint16) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
 	mockManager := &Manager{
 		sharedCfg: SharedConfig{
 			EnableIPv4:       true,
@@ -881,20 +884,24 @@ func testTunnelNoTrackRulesTunnelingEnabled(t *testing.T, port uint16) {
 			TunnelingEnabled: true,
 			TunnelPort:       port,
 		},
+		ip4tables: mockIp4tables,
+		ip6tables: mockIp6tables,
 	}
 
-	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
-	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
-
-	expected := "-t raw -A %s -p udp --dport %d -m comment --comment cilium: NOTRACK for tunnel traffic -j CT --notrack"
+	expected := "%s -A %s -p udp --dport %d -m comment --comment %s"
 
 	mockIp4tables.expectations = []expectation{
-		{args: fmt.Sprintf(expected, "CILIUM_PRE_raw", port)},
-		{args: fmt.Sprintf(expected, "CILIUM_OUTPUT_raw", port)},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
 	}
 	mockIp6tables.expectations = mockIp4tables.expectations
 
 	if err := mockManager.installTunnelNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
+		t.Error(err)
+	}
+
+	if err := mockManager.addCiliumAcceptTunnelRules(); err != nil {
 		t.Error(err)
 	}
 
@@ -906,30 +913,35 @@ func testTunnelNoTrackRulesTunnelingEnabled(t *testing.T, port uint16) {
 	}
 }
 
-func TestTunnelVxlanNoTrackRulesTunnelingEnabled(t *testing.T) {
-	testTunnelNoTrackRulesTunnelingEnabled(t, 8472)
+func TestTunnelVxlankRulesTunnelingEnabled(t *testing.T) {
+	testTunnelRulesTunnelingEnabled(t, 8472)
 }
 
-func TestTunnelGeneveNoTrackRulesTunnelingEnabled(t *testing.T) {
-	testTunnelNoTrackRulesTunnelingEnabled(t, 6081)
+func TestTunnelGeneveRulesTunnelingEnabled(t *testing.T) {
+	testTunnelRulesTunnelingEnabled(t, 6081)
 }
 
-func TestTunnelNoTrackRulesTunnelingDisabled(t *testing.T) {
+func TestTunnelRulesTunnelingDisabled(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 	mockManager := &Manager{
 		sharedCfg: SharedConfig{
 			EnableIPv4:       true,
 			EnableIPv6:       true,
 			TunnelingEnabled: false,
 		},
+		ip4tables: mockIp4tables,
+		ip6tables: mockIp6tables,
 	}
-
-	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
-	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
 
 	// With tunneling disabled, we don't expect any `iptables` or `ip6tables`
 	// rules to be added, so leave `mockIp6tables.expectations` empty.
 
 	if err := mockManager.installTunnelNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
+		t.Error(err)
+	}
+
+	if err := mockManager.addCiliumAcceptTunnelRules(); err != nil {
 		t.Error(err)
 	}
 
