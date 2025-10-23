@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -52,9 +52,6 @@ const (
 	// MetricsMaxEntries is the maximum number of keys that can be present in
 	// the Ratelimit Metrics Map.
 	MaxMetricsEntries = 64
-	// MaxEntries is the maximum number of keys that can be present in the
-	// Ratelimit Map.
-	MaxEntries = 1024
 )
 
 // usageType represents source of ratelimiter usage in datapath code.
@@ -213,18 +210,18 @@ func RegisterCollector(logger *slog.Logger, ratelimitMetricsMap *ratelimitMetric
 	}
 }
 
-func newRatelimitMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMap] {
-	ratelimitMap := &ratelimitMap{bpf.NewMapDeprecated(
-		MapName,
-		ebpf.LRUHash,
-		&Key{},
-		&Value{},
-		MaxEntries,
-		0,
-	)}
+func newRatelimitMap(lifecycle cell.Lifecycle, mapSpecRegistry *registry.MapSpecRegistry) bpf.MapOut[*ratelimitMap] {
+	ratelimitMap := &ratelimitMap{}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
+			spec, err := mapSpecRegistry.Get(MapName)
+			if err != nil {
+				return err
+			}
+
+			ratelimitMap.Map = bpf.NewMap(spec, &Key{}, &Value{})
+
 			if err := ratelimitMap.OpenOrCreate(); err != nil {
 				return fmt.Errorf("failed to init ratelimit bpf map: %w", err)
 			}
@@ -241,19 +238,19 @@ func newRatelimitMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMap] {
 	return bpf.NewMapOut(ratelimitMap)
 }
 
-func newRatelimitMetricsMap(lifecycle cell.Lifecycle) bpf.MapOut[*ratelimitMetricsMap] {
+func newRatelimitMetricsMap(lifecycle cell.Lifecycle, mapSpecRegistry *registry.MapSpecRegistry) bpf.MapOut[*ratelimitMetricsMap] {
 	// ratelimitMetrics is the bpf ratelimit metrics map.
-	ratelimitMetricsMap := &ratelimitMetricsMap{bpf.NewMapDeprecated(
-		MetricsMapName,
-		ebpf.Hash,
-		&MetricsKey{},
-		&MetricsValue{},
-		MaxMetricsEntries,
-		0,
-	)}
+	ratelimitMetricsMap := &ratelimitMetricsMap{}
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(context cell.HookContext) error {
+			spec, err := mapSpecRegistry.Get(MetricsMapName)
+			if err != nil {
+				return err
+			}
+
+			ratelimitMetricsMap.Map = bpf.NewMap(spec, &MetricsKey{}, &MetricsValue{})
+
 			if err := ratelimitMetricsMap.OpenOrCreate(); err != nil {
 				return fmt.Errorf("failed to init ratelimit metrics bpf map: %w", err)
 			}
