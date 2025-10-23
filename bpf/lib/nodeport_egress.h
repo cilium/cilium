@@ -85,7 +85,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target.egress_gateway) {
 		/* Stay on the desired egress interface: */
-		if (target.ifindex && target.ifindex == THIS_INTERFACE_IFINDEX)
+		if (target.ifindex && target.ifindex == CONFIG(interface_ifindex))
 			goto apply_snat;
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
@@ -141,7 +141,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 */
 	if (ret == CTX_ACT_OK)
 		send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   &saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				   &saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				   trace.reason, trace.monitor);
 
 	return ret;
@@ -274,7 +274,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 
 	return ret;
@@ -343,7 +343,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		struct endpoint_info *ep;
 
 		ep = __lookup_ip4_endpoint(ip4->saddr);
-		if (ep && ep->parent_ifindex && ep->parent_ifindex != THIS_INTERFACE_IFINDEX) {
+		if (ep && ep->parent_ifindex && ep->parent_ifindex != CONFIG(interface_ifindex)) {
 			/* This packet came from an endpoint with a parent interface and
 			 * it is currently not egressing on its parent interface.
 			 * Check if its a reply packet, if it is, redirect it to the
@@ -371,7 +371,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target.egress_gateway) {
 		/* Stay on the desired egress interface: */
-		if (target.ifindex && target.ifindex == THIS_INTERFACE_IFINDEX)
+		if (target.ifindex && target.ifindex == CONFIG(interface_ifindex))
 			goto apply_snat;
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
@@ -435,7 +435,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 */
 	if (ret == CTX_ACT_OK)
 		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				   saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				   trace.reason, trace.monitor);
 
 	return ret;
@@ -576,7 +576,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 
 	return ret;

@@ -202,7 +202,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
 		oif = fib_params->l.ifindex;
 
-		if (oif == THIS_INTERFACE_IFINDEX)
+		if (oif == CONFIG(interface_ifindex))
 			return CTX_ACT_OK;
 
 		return fib_do_redirect(ctx, true, fib_params, true, ret, oif, ext_err);
@@ -1335,7 +1335,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
-				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor,
+				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IPV6));
 
 #  if defined(ENABLE_TPROXY)
@@ -2688,7 +2688,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs(proxy_port),
-				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor,
+				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IP));
 
 #  if defined(ENABLE_TPROXY)
