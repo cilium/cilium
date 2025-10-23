@@ -4,15 +4,12 @@
 package ipmasq
 
 import (
+	"errors"
+	"log/slog"
 	"net/netip"
-	"sync"
-
-	"golang.org/x/sys/unix"
+	"os"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/ebpf"
-	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -46,55 +43,36 @@ type Value struct {
 func (v *Value) String() string    { return "" }
 func (v *Value) New() bpf.MapValue { return &Value{} }
 
-var (
-	ipMasq4Map *bpf.Map
-	onceIPv4   sync.Once
-	ipMasq6Map *bpf.Map
-	onceIPv6   sync.Once
-)
-
-func IPMasq4Map(registry *metrics.Registry) *bpf.Map {
-	onceIPv4.Do(func() {
-		ipMasq4Map = bpf.NewMapDeprecated(
-			MapNameIPv4,
-			ebpf.LPMTrie,
-			&Key4{},
-			&Value{},
-			MaxEntriesIPv4,
-			unix.BPF_F_NO_PREALLOC,
-		).WithCache().WithPressureMetric(registry).
-			WithEvents(option.Config.GetEventBufferConfig(MapNameIPv4))
-	})
-	return ipMasq4Map
-}
-
-func IPMasq6Map(registry *metrics.Registry) *bpf.Map {
-	onceIPv6.Do(func() {
-		ipMasq6Map = bpf.NewMapDeprecated(
-			MapNameIPv6,
-			ebpf.LPMTrie,
-			&Key6{},
-			&Value{},
-			MaxEntriesIPv6,
-			unix.BPF_F_NO_PREALLOC,
-		).WithCache().WithPressureMetric(registry).
-			WithEvents(option.Config.GetEventBufferConfig(MapNameIPv6))
-	})
-	return ipMasq6Map
-}
-
 type IPMasqBPFMap struct {
-	MetricsRegistry *metrics.Registry
+	ipMasq4Map *bpf.Map
+	ipMasq6Map *bpf.Map
+}
+
+func OpenIPMasqBPFMap(logger *slog.Logger) (*IPMasqBPFMap, error) {
+	m := &IPMasqBPFMap{}
+	var err error
+
+	m.ipMasq4Map, err = bpf.OpenMap(bpf.MapPath(logger, MapNameIPv4), &Key4{}, &Value{})
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+
+	m.ipMasq6Map, err = bpf.OpenMap(bpf.MapPath(logger, MapNameIPv6), &Key6{}, &Value{})
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+
+	return m, nil
 }
 
 func (m *IPMasqBPFMap) Update(cidr netip.Prefix) error {
 	if cidr.Addr().Is4() {
-		if option.Config.EnableIPv4Masquerade {
-			return IPMasq4Map(m.MetricsRegistry).Update(keyIPv4(cidr), &Value{})
+		if m.ipMasq4Map != nil {
+			return m.ipMasq4Map.Update(keyIPv4(cidr), &Value{})
 		}
 	} else {
-		if option.Config.EnableIPv6Masquerade {
-			return IPMasq6Map(m.MetricsRegistry).Update(keyIPv6(cidr), &Value{})
+		if m.ipMasq6Map != nil {
+			return m.ipMasq6Map.Update(keyIPv6(cidr), &Value{})
 		}
 	}
 	return nil
@@ -102,12 +80,12 @@ func (m *IPMasqBPFMap) Update(cidr netip.Prefix) error {
 
 func (m *IPMasqBPFMap) Delete(cidr netip.Prefix) error {
 	if cidr.Addr().Is4() {
-		if option.Config.EnableIPv4Masquerade {
-			return IPMasq4Map(m.MetricsRegistry).Delete(keyIPv4(cidr))
+		if m.ipMasq4Map != nil {
+			return m.ipMasq4Map.Delete(keyIPv4(cidr))
 		}
 	} else {
-		if option.Config.EnableIPv6Masquerade {
-			return IPMasq6Map(m.MetricsRegistry).Delete(keyIPv6(cidr))
+		if m.ipMasq6Map != nil {
+			return m.ipMasq6Map.Delete(keyIPv6(cidr))
 		}
 	}
 	return nil
@@ -119,18 +97,18 @@ func (m *IPMasqBPFMap) Delete(cidr netip.Prefix) error {
 // specify which protocol we need when ipMasq4Map/ipMasq6Map, or config
 // options, have not been set, as is the case when calling from the CLI, for
 // example.
-func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]netip.Prefix, error) {
+func (m *IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]netip.Prefix, error) {
 	cidrs := []netip.Prefix{}
-	if ipv4Needed {
-		if err := IPMasq4Map(nil).DumpWithCallback(
+	if ipv4Needed && m.ipMasq4Map != nil {
+		if err := m.ipMasq4Map.DumpWithCallback(
 			func(keyIPv4 bpf.MapKey, _ bpf.MapValue) {
 				cidrs = append(cidrs, keyToIPNetIPv4(keyIPv4.(*Key4)))
 			}); err != nil {
 			return nil, err
 		}
 	}
-	if ipv6Needed {
-		if err := IPMasq6Map(nil).DumpWithCallback(
+	if ipv6Needed && m.ipMasq6Map != nil {
+		if err := m.ipMasq6Map.DumpWithCallback(
 			func(keyIPv6 bpf.MapKey, _ bpf.MapValue) {
 				cidrs = append(cidrs, keyToIPNetIPv6(keyIPv6.(*Key6)))
 			}); err != nil {
@@ -142,8 +120,8 @@ func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]netip.Pref
 
 // Dump dumps the contents of the ip-masq-agent maps for IPv4 and/or IPv6, as
 // required based on configuration options.
-func (*IPMasqBPFMap) Dump() ([]netip.Prefix, error) {
-	return (&IPMasqBPFMap{}).DumpForProtocols(option.Config.EnableIPv4Masquerade, option.Config.EnableIPv6Masquerade)
+func (m *IPMasqBPFMap) Dump() ([]netip.Prefix, error) {
+	return m.DumpForProtocols(m.ipMasq4Map != nil, m.ipMasq6Map != nil)
 }
 
 func keyIPv4(cidr netip.Prefix) *Key4 {
