@@ -382,7 +382,7 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2"
+          artifacts_suffix: "aks-${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2"
           job_status: "${{ job.status }}"
 
       - name: Clean up AKS

@@ -420,7 +420,7 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }})"
+          artifacts_suffix: "gke-${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }})"
           job_status: "${{ job.status }}"
 
       - name: Clean up ESP allow firewall rule
