@@ -391,8 +391,11 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	params.EndpointRestorer.RestoreOldEndpoints()
-	bootstrapStats.restore.End(true)
+	err = params.EndpointRestorer.RestoreOldEndpoints()
+	bootstrapStats.restore.EndError(err)
+	if err != nil {
+		return err
+	}
 
 	// We must do this after IPAM because we must wait until the
 	// K8s resources have been synced.
