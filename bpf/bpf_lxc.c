@@ -449,7 +449,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
-	union macaddr router_mac = THIS_INTERFACE_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
 #endif
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
@@ -888,7 +888,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
-	union macaddr router_mac = THIS_INTERFACE_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
 #endif
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1436,12 +1436,12 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 #ifdef ENABLE_ARP_RESPONDER
 /*
  * ARP responder for ARP requests from container
- * Respond to IPV4_GATEWAY with THIS_INTERFACE_MAC
+ * Respond to IPV4_GATEWAY with CONFIG(interface_mac)
  */
 __declare_tail(CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
 {
-	union macaddr mac = THIS_INTERFACE_MAC;
+	union macaddr mac = CONFIG(interface_mac);
 	union macaddr smac;
 	__be32 sip;
 	__be32 tip;
