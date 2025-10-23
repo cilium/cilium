@@ -414,3 +414,9 @@ rules:
   - delete
 {{- end }}
 {{- end }}
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumendpointslices
+  verbs:
+  - deletecollection
