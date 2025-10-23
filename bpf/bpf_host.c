@@ -1589,7 +1589,7 @@ exit:
 		goto drop_err;
 
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_sec_identity, dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+			  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 			  trace.reason, trace.monitor, proto);
 
 	return ret;
@@ -1687,7 +1687,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * from 'cilium_host', mark the packet with MARK_MAGIC_SKIP_TPROXY
 	 * and allow it to enter the foward path once punted to stack.
 	 */
-	if (ctx->mark == 0 && THIS_INTERFACE_IFINDEX == CILIUM_NET_IFINDEX)
+	if (ctx->mark == 0 && CONFIG(interface_ifindex) == CILIUM_NET_IFINDEX)
 		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* !TUNNEL_MODE */
 
