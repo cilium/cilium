@@ -1545,7 +1545,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	    bool from_tunnel)
 {
 	struct ct_state *ct_state, ct_state_new = {};
-	int ifindex = THIS_INTERFACE_IFINDEX;
+	int ifindex = CONFIG(interface_ifindex);
 	struct ipv6_ct_tuple *tuple;
 	bool is_untracked_fragment = false;
 	fraginfo_t fraginfo;
@@ -1742,7 +1742,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
-			ret = redirect_ep(ctx, THIS_INTERFACE_IFINDEX, from_host,
+			ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host,
 					  from_tunnel);
 		break;
 	default:
@@ -1845,7 +1845,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	    bool from_tunnel)
 {
 	struct ct_state *ct_state, ct_state_new = {};
-	int ifindex = THIS_INTERFACE_IFINDEX;
+	int ifindex = CONFIG(interface_ifindex);
 	struct ipv4_ct_tuple *tuple;
 	fraginfo_t fraginfo;
 	bool is_untracked_fragment = false;
@@ -2063,7 +2063,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
-			ret = redirect_ep(ctx, THIS_INTERFACE_IFINDEX, from_host,
+			ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host,
 					  from_tunnel);
 		break;
 	default:

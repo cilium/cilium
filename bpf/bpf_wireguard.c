@@ -364,7 +364,7 @@ out:
 #endif /* ENABLE_NODEPORT */
 
 	send_trace_notify(ctx, TRACE_TO_CRYPTO, src_sec_identity, UNKNOWN_ID,
-			  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+			  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 			  trace.reason, trace.monitor, proto);
 
 	return TC_ACT_OK;
