@@ -116,8 +116,11 @@ def plot_comparison(file1: str, file2: str, outdir: str):
         # Plot
         y_pos = np.arange(len(filtered_programs))
         bar_height = 0.35
+        fig_width = 10
+        fig_height = min(fig_width, max(fig_width//2,
+                                        bar_height * len(filtered_programs)))
 
-        plt.figure(figsize=(12, len(filtered_programs) * 0.5))
+        plt.figure(figsize=(fig_width, fig_height))
         bars_before = plt.barh(y_pos + bar_height/2, before_vals,
                                bar_height, label="Before", alpha=0.7)
         bars_after = plt.barh(y_pos - bar_height/2, after_vals,
