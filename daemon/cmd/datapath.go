@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -183,18 +182,6 @@ func (d *Daemon) initMaps() error {
 		if err := nat.CreateRetriesMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing NAT retries map: %w", err)
-		}
-	}
-
-	if option.Config.EnableIPv4FragmentsTracking {
-		if err := fragmap.InitMap4(d.params.MetricsRegistry, option.Config.FragmentsMapEntries); err != nil {
-			return fmt.Errorf("initializing fragments map: %w", err)
-		}
-	}
-
-	if option.Config.EnableIPv6FragmentsTracking {
-		if err := fragmap.InitMap6(d.params.MetricsRegistry, option.Config.FragmentsMapEntries); err != nil {
-			return fmt.Errorf("initializing fragments map: %w", err)
 		}
 	}
 

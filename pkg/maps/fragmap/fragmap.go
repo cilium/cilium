@@ -8,9 +8,11 @@ import (
 	"log/slog"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -57,16 +59,48 @@ func (v *FragmentValue4) String() string {
 
 func (v *FragmentValue4) New() bpf.MapValue { return &FragmentValue4{} }
 
-// InitMap4 creates the IPv4 fragments map in the kernel.
-func InitMap4(registry *metrics.Registry, mapEntries int) error {
-	fragMap := bpf.NewMapDeprecated(MapNameIPv4,
-		ebpf.LRUHash,
-		&FragmentKey4{},
-		&FragmentValue4{},
-		mapEntries,
-		0,
-	).WithEvents(option.Config.GetEventBufferConfig(MapNameIPv4)).WithPressureMetric(registry)
-	return fragMap.Create()
+type FragMap4 struct {
+	*bpf.Map
+}
+
+func NewFragMap4(
+	lifecycle cell.Lifecycle,
+	registry *metrics.Registry,
+	mapSpecRegistry *registry.MapSpecRegistry,
+	cfg *option.DaemonConfig,
+) (bpf.MapOut[*FragMap4], error) {
+	fragMap := &FragMap4{}
+
+	mapSpecRegistry.ModifyMapSpec(MapNameIPv4, func(spec *ebpf.MapSpec) error {
+		spec.MaxEntries = uint32(cfg.FragmentsMapEntries)
+		return nil
+	})
+
+	if !cfg.EnableIPv4FragmentsTracking {
+		return bpf.NewMapOut(fragMap), nil
+	}
+
+	lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			spec, err := mapSpecRegistry.Get(MapNameIPv4)
+			if err != nil {
+				return fmt.Errorf("failed to get map spec for %s: %w", MapNameIPv4, err)
+			}
+
+			fragMap.Map = bpf.NewMap(spec,
+				&FragmentKey4{},
+				&FragmentValue4{}).
+				WithEvents(cfg.GetEventBufferConfig(MapNameIPv4)).
+				WithPressureMetric(registry)
+
+			return fragMap.OpenOrCreate()
+		},
+		OnStop: func(hc cell.HookContext) error {
+			return fragMap.Map.Close()
+		},
+	})
+
+	return bpf.NewMapOut(fragMap), nil
 }
 
 // OpenMap4 opens the pre-initialized IPv4 fragments map for access.
@@ -105,16 +139,48 @@ func (v *FragmentValue6) String() string {
 
 func (v *FragmentValue6) New() bpf.MapValue { return &FragmentValue6{} }
 
-// InitMap6 creates the IPv6 fragments map in the kernel.
-func InitMap6(registry *metrics.Registry, mapEntries int) error {
-	fragMap := bpf.NewMapDeprecated(MapNameIPv6,
-		ebpf.LRUHash,
-		&FragmentKey6{},
-		&FragmentValue6{},
-		mapEntries,
-		0,
-	).WithEvents(option.Config.GetEventBufferConfig(MapNameIPv6)).WithPressureMetric(registry)
-	return fragMap.Create()
+type FragMap6 struct {
+	*bpf.Map
+}
+
+func NewFragMap6(
+	lifecycle cell.Lifecycle,
+	registry *metrics.Registry,
+	mapSpecRegistry *registry.MapSpecRegistry,
+	cfg *option.DaemonConfig,
+) (bpf.MapOut[*FragMap6], error) {
+	fragMap := &FragMap6{}
+
+	mapSpecRegistry.ModifyMapSpec(MapNameIPv6, func(spec *ebpf.MapSpec) error {
+		spec.MaxEntries = uint32(cfg.FragmentsMapEntries)
+		return nil
+	})
+
+	if !cfg.EnableIPv6FragmentsTracking {
+		return bpf.NewMapOut(fragMap), nil
+	}
+
+	lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			spec, err := mapSpecRegistry.Get(MapNameIPv6)
+			if err != nil {
+				return fmt.Errorf("failed to get map spec for %s: %w", MapNameIPv6, err)
+			}
+
+			fragMap.Map = bpf.NewMap(spec,
+				&FragmentKey6{},
+				&FragmentValue6{}).
+				WithEvents(cfg.GetEventBufferConfig(MapNameIPv6)).
+				WithPressureMetric(registry)
+
+			return fragMap.OpenOrCreate()
+		},
+		OnStop: func(hc cell.HookContext) error {
+			return fragMap.Map.Close()
+		},
+	})
+
+	return bpf.NewMapOut(fragMap), nil
 }
 
 // OpenMap6 opens the pre-initialized IPv6 fragments map for access.
