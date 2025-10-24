@@ -24,6 +24,8 @@
 # define VLAN_FILTER(ifindex, vlan_id) return false;
 #endif
 
+#define	NODEPORT_USE_NAT_46x64		1
+
 #include "lib/common.h"
 #include "lib/config_map.h"
 #include "lib/edt.h"
@@ -631,13 +633,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 			int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, secctx, punt_to_stack,
 					       ext_err, &is_dsr);
-#ifdef ENABLE_IPV6
-			if (ret == NAT_46X64_RECIRC) {
-				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
-				return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
-							  ext_err);
-			}
-#endif
+
 			/* nodeport_lb4() returns with TC_ACT_REDIRECT for
 			 * traffic to L7 LB. Policy enforcement needs to take
 			 * place after L7 LB has processed the packet, so we
