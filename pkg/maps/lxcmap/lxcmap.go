@@ -10,11 +10,12 @@ import (
 	"net/netip"
 	"sync"
 
-	"github.com/cilium/ebpf"
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -35,18 +36,49 @@ var (
 	lxcMapOnce sync.Once
 )
 
-func LXCMap(registry *metrics.Registry) *bpf.Map {
-	lxcMapOnce.Do(func() {
-		lxcMap = bpf.NewMapDeprecated(MapName,
-			ebpf.Hash,
-			&EndpointKey{},
-			&EndpointInfo{},
-			MaxEntries,
-			0,
-		).WithCache().WithPressureMetric(registry).
-			WithEvents(option.Config.GetEventBufferConfig(MapName))
+type LXCMap struct {
+	*bpf.Map
+}
+
+func NewLXCMap(
+	lifecycle cell.Lifecycle,
+	registry *metrics.Registry,
+	mapSpecRegistry *registry.MapSpecRegistry,
+	cfg *option.DaemonConfig,
+) bpf.MapOut[*LXCMap] {
+	m := &LXCMap{}
+	lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			spec, err := mapSpecRegistry.Get(MapName)
+			if err != nil {
+				return fmt.Errorf("failed to get map spec for %s: %w", MapName, err)
+			}
+
+			m.Map = bpf.NewMap(spec, &EndpointKey{}, &EndpointInfo{}).
+				WithCache().WithPressureMetric(registry).
+				WithEvents(cfg.GetEventBufferConfig(MapName))
+
+			if err := m.Map.OpenOrCreate(); err != nil {
+				return fmt.Errorf("failed to open or create %s: %w", MapName, err)
+			}
+
+			return nil
+		},
+		OnStop: func(hc cell.HookContext) error {
+			return m.Map.Close()
+		},
 	})
-	return lxcMap
+
+	return bpf.NewMapOut(m)
+}
+
+func OpenLXCMap(logger *slog.Logger) (*LXCMap, error) {
+	bpfMap, err := bpf.OpenMap(bpf.MapPath(logger, MapName), &EndpointKey{}, &EndpointInfo{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open %s: %w", MapName, err)
+	}
+
+	return &LXCMap{Map: bpfMap}, nil
 }
 
 const (
@@ -180,7 +212,7 @@ func (v *EndpointInfo) New() bpf.MapValue { return &EndpointInfo{} }
 
 // WriteEndpoint updates the BPF map with the endpoint information and links
 // the endpoint information to all keys provided.
-func WriteEndpoint(f EndpointFrontend) error {
+func (lm *LXCMap) WriteEndpoint(f EndpointFrontend) error {
 	info, err := GetBPFValue(f)
 	if err != nil {
 		return err
@@ -190,9 +222,9 @@ func WriteEndpoint(f EndpointFrontend) error {
 	var writtenKeys []*EndpointKey
 
 	for _, key := range keys {
-		if err := LXCMap(nil).Update(key, info); err != nil {
+		if err := lm.Update(key, info); err != nil {
 			for _, k := range writtenKeys {
-				_ = LXCMap(nil).Delete(k)
+				_ = lm.Delete(k)
 			}
 			return fmt.Errorf("failed to update key %v in LXC map: %w", key, err)
 		}
@@ -203,19 +235,19 @@ func WriteEndpoint(f EndpointFrontend) error {
 }
 
 // AddHostEntry adds a special endpoint which represents the local host
-func AddHostEntry(ip net.IP) error {
+func (lm *LXCMap) AddHostEntry(ip net.IP) error {
 	key := NewEndpointKey(ip)
 	ep := &EndpointInfo{Flags: EndpointFlagHost}
-	return LXCMap(nil).Update(key, ep)
+	return lm.Update(key, ep)
 }
 
 // SyncHostEntry checks if a host entry exists in the lxcmap and adds one if needed.
 // Returns boolean indicating if a new entry was added and an error.
-func SyncHostEntry(ip net.IP) (bool, error) {
+func (lm *LXCMap) SyncHostEntry(ip net.IP) (bool, error) {
 	key := NewEndpointKey(ip)
-	value, err := LXCMap(nil).Lookup(key)
+	value, err := lm.Lookup(key)
 	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHost == 0 {
-		err = AddHostEntry(ip)
+		err = lm.AddHostEntry(ip)
 		if err == nil {
 			return true, nil
 		}
@@ -224,16 +256,16 @@ func SyncHostEntry(ip net.IP) (bool, error) {
 }
 
 // DeleteEntry deletes a single map entry
-func DeleteEntry(ip net.IP) error {
-	return LXCMap(nil).Delete(NewEndpointKey(ip))
+func (lm *LXCMap) DeleteEntry(ip net.IP) error {
+	return lm.Delete(NewEndpointKey(ip))
 }
 
 // DeleteElement deletes the endpoint using all keys which represent the
 // endpoint. It returns the number of errors encountered during deletion.
-func DeleteElement(logger *slog.Logger, f EndpointFrontend) []error {
+func (lm *LXCMap) DeleteElement(logger *slog.Logger, f EndpointFrontend) []error {
 	var errors []error
 	for _, k := range GetBPFKeys(f) {
-		if err := LXCMap(nil).Delete(k); err != nil {
+		if err := lm.Delete(k); err != nil {
 			errors = append(errors, fmt.Errorf("Unable to delete key %v from %s: %w", k, bpf.MapPath(logger, MapName), err))
 		}
 	}
@@ -242,7 +274,7 @@ func DeleteElement(logger *slog.Logger, f EndpointFrontend) []error {
 }
 
 // DumpToMap dumps the contents of the lxcmap into a map and returns it
-func DumpToMap() (map[string]EndpointInfo, error) {
+func (lm *LXCMap) DumpToMap() (map[string]EndpointInfo, error) {
 	m := map[string]EndpointInfo{}
 	callback := func(key bpf.MapKey, value bpf.MapValue) {
 		if info, ok := value.(*EndpointInfo); ok {
@@ -252,7 +284,7 @@ func DumpToMap() (map[string]EndpointInfo, error) {
 		}
 	}
 
-	if err := LXCMap(nil).DumpWithCallback(callback); err != nil {
+	if err := lm.DumpWithCallback(callback); err != nil {
 		return nil, fmt.Errorf("unable to read BPF endpoint list: %w", err)
 	}
 

@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -26,7 +27,11 @@ var bpfEndpointListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf endpoint list")
 
 		bpfEndpointList := make(map[string][]string)
-		if err := lxcmap.LXCMap(nil).Dump(bpfEndpointList); err != nil {
+		lxc, err := lxcmap.OpenLXCMap(slog.Default())
+		if err != nil {
+			os.Exit(1)
+		}
+		if err := lxc.Dump(bpfEndpointList); err != nil {
 			os.Exit(1)
 		}
 

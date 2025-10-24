@@ -71,6 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -1293,6 +1294,7 @@ type daemonParams struct {
 	IPSecConfig       datapath.IPsecConfig
 	HealthConfig      healthconfig.CiliumHealthConfig
 	InfraIPAllocator  *infraIPAllocator
+	LXCMap            *lxcmap.LXCMap
 }
 
 func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {

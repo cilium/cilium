@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"log/slog"
 	"net"
 
 	"github.com/spf13/cobra"
@@ -28,7 +29,11 @@ var bpfEndpointDeleteCmd = &cobra.Command{
 			Fatalf("Unable to parse IP '%s'", args[0])
 		}
 
-		if err := lxcmap.DeleteEntry(ip); err != nil {
+		lxc, err := lxcmap.OpenLXCMap(slog.Default())
+		if err != nil {
+			Fatalf("Unable to open lxcmap: %s", err)
+		}
+		if err := lxc.DeleteEntry(ip); err != nil {
 			Fatalf("Unable to delete endpoint entry: %s", err)
 		}
 	},

@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -86,6 +87,9 @@ var Cell = cell.Module(
 
 	// Provides access to the vtep map.
 	vtep.Cell,
+
+	// Provides access to the LXC map.
+	lxcmap.Cell,
 )
 
 type mapApiHandlerOut struct {

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
@@ -67,6 +68,7 @@ type endpointCreator struct {
 	proxy            endpoint.EndpointProxy
 	allocator        cache.IdentityAllocator
 	ctMapGC          ctmap.GCRunner
+	lxcMap           *lxcmap.LXCMap
 	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
 	// information about endpoints.
 	kvstoreSyncher *ipcache.IPIdentitySynchronizer
@@ -97,6 +99,7 @@ type endpointManagerParams struct {
 	Proxy               *proxy.Proxy
 	Allocator           cache.IdentityAllocator
 	CTMapGC             ctmap.GCRunner
+	LXCMap              *lxcmap.LXCMap
 	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
 	WgConfig            wgTypes.WireguardConfig
 	IPSecConfig         datapath.IPsecConfig
@@ -121,6 +124,7 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		proxy:            p.Proxy,
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
+		lxcMap:           p.LXCMap,
 		kvstoreSyncher:   p.KVStoreSynchronizer,
 		wgConfig:         p.WgConfig,
 		ipsecConfig:      p.IPSecConfig,
@@ -175,6 +179,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.wgConfig,
 		c.ipsecConfig,
 		c.policyLogger(),
+		c.lxcMap,
 	)
 }
 
@@ -200,6 +205,7 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 		epJSON,
 		c.wgConfig,
 		c.ipsecConfig,
+		c.lxcMap,
 	)
 }
 
@@ -225,6 +231,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.wgConfig,
 		c.ipsecConfig,
 		c.policyLogger(),
+		c.lxcMap,
 	)
 	if err != nil {
 		return err
@@ -261,6 +268,7 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.wgConfig,
 		c.ipsecConfig,
 		c.policyLogger(),
+		c.lxcMap,
 	)
 	if err != nil {
 		return err

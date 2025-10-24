@@ -50,6 +50,7 @@ type endpointRestorerParams struct {
 	EndpointAPIFence    endpointapi.Fence
 	IPSecAgent          datapath.IPsecAgent
 	IPAMManager         *ipam.IPAM
+	LXCMap              *lxcmap.LXCMap
 }
 
 type endpointRestorer struct {
@@ -63,6 +64,7 @@ type endpointRestorer struct {
 	endpointAPIFence    endpointapi.Fence
 	ipSecAgent          datapath.IPsecAgent
 	ipamManager         *ipam.IPAM
+	lxcMap              *lxcmap.LXCMap
 
 	restoreState                  *endpointRestoreState
 	endpointRestoreComplete       chan struct{}
@@ -81,6 +83,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 		endpointAPIFence:    params.EndpointAPIFence,
 		ipSecAgent:          params.IPSecAgent,
 		ipamManager:         params.IPAMManager,
+		lxcMap:              params.LXCMap,
 
 		endpointRestoreComplete:       make(chan struct{}),
 		endpointInitialPolicyComplete: make(chan struct{}),
@@ -271,7 +274,7 @@ func (r *endpointRestorer) RestoreOldEndpoints() {
 	)
 
 	if !option.Config.DryMode {
-		existingEndpoints, err = lxcmap.DumpToMap()
+		existingEndpoints, err = r.lxcMap.DumpToMap()
 		if err != nil {
 			r.logger.Warn("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup", logfields.Error, err)
 		}
@@ -319,7 +322,7 @@ func (r *endpointRestorer) RestoreOldEndpoints() {
 
 	for epIP, info := range existingEndpoints {
 		if ip := net.ParseIP(epIP); !info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
+			if err := r.lxcMap.DeleteEntry(ip); err != nil {
 				r.logger.Warn("Unable to delete obsolete endpoint from BPF map", logfields.Error, err)
 			} else {
 				r.logger.Debug(

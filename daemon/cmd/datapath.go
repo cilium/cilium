@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -142,10 +141,6 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
-	if err := lxcmap.LXCMap(d.params.MetricsRegistry).OpenOrCreate(); err != nil {
-		return fmt.Errorf("initializing lxc map: %w", err)
-	}
-
 	// The ipcache is shared between endpoints. Unpin the old ipcache map created
 	// by any previous instances of the agent to prevent new endpoints from
 	// picking up the old map pin. The old ipcache will continue to be used by
@@ -206,7 +201,7 @@ func (d *Daemon) initMaps() error {
 	if !option.Config.RestoreState {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap(d.params.MetricsRegistry).DeleteAll()
+		d.params.LXCMap.DeleteAll()
 	}
 
 	return nil
