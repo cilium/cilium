@@ -116,6 +116,7 @@ type Parameters struct {
 	IncludeConnDisruptTest              bool
 	IncludeConnDisruptTestNSTraffic     bool
 	IncludeConnDisruptTestEgressGateway bool
+	IncludeConnDisruptTestL7Traffic     bool
 	ConnDisruptTestSetup                bool
 	ConnDisruptTestRestartsPath         string
 	ConnDisruptTestXfrmErrorsPath       string
