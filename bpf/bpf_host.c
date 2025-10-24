@@ -106,10 +106,8 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV6
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-		   __u32 srcid_from_ipcache, __u32 *sec_identity,
-		   const bool from_host)
+		   __u32 srcid_from_ipcache, __u32 *sec_identity)
 {
-	__u32 src_id = WORLD_IPV6_ID;
 	struct remote_endpoint_info *info = NULL;
 	union v6addr *src;
 
@@ -135,11 +133,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			   ((__u32 *) src)[3], srcid_from_ipcache);
 	}
 
-	if (from_host)
-		src_id = srcid_from_ipcache;
-	else if (CONFIG(secctx_from_ipcache))
-		src_id = srcid_from_ipcache;
-	return src_id;
+	return srcid_from_ipcache;
 }
 
 static __always_inline int
@@ -546,8 +540,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	if (src_sec_identity != HOST_ID)
 		src_sec_identity = 0;
 
-	srcid = resolve_srcid_ipv6(ctx, ip6, src_sec_identity,
-				   &ipcache_srcid, true);
+	srcid = resolve_srcid_ipv6(ctx, ip6, src_sec_identity, &ipcache_srcid);
 
 	/* to-netdev is attached to the egress path of the native device. */
 	return ipv6_host_policy_egress(ctx, srcid, ipcache_srcid, ip6, trace, ext_err);
@@ -558,10 +551,9 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #ifdef ENABLE_IPV4
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
-		   __u32 srcid_from_proxy, __u32 *sec_identity,
-		   const bool from_host)
+		   __u32 srcid_from_proxy, __u32 *sec_identity)
 {
-	__u32 src_id = WORLD_IPV4_ID, srcid_from_ipcache = srcid_from_proxy;
+	__u32 srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
 
 	/* Packets from the proxy will already have a real identity. */
@@ -585,14 +577,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 			   ip4->saddr, srcid_from_ipcache);
 	}
 
-	if (from_host)
-		src_id = srcid_from_ipcache;
-	/* If we could not derive the secctx from the packet itself but
-	 * from the ipcache instead, then use the ipcache identity.
-	 */
-	else if (CONFIG(secctx_from_ipcache))
-		src_id = srcid_from_ipcache;
-	return src_id;
+	return srcid_from_ipcache;
 }
 
 static __always_inline int
@@ -1005,8 +990,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	if (src_sec_identity != HOST_ID)
 		src_sec_identity = 0;
 
-	src_id = resolve_srcid_ipv4(ctx, ip4, src_sec_identity,
-				    &ipcache_srcid, true);
+	src_id = resolve_srcid_ipv4(ctx, ip4, src_sec_identity, &ipcache_srcid);
 
 	/* We need to pass the srcid from ipcache to host firewall. See
 	 * comment in ipv4_host_policy_egress() for details.
@@ -1143,7 +1127,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 
 #endif /*ENABLE_L2_ANNOUNCEMENTS */
 
-		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid, from_host);
+		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 # if defined(ENABLE_HOST_FIREWALL)
@@ -1183,8 +1167,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      METRIC_INGRESS);
 
-		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid,
-					      from_host);
+		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
 # if defined(ENABLE_HOST_FIREWALL)
