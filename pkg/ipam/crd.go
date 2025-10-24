@@ -690,7 +690,13 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 		}
 	}
 
-	return nil, nil, fmt.Errorf("No more IPs available")
+	msg := "no IPs currently available on the node, allocation will be retried "
+	if n.conf.IPAMMode() == ipamOption.IPAMCRD {
+		msg += "once IPs are added to CiliumNode spec.ipam.pool"
+	} else {
+		msg += "once Cilium Operator allocates more IPs"
+	}
+	return nil, nil, errors.New(msg)
 }
 
 // totalPoolSize returns the total size of the allocation pool
