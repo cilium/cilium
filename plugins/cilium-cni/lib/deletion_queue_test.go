@@ -25,6 +25,7 @@ type errorCase int
 const (
 	errorCaseNever errorCase = iota
 	errorCaseOnce
+	errorCaseTwice
 	errorCaseAlways
 )
 
@@ -43,6 +44,11 @@ func (e *errorMock) call() error {
 		return nil
 	case errorCaseOnce:
 		if e.callCount == 1 {
+			return e.err
+		}
+		return nil
+	case errorCaseTwice:
+		if e.callCount <= 2 {
 			return e.err
 		}
 		return nil
@@ -68,7 +74,7 @@ type fakeCiliumClientCreator struct {
 }
 
 func (f *fakeCiliumClientCreator) ToString() string {
-	errMockStrs := []string{"Never", "Once", "Always"}
+	errMockStrs := []string{"Never", "Once", "Twice", "Always"}
 
 	return fmt.Sprintf("NewClient: %s, EndpointDelete: %s",
 		errMockStrs[f.errorMock.errorCase],
@@ -96,6 +102,7 @@ func TestDeletionFallbackClient(t *testing.T) {
 			deleteQueueLockfile: deleteQueueLockfile,
 
 			newCiliumClientFn: newClientFn,
+			connectionBackoff: time.Millisecond,
 		}
 	}
 
@@ -118,6 +125,10 @@ func TestDeletionFallbackClient(t *testing.T) {
 	}
 	deletionClientErrorOnce := errorMock{
 		errorCase: errorCaseOnce,
+		err:       deletionClientErr,
+	}
+	deletionClientErrorTwice := errorMock{
+		errorCase: errorCaseTwice,
 		err:       deletionClientErr,
 	}
 	deletionClientErrorAlways := errorMock{
@@ -161,6 +172,13 @@ func TestDeletionFallbackClient(t *testing.T) {
 			newClientCreator: fakeCiliumClientCreator{
 				errorMock:       newClientErrorOnce,
 				clientErrorMock: deletionClientErrorOnce,
+			},
+			shouldQueueDeletion: false,
+		},
+		{
+			newClientCreator: fakeCiliumClientCreator{
+				errorMock:       newClientErrorOnce,
+				clientErrorMock: deletionClientErrorTwice,
 			},
 			shouldQueueDeletion: true,
 		},
