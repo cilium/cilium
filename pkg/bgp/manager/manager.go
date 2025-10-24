@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/api"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
-	"github.com/cilium/cilium/pkg/bgp/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -48,13 +48,13 @@ type bgpRouterManagerParams struct {
 	Metrics             *BGPManagerMetrics
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
-	Reconcilers         []reconcilerv2.ConfigReconciler `group:"bgp-config-reconciler-v2"`
-	StateReconcilers    []reconcilerv2.StateReconciler  `group:"bgp-state-reconciler-v2"`
+	Reconcilers         []reconciler.ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	StateReconcilers    []reconciler.StateReconciler  `group:"bgp-state-reconciler-v2"`
 }
 
 type State struct {
 	// reconcilers are list of state reconcilers which will be called when instance state changes.
-	reconcilers []reconcilerv2.StateReconciler
+	reconcilers []reconciler.StateReconciler
 
 	// notifications is a map of instance name to the channel which will be used to get notification
 	// from underlying BGP instance. This map is used for bookkeeping and closing of channel when
@@ -111,7 +111,7 @@ type BGPRouterManager struct {
 
 	// BGP instances and reconcilers
 	BGPInstances      LocalInstanceMap
-	ConfigReconcilers []reconcilerv2.ConfigReconciler
+	ConfigReconcilers []reconciler.ConfigReconciler
 
 	// statedb tables
 	DB                  *statedb.DB
@@ -139,7 +139,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 		return &BGPRouterManager{}
 	}
 
-	activeReconcilers := reconcilerv2.GetActiveReconcilers(params.Logger, params.Reconcilers)
+	activeReconcilers := reconciler.GetActiveReconcilers(params.Logger, params.Reconcilers)
 
 	m := &BGPRouterManager{
 		logger:  params.Logger,
@@ -159,7 +159,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 
 		// state
 		state: State{
-			reconcilers:            reconcilerv2.GetActiveStateReconcilers(params.Logger, params.StateReconcilers),
+			reconcilers:            reconciler.GetActiveStateReconcilers(params.Logger, params.StateReconcilers),
 			notifications:          make(map[string]types.StateNotificationCh),
 			pendingInstances:       sets.New[string](),
 			reconcileSignal:        make(chan struct{}, 1),
@@ -546,7 +546,7 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 
 	var reconcileErrs []error
 	for _, r := range m.ConfigReconcilers {
-		if rErr := r.Reconcile(ctx, reconcilerv2.ReconcileParams{
+		if rErr := r.Reconcile(ctx, reconciler.ReconcileParams{
 			BGPInstance:   i,
 			DesiredConfig: newc,
 			CiliumNode:    ciliumNode,
@@ -569,7 +569,7 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 			//
 			// High level retry will again call the reconciliation loop as long as we return
 			// error.
-			if errors.Is(rErr, reconcilerv2.ErrAbortReconcile) {
+			if errors.Is(rErr, reconciler.ErrAbortReconcile) {
 				break
 			}
 		}

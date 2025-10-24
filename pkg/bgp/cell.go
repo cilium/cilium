@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/api"
 	"github.com/cilium/cilium/pkg/bgp/manager"
-	"github.com/cilium/cilium/pkg/bgp/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
 	bgp_metrics "github.com/cilium/cilium/pkg/bgp/metrics"
@@ -81,14 +81,14 @@ var Cell = cell.Module(
 
 	// provide privates for reconciler v2
 	cell.ProvidePrivate(
-		reconcilerv2.NewCiliumPeerAdvertisement,
+		reconciler.NewCiliumPeerAdvertisement,
 	),
 
 	// BGP config reconcilers
-	reconcilerv2.ConfigReconcilers,
+	reconciler.ConfigReconcilers,
 
 	// BGP state reconcilers
-	reconcilerv2.StateReconcilers,
+	reconciler.StateReconcilers,
 
 	cell.Invoke(
 		// Invoke bgp controller to trigger the constructor.

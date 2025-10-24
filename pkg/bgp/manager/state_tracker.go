@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/cilium/cilium/pkg/bgp/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -84,7 +84,7 @@ func (m *BGPRouterManager) reconcileInstanceDeletion(ctx context.Context, instan
 	defer m.RUnlock()
 
 	for _, stateReconciler := range m.state.reconcilers {
-		err := stateReconciler.Reconcile(ctx, reconcilerv2.StateReconcileParams{
+		err := stateReconciler.Reconcile(ctx, reconciler.StateReconcileParams{
 			DeletedInstance: instanceName,
 		})
 		if err != nil {
@@ -111,7 +111,7 @@ func (m *BGPRouterManager) reconcileInstanceState(ctx context.Context, instanceN
 
 	var err error
 	for _, stateReconciler := range m.state.reconcilers {
-		err = errors.Join(err, stateReconciler.Reconcile(ctx, reconcilerv2.StateReconcileParams{
+		err = errors.Join(err, stateReconciler.Reconcile(ctx, reconciler.StateReconcileParams{
 			UpdatedInstance: instance,
 		}))
 	}
