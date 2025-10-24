@@ -1642,6 +1642,10 @@ func (m *Manager) installRules(state desiredState) error {
 		return fmt.Errorf("cannot install encryption rules: %w", err)
 	}
 
+	if err := m.addCiliumAcceptTunnelRules(); err != nil {
+		return fmt.Errorf("cannot install accept tunnel rules: %w", err)
+	}
+
 	localDeliveryInterface := m.getDeliveryInterface(defaults.HostDevice)
 
 	if err := m.installForwardChainRules(defaults.HostDevice, localDeliveryInterface, ciliumForwardChain); err != nil {
@@ -1781,41 +1785,32 @@ func (m *Manager) addCiliumAcceptEncryptionRules() error {
 		return nil
 	}
 
-	insertAcceptEncrypt := func(ipt iptablesInterface, table, chain string) error {
-		matchDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
-		matchEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
-
-		comment := "exclude encrypt/decrypt marks from " + table + " " + chain + " chain"
-
-		if err := ipt.runProg([]string{
-			"-t", table,
-			"-A", chain,
-			"-m", "mark", "--mark", matchEncrypt,
-			"-m", "comment", "--comment", comment,
-			"-j", "ACCEPT"}); err != nil {
-			return err
-		}
-
-		return ipt.runProg([]string{
-			"-t", table,
-			"-A", chain,
-			"-m", "mark", "--mark", matchDecrypt,
-			"-m", "comment", "--comment", comment,
-			"-j", "ACCEPT"})
-	}
-
 	for _, chain := range ciliumChains {
 		switch chain.table {
 		case "filter", "nat":
 			if m.sharedCfg.EnableIPv4 {
-				if err := insertAcceptEncrypt(m.ip4tables, chain.table, chain.name); err != nil {
-					return err
+				if m.sharedCfg.EnableWireguard {
+					if err := insertAcceptEncryptMark(m.ip4tables, chain.table, chain.name); err != nil {
+						return err
+					}
+				} else if m.sharedCfg.EnableIPSec {
+					if err := insertAcceptEncryptIpsec(m.ip4tables, chain.table, chain.name); err != nil {
+						return err
+					}
 				}
+
 			}
+
 			// ip6tables chain exists only if chain.ipv6 is true
 			if m.sharedCfg.EnableIPv6 && chain.ipv6 {
-				if err := insertAcceptEncrypt(m.ip6tables, chain.table, chain.name); err != nil {
-					return err
+				if m.sharedCfg.EnableWireguard {
+					if err := insertAcceptEncryptMark(m.ip6tables, chain.table, chain.name); err != nil {
+						return err
+					}
+				} else if m.sharedCfg.EnableIPSec {
+					if err := insertAcceptEncryptIpsec(m.ip6tables, chain.table, chain.name); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -1832,6 +1827,37 @@ func (m *Manager) addCiliumNoTrackEncryptionRules() (err error) {
 	if m.sharedCfg.EnableIPv6 {
 		return m.ciliumNoTrackEncryptionRules(m.ip6tables, "-I")
 	}
+	return nil
+}
+
+func (m *Manager) addCiliumAcceptTunnelRules() (err error) {
+	port := m.sharedCfg.TunnelPort
+
+	if !m.sharedCfg.TunnelingEnabled || port == 0 {
+		return nil
+	}
+
+	cmd := []string{
+		"-t", "filter",
+		"-A", ciliumOutputChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(port)),
+		"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
+		"-j", "ACCEPT",
+	}
+
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.ip4tables.runProg(cmd); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.ip6tables.runProg(cmd); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
