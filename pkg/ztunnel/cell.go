@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
+	"github.com/cilium/cilium/pkg/ztunnel/reconciler"
 	"github.com/cilium/cilium/pkg/ztunnel/xds"
 	"github.com/cilium/cilium/pkg/ztunnel/zds"
 )
@@ -26,6 +27,7 @@ var Cell = cell.Module(
 
 	// ZDS server for ztunnel
 	zds.Cell,
+	reconciler.Cell,
 )
 
 type ztunnelParams struct {
