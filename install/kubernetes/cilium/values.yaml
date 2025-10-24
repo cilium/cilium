@@ -2472,6 +2472,9 @@ envoy:
   xffNumTrustedHopsL7PolicyIngress: 0
   # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
   xffNumTrustedHopsL7PolicyEgress: 0
+  # -- For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter 
+  # to use the original source address when extracting the metadata for a request.
+  useOriginalSourceAddress: true
   # @schema
   # type: [null, string]
   # @schema
