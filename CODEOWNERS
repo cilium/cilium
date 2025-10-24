@@ -126,6 +126,7 @@
 # - @cilium/alibabacloud
 # - @cilium/aws
 # - @cilium/azure
+# - @cilium/gke
 #
 # Cilium Internals
 # ++++++++++++++++
@@ -263,6 +264,7 @@
 /.github/workflows/conformance-aks.yaml @cilium/azure @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-aws-cni.yaml @cilium/aws @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-eks.yaml @cilium/aws @cilium/ipsec @cilium/github-sec @cilium/ci-structure
+/.github/workflows/conformance-gke.yaml @cilium/gke @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-kind-proxy-embedded.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
 /.github/workflows/tests-ces-migrate.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/contributing
