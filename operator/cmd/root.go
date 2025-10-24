@@ -35,7 +35,7 @@ import (
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
-	"github.com/cilium/cilium/operator/pkg/bgpv2"
+	"github.com/cilium/cilium/operator/pkg/bgp"
 	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
@@ -229,7 +229,7 @@ var (
 			clustercfgcell.WithSyncedCanaries(false),
 			clustercfgcell.Cell,
 
-			bgpv2.Cell,
+			bgp.Cell,
 			lbipam.Cell,
 			nodeipam.Cell,
 			auth.Cell,
