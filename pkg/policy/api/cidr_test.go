@@ -22,17 +22,6 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 		option.Config.EnableIPv6 = oldv6
 	})
 
-	world := labels.ParseLabelArray("reserved:world")
-
-	labelWorld := labels.ParseSelectLabel("reserved:world")
-	esWorld := NewESFromLabels(labelWorld)
-
-	labelWorldIPv4 := labels.ParseSelectLabel("reserved:world-ipv4")
-	esWorldIPv4 := NewESFromLabels(labelWorldIPv4)
-
-	labelWorldIPv6 := labels.ParseSelectLabel("reserved:world-ipv6")
-	esWorldIPv6 := NewESFromLabels(labelWorldIPv6)
-
 	labelAllV4, err := labels.IPStringToLabel("0.0.0.0/0")
 	require.NoError(t, err)
 	v4World := NewESFromLabels(labelAllV4)
@@ -46,10 +35,9 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 	esOtherCIDR := NewESFromLabels(labelOtherCIDR)
 
 	tt := []struct {
-		name              string
-		cidrs             CIDRSlice
-		expectedSelectors EndpointSelectorSlice
-		matchesWorld,
+		name                   string
+		cidrs                  CIDRSlice
+		expectedSelectors      EndpointSelectorSlice
 		enableIPv4, enableIPv6 bool
 	}{
 		{
@@ -59,11 +47,9 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 			},
 			expectedSelectors: EndpointSelectorSlice{
 				v4World,
-				esWorldIPv4,
 			},
-			matchesWorld: false,
-			enableIPv4:   true,
-			enableIPv6:   true,
+			enableIPv4: true,
+			enableIPv6: true,
 		},
 		{
 			name: "ipv6 dualstack",
@@ -72,11 +58,9 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 			},
 			expectedSelectors: EndpointSelectorSlice{
 				v6World,
-				esWorldIPv6,
 			},
-			matchesWorld: false,
-			enableIPv4:   true,
-			enableIPv6:   true,
+			enableIPv4: true,
+			enableIPv6: true,
 		},
 		{
 			name: "ipv4 and ipv6 dualstack",
@@ -89,13 +73,9 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 				v4World,
 				v6World,
 				esOtherCIDR,
-				esWorld,
-				esWorldIPv4,
-				esWorldIPv6,
 			},
-			matchesWorld: true,
-			enableIPv4:   true,
-			enableIPv6:   true,
+			enableIPv4: true,
+			enableIPv6: true,
 		},
 		{
 			name: "ipv4 in ipv4 only",
@@ -104,11 +84,9 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 			},
 			expectedSelectors: EndpointSelectorSlice{
 				v4World,
-				esWorld,
 			},
-			matchesWorld: true,
-			enableIPv4:   true,
-			enableIPv6:   false,
+			enableIPv4: true,
+			enableIPv6: false,
 		},
 		{
 			name: "ipv6 in ipv4 only",
@@ -118,9 +96,8 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 			expectedSelectors: EndpointSelectorSlice{
 				v6World,
 			},
-			matchesWorld: false,
-			enableIPv4:   true,
-			enableIPv6:   false,
+			enableIPv4: true,
+			enableIPv6: false,
 		},
 		{
 			name: "ipv4 in ipv6 only",
@@ -130,9 +107,8 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 			expectedSelectors: EndpointSelectorSlice{
 				v4World,
 			},
-			matchesWorld: false,
-			enableIPv4:   false,
-			enableIPv6:   true,
+			enableIPv4: false,
+			enableIPv6: true,
 		},
 		{
 			name: "ipv6 in ipv6 only",
@@ -141,11 +117,9 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 			},
 			expectedSelectors: EndpointSelectorSlice{
 				v6World,
-				esWorld,
 			},
-			matchesWorld: true,
-			enableIPv4:   false,
-			enableIPv6:   true,
+			enableIPv4: false,
+			enableIPv6: true,
 		},
 	}
 
@@ -154,7 +128,6 @@ func TestGetAsEndpointSelectors(t *testing.T) {
 		option.Config.EnableIPv6 = test.enableIPv6
 		option.Config.EnableIPv4 = test.enableIPv4
 		result := test.cidrs.GetAsEndpointSelectors()
-		require.Equal(t, test.matchesWorld, result.Matches(world))
 		require.Equal(t, test.expectedSelectors, result)
 	}
 }
@@ -219,25 +192,25 @@ func TestCIDRRuleGetAsEndpointSelectors(t *testing.T) {
 		{
 			name:       "world v4 ss",
 			rule:       CIDRRule{Cidr: "0.0.0.0/0"},
-			expected:   selectors("cidr.0.0.0.0/0", "reserved.world"),
+			expected:   selectors("cidr.0.0.0.0/0"),
 			enableIPv4: true, enableIPv6: false,
 		},
 		{
 			name:       "world v4 ds",
 			rule:       CIDRRule{Cidr: "0.0.0.0/0"},
-			expected:   selectors("cidr.0.0.0.0/0", "reserved.world-ipv4"),
+			expected:   selectors("cidr.0.0.0.0/0"),
 			enableIPv4: true, enableIPv6: true,
 		},
 		{
 			name:       "world v6 ss",
 			rule:       CIDRRule{Cidr: "::/0"},
-			expected:   selectors("cidr.0--0/0", "reserved.world"),
+			expected:   selectors("cidr.0--0/0"),
 			enableIPv4: false, enableIPv6: true,
 		},
 		{
 			name:       "world v6 ds",
 			rule:       CIDRRule{Cidr: "::/0"},
-			expected:   selectors("cidr.0--0/0", "reserved.world-ipv6"),
+			expected:   selectors("cidr.0--0/0"),
 			enableIPv4: true, enableIPv6: true,
 		},
 
@@ -247,10 +220,6 @@ func TestCIDRRuleGetAsEndpointSelectors(t *testing.T) {
 			expected: EndpointSelectorSlice{
 				NewESFromMatchRequirements(nil, []v1.LabelSelectorRequirement{
 					{Key: "cidr.0.0.0.0/0", Operator: "Exists"},
-					{Key: "cidr.1.2.3.4/32", Operator: "DoesNotExist"},
-				}),
-				NewESFromMatchRequirements(nil, []v1.LabelSelectorRequirement{
-					{Key: "reserved.world-ipv4", Operator: "Exists"},
 					{Key: "cidr.1.2.3.4/32", Operator: "DoesNotExist"},
 				}),
 			},
@@ -263,7 +232,7 @@ func TestCIDRRuleGetAsEndpointSelectors(t *testing.T) {
 			option.Config.EnableIPv6 = test.enableIPv6
 			option.Config.EnableIPv4 = test.enableIPv4
 			result := (CIDRRuleSlice{test.rule}).GetAsEndpointSelectors()
-			require.Equal(t, test.expected, result)
+			require.Equal(t, test.expected, result, test.name)
 		})
 	}
 }
