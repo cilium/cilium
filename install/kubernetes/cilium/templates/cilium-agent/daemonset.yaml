@@ -851,7 +851,11 @@ spec:
       {{- if $buildDaemonConfig }}
       # For sharing configuration between the "config" initContainer and the agent
       - name: tmp
+        {{- if .Values.tmpVolume }}
+          {{- toYaml .Values.tmpVolume | nindent 8 }}
+        {{- else }}
         emptyDir: {}
+        {{- end }}
       {{- else }}
       # To read the configuration from the config map
       - name: cilium-config-path
