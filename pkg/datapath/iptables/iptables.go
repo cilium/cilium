@@ -539,9 +539,9 @@ func (m *Manager) disableIPEarlyDemux() {
 // the upstream connection to allow the destination to properly derive the source security ID from
 // the source IP address.
 func (m *Manager) SupportsOriginalSourceAddr() bool {
-	// Original source address use works if xt_socket match is supported, or if ip early demux
-	// is disabled
-	return m.haveSocketMatch || m.ipEarlyDemuxDisabled
+	// Original source address will be used if `ProxyUseOriginalSourceAddress` is enabled via config
+	// and if either xt_socket match is supported or if ip early demux is disabled.
+	return m.cfg.ProxyUseOriginalSourceAddress && (m.haveSocketMatch || m.ipEarlyDemuxDisabled)
 }
 
 // removeRules removes iptables rules installed by Cilium.
