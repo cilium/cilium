@@ -181,6 +181,7 @@ func loadAssignAttach(logger *slog.Logger, xdpDev string, xdpMode xdp.Mode, ifac
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		ConfigPath: filepath.Join(option.Config.StateDir, "datapath_config", xdpDev, "bpf_xdp.cfg"),
 	})
 	if err != nil {
 		return err
