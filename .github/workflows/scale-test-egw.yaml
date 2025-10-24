@@ -474,6 +474,9 @@ jobs:
           echo "CL2-related environment variables"
           printenv | grep CL2_
 
+          # The cilium-cli creates files owned by the root user when run as a container.
+          trap "sudo chmod --recursive +r ./report" EXIT
+
           mkdir ./report
           go run ./cmd/clusterloader.go \
             -v=2 \
@@ -490,8 +493,6 @@ jobs:
             --testoverrides=./testing/prometheus/not-scrape-kube-proxy.yaml \
             2>&1 | tee cl2-output.txt
 
-          # The cilium-cli creates files owned by the root user when run as a container.
-          sudo chmod --recursive +r ./report
 
       - name: Get sysdump
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
