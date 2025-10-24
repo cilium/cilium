@@ -222,6 +222,101 @@ commands to run with privileges.
 .. _substitution references: https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#substitution-references
 .. _literal blocks: https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#literal-blocks
 
+Displaying file creation
+-------------------------
+
+When documenting the creation of a file, avoid using HEREDOC syntax with
+``cat`` commands. Instead, prefer to use the ``literalinclude`` directive to
+reference actual files in the repository.
+
+Using literalinclude for configuration files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When showing configuration file contents, use the ``literalinclude`` directive
+to reference files that exist in the repository (typically in the ``examples/``
+directory). If the file does not yet exist in the repository, consider adding it
+to the ``examples/`` directory first. This approach ensures the documentation
+stays synchronized with the actual file and avoids drift between documentation
+and code.
+
+Follow this recommended pattern:
+
+#. Describe to the user how a task could be achieved with the following
+   configuration.
+
+#. Use ``literalinclude`` to include the actual file contents.
+
+#. Explain what the configuration means, including the meaning of key settings.
+
+#. Provide a direct command that users can copy and paste to apply the
+   configuration.
+
+Example:
+
+.. code-block:: rst
+
+  To configure feature X, create a file with the following contents:
+
+  .. literalinclude:: ../../examples/kubernetes/feature-x.yaml
+      :language: yaml
+
+  This configuration enables feature X by setting:
+
+  - ``enableFeatureX: true``: Activates the feature
+  - ``featureXMode: advanced``: Uses advanced mode for better performance
+
+  Apply the configuration with:
+
+  .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/feature-x.yaml
+
+For inline file contents
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When the file contents are simple, specific to the documentation context, or do
+not exist as a separate file in the repository, state the filename clearly and
+display the file's contents using the appropriate code block directive for the
+file type.
+
+Prefer:
+
+.. code-block:: rst
+
+  The contents of file ``cluster.yaml`` should be:
+
+  .. code-block:: yaml
+
+      first line
+      .
+      .
+      last line
+
+  Apply the configuration with:
+
+  .. code-block:: shell-session
+
+      $ kubectl apply -f cluster.yaml
+
+Avoid:
+
+.. code-block:: rst
+
+  .. code-block:: bash
+
+      cat > cluster.yaml <<EOF
+      first line
+      .
+      .
+      last line
+      EOF
+
+The HEREDOC approach with ``cat`` commands can be jarring to readers and does
+not represent the typical workflow where users create files locally using their
+preferred editor. The recommended approaches provide better readability, proper
+syntax highlighting, and clearer separation between file contents and shell
+commands.
+
 Links
 -----
 
