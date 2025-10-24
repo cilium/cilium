@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -1653,7 +1652,7 @@ func (ct *ConnectivityTest) getGatewayAndNonGatewayNodes() (string, string, erro
 
 }
 
-func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) net.IP {
+func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, ipv6 bool) *netip.Addr {
 	gatewayNode, ok := ct.Nodes()[egressGatewayNode]
 	if !ok {
 		return nil
@@ -1664,14 +1663,14 @@ func (ct *ConnectivityTest) GetGatewayNodeInternalIP(egressGatewayNode string, i
 			continue
 		}
 
-		ip := net.ParseIP(addr.Address)
-		if ip == nil {
+		ip, err := netip.ParseAddr(addr.Address)
+		if err != nil {
 			continue
 		}
 
-		isIPv6 := ip.To4() == nil
-		if isIPv6 == ipv6 {
-			return ip
+		unMappedIp := ip.Unmap()
+		if unMappedIp.Is6() == ipv6 {
+			return &unMappedIp
 		}
 	}
 
