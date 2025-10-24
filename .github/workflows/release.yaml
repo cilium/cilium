@@ -11,6 +11,7 @@ on:
           - 2-prepare-release
           - 4-post-release
           - 5-publish-helm
+          - 6-notify-on-slack
       version:
         description: 'Which version are you releasing? (e.g. vX.Y.Z[-(pre|rc).W])'
         required: true
@@ -27,12 +28,18 @@ on:
         description: 'Which version are you releasing? (e.g. vX.Y.Z[-(pre|rc).W])'
         required: true
         type: string
+      channel_id:
+        description: 'Slack channel ID to post the release announcement to'
+        required: false
+        type: string
+        default: ''
     secrets:
       CILIUM_RELEASE_BOT_PEM:
         required: true
       CILIUM_RELEASE_BOT_APP_ID:
         required: true
-
+      CILIUM_SLACK_RELEASE_BOT_TOKEN:
+        required: true
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
@@ -197,3 +204,52 @@ jobs:
             echo "❌ Failed to merge PR #$PR_NUMBER"
             exit 1
           fi
+
+
+      - name: Notify on Cilium Slack Channel
+        if: ${{ inputs.step == '6-notify-on-slack' }}
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2.1.1
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.CILIUM_SLACK_RELEASE_BOT_TOKEN }}
+          payload: |
+            {
+              "channel": "${{ vars.CILIUM_SLACK_RELEASE_ANNOUNCEMENTS_CHANNEL_ID }}",
+              "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": ":confetti_ball: :cilium-radiant: Release Announcement :cilium-radiant::confetti_ball:\n"
+                        }
+                    },
+                    {
+                        "type": "divider"
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "Cilium v${{ inputs.version }} has been released. Thanks all for your contributions! :cilium-gopher:"
+                        }
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "Please see the release notes for details:"
+                        },
+                        "accessory": {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "Release Notes",
+                                "emoji": true
+                            },
+                            "value": "click_me_123",
+                            "url": "https://github.com/cilium/cilium/releases/tag/v${{ inputs.version }}",
+                            "action_id": "button-action"
+                        }
+                    }
+                ]
+            }
