@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sync/semaphore"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	ipamStats "github.com/cilium/cilium/pkg/ipam/stats"
@@ -300,6 +301,7 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 				ipsMarkedForRelease: make(map[string]time.Time),
 				ipReleaseStatus:     make(map[string]string),
 			},
+			excessIPReleaseDelay: time.Duration(operatorOption.Config.ExcessIPReleaseDelay) * time.Second,
 		}
 		node.logger.Store(node.rootLogger.With(fieldName, resource.Name))
 

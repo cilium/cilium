@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -32,7 +33,10 @@ var (
 	k8sapi = &k8sMock{}
 )
 
-const testPoolID = ipamTypes.PoolID("global")
+const (
+	testPoolID               = ipamTypes.PoolID("global")
+	testExcessIPReleaseDelay = 2
+)
 
 type allocationImplementationMock struct {
 	// mutex protects all fields of this structure
@@ -453,7 +457,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 // - PreAllocate 4
 // - MaxAboveWatermark 4
 func TestNodeManagerReleaseAddress(t *testing.T) {
-	operatorOption.Config.ExcessIPReleaseDelay = 2
+	operatorOption.Config.ExcessIPReleaseDelay = testExcessIPReleaseDelay
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
@@ -524,7 +528,7 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 // being resolved
 func TestNodeManagerAbortRelease(t *testing.T) {
 	var wg sync.WaitGroup
-	operatorOption.Config.ExcessIPReleaseDelay = 2
+	operatorOption.Config.ExcessIPReleaseDelay = testExcessIPReleaseDelay
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
@@ -601,7 +605,8 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 // 3. Before being removed from status.ipam.release-ips, the same IP is reassigned to the pool (ie. AWS ENI in the case of AWS ENI IPAM)
 // 4. The IP is no longer considered excess, so the release handshake is aborted and the IP is deleted from status.ipam.release-ips
 func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
-	operatorOption.Config.ExcessIPReleaseDelay = 2
+	operatorOption.Config.ExcessIPReleaseDelay = testExcessIPReleaseDelay
+
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
@@ -650,7 +655,7 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		}
 
 		for _, ts := range node.ipv4Alloc.ipsMarkedForRelease {
-			if ts.Add(time.Duration(operatorOption.Config.ExcessIPReleaseDelay) * time.Second).Before(time.Now()) {
+			if ts.Add(time.Duration(testExcessIPReleaseDelay) * time.Second).Before(time.Now()) {
 				return true
 			}
 		}
@@ -679,6 +684,8 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 
 	node.PopulateIPReleaseStatus(node.resource)
 
+	node.mutex.Lock()
+
 	// Verify it's marked for release in the CiliumNode resource
 	require.Contains(t, node.resource.Status.IPAM.ReleaseIPs, releasedIP)
 	require.Equal(t, ipamOption.IPAMMarkForRelease, string(node.resource.Status.IPAM.ReleaseIPs[releasedIP]))
@@ -686,23 +693,34 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 	// Fake acknowledge IP for release like agent would
 	testipam.FakeAcknowledgeReleaseIps(node.resource)
 
+	node.mutex.Unlock()
+
 	// Run maintenance process again to process the acknowledgment
 	err = node.MaintainIPPool(context.Background())
-	require.NoError(t, err)
+
+	// Handle the case where the MaintainIPPool trigger runs first
+	expectedErrorStr := fmt.Sprintf("unable to release IP %s: IP %s not found", releasedIP, releasedIP)
+	require.Condition(t, func() bool {
+		return err == nil || err.Error() == expectedErrorStr
+	})
 
 	// Resync one more time to process acknowledgements.
 	node.instanceSync.Trigger()
 
 	require.Eventually(t, func() bool {
+		node.mutex.Lock()
+		defer node.mutex.Unlock()
+
 		status, exists := node.resource.Status.IPAM.ReleaseIPs[releasedIP]
 		return exists && string(status) == ipamOption.IPAMReadyForRelease
 	}, 10*time.Second, time.Second)
 
-	// Now simulate the operator releasing the IP and marking it as released
 	node.mutex.Lock()
+
+	// Now simulate the operator releasing the IP and marking it as released
 	delete(node.resource.Spec.IPAM.Pool, releasedIP)
 	node.resource.Status.IPAM.ReleaseIPs[releasedIP] = ipamOption.IPAMReleased
-	node.mutex.Unlock()
+
 	// Also mark it as released in the internal ipReleaseStatus map
 	node.ipv4Alloc.ipReleaseStatus[releasedIP] = ipamOption.IPAMReleased
 
@@ -712,6 +730,9 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		node.resource.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
 	}
 	node.resource.Spec.IPAM.Pool[releasedIP] = ipamTypes.AllocationIP{Resource: "eni-test"}
+
+	node.mutex.Unlock()
+
 	node.ops.AllocateIPs(context.Background(), &AllocationAction{
 		IPv4: IPAllocationAction{
 			AvailableForAllocation: 1,
@@ -723,6 +744,10 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		node.PopulateIPReleaseStatus(node.resource)
+
+		node.mutex.Lock()
+		defer node.mutex.Unlock()
+
 		_, inReleaseStatus := node.ipv4Alloc.ipReleaseStatus[releasedIP]
 		_, inMarkedForRelease := node.ipv4Alloc.ipsMarkedForRelease[releasedIP]
 		_, inReleaseIPs := node.resource.Status.IPAM.ReleaseIPs[releasedIP]
@@ -730,10 +755,13 @@ func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
 		return !inReleaseStatus && !inMarkedForRelease && !inReleaseIPs
 	}, 10*time.Second, time.Second)
 
-	node = mngr.Get("node4")
-	require.NotNil(t, node)
-	require.Equal(t, 4, node.Stats().IPv4.AvailableIPs)
-	require.Equal(t, 2, node.Stats().IPv4.UsedIPs)
+	// Wait for the InstanceSync job to finish and update the node stats
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		node = mngr.Get("node4")
+		assert.NotNil(c, node)
+		assert.Equal(c, 4, node.Stats().IPv4.AvailableIPs)
+		assert.Equal(c, 2, node.Stats().IPv4.UsedIPs)
+	}, 15*time.Second, time.Second, "AvailableIPs and UsedIPs count did not update")
 }
 
 type nodeState struct {
