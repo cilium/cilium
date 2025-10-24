@@ -863,6 +863,12 @@ daemon:
   #
   # By default, this functionality is enabled
   enableSourceIPVerification: true
+# -- Configure temporary volume for cilium-agent
+tmpVolume: {}
+# emptyDir:
+#   sizeLimit: "100Mi"
+#   medium: "Memory"
+
 # -- Specify which network interfaces can run the eBPF datapath. This means
 # that a packet sent from a pod to a destination outside the cluster will be
 # masqueraded (to an output device IPv4 address), if the output device runs the
@@ -1946,6 +1952,11 @@ hubble:
       #  - secretName: chart-example-tls
       #    hosts:
       #      - chart-example.local
+    # -- Configure temporary volume for hubble-ui
+    tmpVolume: {}
+    # emptyDir:
+    #   # sizeLimit: "100Mi"
+    #   # medium: "Memory"
   # -- Hubble flows export.
   export:
     # --- Static exporter configuration.

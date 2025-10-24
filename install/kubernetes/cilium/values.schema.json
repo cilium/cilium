@@ -3795,6 +3795,9 @@
               },
               "type": "object"
             },
+            "tmpVolume": {
+              "type": "object"
+            },
             "tolerations": {
               "items": {},
               "type": "array"
@@ -5943,6 +5946,9 @@
           "type": "object"
         }
       },
+      "type": "object"
+    },
+    "tmpVolume": {
       "type": "object"
     },
     "tolerations": {
