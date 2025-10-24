@@ -16,6 +16,7 @@ clustermesh-apiserver clustermesh hive [flags]
       --cluster-users-config-path string             The path of the config file with the list of remote cluster users (default "/var/lib/cilium/etcd-config/users.yaml")
       --cluster-users-enabled                        Enable the management of etcd users for remote clusters
       --clustermesh-enable-mcs-api                   Whether or not the MCS API support is enabled.
+      --clustermesh-install-mcs-api-crds             Whether or not the MCS API CRDs should be automatically installed. clustermesh-enable-mcs-api must be true for this to take effect. (default true)
       --controller-group-metrics strings             List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                    Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                        Enable debugging mode
