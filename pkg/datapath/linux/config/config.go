@@ -233,14 +233,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_SCTP"] = "1"
 	}
 
-	if cfg.EnableWireguard {
-		cDefinesMap["ENABLE_WIREGUARD"] = "1"
-
-		if option.Config.EncryptNode {
-			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
-		}
-	}
-
 	if option.Config.ServiceNoBackendResponse == option.ServiceNoBackendResponseReject {
 		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
 	}
