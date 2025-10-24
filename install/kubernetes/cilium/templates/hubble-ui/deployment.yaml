@@ -184,8 +184,12 @@ spec:
           defaultMode: 420
           name: hubble-ui-nginx
         name: hubble-ui-nginx-conf
-      - emptyDir: {}
-        name: tmp-dir
+      - name: tmp-dir
+        {{- if .Values.hubble.ui.tmpVolume }}
+          {{- toYaml .Values.hubble.ui.tmpVolume | nindent 8 }}
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
       {{- if .Values.hubble.relay.tls.server.enabled }}
       - name: hubble-ui-client-certs
       {{- if .Values.hubble.ui.standalone.enabled }}
