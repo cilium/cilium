@@ -1024,7 +1024,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto err_ct_fill_up;
+			goto drop_err;
 	}
 
 #ifdef CONNTRACK_ACCOUNTING
@@ -1034,15 +1034,13 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto err_ct_fill_up;
+		goto drop_err;
 
 	return 0;
 
-err_ct_fill_up:
+drop_err:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	if (err == -ENOMEM)
-		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
 	return DROP_CT_CREATE_FAILED;
 }
 
@@ -1081,7 +1079,7 @@ static __always_inline int ct_create4(const void *map_main,
 
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto err_ct_fill_up;
+			goto drop_err;
 	}
 
 #ifdef CONNTRACK_ACCOUNTING
@@ -1095,15 +1093,13 @@ static __always_inline int ct_create4(const void *map_main,
 	 */
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto err_ct_fill_up;
+		goto drop_err;
 
 	return 0;
 
-err_ct_fill_up:
+drop_err:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	if (err == -ENOMEM)
-		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
 	return DROP_CT_CREATE_FAILED;
 }
 
