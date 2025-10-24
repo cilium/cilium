@@ -301,6 +301,8 @@ type ProgramInfo struct {
 	btf              btf.ID
 	loadTime         time.Duration
 
+	restricted bool
+
 	maps                 []MapID
 	insns                []byte
 	jitedSize            uint32
@@ -477,6 +479,14 @@ func newProgramInfoFromFd(fd *sys.FD) (*ProgramInfo, error) {
 		}
 	}
 
+	if info.XlatedProgLen > 0 && info2.XlatedProgInsns.IsNil() {
+		pi.restricted = true
+		pi.insns = nil
+		pi.lineInfos = nil
+		pi.funcInfos = nil
+		pi.jitedInfo = programJitedInfo{}
+	}
+
 	return &pi, nil
 }
 
@@ -556,14 +566,25 @@ func (pi *ProgramInfo) btfSpec() (*btf.Spec, error) {
 	return spec, nil
 }
 
+// ErrRestrictedKernel is returned when kernel address information is restricted
+// by kernel.kptr_restrict and/or net.core.bpf_jit_harden sysctls.
+var ErrRestrictedKernel = internal.ErrRestrictedKernel
+
 // LineInfos returns the BTF line information of the program.
 //
 // Available from 5.0.
+//
+// Returns an error wrapping [ErrRestrictedKernel] if line infos are restricted
+// by sysctls.
 //
 // Requires CAP_SYS_ADMIN or equivalent for reading BTF information. Returns
 // ErrNotSupported if the program was created without BTF or if the kernel
 // doesn't support the field.
 func (pi *ProgramInfo) LineInfos() (btf.LineOffsets, error) {
+	if pi.restricted {
+		return nil, fmt.Errorf("line infos: %w", ErrRestrictedKernel)
+	}
+
 	if len(pi.lineInfos) == 0 {
 		return nil, fmt.Errorf("insufficient permissions or unsupported kernel: %w", ErrNotSupported)
 	}
@@ -599,11 +620,18 @@ func (pi *ProgramInfo) LineInfos() (btf.LineOffsets, error) {
 // this metadata requires CAP_SYS_ADMIN or equivalent. If capability is
 // unavailable, the instructions will be returned without metadata.
 //
+// Returns an error wrapping [ErrRestrictedKernel] if instructions are
+// restricted by sysctls.
+//
 // Available from 4.13. Requires CAP_BPF or equivalent for plain instructions.
 // Requires CAP_SYS_ADMIN for instructions with metadata.
 func (pi *ProgramInfo) Instructions() (asm.Instructions, error) {
 	if platform.IsWindows && len(pi.insns) == 0 {
 		return nil, fmt.Errorf("read instructions: %w", internal.ErrNotSupportedOnOS)
+	}
+
+	if pi.restricted {
+		return nil, fmt.Errorf("instructions: %w", ErrRestrictedKernel)
 	}
 
 	// If the calling process is not BPF-capable or if the kernel doesn't
@@ -671,22 +699,37 @@ func (pi *ProgramInfo) Instructions() (asm.Instructions, error) {
 	return insns, nil
 }
 
-// JitedSize returns the size of the program's JIT-compiled machine code in bytes, which is the
-// actual code executed on the host's CPU. This field requires the BPF JIT compiler to be enabled.
+// JitedSize returns the size of the program's JIT-compiled machine code in
+// bytes, which is the actual code executed on the host's CPU. This field
+// requires the BPF JIT compiler to be enabled.
+//
+// Returns an error wrapping [ErrRestrictedKernel] if jited program size is
+// restricted by sysctls.
 //
 // Available from 4.13. Reading this metadata requires CAP_BPF or equivalent.
 func (pi *ProgramInfo) JitedSize() (uint32, error) {
+	if pi.restricted {
+		return 0, fmt.Errorf("jited size: %w", ErrRestrictedKernel)
+	}
+
 	if pi.jitedSize == 0 {
 		return 0, fmt.Errorf("insufficient permissions, unsupported kernel, or JIT compiler disabled: %w", ErrNotSupported)
 	}
 	return pi.jitedSize, nil
 }
 
-// TranslatedSize returns the size of the program's translated instructions in bytes, after it has
-// been verified and rewritten by the kernel.
+// TranslatedSize returns the size of the program's translated instructions in
+// bytes, after it has been verified and rewritten by the kernel.
+//
+// Returns an error wrapping [ErrRestrictedKernel] if translated instructions
+// are restricted by sysctls.
 //
 // Available from 4.13. Reading this metadata requires CAP_BPF or equivalent.
 func (pi *ProgramInfo) TranslatedSize() (int, error) {
+	if pi.restricted {
+		return 0, fmt.Errorf("xlated size: %w", ErrRestrictedKernel)
+	}
+
 	insns := len(pi.insns)
 	if insns == 0 {
 		return 0, fmt.Errorf("insufficient permissions or unsupported kernel: %w", ErrNotSupported)
@@ -782,10 +825,17 @@ func (pi *ProgramInfo) JitedFuncLens() ([]uint32, bool) {
 //
 // Available from 5.0.
 //
+// Returns an error wrapping [ErrRestrictedKernel] if function information is
+// restricted by sysctls.
+//
 // Requires CAP_SYS_ADMIN or equivalent for reading BTF information. Returns
 // ErrNotSupported if the program was created without BTF or if the kernel
 // doesn't support the field.
 func (pi *ProgramInfo) FuncInfos() (btf.FuncOffsets, error) {
+	if pi.restricted {
+		return nil, fmt.Errorf("func infos: %w", ErrRestrictedKernel)
+	}
+
 	if len(pi.funcInfos) == 0 {
 		return nil, fmt.Errorf("insufficient permissions or unsupported kernel: %w", ErrNotSupported)
 	}
