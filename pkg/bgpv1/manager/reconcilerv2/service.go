@@ -99,26 +99,25 @@ func (r *ServiceReconciler) processFrontendEvents(ctx context.Context, _ cell.He
 	limiter := rate.NewLimiter(100*time.Millisecond, 1)
 	defer limiter.Stop()
 
-	// watch for changes in the frontends table
-	wtxn := r.db.WriteTxn(r.frontends)
-	changeIter, err := r.frontends.Changes(wtxn)
-	if err != nil {
-		wtxn.Abort()
-		return err
+	// wait for frontends table initialization
+	_, watch := r.frontends.Initialized(r.db.ReadTxn())
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-watch:
 	}
-	wtxn.Commit()
 
+	// emit initial signal
+	r.signaler.Event(struct{}{})
+
+	// watch for changes in the frontends table
+	_, watch = r.frontends.AllWatch(r.db.ReadTxn())
 	for {
-		changes, watch := changeIter.Next(r.db.ReadTxn())
-		signal := false
-		for range changes {
-			signal = true // do not break, always consume all changes
-		}
-		if signal {
-			r.signaler.Event(struct{}{}) // signal BGP CP
-		}
 		select {
 		case <-watch:
+			// re-start the watch and emit reconciliation event
+			_, watch = r.frontends.AllWatch(r.db.ReadTxn())
+			r.signaler.Event(struct{}{})
 		case <-ctx.Done():
 			return ctx.Err()
 		}
