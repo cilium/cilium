@@ -40,7 +40,7 @@ const (
 
 	// maxSetOfServiceID is maximum number of set of service IDs that can be stored
 	// in the kvstore or the local ID allocator.
-	maxSetOfServiceID = loadbalancer.ServiceID(0xFFFF)
+	maxSetOfServiceID = loadbalancer.ServiceID(0xFFFFFF) // 16M services limit
 
 	// firstFreeBackendID is the first ID for which the backend should be assigned.
 	// BPF datapath assumes that backend_id cannot be 0.
