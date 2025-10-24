@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Hubble
+
+syntax = "proto3";
+
+package aggregate;
+
+option go_package = "github.com/cilium/cilium/api/v1/aggregate";
+
+// Aggregate contains flow aggregation counters
+message Aggregate {
+    // ingress_flow_count is the count of flows in the ingress direction
+    uint32 ingress_flow_count = 1;
+
+    // egress_flow_count is the count of flows in the egress direction  
+    uint32 egress_flow_count = 2;
+
+    // unknown_direction_flow_count is the count of flows with unknown traffic direction
+    uint32 unknown_direction_flow_count = 3;
+}
