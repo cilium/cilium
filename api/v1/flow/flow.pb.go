@@ -511,17 +511,18 @@ const (
 	DropReason_CT_TRUNCATED_OR_INVALID_HEADER DropReason = 135
 	DropReason_CT_MISSING_TCP_ACK_FLAG        DropReason = 136
 	DropReason_CT_UNKNOWN_L4_PROTOCOL         DropReason = 137
-	// Deprecated: Marked as deprecated in flow/flow.proto.
-	DropReason_CT_CANNOT_CREATE_ENTRY_FROM_PACKET DropReason = 138
-	DropReason_UNSUPPORTED_L3_PROTOCOL            DropReason = 139
-	DropReason_MISSED_TAIL_CALL                   DropReason = 140
-	DropReason_ERROR_WRITING_TO_PACKET            DropReason = 141
-	DropReason_UNKNOWN_L4_PROTOCOL                DropReason = 142
-	DropReason_UNKNOWN_ICMPV4_CODE                DropReason = 143
-	DropReason_UNKNOWN_ICMPV4_TYPE                DropReason = 144
-	DropReason_UNKNOWN_ICMPV6_CODE                DropReason = 145
-	DropReason_UNKNOWN_ICMPV6_TYPE                DropReason = 146
-	DropReason_ERROR_RETRIEVING_TUNNEL_KEY        DropReason = 147
+	// Packet got dropped by a BPF hook extension error. In other words,
+	// the drop originates from non-Cilium native code.
+	DropReason_DROP_HOOK                   DropReason = 138
+	DropReason_UNSUPPORTED_L3_PROTOCOL     DropReason = 139
+	DropReason_MISSED_TAIL_CALL            DropReason = 140
+	DropReason_ERROR_WRITING_TO_PACKET     DropReason = 141
+	DropReason_UNKNOWN_L4_PROTOCOL         DropReason = 142
+	DropReason_UNKNOWN_ICMPV4_CODE         DropReason = 143
+	DropReason_UNKNOWN_ICMPV4_TYPE         DropReason = 144
+	DropReason_UNKNOWN_ICMPV6_CODE         DropReason = 145
+	DropReason_UNKNOWN_ICMPV6_TYPE         DropReason = 146
+	DropReason_ERROR_RETRIEVING_TUNNEL_KEY DropReason = 147
 	// Deprecated: Marked as deprecated in flow/flow.proto.
 	DropReason_ERROR_RETRIEVING_TUNNEL_OPTIONS DropReason = 148
 	// Deprecated: Marked as deprecated in flow/flow.proto.
@@ -604,7 +605,7 @@ var (
 		135: "CT_TRUNCATED_OR_INVALID_HEADER",
 		136: "CT_MISSING_TCP_ACK_FLAG",
 		137: "CT_UNKNOWN_L4_PROTOCOL",
-		138: "CT_CANNOT_CREATE_ENTRY_FROM_PACKET",
+		138: "DROP_HOOK",
 		139: "UNSUPPORTED_L3_PROTOCOL",
 		140: "MISSED_TAIL_CALL",
 		141: "ERROR_WRITING_TO_PACKET",
@@ -682,7 +683,7 @@ var (
 		"CT_TRUNCATED_OR_INVALID_HEADER":                        135,
 		"CT_MISSING_TCP_ACK_FLAG":                               136,
 		"CT_UNKNOWN_L4_PROTOCOL":                                137,
-		"CT_CANNOT_CREATE_ENTRY_FROM_PACKET":                    138,
+		"DROP_HOOK":                                             138,
 		"UNSUPPORTED_L3_PROTOCOL":                               139,
 		"MISSED_TAIL_CALL":                                      140,
 		"ERROR_WRITING_TO_PACKET":                               141,
@@ -5736,7 +5737,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"\x06TRACED\x10\x06\x12\x0e\n" +
 	"\n" +
-	"TRANSLATED\x10\a*\xc5\x11\n" +
+	"TRANSLATED\x10\a*\xa8\x11\n" +
 	"\n" +
 	"DropReason\x12\x17\n" +
 	"\x13DROP_REASON_UNKNOWN\x10\x00\x12\x1b\n" +
@@ -5747,8 +5748,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x16INVALID_PACKET_DROPPED\x10\x86\x01\x12#\n" +
 	"\x1eCT_TRUNCATED_OR_INVALID_HEADER\x10\x87\x01\x12\x1c\n" +
 	"\x17CT_MISSING_TCP_ACK_FLAG\x10\x88\x01\x12\x1b\n" +
-	"\x16CT_UNKNOWN_L4_PROTOCOL\x10\x89\x01\x12+\n" +
-	"\"CT_CANNOT_CREATE_ENTRY_FROM_PACKET\x10\x8a\x01\x1a\x02\b\x01\x12\x1c\n" +
+	"\x16CT_UNKNOWN_L4_PROTOCOL\x10\x89\x01\x12\x0e\n" +
+	"\tDROP_HOOK\x10\x8a\x01\x12\x1c\n" +
 	"\x17UNSUPPORTED_L3_PROTOCOL\x10\x8b\x01\x12\x15\n" +
 	"\x10MISSED_TAIL_CALL\x10\x8c\x01\x12\x1c\n" +
 	"\x17ERROR_WRITING_TO_PACKET\x10\x8d\x01\x12\x18\n" +
