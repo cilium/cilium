@@ -69,6 +69,9 @@ type EndpointsLookup interface {
 	// GetEndpointsByContainerID looks up endpoints by container ID
 	GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint
 
+	// GetEndpointsByNamespace looks up endpoints by namespace.
+	GetEndpointsByNamespace(namespace string) []*endpoint.Endpoint
+
 	// GetEndpoints returns a slice of all endpoints present in endpoint manager.
 	GetEndpoints() []*endpoint.Endpoint
 
