@@ -201,10 +201,10 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 static __always_inline int
 fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	      const struct in6_addr *ipv6_src, const struct in6_addr *ipv6_dst,
-	      int flags)
+	      __u32 ifindex, int flags)
 {
 	fib_params->l.family	= AF_INET6;
-	fib_params->l.ifindex	= ctx_get_ifindex(ctx);
+	fib_params->l.ifindex	= ifindex;
 
 	ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_src,
 		       (union v6addr *)ipv6_src);
@@ -236,7 +236,8 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		struct bpf_fib_lookup_padded fib_params = {0};
 		int fib_result;
 
-		fib_result = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr, 0);
+		fib_result = fib_lookup_v6(ctx, &fib_params, &ip6->saddr, &ip6->daddr,
+					   ctx_get_ifindex(ctx), 0);
 		switch (fib_result) {
 		case BPF_FIB_LKUP_RET_SUCCESS:
 		case BPF_FIB_LKUP_RET_NO_NEIGH:
@@ -267,9 +268,9 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
  */
 static __always_inline int
 fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
-	      __be32 ipv4_src, __be32 ipv4_dst, int flags) {
+	      __be32 ipv4_src, __be32 ipv4_dst, __u32 ifindex, int flags) {
 	fib_params->l.family	= AF_INET;
-	fib_params->l.ifindex	= ctx_get_ifindex(ctx);
+	fib_params->l.ifindex	= ifindex;
 	fib_params->l.ipv4_src	= ipv4_src;
 	fib_params->l.ipv4_dst	= ipv4_dst;
 
@@ -298,7 +299,8 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct bpf_fib_lookup_padded fib_params = {0};
 		int fib_result;
 
-		fib_result = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr, 0);
+		fib_result = fib_lookup_v4(ctx, &fib_params, ip4->saddr, ip4->daddr,
+					   ctx_get_ifindex(ctx), 0);
 		switch (fib_result) {
 		case BPF_FIB_LKUP_RET_SUCCESS:
 		case BPF_FIB_LKUP_RET_NO_NEIGH:
