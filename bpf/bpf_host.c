@@ -106,7 +106,7 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV6
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-		   __u32 srcid_from_ipcache, __u32 *sec_identity)
+		   __u32 srcid_from_ipcache, __u32 *ipcache_sec_identity)
 {
 	struct remote_endpoint_info *info = NULL;
 	union v6addr *src;
@@ -116,7 +116,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		src = (union v6addr *) &ip6->saddr;
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info) {
-			*sec_identity = info->sec_identity;
+			*ipcache_sec_identity = info->sec_identity;
 
 			/* When SNAT is enabled on traffic ingressing
 			 * into Cilium, all traffic from the world will
@@ -126,8 +126,8 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			 * the host. So we can ignore the ipcache if it
 			 * reports the source as HOST_ID.
 			 */
-			if (*sec_identity != HOST_ID)
-				srcid_from_ipcache = *sec_identity;
+			if (*ipcache_sec_identity != HOST_ID)
+				srcid_from_ipcache = *ipcache_sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   ((__u32 *) src)[3], srcid_from_ipcache);
@@ -551,7 +551,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #ifdef ENABLE_IPV4
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
-		   __u32 srcid_from_proxy, __u32 *sec_identity)
+		   __u32 srcid_from_proxy, __u32 *ipcache_sec_identity)
 {
 	__u32 srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
@@ -560,7 +560,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 	if (identity_is_reserved(srcid_from_ipcache)) {
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info != NULL) {
-			*sec_identity = info->sec_identity;
+			*ipcache_sec_identity = info->sec_identity;
 
 			/* When SNAT is enabled on traffic ingressing
 			 * into Cilium, all traffic from the world will
@@ -570,8 +570,8 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 			 * the host. So we can ignore the ipcache if it
 			 * reports the source as HOST_ID.
 			 */
-			if (*sec_identity != HOST_ID)
-				srcid_from_ipcache = *sec_identity;
+			if (*ipcache_sec_identity != HOST_ID)
+				srcid_from_ipcache = *ipcache_sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   ip4->saddr, srcid_from_ipcache);
