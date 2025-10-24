@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -47,7 +48,12 @@ var bpfIPCacheDeleteCmd = &cobra.Command{
 		ip := net.IP(prefix.Addr().AsSlice())
 		mask := net.CIDRMask(prefix.Bits(), 32)
 		key := ipcache.NewKey(ip, mask, clusterID)
-		if err := ipcache.IPCacheMap(nil).Delete(&key); err != nil {
+		ipCacheMap, err := ipcache.OpenIPCacheMap(slog.Default())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening IPCache map: %v\n", err)
+			os.Exit(1)
+		}
+		if err := ipCacheMap.Delete(&key); err != nil {
 			fmt.Fprintf(os.Stderr, "Error deleting entry %s: %v\n", key, err)
 			os.Exit(1)
 		}

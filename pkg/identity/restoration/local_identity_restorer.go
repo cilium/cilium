@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/netip"
+	"os"
 
 	"github.com/cilium/hive/cell"
 
@@ -50,6 +51,7 @@ type localIdentityRestorerParams struct {
 	// allocator is initialized here.
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	IPCache           *ipcache.IPCache
+	OldIPCacheMap     *ipcachemap.OldMap
 	NodeLocalStore    *node.LocalNodeStore
 	MetricsRegistry   *metrics.Registry
 }
@@ -117,7 +119,13 @@ func (d *LocalIdentityRestorer) dumpOldIPCache() (map[netip.Prefix]identity.Nume
 
 	// Dump the bpf ipcache, recording any prefixes with local or ingress
 	// numeric identities.
-	err := ipcachemap.IPCacheMap(d.params.MetricsRegistry).DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+	if d.params.OldIPCacheMap.Map == nil {
+		// We might be in the upgrade case, with the ipcache v1 from v1.18
+		// still around.
+		return d.dumpOldIPCacheV1()
+	}
+
+	err := d.params.OldIPCacheMap.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 		k := key.(*ipcachemap.Key)
 		v := value.(*ipcachemap.RemoteEndpointInfo)
 		nid := identity.NumericIdentity(v.SecurityIdentity)
@@ -130,19 +138,11 @@ func (d *LocalIdentityRestorer) dumpOldIPCache() (map[netip.Prefix]identity.Nume
 			localPrefixes[k.Prefix()] = nid
 		}
 	})
-	// dumpwithcallback() leaves the ipcache map open, must close before opened for
-	// parallel mode in daemon.initmaps()
-	ipcachemap.IPCacheMap(d.params.MetricsRegistry).Close()
+	// Close the old IPCache map after dumping so its memory is released once all other
+	// references to it are gone.
+	d.params.OldIPCacheMap.Close()
 
-	if err != nil {
-		// ignore non-existent cache
-		if errors.Is(err, fs.ErrNotExist) {
-			// We might be in the upgrade case, with the ipcache v1 from v1.18
-			// still around.
-			return d.dumpOldIPCacheV1()
-		}
-	}
-	d.params.Logger.Debug("dumping ipache with local identities", logfields.Count, len(localPrefixes))
+	d.params.Logger.Debug("dumping ipcache with local identities", logfields.Count, len(localPrefixes))
 	return localPrefixes, err
 }
 
@@ -152,7 +152,16 @@ func (d *LocalIdentityRestorer) dumpOldIPCacheV1() (map[netip.Prefix]identity.Nu
 
 	// Dump the bpf ipcache, recording any prefixes with local or ingress
 	// numeric identities.
-	err := ipcachemap.IPCacheMapV1().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+	oldIPCache, err := ipcachemap.OpenIPCacheMapV1(d.params.Logger)
+	if err != nil {
+		// ignore non-existent cache
+		if errors.Is(err, os.ErrNotExist) {
+			return localPrefixes, nil
+		}
+		return localPrefixes, err
+	}
+
+	err = oldIPCache.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 		k := key.(*ipcachemap.Key)
 		v := value.(*ipcachemap.RemoteEndpointInfoV1)
 		nid := identity.NumericIdentity(v.SecurityIdentity)
@@ -161,9 +170,8 @@ func (d *LocalIdentityRestorer) dumpOldIPCacheV1() (map[netip.Prefix]identity.Nu
 			localPrefixes[k.Prefix()] = nid
 		}
 	})
-	// dumpwithcallback() leaves the ipcache map open, must close before opened for
-	// parallel mode in daemon.initmaps()
-	ipcachemap.IPCacheMapV1().Close()
+	// Close the reference to the old v1 ipcache map, we don't need it anymore.
+	oldIPCache.Close()
 
 	if err != nil {
 		// ignore non-existent cache

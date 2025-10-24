@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -138,20 +137,6 @@ func (e *EndpointMapManager) ListMapsDir(path string) []string {
 func (d *Daemon) initMaps() error {
 	if option.Config.DryMode {
 		return nil
-	}
-
-	// The ipcache is shared between endpoints. Unpin the old ipcache map created
-	// by any previous instances of the agent to prevent new endpoints from
-	// picking up the old map pin. The old ipcache will continue to be used by
-	// loaded bpf programs, it will just no longer be updated by the agent.
-	//
-	// This is to allow existing endpoints that have not been regenerated yet to
-	// continue using the existing ipcache until the endpoint is regenerated for
-	// the first time and its bpf programs have been replaced. Existing endpoints
-	// are using a policy map which is potentially out of sync as local identities
-	// are re-allocated on startup.
-	if err := ipcachemap.IPCacheMap(d.params.MetricsRegistry).Recreate(); err != nil {
-		return fmt.Errorf("initializing ipcache map: %w", err)
 	}
 
 	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {

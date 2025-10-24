@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strings"
@@ -68,7 +69,12 @@ func init() {
 func dumpIPCache() map[string][]string {
 	bpfIPCache := make(map[string][]string)
 
-	if err := ipcache.IPCacheMap(nil).Dump(bpfIPCache); err != nil {
+	ipCacheMap, err := ipcache.OpenIPCacheMap(slog.Default())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening IPCache map: %v\n", err)
+		os.Exit(1)
+	}
+	if err := ipCacheMap.Dump(bpfIPCache); err != nil {
 		Fatalf("unable to dump IPCache: %s\n", err)
 	}
 

@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -22,18 +21,13 @@ type monitorNotify interface {
 	SendEvent(typ int, event any) error
 }
 
-type Map interface {
-	Update(key bpf.MapKey, value bpf.MapValue) error
-	Delete(key bpf.MapKey) error
-}
-
 // BPFListener implements the ipcache.IPIdentityMappingBPFListener
 // interface with an IPCache store that is backed by BPF maps.
 type BPFListener struct {
 	logger *slog.Logger
 	// bpfMap is the BPF map that this listener will update when events are
 	// received from the IPCache.
-	bpfMap Map
+	bpfMap *ipcacheMap.Map
 
 	// monitorNotify is used to notify the monitor about ipcache updates
 	monitorNotify monitorNotify
@@ -43,7 +37,7 @@ type BPFListener struct {
 }
 
 // NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(m Map, mn monitorNotify, tunnelConf tunnel.Config, logger *slog.Logger) *BPFListener {
+func NewListener(m *ipcacheMap.Map, mn monitorNotify, tunnelConf tunnel.Config, logger *slog.Logger) *BPFListener {
 	return &BPFListener{
 		logger:        logger,
 		bpfMap:        m,

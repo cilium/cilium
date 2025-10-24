@@ -5,17 +5,18 @@ package ipcache
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
+	"os"
 	"strings"
-	"sync"
 	"unsafe"
 
-	"golang.org/x/sys/unix"
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
@@ -239,64 +240,82 @@ func NewValue(secID uint32, tunnelEndpoint net.IP, key uint8, flags RemoteEndpoi
 
 // Map represents an IPCache BPF map.
 type Map struct {
-	bpf.Map
+	*bpf.Map
 }
 
-func newIPCacheMap(name string) *bpf.Map {
-	return bpf.NewMapDeprecated(
-		name,
-		ebpf.LPMTrie,
-		&Key{},
-		&RemoteEndpointInfo{},
-		MaxEntries,
-		unix.BPF_F_NO_PREALLOC)
+// OldMap represents an IPCache BPF map from a previous agent instance.
+type OldMap struct {
+	*bpf.Map
 }
 
-func newIPCacheMapV1(name string) *bpf.Map {
-	return bpf.NewMapDeprecated(
-		name,
-		ebpf.LPMTrie,
-		&Key{},
-		&RemoteEndpointInfoV1{},
-		MaxEntries,
-		unix.BPF_F_NO_PREALLOC)
+// OldV1Map represents a v1 IPCache BPF map.
+type OldV1Map struct {
+	*bpf.Map
 }
 
 // NewMap instantiates a Map.
-func NewMap(registry *metrics.Registry, name string) *Map {
-	return &Map{
-		Map: *newIPCacheMap(name).WithCache().WithPressureMetric(registry).
-			WithEvents(option.Config.GetEventBufferConfig(name)),
-	}
+func NewMap(
+	logger *slog.Logger,
+	lifecycle cell.Lifecycle,
+	metricsRegistry *metrics.Registry,
+	mapSpecRegistry *registry.MapSpecRegistry,
+) (bpf.MapOut[*Map], bpf.MapOut[*OldMap]) {
+	m := &Map{}
+	mOld := &OldMap{}
+
+	lifecycle.Append(cell.Hook{
+		OnStart: func(hc cell.HookContext) error {
+			spec, err := mapSpecRegistry.Get(Name)
+			if err != nil {
+				return err
+			}
+
+			// Open the existing map before its unpinned and replaced by the new map.
+			// This old map will allow the local identity restorer to restore identities from the old map
+			// and put them into the new map.
+			mOld.Map, err = bpf.OpenMap(bpf.MapPath(logger, OldName), &Key{}, &RemoteEndpointInfoV1{})
+			if err != nil {
+				if !os.IsNotExist(err) {
+					return fmt.Errorf("opening old ipcache map: %w", err)
+				}
+			}
+
+			m.Map = bpf.NewMap(spec, &Key{}, &RemoteEndpointInfo{}).
+				WithCache().WithPressureMetric(metricsRegistry).
+				WithEvents(option.Config.GetEventBufferConfig(Name))
+
+			// The ipcache is shared between endpoints. Unpin the old ipcache map created
+			// by any previous instances of the agent to prevent new endpoints from
+			// picking up the old map pin. The old ipcache will continue to be used by
+			// loaded bpf programs, it will just no longer be updated by the agent.
+			//
+			// This is to allow existing endpoints that have not been regenerated yet to
+			// continue using the existing ipcache until the endpoint is regenerated for
+			// the first time and its bpf programs have been replaced. Existing endpoints
+			// are using a policy map which is potentially out of sync as local identities
+			// are re-allocated on startup.
+			return m.Map.Recreate()
+		},
+		OnStop: func(_ cell.HookContext) error {
+			return m.Map.Close()
+		},
+	})
+
+	return bpf.NewMapOut(m), bpf.NewMapOut(mOld)
 }
 
-var (
-	// IPCache is a mapping of all endpoint IPs in the cluster which this
-	// Cilium agent is a part of to their corresponding security identities.
-	// It is a singleton; there is only one such map per agent.
-	ipcache *Map
-	once    = &sync.Once{}
-
-	oldIPcache     *Map
-	onceOldIPcache = &sync.Once{}
-)
-
-// IPCacheMap gets the ipcache Map singleton. If it has not already been done,
-// this also initializes the Map.
-func IPCacheMap(registry *metrics.Registry) *Map {
-	once.Do(func() {
-		ipcache = NewMap(registry, Name)
-	})
-	return ipcache
+func OpenIPCacheMap(logger *slog.Logger) (*Map, error) {
+	bpfMap, err := bpf.OpenMap(bpf.MapPath(logger, Name), &Key{}, &RemoteEndpointInfo{})
+	return &Map{
+		Map: bpfMap,
+	}, err
 }
 
 // IPCacheMapV1 does the same as IPCacheMap but for the v1 ipcache map,
 // from v1.18.
-func IPCacheMapV1() *Map {
-	onceOldIPcache.Do(func() {
-		oldIPcache = &Map{
-			Map: *newIPCacheMapV1(OldName),
-		}
-	})
-	return oldIPcache
+func OpenIPCacheMapV1(logger *slog.Logger) (*OldV1Map, error) {
+	bpfMap, err := bpf.OpenMap(bpf.MapPath(logger, OldName), &Key{}, &RemoteEndpointInfoV1{})
+	return &OldV1Map{
+		Map: bpfMap,
+	}, err
 }

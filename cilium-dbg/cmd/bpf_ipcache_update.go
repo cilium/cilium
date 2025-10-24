@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -77,7 +78,12 @@ var bpfIPCacheUpdateCmd = &cobra.Command{
 		mask := net.CIDRMask(prefix.Bits(), 32)
 		key := ipcache.NewKey(ip, mask, clusterID)
 		value := ipcache.NewValue(identity, tunnelEndpoint, encryptKey, flags)
-		if err := ipcache.IPCacheMap(nil).Update(&key, &value); err != nil {
+		ipCacheMap, err := ipcache.OpenIPCacheMap(slog.Default())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening IPCache map: %v\n", err)
+			os.Exit(1)
+		}
+		if err := ipCacheMap.Update(&key, &value); err != nil {
 			fmt.Fprintf(os.Stderr, "Error updating entry %s: %v\n", key, err)
 			os.Exit(1)
 		}
