@@ -11,6 +11,8 @@ package config
 type Node struct {
 	// Index of the interface used to connect nodes in the cluster.
 	DirectRoutingDevIfindex uint32 `config:"direct_routing_dev_ifindex"`
+	// Enable hybrid mode routing based on subnet IDs.
+	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
 	// Enable ICMP responses for policy-denied traffic.
 	PolicyDenyResponseEnabled bool `config:"policy_deny_response_enabled"`
 	// Internal IPv6 router address assigned to the cilium_host interface.
@@ -30,7 +32,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0, false,
+	return &Node{0x0, false, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
