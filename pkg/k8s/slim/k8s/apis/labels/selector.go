@@ -303,6 +303,12 @@ func (r *Requirement) ValuesUnsorted() []string {
 	return ret
 }
 
+// ShallowValues returns a shallow copy of requirement values as passed to NewRequirement
+// Caller may not modify the returned slice!
+func (r *Requirement) ShallowValues() []string {
+	return r.strValues
+}
+
 // Equal checks the equality of requirement.
 func (r Requirement) Equal(x Requirement) bool {
 	if r.key != x.key {
