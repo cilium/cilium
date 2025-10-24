@@ -2460,6 +2460,10 @@
      - base64 encoded PEM values for the Hubble UI client key (deprecated). Use existingSecret instead.
      - string
      - ``""``
+   * - :spelling:ignore:`hubble.ui.tmpVolume`
+     - Configure temporary volume for hubble-ui
+     - object
+     - ``{}``
    * - :spelling:ignore:`hubble.ui.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
@@ -3640,6 +3644,10 @@
      - Name of TLS Interception secret namespace.
      - string
      - ``"cilium-secrets"``
+   * - :spelling:ignore:`tmpVolume`
+     - Configure temporary volume for cilium-agent
+     - object
+     - ``{}``
    * - :spelling:ignore:`tolerations`
      - Node tolerations for agent scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
