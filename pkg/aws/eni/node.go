@@ -959,6 +959,7 @@ func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (leftoverPref
 // findSubnetInSameRouteTableWithNodeSubnet returns the subnet with the most addresses
 // that is in the same route table as the node's subnet to make sure the pod traffic
 // leaving secondary interfaces is routed in the same way as the primary interface.
+// Returns nil if route table discovery is disabled.
 func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -969,6 +970,11 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
+
+	// Route table discovery must be enabled for route-table-aware subnet selection
+	if n.manager.disableRouteTableDiscovery {
+		return nil
+	}
 
 	nodeSubnetID := n.k8sObj.Spec.ENI.NodeSubnetID
 	var bestSubnet *ipamTypes.Subnet
@@ -992,6 +998,7 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 
 // checkSubnetInSameRouteTableWithNodeSubnet checks if the given subnet is in the same route table as the node's subnet
 // to make sure the pod traffic leaving secondary interfaces is routed in the same way as the primary interface.
+// When route table discovery is disabled, returns true to suppress warnings.
 func (n *Node) checkSubnetInSameRouteTableWithNodeSubnet(subnet *ipamTypes.Subnet) bool {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -1002,6 +1009,11 @@ func (n *Node) checkSubnetInSameRouteTableWithNodeSubnet(subnet *ipamTypes.Subne
 
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
+
+	// Skip route table check if discovery is disabled
+	if n.manager.disableRouteTableDiscovery {
+		return true // Treat as always matching when disabled
+	}
 
 	for _, routeTable := range n.manager.routeTables {
 		if _, ok := routeTable.Subnets[n.k8sObj.Spec.ENI.NodeSubnetID]; ok && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
