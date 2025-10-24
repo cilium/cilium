@@ -17,7 +17,7 @@ import (
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
-	"github.com/cilium/cilium/pkg/bgp/manager/reconcilerv2"
+	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -223,7 +223,7 @@ func TestStatedbReconcileErrors(t *testing.T) {
 	var tests = []struct {
 		name            string
 		instances       []*instance.BGPInstance
-		reconcilers     []reconcilerv2.ConfigReconciler
+		reconcilers     []reconciler.ConfigReconciler
 		initStatedb     []*tables.BGPReconcileError
 		expectedError   bool
 		expectedStatedb []*tables.BGPReconcileError
@@ -234,16 +234,16 @@ func TestStatedbReconcileErrors(t *testing.T) {
 				instance.NewFakeBGPInstanceWithName("instance-1"),
 				instance.NewFakeBGPInstanceWithName("instance-2"),
 			},
-			reconcilers: []reconcilerv2.ConfigReconciler{
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+			reconcilers: []reconciler.ConfigReconciler{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-1",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return nil
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-2",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return nil
 					},
 				}),
@@ -257,16 +257,16 @@ func TestStatedbReconcileErrors(t *testing.T) {
 				instance.NewFakeBGPInstanceWithName("instance-1"),
 				instance.NewFakeBGPInstanceWithName("instance-2"),
 			},
-			reconcilers: []reconcilerv2.ConfigReconciler{
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+			reconcilers: []reconciler.ConfigReconciler{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-1",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-1 error")
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-2",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-2 error")
 					},
 				}),
@@ -302,16 +302,16 @@ func TestStatedbReconcileErrors(t *testing.T) {
 				instance.NewFakeBGPInstanceWithName("instance-1"),
 				instance.NewFakeBGPInstanceWithName("instance-2"),
 			},
-			reconcilers: []reconcilerv2.ConfigReconciler{
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+			reconcilers: []reconciler.ConfigReconciler{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-1",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return nil
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-2",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return nil
 					},
 				}),
@@ -346,40 +346,40 @@ func TestStatedbReconcileErrors(t *testing.T) {
 			instances: []*instance.BGPInstance{
 				instance.NewFakeBGPInstanceWithName("instance-1"),
 			},
-			reconcilers: []reconcilerv2.ConfigReconciler{
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+			reconcilers: []reconciler.ConfigReconciler{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-1",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-1 error")
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-2",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-2 error")
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-3",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-3 error")
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-4",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-4 error")
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-5",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-5 error")
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{ // this error is not saved
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{ // this error is not saved
 					Name: "reconciler-6",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-6 error")
 					},
 				}),
@@ -419,22 +419,22 @@ func TestStatedbReconcileErrors(t *testing.T) {
 			instances: []*instance.BGPInstance{
 				instance.NewFakeBGPInstanceWithName("instance-1"),
 			},
-			reconcilers: []reconcilerv2.ConfigReconciler{
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+			reconcilers: []reconciler.ConfigReconciler{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-1",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
-						return reconcilerv2.ErrAbortReconcile // abort reconcile error
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
+						return reconciler.ErrAbortReconcile // abort reconcile error
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-2",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-2 error")
 					},
 				}),
-				reconcilerv2.NewFakeReconciler(reconcilerv2.FakeReconcilerParams{
+				reconciler.NewFakeReconciler(reconciler.FakeReconcilerParams{
 					Name: "reconciler-3",
-					ReconcilerFunc: func(ctx context.Context, p reconcilerv2.ReconcileParams) error {
+					ReconcilerFunc: func(ctx context.Context, p reconciler.ReconcileParams) error {
 						return fmt.Errorf("reconciler-3 error")
 					},
 				}),
@@ -444,7 +444,7 @@ func TestStatedbReconcileErrors(t *testing.T) {
 				{
 					Instance: "instance-1",
 					ErrorID:  0,
-					Error:    reconcilerv2.ErrAbortReconcile.Error(),
+					Error:    reconciler.ErrAbortReconcile.Error(),
 				},
 			},
 			expectedError: true,
