@@ -48,8 +48,8 @@ type bgpRouterManagerParams struct {
 	Metrics             *BGPManagerMetrics
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
-	Reconcilers         []reconciler.ConfigReconciler `group:"bgp-config-reconciler-v2"`
-	StateReconcilers    []reconciler.StateReconciler  `group:"bgp-state-reconciler-v2"`
+	Reconcilers         []reconciler.ConfigReconciler `group:"bgp-config-reconciler"`
+	StateReconcilers    []reconciler.StateReconciler  `group:"bgp-state-reconciler"`
 }
 
 type State struct {

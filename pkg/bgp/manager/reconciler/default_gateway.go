@@ -36,7 +36,7 @@ type DefaultGatewayReconciler struct {
 type DefaultGatewayReconcilerOut struct {
 	cell.Out
 
-	Reconciler ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 type DefaultGatewayReconcilerIn struct {

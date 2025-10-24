@@ -35,7 +35,7 @@ import (
 type ServiceReconcilerOut struct {
 	cell.Out
 
-	Reconciler ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 type ServiceReconcilerIn struct {
