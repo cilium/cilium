@@ -55,6 +55,7 @@ mock_redirect_neigh(int ifindex,
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
+#include "lib/network_device.h"
 
 ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
 
@@ -126,6 +127,8 @@ int eni_nlb_symetric_routing_egress_v4_setup_setup(struct __ctx_buff *ctx)
 			      SECONDARY_IFACE, (__u8 *)LOCAL_BACKEND_MAC, (__u8 *)NODE_MAC);
 
 	ipcache_v4_add_entry(v4_pod_one, 0, SECLABEL, 0, 0);
+
+	device_add_entry(SECONDARY_IFACE, (__u8 *)NODE_MAC, 0);
 
 	ct_create4(&cilium_ct4_global, NULL, &ct, ctx, CT_INGRESS, &state, NULL);
 
@@ -237,6 +240,8 @@ int eni_nlb_symetric_routing_egress_v4_setup_icmp_setup(struct __ctx_buff *ctx)
 			      SECONDARY_IFACE, (__u8 *)LOCAL_BACKEND_MAC, (__u8 *)NODE_MAC);
 
 	ipcache_v4_add_entry(v4_pod_one, 0, SECLABEL, 0, 0);
+
+	device_add_entry(SECONDARY_IFACE, (__u8 *)NODE_MAC, 0);
 
 	ct_create4(&cilium_ct_any4_global, NULL, &ct, ctx, CT_INGRESS, &state, NULL);
 
