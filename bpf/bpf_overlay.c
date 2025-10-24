@@ -6,7 +6,6 @@
 
 #include <bpf/config/node.h>
 #include <bpf/config/global.h>
-#include <bpf/config/overlay.h>
 #include <netdev_config.h>
 
 #define IS_BPF_OVERLAY 1
@@ -43,12 +42,9 @@
 #include "lib/clustermesh.h"
 #include "lib/egress_gateway.h"
 #include "lib/tailcall.h"
-
-#ifdef ENABLE_VTEP
 #include "lib/vtep.h"
 #include "lib/arp.h"
 #include "lib/encap.h"
-#endif /* ENABLE_VTEP */
 
 #define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
 
