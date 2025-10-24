@@ -109,7 +109,7 @@ func (f *fqdnSelector) matches(identity scIdentity) bool {
 }
 
 func (f *fqdnSelector) metricsClass() string {
-	return LabelValueSCFQDN
+	return types.LabelValueSCFQDN
 }
 
 type labelIdentitySelector struct {
@@ -146,16 +146,16 @@ func (l *labelIdentitySelector) remove(_ identityNotifier) {
 }
 
 func (l *labelIdentitySelector) metricsClass() string {
-	if l.selector.DeepEqual(&api.EntitySelectorMapping[api.EntityCluster][0]) {
-		return LabelValueSCCluster
+	if l.selector.CachedString() == api.EntitySelectorMapping[api.EntityCluster][0].CachedString() {
+		return types.LabelValueSCCluster
 	}
 	for _, entity := range api.EntitySelectorMapping[api.EntityWorld] {
-		if l.selector.DeepEqual(&entity) {
-			return LabelValueSCWorld
+		if l.selector.CachedString() == entity.CachedString() {
+			return types.LabelValueSCWorld
 		}
 	}
 
-	return LabelValueSCOther
+	return types.LabelValueSCOther
 }
 
 // lock must be held
