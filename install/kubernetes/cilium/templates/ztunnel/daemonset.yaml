@@ -1,0 +1,202 @@
+{{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ztunnel-cilium
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.ztunnel.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: ztunnel-cilium
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: ztunnel
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: ztunnel-cilium
+  {{- with .Values.ztunnel.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        {{- if and .Values.prometheus.enabled (not .Values.prometheus.serviceMonitor.enabled) }}
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        {{- end }}
+        {{- if .Values.ztunnel.rollOutPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/ztunnel-configmap-checksum: {{ include (print $.Template.BasePath "/ztunnel/configmap.yaml") . | sha256sum | quote }}
+        {{- end }}
+        sidecar.istio.io/inject: "false"
+        {{- with .Values.ztunnel.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        k8s-app: ztunnel-cilium
+        app.kubernetes.io/name: ztunnel
+        app.kubernetes.io/part-of: cilium
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.ztunnel.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ztunnel.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      hostNetwork: true
+      hostPID: true
+      serviceAccountName: {{ .Values.serviceAccounts.ztunnel.name | quote }}
+      {{- with .Values.ztunnel.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.ztunnel.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ztunnel.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: ztunnel
+        image: {{ include "cilium.image" .Values.ztunnel.image | quote }}
+        imagePullPolicy: {{ .Values.ztunnel.image.pullPolicy }}
+        args:
+        - proxy
+        - ztunnel
+        env:
+        - name: USE_SPIRE
+          value: "true"
+        - name: SPIRE_ADMIN_ENDPOINT_SOCKET
+          value: "unix:///run/spire/sockets/admin.sock"
+        - name: XDS_ADDRESS
+          value: "https://localhost:15012"
+        - name: XDS_ROOT_CA
+          value: "/etc/ztunnel/bootstrap-root.crt"
+        - name: CA_ROOT_CA
+          value: "/run/spire/bundle/bundle.crt"
+        - name: FAKE_CA
+          value: "false"
+        - name: RUST_LOG
+          value: {{ .Values.ztunnel.debug.logLevel | default "info" }}
+        - name: RUST_BACKTRACE
+          value: {{ .Values.ztunnel.debug.backtrace | default "0" | quote }}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.hostIP
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
+        - name: ISTIO_META_ENABLE_HBONE
+          value: "true"
+        {{- with .Values.ztunnel.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        ports:
+        - containerPort: 15020
+          name: ztunnel-stats
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        {{- with .Values.ztunnel.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.ztunnel.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - name: spire-bundle
+          mountPath: /run/spire/bundle
+        - name: spire-agent-socket
+          mountPath: /run/spire/sockets/admin.sock
+          readOnly: false
+        - mountPath: /var/run/ztunnel
+          name: ztunnel-dir
+        - mountPath: /etc/ztunnel
+          name: cilium-ztunnel-secrets
+        - mountPath: /sys/fs/cgroup
+          name: cgroup
+          readOnly: true
+        {{- with .Values.ztunnel.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: spire-agent-socket
+        hostPath:
+          path: /run/spire/sockets/admin.sock
+          type: Socket
+      - hostPath:
+          path: /var/run/cilium
+          type: DirectoryOrCreate
+        name: ztunnel-dir
+      - name: cilium-ztunnel-secrets
+        secret:
+          secretName: cilium-ztunnel-secrets
+          items:
+            - key: bootstrap-root.crt
+              path: bootstrap-root.crt
+            - key: ca-root.crt
+              path: ca-root.crt
+      - hostPath:
+          path: /sys/fs/cgroup
+          type: Directory
+        name: cgroup
+      - name: spire-bundle
+        configMap:
+          name: spire-bundle
+          items:
+            - key: bundle.crt
+              path: bundle.crt
+      {{- with .Values.ztunnel.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}
