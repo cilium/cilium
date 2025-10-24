@@ -103,12 +103,17 @@ type CachingIdentityAllocator struct {
 
 	// syncInterval is the periodic synchronization interval of the allocated identities.
 	syncInterval time.Duration
+
+	// identitySeedSalt is the per-cluster salt used to make identity allocation internally
+	// deterministic but externally difficult to predict
+	identitySeedSalt []byte
 }
 
 type AllocatorConfig struct {
 	EnableOperatorManageCIDs bool
 	Timeout                  time.Duration
 	SyncInterval             time.Duration
+	IdentitySeedSalt         []byte
 	maxAllocAttempts         int
 }
 
@@ -304,6 +309,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
 			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << identity.GetClusterIDShift())),
+			allocator.WithSeedSalt(m.identitySeedSalt),
 		}
 		if m.operatorIDManagement {
 			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())
@@ -389,6 +395,7 @@ func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwn
 		maxAllocAttempts:                   config.maxAllocAttempts,
 		timeout:                            config.Timeout,
 		syncInterval:                       config.SyncInterval,
+		identitySeedSalt:                   config.IdentitySeedSalt,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
