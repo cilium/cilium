@@ -129,6 +129,7 @@ specific cloud providers:
 - `@cilium/alibabacloud <https://github.com/orgs/cilium/teams/alibabacloud>`__
 - `@cilium/aws <https://github.com/orgs/cilium/teams/aws>`__
 - `@cilium/azure <https://github.com/orgs/cilium/teams/azure>`__
+- `@cilium/gke <https://github.com/orgs/cilium/teams/gke>`__
 
 Cilium Internals
 ++++++++++++++++
