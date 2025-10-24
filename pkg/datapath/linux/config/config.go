@@ -233,10 +233,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_SCTP"] = "1"
 	}
 
-	if cfg.EnableIPSec {
-		cDefinesMap["ENABLE_IPSEC"] = "1"
-	}
-
 	if cfg.EnableWireguard {
 		cDefinesMap["ENABLE_WIREGUARD"] = "1"
 
