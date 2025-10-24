@@ -80,6 +80,9 @@ const (
 	// level annotation for configuring bpf loadbalancing algorithm.
 	AlgorithmAnnotationName = "bpf-lb-algorithm-annotation"
 
+	// EnableHealthCheckLoadBalancerIP is the name of the EnableHealthCheckLoadBalancerIP option
+	EnableHealthCheckLoadBalancerIP = "enable-health-check-loadbalancer-ip"
+
 	// EnableHealthCheckNodePort is the name of the EnableHealthCheckNodePort option
 	EnableHealthCheckNodePortName = "enable-health-check-nodeport"
 
@@ -186,6 +189,10 @@ type UserConfig struct {
 	// AlgorithmAnnotation tells whether controller should check service
 	// level annotation for configuring bpf load balancing algorithm.
 	AlgorithmAnnotation bool `mapstructure:"bpf-lb-algorithm-annotation"`
+
+	// EnableHealthCheckLoadBalancerIP enables health checking of LoadBalancerIP
+	// by cilium
+	EnableHealthCheckLoadBalancerIP bool `mapstructure:"enable-health-check-loadbalancer-ip"`
 
 	// EnableHealthCheckNodePort enables health checking of NodePort by
 	// cilium
@@ -315,6 +322,7 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.Bool(AlgorithmAnnotationName, def.AlgorithmAnnotation, "Enable service-level annotation for configuring BPF load balancing algorithm")
 
+	flags.Bool(EnableHealthCheckLoadBalancerIP, def.EnableHealthCheckLoadBalancerIP, "Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled")
 	flags.Bool(EnableHealthCheckNodePortName, def.EnableHealthCheckNodePort, "Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set")
 
 	flags.Duration("lb-pressure-metrics-interval", def.LBPressureMetricsInterval, "Interval for reporting pressure metrics for load-balancing BPF maps. 0 disables reporting.")
@@ -494,7 +502,8 @@ var DefaultUserConfig = UserConfig{
 
 	AlgorithmAnnotation: false,
 
-	EnableHealthCheckNodePort: true,
+	EnableHealthCheckLoadBalancerIP: false,
+	EnableHealthCheckNodePort:       true,
 
 	EnableServiceTopology: false,
 
@@ -529,7 +538,6 @@ type ExternalConfig struct {
 	BPFSocketLBHostnsOnly                  bool
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
-	EnableHealthCheckLoadBalancerIP        bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -542,7 +550,6 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
-		EnableHealthCheckLoadBalancerIP:        cfg.EnableHealthCheckLoadBalancerIP,
 	}
 }
 
