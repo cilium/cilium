@@ -82,8 +82,7 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 			tunnelOverIPv6 := option.Config.RoutingMode == option.RoutingModeTunnel &&
 				p.TunnelConfig.UnderlayProtocol() == tunnel.IPv6
 			*c = NewConfiguration(
-				p.IPsec.AuthKeySize(),
-				p.IPsec.Enabled(),
+				p.IPsec,
 				p.TunnelConfig.ShouldAdaptMTU(),
 				p.WgConfig.Enabled(),
 				tunnelOverIPv6,
