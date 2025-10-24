@@ -60,25 +60,27 @@ type InstancesManager struct {
 	// vpcID is the VPC ID current operator running on, we will use it to filter other AWS resources only within this VPC
 	vpcID string
 	// mutex protects the fields below
-	mutex          lock.RWMutex
-	instances      *ipamTypes.InstanceMap
-	subnets        ipamTypes.SubnetMap
-	vpcs           ipamTypes.VirtualNetworkMap
-	routeTables    ipamTypes.RouteTableMap
-	securityGroups types.SecurityGroupMap
-	ec2api         EC2API
-	metadataapi    MetadataAPI
-	limitsGetter   *limits.LimitsGetter
+	mutex                        lock.RWMutex
+	instances                    *ipamTypes.InstanceMap
+	subnets                      ipamTypes.SubnetMap
+	vpcs                         ipamTypes.VirtualNetworkMap
+	routeTables                  ipamTypes.RouteTableMap
+	securityGroups               types.SecurityGroupMap
+	ec2api                       EC2API
+	metadataapi                  MetadataAPI
+	limitsGetter                 *limits.LimitsGetter
+	disableRouteTableDiscovery   bool
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(logger *slog.Logger, ec2api EC2API, metadataapi MetadataAPI) (*InstancesManager, error) {
+func NewInstancesManager(logger *slog.Logger, ec2api EC2API, metadataapi MetadataAPI, disableRouteTableDiscovery bool) (*InstancesManager, error) {
 
 	m := &InstancesManager{
-		logger:      logger.With(subsysLogAttr...),
-		instances:   ipamTypes.NewInstanceMap(),
-		ec2api:      ec2api,
-		metadataapi: metadataapi,
+		logger:                     logger.With(subsysLogAttr...),
+		instances:                  ipamTypes.NewInstanceMap(),
+		ec2api:                     ec2api,
+		metadataapi:                metadataapi,
+		disableRouteTableDiscovery: disableRouteTableDiscovery,
 	}
 
 	limitsGetter, err := limits.NewLimitsGetter(logger, ec2api, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
@@ -240,10 +242,18 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		m.logger.Warn("Unable to retrieve EC2 security group list", logfields.Error, err)
 		return time.Time{}
 	}
-	routeTables, err := m.ec2api.GetRouteTables(ctx, currentVpcID)
-	if err != nil {
-		m.logger.Warn("Unable to retrieve EC2 route table list", logfields.Error, err)
-		return time.Time{}
+
+	// Route table discovery is optional and can be disabled to reduce memory usage and API calls.
+	// Route tables are used for route-table-aware subnet selection, which ensures pod traffic
+	// is routed the same way as the node's primary interface. If disabled, subnet selection
+	// falls back to availability-zone-based selection only.
+	routeTables := ipamTypes.RouteTableMap{}
+	if !m.disableRouteTableDiscovery {
+		routeTables, err = m.ec2api.GetRouteTables(ctx, currentVpcID)
+		if err != nil {
+			m.logger.Warn("Unable to retrieve EC2 route table list", logfields.Error, err)
+			return time.Time{}
+		}
 	}
 
 	// An empty instanceID indicates that this is full resync, ENIs from all instances
@@ -256,14 +266,16 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			return time.Time{}
 		}
 
-		m.logger.Info(
-			"Synchronized ENI information",
+		logArgs := []any{
 			logfields.NumInstances, instances.NumInstances(),
 			logfields.NumVPCs, len(vpcs),
 			logfields.NumSubnets, len(subnets),
-			logfields.NumRouteTables, len(routeTables),
-			logfields.NumSecurityGroups, len(securityGroups),
-		)
+		}
+		if !m.disableRouteTableDiscovery {
+			logArgs = append(logArgs, logfields.NumRouteTables, len(routeTables))
+		}
+		logArgs = append(logArgs, logfields.NumSecurityGroups, len(securityGroups))
+		m.logger.Info("Synchronized ENI information", logArgs...)
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
@@ -275,14 +287,16 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			return time.Time{}
 		}
 
-		m.logger.Info(
-			"Synchronized ENI information for the corresponding instance",
+		logArgs := []any{
 			logfields.InstanceID, instanceID,
 			logfields.NumVPCs, len(vpcs),
 			logfields.NumSubnets, len(subnets),
-			logfields.NumRouteTables, len(routeTables),
-			logfields.NumSecurityGroups, len(securityGroups),
-		)
+		}
+		if !m.disableRouteTableDiscovery {
+			logArgs = append(logArgs, logfields.NumRouteTables, len(routeTables))
+		}
+		logArgs = append(logArgs, logfields.NumSecurityGroups, len(securityGroups))
+		m.logger.Info("Synchronized ENI information for the corresponding instance", logArgs...)
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()

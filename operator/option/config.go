@@ -209,6 +209,12 @@ const (
 
 	// AWSPaginationEnabled toggles pagination for AWS EC2 API requests
 	AWSPaginationEnabled = "aws-pagination-enabled"
+
+	// AWSDisableRouteTableDiscovery disables route table discovery and route-table-aware subnet selection.
+	// Disabling this option can significantly reduce memory usage and AWS API calls in environments with
+	// many route tables, or where route-table-aware subnet selection is not needed (e.g., when pod subnets
+	// are in different subnets from node subnets).
+	AWSDisableRouteTableDiscovery = "aws-disable-route-table-discovery"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -387,6 +393,9 @@ type OperatorConfig struct {
 
 	// AWSPaginationEnabled toggles pagination for AWS EC2 API requests
 	AWSPaginationEnabled bool
+
+	// AWSDisableRouteTableDiscovery disables route table discovery and route-table-aware subnet selection.
+	AWSDisableRouteTableDiscovery bool
 }
 
 // Populate sets all options with the values from viper.
@@ -447,6 +456,7 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
 	c.ENIGarbageCollectionInterval = vp.GetDuration(ENIGarbageCollectionInterval)
 	c.AWSPaginationEnabled = vp.GetBool(AWSPaginationEnabled)
+	c.AWSDisableRouteTableDiscovery = vp.GetBool(AWSDisableRouteTableDiscovery)
 
 	// Azure options
 
