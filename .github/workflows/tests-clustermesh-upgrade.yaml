@@ -830,10 +830,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: upgrade-and-downgrade
+    needs: [wait-for-images, upgrade-and-downgrade]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.upgrade-and-downgrade.result }}
+      result: ${{ needs.wait-for-images.result == 'success' && needs.upgrade-and-downgrade.result == 'success' && 'success' || 'failure' }}

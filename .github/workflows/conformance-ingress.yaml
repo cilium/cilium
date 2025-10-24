@@ -432,10 +432,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: ingress-conformance-test
+    needs: [wait-for-images, ingress-conformance-test]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.ingress-conformance-test.result }}
+      result: ${{ needs.wait-for-images.result == 'success' && needs.ingress-conformance-test.result == 'success' && 'success' || 'failure' }}

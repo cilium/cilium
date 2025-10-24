@@ -571,10 +571,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() && !inputs.is-workflow-call }}
-    needs: setup-and-test
+    needs: [setup-vars, build-ginkgo-binary, generate-matrix, wait-for-images, setup-and-test]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.setup-and-test.result }}
+      result: ${{ needs.setup-vars.result == 'success' && needs.build-ginkgo-binary.result == 'success' && needs.generate-matrix.result == 'success' && needs.wait-for-images.result == 'success' && needs.setup-and-test.result == 'success' && 'success' || 'failure' }}

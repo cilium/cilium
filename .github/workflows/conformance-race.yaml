@@ -103,10 +103,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: conformance-ginkgo-race
+    needs: [prepare-extra-args, conformance-ginkgo-race]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.conformance-ginkgo-race.result }}
+      result: ${{ needs.prepare-extra-args.result == 'success' && needs.conformance-ginkgo-race.result == 'success' && 'success' || 'failure' }}

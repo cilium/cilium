@@ -251,10 +251,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: installation-and-connectivity
+    needs: [wait-for-images, installation-and-connectivity]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
       sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
-      result: ${{ needs.installation-and-connectivity.result }}
+      result: ${{ needs.wait-for-images.result == 'success' && needs.installation-and-connectivity.result == 'success' && 'success' || 'failure' }}
