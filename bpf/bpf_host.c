@@ -1114,7 +1114,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			return send_drop_notify_error(ctx, identity,
 						      DROP_INVALID,
 						      METRIC_INGRESS);
-		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 		#ifdef ENABLE_L2_ANNOUNCEMENTS
 			ret = handle_l2_announcement(ctx, NULL);
@@ -1219,7 +1219,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 								CTX_ACT_OK, METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
 	default:
-		send_trace_notify(ctx, obs_point, UNKNOWN_ID, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 #ifdef ENABLE_HOST_FIREWALL
 		ret = send_drop_notify_error(ctx, identity, DROP_UNKNOWN_L3,
