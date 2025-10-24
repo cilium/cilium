@@ -106,13 +106,13 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV6
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-		   __u32 srcid_from_ipcache, __u32 *ipcache_sec_identity)
+		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
 	struct remote_endpoint_info *info = NULL;
 	union v6addr *src;
 
 	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(srcid_from_ipcache)) {
+	if (identity_is_reserved(real_sec_identity)) {
 		src = (union v6addr *) &ip6->saddr;
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info) {
@@ -121,19 +121,19 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			/* When SNAT is enabled on traffic ingressing
 			 * into Cilium, all traffic from the world will
 			 * have a source IP of the host. It will only
-			 * actually be from the host if "srcid_from_proxy"
+			 * actually be from the host if "real_sec_identity"
 			 * (passed into this function) reports the src as
 			 * the host. So we can ignore the ipcache if it
 			 * reports the source as HOST_ID.
 			 */
 			if (*ipcache_sec_identity != HOST_ID)
-				srcid_from_ipcache = *ipcache_sec_identity;
+				real_sec_identity = *ipcache_sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *) src)[3], srcid_from_ipcache);
+			   ((__u32 *)src)[3], real_sec_identity);
 	}
 
-	return srcid_from_ipcache;
+	return real_sec_identity;
 }
 
 static __always_inline int
@@ -551,13 +551,12 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #ifdef ENABLE_IPV4
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
-		   __u32 srcid_from_proxy, __u32 *ipcache_sec_identity)
+		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
-	__u32 srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
 
 	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(srcid_from_ipcache)) {
+	if (identity_is_reserved(real_sec_identity)) {
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info != NULL) {
 			*ipcache_sec_identity = info->sec_identity;
@@ -565,19 +564,19 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 			/* When SNAT is enabled on traffic ingressing
 			 * into Cilium, all traffic from the world will
 			 * have a source IP of the host. It will only
-			 * actually be from the host if "srcid_from_proxy"
+			 * actually be from the host if "real_sec_identity"
 			 * (passed into this function) reports the src as
 			 * the host. So we can ignore the ipcache if it
 			 * reports the source as HOST_ID.
 			 */
 			if (*ipcache_sec_identity != HOST_ID)
-				srcid_from_ipcache = *ipcache_sec_identity;
+				real_sec_identity = *ipcache_sec_identity;
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   ip4->saddr, srcid_from_ipcache);
+			   ip4->saddr, real_sec_identity);
 	}
 
-	return srcid_from_ipcache;
+	return real_sec_identity;
 }
 
 static __always_inline int
