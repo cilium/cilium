@@ -91,6 +91,11 @@ let it create all CES objects, and then upgrade the Agents afterwards.
 #. Once the metrics have stabilized (in other words, when the Operator has created CES objects for all existing CEPs), upgrade the
    Cilium Agents on all nodes by setting the ``--enable-cilium-endpoint-slice`` flag to ``true`` and re-deploying them.
 
+Downgrade Procedure
+~~~~~~~~~~~~~~~~~~~
+In order to avoid connectivity disruptions, if you need to disable CES and go back to using CEPs, you will need to first disable CES in the Cilium Agents, so the agents will return to watching on CEPs.
+This can be done by setting the ``--enable-cilium-endpoint-slice`` flag to ``false`` and re-deploying the agents.
+Then, once all agents have been updated, you can disable CES in the operator, which will stop creating new CES objects and delete existing ones.
 
 Configuration Options
 =====================

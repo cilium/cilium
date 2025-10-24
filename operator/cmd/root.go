@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/doublewrite"
 	"github.com/cilium/cilium/operator/endpointgc"
+	"github.com/cilium/cilium/operator/endpointslicegc"
 	"github.com/cilium/cilium/operator/identitygc"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
@@ -268,6 +269,10 @@ var (
 			// Endpoints. Either once or periodically it validates all the present
 			// Cilium Endpoints and delete the ones that should be deleted.
 			endpointgc.Cell,
+
+			// Cilium Endpoint Slice Garbage Collector. One-off GC that deletes all CES
+			// present in a cluster when CES feature is disabled.
+			endpointslicegc.Cell,
 
 			// Integrates the controller-runtime library and provides its components via Hive.
 			controllerruntime.Cell,
