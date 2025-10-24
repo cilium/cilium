@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
-	"github.com/cilium/cilium/pkg/bgpv1"
+	"github.com/cilium/cilium/pkg/bgp"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -245,7 +245,7 @@ var (
 		restapi.Cell,
 
 		// The BGP Control Plane which enables various BGP related interop.
-		bgpv1.Cell,
+		bgp.Cell,
 
 		// Brokers datapath signals from signalmap
 		signal.Cell,
