@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 
-	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/ipalloc"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
