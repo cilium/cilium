@@ -211,10 +211,6 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		cfg.EthHeaderLength = 0
 	}
 
-	if !option.Config.EnableHostLegacyRouting {
-		cfg.SecctxFromIPCache = true
-	}
-
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	ifindex := link.Attrs().Index
