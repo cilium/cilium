@@ -33,7 +33,7 @@ type NeighborReconciler struct {
 type NeighborReconcilerOut struct {
 	cell.Out
 
-	Reconciler ConfigReconciler `group:"bgp-config-reconciler-v2"`
+	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
 type NeighborReconcilerIn struct {

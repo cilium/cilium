@@ -79,7 +79,7 @@ type StatusReconcilerIn struct {
 type StatusReconcilerOut struct {
 	cell.Out
 
-	Reconciler StateReconciler `group:"bgp-state-reconciler-v2"`
+	Reconciler StateReconciler `group:"bgp-state-reconciler"`
 }
 
 func NewStatusReconciler(in StatusReconcilerIn) StatusReconcilerOut {
