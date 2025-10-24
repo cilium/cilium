@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package reconcilerv2
+package reconciler
 
 import (
 	"context"
