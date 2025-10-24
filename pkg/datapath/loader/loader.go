@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -37,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -92,6 +95,7 @@ type loader struct {
 type Params struct {
 	cell.In
 
+	JobGroup           job.Group
 	Logger             *slog.Logger
 	Sysctl             sysctl.Sysctl
 	Prefilter          datapath.PreFilter
@@ -101,6 +105,7 @@ type Params struct {
 	RouteManager       *routeReconciler.DesiredRouteManager
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
+	EPRestorer         promise.Promise[endpointstate.Restorer]
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -109,6 +114,7 @@ type Params struct {
 
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
+	registerRouteInitializer(p)
 	return &loader{
 		logger:             p.Logger,
 		templateCache:      newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
@@ -123,6 +129,31 @@ func newLoader(p Params) *loader {
 		db:      p.DB,
 		devices: p.Devices,
 	}
+}
+
+func registerRouteInitializer(p Params) {
+	// [upsertEndpointRoute] Creates routes for endpoints that need per endpoint routes.
+	// We need to tell the route reconciler to delay pruning of routes from the kernel until we have had a chance
+	// to insert desired routes for all endpoints that need them.
+	//
+	// Use the endpoint restorer to get a signal when all existing endpoints have been restored, and thus
+	// [loader.ReloadDatapath] has been called for all existing endpoints. After that we can finalize the route
+	// initializer.
+	routeInitializer := p.RouteManager.RegisterInitializer("per-endpoint-routes")
+	p.JobGroup.Add(job.OneShot("per-endpoint-route-initializer", func(ctx context.Context, _ cell.Health) error {
+		defer p.RouteManager.FinalizeInitializer(routeInitializer)
+
+		epRestorer, err := p.EPRestorer.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("waiting for endpoint restorer: %w", err)
+		}
+
+		if err := epRestorer.WaitForEndpointRestore(ctx); err != nil {
+			return fmt.Errorf("waiting for endpoint restore: %w", err)
+		}
+
+		return nil
+	}))
 }
 
 func upsertEndpointRoute(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, ip netip.Prefix) error {
