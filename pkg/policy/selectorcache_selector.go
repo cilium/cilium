@@ -125,7 +125,7 @@ func (f *fqdnSelector) matches(_ *slog.Logger, lbls labels.LabelArray) bool {
 }
 
 func (f *fqdnSelector) metricsClass() string {
-	return LabelValueSCFQDN
+	return types.LabelValueSCFQDN
 }
 
 type labelIdentitySelector struct {
@@ -160,15 +160,15 @@ func (l *labelIdentitySelector) remove(_ identityNotifier) {
 
 func (l *labelIdentitySelector) metricsClass() string {
 	if l.cachedString == api.EntitySelectorMapping[api.EntityCluster][0].CachedString() {
-		return LabelValueSCCluster
+		return types.LabelValueSCCluster
 	}
 	for _, entity := range api.EntitySelectorMapping[api.EntityWorld] {
 		if l.cachedString == entity.CachedString() {
-			return LabelValueSCWorld
+			return types.LabelValueSCWorld
 		}
 	}
 
-	return LabelValueSCOther
+	return types.LabelValueSCOther
 }
 
 // lock must be held
