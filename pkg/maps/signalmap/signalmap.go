@@ -49,7 +49,7 @@ func initMap(logger *slog.Logger, maxEntries int) *signalMap {
 	return &signalMap{
 		logger:     logger,
 		maxEntries: maxEntries,
-		oldBpfMap: bpf.NewMap(MapName,
+		oldBpfMap: bpf.NewMapDeprecated(MapName,
 			ebpf.PerfEventArray,
 			&Key{},
 			&Value{},

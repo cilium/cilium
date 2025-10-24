@@ -33,9 +33,6 @@ var Cell = cell.Module(
 		// used by replaceAPI (DecorateAll runs in root scope).
 		newLRPIsEnabled,
 
-		// Provide the [lbmap.SkipLBMap]. Provided globally to register it.
-		newSkipLBMap,
-
 		// Provide the 'skiplbmap' command for inspecting SkipLBMap.
 		newSkipLBMapCommand,
 	),

@@ -37,7 +37,7 @@ var (
 
 func LXCMap(registry *metrics.Registry) *bpf.Map {
 	lxcMapOnce.Do(func() {
-		lxcMap = bpf.NewMap(MapName,
+		lxcMap = bpf.NewMapDeprecated(MapName,
 			ebpf.Hash,
 			&EndpointKey{},
 			&EndpointInfo{},

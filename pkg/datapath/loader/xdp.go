@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/maps/registry"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -111,7 +112,15 @@ func xdpCompileArgs(extraCArgs []string) ([]string, error) {
 }
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
-func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode, extraCArgs []string) error {
+func compileAndLoadXDPProg(
+	ctx context.Context,
+	logger *slog.Logger,
+	lnc *datapath.LocalNodeConfiguration,
+	mapSpecRegistry *registry.MapSpecRegistry,
+	xdpDev string,
+	xdpMode xdp.Mode,
+	extraCArgs []string,
+) error {
 	args, err := xdpCompileArgs(extraCArgs)
 	if err != nil {
 		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
@@ -146,6 +155,10 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 	spec, err := ebpf.LoadCollectionSpec(objPath)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
+	}
+
+	if err := takeMapSpecsFromRegistry(mapSpecRegistry, spec); err != nil {
+		return fmt.Errorf("taking map specs from registry: %w", err)
 	}
 
 	cfg := config.NewBPFXDP(config.NodeConfig(lnc))

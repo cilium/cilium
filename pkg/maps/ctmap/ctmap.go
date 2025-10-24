@@ -298,7 +298,7 @@ func OpenCTMap(m CtMap) (path string, err error) {
 // newMap creates a new CT map of the specified type with the specified name.
 func newMap(mapName string, m mapType) *Map {
 	result := &Map{
-		Map: *bpf.NewMap(mapName,
+		Map: *bpf.NewMapDeprecated(mapName,
 			ebpf.LRUHash,
 			m.key(),
 			m.value(),

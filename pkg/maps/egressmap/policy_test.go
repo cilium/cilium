@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -24,7 +25,11 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 	assert.NoError(t, rlimit.RemoveMemlock())
 
 	t.Run("IPv4 policies", func(t *testing.T) {
-		egressPolicyMap := createPolicyMap4(hivetest.Lifecycle(t), nil, DefaultPolicyConfig, ebpf.PinNone)
+		lc := hivetest.Lifecycle(t)
+		specRegistry, err := registry.NewMapSpecRegistry(lc)
+		assert.NoError(t, err)
+		egressPolicyMap, err := createPolicyMap4(lc, nil, specRegistry, DefaultPolicyConfig, ebpf.PinNone)
+		assert.NoError(t, err)
 
 		sourceIP1 := netip.MustParseAddr("1.1.1.1")
 		sourceIP2 := netip.MustParseAddr("1.1.1.2")
@@ -35,7 +40,7 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 		egressIP1 := netip.MustParseAddr("3.3.3.1")
 		egressIP2 := netip.MustParseAddr("3.3.3.2")
 
-		err := egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, egressIP1)
+		err = egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, egressIP1)
 		assert.NoError(t, err)
 
 		err = egressPolicyMap.Update(sourceIP2, destCIDR2, egressIP2, egressIP2)
@@ -67,7 +72,11 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 	})
 
 	t.Run("IPv6 policies", func(t *testing.T) {
-		egressPolicyMap := createPolicyMap6(hivetest.Lifecycle(t), nil, DefaultPolicyConfig, ebpf.PinNone)
+		lc := hivetest.Lifecycle(t)
+		specRegistry, err := registry.NewMapSpecRegistry(lc)
+		assert.NoError(t, err)
+		egressPolicyMap, err := createPolicyMap6(lc, nil, specRegistry, DefaultPolicyConfig, ebpf.PinNone)
+		assert.NoError(t, err)
 
 		sourceIP1 := netip.MustParseAddr("2001:db8:1::1")
 		sourceIP2 := netip.MustParseAddr("2001:db8:1::2")
@@ -84,7 +93,7 @@ func TestPrivilegedPolicyMap(t *testing.T) {
 		ifIndex1 := uint32(1)
 		ifIndex2 := uint32(2)
 
-		err := egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, gatewayIP1, ifIndex1)
+		err = egressPolicyMap.Update(sourceIP1, destCIDR1, egressIP1, gatewayIP1, ifIndex1)
 		assert.NoError(t, err)
 
 		err = egressPolicyMap.Update(sourceIP2, destCIDR2, egressIP2, gatewayIP2, ifIndex2)

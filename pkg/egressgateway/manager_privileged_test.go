@@ -29,6 +29,7 @@ import (
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -160,8 +161,12 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 	k.sysctl = sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
 
 	lc := hivetest.Lifecycle(t)
-	policyMap4 := egressmap.CreatePrivatePolicyMap4(lc, nil, egressmap.DefaultPolicyConfig)
-	policyMap6 := egressmap.CreatePrivatePolicyMap6(lc, nil, egressmap.DefaultPolicyConfig)
+	specRegistry, err := registry.NewMapSpecRegistry(lc)
+	require.NoError(t, err)
+	policyMap4, err := egressmap.CreatePrivatePolicyMap4(lc, nil, specRegistry, egressmap.DefaultPolicyConfig)
+	require.NoError(t, err)
+	policyMap6, err := egressmap.CreatePrivatePolicyMap6(lc, nil, specRegistry, egressmap.DefaultPolicyConfig)
+	require.NoError(t, err)
 
 	k.manager, err = newEgressGatewayManager(Params{
 		Logger:            logger,

@@ -134,7 +134,7 @@ func (m *vtepMap) Dump(hash map[string][]string) error {
 
 func newMap(logger *slog.Logger, registry *metrics.Registry) *vtepMap {
 	return &vtepMap{
-		bpfMap: bpf.NewMap(
+		bpfMap: bpf.NewMapDeprecated(
 			MapName,
 			ebpf.Hash,
 			&Key{},

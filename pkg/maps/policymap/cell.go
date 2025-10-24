@@ -12,8 +12,9 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -57,20 +58,16 @@ type Factory interface {
 }
 
 type factory struct {
-	logger *slog.Logger
-	// policyMapEntries is the upper limit of entries in the per endpoint policy
-	// table ie the maximum number of peer identities that the endpoint could
-	// send/receive traffic to/from.
-	policyMapEntries int
-
-	stats *StatsMap
+	logger          *slog.Logger
+	mapSpecRegistry *registry.MapSpecRegistry
+	stats           *StatsMap
 }
 
-func newFactory(logger *slog.Logger, stats *StatsMap, policyMapEntries int) *factory {
+func newFactory(logger *slog.Logger, mapSpecRegistry *registry.MapSpecRegistry, stats *StatsMap) *factory {
 	return &factory{
-		logger:           logger,
-		policyMapEntries: policyMapEntries,
-		stats:            stats,
+		logger:          logger,
+		mapSpecRegistry: mapSpecRegistry,
+		stats:           stats,
 	}
 }
 
@@ -78,7 +75,7 @@ func newFactory(logger *slog.Logger, stats *StatsMap, policyMapEntries int) *fac
 // is used to govern which peer identities can communicate with the endpoint
 // protected by this map.
 func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
-	m, err := newPolicyMap(f.logger, id, f.policyMapEntries, f.stats)
+	m, err := newPolicyMap(f.logger, f.mapSpecRegistry, id, f.stats)
 	if err != nil {
 		return nil, err
 	}
@@ -91,11 +88,16 @@ func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
 
 // RemoveEndpoint removes the policy map of the specified endpoint.
 func (f *factory) RemoveEndpoint(id uint16) error {
-	return os.RemoveAll(bpf.LocalMapPath(f.logger, MapName, id))
+	return os.RemoveAll(bpf.LocalMapPath(f.logger, MapNamePrefix, id))
 }
 
 func (f *factory) PolicyMaxEntries() int {
-	return f.policyMapEntries
+	spec, err := f.mapSpecRegistry.Get(MapName)
+	if err != nil {
+		return 0
+	}
+
+	return int(spec.MaxEntries)
 }
 
 func (f *factory) StatsMaxEntries() int {
@@ -105,16 +107,16 @@ func (f *factory) StatsMaxEntries() int {
 func createFactory(in struct {
 	cell.In
 
-	Lifecycle cell.Lifecycle
-	Log       *slog.Logger
+	Lifecycle       cell.Lifecycle
+	Log             *slog.Logger
+	MapSpecRegistry *registry.MapSpecRegistry
 	PolicyConfig
 }) (out struct {
 	cell.Out
 
 	Factory
 	bpf.MapOut[*StatsMap]
-	defines.NodeOut
-}) {
+}, err error) {
 	if in.BpfPolicyMapMax < option.PolicyMapMin {
 		in.Log.Warn("specified PolicyMap max entries too low, using minimum value instead",
 			logfields.Entries, in.BpfPolicyMapMax,
@@ -141,25 +143,46 @@ func createFactory(in struct {
 		in.BpfPolicyStatsMapMax = option.LimitTableMax
 	}
 
-	m, maxStatsEntries := newStatsMap(in.BpfPolicyStatsMapMax, in.Log)
+	maxStatsEntries := calcMaxStatsEntries(in.BpfPolicyStatsMapMax, in.Log)
 	if int(maxStatsEntries) != in.BpfPolicyStatsMapMax {
 		in.Log.Debug("Rounded policy stats map size down to the closest multiple of the number of possible CPUs",
 			logfields.Entries, maxStatsEntries)
 	}
 
-	out.Factory = Factory(newFactory(in.Log, m, in.BpfPolicyMapMax))
-
-	out.NodeDefines = map[string]string{
-		"POLICY_MAP_SIZE":       fmt.Sprint(in.BpfPolicyMapMax),
-		"POLICY_STATS_MAP_SIZE": fmt.Sprint(maxStatsEntries),
+	err = in.MapSpecRegistry.ModifyMapSpec(StatsMapName, func(spec *ebpf.MapSpec) error {
+		spec.MaxEntries = uint32(maxStatsEntries)
+		return nil
+	})
+	if err != nil {
+		return out, err
 	}
+
+	err = in.MapSpecRegistry.ModifyMapSpec(MapName, func(spec *ebpf.MapSpec) error {
+		spec.MaxEntries = uint32(in.BpfPolicyMapMax)
+		spec.Flags = bpf.GetMapMemoryFlags(spec.Type)
+		return nil
+	})
+	if err != nil {
+		return out, err
+	}
+
+	m := &StatsMap{log: in.Log}
+
+	out.Factory = Factory(newFactory(in.Log, in.MapSpecRegistry, m))
 
 	in.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			err := initCallMaps()
+			err := initCallMaps(in.MapSpecRegistry)
 			if err != nil {
 				return fmt.Errorf("Policy call map creation failed: %w", err)
 			}
+
+			spec, err := in.MapSpecRegistry.Get(StatsMapName)
+			if err != nil {
+				return err
+			}
+			m.Map = ebpf.NewMap(in.Log, spec)
+
 			return m.OpenOrCreate()
 		},
 		OnStop: func(cell.HookContext) error {

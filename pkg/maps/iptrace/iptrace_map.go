@@ -48,7 +48,7 @@ func NewMap() *ipTraceMap {
 	var traceid TraceId
 
 	return &ipTraceMap{
-		Map: bpf.NewMap(
+		Map: bpf.NewMapDeprecated(
 			MapName,
 			ebpf.PerCPUArray,
 			&ipopt,

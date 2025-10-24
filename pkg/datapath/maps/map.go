@@ -95,7 +95,7 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	filename := filepath.Base(path)
 
 	mapPrefix := []string{
-		policymap.MapName,
+		policymap.MapNamePrefix,
 		ctmap.MapNameTCP6,
 		ctmap.MapNameTCP4,
 		ctmap.MapNameAny6,
@@ -138,7 +138,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_ktime_cache",
 		}
 		prefixedMaps = []PrefixedMap{
-			{"cilium_policy_", []string{policymap.MapName}},
+			{"cilium_policy_", []string{policymap.MapNamePrefix}},
 		}
 	)
 

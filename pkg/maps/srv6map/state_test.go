@@ -47,7 +47,7 @@ func TestPrivilegedStateMapsHive(t *testing.T) {
 
 	// Dummy maps. Name should be matched to the real one, but other fields
 	// are not important.
-	m4 := bpf.NewMap(
+	m4 := bpf.NewMapDeprecated(
 		stateMapName4,
 		ebpf.Hash,
 		&dummyStateKey{},
@@ -55,7 +55,7 @@ func TestPrivilegedStateMapsHive(t *testing.T) {
 		1,
 		0,
 	)
-	m6 := bpf.NewMap(
+	m6 := bpf.NewMapDeprecated(
 		stateMapName6,
 		ebpf.Hash,
 		&dummyStateKey{},

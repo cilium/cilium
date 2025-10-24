@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"math"
 	"strconv"
-	"unsafe"
 
 	ciliumebpf "github.com/cilium/ebpf"
 	"golang.org/x/sys/unix"
@@ -33,24 +32,11 @@ type StatsMap struct {
 	log *slog.Logger
 }
 
-func newStatsMap(maxStatsEntries int, log *slog.Logger) (*StatsMap, int) {
+func calcMaxStatsEntries(maxStatsEntries int, log *slog.Logger) int {
 	nCPU := possibleCPU(log)
 	roundDown := maxStatsEntries % nCPU
 	maxStatsEntries -= roundDown
-
-	// Must return a valid map even if returning an error
-	return &StatsMap{
-		Map: ebpf.NewMap(log, &ebpf.MapSpec{
-			Name:       StatsMapName,
-			Type:       ebpf.LRUCPUHash,
-			KeySize:    uint32(unsafe.Sizeof(StatsKey{})),
-			ValueSize:  uint32(unsafe.Sizeof(StatsValue{})),
-			MaxEntries: uint32(maxStatsEntries),
-			Flags:      unix.BPF_F_NO_COMMON_LRU,
-			Pinning:    ebpf.PinByName,
-		}),
-		log: log,
-	}, maxStatsEntries
+	return maxStatsEntries
 }
 
 // OpenStatsMap opens the existing global policy stats map.

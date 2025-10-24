@@ -12,7 +12,7 @@ struct {
 	__type(key, struct srv6_vrf_key6);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, SRV6_VRF_MAP_SIZE);
+	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_vrf_v6 __section_maps_btf;
 
@@ -21,7 +21,7 @@ struct {
 	__type(key, struct srv6_policy_key6);
 	__type(value, union v6addr);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, SRV6_POLICY_MAP_SIZE);
+	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_policy_v6 __section_maps_btf;
 
@@ -30,7 +30,7 @@ struct {
     __type(key, union v6addr); /* SID */
     __type(value, __u32);      /* VRF ID */
     __uint(pinning, LIBBPF_PIN_BY_NAME);
-    __uint(max_entries, SRV6_SID_MAP_SIZE);
+    __uint(max_entries, 16384);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_sid __section_maps_btf;
 
@@ -47,7 +47,7 @@ struct {
 	__type(key, struct srv6_vrf_key4);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, SRV6_VRF_MAP_SIZE);
+	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_vrf_v4 __section_maps_btf;
 
@@ -56,7 +56,7 @@ struct {
 	__type(key, struct srv6_policy_key4);
 	__type(value, union v6addr);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, SRV6_POLICY_MAP_SIZE);
+	__uint(max_entries, 16384);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_srv6_policy_v4 __section_maps_btf;
 

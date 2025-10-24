@@ -47,7 +47,7 @@ func newPolicyMapPressure(logger *slog.Logger, registry *metrics.Registry, thres
 	}
 
 	p := &policyMapPressure{logger: logger}
-	p.gauge = registry.NewBPFMapPressureGauge(policymap.MapName+"*", threshold)
+	p.gauge = registry.NewBPFMapPressureGauge(policymap.MapNamePrefix+"*", threshold)
 	p.current = make(map[uint16]float64)
 
 	var err error

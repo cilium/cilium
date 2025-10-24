@@ -242,10 +242,10 @@ func endpointToPolicyMapPath(logger *slog.Logger, endpointID string) (string, er
 	var mapName string
 	idUint64, err := strconv.ParseUint(endpointID, 10, 16)
 	if err == nil {
-		mapName = bpf.LocalMapName(policymap.MapName, uint16(idUint64))
+		mapName = bpf.LocalMapName(policymap.MapNamePrefix, uint16(idUint64))
 	} else if numericIdentity := identity.GetReservedID(endpointID); numericIdentity != identity.IdentityUnknown {
 		mapSuffix := "reserved_" + strconv.FormatUint(uint64(numericIdentity), 10)
-		mapName = fmt.Sprintf("%s%s", policymap.MapName, mapSuffix)
+		mapName = fmt.Sprintf("%s%s", policymap.MapNamePrefix, mapSuffix)
 	} else {
 		return "", err
 	}

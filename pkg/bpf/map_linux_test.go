@@ -13,6 +13,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -62,12 +63,17 @@ func setup(tb testing.TB) *Map {
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 
-	testMap := NewMap("cilium_test",
-		ebpf.Hash,
+	testMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC,
 	).WithCache()
 
 	err = testMap.OpenOrCreate()
@@ -88,12 +94,17 @@ func setupPerCPU(tb testing.TB) *Map {
 	err := rlimit.RemoveMemlock()
 	require.NoError(tb, err)
 
-	testMap := NewMap("cilium_test_percpu",
-		ebpf.PerCPUArray,
+	testMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test_percpu",
+			Type:       ebpf.PerCPUArray,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: 3,
+			Flags:      0,
+		},
 		&TestKey{},
 		&TestValue{},
-		3,
-		0,
 	)
 
 	err = testMap.OpenOrCreate()
@@ -119,18 +130,34 @@ func TestPrivilegedOpen(t *testing.T) {
 	setup(t)
 
 	// Ensure that os.IsNotExist() can be used with Map.Open()
-	noSuchMap := NewMap("cilium_test_no_exist",
-		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
+	noSuchMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test_no_exist",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      0,
+		},
+		&TestKey{},
+		&TestValue{},
+	)
 	err := noSuchMap.Open()
 	require.ErrorIs(t, err, os.ErrNotExist)
 
 	// existingMap is the same as testMap. Opening should succeed.
-	existingMap := NewMap("cilium_test",
-		ebpf.Hash,
+	existingMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC).WithCache()
+	).WithCache()
 	defer func() {
 		err = existingMap.Close()
 		require.NoError(t, err)
@@ -159,23 +186,35 @@ func TestPrivilegedOpenOrCreate(t *testing.T) {
 	setup(t)
 
 	// existingMap is the same as testMap. OpenOrCreate should skip recreation.
-	existingMap := NewMap("cilium_test",
-		ebpf.Hash,
+	existingMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC).WithCache()
+	).WithCache()
 	err := existingMap.OpenOrCreate()
 	require.NoError(t, err)
 
 	// preallocMap unsets unix.BPF_F_NO_PREALLOC. OpenOrCreate should recreate map.
 	EnableMapPreAllocation() // prealloc on/off is controllable in HASH map case.
-	preallocMap := NewMap("cilium_test",
-		ebpf.Hash,
+	preallocMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      0,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		0).WithCache()
+	).WithCache()
 	err = preallocMap.OpenOrCreate()
 	defer preallocMap.Close()
 	require.NoError(t, err)
@@ -189,12 +228,18 @@ func TestPrivilegedOpenOrCreate(t *testing.T) {
 func TestPrivilegedRecreateMap(t *testing.T) {
 	testMap := setup(t)
 
-	parallelMap := NewMap("cilium_test",
-		ebpf.Hash,
+	parallelMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC).WithCache()
+	).WithCache()
 	err := parallelMap.Recreate()
 	defer parallelMap.Close()
 	require.NoError(t, err)
@@ -233,13 +278,18 @@ func TestPrivilegedRecreateMap(t *testing.T) {
 func TestPrivilegedBasicManipulation(t *testing.T) {
 	setup(t)
 	// existingMap is the same as testMap. Opening should succeed.
-	existingMap := NewMap("cilium_test",
-		ebpf.Hash,
+	existingMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC).
-		WithCache().
+	).WithCache().
 		WithEvents(option.BPFEventBufferConfig{Enabled: true, MaxSize: 10})
 
 	err := existingMap.Open()
@@ -425,13 +475,18 @@ func TestPrivilegedBasicManipulation(t *testing.T) {
 func TestPrivilegedSubscribe(t *testing.T) {
 	setup(t)
 
-	existingMap := NewMap("cilium_test",
-		ebpf.Hash,
+	existingMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC).
-		WithCache().
+	).WithCache().
 		WithEvents(option.BPFEventBufferConfig{Enabled: true, MaxSize: 10})
 
 	subHandle, err := existingMap.DumpAndSubscribe(nil, true)
@@ -499,8 +554,18 @@ func TestPrivilegedDump(t *testing.T) {
 	}, dump2)
 
 	dump3 := map[string][]string{}
-	noSuchMap := NewMap("cilium_test_no_exist",
-		ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, 0)
+	noSuchMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test_no_exist",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      0,
+		},
+		&TestKey{},
+		&TestValue{},
+	)
 	err = noSuchMap.DumpIfExists(dump3)
 	require.NoError(t, err)
 	require.Empty(t, dump3)
@@ -599,12 +664,18 @@ func TestPrivilegedDumpReliablyWithCallbackOverlapping(t *testing.T) {
 
 	iterations := 10000
 	maxEntries := uint32(128)
-	m := NewMap("cilium_dump_test2",
-		ebpf.Hash,
+	m := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_dump_test2",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		int(maxEntries),
-		unix.BPF_F_NO_PREALLOC).WithCache()
+	).WithCache()
 	err := m.OpenOrCreate()
 	require.NoError(t, err)
 	defer func() {
@@ -687,12 +758,18 @@ func TestPrivilegedDumpReliablyWithCallback(t *testing.T) {
 	setup(t)
 
 	maxEntries := uint32(256)
-	m := NewMap("cilium_dump_test",
-		ebpf.Hash,
+	m := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_dump_test",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		int(maxEntries),
-		unix.BPF_F_NO_PREALLOC).WithCache()
+	).WithCache()
 	err := m.OpenOrCreate()
 	require.NoError(t, err)
 	defer func() {
@@ -818,12 +895,18 @@ func TestPrivilegedCheckAndUpgrade(t *testing.T) {
 
 	// CheckAndUpgrade removes map file if upgrade is needed
 	// so we setup and use another map.
-	upgradeMap := NewMap("cilium_test_upgrade",
-		ebpf.Hash,
+	upgradeMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test_upgrade",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC).WithCache()
+	).WithCache()
 	err := upgradeMap.OpenOrCreate()
 	require.NoError(t, err)
 	defer func() {
@@ -837,12 +920,18 @@ func TestPrivilegedCheckAndUpgrade(t *testing.T) {
 
 	// preallocMap unsets unix.BPF_F_NO_PREALLOC so upgrade is needed.
 	EnableMapPreAllocation()
-	preallocMap := NewMap("cilium_test_upgrade",
-		ebpf.Hash,
+	preallocMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test_upgrade",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      0,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		0).WithCache()
+	).WithCache()
 	upgrade = upgradeMap.CheckAndUpgrade(preallocMap)
 	require.True(t, upgrade)
 	DisableMapPreAllocation()
@@ -852,12 +941,18 @@ func TestPrivilegedUnpin(t *testing.T) {
 	setup(t)
 
 	var exist bool
-	unpinMap := NewMap("cilium_test_unpin",
-		ebpf.Hash,
+	unpinMap := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test_unpin",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC).WithCache()
+	).WithCache()
 	err := unpinMap.OpenOrCreate()
 	require.NoError(t, err)
 	exist, err = unpinMap.exist()
@@ -890,12 +985,18 @@ func TestPrivilegedUnpin(t *testing.T) {
 func TestPrivilegedCreateUnpinned(t *testing.T) {
 	setup(t)
 
-	m := NewMap("cilium_test_create_unpinned",
-		ebpf.Hash,
+	m := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test_create_unpinned",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: uint32(maxEntries),
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
 		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC).WithCache()
+	).WithCache()
 	err := m.CreateUnpinned()
 	require.NoError(t, err)
 	exist, err := m.exist()
@@ -915,12 +1016,17 @@ func TestPrivilegedCreateUnpinned(t *testing.T) {
 func BenchmarkMapLookup(b *testing.B) {
 	b.ReportAllocs()
 
-	m := NewMap("",
-		ebpf.Hash,
+	m := NewMap(
+		&ebpf.MapSpec{
+			Name:       "",
+			Type:       ebpf.Hash,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: 1,
+			Flags:      unix.BPF_F_NO_PREALLOC,
+		},
 		&TestKey{},
-		&TestValue{},
-		1,
-		unix.BPF_F_NO_PREALLOC)
+		&TestValue{})
 
 	if err := m.CreateUnpinned(); err != nil {
 		b.Fatal(err)
@@ -971,12 +1077,17 @@ func TestPrivilegedErrorResolver(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := NewMap("cilium_error_resolver_test",
-				ebpf.Hash,
+			m := NewMap(
+				&ebpf.MapSpec{
+					Name:       "cilium_error_resolver_test",
+					Type:       ebpf.Hash,
+					KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+					ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+					MaxEntries: 1,
+					Flags:      unix.BPF_F_NO_PREALLOC,
+				},
 				&TestKey{},
 				&TestValue{},
-				1, // Only one entry, so that the second insertion will fail
-				unix.BPF_F_NO_PREALLOC,
 			).WithCache()
 
 			t.Cleanup(func() {
@@ -1020,10 +1131,17 @@ func TestPrivilegedErrorResolver(t *testing.T) {
 }
 
 func TestBatchIteratorTypes(t *testing.T) {
-	m := NewMap("cilium_test",
-		ebpf.Array,
+	m := NewMap(
+		&ebpf.MapSpec{
+			Name:       "cilium_test",
+			Type:       ebpf.Array,
+			KeySize:    uint32(unsafe.Sizeof(TestKey{})),
+			ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+			MaxEntries: 1,
+			Flags:      0,
+		},
 		&TestKey{},
-		&TestValue{}, 1, 0)
+		&TestValue{})
 	iter := NewBatchIterator[TestKey, TestValue](m)
 	iter.IterateAll(context.TODO())
 	assert.Error(t, iter.Err())
@@ -1042,12 +1160,17 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 				Key:       uint32(i),
 			}
 		}
-		m := NewMap("cilium_test",
-			mapType,
+		m := NewMap(
+			&ebpf.MapSpec{
+				Name:       "cilium_test",
+				Type:       mapType,
+				KeySize:    uint32(reflect.TypeOf(makeKey(0)).Elem().Size()),
+				ValueSize:  uint32(unsafe.Sizeof(TestValue{})),
+				MaxEntries: uint32(mapSize),
+				Flags:      0,
+			},
 			makeKey(0),
 			&TestValue{},
-			mapSize,
-			0,
 		)
 		require.NoError(t, m.OpenOrCreate())
 		defer assert.NoError(t, m.UnpinIfExists())

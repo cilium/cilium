@@ -13,7 +13,7 @@ struct {
 	__type(key, struct endpoint_key);
 	__type(value, struct endpoint_info);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, ENDPOINTS_MAP_SIZE);
+	__uint(max_entries, 65535);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lxc __section_maps_btf;
 
@@ -73,7 +73,7 @@ struct {
 	__type(key, struct ipcache_key);
 	__type(value, struct remote_endpoint_info);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, IPCACHE_MAP_SIZE);
+	__uint(max_entries, 512000);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_ipcache_v2 __section_maps_btf;
 

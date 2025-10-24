@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/spf13/cobra"
 
@@ -27,8 +28,14 @@ var bpfSocknatListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf socknat list")
 
 		// Create the maps directly
-		sockRevNat4Map := lbmap.NewSockRevNat4Map(256 * 1024) // Default size
-		sockRevNat6Map := lbmap.NewSockRevNat6Map(256 * 1024) // Default size
+		sockRevNat4Map, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmap.SockRevNat4MapName), &lbmap.SockRevNat4Key{}, &lbmap.SockRevNat4Value{})
+		if err != nil {
+			Fatalf("Unable to open IPv4 socket reverse NAT table: %s", err)
+		}
+		sockRevNat6Map, err := bpf.OpenMap(bpf.MapPath(slog.Default(), lbmap.SockRevNat6MapName), &lbmap.SockRevNat6Key{}, &lbmap.SockRevNat6Value{})
+		if err != nil {
+			Fatalf("Unable to open IPv6 socket reverse NAT table: %s", err)
+		}
 
 		entries := make(map[string][]string)
 		dumpReverseSKEntries(entries, sockRevNat4Map, sockRevNat6Map)
