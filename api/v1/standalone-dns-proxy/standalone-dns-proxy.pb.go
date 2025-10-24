@@ -401,6 +401,7 @@ type PolicyState struct {
 	EgressL7DnsPolicy         []*DNSPolicy                 `protobuf:"bytes,1,rep,name=egress_l7_dns_policy,json=egressL7DnsPolicy,proto3" json:"egress_l7_dns_policy,omitempty"`
 	RequestId                 string                       `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`                                                     // Random UUID based identifier which will be referenced in ACKs
 	IdentityToEndpointMapping []*IdentityToEndpointMapping `protobuf:"bytes,3,rep,name=identity_to_endpoint_mapping,json=identityToEndpointMapping,proto3" json:"identity_to_endpoint_mapping,omitempty"` // Identity to Endpoint mapping for the DNS server and the source identity
+	IdentityToPrefixMapping   []*IdentityToPrefixMapping   `protobuf:"bytes,4,rep,name=identity_to_prefix_mapping,json=identityToPrefixMapping,proto3" json:"identity_to_prefix_mapping,omitempty"`       // Identity to Prefix mapping for the identity
 	unknownFields             protoimpl.UnknownFields
 	sizeCache                 protoimpl.SizeCache
 }
@@ -452,6 +453,13 @@ func (x *PolicyState) GetRequestId() string {
 func (x *PolicyState) GetIdentityToEndpointMapping() []*IdentityToEndpointMapping {
 	if x != nil {
 		return x.IdentityToEndpointMapping
+	}
+	return nil
+}
+
+func (x *PolicyState) GetIdentityToPrefixMapping() []*IdentityToPrefixMapping {
+	if x != nil {
+		return x.IdentityToPrefixMapping
 	}
 	return nil
 }
@@ -562,6 +570,59 @@ func (x *EndpointInfo) GetIp() [][]byte {
 	return nil
 }
 
+// Cilium Identity ID to IP prefix mapping
+type IdentityToPrefixMapping struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Identity      uint32                 `protobuf:"varint,1,opt,name=identity,proto3" json:"identity,omitempty"`
+	Prefix        [][]byte               `protobuf:"bytes,2,rep,name=prefix,proto3" json:"prefix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IdentityToPrefixMapping) Reset() {
+	*x = IdentityToPrefixMapping{}
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IdentityToPrefixMapping) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IdentityToPrefixMapping) ProtoMessage() {}
+
+func (x *IdentityToPrefixMapping) ProtoReflect() protoreflect.Message {
+	mi := &file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IdentityToPrefixMapping.ProtoReflect.Descriptor instead.
+func (*IdentityToPrefixMapping) Descriptor() ([]byte, []int) {
+	return file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *IdentityToPrefixMapping) GetIdentity() uint32 {
+	if x != nil {
+		return x.Identity
+	}
+	return 0
+}
+
+func (x *IdentityToPrefixMapping) GetPrefix() [][]byte {
+	if x != nil {
+		return x.Prefix
+	}
+	return nil
+}
+
 var File_standalone_dns_proxy_standalone_dns_proxy_proto protoreflect.FileDescriptor
 
 const file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDesc = "" +
@@ -589,18 +650,22 @@ const file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDesc = "" +
 	"\vdns_pattern\x18\x02 \x03(\tR\n" +
 	"dnsPattern\x12>\n" +
 	"\vdns_servers\x18\x03 \x03(\v2\x1d.standalonednsproxy.DNSServerR\n" +
-	"dnsServers\"\xec\x01\n" +
+	"dnsServers\"\xd6\x02\n" +
 	"\vPolicyState\x12N\n" +
 	"\x14egress_l7_dns_policy\x18\x01 \x03(\v2\x1d.standalonednsproxy.DNSPolicyR\x11egressL7DnsPolicy\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x02 \x01(\tR\trequestId\x12n\n" +
-	"\x1cidentity_to_endpoint_mapping\x18\x03 \x03(\v2-.standalonednsproxy.IdentityToEndpointMappingR\x19identityToEndpointMapping\"~\n" +
+	"\x1cidentity_to_endpoint_mapping\x18\x03 \x03(\v2-.standalonednsproxy.IdentityToEndpointMappingR\x19identityToEndpointMapping\x12h\n" +
+	"\x1aidentity_to_prefix_mapping\x18\x04 \x03(\v2+.standalonednsproxy.IdentityToPrefixMappingR\x17identityToPrefixMapping\"~\n" +
 	"\x19IdentityToEndpointMapping\x12\x1a\n" +
 	"\bidentity\x18\x01 \x01(\rR\bidentity\x12E\n" +
 	"\rendpoint_info\x18\x02 \x03(\v2 .standalonednsproxy.EndpointInfoR\fendpointInfo\".\n" +
 	"\fEndpointInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x0e\n" +
-	"\x02ip\x18\x02 \x03(\fR\x02ip*\x9f\x02\n" +
+	"\x02ip\x18\x02 \x03(\fR\x02ip\"M\n" +
+	"\x17IdentityToPrefixMapping\x12\x1a\n" +
+	"\bidentity\x18\x01 \x01(\rR\bidentity\x12\x16\n" +
+	"\x06prefix\x18\x02 \x03(\fR\x06prefix*\x9f\x02\n" +
 	"\fResponseCode\x12\x1d\n" +
 	"\x19RESPONSE_CODE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16RESPONSE_CODE_NO_ERROR\x10\x01\x12\x1e\n" +
@@ -627,7 +692,7 @@ func file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDescGZIP() []byte {
 }
 
 var file_standalone_dns_proxy_standalone_dns_proxy_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_standalone_dns_proxy_standalone_dns_proxy_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_standalone_dns_proxy_standalone_dns_proxy_proto_goTypes = []any{
 	(ResponseCode)(0),                 // 0: standalonednsproxy.ResponseCode
 	(*PolicyStateResponse)(nil),       // 1: standalonednsproxy.PolicyStateResponse
@@ -638,6 +703,7 @@ var file_standalone_dns_proxy_standalone_dns_proxy_proto_goTypes = []any{
 	(*PolicyState)(nil),               // 6: standalonednsproxy.PolicyState
 	(*IdentityToEndpointMapping)(nil), // 7: standalonednsproxy.IdentityToEndpointMapping
 	(*EndpointInfo)(nil),              // 8: standalonednsproxy.EndpointInfo
+	(*IdentityToPrefixMapping)(nil),   // 9: standalonednsproxy.IdentityToPrefixMapping
 }
 var file_standalone_dns_proxy_standalone_dns_proxy_proto_depIdxs = []int32{
 	0, // 0: standalonednsproxy.PolicyStateResponse.response:type_name -> standalonednsproxy.ResponseCode
@@ -645,16 +711,17 @@ var file_standalone_dns_proxy_standalone_dns_proxy_proto_depIdxs = []int32{
 	4, // 2: standalonednsproxy.DNSPolicy.dns_servers:type_name -> standalonednsproxy.DNSServer
 	5, // 3: standalonednsproxy.PolicyState.egress_l7_dns_policy:type_name -> standalonednsproxy.DNSPolicy
 	7, // 4: standalonednsproxy.PolicyState.identity_to_endpoint_mapping:type_name -> standalonednsproxy.IdentityToEndpointMapping
-	8, // 5: standalonednsproxy.IdentityToEndpointMapping.endpoint_info:type_name -> standalonednsproxy.EndpointInfo
-	1, // 6: standalonednsproxy.FQDNData.StreamPolicyState:input_type -> standalonednsproxy.PolicyStateResponse
-	2, // 7: standalonednsproxy.FQDNData.UpdateMappingRequest:input_type -> standalonednsproxy.FQDNMapping
-	6, // 8: standalonednsproxy.FQDNData.StreamPolicyState:output_type -> standalonednsproxy.PolicyState
-	3, // 9: standalonednsproxy.FQDNData.UpdateMappingRequest:output_type -> standalonednsproxy.UpdateMappingResponse
-	8, // [8:10] is the sub-list for method output_type
-	6, // [6:8] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	9, // 5: standalonednsproxy.PolicyState.identity_to_prefix_mapping:type_name -> standalonednsproxy.IdentityToPrefixMapping
+	8, // 6: standalonednsproxy.IdentityToEndpointMapping.endpoint_info:type_name -> standalonednsproxy.EndpointInfo
+	1, // 7: standalonednsproxy.FQDNData.StreamPolicyState:input_type -> standalonednsproxy.PolicyStateResponse
+	2, // 8: standalonednsproxy.FQDNData.UpdateMappingRequest:input_type -> standalonednsproxy.FQDNMapping
+	6, // 9: standalonednsproxy.FQDNData.StreamPolicyState:output_type -> standalonednsproxy.PolicyState
+	3, // 10: standalonednsproxy.FQDNData.UpdateMappingRequest:output_type -> standalonednsproxy.UpdateMappingResponse
+	9, // [9:11] is the sub-list for method output_type
+	7, // [7:9] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_standalone_dns_proxy_standalone_dns_proxy_proto_init() }
@@ -668,7 +735,7 @@ func file_standalone_dns_proxy_standalone_dns_proxy_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDesc), len(file_standalone_dns_proxy_standalone_dns_proxy_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
