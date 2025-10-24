@@ -144,6 +144,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams)
 		}
 	}
 
+	if params.IPsecAgent.Enabled() || params.WGAgent.Enabled() {
+		if option.Config.DisableCiliumNodeCRD {
+			return nil, fmt.Errorf("CiliumNode CRD cannot be disabled when encryption is enabled with WireGuard (--%s) or IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
+		}
+	}
+
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
 	if params.IPsecAgent.Enabled() &&

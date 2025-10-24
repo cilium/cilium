@@ -993,6 +993,9 @@ const (
 
 	// IPTracingOptionType specifies what IPv4 option type should be used to extract trace information from a packet
 	IPTracingOptionType = "ip-tracing-option-type"
+
+	// DisableCiliumNodeCRD is the name of the option to disable use of the CiliumNode CRD
+	DisableCiliumNodeCRDName = "disable-ciliumnode-crd"
 )
 
 // Default string arguments
@@ -1876,6 +1879,9 @@ type DaemonConfig struct {
 
 	// IPTracingOptionType determines whether to enable IP tracing, and if enabled what option type to use.
 	IPTracingOptionType uint
+
+	// DisableCiliumNodeCRD disables the use of CiliumNode CRD
+	DisableCiliumNodeCRD bool
 }
 
 var (
@@ -2906,6 +2912,14 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 			logfields.Ratio, connectivityFreqRatio,
 		)
 		c.ConnectivityProbeFrequencyRatio = defaults.ConnectivityProbeFrequencyRatio
+	}
+
+	c.DisableCiliumNodeCRD = vp.GetBool(DisableCiliumNodeCRDName)
+	if c.DisableCiliumNodeCRD && c.IPAMMode() != ipamOption.IPAMDelegatedPlugin {
+		logging.Fatal(logger,
+			fmt.Sprintf("Running Cilium with %s=%t requires using delegated plugin IPAM. Changing %s to %q",
+				DisableCiliumNodeCRDName, c.DisableCiliumNodeCRD, IPAM, ipamOption.IPAMDelegatedPlugin),
+		)
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func Test_performCiliumNodeGC(t *testing.T) {
@@ -81,4 +82,66 @@ func Test_performCiliumNodeGC(t *testing.T) {
 	assert.Empty(t, candidateStore.nodesToRemove)
 	_, exists = candidateStore.nodesToRemove["invalid-node"]
 	assert.False(t, exists)
+}
+
+func Test_performCiliumNodeGC_oneOff(t *testing.T) {
+	// save global config and restore at the end of the test
+	prevCiliumNode := option.Config.DisableCiliumNodeCRD
+	option.Config.DisableCiliumNodeCRD = true
+	t.Cleanup(func() {
+		option.Config.DisableCiliumNodeCRD = prevCiliumNode
+	})
+
+	cns := []*v2.CiliumNode{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-1",
+			},
+		}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-2",
+			},
+		}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "node-3-with-owner-ref",
+				OwnerReferences: []metav1.OwnerReference{{}},
+			},
+		}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "node-4-with-annotation",
+				Annotations: map[string]string{skipGCAnnotationKey: "true"},
+			},
+		},
+	}
+
+	_, cs := k8sClient.NewFakeClientset(hivetest.Logger(t))
+	fcn := cs.CiliumV2().CiliumNodes()
+	for _, cn := range cns {
+		_, err := fcn.Create(t.Context(), cn, metav1.CreateOptions{})
+		assert.NoError(t, err)
+	}
+
+	ciliumNodes, err := operatorK8s.CiliumNodeResource(hivetest.Lifecycle(t), cs, nil)
+	assert.NoError(t, err)
+
+	store, err := ciliumNodes.Store(t.Context())
+	assert.NoError(t, err)
+
+	interval := time.Nanosecond
+	fng := &fakeNodeGetter{
+		OnGetK8sSlimNode: func(nodeName string) (*slim_corev1.Node, error) {
+			return &slim_corev1.Node{}, nil
+		},
+	}
+
+	var candidateStore *ciliumNodeGCCandidate
+
+	// perform one-off GC
+	err = performCiliumNodeGC(t.Context(), fcn, store, fng, interval, candidateStore, hivetest.Logger(t))
+	assert.NoError(t, err)
+
+	// check that all ciliumnodes have been GCed
+	nodes, err := fcn.List(t.Context(), metav1.ListOptions{})
+	assert.NoError(t, err)
+	assert.Empty(t, nodes.Items)
 }

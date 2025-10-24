@@ -190,6 +190,10 @@ func (n *NodeDiscovery) updateLocalNode(ctx context.Context, ln *node.LocalNode)
 			})
 	}
 
+	if option.Config.DisableCiliumNodeCRD {
+		return
+	}
+
 	if n.clientset.IsEnabled() {
 		// CRD IPAM endpoint restoration depends on the completion of this
 		// to avoid custom resource update conflicts.
