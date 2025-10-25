@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/option"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -381,6 +382,21 @@ func (r *ServiceReconciler) updateServiceAdvertisementsMetadata(p ReconcileParam
 	r.setMetadata(p.BGPInstance, serviceMetadata)
 }
 
+// Dummy endpoint constants used by Gateway API and Ingress controllers
+// See: operator/pkg/model/translation/{gateway-api,ingress}
+var (
+	ingressDummyAddress = cmtypes.MustParseAddrCluster("192.192.192.192")
+	ingressDummyPort    = uint16(9999)
+)
+
+// isIngressDummyBackend checks if a backend is a dummy endpoint created by
+// Gateway API or Ingress controllers. These are placeholder endpoints used to
+// force service reconciliation, with actual traffic handled by Envoy.
+func isIngressDummyBackend(bp loadbalancer.BackendParams) bool {
+	addr := bp.Address.AddrCluster()
+	return addr == ingressDummyAddress && bp.Address.Port() == ingressDummyPort
+}
+
 // hasBackends loops through Frontend backends and returns:
 // 1) true, false - backends > 0, no local backend
 // 2) true, true - backends > 0, at least 1 local backend
@@ -394,6 +410,19 @@ func hasBackends(p ReconcileParams, fe *loadbalancer.Frontend) (hasBackends, has
 		}
 	}
 	return
+}
+
+// allBackendsDummy returns true if all backends in the frontend are dummy endpoints
+// (i.e., Gateway API or Ingress services). Returns false if there are no backends.
+func allBackendsDummy(fe *loadbalancer.Frontend) bool {
+	hasBackends := false
+	for backend := range fe.Backends {
+		hasBackends = true
+		if !isIngressDummyBackend(backend) {
+			return false
+		}
+	}
+	return hasBackends
 }
 
 func (r *ServiceReconciler) fullReconciliationServiceList(p ReconcileParams) (toReconcile []*loadbalancer.Service, toWithdraw []loadbalancer.ServiceName, rx statedb.ReadTxn, err error) {
@@ -619,8 +648,22 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p ReconcileParams, svc *loadb
 		}
 
 		hasBackends, hasLocalBackends := hasBackends(p, fe)
-		// Ignore externalTrafficPolicy == Local && no local EPs or ignore when there are no backends and EnableNoServiceEndpointsRoutable == false.
-		if (fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends) || (!r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends) {
+
+		// Check if this service has only dummy endpoints (Gateway API, Ingress).
+		// Dummy endpoints are used by these controllers to force reconciliation,
+		// with actual traffic handled by Envoy, not by these placeholder endpoints.
+		isDummyService := allBackendsDummy(fe)
+
+		// For services with real backends, respect externalTrafficPolicy: Local by skipping
+		// advertisement when there are no local endpoints.
+		// For services with only dummy backends (Gateway API, Ingress), advertise regardless
+		// of local endpoint availability, since traffic is handled by Envoy on any node.
+		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends && !isDummyService {
+			continue
+		}
+
+		// Respect EnableNoServiceEndpointsRoutable for services with zero backends.
+		if !r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends {
 			continue
 		}
 
