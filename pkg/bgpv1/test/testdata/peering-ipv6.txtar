@@ -7,7 +7,7 @@ hive start
 
 # Configure gobgp server
 gobgp/add-server test --router-id=1.2.3.4 65001 fd00::aa:bb:cc:111 1790
-gobgp/add-peer fd00::aa:bb:cc:112 65001
+gobgp/add-peer fd00::aa:bb:cc:112 65001 --families=ipv6/unicast
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
