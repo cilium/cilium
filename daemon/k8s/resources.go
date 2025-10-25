@@ -39,6 +39,7 @@ var (
 			k8s.ServiceResource,
 			k8s.EndpointsResource,
 			k8s.NetworkPolicyResource,
+			k8s.ClusterNetworkPolicyResource,
 			k8s.CiliumNetworkPolicyResource,
 			k8s.CiliumClusterwideNetworkPolicyResource,
 			k8s.CiliumCIDRGroupResource,

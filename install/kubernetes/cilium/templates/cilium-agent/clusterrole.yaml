@@ -159,3 +159,13 @@ rules:
   verbs:
   - patch
 {{- end }}
+{{- if .Values.k8sClusterNetworkPolicy.enabled }}
+- apiGroups:
+  - policy.networking.k8s.io
+  resources:
+  - clusternetworkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}
