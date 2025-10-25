@@ -1221,7 +1221,7 @@ ct_recreate4:
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
+		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
 		if (!vtep)
 			goto skip_vtep;
