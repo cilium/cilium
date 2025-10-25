@@ -195,13 +195,14 @@ func (m *Manager) RemoveController(name string) error {
 
 // RemoveControllerAndWait stops and removes a controller using
 // RemoveController() and then waits for it to run to completion.
+// This function is idempotent; if the controller does not exist, it is a no-op.
 func (m *Manager) RemoveControllerAndWait(name string) error {
-	oldCtrl, err := m.removeAndReturnController(name)
-	if err == nil {
+	oldCtrl, _ := m.removeAndReturnController(name)
+	if oldCtrl != nil {
 		<-oldCtrl.terminated
 	}
 
-	return err
+	return nil
 }
 
 func (m *Manager) removeAll() []*managedController {
