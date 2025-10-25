@@ -696,6 +696,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
