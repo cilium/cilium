@@ -85,19 +85,30 @@ func (mvs *mockVarSpec) Get(out any) error {
 	switch out := out.(type) {
 	case *int64:
 		*out = int64(mvs.value)
-		return nil
 	case *int32:
 		*out = int32(mvs.value)
-		return nil
 	case *int16:
 		*out = int16(mvs.value)
-		return nil
 	case *int8:
 		*out = int8(mvs.value)
+	case *[]byte:
+		*out = make([]byte, mvs.size)
+		switch mvs.size {
+		case 1:
+			(*out)[0] = byte(mvs.value)
+		case 2:
+			binary.NativeEndian.PutUint16(*out, uint16(mvs.value))
+		case 4:
+			binary.NativeEndian.PutUint32(*out, uint32(mvs.value))
+		case 8:
+			binary.NativeEndian.PutUint64(*out, mvs.value)
+		default:
+			// For larger sizes, just put the value at the beginning
+			binary.NativeEndian.PutUint64(*out, mvs.value)
+		}
 	default:
 		panic(fmt.Sprintf("unsupported type %T", out))
 	}
-
 	return nil
 }
 func (mvs *mockVarSpec) Constant() bool {
@@ -247,6 +258,39 @@ func TestReachabilityConcurrent(t *testing.T) {
 		})
 	}
 	require.NoError(t, eg.Wait())
+}
+
+// Test struct field access pattern: CONFIG(struct_var).field
+func TestReachabilityStructFieldAccess(t *testing.T) {
+	const offset = 0
+
+	insns := asm.Instructions{
+		asm.LoadMapValue(asm.R0, 0, offset).WithReference("map"),
+		// Access field at offset 4 (like .be32 in union v4addr)
+		asm.LoadMem(asm.R1, asm.R0, 4, asm.Word),
+		asm.JEq.Imm(asm.R1, 1, "branch"),
+		asm.Mov.Imm(asm.R0, 0),
+		asm.Ja.Label("exit"),
+		asm.Mov.Imm(asm.R0, 1).WithSymbol("branch"),
+		asm.Return().WithSymbol("exit"),
+	}
+
+	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
+
+	blocks, err := computeBlocks(insns)
+	require.NoError(t, err)
+
+	// Struct with field=1 at offset 4: 0x0000000100000000
+	structValue := uint64(0x0000000100000000)
+	eliminated, err := Reachability(blocks, insns, map[string]VariableSpec{
+		"struct_var": &mockVarSpec{"map", offset, 8, structValue},
+	})
+	require.NoError(t, err)
+
+	// Should eliminate the "return 0" block since field == 1
+	assert.True(t, eliminated.isLive(0))  // entry
+	assert.False(t, eliminated.isLive(1)) // eliminated
+	assert.True(t, eliminated.isLive(2))  // branch target
 }
 
 func BenchmarkReachability(b *testing.B) {
