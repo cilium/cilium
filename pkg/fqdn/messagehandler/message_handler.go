@@ -76,7 +76,6 @@ type dnsMessageHandler struct {
 	logger            *slog.Logger
 	nameManager       namemanager.NameManager
 	proxyAccessLogger accesslog.ProxyAccessLogger
-	DNSRequestHandler DNSMessageHandler
 
 	bindPort uint16
 }
