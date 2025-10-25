@@ -2359,6 +2359,9 @@ func (in *PortInfo) DeepEqual(other *PortInfo) bool {
 	if in.Name != other.Name {
 		return false
 	}
+	if in.OverrideIP != other.OverrideIP {
+		return false
+	}
 
 	return true
 }
