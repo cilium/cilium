@@ -17,45 +17,44 @@ import (
 	"strings"
 )
 
-// SecurityPerimeterAssociableResourceTypesClient contains the methods for the NetworkSecurityPerimeterAssociableResourceTypes
-// group.
-// Don't use this type directly, use NewSecurityPerimeterAssociableResourceTypesClient() instead.
-type SecurityPerimeterAssociableResourceTypesClient struct {
+// SecurityPerimeterServiceTagsClient contains the methods for the NetworkSecurityPerimeterServiceTags group.
+// Don't use this type directly, use NewSecurityPerimeterServiceTagsClient() instead.
+type SecurityPerimeterServiceTagsClient struct {
 	internal       *arm.Client
 	subscriptionID string
 }
 
-// NewSecurityPerimeterAssociableResourceTypesClient creates a new instance of SecurityPerimeterAssociableResourceTypesClient with the specified values.
+// NewSecurityPerimeterServiceTagsClient creates a new instance of SecurityPerimeterServiceTagsClient with the specified values.
 //   - subscriptionID - The subscription credentials which uniquely identify the Microsoft Azure subscription. The subscription
 //     ID forms part of the URI for every service call.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
 //   - options - pass nil to accept the default values.
-func NewSecurityPerimeterAssociableResourceTypesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*SecurityPerimeterAssociableResourceTypesClient, error) {
+func NewSecurityPerimeterServiceTagsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*SecurityPerimeterServiceTagsClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
 		return nil, err
 	}
-	client := &SecurityPerimeterAssociableResourceTypesClient{
+	client := &SecurityPerimeterServiceTagsClient{
 		subscriptionID: subscriptionID,
 		internal:       cl,
 	}
 	return client, nil
 }
 
-// NewListPager - Gets the list of resources that are onboarded with NSP. These resources can be associated with a network
-// security perimeter
+// NewListPager - Gets the list of service tags supported by NSP. These service tags can be used to create access rules in
+// NSP.
 //
 // Generated from API version 2024-10-01
 //   - location - The location of network security perimeter.
-//   - options - SecurityPerimeterAssociableResourceTypesClientListOptions contains the optional parameters for the SecurityPerimeterAssociableResourceTypesClient.NewListPager
+//   - options - SecurityPerimeterServiceTagsClientListOptions contains the optional parameters for the SecurityPerimeterServiceTagsClient.NewListPager
 //     method.
-func (client *SecurityPerimeterAssociableResourceTypesClient) NewListPager(location string, options *SecurityPerimeterAssociableResourceTypesClientListOptions) *runtime.Pager[SecurityPerimeterAssociableResourceTypesClientListResponse] {
-	return runtime.NewPager(runtime.PagingHandler[SecurityPerimeterAssociableResourceTypesClientListResponse]{
-		More: func(page SecurityPerimeterAssociableResourceTypesClientListResponse) bool {
+func (client *SecurityPerimeterServiceTagsClient) NewListPager(location string, options *SecurityPerimeterServiceTagsClientListOptions) *runtime.Pager[SecurityPerimeterServiceTagsClientListResponse] {
+	return runtime.NewPager(runtime.PagingHandler[SecurityPerimeterServiceTagsClientListResponse]{
+		More: func(page SecurityPerimeterServiceTagsClientListResponse) bool {
 			return page.NextLink != nil && len(*page.NextLink) > 0
 		},
-		Fetcher: func(ctx context.Context, page *SecurityPerimeterAssociableResourceTypesClientListResponse) (SecurityPerimeterAssociableResourceTypesClientListResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SecurityPerimeterAssociableResourceTypesClient.NewListPager")
+		Fetcher: func(ctx context.Context, page *SecurityPerimeterServiceTagsClientListResponse) (SecurityPerimeterServiceTagsClientListResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "SecurityPerimeterServiceTagsClient.NewListPager")
 			nextLink := ""
 			if page != nil {
 				nextLink = *page.NextLink
@@ -64,7 +63,7 @@ func (client *SecurityPerimeterAssociableResourceTypesClient) NewListPager(locat
 				return client.listCreateRequest(ctx, location, options)
 			}, nil)
 			if err != nil {
-				return SecurityPerimeterAssociableResourceTypesClientListResponse{}, err
+				return SecurityPerimeterServiceTagsClientListResponse{}, err
 			}
 			return client.listHandleResponse(resp)
 		},
@@ -73,8 +72,8 @@ func (client *SecurityPerimeterAssociableResourceTypesClient) NewListPager(locat
 }
 
 // listCreateRequest creates the List request.
-func (client *SecurityPerimeterAssociableResourceTypesClient) listCreateRequest(ctx context.Context, location string, _ *SecurityPerimeterAssociableResourceTypesClientListOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/locations/{location}/perimeterAssociableResourceTypes"
+func (client *SecurityPerimeterServiceTagsClient) listCreateRequest(ctx context.Context, location string, _ *SecurityPerimeterServiceTagsClientListOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/locations/{location}/nspServiceTags"
 	if client.subscriptionID == "" {
 		return nil, errors.New("parameter client.subscriptionID cannot be empty")
 	}
@@ -95,10 +94,10 @@ func (client *SecurityPerimeterAssociableResourceTypesClient) listCreateRequest(
 }
 
 // listHandleResponse handles the List response.
-func (client *SecurityPerimeterAssociableResourceTypesClient) listHandleResponse(resp *http.Response) (SecurityPerimeterAssociableResourceTypesClientListResponse, error) {
-	result := SecurityPerimeterAssociableResourceTypesClientListResponse{}
-	if err := runtime.UnmarshalAsJSON(resp, &result.PerimeterAssociableResourcesListResult); err != nil {
-		return SecurityPerimeterAssociableResourceTypesClientListResponse{}, err
+func (client *SecurityPerimeterServiceTagsClient) listHandleResponse(resp *http.Response) (SecurityPerimeterServiceTagsClientListResponse, error) {
+	result := SecurityPerimeterServiceTagsClientListResponse{}
+	if err := runtime.UnmarshalAsJSON(resp, &result.NspServiceTagsListResult); err != nil {
+		return SecurityPerimeterServiceTagsClientListResponse{}, err
 	}
 	return result, nil
 }
