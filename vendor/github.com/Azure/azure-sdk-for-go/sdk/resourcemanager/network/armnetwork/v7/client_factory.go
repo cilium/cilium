@@ -904,6 +904,14 @@ func (c *ClientFactory) NewSecurityPerimeterProfilesClient() *SecurityPerimeterP
 	}
 }
 
+// NewSecurityPerimeterServiceTagsClient creates a new instance of SecurityPerimeterServiceTagsClient.
+func (c *ClientFactory) NewSecurityPerimeterServiceTagsClient() *SecurityPerimeterServiceTagsClient {
+	return &SecurityPerimeterServiceTagsClient{
+		subscriptionID: c.subscriptionID,
+		internal:       c.internal,
+	}
+}
+
 // NewSecurityPerimetersClient creates a new instance of SecurityPerimetersClient.
 func (c *ClientFactory) NewSecurityPerimetersClient() *SecurityPerimetersClient {
 	return &SecurityPerimetersClient{

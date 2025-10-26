@@ -44,7 +44,7 @@ func NewVPNServerConfigurationsClient(subscriptionID string, credential azcore.T
 // BeginCreateOrUpdate - Creates a VpnServerConfiguration resource if it doesn't exist else updates the existing VpnServerConfiguration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The resource group name of the VpnServerConfiguration.
 //   - vpnServerConfigurationName - The name of the VpnServerConfiguration being created or updated.
 //   - vpnServerConfigurationParameters - Parameters supplied to create or update VpnServerConfiguration.
@@ -71,7 +71,7 @@ func (client *VPNServerConfigurationsClient) BeginCreateOrUpdate(ctx context.Con
 // CreateOrUpdate - Creates a VpnServerConfiguration resource if it doesn't exist else updates the existing VpnServerConfiguration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *VPNServerConfigurationsClient) createOrUpdate(ctx context.Context, resourceGroupName string, vpnServerConfigurationName string, vpnServerConfigurationParameters VPNServerConfiguration, options *VPNServerConfigurationsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VPNServerConfigurationsClient.BeginCreateOrUpdate"
@@ -113,7 +113,7 @@ func (client *VPNServerConfigurationsClient) createOrUpdateCreateRequest(ctx con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, vpnServerConfigurationParameters); err != nil {
@@ -125,7 +125,7 @@ func (client *VPNServerConfigurationsClient) createOrUpdateCreateRequest(ctx con
 // BeginDelete - Deletes a VpnServerConfiguration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The resource group name of the VpnServerConfiguration.
 //   - vpnServerConfigurationName - The name of the VpnServerConfiguration being deleted.
 //   - options - VPNServerConfigurationsClientBeginDeleteOptions contains the optional parameters for the VPNServerConfigurationsClient.BeginDelete
@@ -151,7 +151,7 @@ func (client *VPNServerConfigurationsClient) BeginDelete(ctx context.Context, re
 // Delete - Deletes a VpnServerConfiguration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *VPNServerConfigurationsClient) deleteOperation(ctx context.Context, resourceGroupName string, vpnServerConfigurationName string, options *VPNServerConfigurationsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VPNServerConfigurationsClient.BeginDelete"
@@ -193,7 +193,7 @@ func (client *VPNServerConfigurationsClient) deleteCreateRequest(ctx context.Con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -202,7 +202,7 @@ func (client *VPNServerConfigurationsClient) deleteCreateRequest(ctx context.Con
 // Get - Retrieves the details of a VpnServerConfiguration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The resource group name of the VpnServerConfiguration.
 //   - vpnServerConfigurationName - The name of the VpnServerConfiguration being retrieved.
 //   - options - VPNServerConfigurationsClientGetOptions contains the optional parameters for the VPNServerConfigurationsClient.Get
@@ -249,7 +249,7 @@ func (client *VPNServerConfigurationsClient) getCreateRequest(ctx context.Contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -266,7 +266,7 @@ func (client *VPNServerConfigurationsClient) getHandleResponse(resp *http.Respon
 
 // NewListPager - Lists all the VpnServerConfigurations in a subscription.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - options - VPNServerConfigurationsClientListOptions contains the optional parameters for the VPNServerConfigurationsClient.NewListPager
 //     method.
 func (client *VPNServerConfigurationsClient) NewListPager(options *VPNServerConfigurationsClientListOptions) *runtime.Pager[VPNServerConfigurationsClientListResponse] {
@@ -304,7 +304,7 @@ func (client *VPNServerConfigurationsClient) listCreateRequest(ctx context.Conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -321,7 +321,7 @@ func (client *VPNServerConfigurationsClient) listHandleResponse(resp *http.Respo
 
 // NewListByResourceGroupPager - Lists all the vpnServerConfigurations in a resource group.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The resource group name of the VpnServerConfiguration.
 //   - options - VPNServerConfigurationsClientListByResourceGroupOptions contains the optional parameters for the VPNServerConfigurationsClient.NewListByResourceGroupPager
 //     method.
@@ -364,7 +364,7 @@ func (client *VPNServerConfigurationsClient) listByResourceGroupCreateRequest(ct
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -379,10 +379,75 @@ func (client *VPNServerConfigurationsClient) listByResourceGroupHandleResponse(r
 	return result, nil
 }
 
+// ListRadiusSecrets - List all Radius servers with respective radius secrets from VpnServerConfiguration.
+// If the operation fails it returns an *azcore.ResponseError type.
+//
+// Generated from API version 2024-10-01
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - vpnServerConfigurationName - The name of the VpnServerConfiguration.
+//   - options - VPNServerConfigurationsClientListRadiusSecretsOptions contains the optional parameters for the VPNServerConfigurationsClient.ListRadiusSecrets
+//     method.
+func (client *VPNServerConfigurationsClient) ListRadiusSecrets(ctx context.Context, resourceGroupName string, vpnServerConfigurationName string, options *VPNServerConfigurationsClientListRadiusSecretsOptions) (VPNServerConfigurationsClientListRadiusSecretsResponse, error) {
+	var err error
+	const operationName = "VPNServerConfigurationsClient.ListRadiusSecrets"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.listRadiusSecretsCreateRequest(ctx, resourceGroupName, vpnServerConfigurationName, options)
+	if err != nil {
+		return VPNServerConfigurationsClientListRadiusSecretsResponse{}, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return VPNServerConfigurationsClientListRadiusSecretsResponse{}, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK) {
+		err = runtime.NewResponseError(httpResp)
+		return VPNServerConfigurationsClientListRadiusSecretsResponse{}, err
+	}
+	resp, err := client.listRadiusSecretsHandleResponse(httpResp)
+	return resp, err
+}
+
+// listRadiusSecretsCreateRequest creates the ListRadiusSecrets request.
+func (client *VPNServerConfigurationsClient) listRadiusSecretsCreateRequest(ctx context.Context, resourceGroupName string, vpnServerConfigurationName string, _ *VPNServerConfigurationsClientListRadiusSecretsOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/vpnServerConfigurations/{vpnServerConfigurationName}/listRadiusSecrets"
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if vpnServerConfigurationName == "" {
+		return nil, errors.New("parameter vpnServerConfigurationName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{vpnServerConfigurationName}", url.PathEscape(vpnServerConfigurationName))
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", "2024-10-01")
+	req.Raw().URL.RawQuery = reqQP.Encode()
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// listRadiusSecretsHandleResponse handles the ListRadiusSecrets response.
+func (client *VPNServerConfigurationsClient) listRadiusSecretsHandleResponse(resp *http.Response) (VPNServerConfigurationsClientListRadiusSecretsResponse, error) {
+	result := VPNServerConfigurationsClientListRadiusSecretsResponse{}
+	if err := runtime.UnmarshalAsJSON(resp, &result.RadiusAuthServerListResult); err != nil {
+		return VPNServerConfigurationsClientListRadiusSecretsResponse{}, err
+	}
+	return result, nil
+}
+
 // UpdateTags - Updates VpnServerConfiguration tags.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The resource group name of the VpnServerConfiguration.
 //   - vpnServerConfigurationName - The name of the VpnServerConfiguration being updated.
 //   - vpnServerConfigurationParameters - Parameters supplied to update VpnServerConfiguration tags.
@@ -430,7 +495,7 @@ func (client *VPNServerConfigurationsClient) updateTagsCreateRequest(ctx context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, vpnServerConfigurationParameters); err != nil {

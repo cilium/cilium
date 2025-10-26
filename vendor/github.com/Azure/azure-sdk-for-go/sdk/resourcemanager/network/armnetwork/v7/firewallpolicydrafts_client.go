@@ -44,7 +44,7 @@ func NewFirewallPolicyDraftsClient(subscriptionID string, credential azcore.Toke
 // CreateOrUpdate - Create or update a draft Firewall Policy.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - firewallPolicyName - The name of the Firewall Policy.
 //   - parameters - Parameters supplied to the create or update Firewall Policy Draft operation.
@@ -92,7 +92,7 @@ func (client *FirewallPolicyDraftsClient) createOrUpdateCreateRequest(ctx contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -113,7 +113,7 @@ func (client *FirewallPolicyDraftsClient) createOrUpdateHandleResponse(resp *htt
 // Delete - Delete a draft policy.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - firewallPolicyName - The name of the Firewall Policy.
 //   - options - FirewallPolicyDraftsClientDeleteOptions contains the optional parameters for the FirewallPolicyDraftsClient.Delete
@@ -159,7 +159,7 @@ func (client *FirewallPolicyDraftsClient) deleteCreateRequest(ctx context.Contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -168,7 +168,7 @@ func (client *FirewallPolicyDraftsClient) deleteCreateRequest(ctx context.Contex
 // Get - Get a draft Firewall Policy.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - firewallPolicyName - The name of the Firewall Policy.
 //   - options - FirewallPolicyDraftsClientGetOptions contains the optional parameters for the FirewallPolicyDraftsClient.Get
@@ -215,7 +215,7 @@ func (client *FirewallPolicyDraftsClient) getCreateRequest(ctx context.Context, 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

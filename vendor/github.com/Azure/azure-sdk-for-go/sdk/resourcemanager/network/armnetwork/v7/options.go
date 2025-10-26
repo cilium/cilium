@@ -332,6 +332,13 @@ type AzureFirewallsClientBeginListLearnedPrefixesOptions struct {
 	ResumeToken string
 }
 
+// AzureFirewallsClientBeginPacketCaptureOperationOptions contains the optional parameters for the AzureFirewallsClient.BeginPacketCaptureOperation
+// method.
+type AzureFirewallsClientBeginPacketCaptureOperationOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
 // AzureFirewallsClientBeginPacketCaptureOptions contains the optional parameters for the AzureFirewallsClient.BeginPacketCapture
 // method.
 type AzureFirewallsClientBeginPacketCaptureOptions struct {
@@ -3071,6 +3078,12 @@ type SecurityPerimeterProfilesClientListOptions struct {
 	Top *int32
 }
 
+// SecurityPerimeterServiceTagsClientListOptions contains the optional parameters for the SecurityPerimeterServiceTagsClient.NewListPager
+// method.
+type SecurityPerimeterServiceTagsClientListOptions struct {
+	// placeholder for future optional parameters
+}
+
 // SecurityPerimetersClientBeginDeleteOptions contains the optional parameters for the SecurityPerimetersClient.BeginDelete
 // method.
 type SecurityPerimetersClientBeginDeleteOptions struct {
@@ -3651,6 +3664,12 @@ type VPNServerConfigurationsClientListByResourceGroupOptions struct {
 // VPNServerConfigurationsClientListOptions contains the optional parameters for the VPNServerConfigurationsClient.NewListPager
 // method.
 type VPNServerConfigurationsClientListOptions struct {
+	// placeholder for future optional parameters
+}
+
+// VPNServerConfigurationsClientListRadiusSecretsOptions contains the optional parameters for the VPNServerConfigurationsClient.ListRadiusSecrets
+// method.
+type VPNServerConfigurationsClientListRadiusSecretsOptions struct {
 	// placeholder for future optional parameters
 }
 
@@ -4381,6 +4400,12 @@ type VirtualNetworkGatewaysClientListConnectionsOptions struct {
 // VirtualNetworkGatewaysClientListOptions contains the optional parameters for the VirtualNetworkGatewaysClient.NewListPager
 // method.
 type VirtualNetworkGatewaysClientListOptions struct {
+	// placeholder for future optional parameters
+}
+
+// VirtualNetworkGatewaysClientListRadiusSecretsOptions contains the optional parameters for the VirtualNetworkGatewaysClient.ListRadiusSecrets
+// method.
+type VirtualNetworkGatewaysClientListRadiusSecretsOptions struct {
 	// placeholder for future optional parameters
 }
 

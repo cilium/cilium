@@ -1,5 +1,31 @@
 # Release History
 
+## 7.1.0 (2025-10-23)
+### Features Added
+
+- New value `TransportProtocolQuic` added to enum type `TransportProtocol`
+- New enum type `AzureFirewallPacketCaptureOperationType` with values `AzureFirewallPacketCaptureOperationTypeStart`, `AzureFirewallPacketCaptureOperationTypeStatus`, `AzureFirewallPacketCaptureOperationTypeStop`
+- New enum type `AzureFirewallPacketCaptureResponseCode` with values `AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureCompleted`, `AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureFailed`, `AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureInProgress`, `AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureNotInProgress`, `AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailed`, `AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailedToUpload`, `AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailure`, `AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartSucceeded`, `AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStopSucceeded`, `AzureFirewallPacketCaptureResponseCodeNotImplemented`
+- New enum type `NvaNicType` with values `NvaNicTypeAdditionalPrivateNic`, `NvaNicTypeAdditionalPublicNic`, `NvaNicTypePrivateNic`, `NvaNicTypePublicNic`
+- New function `*AzureFirewallsClient.BeginPacketCaptureOperation(context.Context, string, string, FirewallPacketCaptureParameters, *AzureFirewallsClientBeginPacketCaptureOperationOptions) (*runtime.Poller[AzureFirewallsClientPacketCaptureOperationResponse], error)`
+- New function `*ClientFactory.NewSecurityPerimeterServiceTagsClient() *SecurityPerimeterServiceTagsClient`
+- New function `NewSecurityPerimeterServiceTagsClient(string, azcore.TokenCredential, *arm.ClientOptions) (*SecurityPerimeterServiceTagsClient, error)`
+- New function `*SecurityPerimeterServiceTagsClient.NewListPager(string, *SecurityPerimeterServiceTagsClientListOptions) *runtime.Pager[SecurityPerimeterServiceTagsClientListResponse]`
+- New function `*VPNServerConfigurationsClient.ListRadiusSecrets(context.Context, string, string, *VPNServerConfigurationsClientListRadiusSecretsOptions) (VPNServerConfigurationsClientListRadiusSecretsResponse, error)`
+- New function `*VirtualNetworkGatewaysClient.ListRadiusSecrets(context.Context, string, string, *VirtualNetworkGatewaysClientListRadiusSecretsOptions) (VirtualNetworkGatewaysClientListRadiusSecretsResponse, error)`
+- New struct `AzureFirewallPacketCaptureResponse`
+- New struct `NspServiceTagsListResult`
+- New struct `NspServiceTagsResource`
+- New struct `NvaInVnetSubnetReferenceProperties`
+- New struct `NvaInterfaceConfigurationsProperties`
+- New struct `RadiusAuthServer`
+- New struct `RadiusAuthServerListResult`
+- New field `DedicatedBackendConnection`, `SniName`, `ValidateCertChainAndExpiry`, `ValidateSNI` in struct `ApplicationGatewayBackendHTTPSettingsPropertiesFormat`
+- New field `ExtendedLocation` in struct `AzureFirewall`
+- New field `Operation` in struct `FirewallPacketCaptureParameters`
+- New field `NvaInterfaceConfigurations`, `PrivateIPAddress` in struct `VirtualAppliancePropertiesFormat`
+
+
 ## 7.0.0 (2025-05-22)
 ### Breaking Changes
 

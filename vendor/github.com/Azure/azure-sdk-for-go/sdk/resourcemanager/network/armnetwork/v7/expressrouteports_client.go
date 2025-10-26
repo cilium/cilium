@@ -44,7 +44,7 @@ func NewExpressRoutePortsClient(subscriptionID string, credential azcore.TokenCr
 // BeginCreateOrUpdate - Creates or updates the specified ExpressRoutePort resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - expressRoutePortName - The name of the ExpressRoutePort resource.
 //   - parameters - Parameters supplied to the create ExpressRoutePort operation.
@@ -71,7 +71,7 @@ func (client *ExpressRoutePortsClient) BeginCreateOrUpdate(ctx context.Context, 
 // CreateOrUpdate - Creates or updates the specified ExpressRoutePort resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *ExpressRoutePortsClient) createOrUpdate(ctx context.Context, resourceGroupName string, expressRoutePortName string, parameters ExpressRoutePort, options *ExpressRoutePortsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ExpressRoutePortsClient.BeginCreateOrUpdate"
@@ -113,7 +113,7 @@ func (client *ExpressRoutePortsClient) createOrUpdateCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -125,7 +125,7 @@ func (client *ExpressRoutePortsClient) createOrUpdateCreateRequest(ctx context.C
 // BeginDelete - Deletes the specified ExpressRoutePort resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - expressRoutePortName - The name of the ExpressRoutePort resource.
 //   - options - ExpressRoutePortsClientBeginDeleteOptions contains the optional parameters for the ExpressRoutePortsClient.BeginDelete
@@ -151,7 +151,7 @@ func (client *ExpressRoutePortsClient) BeginDelete(ctx context.Context, resource
 // Delete - Deletes the specified ExpressRoutePort resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *ExpressRoutePortsClient) deleteOperation(ctx context.Context, resourceGroupName string, expressRoutePortName string, options *ExpressRoutePortsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ExpressRoutePortsClient.BeginDelete"
@@ -193,7 +193,7 @@ func (client *ExpressRoutePortsClient) deleteCreateRequest(ctx context.Context, 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -202,7 +202,7 @@ func (client *ExpressRoutePortsClient) deleteCreateRequest(ctx context.Context, 
 // GenerateLOA - Generate a letter of authorization for the requested ExpressRoutePort resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - expressRoutePortName - The name of ExpressRoutePort.
 //   - request - Request parameters supplied to generate a letter of authorization.
@@ -250,7 +250,7 @@ func (client *ExpressRoutePortsClient) generateLOACreateRequest(ctx context.Cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, request); err != nil {
@@ -271,7 +271,7 @@ func (client *ExpressRoutePortsClient) generateLOAHandleResponse(resp *http.Resp
 // Get - Retrieves the requested ExpressRoutePort resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - expressRoutePortName - The name of ExpressRoutePort.
 //   - options - ExpressRoutePortsClientGetOptions contains the optional parameters for the ExpressRoutePortsClient.Get method.
@@ -317,7 +317,7 @@ func (client *ExpressRoutePortsClient) getCreateRequest(ctx context.Context, res
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -334,7 +334,7 @@ func (client *ExpressRoutePortsClient) getHandleResponse(resp *http.Response) (E
 
 // NewListPager - List all the ExpressRoutePort resources in the specified subscription.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - options - ExpressRoutePortsClientListOptions contains the optional parameters for the ExpressRoutePortsClient.NewListPager
 //     method.
 func (client *ExpressRoutePortsClient) NewListPager(options *ExpressRoutePortsClientListOptions) *runtime.Pager[ExpressRoutePortsClientListResponse] {
@@ -372,7 +372,7 @@ func (client *ExpressRoutePortsClient) listCreateRequest(ctx context.Context, _ 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -389,7 +389,7 @@ func (client *ExpressRoutePortsClient) listHandleResponse(resp *http.Response) (
 
 // NewListByResourceGroupPager - List all the ExpressRoutePort resources in the specified resource group.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - options - ExpressRoutePortsClientListByResourceGroupOptions contains the optional parameters for the ExpressRoutePortsClient.NewListByResourceGroupPager
 //     method.
@@ -432,7 +432,7 @@ func (client *ExpressRoutePortsClient) listByResourceGroupCreateRequest(ctx cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -450,7 +450,7 @@ func (client *ExpressRoutePortsClient) listByResourceGroupHandleResponse(resp *h
 // UpdateTags - Update ExpressRoutePort tags.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - expressRoutePortName - The name of the ExpressRoutePort resource.
 //   - parameters - Parameters supplied to update ExpressRoutePort resource tags.
@@ -498,7 +498,7 @@ func (client *ExpressRoutePortsClient) updateTagsCreateRequest(ctx context.Conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {

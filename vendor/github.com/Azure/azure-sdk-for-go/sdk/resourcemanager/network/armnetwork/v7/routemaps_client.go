@@ -44,7 +44,7 @@ func NewRouteMapsClient(subscriptionID string, credential azcore.TokenCredential
 // BeginCreateOrUpdate - Creates a RouteMap if it doesn't exist else updates the existing one.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The resource group name of the RouteMap's resource group.
 //   - virtualHubName - The name of the VirtualHub containing the RouteMap.
 //   - routeMapName - The name of the RouteMap.
@@ -72,7 +72,7 @@ func (client *RouteMapsClient) BeginCreateOrUpdate(ctx context.Context, resource
 // CreateOrUpdate - Creates a RouteMap if it doesn't exist else updates the existing one.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *RouteMapsClient) createOrUpdate(ctx context.Context, resourceGroupName string, virtualHubName string, routeMapName string, routeMapParameters RouteMap, options *RouteMapsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "RouteMapsClient.BeginCreateOrUpdate"
@@ -118,7 +118,7 @@ func (client *RouteMapsClient) createOrUpdateCreateRequest(ctx context.Context, 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, routeMapParameters); err != nil {
@@ -130,7 +130,7 @@ func (client *RouteMapsClient) createOrUpdateCreateRequest(ctx context.Context, 
 // BeginDelete - Deletes a RouteMap.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The resource group name of the RouteMap's resource group.
 //   - virtualHubName - The name of the VirtualHub containing the RouteMap.
 //   - routeMapName - The name of the RouteMap.
@@ -156,7 +156,7 @@ func (client *RouteMapsClient) BeginDelete(ctx context.Context, resourceGroupNam
 // Delete - Deletes a RouteMap.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *RouteMapsClient) deleteOperation(ctx context.Context, resourceGroupName string, virtualHubName string, routeMapName string, options *RouteMapsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "RouteMapsClient.BeginDelete"
@@ -202,7 +202,7 @@ func (client *RouteMapsClient) deleteCreateRequest(ctx context.Context, resource
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -211,7 +211,7 @@ func (client *RouteMapsClient) deleteCreateRequest(ctx context.Context, resource
 // Get - Retrieves the details of a RouteMap.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The resource group name of the RouteMap's resource group.
 //   - virtualHubName - The name of the VirtualHub containing the RouteMap.
 //   - routeMapName - The name of the RouteMap.
@@ -262,7 +262,7 @@ func (client *RouteMapsClient) getCreateRequest(ctx context.Context, resourceGro
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -279,7 +279,7 @@ func (client *RouteMapsClient) getHandleResponse(resp *http.Response) (RouteMaps
 
 // NewListPager - Retrieves the details of all RouteMaps.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The resource group name of the RouteMap's resource group'.
 //   - virtualHubName - The name of the VirtualHub containing the RouteMap.
 //   - options - RouteMapsClientListOptions contains the optional parameters for the RouteMapsClient.NewListPager method.
@@ -326,7 +326,7 @@ func (client *RouteMapsClient) listCreateRequest(ctx context.Context, resourceGr
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

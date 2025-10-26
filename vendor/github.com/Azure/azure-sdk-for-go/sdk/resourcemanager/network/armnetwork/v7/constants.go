@@ -5,11 +5,6 @@
 
 package armnetwork
 
-const (
-	moduleName    = "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
-	moduleVersion = "v7.0.0"
-)
-
 // Access - Access to be allowed or denied.
 type Access string
 
@@ -850,6 +845,60 @@ func PossibleAzureFirewallPacketCaptureFlagsTypeValues() []AzureFirewallPacketCa
 		AzureFirewallPacketCaptureFlagsTypeRst,
 		AzureFirewallPacketCaptureFlagsTypeSyn,
 		AzureFirewallPacketCaptureFlagsTypeUrg,
+	}
+}
+
+// AzureFirewallPacketCaptureOperationType - The packet capture operation to perform. If the Start operation is selected,
+// please provide all the fields in the firewallPacketCaptureParameters to successfully initiate the packet capture. If the
+// Status or Stop operation is selected, only the operation field is required; all other fields in the firewallPacketCaptureParameters
+// can be omitted to successfully retrieve the capture status or stop
+// the capture.
+type AzureFirewallPacketCaptureOperationType string
+
+const (
+	AzureFirewallPacketCaptureOperationTypeStart  AzureFirewallPacketCaptureOperationType = "Start"
+	AzureFirewallPacketCaptureOperationTypeStatus AzureFirewallPacketCaptureOperationType = "Status"
+	AzureFirewallPacketCaptureOperationTypeStop   AzureFirewallPacketCaptureOperationType = "Stop"
+)
+
+// PossibleAzureFirewallPacketCaptureOperationTypeValues returns the possible values for the AzureFirewallPacketCaptureOperationType const type.
+func PossibleAzureFirewallPacketCaptureOperationTypeValues() []AzureFirewallPacketCaptureOperationType {
+	return []AzureFirewallPacketCaptureOperationType{
+		AzureFirewallPacketCaptureOperationTypeStart,
+		AzureFirewallPacketCaptureOperationTypeStatus,
+		AzureFirewallPacketCaptureOperationTypeStop,
+	}
+}
+
+// AzureFirewallPacketCaptureResponseCode - The packet capture operation response codes.
+type AzureFirewallPacketCaptureResponseCode string
+
+const (
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureCompleted           AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureCompleted"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureFailed              AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureFailed"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureInProgress          AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureInProgress"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureNotInProgress       AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureNotInProgress"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailed         AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStartFailed"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailedToUpload AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStartFailedToUpload"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailure        AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStartFailure"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartSucceeded      AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStartSucceeded"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStopSucceeded       AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStopSucceeded"
+	AzureFirewallPacketCaptureResponseCodeNotImplemented                                AzureFirewallPacketCaptureResponseCode = "NotImplemented"
+)
+
+// PossibleAzureFirewallPacketCaptureResponseCodeValues returns the possible values for the AzureFirewallPacketCaptureResponseCode const type.
+func PossibleAzureFirewallPacketCaptureResponseCodeValues() []AzureFirewallPacketCaptureResponseCode {
+	return []AzureFirewallPacketCaptureResponseCode{
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureCompleted,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureFailed,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureInProgress,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureNotInProgress,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailed,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailedToUpload,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailure,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartSucceeded,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStopSucceeded,
+		AzureFirewallPacketCaptureResponseCodeNotImplemented,
 	}
 }
 
@@ -2985,7 +3034,8 @@ func PossibleNicTypeInRequestValues() []NicTypeInRequest {
 	}
 }
 
-// NicTypeInResponse - NIC type - PublicNic, PrivateNic, or AdditionalNic.
+// NicTypeInResponse - NIC type - PublicNic, PrivateNic, or AdditionalNic; AdditionalPrivateNic and AdditionalPublicNic are
+// only supported for NVAs deployed in VNets.
 type NicTypeInResponse string
 
 const (
@@ -3070,6 +3120,29 @@ func PossibleNspProvisioningStateValues() []NspProvisioningState {
 		NspProvisioningStateFailed,
 		NspProvisioningStateSucceeded,
 		NspProvisioningStateUpdating,
+	}
+}
+
+type NvaNicType string
+
+const (
+	// NvaNicTypeAdditionalPrivateNic - An additional private NIC type
+	NvaNicTypeAdditionalPrivateNic NvaNicType = "AdditionalPrivateNic"
+	// NvaNicTypeAdditionalPublicNic - An additional public NIC type
+	NvaNicTypeAdditionalPublicNic NvaNicType = "AdditionalPublicNic"
+	// NvaNicTypePrivateNic - The private NIC type
+	NvaNicTypePrivateNic NvaNicType = "PrivateNic"
+	// NvaNicTypePublicNic - The public NIC type
+	NvaNicTypePublicNic NvaNicType = "PublicNic"
+)
+
+// PossibleNvaNicTypeValues returns the possible values for the NvaNicType const type.
+func PossibleNvaNicTypeValues() []NvaNicType {
+	return []NvaNicType{
+		NvaNicTypeAdditionalPrivateNic,
+		NvaNicTypeAdditionalPublicNic,
+		NvaNicTypePrivateNic,
+		NvaNicTypePublicNic,
 	}
 }
 
@@ -4130,15 +4203,17 @@ func PossibleSyncRemoteAddressSpaceValues() []SyncRemoteAddressSpace {
 type TransportProtocol string
 
 const (
-	TransportProtocolAll TransportProtocol = "All"
-	TransportProtocolTCP TransportProtocol = "Tcp"
-	TransportProtocolUDP TransportProtocol = "Udp"
+	TransportProtocolAll  TransportProtocol = "All"
+	TransportProtocolQuic TransportProtocol = "Quic"
+	TransportProtocolTCP  TransportProtocol = "Tcp"
+	TransportProtocolUDP  TransportProtocol = "Udp"
 )
 
 // PossibleTransportProtocolValues returns the possible values for the TransportProtocol const type.
 func PossibleTransportProtocolValues() []TransportProtocol {
 	return []TransportProtocol{
 		TransportProtocolAll,
+		TransportProtocolQuic,
 		TransportProtocolTCP,
 		TransportProtocolUDP,
 	}
