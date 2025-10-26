@@ -19,7 +19,9 @@ package value
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"sort"
 	"sync"
@@ -57,6 +59,8 @@ type FieldCacheEntry struct {
 	JsonName string
 	// isOmitEmpty is true if the field has the json 'omitempty' tag.
 	isOmitEmpty bool
+	// omitzero is set if the field has the json 'omitzero' tag.
+	omitzero func(reflect.Value) bool
 	// fieldPath is a list of field indices (see FieldByIndex) to lookup the value of
 	// a field in a reflect.Value struct. The field indices in the list form a path used
 	// to traverse through intermediary 'inline' fields.
@@ -67,7 +71,13 @@ type FieldCacheEntry struct {
 }
 
 func (f *FieldCacheEntry) CanOmit(fieldVal reflect.Value) bool {
-	return f.isOmitEmpty && (safeIsNil(fieldVal) || isZero(fieldVal))
+	if f.isOmitEmpty && (safeIsNil(fieldVal) || isEmpty(fieldVal)) {
+		return true
+	}
+	if f.omitzero != nil && f.omitzero(fieldVal) {
+		return true
+	}
+	return false
 }
 
 // GetFrom returns the field identified by this FieldCacheEntry from the provided struct.
@@ -145,7 +155,7 @@ func typeReflectEntryOf(cm reflectCacheMap, t reflect.Type, updates reflectCache
 func buildStructCacheEntry(t reflect.Type, infos map[string]*FieldCacheEntry, fieldPath [][]int) {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		jsonName, omit, isInline, isOmitempty := lookupJsonTags(field)
+		jsonName, omit, isInline, isOmitempty, omitzero := lookupJsonTags(field)
 		if omit {
 			continue
 		}
@@ -159,7 +169,7 @@ func buildStructCacheEntry(t reflect.Type, infos map[string]*FieldCacheEntry, fi
 			}
 			continue
 		}
-		info := &FieldCacheEntry{JsonName: jsonName, isOmitEmpty: isOmitempty, fieldPath: append(fieldPath, field.Index), fieldType: field.Type}
+		info := &FieldCacheEntry{JsonName: jsonName, isOmitEmpty: isOmitempty, omitzero: omitzero, fieldPath: append(fieldPath, field.Index), fieldType: field.Type}
 		infos[jsonName] = info
 	}
 }
@@ -184,6 +194,11 @@ func (e TypeReflectCacheEntry) ToUnstructured(sv reflect.Value) (interface{}, er
 	// This is based on https://github.com/kubernetes/kubernetes/blob/82c9e5c814eb7acc6cc0a090c057294d0667ad66/staging/src/k8s.io/apimachinery/pkg/runtime/converter.go#L505
 	// and is intended to replace it.
 
+	// Check if the object is a nil pointer.
+	if sv.Kind() == reflect.Ptr && sv.IsNil() {
+		// We're done - we don't need to store anything.
+		return nil, nil
+	}
 	// Check if the object has a custom string converter and use it if available, since it is much more efficient
 	// than round tripping through json.
 	if converter, ok := e.getUnstructuredConverter(sv); ok {
@@ -191,11 +206,6 @@ func (e TypeReflectCacheEntry) ToUnstructured(sv reflect.Value) (interface{}, er
 	}
 	// Check if the object has a custom JSON marshaller/unmarshaller.
 	if marshaler, ok := e.getJsonMarshaler(sv); ok {
-		if sv.Kind() == reflect.Ptr && sv.IsNil() {
-			// We're done - we don't need to store anything.
-			return nil, nil
-		}
-
 		data, err := marshaler.MarshalJSON()
 		if err != nil {
 			return nil, err
@@ -379,34 +389,47 @@ const maxDepth = 10000
 // unmarshal unmarshals the given data
 // If v is a *map[string]interface{}, numbers are converted to int64 or float64
 func unmarshal(data []byte, v interface{}) error {
+	// Build a decoder from the given data
+	decoder := json.NewDecoder(bytes.NewBuffer(data))
+	// Preserve numbers, rather than casting to float64 automatically
+	decoder.UseNumber()
+	// Run the decode
+	if err := decoder.Decode(v); err != nil {
+		return err
+	}
+	next := decoder.InputOffset()
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		tail := bytes.TrimLeft(data[next:], " \t\r\n")
+		return fmt.Errorf("unexpected trailing data at offset %d", len(data)-len(tail))
+	}
+
+	// If the decode succeeds, post-process the object to convert json.Number objects to int64 or float64
 	switch v := v.(type) {
 	case *map[string]interface{}:
-		// Build a decoder from the given data
-		decoder := json.NewDecoder(bytes.NewBuffer(data))
-		// Preserve numbers, rather than casting to float64 automatically
-		decoder.UseNumber()
-		// Run the decode
-		if err := decoder.Decode(v); err != nil {
-			return err
-		}
-		// If the decode succeeds, post-process the map to convert json.Number objects to int64 or float64
 		return convertMapNumbers(*v, 0)
 
 	case *[]interface{}:
-		// Build a decoder from the given data
-		decoder := json.NewDecoder(bytes.NewBuffer(data))
-		// Preserve numbers, rather than casting to float64 automatically
-		decoder.UseNumber()
-		// Run the decode
-		if err := decoder.Decode(v); err != nil {
-			return err
-		}
-		// If the decode succeeds, post-process the map to convert json.Number objects to int64 or float64
 		return convertSliceNumbers(*v, 0)
 
+	case *interface{}:
+		return convertInterfaceNumbers(v, 0)
+
 	default:
-		return json.Unmarshal(data, v)
+		return nil
 	}
+}
+
+func convertInterfaceNumbers(v *interface{}, depth int) error {
+	var err error
+	switch v2 := (*v).(type) {
+	case json.Number:
+		*v, err = convertNumber(v2)
+	case map[string]interface{}:
+		err = convertMapNumbers(v2, depth+1)
+	case []interface{}:
+		err = convertSliceNumbers(v2, depth+1)
+	}
+	return err
 }
 
 // convertMapNumbers traverses the map, converting any json.Number values to int64 or float64.

@@ -285,7 +285,7 @@ require (
 	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/kube-openapi v0.0.0-20240423202451-8948a665c108 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
 
 replace (
@@ -294,6 +294,10 @@ replace (
 	github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464
 
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
+
+	// Using private fork of k8s.io/apimachinery with additional patches to support
+	// `omitzero` json tags in convertors used by cilium.
+	k8s.io/apimachinery => github.com/cilium/apimachinery v0.30.2-1
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
