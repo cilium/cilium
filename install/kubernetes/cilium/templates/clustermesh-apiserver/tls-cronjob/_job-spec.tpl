@@ -15,7 +15,7 @@ spec:
           imagePullPolicy: {{ .Values.certgen.image.pullPolicy }}
           {{- with .Values.certgen.resources }}
           resources:
-          {{- toYaml . | nindent 10 }}
+          {{- toYaml . | nindent 12 }}
           {{- end }}
           command:
             - "/usr/bin/cilium-certgen"
