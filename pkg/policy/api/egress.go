@@ -54,7 +54,7 @@ type EgressCommonRule struct {
 	// initiate connections to 10.2.3.0/24 except from IPs in subnet 10.2.3.0/28.
 	//
 	// +kubebuilder:validation:Optional
-	ToCIDRSet CIDRRuleSlice `json:"toCIDRSet,omitempty"`
+	ToCIDRSet CIDRRuleSlice `json:"toCIDRSet,omitzero"`
 
 	// ToEntities is a list of special entities to which the endpoint subject
 	// to the rule is allowed to initiate connections. Supported entities are
@@ -243,7 +243,7 @@ func (e *EgressRule) CreateDerivative(ctx context.Context) (*EgressRule, error) 
 	if err != nil {
 		return &EgressRule{}, err
 	}
-	newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
+	newRule.ToCIDRSet = append(newRule.ToCIDRSet, cidrSet...)
 	newRule.ToGroups = nil
 	return newRule, nil
 }
@@ -262,7 +262,7 @@ func (e *EgressDenyRule) CreateDerivative(ctx context.Context) (*EgressDenyRule,
 	if err != nil {
 		return &EgressDenyRule{}, err
 	}
-	newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
+	newRule.ToCIDRSet = append(newRule.ToCIDRSet, cidrSet...)
 	newRule.ToGroups = nil
 	return newRule, nil
 }
