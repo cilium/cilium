@@ -122055,6 +122055,19 @@ func awsEc2query_deserializeDocumentNetworkInterface(v **types.NetworkInterface,
 				sv.AvailabilityZone = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("availabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("connectionTrackingConfiguration", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentConnectionTrackingConfiguration(&sv.ConnectionTrackingConfiguration, nodeDecoder); err != nil {

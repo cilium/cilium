@@ -14467,6 +14467,9 @@ type NetworkInterface struct {
 	// The Availability Zone.
 	AvailabilityZone *string
 
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
+
 	// A security group connection tracking configuration that enables you to set the
 	// timeout for connection tracking on an Elastic network interface. For more
 	// information, see [Connection tracking timeouts]in the Amazon EC2 User Guide.
