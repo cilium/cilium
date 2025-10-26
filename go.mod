@@ -174,7 +174,7 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -286,6 +286,10 @@ replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16
 // Using private fork of gobgp. See commit msg for more context as to why we
 // are using a private fork.
 replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464
+
+// Using private fork of k8s.io/apimachinery with additional patches to support
+// `omitzero` json tags in convertors used by cilium.
+replace k8s.io/apimachinery => github.com/cilium/apimachinery v0.33.3-1
 
 tool (
 	github.com/cilium/deepequal-gen
