@@ -36,11 +36,11 @@ runs:
   steps:
     - name: Install Cosign
       if: ${{ inputs.install_cosign == 'true' }}
-      uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+      uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
     - name: Generate SBOM
       if: ${{ inputs.generate_sbom == 'true' }}
-      uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c # v0.20.5
+      uses: anchore/sbom-action@8e94d75ddd33f69f691467e42275782e4bfefe84 # v0.20.9
       with:
         artifact-name: sbom_${{ inputs.sbom_name }}.spdx.json
         output-file: ./sbom_${{ inputs.sbom_name }}.spdx.json

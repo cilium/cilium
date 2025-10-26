@@ -68,7 +68,7 @@ env:
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
   gcp_zone: us-east5-a
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 542.0.0
+  gcloud_version: 544.0.0
 
 jobs:
   echo-inputs:
@@ -329,7 +329,7 @@ jobs:
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@082339e175a65c282c44c13bf875822e23911359 # main
+        uses: cilium/scale-tests-action/export-results@28366d1190baf620c6f4daa7494e528ea6c41482 # main
         with:
           test_name: ${{ env.test_name }}-${{ matrix.name }}
           tested_sha: ${{ inputs.SHA || github.sha }}
