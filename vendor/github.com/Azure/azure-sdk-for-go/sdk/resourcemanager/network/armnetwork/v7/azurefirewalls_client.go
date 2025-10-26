@@ -44,7 +44,7 @@ func NewAzureFirewallsClient(subscriptionID string, credential azcore.TokenCrede
 // BeginCreateOrUpdate - Creates or updates the specified Azure Firewall.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - azureFirewallName - The name of the Azure Firewall.
 //   - parameters - Parameters supplied to the create or update Azure Firewall operation.
@@ -71,7 +71,7 @@ func (client *AzureFirewallsClient) BeginCreateOrUpdate(ctx context.Context, res
 // CreateOrUpdate - Creates or updates the specified Azure Firewall.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *AzureFirewallsClient) createOrUpdate(ctx context.Context, resourceGroupName string, azureFirewallName string, parameters AzureFirewall, options *AzureFirewallsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "AzureFirewallsClient.BeginCreateOrUpdate"
@@ -113,7 +113,7 @@ func (client *AzureFirewallsClient) createOrUpdateCreateRequest(ctx context.Cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -125,7 +125,7 @@ func (client *AzureFirewallsClient) createOrUpdateCreateRequest(ctx context.Cont
 // BeginDelete - Deletes the specified Azure Firewall.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - azureFirewallName - The name of the Azure Firewall.
 //   - options - AzureFirewallsClientBeginDeleteOptions contains the optional parameters for the AzureFirewallsClient.BeginDelete
@@ -151,7 +151,7 @@ func (client *AzureFirewallsClient) BeginDelete(ctx context.Context, resourceGro
 // Delete - Deletes the specified Azure Firewall.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *AzureFirewallsClient) deleteOperation(ctx context.Context, resourceGroupName string, azureFirewallName string, options *AzureFirewallsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "AzureFirewallsClient.BeginDelete"
@@ -193,7 +193,7 @@ func (client *AzureFirewallsClient) deleteCreateRequest(ctx context.Context, res
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -202,7 +202,7 @@ func (client *AzureFirewallsClient) deleteCreateRequest(ctx context.Context, res
 // Get - Gets the specified Azure Firewall.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - azureFirewallName - The name of the Azure Firewall.
 //   - options - AzureFirewallsClientGetOptions contains the optional parameters for the AzureFirewallsClient.Get method.
@@ -248,7 +248,7 @@ func (client *AzureFirewallsClient) getCreateRequest(ctx context.Context, resour
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -265,7 +265,7 @@ func (client *AzureFirewallsClient) getHandleResponse(resp *http.Response) (Azur
 
 // NewListPager - Lists all Azure Firewalls in a resource group.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - options - AzureFirewallsClientListOptions contains the optional parameters for the AzureFirewallsClient.NewListPager method.
 func (client *AzureFirewallsClient) NewListPager(resourceGroupName string, options *AzureFirewallsClientListOptions) *runtime.Pager[AzureFirewallsClientListResponse] {
@@ -307,7 +307,7 @@ func (client *AzureFirewallsClient) listCreateRequest(ctx context.Context, resou
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -324,7 +324,7 @@ func (client *AzureFirewallsClient) listHandleResponse(resp *http.Response) (Azu
 
 // NewListAllPager - Gets all the Azure Firewalls in a subscription.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - options - AzureFirewallsClientListAllOptions contains the optional parameters for the AzureFirewallsClient.NewListAllPager
 //     method.
 func (client *AzureFirewallsClient) NewListAllPager(options *AzureFirewallsClientListAllOptions) *runtime.Pager[AzureFirewallsClientListAllResponse] {
@@ -362,7 +362,7 @@ func (client *AzureFirewallsClient) listAllCreateRequest(ctx context.Context, _ 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -380,7 +380,7 @@ func (client *AzureFirewallsClient) listAllHandleResponse(resp *http.Response) (
 // BeginListLearnedPrefixes - Retrieves a list of all IP prefixes that azure firewall has learned to not SNAT.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - azureFirewallName - The name of the azure firewall.
 //   - options - AzureFirewallsClientBeginListLearnedPrefixesOptions contains the optional parameters for the AzureFirewallsClient.BeginListLearnedPrefixes
@@ -406,7 +406,7 @@ func (client *AzureFirewallsClient) BeginListLearnedPrefixes(ctx context.Context
 // ListLearnedPrefixes - Retrieves a list of all IP prefixes that azure firewall has learned to not SNAT.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *AzureFirewallsClient) listLearnedPrefixes(ctx context.Context, resourceGroupName string, azureFirewallName string, options *AzureFirewallsClientBeginListLearnedPrefixesOptions) (*http.Response, error) {
 	var err error
 	const operationName = "AzureFirewallsClient.BeginListLearnedPrefixes"
@@ -448,7 +448,7 @@ func (client *AzureFirewallsClient) listLearnedPrefixesCreateRequest(ctx context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -457,7 +457,7 @@ func (client *AzureFirewallsClient) listLearnedPrefixesCreateRequest(ctx context
 // BeginPacketCapture - Runs a packet capture on AzureFirewall.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - azureFirewallName - The name of the Azure Firewall.
 //   - parameters - Parameters supplied to run packet capture on azure firewall.
@@ -484,7 +484,7 @@ func (client *AzureFirewallsClient) BeginPacketCapture(ctx context.Context, reso
 // PacketCapture - Runs a packet capture on AzureFirewall.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *AzureFirewallsClient) packetCapture(ctx context.Context, resourceGroupName string, azureFirewallName string, parameters FirewallPacketCaptureParameters, options *AzureFirewallsClientBeginPacketCaptureOptions) (*http.Response, error) {
 	var err error
 	const operationName = "AzureFirewallsClient.BeginPacketCapture"
@@ -526,7 +526,88 @@ func (client *AzureFirewallsClient) packetCaptureCreateRequest(ctx context.Conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
+	req.Raw().URL.RawQuery = reqQP.Encode()
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// BeginPacketCaptureOperation - Runs a packet capture operation on AzureFirewall.
+// If the operation fails it returns an *azcore.ResponseError type.
+//
+// Generated from API version 2024-10-01
+//   - resourceGroupName - The name of the resource group.
+//   - azureFirewallName - The name of the azure firewall.
+//   - parameters - Parameters supplied to run packet capture on azure firewall.
+//   - options - AzureFirewallsClientBeginPacketCaptureOperationOptions contains the optional parameters for the AzureFirewallsClient.BeginPacketCaptureOperation
+//     method.
+func (client *AzureFirewallsClient) BeginPacketCaptureOperation(ctx context.Context, resourceGroupName string, azureFirewallName string, parameters FirewallPacketCaptureParameters, options *AzureFirewallsClientBeginPacketCaptureOperationOptions) (*runtime.Poller[AzureFirewallsClientPacketCaptureOperationResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.packetCaptureOperation(ctx, resourceGroupName, azureFirewallName, parameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[AzureFirewallsClientPacketCaptureOperationResponse]{
+			FinalStateVia: runtime.FinalStateViaLocation,
+			Tracer:        client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[AzureFirewallsClientPacketCaptureOperationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// PacketCaptureOperation - Runs a packet capture operation on AzureFirewall.
+// If the operation fails it returns an *azcore.ResponseError type.
+//
+// Generated from API version 2024-10-01
+func (client *AzureFirewallsClient) packetCaptureOperation(ctx context.Context, resourceGroupName string, azureFirewallName string, parameters FirewallPacketCaptureParameters, options *AzureFirewallsClientBeginPacketCaptureOperationOptions) (*http.Response, error) {
+	var err error
+	const operationName = "AzureFirewallsClient.BeginPacketCaptureOperation"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.packetCaptureOperationCreateRequest(ctx, resourceGroupName, azureFirewallName, parameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		err = runtime.NewResponseError(httpResp)
+		return nil, err
+	}
+	return httpResp, nil
+}
+
+// packetCaptureOperationCreateRequest creates the PacketCaptureOperation request.
+func (client *AzureFirewallsClient) packetCaptureOperationCreateRequest(ctx context.Context, resourceGroupName string, azureFirewallName string, parameters FirewallPacketCaptureParameters, _ *AzureFirewallsClientBeginPacketCaptureOperationOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/azureFirewalls/{azureFirewallName}/packetCaptureOperation"
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if azureFirewallName == "" {
+		return nil, errors.New("parameter azureFirewallName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{azureFirewallName}", url.PathEscape(azureFirewallName))
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -538,7 +619,7 @@ func (client *AzureFirewallsClient) packetCaptureCreateRequest(ctx context.Conte
 // BeginUpdateTags - Updates tags of an Azure Firewall resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - azureFirewallName - The name of the Azure Firewall.
 //   - parameters - Parameters supplied to update azure firewall tags.
@@ -565,7 +646,7 @@ func (client *AzureFirewallsClient) BeginUpdateTags(ctx context.Context, resourc
 // UpdateTags - Updates tags of an Azure Firewall resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *AzureFirewallsClient) updateTags(ctx context.Context, resourceGroupName string, azureFirewallName string, parameters TagsObject, options *AzureFirewallsClientBeginUpdateTagsOptions) (*http.Response, error) {
 	var err error
 	const operationName = "AzureFirewallsClient.BeginUpdateTags"
@@ -607,7 +688,7 @@ func (client *AzureFirewallsClient) updateTagsCreateRequest(ctx context.Context,
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
