@@ -4,6 +4,7 @@
 package labels
 
 import (
+	"errors"
 	"fmt"
 	"net/netip"
 	"strconv"
@@ -23,7 +24,7 @@ var (
 //
 // For IPv6 addresses, it converts ":" into "-" as EndpointSelectors don't
 // support colons inside the name section of a label.
-func maskedIPToLabel(ipStr string, prefix int) Label {
+func MaskedIPToLabelString(ipStr string, prefix int) string {
 	var str strings.Builder
 	str.Grow(
 		1 /* preZero */ +
@@ -33,29 +34,54 @@ func maskedIPToLabel(ipStr string, prefix int) Label {
 			1, /* '/' */
 	)
 
-	for i := range len(ipStr) {
-		if ipStr[i] == ':' {
-			// EndpointSelector keys can't start or end with a "-", so insert a
-			// zero at the start or end if it would otherwise have a "-" at that
-			// position.
-			if i == 0 {
-				str.WriteByte('0')
+	if strings.ContainsRune(ipStr, ':') {
+		for i := range len(ipStr) {
+			if ipStr[i] == ':' {
+				// EndpointSelector keys can't start or end with a "-", so insert a
+				// zero at the start or end if it would otherwise have a "-" at that
+				// position.
+				if i == 0 {
+					str.WriteByte('0')
+					str.WriteByte('-')
+					continue
+				}
+				if i == len(ipStr)-1 {
+					str.WriteByte('-')
+					str.WriteByte('0')
+					continue
+				}
 				str.WriteByte('-')
-				continue
+			} else {
+				str.WriteByte(ipStr[i])
 			}
-			if i == len(ipStr)-1 {
-				str.WriteByte('-')
-				str.WriteByte('0')
-				continue
-			}
-			str.WriteByte('-')
-		} else {
-			str.WriteByte(ipStr[i])
 		}
+	} else {
+		str.WriteString(ipStr)
 	}
 	str.WriteRune('/')
 	str.WriteString(strconv.Itoa(prefix))
-	return Label{Key: str.String(), Source: LabelSourceCIDR}
+	return str.String()
+}
+
+// maskedIPToLabelString is the base method for serializing an IP + prefix into
+// a string that can be used for creating Labels and EndpointSelector objects.
+//
+// For IPv6 addresses, it converts ":" into "-" as EndpointSelectors don't
+// support colons inside the name section of a label.
+func maskedIPToLabel(ipStr string, prefix int) Label {
+	return Label{Key: MaskedIPToLabelString(ipStr, prefix), Source: LabelSourceCIDR}
+}
+
+var (
+	ErrLabelNotCIDR = errors.New("Label is not a CIDR label")
+)
+
+// CIDRLabelToIPString reverses IPStringToLabel for testing purposes, mainly.
+func (l Label) ToCIDRString() (string, error) {
+	if l.cidr == nil || l.Source != LabelSourceCIDR || l.Value != "" {
+		return "", ErrLabelNotCIDR
+	}
+	return l.cidr.String(), nil
 }
 
 // IPStringToLabel parses a string and returns it as a CIDR label.
@@ -80,6 +106,12 @@ func IPStringToLabel(ip string) (Label, error) {
 	}
 }
 
+func GetCIDRLabel(prefix netip.Prefix) Label {
+	l := maskedIPToLabel(prefix.Masked().Addr().String(), prefix.Bits())
+	l.cidr = &prefix
+	return l
+}
+
 // GetCIDRLabels turns a CIDR in to a specially formatted label, and returns
 // a Labels including the CIDR-specific label and the appropriate world label.
 // e.g. "10.0.0.0/8" => ["cidr:10.0.0.0/8", "reserved:world-ipv4"]
@@ -89,8 +121,7 @@ func IPStringToLabel(ip string) (Label, error) {
 func GetCIDRLabels(prefix netip.Prefix) Labels {
 	lbls := make(Labels, 2)
 	if prefix.Bits() > 0 {
-		l := maskedIPToLabel(prefix.Addr().String(), prefix.Bits())
-		l.cidr = &prefix
+		l := GetCIDRLabel(prefix)
 		lbls[l.Key] = l
 	}
 	lbls.AddWorldLabel(prefix.Addr())
