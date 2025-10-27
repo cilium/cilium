@@ -356,8 +356,9 @@ jobs:
           fi
 
           CILIUM_INSTALL_INGRESS=""
-          if [ "${{ matrix.kube-proxy }}" == "none" ]; then
-            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true"
+          CILIUM_INSTALL_WAIT=""
+          if [ "${{ matrix.tls-auto-method }}" != "certmanager" ]; then
+            CILIUM_INSTALL_WAIT="--wait"
           fi
 
           CILIUM_INSTALL_MULTIPOOL_IPAM=""
@@ -405,7 +406,7 @@ jobs:
               --test='!/pod-to-cidr'"
           fi
 
-          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} \
+          echo cilium_install_defaults="${CILIUM_INSTALL_WAIT} ${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} \
             ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_INGRESS} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
           echo cilium_install_multipool_ipam_cluster1="${CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER1}" >> $GITHUB_OUTPUT
           echo cilium_install_multipool_ipam_cluster2="${CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER2}" >> $GITHUB_OUTPUT
@@ -583,7 +584,6 @@ jobs:
       - name: Copy the Cilium CA secret to cluster2, as they must match
         if: matrix.tls-auto-method != 'certmanager'
         run: |
-          kubectl --context ${{ env.contextName1 }} wait --for=create -n kube-system secret cilium-ca --timeout=3m
           kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
             kubectl --context ${{ env.contextName2 }} create -f -
 
