@@ -368,9 +368,9 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
-	-@$(CILIUM_CLI) --context=kind-$(KIND_CLUSTER_NAME) uninstall >/dev/null 2>&1 || true
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	$(CILIUM_CLI) install --context=kind-$(KIND_CLUSTER_NAME) \
+	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
 		--version=
@@ -386,41 +386,41 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
-	-@$(CILIUM_CLI) --context=kind-$(KIND_CLUSTER_NAME) uninstall >/dev/null 2>&1 || true
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
-	$(CILIUM_CLI) install --context=kind-$(KIND_CLUSTER_NAME) \
+	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml \
 		--version=
 
-	$(CILIUM_CLI) --context=kind-$(KIND_CLUSTER_NAME) status --wait --wait-duration $(WAIT_DURATION)
+	$(CILIUM_CLI) status --wait --wait-duration $(WAIT_DURATION)
 
 	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
 	@echo "LB_CIDR: $(LB_CIDR)"
 
 	@echo "Deploying LB-IPAM Pool..."
-	sed -e "s/LB_CIDR/$(LB_CIDR)/g" $(ROOT_DIR)/contrib/testing/servicemesh/ippool.yaml | $(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) apply -f -
+	sed -e "s/LB_CIDR/$(LB_CIDR)/g" $(ROOT_DIR)/contrib/testing/servicemesh/ippool.yaml | kubectl apply -f -
 
 	@echo "Deploying L2-Announcement Policy..."
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) apply -f $(ROOT_DIR)/contrib/testing/servicemesh/l2policy.yaml
+	kubectl apply -f $(ROOT_DIR)/contrib/testing/servicemesh/l2policy.yaml
 
 .PHONY: kind-servicemesh-prereqs
 kind-servicemesh-prereqs: check_deps kind-ready
 	@echo "  SETUP Servicemesh"
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
 	$(eval KIND_VALUES_FAST_FILES += --helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml)
 
@@ -428,25 +428,25 @@ kind-servicemesh-prereqs: check_deps kind-ready
 
 .PHONY: kind-servicemesh-install-cilium-fast
 kind-servicemesh-install-cilium-fast: | kind-servicemesh-prereqs kind-image-fast kind-install-cilium-fast
-	$(CILIUM_CLI) --context=kind-$(KIND_CLUSTER_NAME) status --wait --wait-duration $(WAIT_DURATION)
+	$(CILIUM_CLI) status --wait --wait-duration $(WAIT_DURATION)
 
 	@echo "KIND_NET_CIDR: $(KIND_NET_CIDR)"
 	@echo "LB_CIDR: $(LB_CIDR)"
 
 	@echo "Deploying LB-IPAM Pool..."
-	sed -e "s/LB_CIDR/$(LB_CIDR)/g" $(ROOT_DIR)/contrib/testing/servicemesh/ippool.yaml | $(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) apply -f -
+	sed -e "s/LB_CIDR/$(LB_CIDR)/g" $(ROOT_DIR)/contrib/testing/servicemesh/ippool.yaml | kubectl apply -f -
 
 	@echo "Deploying L2-Announcement Policy..."
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) apply -f $(ROOT_DIR)/contrib/testing/servicemesh/l2policy.yaml
+	kubectl apply -f $(ROOT_DIR)/contrib/testing/servicemesh/l2policy.yaml
 
 .PHONY: kind-egressgw-install-cilium
 kind-egressgw-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
-	-@$(CILIUM_CLI) --context=kind-$(KIND_CLUSTER_NAME) uninstall >/dev/null 2>&1 || true
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	$(CILIUM_CLI) install --context=kind-$(KIND_CLUSTER_NAME) \
+	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-egressgw-values.yaml \
@@ -461,33 +461,33 @@ kind-kvstore-install-cilium: check_deps kind-ready kind-kvstore-start ## Install
 	$(MAKE) kind-install-cilium KIND_VALUES_FILES="\
 		$(KIND_VALUES_FILES) \
 		--set etcd.enabled=true \
-		--set etcd.endpoints[0]=http://$(shell $(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --namespace kube-system get pod $(KVSTORE_POD_NAME) -o jsonpath='{.status.hostIP}'):$(KVSTORE_POD_PORT) \
+		--set etcd.endpoints[0]=http://$(shell kubectl --namespace kube-system get pod $(KVSTORE_POD_NAME) -o jsonpath='{.status.hostIP}'):$(KVSTORE_POD_PORT) \
 		--set identityAllocationMode=kvstore \
 	"
 
 .PHONY: kind-kvstore-start
 kind-kvstore-start: ## Start an etcd pod serving as Cilium's kvstore
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --namespace kube-system get pod $(KVSTORE_POD_NAME) >/dev/null 2>/dev/null || \
-		$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --namespace kube-system run $(KVSTORE_POD_NAME) --image $(ETCD_IMAGE) \
+	kubectl --namespace kube-system get pod $(KVSTORE_POD_NAME) >/dev/null 2>/dev/null || \
+		kubectl --namespace kube-system run $(KVSTORE_POD_NAME) --image $(ETCD_IMAGE) \
 			--overrides='{ "apiVersion": "v1", "spec": { "hostNetwork": true, "nodeSelector": {"node-role.kubernetes.io/control-plane": ""},  "tolerations": [{ "operator": "Exists" }] }}' \
 			-- etcd --listen-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT) --advertise-client-urls=http://0.0.0.0:$(KVSTORE_POD_PORT)
 
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --namespace kube-system wait --for=condition=Ready pod/$(KVSTORE_POD_NAME)
+	kubectl --namespace kube-system wait --for=condition=Ready pod/$(KVSTORE_POD_NAME)
 
 .PHONY: kind-kvstore-stop
 kind-kvstore-stop: ## Stop the etcd pod serving as Cilium's kvstore
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --namespace kube-system delete pod $(KVSTORE_POD_NAME) --ignore-not-found
-	$(KUBECTL) --context=kind-$(KIND_CLUSTER_NAME) --namespace kube-system wait --for=delete pod/$(KVSTORE_POD_NAME)
+	kubectl --namespace kube-system delete pod $(KVSTORE_POD_NAME) --ignore-not-found
+	kubectl --namespace kube-system wait --for=delete pod/$(KVSTORE_POD_NAME)
 
 .PHONY: kind-uninstall-cilium
 kind-uninstall-cilium: check_deps ## Uninstall Cilium from the cluster.
 	@echo "  UNINSTALL cilium"
-	-$(CILIUM_CLI) --context=kind-$(KIND_CLUSTER_NAME) uninstall
+	-$(CILIUM_CLI) uninstall
 
 .PHONY: kind-check-cilium
 kind-check-cilium: check_deps
 	@echo "  CHECK  cilium is ready..."
-	$(CILIUM_CLI) --context=kind-$(KIND_CLUSTER_NAME) status --wait --wait-duration 1s >/dev/null 2>/dev/null
+	$(CILIUM_CLI) status --wait --wait-duration 1s >/dev/null 2>/dev/null
 
 # Template for kind debug targets. Parameters are:
 # $(1) agent target
