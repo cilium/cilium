@@ -231,9 +231,7 @@
         "go.sum"
       ],
       matchBaseBranches: [
-        "v1.18",
-        "v1.17",
-        "v1.16"
+        "!main",
       ]
     },
     {
@@ -297,9 +295,7 @@
         'quay.io/goswagger/swagger',
       ],
       matchBaseBranches: [
-        "v1.18",
-        "v1.17",
-        "v1.16",
+        "!main",
       ],
       matchUpdateTypes: [
         'major',
@@ -319,9 +315,7 @@
         "minor",
       ],
       matchBaseBranches: [
-        "v1.18",
-        "v1.17",
-        "v1.16",
+        "!main",
       ]
     },
     {
@@ -464,9 +458,7 @@
         "golangci/golangci-lint"
       ],
       "matchBaseBranches": [
-        "v1.18",
-        "v1.17",
-        "v1.16",
+        "!main",
       ]
     },
     {
@@ -496,9 +488,7 @@
       ],
       "allowedVersions": "!/bpf-next-.*/",
       "matchBaseBranches": [
-        "v1.18",
-        "v1.17",
-        "v1.16",
+        "!main",
       ],
     },
     {
@@ -753,9 +743,7 @@
         "major"
       ],
       "matchBaseBranches": [
-        "v1.18",
-        "v1.17",
-        "v1.16",
+        "!main",
       ]
     },
     {
@@ -769,9 +757,7 @@
         "minor",
       ],
       "matchBaseBranches": [
-        "v1.18",
-        "v1.17",
-        "v1.16",
+        "!main",
       ]
     }
   ],
