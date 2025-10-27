@@ -119,7 +119,6 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 				k8s.ServiceResource,
 			),
 		),
-		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Config(envoyCfg.SecretSyncConfig{}),
 		cell.Provide(ServiceExportResource),
 		cell.Provide(func() mcsapitypes.MCSAPIConfig {

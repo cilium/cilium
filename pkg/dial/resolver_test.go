@@ -80,6 +80,8 @@ func TestResourceServiceResolver(t *testing.T) {
 	testResolver(
 		t,
 
+		cell.Provide(k8s.ServiceResource),
+
 		dial.ResourceServiceResolverCell,
 	)
 }
@@ -100,9 +102,7 @@ func testResolver(t *testing.T, cells ...cell.Cell) {
 		metrics.Cell,
 
 		k8sClient.FakeClientCell(),
-
 		cell.Provide(k8s.DefaultServiceWatchConfig),
-		cell.Provide(k8s.ServiceResource),
 		cell.Config(k8s.DefaultConfig),
 
 		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ dial.Resolver) {
