@@ -457,7 +457,7 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
+          artifacts_suffix: "eks-${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
 
