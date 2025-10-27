@@ -220,12 +220,6 @@
       "matchUpdateTypes": [
         "patch"
       ],
-      matchBaseBranches: [
-        "main",
-        "v1.18",
-        "v1.17",
-        "v1.16",
-      ]
     },
     {
       // Do not allow any updates into stable branches.
@@ -439,12 +433,6 @@
       "matchDepNames": [
         "cilium/cilium-cli"
       ],
-      "matchBaseBranches": [
-        "main",
-        "v1.18",
-        "v1.17",
-        "v1.16",
-      ]
     },
     {
       "groupName": "Hubble CLI",
