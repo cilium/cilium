@@ -28,8 +28,8 @@ endif
 
 # renovate: datasource=docker
 export CERTGEN_REPO:=quay.io/cilium/certgen
-export CERTGEN_VERSION:=v0.2.0
-export CERTGEN_DIGEST:=sha256:169d93fd8f2f9009db3b9d5ccd37c2b753d0989e1e7cd8fe79f9160c459eef4f
+export CERTGEN_VERSION:=v0.2.4
+export CERTGEN_DIGEST:=sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff
 
 # renovate: datasource=docker
 export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
