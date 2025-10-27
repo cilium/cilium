@@ -85,7 +85,7 @@ def plot_comparison(file1: str, file2: str, outdir: str):
         ))
 
         if not programs:
-            logging.info(
+            logging.debug(
                 f"No programs found for collection {collection}, "
                 f"build {build}, load {load}, skipping.")
             continue
@@ -98,7 +98,7 @@ def plot_comparison(file1: str, file2: str, outdir: str):
             v1 = data1.get((collection, build, load, prog), 0)
             v2 = data2.get((collection, build, load, prog), 0)
             if v1 == v2:
-                logging.info(
+                logging.debug(
                     f"Program {prog} unchanged ({v1}) for "
                     f"collection {collection}, build {build}, "
                     f"load {load}, skipping.")
@@ -188,10 +188,14 @@ def main():
         "from eBPF verifier logs.")
     parser.add_argument("file_before", help="Path to the log before patch")
     parser.add_argument("file_after", help="Path to the log after patch")
+    parser.add_argument('-v', '--verbose', action='store_true', help="Print debug logs.")
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO,
+    log_level = logging.INFO
+    if args.verbose:
+        log_level = logging.DEBUG
+    logging.basicConfig(level=log_level,
                         format="%(asctime)s [%(levelname)s] %(message)s")
 
     output_dir = setup_output_dir(args.file_after, args.file_before)
