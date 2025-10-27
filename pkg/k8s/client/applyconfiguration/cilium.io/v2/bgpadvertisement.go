@@ -13,10 +13,11 @@ import (
 // BGPAdvertisementApplyConfiguration represents a declarative configuration of the BGPAdvertisement type for use
 // with apply.
 type BGPAdvertisementApplyConfiguration struct {
-	AdvertisementType *ciliumiov2.BGPAdvertisementType     `json:"advertisementType,omitempty"`
-	Service           *BGPServiceOptionsApplyConfiguration `json:"service,omitempty"`
-	Selector          *v1.LabelSelector                    `json:"selector,omitempty"`
-	Attributes        *BGPAttributesApplyConfiguration     `json:"attributes,omitempty"`
+	AdvertisementType *ciliumiov2.BGPAdvertisementType       `json:"advertisementType,omitempty"`
+	Service           *BGPServiceOptionsApplyConfiguration   `json:"service,omitempty"`
+	Interface         *BGPInterfaceOptionsApplyConfiguration `json:"interface,omitempty"`
+	Selector          *v1.LabelSelector                      `json:"selector,omitempty"`
+	Attributes        *BGPAttributesApplyConfiguration       `json:"attributes,omitempty"`
 }
 
 // BGPAdvertisementApplyConfiguration constructs a declarative configuration of the BGPAdvertisement type for use with
@@ -38,6 +39,14 @@ func (b *BGPAdvertisementApplyConfiguration) WithAdvertisementType(value ciliumi
 // If called multiple times, the Service field is set to the value of the last call.
 func (b *BGPAdvertisementApplyConfiguration) WithService(value *BGPServiceOptionsApplyConfiguration) *BGPAdvertisementApplyConfiguration {
 	b.Service = value
+	return b
+}
+
+// WithInterface sets the Interface field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Interface field is set to the value of the last call.
+func (b *BGPAdvertisementApplyConfiguration) WithInterface(value *BGPInterfaceOptionsApplyConfiguration) *BGPAdvertisementApplyConfiguration {
+	b.Interface = value
 	return b
 }
 

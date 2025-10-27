@@ -33,6 +33,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &ciliumiov2.BGPCommunitiesApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("BGPFamilyRouteCount"):
 		return &ciliumiov2.BGPFamilyRouteCountApplyConfiguration{}
+	case v2.SchemeGroupVersion.WithKind("BGPInterfaceOptions"):
+		return &ciliumiov2.BGPInterfaceOptionsApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("BGPServiceOptions"):
 		return &ciliumiov2.BGPServiceOptionsApplyConfiguration{}
 	case v2.SchemeGroupVersion.WithKind("CiliumBGPAdvertisement"):
