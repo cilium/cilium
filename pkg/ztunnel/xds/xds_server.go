@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/big"
 	"net"
 	"os"
@@ -20,9 +21,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"google.golang.org/grpc/keepalive"
+
 	"github.com/cilium/cilium/pkg/ztunnel/pb"
 
+	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/time"
@@ -40,9 +46,17 @@ const (
 	// caCertPath is the root certificate trust anchor for issued client
 	// certificates.
 	caCertPath = "/etc/ztunnel/ca-root.crt"
+
+	// xdsTypeURLAddress is the Aggregated Discovery Service (ADS) type URL
+	// signaling a subscription to workload and services.
+	xdsTypeURLAddress = "type.googleapis.com/istio.workload.Address"
+	// xdsTypeURLAuthorization is the type URL signaling a subscription to
+	// authorization policies.
+	xdsTypeURLAuthorization = "type.googleapis.com/istio.security.Authorization"
 )
 
 var _ pb.IstioCertificateServiceServer = (*Server)(nil)
+var _ v3.AggregatedDiscoveryServiceServer = (*Server)(nil)
 
 // Server is a private implemenation of xDS for use with the stand-alone
 // zTunnel proxy.
@@ -51,22 +65,25 @@ var _ pb.IstioCertificateServiceServer = (*Server)(nil)
 // certificate authority capable of signing CSR(s)s submitted by zTunnel and a
 // control plane capable of sending workload and service events to zTunnel.
 type Server struct {
-	l         net.Listener
-	g         *grpc.Server
-	log       *slog.Logger
-	epManager endpointmanager.EndpointManager
-	caCert    *x509.Certificate
+	l                         net.Listener
+	g                         *grpc.Server
+	log                       *slog.Logger
+	epManager                 endpointmanager.EndpointManager
+	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
+	caCert                    *x509.Certificate
 	// cache the PEM encoded certificate, we return this as the trust anchor
 	// on zTunnel certificate creation requests.
 	caCertPEM string
 	caKey     *rsa.PrivateKey
 	pb.UnimplementedIstioCertificateServiceServer
+	v3.UnimplementedAggregatedDiscoveryServiceServer
 }
 
-func newServer(log *slog.Logger, epManager endpointmanager.EndpointManager) (*Server, error) {
+func newServer(log *slog.Logger, EPManager endpointmanager.EndpointManager, k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher) (*Server, error) {
 	x := &Server{
-		log:       log,
-		epManager: epManager,
+		log:                       log,
+		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
+		epManager:                 EPManager,
 	}
 	return x, nil
 }
@@ -185,9 +202,26 @@ func (x *Server) Serve() error {
 		return fmt.Errorf("failed to create gRPC TLS credentials: %w", err)
 	}
 
-	x.g = grpc.NewServer(grpc.Creds(creds))
+	// keepalive options match config values from:
+	// https://github.com/istio/istio/blob/b68cd04f9f132c1361d62eb14125e915e8011428/pkg/keepalive/options.go#L45
+	// Without these, our grpc server will eventually send a Go Away message to ztunnel, killing the connection.
+	grpcOptions := []grpc.ServerOption{
+		grpc.Creds(creds),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime: 15 * time.Second,
+		}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:                  30 * time.Second,
+			Timeout:               10 * time.Second,
+			MaxConnectionAge:      time.Duration(math.MaxInt64), // INFINITY
+			MaxConnectionAgeGrace: 10 * time.Second,
+		}),
+	}
+
+	x.g = grpc.NewServer(grpcOptions...)
 
 	pb.RegisterIstioCertificateServiceServer(x.g, x)
+	v3.RegisterAggregatedDiscoveryServiceServer(x.g, x)
 
 	x.l, err = net.Listen("tcp", "127.0.0.1:15012")
 	if err != nil {
@@ -311,4 +345,46 @@ func (x *Server) CreateCertificate(ctx context.Context, csr *pb.IstioCertificate
 		},
 	}
 	return resp, nil
+}
+
+func (x *Server) StreamAggregatedResources(stream v3.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	x.log.Debug("received StreamAggregatedResources request")
+	return fmt.Errorf("unimplemented")
+}
+
+// DeltaAggregatedResources is a bidi stream initialization method. zTunnel
+// receives Workload, Service, and Authorization policy events via this stream.
+//
+// This handler runs in its own goroutine.
+//
+// When zTunnel connects to our xDS server this method is invoked to initialize
+// a gRPC stream. The method's lifespan is directly tied to the gRPC stream and
+// the stream will close when this method returns.
+//
+// We create a StreamProcessor structure to handle the interaction between
+// Cilium and the zTunnel proxy.
+func (x *Server) DeltaAggregatedResources(stream v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+	x.log.Debug("received DeltaAggregatedResources request")
+
+	// check out stream context, just incase the client immediately closed it,
+	// we won't do any work in that case.
+	if stream.Context().Err() != nil {
+		x.log.Info("stream context immediately canceld, aborting stream initialization")
+		return stream.Context().Err()
+	}
+
+	params := StreamProcessorParams{
+		Stream:                    stream,
+		StreamRecv:                make(chan *v3.DeltaDiscoveryRequest, 1),
+		EndpointEventRecv:         make(chan *EndpointEvent, 1024),
+		K8sCiliumEndpointsWatcher: x.k8sCiliumEndpointsWatcher,
+		Log:                       x.log,
+	}
+
+	x.log.Debug("begin processing DeltaAggregatedResources stream")
+	sp := NewStreamProcessor(&params)
+	// blocks until stream's context is killed.
+	sp.Start()
+
+	return stream.Context().Err()
 }
