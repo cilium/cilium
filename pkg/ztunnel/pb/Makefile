@@ -8,7 +8,8 @@
 PROTOC ?= protoc
 
 ZTUNNEL_PROTO_SOURCES := \
-	./ca.proto
+	./ca.proto \
+	./workload.proto
 
 ZTUNNEL_GO_TARGETS := $(ZTUNNEL_PROTO_SOURCES:.proto=.pb.go) $(ZTUNNEL_PROTO_SOURCES:.proto=.pb.json.go)
 
