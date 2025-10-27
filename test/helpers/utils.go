@@ -420,16 +420,6 @@ func DoesNotRunOn54OrLaterKernel() bool {
 	return !RunsOn54OrLaterKernel()
 }
 
-// RunsOnGKE returns true if the tests are running on GKE.
-func RunsOnGKE() bool {
-	return GetCurrentIntegration() == CIIntegrationGKE
-}
-
-// DoesNotRunOnGKE is the complement function of DoesNotRunOnGKE.
-func DoesNotRunOnGKE() bool {
-	return !RunsOnGKE()
-}
-
 // RunsOnAKS returns true if the tests are running on AKS.
 func RunsOnAKS() bool {
 	return GetCurrentIntegration() == CIIntegrationAKS
@@ -444,7 +434,7 @@ func DoesNotRunOnAKS() bool {
 // kube-proxy replacement. Note that kube-proxy may still be running
 // alongside Cilium.
 func RunsWithKubeProxyReplacement() bool {
-	return RunsOnGKE() || RunsOn54OrLaterKernel()
+	return RunsOn54OrLaterKernel()
 }
 
 // DoesNotRunWithKubeProxyReplacement is the complement function of

@@ -583,12 +583,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 
 		It("Supports IPv4 fragments", func() {
 			options := map[string]string{}
-			// On GKE we need to disable endpoint routes as fragment tracking
-			// isn't compatible with that options. See #15958.
-			if helpers.RunsOnGKE() {
-				options["gke.enabled"] = "false"
-				options["routingMode"] = "native"
-			}
 
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
@@ -598,7 +592,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			testIPv4FragmentSupport(kubectl, ni)
 		})
 
-		SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
+		Context("With host policy", func() {
 			hostPolicyFilename := "ccnp-host-policy-nodeport-tests.yaml"
 			var ccnpHostPolicy string
 
