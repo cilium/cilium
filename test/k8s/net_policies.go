@@ -27,7 +27,7 @@ var _ = SkipDescribeIf(func() bool {
 	// and the third node. Other CI jobs are not expected to increase
 	// code coverage.
 	//
-	return helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
+	return helpers.RunsOn54Kernel()
 }, "K8sAgentPolicyTest", func() {
 
 	var (

@@ -315,7 +315,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			kubectl.Exec("kubectl label nodes --all status-")
 		})
 
-		SkipItIf(helpers.RunsOnAKS, "With VXLAN", func() {
+		It("With VXLAN", func() {
 			options := map[string]string{
 				"hostFirewall.enabled": "true",
 			}
@@ -323,9 +323,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			testHostFirewall(kubectl)
 		})
 
-		SkipItIf(func() bool {
-			return helpers.RunsOnAKS()
-		}, "With VXLAN and endpoint routes", func() {
+		It("With VXLAN and endpoint routes", func() {
 			options := map[string]string{
 				"hostFirewall.enabled":   "true",
 				"endpointRoutes.enabled": "true",

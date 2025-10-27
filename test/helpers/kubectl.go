@@ -53,9 +53,6 @@ const (
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
 	DNSHelperTimeout = 7 * time.Minute
 
-	// CIIntegrationAKS contains the constants to be used when running tests on AKS.
-	CIIntegrationAKS = "aks"
-
 	// CIIntegrationKind contains the constant to be used when running tests on kind.
 	CIIntegrationKind = "kind"
 
@@ -140,25 +137,6 @@ var (
 		"connectivityProbeFrequencyRatio": "0",
 	}
 
-	aksHelmOverrides = map[string]string{
-		"ipam.mode":                           "delegated-plugin",
-		"routingMode":                         "native",
-		"endpointRoutes.enabled":              "true",
-		"extraArgs":                           "{--local-router-ipv4=169.254.23.0}",
-		"k8s.requireIPv4PodCIDR":              "false",
-		"ipv6.enabled":                        "false",
-		"ipv4NativeRoutingCIDR":               NativeRoutingCIDR(),
-		"enableIPv4Masquerade":                "false",
-		"install-no-conntrack-iptables-rules": "false",
-		"l7Proxy":                             "false",
-		"hubble.enabled":                      "false",
-		"kubeProxyReplacement":                "true",
-		"endpointHealthChecking.enabled":      "false",
-		"cni.install":                         "true",
-		"cni.customConf":                      "true",
-		"cni.configMap":                       "cni-configuration",
-	}
-
 	microk8sHelmOverrides = map[string]string{
 		"cni.confPath":      "/var/snap/microk8s/current/args/cni-network",
 		"cni.binPath":       "/var/snap/microk8s/current/opt/cni/bin",
@@ -183,7 +161,6 @@ var (
 	// specific CI environment integrations.
 	// The key must be a string consisting of lower case characters.
 	helmOverrides = map[string]map[string]string{
-		CIIntegrationAKS:      aksHelmOverrides,
 		CIIntegrationKind:     kindHelmOverrides,
 		CIIntegrationMicrok8s: microk8sHelmOverrides,
 		CIIntegrationMinikube: minikubeHelmOverrides,
