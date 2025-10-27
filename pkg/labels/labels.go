@@ -383,20 +383,18 @@ func (l *Label) HasKey(target *Label) bool {
 		tc := target.cidr
 		if tc == nil {
 			v, err := LabelToPrefix(target.Key)
-			if err != nil {
+			if err == nil {
 				tc = &v
 			}
 		}
 		lc := l.cidr
 		if lc == nil {
 			v, err := LabelToPrefix(l.Key)
-			if err != nil {
+			if err == nil {
 				lc = &v
 			}
 		}
-		if tc != nil && lc != nil && tc.Bits() <= lc.Bits() && tc.Contains(lc.Addr()) {
-			return true
-		}
+		return tc != nil && lc != nil && tc.Bits() <= lc.Bits() && tc.Contains(lc.Addr())
 	}
 
 	return l.Key == target.Key
