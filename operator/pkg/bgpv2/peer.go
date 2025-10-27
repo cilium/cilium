@@ -75,10 +75,14 @@ func registerPeerConfigStatusReconciler(in peerConfigStatusReconcilerIn) {
 		return
 	}
 
-	in.JobGroup.Add(job.OneShot(
-		"peer-config-status-reconciler",
-		u.reconcileStatus,
-	))
+	if in.SecretResource != nil {
+		// ATM the sole purpose of this reconciliation is to populate MissingAuthSecret condition,
+		// so we don't need to run it if the SecretResource is not provided (bgp-secrets-namespace is not set).
+		in.JobGroup.Add(job.OneShot(
+			"peer-config-status-reconciler",
+			u.reconcileStatus,
+		))
+	}
 }
 
 func (u *peerConfigStatusReconciler) reconcileStatus(ctx context.Context, health cell.Health) error {
