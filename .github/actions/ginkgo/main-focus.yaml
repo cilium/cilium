@@ -146,7 +146,6 @@ include:
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests GH#10983
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests NodePort with sessionAffinity from outside
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests security id propagation in N/S LB requests fwd-ed over tunnel
-  # K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct routing and DSR
   - focus: "f12-datapath-service-ns-misc"
     cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing Tests externalIPs|K8sDatapathServicesTest Checks N/S loadbalancing Tests GH|K8sDatapathServicesTest Checks N/S loadbalancing Tests NodePort|K8sDatapathServicesTest Checks N/S loadbalancing Tests security|K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct|K8sDatapathServicesTest Checks N/S loadbalancing with"
 
