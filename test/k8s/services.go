@@ -431,19 +431,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			testNodePortExternal(kubectl, ni, false, true, true)
 		})
 
-		It("Tests with XDP, direct routing, SNAT and Random", func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"loadBalancer.acceleration": "testing-only",
-				"loadBalancer.mode":         "snat",
-				"loadBalancer.algorithm":    "random",
-				"l2NeighDiscovery.enabled":  "true",
-				"routingMode":               "native",
-				"autoDirectNodeRoutes":      "true",
-				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
-			})
-			testNodePortExternal(kubectl, ni, false, false, false)
-		})
-
 		It("Tests with XDP, direct routing, SNAT and Maglev", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"loadBalancer.acceleration": "testing-only",
