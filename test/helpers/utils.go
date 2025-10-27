@@ -406,10 +406,6 @@ func DoesNotRunOn54Kernel() bool {
 	return !RunsOn54Kernel()
 }
 
-func NativeRoutingCIDR() string {
-	return os.Getenv("NATIVE_CIDR")
-}
-
 // RunsOn54OrLaterKernel checks whether a test case is running on 5.4 or later kernel
 func RunsOn54OrLaterKernel() bool {
 	return RunsOnNetNextKernel() || RunsOn54Kernel()
@@ -418,16 +414,6 @@ func RunsOn54OrLaterKernel() bool {
 // DoesNotRunOn54OrLaterKernel is the complement function of RunsOn54OrLaterKernel
 func DoesNotRunOn54OrLaterKernel() bool {
 	return !RunsOn54OrLaterKernel()
-}
-
-// RunsOnAKS returns true if the tests are running on AKS.
-func RunsOnAKS() bool {
-	return GetCurrentIntegration() == CIIntegrationAKS
-}
-
-// DoesNotRunOnAKS is the complement function of DoesNotRunOnAKS.
-func DoesNotRunOnAKS() bool {
-	return !RunsOnAKS()
 }
 
 // RunsWithKubeProxyReplacement returns true if the kernel supports our
@@ -539,11 +525,6 @@ func SkipRaceDetectorEnabled() bool {
 // DualStackSupported returns whether the current environment has DualStack IPv6
 // enabled or not for the cluster.
 func DualStackSupported() bool {
-	// AKS does not support dual stack yet
-	if IsIntegration(CIIntegrationAKS) {
-		return false
-	}
-
 	// We only have DualStack enabled in KIND.
 	return GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)
 }
@@ -551,11 +532,6 @@ func DualStackSupported() bool {
 // DualStackSupportBeta returns true if the environment has a Kubernetes version that
 // has support for k8s DualStack beta API types.
 func DualStackSupportBeta() bool {
-	// AKS does not support dual stack yet
-	if IsIntegration(CIIntegrationAKS) {
-		return false
-	}
-
 	return GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)
 }
 
