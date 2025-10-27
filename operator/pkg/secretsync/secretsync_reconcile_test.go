@@ -4,7 +4,9 @@
 package secretsync_test
 
 import (
+	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
@@ -194,7 +196,7 @@ var secretFixture = []client.Object{
 }
 
 func Test_SecretSync_Reconcile(t *testing.T) {
-	logger := hivetest.Logger(t)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 	c := fake.NewClientBuilder().
 		WithScheme(testScheme()).
@@ -214,7 +216,10 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			RefObjectCheckFunc:   ingress.IsReferencedByCiliumIngress,
 			SecretsNamespace:     secretsNamespace + "-2",
 		},
-	})
+	},
+		time.Minute,
+		0.1,
+	)
 
 	t.Run("delete synced secret if source secret doesn't exist", func(t *testing.T) {
 		result, err := r.Reconcile(t.Context(), ctrl.Request{
@@ -224,6 +229,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
+		// This one should not be requeued, as it doesn't exist any more.
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
@@ -241,6 +247,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
+		// This one should not be requeued, as it is not referenced by a Gateway resource.
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
@@ -258,7 +265,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result)
+		require.True(t, resultHasResync(result))
 
 		secret := &corev1.Secret{}
 		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-synced-secret-with-source-and-ref"}, secret)
@@ -273,6 +280,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
+		// This one should not be requeued, as it is not referenced by a Cilium Gateway resource.
 		require.Equal(t, ctrl.Result{}, result)
 
 		secret := &corev1.Secret{}
@@ -290,7 +298,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result)
+		require.True(t, resultHasResync(result))
 
 		secret := &corev1.Secret{}
 		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-with-ref-not-synced"}, secret)
@@ -305,7 +313,7 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result)
+		require.True(t, resultHasResync(result))
 
 		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
 		require.NoError(t, err)
@@ -333,7 +341,8 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result)
+		// This should resync because it's still referred to by the Gateway resource.
+		require.True(t, resultHasResync(result))
 
 		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-secret-shared-not-synced"}, &corev1.Secret{})
 		require.NoError(t, err)
@@ -353,7 +362,7 @@ var secretFixtureDefaultSecret = []client.Object{
 }
 
 func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
-	logger := hivetest.Logger(t)
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
 	c := fake.NewClientBuilder().
 		WithScheme(testScheme()).
@@ -370,7 +379,10 @@ func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
 				Name:      "unsynced-secret-no-reference",
 			},
 		},
-	})
+	},
+		time.Minute,
+		0.1,
+	)
 
 	t.Run("create synced secret for source secret that is the default secret and therefore doesn't need to be referenced by any Cilium Gateway resource", func(t *testing.T) {
 		result, err := r.Reconcile(t.Context(), ctrl.Request{
@@ -380,7 +392,7 @@ func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result)
+		require.True(t, resultHasResync(result))
 
 		secret := &corev1.Secret{}
 		err = c.Get(t.Context(), types.NamespacedName{Namespace: secretsNamespace, Name: "test-unsynced-secret-no-reference"}, secret)
@@ -396,4 +408,11 @@ func testScheme() *runtime.Scheme {
 	utilruntime.Must(gatewayv1.AddToScheme(scheme))
 
 	return scheme
+}
+
+// resultHasResync returns true if the Result
+// has a resync interval defined that is greater
+// that 0.
+func resultHasResync(result ctrl.Result) bool {
+	return result.RequeueAfter > 0
 }
