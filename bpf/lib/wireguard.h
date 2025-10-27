@@ -198,7 +198,7 @@ out:
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
 static __always_inline bool
 strict_allow(struct __ctx_buff *ctx, __be16 proto) {
-	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
+	struct remote_endpoint_info __maybe_unused *dest_info;
 	bool __maybe_unused in_strict_cidr = false;
 	struct iphdr __maybe_unused *ip4;
 	void *data, *data_end;
