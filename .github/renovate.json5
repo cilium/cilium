@@ -397,17 +397,6 @@
       ]
     },
     {
-      "matchPackageNames": [
-        "quay.io/cilium/certgen",
-      ],
-      "allowedVersions": "<0.2.0",
-      "matchBaseBranches": [
-        "v1.18",
-        "v1.17",
-        "v1.16",
-      ]
-    },
-    {
       // Disable major updates for go-github as those require updating import paths
       "enabled": false,
       "matchPackageNames": [
