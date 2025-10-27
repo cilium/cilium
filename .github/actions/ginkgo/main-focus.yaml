@@ -89,7 +89,6 @@ include:
     cliFocus: "K8sAgentPolicyTest Basic|K8sPolicyTestExtended"
 
   ###
-  # K8sDatapathConfig Host firewall Check connectivity with IPv6 disabled
   # K8sDatapathConfig Host firewall With native routing
   # K8sDatapathConfig Host firewall With native routing and endpoint routes
   # K8sDatapathConfig Host firewall With VXLAN

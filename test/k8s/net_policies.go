@@ -27,8 +27,7 @@ var _ = SkipDescribeIf(func() bool {
 	// and the third node. Other CI jobs are not expected to increase
 	// code coverage.
 	//
-	// For GKE coverage, see the K8sPolicyTestExtended Describe block below.
-	return helpers.RunsOnGKE() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
+	return helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
 }, "K8sAgentPolicyTest", func() {
 
 	var (
@@ -1512,7 +1511,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 					defer GinkgoRecover()
 					defer wg.Done()
 					switch helpers.GetCurrentIntegration() {
-					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining, helpers.CIIntegrationGKE:
+					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining:
 						By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
 					default:
 						// We need to bypass this check as in a non-managed
@@ -1534,7 +1533,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 					defer GinkgoRecover()
 					defer wg.Done()
 					switch helpers.GetCurrentIntegration() {
-					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining, helpers.CIIntegrationGKE:
+					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining:
 						By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
 					default:
 						// We need to bypass this check as in a two node
