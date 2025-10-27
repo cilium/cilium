@@ -13,8 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -325,16 +323,10 @@ func mergePortProto(policyCtx PolicyContext, existingFilter, filterToMerge *L4Fi
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-//
-// If any rules contain L7 rules that select Host or Remote Node and we should
-// accept all traffic from host, the L7 rules will be translated into L7
-// wildcards via 'hostWildcardL7'. That is to say, traffic will be
-// forwarded to the proxy for endpoints matching those labels, but the proxy
-// will allow all such traffic.
-func mergeIngressPortProto(policyCtx PolicyContext, endpoints types.Selectors, auth *api.Authentication, hostWildcardL7 []string,
+func mergeIngressPortProto(policyCtx PolicyContext, endpoints types.Selectors, auth *api.Authentication,
 	r api.Ports, p api.PortProtocol, proto api.L4Proto, resMap L4PolicyMap) (int, error) {
 	// Create a new L4Filter
-	filterToMerge, err := createL4IngressFilter(policyCtx, endpoints, auth, hostWildcardL7, r, p, proto)
+	filterToMerge, err := createL4IngressFilter(policyCtx, endpoints, auth, r, p, proto)
 	if err != nil {
 		return 0, err
 	}
@@ -354,16 +346,6 @@ func mergeIngress(policyCtx PolicyContext, fromEndpoints types.Selectors, auth *
 		return found, nil
 	}
 
-	// Daemon options may induce L3 allows for host/world. In this case, if
-	// we find any L7 rules matching host/world then we need to turn any L7
-	// restrictions on these endpoints into L7 allow-all so that the
-	// traffic is always allowed, but is also always redirected through the
-	// proxy
-	hostWildcardL7 := make([]string, 0, 2)
-	if option.Config.AlwaysAllowLocalhost() {
-		hostWildcardL7 = append(hostWildcardL7, labels.IDNameHost)
-	}
-
 	var (
 		cnt int
 		err error
@@ -371,7 +353,7 @@ func mergeIngress(policyCtx PolicyContext, fromEndpoints types.Selectors, auth *
 
 	// L3-only rule (with requirements folded into fromEndpoints).
 	if toPorts.Len() == 0 && len(fromEndpoints) > 0 {
-		cnt, err = mergeIngressPortProto(policyCtx, fromEndpoints, auth, hostWildcardL7, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, resMap)
+		cnt, err = mergeIngressPortProto(policyCtx, fromEndpoints, auth, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, resMap)
 		if err != nil {
 			return found, err
 		}
@@ -420,7 +402,7 @@ func mergeIngress(policyCtx PolicyContext, fromEndpoints types.Selectors, auth *
 				}
 			}
 			for _, protocol := range protocols {
-				cnt, err := mergeIngressPortProto(policyCtx, fromEndpoints, auth, hostWildcardL7, r, p, protocol, resMap)
+				cnt, err := mergeIngressPortProto(policyCtx, fromEndpoints, auth, r, p, protocol, resMap)
 				if err != nil {
 					return err
 				}

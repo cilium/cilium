@@ -1137,10 +1137,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 // specified endpoints and port/protocol for ingress traffic, with reference
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
-//
-// hostWildcardL7 determines if L7 traffic from Host should be
-// wildcarded (in the relevant daemon mode).
-func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints types.Selectors, auth *api.Authentication, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
+func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints types.Selectors, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto,
 ) (*L4Filter, error) {
 	filter, err := createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, true)
@@ -1148,14 +1145,25 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints types.Selector
 		return nil, err
 	}
 
-	// If the filter would apply proxy redirection for the Host, when we should accept
-	// everything from host, then wildcard Host at L7.
-	if len(hostWildcardL7) > 0 {
+	// Daemon options may induce L3 allows for host/world.  If the filter would apply proxy
+	// redirection for the Host, when we should accept everything from host, then wildcard Host
+	// at L7 (which is taken care of at the mapstate level) .
+	if option.Config.AlwaysAllowLocalhost() {
 		for cs, l7 := range filter.PerSelectorPolicies {
+			// Identities with a reserved:host label are never changed incrementally, so
+			// it is correct to use the latest version here. In case the host identity
+			// is mutated, the whole policy is recomputed.
 			if l7.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
-				for _, name := range hostWildcardL7 {
-					selector := api.ReservedEndpointSelectors[name]
-					filter.cacheIdentitySelector(selector, policyCtx.Origin().stringLabels(), policyCtx.GetSelectorCache())
+				peer := api.ReservedEndpointSelectors[labels.IDNameHost]
+				css, _ := policyCtx.GetSelectorCache().AddSelectors(filter, policyCtx.Origin().stringLabels(), types.ToSelector(peer))
+
+				// Only add the plain allow policy if no policy for the host
+				// selector already exists. Some day we may support L7 policies for
+				// the host so the selector could already be there with an explicit
+				// (non-nil) policy.
+				if _, exists := filter.PerSelectorPolicies[css[0]]; !exists {
+					// nil is a plain allow policy.
+					filter.PerSelectorPolicies[css[0]] = nil
 				}
 			}
 		}
