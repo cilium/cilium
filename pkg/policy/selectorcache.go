@@ -409,7 +409,7 @@ type identityNotifier interface {
 
 // AddSelectors adds PeerSelectorSlice in to the selector cache, and iterates through all newly
 // added 'user' for each selector.
-func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabels, selectors ...types.Selector) (types.CachedSelectorSlice, bool) {
+func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabels, selectors ...Selector) (CachedSelectorSlice, bool) {
 	selectsAll := len(selectors) == 0 || func() bool {
 		for idx := range selectors {
 			if selectors[idx].IsWildcard() {
@@ -419,10 +419,10 @@ func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabel
 		return false
 	}()
 	if selectsAll {
-		selectors = []types.Selector{types.WildcardSelector}
+		selectors = []Selector{types.WildcardSelector}
 	}
 
-	css := make(types.CachedSelectorSlice, len(selectors))
+	css := make(CachedSelectorSlice, len(selectors))
 	added := false
 
 	sc.mutex.Lock()
@@ -447,7 +447,7 @@ func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabel
 }
 
 // must hold lock for writing
-func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source types.Selector) *identitySelector {
+func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source Selector) *identitySelector {
 	idSel := &identitySelector{
 		logger:           sc.logger,
 		key:              key,
@@ -495,10 +495,10 @@ func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source
 
 // AddIdentitySelectorForTest adds the given api.EndpointSelector in to the
 // selector cache. If an identical EndpointSelector has already been
-// cached, the corresponding types.CachedSelector is returned, otherwise one
+// cached, the corresponding CachedSelector is returned, otherwise one
 // is created and added to the cache.
 // NOTE: Only used for testing, but from multiple packages
-func (sc *SelectorCache) AddIdentitySelectorForTest(user types.CachedSelectionUser, lbls stringLabels, es api.EndpointSelector) (cachedSelector types.CachedSelector, added bool) {
+func (sc *SelectorCache) AddIdentitySelectorForTest(user CachedSelectionUser, lbls stringLabels, es api.EndpointSelector) (cachedSelector CachedSelector, added bool) {
 	// The key returned here may be different for equivalent
 	// labelselectors, if the selector's requirements are stored
 	// in different orders. When this happens we'll be tracking
@@ -514,7 +514,7 @@ func (sc *SelectorCache) AddIdentitySelectorForTest(user types.CachedSelectionUs
 }
 
 // lock must be held
-func (sc *SelectorCache) removeSelectorLocked(selector types.CachedSelector, user CachedSelectionUser) {
+func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
@@ -540,15 +540,15 @@ func (sc *SelectorCache) removeSelectorLocked(selector types.CachedSelector, use
 	}
 }
 
-// RemoveSelector removes types.CachedSelector for the user.
-func (sc *SelectorCache) RemoveSelector(selector types.CachedSelector, user CachedSelectionUser) {
+// RemoveSelector removes CachedSelector for the user.
+func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
 	sc.mutex.Lock()
 	sc.removeSelectorLocked(selector, user)
 	sc.mutex.Unlock()
 }
 
-// RemoveSelectors removes types.CachedSelectorSlice for the user.
-func (sc *SelectorCache) RemoveSelectors(selectors types.CachedSelectorSlice, user CachedSelectionUser) {
+// RemoveSelectors removes CachedSelectorSlice for the user.
+func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
 	sc.mutex.Lock()
 	for _, selector := range selectors {
 		sc.removeSelectorLocked(selector, user)
@@ -558,7 +558,7 @@ func (sc *SelectorCache) RemoveSelectors(selectors types.CachedSelectorSlice, us
 
 // ChangeUser changes the CachedSelectionUser that gets updates on the
 // updates on the cached selector.
-func (sc *SelectorCache) ChangeUser(selector types.CachedSelector, from, to CachedSelectionUser) {
+func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSelectionUser) {
 	key := selector.String()
 	sc.mutex.Lock()
 	idSel, exists := sc.selectors[key]
