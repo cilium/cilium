@@ -192,8 +192,12 @@
 
 #ifdef ENABLE_WIREGUARD
 # ifdef ENCRYPTION_STRICT_MODE
-#  define STRICT_IPV4_NET	0
-#  define STRICT_IPV4_NET_SIZE	8
+#  ifndef STRICT_IPV4_NET
+#   define STRICT_IPV4_NET	0
+#  endif
+#  ifndef STRICT_IPV4_NET_SIZE
+#   define STRICT_IPV4_NET_SIZE	8
+#  endif
 # endif
 #endif
 
