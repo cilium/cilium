@@ -162,7 +162,6 @@ include:
   ###
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, SNAT and Maglev
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, SNAT and Random
-  # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, vxlan tunnel, SNAT and Random
   # K8sDatapathServicesTest Checks N/S loadbalancing With ClusterIP external access ClusterIP can be accessed when external access is enabled
   # K8sDatapathServicesTest Checks N/S loadbalancing With host policy Tests NodePort
   - focus: "f14-datapath-service-ns-xdp-2"
