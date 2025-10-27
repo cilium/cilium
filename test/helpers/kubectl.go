@@ -53,12 +53,6 @@ const (
 	// https://github.com/kubernetes/dns/blob/80fdd88276adba36a87c4f424b66fdf37cd7c9a8/pkg/dns/dns.go#L53
 	DNSHelperTimeout = 7 * time.Minute
 
-	// CIIntegrationEKSChaining contains the constants to be used when running tests on EKS with aws-cni in chaining mode.
-	CIIntegrationEKSChaining = "eks-chaining"
-
-	// CIIntegrationEKS contains the constants to be used when running tests on EKS in ENI mode.
-	CIIntegrationEKS = "eks"
-
 	// CIIntegrationAKS contains the constants to be used when running tests on AKS.
 	CIIntegrationAKS = "aks"
 
@@ -146,24 +140,6 @@ var (
 		"connectivityProbeFrequencyRatio": "0",
 	}
 
-	eksChainingHelmOverrides = map[string]string{
-		"k8s.requireIPv4PodCIDR": "false",
-		"cni.chainingMode":       "aws-cni",
-		"masquerade":             "false",
-		"routingMode":            "native",
-		"nodeinit.enabled":       "true",
-	}
-
-	eksHelmOverrides = map[string]string{
-		"egressMasqueradeInterfaces": "eth0",
-		"eni.enabled":                "true",
-		"ipam.mode":                  "eni",
-		"ipv6.enabled":               "false",
-		"k8s.requireIPv4PodCIDR":     "false",
-		"nodeinit.enabled":           "true",
-		"routingMode":                "native",
-	}
-
 	aksHelmOverrides = map[string]string{
 		"ipam.mode":                           "delegated-plugin",
 		"routingMode":                         "native",
@@ -207,12 +183,10 @@ var (
 	// specific CI environment integrations.
 	// The key must be a string consisting of lower case characters.
 	helmOverrides = map[string]map[string]string{
-		CIIntegrationEKSChaining: eksChainingHelmOverrides,
-		CIIntegrationEKS:         eksHelmOverrides,
-		CIIntegrationAKS:         aksHelmOverrides,
-		CIIntegrationKind:        kindHelmOverrides,
-		CIIntegrationMicrok8s:    microk8sHelmOverrides,
-		CIIntegrationMinikube:    minikubeHelmOverrides,
+		CIIntegrationAKS:      aksHelmOverrides,
+		CIIntegrationKind:     kindHelmOverrides,
+		CIIntegrationMicrok8s: microk8sHelmOverrides,
+		CIIntegrationMinikube: minikubeHelmOverrides,
 	}
 
 	// resourcesToClean is the list of resources which should be cleaned
