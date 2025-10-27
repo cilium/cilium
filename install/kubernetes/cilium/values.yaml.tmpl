@@ -4183,3 +4183,9 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
+# Configure Operator Secret Synchronization
+# This is a global configuration that affects all configured Secret synchronization.
+secretSync:
+  # -- Resync interval for synchronized Secrets.
+  # The 0 value disables periodic resync.
+  resyncInterval: 0s

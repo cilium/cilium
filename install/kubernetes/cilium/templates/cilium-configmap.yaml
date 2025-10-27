@@ -311,6 +311,8 @@ data:
   enable-policy-secrets-sync: "true"
 {{- end }}
 
+  secret-sync-resync-interval: {{ .Values.secretSync.resyncInterval | quote }}
+  
 {{- if $readSecretsOnlyFromSecretsNamespace }}
   policy-secrets-only-from-secrets-namespace: "true"
   policy-secrets-namespace: {{ .Values.tls.secretsNamespace.name | quote}}
