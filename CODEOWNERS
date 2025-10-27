@@ -364,6 +364,7 @@ Makefile* @cilium/build
 /contrib/scripts/portgen.py @cilium/sig-datapath
 /contrib/scripts/check-datapathconfig.sh @cilium/loader
 /contrib/scripts/check-fipsonly.sh @cilium/build @cilium/security
+/contrib/scripts/verifier_diff.py @cilium/sig-datapath
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
 /daemon/cmd/endpoint* @cilium/endpoint
