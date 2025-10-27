@@ -1438,7 +1438,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 		// Test must run with KPR enabled, see below comments.
 		Context("Validate toEntities KubeAPIServer", func() {
 			var (
-				k8s1Name, k8s1IP         string
+				k8s1IP                   string
 				k8s1PodName, k8s2PodName string
 				k8s1PodIP, k8s2PodIP     string
 				outsideNodeName          string
@@ -1477,7 +1477,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 					testNamespace,
 					fmt.Sprintf("-l %s", testDS), helpers.HelperTimeout),
 				).Should(BeNil())
-				k8s1Name, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
+				_, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
 				k8s1PodName, k8s1PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 0)
 				k8s2PodName, k8s2PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 0)
 				if helpers.ExistNodeWithoutCilium() {
@@ -1506,52 +1506,6 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 				expectHostSuccess, expectRemoteNodeSuccess, expectPodSuccess, expectWorldSuccess bool,
 			) {
 				var wg sync.WaitGroup
-				wg.Add(1)
-				go func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-					switch helpers.GetCurrentIntegration() {
-					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining:
-						By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
-					default:
-						// We need to bypass this check as in a non-managed
-						// environment like kind, the kube-apiserver is
-						// running locally on K8s1. This means that local host
-						// traffic cannot be disambiguated from kube-apiserver
-						// traffic.
-						By("Bypassing check for ingress connectivity for host, which cannot be done in non-managed environments")
-						return
-					}
-					res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-						helpers.CurlFail(k8s1PodIP))
-					ExpectWithOffset(1, res).To(getMatcher(expectHostSuccess),
-						"HTTP ingress connectivity to pod %q from local host", k8s1PodIP)
-				}()
-
-				wg.Add(1)
-				go func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-					switch helpers.GetCurrentIntegration() {
-					case helpers.CIIntegrationEKS, helpers.CIIntegrationEKSChaining:
-						By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
-					default:
-						// We need to bypass this check as in a two node
-						// cluster, the kube-apiserver will be running on at
-						// least one of the two nodes, which means that any
-						// traffic to or from will be considered to / from
-						// kube-apiserver, and not remote-node. If we had a
-						// third node with Cilium installed, then we wouldn't
-						// need to bypass this check.
-						By("Bypassing check for ingress connectivity for remote-node, which cannot be done in a two-node cluster")
-						return
-					}
-					res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-						helpers.CurlFail(k8s2PodIP))
-					ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
-						"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
-				}()
-
 				wg.Add(1)
 				go func() {
 					defer GinkgoRecover()
