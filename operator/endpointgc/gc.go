@@ -156,6 +156,16 @@ func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.C
 		return true
 	}
 
+	// In rare cases when ciliumendpoint is too new, and we haven't received pod
+	// notifications, we might delete this ciliumendpoint unexpectedly. Whie we
+	// are still prone to the cache delay if g.interval is too small or when the
+	// watch cache for pods has an arbitrary delay, the chance is much lower than
+	// it is today.
+	if time.Since(cep.CreationTimestamp.Time) < g.interval {
+		scopedLog.DebugContext(ctx, "CiliumEndpoint is too new", logfields.Name, cep.Namespace+"/"+cep.Name)
+		return false
+	}
+
 	podChecked := false
 	podStore, err := g.pods.Store(ctx)
 	if err != nil {
