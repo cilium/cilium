@@ -18,9 +18,11 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
-type CachedSelector types.CachedSelector
-type CachedSelectorSlice types.CachedSelectorSlice
-type CachedSelectionUser types.CachedSelectionUser
+type CachedSelector = types.CachedSelector
+type CachedSelectorSlice = types.CachedSelectorSlice
+type CachedSelectionUser = types.CachedSelectionUser
+type Selector = types.Selector
+type Selectors = types.Selectors
 
 // identitySelector is the internal type for all selectors in the
 // selector cache.
@@ -59,7 +61,7 @@ type CachedSelectionUser types.CachedSelectionUser
 // (The public methods only expose the CachedSelector interface.)
 type identitySelector struct {
 	logger           *slog.Logger
-	source           types.Selector
+	source           Selector
 	key              string
 	selections       versioned.Value[identity.NumericIdentitySlice]
 	users            map[CachedSelectionUser]struct{}
@@ -78,7 +80,7 @@ func (i *identitySelector) MaySelectPeers() bool {
 }
 
 // identitySelector implements CachedSelector
-var _ types.CachedSelector = (*identitySelector)(nil)
+var _ CachedSelector = (*identitySelector)(nil)
 
 // lock must be held
 //
