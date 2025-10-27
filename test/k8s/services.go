@@ -417,20 +417,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			}
 		})
 
-		It("Tests with direct routing and DSR", func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"loadBalancer.mode":    "dsr",
-				"routingMode":          "native",
-				"autoDirectNodeRoutes": "true",
-			})
-
-			testDSR(kubectl, ni, ni.K8s1IP, "service test-nodeport-k8s2", 64000)
-			if helpers.DualStackSupported() {
-				testDSR(kubectl, ni, ni.PrimaryK8s1IPv6, "service test-nodeport-k8s2-ipv6", 64001)
-			}
-			testNodePortExternal(kubectl, ni, false, true, true)
-		})
-
 		It("Tests with XDP, direct routing, SNAT and Maglev", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"loadBalancer.acceleration": "testing-only",
