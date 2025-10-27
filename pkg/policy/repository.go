@@ -4,9 +4,11 @@
 package policy
 
 import (
+	"cmp"
 	"encoding/json"
 	"log/slog"
 	"maps"
+	"slices"
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -387,6 +389,18 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 			}
 		}
 	}
+
+	// Always sort matched rules to get a stable policy order.
+	// It's not the order per se that is important, just that it's always in the same order when the
+	// elements are the same. In most cases this should be a small list so the overhead should be pretty minimal.
+	// This is very useful for subsystems like the dnsproxy that can reuse the same regex during recompilation
+	// if the list of FQDNs is the same.
+	slices.SortFunc(matchingRules, func(a, b *rule) int {
+		if sign := cmp.Compare(a.key.resource, b.key.resource); sign != 0 {
+			return sign
+		}
+		return cmp.Compare(a.key.idx, b.key.idx)
+	})
 
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
