@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
 )
@@ -23,10 +24,11 @@ var Cell = cell.Module(
 type xdsServerParams struct {
 	cell.In
 
-	Lifecycle cell.Lifecycle
-	Logger    *slog.Logger
-	EPManager endpointmanager.EndpointManager
-	Config    config.Config
+	Lifecycle  cell.Lifecycle
+	Logger     *slog.Logger
+	EPManager  endpointmanager.EndpointManager
+	K8sWatcher *watchers.K8sWatcher
+	Config     config.Config
 }
 
 func NewServer(params xdsServerParams) (*Server, error) {
@@ -34,7 +36,7 @@ func NewServer(params xdsServerParams) (*Server, error) {
 		return nil, nil
 	}
 
-	server, err := newServer(params.Logger, params.EPManager)
+	server, err := newServer(params.Logger, params.EPManager, params.K8sWatcher.GetK8sCiliumEndpointsWatcher())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ztunnel gRPC server: %w", err)
 	}

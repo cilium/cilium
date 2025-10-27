@@ -92,6 +92,11 @@ func (k *K8sCiliumEndpointsWatcher) initCiliumEndpointOrSlices(ctx context.Conte
 	}
 }
 
+// GetCiliumEndpointResource returns Resource[T] slim CEP object
+func (k *K8sCiliumEndpointsWatcher) GetCiliumEndpointResource() resource.Resource[*types.CiliumEndpoint] {
+	return k.resources.CiliumSlimEndpoint
+}
+
 func (k *K8sCiliumEndpointsWatcher) ciliumEndpointsInit(ctx context.Context) {
 	var synced atomic.Bool
 
