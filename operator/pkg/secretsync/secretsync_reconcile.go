@@ -84,6 +84,14 @@ func (r *secretSyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 		synced = synced || deleted
 	}
 
+	if synced && r.resyncInterval != 0 {
+		scopedLog.DebugContext(ctx, "Successfully reconciled Secret with resync",
+			logfields.Action, action(synced),
+			logfields.SyncInterval, r.resyncInterval)
+		scopedLog.DebugContext(ctx, "", logfields.SyncInterval, r.resyncInterval)
+		return ctrl.Result{RequeueAfter: r.resyncInterval}, nil
+	}
+
 	scopedLog.DebugContext(ctx, "Successfully reconciled Secret", logfields.Action, action(synced))
 	return controllerruntime.Success()
 }

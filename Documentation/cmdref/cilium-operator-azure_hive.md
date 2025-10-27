@@ -99,6 +99,7 @@ cilium-operator-azure hive [flags]
       --operator-prometheus-tls-key-file string              Path to TLS private key file for prometheus server. The file must contain PEM encoded data.
       --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                      Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
+      --secret-sync-resync-interval duration                 Interval that the secret-sync process will resync relevant Secrets. Setting to 0 disables resync.
       --shell-sock-path string                               Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
       --synchronize-k8s-nodes                                Perform GC of stale node entries from the KVStore (default true)
