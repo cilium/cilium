@@ -63,10 +63,6 @@ type Controller struct {
 	// reconciler is an util used to reconcile CiliumEndpointSlice changes.
 	reconciler *reconciler
 
-	// Manager is used to create and maintain a local datastore. Manager watches for
-	// cilium endpoint changes and enqueues/dequeues the cilium endpoint changes in CES.
-	// It maintains the desired state of the CESs in dataStore
-	manager      *cesManager
 	maxCEPsInCES int
 
 	// workqueue is used to sync CESs with the api-server. this will rate-limit the
@@ -104,6 +100,11 @@ type Controller struct {
 type DefaultController struct {
 	*Controller
 
+	// Manager is used to create and maintain a local datastore. Manager watches for
+	// cilium endpoint changes and enqueues/dequeues the cilium endpoint changes in CES.
+	// It maintains the desired state of the CESs in dataStore
+	manager *defaultManager
+
 	ciliumEndpoint resource.Resource[*v2.CiliumEndpoint]
 
 	wp *workerpool.WorkerPool
@@ -113,6 +114,11 @@ type DefaultController struct {
 // from Pods.
 type SlimController struct {
 	*Controller
+
+	// Manager is used to create and maintain a local datastore. Manager watches for
+	// pod changes and enqueues/dequeues the pod changes in CES.
+	// It maintains the desired state of the CESs in dataStore
+	manager *slimManager
 
 	ipsecEnabled bool
 	wgEnabled    bool
