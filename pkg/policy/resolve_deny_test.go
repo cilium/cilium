@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -273,17 +272,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{logger: hivetest.Logger(t)},
-		// inherit this from the result as it is outside of the scope
-		// of this test
-		policyMapState:   policy.policyMapState,
-		policyMapChanges: MapChanges{logger: logger},
 	}
-
-	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.SelectorPolicy.detach(true, 0)
-
-	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
 
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
@@ -364,24 +353,8 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{logger: logger},
-		// inherit this from the result as it is outside of the scope
-		// of this test
-		policyMapState:   policy.policyMapState,
-		policyMapChanges: MapChanges{logger: logger},
 	}
 
-	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.SelectorPolicy.detach(true, 0)
-
-	// Assign an empty mutex so that checker.Equal does not complain about the
-	// difference of the internal time.Time from the lock_debug.go.
-	policy.SelectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	policy.policyMapChanges.mutex = lock.Mutex{}
-	policy.policyMapChanges.firstVersion = 0
-	// policyMapState cannot be compared via DeepEqual
-	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = mapState{}
-	expectedEndpointPolicy.policyMapState = mapState{}
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
 
@@ -466,7 +439,6 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 			EgressKey():                  allowEgressMapStateEntry,
 			IngressKey().WithTCPPort(80): rule1MapStateEntry,
 		}),
-		policyMapChanges: MapChanges{logger: logger},
 	}
 
 	// Add new identity to test accumulation of MapChanges
@@ -480,19 +452,10 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	wg.Wait()
 	require.Empty(t, policy.policyMapChanges.synced)
 
-	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.SelectorPolicy.detach(true, 0)
-
-	// Assign an empty mutex so that checker.Equal does not complain about the
-	// difference of the internal time.Time from the lock_debug.go.
-	policy.SelectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	policy.policyMapChanges.mutex = lock.Mutex{}
-	policy.policyMapChanges.firstVersion = 0
-	// policyMapState cannot be compared via DeepEqual
+	// compare policyMapState separately
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = mapState{}
-	expectedEndpointPolicy.policyMapState = mapState{}
-	require.Equal(t, &expectedEndpointPolicy, policy)
+
+	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
 
 func TestMapStateWithIngressDeny(t *testing.T) {
@@ -635,7 +598,6 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 			IngressKey().WithIdentity(192).WithTCPPort(80):                                rule1MapStateEntry,
 			IngressKey().WithIdentity(194).WithTCPPort(80):                                rule1MapStateEntry,
 		}),
-		policyMapChanges: MapChanges{logger: logger},
 	}
 
 	closer, changes := policy.ConsumeMapChanges()
@@ -648,21 +610,14 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	}, changes.Adds)
 	require.Equal(t, Keys{}, changes.Deletes)
 
-	// Have to remove circular reference before testing for Equality to avoid an infinite loop
-	policy.SelectorPolicy.detach(true, 0)
 	// Verify that cached selector is not found after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
+	policy.SelectorPolicy.detach(true, 0)
 	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.Nil(t, cachedSelectorTest)
 
-	// Assign an empty mutex so that checker.Equal does not complain about the
-	// difference of the internal time.Time from the lock_debug.go.
-	policy.SelectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	policy.policyMapChanges.mutex = lock.Mutex{}
-	policy.policyMapChanges.firstVersion = 0
-	// policyMapState cannot be compared via DeepEqual
+	// compare policyMapState separately
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))
-	policy.policyMapState = mapState{}
-	expectedEndpointPolicy.policyMapState = mapState{}
-	require.Equal(t, &expectedEndpointPolicy, policy)
+
+	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
