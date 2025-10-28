@@ -76,6 +76,9 @@ type EndpointsLookup interface {
 	// service account pair.
 	GetEndpointsByServiceAccount(namespace string, serviceAccount string) []*endpoint.Endpoint
 
+	// GetEndpointsByNamespace looks up endpoints by namespace.
+	GetEndpointsByNamespace(namespace string) []*endpoint.Endpoint
+
 	// GetEndpoints returns a slice of all endpoints present in endpoint manager.
 	GetEndpoints() []*endpoint.Endpoint
 

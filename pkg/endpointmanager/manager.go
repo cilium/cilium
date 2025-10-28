@@ -400,6 +400,20 @@ func (mgr *endpointManager) GetEndpointsByPodName(namespacedName string) []*endp
 	return eps
 }
 
+// GetEndpointsByNamespace looks up endpoints by namespace
+func (mgr *endpointManager) GetEndpointsByNamespace(namespace string) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		if ep.GetK8sNamespace() == namespace {
+			eps = append(eps, ep)
+		}
+	}
+
+	return eps
+}
+
 // GetEndpointsByContainerID looks up endpoints by container ID
 func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint {
 	mgr.mutex.RLock()
