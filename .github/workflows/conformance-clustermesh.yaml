@@ -356,6 +356,10 @@ jobs:
           fi
 
           CILIUM_INSTALL_INGRESS=""
+          if [ "${{ matrix.kube-proxy }}" == "none" ]; then
+            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true --helm-set=ingressController.service.type=NodePort"
+          fi
+
           CILIUM_INSTALL_WAIT=""
           if [ "${{ matrix.tls-auto-method }}" != "certmanager" ]; then
             CILIUM_INSTALL_WAIT="--wait"
