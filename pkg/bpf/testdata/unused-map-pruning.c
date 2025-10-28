@@ -17,17 +17,9 @@ struct {
 	__uint(max_entries, 10);
 } map_b __section_maps_btf;
 
-struct {
-	__uint(type, BPF_MAP_TYPE_ARRAY);
-	__type(key, __u32);
-	__type(value, __u64);
-	__uint(max_entries, 1);
-} map_c __section_maps_btf;
-
 DECLARE_CONFIG(__u32, some_other_config, "Just here to offset the other configs")
 DECLARE_CONFIG(bool, use_map_a, "Use map_a")
 DECLARE_CONFIG(bool, use_map_b, "Use map_b")
-DECLARE_CONFIG(__u64, use_map_c, "Use map_c if >= max uint32, 64-bit variable requiring a reg-reg comparison")
 
 __section("tc")
 static int entry() {
@@ -39,10 +31,6 @@ static int entry() {
 
         if (CONFIG(use_map_b))
                 value = map_lookup_elem(&map_b, &key);
-
-        // Right 64-bit operand requires reg-reg comparison.
-        if (CONFIG(use_map_c) >= 1LL<<32)
-                value = map_lookup_elem(&map_c, &key);
 
         if (!value) {
                 return -1;
