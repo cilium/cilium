@@ -4,15 +4,19 @@
 package restoration
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -22,7 +26,10 @@ import (
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell provides the LocalIdentityRestorer that is responsible to restore the local identities from
@@ -43,7 +50,9 @@ var (
 type localIdentityRestorerParams struct {
 	cell.In
 
-	Logger *slog.Logger
+	Logger      *slog.Logger
+	JobGroup    job.Group
+	AgentConfig *option.DaemonConfig
 
 	// The global identity allocator is not yet initialized here at injection time
 	// That happens in the daemon init via InitIdentityAllocator(). Only the local identity
@@ -52,6 +61,8 @@ type localIdentityRestorerParams struct {
 	IPCache           *ipcache.IPCache
 	NodeLocalStore    *node.LocalNodeStore
 	MetricsRegistry   *metrics.Registry
+
+	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
 }
 
 type LocalIdentityRestorer struct {
@@ -62,10 +73,31 @@ type LocalIdentityRestorer struct {
 }
 
 func newLocalIdentityRestorer(params localIdentityRestorerParams) *LocalIdentityRestorer {
-	return &LocalIdentityRestorer{
+	restorer := &LocalIdentityRestorer{
 		params:        params,
 		restoredCIDRs: nil, // will be initialized during restoration
 	}
+
+	params.JobGroup.Add(job.OneShot("release-local-identities", func(ctx context.Context, _ cell.Health) error {
+		r, err := params.EndpointRestorePromise.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for endpoint restorer promise: %w", err)
+		}
+
+		if err := r.WaitForEndpointRestore(ctx); err != nil {
+			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
+		}
+
+		// Sleep for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
+		// the normal allocation processes to finish, before releasing restored resources.
+		time.Sleep(params.AgentConfig.IdentityRestoreGracePeriod)
+
+		restorer.releaseRestoredIdentities()
+
+		return nil
+	}))
+
+	return restorer
 }
 
 // RestoreLocalIdentities restores the local identity state in the
@@ -299,7 +331,7 @@ func (d *LocalIdentityRestorer) restoreIPCache(localPrefixes map[netip.Prefix]id
 	)
 }
 
-// ReleaseRestoredIdentities removes the placeholder state that was inserted
+// releaseRestoredIdentities removes the placeholder state that was inserted
 // in to the ipcache and local identity allocators on restoration
 //
 // Any identities and prefixes actually in use will still exist after this.
@@ -315,7 +347,7 @@ func (d *LocalIdentityRestorer) restoreIPCache(localPrefixes map[netip.Prefix]id
 // of metadata in the ipcache, and thus will remain. CIDRs for which
 // restoration was the only source of metadata will be deallocated. Identities
 // with no references after restoration will be deallocated.
-func (d *LocalIdentityRestorer) ReleaseRestoredIdentities() {
+func (d *LocalIdentityRestorer) releaseRestoredIdentities() {
 	defer func() {
 		// release the memory held by restored CIDRs
 		d.restoredCIDRs = nil
