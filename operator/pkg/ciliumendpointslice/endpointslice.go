@@ -46,6 +46,9 @@ const (
 
 	CESWriteQPSLimitMax = 50
 	CESWriteQPSBurstMax = 100
+
+	defaultMode = "default"
+	slimMode    = "slim"
 )
 
 func (c *Controller) initializeQueue() {
@@ -139,7 +142,7 @@ func (c *Controller) getAndResetCESProcessingDelay(ces CESKey) float64 {
 }
 
 // start the worker thread, reconciles the modified CESs with api-server
-func (c *Controller) Start(ctx cell.HookContext) error {
+func (c *DefaultController) Start(ctx cell.HookContext) error {
 	// Processing CES/CEP events:
 	// CES or CEP event is retrieved and checked whether it is from a priority namespace
 	// Event is added to the fast queue if the namespace was priority and to the standard queue otherwise
@@ -197,7 +200,7 @@ func (c *Controller) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (c *Controller) runCiliumEndpointsUpdater(ctx context.Context) error {
+func (c *DefaultController) runCiliumEndpointsUpdater(ctx context.Context) error {
 	for event := range c.ciliumEndpoint.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
