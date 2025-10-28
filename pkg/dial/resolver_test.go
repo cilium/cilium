@@ -36,13 +36,135 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
+func TestLBServiceResolver(t *testing.T) {
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
+
+	var (
+		tlog = hivetest.Logger(t)
+		ctx  = context.Background()
+
+		db       *statedb.DB
+		fes      statedb.RWTable[*lb.Frontend]
+		resolver Resolver
+	)
+
+	h := hive.New(
+		ServiceResolverCell,
+
+		cell.Provide(
+			func() lb.Config {
+				return lb.DefaultConfig
+			},
+			lb.NewFrontendsTable,
+			statedb.RWTable[*lb.Frontend].ToTable,
+		),
+
+		cell.Invoke(func(db_ *statedb.DB, fes_ statedb.RWTable[*lb.Frontend], resolver_ Resolver) {
+			db = db_
+			fes = fes_
+			resolver = resolver_
+		}))
+
+	require.NoError(t, h.Start(hivetest.Logger(t), ctx))
+	t.Cleanup(func() { require.NoError(t, h.Stop(tlog, ctx)) })
+
+	var addr lb.L3n4Addr
+	require.NoError(t, addr.ParseFromString("192.168.0.1:80/TCP"))
+
+	barFoo := lb.NewServiceName("bar", "foo")
+
+	wtxn := db.WriteTxn(fes)
+	fes.Insert(wtxn,
+		&lb.Frontend{
+			FrontendParams: lb.FrontendParams{
+				Address:     addr,
+				Type:        lb.SVCTypeClusterIP,
+				ServiceName: lb.NewServiceName("bar", "foo"),
+			},
+			Service: &lb.Service{
+				Name:   barFoo,
+				Source: source.Kubernetes,
+			},
+		},
+	)
+	wtxn.Commit()
+
+	// Trying to resolve a name not matching a service should return the provided host/port pair
+	host, port := resolver.Resolve(ctx, "foo.bar.com", "8080")
+	require.Equal(t, "foo.bar.com", host)
+	require.Equal(t, "8080", port)
+
+	host, port = resolver.Resolve(ctx, "foo.bar", "8080")
+	assert.Equal(t, "192.168.0.1", host)
+	assert.Equal(t, "8080", port)
+
+	host, port = resolver.Resolve(ctx, "foo.bar.svc", "8080")
+	require.Equal(t, "192.168.0.1", host)
+	require.Equal(t, "8080", port)
+
+	host, port = resolver.Resolve(ctx, "foo.bar.svc.cluster.local", "9090")
+	require.Equal(t, "192.168.0.1", host)
+	require.Equal(t, "9090", port)
+
+	// Trying to resolve a name for a not-existing service should return the provided host/port pair
+	host, port = resolver.Resolve(ctx, "foo.baz", "8080")
+	require.Equal(t, "foo.baz", host)
+	require.Equal(t, "8080", port)
+}
+
+func TestServiceURLToNamespacedName(t *testing.T) {
+	tests := []struct {
+		host      string
+		expected  types.NamespacedName
+		assertErr assert.ErrorAssertionFunc
+	}{
+		{
+			host:      "",
+			assertErr: assert.Error,
+		},
+		{
+			host:      "foo",
+			assertErr: assert.Error,
+		},
+		{
+			host:      "foo.bar",
+			expected:  types.NamespacedName{Namespace: "bar", Name: "foo"},
+			assertErr: assert.NoError,
+		},
+		{
+			host:      "foo.bar.svc",
+			expected:  types.NamespacedName{Namespace: "bar", Name: "foo"},
+			assertErr: assert.NoError,
+		},
+		{
+			host:      "foo.bar.svc.other.local",
+			expected:  types.NamespacedName{Namespace: "bar", Name: "foo"},
+			assertErr: assert.NoError,
+		},
+		{
+			host:      "foo.bar.qux",
+			assertErr: assert.Error,
+		},
+		{
+			host:      "foo.bar.qux.fred",
+			assertErr: assert.Error,
+		},
+	}
+
+	for _, tt := range tests {
+		got, err := ServiceURLToNamespacedName(tt.host)
+		tt.assertErr(t, err, "Got incorrect error for host %q", tt.host)
+		assert.Equal(t, tt.expected, got, "Got incorrect value for host %q", tt.host)
+	}
+}
+
 // Configure a generous timeout to prevent flakes when running in a noisy CI environment.
 var (
 	tick    = 10 * time.Millisecond
 	timeout = 500 * time.Second
 )
 
-func TestServiceResolver(t *testing.T) {
+func TestResourceServiceResolver(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
 	var (
@@ -51,19 +173,19 @@ func TestServiceResolver(t *testing.T) {
 
 		started  atomic.Bool
 		cl       *k8sClient.FakeClientset
-		resolver *ServiceResolver
+		resolver Resolver
 	)
 
 	h := hive.New(
 		k8sClient.FakeClientCell(),
 
-		ServiceResolverCell,
+		ResourceServiceResolverCell,
 
 		cell.Config(k8s.DefaultConfig),
 		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(k8s.ServiceResource),
 
-		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ *ServiceResolver) {
+		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ Resolver) {
 			cl = cl_
 			resolver = resolver_
 		}))
@@ -121,52 +243,6 @@ func TestServiceResolver(t *testing.T) {
 	host, port = resolver.Resolve(ctx, "qux.bar", "8080")
 	require.Equal(t, "qux.bar", host)
 	require.Equal(t, "8080", port)
-}
-
-func TestServiceURLToNamespacedName(t *testing.T) {
-	tests := []struct {
-		host      string
-		expected  types.NamespacedName
-		assertErr assert.ErrorAssertionFunc
-	}{
-		{
-			host:      "",
-			assertErr: assert.Error,
-		},
-		{
-			host:      "foo",
-			assertErr: assert.Error,
-		},
-		{
-			host:      "foo.bar",
-			expected:  types.NamespacedName{Namespace: "bar", Name: "foo"},
-			assertErr: assert.NoError,
-		},
-		{
-			host:      "foo.bar.svc",
-			expected:  types.NamespacedName{Namespace: "bar", Name: "foo"},
-			assertErr: assert.NoError,
-		},
-		{
-			host:      "foo.bar.svc.other.local",
-			expected:  types.NamespacedName{Namespace: "bar", Name: "foo"},
-			assertErr: assert.NoError,
-		},
-		{
-			host:      "foo.bar.qux",
-			assertErr: assert.Error,
-		},
-		{
-			host:      "foo.bar.qux.fred",
-			assertErr: assert.Error,
-		},
-	}
-
-	for _, tt := range tests {
-		got, err := ServiceURLToNamespacedName(tt.host)
-		tt.assertErr(t, err, "Got incorrect error for host %q", tt.host)
-		assert.Equal(t, tt.expected, got, "Got incorrect value for host %q", tt.host)
-	}
 }
 
 func TestServiceBackendResolver(t *testing.T) {
