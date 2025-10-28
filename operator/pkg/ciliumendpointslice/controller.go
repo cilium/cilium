@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/workerpool"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -38,6 +39,7 @@ type params struct {
 
 	Cfg       Config
 	SharedCfg SharedConfig
+	IPSecCfg  ipsec.EnableConfig
 
 	Metrics                  *Metrics
 	WorkqueueMetricsProvider workqueue.MetricsProvider

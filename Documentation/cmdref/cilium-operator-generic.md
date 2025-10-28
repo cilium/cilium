@@ -48,6 +48,7 @@ cilium-operator-generic [flags]
       --enable-ingress-controller                            Enables cilium ingress controller. This must be enabled along with enable-envoy-config in cilium agent.
       --enable-ingress-proxy-protocol                        Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
       --enable-ingress-secrets-sync                          Enables fan-in TLS secrets from multiple namespaces to singular namespace (specified by ingress-secrets-namespace flag) (default true)
+      --enable-ipsec                                         Enable IPsec
       --enable-ipv4                                          Enable IPv4 support (default true)
       --enable-ipv6                                          Enable IPv6 support (default true)
       --enable-k8s                                           Enable the k8s clientset (default true)
