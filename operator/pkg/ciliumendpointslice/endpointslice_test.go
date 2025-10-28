@@ -30,7 +30,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, log)
+	m := newDefaultManager(2, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -63,10 +63,10 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 			clientset:           fakeClient.Clientset,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			reconciler:          r,
-			manager:             m,
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
 		},
+		manager:        m,
 		ciliumEndpoint: ciliumEndpoint,
 	}
 	cesController.initializeQueue()
@@ -104,7 +104,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, log)
+	m := newDefaultManager(2, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -138,13 +138,13 @@ func TestDifferentSpeedQueues(t *testing.T) {
 			clientset:           fakeClient.Clientset,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			reconciler:          r,
-			manager:             m,
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
 			metrics:             cesMetrics,
 			priorityNamespaces:  make(map[string]struct{}),
 			syncDelay:           0,
 		},
+		manager:        m,
 		ciliumEndpoint: ciliumEndpoint,
 	}
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
@@ -208,7 +208,7 @@ func TestCESManagement(t *testing.T) {
 	log := hivetest.Logger(t)
 	var r *reconciler
 	var fakeClient *k8sClient.FakeClientset
-	m := newCESManager(2, log)
+	m := newDefaultManager(2, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
 	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 	var cesMetrics *Metrics
@@ -242,13 +242,13 @@ func TestCESManagement(t *testing.T) {
 			clientset:           fakeClient.Clientset,
 			ciliumEndpointSlice: ciliumEndpointSlice,
 			reconciler:          r,
-			manager:             m,
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
 			metrics:             cesMetrics,
 			priorityNamespaces:  make(map[string]struct{}),
 			syncDelay:           0,
 		},
+		manager:        m,
 		ciliumEndpoint: ciliumEndpoint,
 	}
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
