@@ -947,6 +947,12 @@ Users (Alphabetically)
       U. CNI, BGP, eBPF, Hubble, DirectRouting (via kube-router)
       Q: @nerzhul
 
+    * N: Vietnam Post Cloud
+      D: Vietnnam Post Cloud is using Cilium in their production, staging, and development clusters
+      U: Networking, NetworkPolicy, Services, IPVLAN
+      L: https://www.vietnampost.vn
+      Q: @chint-vnpost-vn
+
     * N: Virtuozzo
       D: Cilium CNI is the default network plugin for Kubernetes clusters within Virtuozzo Hybrid Infrastructure.
       U: Networking, NetworkPolicy, Services
