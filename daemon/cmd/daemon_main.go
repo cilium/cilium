@@ -1427,11 +1427,6 @@ func startDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParam
 			}, params.BandwidthManager, params.LBConfig, params.KPRConfig)
 		ms.CollectStaleMapGarbage()
 		ms.RemoveDisabledMaps()
-
-		// Sleep for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
-		// the normal allocation processes to finish, before releasing restored resources.
-		time.Sleep(option.Config.IdentityRestoreGracePeriod)
-		params.IdentityRestorer.ReleaseRestoredIdentities()
 	}()
 
 	// Migrating the ENI datapath must happen before the API is served to
