@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	appServiceName  = "app1-service"
-	echoServiceName = "echo"
-	echoPodLabel    = "name=echo"
-	// echoServiceNameIPv6 = "echo-ipv6"
+	appServiceName      = "app1-service"
+	echoServiceName     = "echo"
+	echoPodLabel        = "name=echo"
+	echoServiceNameIPv6 = "echo-ipv6"
 
 	testDSClient = "zgroup=testDSClient"
 	testDS       = "zgroup=testDS"
@@ -137,11 +137,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 		// doesn't require any special handling for hairpin service flows.
 		SkipItIf(helpers.RunsWithKubeProxyReplacement, "Checks service accessing itself (hairpin flow)", func() {
 			serviceNames := []string{echoServiceName}
-			// Hairpin flow mode is currently not supported for IPv6.
-			// TODO: Uncomment after https://github.com/cilium/cilium/pull/14138 is merged
-			// if helpers.DualStackSupported() {
-			// }
-			// 	serviceNames = append(serviceNames, // )
+			if helpers.DualStackSupported() {
+				serviceNames = append(serviceNames, echoServiceNameIPv6)
+			}
 
 			for _, svcName := range serviceNames {
 				clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, svcName)
