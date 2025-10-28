@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -340,7 +339,6 @@ func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, 
 	var (
 		err          error
 		data, v6Data v1.Service
-		wg           sync.WaitGroup
 	)
 
 	serviceNameIPv4 := "test-nodeport"
@@ -447,28 +445,13 @@ func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, 
 
 	count := 10
 	for _, url := range testURLsFromPods {
-		wg.Add(1)
-		go func(url string) {
-			defer GinkgoRecover()
-			defer wg.Done()
-			testCurlFromPods(kubectl, testDSClient, url, count, fails)
-		}(url)
+		testCurlFromPods(kubectl, testDSClient, url, count, fails)
 	}
 	for _, url := range testURLsFromHosts {
-		wg.Add(1)
-		go func(url string) {
-			defer GinkgoRecover()
-			defer wg.Done()
-			testCurlFromPodInHostNetNS(kubectl, url, count, fails, ni.K8s1NodeName)
-		}(url)
+		testCurlFromPodInHostNetNS(kubectl, url, count, fails, ni.K8s1NodeName)
 	}
 	for _, url := range testURLsFromOutside {
-		wg.Add(1)
-		go func(url string) {
-			defer GinkgoRecover()
-			defer wg.Done()
-			testCurlFromOutside(kubectl, ni, url, count, false)
-		}(url)
+		testCurlFromOutside(kubectl, ni, url, count, false)
 	}
 	// TODO: IPv6
 	if bpfNodePort && helpers.RunsOnNetNextKernel() {
@@ -489,8 +472,6 @@ func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, 
 		testCurlFromPodsFail(kubectl, testDSClient, httpURL)
 		testCurlFromPodsFail(kubectl, testDSClient, tftpURL)
 	}
-
-	wg.Wait()
 }
 
 func testExternalIPs(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
