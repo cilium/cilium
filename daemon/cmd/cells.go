@@ -429,7 +429,7 @@ func kvstoreExtraOptions(in struct {
 
 	NodeManager nodeManager.NodeManager
 	ClientSet   k8sClient.Clientset
-	Resolver    *dial.ServiceResolver
+	Resolver    dial.Resolver
 },
 ) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
 	goopts := kvstore.ExtraOptions{
