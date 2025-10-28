@@ -4,14 +4,16 @@
 package policy
 
 import (
-	"log/slog"
 	"slices"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/index"
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -23,6 +25,45 @@ type CachedSelectorSlice = types.CachedSelectorSlice
 type CachedSelectionUser = types.CachedSelectionUser
 type Selector = types.Selector
 type Selectors = types.Selectors
+type SelectorReadTxn = types.SelectorReadTxn
+
+type Selections struct {
+	key string
+	ids identity.NumericIdentitySlice
+}
+
+// Define header for a formatted table (db/show command)
+func (s Selections) TableHeader() []string {
+	return []string{"Selector", "Selections"}
+}
+
+// Define how to show the object in a formatted table
+func (s Selections) TableRow() []string {
+	var sb strings.Builder
+
+	for i, v := range s.ids {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatUint(uint64(v), 10))
+	}
+	return []string{s.key, sb.String()}
+}
+
+// SelectionsIndex is the primary index for selections indexing the key of the cached selector
+var SelectionsIndex = statedb.Index[Selections, string]{
+	Name: "key",
+
+	FromObject: func(obj Selections) index.KeySet {
+		return index.NewKeySet(index.String(obj.key))
+	},
+
+	FromKey: index.String,
+
+	FromString: index.FromString,
+
+	Unique: true, // Keys are unique.
+}
 
 // identitySelector is the internal type for all selectors in the
 // selector cache.
@@ -60,10 +101,9 @@ type Selectors = types.Selectors
 // so it must always be given to the user as a pointer to the actual type.
 // (The public methods only expose the CachedSelector interface.)
 type identitySelector struct {
-	logger           *slog.Logger
+	selectorCache    *SelectorCache
 	source           Selector
 	key              string
-	selections       versioned.Value[identity.NumericIdentitySlice]
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
 	metadataLbls     stringLabels
@@ -106,16 +146,24 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 // that case GetSelections() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (i *identitySelector) GetSelections(version *versioned.VersionHandle) identity.NumericIdentitySlice {
-	if !version.IsValid() {
-		i.logger.Error(
-			"GetSelections: Invalid VersionHandle finds nothing",
-			logfields.Version, version,
+func (i *identitySelector) GetSelectionsAt(txn SelectorReadTxn) identity.NumericIdentitySlice {
+	if !txn.IsValid() {
+		i.selectorCache.logger.Error(
+			"GetSelectionsAt: Invalid VersionHandle finds nothing",
+			logfields.Version, txn,
 			logfields.Stacktrace, hclog.Stacktrace(),
 		)
 		return identity.NumericIdentitySlice{}
 	}
-	return i.selections.At(version)
+	sel, _, exists := i.selectorCache.selections.Get(txn.Txn, SelectionsIndex.Query(i.key))
+	if !exists || len(sel.ids) == 0 {
+		return nil
+	}
+	return sel.ids
+}
+
+func (i *identitySelector) GetSelections() identity.NumericIdentitySlice {
+	return i.GetSelectionsAt(i.selectorCache.GetReadTxn())
 }
 
 func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
@@ -124,11 +172,11 @@ func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
 
 // Selects return 'true' if the CachedSelector selects the given
 // numeric identity.
-func (i *identitySelector) Selects(version *versioned.VersionHandle, nid identity.NumericIdentity) bool {
+func (i *identitySelector) Selects(nid identity.NumericIdentity) bool {
 	if i.IsWildcard() {
 		return true
 	}
-	nids := i.GetSelections(version)
+	nids := i.GetSelections()
 	idx := sort.Search(len(nids), func(i int) bool { return nids[i] >= nid })
 	return idx < len(nids) && nids[idx] == nid
 }
@@ -194,32 +242,19 @@ func (i *identitySelector) numUsers() int {
 // cached selections after the cached selections have been changed.
 //
 // lock must be held
-func (i *identitySelector) updateSelections(nextVersion *versioned.Tx) {
-	selections := make(identity.NumericIdentitySlice, len(i.cachedSelections))
+func (i *identitySelector) updateSelections(txn statedb.WriteTxn) {
+	v := Selections{
+		key: i.key,
+		ids: make(identity.NumericIdentitySlice, len(i.cachedSelections)),
+	}
 	idx := 0
 	for nid := range i.cachedSelections {
-		selections[idx] = nid
+		v.ids[idx] = nid
 		idx++
 	}
 	// Sort the numeric identities so that the map iteration order
 	// does not matter. This makes testing easier, but may help
 	// identifying changes easier also otherwise.
-	slices.Sort(selections)
-	i.setSelections(selections, nextVersion)
-}
-
-func (i *identitySelector) setSelections(selections identity.NumericIdentitySlice, nextVersion *versioned.Tx) {
-	var err error
-	if len(selections) > 0 {
-		err = i.selections.SetAt(selections, nextVersion)
-	} else {
-		err = i.selections.RemoveAt(nextVersion)
-	}
-	if err != nil {
-		i.logger.Error(
-			"setSelections failed",
-			logfields.Error, err,
-			logfields.Stacktrace, hclog.Stacktrace(),
-		)
-	}
+	slices.Sort(v.ids)
+	i.selectorCache.selections.Insert(txn, v)
 }

@@ -10,9 +10,11 @@ import (
 	"log/slog"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -505,12 +507,43 @@ func (p *CIDRSelector) MetricsClass() string {
 	return LabelValueSCWorld
 }
 
+// SelectorReadTxn contains state needed to observe a coherent set of selectors
+type SelectorReadTxn struct {
+	Txn statedb.ReadTxn
+	Rev statedb.Revision
+}
+
+func (s *SelectorReadTxn) Close() {
+	s.Txn = nil
+}
+
+func (s *SelectorReadTxn) After(rev statedb.Revision) bool {
+	return s.Rev > rev
+}
+
+func (s *SelectorReadTxn) IsValid() bool {
+	return s.Txn != nil
+}
+
+func (s *SelectorReadTxn) String() string {
+	str := " (invalid)"
+	if s.IsValid() {
+		str = " (valid)"
+	}
+	return strconv.FormatUint(uint64(s.Rev), 10) + str
+}
+
 // CachedSelector represents an identity selector owned by the selector cache
 type CachedSelector interface {
 	// GetSelections returns the cached set of numeric identities
 	// selected by the CachedSelector.  The retuned slice must NOT
 	// be modified, as it is shared among multiple users.
-	GetSelections(*versioned.VersionHandle) identity.NumericIdentitySlice
+	GetSelections() identity.NumericIdentitySlice
+
+	// GetSelections returns the cached set of numeric identities
+	// selected by the CachedSelector.  The retuned slice must NOT
+	// be modified, as it is shared among multiple users.
+	GetSelectionsAt(SelectorReadTxn) identity.NumericIdentitySlice
 
 	// GetMetadataLabels returns metadata labels for additional context
 	// surrounding the selector. These are typically the labels associated with
@@ -518,8 +551,8 @@ type CachedSelector interface {
 	GetMetadataLabels() labels.LabelArray
 
 	// Selects return 'true' if the CachedSelector selects the given
-	// numeric identity.
-	Selects(*versioned.VersionHandle, identity.NumericIdentity) bool
+	// numeric identity. Always uses the latest revision of the selector cache.
+	Selects(identity.NumericIdentity) bool
 
 	// IsWildcard returns true if the endpoint selector selects
 	// all endpoints.
@@ -586,5 +619,5 @@ type CachedSelectionUser interface {
 
 	// IdentitySelectionCommit tells the user that all IdentitySelectionUpdated calls relating
 	// to a specific added or removed identity have been made.
-	IdentitySelectionCommit(logger *slog.Logger, txn *versioned.Tx)
+	IdentitySelectionCommit(*slog.Logger, SelectorReadTxn)
 }

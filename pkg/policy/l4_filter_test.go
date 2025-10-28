@@ -106,7 +106,7 @@ func newTestData(logger *slog.Logger) *testData {
 
 func (td *testData) getCachedSelectorForTest(es api.EndpointSelector, selections ...identity.NumericIdentity) CachedSelector {
 	idSel := &identitySelector{
-		logger:           td.sc.logger,
+		selectorCache:    td.sc,
 		key:              es.CachedString(),
 		users:            make(map[CachedSelectionUser]struct{}),
 		cachedSelections: make(map[identity.NumericIdentity]struct{}),

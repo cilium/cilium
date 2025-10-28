@@ -5,7 +5,6 @@ package policy
 
 import (
 	"fmt"
-	"runtime"
 	"sync"
 	"testing"
 
@@ -1748,11 +1747,6 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Empty(t, repo.rules)
 	assert.Empty(t, repo.rulesByResource)
 	assert.Equal(t, 2, oldRuleCnt)
-
-	// run GC to clean up stale selectors
-	runtime.GC()
-
-	assert.Empty(t, sc.selectors)
 }
 
 func TestReplaceByLabels(t *testing.T) {
