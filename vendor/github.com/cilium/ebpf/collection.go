@@ -751,21 +751,18 @@ func (cl *collectionLoader) populateStructOps(m *Map, mapSpec *MapSpec) error {
 			if srcOff < 0 || srcOff+mSize > len(userData) {
 				return fmt.Errorf("member %q: userdata is too small", m.Name)
 			}
-			for _, b := range userData[srcOff : srcOff+mSize] {
-				// let fail if the field in type user type is missing in type kern type
-				if b != 0 {
-					return fmt.Errorf("%s doesn't exist in %s, but it has non-zero value", m.Name, kType.Name)
-				}
+
+			// let fail if the field in type user type is missing in type kern type
+			if !structOpsIsMemZeroed(userData[srcOff : srcOff+mSize]) {
+				return fmt.Errorf("%s doesn't exist in %s, but it has non-zero value", m.Name, kType.Name)
 			}
+
 			continue
 		}
 
 		km := kType.Members[i]
 
 		switch btf.UnderlyingType(m.Type).(type) {
-		case *btf.Struct, *btf.Union:
-			return fmt.Errorf("nested struct or union not supported")
-
 		case *btf.Pointer:
 			// If this is a pointer → resolve struct_ops program.
 			psKey := kType.Name + ":" + m.Name
