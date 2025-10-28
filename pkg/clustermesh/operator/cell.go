@@ -57,7 +57,7 @@ type clusterMeshParams struct {
 	StoreFactory  store.Factory
 
 	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
-	ServiceResolver *dial.ServiceResolver
+	ServiceResolver dial.Resolver
 }
 
 // ClusterMeshConfig contains the configuration for ClusterMesh inside the operator.

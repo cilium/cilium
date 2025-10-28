@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -52,6 +51,11 @@ const (
 	// also helps to combine related objects, e.g. a Service may have multiple
 	// associated EndpointSlices and preferably these would be processed together.
 	reflectorWaitTime = 500 * time.Millisecond
+
+	// K8sInitializerPrefix is the StateDB initializer prefix used here. This can
+	// be used to wait for the tables to be populated just from k8s even when
+	// other initializers are present.
+	K8sInitializerPrefix = "k8s-"
 )
 
 // K8sReflectorCell reflects Kubernetes Service and EndpointSlice objects to the
@@ -103,7 +107,7 @@ type reflectorParams struct {
 	Writer                 *writer.Writer
 	Config                 loadbalancer.Config
 	ExtConfig              loadbalancer.ExternalConfig
-	HaveNetNSCookieSupport lbmaps.HaveNetNSCookieSupport
+	HaveNetNSCookieSupport HaveNetNSCookieSupport
 	TestConfig             *loadbalancer.TestConfig `optional:"true"`
 	Nodes                  statedb.Table[*node.LocalNode]
 	SVCMetrics             SVCMetrics `optional:"true"`
@@ -125,9 +129,9 @@ func RegisterK8sReflector(p reflectorParams) {
 		p.SVCMetrics = NewSVCMetricsNoop()
 	}
 
-	podsComplete := p.Writer.RegisterInitializer("k8s-pods")
-	epsComplete := p.Writer.RegisterInitializer("k8s-endpoints")
-	svcComplete := p.Writer.RegisterInitializer("k8s-services")
+	podsComplete := p.Writer.RegisterInitializer(K8sInitializerPrefix + "pods")
+	epsComplete := p.Writer.RegisterInitializer(K8sInitializerPrefix + "endpoints")
+	svcComplete := p.Writer.RegisterInitializer(K8sInitializerPrefix + "services")
 	p.JobGroup.Add(
 		job.OneShot("reflect-services-endpoints", func(ctx context.Context, health cell.Health) error {
 			return runServiceEndpointsReflector(ctx, health, p, svcComplete, epsComplete)
@@ -617,7 +621,7 @@ func hostPortServiceNamePrefix(pod *slim_corev1.Pod) loadbalancer.ServiceName {
 	)
 }
 
-func upsertHostPort(netnsCookie lbmaps.HaveNetNSCookieSupport, config loadbalancer.Config, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
+func upsertHostPort(netnsCookie HaveNetNSCookieSupport, config loadbalancer.Config, extConfig loadbalancer.ExternalConfig, log *slog.Logger, wtxn writer.WriteTxn, writer *writer.Writer, pod *slim_corev1.Pod) error {
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	containers := slices.Concat(pod.Spec.InitContainers, pod.Spec.Containers)
 	serviceNamePrefix := hostPortServiceNamePrefix(pod)

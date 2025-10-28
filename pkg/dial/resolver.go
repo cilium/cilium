@@ -23,36 +23,46 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 // ServiceResolverCell provides a ServiceResolver instance to map DNS names
-// matching Kubernetes services to the corresponding ClusterIP address, backed
-// by a lazy resource.Store, which is only started on first access.
+// matching Kubernetes services to the corresponding ClusterIP address
+// using the LB frontends table.
 var ServiceResolverCell = cell.Module(
 	"service-resolver",
 	"Service DNS names to ClusterIP translator",
 
-	cell.Provide(newServiceResolver),
+	cell.Provide(newLBServiceResolver),
 )
 
-var _ Resolver = (*ServiceResolver)(nil)
+// ResourceServiceResolverCell provides a ServiceResolver instance to map DNS names
+// matching Kubernetes services to the corresponding ClusterIP address using the
+// services resource. Used by the operator.
+var ResourceServiceResolverCell = cell.Module(
+	"service-resolver",
+	"Service DNS names to ClusterIP translator",
 
-// ServiceResolver maps DNS names matching Kubernetes services to the
-// corresponding ClusterIP address.
-type ServiceResolver struct {
+	cell.Provide(newResourceServiceResolver),
+)
+
+// lbServiceResolver maps DNS names matching Kubernetes services to the
+// corresponding ClusterIP address using Resource[*slim_corev1.Service].
+// Used by the operator.
+type resourceServiceResolver struct {
 	start func()
 	ready <-chan struct{}
 
 	store resource.Store[*slim_corev1.Service]
 }
 
-func newServiceResolver(jg job.Group, services resource.Resource[*slim_corev1.Service]) *ServiceResolver {
+func newResourceServiceResolver(jg job.Group, services resource.Resource[*slim_corev1.Service]) Resolver {
 	start := make(chan struct{})
 	ready := make(chan struct{})
 
-	sr := ServiceResolver{
+	sr := resourceServiceResolver{
 		start: sync.OnceFunc(func() { close(start) }),
 		ready: ready,
 	}
@@ -78,11 +88,11 @@ func newServiceResolver(jg job.Group, services resource.Resource[*slim_corev1.Se
 	return &sr
 }
 
-func (sr *ServiceResolver) Resolve(ctx context.Context, host, port string) (string, string) {
+func (sr *resourceServiceResolver) Resolve(ctx context.Context, host, port string) (string, string) {
 	return sr.resolve(ctx, host), port
 }
 
-func (sr *ServiceResolver) resolve(ctx context.Context, host string) string {
+func (sr *resourceServiceResolver) resolve(ctx context.Context, host string) string {
 	nsname, err := ServiceURLToNamespacedName(host)
 	if err != nil {
 		// The host does not look like a k8s service DNS name
@@ -110,6 +120,67 @@ func (sr *ServiceResolver) resolve(ctx context.Context, host string) string {
 	}
 
 	return svc.Spec.ClusterIP
+}
+
+var _ Resolver = (*lbServiceResolver)(nil)
+
+// lbServiceResolver maps DNS names matching Kubernetes services to the
+// corresponding ClusterIP address using Table[*Frontend].
+type lbServiceResolver struct {
+	db        *statedb.DB
+	frontends statedb.Table[*loadbalancer.Frontend]
+}
+
+func newLBServiceResolver(jg job.Group, db *statedb.DB, frontends statedb.Table[*loadbalancer.Frontend]) Resolver {
+	return &lbServiceResolver{
+		db:        db,
+		frontends: frontends,
+	}
+}
+
+func (sr *lbServiceResolver) Resolve(ctx context.Context, host, port string) (string, string) {
+	return sr.resolve(ctx, host), port
+}
+
+func (sr *lbServiceResolver) resolve(ctx context.Context, host string) string {
+	nsname, err := ServiceURLToNamespacedName(host)
+	if err != nil {
+		// The host does not look like a k8s service DNS name
+		return host
+	}
+
+	// Wait for the frontends table to be initialized from k8s. We can't check that
+	// the table has been initialized by all initializers since at least ClusterMesh
+	// uses [Resolve] to look up KVStore address.
+	txn := sr.db.ReadTxn()
+	init, waitInit := sr.frontends.Initialized(txn)
+	for !init {
+		pending := sr.frontends.PendingInitializers(txn)
+		if !slices.ContainsFunc(pending, func(s string) bool { return strings.HasPrefix(s, reflectors.K8sInitializerPrefix) }) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return host
+		case <-waitInit:
+			init = true
+		case <-time.After(100 * time.Millisecond):
+		}
+		txn = sr.db.ReadTxn()
+	}
+
+	fes := sr.frontends.List(
+		txn,
+		loadbalancer.FrontendByServiceName(loadbalancer.NewServiceName(nsname.Namespace, nsname.Name)))
+
+	for fe := range fes {
+		if fe.Type == loadbalancer.SVCTypeClusterIP {
+			return fe.Address.Addr().String()
+		}
+	}
+
+	// We could not find a ClusterIP frontend for this service
+	return host
 }
 
 func ServiceURLToNamespacedName(host string) (types.NamespacedName, error) {
