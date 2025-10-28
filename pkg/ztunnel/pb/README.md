@@ -34,6 +34,19 @@
     - [WorkloadStatus](#istio-workload-WorkloadStatus)
     - [WorkloadType](#istio-workload-WorkloadType)
   
+- [zds_ztunnel.proto](#zds_ztunnel-proto)
+    - [Ack](#istio-workload-zds-Ack)
+    - [AddWorkload](#istio-workload-zds-AddWorkload)
+    - [DelWorkload](#istio-workload-zds-DelWorkload)
+    - [KeepWorkload](#istio-workload-zds-KeepWorkload)
+    - [SnapshotSent](#istio-workload-zds-SnapshotSent)
+    - [WorkloadInfo](#istio-workload-zds-WorkloadInfo)
+    - [WorkloadRequest](#istio-workload-zds-WorkloadRequest)
+    - [WorkloadResponse](#istio-workload-zds-WorkloadResponse)
+    - [ZdsHello](#istio-workload-zds-ZdsHello)
+  
+    - [Version](#istio-workload-zds-Version)
+  
 - [Scalar Value Types](#scalar-value-types)
 
 
@@ -502,6 +515,173 @@ Future options may include things like QUIC/HTTP3, etc. |
 | CRONJOB | 1 |  |
 | POD | 2 |  |
 | JOB | 3 |  |
+
+
+ 
+
+ 
+
+ 
+
+
+
+<a name="zds_ztunnel-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## zds_ztunnel.proto
+
+
+
+<a name="istio-workload-zds-Ack"></a>
+
+### Ack
+Ztunnel ack message. If error is not empty, this is an error message.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| error | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="istio-workload-zds-AddWorkload"></a>
+
+### AddWorkload
+Add a workload to the ztunnel. This will be accompanied by ancillary data containing
+the workload&#39;s netns file descriptor.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| uid | [string](#string) |  |  |
+| workload_info | [WorkloadInfo](#istio-workload-zds-WorkloadInfo) |  |  |
+
+
+
+
+
+
+<a name="istio-workload-zds-DelWorkload"></a>
+
+### DelWorkload
+Delete a workload from the ztunnel. Ztunnel should shutdown the workload&#39;s proxy.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| uid | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="istio-workload-zds-KeepWorkload"></a>
+
+### KeepWorkload
+Keep workload that we can&#39;t find in the fd cache. This can only be sent before SnapshotSent is sent
+to signal ztunnel to not delete the workload if it has it.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| uid | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="istio-workload-zds-SnapshotSent"></a>
+
+### SnapshotSent
+Let ztunnel know that a full snapshot was sent. Ztunnel should reconcile its internal state
+and remove internal entries that were not sent.
+
+
+
+
+
+
+<a name="istio-workload-zds-WorkloadInfo"></a>
+
+### WorkloadInfo
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| namespace | [string](#string) |  |  |
+| service_account | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="istio-workload-zds-WorkloadRequest"></a>
+
+### WorkloadRequest
+Sent from CNI to ztunnel
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| add | [AddWorkload](#istio-workload-zds-AddWorkload) |  |  |
+| keep | [KeepWorkload](#istio-workload-zds-KeepWorkload) |  |  |
+| del | [DelWorkload](#istio-workload-zds-DelWorkload) |  |  |
+| snapshot_sent | [SnapshotSent](#istio-workload-zds-SnapshotSent) |  |  |
+
+
+
+
+
+
+<a name="istio-workload-zds-WorkloadResponse"></a>
+
+### WorkloadResponse
+Sent from ztunnel to CNI
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| ack | [Ack](#istio-workload-zds-Ack) |  |  |
+
+
+
+
+
+
+<a name="istio-workload-zds-ZdsHello"></a>
+
+### ZdsHello
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| version | [Version](#istio-workload-zds-Version) |  |  |
+
+
+
+
+
+ 
+
+
+<a name="istio-workload-zds-Version"></a>
+
+### Version
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| NOT_USED | 0 |  |
+| V1 | 1 |  |
 
 
  

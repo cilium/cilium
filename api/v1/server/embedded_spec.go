@@ -2601,6 +2601,10 @@ func init() {
           "description": "Name assigned to container",
           "type": "string"
         },
+        "container-netns-path": {
+          "description": "Path of Container Netns",
+          "type": "string"
+        },
         "datapath-configuration": {
           "$ref": "#/definitions/EndpointDatapathConfiguration"
         },
@@ -7962,6 +7966,10 @@ func init() {
         },
         "container-name": {
           "description": "Name assigned to container",
+          "type": "string"
+        },
+        "container-netns-path": {
+          "description": "Path of Container Netns",
           "type": "string"
         },
         "datapath-configuration": {
