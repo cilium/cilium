@@ -669,6 +669,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
