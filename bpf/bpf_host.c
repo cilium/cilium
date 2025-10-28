@@ -319,13 +319,18 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
  * on this feature being enabled or not.
  */
 #ifdef ENABLE_SRV6
-	if (!from_host) {
-		if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
-			/* This packet is destined to an SID so we need to decapsulate it
-			 * and forward it.
-			 */
-			return tail_call_internal(ctx, CILIUM_CALL_SRV6_DECAP, ext_err);
-		}
+	if (!from_host && is_srv6_packet(ip6)) {
+		/* If there's no SID for the destination address, drop this packet
+		 * to avoid punting it to the host, to be forwarded back out to the
+		 * network and looping back to us.
+		 */
+		if (!srv6_lookup_sid(&ip6->daddr))
+			return DROP_NO_SID;
+
+		/* This packet is destined to an SID so we need to decapsulate it
+		 * and forward it.
+		 */
+		return tail_call_internal(ctx, CILIUM_CALL_SRV6_DECAP, ext_err);
 	}
 #endif /* ENABLE_SRV6 */
 
