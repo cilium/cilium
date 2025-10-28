@@ -487,16 +487,6 @@
       "versioning": "regex:^((?<compatibility>[a-z0-9-.]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
     },
     {
-      // Disable updates for rhel8.6 for both complexity-test and kind
-      // since new versions are making the tests to fail.
-      "enabled": false,
-      "matchPackageNames": [
-        "quay.io/lvh-images/complexity-test",
-        "quay.io/lvh-images/kind"
-      ],
-      "matchCurrentVersion": "/^rhel8\\.6-.*$/"
-    },
-    {
       "groupName": "stable lvh-images",
       "groupSlug": "stable-lvh-images",
       "matchPackageNames": [
