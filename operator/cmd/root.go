@@ -57,6 +57,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
@@ -170,6 +171,8 @@ var (
 		cell.Provide(func() *operatorOption.OperatorConfig {
 			return operatorOption.Config
 		}),
+
+		ipsec.OperatorCell,
 
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
