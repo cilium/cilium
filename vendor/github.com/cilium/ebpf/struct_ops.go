@@ -115,6 +115,25 @@ func structOpsCopyMember(m, km btf.Member, data []byte, kernVData []byte) error 
 		return fmt.Errorf("unmatched member type %s != %s (kernel)", m.Name, km.Name)
 	}
 
+	switch mType.(type) {
+	case *btf.Struct, *btf.Union:
+		if !structOpsIsMemZeroed(data[srcOff : srcOff+mSize]) {
+			return fmt.Errorf("non-zero nested struct %s: %w", m.Name, ErrNotSupported)
+		}
+		// the bytes has zeroed value, we simply skip the copy.
+		return nil
+	}
+
 	copy(kernVData[dstOff:dstOff+mSize], data[srcOff:srcOff+mSize])
 	return nil
+}
+
+// structOpsIsMemZeroed() checks whether all bytes in data are zero.
+func structOpsIsMemZeroed(data []byte) bool {
+	for _, b := range data {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
 }
