@@ -236,6 +236,11 @@ exclude:
   - k8s-version: "1.29"
     focus: "f05-agent-policy-multi-node-2"
 
+  # These tests require an external node which is only available on
+  # "net-next". So there's no point on running them.
+  - k8s-version: "1.29"
+    focus: "f09-datapath-misc-2"
+
   # These tests require kernel net-next so there's no point on running them
   - k8s-version: "1.29"
     focus: "f11-datapath-service-ns-tc"
@@ -253,6 +258,11 @@ exclude:
   # / net-next so there's no point on running them
   - k8s-version: "1.28"
     focus: "f05-agent-policy-multi-node-2"
+
+  # These tests require an external node which is only available on
+  # "net-next". So there's no point on running them.
+  - k8s-version: "1.28"
+    focus: "f09-datapath-misc-2"
 
   # These tests require kernel net-next so there's no point on running them
   - k8s-version: "1.28"
@@ -279,6 +289,11 @@ exclude:
 
   - k8s-version: "1.27"
     focus: "f05-agent-policy-multi-node-2"
+
+  # These tests require an external node which is only available on
+  # "net-next". So there's no point on running them.
+  - k8s-version: "1.27"
+    focus: "f09-datapath-misc-2"
 
   - k8s-version: "1.27"
     focus: "f11-datapath-service-ns-tc"
