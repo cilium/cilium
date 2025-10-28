@@ -6,7 +6,7 @@ package ciliumendpointslice
 import (
 	"log/slog"
 
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -59,7 +59,7 @@ func (c *cesManager) createCES(name, ns string) CESName {
 
 // UpdateCEPMapping is used to insert CEP in local cache, this may result in creating a new
 // CES object or updating an existing CES object.
-func (c *cesManager) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) []CESKey {
+func (c *cesManager) UpdateCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, ns string) []CESKey {
 	cepName := GetCEPNameFromCCEP(cep, ns)
 	c.logger.Debug("Insert CEP in local cache",
 		logfields.CEPName, cepName.string(),
@@ -90,7 +90,7 @@ func (c *cesManager) UpdateCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns stri
 	return []CESKey{NewCESKey(cesName.string(), ns)}
 }
 
-func (c *cesManager) RemoveCEPMapping(cep *cilium_v2.CoreCiliumEndpoint, ns string) CESKey {
+func (c *cesManager) RemoveCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, ns string) CESKey {
 	cepName := GetCEPNameFromCCEP(cep, ns)
 	c.logger.Debug("Removing CEP from local cache", logfields.CEPName, cepName.string())
 	cesName, exists := c.mapping.getCESName(cepName)
@@ -127,11 +127,11 @@ func (c *cesManager) getLargestAvailableCESForNamespace(ns string) CESName {
 	return selectedCES
 }
 
-func (c *cesManager) initializeMappingForCES(ces *cilium_v2.CiliumEndpointSlice) CESName {
+func (c *cesManager) initializeMappingForCES(ces *cilium_v2a1.CiliumEndpointSlice) CESName {
 	return c.createCES(ces.Name, ces.Namespace)
 }
 
-func (c *cesManager) initializeMappingCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, ns string, ces CESName) {
+func (c *cesManager) initializeMappingCEPtoCES(cep *cilium_v2a1.CoreCiliumEndpoint, ns string, ces CESName) {
 	cepName := GetCEPNameFromCCEP(cep, ns)
 	c.mapping.insertCEP(cepName, ces)
 }
