@@ -57,15 +57,17 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
-	cesController := &Controller{
-		logger:              log,
-		clientset:           fakeClient.Clientset,
-		ciliumEndpoint:      ciliumEndpoint,
-		ciliumEndpointSlice: ciliumEndpointSlice,
-		reconciler:          r,
-		manager:             m,
-		rateLimit:           rateLimitConfig,
-		enqueuedAt:          make(map[CESKey]time.Time),
+	cesController := &DefaultController{
+		Controller: &Controller{
+			logger:              log,
+			clientset:           fakeClient.Clientset,
+			ciliumEndpointSlice: ciliumEndpointSlice,
+			reconciler:          r,
+			manager:             m,
+			rateLimit:           rateLimitConfig,
+			enqueuedAt:          make(map[CESKey]time.Time),
+		},
+		ciliumEndpoint: ciliumEndpoint,
 	}
 	cesController.initializeQueue()
 
@@ -130,18 +132,20 @@ func TestDifferentSpeedQueues(t *testing.T) {
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
-	cesController := &Controller{
-		logger:              log,
-		clientset:           fakeClient.Clientset,
-		ciliumEndpoint:      ciliumEndpoint,
-		ciliumEndpointSlice: ciliumEndpointSlice,
-		reconciler:          r,
-		manager:             m,
-		rateLimit:           rateLimitConfig,
-		enqueuedAt:          make(map[CESKey]time.Time),
-		metrics:             cesMetrics,
-		priorityNamespaces:  make(map[string]struct{}),
-		syncDelay:           0,
+	cesController := &DefaultController{
+		Controller: &Controller{
+			logger:              log,
+			clientset:           fakeClient.Clientset,
+			ciliumEndpointSlice: ciliumEndpointSlice,
+			reconciler:          r,
+			manager:             m,
+			rateLimit:           rateLimitConfig,
+			enqueuedAt:          make(map[CESKey]time.Time),
+			metrics:             cesMetrics,
+			priorityNamespaces:  make(map[string]struct{}),
+			syncDelay:           0,
+		},
+		ciliumEndpoint: ciliumEndpoint,
 	}
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
@@ -232,18 +236,20 @@ func TestCESManagement(t *testing.T) {
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
-	cesController := &Controller{
-		logger:              log,
-		clientset:           fakeClient.Clientset,
-		ciliumEndpoint:      ciliumEndpoint,
-		ciliumEndpointSlice: ciliumEndpointSlice,
-		reconciler:          r,
-		manager:             m,
-		rateLimit:           rateLimitConfig,
-		enqueuedAt:          make(map[CESKey]time.Time),
-		metrics:             cesMetrics,
-		priorityNamespaces:  make(map[string]struct{}),
-		syncDelay:           0,
+	cesController := &DefaultController{
+		Controller: &Controller{
+			logger:              log,
+			clientset:           fakeClient.Clientset,
+			ciliumEndpointSlice: ciliumEndpointSlice,
+			reconciler:          r,
+			manager:             m,
+			rateLimit:           rateLimitConfig,
+			enqueuedAt:          make(map[CESKey]time.Time),
+			metrics:             cesMetrics,
+			priorityNamespaces:  make(map[string]struct{}),
+			syncDelay:           0,
+		},
+		ciliumEndpoint: ciliumEndpoint,
 	}
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
 	cesController.context, cesController.contextCancel = context.WithCancel(t.Context())
