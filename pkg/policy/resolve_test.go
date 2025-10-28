@@ -304,7 +304,7 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 
 	expectedEndpointPolicy := EndpointPolicy{
 		Redirects: testRedirects,
-		selectorPolicy: &selectorPolicy{
+		SelectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
 			L4Policy: L4Policy{
@@ -331,19 +331,6 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 
 	mdl := repo.GetRulesList()
 	require.Contains(t, mdl.Policy, "10.1.1.1")
-
-	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
-
-	// Assign an empty mutex so that checker.Equal does not complain about the
-	// difference of the internal time.Time from the lock_debug.go.
-	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	policy.policyMapChanges.mutex = lock.Mutex{}
-	policy.policyMapChanges.firstVersion = 0
-	policy.policyMapState = mapState{}
-
-	// reset cached envoy http rules to avoid unnecessary diff
-	resetCachedEnvoyHTTPRules(policy)
 
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
@@ -773,11 +760,9 @@ func TestMapStateWithIngress(t *testing.T) {
 		}),
 	}
 
-	// Have to remove circular reference before testing for Equality to avoid an infinite loop
-	policy.SelectorPolicy.detach(true, 0)
-
 	// Verify that cached selector is not found after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
+	policy.SelectorPolicy.detach(true, 0)
 	cachedSelectorTest = td.sc.findCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.Nil(t, cachedSelectorTest)
 
