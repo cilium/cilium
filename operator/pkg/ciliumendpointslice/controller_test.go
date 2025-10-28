@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -34,6 +35,7 @@ func TestRegisterController(t *testing.T) {
 	hive := hive.New(
 		k8sFakeClient.FakeClientBuilderCell(),
 		k8s.ResourcesCell,
+		ipsec.OperatorCell,
 		cell.Provide(func() Config {
 			return defaultConfig
 		}),
@@ -87,6 +89,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 	h := hive.New(
 		k8sFakeClient.FakeClientBuilderCell(),
 		k8s.ResourcesCell,
+		ipsec.OperatorCell,
 		cell.Provide(func() Config {
 			return defaultConfig
 		}),

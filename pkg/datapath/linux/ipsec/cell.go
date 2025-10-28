@@ -28,6 +28,8 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(buildConfigFrom),
 )
 
+var OperatorCell = cell.Config(defaultEnableConfig)
+
 type params struct {
 	cell.In
 
@@ -71,7 +73,7 @@ func buildConfigFrom(uc UserConfig, dc *option.DaemonConfig) Config {
 }
 
 var defaultUserConfig = UserConfig{
-	EnableIPsec:                              false,
+	EnableConfig:                             defaultEnableConfig,
 	EnableIPsecKeyWatcher:                    true,
 	EnableIPsecXfrmStateCaching:              true,
 	UseCiliumInternalIPForIPsec:              false,
@@ -81,7 +83,7 @@ var defaultUserConfig = UserConfig{
 }
 
 type UserConfig struct {
-	EnableIPsec                              bool
+	EnableConfig                             `mapstructure:",squash"`
 	EnableIPsecKeyWatcher                    bool
 	EnableIPsecXfrmStateCaching              bool
 	UseCiliumInternalIPForIPsec              bool
@@ -91,7 +93,7 @@ type UserConfig struct {
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool(types.EnableIPSec, def.EnableIPsec, "Enable IPsec")
+	def.EnableConfig.Flags(flags)
 	flags.Bool(types.EnableIPsecKeyWatcher, def.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
 	flags.Bool(types.EnableIPSecXfrmStateCaching, def.EnableIPsecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
 	flags.MarkHidden(types.EnableIPSecXfrmStateCaching)
@@ -110,14 +112,26 @@ type Config struct {
 	EncryptNode bool
 }
 
-func (c Config) Enabled() bool {
-	return c.EnableIPsec
-}
-
 func (c Config) UseCiliumInternalIP() bool {
 	return c.UseCiliumInternalIPForIPsec
 }
 
 func (c Config) DNSProxyInsecureSkipTransparentModeCheckEnabled() bool {
 	return c.DNSProxyInsecureSkipTransparentModeCheck
+}
+
+var defaultEnableConfig = EnableConfig{
+	EnableIPsec: false,
+}
+
+type EnableConfig struct {
+	EnableIPsec bool
+}
+
+func (def EnableConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool(types.EnableIPSec, def.EnableIPsec, "Enable IPsec")
+}
+
+func (c EnableConfig) Enabled() bool {
+	return c.EnableIPsec
 }
