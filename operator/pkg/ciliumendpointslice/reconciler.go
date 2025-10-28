@@ -22,20 +22,21 @@ import (
 // reconciler is used to sync the current (i.e. desired) state of the CESs in datastore into current state CESs in the k8s-apiserver.
 // The source of truth is in local datastore.
 type reconciler struct {
-	logger     *slog.Logger
-	client     clientset.CiliumV2alpha1Interface
-	context    context.Context
-	cesManager *cesManager
-	cepStore   resource.Store[*cilium_v2.CiliumEndpoint]
-	cesStore   resource.Store[*cilium_v2a1.CiliumEndpointSlice]
-	metrics    *Metrics
+	logger   *slog.Logger
+	client   clientset.CiliumV2alpha1Interface
+	context  context.Context
+	cepStore resource.Store[*cilium_v2.CiliumEndpoint]
+	cesStore resource.Store[*cilium_v2a1.CiliumEndpointSlice]
+	metrics  *Metrics
+
+	cesManager Manager
 }
 
 // newReconciler creates and initializes a new reconciler.
 func newReconciler(
 	ctx context.Context,
 	client clientset.CiliumV2alpha1Interface,
-	cesMgr *cesManager,
+	cesMgr Manager,
 	logger *slog.Logger,
 	ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint],
 	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
