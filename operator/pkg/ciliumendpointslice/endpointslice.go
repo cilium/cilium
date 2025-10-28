@@ -157,7 +157,7 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 	c.context, c.contextCancel = context.WithCancel(context.Background())
 	defer utilruntime.HandleCrash()
 
-	c.manager = newCESManager(c.maxCEPsInCES, c.logger)
+	c.manager = newDefaultManager(c.maxCEPsInCES, c.logger)
 
 	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
 
