@@ -22,7 +22,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	ciliumLabels "github.com/cilium/cilium/pkg/labels"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/types"
@@ -61,7 +61,7 @@ type lrpControllerParams struct {
 	Pods               statedb.Table[daemonk8s.LocalPod]
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
 	Writer             *writer.Writer
-	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
+	NetNSCookieSupport reflectors.HaveNetNSCookieSupport
 	Metrics            controllerMetrics
 	LRPMetrics         LRPMetrics `optional:"true"`
 }

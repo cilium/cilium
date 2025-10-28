@@ -589,7 +589,7 @@ func testHive(maps lbmaps.LBMaps,
 			// Reconcile tables to BPF maps
 			lbreconciler.Cell,
 
-			cell.Provide(lbmaps.NetnsCookieSupportFunc),
+			cell.Provide(reflectors.NetnsCookieSupportFunc),
 
 			cell.Provide(
 				tables.NewNodeAddressTable,
