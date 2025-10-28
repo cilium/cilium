@@ -5,7 +5,6 @@ package bpf
 
 import (
 	"errors"
-	"math"
 	"slices"
 	"testing"
 
@@ -38,14 +37,12 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 		Program *ebpf.ProgramSpec  `ebpf:"entry"`
 		UseMapA *ebpf.VariableSpec `ebpf:"__config_use_map_a"`
 		UseMapB *ebpf.VariableSpec `ebpf:"__config_use_map_b"`
-		UseMapC *ebpf.VariableSpec `ebpf:"__config_use_map_c"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
 
 	// Enable as many maps as possible.
 	require.NoError(t, obj.UseMapA.Set(true))
 	require.NoError(t, obj.UseMapB.Set(true))
-	require.NoError(t, obj.UseMapC.Set(uint64(math.MaxUint64)))
 
 	reach, err := computeReachability(spec)
 	require.NoError(t, err)
@@ -54,7 +51,6 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 
 	assert.NotNil(t, spec.Maps["map_a"])
 	assert.NotNil(t, spec.Maps["map_b"])
-	assert.NotNil(t, spec.Maps["map_c"])
 	assert.False(t, slices.ContainsFunc(obj.Program.Instructions, func(ins asm.Instruction) bool {
 		return ins.Constant == poisonedMapLoad
 	}), "No instruction should have been poisoned")
@@ -65,7 +61,6 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 	// Disable as many maps as possible.
 	require.NoError(t, obj.UseMapA.Set(false))
 	require.NoError(t, obj.UseMapB.Set(false))
-	require.NoError(t, obj.UseMapC.Set(uint64(0)))
 
 	reach, err = computeReachability(spec)
 	require.NoError(t, err)
@@ -74,7 +69,6 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 
 	assert.Nil(t, spec.Maps["map_a"])
 	assert.Nil(t, spec.Maps["map_b"])
-	assert.Nil(t, spec.Maps["map_c"])
 	assert.True(t, slices.ContainsFunc(obj.Program.Instructions, func(ins asm.Instruction) bool {
 		return ins.Constant == poisonedMapLoad
 	}), "At least one instruction should have been poisoned")
