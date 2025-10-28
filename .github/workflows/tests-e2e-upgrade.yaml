@@ -279,11 +279,6 @@ jobs:
             EXTRA_CLI_FLAGS+=("--secondary-network-iface=eth1")
           fi
 
-          if [ "${{ matrix.encryption-strict-mode }}" = "true" ]; then
-            # "Test Cilium after upgrade" ran strict-mode-encryption test which caused temporary drops.
-            EXTRA_CLI_FLAGS+=("--expected-drop-reasons=+Traffic is unencrypted")
-          fi
-
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }} \
                                       ${EXTRA_CLI_FLAGS[*]@Q}"
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
