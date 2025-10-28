@@ -5,6 +5,7 @@ package ciliumendpointslice
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -56,7 +57,6 @@ type Controller struct {
 
 	// Cilium kubernetes clients to access V2 and V2alpha1 resources
 	clientset           k8sClient.Clientset
-	ciliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
 	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	ciliumNodes         resource.Resource[*v2.CiliumNode]
 	namespace           resource.Resource[*slim_corev1.Namespace]
@@ -101,6 +101,19 @@ type Controller struct {
 	Job job.Group
 }
 
+type DefaultController struct {
+	*Controller
+
+	ciliumEndpoint resource.Resource[*v2.CiliumEndpoint]
+}
+
+type SlimController struct {
+	*Controller
+
+	ipsecEnabled bool
+	wgEnabled    bool
+}
+
 // registerController creates and initializes the CES controller
 func registerController(p params) error {
 	clientset, err := p.NewClient("ciliumendpointslice-controller")
@@ -116,10 +129,13 @@ func registerController(p params) error {
 		return err
 	}
 
+	if p.Cfg.CESControllerMode != defaultMode && p.Cfg.CESControllerMode != slimMode {
+		return fmt.Errorf("Invalid CES controller mode: %s", p.Cfg.CESControllerMode)
+	}
+
 	cesController := &Controller{
 		logger:                   p.Logger,
 		clientset:                clientset,
-		ciliumEndpoint:           p.CiliumEndpoint,
 		ciliumEndpointSlice:      p.CiliumEndpointSlice,
 		ciliumNodes:              p.CiliumNodes,
 		namespace:                p.Namespace,
@@ -133,6 +149,17 @@ func registerController(p params) error {
 		cond:                     *sync.NewCond(&lock.Mutex{}),
 		Job:                      p.Job,
 	}
-	p.Lifecycle.Append(cesController)
+
+	if p.Cfg.CESControllerMode == defaultMode {
+		p.Logger.Info("CES Controller running in default mode")
+		defaultController := &DefaultController{
+			Controller:     cesController,
+			ciliumEndpoint: p.CiliumEndpoint,
+		}
+		p.Lifecycle.Append(defaultController)
+	} else {
+		p.Logger.Info("CES Controller running in slim mode")
+	}
+
 	return nil
 }

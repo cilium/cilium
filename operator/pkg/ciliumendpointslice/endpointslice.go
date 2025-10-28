@@ -46,6 +46,9 @@ const (
 
 	CESWriteQPSLimitMax = 50
 	CESWriteQPSBurstMax = 100
+
+	defaultMode = "default"
+	slimMode    = "slim"
 )
 
 func (c *Controller) initializeQueue() {
@@ -70,7 +73,7 @@ func (c *Controller) initializeQueue() {
 		})
 }
 
-func (c *Controller) onEndpointUpdate(cep *cilium_api_v2.CiliumEndpoint) {
+func (c *DefaultController) onEndpointUpdate(cep *cilium_api_v2.CiliumEndpoint) {
 	if cep.Status.Networking == nil || cep.Status.Identity == nil || cep.GetName() == "" || cep.Namespace == "" {
 		return
 	}
@@ -78,7 +81,7 @@ func (c *Controller) onEndpointUpdate(cep *cilium_api_v2.CiliumEndpoint) {
 	c.enqueueCESReconciliation(touchedCESs)
 }
 
-func (c *Controller) onEndpointDelete(cep *cilium_api_v2.CiliumEndpoint) {
+func (c *DefaultController) onEndpointDelete(cep *cilium_api_v2.CiliumEndpoint) {
 	touchedCES := c.manager.RemoveCEPMapping(k8s.ConvertCEPToCoreCEP(cep), cep.Namespace)
 	c.enqueueCESReconciliation([]CESKey{touchedCES})
 }
@@ -139,7 +142,7 @@ func (c *Controller) getAndResetCESProcessingDelay(ces CESKey) float64 {
 }
 
 // start the worker thread, reconciles the modified CESs with api-server
-func (c *Controller) Start(ctx cell.HookContext) error {
+func (c *DefaultController) Start(ctx cell.HookContext) error {
 	// Processing CES/CEP events:
 	// CES or CEP event is retrieved and checked whether it is from a priority namespace
 	// Event is added to the fast queue if the namespace was priority and to the standard queue otherwise
@@ -197,7 +200,7 @@ func (c *Controller) Stop(ctx cell.HookContext) error {
 	return nil
 }
 
-func (c *Controller) runCiliumEndpointsUpdater(ctx context.Context) error {
+func (c *DefaultController) runCiliumEndpointsUpdater(ctx context.Context) error {
 	for event := range c.ciliumEndpoint.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
@@ -247,7 +250,7 @@ func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
 
 // Sync all CESs from cesStore to manager cache.
 // Note: CESs are synced locally before CES controller running and this is required.
-func (c *Controller) syncCESsInLocalCache(ctx context.Context) error {
+func (c *DefaultController) syncCESsInLocalCache(ctx context.Context) error {
 	store, err := c.ciliumEndpointSlice.Store(ctx)
 	if err != nil {
 		c.logger.WarnContext(ctx, "Error getting CES Store", logfields.Error, err)
