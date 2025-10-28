@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"structs"
 	"testing"
 
 	"github.com/cilium/ebpf"
@@ -30,14 +31,15 @@ func findLiveReference(r *Reachable, ref string) bool {
 }
 
 func TestReachabilitySimple(t *testing.T) {
-	spec, err := ebpf.LoadCollectionSpec("../testdata/unused-map-pruning.o")
+	spec, err := ebpf.LoadCollectionSpec("../testdata/reachability.o")
 	require.NoError(t, err)
 
 	obj := struct {
 		Program *ebpf.ProgramSpec  `ebpf:"entry"`
-		UseMapA *ebpf.VariableSpec `ebpf:"__config_use_map_a"`
-		UseMapB *ebpf.VariableSpec `ebpf:"__config_use_map_b"`
-		UseMapC *ebpf.VariableSpec `ebpf:"__config_use_map_c"`
+		SymA    *ebpf.VariableSpec `ebpf:"__config_sym_a"`
+		SymB    *ebpf.VariableSpec `ebpf:"__config_sym_b"`
+		SymCD   *ebpf.VariableSpec `ebpf:"__config_sym_cd"`
+		SymE    *ebpf.VariableSpec `ebpf:"__config_sym_e"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
 
@@ -47,19 +49,37 @@ func TestReachabilitySimple(t *testing.T) {
 	noElim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
 
-	assert.False(t, findLiveReference(noElim, "map_a"))
-	assert.False(t, findLiveReference(noElim, "map_b"))
-	assert.False(t, findLiveReference(noElim, "map_c"))
+	assert.False(t, findLiveReference(noElim, "sym_a"))
+	assert.False(t, findLiveReference(noElim, "sym_b"))
+	assert.False(t, findLiveReference(noElim, "sym_c"))
+	assert.False(t, findLiveReference(noElim, "sym_d"))
+	assert.False(t, findLiveReference(noElim, "sym_e"))
 
-	require.NoError(t, obj.UseMapA.Set(true))
-	require.NoError(t, obj.UseMapB.Set(true))
-	require.NoError(t, obj.UseMapC.Set(uint64(math.MaxUint64)))
+	type ts struct {
+		_ structs.HostLayout
+
+		_     byte
+		sym_c bool
+		_     [2]byte
+		sym_d uint32
+	}
+
+	require.NoError(t, obj.SymA.Set(true))
+	require.NoError(t, obj.SymB.Set(uint64(math.MaxUint64)))
+	require.NoError(t, obj.SymCD.Set(ts{
+		sym_c: true,
+		sym_d: 1234,
+	}))
+	require.NoError(t, obj.SymE.Set(int64(-1)))
+
 	elim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
 
-	assert.True(t, findLiveReference(elim, "map_a"))
-	assert.True(t, findLiveReference(elim, "map_b"))
-	assert.True(t, findLiveReference(elim, "map_c"))
+	assert.True(t, findLiveReference(elim, "sym_a"))
+	assert.True(t, findLiveReference(elim, "sym_b"))
+	assert.True(t, findLiveReference(elim, "sym_c"))
+	assert.True(t, findLiveReference(elim, "sym_d"))
+	assert.True(t, findLiveReference(elim, "sym_e"))
 }
 
 var _ VariableSpec = (*mockVarSpec)(nil)
@@ -236,7 +256,7 @@ func TestReachabilityLongJump(t *testing.T) {
 // reachability analysis as it is shared across all users of (copies of) a
 // CollectionSpec.
 func TestReachabilityConcurrent(t *testing.T) {
-	spec, err := ebpf.LoadCollectionSpec("../testdata/unused-map-pruning.o")
+	spec, err := ebpf.LoadCollectionSpec("../testdata/reachability.o")
 	require.NoError(t, err)
 
 	obj := struct {
