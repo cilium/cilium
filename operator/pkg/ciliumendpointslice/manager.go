@@ -17,10 +17,17 @@ var (
 	sequentialLetters = []rune("bcdfghjklmnpqrstvwxyz2456789")
 )
 
+type CesManager interface {
+	getCEPCountInCES(ces CESName) int
+	getCESNamespace(ces CESName) string
+	getCEPinCES(ces CESName) []CEPName
+	isCEPinCES(cep CEPName, ces CESName) bool
+}
+
 // cesManager is used to batch CEP into a CES, based on FirstComeFirstServe. If a new CEP
 // is inserted, then the CEP is queued in any one of the available CES. CEPs are
 // inserted into CESs without any preference or any priority.
-type cesManager struct {
+type defaultManager struct {
 	logger *slog.Logger
 	// mapping is used to map CESName to CESTracker[i.e. list of CEPs],
 	// as well as CEPName to CESName.
@@ -31,10 +38,16 @@ type cesManager struct {
 	maxCEPsInCES int
 }
 
-// newCESManager creates and initializes a new FirstComeFirstServe based CES
+type slimManager struct {
+	defaultManager
+
+	mapping *CESCache
+}
+
+// newDefaultManager creates and initializes a new FirstComeFirstServe based CES
 // manager, in this mode CEPs are batched based on FirstComeFirtServe algorithm.
-func newCESManager(maxCEPsInCES int, logger *slog.Logger) *cesManager {
-	return &cesManager{
+func newDefaultManager(maxCEPsInCES int, logger *slog.Logger) *defaultManager {
+	return &defaultManager{
 		logger:       logger,
 		mapping:      newCESToCEPMapping(),
 		maxCEPsInCES: maxCEPsInCES,
@@ -47,7 +60,7 @@ func newCESManager(maxCEPsInCES int, logger *slog.Logger) *cesManager {
 //     with an empty name, it generates a random unique name and assign it to the CES.
 //  2. During operator warm boot [after crash or software upgrade], slicing manager
 //     creates a CES, by passing unique name.
-func (c *cesManager) createCES(name, ns string) CESName {
+func (c *defaultManager) createCES(name, ns string) CESName {
 	if name == "" {
 		name = uniqueCESliceName(c.mapping)
 	}
@@ -59,7 +72,7 @@ func (c *cesManager) createCES(name, ns string) CESName {
 
 // UpdateCEPMapping is used to insert CEP in local cache, this may result in creating a new
 // CES object or updating an existing CES object.
-func (c *cesManager) UpdateCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, ns string) []CESKey {
+func (c *defaultManager) UpdateCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, ns string) []CESKey {
 	cepName := GetCEPNameFromCCEP(cep, ns)
 	c.logger.Debug("Insert CEP in local cache",
 		logfields.CEPName, cepName.string(),
@@ -90,7 +103,7 @@ func (c *cesManager) UpdateCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, ns st
 	return []CESKey{NewCESKey(cesName.string(), ns)}
 }
 
-func (c *cesManager) RemoveCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, ns string) CESKey {
+func (c *defaultManager) RemoveCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, ns string) CESKey {
 	cepName := GetCEPNameFromCCEP(cep, ns)
 	c.logger.Debug("Removing CEP from local cache", logfields.CEPName, cepName.string())
 	cesName, exists := c.mapping.getCESName(cepName)
@@ -111,7 +124,7 @@ func (c *cesManager) RemoveCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, ns st
 // getLargestAvailableCESForNamespace returns the largest CES from cache for the
 // specified namespace that has at least 1 CEP and 1 available spot (less than
 // maximum CEPs). If it is not found, a nil is returned.
-func (c *cesManager) getLargestAvailableCESForNamespace(ns string) CESName {
+func (c *defaultManager) getLargestAvailableCESForNamespace(ns string) CESName {
 	largestCEPCount := 0
 	selectedCES := CESName("")
 	for _, ces := range c.mapping.getAllCESs() {
@@ -127,28 +140,28 @@ func (c *cesManager) getLargestAvailableCESForNamespace(ns string) CESName {
 	return selectedCES
 }
 
-func (c *cesManager) initializeMappingForCES(ces *cilium_v2a1.CiliumEndpointSlice) CESName {
+func (c *defaultManager) initializeMappingForCES(ces *cilium_v2a1.CiliumEndpointSlice) CESName {
 	return c.createCES(ces.Name, ces.Namespace)
 }
 
-func (c *cesManager) initializeMappingCEPtoCES(cep *cilium_v2a1.CoreCiliumEndpoint, ns string, ces CESName) {
+func (c *defaultManager) initializeMappingCEPtoCES(cep *cilium_v2a1.CoreCiliumEndpoint, ns string, ces CESName) {
 	cepName := GetCEPNameFromCCEP(cep, ns)
 	c.mapping.insertCEP(cepName, ces)
 }
 
-func (c *cesManager) getCEPCountInCES(ces CESName) int {
+func (c *defaultManager) getCEPCountInCES(ces CESName) int {
 	return c.mapping.countCEPsInCES(ces)
 }
 
-func (c *cesManager) getCESNamespace(ces CESName) string {
+func (c *defaultManager) getCESNamespace(ces CESName) string {
 	return c.mapping.getCESNamespace(ces)
 }
 
-func (c *cesManager) getCEPinCES(ces CESName) []CEPName {
+func (c *defaultManager) getCEPinCES(ces CESName) []CEPName {
 	return c.mapping.getCEPsInCES(ces)
 }
 
-func (c *cesManager) isCEPinCES(cep CEPName, ces CESName) bool {
+func (c *defaultManager) isCEPinCES(cep CEPName, ces CESName) bool {
 	mappedCES, exists := c.mapping.getCESName(cep)
 	return exists && mappedCES == ces
 }
