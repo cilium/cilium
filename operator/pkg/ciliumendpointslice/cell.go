@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -31,6 +32,7 @@ var Cell = cell.Module(
 	cell.Config(defaultConfig),
 	cell.Invoke(registerController),
 	metrics.Metric(NewMetrics),
+	ipsec.OperatorCell,
 )
 
 type Config struct {
