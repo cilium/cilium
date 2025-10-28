@@ -8,6 +8,7 @@ TESTDATA_DIR := $(ROOT_DIR)/pkg/bpf/testdata
 UIDGID := $(shell stat -c '%u:%g' ${ROOT_DIR})
 
 TARGETS := \
+	reachability \
 	unreachable-tailcall \
 	upgrade-map \
 	unused-map-pruning
