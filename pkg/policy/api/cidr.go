@@ -7,7 +7,6 @@ import (
 	"net/netip"
 	"strings"
 
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -18,6 +17,10 @@ import (
 type CIDR string
 
 func (s CIDR) IsPeerSelector() {}
+
+func (s CIDR) KeyString() string {
+	return labels.LabelSourceCIDR + ":" + string(s)
+}
 
 // CIDRRule is a rule that specifies a CIDR prefix to/from which outside
 // communication  is allowed, along with an optional list of subnets within that
@@ -59,34 +62,30 @@ type CIDRRule struct {
 
 func (r CIDRRule) IsPeerSelector() {}
 
+func (r CIDRRule) KeyString() string {
+	return r.String()
+}
+
 // String converts the CIDRRule into a human-readable string.
 func (r CIDRRule) String() string {
 	exceptCIDRs := ""
 	if len(r.ExceptCIDRs) > 0 {
 		exceptCIDRs = "-" + CIDRSlice(r.ExceptCIDRs).String()
 	}
-	return string(r.Cidr) + exceptCIDRs
+	switch {
+	case r.CIDRGroupRef != "":
+		return r.CIDRGroupRef.KeyString() + exceptCIDRs
+	case r.CIDRGroupSelector.LabelSelector != nil:
+		return r.CIDRGroupSelector.KeyString() + exceptCIDRs
+	default:
+		return r.Cidr.KeyString() + exceptCIDRs
+	}
 }
 
 // CIDRSlice is a slice of CIDRs. It allows receiver methods to be defined for
 // transforming the slice into other convenient forms such as
 // EndpointSelectorSlice.
 type CIDRSlice []CIDR
-
-// GetAsEndpointSelectors returns the provided CIDR slice as a slice of
-// endpoint selectors
-func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
-	slice := EndpointSelectorSlice{}
-	for _, cidr := range s {
-		lbl, err := labels.IPStringToLabel(string(cidr))
-		if err == nil {
-			slice = append(slice, NewESFromLabels(lbl))
-		}
-		// TODO: Log the error?
-	}
-
-	return slice
-}
 
 // StringSlice returns the CIDR slice as a slice of strings.
 func (s CIDRSlice) StringSlice() []string {
@@ -109,71 +108,6 @@ func (s CIDRSlice) String() string {
 // defined for transforming the slice into other convenient forms such as
 // EndpointSelectorSlice.
 type CIDRRuleSlice []CIDRRule
-
-// GetAsEndpointSelectors returns the provided CIDRRule slice as a slice of
-// endpoint selectors
-//
-// The ExceptCIDRs block is inserted as a negative match. Specifically, the
-// DoesNotExist qualifier. For example, the CIDRRule
-//
-//	cidr: 1.1.1.0/24
-//	exceptCIDRs: ["1.1.1.1/32"]
-//
-// results in the selector equivalent to "cidr:1.1.1.0/24 !cidr:1.1.1.1/32".
-//
-// This works because the label selectors will select numeric identities belonging only
-// to the shorter prefixes. However, longer prefixes will have a different numeric
-// identity, as the bpf ipcache is an LPM lookup. This essentially acts as a
-// "carve-out", using the LPM mechanism to exlude subsets of a larger prefix.
-func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
-	ces := make(EndpointSelectorSlice, 0, len(s))
-
-	for _, r := range s {
-		ls := slim_metav1.LabelSelector{
-			MatchExpressions: make([]slim_metav1.LabelSelectorRequirement, 0, 1+len(r.ExceptCIDRs)),
-		}
-
-		// add the "main" requirement:
-		// either a CIDR, CIDRGroupRef, or CIDRGroupSelector
-		if r.Cidr != "" {
-			lbl, err := labels.IPStringToLabel(string(r.Cidr))
-			if err != nil {
-				// should not happen, IP already parsed.
-				continue
-			}
-
-			ls.MatchExpressions = append(ls.MatchExpressions, slim_metav1.LabelSelectorRequirement{
-				Key:      lbl.GetExtendedKey(),
-				Operator: slim_metav1.LabelSelectorOpExists,
-			})
-		} else if r.CIDRGroupRef != "" {
-			lbl := LabelForCIDRGroupRef(string(r.CIDRGroupRef))
-			ls.MatchExpressions = append(ls.MatchExpressions, slim_metav1.LabelSelectorRequirement{
-				Key:      lbl.GetExtendedKey(),
-				Operator: slim_metav1.LabelSelectorOpExists,
-			})
-		} else if r.CIDRGroupSelector.LabelSelector != nil {
-			ls = *NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, r.CIDRGroupSelector.LabelSelector).LabelSelector
-		} else {
-			// should never be hit, but paranoia
-			continue
-		}
-
-		// exclude any excepted CIDRs.
-		// Do so by inserting a "DoesNotExist" requirement for the given prefix key
-		for _, exceptCIDR := range r.ExceptCIDRs {
-			lbl, _ := labels.IPStringToLabel(string(exceptCIDR))
-			ls.MatchExpressions = append(ls.MatchExpressions, slim_metav1.LabelSelectorRequirement{
-				Key:      lbl.GetExtendedKey(),
-				Operator: slim_metav1.LabelSelectorOpDoesNotExist,
-			})
-		}
-
-		ces = append(ces, NewESFromK8sLabelSelector("", &ls))
-	}
-
-	return ces
-}
 
 // addrsToCIDRRules generates CIDRRules for the IPs passed in.
 // This function will mark the rule to Generated true by default.
@@ -199,6 +133,10 @@ func addrsToCIDRRules(addrs []netip.Addr) []CIDRRule {
 // A CIDR Group is a list of CIDRs whose IP addresses should be considered as a
 // same entity when applying fromCIDRGroupRefs policies on incoming network traffic.
 type CIDRGroupRef string
+
+func (c CIDRGroupRef) KeyString() string {
+	return labels.LabelSourceCIDRGroup + ":" + LabelPrefixGroupName + "/" + string(c)
+}
 
 const LabelPrefixGroupName = "io.cilium.policy.cidrgroupname"
 

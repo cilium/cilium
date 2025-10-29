@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -57,11 +58,22 @@ func haveNid(nid identity.NumericIdentity, selections []identity.NumericIdentity
 	return slices.Contains(selections, nid)
 }
 
+// findCachedIdentitySelector finds the given api.EndpointSelector in the
+// selector cache, returning nil if one can not be found.
+// NOTE: Only used for testing.
+func (sc *SelectorCache) findCachedIdentitySelector(selector api.EndpointSelector) types.CachedSelector {
+	key := selector.CachedString()
+	sc.mutex.RLock()
+	idSel := sc.selectors[key]
+	sc.mutex.RUnlock()
+	return idSel
+}
+
 func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) CachedSelector {
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
-	cached, added := csu.sc.AddIdentitySelector(csu, EmptyStringLabels, sel)
+	cached, added := csu.sc.AddIdentitySelectorForTest(csu, EmptyStringLabels, sel)
 	require.NotNil(csu.t, cached)
 
 	_, exists := csu.selections[cached]
@@ -79,7 +91,10 @@ func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSele
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
-	cached, added := csu.sc.AddFQDNSelector(csu, EmptyStringLabels, sel)
+	var cached types.CachedSelector
+	css, added := csu.sc.AddSelectors(csu, EmptyStringLabels, types.ToSelectors(api.FQDNSelectorSlice{sel})...)
+	cached = css[0]
+
 	require.NotNil(csu.t, cached)
 
 	_, exists := csu.selections[cached]

@@ -19,12 +19,13 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	ciliumLabels "github.com/cilium/cilium/pkg/labels"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -271,7 +272,7 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 			// Stop when we hit a different namespace, e.g. prefix search hit a longer name.
 			break
 		}
-		if lrp.BackendSelector.Matches(labels.Set(pod.Labels)) {
+		if types.Matches(c.p.Log, lrp.BackendSelector, ciliumLabels.K8sSet(pod.Labels)) {
 			matchingPods = append(matchingPods, getPodInfo(pod))
 		}
 	}

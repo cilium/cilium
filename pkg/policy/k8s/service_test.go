@@ -295,14 +295,14 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](rules[0].L3)))
+	}, sortCIDRSet(rules[0].L3.CIDRRules()))
 
 	// Check that Specs was translated
 	assert.Contains(t, rules[1].Labels, svcByNameLbl)
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](rules[1].L3)))
+	}, sortCIDRSet(rules[1].L3.CIDRRules()))
 
 	// Check that policy has been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -332,21 +332,21 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
 		addrToCIDRRule(barEpAddr.Addr()),
-	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[0].L3)))
+	}, sortCIDRSet(byNameRules[0].L3.CIDRRules()))
 
 	// Check that svcByNameCNP Specs (matching only foo) was translated
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(fooEpAddr2.Addr()),
-	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[1].L3)))
+	}, sortCIDRSet(byNameRules[1].L3.CIDRRules()))
 
 	// Check that svcByLabelCNP Spec (matching only bar) was translated
 	assert.Len(t, byLabelRules, 1)
 	assert.Contains(t, byLabelRules[0].Labels, svcByLabelLbl)
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(barEpAddr.Addr()),
-	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byLabelRules[0].L3)))
+	}, sortCIDRSet(byLabelRules[0].L3.CIDRRules()))
 
 	// Check that policies have been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -372,13 +372,13 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
 		addrToCIDRRule(barEpAddr.Addr()),
-	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[0].L3)))
+	}, sortCIDRSet(byNameRules[0].L3.CIDRRules()))
 
 	// Check that Specs was translated (matching only foo) was translated
 	assert.Contains(t, byNameRules[1].Labels, svcByNameLbl)
 	assert.Equal(t, api.CIDRRuleSlice{
 		addrToCIDRRule(fooEpAddr1.Addr()),
-	}, sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[1].L3)))
+	}, sortCIDRSet(byNameRules[1].L3.CIDRRules()))
 
 	// Delete bar-svc labels. This should remove all CIDRs from svcByLabelCNP
 	barEv = servicesFixture.upsertService(barSvcID, nil, nil, barEps, &barEv)
@@ -400,11 +400,11 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	// Check that svcByNameCNP has not changed
 	assert.Equal(t,
-		sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[0].L3)),
-		sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](oldByNameRules[0].L3)))
+		sortCIDRSet(byNameRules[0].L3.CIDRRules()),
+		sortCIDRSet(oldByNameRules[0].L3.CIDRRules()))
 	assert.Equal(t,
-		sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](byNameRules[1].L3)),
-		sortCIDRSet(policytypes.FromPeerSelectorSlice[api.CIDRRule](oldByNameRules[1].L3)))
+		sortCIDRSet(byNameRules[1].L3.CIDRRules()),
+		sortCIDRSet(oldByNameRules[1].L3.CIDRRules()))
 
 	// Check that svcByLabelCNP Spec no longer matches anything
 	assert.Len(t, byLabelRules, 1)
@@ -431,13 +431,13 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 	assert.Contains(t, rules[0].Labels, svcByLabelLbl)
 	assert.Len(t, rules[0].L3, 1)
 
-	bazEndpointSelectors := api.NewESFromMatchRequirements(bazSvcSelector, nil)
-	bazEndpointSelectors.Generated = true
+	bazEndpointSelector := api.NewESFromMatchRequirements(bazSvcSelector, nil)
+	bazEndpointSelector.Generated = true
 	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-	bazEndpointSelectors.AddMatch(podPrefixLbl, bazSvcID.Namespace())
+	bazEndpointSelector.AddMatch(podPrefixLbl, bazSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, bazEndpointSelectors, rules[0].L3[0])
+	assert.Equal(t, bazEndpointSelector.LabelSelector.String(), rules[0].L3[0].Key())
 
 	// Check that policy has been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -543,13 +543,13 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Contains(t, rules[0].Labels, svcByNameLbl)
 	assert.Len(t, rules[0].L3, 1)
 
-	fooEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
-	fooEndpointSelectors.Generated = true
+	fooEndpointSelector := api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
+	fooEndpointSelector.Generated = true
 	var podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
+	fooEndpointSelector.AddMatch(podPrefixLbl, fooSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, fooEndpointSelectors, rules[0].L3[0])
+	assert.Equal(t, fooEndpointSelector.LabelSelector.String(), rules[0].L3[0].Key())
 
 	// Check that policies have been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -570,12 +570,12 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules, 1)
 	assert.Len(t, rules[0].L3, 1)
 
-	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
-	fooEndpointSelectors.Generated = true
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
+	fooEndpointSelector = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
+	fooEndpointSelector.Generated = true
+	fooEndpointSelector.AddMatch(podPrefixLbl, fooSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, fooEndpointSelectors, rules[0].L3[0])
+	assert.Equal(t, fooEndpointSelector.LabelSelector.String(), rules[0].L3[0].Key())
 
 	// bar-svc is selected by svcByLabelCNP
 	barSvcLabels := map[string]string{
@@ -631,12 +631,12 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules, 1)
 	assert.Len(t, rules[0].L3, 1)
 
-	barEndpointSelectors := api.NewESFromMatchRequirements(maps.Clone(barSvcLabels), nil)
-	barEndpointSelectors.Generated = true
-	barEndpointSelectors.AddMatch(podPrefixLbl, barSvcID.Namespace())
+	barEndpointSelector := api.NewESFromMatchRequirements(maps.Clone(barSvcLabels), nil)
+	barEndpointSelector.Generated = true
+	barEndpointSelector.AddMatch(podPrefixLbl, barSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, barEndpointSelectors, rules[0].L3[0])
+	assert.Equal(t, barEndpointSelector.LabelSelector.String(), rules[0].L3[0].Key())
 
 	// Check that policies have been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -681,12 +681,12 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	assert.Len(t, rules, 1)
 	assert.Len(t, rules[0].L3, 1)
 
-	fooEndpointSelectors = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
-	fooEndpointSelectors.Generated = true
-	fooEndpointSelectors.AddMatch(podPrefixLbl, fooSvcID.Namespace())
+	fooEndpointSelector = api.NewESFromMatchRequirements(maps.Clone(fooSvcSelector), nil)
+	fooEndpointSelector.Generated = true
+	fooEndpointSelector.AddMatch(podPrefixLbl, fooSvcID.Namespace())
 
 	// The endpointSelector should be copied from the Service's selector
-	assert.Equal(t, fooEndpointSelectors, rules[0].L3[0])
+	assert.Equal(t, fooEndpointSelector.LabelSelector.String(), rules[0].L3[0].Key())
 
 	// Check that policies have been marked
 	assert.Equal(t, map[loadbalancer.ServiceName]map[resource.Key]struct{}{
@@ -990,7 +990,7 @@ func Test_hasMatchingToServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, hasMatchingToServices(tt.args.spec, tt.args.ev), "hasMatchingToServices(%v, %v)", tt.args.spec, tt.args.ev)
+			assert.Equalf(t, tt.want, hasMatchingToServices(hivetest.Logger(t), tt.args.spec, tt.args.ev), "hasMatchingToServices(%v, %v)", tt.args.spec, tt.args.ev)
 		})
 	}
 }

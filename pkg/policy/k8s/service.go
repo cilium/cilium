@@ -6,6 +6,7 @@ package k8s
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"maps"
 	"net/netip"
 	"slices"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -241,9 +242,9 @@ func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) 
 
 		// This extracts the selected service endpoints from the rule
 		// and translates it to a ToCIDRSet
-		numMatches := svcEndpoints.processRule(cnp.Spec)
+		numMatches := svcEndpoints.processRule(p.log, cnp.Spec)
 		for _, spec := range cnp.Specs {
-			numMatches += svcEndpoints.processRule(spec)
+			numMatches += svcEndpoints.processRule(p.log, spec)
 		}
 
 		// Mark the policy as selecting the service svcID. This allows us to
@@ -261,12 +262,12 @@ type backendPrefixes = []api.CIDR
 // cnpMatchesService returns true if the cnp contains a ToServices rule which
 // matches the provided service svcID/svc
 func (p *policyWatcher) cnpMatchesService(cnp *types.SlimCNP, ev serviceEvent) bool {
-	if hasMatchingToServices(cnp.Spec, ev) {
+	if hasMatchingToServices(p.log, cnp.Spec, ev) {
 		return true
 	}
 
 	for _, spec := range cnp.Specs {
-		if hasMatchingToServices(spec, ev) {
+		if hasMatchingToServices(p.log, spec, ev) {
 			return true
 		}
 	}
@@ -297,14 +298,14 @@ func (p *policyWatcher) clearCNPForService(key resource.Key, svcID loadbalancer.
 
 // specHasMatchingToServices returns true if the rule contains a ToServices rule which
 // matches the provided service svcID/svc
-func hasMatchingToServices(spec *api.Rule, ev serviceEvent) bool {
+func hasMatchingToServices(logger *slog.Logger, spec *api.Rule, ev serviceEvent) bool {
 	if spec == nil {
 		return false
 	}
 	for _, egress := range spec.Egress {
 		for _, toService := range egress.ToServices {
 			if sel := toService.K8sServiceSelector; sel != nil {
-				if serviceSelectorMatches(sel, ev) {
+				if serviceSelectorMatches(logger, sel, ev) {
 					return true
 				}
 			} else if ref := toService.K8sService; ref != nil {
@@ -348,41 +349,36 @@ type serviceDetailer interface {
 
 // serviceSelectorMatches returns true if the ToServices k8sServiceSelector
 // matches the labels of the provided service svc
-func serviceSelectorMatches(sel *api.K8sServiceSelectorNamespace, svc serviceDetailer) bool {
+func serviceSelectorMatches(logger *slog.Logger, sel *api.K8sServiceSelectorNamespace, svc serviceDetailer) bool {
 	if !(sel.Namespace == svc.getNamespace() || sel.Namespace == "") {
 		return false
 	}
-
-	es := api.EndpointSelector(sel.Selector)
-	es.SyncRequirementsWithLabelSelector()
-
-	r := es.Matches(labelsMatcher(svc.getLabels()))
+	ls := policytypes.NewLabelSelector(api.EndpointSelector(sel.Selector))
+	r := policytypes.Matches(logger, ls, labelsMatcher(svc.getLabels()))
 	return r
 }
 
 type labelsMatcher labels.Labels
 
-// Get implements k8sLabels.Labels.
-func (l labelsMatcher) Get(label string) (value string) {
-	v, ok := labels.Labels(l)[label]
-	if ok {
-		value = v.Value
-	}
-	return
+// Get implements labels.LabelMatcher; label source is ignored
+func (l labelsMatcher) GetLabel(label *labels.Label) (value string) {
+	v := l[label.Key]
+	return v.Value
 }
 
-// Has implements k8sLabels.Labels.
-func (l labelsMatcher) Has(label string) (exists bool) {
-	return labels.Labels(l).HasLabelWithKey(label)
+// Has implements labels.LabelMatcher.
+func (l labelsMatcher) HasLabel(label *labels.Label) (exists bool) {
+	_, ok := l[label.Key]
+	return ok
 }
 
-// Lookup implements k8sLabels.Labels.
-func (l labelsMatcher) Lookup(label string) (value string, exists bool) {
-	v, ok := labels.Labels(l)[label]
+// Lookup implements labels.LabelMatcher
+func (l labelsMatcher) LookupLabel(label *labels.Label) (value string, exists bool) {
+	v, ok := l[label.Key]
 	return v.Value, ok
 }
 
-var _ k8sLabels.Labels = labelsMatcher{}
+var _ labels.LabelMatcher = labelsMatcher{}
 
 // serviceRefMatches returns true if the ToServices k8sService reference
 // matches the name/namespace of the provided service svc
@@ -442,14 +438,14 @@ func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]
 
 // processRule parses the ToServices selectors in the provided rule and translates
 // it to ToCIDRSet entries
-func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
+func (s *serviceEndpoints) processRule(logger *slog.Logger, rule *api.Rule) (numMatches int) {
 	if rule == nil {
 		return
 	}
 	for i, egress := range rule.Egress {
 		for _, toService := range egress.ToServices {
 			if sel := toService.K8sServiceSelector; sel != nil {
-				if serviceSelectorMatches(sel, s) {
+				if serviceSelectorMatches(logger, sel, s) {
 					if len(s.svc.Selector) == 0 || s.enableHighScaleIPcache {
 						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.backendPrefixes())
 					} else {

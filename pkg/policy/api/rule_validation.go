@@ -712,7 +712,7 @@ func (c *CIDRRule) sanitize() error {
 	}
 	if c.CIDRGroupSelector.LabelSelector != nil {
 		cnt++
-		if err := c.CIDRGroupSelector.SanitizeWithKeyExteder(labels.GetSourcePrefixKeyExtender(labels.LabelSourceCIDRGroupKeyPrefix)); err != nil {
+		if err := c.CIDRGroupSelector.SanitizeWithKeyExtender(labels.GetSourcePrefixKeyExtender(labels.LabelSourceCIDRGroupKeyPrefix)); err != nil {
 			return fmt.Errorf("failed to parse cidrGroupSelector %v: %w", c.CIDRGroupSelector.String(), err)
 		}
 	}
