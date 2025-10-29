@@ -62,4 +62,22 @@
  * accesses must be done through this macro to ensure the loader's dead code
  * elimination can recognize them.
  */
-#define CONFIG(name) __config_##name
+#define CONFIG(name)	\
+(*({			\
+	void *out;	\
+	/* Reconstruct the rodata pointer on each access to prevent the compiler
+	 * from reusing the pointer across multiple accesses in short
+	 * succession. This makes branches based on config variables more likely
+	 * to be predictable using backtracking, since load/deref/branch will be
+	 * close to each other and the pointer won't be reused across basic
+	 * blocks.
+	 *
+	 * Specifying the global var ptr as an asm input gives enough
+	 * information to the compiler to allow it to reuse the pointer across
+	 * blocks, so opt for a direct symbol reference instead. We need the
+	 * pointer reconstructed in bytecode on every access.
+	 * */ \
+	asm volatile("%0 = " __stringify(__config_##name) " ll"	\
+			: "=r"(out));	\
+	(typeof(__config_##name) *)out;	\
+}))
