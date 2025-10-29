@@ -219,17 +219,16 @@ func (b *Block) iterateGlobal(blocks Blocks, insns asm.Instructions) *BlockItera
 	}
 }
 
-// predecessor returns the previous Block in the control flow if there is
-// exactly one predecessor, otherwise returns nil.
+// backtrack returns a Backtracker starting at the end of the block.
 //
-// This is useful for walking the control flow backwards when there is no
-// branching, e.g. for finding the last instruction that wrote to a register
-// before it is read.
-func (b *Block) predecessor() *Block {
-	if len(b.predecessors) == 1 {
-		return b.predecessors[0]
+// After the next call to [Backtracker.Previous], the backtracker will point to
+// the last instruction in the block.
+func (b *Block) backtrack(insns asm.Instructions) *Backtracker {
+	return &Backtracker{
+		insns: insns,
+		stop:  b.start,
+		index: b.end,
 	}
-	return nil
 }
 
 func (b *Block) String() string {
@@ -285,12 +284,6 @@ func (b *Block) Dump(insns asm.Instructions) string {
 	return sb.String()
 }
 
-// maxDepth is the maximum depth of block traversal when backtracking to
-// predecessors. Used in favor of a visited set since it's much cheaper than
-// frequent map lookups. Typical depth while looking for map pointer loads is
-// 1-3 with some double-digit outliers.
-const maxDepth = 128
-
 // BlockIterator is an iterator over the instructions in a block or a list of
 // blocks.
 //
@@ -308,7 +301,6 @@ type BlockIterator struct {
 	block  *Block
 
 	insns asm.Instructions
-	depth uint8
 
 	ins   *asm.Instruction
 	index int
@@ -332,19 +324,6 @@ func (i *BlockIterator) Offset() asm.RawInstructionOffset {
 	return i.offset
 }
 
-func (i *BlockIterator) Clone() *BlockIterator {
-	return &BlockIterator{
-		i.blocks,
-		i.block,
-		i.insns,
-		i.depth,
-		i.ins,
-		i.index,
-		i.offset,
-		i.local,
-	}
-}
-
 // nextBlock pulls the next block by identifier, if it exists. Otherwise,
 // returns false.
 //
@@ -358,57 +337,10 @@ func (i *BlockIterator) nextBlock() bool {
 	if i.block.id+1 >= i.blocks.count() {
 		return false
 	}
-	next := i.blocks[i.block.id+1]
 
-	// Reset loop detection when moving forward since we're primarily concerned
-	// with infinite loops while backtracking continuously. Fallthroughs always
-	// point to the end of the program eventually.
-	i.depth = 0
-
-	i.block = next
+	i.block = i.blocks[i.block.id+1]
 	i.index = i.block.start
 	i.offset = i.block.raw
-	i.ins = &i.insns[i.index]
-
-	return true
-}
-
-// prevBlock pulls the previous block in the control flow if there is exactly
-// one predecessor, otherwise returns false.
-//
-// Sometimes, map pointers are loaded into a register in a previous block.
-// Backtracking into multiple predecessors is not useful since the contents of
-// the pointer register would be ambiguous if assigned from multiple
-// predecessors.
-//
-// Positions the iterator at the end of the previous block. Offset is set to 0
-// since backtracking requires summing up instruction sizes from the start of
-// the block.
-func (i *BlockIterator) prevBlock() bool {
-	if i.block == nil {
-		return false
-	}
-
-	prev := i.block.predecessor()
-	if prev == nil || prev == i.block {
-		return false
-	}
-
-	// Simple loop detection to avoid infinite loops when backtracking
-	// continuously. Depth gets reset when moving forward.
-	if i.depth >= maxDepth {
-		return false
-	}
-	i.depth++
-
-	i.block = prev
-	i.index = i.block.end
-
-	// Raw offset tracking disabled for backtracking since it requires summing
-	// up instruction sizes from the start of the block. Raw offsets are only
-	// used for dumping instructions in forward order.
-	i.offset = 0
-
 	i.ins = &i.insns[i.index]
 
 	return true
@@ -445,41 +377,62 @@ func (i *BlockIterator) Next() bool {
 	return true
 }
 
-func (i *BlockIterator) Previous() bool {
-	if i.block == nil || i.index < i.block.start || i.index > i.block.end {
+// Backtrack returns a Backtracker starting at the current instruction of the
+// BlockIterator.
+//
+// [Backtracker.Instruction] will return the same instruction as the current
+// instruction of the BlockIterator.
+//
+// [Backtracker.Previous] will return the instruction preceding the current one,
+// if any.
+func (i *BlockIterator) Backtrack() *Backtracker {
+	return &Backtracker{
+		insns: i.insns,
+		stop:  i.block.start,
+		index: i.index,
+		ins:   &i.insns[i.index],
+	}
+}
+
+// Backtracker is an iterator that walks backwards through a Block's
+// instructions.
+//
+// This is useful for finding the last instruction that wrote to a register
+// before it is read, by following the control flow backwards.
+type Backtracker struct {
+	insns asm.Instructions
+	stop  int
+
+	index int
+	ins   *asm.Instruction
+}
+
+// Instruction returns the current instruction.
+func (bt *Backtracker) Instruction() *asm.Instruction {
+	return bt.ins
+}
+
+// Previous moves to the previous instruction within the block.
+// Returns false when reaching the start of the block.
+func (bt *Backtracker) Previous() bool {
+	if bt.index <= bt.stop {
 		return false
 	}
 
-	if i.ins == nil {
-		i.index = i.block.end
-		i.ins = &i.insns[i.index]
-
-		// Raw offset tracking disabled for backtracking since it requires summing
-		// up instruction sizes from the start of the block. Raw offsets are only
-		// used for dumping instructions in forward order.
-		i.offset = 0
-
-		return true
+	// Only decrement if Previous was called before.
+	if bt.ins != nil {
+		bt.index--
 	}
 
-	if i.index-1 < i.block.start {
-		if !i.local {
-			// Iterating globally, roll over to the previous block if it exists.
-			return i.prevBlock()
-		}
-
-		// Iterating locally, stop here.
-		return false
-	}
-
-	i.index--
-	i.ins = &i.insns[i.index]
-
-	// Prevent offset underflow.
-	raw := asm.RawInstructionOffset(i.ins.Size() / asm.InstructionSize)
-	i.offset = min(i.offset, i.offset-raw)
+	bt.ins = &bt.insns[bt.index]
 
 	return true
+}
+
+// Clone creates a copy of the Backtracker at its current position.
+func (bt *Backtracker) Clone() *Backtracker {
+	cpy := *bt
+	return &cpy
 }
 
 // getBlock retrieves the block associated with an instruction. It checks both
@@ -521,13 +474,6 @@ func (bl Blocks) first() *Block {
 		return nil
 	}
 	return bl[0]
-}
-
-func (bl Blocks) last() *Block {
-	if len(bl) == 0 {
-		return nil
-	}
-	return bl[len(bl)-1]
 }
 
 func (bl Blocks) iterate(insns asm.Instructions) *BlockIterator {
