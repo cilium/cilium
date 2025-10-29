@@ -23,6 +23,7 @@ import (
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -662,10 +663,10 @@ func (r *infraIPAllocator) removeOldCiliumHostIPs(ctx context.Context, restoredR
 	gcHostIPsFn := func(ctx context.Context, retries int) (done bool, err error) {
 		var errs error
 		if option.Config.EnableIPv4 {
-			errs = errors.Join(errs, removeOldRouterState(r.logger, false, restoredRouterIPv4))
+			errs = errors.Join(errs, r.removeOldRouterState(false, restoredRouterIPv4))
 		}
 		if option.Config.EnableIPv6 {
-			errs = errors.Join(errs, removeOldRouterState(r.logger, true, restoredRouterIPv6))
+			errs = errors.Join(errs, r.removeOldRouterState(true, restoredRouterIPv6))
 		}
 		if resiliency.IsRetryable(errs) && !errors.As(errs, &netlink.LinkNotFoundError{}) {
 			r.logger.Warn(
@@ -680,4 +681,52 @@ func (r *infraIPAllocator) removeOldCiliumHostIPs(ctx context.Context, restoredR
 	if err := resiliency.Retry(ctx, 100*time.Millisecond, 3, gcHostIPsFn); err != nil {
 		r.logger.Error("Restore of the cilium_host ips failed. Manual intervention is required to remove all other old IPs.", logfields.Error, err)
 	}
+}
+
+// removeOldRouterState will try to ensure that the only IP assigned to the
+// `cilium_host` interface is the given restored IP. If the given IP is nil,
+// then it attempts to clear all IPs from the interface.
+func (r *infraIPAllocator) removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
+	l, err := safenetlink.LinkByName(defaults.HostDevice)
+	if errors.As(err, &netlink.LinkNotFoundError{}) {
+		// There's no old state remove as the host device doesn't exist.
+		// This is always the case when the agent is started for the first time.
+		return nil
+	}
+	if err != nil {
+		return resiliency.Retryable(err)
+	}
+
+	family := netlink.FAMILY_V4
+	if ipv6 {
+		family = netlink.FAMILY_V6
+	}
+	addrs, err := safenetlink.AddrList(l, family)
+	if err != nil {
+		return resiliency.Retryable(err)
+	}
+
+	isRestoredIP := func(a netlink.Addr) bool {
+		return restoredIP != nil && restoredIP.Equal(a.IP)
+	}
+	if len(addrs) == 0 || (len(addrs) == 1 && isRestoredIP(addrs[0])) {
+		return nil // nothing to clean up
+	}
+
+	r.logger.Info("More than one stale router IP was found on the cilium_host device after restoration, cleaning up old router IPs.")
+
+	for _, a := range addrs {
+		if isRestoredIP(a) {
+			continue
+		}
+		r.logger.Debug(
+			"Removing stale router IP from cilium_host device",
+			logfields.IPAddr, a.IP,
+		)
+		if e := netlink.AddrDel(l, &a); e != nil {
+			err = errors.Join(err, resiliency.Retryable(fmt.Errorf("failed to remove IP %s: %w", a.IP, e)))
+		}
+	}
+
+	return err
 }
