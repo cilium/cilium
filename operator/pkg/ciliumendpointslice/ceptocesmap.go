@@ -23,6 +23,14 @@ type CESData struct {
 	ns   string
 }
 
+// Initializes CESData with given namespace
+func NewCESData(ns string) *CESData {
+	return &CESData{
+		ceps: sets.New[CEPName](),
+		ns:   ns,
+	}
+}
+
 // CESToCEPMapping is used to map Cilium Endpoints to CiliumEndpointSlices and
 // retrieving all the Cilium Endpoints mapped to the given CiliumEndpointSlice.
 // This map is protected by lock for consistent and concurrent access.

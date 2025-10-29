@@ -31,6 +31,7 @@ type CesManager interface {
 // inserted into CESs without any preference or any priority.
 type defaultManager struct {
 	logger *slog.Logger
+
 	// mapping is used to map CESName to CESTracker[i.e. list of CEPs],
 	// as well as CEPName to CESName.
 	mapping *CESToCEPMapping
@@ -63,12 +64,20 @@ func newDefaultManager(maxCEPsInCES int, logger *slog.Logger) *defaultManager {
 //  2. During operator warm boot [after crash or software upgrade], slicing manager
 //     creates a CES, by passing unique name.
 func (c *defaultManager) createCES(name, ns string) CESName {
+	return createCESHelper(name, ns, c.mapping, c.logger)
+}
+
+func (c *slimManager) createCES(name, ns string) CESName {
+	return createCESHelper(name, ns, c.mapping, c.logger)
+}
+
+func createCESHelper(name, ns string, cacher CESCacher, logger *slog.Logger) CESName {
 	if name == "" {
-		name = uniqueCESliceName(c.mapping)
+		name = uniqueCESliceName(cacher)
 	}
 	cesName := CESName(name)
-	c.mapping.insertCES(cesName, ns)
-	c.logger.Debug("Generated CES", logfields.CESName, cesName)
+	cacher.insertCES(cesName, ns)
+	logger.Debug("Generated CES", logfields.CESName, cesName)
 	return cesName
 }
 
