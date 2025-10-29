@@ -50,7 +50,7 @@ func (r *rule) IsPeerSelector() bool {
 }
 
 func (r *rule) String() string {
-	return r.Subject.String()
+	return r.Subject.Key()
 }
 
 func (r *rule) origin() ruleOrigin {
@@ -331,7 +331,7 @@ func mergePortProto(policyCtx PolicyContext, existingFilter, filterToMerge *L4Fi
 // wildcards via 'hostWildcardL7'. That is to say, traffic will be
 // forwarded to the proxy for endpoints matching those labels, but the proxy
 // will allow all such traffic.
-func mergeIngressPortProto(policyCtx PolicyContext, endpoints types.PeerSelectorSlice, auth *api.Authentication, hostWildcardL7 []string,
+func mergeIngressPortProto(policyCtx PolicyContext, endpoints types.Selectors, auth *api.Authentication, hostWildcardL7 []string,
 	r api.Ports, p api.PortProtocol, proto api.L4Proto, resMap L4PolicyMap) (int, error) {
 	// Create a new L4Filter
 	filterToMerge, err := createL4IngressFilter(policyCtx, endpoints, auth, hostWildcardL7, r, p, proto)
@@ -346,7 +346,7 @@ func mergeIngressPortProto(policyCtx PolicyContext, endpoints types.PeerSelector
 	return 1, err
 }
 
-func mergeIngress(policyCtx PolicyContext, fromEndpoints types.PeerSelectorSlice, auth *api.Authentication, toPorts api.PortsIterator, resMap L4PolicyMap) (int, error) {
+func mergeIngress(policyCtx PolicyContext, fromEndpoints types.Selectors, auth *api.Authentication, toPorts api.PortsIterator, resMap L4PolicyMap) (int, error) {
 	found := 0
 
 	// short-circuit if no endpoint is selected
@@ -384,7 +384,7 @@ func mergeIngress(policyCtx PolicyContext, fromEndpoints types.PeerSelectorSlice
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
 		if len(fromEndpoints) == 0 {
-			fromEndpoints = types.PeerSelectorSlice{api.WildcardEndpointSelector}
+			fromEndpoints = types.WildcardSelectors
 		}
 		if !policyCtx.IsDeny() {
 			policyCtx.PolicyTrace("      Allows port %v\n", r.GetPortProtocols())
@@ -492,7 +492,7 @@ func (r *rule) resolveIngressPolicy(
 	return nil
 }
 
-func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
+func (r *rule) matchesSubject(logger *slog.Logger, securityIdentity *identity.Identity) bool {
 	subjectIsNode := securityIdentity.ID == identity.ReservedIdentityHost
 	ruleSelectsNode := r.Node
 
@@ -504,7 +504,7 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 	// Fall back to explicit label matching for the local node
 	// because local node has mutable labels, which are applied asynchronously to the SelectorCache.
 	if r.subjectSelector == nil || ruleSelectsNode {
-		return r.Subject.Matches(securityIdentity.LabelArray)
+		return r.Subject.Matches(logger, securityIdentity.LabelArray)
 	}
 
 	return r.subjectSelector.Selects(versioned.Latest(), securityIdentity.ID)
@@ -520,7 +520,7 @@ func (r *rule) getSubjects() []identity.NumericIdentity {
 
 // ****************** EGRESS POLICY ******************
 
-func mergeEgress(policyCtx PolicyContext, toEndpoints types.PeerSelectorSlice, auth *api.Authentication, toPorts api.PortsIterator, resMap L4PolicyMap) (int, error) {
+func mergeEgress(policyCtx PolicyContext, toEndpoints types.Selectors, auth *api.Authentication, toPorts api.PortsIterator, resMap L4PolicyMap) (int, error) {
 	found := 0
 
 	// short-circuit if no endpoint is selected
@@ -548,7 +548,7 @@ func mergeEgress(policyCtx PolicyContext, toEndpoints types.PeerSelectorSlice, a
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
 		if len(toEndpoints) == 0 {
-			toEndpoints = types.PeerSelectorSlice{api.WildcardEndpointSelector}
+			toEndpoints = types.WildcardSelectors
 		}
 		if !policyCtx.IsDeny() {
 			policyCtx.PolicyTrace("      Allows port %v\n", r.GetPortProtocols())
@@ -599,7 +599,7 @@ func mergeEgress(policyCtx PolicyContext, toEndpoints types.PeerSelectorSlice, a
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-func mergeEgressPortProto(policyCtx PolicyContext, endpoints types.PeerSelectorSlice, auth *api.Authentication, r api.Ports, p api.PortProtocol,
+func mergeEgressPortProto(policyCtx PolicyContext, endpoints types.Selectors, auth *api.Authentication, r api.Ports, p api.PortProtocol,
 	proto api.L4Proto, resMap L4PolicyMap) (int, error) {
 	// Create a new L4Filter
 	filterToMerge, err := createL4EgressFilter(policyCtx, endpoints, auth, r, p, proto)

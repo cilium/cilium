@@ -13,11 +13,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/selector"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -62,7 +59,7 @@ type CachedSelectionUser types.CachedSelectionUser
 // (The public methods only expose the CachedSelector interface.)
 type identitySelector struct {
 	logger           *slog.Logger
-	source           selectorSource
+	source           types.Selector
 	key              string
 	selections       versioned.Value[identity.NumericIdentitySlice]
 	users            map[CachedSelectionUser]struct{}
@@ -82,94 +79,6 @@ func (i *identitySelector) MaySelectPeers() bool {
 
 // identitySelector implements CachedSelector
 var _ types.CachedSelector = (*identitySelector)(nil)
-
-type selectorSource interface {
-	selectedNamespaces() []string // allowed namespaces, or nil for no requirement
-
-	matches(logger *slog.Logger, labels labels.LabelArray) bool
-
-	remove(identityNotifier)
-
-	metricsClass() string
-}
-
-// fqdnSelector implements the selectorSource for a FQDNSelector. A fqdnSelector
-// matches an identity if the identity has a `fqdn:` label matching the FQDN
-// selector string (stored in 'label' field).
-// In addition, the remove implementation calls back into the DNS name manager
-// to unregister the FQDN selector.
-type fqdnSelector struct {
-	selector api.FQDNSelector
-	label    labels.Label
-}
-
-func newFqdnSelector(s api.FQDNSelector) *fqdnSelector {
-	return &fqdnSelector{
-		selector: s,
-		label:    s.IdentityLabel(),
-	}
-}
-
-func (f *fqdnSelector) selectedNamespaces() []string {
-	return nil
-}
-
-func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
-	dnsProxy.UnregisterFQDNSelector(f.selector)
-}
-
-// matches returns true if the identity contains at least one label
-// that matches the FQDNSelector's IdentityLabel string
-func (f *fqdnSelector) matches(_ *slog.Logger, lbls labels.LabelArray) bool {
-	return lbls.IntersectsLabel(f.label)
-}
-
-func (f *fqdnSelector) metricsClass() string {
-	return types.LabelValueSCFQDN
-}
-
-type labelIdentitySelector struct {
-	cachedString string
-	selector     selector.Requirements
-	namespaces   []string // allowed namespaces, or nil for no namespace requirement
-}
-
-func (l *labelIdentitySelector) selectedNamespaces() []string {
-	return l.namespaces
-}
-
-// matchesLabels returns true if the CachedSelector matches given labels.
-func (l *labelIdentitySelector) matches(logger *slog.Logger, labels labels.LabelArray) bool {
-	return l.selector.Matches(logger, labels)
-}
-
-func newLabelIdentitySelector(es api.EndpointSelector) *labelIdentitySelector {
-	reqs := selector.FromK8sRequirements(es.Requirements())
-	namespaces, _ := reqs.GetFirstK8sMatch(k8sConst.PodNamespaceLabel)
-
-	return &labelIdentitySelector{
-		cachedString: es.CachedString(),
-		namespaces:   namespaces,
-		selector:     reqs,
-	}
-}
-
-func (l *labelIdentitySelector) remove(_ identityNotifier) {
-	// only useful for fqdn selectors
-}
-
-func (l *labelIdentitySelector) metricsClass() string {
-	if l.cachedString == api.EntitySelectorMapping[api.EntityCluster][0].CachedString() {
-		return types.LabelValueSCCluster
-	}
-	for _, entity := range api.EntitySelectorMapping[api.EntityWorld] {
-		if l.cachedString == entity.CachedString() {
-			return types.LabelValueSCWorld
-		}
-	}
-
-	return types.LabelValueSCOther
-}
 
 // lock must be held
 //
@@ -247,18 +156,39 @@ func (i *identitySelector) String() string {
 //
 
 // lock must be held
-func (i *identitySelector) addUser(user CachedSelectionUser) (added bool) {
+func (i *identitySelector) addUser(user CachedSelectionUser, idNotifier identityNotifier) (added bool) {
 	if _, exists := i.users[user]; exists {
 		return false
 	}
 	i.users[user] = struct{}{}
+
+	// register FQDN on first user
+	if len(i.users) == 1 && idNotifier != nil {
+		// Check if need to register with the dns proxy
+		if fqdn, ok := i.source.GetFQDNSelector(); ok {
+			// Make the FQDN subsystem aware of this selector
+			idNotifier.RegisterFQDNSelector(*fqdn)
+		}
+	}
+
 	return true
 }
 
 // locks must be held for the dnsProxy and the SelectorCache (if the selector is a FQDN selector)
-func (i *identitySelector) removeUser(user CachedSelectionUser) (last bool) {
-	delete(i.users, user)
-	return len(i.users) == 0
+func (i *identitySelector) removeUser(user CachedSelectionUser, idNotifier identityNotifier) (last bool) {
+	if _, exists := i.users[user]; exists {
+		delete(i.users, user)
+
+		if len(i.users) == 0 {
+			if idNotifier != nil {
+				if fqdn, ok := i.source.GetFQDNSelector(); ok {
+					idNotifier.UnregisterFQDNSelector(*fqdn)
+				}
+			}
+			return true
+		}
+	}
+	return false
 }
 
 // lock must be held

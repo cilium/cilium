@@ -16,7 +16,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/types"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/policy/utils"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
@@ -80,11 +80,11 @@ func newTestData(logger *slog.Logger) *testData {
 	td.testPolicyContext.sc = td.sc
 	td.repo.selectorCache = td.sc
 
-	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
+	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
+
 	td.cachedSelectorCIDR = func(cidr api.CIDR) CachedSelector {
-		ess := api.CIDRSlice{cidr}.GetAsEndpointSelectors()
-		cs, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, ess[0])
-		return cs
+		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, EmptyStringLabels, types.ToSelector(cidr))
+		return css[0]
 	}(api.CIDR("10.1.1.1"))
 
 	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA, idA.ID)
@@ -159,7 +159,7 @@ func (td *testData) removeIdentity(id *identity.Identity) {
 }
 
 func (td *testData) addIdentitySelector(sel api.EndpointSelector) bool {
-	_, added := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, sel)
+	_, added := td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, sel)
 	return added
 }
 
@@ -212,7 +212,7 @@ func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4Poli
 				}
 			}
 
-			require.True(t, found, "Failed to find expected cached selector in PerSelectorPolicy: %s", k.String())
+			require.True(t, found, "Failed to find expected cached selector in PerSelectorPolicy: %s (%v)", k.String(), l4B.PerSelectorPolicies)
 		}
 
 		return true
@@ -962,7 +962,7 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 					TrustedCA:        "fake ca tls-cert",
 					CertificateChain: "fake public key tls-cert",
 					PrivateKey:       "fake private key tls-cert",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-cert",
 					},
 				},
@@ -971,7 +971,7 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 					TrustedCA:        "fake ca tls-ca-certs",
 					CertificateChain: "fake public key tls-ca-certs",
 					PrivateKey:       "fake private key tls-ca-certs",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-ca-certs",
 					},
 				},
@@ -1043,7 +1043,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 					TrustedCA:        "fake ca tls-cert",
 					CertificateChain: "fake public key tls-cert",
 					PrivateKey:       "fake private key tls-cert",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-cert",
 					},
 				},
@@ -1052,7 +1052,7 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 					TrustedCA:        "fake ca tls-ca-certs",
 					CertificateChain: "fake public key tls-ca-certs",
 					PrivateKey:       "fake private key tls-ca-certs",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-ca-certs",
 					},
 				},
@@ -1143,7 +1143,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 					TrustedCA:        "fake ca tls-cert",
 					CertificateChain: "fake public key tls-cert",
 					PrivateKey:       "fake private key tls-cert",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-cert",
 					},
 				},
@@ -1152,7 +1152,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 					TrustedCA:        "fake ca tls-ca-certs",
 					CertificateChain: "fake public key tls-ca-certs",
 					PrivateKey:       "fake private key tls-ca-certs",
-					Secret: types.NamespacedName{
+					Secret: k8sTypes.NamespacedName{
 						Name: "tls-ca-certs",
 					},
 				},
@@ -2618,7 +2618,7 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 				Protocol: tc.proto,
 			}
 
-			toEndpoints := policytypes.PeerSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
+			toEndpoints := types.ToSelectors([]api.EndpointSelector{api.NewESFromLabels(labels.ParseSelectLabel("foo"))})
 
 			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto)
 

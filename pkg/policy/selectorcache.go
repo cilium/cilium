@@ -95,12 +95,12 @@ func (c *scIdentityCache) exists(nid identity.NumericIdentity) bool {
 
 func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.NumericIdentity] {
 	return func(yield func(id identity.NumericIdentity) bool) {
-		namespaces := idSel.source.selectedNamespaces()
+		namespaces := idSel.source.SelectedNamespaces()
 		if len(namespaces) > 0 {
 			// iterate identities in selected namespaces
 			for _, ns := range namespaces {
 				for id := range c.byNamespace[ns] {
-					if idSel.source.matches(idSel.logger, id.lbls) {
+					if idSel.source.Matches(idSel.logger, id.lbls) {
 						if !yield(id.NID) {
 							return
 						}
@@ -110,7 +110,7 @@ func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.
 		} else {
 			// no namespaces selected, iterate through all identities
 			for nid, id := range c.ids {
-				if idSel.source.matches(idSel.logger, id.lbls) {
+				if idSel.source.Matches(idSel.logger, id.lbls) {
 					if !yield(nid) {
 						return
 					}
@@ -243,7 +243,7 @@ func (sc *SelectorCache) Stats() selectorStats {
 		}
 
 		selections := idSel.GetSelections(version)
-		class := idSel.source.metricsClass()
+		class := idSel.source.MetricsClass()
 		if result.maxCardinalityByClass[class] < len(selections) {
 			result.maxCardinalityByClass[class] = len(selections)
 		}
@@ -407,31 +407,47 @@ type identityNotifier interface {
 	UnregisterFQDNSelector(selector api.FQDNSelector)
 }
 
-// AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
-// an identical EndpointSelector has already been cached, the corresponding
-// types.CachedSelector is returned, otherwise one is created and added to the cache.
-func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls stringLabels, fqdnSelec api.FQDNSelector) (cachedSelector types.CachedSelector, added bool) {
-	key := fqdnSelec.String()
+// AddSelectors adds PeerSelectorSlice in to the selector cache, and iterates through all newly
+// added 'user' for each selector.
+func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabels, selectors ...types.Selector) (types.CachedSelectorSlice, bool) {
+	selectsAll := len(selectors) == 0 || func() bool {
+		for idx := range selectors {
+			if selectors[idx].IsWildcard() {
+				return true
+			}
+		}
+		return false
+	}()
+	if selectsAll {
+		selectors = []types.Selector{types.WildcardSelector}
+	}
+
+	css := make(types.CachedSelectorSlice, len(selectors))
+	added := false
 
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
-	// If the selector already exists, use it.
-	idSel, exists := sc.selectors[key]
-	if exists {
-		return idSel, idSel.addUser(user)
+	for i, selector := range selectors {
+		// Check if the selector has already been cached
+		key := selector.Key()
+		sel, exists := sc.selectors[key]
+		if !exists {
+			// add the selector to the selector cache
+			sel = sc.addSelectorLocked(lbls, key, selector)
+		}
+
+		if sel.addUser(user, sc.localIdentityNotifier) {
+			added = true
+		}
+
+		css[i] = sel
 	}
-
-	source := newFqdnSelector(fqdnSelec)
-
-	// Make the FQDN subsystem aware of this selector
-	sc.localIdentityNotifier.RegisterFQDNSelector(source.selector)
-
-	return sc.addSelectorLocked(user, lbls, key, source)
+	return css, added
 }
 
 // must hold lock for writing
-func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls stringLabels, key string, source selectorSource) (types.CachedSelector, bool) {
+func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source types.Selector) *identitySelector {
 	idSel := &identitySelector{
 		logger:           sc.logger,
 		key:              key,
@@ -443,7 +459,7 @@ func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls string
 
 	sc.selectors[key] = idSel
 
-	namespaces := source.selectedNamespaces()
+	namespaces := source.SelectedNamespaces()
 	if len(namespaces) == 0 {
 		// use empty namespace string for selectors without namespace requirements
 		namespaces = []string{""}
@@ -474,37 +490,27 @@ func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls string
 	idSel.updateSelections(txn)
 	txn.Commit()
 
-	return idSel, idSel.addUser(user)
-}
-
-// FindCachedIdentitySelector finds the given api.EndpointSelector in the
-// selector cache, returning nil if one can not be found.
-func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelector) types.CachedSelector {
-	key := selector.CachedString()
-	sc.mutex.RLock()
-	idSel := sc.selectors[key]
-	sc.mutex.RUnlock()
 	return idSel
 }
 
-// AddIdentitySelector adds the given api.EndpointSelector in to the
+// AddIdentitySelectorForTest adds the given api.EndpointSelector in to the
 // selector cache. If an identical EndpointSelector has already been
 // cached, the corresponding types.CachedSelector is returned, otherwise one
 // is created and added to the cache.
-func (sc *SelectorCache) AddIdentitySelector(user types.CachedSelectionUser, lbls stringLabels, selector api.EndpointSelector) (cachedSelector types.CachedSelector, added bool) {
+// NOTE: Only used for testing, but from multiple packages
+func (sc *SelectorCache) AddIdentitySelectorForTest(user types.CachedSelectionUser, lbls stringLabels, es api.EndpointSelector) (cachedSelector types.CachedSelector, added bool) {
 	// The key returned here may be different for equivalent
 	// labelselectors, if the selector's requirements are stored
 	// in different orders. When this happens we'll be tracking
 	// essentially two copies of the same selector.
-	key := selector.CachedString()
+	key := es.CachedString()
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 	idSel, exists := sc.selectors[key]
-	if exists {
-		return idSel, idSel.addUser(user)
+	if !exists {
+		idSel = sc.addSelectorLocked(lbls, key, types.NewLabelSelector(es))
 	}
-
-	return sc.addSelectorLocked(user, lbls, key, newLabelIdentitySelector(selector))
+	return idSel, idSel.addUser(user, sc.localIdentityNotifier)
 }
 
 // lock must be held
@@ -512,10 +518,8 @@ func (sc *SelectorCache) removeSelectorLocked(selector types.CachedSelector, use
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
-		if sel.removeUser(user) {
-			sel.source.remove(sc.localIdentityNotifier)
-
-			namespaces := sel.source.selectedNamespaces()
+		if sel.removeUser(user, sc.localIdentityNotifier) {
+			namespaces := sel.source.SelectedNamespaces()
 			if len(namespaces) == 0 {
 				// use empty namespace string for selectors without namespace
 				// requirements
@@ -541,7 +545,6 @@ func (sc *SelectorCache) RemoveSelector(selector types.CachedSelector, user Cach
 	sc.mutex.Lock()
 	sc.removeSelectorLocked(selector, user)
 	sc.mutex.Unlock()
-
 }
 
 // RemoveSelectors removes types.CachedSelectorSlice for the user.
@@ -562,9 +565,9 @@ func (sc *SelectorCache) ChangeUser(selector types.CachedSelector, from, to Cach
 	if exists {
 		// Add before remove so that the count does not dip to zero in between,
 		// as this causes FQDN unregistration (if applicable).
-		idSel.addUser(to)
+		idSel.addUser(to, nil)
 		// ignoring the return value as we have just added a user above
-		idSel.removeUser(from)
+		idSel.removeUser(from, nil)
 	}
 	sc.mutex.Unlock()
 }
@@ -709,7 +712,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				}
 				for _, numericID := range nsAdded {
 					identity, _ := sc.idCache.find(numericID)
-					matches := idSel.source.matches(sc.logger, identity.lbls)
+					matches := idSel.source.Matches(sc.logger, identity.lbls)
 					_, exists := idSel.cachedSelections[numericID]
 					if matches && !exists {
 						adds = append(adds, numericID)
