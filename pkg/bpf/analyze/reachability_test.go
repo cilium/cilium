@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"testing"
 
 	"github.com/cilium/ebpf"
@@ -16,17 +17,27 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Simple example with a `__config_use_map_b` Variable acting as a feature flag.
-// When true, the code using `map_a` is unreachable and can be eliminated. When
-// false, `map_a` is live must be kept. map_b is always live since it's the
-// default value for map pointer variable.
+func findLiveReference(r *Reachable, ref string) bool {
+	for iter, live := range r.Iterate() {
+		if !live {
+			continue
+		}
+		if iter.Instruction().Reference() == ref {
+			return true
+		}
+	}
+	return false
+}
+
 func TestReachabilitySimple(t *testing.T) {
 	spec, err := ebpf.LoadCollectionSpec("../testdata/unused-map-pruning.o")
 	require.NoError(t, err)
 
 	obj := struct {
-		Program *ebpf.ProgramSpec  `ebpf:"sample_program"`
+		Program *ebpf.ProgramSpec  `ebpf:"entry"`
+		UseMapA *ebpf.VariableSpec `ebpf:"__config_use_map_a"`
 		UseMapB *ebpf.VariableSpec `ebpf:"__config_use_map_b"`
+		UseMapC *ebpf.VariableSpec `ebpf:"__config_use_map_c"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
 
@@ -36,31 +47,19 @@ func TestReachabilitySimple(t *testing.T) {
 	noElim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
 
-	assert.EqualValues(t, 5, noElim.countAll(), "All blocks should be live")
-	assert.Equal(t, noElim.countAll(), noElim.countLive())
+	assert.False(t, findLiveReference(noElim, "map_a"))
+	assert.False(t, findLiveReference(noElim, "map_b"))
+	assert.False(t, findLiveReference(noElim, "map_c"))
 
-	var found bool
-	for iter, live := range noElim.Iterate() {
-		assert.True(t, live)
-		if iter.Instruction().Reference() == "map_a" {
-			found = true
-		}
-	}
-	assert.True(t, found, "map_a reference should be in live instructions")
-
+	require.NoError(t, obj.UseMapA.Set(true))
 	require.NoError(t, obj.UseMapB.Set(true))
+	require.NoError(t, obj.UseMapC.Set(uint64(math.MaxUint64)))
 	elim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
 
-	assert.False(t, elim.isLive(1), "Second block with map_a reference should be dead")
-	assert.Equal(t, elim.countAll()-1, elim.countLive())
-
-	for iter, live := range elim.Iterate() {
-		if !live {
-			continue
-		}
-		assert.NotEqual(t, "map_a", iter.Instruction().Reference(), "map_a should not be live")
-	}
+	assert.True(t, findLiveReference(elim, "map_a"))
+	assert.True(t, findLiveReference(elim, "map_b"))
+	assert.True(t, findLiveReference(elim, "map_c"))
 }
 
 var _ VariableSpec = (*mockVarSpec)(nil)
@@ -94,6 +93,19 @@ func (mvs *mockVarSpec) Get(out any) error {
 		return nil
 	case *int8:
 		*out = int8(mvs.value)
+	case []byte:
+		switch mvs.size {
+		case 1:
+			out[0] = byte(mvs.value)
+		case 2:
+			binary.NativeEndian.PutUint16(out, uint16(mvs.value))
+		case 4:
+			binary.NativeEndian.PutUint32(out, uint32(mvs.value))
+		case 8:
+			binary.NativeEndian.PutUint64(out, uint64(mvs.value))
+		default:
+			return fmt.Errorf("unsupported size %d for byte slice", mvs.size)
+		}
 	default:
 		panic(fmt.Sprintf("unsupported type %T", out))
 	}
@@ -228,13 +240,9 @@ func TestReachabilityConcurrent(t *testing.T) {
 	require.NoError(t, err)
 
 	obj := struct {
-		Program *ebpf.ProgramSpec  `ebpf:"sample_program"`
-		UseMapB *ebpf.VariableSpec `ebpf:"__config_use_map_b"`
+		Program *ebpf.ProgramSpec `ebpf:"entry"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
-
-	// Predict first branch as taken.
-	obj.UseMapB.Set(true)
 
 	blocks, err := computeBlocks(obj.Program.Instructions)
 	require.NoError(t, err)
