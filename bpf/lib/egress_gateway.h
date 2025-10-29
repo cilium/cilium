@@ -87,8 +87,8 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 }
 
 # ifdef ENABLE_EGRESS_GATEWAY
-static __always_inline
-struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
+static __always_inline const struct egress_gw_policy_entry *
+lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 {
 	struct egress_gw_policy_key key = {
 		.lpm_key = { EGRESS_IPV4_PREFIX, {} },
@@ -104,7 +104,7 @@ egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 				 __be32 *gateway_ip __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
-	struct egress_gw_policy_entry *egress_gw_policy;
+	const struct egress_gw_policy_entry *egress_gw_policy;
 
 	egress_gw_policy = lookup_ip4_egress_gw_policy(ipv4_ct_reverse_tuple_saddr(rtuple),
 						       ipv4_ct_reverse_tuple_daddr(rtuple));
@@ -133,7 +133,7 @@ bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
 			   __u32 *egress_ifindex __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
-	struct egress_gw_policy_entry *egress_gw_policy;
+	const struct egress_gw_policy_entry *egress_gw_policy;
 
 	egress_gw_policy = lookup_ip4_egress_gw_policy(saddr, daddr);
 	if (!egress_gw_policy)
@@ -158,7 +158,7 @@ static __always_inline
 bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
-	struct egress_gw_policy_entry *egress_policy;
+	const struct egress_gw_policy_entry *egress_policy;
 
 	/* Find a matching policy by looking up the reverse address tuple: */
 	egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
@@ -246,9 +246,8 @@ int egress_gw_handle_packet(struct ipv4_ct_tuple *tuple,
 
 #ifdef ENABLE_IPV6
 #ifdef ENABLE_EGRESS_GATEWAY
-static __always_inline
-struct egress_gw_policy_entry6 *lookup_ip6_egress_gw_policy(const union v6addr *saddr,
-							    const union v6addr *daddr)
+static __always_inline const struct egress_gw_policy_entry6 *
+lookup_ip6_egress_gw_policy(const union v6addr *saddr, const union v6addr *daddr)
 {
 	struct egress_gw_policy_key6 key = {
 		.lpm_key = { EGRESS_IPV6_PREFIX, {} },
@@ -264,7 +263,7 @@ egress_gw_request_needs_redirect_v6(struct ipv6_ct_tuple *rtuple __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
-	struct egress_gw_policy_entry6 *egress_gw_policy;
+	const struct egress_gw_policy_entry6 *egress_gw_policy;
 	union v6addr saddr, daddr;
 
 	saddr = ipv6_ct_reverse_tuple_saddr(rtuple);
@@ -296,7 +295,7 @@ bool egress_gw_snat_needed_v6(union v6addr *saddr __maybe_unused,
 			      __u32 *egress_ifindex __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
-	struct egress_gw_policy_entry6 *egress_gw_policy;
+	const struct egress_gw_policy_entry6 *egress_gw_policy;
 
 	egress_gw_policy = lookup_ip6_egress_gw_policy(saddr, daddr);
 	if (!egress_gw_policy)
@@ -319,7 +318,7 @@ static __always_inline
 bool egress_gw_reply_matches_policy_v6(struct ipv6hdr *ip6 __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
-	struct egress_gw_policy_entry6 *egress_policy;
+	const struct egress_gw_policy_entry6 *egress_policy;
 
 	egress_policy = lookup_ip6_egress_gw_policy((union v6addr *)&ip6->daddr,
 						    (union v6addr *)&ip6->saddr);
