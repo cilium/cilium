@@ -1,0 +1,241 @@
+#! --test-peering-ips=10.99.5.1,10.99.5.2,fd00::aa:bb:55:1,fd00::aa:bb:55:2
+
+# Tests Interface advertisements for IPv4-only and dual-stack peers.
+
+# Start the hive
+hive start
+
+# Configure GoBGP servers
+gobgp/add-server v4-only   65010 10.99.5.1        1790
+gobgp/add-server dualstack 65010 fd00::aa:bb:55:1 1790 --router-id 1.0.0.1
+
+# Configure peers on GoBGP
+gobgp/add-peer -s v4-only   10.99.5.2        65001
+gobgp/add-peer -s dualstack fd00::aa:bb:55:2 65001
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config-v4.yaml bgp-peer-config-dualstack.yaml bgp-advertisement.yaml
+
+# Wait for peerings to be established
+gobgp/wait-state -s v4-only   10.99.5.2        ESTABLISHED
+gobgp/wait-state -s dualstack fd00::aa:bb:55:2 ESTABLISHED
+
+# Validate that no IPv4 routes are advertised yet
+gobgp/routes -s v4-only -o routes.actual ipv4 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Validate that no IPv6 routes are advertised yet
+gobgp/routes -s dualstack -o routes.actual ipv6 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+
+# Add devices to statedb
+db/insert devices device-eth0.yaml device-loop1.yaml
+
+# Validate IPv4 loop1 interface routes on the v4 peer
+gobgp/routes -s v4-only -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+# Validate IPv4 loop1 interface routes on the dualstack peer
+gobgp/routes -s dualstack -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4-ds.expected routes.actual
+
+# Validate no IPv6 loop1 interface routes on the v4 peer
+gobgp/routes -s v4-only -o routes.actual ipv6 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Validate IPv6 loop1 interface routes on the dualstack peer
+gobgp/routes -s dualstack -o routes.actual ipv6 unicast
+* cmp gobgp-routes-ipv6.expected routes.actual
+
+
+# Set loop1 device to admin-down
+db/insert devices device-loop1-down.yaml
+
+# Validate that no IPv4 routes are advertised
+gobgp/routes -s v4-only -o routes.actual ipv4 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Validate that no IPv6 routes are advertised
+gobgp/routes -s dualstack -o routes.actual ipv6 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+
+# Set loop1 device to admin-up again
+db/insert devices device-loop1.yaml
+
+# Validate IPv4 loop1 interface routes on the v4 peer
+gobgp/routes -s v4-only -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+# Validate IPv4 loop1 interface routes on the dualstack peer
+gobgp/routes -s dualstack -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4-ds.expected routes.actual
+
+# Validate no IPv6 loop1 interface routes on the v4 peer
+gobgp/routes -s v4-only -o routes.actual ipv6 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Validate IPv6 loop1 interface routes on the dualstack peer
+gobgp/routes -s dualstack -o routes.actual ipv6 unicast
+* cmp gobgp-routes-ipv6.expected routes.actual
+
+
+# Delete loop1 device from statedb
+db/delete devices device-loop1.yaml
+
+# Validate that no IPv4 routes are advertised
+gobgp/routes -s v4-only -o routes.actual ipv4 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+# Validate that no IPv6 routes are advertised
+gobgp/routes -s dualstack -o routes.actual ipv6 unicast
+* cmp gobgp-routes-empty.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.5.2
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor
+    peers:
+    - name: v4-peer
+      peerASN: 65010
+      peerAddress: 10.99.5.1
+      localAddress: 10.99.5.2
+      peerConfigRef:
+        name: v4-peer-config
+    - name: dualstack-peer
+      peerASN: 65010
+      peerAddress: fd00::aa:bb:55:1
+      localAddress: fd00::aa:bb:55:2
+      peerConfigRef:
+        name: dualstack-peer-config
+
+-- bgp-peer-config-v4.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: v4-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-peer-config-dualstack.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: dualstack-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: Interface
+    interface:
+      name: lo1
+    attributes:
+      communities:
+        standard: [ "65001:100" ]
+
+-- device-eth0.yaml --
+index: 1
+name: eth0
+addrs:
+  - addr: 10.10.0.1
+  - addr: fd00::10:10:0:1
+  - addr: fe80::42:bdff:ec52:ab12
+type: veth
+flags: 1 # admin-up
+operstatus: up
+
+-- device-loop1.yaml --
+index: 2
+name: lo1
+addrs:
+  - addr: 127.0.0.1                # loopback - ignored
+  - addr: 224.0.0.1                # multicast - ignored
+  - addr: 192.168.100.100
+  - addr: 192.168.100.101
+  - addr: ::1                      # loopback - ignored
+  - addr: ff00::1                  # multicast - ignored
+  - addr: fe80::42:bdff:fe5a:70f8  # link-local - ignored
+  - addr: fd00::aabb:1
+  - addr: fd00::aabb:2
+type: device
+flags: 1 # admin-up
+operstatus: unknown # for loopback always unknown
+
+-- device-loop1-down.yaml --
+index: 2
+name: lo1
+addrs:
+  - addr: 192.168.100.100
+  - addr: 192.168.100.101
+  - addr: fd00::aabb:1
+  - addr: fd00::aabb:2
+type: device
+flags: 0 # not admin-up
+operstatus: unknown # for loopback always unknown
+
+-- gobgp-routes-empty.expected --
+Prefix   NextHop   Attrs
+-- gobgp-routes-ipv4.expected --
+Prefix               NextHop     Attrs
+192.168.100.100/32   10.99.5.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.2} {Communities: 65001:100}]
+192.168.100.101/32   10.99.5.2   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.2} {Communities: 65001:100}]
+-- gobgp-routes-ipv4-ds.expected --
+Prefix               NextHop            Attrs
+192.168.100.100/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.100/32]}}]
+192.168.100.101/32   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv4-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [192.168.100.101/32]}}]
+-- gobgp-routes-ipv6.expected --
+Prefix             NextHop            Attrs
+fd00::aabb:1/128   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [fd00::aabb:1/128]}}]
+fd00::aabb:2/128   fd00::aa:bb:55:2   [{Origin: i} {AsPath: 65001} {Communities: 65001:100} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:55:2, NLRIs: [fd00::aabb:2/128]}}]
