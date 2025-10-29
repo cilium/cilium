@@ -227,22 +227,61 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
-	ciliumNodesStore, err := c.ciliumNodes.Store(ctx)
+func (c *DefaultController) runCiliumNodesUpdater(ctx context.Context) error {
+	return runCiliumNodesUpdater(
+		ctx,
+		c.Controller,
+		nil,
+	)
+}
+
+func (c *SlimController) runCiliumNodesUpdater(ctx context.Context) error {
+	return runCiliumNodesUpdater(
+		ctx,
+		c.Controller,
+		func(event resource.Event[*cilium_api_v2.CiliumNode]) {
+			switch event.Kind {
+			case resource.Upsert:
+				c.logger.DebugContext(ctx, "Got Upsert CiliumNode event", logfields.NodeName, event.Key)
+				c.onNodeUpdate(event.Object)
+			case resource.Delete:
+				c.logger.DebugContext(ctx, "Got Delete CiliumNode event", logfields.NodeName, event.Key)
+				c.onNodeDelete(event.Object)
+			}
+		},
+	)
+}
+
+func runCiliumNodesUpdater(ctx context.Context, ctrlr *Controller,
+	handleEvent func(event resource.Event[*cilium_api_v2.CiliumNode])) error {
+	ciliumNodesStore, err := ctrlr.ciliumNodes.Store(ctx)
 	if err != nil {
-		c.logger.WarnContext(ctx, "Couldn't get CiliumNodes store", logfields.Error, err)
+		ctrlr.logger.WarnContext(ctx, "Couldn't get CiliumNodes store", logfields.Error, err)
 		return err
 	}
-	for event := range c.ciliumNodes.Events(ctx) {
+	for event := range ctrlr.ciliumNodes.Events(ctx) {
+		if handleEvent != nil {
+			handleEvent(event)
+		}
 		event.Done(nil)
 		totalNodes := len(ciliumNodesStore.List())
-		if c.rateLimit.updateRateLimiterWithNodes(totalNodes) {
-			c.logger.InfoContext(ctx, "Updated CES controller workqueue configuration",
-				logfields.WorkQueueQPSLimit, c.rateLimit.current.Limit,
-				logfields.WorkQueueBurstLimit, c.rateLimit.current.Burst)
+		if ctrlr.rateLimit.updateRateLimiterWithNodes(totalNodes) {
+			ctrlr.logger.InfoContext(ctx, "Updated CES controller workqueue configuration",
+				logfields.WorkQueueQPSLimit, ctrlr.rateLimit.current.Limit,
+				logfields.WorkQueueBurstLimit, ctrlr.rateLimit.current.Burst)
 		}
 	}
 	return nil
+}
+
+func (c *SlimController) onNodeUpdate(node *cilium_api_v2.CiliumNode) {
+	touchedCESs := c.manager.UpdateNodeMapping(node, c.ipsecEnabled, c.wgEnabled)
+	c.enqueueCESReconciliation(touchedCESs)
+}
+
+func (c *SlimController) onNodeDelete(node *cilium_api_v2.CiliumNode) {
+	touchedCESs := c.manager.RemoveNodeMapping(node)
+	c.enqueueCESReconciliation(touchedCESs)
 }
 
 // Sync all CESs from cesStore to manager cache.

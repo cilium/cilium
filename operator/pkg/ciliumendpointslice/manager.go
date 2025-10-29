@@ -6,10 +6,12 @@ package ciliumendpointslice
 import (
 	"log/slog"
 
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var (
@@ -186,4 +188,40 @@ func (c *defaultManager) getCEPinCES(ces CESName) []CEPName {
 func (c *defaultManager) isCEPinCES(cep CEPName, ces CESName) bool {
 	mappedCES, exists := c.mapping.getCESName(cep)
 	return exists && mappedCES == ces
+}
+
+// UpdateNodeMapping upserts a node and its encryption key into the cache and returns updated CESs.
+func (c *slimManager) UpdateNodeMapping(node *cilium_v2.CiliumNode, ipsecEnabled, wgEnabled bool) []CESKey {
+	newKey := getNodeEndpointEncryptionKey(node, ipsecEnabled, wgEnabled)
+	name := NodeName(node.Name)
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.mapping.insertNode(name, newKey)
+}
+
+// RemoveNodeMapping removes a node from the cache and returns affected CESs.
+func (c *slimManager) RemoveNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	return c.mapping.deleteNode(NodeName(node.Name))
+}
+
+func (c *slimManager) getEndpointEncryptionKey(node NodeName) (EncryptionKey, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.mapping.getEndpointEncryptionKey(node)
+}
+
+func getNodeEndpointEncryptionKey(node *cilium_v2.CiliumNode, ipsecEnabled, wgEnabled bool) EncryptionKey {
+	switch {
+	case wgEnabled:
+		return EncryptionKey(wgtypes.StaticEncryptKey)
+	case ipsecEnabled:
+		return EncryptionKey(node.Spec.Encryption.Key)
+	default:
+		return 0
+	}
 }
