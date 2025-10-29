@@ -37,3 +37,14 @@ func (c *CESCache) GetSelectedId(gid Labels) (CID, bool) {
 func (c *CESCache) getCESCount() int {
 	return len(c.cesData)
 }
+
+// Return if the given CEP is present in cache
+func (c *CESCache) hasCEP(cepName CEPName) bool {
+	_, ok := c.cepData[cepName]
+	return ok
+}
+
+// Return total number of CEPs stored in cache
+func (c *CESCache) countCEPs() int {
+	return len(c.cepData)
+}

@@ -54,10 +54,20 @@ func NewSecIDs() *SecIDs {
 	}
 }
 
+// CEPData contains the CES, node and labels associated with the corecep.
+type CEPData struct {
+	ces    CESName
+	node   NodeName
+	labels Labels
+}
+
 // CESCache stores local CES goal state when the CES controller is running in slim mode.
 // The CESCache itself is not protected by a lock; the caller should hold a lock in order
 // to safely perform multi-step operations on the cache.
 type CESCache struct {
+	// cepData is used to map CiliumEndpoint name to the CiliumEndpointSlice, Node and
+	// Labels associated with it.
+	cepData map[CEPName]*CEPData
 	// cesData is used to map CiliumEndpointSlice name to all CiliumEndpoints names it contains
 	// and the namespace associated with it
 	cesData map[CESName]*CESData
@@ -76,6 +86,7 @@ type CESCache struct {
 // Creates and intializes the new CESCache
 func newCESCache() *CESCache {
 	return &CESCache{
+		cepData:                make(map[CEPName]*CEPData),
 		cesData:                make(map[CESName]*CESData),
 		nsData:                 make(map[string]sets.Set[CESName]),
 		nodeData:               make(map[NodeName]*NodeData),
@@ -213,8 +224,15 @@ func (c *CESCache) deleteCES(cesName CESName) {
 
 // Return CES keys for the given CEPs. Caller must hold the cache lock.
 func (c *CESCache) getCESForCEPs(ceps sets.Set[CEPName]) []CESKey {
-	// TODO: Implement when CEP/CES state is tracked in cache
-	return nil
+	cesKeys := sets.Set[CESKey]{}
+	for cepName := range ceps {
+		cesName, ok := c.getCESName(cepName)
+		if ok {
+			cesNs := c.getCESNamespace(cesName)
+			cesKeys.Insert(NewCESKey(cesName.string(), cesNs))
+		}
+	}
+	return cesKeys.UnsortedList()
 }
 
 // Clean up globalIdLabelsToCIDSet map, if no label state exists.
@@ -259,6 +277,14 @@ func (c *CESCache) getCESNamespace(name CESName) string {
 		return cesData.ns
 	}
 	return ""
+}
+
+// Return CES to which the given CEP is assigned
+func (c *CESCache) getCESName(cepName CEPName) (CESName, bool) {
+	if cepData, ok := c.cepData[cepName]; ok {
+		return cepData.ces, true
+	}
+	return "", false
 }
 
 // Return all CESs in the given namespace
