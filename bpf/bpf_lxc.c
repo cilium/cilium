@@ -686,7 +686,7 @@ ct_recreate6:
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
-		struct endpoint_info *ep;
+		const struct endpoint_info *ep;
 		union v6addr daddr;
 
 		ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
@@ -1173,7 +1173,7 @@ ct_recreate4:
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
 	    is_defined(ENABLE_HOST_ROUTING)) {
 		__be32 daddr = ip4->daddr;
-		struct endpoint_info *ep;
+		const struct endpoint_info *ep;
 
 		/* Loopback replies are addressed to config service_loopback_ipv4,
 		 * so an endpoint lookup with ip4->daddr won't work.

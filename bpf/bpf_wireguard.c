@@ -65,7 +65,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 {
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	fraginfo_t __maybe_unused fraginfo;
 
 	/* See the equivalent v4 path for comments */
@@ -163,7 +163,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 {
 	void *data_end, *data;
 	struct iphdr *ip4;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	fraginfo_t __maybe_unused fraginfo;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
