@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cast"
 
+	"github.com/cilium/cilium/pkg/identity/key"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -203,4 +204,20 @@ func getNodeEndpointEncryptionKey(node *cilium_v2.CiliumNode, ipsecEnabled, wgEn
 	default:
 		return 0
 	}
+}
+
+func (c *slimManager) UpdateIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
+	cidName, gidLabels := cidToGidLabels(id)
+	return c.mapping.insertCID(cidName, gidLabels)
+}
+
+func (c *slimManager) RemoveIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
+	cidName, gidLabels := cidToGidLabels(id)
+	return c.mapping.deleteCID(cidName, gidLabels)
+}
+
+func cidToGidLabels(id *cilium_v2.CiliumIdentity) (CID, Label) {
+	cidName := id.GetName()
+	cidKey := key.GetCIDKeyFromLabels(id.SecurityLabels, "")
+	return CID(cidName), Label(cidKey.GetKey())
 }
