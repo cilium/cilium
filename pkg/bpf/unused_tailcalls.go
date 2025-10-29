@@ -104,23 +104,23 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 		}
 
 		// Start a backtracking session starting at the current instruction.
-		iter = iter.Clone()
+		bt := iter.Backtrack()
 
 		// The preceding instruction must be the load of the index into R3.
-		if !iter.Previous() {
+		if !bt.Previous() {
 			continue
 		}
-		movIdx := iter.Instruction()
+		movIdx := bt.Instruction()
 		if movIdx.OpCode.ALUOp() != asm.Mov || movIdx.Dst != asm.R3 {
 			continue
 		}
 		slot := uint32(movIdx.Constant)
 
 		// The preceding instruction must be the load of the calls pointer map into R2.
-		if !iter.Previous() {
+		if !bt.Previous() {
 			continue
 		}
-		mapPtr := iter.Instruction()
+		mapPtr := bt.Instruction()
 		if !mapPtr.IsLoadFromMap() {
 			continue
 		}

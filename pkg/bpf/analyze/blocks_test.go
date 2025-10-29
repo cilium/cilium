@@ -54,65 +54,6 @@ func TestMakeBlocksSimple(t *testing.T) {
 	assert.Equal(t, b, b2)
 }
 
-func TestBlocksMultiplePredecessors(t *testing.T) {
-	// A program with multiple predecessors to the last block.
-	insns := asm.Instructions{
-		asm.Mov.Imm32(asm.R0, 1),
-		asm.JEq.Imm(asm.R0, 0, "target"),
-		asm.Mov.Imm32(asm.R1, 1),
-		asm.JEq.Imm(asm.R1, 0, "target"),
-		asm.Mov.Imm32(asm.R0, 0).WithSymbol("target"),
-		asm.Return(),
-	}
-
-	// Marshal instructions to fix up references.
-	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
-
-	blocks, err := MakeBlocks(insns)
-	require.NoError(t, err)
-
-	assert.EqualValues(t, 3, blocks.count())
-
-	first := blocks.first()
-	assert.EqualValues(t, 0, first.id)
-	assert.Empty(t, first.predecessors)
-	assert.Equal(t, 0, first.start)
-	assert.Equal(t, 1, first.end)
-	assert.Equal(t, blocks[2], first.branch)
-	assert.Equal(t, blocks[1], first.fthrough)
-
-	second := blocks[1]
-	assert.EqualValues(t, 1, second.id)
-	assert.Len(t, second.predecessors, 1)
-	assert.Equal(t, first, second.predecessors[0])
-	assert.Equal(t, 2, second.start)
-	assert.Equal(t, 3, second.end)
-	assert.Equal(t, blocks[2], second.branch)
-	assert.Equal(t, blocks[2], second.fthrough)
-
-	last := blocks.last()
-	assert.EqualValues(t, 2, last.id)
-	assert.Len(t, last.predecessors, 2)
-	assert.Equal(t, first, last.predecessors[0])
-	assert.Equal(t, second, last.predecessors[1])
-	assert.Equal(t, 4, last.start)
-	assert.Equal(t, 5, last.end)
-	assert.Nil(t, last.branch)
-	assert.Nil(t, last.fthrough)
-
-	// Pull instructions from the last block and make sure it doesn't continue
-	// past the start of the block since it has multiple predecessors.
-	iter := last.iterateGlobal(blocks, insns)
-
-	require.True(t, iter.Previous())
-	assert.Equal(t, iter.Instruction(), &insns[5])
-
-	require.True(t, iter.Previous())
-	assert.Equal(t, iter.Instruction(), &insns[4])
-
-	require.False(t, iter.Previous())
-}
-
 func TestMakeBlocksManyBranches(t *testing.T) {
 	insns := branchingProg(t, 1000)
 
@@ -141,9 +82,6 @@ func TestBlocksIterateLocal(t *testing.T) {
 	assert.True(t, iter.Next())
 	assert.False(t, iter.Next())
 	assert.Equal(t, 0, iter.index)
-
-	// Iterator has nowhere to move. First instruction is already pulled.
-	assert.False(t, iter.Previous())
 }
 
 func TestBlocksIterateGlobal(t *testing.T) {
@@ -169,41 +107,6 @@ func TestBlocksIterateGlobal(t *testing.T) {
 	// We should have seen all instructions.
 	assert.Equal(t, 100, i)
 	assert.Equal(t, 99, iter.index)
-
-	i = 0
-	for ; iter.Previous(); i++ {
-		assert.EqualValues(t, iter.index, iter.ins.Constant)
-	}
-
-	// Iterator should be back at the start.
-	assert.Equal(t, 99, i)
-	assert.Equal(t, 0, iter.index)
-}
-
-func TestBlocksIterateGlobalLoop(t *testing.T) {
-	insns := asm.Instructions{
-		asm.Mov.Imm32(asm.R0, 1).WithSymbol("loop"),
-		asm.JEq.Imm(asm.R0, 0, "exit"),
-		asm.Mov.Imm32(asm.R0, 0),
-		asm.JEq.Imm(asm.R0, 1, "loop"),
-		asm.Return().WithSymbol("exit"),
-	}
-
-	// Marshal instructions to fix up references.
-	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
-
-	bl, err := MakeBlocks(insns)
-	require.NoError(t, err)
-
-	assert.EqualValues(t, 3, bl.count())
-
-	iter := bl.first().iterateGlobal(bl, insns)
-	for iter.Previous() {
-	}
-
-	// Iterator should be back at the start and depth limit should be hit.
-	assert.Equal(t, 0, iter.index)
-	assert.Equal(t, uint8(maxDepth), iter.depth)
 }
 
 func TestBlocksIterateOffset(t *testing.T) {

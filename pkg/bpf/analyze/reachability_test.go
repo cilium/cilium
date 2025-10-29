@@ -148,55 +148,6 @@ func (mvs *mockVarSpec) Constant() bool {
 	return true
 }
 
-// This tests asserts that when the "map pointer" instruction exists in a previous
-// basic block, that we can resolve this. This may happen when the same config
-// variable is used multiple times and the compiler decides to reuse the pointer
-// instead of re-emitting the instruction.
-func TestReachabilityPointerReuse(t *testing.T) {
-	const offset = 0
-
-	insns := asm.Instructions{
-		// Load the pointer to the config variable into a register
-		asm.LoadMapValue(asm.R0, 0, offset).WithReference("map"),
-		// Make a branch to go to exit (condition isn't important)
-		// This creates a separate basic block
-		asm.JEq.Imm(asm.R1, 0, "exit"),
-
-		// In this basic block, we dereference the pointer
-		asm.LoadMem(asm.R1, asm.R0, 0, asm.Word),
-		// Add a random instruction in the middle, this can happen
-		asm.Mov.Reg(asm.R2, asm.R3),
-		// Here is our conditional branch on R1 which is the config value.
-		asm.JEq.Imm(asm.R1, 1, "a_enabled_branch"),
-
-		// This branch is eliminated if `enable_a` == 1
-		asm.Mov.Imm(asm.R0, 0),
-		asm.Ja.Label("exit"),
-
-		asm.Mov.Imm(asm.R0, 1).WithSymbol("a_enabled_branch"),
-		asm.Return().WithSymbol("exit"),
-	}
-
-	// Marshal instructions to fix up references.
-	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
-
-	blocks, err := computeBlocks(insns)
-	require.NoError(t, err)
-
-	eliminated, err := Reachability(blocks, insns, map[string]VariableSpec{
-		"enable_a": &mockVarSpec{"map", offset, uint64(asm.Word.Sizeof()), 1},
-	})
-	require.NoError(t, err)
-
-	assert.EqualValues(t, 5, eliminated.countAll())
-	assert.NotEqual(t, eliminated.countAll(), eliminated.countLive())
-	assert.True(t, eliminated.isLive(0))
-	assert.True(t, eliminated.isLive(1))
-	assert.False(t, eliminated.isLive(2))
-	assert.True(t, eliminated.isLive(3))
-	assert.True(t, eliminated.isLive(4))
-}
-
 // This tests asserts that we do basic block analysis and dead code elimination
 // correctly when "long jumps" are used. These are jumps with 32 bit offsets
 // instead of 16 bit offsets. Something the compiler can emit when programs

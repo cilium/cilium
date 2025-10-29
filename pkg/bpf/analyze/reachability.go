@@ -218,12 +218,12 @@ func (r *Reachable) Dump(insns asm.Instructions) string {
 // findBranch backtracks exactly one instruction and checks if it's a branch
 // instruction comparing a register against an immediate value or another
 // register. Returns the instruction if it met the criteria, nil otherwise.
-func findBranch(iter *BlockIterator) *asm.Instruction {
+func findBranch(bt *Backtracker) *asm.Instruction {
 	// Only the last instruction of a block can be a branch instruction.
-	if !iter.Previous() {
+	if !bt.Previous() {
 		return nil
 	}
-	branch := iter.Instruction()
+	branch := bt.Instruction()
 
 	switch branch.OpCode.JumpOp() {
 	case asm.Exit, asm.Call, asm.Ja, asm.InvalidJumpOp:
@@ -238,10 +238,10 @@ func findBranch(iter *BlockIterator) *asm.Instruction {
 //
 // The bool return value indicates whether the dereferenced value needs to be
 // sign-extended before being given to the branch resolver.
-func findDereference(iter *BlockIterator, dst asm.Register) (*asm.Instruction, bool) {
+func findDereference(bt *Backtracker, dst asm.Register) (*asm.Instruction, bool) {
 	var extend bool
-	for iter.Previous() {
-		ins := iter.Instruction()
+	for bt.Previous() {
+		ins := bt.Instruction()
 		if ins.Dst != dst {
 			continue
 		}
@@ -255,11 +255,11 @@ func findDereference(iter *BlockIterator, dst asm.Register) (*asm.Instruction, b
 		// 	31: ArShImm dst: r1 imm: 48
 		if ins.OpCode.ALUOp() == asm.ArSh {
 			shift := ins.Constant
-			if !iter.Previous() {
+			if !bt.Previous() {
 				break
 			}
 
-			ins = iter.Instruction()
+			ins = bt.Instruction()
 			if ins.Dst != dst {
 				break
 			}
@@ -286,9 +286,9 @@ func findDereference(iter *BlockIterator, dst asm.Register) (*asm.Instruction, b
 
 // findMapLoad backtracks instructions until it finds a map load instruction
 // that populates the given src register.
-func findMapLoad(iter *BlockIterator, dst asm.Register) *asm.Instruction {
-	for iter.Previous() {
-		ins := iter.Instruction()
+func findMapLoad(bt *Backtracker, dst asm.Register) *asm.Instruction {
+	for bt.Previous() {
+		ins := bt.Instruction()
 		if ins.Dst != dst {
 			continue
 		}
@@ -309,9 +309,9 @@ func findMapLoad(iter *BlockIterator, dst asm.Register) *asm.Instruction {
 //
 // Detects both cBPF-style immediate loads as well as loads using the
 // LdImm{B,H,W,DW} instructions.
-func findImmLoad(iter *BlockIterator, reg asm.Register) *asm.Instruction {
-	for iter.Previous() {
-		ins := iter.Instruction()
+func findImmLoad(bt *Backtracker, reg asm.Register) *asm.Instruction {
+	for bt.Previous() {
+		ins := bt.Instruction()
 		if ins.Dst != reg {
 			continue
 		}
@@ -360,14 +360,14 @@ func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error 
 	}
 	r.l.Set(b.id, true)
 
-	iter := b.iterateGlobal(r.blocks, r.insns)
+	bt := b.backtrack(r.insns)
 
-	branch := findBranch(iter)
+	branch := findBranch(bt)
 	if branch == nil {
 		return r.unpredictableBlock(b, vars)
 	}
 
-	jump, err := predictBranch(branch, iter, vars)
+	jump, err := predictBranch(branch, bt, vars)
 	if errors.Is(err, errUnpredictable) {
 		return r.unpredictableBlock(b, vars)
 	}
@@ -393,7 +393,7 @@ var errUnpredictable = errors.New("unpredictable branch")
 // If the branch cannot be predicted, it returns [errUnpredictable]. If the
 // returned bool it true, the branch is always taken. If false, the branch is
 // never taken.
-func predictBranch(branch *asm.Instruction, iter *BlockIterator, vars map[mapOffset]VariableSpec) (bool, error) {
+func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]VariableSpec) (bool, error) {
 	switch branch.OpCode.Source() {
 	// Immediate comparisons are limited to 32 bits since that's the size of the
 	// imm field in a (double-wide) branch insn. In an imm comparison, the dst
@@ -404,7 +404,7 @@ func predictBranch(branch *asm.Instruction, iter *BlockIterator, vars map[mapOff
 	//	2: LdXMemB dst: r2 src: r1 off: 0 imm: 0
 	//	3: JNEImm dst: r2 off: 2 imm: 0
 	case asm.ImmSource:
-		dst, err := resolveRegister(iter.Clone(), branch.Dst, vars)
+		dst, err := resolveRegister(bt, branch.Dst, vars)
 		if errors.Is(err, errUnpredictable) {
 			// Don't wrap err since this is a hot path.
 			return false, err
@@ -433,7 +433,7 @@ func predictBranch(branch *asm.Instruction, iter *BlockIterator, vars map[mapOff
 	// compiler's mood. During initial testing, the config value was more often
 	// found in dst.
 	case asm.RegSource:
-		dst, err := resolveRegister(iter.Clone(), branch.Dst, vars)
+		dst, err := resolveRegister(bt.Clone(), branch.Dst, vars)
 		if errors.Is(err, errUnpredictable) {
 			return false, err
 		}
@@ -441,7 +441,7 @@ func predictBranch(branch *asm.Instruction, iter *BlockIterator, vars map[mapOff
 			return false, fmt.Errorf("resolving dst register %s: %w", branch.Dst, err)
 		}
 
-		src, err := resolveRegister(iter.Clone(), branch.Src, vars)
+		src, err := resolveRegister(bt, branch.Src, vars)
 		if errors.Is(err, errUnpredictable) {
 			return false, err
 		}
@@ -470,9 +470,9 @@ func predictBranch(branch *asm.Instruction, iter *BlockIterator, vars map[mapOff
 // value directly.
 //
 // Returns errUnpredictable if the register value cannot be resolved.
-func resolveRegister(iter *BlockIterator, reg asm.Register, vars map[mapOffset]VariableSpec) (int64, error) {
+func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]VariableSpec) (int64, error) {
 	// First, check if there's a dereference into the register.
-	derefIter := iter.Clone()
+	derefIter := bt.Clone()
 	deref, extend := findDereference(derefIter, reg)
 
 	if deref != nil {
@@ -496,7 +496,7 @@ func resolveRegister(iter *BlockIterator, reg asm.Register, vars map[mapOffset]V
 	}
 
 	// No dereference found, check for an immediate load.
-	imm := findImmLoad(iter, reg)
+	imm := findImmLoad(bt, reg)
 	if imm == nil {
 		return 0, errUnpredictable
 	}
