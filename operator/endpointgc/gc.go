@@ -49,6 +49,8 @@ type GC struct {
 	ciliumEndpoints resource.Resource[*cilium_api_v2.CiliumEndpoint]
 	pods            resource.Resource[*slim_corev1.Pod]
 
+	gcCandidates map[string]struct{}
+
 	mgr *controller.Manager
 
 	metrics *Metrics
@@ -69,6 +71,7 @@ func registerGC(p params) {
 		ciliumEndpoints: p.CiliumEndpoints,
 		pods:            p.Pods,
 		metrics:         p.Metrics,
+		gcCandidates:    make(map[string]struct{}),
 	}
 	p.Lifecycle.Append(gc)
 }
@@ -124,22 +127,46 @@ func (g *GC) doGC(ctx context.Context) error {
 		g.logger.ErrorContext(ctx, "Couldn't get CEP Store", logfields.Error, err)
 		return err
 	}
-	// For each CEP we fetched, check if we know about it
-	for _, cep := range cepStore.List() {
-		scopedLog := g.logger.With(logfields.K8sPodName, cep.Namespace+"/"+cep.Name)
 
-		if !g.checkIfCEPShouldBeDeleted(ctx, cep, scopedLog) {
+	// For each CEP we fetched, check if we know about it
+	nextRunGCCandidates := make(map[string]struct{})
+	for _, cep := range cepStore.List() {
+		cepNamespacedName := cep.Namespace + "/" + cep.Name
+		scopedLog := g.logger.With(logfields.K8sPodName, cepNamespacedName)
+
+		result := g.checkIfCEPShouldBeDeleted(ctx, cep, scopedLog)
+		if !result.shouldBeDeleted {
+			// Continue if the result suggests that CEP should not be deleted.
 			continue
 		}
-		// FIXME: this is fragile as we might have received the
-		// CEP notification first but not the pod notification
-		// so we need to have a similar mechanism that we have
-		// for the keep alive of security identities.
+
+		// If the result is not valid:
+		// 1. Delete the CEP if its marked for GC from the previous run.
+		// 2. Add the CEP to next run GC candidates and skip deletion for this run.
+		if !result.validated {
+			// CEP Add [T1] ==> GC Run [T2] ==> Pod Add [T3]
+			// It might happen that CEP notification is processed before the Pod.
+			// In that case GC run will delete an endpoint assuming that no pod exist.
+			//
+			// Wait for one GC run before actually issuing delete for the CEP.
+			// This can cause an orphaned endpoint GC to take 2 * EndpointGCInterval.
+			if _, forceDelete := g.gcCandidates[cepNamespacedName]; !forceDelete {
+				// Endpoint was not deleted in this run, collect it as deletion candidate for next GC run.
+				nextRunGCCandidates[cepNamespacedName] = struct{}{}
+				continue
+			}
+		}
+
 		err = g.deleteCEP(ctx, cep, scopedLog)
 		if err != nil {
 			return err
 		}
+		// Remove the deleted CEP from current run GC candidates. In case we return
+		// early due to a deletion error in subsequent CEP handling.
+		delete(g.gcCandidates, cepNamespacedName)
 	}
+	// Reset the candidates for next GC run.
+	g.gcCandidates = nextRunGCCandidates
 	return nil
 }
 
@@ -148,19 +175,19 @@ type deleteCheckResult struct {
 	validated       bool
 }
 
-func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.CiliumEndpoint, scopedLog *slog.Logger) bool {
+func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.CiliumEndpoint, scopedLog *slog.Logger) deleteCheckResult {
 	if g.once {
 		// If we are running this function "once" it means that we
 		// will delete all CEPs in the cluster regardless of the pod
 		// state.
-		return true
+		return deleteCheckResult{validated: true, shouldBeDeleted: true}
 	}
 
 	podChecked := false
 	podStore, err := g.pods.Store(ctx)
 	if err != nil {
 		scopedLog.WarnContext(ctx, "Unable to get pod store", logfields.Error, err)
-		return false
+		return deleteCheckResult{validated: false}
 	}
 
 	for _, owner := range cep.ObjectMeta.OwnerReferences {
@@ -168,11 +195,11 @@ func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.C
 		case "Pod":
 			result := g.checkPodForCEP(resource.Key{Name: owner.Name, Namespace: cep.Namespace}, podStore, scopedLog)
 			if result.validated {
-				return result.shouldBeDeleted
+				return result
 			}
 			podChecked = true
 		default:
-			return false
+			return deleteCheckResult{validated: false}
 		}
 	}
 	if !podChecked {
@@ -181,10 +208,13 @@ func (g *GC) checkIfCEPShouldBeDeleted(ctx context.Context, cep *cilium_api_v2.C
 		result := g.checkPodForCEP(
 			resource.Key{Name: cep.Name, Namespace: cep.Namespace}, podStore, scopedLog)
 		if result.validated {
-			return result.shouldBeDeleted
+			return result
 		}
 	}
-	return true
+
+	// If we were not able to find a valid owner reference mark the result as not validated
+	// but request the deletion of CEP.
+	return deleteCheckResult{validated: false, shouldBeDeleted: true}
 }
 
 func (g *GC) checkPodForCEP(key resource.Key, podStore resource.Store[*slim_corev1.Pod], scopedLog *slog.Logger) deleteCheckResult {

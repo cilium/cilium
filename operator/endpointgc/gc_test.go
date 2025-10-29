@@ -36,7 +36,7 @@ func TestRegisterController(t *testing.T) {
 		k8s.ResourcesCell,
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
-				Interval:                 10 * time.Second,
+				Interval:                 1 * time.Second,
 				DisableCiliumEndpointCRD: false,
 			}
 		}),
@@ -56,9 +56,14 @@ func TestRegisterController(t *testing.T) {
 		t.Fatalf("failed to start: %s", err)
 	}
 	cepStore, _ := ciliumEndpoint.Store(t.Context())
-	// wait for all CEPs to be deleted except for those with running pods or
-	// cilium node owner reference
-	waitForCEPs(t, cepStore, 2)
+
+	// Wait for all CEPs to be deleted except for those with running pods or
+	// cilium node owner reference.
+	// Endpoint GC can take upto 2*EndpointGCInterval
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Len(c, cepStore.List(), 2)
+	}, 2*time.Second, 100*time.Millisecond, "failed to reach expected number (2) of CEPs")
+
 	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
@@ -135,6 +140,88 @@ func TestRegisterControllerWithCRDDisabled(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	// gc is disabled so no CEPs should be deleted
 	waitForCEPs(t, cepStore, 6)
+	if err := hive.Stop(tlog, t.Context()); err != nil {
+		t.Fatalf("failed to stop: %s", err)
+	}
+}
+
+func TestEndpointGCRun(t *testing.T) {
+	defer testutils.GoleakVerifyNone(t)
+
+	var (
+		gcHandler *GC
+
+		clientSet              *k8sClient.FakeClientset
+		ciliumEndpointResource resource.Resource[*cilium_v2.CiliumEndpoint]
+		podsResource           resource.Resource[*slim_corev1.Pod]
+	)
+	hive := hive.New(
+		k8sClient.FakeClientCell(),
+		k8s.ResourcesCell,
+		cell.Provide(func() SharedConfig {
+			return SharedConfig{
+				Interval:                 1 * time.Second,
+				DisableCiliumEndpointCRD: false,
+			}
+		}),
+		metrics.Metric(NewMetrics),
+
+		cell.Invoke(func(c *k8sClient.FakeClientset, pods resource.Resource[*slim_corev1.Pod], cep resource.Resource[*cilium_v2.CiliumEndpoint]) {
+			clientSet = c
+			podsResource = pods
+			ciliumEndpointResource = cep
+		}),
+
+		cell.Invoke(func(p params) error {
+			gcHandler = &GC{
+				logger:          p.Logger,
+				interval:        1 * time.Second,
+				once:            false,
+				clientset:       p.Clientset,
+				ciliumEndpoints: p.CiliumEndpoints,
+				pods:            p.Pods,
+				metrics:         p.Metrics,
+				gcCandidates:    make(map[string]struct{}),
+			}
+			return nil
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, t.Context()); err != nil {
+		t.Fatalf("failed to start: %s", err)
+	}
+
+	cep1 := createCiliumEndpoint("cep1", "ns")
+	clientSet.CiliumV2().CiliumEndpoints("ns").Create(t.Context(), cep1, meta_v1.CreateOptions{})
+
+	cep2 := createCiliumEndpoint("cep2", "ns")
+	clientSet.CiliumV2().CiliumEndpoints("ns").Create(t.Context(), cep2, meta_v1.CreateOptions{})
+	clientSet.Slim().CoreV1().Pods("ns").Create(t.Context(), createPod("cep2", "ns", false), meta_v1.CreateOptions{})
+
+	cep3 := createCiliumEndpoint("cep3", "ns")
+	clientSet.CiliumV2().CiliumEndpoints("ns").Create(t.Context(), cep3, meta_v1.CreateOptions{})
+
+	// CiliumEndpoint resource store should have two endpoints.
+	cepStore, _ := ciliumEndpointResource.Store(t.Context())
+	waitForCEPs(t, cepStore, 3)
+
+	// First GC run.
+	// CEP1, CEP3 - Should be added to GC candidates but not deleted.
+	// CEP2 - Should be deleted since the pod is not running.
+	gcHandler.doGC(t.Context())
+	waitForCEPs(t, cepStore, 2)
+
+	// Create pod for CEP 3 and trigger another GC run. This run should delete the CEP1 and CEP2 but not CEP3.
+	podsStore, _ := podsResource.Store(t.Context())
+	clientSet.Slim().CoreV1().Pods("ns").Create(t.Context(), createPod("cep3", "ns", true), meta_v1.CreateOptions{})
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Len(c, podsStore.List(), 2)
+	}, 1*time.Second, 100*time.Millisecond, "failed to reach expected number (1) of Pods")
+
+	gcHandler.doGC(t.Context())
+	waitForCEPs(t, cepStore, 1)
+
 	if err := hive.Stop(tlog, t.Context()); err != nil {
 		t.Fatalf("failed to stop: %s", err)
 	}
