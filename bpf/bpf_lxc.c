@@ -898,6 +898,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 {
 	struct ct_state *ct_state, ct_state_new = {};
 	struct remote_endpoint_info *info;
+	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	struct ipv4_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = THIS_INTERFACE_MAC;
@@ -1218,7 +1219,6 @@ ct_recreate4:
 	 */
 #if defined(ENABLE_VTEP)
 	{
-		struct remote_endpoint_info fake_info = {0};
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
@@ -1272,8 +1272,10 @@ skip_vtep:
 		 */
 		if (ct_status == CT_REPLY) {
 			if (identity_is_remote_node(*dst_sec_identity) && ct_state->from_tunnel) {
-				info->tunnel_endpoint.ip4 = ip4->daddr;
-				info->flag_has_tunnel_ep = true;
+				/* Do not modify [info], as this will update IPcache */
+				fake_info.tunnel_endpoint.ip4 = ip4->daddr;
+				fake_info.flag_has_tunnel_ep = true;
+				info = &fake_info;
 			}
 		}
 #endif
