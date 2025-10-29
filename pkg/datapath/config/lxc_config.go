@@ -9,6 +9,8 @@ package config
 // not instantiate directly! Always use [NewBPFLXC] to ensure the default values
 // configured in the ELF are honored.
 type BPFLXC struct {
+	// Maximum number of clusters that can be connected in a clustermesh.
+	ClusterIDMax uint32 `config:"cluster_id_max"`
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
@@ -51,7 +53,7 @@ type BPFLXC struct {
 }
 
 func NewBPFLXC(node Node) *BPFLXC {
-	return &BPFLXC{0x5dc, false, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFLXC{0x0, 0x5dc, false, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},

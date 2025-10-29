@@ -3,7 +3,6 @@
 
 #ifndef __CLUSTERMESH_IDENTITY__
 #define __CLUSTERMESH_IDENTITY__
-#define CLUSTER_ID_MAX 255
 #endif
 
 #ifndef __CLUSTERMESH_HELPERS__
@@ -15,11 +14,14 @@
 #include <bpf/ctx/skb.h>
 #include <lib/overloadable.h>
 #include <lib/clustermesh.h>
+#include <lib/static_data.h>
 #include "common.h"
 
 #define CLUSTER_LOCAL_IDENTITY 0xAAAA
 #define TEST_CLUSTER_ID 0xFFu
 #define IDENTITY (0x00000000u | (TEST_CLUSTER_ID << IDENTITY_LEN) | CLUSTER_LOCAL_IDENTITY)
+
+ASSIGN_CONFIG(__u32, cluster_id_max, 255)
 
 CHECK("tc", "set_and_get_identity")
 int check_get_identity(struct __ctx_buff *ctx)
