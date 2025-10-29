@@ -16,6 +16,11 @@ type EncryptionKey int
 type CID string
 type Label string
 
+type CESCacher interface {
+	hasCESName(cesName CESName) bool
+	insertCES(cesName CESName, ns string)
+}
+
 // NodeData contains information about the node; the set of coreceps on
 // the node and the known encryption key associated with the node.
 type NodeData struct {
@@ -48,6 +53,11 @@ func NewSecIDs() *SecIDs {
 type CESCache struct {
 	mutex lock.RWMutex
 
+	// cesData is used to map CiliumEndpointSlice name to all CiliumEndpoints names it contains
+	// and the namespace associated with it
+	cesData map[CESName]*CESData
+	// nsData is used to map namespaces to all CiliumEndpointSlices in them
+	nsData map[string]sets.Set[CESName]
 	// nodeData is used to map node name to all CiliumEndpoints on the node
 	// and the known encryption key associated with it
 	nodeData map[NodeName]*NodeData
@@ -61,6 +71,8 @@ type CESCache struct {
 // Creates and intializes the new CESCache
 func newCESCache() *CESCache {
 	return &CESCache{
+		cesData:                make(map[CESName]*CESData),
+		nsData:                 make(map[string]sets.Set[CESName]),
 		nodeData:               make(map[NodeName]*NodeData),
 		globalIdLabelsToCIDSet: make(map[Label]*SecIDs),
 		cidToGidLabels:         make(map[CID]Label),
@@ -144,6 +156,31 @@ func (c *CESCache) deleteCID(cid CID, gidLabels Label) []CESKey {
 	return nil
 }
 
+// Initializes mapping structure for CES
+func (c *CESCache) insertCES(cesName CESName, ns string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.cesData[cesName] = NewCESData(ns)
+	if _, ok := c.nsData[ns]; !ok {
+		c.nsData[ns] = sets.New[CESName]()
+	}
+	c.nsData[ns].Insert(cesName)
+}
+
+// Remove mapping structure for CES
+func (c *CESCache) deleteCES(cesName CESName) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if cesData, ok := c.cesData[cesName]; ok {
+		if cesSet, ok := c.nsData[cesData.ns]; ok {
+			cesSet.Delete(cesName)
+		}
+	}
+	delete(c.cesData, cesName)
+}
+
 // Return if given node is present in cache
 func (c *CESCache) hasNode(nodeName NodeName) bool {
 	c.mutex.RLock()
@@ -198,8 +235,81 @@ func (c *CESCache) cleanLabelsMap(gidLabels Label) {
 	}
 }
 
+// Return total number of CEPs mapped to the given CES
+func (c *CESCache) countCEPsInCES(ces CESName) int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if cesData, ok := c.cesData[ces]; ok {
+		return cesData.ceps.Len()
+	}
+	return 0
+}
+
+// Return CEP Names mapped to the given CES
+func (c *CESCache) getCEPsInCES(ces CESName) []CEPName {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if cesData, ok := c.cesData[ces]; ok {
+		return cesData.ceps.UnsortedList()
+	}
+	return nil
+}
+
+// Return if the given CES is present in cache
+func (c *CESCache) hasCESName(cesName CESName) bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	_, ok := c.cesData[cesName]
+	return ok
+}
+
+// Return the total number of CESs.
+func (c *CESCache) getCESCount() int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return len(c.cesData)
+}
+
+// Return names of all CESs.
+func (c *CESCache) getAllCESs() []CESName {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	cess := make([]CESName, 0, len(c.cesData))
+	for ces := range c.cesData {
+		cess = append(cess, ces)
+	}
+	return cess
+}
+
+// Return the namespace of the given CES
+func (c *CESCache) getCESNamespace(name CESName) string {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	if cesData, ok := c.cesData[name]; ok {
+		return cesData.ns
+	}
+	return ""
+}
+
 func (cid CID) String() string {
 	return string(cid)
+}
+
+// Return all CESs in the given namespace
+func (c *CESCache) getCESInNs(ns string) []CESKey {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if cesSet, ok := c.nsData[ns]; ok {
+		cess := make([]CESKey, 0, cesSet.Len())
+		for ces := range cesSet {
+			cess = append(cess, NewCESKey(ces.string(), ns))
+		}
+		return cess
+	}
+	return nil
 }
 
 // SetSelectedID will update the selectedID to the given CID if not set.
