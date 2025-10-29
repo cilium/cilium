@@ -274,6 +274,21 @@ func runCiliumNodesUpdater(ctx context.Context, ctrlr *Controller,
 	return nil
 }
 
+func (c *SlimController) runCiliumIdentitiesUpdater(ctx context.Context) error {
+	for event := range c.ciliumIdentity.Events(ctx) {
+		switch event.Kind {
+		case resource.Upsert:
+			c.logger.Debug("Got Upsert CiliumIdentity event", logfields.CIDName, event.Key)
+			c.onIdentityUpdate(event.Object)
+		case resource.Delete:
+			c.logger.Debug("Got Delete CiliumIdentity event", logfields.CIDName, event.Key)
+			c.onIdentityDelete(event.Object)
+		}
+		event.Done(nil)
+	}
+	return nil
+}
+
 func (c *SlimController) onNodeUpdate(node *cilium_api_v2.CiliumNode) {
 	touchedCESs := c.manager.UpdateNodeMapping(node, c.ipsecEnabled, c.wgEnabled)
 	c.enqueueCESReconciliation(touchedCESs)
@@ -281,6 +296,16 @@ func (c *SlimController) onNodeUpdate(node *cilium_api_v2.CiliumNode) {
 
 func (c *SlimController) onNodeDelete(node *cilium_api_v2.CiliumNode) {
 	touchedCESs := c.manager.RemoveNodeMapping(node)
+	c.enqueueCESReconciliation(touchedCESs)
+}
+
+func (c *SlimController) onIdentityUpdate(cid *cilium_api_v2.CiliumIdentity) {
+	touchedCESs := c.manager.UpdateIdentityMapping(cid)
+	c.enqueueCESReconciliation(touchedCESs)
+}
+
+func (c *SlimController) onIdentityDelete(cid *cilium_api_v2.CiliumIdentity) {
+	touchedCESs := c.manager.RemoveIdentityMapping(cid)
 	c.enqueueCESReconciliation(touchedCESs)
 }
 

@@ -6,9 +6,11 @@ package ciliumendpointslice
 import (
 	"log/slog"
 
+	"github.com/cilium/cilium/pkg/identity/key"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -33,6 +35,7 @@ type Manager interface {
 // is used when the CES controller is running in default mode.
 type defaultManager struct {
 	logger *slog.Logger
+
 	// mapping is used to map CESName to CESTracker[i.e. list of CEPs],
 	// as well as CEPName to CESName.
 	mapping *CESToCEPMapping
@@ -224,4 +227,24 @@ func getNodeEndpointEncryptionKey(node *cilium_v2.CiliumNode, ipsecEnabled, wgEn
 	default:
 		return 0
 	}
+}
+
+func (c *slimManager) UpdateIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
+	cidName, gidLabels := cidToGidLabels(id)
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.mapping.insertCID(cidName, gidLabels)
+}
+
+func (c *slimManager) RemoveIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.mapping.deleteCID(CID(id.GetName()))
+}
+
+func cidToGidLabels(id *cilium_v2.CiliumIdentity) (CID, Labels) {
+	cidName := id.GetName()
+	cidKey := key.GetCIDKeyFromLabels(id.SecurityLabels, labels.LabelSourceK8s)
+	return CID(cidName), Labels(cidKey.GetKey())
 }
