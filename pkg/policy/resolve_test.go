@@ -187,10 +187,12 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 	})
 	td.sc.UpdateIdentities(c, nil, wg)
 
-	apiRules, ids := ruleGenFunc(numRules)
-	td.sc.UpdateIdentities(ids, nil, wg)
-	wg.Wait()
-	td.repo.MustAddList(apiRules)
+	if ruleGenFunc != nil {
+		apiRules, ids := ruleGenFunc(numRules)
+		td.sc.UpdateIdentities(ids, nil, wg)
+		wg.Wait()
+		td.repo.MustAddList(apiRules)
+	}
 }
 
 func BenchmarkResolveCIDRPolicyRules(b *testing.B) {
@@ -253,6 +255,84 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 		policy.Ready()
 		ip.detach(true, 0)
 	}
+}
+
+func TestEgressCIDRTCPPort(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(logger)
+	repo := td.repo
+
+	td.bootstrapRepo(nil, 1, t)
+
+	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
+	idFooSelectLabels := labels.Labels{}
+	for _, lbl := range idFooSelectLabelArray {
+		idFooSelectLabels[lbl.Key] = lbl
+	}
+	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
+	td.addIdentity(fooIdentity)
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	rule1 := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDR: []api.CIDR{"10.1.1.1"},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	rule1.Sanitize()
+	_, _, err := repo.mustAdd(rule1)
+	require.NoError(t, err)
+
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	require.NoError(t, err)
+	require.Equal(t, redirectTypeNone, selPolicy.L4Policy.redirectTypes)
+
+	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy.Ready()
+
+	expectedEndpointPolicy := EndpointPolicy{
+		Redirects: testRedirects,
+		SelectorPolicy: &selectorPolicy{
+			Revision:      repo.GetRevision(),
+			SelectorCache: repo.GetSelectorCache(),
+			L4Policy: L4Policy{
+				Revision: repo.GetRevision(),
+				Egress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
+					"80/TCP": {
+						Port:     80,
+						Protocol: api.ProtoTCP,
+						U8Proto:  0x6,
+						Ingress:  false,
+						PerSelectorPolicies: L7DataMap{
+							td.cachedSelectorCIDR: nil,
+						},
+						RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorCIDR: {nil}}),
+					},
+				})},
+				Ingress: newL4DirectionPolicy(),
+			},
+			IngressPolicyEnabled: false,
+			EgressPolicyEnabled:  true,
+		},
+		PolicyOwner: DummyOwner{logger: logger},
+	}
+
+	mdl := repo.GetRulesList()
+	require.Contains(t, mdl.Policy, "10.1.1.1")
+
+	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
 
 func TestL7WithIngressWildcard(t *testing.T) {
