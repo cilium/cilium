@@ -259,7 +259,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	union v6addr *dst;
 	int l3_off = ETH_HLEN;
 	struct remote_endpoint_info *info = NULL;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	int ret __maybe_unused;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
@@ -684,7 +684,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct remote_endpoint_info *info;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	int ret __maybe_unused;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;

@@ -346,7 +346,7 @@ static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 {
 	union v6addr target, router = CONFIG(router_ipv6);
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	union macaddr router_mac = CONFIG(interface_mac);
 
 	if (ctx_load_bytes(ctx, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,

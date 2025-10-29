@@ -17,7 +17,7 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lxc __section_maps_btf;
 
-static __always_inline __maybe_unused struct endpoint_info *
+static __always_inline __maybe_unused const struct endpoint_info *
 __lookup_ip6_endpoint(const union v6addr *ip6)
 {
 	struct endpoint_key key = {};
@@ -28,13 +28,13 @@ __lookup_ip6_endpoint(const union v6addr *ip6)
 	return map_lookup_elem(&cilium_lxc, &key);
 }
 
-static __always_inline __maybe_unused struct endpoint_info *
+static __always_inline __maybe_unused const struct endpoint_info *
 lookup_ip6_endpoint(const struct ipv6hdr *ip6)
 {
 	return __lookup_ip6_endpoint((union v6addr *)&ip6->daddr);
 }
 
-static __always_inline __maybe_unused struct endpoint_info *
+static __always_inline __maybe_unused const struct endpoint_info *
 __lookup_ip4_endpoint(__u32 ip)
 {
 	struct endpoint_key key = {};
@@ -45,7 +45,7 @@ __lookup_ip4_endpoint(__u32 ip)
 	return map_lookup_elem(&cilium_lxc, &key);
 }
 
-static __always_inline __maybe_unused struct endpoint_info *
+static __always_inline __maybe_unused const struct endpoint_info *
 lookup_ip4_endpoint(const struct iphdr *ip4)
 {
 	return __lookup_ip4_endpoint(ip4->daddr);
