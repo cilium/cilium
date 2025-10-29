@@ -28,7 +28,6 @@ func NewGetPrefilterParams() GetPrefilterParams {
 //
 // swagger:parameters GetPrefilter
 type GetPrefilterParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

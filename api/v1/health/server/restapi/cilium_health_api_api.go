@@ -48,12 +48,20 @@ func NewCiliumHealthAPIAPI(spec *loads.Document) *CiliumHealthAPIAPI {
 		JSONProducer: runtime.JSONProducer(),
 
 		GetHealthzHandler: GetHealthzHandlerFunc(func(params GetHealthzParams) middleware.Responder {
+			_ = params
+
 			return middleware.NotImplemented("operation GetHealthz has not yet been implemented")
 		}),
+
 		ConnectivityGetStatusHandler: connectivity.GetStatusHandlerFunc(func(params connectivity.GetStatusParams) middleware.Responder {
+			_ = params
+
 			return middleware.NotImplemented("operation connectivity.GetStatus has not yet been implemented")
 		}),
+
 		ConnectivityPutStatusProbeHandler: connectivity.PutStatusProbeHandlerFunc(func(params connectivity.PutStatusProbeParams) middleware.Responder {
+			_ = params
+
 			return middleware.NotImplemented("operation connectivity.PutStatusProbe has not yet been implemented")
 		}),
 	}
@@ -115,7 +123,7 @@ type CiliumHealthAPIAPI struct {
 	CommandLineOptionsGroups []swag.CommandLineOptionsGroup
 
 	// User defined logger function.
-	Logger func(string, ...interface{})
+	Logger func(string, ...any)
 }
 
 // UseRedoc for documentation at /docs
@@ -208,12 +216,12 @@ func (o *CiliumHealthAPIAPI) Authorizer() runtime.Authorizer {
 }
 
 // ConsumersFor gets the consumers for the specified media types.
+//
 // MIME type parameters are ignored here.
 func (o *CiliumHealthAPIAPI) ConsumersFor(mediaTypes []string) map[string]runtime.Consumer {
 	result := make(map[string]runtime.Consumer, len(mediaTypes))
 	for _, mt := range mediaTypes {
-		switch mt {
-		case "application/json":
+		if mt == "application/json" {
 			result["application/json"] = o.JSONConsumer
 		}
 
@@ -221,16 +229,17 @@ func (o *CiliumHealthAPIAPI) ConsumersFor(mediaTypes []string) map[string]runtim
 			result[mt] = c
 		}
 	}
+
 	return result
 }
 
 // ProducersFor gets the producers for the specified media types.
+//
 // MIME type parameters are ignored here.
 func (o *CiliumHealthAPIAPI) ProducersFor(mediaTypes []string) map[string]runtime.Producer {
 	result := make(map[string]runtime.Producer, len(mediaTypes))
 	for _, mt := range mediaTypes {
-		switch mt {
-		case "application/json":
+		if mt == "application/json" {
 			result["application/json"] = o.JSONProducer
 		}
 
@@ -238,6 +247,7 @@ func (o *CiliumHealthAPIAPI) ProducersFor(mediaTypes []string) map[string]runtim
 			result[mt] = p
 		}
 	}
+
 	return result
 }
 

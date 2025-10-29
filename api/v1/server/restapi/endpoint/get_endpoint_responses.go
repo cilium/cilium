@@ -84,7 +84,7 @@ func NewGetEndpointNotFound() *GetEndpointNotFound {
 // WriteResponse to the client
 func (o *GetEndpointNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -109,7 +109,7 @@ func NewGetEndpointTooManyRequests() *GetEndpointTooManyRequests {
 // WriteResponse to the client
 func (o *GetEndpointTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(429)
 }

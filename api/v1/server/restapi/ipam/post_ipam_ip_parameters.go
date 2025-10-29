@@ -30,7 +30,6 @@ func NewPostIpamIPParams() PostIpamIPParams {
 //
 // swagger:parameters PostIpamIP
 type PostIpamIPParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -39,10 +38,12 @@ type PostIpamIPParams struct {
 	  In: path
 	*/
 	IP string
+
 	/*
 	  In: query
 	*/
 	Owner *string
+
 	/*
 	  In: query
 	*/
@@ -57,7 +58,6 @@ func (o *PostIpamIPParams) BindRequest(r *http.Request, route *middleware.Matche
 	var res []error
 
 	o.HTTPRequest = r
-
 	qs := runtime.Values(r.URL.Query())
 
 	rIP, rhkIP, _ := route.Params.GetOK("ip")

@@ -92,7 +92,7 @@ DeleteEndpoint deletes a list of endpoints
 Deletes a list of endpoints that have endpoints matching the provided properties
 */
 func (a *Client) DeleteEndpoint(params *DeleteEndpointParams, opts ...ClientOption) (*DeleteEndpointOK, *DeleteEndpointErrors, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewDeleteEndpointParams()
 	}
@@ -111,18 +111,22 @@ func (a *Client) DeleteEndpoint(params *DeleteEndpointParams, opts ...ClientOpti
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// several success responses have to be checked
 	switch value := result.(type) {
 	case *DeleteEndpointOK:
 		return value, nil, nil
 	case *DeleteEndpointErrors:
 		return nil, value, nil
 	}
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for endpoint: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -142,7 +146,7 @@ workload represented by the endpoint will be disconnected.It will no
 longer be able to initiate or receive communications of any sort.
 */
 func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams, opts ...ClientOption) (*DeleteEndpointIDOK, *DeleteEndpointIDErrors, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewDeleteEndpointIDParams()
 	}
@@ -161,18 +165,22 @@ func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams, opts ...Client
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// several success responses have to be checked
 	switch value := result.(type) {
 	case *DeleteEndpointIDOK:
 		return value, nil, nil
 	case *DeleteEndpointIDErrors:
 		return nil, value, nil
 	}
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for endpoint: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -183,7 +191,7 @@ GetEndpoint retrieves a list of endpoints that have metadata matching the provid
 Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
 */
 func (a *Client) GetEndpoint(params *GetEndpointParams, opts ...ClientOption) (*GetEndpointOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetEndpointParams()
 	}
@@ -202,17 +210,22 @@ func (a *Client) GetEndpoint(params *GetEndpointParams, opts ...ClientOption) (*
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetEndpointOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetEndpoint: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -223,7 +236,7 @@ GetEndpointID gets endpoint by endpoint ID
 Returns endpoint information
 */
 func (a *Client) GetEndpointID(params *GetEndpointIDParams, opts ...ClientOption) (*GetEndpointIDOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetEndpointIDParams()
 	}
@@ -242,17 +255,22 @@ func (a *Client) GetEndpointID(params *GetEndpointIDParams, opts ...ClientOption
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetEndpointIDOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetEndpointID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -263,7 +281,7 @@ GetEndpointIDConfig retrieves endpoint configuration
 Retrieves the configuration of the specified endpoint.
 */
 func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams, opts ...ClientOption) (*GetEndpointIDConfigOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetEndpointIDConfigParams()
 	}
@@ -282,17 +300,22 @@ func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams, opts ...
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetEndpointIDConfigOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetEndpointIDConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -301,7 +324,7 @@ func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams, opts ...
 GetEndpointIDHealthz retrieves the status logs associated with this endpoint
 */
 func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams, opts ...ClientOption) (*GetEndpointIDHealthzOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetEndpointIDHealthzParams()
 	}
@@ -320,17 +343,22 @@ func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams, opts .
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetEndpointIDHealthzOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetEndpointIDHealthz: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -339,7 +367,7 @@ func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams, opts .
 GetEndpointIDLabels retrieves the list of labels associated with an endpoint
 */
 func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams, opts ...ClientOption) (*GetEndpointIDLabelsOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetEndpointIDLabelsParams()
 	}
@@ -358,17 +386,22 @@ func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams, opts ...
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetEndpointIDLabelsOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetEndpointIDLabels: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -377,7 +410,7 @@ func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams, opts ...
 GetEndpointIDLog retrieves the status logs associated with this endpoint
 */
 func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams, opts ...ClientOption) (*GetEndpointIDLogOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewGetEndpointIDLogParams()
 	}
@@ -396,17 +429,22 @@ func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams, opts ...Client
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*GetEndpointIDLogOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetEndpointIDLog: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -417,7 +455,7 @@ PatchEndpointID modifies existing endpoint
 Applies the endpoint change request to an existing endpoint
 */
 func (a *Client) PatchEndpointID(params *PatchEndpointIDParams, opts ...ClientOption) (*PatchEndpointIDOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPatchEndpointIDParams()
 	}
@@ -436,17 +474,22 @@ func (a *Client) PatchEndpointID(params *PatchEndpointIDParams, opts ...ClientOp
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*PatchEndpointIDOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PatchEndpointID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -459,7 +502,7 @@ func (a *Client) PatchEndpointID(params *PatchEndpointIDParams, opts ...ClientOp
 recompiles the corresponding programs automatically.
 */
 func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams, opts ...ClientOption) (*PatchEndpointIDConfigOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPatchEndpointIDConfigParams()
 	}
@@ -478,17 +521,22 @@ func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams, opts
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*PatchEndpointIDConfigOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PatchEndpointIDConfig: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -501,7 +549,7 @@ func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams, opts
 derived from the orchestration system.
 */
 func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams, opts ...ClientOption) (*PatchEndpointIDLabelsOK, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPatchEndpointIDLabelsParams()
 	}
@@ -520,17 +568,22 @@ func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams, opts
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*PatchEndpointIDLabelsOK)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PatchEndpointIDLabels: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
@@ -541,7 +594,7 @@ PutEndpointID creates endpoint
 Creates a new endpoint
 */
 func (a *Client) PutEndpointID(params *PutEndpointIDParams, opts ...ClientOption) (*PutEndpointIDCreated, error) {
-	// TODO: Validate the params before sending
+	// NOTE: parameters are not validated before sending
 	if params == nil {
 		params = NewPutEndpointIDParams()
 	}
@@ -560,17 +613,22 @@ func (a *Client) PutEndpointID(params *PutEndpointIDParams, opts ...ClientOption
 	for _, opt := range opts {
 		opt(op)
 	}
-
 	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
+
+	// only one success response has to be checked
 	success, ok := result.(*PutEndpointIDCreated)
 	if ok {
 		return success, nil
 	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PutEndpointID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }

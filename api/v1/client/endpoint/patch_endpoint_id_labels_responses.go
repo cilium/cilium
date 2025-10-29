@@ -10,6 +10,7 @@ package endpoint
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 
@@ -25,7 +26,7 @@ type PatchEndpointIDLabelsReader struct {
 }
 
 // ReadResponse reads a server response into the received o.
-func (o *PatchEndpointIDLabelsReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
+func (o *PatchEndpointIDLabelsReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (any, error) {
 	switch response.Code() {
 	case 200:
 		result := NewPatchEndpointIDLabelsOK()
@@ -353,7 +354,7 @@ func (o *PatchEndpointIDLabelsUpdateFailed) GetPayload() models.Error {
 func (o *PatchEndpointIDLabelsUpdateFailed) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
-	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 

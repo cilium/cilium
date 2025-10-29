@@ -28,7 +28,6 @@ func NewGetStatusParams() GetStatusParams {
 //
 // swagger:parameters GetStatus
 type GetStatusParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

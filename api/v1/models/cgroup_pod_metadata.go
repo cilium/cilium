@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -61,11 +62,15 @@ func (m *CgroupPodMetadata) validateContainers(formats strfmt.Registry) error {
 
 		if m.Containers[i] != nil {
 			if err := m.Containers[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("containers" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("containers" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -100,11 +105,15 @@ func (m *CgroupPodMetadata) contextValidateContainers(ctx context.Context, forma
 			}
 
 			if err := m.Containers[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("containers" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("containers" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}

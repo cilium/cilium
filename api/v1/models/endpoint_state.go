@@ -62,7 +62,7 @@ const (
 )
 
 // for schema
-var endpointStateEnum []interface{}
+var endpointStateEnum []any
 
 func init() {
 	var res []EndpointState

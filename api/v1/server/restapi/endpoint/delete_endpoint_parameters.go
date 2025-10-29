@@ -9,6 +9,7 @@ package endpoint
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	stderrors "errors"
 	"io"
 	"net/http"
 
@@ -33,7 +34,6 @@ func NewDeleteEndpointParams() DeleteEndpointParams {
 //
 // swagger:parameters DeleteEndpoint
 type DeleteEndpointParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -54,10 +54,12 @@ func (o *DeleteEndpointParams) BindRequest(r *http.Request, route *middleware.Ma
 	o.HTTPRequest = r
 
 	if runtime.HasBody(r) {
-		defer r.Body.Close()
+		defer func() {
+			_ = r.Body.Close()
+		}()
 		var body models.EndpointBatchDeleteRequest
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
-			if err == io.EOF {
+			if stderrors.Is(err, io.EOF) {
 				res = append(res, errors.Required("endpoint", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("endpoint", "body", "", err))

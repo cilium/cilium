@@ -78,7 +78,7 @@ func (m *BackendAddress) validateIP(formats strfmt.Registry) error {
 	return nil
 }
 
-var backendAddressTypeStatePropEnum []interface{}
+var backendAddressTypeStatePropEnum []any
 
 func init() {
 	var res []string

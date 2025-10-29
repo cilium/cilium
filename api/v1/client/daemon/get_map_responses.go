@@ -10,6 +10,7 @@ package daemon
 
 import (
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 
@@ -25,7 +26,7 @@ type GetMapReader struct {
 }
 
 // ReadResponse reads a server response into the received o.
-func (o *GetMapReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (interface{}, error) {
+func (o *GetMapReader) ReadResponse(response runtime.ClientResponse, consumer runtime.Consumer) (any, error) {
 	switch response.Code() {
 	case 200:
 		result := NewGetMapOK()
@@ -101,7 +102,7 @@ func (o *GetMapOK) readResponse(response runtime.ClientResponse, consumer runtim
 	o.Payload = new(models.BPFMapList)
 
 	// response payload
-	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && !stderrors.Is(err, io.EOF) {
 		return err
 	}
 

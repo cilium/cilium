@@ -51,7 +51,7 @@ func (m *BPFMapEntry) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var bPFMapEntryTypeDesiredActionPropEnum []interface{}
+var bPFMapEntryTypeDesiredActionPropEnum []any
 
 func init() {
 	var res []string

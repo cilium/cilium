@@ -81,7 +81,7 @@ func NewGetEndpointIDHealthzInvalid() *GetEndpointIDHealthzInvalid {
 // WriteResponse to the client
 func (o *GetEndpointIDHealthzInvalid) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(400)
 }
@@ -106,7 +106,7 @@ func NewGetEndpointIDHealthzNotFound() *GetEndpointIDHealthzNotFound {
 // WriteResponse to the client
 func (o *GetEndpointIDHealthzNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(404)
 }
@@ -131,7 +131,7 @@ func NewGetEndpointIDHealthzTooManyRequests() *GetEndpointIDHealthzTooManyReques
 // WriteResponse to the client
 func (o *GetEndpointIDHealthzTooManyRequests) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+	rw.Header().Del(runtime.HeaderContentType) // Remove Content-Type on empty responses
 
 	rw.WriteHeader(429)
 }
