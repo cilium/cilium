@@ -1047,12 +1047,6 @@ func TestDecodeTraceReason(t *testing.T) {
 			want:   flowpb.TraceReason_RELATED,
 		},
 		{
-			// "reopened" is deprecated, as the datapath no longer returns it
-			name:   "reopened",
-			reason: monitor.TraceReasonCtDeprecatedReopened,
-			want:   flowpb.TraceReason_REOPENED,
-		},
-		{
 			name:   "srv6-encap",
 			reason: monitor.TraceReasonSRv6Encap,
 			want:   flowpb.TraceReason_SRV6_ENCAP,
