@@ -249,6 +249,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.flags		= flags,
 		.ifindex	= ifindex,
 		.ip_trace_id	= ip_trace_id,
+		.orig_port = 0,
 	};
 	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
 
