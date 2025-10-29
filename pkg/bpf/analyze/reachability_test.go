@@ -40,6 +40,9 @@ func TestReachabilitySimple(t *testing.T) {
 		SymB    *ebpf.VariableSpec `ebpf:"__config_sym_b"`
 		SymCD   *ebpf.VariableSpec `ebpf:"__config_sym_cd"`
 		SymE    *ebpf.VariableSpec `ebpf:"__config_sym_e"`
+		SymF    *ebpf.VariableSpec `ebpf:"__config_sym_f"`
+		SymG    *ebpf.VariableSpec `ebpf:"__config_sym_g"`
+		SymH    *ebpf.VariableSpec `ebpf:"__config_sym_h"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
 
@@ -54,6 +57,9 @@ func TestReachabilitySimple(t *testing.T) {
 	assert.False(t, findLiveReference(noElim, "sym_c"))
 	assert.False(t, findLiveReference(noElim, "sym_d"))
 	assert.False(t, findLiveReference(noElim, "sym_e"))
+	assert.False(t, findLiveReference(noElim, "sym_f"))
+	assert.False(t, findLiveReference(noElim, "sym_g"))
+	assert.False(t, findLiveReference(noElim, "sym_h"))
 
 	type ts struct {
 		_ structs.HostLayout
@@ -71,6 +77,9 @@ func TestReachabilitySimple(t *testing.T) {
 		sym_d: 1234,
 	}))
 	require.NoError(t, obj.SymE.Set(int64(-1)))
+	require.NoError(t, obj.SymF.Set(int8(-1)))
+	require.NoError(t, obj.SymG.Set(int16(-1)))
+	require.NoError(t, obj.SymH.Set(int32(-1)))
 
 	elim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
@@ -80,6 +89,9 @@ func TestReachabilitySimple(t *testing.T) {
 	assert.True(t, findLiveReference(elim, "sym_c"))
 	assert.True(t, findLiveReference(elim, "sym_d"))
 	assert.True(t, findLiveReference(elim, "sym_e"))
+	assert.True(t, findLiveReference(elim, "sym_f"))
+	assert.True(t, findLiveReference(elim, "sym_g"))
+	assert.True(t, findLiveReference(elim, "sym_h"))
 }
 
 var _ VariableSpec = (*mockVarSpec)(nil)

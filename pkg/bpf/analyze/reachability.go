@@ -10,7 +10,6 @@ import (
 	"iter"
 	"strings"
 	"unique"
-	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -236,23 +235,53 @@ func findBranch(iter *BlockIterator) *asm.Instruction {
 
 // findDereference backtracks instructions until it finds a memory load
 // (dereference) into the given dst register.
-func findDereference(iter *BlockIterator, dst asm.Register) *asm.Instruction {
+//
+// The bool return value indicates whether the dereferenced value needs to be
+// sign-extended before being given to the branch resolver.
+func findDereference(iter *BlockIterator, dst asm.Register) (*asm.Instruction, bool) {
+	var extend bool
 	for iter.Previous() {
 		ins := iter.Instruction()
 		if ins.Dst != dst {
 			continue
 		}
 
+		// Deal with left shifts and right shifts, which are emitted after
+		// dereferencing signed integers to extend them to 64 bits.
+		//
+		// Example:
+		// 	29: LdXMemW dst: r1 src: r1 off: 0 imm: 0
+		// 	30: LShImm dst: r1 imm: 48
+		// 	31: ArShImm dst: r1 imm: 48
+		if ins.OpCode.ALUOp() == asm.ArSh {
+			shift := ins.Constant
+			if !iter.Previous() {
+				break
+			}
+
+			ins = iter.Instruction()
+			if ins.Dst != dst {
+				break
+			}
+
+			if ins.OpCode.ALUOp() == asm.LSh && ins.Constant == shift {
+				extend = true
+				continue
+			}
+
+			break
+		}
+
 		op := ins.OpCode
 		if op.Class().IsLoad() && op.Mode() == asm.MemMode {
-			return ins
+			return ins, extend
 		}
 
 		// Register got clobbered, stop looking.
-		return nil
+		break
 	}
 
-	return nil
+	return nil, false
 }
 
 // findMapLoad backtracks instructions until it finds a map load instruction
@@ -444,7 +473,7 @@ func predictBranch(branch *asm.Instruction, iter *BlockIterator, vars map[mapOff
 func resolveRegister(iter *BlockIterator, reg asm.Register, vars map[mapOffset]VariableSpec) (int64, error) {
 	// First, check if there's a dereference into the register.
 	derefIter := iter.Clone()
-	deref := findDereference(derefIter, reg)
+	deref, extend := findDereference(derefIter, reg)
 
 	if deref != nil {
 		// Found a dereference, continue looking for the map load.
@@ -458,7 +487,7 @@ func resolveRegister(iter *BlockIterator, reg asm.Register, vars map[mapOffset]V
 			return 0, errUnpredictable
 		}
 
-		v, err := loadVariable(vs, deref)
+		v, err := loadVariable(vs, deref, extend)
 		if err != nil {
 			return 0, fmt.Errorf("loading variable value: %w", err)
 		}
@@ -498,7 +527,7 @@ func derefSize(deref *asm.Instruction) (uint64, error) {
 
 // loadVariable loads n=(deref width) bytes from variable vs and returns it as
 // an int64.
-func loadVariable(vs VariableSpec, deref *asm.Instruction) (int64, error) {
+func loadVariable(vs VariableSpec, deref *asm.Instruction, extend bool) (int64, error) {
 	size, err := derefSize(deref)
 	if err != nil {
 		return 0, fmt.Errorf("determining deref size: %w", err)
@@ -515,10 +544,29 @@ func loadVariable(vs VariableSpec, deref *asm.Instruction) (int64, error) {
 		return 0, fmt.Errorf("getting VariableSpec value: %w", err)
 	}
 
-	out := make([]byte, unsafe.Sizeof(uint64(0)))
-	copy(out, b[offset:offset+size])
+	b = b[offset : offset+size]
 
-	return int64(binary.NativeEndian.Uint64(out)), nil
+	switch size {
+	case 1:
+		if extend {
+			return int64(int8(b[0])), nil
+		}
+		return int64(b[0]), nil
+	case 2:
+		if extend {
+			return int64(int16(binary.NativeEndian.Uint16(b))), nil
+		}
+		return int64(binary.NativeEndian.Uint16(b)), nil
+	case 4:
+		if extend {
+			return int64(int32(binary.NativeEndian.Uint32(b))), nil
+		}
+		return int64(binary.NativeEndian.Uint32(b)), nil
+	case 8:
+		return int64(binary.NativeEndian.Uint64(b)), nil
+	}
+
+	return 0, fmt.Errorf("unsupported size %d for variable load", size)
 }
 
 // evalJumpOp evaluates the jump operation op with the given dst and src
