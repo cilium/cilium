@@ -4,11 +4,13 @@
 package analyze
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"iter"
 	"strings"
 	"unique"
+	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -215,8 +217,8 @@ func (r *Reachable) Dump(insns asm.Instructions) string {
 }
 
 // findBranch backtracks exactly one instruction and checks if it's a branch
-// instruction comparing a register against an immediate value. Returns
-// the instruction if it met the criteria, nil otherwise.
+// instruction comparing a register against an immediate value or another
+// register. Returns the instruction if it met the criteria, nil otherwise.
 func findBranch(iter *BlockIterator) *asm.Instruction {
 	// Only the last instruction of a block can be a branch instruction.
 	if !iter.Previous() {
@@ -234,24 +236,20 @@ func findBranch(iter *BlockIterator) *asm.Instruction {
 
 // findDereference backtracks instructions until it finds a memory load
 // (dereference) into the given dst register.
-//
-// Since all CONFIG() variables are `volatile`, the compiler should emit a
-// dereference before every branch instruction. These typically occur in the
-// same basic block, albeit with a few unrelated instructions in between.
 func findDereference(iter *BlockIterator, dst asm.Register) *asm.Instruction {
 	for iter.Previous() {
 		ins := iter.Instruction()
+		if ins.Dst != dst {
+			continue
+		}
+
 		op := ins.OpCode
-		if op.Class().IsLoad() && op.Mode() == asm.MemMode && ins.Dst == dst {
+		if op.Class().IsLoad() && op.Mode() == asm.MemMode {
 			return ins
 		}
 
-		if ins.Dst == dst {
-			// Found a non-load instruction that clobbers the register used by the
-			// branch instruction. This doesn't match the pattern we're looking for,
-			// so stop looking.
-			return nil
-		}
+		// Register got clobbered, stop looking.
+		return nil
 	}
 
 	return nil
@@ -259,25 +257,44 @@ func findDereference(iter *BlockIterator, dst asm.Register) *asm.Instruction {
 
 // findMapLoad backtracks instructions until it finds a map load instruction
 // that populates the given src register.
-//
-// Even though CONFIG() variables are declared volatile, the compiler may still
-// decide to reuse the register containing the map pointer for multiple
-// dereferences. This often occurs in a predecessor block, so the pull function
-// must support predecessor traversal.
-//
-// Note: the compiler should favor reconstructing the map pointer over spilling
-// to the stack, so we don't consider stack spilling.
-func findMapLoad(iter *BlockIterator, src asm.Register) *asm.Instruction {
+func findMapLoad(iter *BlockIterator, dst asm.Register) *asm.Instruction {
 	for iter.Previous() {
 		ins := iter.Instruction()
-		if ins.Dst == src {
-			if ins.IsLoadFromMap() {
-				return ins
-			}
-
-			// Register got clobbered, stop looking.
-			return nil
+		if ins.Dst != dst {
+			continue
 		}
+
+		if ins.IsLoadFromMap() {
+			return ins
+		}
+
+		// Register got clobbered, stop looking.
+		return nil
+	}
+
+	return nil
+}
+
+// findImmLoad backtracks instructions until it finds an immediate load into
+// the given register.
+//
+// Detects both cBPF-style immediate loads as well as loads using the
+// LdImm{B,H,W,DW} instructions.
+func findImmLoad(iter *BlockIterator, reg asm.Register) *asm.Instruction {
+	for iter.Previous() {
+		ins := iter.Instruction()
+		if ins.Dst != reg {
+			continue
+		}
+
+		if (ins.OpCode.Class().IsLoad() &&
+			ins.OpCode.Mode() == asm.ImmMode) ||
+			ins.IsConstantLoad(asm.DWord) {
+			return ins
+		}
+
+		// Register got clobbered, stop looking.
+		return nil
 	}
 
 	return nil
@@ -352,26 +369,58 @@ func predictBranch(branch *asm.Instruction, iter *BlockIterator, vars map[mapOff
 	// Immediate comparisons are limited to 32 bits since that's the size of the
 	// imm field in a (double-wide) branch insn. In an imm comparison, the dst
 	// field register contains the dereferenced value of the config variable.
+	//
+	// Example:
+	//	0: LoadMapValue dst: r1, fd: 0 off: 4 <.rodata.config>
+	//	2: LdXMemB dst: r2 src: r1 off: 0 imm: 0
+	//	3: JNEImm dst: r2 off: 2 imm: 0
 	case asm.ImmSource:
-		deref := findDereference(iter, branch.Dst)
-		if deref == nil {
-			return false, errUnpredictable
+		dst, err := resolveRegister(iter.Clone(), branch.Dst, vars)
+		if errors.Is(err, errUnpredictable) {
+			// Don't wrap err since this is a hot path.
+			return false, err
+		}
+		if err != nil {
+			return false, fmt.Errorf("resolving dst register %s: %w", branch.Dst, err)
 		}
 
-		load := findMapLoad(iter, deref.Src)
-		if load == nil {
-			return false, errUnpredictable
+		jump, err := evalJumpOp(branch.OpCode.JumpOp(), dst, branch.Constant)
+		if err != nil {
+			return false, fmt.Errorf("evaluating branch: %w", err)
 		}
 
-		// TODO(tb): evalBranch doesn't currently take the deref's offset field into
-		// account so it can't deal with variables over 8 bytes in size. Improve it
-		// to be more robust and remove this limitation.
-		vs := lookupVariable(load, vars)
-		if vs == nil || !vs.Constant() || vs.Size() > 8 {
-			return false, errUnpredictable
+		return jump, nil
+
+	// Register comparisons require finding both a map load and an immediate
+	// load into the two registers used by the branch instruction.
+	//
+	// Example:
+	//	0: LoadMapValue dst: r1, fd: 0 off: 4 <.rodata.config>
+	//	2: LdXMemDW dst: r1 src: r1 off: 0 imm: 0
+	//	3: LdImmDW dst: r2 imm: 42
+	//	5: JGTReg dst: r1 src: r2 off: 2
+	//
+	// Note that src and reg may be swapped depending on the comparison op and the
+	// compiler's mood. During initial testing, the config value was more often
+	// found in dst.
+	case asm.RegSource:
+		dst, err := resolveRegister(iter.Clone(), branch.Dst, vars)
+		if errors.Is(err, errUnpredictable) {
+			return false, err
+		}
+		if err != nil {
+			return false, fmt.Errorf("resolving dst register %s: %w", branch.Dst, err)
 		}
 
-		jump, err := evalBranch(branch, vs)
+		src, err := resolveRegister(iter.Clone(), branch.Src, vars)
+		if errors.Is(err, errUnpredictable) {
+			return false, err
+		}
+		if err != nil {
+			return false, fmt.Errorf("resolving src register %s: %w", branch.Src, err)
+		}
+
+		jump, err := evalJumpOp(branch.OpCode.JumpOp(), dst, src)
 		if err != nil {
 			return false, fmt.Errorf("evaluating branch: %w", err)
 		}
@@ -381,6 +430,134 @@ func predictBranch(branch *asm.Instruction, iter *BlockIterator, vars map[mapOff
 	default:
 		return false, errUnpredictable
 	}
+}
+
+// resolveRegister attempts to resolve the value of a given register by
+// backtracking from the given iterator position.
+//
+// If the register is populated by a memory dereference, it backtracks further
+// to find the map load and returns the value of the associated VariableSpec.
+// If the register is populated by an immediate load, it returns the immediate
+// value directly.
+//
+// Returns errUnpredictable if the register value cannot be resolved.
+func resolveRegister(iter *BlockIterator, reg asm.Register, vars map[mapOffset]VariableSpec) (int64, error) {
+	// First, check if there's a dereference into the register.
+	derefIter := iter.Clone()
+	deref := findDereference(derefIter, reg)
+
+	if deref != nil {
+		// Found a dereference, continue looking for the map load.
+		load := findMapLoad(derefIter, deref.Src)
+		if load == nil {
+			return 0, errUnpredictable
+		}
+
+		vs := lookupVariable(load, vars)
+		if vs == nil || !vs.Constant() {
+			return 0, errUnpredictable
+		}
+
+		v, err := loadVariable(vs, deref)
+		if err != nil {
+			return 0, fmt.Errorf("loading variable value: %w", err)
+		}
+
+		return v, nil
+	}
+
+	// No dereference found, check for an immediate load.
+	imm := findImmLoad(iter, reg)
+	if imm == nil {
+		return 0, errUnpredictable
+	}
+
+	return imm.Constant, nil
+}
+
+// derefSize returns the width in bytes of deref.
+func derefSize(deref *asm.Instruction) (uint64, error) {
+	// Make sure it's a dereference instruction.
+	if !deref.OpCode.Class().IsLoad() || deref.OpCode.Mode() != asm.MemMode {
+		return 0, fmt.Errorf("not a dereference instruction: %v", deref)
+	}
+
+	switch deref.OpCode.Size() {
+	case asm.Byte:
+		return 1, nil
+	case asm.Half:
+		return 2, nil
+	case asm.Word:
+		return 4, nil
+	case asm.DWord:
+		return 8, nil
+	}
+
+	return 0, fmt.Errorf("unsupported deref size: %v", deref.OpCode.Size())
+}
+
+// loadVariable loads n=(deref width) bytes from variable vs and returns it as
+// an int64.
+func loadVariable(vs VariableSpec, deref *asm.Instruction) (int64, error) {
+	size, err := derefSize(deref)
+	if err != nil {
+		return 0, fmt.Errorf("determining deref size: %w", err)
+	}
+	// Offset within the variable to load from.
+	offset := uint64(deref.Offset)
+
+	if vs.Size() < size+offset {
+		return 0, fmt.Errorf("dereference past end of variable (var=%d, off=%d, deref=%d)", vs.Size(), offset, size)
+	}
+
+	b := make([]byte, vs.Size())
+	if err := vs.Get(b); err != nil {
+		return 0, fmt.Errorf("getting VariableSpec value: %w", err)
+	}
+
+	out := make([]byte, unsafe.Sizeof(uint64(0)))
+	copy(out, b[offset:offset+size])
+
+	return int64(binary.NativeEndian.Uint64(out)), nil
+}
+
+// evalJumpOp evaluates the jump operation op with the given dst and src
+// operands. It returns true if the jump is taken, false otherwise.
+func evalJumpOp(op asm.JumpOp, dst, src int64) (bool, error) {
+	var jump bool
+	switch op {
+	case asm.JEq:
+		jump = dst == src
+
+	case asm.JGT:
+		jump = uint64(dst) > uint64(src)
+	case asm.JGE:
+		jump = uint64(dst) >= uint64(src)
+
+	case asm.JSet:
+		jump = dst&src != 0
+	case asm.JNE:
+		jump = dst != src
+
+	case asm.JSGT:
+		jump = dst > src
+	case asm.JSGE:
+		jump = dst >= src
+
+	case asm.JLT:
+		jump = uint64(dst) < uint64(src)
+	case asm.JLE:
+		jump = uint64(dst) <= uint64(src)
+	case asm.JSLT:
+		jump = dst < src
+	case asm.JSLE:
+		jump = dst <= src
+
+	default:
+		return false, fmt.Errorf("unsupported jump instruction: %v", op)
+	}
+
+	return jump, nil
 }
 
 // lookupVariable retrieves the VariableSpec for the given load instruction from
@@ -402,81 +579,4 @@ func lookupVariable(load *asm.Instruction, vars map[mapOffset]VariableSpec) Vari
 		return nil
 	}
 	return vs
-}
-
-// evalBranch evaluates the branch instruction based on the value of the
-// variable it refers to.
-//
-// Returns true if the branch is always taken, false if it is never taken,
-func evalBranch(branch *asm.Instruction, vs VariableSpec) (bool, error) {
-	// Extract the variable value
-	var (
-		value int64
-		err   error
-	)
-	switch vs.Size() {
-	case 1:
-		var value8 int8
-		err = vs.Get(&value8)
-		value = int64(value8)
-	case 2:
-		var value16 int16
-		err = vs.Get(&value16)
-		value = int64(value16)
-	case 4:
-		var value32 int32
-		err = vs.Get(&value32)
-		value = int64(value32)
-	case 8:
-		var value64 int64
-		err = vs.Get(&value64)
-		value = value64
-	default:
-		return false, fmt.Errorf("jump instruction on variable %v of size %d?", vs, vs.Size())
-	}
-	if err != nil {
-		return false, fmt.Errorf("getting value of variable: %w", err)
-	}
-
-	// Now lets determine if the branch is always taken or never taken.
-	var jump bool
-	switch op := branch.OpCode.JumpOp(); op {
-	case asm.JEq, asm.JNE:
-		jump = value == branch.Constant
-		if op == asm.JNE {
-			jump = !jump
-		}
-
-	case asm.JGT, asm.JLE:
-		jump = value > branch.Constant
-		if op == asm.JLE {
-			jump = !jump
-		}
-
-	case asm.JLT, asm.JGE:
-		jump = value < branch.Constant
-		if op == asm.JGE {
-			jump = !jump
-		}
-
-	case asm.JSGT, asm.JSLE:
-		jump = value > branch.Constant
-		if op == asm.JSLE {
-			jump = !jump
-		}
-
-	case asm.JSLT, asm.JSGE:
-		jump = value < branch.Constant
-		if op == asm.JSGE {
-			jump = !jump
-		}
-
-	case asm.JSet:
-		jump = value&branch.Constant != 0
-
-	default:
-		return false, fmt.Errorf("unsupported jump instruction: %v", branch)
-	}
-
-	return jump, nil
 }
