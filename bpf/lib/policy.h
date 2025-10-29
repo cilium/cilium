@@ -77,7 +77,7 @@ struct {
 } cilium_policy_v2 __section_maps_btf;
 
 static __always_inline int
-__policy_check(struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
+__policy_check(const struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
 	       __u16 *proxy_port, __u32 *cookie)
 {
 	/* auth_type is derived from the matched policy entry, except if both L3/L4 and L4-only
@@ -129,8 +129,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		    bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		    __u16 *proxy_port, __u32 *cookie)
 {
-	struct policy_entry *policy;
-	struct policy_entry *l4policy;
+	const struct policy_entry *policy;
+	const struct policy_entry *l4policy;
 	struct policy_key key = {
 		.lpm_key = { POLICY_FULL_PREFIX, {} }, /* always look up with unwildcarded data */
 		.sec_label = remote_id,
