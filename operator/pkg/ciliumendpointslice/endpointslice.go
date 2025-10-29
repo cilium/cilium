@@ -230,7 +230,7 @@ func (c *Controller) runCiliumEndpointSliceUpdater(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
+func (c *DefaultController) runCiliumNodesUpdater(ctx context.Context) error {
 	ciliumNodesStore, err := c.ciliumNodes.Store(ctx)
 	if err != nil {
 		c.logger.WarnContext(ctx, "Couldn't get CiliumNodes store", logfields.Error, err)
@@ -246,6 +246,42 @@ func (c *Controller) runCiliumNodesUpdater(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *SlimController) runCiliumNodesUpdater(ctx context.Context) error {
+	ciliumNodesStore, err := c.ciliumNodes.Store(ctx)
+	if err != nil {
+		c.logger.WarnContext(ctx, "Couldn't get CiliumNodes store", logfields.Error, err)
+		return err
+	}
+	for event := range c.ciliumNodes.Events(ctx) {
+		switch event.Kind {
+		case resource.Upsert:
+			c.logger.Debug("Got Upsert CiliumNode event", logfields.NodeName, event.Key)
+			c.onNodeUpdate(event.Object)
+		case resource.Delete:
+			c.logger.Debug("Got Delete CiliumNode event", logfields.NodeName, event.Key)
+			c.onNodeDelete(event.Object)
+		}
+		event.Done(nil)
+		totalNodes := len(ciliumNodesStore.List())
+		if c.rateLimit.updateRateLimiterWithNodes(totalNodes) {
+			c.logger.InfoContext(ctx, "Updated CES controller workqueue configuration",
+				logfields.WorkQueueQPSLimit, c.rateLimit.current.Limit,
+				logfields.WorkQueueBurstLimit, c.rateLimit.current.Burst)
+		}
+	}
+	return nil
+}
+
+func (c *SlimController) onNodeUpdate(node *cilium_api_v2.CiliumNode) {
+	touchedCESs := c.manager.UpdateNodeMapping(node, c.ipsecEnabled, c.wgEnabled)
+	c.enqueueCESReconciliation(touchedCESs)
+}
+
+func (c *SlimController) onNodeDelete(node *cilium_api_v2.CiliumNode) {
+	touchedCESs := c.manager.RemoveNodeMapping(node)
+	c.enqueueCESReconciliation(touchedCESs)
 }
 
 // Sync all CESs from cesStore to manager cache.

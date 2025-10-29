@@ -6,9 +6,13 @@ package ciliumendpointslice
 import (
 	"log/slog"
 
+	"github.com/spf13/cast"
+
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 var (
@@ -178,4 +182,25 @@ func (c *defaultManager) getCEPinCES(ces CESName) []CEPName {
 func (c *defaultManager) isCEPinCES(cep CEPName, ces CESName) bool {
 	mappedCES, exists := c.mapping.getCESName(cep)
 	return exists && mappedCES == ces
+}
+
+func (c *slimManager) UpdateNodeMapping(node *cilium_v2.CiliumNode, ipsecEnabled, wgEnabled bool) []CESKey {
+	newKey := EncryptionKey(getNodeEndpointEncryptionKey(node, ipsecEnabled, wgEnabled))
+	name := NodeName(node.Name)
+	return c.mapping.insertNode(name, newKey)
+}
+
+func (c *slimManager) RemoveNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
+	return c.mapping.deleteNode(NodeName(node.Name))
+}
+
+func getNodeEndpointEncryptionKey(node *cilium_v2.CiliumNode, ipsecEnabled, wgEnabled bool) int {
+	switch {
+	case wgEnabled:
+		return cast.ToInt(wgtypes.StaticEncryptKey)
+	case ipsecEnabled:
+		return node.Spec.Encryption.Key
+	default:
+		return 0
+	}
 }
