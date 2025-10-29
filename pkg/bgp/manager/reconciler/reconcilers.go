@@ -22,6 +22,7 @@ const (
 	PodIPPoolReconcilerName      = "PodIPPool"
 	ServiceReconcilerName        = "Service"
 	PodCIDRReconcilerName        = "PodCIDR"
+	InterfaceReconcilerName      = "Interface"
 )
 
 // Reconciler Priorities, lower number means higher priority. It is used to determine the
@@ -32,6 +33,7 @@ const (
 	PodIPPoolReconcilerPriority      = 50
 	ServiceReconcilerPriority        = 40
 	PodCIDRReconcilerPriority        = 30
+	InterfaceReconcilerPriority      = 20
 	DefaultGatewayReconcilerPriority = 10
 )
 
@@ -69,6 +71,7 @@ var ConfigReconcilers = cell.Provide(
 	NewPodCIDRReconciler,
 	NewPodIPPoolReconciler,
 	NewServiceReconciler,
+	NewInterfaceReconciler,
 )
 
 // GetActiveReconcilers returns a list of reconcilers in order of priority that should be used to reconcile the BGP config.
