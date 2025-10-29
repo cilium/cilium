@@ -16,3 +16,19 @@ func (c *CESCache) getEncryptionKey(nodeName NodeName) (EncryptionKey, bool) {
 	}
 	return 0, false
 }
+
+// Return if given CID is present in cache
+func (c *CESCache) hasCID(cid CID) bool {
+	_, ok := c.cidToGidLabels[cid]
+	return ok
+}
+
+// Return the selected CID for the given GID labels
+func (c *CESCache) GetSelectedId(gid Labels) (CID, bool) {
+	if gidData, ok := c.globalIdLabelsToCIDSet[gid]; ok {
+		if gidData.selectedID != "" {
+			return gidData.selectedID, true
+		}
+	}
+	return "", false
+}
