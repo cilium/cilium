@@ -8,12 +8,8 @@ import (
 	"hash/fnv"
 	"log/slog"
 	"net/netip"
-	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
-
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -54,11 +50,6 @@ type manager struct {
 	cache *fqdn.DNSCache
 
 	bootstrapCompleted bool
-
-	// restoredPrefixes contains all prefixes for which we have restored the
-	// IPCache metadata from previous Cilium v1.15 installation.
-	// Cleared by CompleteBoostrap
-	restoredPrefixes sets.Set[netip.Prefix]
 
 	// list of locks used as coordination points for name updates
 	// see LockName() for details.
@@ -115,8 +106,8 @@ func New(params ManagerParams) *manager {
 		))
 
 		params.JobGroup.Add(job.OneShot(
-			"remove-restored-prefixes",
-			n.removeRestoredPrefixes,
+			"wait-for-endpoint-restore",
+			n.waitForEndpointRestore,
 		))
 
 		// Start the asynchronous prefix allocator
@@ -233,9 +224,9 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, n
 	return c
 }
 
-// removeRestoredPrefixes is a one-shot job. It waits for
-// all endpoints to be regenerated, then removes restored ipcache state.
-func (n *manager) removeRestoredPrefixes(ctx context.Context, _ cell.Health) error {
+// waitForEndpointRestore is a one-shot job. It waits for
+// all endpoints to be regenerated.
+func (n *manager) waitForEndpointRestore(ctx context.Context, _ cell.Health) error {
 	epRestorer, err := n.params.RestorerPromise.Await(ctx)
 	if err != nil {
 		n.logger.Error("Failed to get endpoint restorer", logfields.Error, err)
@@ -250,36 +241,6 @@ func (n *manager) removeRestoredPrefixes(ctx context.Context, _ cell.Health) err
 	defer n.Unlock()
 
 	n.bootstrapCompleted = true
-	if len(n.restoredPrefixes) > 0 {
-		n.logger.Debug(
-			"Removing restored IPCache labels",
-			logfields.LenPrefixes, len(n.restoredPrefixes),
-		)
-
-		// The following logic needs to match the restoration logic in RestoreCaches
-		ipcacheUpdates := make([]ipcache.MU, 0, len(n.restoredPrefixes))
-		for prefix := range n.restoredPrefixes {
-			ipcacheUpdates = append(ipcacheUpdates, ipcache.MU{
-				Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
-				Source:   source.Restored,
-				Resource: restorationIPCacheResource,
-				Metadata: []ipcache.IPMetadata{
-					labels.Labels{}, // remove restored labels
-				},
-			})
-		}
-		n.params.IPCache.RemoveMetadataBatch(ipcacheUpdates...)
-		n.restoredPrefixes = nil
-
-		checkpointPath := filepath.Join(n.params.Config.StateDir, checkpointFile)
-		if err := os.Remove(checkpointPath); err != nil {
-			n.logger.Debug(
-				"Failed to remove checkpoint file",
-				logfields.Error, err,
-				logfields.Path, checkpointPath,
-			)
-		}
-	}
 	return nil
 }
 

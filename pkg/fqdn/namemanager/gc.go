@@ -5,46 +5,23 @@ package namemanager
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"net/netip"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
-	"github.com/cilium/cilium/pkg/ipcache"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 const DNSGCJobInterval = 1 * time.Minute
 
 const dnsGCJobName = "dns-garbage-collector-job"
-
-var (
-	checkpointFile = "fqdn-name-manager-selectors.json"
-
-	restorationIPCacheResource = ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindDaemon, "", "fqdn-name-manager-restoration")
-)
-
-// serializedSelector is the schema of the serialized selectors on disk
-type serializedSelector struct {
-	Regex    string           `json:"re"`
-	Selector api.FQDNSelector `json:"sel"`
-}
 
 // This implements some garbage collection and cleanup functions for the NameManager
 
@@ -228,89 +205,6 @@ func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
 			}
 		}
 	}
-
-	if option.Config.RestoreState {
-		checkpointPath := filepath.Join(option.Config.StateDir, checkpointFile)
-
-		// Restore selector labels in IPCache when upgrading from v1.15. This is needed
-		// because Cilium v1.15 and older used to use CIDR identities for ToFQDN identities.
-		// This can be removed once Cilium v1.15 is end of life. When restoring from
-		// Cilium v1.16 and newer, we can rely on identity restoration to inject the
-		// correct identities into IPCache
-		oldSelectors, err := restoreSelectors(checkpointPath)
-		if err != nil {
-			n.logger.Error("Failed to restore FQDN selectors. "+
-				"Expect brief traffic disruptions for ToFQDN destinations during initial endpoint regeneration",
-				logfields.Error, err,
-				logfields.Path, checkpointPath,
-			)
-			return
-		}
-		if len(oldSelectors) == 0 {
-			n.logger.Info("No FQDN selectors to restore from previous Cilium v1.15 installations")
-			return
-		}
-
-		// If we are upgrading from Cilium v1.15, we need to provide the expected
-		// FQDN labels into IPCache before label injection and endpoint restoration starts.
-		// This ensures that the prefix labels (and thus the numeric identity of the prefix)
-		// will not change once the real selectors are discovered during initial endpoint regeneration.
-		// Without this, the initial endpoint regeneration might cause drops as old and new IPCache
-		// will use different identities for the prefixes in IPCache.
-		// These restored labels are removed in CompleteBootstrap, which is invoked after the real
-		// labels have been discovered in endpoint regeneration.
-		n.logger.Info("Detected upgrade from Cilium v1.15. Building IPCache metadata from restored FQDN selectors")
-
-		ipsToNames := n.cache.GetIPs()
-		ipcacheUpdates := make([]ipcache.MU, 0, len(ipsToNames))
-		n.restoredPrefixes = make(sets.Set[netip.Prefix], len(ipsToNames))
-
-		for addr, names := range ipsToNames {
-			lbls := labels.Labels{}
-			for _, name := range names {
-				lbls.MergeLabels(deriveLabelsForName(name, oldSelectors))
-			}
-
-			prefix := netip.PrefixFrom(addr, addr.BitLen())
-			ipcacheUpdates = append(ipcacheUpdates, ipcache.MU{
-				Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
-				Source:   source.Restored,
-				Resource: restorationIPCacheResource,
-				Metadata: []ipcache.IPMetadata{
-					lbls,
-				},
-			})
-			n.restoredPrefixes.Insert(prefix)
-		}
-		n.params.IPCache.UpsertMetadataBatch(ipcacheUpdates...)
-	}
-}
-
-func restoreSelectors(checkpointPath string) (map[api.FQDNSelector]*regexp.Regexp, error) {
-	f, err := os.Open(checkpointPath)
-	if err != nil {
-		// If not upgrading from Cilium v1.15, the file will not exist
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to open selector checkpoint file: %w", err)
-	}
-
-	var restoredSelectors []serializedSelector
-	err = json.NewDecoder(f).Decode(&restoredSelectors)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode checkpointed selectors from: %w", err)
-	}
-
-	oldSelectors := make(map[api.FQDNSelector]*regexp.Regexp, len(restoredSelectors))
-	for _, s := range restoredSelectors {
-		re, err := regexp.Compile(s.Regex)
-		if err != nil {
-			return nil, fmt.Errorf("invalid regex %q in checkpointed selectors: %w", s.Regex, err)
-		}
-		oldSelectors[s.Selector] = re
-	}
-	return oldSelectors, nil
 }
 
 // readPreCache returns a fqdn.DNSCache object created from the json data at
