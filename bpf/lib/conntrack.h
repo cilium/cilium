@@ -779,6 +779,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 	case IPPROTO_ICMP: {
 		__be16 identifier = 0;
 		__u8 type;
+		__u8 code;
 
 		/* Fragmented ECHO packets are not supported currently. Drop all
 		 * fragments, because letting the first fragment pass would be
@@ -790,6 +791,8 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 
 		if (ctx_load_bytes(ctx, off, &type, 1) < 0)
 			return DROP_CT_INVALID_HDR;
+		if (ctx_load_bytes(ctx, off + sizeof(__u8), &code, 1) < 0)
+			return DROP_CT_INVALID_HDR;
 		if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmphdr, un.echo.id),
 				   &identifier, 2) < 0)
@@ -799,11 +802,12 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		tuple->dport = 0;
 
 		switch (type) {
-		case ICMP_FRAG_NEEDED:
-			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir),
-				       REASON_MTU_ERROR_MSG);
-			break;
 		case ICMP_DEST_UNREACH:
+			if (code == ICMP_FRAG_NEEDED) {
+				update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir),
+					       REASON_MTU_ERROR_MSG);
+			}
+			fallthrough;
 		case ICMP_TIME_EXCEEDED:
 		case ICMP_PARAMETERPROB:
 			tuple->flags |= TUPLE_F_RELATED;
