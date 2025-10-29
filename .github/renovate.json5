@@ -171,7 +171,25 @@
         "bump",
         "replacement",
       ],
-      "groupName": "all-dependencies"
+      "groupName": "all-dependencies",
+      "excludePackageNames": [
+        "quay.io/goswagger/swagger"
+      ]
+    },
+    {
+      // Update quay.io/goswagger/swagger independently because it changes 300+ files
+      // which breaks GitHub workflow path filtering
+      "matchPackageNames": [
+        "quay.io/goswagger/swagger"
+      ],
+      "groupName": "goswagger",
+      "separateMajorMinor": true,
+      "automerge": true,
+      "automergeType": "pr",
+      // Replace the list of reviewers with just ciliumbot
+      "reviewers":[
+        "ciliumbot",
+      ]
     },
     {
       "groupName": "all github action dependencies",
