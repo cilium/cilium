@@ -28,7 +28,6 @@ func NewGetNodeIdsParams() GetNodeIdsParams {
 //
 // swagger:parameters GetNodeIds
 type GetNodeIdsParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }
