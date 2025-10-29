@@ -56,6 +56,7 @@ type testData struct {
 	cachedSelectorC        CachedSelector
 	cachedSelectorHost     CachedSelector
 	wildcardCachedSelector CachedSelector
+	cachedSelectorCIDR     CachedSelector
 
 	cachedFooSelector CachedSelector
 	cachedBazSelector CachedSelector
@@ -80,6 +81,11 @@ func newTestData(logger *slog.Logger) *testData {
 	td.repo.selectorCache = td.sc
 
 	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
+	td.cachedSelectorCIDR = func(cidr api.CIDR) CachedSelector {
+		ess := api.CIDRSlice{cidr}.GetAsEndpointSelectors()
+		cs, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, ess[0])
+		return cs
+	}(api.CIDR("10.1.1.1"))
 
 	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA, idA.ID)
 	td.cachedSelectorB = td.getCachedSelectorForTest(endpointSelectorB, idB.ID)
