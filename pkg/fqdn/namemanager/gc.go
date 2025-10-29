@@ -77,14 +77,18 @@ func (n *manager) doGC(ctx context.Context) error {
 		activeConnections    = fqdn.NewDNSCache(activeConnectionsTTL)
 	)
 	namesToClean := make(sets.Set[string])
+	initialNames := n.cache.DumpNames()
 
 	// Take a snapshot of the *entire* reverse cache, so we can compute the set of
 	// IPs that have been completely removed and safely delete their metadata.
 	maybeStaleIPs := n.cache.GetIPs()
 
+	allEndpointNames := make(sets.Set[string])
+
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
 	endpoints := n.params.EPMgr.GetEndpoints()
 	for _, ep := range endpoints {
+		allEndpointNames.Insert(ep.DNSHistory.DumpNames().UnsortedList()...)
 		epID := ep.StringID()
 		if metrics.FQDNActiveNames.IsEnabled() || metrics.FQDNActiveIPs.IsEnabled() {
 			countFQDNs, countIPs := ep.DNSHistory.Count()
@@ -129,6 +133,11 @@ func (n *manager) doGC(ctx context.Context) error {
 		for _, zombie := range dead {
 			namesToClean.Insert(zombie.Names...)
 		}
+	}
+
+	leakedNames := initialNames.Difference(allEndpointNames)
+	for name := range leakedNames {
+		namesToClean.Insert(name)
 	}
 
 	if namesToClean.Len() == 0 {
