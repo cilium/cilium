@@ -10,6 +10,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -195,6 +196,14 @@ func (c *slimManager) UpdateIdentityMapping(id *cilium_v2.CiliumIdentity) []CESK
 func (c *slimManager) RemoveIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
 	cidName, gidLabels := cidToGidLabels(id)
 	return c.mapping.deleteCID(cidName, gidLabels)
+}
+
+func (c *slimManager) GetCESInNs(ns *slim_corev1.Namespace) []CESKey {
+	return c.mapping.getCESInNs(ns.GetName())
+}
+
+func (c *slimManager) RemoveNamespaceMapping(ns *slim_corev1.Namespace) {
+	c.mapping.deleteNs(ns.GetName())
 }
 
 func cidToGidLabels(id *cilium_v2.CiliumIdentity) (CID, Label) {

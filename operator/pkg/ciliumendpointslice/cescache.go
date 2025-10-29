@@ -193,6 +193,16 @@ func (c *CESCache) deleteCES(cesName CESName) {
 	delete(c.cesData, cesName)
 }
 
+// Delete namespace from cache
+func (c *CESCache) deleteNs(ns string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	for ces := range c.nsData[ns] {
+		c.cesData[ces].ns = ""
+	}
+	delete(c.nsData, ns)
+}
+
 // Return if given node is present in cache
 func (c *CESCache) hasNode(nodeName NodeName) bool {
 	c.mutex.RLock()
