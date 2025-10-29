@@ -92,7 +92,7 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, struct remote_endpoint_info *info,
 	 * bpf_host to send ctx onto tunnel for encap.
 	 */
 
-	struct node_value *node_value = NULL;
+	const struct node_value *node_value = NULL;
 	__u32 mark;
 	__u8 spi;
 
