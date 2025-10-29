@@ -98,6 +98,51 @@ func (c *CESCache) deleteNode(nodeName NodeName) []CESKey {
 	return nil
 }
 
+// Insert a CID into the cache and return the CESs which need to be reconciled
+func (c *CESCache) insertCID(cid CID, gidLabels Label) []CESKey {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Clean up old state
+	if oldLabels, ok := c.cidToGidLabels[cid]; ok && oldLabels != gidLabels {
+		c.globalIdLabelsToCIDSet[oldLabels].ids.Delete(cid)
+		// If the selectedID is the same as the CID being removed, update it to another valid CID, if it exists.
+		if c.globalIdLabelsToCIDSet[oldLabels].selectedID == cid {
+			c.globalIdLabelsToCIDSet[oldLabels].setSelectedID("", true)
+		}
+		c.cleanLabelsMap(oldLabels)
+	}
+	c.cidToGidLabels[cid] = gidLabels
+
+	if _, ok := c.globalIdLabelsToCIDSet[gidLabels]; !ok {
+		c.globalIdLabelsToCIDSet[gidLabels] = NewSecIDs()
+	}
+	c.globalIdLabelsToCIDSet[gidLabels].setSelectedID(cid, false)
+	c.globalIdLabelsToCIDSet[gidLabels].ids.Insert(cid)
+	return c.getCESForCEPs(c.globalIdLabelsToCIDSet[gidLabels].ceps)
+}
+
+// Remove CID from cache and return affected CESs
+func (c *CESCache) deleteCID(cid CID, gidLabels Label) []CESKey {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	delete(c.cidToGidLabels, cid)
+	if secId, ok := c.globalIdLabelsToCIDSet[gidLabels]; ok {
+		if secId.ids.Has(cid) {
+			cesKeys := c.getCESForCEPs(secId.ceps)
+			secId.ids.Delete(cid)
+			if secId.selectedID == cid {
+				// If the selectedID is the same as the CID being removed, update it to another valid CID, if it exists.
+				secId.setSelectedID("", true)
+			}
+			c.cleanLabelsMap(gidLabels)
+			return cesKeys
+		}
+	}
+	return nil
+}
+
 // Return if given node is present in cache
 func (c *CESCache) hasNode(nodeName NodeName) bool {
 	c.mutex.RLock()

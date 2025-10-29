@@ -6,6 +6,7 @@ package ciliumendpointslice
 import (
 	"log/slog"
 
+	"github.com/cilium/cilium/pkg/identity/key"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -175,4 +176,20 @@ func (c *slimManager) UpdateNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
 
 func (c *slimManager) RemoveNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
 	return c.mapping.deleteNode(NodeName(node.Name))
+}
+
+func (c *slimManager) UpdateIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
+	cidName, gidLabels := cidToGidLabels(id)
+	return c.mapping.insertCID(cidName, gidLabels)
+}
+
+func (c *slimManager) RemoveIdentityMapping(id *cilium_v2.CiliumIdentity) []CESKey {
+	cidName, gidLabels := cidToGidLabels(id)
+	return c.mapping.deleteCID(cidName, gidLabels)
+}
+
+func cidToGidLabels(id *cilium_v2.CiliumIdentity) (CID, Label) {
+	cidName := id.GetName()
+	cidKey := key.GetCIDKeyFromLabels(id.SecurityLabels, "")
+	return CID(cidName), Label(cidKey.GetKey())
 }
