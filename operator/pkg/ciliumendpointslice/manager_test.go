@@ -8,14 +8,30 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	capi_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 func getCEP(name string, id int64) *capi_v2a1.CoreCiliumEndpoint {
 	return &capi_v2a1.CoreCiliumEndpoint{
 		Name:       name,
 		IdentityID: id,
+	}
+}
+
+func newNode(name string, key int) *capi_v2.CiliumNode {
+	return &capi_v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: capi_v2.NodeSpec{
+			Encryption: capi_v2.EncryptionSpec{
+				Key: key,
+			},
+		},
 	}
 }
 
@@ -66,5 +82,41 @@ func TestFCFSManager(t *testing.T) {
 		m.UpdateCEPMapping(getCEP("c5", 0), "ns")
 		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
 		assert.Equal(t, 2, m.mapping.countCEPs(), "Total number of CEPs inserted is 2")
+	})
+}
+
+func TestSlimManagerNodes(t *testing.T) {
+	log := hivetest.Logger(t)
+	t.Run("Test adding new node, no encryption", func(*testing.T) {
+		m := newSlimManager(2, log)
+		m.UpdateNodeMapping(newNode("n1", 0), false, false)
+		assert.Len(t, m.mapping.nodeData, 1, "Total number of nodes in cache is 1")
+		key, _ := m.mapping.getEncryptionKey("n1")
+		assert.EqualValues(t, 0, key, "Encryption key for node n1 is 0")
+	})
+	t.Run("Test adding new node, IPSec encryption", func(*testing.T) {
+		m := newSlimManager(2, log)
+		m.UpdateNodeMapping(newNode("n1", 5), true, false)
+		assert.Len(t, m.mapping.nodeData, 1, "Total number of nodes in cache is 1")
+		key, _ := m.mapping.getEncryptionKey("n1")
+		assert.EqualValues(t, 5, key, "Encryption key for node n1 is 5")
+	})
+	t.Run("Test adding new node, Wireguard encryption", func(*testing.T) {
+		m := newSlimManager(2, log)
+		m.UpdateNodeMapping(newNode("n1", 5), false, true)
+		assert.Len(t, m.mapping.nodeData, 1, "Total number of nodes in cache is 1")
+		key, _ := m.mapping.getEncryptionKey("n1")
+		assert.EqualValues(t, wgtypes.StaticEncryptKey, key, "Encryption key for node n1 is Wireguard StaticEncryptKey")
+	})
+	t.Run("Test adding and deleting nodes", func(*testing.T) {
+		m := newSlimManager(2, log)
+		m.UpdateNodeMapping(newNode("n1", 5), true, false)
+		assert.Len(t, m.mapping.nodeData, 1, "Total number of nodes in cache is 1")
+		m.UpdateNodeMapping(newNode("n2", 0), true, false)
+		assert.Len(t, m.mapping.nodeData, 2, "Total number of nodes in cache is 2")
+		m.RemoveNodeMapping(newNode("n1", 5))
+		assert.Len(t, m.mapping.nodeData, 1, "Total number of nodes in cache is 1")
+		m.RemoveNodeMapping(newNode("n2", 0))
+		assert.Empty(t, m.mapping.nodeData, "Total number of nodes in cache is 0")
 	})
 }
