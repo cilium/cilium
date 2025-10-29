@@ -50,9 +50,19 @@ func NewSecIDs() *SecIDs {
 	}
 }
 
+// CEPData contains the CES, node and labels associated with the corecep.
+type CEPData struct {
+	ces    CESName
+	node   NodeName
+	labels Label
+}
+
 type CESCache struct {
 	mutex lock.RWMutex
 
+	// cepData is used to map CiliumEndpoint name to the CiliumEndpointSlice, Node and
+	// Labels associated with it.
+	cepData map[CEPName]*CEPData
 	// cesData is used to map CiliumEndpointSlice name to all CiliumEndpoints names it contains
 	// and the namespace associated with it
 	cesData map[CESName]*CESData
@@ -71,6 +81,7 @@ type CESCache struct {
 // Creates and intializes the new CESCache
 func newCESCache() *CESCache {
 	return &CESCache{
+		cepData:                make(map[CEPName]*CEPData),
 		cesData:                make(map[CESName]*CESData),
 		nsData:                 make(map[string]sets.Set[CESName]),
 		nodeData:               make(map[NodeName]*NodeData),
@@ -103,7 +114,9 @@ func (c *CESCache) deleteNode(nodeName NodeName) []CESKey {
 	defer c.mutex.Unlock()
 
 	if nodeData, ok := c.nodeData[nodeName]; ok {
-		// TODO: Clean up node state in CEPData
+		for cepName := range nodeData.ceps {
+			c.cepData[cepName].node = ""
+		}
 		cesKeys := c.getCESForCEPs(nodeData.ceps)
 		delete(c.nodeData, nodeName)
 		return cesKeys
@@ -201,8 +214,14 @@ func (c *CESCache) hasNode(nodeName NodeName) bool {
 
 // Return CES keys for the given CEPs. Caller must hold the cache lock.
 func (c *CESCache) getCESForCEPs(ceps sets.Set[CEPName]) []CESKey {
-	// TODO: Implement when CEP/CES state is tracked in cache
-	return nil
+	cesKeys := make([]CESKey, 0, ceps.Len())
+	for cepName := range ceps {
+		if cepData, ok := c.cepData[cepName]; ok {
+			cesName := cepData.ces
+			cesKeys = append(cesKeys, NewCESKey(cesName.string(), c.cesData[cesName].ns))
+		}
+	}
+	return cesKeys
 }
 
 // Return stored encryption key for node.
@@ -301,6 +320,31 @@ func (c *CESCache) getCESNamespace(name CESName) string {
 		return cesData.ns
 	}
 	return ""
+}
+
+// Return CES to which the given CEP is assigned
+func (c *CESCache) getCESName(cepName CEPName) (CESName, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	if cepData, ok := c.cepData[cepName]; ok {
+		return cepData.ces, true
+	}
+	return "", false
+}
+
+// Return if the given CEP is present in cache
+func (c *CESCache) hasCEP(cepName CEPName) bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	_, ok := c.cepData[cepName]
+	return ok
+}
+
+// Return total number of CEPs stored in cache
+func (c *CESCache) countCEPs() int {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	return len(c.cepData)
 }
 
 func (cid CID) String() string {
