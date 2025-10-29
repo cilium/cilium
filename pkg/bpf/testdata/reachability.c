@@ -11,6 +11,9 @@ DECLARE_CONFIG(bool, sym_a, "Make sym_a reachable")
 DECLARE_CONFIG(__u64, sym_b, "Make sym_b reachable if value >= max uint32, requiring 64-bit reg-reg comparison")
 DECLARE_CONFIG(struct { __u8 _pad; bool sym_c; __u32 sym_d; }, sym_cd, "Make sym_c and sym_d reachable")
 DECLARE_CONFIG(__s64, sym_e, "Make sym_e reachable if value is negative")
+DECLARE_CONFIG(__s8, sym_f, "Make sym_f reachable if value is negative, testing sign extension")
+DECLARE_CONFIG(__s16, sym_g, "Make sym_g reachable if value is negative, testing sign extension")
+DECLARE_CONFIG(__s32, sym_h, "Make sym_h reachable if value is negative, testing sign extension")
 
 __section("tc")
 static int entry() {
@@ -28,6 +31,15 @@ static int entry() {
 
         if (CONFIG(sym_e) < 0)
                 SYMBOL(sym_e);
+
+        if (CONFIG(sym_f) < 0)
+                SYMBOL(sym_f);
+
+        if (CONFIG(sym_g) < 0)
+                SYMBOL(sym_g);
+
+        if (CONFIG(sym_h) < 0)
+                SYMBOL(sym_h);
 
         return 0;
 }
