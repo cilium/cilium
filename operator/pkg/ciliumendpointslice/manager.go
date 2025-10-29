@@ -6,6 +6,7 @@ package ciliumendpointslice
 import (
 	"log/slog"
 
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -164,4 +165,14 @@ func (c *defaultManager) getCEPinCES(ces CESName) []CEPName {
 func (c *defaultManager) isCEPinCES(cep CEPName, ces CESName) bool {
 	mappedCES, exists := c.mapping.getCESName(cep)
 	return exists && mappedCES == ces
+}
+
+func (c *slimManager) UpdateNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
+	newKey := EncryptionKey(node.Spec.Encryption.Key)
+	name := NodeName(node.Name)
+	return c.mapping.insertNode(name, newKey)
+}
+
+func (c *slimManager) RemoveNodeMapping(node *cilium_v2.CiliumNode) []CESKey {
+	return c.mapping.deleteNode(NodeName(node.Name))
 }

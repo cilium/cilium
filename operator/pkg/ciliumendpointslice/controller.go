@@ -108,6 +108,15 @@ type DefaultController struct {
 	ciliumEndpoint resource.Resource[*v2.CiliumEndpoint]
 }
 
+type SlimController struct {
+	*Controller
+
+	manager *slimManager
+
+	ipsecEnabled bool
+	wgEnabled    bool
+}
+
 // registerController creates and initializes the CES controller
 func registerController(p params) error {
 	clientset, err := p.NewClient("ciliumendpointslice-controller")
