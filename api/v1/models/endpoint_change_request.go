@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -89,7 +90,7 @@ type EndpointChangeRequest struct {
 	PolicyEnabled bool `json:"policy-enabled,omitempty"`
 
 	// Properties is used to store information about the endpoint at creation. Useful for tests.
-	Properties map[string]interface{} `json:"properties,omitempty"`
+	Properties map[string]any `json:"properties,omitempty"`
 
 	// Current state of endpoint
 	// Required: true
@@ -133,11 +134,15 @@ func (m *EndpointChangeRequest) validateAddressing(formats strfmt.Registry) erro
 
 	if m.Addressing != nil {
 		if err := m.Addressing.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("addressing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("addressing")
 			}
+
 			return err
 		}
 	}
@@ -152,11 +157,15 @@ func (m *EndpointChangeRequest) validateDatapathConfiguration(formats strfmt.Reg
 
 	if m.DatapathConfiguration != nil {
 		if err := m.DatapathConfiguration.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("datapath-configuration")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("datapath-configuration")
 			}
+
 			return err
 		}
 	}
@@ -170,11 +179,15 @@ func (m *EndpointChangeRequest) validateLabels(formats strfmt.Registry) error {
 	}
 
 	if err := m.Labels.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("labels")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("labels")
 		}
+
 		return err
 	}
 
@@ -193,11 +206,15 @@ func (m *EndpointChangeRequest) validateState(formats strfmt.Registry) error {
 
 	if m.State != nil {
 		if err := m.State.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("state")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("state")
 			}
+
 			return err
 		}
 	}
@@ -240,11 +257,15 @@ func (m *EndpointChangeRequest) contextValidateAddressing(ctx context.Context, f
 		}
 
 		if err := m.Addressing.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("addressing")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("addressing")
 			}
+
 			return err
 		}
 	}
@@ -261,11 +282,15 @@ func (m *EndpointChangeRequest) contextValidateDatapathConfiguration(ctx context
 		}
 
 		if err := m.DatapathConfiguration.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("datapath-configuration")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("datapath-configuration")
 			}
+
 			return err
 		}
 	}
@@ -276,11 +301,15 @@ func (m *EndpointChangeRequest) contextValidateDatapathConfiguration(ctx context
 func (m *EndpointChangeRequest) contextValidateLabels(ctx context.Context, formats strfmt.Registry) error {
 
 	if err := m.Labels.ContextValidate(ctx, formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
 			return ve.ValidateName("labels")
-		} else if ce, ok := err.(*errors.CompositeError); ok {
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
 			return ce.ValidateName("labels")
 		}
+
 		return err
 	}
 
@@ -292,11 +321,15 @@ func (m *EndpointChangeRequest) contextValidateState(ctx context.Context, format
 	if m.State != nil {
 
 		if err := m.State.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("state")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("state")
 			}
+
 			return err
 		}
 	}

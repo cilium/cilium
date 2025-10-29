@@ -3975,7 +3975,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.37.0"
-          digest: "sha256:2f590fc602ce325cbff2ccfc39499014d039546dc400ef8bbf5c6ffb860632e7"
+          digest: "sha256:fba0711bd6995f7e0158f397d85f63998b4c8b1a1e3b1e9e0394c7b165585440"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration
