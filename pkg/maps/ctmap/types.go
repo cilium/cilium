@@ -525,7 +525,7 @@ func (k *CtKey6Global) GetTupleKey() tuple.TupleKey {
 
 // CtEntry represents an entry in the connection tracking table.
 type CtEntry struct {
-	Reserved0 uint64 `align:"reserved0"`
+	IpTraceId uint64 `align:"ip_trace_id"`
 	BackendID uint64 `align:"backend_id"`
 	Packets   uint64 `align:"packets"`
 	Bytes     uint64 `align:"bytes"`
