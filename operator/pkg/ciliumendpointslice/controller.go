@@ -122,6 +122,8 @@ type SlimController struct {
 
 	ipsecEnabled bool
 	wgEnabled    bool
+
+	ciliumIdentity resource.Resource[*v2.CiliumIdentity]
 }
 
 // registerController creates and initializes the CES controller
