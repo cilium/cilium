@@ -8,10 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/netip"
 	"strings"
 
 	"github.com/cilium/dns"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -27,35 +29,50 @@ import (
 )
 
 const (
-	upstreamTime    = "upstreamTime"
-	processingTime  = "processingTime"
-	semaphoreTime   = "semaphoreTime"
-	policyCheckTime = "policyCheckTime"
-	policyGenTime   = "policyGenerationTime"
-	dataplaneTime   = "dataplaneTime"
-	totalTime       = "totalTime"
-
-	metricErrorTimeout = "timeout"
-	metricErrorProxy   = "proxyErr"
-	metricErrorDenied  = "denied"
-	metricErrorAllow   = "allow"
+	metricLabelTimeout  = "timeout"
+	metricLabelProxyErr = "proxyErr"
+	metricLabelAllow    = "allow"
 )
 
+// DNSMessageHandler contains callbacks called by the DNS proxy's serving
+// function. The purpose of the callbacks is to emit proxy access log events and
+// plumb DNS data into the policy subsystem.
+//
+// A callback must end all spanstats it starts, and no others. It may return
+// dnsproxy.ErrDNSRequestNoEndpoint{} error if the endpoint is nil. Note that
+// the caller should log beforehand the contextualized error.
+
+// epIPPort and serverAddrPort should match the original request, where epAddr is
+// the source for egress (the only case current).
+// serverID is the destination server security identity at the time of the DNS event.
 type DNSMessageHandler interface {
-	// NotifyOnDNSMsg handles DNS data when the in-agent DNS proxy sees a
-	// DNS message. It emits monitor events, proxy metrics and stores DNS
-	// data in the DNS cache. To update the DNS cache, it will call
-	// UpdateOnDNSMsg() if the DNS message is a response.
-	NotifyOnDNSMsg(lookupTime time.Time,
-		ep *endpoint.Endpoint,
+	OnQuery(ep *endpoint.Endpoint,
 		epIPPort string,
 		serverID identity.NumericIdentity,
 		serverAddrPort netip.AddrPort,
 		msg *dns.Msg,
 		protocol string,
-		allowed bool,
 		stat *dnsproxy.ProxyRequestContext,
-	) error
+	) (error, string)
+
+	OnResponse(ep *endpoint.Endpoint,
+		epIPPort string,
+		serverID identity.NumericIdentity,
+		serverAddrPort netip.AddrPort,
+		msg *dns.Msg,
+		protocol string,
+		stat *dnsproxy.ProxyRequestContext,
+	) (error, string)
+
+	OnError(ep *endpoint.Endpoint,
+		epIPPort string,
+		serverID identity.NumericIdentity,
+		serverAddrPort netip.AddrPort,
+		msg *dns.Msg,
+		protocol string,
+		stat *dnsproxy.ProxyRequestContext,
+		err error,
+	) (error, string)
 
 	// UpdateOnDNSMsg updates the DNS cache with the DNS message data.
 	// It is called when the DNS message is a response. It is called by
@@ -91,130 +108,169 @@ func (h *dnsMessageHandler) SetBindPort(port uint16) {
 	h.bindPort = port
 }
 
-// notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
-// events, proxy metrics and storing DNS data in the DNS cache. This may
-// result in rule generation.
-// It will:
-//   - Report a monitor error event and proxy metrics when the proxy sees an
-//     error, and when it can't process something in this function
-//   - Report the verdict in a monitor event and emit proxy metrics
-//   - Insert the DNS data into the cache when msg is a DNS response, and we
-//     can lookup the endpoint related to it.
-//
-// It may return dnsproxy.ErrDNSRequestNoEndpoint{} error if the endpoint is nil.
-// Note that the caller should log beforehand the contextualized error.
-
-// epIPPort and serverAddrPort should match the original request, where epAddr is
-// the source for egress (the only case current).
-// serverID is the destination server security identity at the time of the DNS event.
-func (h *dnsMessageHandler) NotifyOnDNSMsg(
-	lookupTime time.Time,
+func (h *dnsMessageHandler) OnQuery(
 	ep *endpoint.Endpoint,
 	epIPPort string,
 	serverID identity.NumericIdentity,
 	serverAddrPort netip.AddrPort,
-	msg *dns.Msg,
+	query *dns.Msg,
 	protocol string,
-	allowed bool,
 	stat *dnsproxy.ProxyRequestContext,
-) error {
-	protoID := u8proto.ProtoIDs[strings.ToLower(protocol)]
-	var verdict accesslog.FlowVerdict
-	var reason string
-	metricError := metricErrorAllow
+) (error, string) {
+	if query.Response {
+		return fmt.Errorf("expected query, got response"), metricLabelProxyErr
+	} else if ep == nil {
+		// This is a hard fail. We cannot proceed because record.Log requires a
+		// non-nil ep.
+		return dnsproxy.ErrDNSRequestNoEndpoint{}, metricLabelProxyErr
+	}
+
+	verdict := accesslog.VerdictForwarded
+	reason := "Allowed by policy"
+	return h.onQuery(ep, epIPPort, serverID, serverAddrPort, query, protocol, stat, verdict, reason)
+}
+
+func (h *dnsMessageHandler) OnError(
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	serverAddrPort netip.AddrPort,
+	query *dns.Msg,
+	protocol string,
+	stat *dnsproxy.ProxyRequestContext,
+	err error,
+) (error, string) {
+	if query.Response {
+		return fmt.Errorf("error callback expected query, got response"), metricLabelProxyErr
+	} else if dnsproxy.IsTimeout(err) {
+		return nil, metricLabelTimeout
+	} else if ep == nil {
+		// This is a hard fail. We cannot proceed because record.Log requires a
+		// non-nil EP.
+		return dnsproxy.ErrDNSRequestNoEndpoint{}, metricLabelProxyErr
+	}
+
+	verdict := accesslog.VerdictError
+	reason := "Error: " + err.Error()
+	err, _ = h.onQuery(ep, epIPPort, serverID, serverAddrPort, query, protocol, stat, verdict, reason)
+	return err, metricLabelProxyErr
+}
+
+// Since handling of error and query are almost the same.
+func (h *dnsMessageHandler) onQuery(
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	serverAddrPort netip.AddrPort,
+	query *dns.Msg,
+	protocol string,
+	stat *dnsproxy.ProxyRequestContext,
+	verdict accesslog.FlowVerdict,
+	reason string,
+) (error, string) {
 	stat.ProcessingTime.Start()
-
-	endMetric := func() {
-		stat.ProcessingTime.End(true)
-		stat.TotalTime.End(true)
-		if errors.As(stat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
-			metrics.FQDNSemaphoreRejectedTotal.Inc()
-		}
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
-			stat.TotalTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
-			stat.UpstreamTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
-			stat.ProcessingTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
-			stat.SemaphoreAcquireTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
-			stat.PolicyGenerationTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
-			stat.PolicyCheckTime.Total().Seconds())
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
-			stat.DataplaneTime.Total().Seconds())
+	qname, qTypes, err := ExtractQueryDetails(query)
+	if err != nil {
+		h.logger.Error("cannot extract DNS query details",
+			logfields.Error, err,
+			logfields.DNSName, qname,
+		)
+		stat.ProcessingTime.End(false)
+		return fmt.Errorf("failed to extract DNS query details: %w", err), metricLabelProxyErr
 	}
 
-	switch {
-	case stat.IsTimeout():
-		metricError = metricErrorTimeout
-		endMetric()
-		return nil
-	case stat.Err != nil:
-		metricError = metricErrorProxy
-		verdict = accesslog.VerdictError
-		reason = "Error: " + stat.Err.Error()
-	case allowed:
-		verdict = accesslog.VerdictForwarded
-		reason = "Allowed by policy"
-	case !allowed:
-		metricError = metricErrorDenied
-		verdict = accesslog.VerdictDenied
-		reason = "Denied by policy"
+	stat.ProcessingTime.End(true)
+
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), h.bindPort, false, true, verdict)
+
+	// ignore error; log fields are best effort. Only returns error if endpoint
+	// is going away.
+	epIdentity, _ := ep.GetSecurityIdentity()
+	// The observation point is always Egress.
+	addrInfo := accesslog.AddressingInfo{
+		SrcIPPort:      epIPPort,
+		SrcEPID:        ep.GetID(),
+		SrcSecIdentity: epIdentity,
+
+		DstIPPort:   serverAddrPort.String(),
+		DstIdentity: serverID,
 	}
 
-	if ep == nil {
+	// Restrict label enrichment time to 10ms; we don't want to block DNS
+	// requests because an identity isn't in the local cache yet.
+	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer lcncl()
+
+	protoID := u8proto.ProtoIDs[strings.ToLower(protocol)]
+	record := h.proxyAccessLogger.NewLogRecord(accesslog.TypeRequest, false,
+		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
+			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
+		},
+		accesslog.LogTags.Verdict(verdict, reason),
+		accesslog.LogTags.Addressing(logContext, addrInfo),
+		accesslog.LogTags.DNS(&accesslog.LogRecordDNS{
+			Query:             qname,
+			ObservationSource: stat.DataSource,
+			QTypes:            qTypes,
+		}),
+	)
+	h.proxyAccessLogger.Log(record)
+
+	return nil, metricLabelAllow
+}
+
+func (h *dnsMessageHandler) OnResponse(
+	ep *endpoint.Endpoint,
+	epIPPort string,
+	serverID identity.NumericIdentity,
+	serverAddrPort netip.AddrPort,
+	response *dns.Msg,
+	protocol string,
+	stat *dnsproxy.ProxyRequestContext,
+) (error, string) {
+	if !response.Response {
+		return fmt.Errorf("expected response, got query"), metricLabelProxyErr
+	} else if ep == nil {
 		// This is a hard fail. We cannot proceed because record.Log requires a
 		// non-nil ep, and we also don't want to insert this data into the
 		// cache if we don't know that an endpoint asked for it (this is
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
-		endMetric()
-		return dnsproxy.ErrDNSRequestNoEndpoint{}
+		return dnsproxy.ErrDNSRequestNoEndpoint{}, metricLabelProxyErr
 	}
+	stat.ProcessingTime.Start()
 
-	// We determine the direction based on the DNS packet. The observation
-	// point is always Egress, however.
-	var flowType accesslog.FlowType
-	var addrInfo accesslog.AddressingInfo
-	serverAddrPortStr := serverAddrPort.String()
-	if msg.Response {
-		flowType = accesslog.TypeResponse
-		addrInfo.DstIPPort = epIPPort
-		addrInfo.DstEPID = ep.GetID()
-		// ignore error; log fields are best effort. Only returns error if endpoint
-		// is going away.
-		addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.SrcIPPort = serverAddrPortStr
-		addrInfo.SrcIdentity = serverID
-	} else {
-		flowType = accesslog.TypeRequest
-		addrInfo.SrcIPPort = epIPPort
-		addrInfo.SrcEPID = ep.GetID()
-		// ignore error; same reason as above.
-		addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
-		addrInfo.DstIPPort = serverAddrPortStr
-		addrInfo.DstIdentity = serverID
+	// The observation point is always Egress.
+	addrInfo := accesslog.AddressingInfo{
+		DstIPPort: epIPPort,
+		DstEPID:   ep.GetID(),
+
+		SrcIPPort:   serverAddrPort.String(),
+		SrcIdentity: serverID,
 	}
+	// ignore error; log fields are best effort. Only returns error if endpoint
+	// is going away.
+	addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
 
-	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := dnsproxy.ExtractMsgDetails(msg)
+	qname, responseIPs, TTL, CNAMEs, rcode, recordTypes, qTypes, err := ExtractMsgDetails(response)
 	if err != nil {
 		h.logger.Error("cannot extract DNS message details",
 			logfields.Error, err,
 			logfields.DNSName, qname,
 		)
-		return fmt.Errorf("failed to extract DNS message details: %w", err)
+		stat.ProcessingTime.End(false)
+		return fmt.Errorf("failed to extract DNS message details: %w", err), metricLabelProxyErr
 	}
 
-	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		h.UpdateOnDNSMsg(lookupTime, ep, qname, responseIPs, int(TTL), stat)
-		endMetric()
+	if response.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
+		h.UpdateOnDNSMsg(time.Now(), ep, qname, responseIPs, int(TTL), stat)
 	}
 
 	stat.ProcessingTime.End(true)
 
-	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), h.bindPort, false, !msg.Response, verdict)
+	verdict := accesslog.VerdictForwarded
+	reason := "Allowed by policy"
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverAddrPort.Port(), h.bindPort, false, false, verdict)
 
 	// Ensure that there are no early returns from this function before the
 	// code below, otherwise the log record will not be made.
@@ -223,7 +279,9 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	// requests because an identity isn't in the local cache yet.
 	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer lcncl()
-	record := h.proxyAccessLogger.NewLogRecord(flowType, false,
+
+	protoID := u8proto.ProtoIDs[strings.ToLower(protocol)]
+	record := h.proxyAccessLogger.NewLogRecord(accesslog.TypeResponse, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
@@ -242,7 +300,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	)
 	h.proxyAccessLogger.Log(record)
 
-	return nil
+	return nil, metricLabelAllow
 }
 
 func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, stat *dnsproxy.ProxyRequestContext) {
@@ -339,4 +397,86 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		logfields.EndpointID, ep.GetID(),
 		logfields.DNSName, qname,
 	)
+}
+
+// ExtractQueryDetails returns the canonical query name and all question types
+// or an error if the message couldn't be understood.
+func ExtractQueryDetails(msg *dns.Msg) (
+	qname string,
+	qTypes []uint16,
+	err error,
+) {
+	if len(msg.Question) == 0 {
+		return "", nil, errors.New("invalid DNS query")
+	}
+	qname = strings.ToLower(string(msg.Question[0].Name))
+
+	qTypes = make([]uint16, 0, len(msg.Question))
+	for _, q := range msg.Question {
+		qTypes = append(qTypes, q.Qtype)
+	}
+
+	return qname, qTypes, nil
+}
+
+// ExtractMsgDetails extracts a canonical query name, any IPs in a response,
+// the lowest applicable TTL, rcode, anwer rr types and question types
+// When a CNAME is returned the chain is collapsed down, keeping the lowest TTL,
+// and CNAME targets are returned.
+func ExtractMsgDetails(msg *dns.Msg) (
+	qname string,
+	responseIPs []netip.Addr,
+	TTL uint32,
+	CNAMEs []string,
+	rcode int,
+	answerTypes []uint16,
+	qTypes []uint16,
+	err error,
+) {
+	if len(msg.Question) == 0 {
+		return "", nil, 0, nil, 0, nil, nil, errors.New("Invalid DNS message")
+	}
+	qname = strings.ToLower(string(msg.Question[0].Name))
+
+	TTL = math.MaxUint32 // a TTL must exist in the RRs
+
+	answerTypes = make([]uint16, 0, len(msg.Answer))
+	for _, ans := range msg.Answer {
+		// Handle A, AAAA and CNAME records by accumulating IPs and lowest TTL
+		switch ans := ans.(type) {
+		case *dns.A:
+			ip, ok := netipx.FromStdIP(ans.A)
+			if !ok {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in A record")
+			}
+			responseIPs = append(responseIPs, ip)
+			if TTL > ans.Hdr.Ttl {
+				TTL = ans.Hdr.Ttl
+			}
+		case *dns.AAAA:
+			ip, ok := netipx.FromStdIP(ans.AAAA)
+			if !ok {
+				return qname, nil, 0, nil, 0, nil, nil, errors.New("invalid IP in AAAA record")
+			}
+			responseIPs = append(responseIPs, ip)
+			if TTL > ans.Hdr.Ttl {
+				TTL = ans.Hdr.Ttl
+			}
+		case *dns.CNAME:
+			// We still track the TTL because the lowest TTL in the chain
+			// determines the valid caching time for the whole response.
+			if TTL > ans.Hdr.Ttl {
+				TTL = ans.Hdr.Ttl
+			}
+			CNAMEs = append(CNAMEs, ans.Target)
+		}
+		answerTypes = append(answerTypes, ans.Header().Rrtype)
+	}
+
+	qTypes = make([]uint16, 0, len(msg.Question))
+	for _, q := range msg.Question {
+		qTypes = append(qTypes, q.Qtype)
+	}
+
+	return qname, responseIPs, TTL, CNAMEs, msg.Rcode, answerTypes, qTypes, nil
 }

@@ -4,9 +4,7 @@
 package dnsproxy
 
 import (
-	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/dns"
@@ -18,9 +16,9 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// LookupEndpointIDByIPFunc is a provided callback that returns the endpoint ID
-// as a uint16.
-type LookupEndpointIDByIPFunc func(ip netip.Addr) (endpoint *endpoint.Endpoint, isHost bool, err error)
+type OnResponseFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) (error, string)
+type OnQueryFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext) (error, string)
+type OnErrorFunc func(ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr netip.AddrPort, msg *dns.Msg, protocol string, stat *ProxyRequestContext, error error) (error, string)
 
 // NotifyOnDNSMsgFunc handles propagating DNS response data
 // See DNSProxy.LookupEndpointIDByIP for usage.
@@ -80,16 +78,5 @@ type ProxyRequestContext struct {
 	PolicyCheckTime      spanstat.SpanStat
 	PolicyGenerationTime spanstat.SpanStat
 	DataplaneTime        spanstat.SpanStat
-	Success              bool
-	Err                  error
 	DataSource           accesslog.DNSDataSource
-}
-
-// IsTimeout return true if the ProxyRequest timeout
-func (proxyStat *ProxyRequestContext) IsTimeout() bool {
-	var neterr net.Error
-	if errors.As(proxyStat.Err, &neterr) {
-		return neterr.Timeout()
-	}
-	return false
 }
