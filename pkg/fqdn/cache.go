@@ -693,6 +693,16 @@ func (c *DNSCache) Dump() (lookups []*cacheEntry) {
 	return deduped
 }
 
+func (c *DNSCache) DumpNames() sets.Set[string] {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	names := make(sets.Set[string])
+	for name := range c.forward {
+		names.Insert(name)
+	}
+	return names
+}
+
 // Count returns two values, the count of still-valid FQDNs inside the DNS
 // cache and the count of the still-valid entries (IPs) in the DNS cache.
 //
