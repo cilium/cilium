@@ -59,7 +59,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	int ret, l3_off = ETH_HLEN;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	bool __maybe_unused is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 
@@ -224,7 +224,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	struct iphdr *ip4;
 	__u32 cluster_id = 0;
 	void *data_end, *data;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	__u32 cluster_id_from_identity =
 		extract_cluster_id_from_identity(src_sec_identity);
 	const struct ipv4_nat_target target = {
@@ -292,7 +292,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 {
 	void *data_end, *data;
 	struct iphdr *ip4;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	bool __maybe_unused is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 	int ret;

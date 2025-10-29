@@ -433,7 +433,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 			     struct trace_ctx *trace)
 {
 	struct remote_endpoint_info fake_info = {0};
-	struct endpoint_info *gateway_node_ep;
+	const struct endpoint_info *gateway_node_ep;
 	__be32 gateway_ip = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -442,7 +442,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 	struct ipv6_ct_tuple __maybe_unused tuple6 = {};
 	int l4_off;
 	struct remote_endpoint_info *info;
-	struct endpoint_info *src_ep;
+	const struct endpoint_info *src_ep;
 	bool is_reply;
 	fraginfo_t fraginfo;
 	int ret;

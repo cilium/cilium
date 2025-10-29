@@ -340,7 +340,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_MASQUERADE_IPV4)) {
-		struct endpoint_info *ep;
+		const struct endpoint_info *ep;
 
 		ep = __lookup_ip4_endpoint(ip4->saddr);
 		if (ep && ep->parent_ifindex && ep->parent_ifindex != CONFIG(interface_ifindex)) {
