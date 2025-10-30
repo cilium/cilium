@@ -820,18 +820,6 @@ func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn *versioned.
 	}
 }
 
-func (l4 *L4Filter) IsPeerSelector() bool {
-	return true
-}
-
-func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls stringLabels, selectorCache *SelectorCache) CachedSelector {
-	cs, added := selectorCache.AddIdentitySelectorForTest(l4, lbls, sel)
-	if added {
-		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
-	}
-	return cs
-}
-
 // add L7 rules for all endpoints in the L7DataMap
 func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, priority ListenerPriority) {
 	for epsel := range l7 {
@@ -942,7 +930,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.Selectors, auth
 		Ingress:             ingress,
 	}
 
-	css, _ := selectorCache.AddSelectors(l4, origin.stringLabels(), peerEndpoints...)
+	css := selectorCache.AddSelectors(origin.stringLabels(), peerEndpoints...)
 	for _, cs := range css {
 		if cs.IsWildcard() {
 			l4.wildcard = cs
@@ -1064,20 +1052,12 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.Selectors, auth
 	return l4, nil
 }
 
-func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
-	selectors := make(types.CachedSelectorSlice, 0, len(l4.PerSelectorPolicies))
-	for cs := range l4.PerSelectorPolicies {
-		selectors = append(selectors, cs)
-	}
-	selectorCache.RemoveSelectors(selectors, l4)
-}
-
 // detach releases the references held in the L4Filter and must be called before
 // the filter is left to be garbage collected.
 // L4Filter may still be accessed concurrently after it has been detached.
 func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
-	l4.removeSelectors(selectorCache)
 	l4.policy.Store(nil)
+	RemoveSelectorUser(selectorCache, l4, l4.PerSelectorPolicies)
 }
 
 // attach signifies that the L4Filter is ready and reacheable for updates
@@ -1119,6 +1099,8 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 		}
 	}
 
+	AddSelectorUser(ctx.GetSelectorCache(), l4, l4.PerSelectorPolicies)
+
 	l4.policy.Store(l4Policy)
 	return features
 }
@@ -1145,7 +1127,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints types.Selector
 			// is mutated, the whole policy is recomputed.
 			if l7.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
 				peer := api.ReservedEndpointSelectors[labels.IDNameHost]
-				css, _ := policyCtx.GetSelectorCache().AddSelectors(filter, policyCtx.Origin().stringLabels(), types.ToSelector(peer))
+				css := policyCtx.GetSelectorCache().AddSelectors(policyCtx.Origin().stringLabels(), types.ToSelector(peer))
 
 				// Only add the plain allow policy if no policy for the host
 				// selector already exists. Some day we may support L7 policies for

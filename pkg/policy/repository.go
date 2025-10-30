@@ -218,17 +218,13 @@ func (p *Repository) newRule(policyEntry types.PolicyEntry, key ruleKey) *rule {
 		PolicyEntry: policyEntry,
 		key:         key,
 	}
-	css, _ := p.selectorCache.AddSelectors(r, makeStringLabels(r.Labels), r.Subject)
+	css := p.selectorCache.AddSelectors(makeStringLabels(r.Labels), r.Subject)
 	r.subjectSelector = css[0]
-
 	return r
 }
 
 // releaseRule releases the cached selector for a given rul
 func (p *Repository) releaseRule(r *rule) {
-	if r.subjectSelector != nil {
-		p.selectorCache.RemoveSelector(r.subjectSelector, r)
-	}
 }
 
 // MustAddList inserts a rule into the policy repository. It is used for

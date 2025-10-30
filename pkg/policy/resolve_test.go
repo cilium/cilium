@@ -851,10 +851,9 @@ func TestMapStateWithIngress(t *testing.T) {
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
 	policy.selectorPolicy.detach(true, 0)
-	// Verify that cached selector is not found after Detach().
+	// Verify that cached selector has no users after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
-	cachedSelectorTest = td.sc.findCachedIdentitySelector(api.NewESFromLabels(lblTest))
-	require.Nil(t, cachedSelectorTest)
+	require.Zero(t, td.sc.userCount(cachedSelectorTest))
 
 	closer, changes := policy.ConsumeMapChanges()
 	closer()
