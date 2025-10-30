@@ -204,7 +204,7 @@ static void *(*test_bpf_map_lookup_elem)(void *map, const void *key) = (void *)1
 /*   write the amount of bytes used after a test is done. */
 #define test_init()							  \
 	char suite_result = TEST_PASS;					  \
-	__maybe_unused char *test_result_status = 0;			  \
+	__maybe_unused char *test_result_status = NULL;			  \
 	char *suite_result_cursor;					  \
 	{								  \
 		__u32 __key = 0;						  \
@@ -214,7 +214,7 @@ static void *(*test_bpf_map_lookup_elem)(void *map, const void *key) = (void *)1
 			return TEST_ERROR;				  \
 		}							  \
 	}								  \
-	__maybe_unused char *test_result_cursor = 0;			  \
+	__maybe_unused char *test_result_cursor = NULL;			  \
 	__maybe_unused __u16 test_result_size;				  \
 	do {
 /* */
