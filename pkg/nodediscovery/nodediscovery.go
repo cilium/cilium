@@ -231,13 +231,11 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 			var err error
 			nodeResource, err = n.k8sGetters.GetCiliumNode(ctx, nodeTypes.GetName())
 			if err != nil {
-				if retryCount == maxRetryCount {
-					n.logger.Warn(
-						"Unable to get CiliumNode resource",
-						logfields.Error, err,
-						logfields.Retries, maxRetryCount,
-					)
-				}
+				n.logger.Info(
+					"Unable to get CiliumNode resource",
+					logfields.Error, err,
+					logfields.Retries, retryCount,
+				)
 				performUpdate = false
 				nodeResource = &ciliumv2.CiliumNode{
 					ObjectMeta: metav1.ObjectMeta{
