@@ -38,6 +38,8 @@ type params struct {
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	CiliumNodes         resource.Resource[*v2.CiliumNode]
 	Namespace           resource.Resource[*slim_corev1.Namespace]
+	Pods                resource.Resource[*slim_corev1.Pod]
+	CiliumIdentity      resource.Resource[*v2.CiliumIdentity]
 
 	Cfg          Config
 	SharedCfg    SharedConfig
@@ -178,6 +180,14 @@ func registerController(p params) error {
 		p.Lifecycle.Append(defaultController)
 	} else {
 		p.Logger.Info("CES Controller running in slim mode")
+		slimController := &SlimController{
+			Controller:     cesController,
+			ciliumIdentity: p.CiliumIdentity,
+			pods:           p.Pods,
+			ipsecEnabled:   p.IPSecCfg.Enabled(),
+			wgEnabled:      p.WireguardCfg.Enabled(),
+		}
+		p.Lifecycle.Append(slimController)
 	}
 
 	return nil
