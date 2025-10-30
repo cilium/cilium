@@ -74,8 +74,8 @@ func ParseSelectLabelArrayFromArray(base []string) LabelArray {
 // Labels returns the LabelArray as Labels
 func (ls LabelArray) Labels() Labels {
 	lbls := Labels{}
-	for _, l := range ls {
-		lbls[l.Key] = l
+	for i := range ls {
+		lbls[ls[i].Key] = ls[i]
 	}
 	return lbls
 }
@@ -103,11 +103,18 @@ nextLabel:
 // ["k8s:foo=bar"].Intersects(["any:foo=bar"]) == true
 // ["any:foo=bar"].Intersects(["k8s:foo=bar"]) == false
 func (ls LabelArray) Intersects(needed LabelArray) bool {
-	for _, l := range ls {
-		for _, n := range needed {
-			if l.Has(&n) {
-				return true
-			}
+	for i := range needed {
+		if ls.IntersectsLabel(needed[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ls LabelArray) IntersectsLabel(lbl Label) bool {
+	for i := range ls {
+		if ls[i].Has(&lbl) {
+			return true
 		}
 	}
 	return false
@@ -145,13 +152,9 @@ nextLabel:
 // ["cidr:1.0.0.0/8"].Has("cidr.1.1.1.1/32") => false
 func (ls LabelArray) Has(key string) bool {
 	// The key is submitted in the form of `source.key=value`
-	keyLabel := parseSelectLabel(key, '.')
-	for _, l := range ls {
-		if l.HasKey(&keyLabel) {
-			return true
-		}
-	}
-	return false
+	keyLabel := ParseSelectDotLabel(key)
+	_, exists := ls.LookupLabel(&keyLabel)
+	return exists
 }
 
 // Get returns the value for the provided key.
@@ -167,21 +170,21 @@ func (ls LabelArray) Has(key string) bool {
 // as then Get will return an empty string whether of not key
 // matches any label in the array.
 func (ls LabelArray) Get(key string) string {
-	keyLabel := parseSelectLabel(key, '.')
-	for _, l := range ls {
-		if l.HasKey(&keyLabel) {
-			return l.Value
-		}
-	}
-	return ""
+	keyLabel := ParseSelectDotLabel(key)
+	value, _ := ls.LookupLabel(&keyLabel)
+	return value
 }
 
 func (ls LabelArray) Lookup(label string) (value string, exists bool) {
 	// The label is submitted in the form of `source.key=value`
-	keyLabel := parseSelectLabel(label, '.')
-	for _, l := range ls {
-		if l.HasKey(&keyLabel) {
-			return l.Value, true
+	keyLabel := ParseSelectDotLabel(label)
+	return ls.LookupLabel(&keyLabel)
+}
+
+func (ls LabelArray) LookupLabel(keyLabel *Label) (value string, exists bool) {
+	for i := range ls {
+		if ls[i].HasKey(keyLabel) {
+			return ls[i].Value, true
 		}
 	}
 	return "", false
@@ -252,6 +255,22 @@ func (ls LabelArray) BuildBytes(buf *bytes.Buffer) {
 	buf.WriteString("]")
 }
 
+// Map2LabelArray transforms in the form: map[key(string)]value(string) into LabelArray. The
+// source argument will overwrite the source written in the key of the given map.
+// Example:
+// l := Map2LabelArray(map[string]string{"k8s:foo": "bar"}, "cilium")
+// fmt.Printf("%+v\n", l)
+//
+//	[]Label{Label{Key:"foo", Value:"bar", Source:"cilium"}}
+func Map2LabelArray(m map[string]string, source string) LabelArray {
+	o := make(LabelArray, 0, len(m))
+	for k, v := range m {
+		l := NewLabel(k, v, source)
+		o = append(o, l)
+	}
+	return o
+}
+
 // StringMap converts LabelArray into map[string]string
 // Note: The source is included in the keys with a ':' separator.
 // Note: LabelArray does not deduplicate entries, as it is an array. It is
@@ -259,9 +278,22 @@ func (ls LabelArray) BuildBytes(buf *bytes.Buffer) {
 // repeated in a LabelArray, as that is the key of the output. This scenario is
 // not expected.
 func (ls LabelArray) StringMap() map[string]string {
-	o := map[string]string{}
-	for _, v := range ls {
-		o[v.Source+":"+v.Key] = v.Value
+	o := make(map[string]string, len(ls))
+	for i := range ls {
+		o[ls[i].Source+":"+ls[i].Key] = ls[i].Value
+	}
+	return o
+}
+
+// StringMap converts Labels into map[string]string
+func (ls LabelArray) K8sStringMap() map[string]string {
+	o := make(map[string]string, len(ls))
+	for i := range ls {
+		if ls[i].Source == LabelSourceK8s || ls[i].Source == LabelSourceAny || ls[i].Source == LabelSourceUnspec {
+			o[ls[i].Key] = ls[i].Value
+		} else {
+			o[ls[i].Source+"."+ls[i].Key] = ls[i].Value
+		}
 	}
 	return o
 }
