@@ -1375,6 +1375,7 @@ data:
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
   proxy-max-concurrent-retries: {{ .Values.envoy.maxConcurrentRetries | quote }}
   http-retry-count: {{ .Values.envoy.httpRetryCount | quote }}
+  http-stream-idle-timeout: {{ .Values.envoy.streamIdleTimeoutDurationSeconds | quote }}
 
   external-envoy-proxy: {{ include "envoyDaemonSetEnabled" . | quote }}
   envoy-base-id: {{ .Values.envoy.baseID | quote }}
