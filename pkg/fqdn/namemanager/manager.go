@@ -283,6 +283,12 @@ func (n *manager) removeRestoredPrefixes(ctx context.Context, _ cell.Health) err
 	return nil
 }
 
+func (n *manager) hasBootstrapCompleted() bool {
+	n.RLock()
+	defer n.RUnlock()
+	return n.bootstrapCompleted
+}
+
 // updateDNSIPs updates the IPs for a DNS name. It returns whether the name's IPs
 // changed and ipcacheRevision, a revision number to pass to WaitForRevision()
 func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *fqdn.DNSIPRecords) (updated bool, ipcacheRevision uint64) {
