@@ -97,6 +97,47 @@ func newDefaultReconciler(
 	return &dReconciler
 }
 
+// newSlimReconciler creates and initializes a new slimReconciler.
+func newSlimReconciler(
+	ctx context.Context,
+	client clientset.CiliumV2alpha1Interface,
+	cesMgr *slimManager,
+	logger *slog.Logger,
+	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+	pod resource.Resource[*slim_corev1.Pod],
+	ciliumIdentity resource.Resource[*cilium_v2.CiliumIdentity],
+	ciliumNode resource.Resource[*cilium_v2.CiliumNode],
+	namespace resource.Resource[*slim_corev1.Namespace],
+	metrics *Metrics,
+	ipsecEnabled bool,
+	wgEnabled bool,
+) *slimReconciler {
+	cesStore, _ := ciliumEndpointSlice.Store(ctx)
+	podStore, _ := pod.Store(ctx)
+	cidStore, _ := ciliumIdentity.Store(ctx)
+	ciliumNodeStore, _ := ciliumNode.Store(ctx)
+	namespaceStore, _ := namespace.Store(ctx)
+	sReconciler := slimReconciler{
+		reconciler: reconciler{
+			context:    ctx,
+			logger:     logger,
+			client:     client,
+			cesManager: cesMgr,
+			cesStore:   cesStore,
+			metrics:    metrics,
+		},
+		namespaceStore:  namespaceStore,
+		cidStore:        cidStore,
+		podStore:        podStore,
+		ciliumNodeStore: ciliumNodeStore,
+		manager:         cesMgr,
+		ipsecEnabled:    ipsecEnabled,
+		wgEnabled:       wgEnabled,
+	}
+	sReconciler.reconciler.endpointGetter = &sReconciler
+	return &sReconciler
+}
+
 func (r *reconciler) reconcileCES(cesName CESName) (err error) {
 	desiredCEPsNumber := r.cesManager.getCEPCountInCES(cesName)
 	r.metrics.CiliumEndpointSliceDensity.Observe(float64(desiredCEPsNumber))

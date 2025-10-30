@@ -193,8 +193,77 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 	return nil
 }
 
+// start the worker thread, reconciles the modified CESs with api-server
+func (c *SlimController) Start(ctx cell.HookContext) error {
+	// Processing CES/Pod events:
+	// CES or Pod event is retrieved and checked whether it is from a priority namespace
+	// Event is added to the fast queue if the namespace was priority and to the standard queue otherwise
+
+	// Processing queues handled as with DefaultController.
+
+	c.logger.InfoContext(ctx, "Bootstrap ces controller")
+	c.context, c.contextCancel = context.WithCancel(context.Background())
+	defer utilruntime.HandleCrash()
+
+	c.manager = newSlimManager(c.maxCEPsInCES, c.logger)
+
+	c.reconciler = newSlimReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpointSlice, c.pods, c.ciliumIdentity, c.ciliumNodes, c.namespace, c.metrics, c.ipsecEnabled, c.wgEnabled)
+	c.doReconciler = c.reconciler
+
+	c.initializeQueue()
+
+	if err := c.syncCESsInLocalCache(ctx); err != nil {
+		return err
+	}
+
+	c.Job.Add(
+		job.OneShot("proc-ns-events", func(ctx context.Context, health cell.Health) error {
+			return c.processNamespaceEvents(ctx)
+		}),
+		job.OneShot("proc-pods-events", func(ctx context.Context, health cell.Health) error {
+			return c.runCiliumPodsUpdater(ctx)
+		}),
+		job.OneShot("proc-ces-events", func(ctx context.Context, health cell.Health) error {
+			return c.runCiliumEndpointSliceUpdater(ctx)
+		}),
+		job.OneShot("proc-ciliumnodes-events", func(ctx context.Context, health cell.Health) error {
+			return c.runCiliumNodesUpdater(ctx)
+		}),
+		job.OneShot("proc-ciliumidentities-events", func(ctx context.Context, health cell.Health) error {
+			return c.runCiliumIdentitiesUpdater(ctx)
+		}),
+		job.OneShot("proc-queues", func(ctx context.Context, health cell.Health) error {
+			c.worker()
+			return nil
+		}),
+	)
+	// Start the work pools processing CEP events only after syncing CES in local cache.
+	// c.wp = workerpool.New(4)
+	// c.wp.Submit("cilium-pods-updater", c.runCiliumPodsUpdater)
+	// c.wp.Submit("cilium-endpoint-slices-updater", c.runCiliumEndpointSliceUpdater)
+	// c.wp.Submit("cilium-nodes-updater", c.runCiliumNodesUpdater)
+	// c.wp.Submit("cilium-identities-updater", c.runCiliumIdentitiesUpdater)
+
+	c.logger.InfoContext(ctx, "Starting CES controller reconciler.")
+	// c.Job.Add(
+	// 	job.OneShot("proc-queues", func(ctx context.Context, health cell.Health) error {
+	// 		c.worker()
+	// 		return nil
+	// 	}),
+	// )
+
+	return nil
+}
+
 func (c *DefaultController) Stop(ctx cell.HookContext) error {
 	c.wp.Close()
+	c.fastQueue.ShutDown()
+	c.standardQueue.ShutDown()
+	c.contextCancel()
+	return nil
+}
+
+func (c *SlimController) Stop(ctx cell.HookContext) error {
 	c.fastQueue.ShutDown()
 	c.standardQueue.ShutDown()
 	c.contextCancel()
@@ -212,6 +281,24 @@ func (c *DefaultController) runCiliumEndpointsUpdater(ctx context.Context) error
 			c.onEndpointDelete(event.Object)
 		}
 		event.Done(nil)
+	}
+	return nil
+}
+
+func (c *SlimController) runCiliumPodsUpdater(ctx context.Context) error {
+	for event := range c.pods.Events(ctx) {
+		switch event.Kind {
+		case resource.Upsert:
+			c.logger.DebugContext(ctx, "Got Upsert Pod event", logfields.K8sPodName, event.Key)
+			err := c.onPodUpdate(event.Object)
+			event.Done(err)
+		case resource.Delete:
+			c.logger.DebugContext(ctx, "Got Delete Pod event", logfields.K8sPodName, event.Key)
+			c.onPodDelete(event.Object)
+			event.Done(nil)
+		default:
+			event.Done(nil)
+		}
 	}
 	return nil
 }
