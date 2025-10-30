@@ -21,6 +21,9 @@ type Labels string
 type CESCacher interface {
 	hasCESName(cesName CESName) bool
 	insertCES(cesName CESName, ns string)
+	getAllCESs() []CESName
+	countCEPsInCES(ces CESName) int
+	getCESNamespace(name CESName) string
 }
 
 // NodeData contains information about the node; the set of coreceps on
@@ -95,6 +98,74 @@ func newCESCache() *CESCache {
 		globalIdLabelsToCIDSet: make(map[Labels]*SecIDs),
 		cidToGidLabels:         make(map[CID]Labels),
 	}
+}
+
+// Add CEP to cache, map to CES name and node name
+func (c *CESCache) addCEP(cepName CEPName, cesName CESName, nodeName NodeName, gidLabels Labels) {
+	c.updateCEPInCache(cepName, nodeName, gidLabels, cesName)
+}
+
+// Updates known information about CEP in local cache, without CID information.
+// Handles the cases where the CEP node or labels may have changed.
+func (c *CESCache) updateCEPInCache(cepName CEPName, nodeName NodeName, gidLabels Labels, cesName CESName) {
+	c.clearStaleState(cepName, nodeName, gidLabels, cesName)
+
+	c.cepData[cepName] = &CEPData{
+		ces:    cesName,
+		node:   nodeName,
+		labels: gidLabels,
+	}
+
+	c.cesData[cesName].ceps.Insert(cepName)
+
+	if _, ok := c.nodeData[nodeName]; !ok {
+		c.nodeData[nodeName] = NewNodeData()
+	}
+	c.nodeData[nodeName].ceps.Insert(cepName)
+
+	if _, ok := c.globalIdLabelsToCIDSet[gidLabels]; !ok {
+		c.globalIdLabelsToCIDSet[gidLabels] = NewSecIDs()
+		// selectedID will be set when the first CID is inserted.
+	}
+	c.globalIdLabelsToCIDSet[gidLabels].ceps.Insert(cepName)
+}
+
+// Helper to clear stale state when CEP is updated and remove old mappings.
+func (c *CESCache) clearStaleState(cepName CEPName, newNodeName NodeName, newGIDLabels Labels, newCESName CESName) {
+	if cepData, ok := c.cepData[cepName]; ok {
+		// If CEP was previously mapped to different CES, clear.
+		if oldCES := cepData.ces; oldCES != newCESName {
+			c.cesData[oldCES].ceps.Delete(cepName)
+		}
+
+		// If CEP was previously mapped to different node, clear.
+		if oldNode := cepData.node; oldNode != newNodeName {
+			c.nodeData[oldNode].ceps.Delete(cepName)
+		}
+
+		// If CEP was previously mapped to different labels, clear.
+		if oldLabels := cepData.labels; oldLabels != newGIDLabels {
+			c.globalIdLabelsToCIDSet[oldLabels].ceps.Delete(cepName)
+			c.cleanLabelsMapIfNoState(oldLabels)
+		}
+	}
+}
+
+// Remove the CEP entry from mappings
+func (c *CESCache) deleteCEP(cepName CEPName) {
+	if cepData, ok := c.cepData[cepName]; ok {
+		if _, ok := c.nodeData[cepData.node]; ok {
+			c.nodeData[cepData.node].ceps.Delete(cepName)
+		}
+
+		if _, ok := c.globalIdLabelsToCIDSet[cepData.labels]; ok {
+			c.globalIdLabelsToCIDSet[cepData.labels].ceps.Delete(cepName)
+			c.cleanLabelsMapIfNoState(cepData.labels)
+		}
+
+		c.cesData[cepData.ces].ceps.Delete(cepName)
+	}
+	delete(c.cepData, cepName)
 }
 
 // Update encryption key for node and return all affected CES whose CEPs are on that node,

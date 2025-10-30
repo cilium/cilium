@@ -14,12 +14,15 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
+	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -414,4 +417,20 @@ func getProtocolString(p slim_corev1.Protocol) (string, error) {
 	default:
 		return "", fmt.Errorf("unknown protocol: %s", p)
 	}
+}
+
+func (r *slimReconciler) getNodeNameForPod(pod *slim_corev1.Pod) (string, error) {
+	if pod.Spec.NodeName == "" {
+		return "", fmt.Errorf("pod has empty node name")
+	}
+	return pod.Spec.NodeName, nil
+}
+
+func getPodCIDKey(pod *slim_corev1.Pod, logger *slog.Logger, nsStore resource.Store[*slim_corev1.Namespace]) (*key.GlobalIdentity, error) {
+	k8sLabels, err := ciliumidentity.GetRelevantLabelsForPod(logger, pod, nsStore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relevant labels for pod: %w", err)
+	}
+	cidKey := key.GetCIDKeyFromLabels(k8sLabels, labels.LabelSourceK8s)
+	return cidKey, nil
 }
