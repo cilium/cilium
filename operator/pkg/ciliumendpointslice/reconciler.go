@@ -14,12 +14,15 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/operator/pkg/ciliumidentity"
+	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -422,4 +425,33 @@ func getProtocolString(p slim_corev1.Protocol) (string, error) {
 	default:
 		return "", fmt.Errorf("unknown protocol: %s", p)
 	}
+}
+
+func (r *slimReconciler) getNodeNameForPod(pod *slim_corev1.Pod) (string, error) {
+	if pod.Spec.NodeName == "" {
+		return "", fmt.Errorf("pod has empty node name")
+	}
+	return pod.Spec.NodeName, nil
+}
+
+func (r *slimReconciler) getPodCIDKey(pod *slim_corev1.Pod) (*key.GlobalIdentity, error) {
+	k8sLabels, err := ciliumidentity.GetRelevantLabelsForPod(r.logger, pod, r.namespaceStore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relevant labels for pod: %w", err)
+	}
+	cidKey := key.GetCIDKeyFromLabels(k8sLabels, labels.LabelSourceK8s)
+	return cidKey, nil
+}
+
+// Gets an CiliumIdentity objects associated with the given pod's identity key. If there are
+// multiple CIDs associated with a label set, there is no guarantee which CID will be returned.
+func (r *slimReconciler) getPodIdentity(cidKey *key.GlobalIdentity) (*cilium_v2.CiliumIdentity, error) {
+	storeCIDs, err := r.cidStore.ByIndex(k8s.ByKeyIndex, cidKey.GetKey())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CID from store: %w", err)
+	}
+	if len(storeCIDs) == 0 {
+		return nil, fmt.Errorf("CID store is empty")
+	}
+	return storeCIDs[0], nil
 }

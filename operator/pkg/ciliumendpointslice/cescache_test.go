@@ -200,3 +200,42 @@ func TestCESCacheCESState(t *testing.T) {
 	assert.Empty(t, cmap.cesData)
 	assert.Empty(t, cmap.nsData)
 }
+
+func TestCESCacheChangeCIDLabels(t *testing.T) {
+	// Insert initial CID and labels and validate initial state
+	cid1 := CID("cid1")
+	labels1 := Labels("key1:value1")
+	cmap := newCESCache()
+	cmap.insertCID(cid1, labels1)
+
+	assert.True(t, cmap.hasCID(cid1), "CID 'cid1' should be present in cache")
+	assert.Equal(t, cmap.cidToGidLabels[cid1], labels1, "CID 'cid1' should map to correct labels")
+	assert.Contains(t, cmap.globalIdLabelsToCIDSet[labels1].ids, cid1, "Labels 'key1:value1' should map to CID 'cid1'")
+	storedCID, found := cmap.GetSelectedId(labels1)
+	assert.True(t, found, "Selected ID for labels 'key1:value1' should be found")
+	assert.Equal(t, storedCID, cid1, "Selected ID for labels 'key1:value1' should be 'cid1'")
+
+	// Insert a CEP that uses the CID
+	ces1 := CESName("ces1")
+	cmap.insertCES(ces1, "ns1")
+	node1 := NodeName("node1")
+	cmap.insertNode(node1, EncryptionKey(0))
+	cep1 := NewCEPName("cep1", "ns1")
+	cmap.upsertCEP(cep1, ces1, node1, labels1, cid1)
+
+	// Change CID's labels and validate updated state
+	labels2 := Labels("key2:value2")
+	cmap.insertCID(cid1, labels2)
+	assert.True(t, cmap.hasCID(cid1), "CID 'cid1' should be present in cache after label change")
+	assert.Equal(t, cmap.cidToGidLabels[cid1], labels2, "CID 'cid1' should map to updated labels")
+	assert.NotContains(t, cmap.globalIdLabelsToCIDSet[labels1].ids, cid1, "Old labels 'key1:value1' should NOT map to CID 'cid1'")
+	assert.Contains(t, cmap.globalIdLabelsToCIDSet[labels2].ids, cid1, "New labels 'key2:value2' should map to CID 'cid1'")
+	storedCID, found = cmap.GetSelectedId(labels2)
+	assert.True(t, found, "Selected ID for new labels 'key2:value2' should be found")
+	assert.Equal(t, storedCID, cid1, "Selected ID for new labels 'key2:value2' should be 'cid1'")
+	// Old labels have no more CIDs but do have CEPs, so they map to the same selected ID but have no CIDs
+	storedCID, found = cmap.GetSelectedId(labels1)
+	assert.True(t, found, "Selected ID for old labels 'key1:value1' should still be found")
+	assert.Equal(t, storedCID, cid1, "Selected ID for old labels 'key1:value1' should still be 'cid1'")
+	assert.Empty(t, cmap.globalIdLabelsToCIDSet[labels1].ids, "Old labels are mapped to no CIDs")
+}
