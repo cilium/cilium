@@ -121,14 +121,14 @@ const (
 
 	// CurlConnectTimeout is the timeout for the connect() call that curl
 	// invokes
-	CurlConnectTimeout = 5
+	CurlConnectTimeout = 30
 
 	// CurlMaxTimeout is the hard timeout. It starts when curl is invoked
 	// and interrupts curl regardless of whether curl is currently
 	// connecting or transferring data. CurlMaxTimeout should be at least 5
 	// seconds longer than CurlConnectTimeout to provide some time to
 	// actually transfer data.
-	CurlMaxTimeout = 20
+	CurlMaxTimeout = 120
 
 	DefaultNamespace       = "default"
 	KubeSystemNamespace    = "kube-system"

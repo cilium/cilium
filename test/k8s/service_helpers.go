@@ -163,7 +163,7 @@ func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, ni *helpers.Node
 		if fromPort == 0 {
 			cmd = helpers.CurlFail(url)
 		} else {
-			cmd = helpers.CurlFail("--local-port %d %s", fromPort, url)
+			cmd = helpers.CurlFail("--local-port %d %s", fromPort+(i-1), url)
 		}
 		if checkSourceIP {
 			cmd += " | grep client_address="
@@ -334,6 +334,165 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 		Equal([]int{fragmentedPacketsBeforeK8s1, fragmentedPacketsBeforeK8s2 + delta}),
 		Equal([]int{fragmentedPacketsBeforeK8s1 + delta, fragmentedPacketsBeforeK8s2}),
 	), "Failed to account for INGRESS IPv4 fragments to %s in BPF metrics", dstIP)
+}
+
+func testNodePortForWithHostPort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, testFromOutside bool, fails int) {
+	var (
+		err          error
+		data, v6Data v1.Service
+		wg           sync.WaitGroup
+	)
+
+	serviceNameIPv4 := "test-nodeport"
+	serviceNameIPv6 := "test-nodeport-ipv6"
+
+	err = kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("service %s", serviceNameIPv4)).Unmarshal(&data)
+	ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service %q", serviceNameIPv4)
+
+	if helpers.DualStackSupported() {
+		err = kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("service %s", serviceNameIPv6)).Unmarshal(&v6Data)
+		ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service %q", serviceNameIPv6)
+	}
+
+	// These are going to be tested from pods running in their own net namespaces
+	testURLsFromPods := []string{
+		getHTTPLink(data.Spec.ClusterIP, data.Spec.Ports[0].Port),
+		getTFTPLink(data.Spec.ClusterIP, data.Spec.Ports[1].Port),
+
+		getHTTPLink(ni.K8s1IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.K8s1IP, data.Spec.Ports[1].NodePort),
+
+		getHTTPLink("::ffff:"+ni.K8s1IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink("::ffff:"+ni.K8s1IP, data.Spec.Ports[1].NodePort),
+
+		getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.K8s2IP, data.Spec.Ports[1].NodePort),
+
+		getHTTPLink("::ffff:"+ni.K8s2IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink("::ffff:"+ni.K8s2IP, data.Spec.Ports[1].NodePort),
+	}
+
+	if helpers.DualStackSupported() {
+		testURLsFromPods = append(testURLsFromPods,
+			getHTTPLink(v6Data.Spec.ClusterIP, v6Data.Spec.Ports[0].Port),
+			getTFTPLink(v6Data.Spec.ClusterIP, v6Data.Spec.Ports[1].Port),
+
+			getHTTPLink(ni.PrimaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.PrimaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
+
+			getHTTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
+		)
+	}
+
+	// There are tested from pods running in the host net namespace
+	testURLsFromHosts := []string{
+		getHTTPLink(data.Spec.ClusterIP, data.Spec.Ports[0].Port),
+		getTFTPLink(data.Spec.ClusterIP, data.Spec.Ports[1].Port),
+
+		getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort),
+		getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort),
+
+		getHTTPLink("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort),
+		getTFTPLink("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort),
+
+		getHTTPLink(ni.K8s1IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.K8s1IP, data.Spec.Ports[1].NodePort),
+
+		getHTTPLink("::ffff:"+ni.K8s1IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink("::ffff:"+ni.K8s1IP, data.Spec.Ports[1].NodePort),
+
+		getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink(ni.K8s2IP, data.Spec.Ports[1].NodePort),
+
+		getHTTPLink("::ffff:"+ni.K8s2IP, data.Spec.Ports[0].NodePort),
+		getTFTPLink("::ffff:"+ni.K8s2IP, data.Spec.Ports[1].NodePort),
+	}
+
+	if helpers.DualStackSupported() {
+		testURLsFromHosts = append(testURLsFromHosts,
+			getHTTPLink(v6Data.Spec.ClusterIP, v6Data.Spec.Ports[0].Port),
+			getTFTPLink(v6Data.Spec.ClusterIP, v6Data.Spec.Ports[1].Port),
+
+			getHTTPLink(ni.PrimaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.PrimaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
+
+			getHTTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
+		)
+	}
+
+	testURLsFromOutside := []string{}
+	if testFromOutside {
+		// These are tested from external node which does not run
+		// cilium-agent (so it's not a subject to bpf_sock)
+		testURLsFromOutside = []string{
+			getHTTPLink(ni.K8s1IP, data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.K8s1IP, data.Spec.Ports[1].NodePort),
+
+			getHTTPLink(ni.K8s2IP, data.Spec.Ports[0].NodePort),
+			getTFTPLink(ni.K8s2IP, data.Spec.Ports[1].NodePort),
+		}
+
+		if helpers.DualStackSupported() {
+			testURLsFromOutside = append(testURLsFromOutside,
+				getHTTPLink(ni.PrimaryK8s1IPv6, v6Data.Spec.Ports[0].NodePort),
+				getTFTPLink(ni.PrimaryK8s1IPv6, v6Data.Spec.Ports[1].NodePort),
+
+				getHTTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
+				getTFTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
+			)
+		}
+	}
+
+	count := 10
+	for _, url := range testURLsFromPods {
+		wg.Add(1)
+		go func(url string) {
+			defer GinkgoRecover()
+			defer wg.Done()
+			testCurlFromPods(kubectl, testDSClient, url, count, fails)
+		}(url)
+	}
+	for _, url := range testURLsFromHosts {
+		wg.Add(1)
+		go func(url string) {
+			defer GinkgoRecover()
+			defer wg.Done()
+			testCurlFromPodInHostNetNS(kubectl, url, count, fails, ni.K8s1NodeName)
+		}(url)
+	}
+	basePort := 31000
+	for i, url := range testURLsFromOutside {
+		wg.Add(1)
+		srcPort := basePort + (i * 20)
+		go func(url string, port int) {
+			defer GinkgoRecover()
+			defer wg.Done()
+			testCurlFromOutsideWithLocalPort(kubectl, ni, url, count, false, port)
+		}(url, srcPort)
+	}
+	// TODO: IPv6
+	if bpfNodePort && helpers.RunsOnNetNextKernel() {
+		httpURL := getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort)
+		tftpURL := getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort)
+		testCurlFromPodsFail(kubectl, testDSClient, httpURL)
+		testCurlFromPodsFail(kubectl, testDSClient, tftpURL)
+
+		if helpers.DualStackSupported() {
+			httpURL = getHTTPLink("::1", v6Data.Spec.Ports[0].NodePort)
+			tftpURL = getTFTPLink("::1", v6Data.Spec.Ports[1].NodePort)
+			testCurlFromPodsFail(kubectl, testDSClient, httpURL)
+			testCurlFromPodsFail(kubectl, testDSClient, tftpURL)
+		}
+
+		httpURL = getHTTPLink("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort)
+		tftpURL = getTFTPLink("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort)
+		testCurlFromPodsFail(kubectl, testDSClient, httpURL)
+		testCurlFromPodsFail(kubectl, testDSClient, tftpURL)
+	}
+
+	wg.Wait()
 }
 
 func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, testFromOutside bool, fails int) {

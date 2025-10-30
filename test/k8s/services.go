@@ -598,7 +598,9 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 
 			BeforeAll(func() {
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"hostFirewall.enabled": "true",
+					"hostFirewall.enabled":       "true",
+					"bpf.monitorAggregation":     "none",
+					"hubble.eventBufferCapacity": "65535",
 				})
 
 				originalCCNPHostPolicy := helpers.ManifestGet(kubectl.BasePath(), hostPolicyFilename)
@@ -628,7 +630,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			})
 
 			It("Tests NodePort", func() {
-				testNodePort(kubectl, ni, true, true, 0)
+				testNodePortForWithHostPort(kubectl, ni, true, true, 0)
 			})
 		})
 

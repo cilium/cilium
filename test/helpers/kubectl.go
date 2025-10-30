@@ -3949,6 +3949,7 @@ func validateCiliumSvcLB(cSvc models.Service, lbMap map[string][]string) error {
 		return fmt.Errorf("%s bpf lb map entry not found", frontendAddress)
 	}
 
+	ginkgoext.By("Validating svc %s backends %v (validateCiliumSvcLB)", frontendAddress, bpfBackends)
 BACKENDS:
 	for _, addr := range cSvc.Status.Realized.BackendAddresses {
 		backend := net.JoinHostPort(*addr.IP, strconv.Itoa(int(addr.Port)))
