@@ -5,15 +5,14 @@ package namemanager
 
 import (
 	"context"
+	"fmt"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/stream"
 	"hash/fnv"
 	"log/slog"
 	"net/netip"
 	"regexp"
-	"slices"
-
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
-	"github.com/cilium/stream"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -21,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -203,12 +201,12 @@ func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, name string, record *fqdn.DNSIPRecords) <-chan error {
+func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, name string, record *fqdn.DNSIPRecords, cache *fqdn.DNSCache) <-chan error {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
 	// Update IPs in n
-	updated, ipcacheRevision := n.updateDNSIPs(lookupTime, name, record)
+	updated, ipcacheRevision := n.updateDNSIPs(lookupTime, name, record, cache)
 	if updated {
 		n.logger.Debug(
 			"Updated FQDN with new IPs",
@@ -246,8 +244,8 @@ func (n *manager) waitForEndpointRestore(ctx context.Context, _ cell.Health) err
 
 // updateDNSIPs updates the IPs for a DNS name. It returns whether the name's IPs
 // changed and ipcacheRevision, a revision number to pass to WaitForRevision()
-func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *fqdn.DNSIPRecords) (updated bool, ipcacheRevision uint64) {
-	updated = n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
+func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *fqdn.DNSIPRecords, cache *fqdn.DNSCache) (updated bool, ipcacheRevision uint64) {
+	updated = n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL, cache)
 
 	// The IPs didn't change. No more to be done for this dnsName
 	if !updated && n.bootstrapCompleted {
@@ -294,31 +292,8 @@ func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
 // newIPs.
 // updated is true when the new IPs differ from the old IPs
-func (n *manager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int) (updated bool) {
-	oldCacheIPs := n.cache.Lookup(dnsName)
-
-	if n.params.Config.MinTTL > ttl {
-		ttl = n.params.Config.MinTTL
-	}
-
-	changed := n.cache.Update(lookupTime, dnsName, newIPs, ttl)
-	if !changed { // Changed may have false positives, but not false negatives
-		return false
-	}
-
-	newCacheIPs := n.cache.Lookup(dnsName) // DNSCache returns IPs unsorted
-
-	// The 0 checks below account for an unlike race condition where this
-	// function is called with already expired data and if other cache data
-	// from before also expired.
-	if len(oldCacheIPs) != len(newCacheIPs) || len(oldCacheIPs) == 0 {
-		return true
-	}
-
-	ip.SortAddrList(oldCacheIPs) // sorts in place
-	ip.SortAddrList(newCacheIPs)
-
-	return !slices.Equal(oldCacheIPs, newCacheIPs)
+func (n *manager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int, cache *fqdn.DNSCache) (updated bool) {
+	return n.cache.UpdateAndCompare(lookupTime, dnsName, newIPs, ttl, cache)
 }
 
 func ipcacheResource(dnsName string) ipcacheTypes.ResourceID {
