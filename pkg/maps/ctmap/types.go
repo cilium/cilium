@@ -607,7 +607,6 @@ func (c *CtEntry) flagsString() string {
 }
 
 func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
-
 	var timeDiff string
 	if toRemSecs != nil {
 		timeDiff = fmt.Sprintf(" (%s)", toRemSecs(c.Lifetime))
@@ -638,9 +637,6 @@ func (c *CtEntry) String() string {
 func (c *CtEntry) New() bpf.MapValue { return &CtEntry{} }
 
 type GCRunner interface {
-	// Enable enables the periodic execution of the connection tracking garbage collection.
-	Enable()
-
 	// Run runs the oneshot connection tracking garbage collection.
 	Run(m *Map, filter GCFilter) (int, error)
 
@@ -654,8 +650,6 @@ type GCRunner interface {
 type fakeCTMapGC struct{}
 
 func NewFakeGCRunner() GCRunner { return fakeCTMapGC{} }
-
-func (fakeCTMapGC) Enable() {}
 
 func (g fakeCTMapGC) Run(m *Map, filter GCFilter) (int, error) {
 	return 0, nil
