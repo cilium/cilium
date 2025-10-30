@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -67,6 +66,7 @@ type GC struct {
 	ipv6 bool
 
 	metricsRegistry *metrics.Registry
+	pressureMaps    []*ctmap.Map
 
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
@@ -75,7 +75,6 @@ type GC struct {
 	signalHandler    SignalHandler
 
 	perClusterCTMapsRetriever PerClusterCTMapsRetriever
-	controllerManager         *controller.Manager
 	initialScanComplete       chan struct{}
 
 	observable4 stream.Observable[ctmap.GCEvent]
@@ -101,9 +100,12 @@ func New(params parameters) *GC {
 		endpointsManager: params.EndpointManager,
 		signalHandler:    params.SignalManager,
 
-		controllerManager:   controller.NewManager(),
 		initialScanComplete: make(chan struct{}),
+		// Not supporting BPF map pressure for local CT maps as of yet.
+		pressureMaps: ctmap.GlobalMaps(params.DaemonConfig.EnableIPv4, params.DaemonConfig.EnableIPv6),
 	}
+
+	gc.initCTMapPressureMetrics()
 
 	gc.observable4, gc.next4, gc.complete4 = stream.Multicast[ctmap.GCEvent]()
 	gc.observable6, gc.next6, gc.complete6 = stream.Multicast[ctmap.GCEvent]()
@@ -111,7 +113,6 @@ func New(params parameters) *GC {
 	params.Lifecycle.Append(cell.Hook{
 		// OnStart not yet defined pending further modularization of CT map GC.
 		OnStop: func(cell.HookContext) error {
-			gc.controllerManager.RemoveAllAndWait()
 			gc.complete4(nil)
 			gc.complete6(nil)
 			return nil
@@ -144,10 +145,14 @@ func New(params parameters) *GC {
 			return gc.checkInitialScanCompletedInTime(ctx)
 		}))
 
-		params.JobGroup.Add(job.OneShot("init-ctmap-pressure-metrics", func(ctx context.Context, _ cell.Health) error {
-			gc.startCTMapPressureMetricsController(ctx)
-			return nil
-		}))
+		// Start job that calculates the ctpmap pressure metrics. The actual calculation only starts
+		// once the initial GC finished.
+		// Uses trigger to enforce first execution immediately when the timer job starts.
+		tr := job.NewTrigger()
+		tr.Trigger()
+		params.JobGroup.Add(job.Timer("calculate-ctmap-pressure-metrics", func(ctx context.Context) error {
+			return gc.calculateCTMapPressure(ctx)
+		}, 30*time.Second, job.WithTrigger(tr)))
 
 		return nil
 	}
@@ -155,7 +160,7 @@ func New(params parameters) *GC {
 	params.JobGroup.Add(
 		job.Observer("nat-map-next4", func(ctx context.Context, event ctmap.GCEvent) error { ctmap.NatMapNext4(event); return nil }, gc.Observe4()),
 		job.Observer("nat-map-next6", func(ctx context.Context, event ctmap.GCEvent) error { ctmap.NatMapNext6(event); return nil }, gc.Observe6()),
-		job.OneShot("enable-gc", enableGCFunc))
+		job.OneShot("wait-for-endpoint-restoration", enableGCFunc))
 
 	return gc
 }
@@ -343,17 +348,26 @@ func (gc *GC) checkInitialScanCompletedInTime(ctx context.Context) error {
 	}
 }
 
-func (gc *GC) startCTMapPressureMetricsController(ctx context.Context) {
-	// Wait until after initial scan is complete prior to starting ctmap metrics controller.
+func (gc *GC) initCTMapPressureMetrics() {
+	for _, m := range gc.pressureMaps {
+		m.WithPressureMetric(gc.metricsRegistry)
+	}
+}
+
+func (gc *GC) calculateCTMapPressure(ctx context.Context) error {
+	// Wait until after initial scan is complete prior to calculating pressure metrics.
 	select {
 	case <-ctx.Done():
-		return
+		return nil
 	case <-gc.initialScanComplete:
+		// initial GC completed - proceed
+	default:
+		// initial GC not completed yet
+		gc.logger.Debug("Initial GC not completed yet - skipping CTMap pressure calculation")
+		return nil
 	}
 
-	gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
-	// Not supporting BPF map pressure for local CT maps as of yet.
-	ctmap.CalculateCTMapPressure(gc.controllerManager, gc.metricsRegistry, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
+	return ctmap.CalculateCTMapPressure(ctx, gc.pressureMaps...)
 }
 
 func (gc *GC) Run(m *ctmap.Map, filter ctmap.GCFilter) (int, error) {
