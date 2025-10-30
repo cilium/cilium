@@ -19,6 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+var (
+	podNamespaceLabel = labels.NewLabel(k8sConst.PodNamespaceLabel, "", labels.LabelSourceK8s)
+)
+
 // scIdentity is the information we need about a an identity that rules can select
 type scIdentity struct {
 	NID       identity.NumericIdentity
@@ -28,27 +32,52 @@ type scIdentity struct {
 
 // scIdentityCache is a cache of Identities keyed by the numeric identity
 type scIdentityCache struct {
-	ids map[identity.NumericIdentity]*scIdentity
+	ids         map[identity.NumericIdentity]*scIdentity
+	byNamespace map[string]map[*scIdentity]struct{}
 }
 
 func newScIdentityCache(ids identity.IdentityMap) scIdentityCache {
 	idCache := scIdentityCache{
-		ids: make(map[identity.NumericIdentity]*scIdentity, len(ids)),
+		ids:         make(map[identity.NumericIdentity]*scIdentity, len(ids)),
+		byNamespace: make(map[string]map[*scIdentity]struct{}, len(ids)),
 	}
 
 	for nid, lbls := range ids {
-		idCache.ids[nid] = newIdentity(nid, lbls)
+		idCache.insert(nid, lbls)
 	}
 
 	return idCache
 }
 
 func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.LabelArray) {
-	c.ids[nid] = newIdentity(nid, lbls)
+	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
+	id := &scIdentity{
+		NID:       nid,
+		lbls:      lbls,
+		namespace: namespace,
+	}
+
+	c.ids[nid] = id
+	m := c.byNamespace[id.namespace]
+	if m == nil {
+		m = make(map[*scIdentity]struct{})
+		c.byNamespace[id.namespace] = m
+	}
+	m[id] = struct{}{}
 }
 
-func (c *scIdentityCache) delete(nid identity.NumericIdentity) {
-	delete(c.ids, nid)
+func (c *scIdentityCache) delete(nid identity.NumericIdentity) bool {
+	id, exists := c.ids[nid]
+	if exists {
+		if m := c.byNamespace[id.namespace]; m != nil {
+			delete(m, id)
+			if len(m) == 0 {
+				delete(c.byNamespace, id.namespace)
+			}
+		}
+		delete(c.ids, nid)
+	}
+	return exists
 }
 
 func (c *scIdentityCache) find(nid identity.NumericIdentity) (*scIdentity, bool) {
@@ -63,21 +92,28 @@ func (c *scIdentityCache) exists(nid identity.NumericIdentity) bool {
 
 func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.NumericIdentity] {
 	return func(yield func(id identity.NumericIdentity) bool) {
-		for nid, identity := range c.ids {
-			if idSel.source.matches(idSel.logger, identity) {
-				if !yield(nid) {
-					return
+		namespaces := idSel.source.selectedNamespaces()
+		if len(namespaces) > 0 {
+			// iterate identities in selected namespaces
+			for _, ns := range namespaces {
+				for id := range c.byNamespace[ns] {
+					if idSel.source.matches(idSel.logger, id.lbls) {
+						if !yield(id.NID) {
+							return
+						}
+					}
+				}
+			}
+		} else {
+			// no namespaces selected, iterate through all identities
+			for nid, id := range c.ids {
+				if idSel.source.matches(idSel.logger, id.lbls) {
+					if !yield(nid) {
+						return
+					}
 				}
 			}
 		}
-	}
-}
-
-func newIdentity(nid identity.NumericIdentity, lbls labels.LabelArray) *scIdentity {
-	return &scIdentity{
-		NID:       nid,
-		lbls:      lbls,
-		namespace: lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
 }
 
@@ -622,7 +658,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 			}
 			for numericID := range added {
 				identity, _ := sc.idCache.find(numericID)
-				matches := idSel.source.matches(sc.logger, identity)
+				matches := idSel.source.matches(sc.logger, identity.lbls)
 				_, exists := idSel.cachedSelections[numericID]
 				if matches && !exists {
 					adds = append(adds, numericID)

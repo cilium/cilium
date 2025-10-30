@@ -1290,7 +1290,7 @@ func TestL3RuleLabels(t *testing.T) {
 						for sel := range filter.PerSelectorPolicies {
 							cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
 							t.Logf("Testing %+v", cidrLabels)
-							if matches = sel.(*identitySelector).source.(*labelIdentitySelector).matchesLabels(logger, cidrLabels); matches {
+							if matches = sel.(*identitySelector).source.(*labelIdentitySelector).matches(logger, cidrLabels); matches {
 								break
 							}
 						}
