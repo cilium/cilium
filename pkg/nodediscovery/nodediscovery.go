@@ -251,7 +251,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 			n.logger.Warn(
 				"Unable to mutate nodeResource",
 				logfields.Error, err,
-				logfields.Retries, maxRetryCount,
+				logfields.Retries, retryCount,
 			)
 			continue
 		}
