@@ -1337,7 +1337,7 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 			}
 
 			wg.Go(func() {
-				if err := startDaemon(daemonCtx, cleaner, params); err != nil {
+				if err := startDaemon(daemonCtx, params); err != nil {
 					params.Logger.Error("Daemon start failed", logfields.Error, err)
 					params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 				}
@@ -1358,7 +1358,7 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 // startDaemon starts the old unmodular part of the cilium-agent.
 // option.Config has already been exposed via *option.DaemonConfig promise,
 // so it may not be modified here
-func startDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams) error {
+func startDaemon(ctx context.Context, params daemonParams) error {
 	bootstrapStats.k8sInit.Start()
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
@@ -1464,7 +1464,7 @@ func startDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParam
 
 	bootstrapStats.healthCheck.Start()
 	if params.HealthConfig.IsHealthCheckingEnabled() {
-		if err := params.CiliumHealth.Init(ctx, params.InfraIPAllocator.GetHealthEndpointRouting(), cleaner.cleanupFuncs.Add); err != nil {
+		if err := params.CiliumHealth.Init(ctx, params.InfraIPAllocator.GetHealthEndpointRouting()); err != nil {
 			return fmt.Errorf("failed to initialize cilium health: %w", err)
 		}
 	}

@@ -11,8 +11,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 
-	"github.com/cilium/cilium/pkg/healthconfig"
-
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
@@ -24,6 +22,7 @@ import (
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/health/defaults"
+	"github.com/cilium/cilium/pkg/healthconfig"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -47,7 +46,7 @@ var Cell = cell.Module(
 )
 
 type CiliumHealthManager interface {
-	Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo, addCleanerFunc func(newFunc func())) error
+	Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo) error
 	GetStatus() *models.Status
 }
 
@@ -86,6 +85,7 @@ type ciliumHealthParams struct {
 
 func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 	h := &ciliumHealthManager{
+		ctrlMgr:         controller.NewManager(),
 		logger:          params.Logger,
 		healthSpec:      params.HealthSpec,
 		sysctl:          params.Sysctl,
@@ -98,10 +98,22 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 		healthConfig:    params.Config,
 	}
 
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(ctx cell.HookContext) error {
+			// nothing to do - currently still explicitly initialized by the legacy daemon logic
+			return nil
+		},
+		OnStop: func(ctx cell.HookContext) error {
+			// Make sure to clean up the endpoint namespace when cilium-agent terminates
+			h.ctrlMgr.RemoveAllAndWait()
+			return nil
+		},
+	})
+
 	return h
 }
 
-func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo, addCleanerFunc func(newFunc func())) error {
+func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo) error {
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	h.logger.Info("Launching Cilium health daemon")
 	ch, err := h.launchCiliumNodeHealth(h.healthSpec, h.loader.HostDatapathInitialized())
@@ -135,7 +147,6 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 	var client *Client
 	var lastSuccessfulPing time.Time
 
-	h.ctrlMgr = controller.NewManager()
 	h.ctrlMgr.UpdateController(
 		defaults.HealthEPName,
 		controller.ControllerParams{
@@ -182,9 +193,6 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 			Context:     ctx,
 		},
 	)
-
-	// Make sure to clean up the endpoint namespace when cilium-agent terminates
-	addCleanerFunc(h.ctrlMgr.RemoveAllAndWait)
 
 	return nil
 }
