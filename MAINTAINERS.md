@@ -79,6 +79,7 @@ project.
 [Aditi Ghag]: https://github.com/aditighag
 [Alexandre Perrin]: https://github.com/kaworu
 [André Martins]: https://github.com/aanm
+[Arthur Outhenin-Chalandre]: https://github.com/MrFreezeex
 [Beatriz Martínez]: https://github.com/b3a-dev
 [Bill Mulligan]: https://github.com/xmulligan
 [Bruno M. Custódio]: https://github.com/bmcustodio
