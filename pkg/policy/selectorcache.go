@@ -50,7 +50,7 @@ func newScIdentityCache(ids identity.IdentityMap) scIdentityCache {
 	return idCache
 }
 
-func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.LabelArray) {
+func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.LabelArray) *scIdentity {
 	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
 	id := &scIdentity{
 		NID:       nid,
@@ -65,6 +65,8 @@ func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.Label
 		c.byNamespace[id.namespace] = m
 	}
 	m[id] = struct{}{}
+
+	return id
 }
 
 func (c *scIdentityCache) delete(nid identity.NumericIdentity) bool {
@@ -150,6 +152,9 @@ type SelectorCache struct {
 
 	// map key is the string representation of the selector being cached.
 	selectors map[string]*identitySelector
+
+	// selectorsByNamespace indexes selectors by namespace for faster updates
+	selectorsByNamespace map[string]map[*identitySelector]struct{}
 
 	localIdentityNotifier identityNotifier
 
@@ -323,9 +328,10 @@ func (sc *SelectorCache) queueNotifiedUsersCommit(txn *versioned.Tx, wg *sync.Wa
 // NewSelectorCache creates a new SelectorCache with the given identities.
 func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
 	sc := &SelectorCache{
-		logger:    logger,
-		idCache:   newScIdentityCache(ids),
-		selectors: make(map[string]*identitySelector),
+		logger:               logger,
+		idCache:              newScIdentityCache(ids),
+		selectors:            make(map[string]*identitySelector),
+		selectorsByNamespace: make(map[string]map[*identitySelector]struct{}),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	sc.versioned = &versioned.Coordinator{
@@ -437,6 +443,20 @@ func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls string
 
 	sc.selectors[key] = idSel
 
+	namespaces := source.selectedNamespaces()
+	if len(namespaces) == 0 {
+		// use empty namespace string for selectors without namespace requirements
+		namespaces = []string{""}
+	}
+	for _, ns := range namespaces {
+		idx, exists := sc.selectorsByNamespace[ns]
+		if !exists {
+			idx = make(map[*identitySelector]struct{})
+			sc.selectorsByNamespace[ns] = idx
+		}
+		idx[idSel] = struct{}{}
+	}
+
 	// Scan the cached set of IDs to determine any new matchers
 	for nid := range sc.idCache.selections(idSel) {
 		idSel.cachedSelections[nid] = struct{}{}
@@ -494,6 +514,23 @@ func (sc *SelectorCache) removeSelectorLocked(selector types.CachedSelector, use
 	if exists {
 		if sel.removeUser(user) {
 			sel.source.remove(sc.localIdentityNotifier)
+
+			namespaces := sel.source.selectedNamespaces()
+			if len(namespaces) == 0 {
+				// use empty namespace string for selectors without namespace
+				// requirements
+				namespaces = []string{""}
+			}
+			for _, ns := range namespaces {
+				idx, exists := sc.selectorsByNamespace[ns]
+				if exists {
+					delete(idx, sel)
+					if len(idx) == 0 {
+						delete(sc.selectorsByNamespace, ns)
+					}
+				}
+			}
+
 			delete(sc.selectors, key)
 		}
 	}
@@ -574,6 +611,10 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 // endpoints to remove the affected identity only from selectors that no longer select the mutated
 // identity.
 func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, wg *sync.WaitGroup) (mutated bool) {
+	// Map of namespaces to scan for updates with added identities in the map value. All
+	// identities are matched against selectors that have no namespace requirements.
+	namespaces := map[string]identity.NumericIdentitySlice{"": {}}
+
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
@@ -589,6 +630,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Identity, numericID,
 				logfields.Labels, old.lbls,
 			)
+			namespaces[old.namespace] = identity.NumericIdentitySlice{}
 			sc.idCache.delete(numericID)
 		} else {
 			sc.logger.Warn(
@@ -642,50 +684,61 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				logfields.Labels, lbls,
 			)
 		}
-		sc.idCache.insert(numericID, lbls)
+		id := sc.idCache.insert(numericID, lbls)
+
+		namespaces[id.namespace] = append(namespaces[id.namespace], numericID)
+
+		// namespaced identities are also checked against non-namespeced selectors
+		if id.namespace != "" {
+			namespaces[""] = append(namespaces[""], numericID)
+		}
 	}
 
 	updated := false
 	if len(deleted)+len(added) > 0 {
-		// Iterate through all locally used identity selectors and
-		// update the cached numeric identities as required.
-		for _, idSel := range sc.selectors {
-			var adds, dels []identity.NumericIdentity
-			for numericID := range deleted {
-				if _, exists := idSel.cachedSelections[numericID]; exists {
-					dels = append(dels, numericID)
-					delete(idSel.cachedSelections, numericID)
+		for ns, nsAdded := range namespaces {
+			// Iterate through all locally used identity selectors and
+			// update the cached numeric identities as required.
+			for idSel := range sc.selectorsByNamespace[ns] {
+				var adds, dels []identity.NumericIdentity
+				for numericID := range deleted {
+					if _, exists := idSel.cachedSelections[numericID]; exists {
+						dels = append(dels, numericID)
+						delete(idSel.cachedSelections, numericID)
+					}
 				}
-			}
-			for numericID := range added {
-				identity, _ := sc.idCache.find(numericID)
-				matches := idSel.source.matches(sc.logger, identity.lbls)
-				_, exists := idSel.cachedSelections[numericID]
-				if matches && !exists {
-					adds = append(adds, numericID)
-					idSel.cachedSelections[numericID] = struct{}{}
-				} else if !matches && exists {
-					// Identity was mutated and no longer matches, the identity
-					// is deleted from the cached selections, but is not sent to
-					// users as a deletion. Instead, we return 'mutated = true'
-					// telling the caller to trigger forced policy updates on
-					// all endpoints to recompute the policy as if the mutated
-					// identity was never selected by the affected selector.
-					mutated = true
-					delete(idSel.cachedSelections, numericID)
+				for _, numericID := range nsAdded {
+					identity, _ := sc.idCache.find(numericID)
+					matches := idSel.source.matches(sc.logger, identity.lbls)
+					_, exists := idSel.cachedSelections[numericID]
+					if matches && !exists {
+						adds = append(adds, numericID)
+						idSel.cachedSelections[numericID] = struct{}{}
+					} else if !matches && exists {
+						// Identity was mutated and no longer matches, the
+						// identity is deleted from the cached selections,
+						// but is not sent to users as a deletion. Instead,
+						// we return 'mutated = true' telling the caller to
+						// trigger forced policy updates on all endpoints to
+						// recompute the policy as if the mutated identity
+						// was never selected by the affected selector.
+						mutated = true
+						delete(idSel.cachedSelections, numericID)
+					}
 				}
-			}
-			if len(dels)+len(adds) > 0 {
-				updated = true
-				sc.selectorUpdates = sc.selectorUpdates.Append(idSel, txn)
-				idSel.updateSelections(txn)
-				idSel.notifyUsers(sc, adds, dels, wg)
+				if len(dels)+len(adds) > 0 {
+					updated = true
+					sc.selectorUpdates = sc.selectorUpdates.Append(idSel, txn)
+					idSel.updateSelections(txn)
+					idSel.notifyUsers(sc, adds, dels, wg)
+				}
 			}
 		}
 	}
 
 	if updated {
-		// Launch a waiter that holds the new version as long as needed for users to have grabbed it
+		// Launch a waiter that holds the new version as long as needed for users to have
+		// grabbed it
 		sc.queueNotifiedUsersCommit(txn, wg)
 
 		go func(version *versioned.VersionHandle) {
