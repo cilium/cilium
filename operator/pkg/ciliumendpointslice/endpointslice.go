@@ -5,6 +5,7 @@ package ciliumendpointslice
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -15,6 +16,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
+	op_k8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -384,6 +386,82 @@ func (c *DefaultController) syncCESsInLocalCache(ctx context.Context) error {
 			c.manager.initializeMappingCEPtoCES(&cep, ces.Namespace, cesName)
 		}
 	}
+	c.logger.DebugContext(ctx, "Successfully synced all CESs locally")
+	return nil
+}
+
+func (c *SlimController) syncCESsInLocalCache(ctx context.Context) error {
+	cesStore, err := c.ciliumEndpointSlice.Store(ctx)
+	if err != nil {
+		c.logger.WarnContext(ctx, "Error getting CES Store", logfields.Error, err)
+		return err
+	}
+
+	cidStore, err := c.ciliumIdentity.Store(ctx)
+	if err != nil {
+		c.logger.WarnContext(ctx, "Error getting CID Store", logfields.Error, err)
+		return err
+	}
+
+	cnodeStore, err := c.ciliumNodes.Store(ctx)
+	if err != nil {
+		c.logger.WarnContext(ctx, "Error getting CiliumNode Store", logfields.Error, err)
+		return err
+	}
+
+	cidToLabels := make(map[CID]Label)
+	for _, cid := range cidStore.List() {
+		cidName, gidLabels := cidToGidLabels(cid)
+		cidToLabels[cidName] = gidLabels
+	}
+
+	podStore, err := c.pods.Store(ctx)
+	if err != nil {
+		c.logger.WarnContext(ctx, "Error getting Pod Store", logfields.Error, err)
+		return err
+	}
+
+	nsStore, err := c.namespace.Store(ctx)
+	if err != nil {
+		c.logger.WarnContext(ctx, "Error getting Namespace Store", logfields.Error, err)
+		return err
+	}
+
+	for _, ces := range cesStore.List() {
+		c.manager.initializeMappingForCES(ces)
+		for _, cep := range ces.Endpoints {
+			// Skip if namespace no longer exists
+			_, exists, err := nsStore.GetByKey(resource.Key{Name: ces.Namespace})
+			if err != nil {
+				c.logger.WarnContext(ctx, "Error getting Namespace from Store", logfields.Error, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+
+			// Skip adding CEP to cache if the associated pod no longer exists.
+			_, exists, err = podStore.GetByKey(resource.Key{Name: cep.Name, Namespace: ces.Namespace})
+			if err != nil {
+				c.logger.WarnContext(ctx, "Error getting Pod from Store", logfields.Error, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+
+			identityid := strconv.FormatInt(cep.IdentityID, 10)
+			labels := cidToLabels[CID(identityid)]
+
+			nodeObj, err := cnodeStore.ByIndex(op_k8s.CiliumNodeIPIndex, cep.Networking.NodeIP)
+			if err != nil {
+				c.logger.WarnContext(ctx, "Error getting CiliumNode by IP", logfields.Error, err)
+				continue
+			}
+			c.manager.initializeMappingPodToNode(NewCEPName(cep.Name, ces.Namespace), NodeName(nodeObj[0].Name), CESName(ces.Name), CID(identityid), Label(labels), EncryptionKey(cep.Encryption.Key))
+		}
+	}
+
 	c.logger.DebugContext(ctx, "Successfully synced all CESs locally")
 	return nil
 }
