@@ -15,11 +15,12 @@ var (
 )
 
 type IPsecAgent struct {
-	EnableIPsec bool
+	EnableIPsec      bool
+	AuthKeySizeValue int
 }
 
-func (*IPsecAgent) AuthKeySize() int {
-	return 16
+func (a *IPsecAgent) AuthKeySize() int {
+	return a.AuthKeySizeValue
 }
 
 func (*IPsecAgent) SPI() uint8 {
