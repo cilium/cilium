@@ -320,7 +320,7 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 	dpUpdates := h.nameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
 		IPs: responseIPs,
 		TTL: int(TTL),
-	})
+	}, ep.DNSHistory)
 
 	stat.PolicyGenerationTime.End(true)
 	stat.DataplaneTime.Start()

@@ -179,7 +179,7 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
 	for _, ep := range n.params.EPMgr.GetEndpoints() {
 		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
-		n.cache.UpdateFromCache(ep.DNSHistory, nil)
+		n.cache.UpdateFromCache(ep.DNSHistory)
 
 		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		activeConnections := fqdn.NewDNSCache(0)
@@ -191,7 +191,7 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, 0)
 			}
 		}
-		n.cache.UpdateFromCache(activeConnections, nil)
+		n.cache.UpdateFromCache(activeConnections)
 
 		// Persist the changes made to DNS{History, Zombies} for the endpoint.
 		if len(namesToRegen) > 0 || len(dead) > 0 {
