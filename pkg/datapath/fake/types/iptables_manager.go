@@ -41,3 +41,11 @@ func (m *FakeIptablesManager) AddNoTrackHostPorts(namespace, name string, ports 
 
 func (m *FakeIptablesManager) RemoveNoTrackHostPorts(namespace, name string) {
 }
+
+func (m *FakeIptablesManager) IPv4MasqueradeSrcExclusionCIDRs() string {
+	return ""
+}
+
+func (m *FakeIptablesManager) IPv6MasqueradeSrcExclusionCIDRs() string {
+	return ""
+}

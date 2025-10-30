@@ -75,6 +75,14 @@ type IptablesManager interface {
 	// causes iptables notrack rules to be added/removed so CT is skipped for pods using host networking on the requested ports.
 	AddNoTrackHostPorts(namespace, name string, ports []string)
 	RemoveNoTrackHostPorts(namespace, name string)
+
+	// IPv4MasqueradeSrcExclusionCIDRs contains comma-separated source IP CIDRs that
+	// should be excluded from SNAT/Masquerade
+	IPv4MasqueradeSrcExclusionCIDRs() string
+
+	// IPv6MasqueradeSrcExclusionCIDRs contains comma-separated source IP CIDRs that
+	// should be excluded from SNAT/Masquerade
+	IPv6MasqueradeSrcExclusionCIDRs() string
 }
 
 // CompilationLock is a interface over a mutex, it is used by both the loader, daemon
