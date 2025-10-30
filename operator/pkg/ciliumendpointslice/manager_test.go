@@ -35,7 +35,7 @@ func newNode(name string, key int) *capi_v2.CiliumNode {
 	}
 }
 
-func TestFCFSManager(t *testing.T) {
+func TestFCFSManagerDefault(t *testing.T) {
 	log := hivetest.Logger(t)
 	t.Run("Test adding new CEP to map", func(*testing.T) {
 		m := newDefaultManager(2, log)

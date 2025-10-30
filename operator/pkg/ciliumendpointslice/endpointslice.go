@@ -19,6 +19,7 @@ import (
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -308,6 +309,66 @@ func (c *SlimController) onIdentityUpdate(cid *cilium_api_v2.CiliumIdentity) {
 func (c *SlimController) onIdentityDelete(cid *cilium_api_v2.CiliumIdentity) {
 	touchedCESs := c.manager.RemoveIdentityMapping(cid)
 	c.enqueueCESReconciliation(touchedCESs)
+}
+
+// On Pod Update, verify all the necessary fields are set.
+// We recalculate the relevant fields when updating the CES instead of
+// saving them here in case of any changes in value, to minimize the
+// number of CES updates.
+// Returns error if requires retry without pod update.
+func (c *SlimController) onPodUpdate(pod *slim_corev1.Pod) error {
+	if pod.GetName() == "" || pod.GetNamespace() == "" {
+		return nil
+	}
+
+	if pod.Spec.HostNetwork { // no CEP for host networking pods
+		return nil
+	}
+
+	_, err := GetPodEndpointNetworking(pod)
+	if err != nil {
+		c.logger.Debug("could not get endpointnetworking for pod",
+			logfields.K8sPodName, pod.Name,
+			logfields.Error, err)
+		// When pod is assigned IPs or scheduled, we will receive a new update.
+		return nil
+	}
+
+	node, err := c.reconciler.getNodeNameForPod(pod)
+	if err != nil {
+		c.logger.Debug("could not get node name for pod",
+			logfields.K8sPodName, pod.Name,
+			logfields.Error, err)
+		// When pod is scheduled, we will receive a new update.
+		return nil
+	}
+
+	cidKey, err := getPodCIDKey(pod, c.logger, c.reconciler.namespaceStore)
+	if err != nil {
+		c.logger.Debug("could not get labels for pod",
+			logfields.K8sPodName, pod.Name,
+			logfields.Error, err)
+		return err
+	}
+
+	// pCid, err := c.reconciler.getPodIdentity(cidKey)
+	// if err != nil {
+	// 	// Pod CID couldn't be retrieved yet. We store known pod information
+	// 	// in the ces cache, so it can be associated with the CID once it is
+	// 	// created.
+	// 	c.manager.AddPodMapping(pod, node, cidKey)
+	// 	return nil // Reconciles on CID event
+	// }
+
+	// touchedCESs := c.manager.UpsertPodWithIdentity(pod, node, pCid)
+	touchedCESs := c.manager.AddPodMapping(pod, node, cidKey)
+	c.enqueueCESReconciliation(touchedCESs)
+	return nil
+}
+
+func (c *SlimController) onPodDelete(pod *slim_corev1.Pod) {
+	touchedCES := c.manager.RemovePodMapping(pod)
+	c.enqueueCESReconciliation(touchedCES)
 }
 
 // Sync all CESs from cesStore to manager cache.
