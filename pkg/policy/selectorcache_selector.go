@@ -13,6 +13,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/selector"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -82,7 +84,7 @@ func (i *identitySelector) MaySelectPeers() bool {
 var _ CachedSelector = (*identitySelector)(nil)
 
 type selectorSource interface {
-	matches(scIdentity) bool
+	matches(logger *slog.Logger, id scIdentity) bool
 
 	remove(identityNotifier)
 
@@ -104,7 +106,7 @@ func (f *fqdnSelector) remove(dnsProxy identityNotifier) {
 
 // matches returns true if the identity contains at least one label
 // that matches the FQDNSelector's IdentityLabel string
-func (f *fqdnSelector) matches(identity scIdentity) bool {
+func (f *fqdnSelector) matches(_ *slog.Logger, identity scIdentity) bool {
 	return identity.lbls.Intersects(labels.LabelArray{f.selector.IdentityLabel()})
 }
 
@@ -113,14 +115,24 @@ func (f *fqdnSelector) metricsClass() string {
 }
 
 type labelIdentitySelector struct {
-	selector   api.EndpointSelector
-	namespaces []string // allowed namespaces, or ""
+	cachedString string
+	selector     selector.Requirements
+	namespaces   []string // allowed namespaces, or ""
 }
 
-// xxxMatches returns true if the CachedSelector matches given labels.
-// This is slow, but only used for policy tracing, so it's OK.
-func (l *labelIdentitySelector) xxxMatches(labels labels.LabelArray) bool {
-	return l.selector.Matches(labels)
+// matchesLabels returns true if the CachedSelector matches given labels.
+func (l *labelIdentitySelector) matchesLabels(logger *slog.Logger, labels labels.LabelArray) bool {
+	return l.selector.Matches(logger, labels)
+}
+
+func newLabelIdentitySelector(es api.EndpointSelector) *labelIdentitySelector {
+	namespaces, _ := es.GetMatch(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel)
+
+	return &labelIdentitySelector{
+		cachedString: es.CachedString(),
+		namespaces:   namespaces,
+		selector:     selector.FromK8sRequirements(es.Requirements()),
+	}
 }
 
 func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
@@ -137,8 +149,8 @@ func (l *labelIdentitySelector) matchesNamespace(ns string) bool {
 	return true
 }
 
-func (l *labelIdentitySelector) matches(identity scIdentity) bool {
-	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
+func (l *labelIdentitySelector) matches(logger *slog.Logger, identity scIdentity) bool {
+	return l.matchesNamespace(identity.namespace) && l.matchesLabels(logger, identity.lbls)
 }
 
 func (l *labelIdentitySelector) remove(_ identityNotifier) {
@@ -146,11 +158,11 @@ func (l *labelIdentitySelector) remove(_ identityNotifier) {
 }
 
 func (l *labelIdentitySelector) metricsClass() string {
-	if l.selector.CachedString() == api.EntitySelectorMapping[api.EntityCluster][0].CachedString() {
+	if l.cachedString == api.EntitySelectorMapping[api.EntityCluster][0].CachedString() {
 		return types.LabelValueSCCluster
 	}
 	for _, entity := range api.EntitySelectorMapping[api.EntityWorld] {
-		if l.selector.CachedString() == entity.CachedString() {
+		if l.cachedString == entity.CachedString() {
 			return types.LabelValueSCWorld
 		}
 	}
