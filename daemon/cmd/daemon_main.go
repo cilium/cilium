@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -64,7 +63,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
@@ -1269,7 +1267,6 @@ type daemonParams struct {
 	CTNATMapGC        ctmap.GCRunner
 	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
 	ClusterInfo       cmtypes.ClusterInfo
-	BandwidthManager  datapath.BandwidthManager
 	IPsecAgent        datapath.IPsecAgent
 	SyncHostIPs       *syncHostIPs
 	NodeDiscovery     *nodediscovery.NodeDiscovery
@@ -1277,7 +1274,6 @@ type daemonParams struct {
 	CRDSyncPromise    promise.Promise[k8sSynced.CRDSync]
 	IdentityManager   identitymanager.IDManager
 	MaglevConfig      maglev.Config
-	LBConfig          loadbalancer.Config
 	DNSProxy          bootstrap.FQDNProxyBootstrapper
 	DNSNameManager    namemanager.NameManager
 	KPRConfig         kpr.KPRConfig
@@ -1416,21 +1412,6 @@ func startDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParam
 			}
 		}
 	}
-
-	go func() {
-		if err := params.EndpointRestorer.WaitForEndpointRestore(ctx); err != nil {
-			return
-		}
-
-		ms := maps.NewMapSweeper(
-			params.Logger,
-			&EndpointMapManager{
-				logger:          params.Logger,
-				EndpointManager: params.EndpointManager,
-			}, params.BandwidthManager, params.LBConfig, params.KPRConfig)
-		ms.CollectStaleMapGarbage()
-		ms.RemoveDisabledMaps()
-	}()
 
 	// Migrating the ENI datapath must happen before the API is served to
 	// prevent endpoints from being created. It also must be before the health
