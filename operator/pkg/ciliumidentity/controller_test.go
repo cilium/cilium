@@ -178,7 +178,7 @@ func verifyCIDUsageInCES(ctx context.Context, fakeClient *k8sClient.FakeClientse
 		return err
 	}
 
-	cep1 := cestest.CreateManagerEndpoint("cep1", int64(cidNum))
+	cep1 := cestest.CreateManagerEndpoint("cep1", int64(cidNum), "node1")
 	ces1 := cestest.CreateStoreEndpointSlice("ces1", "ns", []capi_v2a1.CoreCiliumEndpoint{cep1})
 	if _, err := fakeClient.CiliumV2alpha1().CiliumEndpointSlices().Create(ctx, ces1, metav1.CreateOptions{}); err != nil {
 		return err
