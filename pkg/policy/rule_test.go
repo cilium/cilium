@@ -1174,6 +1174,8 @@ func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
 }
 
 func TestL3RuleLabels(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	ruleLabels := map[string]labels.LabelArray{
 		"rule0": labels.ParseLabelArray("name=apiRule0"),
 		"rule1": labels.ParseLabelArray("name=apiRule1"),
@@ -1257,7 +1259,7 @@ func TestL3RuleLabels(t *testing.T) {
 
 	for i, test := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
+			td := newTestData(logger).withIDs(ruleTestIDs)
 
 			for _, r := range test.rulesToApply {
 				td.repo.mustAdd(rules[r])
@@ -1287,7 +1289,7 @@ func TestL3RuleLabels(t *testing.T) {
 						for sel := range filter.PerSelectorPolicies {
 							cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
 							t.Logf("Testing %+v", cidrLabels)
-							if matches = sel.(*identitySelector).source.(*labelIdentitySelector).xxxMatches(cidrLabels); matches {
+							if matches = sel.(*identitySelector).source.(*labelIdentitySelector).matchesLabels(logger, cidrLabels); matches {
 								break
 							}
 						}
