@@ -19,10 +19,11 @@ import (
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
-func TestReconcileCreate(t *testing.T) {
+func TestReconcileCreateDefault(t *testing.T) {
 	var r *defaultReconciler
 	var fakeClient *k8sClient.FakeClientset
 	m := newDefaultManager(2, hivetest.Logger(t))
@@ -81,7 +82,7 @@ func TestReconcileCreate(t *testing.T) {
 	hive.Stop(tlog, t.Context())
 }
 
-func TestReconcileUpdate(t *testing.T) {
+func TestReconcileUpdateDefault(t *testing.T) {
 	var r *defaultReconciler
 	var fakeClient *k8sClient.FakeClientset
 	m := newDefaultManager(2, hivetest.Logger(t))
@@ -125,7 +126,7 @@ func TestReconcileUpdate(t *testing.T) {
 	cepStore.CacheStore().Add(cep2)
 	cep3 := tu.CreateStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
-	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{tu.CreateManagerEndpoint("cep1", 1), tu.CreateManagerEndpoint("cep3", 2)})
+	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{tu.CreateManagerEndpoint("cep1", 1, "node1"), tu.CreateManagerEndpoint("cep3", 2, "node2")})
 	cesStore.CacheStore().Add(ces1)
 	m.mapping.insertCES(CESName("ces1"), "ns")
 	m.mapping.insertCES(CESName("ces2"), "ns")
@@ -146,7 +147,7 @@ func TestReconcileUpdate(t *testing.T) {
 	hive.Stop(tlog, t.Context())
 }
 
-func TestReconcileDelete(t *testing.T) {
+func TestReconcileDeleteDefault(t *testing.T) {
 	var r *defaultReconciler
 	var fakeClient *k8sClient.FakeClientset
 	m := newDefaultManager(2, hivetest.Logger(t))
@@ -190,7 +191,7 @@ func TestReconcileDelete(t *testing.T) {
 	cepStore.CacheStore().Add(cep2)
 	cep3 := tu.CreateStoreEndpoint("cep3", "ns", 2)
 	cepStore.CacheStore().Add(cep3)
-	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{tu.CreateManagerEndpoint("cep1", 1), tu.CreateManagerEndpoint("cep3", 2)})
+	ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{tu.CreateManagerEndpoint("cep1", 1, "node1"), tu.CreateManagerEndpoint("cep3", 2, "node3")})
 	cesStore.CacheStore().Add(ces1)
 	m.mapping.insertCES(CESName("ces1"), "ns")
 	m.mapping.insertCES(CESName("ces2"), "ns")
@@ -205,7 +206,7 @@ func TestReconcileDelete(t *testing.T) {
 	hive.Stop(tlog, t.Context())
 }
 
-func TestReconcileNoop(t *testing.T) {
+func TestReconcileNoopDefault(t *testing.T) {
 	var r *defaultReconciler
 	var fakeClient *k8sClient.FakeClientset
 	m := newDefaultManager(2, hivetest.Logger(t))
@@ -219,7 +220,11 @@ func TestReconcileNoop(t *testing.T) {
 		cell.Invoke(func(
 			c *k8sClient.FakeClientset,
 			cep resource.Resource[*cilium_v2.CiliumEndpoint],
+			p resource.Resource[*slim_corev1.Pod],
 			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			cn resource.Resource[*cilium_v2.CiliumNode],
+			ns resource.Resource[*slim_corev1.Namespace],
+			ci resource.Resource[*cilium_v2.CiliumIdentity],
 			metrics *Metrics,
 		) error {
 			fakeClient = c
