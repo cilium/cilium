@@ -808,7 +808,7 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline struct lb6_reverse_nat *
+static __always_inline const struct lb6_reverse_nat *
 nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 				struct ipv6_ct_tuple *tuple)
 {
@@ -1304,7 +1304,7 @@ drop_err:
 
 static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 					    struct ipv6_ct_tuple *tuple,
-					    struct lb6_service *svc,
+					    const struct lb6_service *svc,
 					    struct lb6_key *key,
 					    struct ipv6hdr *ip6,
 					    int l3_off,
@@ -1458,7 +1458,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
-	struct lb6_service *svc;
+	const struct lb6_service *svc;
 	struct lb6_key key = {};
 
 	tuple.nexthdr = ip6->nexthdr;
@@ -2189,7 +2189,7 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline struct lb4_reverse_nat *
+static __always_inline const struct lb4_reverse_nat *
 nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 				struct ipv4_ct_tuple *tuple)
 {
@@ -2649,7 +2649,7 @@ drop_err:
 
 static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    struct ipv4_ct_tuple *tuple,
-					    struct lb4_service *svc,
+					    const struct lb4_service *svc,
 					    struct lb4_key *key,
 					    struct iphdr *ip4,
 					    int l3_off,
@@ -2838,7 +2838,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	fraginfo_t fraginfo;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_svc_proto = true;
-	struct lb4_service *svc;
+	const struct lb4_service *svc;
 	struct lb4_key key = {};
 	int ret, l4_off;
 
