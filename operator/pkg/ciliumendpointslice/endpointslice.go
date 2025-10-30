@@ -159,7 +159,8 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 
 	c.manager = newDefaultManager(c.maxCEPsInCES, c.logger)
 
-	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
+	c.reconciler = newDefaultReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
+	c.doReconciler = c.reconciler
 
 	c.initializeQueue()
 
@@ -369,7 +370,7 @@ func (c *Controller) processNextWorkItem() bool {
 	c.logger.Debug("Processing CES", logfields.CESName, key.string())
 
 	queueDelay := c.getAndResetCESProcessingDelay(key)
-	err := c.reconciler.reconcileCES(CESName(key.Name))
+	err := c.doReconciler.reconcileCES(CESName(key.Name))
 	if queue == c.fastQueue {
 		c.metrics.CiliumEndpointSliceQueueDelay.WithLabelValues(LabelQueueFast).Observe(queueDelay)
 	} else {
