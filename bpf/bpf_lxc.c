@@ -80,7 +80,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state_new = {};
 	fraginfo_t fraginfo;
-	struct lb4_service *svc;
+	const struct lb4_service *svc;
 	struct lb4_key key = {};
 	__u16 proxy_port = 0;
 	__u32 cluster_id = 0;
@@ -154,7 +154,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state_new = {};
 	fraginfo_t fraginfo;
-	struct lb6_service *svc;
+	const struct lb6_service *svc;
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
 	int l4_off;

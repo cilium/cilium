@@ -102,7 +102,7 @@ CHECK("xdp", "sock4_wildcard_lookup_test")
 int test_v4_check(__maybe_unused struct xdp_md *ctx)
 {
 	const struct remote_endpoint_info *info;
-	struct lb4_service *ret;
+	const struct lb4_service *ret;
 	struct lb4_key key = {
 		.address = 0,		/* will set for individual tests */
 		.dport = 0,		/* will set for individual tests */
@@ -310,7 +310,7 @@ CHECK("xdp", "sock6_wildcard_lookup_test")
 int test_v6_check(__maybe_unused struct xdp_md *ctx)
 {
 	const struct remote_endpoint_info *info;
-	struct lb6_service *ret;
+	const struct lb6_service *ret;
 	struct lb6_key key = {
 		.address = {},		/* will set for individual tests */
 		.dport = 0,		/* will set for individual tests */
