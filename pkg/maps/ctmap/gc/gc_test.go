@@ -31,6 +31,7 @@ func TestGCEnableDualStack(t *testing.T) {
 			signals: make(chan SignalData),
 			manager: &fakeSignalMan{},
 		},
+		initialScanComplete: make(chan struct{}),
 	}
 
 	// start GC
@@ -45,7 +46,7 @@ func TestGCEnableDualStack(t *testing.T) {
 
 	returnRatio := 0.1 // low -> high next interval
 	option.Config.ConntrackGCMaxInterval = time.Millisecond * 500
-	gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+	go gc.startInternal(t.Context(), func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 		if ipv4 {
 			ipv4Passes.Add(1)
 			if ipv6 {
@@ -53,7 +54,7 @@ func TestGCEnableDualStack(t *testing.T) {
 			}
 		}
 		return returnRatio, true
-	}, false)
+	})
 
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.Equal(c, 1, int(dualPasses.Load()))
@@ -130,6 +131,7 @@ func TestGCEnableRatchet(t *testing.T) {
 			signals: make(chan SignalData),
 			manager: &fakeSignalMan{},
 		},
+		initialScanComplete: make(chan struct{}),
 	}
 
 	// start GC
@@ -144,29 +146,23 @@ func TestGCEnableRatchet(t *testing.T) {
 	ctmap.GCIntervalRounding = 10 * time.Millisecond
 	returnRatio := 0.00000000000000001 // low -> high next interval
 	option.Config.ConntrackGCMaxInterval = 500 * time.Millisecond
-	initialPass := make(chan struct{})
 	// 1. First we allow at least one initial pass to happen with the following conditions:
 	// * ConntrackGCMaxInterval = Seconod
 	// * Delete Ratio -> very small (meaning we quickly increase next interval)
 	//	Note: This does not affect the first interval, as that runs right away
 	//	instead a first pass must be run that returns this value.
 	// 	The next interval then uses this to compute next interval duration.
-	gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+	go gc.startInternal(t.Context(), func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 		if ipv4 {
 			ipv4Passes.Add(1)
 			if ipv6 {
 				dualPasses.Add(1)
 			}
 		}
-		if initialPass != nil {
-			close(initialPass)
-			reset()
-			initialPass = nil
-		}
 		return returnRatio, true
-	}, false)
+	})
 
-	<-initialPass                            // wait for initial pass to complete.
+	<-gc.initialScanComplete                 // wait for initial pass to complete.
 	option.Config.ConntrackGCMaxInterval = 0 // allow for large interval but expect shortk
 
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
