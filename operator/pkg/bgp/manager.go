@@ -86,7 +86,6 @@ type BGPResourceManager struct {
 
 // registerBGPResourceManager creates a new BGPResourceManager operator instance.
 func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
-	// if BGPResourceManager Control Plane is not enabled or BGPv2 API is not enabled, return nil
 	if !p.DaemonConfig.BGPControlPlaneEnabled() {
 		return nil
 	}
@@ -142,14 +141,14 @@ func registerBGPResourceManager(p BGPParams) *BGPResourceManager {
 
 func (b *BGPResourceManager) initializeJobs() {
 	b.jobs.Add(
-		job.OneShot("bgpv2-operator-main", func(ctx context.Context, health cell.Health) error {
+		job.OneShot("bgp-operator-main", func(ctx context.Context, health cell.Health) error {
 			// initialize resource stores
 			err := b.initializeStores(ctx)
 			if err != nil {
 				return err
 			}
 
-			b.logger.Info("BGPv2 control plane operator started")
+			b.logger.Info("BGP control plane operator started")
 			// restore router IDs for all nodes
 			if err := b.restoreRouterIDs(); err != nil {
 				return err
@@ -158,7 +157,7 @@ func (b *BGPResourceManager) initializeJobs() {
 			return b.Run(ctx)
 		}),
 
-		job.OneShot("bgpv2-operator-cluster-config-tracker", func(ctx context.Context, health cell.Health) error {
+		job.OneShot("bgp-operator-cluster-config-tracker", func(ctx context.Context, health cell.Health) error {
 			for e := range b.clusterConfig.Events(ctx) {
 				if e.Kind == resource.Sync {
 					select {
@@ -173,7 +172,7 @@ func (b *BGPResourceManager) initializeJobs() {
 			return nil
 		}),
 
-		job.OneShot("bgpv2-operator-node-config-tracker", func(ctx context.Context, health cell.Health) error {
+		job.OneShot("bgp-operator-node-config-tracker", func(ctx context.Context, health cell.Health) error {
 			for e := range b.nodeConfig.Events(ctx) {
 				b.triggerReconcile()
 				e.Done(nil)
@@ -181,7 +180,7 @@ func (b *BGPResourceManager) initializeJobs() {
 			return nil
 		}),
 
-		job.OneShot("bgpv2-operator-node-config-override-tracker", func(ctx context.Context, health cell.Health) error {
+		job.OneShot("bgp-operator-node-config-override-tracker", func(ctx context.Context, health cell.Health) error {
 			for e := range b.nodeConfigOverride.Events(ctx) {
 				b.triggerReconcile()
 				e.Done(nil)
@@ -189,7 +188,7 @@ func (b *BGPResourceManager) initializeJobs() {
 			return nil
 		}),
 
-		job.OneShot("bgpv2-operator-peer-config-tracker", func(ctx context.Context, health cell.Health) error {
+		job.OneShot("bgp-operator-peer-config-tracker", func(ctx context.Context, health cell.Health) error {
 			for e := range b.peerConfig.Events(ctx) {
 				b.triggerReconcile()
 				e.Done(nil)
@@ -197,7 +196,7 @@ func (b *BGPResourceManager) initializeJobs() {
 			return nil
 		}),
 
-		job.OneShot("bgpv2-operator-node-tracker", func(ctx context.Context, health cell.Health) error {
+		job.OneShot("bgp-operator-node-tracker", func(ctx context.Context, health cell.Health) error {
 			for e := range b.ciliumNode.Events(ctx) {
 				b.triggerReconcile()
 				e.Done(nil)
