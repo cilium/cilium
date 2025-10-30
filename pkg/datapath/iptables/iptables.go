@@ -884,7 +884,7 @@ func (m *Manager) addProxyRules(prog runnable, ip string, proxyPort uint16, name
 	scanner := bufio.NewScanner(strings.NewReader(rules))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || !strings.Contains(rule, "cilium: TPROXY to host "+name) || strings.Contains(rule, portAndIPMatch) {
+		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || !strings.Contains(rule, "cilium: TPROXY to host "+name+" proxy") || strings.Contains(rule, portAndIPMatch) {
 			continue
 		}
 

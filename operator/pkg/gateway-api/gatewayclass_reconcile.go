@@ -52,7 +52,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	if ref := gwc.Spec.ParametersRef; ref != nil {
 		if !isParameterRefSupported(ref) {
-			scopedLog.Error("Only CiliumGatewayClassConfig is supported for ParametersRef")
+			scopedLog.ErrorContext(ctx, "Only CiliumGatewayClassConfig is supported for ParametersRef")
 			setGatewayClassAccepted(gwc, false)
 			if err := r.ensureStatus(ctx, gwc, original); err != nil {
 				scopedLog.ErrorContext(ctx, "Failed to update GatewayClass status", logfields.Error, err)

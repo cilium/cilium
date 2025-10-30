@@ -1931,7 +1931,7 @@ func (ipam *LBIPAM) markPoolConflicting(
 		return nil
 	}
 
-	ipam.logger.Warn(
+	ipam.logger.WarnContext(ctx,
 		fmt.Sprintf("Pool '%s' conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
 			targetPool.Name,
 			ipNetStr(targetRange),

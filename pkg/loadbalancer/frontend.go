@@ -41,7 +41,7 @@ type FrontendParams struct {
 
 	// ServicePort is the associated "ClusterIP" port of this frontend.
 	// Same as [Address.L4Addr.Port] except when [Type] NodePort or
-	//  This is used to match frontends with the [Ports] of
+	// LoadBalancer. This is used to match frontends with the [Ports] of
 	// [Service.ProxyRedirect].
 	ServicePort uint16
 }
