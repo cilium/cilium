@@ -160,20 +160,28 @@ func (c *defaultManager) RemoveCEPMapping(cep *cilium_v2a1.CoreCiliumEndpoint, n
 // getLargestAvailableCESForNamespace returns the largest CES from cache for the
 // specified namespace that has at least 1 CEP and 1 available spot (less than
 // maximum CEPs). If it is not found, a nil is returned.
-func (c *defaultManager) getLargestAvailableCESForNamespace(ns string) CESName {
+func getLargestAvailableCESForNamespace(mapping CESCacher, ns string, maxCEPsInCES int) CESName {
 	largestCEPCount := 0
 	selectedCES := CESName("")
-	for _, ces := range c.mapping.getAllCESs() {
-		cepCount := c.mapping.countCEPsInCES(ces)
-		if cepCount < c.maxCEPsInCES && cepCount > largestCEPCount && c.mapping.getCESNamespace(ces) == ns {
+	for _, ces := range mapping.getAllCESs() {
+		cepCount := mapping.countCEPsInCES(ces)
+		if cepCount < maxCEPsInCES && cepCount > largestCEPCount && mapping.getCESNamespace(ces) == ns {
 			selectedCES = ces
 			largestCEPCount = cepCount
-			if largestCEPCount == c.maxCEPsInCES-1 {
+			if largestCEPCount == maxCEPsInCES-1 {
 				break
 			}
 		}
 	}
 	return selectedCES
+}
+
+func (c *defaultManager) getLargestAvailableCESForNamespace(ns string) CESName {
+	return getLargestAvailableCESForNamespace(c.mapping, ns, c.maxCEPsInCES)
+}
+
+func (c *slimManager) getLargestAvailableCESForNamespaceLocked(ns string) CESName {
+	return getLargestAvailableCESForNamespace(c.mapping, ns, c.maxCEPsInCES)
 }
 
 func (c *defaultManager) initializeMappingForCES(ces *cilium_v2a1.CiliumEndpointSlice) CESName {
@@ -250,6 +258,88 @@ func (c *slimManager) RemoveIdentityMapping(id *cilium_v2.CiliumIdentity) []CESK
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	return c.mapping.deleteCID(CID(id.GetName()))
+}
+
+// Insert a pod into the local cache. Attempt to reconcile, but reconciliation may
+// not be possible if the identity is not yet known.
+func (c *slimManager) AddPodMapping(pod *slim_corev1.Pod, nodeName string, cidKey *key.GlobalIdentity) []CESKey {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	cepName, cesName := c.upsertPodIntoCESLocked(pod)
+	gidLabels := cidKey.GetKey()
+	c.mapping.addCEP(cepName, cesName, NodeName(nodeName), Labels(gidLabels))
+	c.logger.Debug("CEP mapped to CES",
+		logfields.CEPName, cepName.string(),
+		logfields.CESName, cesName.string(),
+	)
+	return []CESKey{NewCESKey(cesName.string(), pod.Namespace)}
+}
+
+// UpsertPodWithIdentity is used to insert coreCEP in local cache, this may result in creating a new
+// CES object or updating an existing CES object.
+// func (c *slimManager) UpsertPodWithIdentity(pod *slim_corev1.Pod, nodeName string, cid *cilium_v2.CiliumIdentity) []CESKey {
+// 	c.mutex.Lock()
+// 	defer c.mutex.Unlock()
+
+// 	cepName, cesName := c.upsertPodIntoCESLocked(pod)
+// 	cidName, gidLabels := cidToGidLabels(cid)
+// 	c.mapping.upsertCEP(cepName, cesName, NodeName(nodeName), gidLabels, cidName)
+// 	c.logger.Debug("CEP mapped to CES",
+// 		logfields.CEPName, cepName.string(),
+// 		logfields.CESName, cesName.string(),
+// 	)
+// 	return []CESKey{NewCESKey(cesName.string(), pod.Namespace)}
+// }
+
+// For a pod, return the associated CEP name and CES name (if none already exist,
+// create a new CES)
+func (c *slimManager) upsertPodIntoCESLocked(pod *slim_corev1.Pod) (CEPName, CESName) {
+	cepName := GetCEPNameFromPod(pod)
+	c.logger.Debug("Insert CEP in local cache",
+		logfields.CEPName, cepName.string(),
+	)
+
+	// check if the given pod's corecep already exists in any CES.
+	// if yes, update the ces with the given corecep object.
+	cesName, exists := c.mapping.getCESName(cepName)
+	if exists {
+		c.logger.Debug("CEP already mapped to CES",
+			logfields.CEPName, cepName.string(),
+			logfields.CESName, cesName.string(),
+		)
+		return cepName, cesName
+	}
+
+	// Get the largest available CES.
+	// This ensures the minimum number of CES updates, as the CESs will be
+	// consistently filled up in order.
+	cesName = c.getLargestAvailableCESForNamespaceLocked(pod.Namespace)
+	if cesName == "" {
+		cesName = c.createCESLocked("", pod.Namespace)
+	}
+	return cepName, cesName
+}
+
+func (c *slimManager) RemovePodMapping(pod *slim_corev1.Pod) []CESKey {
+	cepName := GetCEPNameFromPod(pod)
+	c.logger.Debug("Removing CEP from local cache", logfields.CEPName, cepName.string())
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	cesName, exists := c.mapping.getCESName(cepName)
+	if exists {
+		c.logger.Debug("Removing CEP from CES",
+			logfields.CEPName, cepName.string(),
+			logfields.CESName, cesName.string(),
+		)
+		c.mapping.deleteCEP(cepName)
+		if c.mapping.countCEPsInCES(cesName) == 0 {
+			c.mapping.deleteCES(cesName)
+		}
+		return []CESKey{NewCESKey(cesName.string(), pod.Namespace)}
+	}
+	return nil
 }
 
 func (c *slimManager) GetCESInNs(ns *slim_corev1.Namespace) []CESKey {
