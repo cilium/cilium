@@ -58,6 +58,18 @@ func newDefaultManager(maxCEPsInCES int, logger *slog.Logger) *defaultManager {
 	}
 }
 
+// newSlimManager creates and initializes a new FirstComeFirstServe based CES
+// manager, in this mode CEPs are batched based on FirstComeFirstServe algorithm.
+func newSlimManager(maxCEPsInCES int, logger *slog.Logger) *slimManager {
+	return &slimManager{
+		defaultManager: defaultManager{
+			logger:       logger,
+			maxCEPsInCES: maxCEPsInCES,
+		},
+		mapping: newCESCache(),
+	}
+}
+
 // This function create a new ces and capacity to hold maximum ceps in a CES.
 // This is called in 2 different scenarios:
 //  1. During runtime, when ces manager decides to create a new ces, it calls
@@ -182,7 +194,15 @@ func (c *defaultManager) getCEPCountInCES(ces CESName) int {
 	return c.mapping.countCEPsInCES(ces)
 }
 
+func (c *slimManager) getCEPCountInCES(ces CESName) int {
+	return c.mapping.countCEPsInCES(ces)
+}
+
 func (c *defaultManager) getCESNamespace(ces CESName) string {
+	return c.mapping.getCESNamespace(ces)
+}
+
+func (c *slimManager) getCESNamespace(ces CESName) string {
 	return c.mapping.getCESNamespace(ces)
 }
 
@@ -190,7 +210,16 @@ func (c *defaultManager) getCEPinCES(ces CESName) []CEPName {
 	return c.mapping.getCEPsInCES(ces)
 }
 
+func (c *slimManager) getCEPinCES(ces CESName) []CEPName {
+	return c.mapping.getCEPsInCES(ces)
+}
+
 func (c *defaultManager) isCEPinCES(cep CEPName, ces CESName) bool {
+	mappedCES, exists := c.mapping.getCESName(cep)
+	return exists && mappedCES == ces
+}
+
+func (c *slimManager) isCEPinCES(cep CEPName, ces CESName) bool {
 	mappedCES, exists := c.mapping.getCESName(cep)
 	return exists && mappedCES == ces
 }

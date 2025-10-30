@@ -38,6 +38,8 @@ type params struct {
 	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	CiliumNodes         resource.Resource[*v2.CiliumNode]
 	Namespace           resource.Resource[*slim_corev1.Namespace]
+	Pods                resource.Resource[*slim_corev1.Pod]
+	CiliumIdentity      resource.Resource[*v2.CiliumIdentity]
 
 	Cfg          Config
 	SharedCfg    SharedConfig
