@@ -103,7 +103,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	 */
 	if (identity_is_remote_node(*identity) ||
 	    (is_dsr && identity_is_world_ipv6(*identity))) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 		if (info)
@@ -380,7 +380,7 @@ skip_vtep:
 	/* See comment at equivalent code in handle_ipv6() */
 	if (identity_is_remote_node(*identity) ||
 	    (is_dsr && identity_is_world_ipv4(*identity))) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info)

@@ -108,7 +108,7 @@ static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
-	struct remote_endpoint_info *info = NULL;
+	const struct remote_endpoint_info *info = NULL;
 	union v6addr *src;
 
 	/* Packets from the proxy will already have a real identity. */
@@ -258,7 +258,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
 	int l3_off = ETH_HLEN;
-	struct remote_endpoint_info *info = NULL;
+	const struct remote_endpoint_info *info = NULL;
 	const struct endpoint_info *ep;
 	int ret __maybe_unused;
 	__u32 magic = MARK_MAGIC_IDENTITY;
@@ -553,7 +553,7 @@ static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
 {
-	struct remote_endpoint_info *info = NULL;
+	const struct remote_endpoint_info *info = NULL;
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(real_sec_identity)) {
@@ -683,7 +683,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	__u32 __maybe_unused from_host_raw;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	const struct endpoint_info *ep;
 	int ret __maybe_unused;
 	__u32 magic = MARK_MAGIC_IDENTITY;
