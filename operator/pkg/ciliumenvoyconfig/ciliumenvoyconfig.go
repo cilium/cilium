@@ -34,12 +34,13 @@ func newCiliumEnvoyConfigReconciler(c client.Client, logger *slog.Logger, defaul
 		client: c,
 		logger: logger,
 
-		algorithm:          defaultAlgorithm,
-		ports:              ports,
-		maxRetries:         maxRetries,
-		idleTimeoutSeconds: idleTimeoutSeconds,
-		enableIpv4:         enableIpv4,
-		enableIpv6:         enableIpv6,
+		algorithm:                defaultAlgorithm,
+		ports:                    ports,
+		maxRetries:               maxRetries,
+		idleTimeoutSeconds:       idleTimeoutSeconds,
+		streamIdleTimeoutSeconds: streamIdleTimeoutSeconds,
+		enableIpv4:               enableIpv4,
+		enableIpv6:               enableIpv6,
 	}
 }
 
