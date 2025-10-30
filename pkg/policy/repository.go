@@ -378,7 +378,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 		}
 	}
 	// Match namespace-specific rules
-	namespace := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel)
+	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
 	if namespace != "" {
 		for rKey := range p.rulesByNamespace[namespace] {
 			r := p.rules[rKey]
