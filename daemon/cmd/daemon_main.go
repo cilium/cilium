@@ -1261,26 +1261,22 @@ type daemonParams struct {
 	Namespaces          statedb.Table[agentK8s.Namespace]
 	Devices             statedb.Table[*datapathTables.Device]
 	DirectRoutingDevice datapathTables.DirectRoutingDevice
-	// Grab the GC object so that we can start the CT/NAT map garbage collection.
-	// This is currently necessary because these maps have not yet been modularized,
-	// and because it depends on parameters which are not provided through hive.
-	CTNATMapGC        ctmap.GCRunner
-	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
-	ClusterInfo       cmtypes.ClusterInfo
-	IPsecAgent        datapath.IPsecAgent
-	SyncHostIPs       *syncHostIPs
-	NodeDiscovery     *nodediscovery.NodeDiscovery
-	IPAM              *ipam.IPAM
-	CRDSyncPromise    promise.Promise[k8sSynced.CRDSync]
-	IdentityManager   identitymanager.IDManager
-	MaglevConfig      maglev.Config
-	DNSProxy          bootstrap.FQDNProxyBootstrapper
-	DNSNameManager    namemanager.NameManager
-	KPRConfig         kpr.KPRConfig
-	KPRInitializer    kprinitializer.KPRInitializer
-	IPSecConfig       datapath.IPsecConfig
-	HealthConfig      healthconfig.CiliumHealthConfig
-	InfraIPAllocator  *infraIPAllocator
+	IPIdentityWatcher   *ipcache.LocalIPIdentityWatcher
+	ClusterInfo         cmtypes.ClusterInfo
+	IPsecAgent          datapath.IPsecAgent
+	SyncHostIPs         *syncHostIPs
+	NodeDiscovery       *nodediscovery.NodeDiscovery
+	IPAM                *ipam.IPAM
+	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
+	IdentityManager     identitymanager.IDManager
+	MaglevConfig        maglev.Config
+	DNSProxy            bootstrap.FQDNProxyBootstrapper
+	DNSNameManager      namemanager.NameManager
+	KPRConfig           kpr.KPRConfig
+	KPRInitializer      kprinitializer.KPRInitializer
+	IPSecConfig         datapath.IPsecConfig
+	HealthConfig        healthconfig.CiliumHealthConfig
+	InfraIPAllocator    *infraIPAllocator
 }
 
 func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization {
@@ -1379,13 +1375,6 @@ func startDaemon(ctx context.Context, params daemonParams) error {
 	}
 
 	params.EndpointRestorer.InitRestore()
-
-	bootstrapStats.enableConntrack.Start()
-	params.Logger.Info("Starting connection tracking garbage collector")
-	params.CTNATMapGC.Enable()
-	params.CTNATMapGC.Observe4().Observe(ctx, ctmap.NatMapNext4, func(err error) {})
-	params.CTNATMapGC.Observe6().Observe(ctx, ctmap.NatMapNext6, func(err error) {})
-	bootstrapStats.enableConntrack.End(true)
 
 	if params.EndpointManager.HostEndpointExists() {
 		params.EndpointManager.InitHostEndpointLabels(ctx)
