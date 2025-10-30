@@ -60,8 +60,6 @@ type Controller struct {
 	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
 	ciliumNodes         resource.Resource[*v2.CiliumNode]
 	namespace           resource.Resource[*slim_corev1.Namespace]
-	// reconciler is an util used to reconcile CiliumEndpointSlice changes.
-	reconciler *reconciler
 
 	maxCEPsInCES int
 
@@ -91,6 +89,8 @@ type Controller struct {
 	priorityNamespaces     map[string]struct{}
 	priorityNamespacesLock lock.RWMutex
 
+	doReconciler doReconciler
+
 	// If the queues are empty, they wait until the condition (adding something to the queues) is met.
 	cond sync.Cond
 
@@ -107,6 +107,9 @@ type DefaultController struct {
 	// It maintains the desired state of the CESs in dataStore
 	manager *defaultManager
 
+	// reconciler is an util used to reconcile CiliumEndpointSlice changes.
+	reconciler *defaultReconciler
+
 	ciliumEndpoint resource.Resource[*v2.CiliumEndpoint]
 }
 
@@ -119,6 +122,9 @@ type SlimController struct {
 	// pod changes and enqueues/dequeues the pod changes in CES.
 	// It maintains the desired state of the CESs in dataStore
 	manager *slimManager
+
+	// reconciler is an util used to reconcile CiliumEndpointSlice changes.
+	reconciler *slimReconciler
 
 	ipsecEnabled bool
 	wgEnabled    bool

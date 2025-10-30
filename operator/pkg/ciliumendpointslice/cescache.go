@@ -9,6 +9,8 @@ import (
 	"slices"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 type NodeName string
@@ -286,6 +288,17 @@ func (c *CESCache) getCESInNs(ns string) []CESKey {
 	return nil
 }
 
+// Return the CID associated with the given CEP. If there are multiple CIDs, return the selected one
+// to minimize churn in CES reconciliation.
+func (c *CESCache) getCIDForCEP(cepName CEPName) (CID, bool) {
+	if cepData, ok := c.cepData[cepName]; ok {
+		if secId, ok := c.globalIdLabelsToCIDSet[cepData.labels]; ok {
+			return secId.selectedID, true
+		}
+	}
+	return "", false
+}
+
 // SetSelectedIDLocked will update the selectedID to the given CID if not set.
 // If the passed CID is empty, it will find the next available CID
 // and update selectedID to it, or keep as is if none available.
@@ -305,4 +318,8 @@ func (s *SecIDs) setSelectedID(newCID CID) bool {
 	}
 	s.selectedID = cmp.Or(s.selectedID, newCID)
 	return s.selectedID == newCID
+}
+
+func GetCEPNameFromPod(pod *slim_corev1.Pod) CEPName {
+	return NewCEPName(pod.Name, pod.Namespace)
 }
