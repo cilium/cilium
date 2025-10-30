@@ -130,6 +130,7 @@ type SlimController struct {
 	wgEnabled    bool
 
 	ciliumIdentity resource.Resource[*v2.CiliumIdentity]
+	pods           resource.Resource[*slim_corev1.Pod]
 }
 
 // registerController creates and initializes the CES controller
