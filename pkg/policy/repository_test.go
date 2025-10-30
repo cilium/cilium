@@ -1443,7 +1443,7 @@ func TestReplaceByResource(t *testing.T) {
 	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(hivetest.Logger(t), nil)
 	repo.selectorCache = sc
-	assert.Empty(t, sc.selectors)
+	assert.True(t, sc.selectors.Empty())
 
 	// create 10 rules, each with a subject selector that selects one identity.
 
@@ -1510,7 +1510,7 @@ func TestReplaceByResource(t *testing.T) {
 
 	// Check that the selectorcache is sane
 	// It should have one selector: the subject pod for rule 0
-	assert.Len(t, sc.selectors, 1)
+	assert.Equal(t, 1, sc.selectors.Len())
 
 	// add second resource with rules 1, 2
 	affectedIDs, rev, oldRuleCnt = repo.ReplaceByResource(rules[1:3], rID2)
@@ -1524,7 +1524,7 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Len(t, repo.rulesByResource, 2)
 	assert.Len(t, repo.rulesByResource[rID1], 1)
 	assert.Len(t, repo.rulesByResource[rID2], 2)
-	assert.Len(t, sc.selectors, 3)
+	assert.Equal(t, 3, sc.selectors.Len())
 
 	// replace rid1 with rules 3, 4.
 	// affected IDs should be 100, 103, 104 (for outgoing)
@@ -1539,7 +1539,7 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Len(t, repo.rulesByResource, 2)
 	assert.Len(t, repo.rulesByResource[rID1], 2)
 	assert.Len(t, repo.rulesByResource[rID2], 2)
-	assert.Len(t, sc.selectors, 4)
+	assert.Equal(t, 4, sc.selectors.Len())
 
 	rulesMatch(toSlice(repo.rulesByResource[rID1]), rules[3:5])
 
@@ -1553,7 +1553,7 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Len(t, repo.rules, 2)
 	assert.Len(t, repo.rulesByResource, 1)
 	assert.Len(t, repo.rulesByResource[rID2], 2)
-	assert.Len(t, sc.selectors, 2)
+	assert.Equal(t, 2, sc.selectors.Len())
 	assert.Equal(t, 2, oldRuleCnt)
 
 	assert.ElementsMatch(t, []identity.NumericIdentity{103, 104}, affectedIDs.AsSlice())
@@ -1565,7 +1565,7 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Len(t, repo.rules, 2)
 	assert.Len(t, repo.rulesByResource, 1)
 	assert.Len(t, repo.rulesByResource[rID2], 2)
-	assert.Len(t, sc.selectors, 2)
+	assert.Equal(t, 2, sc.selectors.Len())
 	assert.Equal(t, 0, oldRuleCnt)
 
 	// delete rid2
@@ -1574,6 +1574,6 @@ func TestReplaceByResource(t *testing.T) {
 	assert.ElementsMatch(t, []identity.NumericIdentity{101, 102}, affectedIDs.AsSlice())
 	assert.Empty(t, repo.rules)
 	assert.Empty(t, repo.rulesByResource)
-	assert.Empty(t, sc.selectors)
+	assert.True(t, sc.selectors.Empty())
 	assert.Equal(t, 2, oldRuleCnt)
 }
