@@ -363,7 +363,7 @@ func (sc *SelectorCache) addSelectorLocked(user CachedSelectionUser, lbls string
 
 	// Scan the cached set of IDs to determine any new matchers
 	for nid, identity := range sc.idCache {
-		if idSel.source.matches(identity) {
+		if idSel.source.matches(sc.logger, identity) {
 			idSel.cachedSelections[nid] = struct{}{}
 		}
 	}
@@ -411,17 +411,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, lbls stri
 		return idSel, idSel.addUser(user)
 	}
 
-	// Selectors are never modified once a rule is placed in the policy repository,
-	// so no need to deep copy.
-	source := &labelIdentitySelector{
-		selector: selector,
-	}
-	// check is selector has a namespace match or requirement
-	if namespaces, ok := selector.GetMatch(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel); ok {
-		source.namespaces = namespaces
-	}
-
-	return sc.addSelectorLocked(user, lbls, key, source)
+	return sc.addSelectorLocked(user, lbls, key, newLabelIdentitySelector(selector))
 }
 
 // lock must be held
@@ -595,7 +585,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				}
 			}
 			for numericID := range added {
-				matches := idSel.source.matches(sc.idCache[numericID])
+				matches := idSel.source.matches(sc.logger, sc.idCache[numericID])
 				_, exists := idSel.cachedSelections[numericID]
 				if matches && !exists {
 					adds = append(adds, numericID)

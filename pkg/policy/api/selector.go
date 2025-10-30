@@ -56,6 +56,13 @@ func (n *EndpointSelector) IsZero() bool {
 	return n.LabelSelector == nil
 }
 
+func (n *EndpointSelector) Requirements() k8sLbls.Requirements {
+	if n.requirements == nil {
+		return nil
+	}
+	return *n.requirements
+}
+
 // LabelSelectorString returns a user-friendly string representation of
 // EndpointSelector.
 func (n *EndpointSelector) LabelSelectorString() string {
