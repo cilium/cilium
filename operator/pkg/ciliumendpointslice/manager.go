@@ -259,6 +259,13 @@ func (c *slimManager) GetCESInNs(ns *slim_corev1.Namespace) []CESKey {
 	return c.mapping.getCESInNs(ns.GetName())
 }
 
+func (c *slimManager) getCIDForCEP(cep CEPName) (CID, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.mapping.getCIDForCEP(cep)
+}
+
 func cidToGidLabels(id *cilium_v2.CiliumIdentity) (CID, Labels) {
 	cidName := id.GetName()
 	cidKey := key.GetCIDKeyFromLabels(id.SecurityLabels, labels.LabelSourceK8s)
