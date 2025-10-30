@@ -446,7 +446,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						__s8 *ext_err)
 {
 	struct ct_state *ct_state, ct_state_new = {};
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = CONFIG(interface_mac);
@@ -885,7 +885,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						__s8 *ext_err)
 {
 	struct ct_state *ct_state, ct_state_new = {};
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	struct ipv4_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
@@ -1642,8 +1642,9 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 					      &policy_match_type, &audited, ext_err, proxy_port,
 					      &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			struct remote_endpoint_info *sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
+			const struct remote_endpoint_info *sep;
 
+			sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV6, src_label,
@@ -1783,8 +1784,8 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_sec_identity)) {
-		union v6addr *src = (union v6addr *)&ip6->saddr;
-		struct remote_endpoint_info *info;
+		const union v6addr *src = (union v6addr *)&ip6->saddr;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info != NULL) {
@@ -1951,8 +1952,9 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 					      &policy_match_type, &audited, ext_err, proxy_port,
 					      &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			struct remote_endpoint_info *sep = lookup_ip4_remote_endpoint(orig_sip, 0);
+			const struct remote_endpoint_info *sep;
 
+			sep = lookup_ip4_remote_endpoint(orig_sip, 0);
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV4, src_label,
@@ -2099,7 +2101,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_sec_identity)) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info != NULL) {

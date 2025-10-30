@@ -91,7 +91,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
-			       struct remote_endpoint_info *info,
+			       const struct remote_endpoint_info *info,
 			       __u32 seclabel, __u32 dstid,
 			       const struct trace_ctx *trace,
 			       __be16 proto)
@@ -105,7 +105,7 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx,
  * a DROP_* reason on error.
  */
 static __always_inline int
-encap_and_redirect_lxc(struct __ctx_buff *ctx, struct remote_endpoint_info *info,
+encap_and_redirect_lxc(struct __ctx_buff *ctx, const struct remote_endpoint_info *info,
 		       __u32 seclabel, __u32 dstid, const struct trace_ctx *trace, __be16 proto)
 {
 	return encap_and_redirect_with_nodeid(ctx, info, seclabel, dstid, trace, proto);

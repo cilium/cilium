@@ -44,8 +44,8 @@ static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 {
 	__u32 srcid = WORLD_IPV6_ID;
-	struct remote_endpoint_info *info = NULL;
-	union v6addr *src;
+	const struct remote_endpoint_info *info = NULL;
+	const union v6addr *src;
 
 	if (CONFIG(secctx_from_ipcache)) {
 		src = (union v6addr *)&ip6->saddr;
@@ -144,7 +144,7 @@ static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
 	__u32 srcid = WORLD_IPV4_ID;
-	struct remote_endpoint_info *info = NULL;
+	const struct remote_endpoint_info *info = NULL;
 
 	if (CONFIG(secctx_from_ipcache)) {
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
