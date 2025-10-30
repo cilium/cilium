@@ -199,7 +199,15 @@ func (c *defaultManager) getCEPCountInCES(ces CESName) int {
 	return c.mapping.countCEPsInCES(ces)
 }
 
+func (c *slimManager) getCEPCountInCES(ces CESName) int {
+	return c.mapping.countCEPsInCES(ces)
+}
+
 func (c *defaultManager) getCESNamespace(ces CESName) string {
+	return c.mapping.getCESNamespace(ces)
+}
+
+func (c *slimManager) getCESNamespace(ces CESName) string {
 	return c.mapping.getCESNamespace(ces)
 }
 
@@ -207,7 +215,16 @@ func (c *defaultManager) getCEPinCES(ces CESName) []CEPName {
 	return c.mapping.getCEPsInCES(ces)
 }
 
+func (c *slimManager) getCEPinCES(ces CESName) []CEPName {
+	return c.mapping.getCEPsInCES(ces)
+}
+
 func (c *defaultManager) isCEPinCES(cep CEPName, ces CESName) bool {
+	mappedCES, exists := c.mapping.getCESName(cep)
+	return exists && mappedCES == ces
+}
+
+func (c *slimManager) isCEPinCES(cep CEPName, ces CESName) bool {
 	mappedCES, exists := c.mapping.getCESName(cep)
 	return exists && mappedCES == ces
 }
