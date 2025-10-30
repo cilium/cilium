@@ -1,5 +1,5 @@
 - name: 'ipsec-1'
-  kernel: 'rhel8.6'
+  kernel: '5.10'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
