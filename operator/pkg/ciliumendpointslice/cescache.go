@@ -6,6 +6,7 @@ package ciliumendpointslice
 import (
 	"cmp"
 
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -354,6 +355,20 @@ func (c *CESCache) getCESInNs(ns string) []CESKey {
 	return nil
 }
 
+// Return the CID associated with the given CEP. If there are multiple CIDs, return the selected one
+// to minimize churn in CES reconciliation.
+func (c *CESCache) getCIDForCEP(cepName CEPName) (CID, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if cepData, ok := c.cepData[cepName]; ok {
+		if secId, ok := c.globalIdLabelsToCIDSet[cepData.labels]; ok {
+			return secId.selectedID, true
+		}
+	}
+	return "", false
+}
+
 // SetSelectedID will update the selectedID to the given CID if not set.
 // If findNextCID is true, it will find the next available CID
 // and update selectedID to it, or set to empty if no CIDs are available.
@@ -366,4 +381,8 @@ func (s *SecIDs) setSelectedID(newCID CID, findNextCID bool) {
 		}
 	}
 	s.selectedID = cmp.Or(s.selectedID, newCID)
+}
+
+func GetCEPNameFromPod(pod *slim_corev1.Pod) CEPName {
+	return NewCEPName(pod.Name, pod.Namespace)
 }

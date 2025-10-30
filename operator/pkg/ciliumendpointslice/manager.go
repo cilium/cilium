@@ -206,6 +206,10 @@ func (c *slimManager) RemoveNamespaceMapping(ns *slim_corev1.Namespace) {
 	c.mapping.deleteNs(ns.GetName())
 }
 
+func (c *slimManager) getCIDForCEP(cep CEPName) (CID, bool) {
+	return c.mapping.getCIDForCEP(cep)
+}
+
 func cidToGidLabels(id *cilium_v2.CiliumIdentity) (CID, Label) {
 	cidName := id.GetName()
 	cidKey := key.GetCIDKeyFromLabels(id.SecurityLabels, "")
