@@ -81,7 +81,8 @@ ipsec_encode_encryption_mark(__u8 key, __u32 node_id)
 }
 
 static __always_inline int
-set_ipsec_encrypt(struct __ctx_buff *ctx, struct remote_endpoint_info *info,
+set_ipsec_encrypt(struct __ctx_buff *ctx,
+		  const struct remote_endpoint_info *info,
 		  __u32 seclabel, bool use_meta)
 {
 	/* IPSec is performed by the stack on any packets with the
@@ -197,8 +198,8 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 				__u32 src_sec_identity)
 {
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
-	struct remote_endpoint_info __maybe_unused *dst = NULL;
-	struct remote_endpoint_info __maybe_unused *src = NULL;
+	const struct remote_endpoint_info __maybe_unused *dst = NULL;
+	const struct remote_endpoint_info __maybe_unused *src = NULL;
 	void *data __maybe_unused, *data_end __maybe_unused;
 	struct iphdr __maybe_unused *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
@@ -332,7 +333,7 @@ do_decrypt(struct __ctx_buff __maybe_unused *ctx, __u16 __maybe_unused proto)
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
 static __always_inline bool
 strict_allow(struct __ctx_buff *ctx, __be16 proto) {
-	struct remote_endpoint_info __maybe_unused *dest_info;
+	const struct remote_endpoint_info __maybe_unused *dest_info;
 	bool __maybe_unused in_strict_cidr = false;
 	struct iphdr __maybe_unused *ip4;
 	void *data, *data_end;

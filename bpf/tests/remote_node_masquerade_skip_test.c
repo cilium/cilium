@@ -22,7 +22,7 @@
 /* #undef TUNNEL_MODE (implicitly undefined) */
 #include <lib/eps.h>
 /* Mock for lookup_ip4_remote_endpoint */
-static struct remote_endpoint_info *mocked_remote_endpoint;
+static const struct remote_endpoint_info *mocked_remote_endpoint;
 #undef lookup_ip4_remote_endpoint
 #define lookup_ip4_remote_endpoint(addr, cluster_id) \
     (mocked_remote_endpoint)

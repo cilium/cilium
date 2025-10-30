@@ -609,7 +609,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 struct ipv4_nat_target *target __maybe_unused)
 {
 	const struct endpoint_info *local_ep __maybe_unused;
-	struct remote_endpoint_info *remote_ep __maybe_unused;
+	const struct remote_endpoint_info *remote_ep __maybe_unused;
 	int ret;
 
 	ret = snat_v4_needs_masquerade_hook(ctx, target);
@@ -1668,7 +1668,7 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 struct ipv6_nat_target *target __maybe_unused)
 {
 	union v6addr masq_addr __maybe_unused = CONFIG(nat_ipv6_masquerade);
-	struct remote_endpoint_info *remote_ep __maybe_unused;
+	const struct remote_endpoint_info *remote_ep __maybe_unused;
 	const struct endpoint_info *local_ep __maybe_unused;
 
 	/* See comments in snat_v4_needs_masquerade(). */

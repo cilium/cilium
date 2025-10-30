@@ -101,7 +101,7 @@ static inline void __setup_v4(void)
 CHECK("xdp", "sock4_wildcard_lookup_test")
 int test_v4_check(__maybe_unused struct xdp_md *ctx)
 {
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	struct lb4_service *ret;
 	struct lb4_key key = {
 		.address = 0,		/* will set for individual tests */
@@ -309,7 +309,7 @@ static inline void __setup_v6_hostport(const union v6addr *HOST_IP6)
 CHECK("xdp", "sock6_wildcard_lookup_test")
 int test_v6_check(__maybe_unused struct xdp_md *ctx)
 {
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	struct lb6_service *ret;
 	struct lb6_key key = {
 		.address = {},		/* will set for individual tests */

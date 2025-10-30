@@ -85,7 +85,7 @@ struct {
 
 #define V6_CACHE_KEY_LEN (sizeof(union v6addr)*8)
 
-static __always_inline __maybe_unused struct remote_endpoint_info *
+static __always_inline __maybe_unused const struct remote_endpoint_info *
 ipcache_lookup6(const void *map, const union v6addr *addr,
 		__u32 prefix, __u32 cluster_id)
 {
@@ -107,7 +107,7 @@ ipcache_lookup6(const void *map, const union v6addr *addr,
 
 #define V4_CACHE_KEY_LEN (sizeof(__u32)*8)
 
-static __always_inline __maybe_unused struct remote_endpoint_info *
+static __always_inline __maybe_unused const struct remote_endpoint_info *
 ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 {
 	struct ipcache_key key = {
