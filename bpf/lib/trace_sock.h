@@ -167,7 +167,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 static __always_inline void
 send_trace_sock_notify6(struct __ctx_sock *ctx,
 			enum xlate_point xlate_point,
-			union v6addr *dst_addr,
+			const union v6addr *dst_addr,
 			__u16 dst_port,
 			bool is_connect)
 {
@@ -221,7 +221,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx __maybe_unused,
 static __always_inline void
 send_trace_sock_notify6(struct __ctx_sock *ctx __maybe_unused,
 			enum xlate_point xlate_point __maybe_unused,
-			union v6addr *dst_addr __maybe_unused,
+			const union v6addr *dst_addr __maybe_unused,
 			__u16 dst_port __maybe_unused,
 			bool is_connect __maybe_unused)
 {
