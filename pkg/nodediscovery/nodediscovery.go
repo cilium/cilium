@@ -269,7 +269,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 		if performUpdate {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(ctx, nodeResource, metav1.UpdateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) {
-					n.logger.Warn("Unable to update CiliumNode resource, will retry", logfields.Error, err)
+					n.logger.Info("Unable to update CiliumNode resource, will retry", logfields.Error, err)
 					// Backoff before retrying
 					time.Sleep(backoffDuration)
 					continue
@@ -281,7 +281,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 		} else {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(ctx, nodeResource, metav1.CreateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
-					n.logger.Warn("Unable to create CiliumNode resource, will retry", logfields.Error, err)
+					n.logger.Info("Unable to create CiliumNode resource, will retry", logfields.Error, err)
 					// Backoff before retrying
 					time.Sleep(backoffDuration)
 					continue
