@@ -28,7 +28,7 @@ import (
 
 func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	log := hivetest.Logger(t)
-	var r *reconciler
+	var r *defaultReconciler
 	var fakeClient *k8sClient.FakeClientset
 	m := newDefaultManager(2, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
@@ -53,7 +53,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	)
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, t.Context())
-	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newDefaultReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -62,11 +62,12 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 			logger:              log,
 			clientset:           fakeClient.Clientset,
 			ciliumEndpointSlice: ciliumEndpointSlice,
-			reconciler:          r,
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
+			doReconciler:        r,
 		},
 		manager:        m,
+		reconciler:     r,
 		ciliumEndpoint: ciliumEndpoint,
 	}
 	cesController.initializeQueue()
@@ -102,7 +103,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 
 func TestDifferentSpeedQueues(t *testing.T) {
 	log := hivetest.Logger(t)
-	var r *reconciler
+	var r *defaultReconciler
 	var fakeClient *k8sClient.FakeClientset
 	m := newDefaultManager(2, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
@@ -128,7 +129,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, t.Context())
 
-	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newDefaultReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -137,14 +138,15 @@ func TestDifferentSpeedQueues(t *testing.T) {
 			logger:              log,
 			clientset:           fakeClient.Clientset,
 			ciliumEndpointSlice: ciliumEndpointSlice,
-			reconciler:          r,
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
 			metrics:             cesMetrics,
 			priorityNamespaces:  make(map[string]struct{}),
 			syncDelay:           0,
+			doReconciler:        r,
 		},
 		manager:        m,
+		reconciler:     r,
 		ciliumEndpoint: ciliumEndpoint,
 	}
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
@@ -206,7 +208,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 
 func TestCESManagement(t *testing.T) {
 	log := hivetest.Logger(t)
-	var r *reconciler
+	var r *defaultReconciler
 	var fakeClient *k8sClient.FakeClientset
 	m := newDefaultManager(2, log)
 	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
@@ -232,7 +234,7 @@ func TestCESManagement(t *testing.T) {
 	tlog := hivetest.Logger(t)
 	hive.Start(tlog, t.Context())
 
-	r = newReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
+	r = newDefaultReconciler(t.Context(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, cesMetrics)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -241,14 +243,15 @@ func TestCESManagement(t *testing.T) {
 			logger:              log,
 			clientset:           fakeClient.Clientset,
 			ciliumEndpointSlice: ciliumEndpointSlice,
-			reconciler:          r,
 			rateLimit:           rateLimitConfig,
 			enqueuedAt:          make(map[CESKey]time.Time),
 			metrics:             cesMetrics,
 			priorityNamespaces:  make(map[string]struct{}),
 			syncDelay:           0,
+			doReconciler:        r,
 		},
 		manager:        m,
+		reconciler:     r,
 		ciliumEndpoint: ciliumEndpoint,
 	}
 	cesController.cond = *sync.NewCond(&lock.Mutex{})
