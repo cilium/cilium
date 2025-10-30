@@ -157,7 +157,7 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 	namesToRegen := n.cache.ForceExpire(expireLookupsBefore, nameMatcher)
 	for _, ep := range n.params.EPMgr.GetEndpoints() {
 		namesToRegen = namesToRegen.Union(ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher))
-		n.cache.UpdateFromCache(ep.DNSHistory, nil)
+		n.cache.UpdateFromCache(ep.DNSHistory)
 
 		namesToRegen.Insert(ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		activeConnections := fqdn.NewDNSCache(0)
@@ -169,7 +169,7 @@ func (n *manager) deleteDNSLookups(expireLookupsBefore time.Time, matchPatternSt
 				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, 0)
 			}
 		}
-		n.cache.UpdateFromCache(activeConnections, nil)
+		n.cache.UpdateFromCache(activeConnections)
 	}
 
 	// We may have removed entries; remove them from the ipcache metadata layer
