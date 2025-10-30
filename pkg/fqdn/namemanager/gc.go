@@ -200,7 +200,7 @@ func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
 			// We do not stop the agent here. It is safer to continue with best effort
 			// than to enter crash backoffs when this file is broken.
 		} else {
-			n.cache.UpdateFromCache(precache, nil)
+			n.cache.UpdateFromCache(precache)
 		}
 	}
 
@@ -213,7 +213,7 @@ func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
 	for _, possibleEP := range eps {
 		// Upgrades from old ciliums have this nil
 		if possibleEP.DNSHistory != nil {
-			n.cache.UpdateFromCache(possibleEP.DNSHistory, []string{})
+			n.cache.UpdateFromCache(possibleEP.DNSHistory)
 			if names, ips := possibleEP.DNSHistory.Count(); names > 0 {
 				n.logger.Info("restored DNS history from endpoint",
 					logfields.EndpointID, possibleEP.ID,
