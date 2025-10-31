@@ -44,7 +44,7 @@ func initNodeLocalRoutingRule(params daemonParams) error {
 	return nil
 }
 
-func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams) error {
+func configureDaemon(ctx context.Context, params daemonParams) error {
 	var err error
 
 	bootstrapStats.daemonInit.Start()

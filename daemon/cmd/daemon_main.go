@@ -1284,13 +1284,11 @@ type daemonParams struct {
 func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization {
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
-	cleaner := NewDaemonCleanup()
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			if err := configureDaemon(daemonCtx, cleaner, params); err != nil {
+			if err := configureDaemon(daemonCtx, params); err != nil {
 				cancelDaemonCtx()
-				cleaner.Clean()
 				params.CfgResolver.Reject(err)
 				return fmt.Errorf("daemon configuration failed: %w", err)
 			}
@@ -1329,7 +1327,7 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 		OnStop: func(cell.HookContext) error {
 			cancelDaemonCtx()
 			unloadDNSPolicies(params)
-			cleaner.Clean()
+			pidfile.Clean()
 			return nil
 		},
 	})
