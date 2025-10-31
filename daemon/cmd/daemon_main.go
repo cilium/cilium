@@ -66,7 +66,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
@@ -1217,6 +1216,7 @@ var daemonCell = cell.Module(
 	"Legacy Daemon",
 
 	cell.Provide(
+		daemonConfigInitialization,
 		daemonLegacyInitialization,
 		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
@@ -1228,10 +1228,27 @@ var daemonCell = cell.Module(
 	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force instantiation.
 )
 
-type daemonParams struct {
+type daemonConfigParams struct {
 	cell.In
 
 	CfgResolver promise.Resolver[*option.DaemonConfig]
+
+	Logger    *slog.Logger
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
+
+	Clientset       k8sClient.Clientset
+	KPRConfig       kpr.KPRConfig
+	KPRInitializer  kprinitializer.KPRInitializer
+	IPSecConfig     datapath.IPsecConfig
+	WireguardConfig wgTypes.WireguardConfig
+}
+
+type daemonParams struct {
+	cell.In
+
+	// Ensures that the legacy daemon config initialization is executed
+	legacy.DaemonConfigInitialization
 
 	Logger              *slog.Logger
 	Lifecycle           cell.Lifecycle
@@ -1273,17 +1290,15 @@ type daemonParams struct {
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
 	IdentityManager     identitymanager.IDManager
-	MaglevConfig        maglev.Config
 	DNSProxy            bootstrap.FQDNProxyBootstrapper
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
-	IPSecConfig         datapath.IPsecConfig
 	HealthConfig        healthconfig.CiliumHealthConfig
 	InfraIPAllocator    *infraIPAllocator
 }
 
-func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization {
+func daemonConfigInitialization(params daemonConfigParams) legacy.DaemonConfigInitialization {
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			if err := initAndValidateDaemonConfig(params); err != nil {
@@ -1327,6 +1342,10 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 		))
 	}
 
+	return legacy.DaemonConfigInitialization{}
+}
+
+func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization {
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
 
