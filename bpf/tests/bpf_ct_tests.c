@@ -102,7 +102,8 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 	}
 
 	TEST("ct4_syn", {
-		struct ipv4_ct_tuple tuple = {};
+		struct ipv4_ct_tuple_ext tuple_ext = {};
+		struct ipv4_ct_tuple *tuple;
 		void *data;
 		void *data_end;
 		struct iphdr *ip4;
@@ -118,17 +119,18 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		assert(validate_ethertype(ctx, &proto));
 		assert(revalidate_data(ctx, &data, &data_end, &ip4));
 
-		tuple.nexthdr = ip4->protocol;
-		tuple.daddr = ip4->daddr;
-		tuple.saddr = ip4->saddr;
+		tuple = &tuple_ext.tuple;
+		tuple->nexthdr = ip4->protocol;
+		tuple->daddr = ip4->daddr;
+		tuple->saddr = ip4->saddr;
 		l4_off = l3_off + ipv4_hdrlen(ip4);
 
-		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
+		ret = ct_lookup4(get_ct_map4(tuple), &tuple_ext, ctx, ip4, l4_off,
 				 CT_EGRESS, SCOPE_BIDIR, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
 			ct_state_new.node_port = ct_state.node_port;
-			ret = ct_create4(get_ct_map4(&tuple), &cilium_ct_any4_global, &tuple, ctx,
+			ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global, tuple, ctx,
 					 CT_EGRESS, &ct_state_new, NULL);
 			break;
 
@@ -137,7 +139,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 			test_fail();
 		}
 
-		struct ct_entry *entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+		struct ct_entry *entry = map_lookup_elem(get_ct_map4(tuple), tuple);
 
 		assert(entry);
 		assert(entry->tx_flags_seen == tcp_flags_to_u8(TCP_FLAG_SYN));
@@ -163,7 +165,8 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 	#define TEST_LOG
 
 	TEST("ct4_rst", {
-		struct ipv4_ct_tuple tuple = {};
+		struct ipv4_ct_tuple_ext tuple_ext = {};
+		struct ipv4_ct_tuple *tuple;
 		void *data;
 		void *data_end;
 		struct iphdr *ip4;
@@ -176,12 +179,13 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		assert(validate_ethertype(ctx, &proto));
 		assert(revalidate_data(ctx, &data, &data_end, &ip4));
 
-		tuple.nexthdr = ip4->protocol;
-		tuple.daddr = ip4->daddr;
-		tuple.saddr = ip4->saddr;
+		tuple = &tuple_ext.tuple;
+		tuple->nexthdr = ip4->protocol;
+		tuple->daddr = ip4->daddr;
+		tuple->saddr = ip4->saddr;
 		l4_off = l3_off + ipv4_hdrlen(ip4);
 
-		ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, ip4, l4_off,
+		ct_lookup4(get_ct_map4(tuple), &tuple_ext, ctx, ip4, l4_off,
 			   CT_INGRESS, SCOPE_BIDIR, NULL, &monitor);
 
 		if (data + pkt_size > data_end)
@@ -190,14 +194,14 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		/* unexpected data modification */
 		assert(memcmp(pkt, data, pkt_size) == 0);
 
-		tuple.nexthdr = IPPROTO_TCP;
-		tuple.saddr = 0x1400030A; /* 10.3.0.20 */
-		tuple.daddr = 0x0A00030A; /* 10.3.0.10 */
-		tuple.sport = __bpf_htons(3010);
-		tuple.dport = __bpf_htons(3020);
-		tuple.flags = 0;
+		tuple->nexthdr = IPPROTO_TCP;
+		tuple->saddr = 0x1400030A; /* 10.3.0.20 */
+		tuple->daddr = 0x0A00030A; /* 10.3.0.10 */
+		tuple->sport = __bpf_htons(3010);
+		tuple->dport = __bpf_htons(3020);
+		tuple->flags = 0;
 
-		struct ct_entry *entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+		struct ct_entry *entry = map_lookup_elem(get_ct_map4(tuple), tuple);
 
 		assert(entry);
 		assert(entry->rx_flags_seen == tcp_flags_to_u8(TCP_FLAG_SYN | TCP_FLAG_RST));
