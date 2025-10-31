@@ -6,9 +6,13 @@ package secretsync
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/spf13/pflag"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Cell manages K8s Secret synchronization from application namespaces
@@ -29,6 +33,10 @@ var Cell = cell.Module(
 	"secret-sync",
 	"Syncs TLS secrets into a dedicated secrets namespace",
 
+	cell.Config(secretSyncConfig{
+		SecretSyncResyncInterval: time.Duration(0),
+	}),
+
 	cell.Invoke(initSecretSyncReconciliation),
 )
 
@@ -40,6 +48,15 @@ type secretSyncParams struct {
 
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Registrations      []*SecretSyncRegistration `group:"secretSyncRegistrations"`
+	SecretSyncConfig   secretSyncConfig
+}
+
+type secretSyncConfig struct {
+	SecretSyncResyncInterval time.Duration `mapstructure:"secret-sync-resync-interval"`
+}
+
+func (r secretSyncConfig) Flags(flags *pflag.FlagSet) {
+	flags.Duration("secret-sync-resync-interval", r.SecretSyncResyncInterval, "Interval that the secret-sync process will resync relevant Secrets. Setting to 0 disables resync.")
 }
 
 // SecretSyncRegistrationOut can be used by other subsystems
@@ -57,7 +74,11 @@ func initSecretSyncReconciliation(params secretSyncParams) error {
 		return nil
 	}
 
-	reconciler := NewSecretSyncReconciler(params.CtrlRuntimeManager.GetClient(), params.Logger, params.Registrations)
+	if params.SecretSyncConfig.SecretSyncResyncInterval != 0 {
+		params.Logger.Debug("Synchronized Secrets will resync", logfields.SyncInterval, params.SecretSyncConfig.SecretSyncResyncInterval)
+	}
+
+	reconciler := NewSecretSyncReconciler(params.CtrlRuntimeManager.GetClient(), params.Logger, params.Registrations, params.SecretSyncConfig.SecretSyncResyncInterval)
 
 	if !reconciler.hasRegistrations() {
 		params.Logger.Debug("Skipping secret sync initialization as no registrations are available")

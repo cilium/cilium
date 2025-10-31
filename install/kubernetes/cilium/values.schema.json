@@ -5520,6 +5520,14 @@
       },
       "type": "object"
     },
+    "secretSync": {
+      "properties": {
+        "resyncInterval": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "secretsNamespaceAnnotations": {
       "type": "object"
     },
