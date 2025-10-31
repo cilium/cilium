@@ -133,9 +133,12 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize metadata client: %w", err)
 	}
-	instances, err := eni.NewInstancesManager(a.rootLogger, a.client, imds)
+	instances, err := eni.NewInstancesManager(a.rootLogger, a.client, imds, operatorOption.Config.AWSDisableRouteTableDiscovery)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI instances manager: %w", err)
+	}
+	if operatorOption.Config.AWSDisableRouteTableDiscovery {
+		a.logger.Info("Route table discovery is disabled. Subnet selection will not consider route table associations.")
 	}
 	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
 		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs,

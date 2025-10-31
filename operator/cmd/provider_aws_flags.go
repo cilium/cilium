@@ -53,5 +53,10 @@ func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Vi
 	flags.Bool(operatorOption.AWSPaginationEnabled, true, "Enable pagination for AWS EC2 API requests. The default page size is 1000 items.")
 	option.BindEnv(vp, operatorOption.AWSPaginationEnabled)
 
+	flags.Bool(operatorOption.AWSDisableRouteTableDiscovery, false, "Disable route table discovery and route-table-aware subnet selection. "+
+		"Disabling this can significantly reduce memory usage and AWS API calls in environments with many route tables, "+
+		"or where route-table-aware subnet selection is not needed.")
+	option.BindEnv(vp, operatorOption.AWSDisableRouteTableDiscovery)
+
 	vp.BindPFlags(flags)
 }
