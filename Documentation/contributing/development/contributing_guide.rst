@@ -19,7 +19,7 @@ Cilium Feature Proposals
 
 Before you start working on a significant code change, it's a good idea to make sure
 that your approach is likely to be accepted. The best way to do this is to
-create a `Cilium issue of type "Feature Request" on 
+create a `Cilium issue of type "Feature Request" on
 GitHub <https://github.com/cilium/cilium/issues/new?assignees=&labels=kind%2Ffeature&template=feature_template.md&title=CFP%3A+>`_
 where you describe your plans.
 
@@ -27,11 +27,55 @@ For longer proposals, you might like to include a link to an external doc (e.g.
 a Google doc) where it's easier for reviewers to make comments and suggestions
 in-line. The GitHub feature request template includes a link to the `Cilium
 Feature Proposal template <https://docs.google.com/document/d/1vtE82JExQHw8_-pX2Uhq5acN1BMPxNlS6cMQUezRTWg/edit>`_ which you are welcome to use to help structure your
-proposal. Please make a copy of that template, fill it in with your ideas, and 
+proposal. Please make a copy of that template, fill it in with your ideas, and
 ensure it's publicly visible, before adding the link into the GitHub issue.
 
 After the initial discussion, CFPs should be added to the `design-cfps repo <https://github.com/cilium/design-cfps>`_
 so the design and discussion can be stored for future reference.
+
+.. _issue_lifecycle:
+
+Issue Lifecycle
+~~~~~~~~~~~~~~~
+
+Cilium uses automated tools to manage issue lifecycle. Understanding how these work
+can help you keep important issues active and prevent them from being closed
+inadvertently.
+
+Stale Issue Management
+^^^^^^^^^^^^^^^^^^^^^^
+
+Issues are automatically managed by a stale bot with the following behavior:
+
+- **Issues become stale after 60 days** of inactivity (no comments, commits, or other activity)
+- **Stale issues are closed after 14 additional days** (74 days total from last activity)
+- **Pull requests become stale after 30 days** and are closed after 14 additional days
+
+**Preventing Issues from Becoming Stale**
+
+There are several ways to prevent an issue from being automatically marked as stale and closed:
+
+1. **Assign the issue**: Issues with any assignees are automatically exempt from stale marking
+2. **Add exempt labels**: Issues with any of these labels are exempt:
+
+   - ``pinned`` - for issues that should never be closed automatically
+   - ``security`` - for security-related issues
+   - ``good-first-issue`` - for newcomer-friendly issues
+   - ``help-wanted`` - for issues seeking community contributions
+
+3. **Regular activity**: Any comment, commit reference, or other activity will reset the stale timer
+4. **Convert to discussions**: For open-ended topics, consider moving to `GitHub Discussions <https://github.com/cilium/cilium/discussions>`_
+
+**If Your Issue Was Closed**
+
+If an issue was closed automatically but you believe it's still relevant:
+
+1. Add a comment explaining why the issue should remain open
+2. Reopen the issue (if you have permissions) or ask a maintainer to reopen it
+3. Consider adding appropriate labels (e.g., ``pinned``) or asking for someone to be assigned to prevent future auto-closure
+
+This system helps keep the issue tracker focused on active work while preserving
+important long-term issues and community contributions.
 
 .. _provision_environment:
 
@@ -287,7 +331,7 @@ Getting a pull request merged
 .. _organization member: https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md#organization-member
 
 Handling large pull requests
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If the PR is considerably large (e.g. with more than 200 lines changed and/or
 more than 6 commits), consider whether there is a good way to split the PR into
@@ -412,10 +456,10 @@ Contributor Ladder
 ~~~~~~~~~~~~~~~~~~
 
 To help contributors grow in both privileges and responsibilities for the
-project, Cilium also has a `contributor ladder 
+project, Cilium also has a `contributor ladder
 <https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md>`_.
 The ladder lays out how contributors can go from community contributor
 to a committer and what is expected for each level. Community members
 generally start at the first levels of the "ladder" and advance up it as
-their involvement in the project grows. Our contributors are happy to 
+their involvement in the project grows. Our contributors are happy to
 help you advance along the contributor ladder.
