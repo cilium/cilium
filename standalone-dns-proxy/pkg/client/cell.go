@@ -21,19 +21,22 @@ var Cell = cell.Module(
 
 	cell.Provide(newGRPCClient),
 	cell.Provide(newDNSRulesTable),
-	cell.Provide(newIPtoIdentityTable),
+	cell.Provide(NewIPtoEndpointTable),
+	cell.Provide(NewPrefixToIdentityTable),
 )
 
 type clientParams struct {
 	cell.In
 
-	Logger        *slog.Logger
-	DB            *statedb.DB
-	DNSRulesTable statedb.RWTable[DNSRules]
-	JobGroup      job.Group
+	Logger                *slog.Logger
+	DB                    *statedb.DB
+	DNSRulesTable         statedb.RWTable[DNSRules]
+	IPtoEndpointTable     statedb.RWTable[IPtoEndpointInfo]
+	PrefixToIdentityTable statedb.RWTable[PrefixToIdentity]
+	JobGroup              job.Group
 }
 
 // newGRPCClient creates a new gRPC connection handler client for standalone DNS proxy
 func newGRPCClient(params clientParams) ConnectionHandler {
-	return createGRPCClient(params.Logger, params.DB, params.DNSRulesTable)
+	return createGRPCClient(params.Logger, params.DB, params.DNSRulesTable, params.IPtoEndpointTable, params.PrefixToIdentityTable)
 }
