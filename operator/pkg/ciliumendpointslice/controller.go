@@ -173,6 +173,14 @@ func registerController(p params) error {
 		p.Lifecycle.Append(defaultController)
 	} else {
 		p.Logger.Info("CES Controller running in slim mode")
+		slimController := &SlimController{
+			Controller:     cesController,
+			ciliumIdentity: p.CiliumIdentity,
+			pods:           p.Pods,
+			ipsecEnabled:   p.IPSecCfg.Enabled(),
+			wgEnabled:      p.WireguardCfg.Enabled(),
+		}
+		p.Lifecycle.Append(slimController)
 	}
 
 	return nil
