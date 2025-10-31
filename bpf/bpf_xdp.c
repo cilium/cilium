@@ -37,6 +37,8 @@
  */
 #undef ENABLE_HEALTH_CHECK
 
+#define	NODEPORT_USE_NAT_46x64		1
+
 #include "lib/common.h"
 #include "lib/eps.h"
 #include "lib/events.h"
@@ -183,9 +185,6 @@ no_encap:
 #endif /* ENABLE_DSR && !ENABLE_DSR_HYBRID && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
 		ret = nodeport_lb4(ctx, ip4, l3_off, UNKNOWN_ID, &punt_to_stack, &ext_err, &is_dsr);
-		if (ret == NAT_46X64_RECIRC)
-			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
-						 &ext_err);
 	}
 
 out:

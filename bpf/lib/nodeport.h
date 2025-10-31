@@ -2708,9 +2708,15 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	}
 #endif
 	if (lb4_to_lb6_service(svc)) {
+		if (!is_defined(ENABLE_IPV6) || !is_defined(NODEPORT_USE_NAT_46x64))
+			return DROP_NO_SERVICE;
+
 		ret = lb4_to_lb6(ctx, ip4, l3_off);
-		if (!ret)
-			return NAT_46X64_RECIRC;
+		if (!ret) {
+			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+			return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
+						  ext_err);
+		}
 	} else {
 		ret = lb4_local(get_ct_map4(tuple), ctx, l3_off, fraginfo, l4_off,
 				key, tuple, svc, &ct_state_svc,

@@ -505,7 +505,6 @@ enum {
 #define LB_PUNT_TO_STACK	DROP_PUNT_PROXY
 
 #define NAT_NEEDED		CTX_ACT_OK
-#define NAT_46X64_RECIRC	100
 
 /* Cilium metrics reasons for forwarding packets and other stats.
  * If reason is larger than below then this is a drop reason and
