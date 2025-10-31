@@ -4,6 +4,7 @@
 package exporter
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -20,7 +21,7 @@ func TestReloadNotificationReceived(t *testing.T) {
 
 	// when
 	configParser := &exporterConfigParser{hivetest.Logger(t)}
-	watcher := NewConfigWatcher(hivetest.Logger(t), filepath, configParser, func(configs map[string]ExporterConfig, hash uint64) {
+	watcher := NewConfigWatcher(hivetest.Logger(t), filepath, configParser, func(ctx context.Context, configs map[string]ExporterConfig, hash uint64) {
 		configReceived = true
 	})
 

@@ -24,7 +24,7 @@ type ExporterConfig interface {
 
 // ExporterFactory is a factory for creating FlowLogExporter instances.
 type ExporterFactory interface {
-	Create(config ExporterConfig) (FlowLogExporter, error)
+	Create(ctx context.Context, config ExporterConfig) (FlowLogExporter, error)
 }
 
 type managedExporter struct {
@@ -54,8 +54,8 @@ func NewDynamicExporter(logger *slog.Logger, configFilePath string, exporterFact
 		exporterFactory:  exporterFactory,
 		managedExporters: make(map[string]*managedExporter),
 	}
-	watcher := NewConfigWatcher(logger, configFilePath, exporterConfigParser, func(configs map[string]ExporterConfig, hash uint64) {
-		if err := dynamicExporter.onConfigReload(configs, hash); err != nil {
+	watcher := NewConfigWatcher(logger, configFilePath, exporterConfigParser, func(ctx context.Context, configs map[string]ExporterConfig, hash uint64) {
+		if err := dynamicExporter.onConfigReload(ctx, configs, hash); err != nil {
 			logger.Error("Failed to reload exporter manager", logfields.Error, err)
 		}
 	})
@@ -105,7 +105,7 @@ func (d *dynamicExporter) Stop() error {
 	return errs
 }
 
-func (d *dynamicExporter) onConfigReload(configs map[string]ExporterConfig, hash uint64) error {
+func (d *dynamicExporter) onConfigReload(ctx context.Context, configs map[string]ExporterConfig, hash uint64) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -118,7 +118,7 @@ func (d *dynamicExporter) onConfigReload(configs map[string]ExporterConfig, hash
 		} else {
 			label = "add"
 		}
-		if d.applyUpdatedConfig(name, config) {
+		if d.applyUpdatedConfig(ctx, name, config) {
 			DynamicExporterReconfigurations.WithLabelValues(label).Inc()
 		}
 	}
@@ -138,13 +138,13 @@ func (d *dynamicExporter) onConfigReload(configs map[string]ExporterConfig, hash
 }
 
 // NOTE: mutex must be locked before calling this method.
-func (d *dynamicExporter) applyUpdatedConfig(name string, config ExporterConfig) bool {
+func (d *dynamicExporter) applyUpdatedConfig(ctx context.Context, name string, config ExporterConfig) bool {
 	me, ok := d.managedExporters[name]
 	if ok && me.config.Equal(config) {
 		return false
 	}
 
-	exporter, err := d.exporterFactory.Create(config)
+	exporter, err := d.exporterFactory.Create(ctx, config)
 	if err != nil {
 		d.logger.Error("Failed to create exporter for config",
 			logfields.Error, err,
