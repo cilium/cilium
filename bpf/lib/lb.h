@@ -808,7 +808,7 @@ lb6_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
 static __always_inline const struct lb6_service *
 __lb6_lookup_backend_slot(struct lb6_key *key)
 {
-	return map_lookup_elem(&cilium_lb6_services_v2, key);
+	return __lb6_lookup_service(key);
 }
 
 static __always_inline const struct lb6_service *
@@ -1584,7 +1584,7 @@ lb4_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u32 backend_id)
 static __always_inline const struct lb4_service *
 __lb4_lookup_backend_slot(struct lb4_key *key)
 {
-	return map_lookup_elem(&cilium_lb4_services_v2, key);
+	return __lb4_lookup_service(key);
 }
 
 static __always_inline const struct lb4_service *
