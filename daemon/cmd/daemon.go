@@ -6,14 +6,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -127,25 +125,6 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 	}
 
 	bootstrapStats.daemonInit.End(true)
-
-	// Stop all endpoints (its goroutines) on exit.
-	cleaner.cleanupFuncs.Add(func() {
-		params.Logger.Info("Waiting for all endpoints' goroutines to be stopped.")
-		var wg sync.WaitGroup
-
-		eps := params.EndpointManager.GetEndpoints()
-		wg.Add(len(eps))
-
-		for _, ep := range eps {
-			go func(ep *endpoint.Endpoint) {
-				ep.Stop()
-				wg.Done()
-			}(ep)
-		}
-
-		wg.Wait()
-		params.Logger.Info("All endpoints' goroutines stopped.")
-	})
 
 	// Open or create BPF maps.
 	bootstrapStats.mapsInit.Start()

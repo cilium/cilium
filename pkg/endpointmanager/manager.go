@@ -839,3 +839,22 @@ func (mgr *endpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIde
 
 	wg.Wait()
 }
+
+func (mgr *endpointManager) stopEndpoints() {
+	mgr.logger.Info("Waiting for all endpoints' goroutines to be stopped.")
+	var wg sync.WaitGroup
+
+	eps := mgr.GetEndpoints()
+	wg.Add(len(eps))
+
+	for _, ep := range eps {
+		go func(ep *endpoint.Endpoint) {
+			ep.Stop()
+			wg.Done()
+		}(ep)
+	}
+
+	wg.Wait()
+
+	mgr.logger.Info("All endpoints' goroutines stopped.")
+}

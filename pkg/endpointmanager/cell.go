@@ -196,6 +196,15 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	p.Config.Validate(p.Logger)
 
 	mgr := New(p.Logger, p.MetricsRegistry, p.EPSynchronizer, p.LocalNodeStore, p.Health, p.MonitorAgent, p.Config)
+
+	p.Lifecycle.Append(cell.Hook{
+		OnStop: func(cell.HookContext) error {
+			// Stop all endpoints (its goroutines) on exit.
+			mgr.stopEndpoints()
+			return nil
+		},
+	})
+
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(cell.Hook{
