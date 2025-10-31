@@ -296,6 +296,7 @@ __declare_tail(ID)								\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
+	struct ipv4_ct_tuple_ext *tuple_ext;					\
 	enum ct_scope scope = SCOPE_BIDIR;					\
 	struct ct_buffer4 ct_buffer = {};					\
 	struct ipv4_ct_tuple *tuple;						\
@@ -308,7 +309,8 @@ int NAME(struct __ctx_buff *ctx)						\
 	void *map;								\
 										\
 	ct_state = (struct ct_state *)&ct_buffer.ct_state;			\
-	tuple = (struct ipv4_ct_tuple *)&ct_buffer.tuple;			\
+	tuple_ext = &ct_buffer.tuple_ext;					\
+	tuple = &tuple_ext->tuple;						\
 										\
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))			\
 		return drop_for_direction(ctx, DIR, DROP_INVALID, ext_err);	\
@@ -342,7 +344,7 @@ int NAME(struct __ctx_buff *ctx)						\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
-	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ip4, ct_buffer.l4_off,	\
+	ct_buffer.ret = ct_lookup4(map, tuple_ext, ctx, ip4, ct_buffer.l4_off,	\
 				   DIR, scope, ct_state,			\
 				   &ct_buffer.monitor);				\
 	if (ct_buffer.ret < 0)							\
@@ -367,6 +369,7 @@ __declare_tail(ID)								\
 static __always_inline								\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
+	struct ipv6_ct_tuple_ext *tuple_ext;					\
 	enum ct_scope scope = SCOPE_BIDIR;					\
 	struct ct_buffer6 ct_buffer = {};					\
 	int ret = CTX_ACT_OK, hdrlen;						\
@@ -378,7 +381,8 @@ int NAME(struct __ctx_buff *ctx)						\
 	__u32 zero = 0;								\
 										\
 	ct_state = (struct ct_state *)&ct_buffer.ct_state;			\
-	tuple = (struct ipv6_ct_tuple *)&ct_buffer.tuple;			\
+	tuple_ext = &ct_buffer.tuple_ext;					\
+	tuple = &tuple_ext->tuple;						\
 										\
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))			\
 		return drop_for_direction(ctx, DIR, DROP_INVALID, ext_err);	\
@@ -408,7 +412,7 @@ int NAME(struct __ctx_buff *ctx)						\
 			scope = SCOPE_FORWARD;					\
 	}									\
 										\
-	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,		\
+	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple_ext, ctx, ip6,	\
 				   ct_buffer.fraginfo, ct_buffer.l4_off, DIR,	\
 				   scope, ct_state, &ct_buffer.monitor);	\
 	if (ct_buffer.ret < 0)							\
@@ -447,6 +451,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 {
 	struct ct_state *ct_state, ct_state_new = {};
 	const struct remote_endpoint_info *info;
+	struct ipv6_ct_tuple_ext *tuple_ext;
 	struct ipv6_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = CONFIG(interface_mac);
@@ -499,11 +504,14 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
-	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
+
+	tuple_ext = &ct_buffer->tuple_ext;
+	tuple = &tuple_ext->tuple;
+
+	if (tuple->saddr.d1 == 0 && tuple->saddr.d2 == 0)
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
 
-	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
 	trace.monitor = ct_buffer->monitor;
 	ret = ct_buffer->ret;
@@ -886,6 +894,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_state *ct_state, ct_state_new = {};
 	const struct remote_endpoint_info *info;
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
+	struct ipv4_ct_tuple_ext *tuple_ext;
 	struct ipv4_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = CONFIG(interface_mac);
@@ -935,11 +944,14 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
-	if (ct_buffer->tuple.saddr == 0)
+
+	tuple_ext = &ct_buffer->tuple_ext;
+	tuple = &tuple_ext->tuple;
+
+	if (tuple->saddr == 0)
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
 
-	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
 	trace.monitor = ct_buffer->monitor;
 	ret = ct_buffer->ret;
@@ -1551,6 +1563,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 {
 	struct ct_state *ct_state, ct_state_new = {};
 	int ifindex = CONFIG(interface_ifindex);
+	struct ipv6_ct_tuple_ext *tuple_ext;
 	struct ipv6_ct_tuple *tuple;
 	bool is_untracked_fragment = false;
 	fraginfo_t fraginfo;
@@ -1569,11 +1582,14 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
-	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
+
+	tuple_ext = &ct_buffer->tuple_ext;
+	tuple = &tuple_ext->tuple;
+
+	if (tuple->saddr.d1 == 0 && tuple->saddr.d2 == 0)
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
 
-	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
 	trace.monitor = ct_buffer->monitor;
 	trace.reason = (enum trace_reason)ct_buffer->ret;
@@ -1853,6 +1869,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 {
 	struct ct_state *ct_state, ct_state_new = {};
 	int ifindex = CONFIG(interface_ifindex);
+	struct ipv4_ct_tuple_ext *tuple_ext;
 	struct ipv4_ct_tuple *tuple;
 	fraginfo_t fraginfo;
 	bool is_untracked_fragment = false;
@@ -1880,11 +1897,14 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
-	if (ct_buffer->tuple.saddr == 0)
+
+	tuple_ext = &ct_buffer->tuple_ext;
+	tuple = &tuple_ext->tuple;
+
+	if (tuple->saddr == 0)
 		/* The map value is zeroed so the map update didn't happen somehow. */
 		return DROP_INVALID_TC_BUFFER;
 
-	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
 	trace.monitor = ct_buffer->monitor;
 	trace.reason = (enum trace_reason)ct_buffer->ret;

@@ -24,7 +24,8 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			       __u32 ipcache_srcid, struct ipv6hdr *ip6,
 			       struct ct_buffer6 *ct_buffer)
 {
-	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
+	struct ipv6_ct_tuple_ext *tuple_ext = &ct_buffer->tuple_ext;
+	struct ipv6_ct_tuple *tuple = &tuple_ext->tuple;
 	int l3_off = ETH_HLEN, hdrlen;
 
 	/* Further action is needed in two cases:
@@ -46,7 +47,7 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		return true;
 	}
 	ct_buffer->l4_off = l3_off + hdrlen;
-	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple_ext, ctx, ip6,
 				    ct_buffer->fraginfo, ct_buffer->l4_off,
 				    CT_EGRESS, SCOPE_BIDIR, NULL,
 				    &ct_buffer->monitor);
@@ -58,7 +59,8 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			  struct ipv6hdr *ip6, struct ct_buffer6 *ct_buffer,
 			  struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
+	struct ipv6_ct_tuple_ext *tuple_ext = &ct_buffer->tuple_ext;
+	struct ipv6_ct_tuple *tuple = &tuple_ext->tuple;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -158,9 +160,10 @@ static __always_inline bool
 ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				struct ct_buffer6 *ct_buffer)
 {
+	struct ipv6_ct_tuple_ext *tuple_ext = &ct_buffer->tuple_ext;
+	struct ipv6_ct_tuple *tuple = &tuple_ext->tuple;
 	__u32 dst_sec_identity = WORLD_IPV6_ID;
 	const struct remote_endpoint_info *info;
-	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	int hdrlen;
 
 	/* Retrieve destination identity. */
@@ -185,7 +188,7 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		return true;
 	}
 	ct_buffer->l4_off = ETH_HLEN + hdrlen;
-	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple_ext, ctx, ip6,
 				    ct_buffer->fraginfo, ct_buffer->l4_off,
 				    CT_INGRESS, SCOPE_BIDIR, NULL,
 				    &ct_buffer->monitor);
@@ -198,7 +201,8 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			   struct ct_buffer6 *ct_buffer, __u32 *src_sec_identity,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
+	struct ipv6_ct_tuple_ext *tuple_ext = &ct_buffer->tuple_ext;
+	struct ipv6_ct_tuple *tuple = &tuple_ext->tuple;
 	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
@@ -303,7 +307,8 @@ ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			       __u32 ipcache_srcid, struct iphdr *ip4,
 			       struct ct_buffer4 *ct_buffer)
 {
-	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
+	struct ipv4_ct_tuple_ext *tuple_ext = &ct_buffer->tuple_ext;
+	struct ipv4_ct_tuple *tuple = &tuple_ext->tuple;
 	int l3_off = ETH_HLEN;
 
 	/* Further action is needed in two cases:
@@ -319,8 +324,9 @@ ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
-	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
-				    CT_EGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
+	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple_ext, ctx, ip4,
+				    ct_buffer->l4_off, CT_EGRESS, SCOPE_BIDIR,
+				    NULL, &ct_buffer->monitor);
 	return true;
 }
 
@@ -329,7 +335,8 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			  struct iphdr *ip4, struct ct_buffer4 *ct_buffer,
 			  struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
+	struct ipv4_ct_tuple_ext *tuple_ext = &ct_buffer->tuple_ext;
+	struct ipv4_ct_tuple *tuple = &tuple_ext->tuple;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -441,9 +448,10 @@ static __always_inline bool
 ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 				struct ct_buffer4 *ct_buffer)
 {
+	struct ipv4_ct_tuple_ext *tuple_ext = &ct_buffer->tuple_ext;
+	struct ipv4_ct_tuple *tuple = &tuple_ext->tuple;
 	__u32 dst_sec_identity = WORLD_IPV4_ID;
 	const struct remote_endpoint_info *info;
-	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	int l3_off = ETH_HLEN;
 
 	/* Retrieve destination identity. */
@@ -462,8 +470,9 @@ ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
-	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
-				    CT_INGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
+	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple_ext, ctx, ip4,
+				    ct_buffer->l4_off, CT_INGRESS, SCOPE_BIDIR,
+				    NULL, &ct_buffer->monitor);
 
 	return true;
 }
@@ -473,7 +482,8 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 			   struct ct_buffer4 *ct_buffer, __u32 *src_sec_identity,
 			   struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
+	struct ipv4_ct_tuple_ext *tuple_ext = &ct_buffer->tuple_ext;
+	struct ipv4_ct_tuple *tuple = &tuple_ext->tuple;
 	__u32 tunnel_endpoint = 0;
 	int ret = ct_buffer->ret;
 	int verdict = CTX_ACT_OK;

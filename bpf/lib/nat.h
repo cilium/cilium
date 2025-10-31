@@ -602,12 +602,13 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
  */
 static __always_inline int
 snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
-			 struct ipv4_ct_tuple *tuple __maybe_unused,
+			 struct ipv4_ct_tuple_ext *tuple_ext __maybe_unused,
 			 struct iphdr *ip4 __maybe_unused,
 			 fraginfo_t fraginfo __maybe_unused,
 			 int l4_off __maybe_unused,
 			 struct ipv4_nat_target *target __maybe_unused)
 {
+	struct ipv4_ct_tuple *tuple __maybe_unused = &tuple_ext->tuple;
 	const struct endpoint_info *local_ep __maybe_unused;
 	const struct remote_endpoint_info *remote_ep __maybe_unused;
 	int ret;
@@ -661,7 +662,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		target->from_local_endpoint = true;
 
 		err = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
-					CT_EGRESS, tuple);
+					CT_EGRESS, tuple_ext);
 		switch (err) {
 		case 0:
 			/* If the packet is a reply it means that outside has
@@ -1661,13 +1662,14 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 
 static __always_inline int
 snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
-			 struct ipv6_ct_tuple *tuple __maybe_unused,
+			 struct ipv6_ct_tuple_ext *tuple_ext __maybe_unused,
 			 struct ipv6hdr *ip6 __maybe_unused,
 			 fraginfo_t fraginfo __maybe_unused,
 			 int l4_off __maybe_unused,
 			 struct ipv6_nat_target *target __maybe_unused)
 {
 	union v6addr masq_addr __maybe_unused = CONFIG(nat_ipv6_masquerade);
+	struct ipv6_ct_tuple *tuple __maybe_unused = &tuple_ext->tuple;
 	const struct remote_endpoint_info *remote_ep __maybe_unused;
 	const struct endpoint_info *local_ep __maybe_unused;
 
@@ -1688,7 +1690,7 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		target->from_local_endpoint = true;
 
 		err = ct_extract_ports6(ctx, ip6, fraginfo, l4_off,
-					CT_EGRESS, tuple);
+					CT_EGRESS, tuple_ext);
 		switch (err) {
 		case 0:
 			if (ct_is_reply6(get_ct_map6(tuple), tuple))
