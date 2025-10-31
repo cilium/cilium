@@ -45,7 +45,7 @@ func TestGCEnableDualStack(t *testing.T) {
 
 	returnRatio := 0.1 // low -> high next interval
 	option.Config.ConntrackGCMaxInterval = time.Millisecond * 500
-	gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+	gc.startInternal(t.Context(), func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 		if ipv4 {
 			ipv4Passes.Add(1)
 			if ipv6 {
@@ -53,7 +53,7 @@ func TestGCEnableDualStack(t *testing.T) {
 			}
 		}
 		return returnRatio, true
-	}, false)
+	})
 
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.Equal(c, 1, int(dualPasses.Load()))
@@ -151,7 +151,7 @@ func TestGCEnableRatchet(t *testing.T) {
 	//	Note: This does not affect the first interval, as that runs right away
 	//	instead a first pass must be run that returns this value.
 	// 	The next interval then uses this to compute next interval duration.
-	gc.enable(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
+	gc.startInternal(t.Context(), func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 		if ipv4 {
 			ipv4Passes.Add(1)
 			if ipv6 {
@@ -164,7 +164,7 @@ func TestGCEnableRatchet(t *testing.T) {
 			initialPass = nil
 		}
 		return returnRatio, true
-	}, false)
+	})
 
 	<-initialPass                            // wait for initial pass to complete.
 	option.Config.ConntrackGCMaxInterval = 0 // allow for large interval but expect shortk
