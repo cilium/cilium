@@ -44,7 +44,8 @@ ASSIGN_CONFIG(bool, enable_extended_ip_protocols, false)
 CHECK("tc", "nat4_remote_node_masquerade_enabled_test")
 int test_nat4_remote_node_masquerade_enabled(__maybe_unused struct __ctx_buff *ctx)
 {
-    struct ipv4_ct_tuple tuple = {};
+    struct ipv4_ct_tuple_ext tuple_ext = {};
+    struct ipv4_ct_tuple *tuple;
     struct iphdr ip4 = {
     .protocol = IPPROTO_TCP,
     };
@@ -57,12 +58,13 @@ int test_nat4_remote_node_masquerade_enabled(__maybe_unused struct __ctx_buff *c
     ipcache_v4_add_entry(IPV4_DST, 0, REMOTE_NODE_ID, 0, 0);
 
     /* Set up the tuple as if the packet is going to a remote node */
-    tuple.daddr = IPV4_DST;
-    tuple.saddr = bpf_htonl(0xDEADBEEF); /* Unlikely to be a local endpoint */
-    tuple.nexthdr = IPPROTO_TCP;
-    tuple.sport = bpf_htons(12345);
-    tuple.dport = bpf_htons(443);
-    tuple.flags = NAT_DIR_EGRESS;
+    tuple = &tuple_ext.tuple;
+    tuple->daddr = IPV4_DST;
+    tuple->saddr = bpf_htonl(0xDEADBEEF); /* Unlikely to be a local endpoint */
+    tuple->nexthdr = IPPROTO_TCP;
+    tuple->sport = bpf_htons(12345);
+    tuple->dport = bpf_htons(443);
+    tuple->flags = NAT_DIR_EGRESS;
 
     /* Setup NAT target structure */
     struct ipv4_nat_target target = {
@@ -80,7 +82,7 @@ int test_nat4_remote_node_masquerade_enabled(__maybe_unused struct __ctx_buff *c
      * Test: With enable_remote_node_masquerade configured as true via ASSIGN_CONFIG.
      * Expect NAT_NEEDED and target.addr to be set.
      */
-    ret = snat_v4_needs_masquerade(ctx, &tuple, &ip4, fraginfo, l4_off, &target);
+    ret = snat_v4_needs_masquerade(ctx, &tuple_ext, &ip4, fraginfo, l4_off, &target);
     assert(ret == NAT_NEEDED);
     assert(target.addr == IPV4_MASQUERADE); /* Masquerade address set */
 
