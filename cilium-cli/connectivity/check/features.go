@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -371,9 +372,7 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 	for _, ciliumPod := range ct.ciliumPods {
 		// Start with cluster-wide features
 		features := make(features.Set)
-		for k, v := range clusterFeatures {
-			features[k] = v
-		}
+		maps.Copy(features, clusterFeatures)
 
 		// Extract pod-specific features
 		err = ct.extractFeaturesFromRuntimeConfig(ctx, ciliumPod, features)
