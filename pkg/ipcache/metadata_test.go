@@ -1122,9 +1122,7 @@ type mockUpdater struct {
 }
 
 func (m *mockUpdater) UpdateIdentities(added, deleted identity.IdentityMap) <-chan struct{} {
-	for nid, lbls := range added {
-		m.identities[nid] = lbls
-	}
+	maps.Copy(m.identities, added)
 
 	for nid := range deleted {
 		delete(m.identities, nid)
