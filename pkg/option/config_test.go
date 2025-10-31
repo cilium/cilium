@@ -710,6 +710,29 @@ func TestCheckIPAMDelegatedPlugin(t *testing.T) {
 func Test_populateNodePortRange(t *testing.T) {
 }
 
+func TestAlignMapSizeForLRU(t *testing.T) {
+	logger := hivetest.Logger(t)
+	cfg := &DaemonConfig{BPFDistributedLRU: true}
+
+	t.Run("rounds up to possible CPUs", func(t *testing.T) {
+		got := cfg.AlignMapSizeForLRU(logger, CTMapEntriesGlobalTCPName, 131072)
+		possibleCPUs := getPossibleCPUs(logger)
+		require.Equal(t, util.RoundUp(131072, possibleCPUs), got)
+	})
+
+	t.Run("caps at limit table max", func(t *testing.T) {
+		got := cfg.AlignMapSizeForLRU(logger, CTMapEntriesGlobalTCPName, LimitTableMax)
+		possibleCPUs := getPossibleCPUs(logger)
+		require.Equal(t, util.RoundDown(LimitTableMax, possibleCPUs), got)
+	})
+
+	t.Run("returns unchanged when distributed LRU disabled", func(t *testing.T) {
+		disabledCfg := &DaemonConfig{BPFDistributedLRU: false}
+		got := disabledCfg.AlignMapSizeForLRU(logger, CTMapEntriesGlobalTCPName, 131072)
+		require.Equal(t, 131072, got)
+	})
+}
+
 const (
 	_   = iota
 	KiB = 1 << (10 * iota)
@@ -939,6 +962,8 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				d.calculateDynamicBPFMapSizes(logger, vp, tt.totalMemory, tt.ratio)
 			}
 
+			d.normalizeLRUBackedMapSizes(logger)
+
 			got := sizes{
 				d.CTMapEntriesGlobalTCP,
 				d.CTMapEntriesGlobalAny,
@@ -946,7 +971,22 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				d.NeighMapEntriesGlobal,
 			}
 
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			expectCfg := &DaemonConfig{
+				CTMapEntriesGlobalTCP: tt.want.CTMapSizeTCP,
+				CTMapEntriesGlobalAny: tt.want.CTMapSizeAny,
+				NATMapEntriesGlobal:   tt.want.NATMapSize,
+				NeighMapEntriesGlobal: tt.want.NeighMapSize,
+				BPFDistributedLRU:     d.BPFDistributedLRU,
+			}
+			expectCfg.normalizeLRUBackedMapSizes(logger)
+			want := sizes{
+				expectCfg.CTMapEntriesGlobalTCP,
+				expectCfg.CTMapEntriesGlobalAny,
+				expectCfg.NATMapEntriesGlobal,
+				expectCfg.NeighMapEntriesGlobal,
+			}
+
+			if diff := cmp.Diff(want, got); diff != "" {
 				t.Errorf("DaemonConfig.calculateDynamicBPFMapSize (-want +got):\n%s", diff)
 			}
 		})
