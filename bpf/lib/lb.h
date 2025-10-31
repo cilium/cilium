@@ -564,7 +564,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 
 #ifdef USE_LOOPBACK_LB
 	if (loopback) {
-		union v6addr old_daddr;
+		union v6addr old_daddr __align_stack_8;
 
 		ipv6_addr_copy(&old_daddr, &tuple->daddr);
 		cilium_dbg_lb(ctx, DBG_LB6_LOOPBACK_SNAT_REV, old_daddr.p4, old_saddr.p4);
