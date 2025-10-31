@@ -710,6 +710,52 @@ func TestCheckIPAMDelegatedPlugin(t *testing.T) {
 func Test_populateNodePortRange(t *testing.T) {
 }
 
+func TestAlignDistributedLRUSize(t *testing.T) {
+	// Use a fixed CPU count for deterministic testing
+	const possibleCPUs = 36
+
+	t.Run("rounds up to possible CPUs", func(t *testing.T) {
+		// 131072 is not divisible by 36, should round up to 131076
+		got := alignDistributedLRUSize(131072, possibleCPUs)
+		require.Equal(t, 131076, got)
+		require.Equal(t, 0, got%possibleCPUs, "result should be multiple of possibleCPUs")
+	})
+
+	t.Run("already aligned stays same", func(t *testing.T) {
+		// 131076 is already divisible by 36
+		got := alignDistributedLRUSize(131076, possibleCPUs)
+		require.Equal(t, 131076, got)
+	})
+
+	t.Run("caps at limit table max and rounds down", func(t *testing.T) {
+		// LimitTableMax (16777216) + 1000 should cap at 16777188 (highest multiple of 36 <= LimitTableMax)
+		got := alignDistributedLRUSize(LimitTableMax+1000, possibleCPUs)
+		require.Equal(t, 16777188, got)
+		require.LessOrEqual(t, got, LimitTableMax)
+		require.Equal(t, 0, got%possibleCPUs, "result should be multiple of possibleCPUs")
+	})
+
+	t.Run("returns zero for zero value", func(t *testing.T) {
+		got := alignDistributedLRUSize(0, possibleCPUs)
+		require.Equal(t, 0, got)
+	})
+
+	t.Run("returns negative for negative value", func(t *testing.T) {
+		got := alignDistributedLRUSize(-1, possibleCPUs)
+		require.Equal(t, -1, got)
+	})
+
+	t.Run("works with different CPU counts", func(t *testing.T) {
+		// Test with 12 CPUs (common for smaller instances)
+		got := alignDistributedLRUSize(131072, 12)
+		require.Equal(t, 131076, got) // rounds up to next multiple of 12
+
+		// Test with 72 CPUs (common for larger instances)
+		got = alignDistributedLRUSize(131072, 72)
+		require.Equal(t, 131112, got) // rounds up to next multiple of 72
+	})
+}
+
 const (
 	_   = iota
 	KiB = 1 << (10 * iota)
@@ -938,6 +984,8 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			if tt.totalMemory > 0 && tt.ratio > 0.0 {
 				d.calculateDynamicBPFMapSizes(logger, vp, tt.totalMemory, tt.ratio)
 			}
+
+			d.normalizeLRUBackedMapSizes(logger)
 
 			got := sizes{
 				d.CTMapEntriesGlobalTCP,
