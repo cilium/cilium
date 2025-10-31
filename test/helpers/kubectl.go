@@ -3696,9 +3696,8 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 				k8sSvc.Spec.ClusterIP == v1.ClusterIPNone {
 				continue
 			}
-			// TODO(brb) check NodePort and LoadBalancer services
-			if k8sSvc.Spec.Type == v1.ServiceTypeNodePort ||
-				k8sSvc.Spec.Type == v1.ServiceTypeLoadBalancer {
+			// TODO(brb) check LoadBalancer services
+			if k8sSvc.Spec.Type == v1.ServiceTypeLoadBalancer {
 				continue
 			}
 			if _, ok := k8sServicesFound[key]; !ok {
@@ -3874,11 +3873,10 @@ func serviceKey(s v1.Service) string {
 func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.Endpoints, k8sServicesFound map[string]bool) error {
 	var k8sService *v1.Service
 
-	// TODO(brb) validate NodePort, LoadBalancer and HostPort services
+	// TODO(brb) validate LoadBalancer and HostPort services
 	if cSvc.Status.Realized.Flags != nil {
 		switch cSvc.Status.Realized.Flags.Type {
-		case models.ServiceSpecFlagsTypeNodePort,
-			models.ServiceSpecFlagsTypeHostPort,
+		case models.ServiceSpecFlagsTypeHostPort,
 			models.ServiceSpecFlagsTypeExternalIPs:
 			return nil
 		case "LoadBalancer":
@@ -3887,14 +3885,20 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 	}
 
 	for _, k8sSvc := range k8sSvcs {
+		// Match by ClusterIP or any of ClusterIPs
 		if k8sSvc.Spec.ClusterIP == cSvc.Status.Realized.FrontendAddress.IP {
 			k8sService = &k8sSvc
 			break
 		}
 		if slices.Contains(k8sSvc.Spec.ClusterIPs, cSvc.Status.Realized.FrontendAddress.IP) {
 			k8sService = &k8sSvc
+			break
 		}
-		if k8sService != nil {
+		// For NodePort services, we might not have a ClusterIP match
+		if cSvc.Status.Realized.Flags != nil &&
+			cSvc.Status.Realized.Flags.Type == models.ServiceSpecFlagsTypeNodePort &&
+			k8sSvc.Spec.Type == v1.ServiceTypeNodePort {
+			k8sService = &k8sSvc
 			break
 		}
 	}
@@ -3906,6 +3910,15 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 	var k8sServicePort *v1.ServicePort
 	for _, k8sPort := range k8sService.Spec.Ports {
 		if compareServicePortToFrontEnd(&k8sPort, cSvc.Status.Realized.FrontendAddress) {
+			k8sServicePort = &k8sPort
+			k8sServicesFound[serviceKey(*k8sService)] = true
+			break
+		}
+
+		// For NodePort validation, check NodePort match if ClusterIP check fails
+		if cSvc.Status.Realized.Flags != nil &&
+			cSvc.Status.Realized.Flags.Type == models.ServiceSpecFlagsTypeNodePort &&
+			k8sPort.NodePort == int32(cSvc.Status.Realized.FrontendAddress.Port) {
 			k8sServicePort = &k8sPort
 			k8sServicesFound[serviceKey(*k8sService)] = true
 			break
