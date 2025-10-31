@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package mock
+
+import (
+	"context"
+
+	"github.com/cilium/hive/cell"
+	v1 "k8s.io/api/core/v1"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
+	v1listers "k8s.io/client-go/listers/core/v1"
+
+	"github.com/cilium/cilium/api/v1/models"
+	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
+	"github.com/cilium/cilium/pkg/bgp/agent"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+)
+
+var _ v1listers.NodeLister = (*MockNodeLister)(nil)
+
+type MockNodeLister struct {
+	List_ func(selector k8sLabels.Selector) (ret []*v1.Node, err error)
+	Get_  func(name string) (*v1.Node, error)
+	v1listers.NodeListerExpansion
+}
+
+func (m *MockNodeLister) List(selector k8sLabels.Selector) (ret []*v1.Node, err error) {
+	return m.List_(selector)
+}
+
+func (m *MockNodeLister) Get(name string) (*v1.Node, error) {
+	return m.Get_(name)
+}
+
+var _ agent.BGPRouterManager = (*MockBGPRouterManager)(nil)
+
+type MockBGPRouterManager struct {
+	ReconcileInstances_ func(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
+	GetPeers_           func(ctx context.Context) ([]*models.BgpPeer, error)
+	GetRoutes_          func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
+	GetRoutePolicies_   func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
+	Stop_               func(cell.HookContext) error
+}
+
+func (m *MockBGPRouterManager) ReconcileInstances(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error {
+	return m.ReconcileInstances_(ctx, bgpnc, ciliumNode)
+}
+
+func (m *MockBGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, error) {
+	return m.GetPeers_(ctx)
+}
+
+func (m *MockBGPRouterManager) GetRoutes(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
+	return m.GetRoutes_(ctx, params)
+}
+
+func (m *MockBGPRouterManager) GetRoutePolicies(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error) {
+	return m.GetRoutePolicies_(ctx, params)
+}
+
+func (m *MockBGPRouterManager) Stop(ctx cell.HookContext) error {
+	return m.Stop_(ctx)
+}
