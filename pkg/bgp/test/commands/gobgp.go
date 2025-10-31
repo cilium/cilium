@@ -242,8 +242,8 @@ func GoBGPAddPeerCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			if families == "" {
 				return nil, fmt.Errorf("families have to be specified for the peer")
 			}
-			afiSafis := strings.Split(families, ",")
-			for _, afiSafi := range afiSafis {
+			afiSafis := strings.SplitSeq(families, ",")
+			for afiSafi := range afiSafis {
 				afiSafiArr := strings.Split(afiSafi, "/")
 				if len(afiSafiArr) != 2 {
 					return nil, fmt.Errorf("invalid afi/safi format: %s", afiSafi)
