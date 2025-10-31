@@ -180,6 +180,15 @@ type Label struct {
 	cidr *netip.Prefix `json:"-"`
 }
 
+// GetCIDRPrefix returns the cidr of of the Label, or nil if none.
+func (l *Label) GetCIDRPrefix() *netip.Prefix {
+	return l.cidr
+}
+
+func (in *Label) DeepCopyInto(out *Label) {
+	*out = *in
+}
+
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]Label
 
@@ -383,20 +392,18 @@ func (l *Label) HasKey(target *Label) bool {
 		tc := target.cidr
 		if tc == nil {
 			v, err := LabelToPrefix(target.Key)
-			if err != nil {
+			if err == nil {
 				tc = &v
 			}
 		}
 		lc := l.cidr
 		if lc == nil {
 			v, err := LabelToPrefix(l.Key)
-			if err != nil {
+			if err == nil {
 				lc = &v
 			}
 		}
-		if tc != nil && lc != nil && tc.Bits() <= lc.Bits() && tc.Contains(lc.Addr()) {
-			return true
-		}
+		return tc != nil && lc != nil && tc.Bits() <= lc.Bits() && tc.Contains(lc.Addr())
 	}
 
 	return l.Key == target.Key
@@ -744,12 +751,25 @@ func (l Labels) IsReserved() bool {
 
 // Has returns true if l contains the given label.
 func (l Labels) Has(label Label) bool {
+	_, exists := l.LookupLabel(&label)
+	return exists
+}
+
+func (l Labels) LookupLabel(label *Label) (value string, exists bool) {
+	if label.Source != LabelSourceCIDR {
+		lbl, ok := l[label.Key]
+		if ok && lbl.Has(label) {
+			return lbl.Value, true
+		}
+		return "", false
+	}
+
 	for _, lbl := range l {
-		if lbl.Has(&label) {
-			return true
+		if lbl.Has(label) {
+			return lbl.Value, true
 		}
 	}
-	return false
+	return "", false
 }
 
 // HasSource returns true if l contains the given label source.
@@ -853,6 +873,12 @@ func parseLabel(str string, delim byte) (lbl Label) {
 // LabelSourceAny
 func ParseSelectLabel(str string) Label {
 	return parseSelectLabel(str, ':')
+}
+
+// ParseSelectDotLabel returns a selecting label representation of the given
+// string. Unlike ParseSelectLabel it expects the source separator to be '.'.
+func ParseSelectDotLabel(str string) Label {
+	return parseSelectLabel(str, '.')
 }
 
 // parseSelectLabel returns a selecting label representation of the given

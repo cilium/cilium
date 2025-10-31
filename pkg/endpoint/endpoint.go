@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -1625,11 +1624,11 @@ func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 	e.unlock()
 }
 
-func (e *Endpoint) GetPolicyVersionHandle() *versioned.VersionHandle {
+func (e *Endpoint) GetPolicyReadTxn() policy.SelectorReadTxn {
 	if e.desiredPolicy != nil {
-		return e.desiredPolicy.VersionHandle
+		return e.desiredPolicy.GetPolicyReadTxn()
 	}
-	return nil
+	return policy.SelectorReadTxn{}
 }
 
 func (e *Endpoint) GetListenerProxyPort(listener string) uint16 {
@@ -2673,8 +2672,8 @@ func (e *Endpoint) SetDefaultConfiguration() {
 func (e *Endpoint) setDefaultPolicyConfig() {
 	e.SetDefaultOpts(option.Config.Opts)
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
-	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled = alwaysEnforce
 }
 
 // GetCreatedAt returns the endpoint creation time.

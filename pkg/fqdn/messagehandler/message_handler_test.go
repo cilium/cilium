@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	mockipc "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -106,9 +107,8 @@ func BenchmarkNotifyOnDNSMsg(b *testing.B) {
 	// Register rules (simulates applied policies).
 	dscu := &testpolicy.DummySelectorCacheUser{}
 	selectorsToAdd := api.FQDNSelectorSlice{ciliumIOSel, ciliumIOSelMatchPattern, ebpfIOSel}
-	for _, sel := range selectorsToAdd {
-		policyRepo.GetSelectorCache().AddFQDNSelector(dscu, policy.EmptyStringLabels, sel)
-	}
+	css := policyRepo.GetSelectorCache().AddSelectors(policy.EmptyStringLabels, types.ToSelectors(selectorsToAdd)...)
+	policyRepo.GetSelectorCache().AddUser(dscu, css...)
 
 	const nEndpoints int = 1024
 

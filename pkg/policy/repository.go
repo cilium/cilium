@@ -218,15 +218,13 @@ func (p *Repository) newRule(policyEntry types.PolicyEntry, key ruleKey) *rule {
 		PolicyEntry: policyEntry,
 		key:         key,
 	}
-	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), r.Subject)
+	css := p.selectorCache.AddSelectors(makeStringLabels(r.Labels), r.Subject)
+	r.subjectSelector = css[0]
 	return r
 }
 
 // releaseRule releases the cached selector for a given rul
 func (p *Repository) releaseRule(r *rule) {
-	if r.subjectSelector != nil {
-		p.selectorCache.RemoveSelector(r.subjectSelector, r)
-	}
 }
 
 // MustAddList inserts a rule into the policy repository. It is used for
@@ -376,16 +374,16 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// Match cluster-wide rules
 	for rKey := range p.rulesByNamespace[""] {
 		r := p.rules[rKey]
-		if r.matchesSubject(securityIdentity) {
+		if r.matchesSubject(p.logger, securityIdentity) {
 			matchingRules = append(matchingRules, r)
 		}
 	}
 	// Match namespace-specific rules
-	namespace := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel)
+	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
 	if namespace != "" {
 		for rKey := range p.rulesByNamespace[namespace] {
 			r := p.rules[rKey]
-			if r.matchesSubject(securityIdentity) {
+			if r.matchesSubject(p.logger, securityIdentity) {
 				matchingRules = append(matchingRules, r)
 			}
 		}
@@ -452,8 +450,8 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 	return &rule{
 		PolicyEntry: types.PolicyEntry{
 			Ingress: ingress,
-			Subject: api.NewESFromLabels(lbls...),
-			L3:      types.PeerSelectorSlice{api.WildcardEndpointSelector},
+			Subject: types.NewLabelSelectorFromLabels(lbls...),
+			L3:      types.WildcardSelectors,
 		},
 	}
 }
