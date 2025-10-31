@@ -82,6 +82,7 @@ func newExporter(ctx context.Context, logger *slog.Logger, opts Options) (*expor
 	childCtx, cancel := context.WithCancel(ctx)
 	writer, err := opts.NewWriterFunc()()
 	if err != nil {
+		writer.Close()
 		cancel()
 		return nil, fmt.Errorf("failed to create writer: %w", err)
 	}
