@@ -49,6 +49,7 @@ jobs:
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: cilium
@@ -433,3 +434,16 @@ jobs:
         run: |
           echo ${TOKEN} | gh auth login --with-token
           gh pr --repo ${GITHUB_REPOSITORY} comment ${PULL_REQUEST_NUMBER} --body "/test"
+
+  rerun-on-failure:
+    name: Re-run on failure
+    needs: build-and-push-prs
+    # Only re-run if the job failed, the run attempt is less than 3, and the PR is not a draft.
+    if: failure() && fromJSON(github.run_attempt) < 3 && github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Re-run workflow
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci-re-run.yaml --ref ${{ github.ref_name }} -F run_id=${{ github.run_id }}
