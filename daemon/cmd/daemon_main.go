@@ -1284,28 +1284,14 @@ type daemonParams struct {
 }
 
 func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization {
-	// daemonCtx is the daemon-wide context cancelled when stopping.
-	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
-
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			if err := configureDaemon(daemonCtx, params); err != nil {
-				cancelDaemonCtx()
+			if err := initAndValidateDaemonConfig(params); err != nil {
 				params.CfgResolver.Reject(err)
-				return fmt.Errorf("daemon configuration failed: %w", err)
+				return fmt.Errorf("failed to init and validate daemon config: %w", err)
 			}
 
 			if !option.Config.DryMode {
-				params.Logger.Info("Initializing daemon")
-
-				// This validation needs to be done outside of the agent until
-				// datapath.NodeAddressing is used consistently across the code base.
-				params.Logger.Info("Validating configured node address ranges")
-				if err := node.ValidatePostInit(params.Logger); err != nil {
-					params.CfgResolver.Reject(err)
-					return fmt.Errorf("postinit failed: %w", err)
-				}
-
 				// Store config in file before resolving the DaemonConfig promise.
 				if err := option.Config.StoreInFile(params.Logger, option.Config.StateDir); err != nil {
 					params.Logger.Error("Unable to store Cilium's configuration", logfields.Error, err)
@@ -1326,6 +1312,34 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 
 			return nil
 		},
+	})
+
+	if !option.Config.DryMode {
+		// Register job to validate that daemon config is unchanged
+		params.JobGroup.Add(job.Timer(
+			"validate-unchanged-daemon-config",
+			// Validate that Daemon config has not changed, ignoring 'Opts'
+			// that may be modified via config patch events.
+			func(ctx context.Context) error { return option.Config.ValidateUnchanged() },
+			// avoid synhronized run with other
+			// jobs started at same time
+			61*time.Second,
+		))
+	}
+
+	// daemonCtx is the daemon-wide context cancelled when stopping.
+	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			params.Logger.Info("Initializing daemon")
+			if err := configureDaemon(daemonCtx, params); err != nil {
+				cancelDaemonCtx()
+				return fmt.Errorf("daemon configuration failed: %w", err)
+			}
+
+			return nil
+		},
 		OnStop: func(cell.HookContext) error {
 			cancelDaemonCtx()
 			unloadDNSPolicies(params)
@@ -1334,30 +1348,17 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 		},
 	})
 
-	if option.Config.DryMode {
-		return legacy.DaemonInitialization{}
+	if !option.Config.DryMode {
+		// Register job that starts the legacy daemon functionality.
+		// This job itself isn't long-running - it only initializes and kicks off other components.
+		params.JobGroup.Add(job.OneShot("legacy-start", func(ctx context.Context, _ cell.Health) error {
+			if err := startDaemon(ctx, params); err != nil {
+				params.Logger.Error("Daemon start failed", logfields.Error, err)
+				return err
+			}
+			return nil
+		}, job.WithShutdown()))
 	}
-
-	// Register job that starts the legacy daemon functionality.
-	// This job itself isn't long-running - it only initializes and kicks off other components.
-	params.JobGroup.Add(job.OneShot("legacy-start", func(ctx context.Context, _ cell.Health) error {
-		if err := startDaemon(ctx, params); err != nil {
-			params.Logger.Error("Daemon start failed", logfields.Error, err)
-			return err
-		}
-		return nil
-	}, job.WithShutdown()))
-
-	// Register job to validate that daemon config is unchanged
-	params.JobGroup.Add(job.Timer(
-		"validate-unchanged-daemon-config",
-		// Validate that Daemon config has not changed, ignoring 'Opts'
-		// that may be modified via config patch events.
-		func(ctx context.Context) error { return option.Config.ValidateUnchanged() },
-		// avoid synhronized run with other
-		// jobs started at same time
-		61*time.Second,
-	))
 
 	return legacy.DaemonInitialization{}
 }
