@@ -727,20 +727,23 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 				  false, NULL);
 	assert(ret == 0);
 
-	struct ipv4_ct_tuple icmp_tuple = {};
+	struct ipv4_ct_tuple_ext tuple_ext = {};
+	struct ipv4_ct_tuple *icmp_tuple = &tuple_ext.tuple;
 	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int l4_off;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip4));
-	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &icmp_tuple);
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, icmp_tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	tuple_ext.icmp_type = ICMP_DEST_UNREACH;
+	tuple_ext.icmp_code = ICMP_FRAG_NEEDED;
 
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+	ret = snat_v4_nat(ctx, &tuple_ext, ipfrag_encode_ipv4(ip4),
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
@@ -846,20 +849,23 @@ int test_nat4_icmp_error_tcp_egress_rfc1191(__maybe_unused struct __ctx_buff *ct
 				  false, NULL);
 	assert(ret == 0);
 
-	struct ipv4_ct_tuple icmp_tuple = {};
+	struct ipv4_ct_tuple_ext tuple_ext = {};
+	struct ipv4_ct_tuple *icmp_tuple = &tuple_ext.tuple;
 	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int l4_off;
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip4));
-	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &icmp_tuple);
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, icmp_tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	tuple_ext.icmp_type = ICMP_DEST_UNREACH;
+	tuple_ext.icmp_code = ICMP_FRAG_NEEDED;
 
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+	ret = snat_v4_nat(ctx, &tuple_ext, ipfrag_encode_ipv4(ip4),
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
@@ -969,7 +975,8 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 				  false, NULL);
 	assert(ret == 0);
 
-	struct ipv4_ct_tuple icmp_tuple = {};
+	struct ipv4_ct_tuple_ext tuple_ext = {};
+	struct ipv4_ct_tuple *icmp_tuple = &tuple_ext.tuple;
 	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -977,12 +984,14 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip4));
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &icmp_tuple);
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, icmp_tuple);
+	tuple_ext.icmp_type = ICMP_DEST_UNREACH;
+	tuple_ext.icmp_code = ICMP_FRAG_NEEDED;
 
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+	ret = snat_v4_nat(ctx, &tuple_ext, ipfrag_encode_ipv4(ip4),
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
@@ -1087,7 +1096,8 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 				  false, NULL);
 	assert(ret == 0);
 
-	struct ipv4_ct_tuple icmp_tuple = {};
+	struct ipv4_ct_tuple_ext tuple_ext = {};
+	struct ipv4_ct_tuple *icmp_tuple = &tuple_ext.tuple;
 	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1095,12 +1105,14 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip4));
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &icmp_tuple);
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, icmp_tuple);
+	tuple_ext.icmp_type = ICMP_DEST_UNREACH;
+	tuple_ext.icmp_code = ICMP_FRAG_NEEDED;
 
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+	ret = snat_v4_nat(ctx, &tuple_ext, ipfrag_encode_ipv4(ip4),
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
@@ -1194,7 +1206,8 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 				  false, NULL);
 	assert(ret == 0);
 
-	struct ipv4_ct_tuple icmp_tuple = {};
+	struct ipv4_ct_tuple_ext tuple_ext = {};
+	struct ipv4_ct_tuple *icmp_tuple = &tuple_ext.tuple;
 	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1202,12 +1215,14 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 
 	assert(revalidate_data(ctx, &data, &data_end, &ip4));
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &icmp_tuple);
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, icmp_tuple);
+	tuple_ext.icmp_type = ICMP_DEST_UNREACH;
+	tuple_ext.icmp_code = ICMP_FRAG_NEEDED;
 
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &icmp_tuple, ip4, ipfrag_encode_ipv4(ip4),
+	ret = snat_v4_nat(ctx, &tuple_ext, ipfrag_encode_ipv4(ip4),
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 

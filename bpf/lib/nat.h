@@ -626,6 +626,18 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		target->addr = IPV4_INTER_CLUSTER_SNAT;
 		target->from_local_endpoint = true;
 
+		ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
+					CT_EGRESS, tuple_ext);
+		switch (ret) {
+		case 0:
+			break;
+		case DROP_CT_UNKNOWN_PROTO:
+			/* tolerate L4 protocols not supported by CT: */
+			break;
+		default:
+			return ret;
+		}
+
 		return NAT_NEEDED;
 	}
 # endif
@@ -636,10 +648,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 				CT_EGRESS, tuple_ext);
 	switch (ret) {
 	case 0:
-		/* SNAT code has its own port extraction logic: */
-		tuple->dport = 0;
-		tuple->sport = 0;
-
 		break;
 	case DROP_CT_UNKNOWN_PROTO:
 		/* tolerate L4 protocols not supported by CT: */
@@ -901,17 +909,18 @@ __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-	    struct iphdr *ip4, fraginfo_t fraginfo,
-	    int off, struct ipv4_nat_target *target,
+snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple_ext *tuple_ext,
+	    fraginfo_t fraginfo, int off, struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct icmphdr icmphdr __align_stack_8;
+	struct ipv4_ct_tuple *tuple = &tuple_ext->tuple;
 	struct ipv4_nat_entry *state = NULL;
 	__u16 port_off = 0;
 	int ret;
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
+
+	ipv4_ct_tuple_swap_ports(tuple);
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
@@ -927,12 +936,6 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		if (!is_defined(ENABLE_IPV4_FRAGMENTS) && ipfrag_is_fragment(fraginfo))
 			return DROP_FRAG_NOSUPPORT;
 
-		ret = ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
-					 CT_EGRESS, &tuple->dport);
-		if (ret < 0)
-			return ret;
-
-		ipv4_ct_tuple_swap_ports(tuple);
 		port_off = TCP_SPORT_OFF;
 
 		if (snat_v4_nat_can_skip(target, tuple))
@@ -947,13 +950,9 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		 */
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
-		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
-			return DROP_INVALID;
 
-		switch (icmphdr.type) {
+		switch (tuple_ext->icmp_type) {
 		case ICMP_ECHO:
-			tuple->dport = 0;
-			tuple->sport = icmphdr.un.echo.id;
 			port_off = offsetof(struct icmphdr, un.echo.id);
 			/* Don't clamp the ID field: */
 			target->min_port = 0;
@@ -963,12 +962,12 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		case ICMP_ECHOREPLY:
 			return NAT_PUNT_TO_STACK;
 		case ICMP_DEST_UNREACH:
-			if (icmphdr.code > NR_ICMP_UNREACH)
+			if (tuple_ext->icmp_code > NR_ICMP_UNREACH)
 				return DROP_UNKNOWN_ICMP4_CODE;
 
 			goto nat_icmp_v4;
 		case ICMP_TIME_EXCEEDED:
-			switch (icmphdr.code) {
+			switch (tuple_ext->icmp_code) {
 			case ICMP_EXC_TTL:
 			case ICMP_EXC_FRAGTIME:
 				break;
@@ -1678,10 +1677,6 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 				CT_EGRESS, tuple_ext);
 	switch (err) {
 	case 0:
-		/* SNAT code has its own port extraction logic: */
-		tuple->dport = 0;
-		tuple->sport = 0;
-
 		break;
 	case DROP_CT_UNKNOWN_PROTO:
 		/* tolerate L4 protocols not supported by CT: */
@@ -1892,17 +1887,18 @@ __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 }
 
 static __always_inline __maybe_unused int
-snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
-	    struct ipv6hdr *ip6, fraginfo_t fraginfo,
-	    int off, struct ipv6_nat_target *target,
+snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple_ext *tuple_ext,
+	    fraginfo_t fraginfo, int off, struct ipv6_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
-	struct icmp6hdr icmp6hdr __align_stack_8;
+	struct ipv6_ct_tuple *tuple = &tuple_ext->tuple;
 	struct ipv6_nat_entry *state = NULL;
 	__u16 port_off = 0;
 	int ret;
 
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
+
+	ipv6_ct_tuple_swap_ports(tuple);
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
@@ -1918,12 +1914,6 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		if (!is_defined(ENABLE_IPV6_FRAGMENTS) && ipfrag_is_fragment(fraginfo))
 			return DROP_FRAG_NOSUPPORT;
 
-		ret = ipv6_load_l4_ports(ctx, ip6, fraginfo, off,
-					 CT_EGRESS, &tuple->dport);
-		if (ret < 0)
-			return ret;
-
-		ipv6_ct_tuple_swap_ports(tuple);
 		port_off = TCP_SPORT_OFF;
 
 		if (snat_v6_nat_can_skip(target, tuple))
@@ -1933,17 +1923,13 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	case IPPROTO_ICMPV6:
 		if (ipfrag_is_fragment(fraginfo))
 			return DROP_INVALID;
-		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
-			return DROP_INVALID;
 
-		switch (icmp6hdr.icmp6_type) {
+		switch (tuple_ext->icmp_type) {
 		case ICMPV6_ECHO_REPLY:
 		case ICMP6_NS_MSG_TYPE:
 		case ICMP6_NA_MSG_TYPE:
 			return NAT_PUNT_TO_STACK;
 		case ICMPV6_ECHO_REQUEST:
-			tuple->dport = 0;
-			tuple->sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			port_off = offsetof(struct icmp6hdr,
 					    icmp6_dataun.u_echo.identifier);
 			/* Don't clamp the ID field: */
@@ -1952,14 +1938,14 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 			break;
 		case ICMPV6_DEST_UNREACH:
-			if (icmp6hdr.icmp6_code > ICMPV6_REJECT_ROUTE)
+			if (tuple_ext->icmp_code > ICMPV6_REJECT_ROUTE)
 				return DROP_UNKNOWN_ICMP6_CODE;
 
 			goto nat_icmp_v6;
 		case ICMPV6_PKT_TOOBIG:
 			goto nat_icmp_v6;
 		case ICMPV6_TIME_EXCEED:
-			switch (icmp6hdr.icmp6_code) {
+			switch (tuple_ext->icmp_code) {
 			case ICMPV6_EXC_HOPLIMIT:
 			case ICMPV6_EXC_FRAGTIME:
 				break;

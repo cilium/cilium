@@ -105,7 +105,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 
 apply_snat:
 	ipv6_addr_copy(saddr, &tuple->saddr);
-	ret = snat_v6_nat(ctx, tuple, ip6, fraginfo, l4_off,
+	ret = snat_v6_nat(ctx, &tuple_ext, fraginfo, l4_off,
 			  &target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
@@ -394,7 +394,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 apply_snat:
 	*saddr = tuple->saddr;
-	ret = snat_v4_nat(ctx, tuple, ip4, fraginfo, l4_off,
+	ret = snat_v4_nat(ctx, &tuple_ext, fraginfo, l4_off,
 			  &target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
