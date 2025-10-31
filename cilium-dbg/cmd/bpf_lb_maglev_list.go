@@ -113,7 +113,7 @@ func dumpMaglevBackends(m *ebpf.Map, ipv6 bool) (map[string][]string, error) {
 
 		// The service ID is read from the map in network byte order,
 		// convert to host byte order before displaying to the user.
-		key.RevNatID = byteorder.NetworkToHost16(key.RevNatID)
+		key.RevNatID = byteorder.NetworkToHost32(key.RevNatID)
 
 		out[fmt.Sprintf("[%d]/%s", key.RevNatID, which)] = []string{backends}
 	}

@@ -19,7 +19,7 @@ lb_v4_delete_service(__be32 addr, __be16 port, __u8 proto)
 
 static __always_inline void
 __lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u8 proto_int,
-		       __u16 backend_count, __u16 rev_nat_index, __u8 flags, __u8 flags2,
+		       __u16 backend_count, __u32 rev_nat_index, __u8 flags, __u8 flags2,
 		       bool session_affinity, __u32 affinity_timeout)
 {
 	struct lb4_key svc_key = {
@@ -52,7 +52,7 @@ __lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u8 proto_int,
 
 static __always_inline void
 lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
-		     __u16 rev_nat_index)
+		     __u32 rev_nat_index)
 {
 	__lb_v4_upsert_service(addr, port, proto, proto, backend_count, rev_nat_index,
 			       SVC_FLAG_ROUTABLE, 0, false, 0);
@@ -60,7 +60,7 @@ lb_v4_upsert_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
 
 static __always_inline void
 __lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u8 proto_int,
-		    __u16 backend_count, __u16 rev_nat_index, __u8 flags,
+		    __u16 backend_count, __u32 rev_nat_index, __u8 flags,
 		    __u8 flags2, bool session_affinity, __u32 affinity_timeout)
 {
 	/* Register with both scopes: */
@@ -77,7 +77,7 @@ __lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u8 proto_int,
 
 static __always_inline void
 lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
-		  __u16 rev_nat_index)
+		  __u32 rev_nat_index)
 {
 	__lb_v4_add_service(addr, port, proto, proto, backend_count, rev_nat_index,
 			    SVC_FLAG_ROUTABLE, 0, false, 0);
@@ -85,7 +85,7 @@ lb_v4_add_service(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
 
 static __always_inline void
 lb_v4_add_service_with_flags(__be32 addr, __be16 port, __u8 proto, __u16 backend_count,
-			     __u16 rev_nat_index, __u8 flags, __u8 flags2)
+			     __u32 rev_nat_index, __u8 flags, __u8 flags2)
 {
 	__lb_v4_add_service(addr, port, proto, proto, backend_count, rev_nat_index,
 			    flags, flags2, false, 0);
@@ -144,7 +144,7 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot, __u32 ba
 #ifdef ENABLE_IPV6
 static __always_inline void
 __lb_v6_add_service(const union v6addr *addr, __be16 port, __u8 proto,
-		    __u16 backend_count, __u16 rev_nat_index,
+		    __u16 backend_count, __u32 rev_nat_index,
 		    __u8 flags, __u8 flags2)
 {
 	struct lb6_key svc_key __align_stack_8 = {
@@ -175,7 +175,7 @@ __lb_v6_add_service(const union v6addr *addr, __be16 port, __u8 proto,
 
 static __always_inline void
 lb_v6_add_service(const union v6addr *addr, __be16 port, __u8 proto,
-		  __u16 backend_count, __u16 rev_nat_index)
+		  __u16 backend_count, __u32 rev_nat_index)
 {
 	__lb_v6_add_service(addr, port, proto, backend_count, rev_nat_index,
 			    SVC_FLAG_ROUTABLE, 0);
@@ -183,7 +183,7 @@ lb_v6_add_service(const union v6addr *addr, __be16 port, __u8 proto,
 
 static __always_inline void
 lb_v6_add_service_with_flags(const union v6addr *addr, __be16 port, __u8 proto,
-			     __u16 backend_count, __u16 rev_nat_index, __u8 flags,
+			     __u16 backend_count, __u32 rev_nat_index, __u8 flags,
 			     __u8 flags2)
 {
 	__lb_v6_add_service(addr, port, proto, backend_count, rev_nat_index, flags,
