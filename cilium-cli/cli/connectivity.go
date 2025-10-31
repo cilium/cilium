@@ -59,8 +59,8 @@ func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 		params.ImpersonateGroups = impersonateGroups
 
 		for _, test := range tests {
-			if strings.HasPrefix(test, "!") {
-				rgx, err := regexp.Compile(strings.TrimPrefix(test, "!"))
+			if after, ok := strings.CutPrefix(test, "!"); ok {
+				rgx, err := regexp.Compile(after)
 				if err != nil {
 					return fmt.Errorf("test filter: %w", err)
 				}
