@@ -632,6 +632,22 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
+	ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
+				CT_EGRESS, tuple_ext);
+	switch (ret) {
+	case 0:
+		/* SNAT code has its own port extraction logic: */
+		tuple->dport = 0;
+		tuple->sport = 0;
+
+		break;
+	case DROP_CT_UNKNOWN_PROTO:
+		/* tolerate L4 protocols not supported by CT: */
+		break;
+	default:
+		return ret;
+	}
+
 	/* Check if this packet belongs to reply traffic coming from a
 	 * local endpoint.
 	 *
@@ -641,32 +657,14 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	 */
 	local_ep = __lookup_ip4_endpoint(tuple->saddr);
 	if (local_ep) {
-		int err;
-
 		target->from_local_endpoint = true;
 
-		err = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
-					CT_EGRESS, tuple_ext);
-		switch (err) {
-		case 0:
-			/* If the packet is a reply it means that outside has
-			 * initiated the connection, so no need to SNAT the
-			 * reply.
-			 */
-			if (ct_is_reply4(get_ct_map4(tuple), tuple))
-				return NAT_PUNT_TO_STACK;
-
-			/* SNAT code has its own port extraction logic: */
-			tuple->dport = 0;
-			tuple->sport = 0;
-
-			break;
-		case DROP_CT_UNKNOWN_PROTO:
-			/* tolerate L4 protocols not supported by CT: */
-			break;
-		default:
-			return err;
-		}
+		/* If the packet is a reply it means that outside has
+		 * initiated the connection, so no need to SNAT the
+		 * reply.
+		 */
+		if (ct_is_reply4(get_ct_map4(tuple), tuple))
+			return NAT_PUNT_TO_STACK;
 	}
 
 	/* To prevent aliasing with masqueraded connections,
@@ -1667,37 +1665,37 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 int l4_off __maybe_unused,
 			 struct ipv6_nat_target *target __maybe_unused)
 {
+#if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
 	union v6addr masq_addr __maybe_unused = CONFIG(nat_ipv6_masquerade);
 	struct ipv6_ct_tuple *tuple __maybe_unused = &tuple_ext->tuple;
 	const struct remote_endpoint_info *remote_ep __maybe_unused;
 	const struct endpoint_info *local_ep __maybe_unused;
+	int err;
 
 	/* See comments in snat_v4_needs_masquerade(). */
-#if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
+
+	err = ct_extract_ports6(ctx, ip6, fraginfo, l4_off,
+				CT_EGRESS, tuple_ext);
+	switch (err) {
+	case 0:
+		/* SNAT code has its own port extraction logic: */
+		tuple->dport = 0;
+		tuple->sport = 0;
+
+		break;
+	case DROP_CT_UNKNOWN_PROTO:
+		/* tolerate L4 protocols not supported by CT: */
+		break;
+	default:
+		return err;
+	}
+
 	local_ep = __lookup_ip6_endpoint(&tuple->saddr);
 	if (local_ep) {
-		int err;
-
 		target->from_local_endpoint = true;
 
-		err = ct_extract_ports6(ctx, ip6, fraginfo, l4_off,
-					CT_EGRESS, tuple_ext);
-		switch (err) {
-		case 0:
-			if (ct_is_reply6(get_ct_map6(tuple), tuple))
-				return NAT_PUNT_TO_STACK;
-
-			/* SNAT code has its own port extraction logic: */
-			tuple->dport = 0;
-			tuple->sport = 0;
-
-			break;
-		case DROP_CT_UNKNOWN_PROTO:
-			/* tolerate L4 protocols not supported by CT: */
-			break;
-		default:
-			return err;
-		}
+		if (ct_is_reply6(get_ct_map6(tuple), tuple))
+			return NAT_PUNT_TO_STACK;
 	}
 
 	if (ipv6_addr_equals(&tuple->saddr, &masq_addr)) {
