@@ -1116,6 +1116,14 @@ func (in *CiliumBGPTransport) DeepEqual(other *CiliumBGPTransport) bool {
 		}
 	}
 
+	if (in.SourceInterface == nil) != (other.SourceInterface == nil) {
+		return false
+	} else if in.SourceInterface != nil {
+		if *in.SourceInterface != *other.SourceInterface {
+			return false
+		}
+	}
+
 	return true
 }
 
