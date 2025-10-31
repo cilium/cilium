@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
@@ -156,8 +155,6 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 		params.Logger.Error("error while opening/creating BPF maps", logfields.Error, err)
 		return fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
-
-	debug.RegisterStatusObject("ipam", params.IPAM)
 
 	if option.Config.DNSPolicyUnloadOnShutdown {
 		params.Logger.Debug(
