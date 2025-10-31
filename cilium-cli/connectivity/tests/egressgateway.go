@@ -10,27 +10,32 @@ import (
 	"hash/fnv"
 	"maps"
 	"net"
+	"net/netip"
 	"slices"
-
-	"go4.org/netipx"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // extractClientIPFromResponse extracts the client IP from the response of the echo-external service
-func extractClientIPFromResponse(res string) net.IP {
+func extractClientIPFromResponse(t *check.Test, res string) netip.Addr {
 	var clientIP struct {
 		ClientIP string `json:"client-ip"`
 	}
 
 	json.Unmarshal([]byte(res), &clientIP)
 
-	return net.ParseIP(clientIP.ClientIP)
+	ip, err := netip.ParseAddr(clientIP.ClientIP)
+	if err != nil {
+		t.Failf("Cannot extract client IP: %s", res)
+	}
+
+	return ip.Unmap()
 }
 
 // Test pod to host connectivity by using pings. The packet should not get masqueraded with egress
@@ -261,9 +266,9 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
-					clientIP := extractClientIPFromResponse(a.CmdOutput())
+					clientIP := extractClientIPFromResponse(t, a.CmdOutput())
 
-					if !clientIP.Equal(gatewayIP) {
+					if ip.CompareUnmap(clientIP, *gatewayIP) != 0 {
 						a.Failf("Request reached external echo service with wrong source IP: expected: %s, actual %s", gatewayIP.String(), clientIP.String())
 					}
 				})
@@ -288,9 +293,9 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
-					clientIP := extractClientIPFromResponse(a.CmdOutput())
+					clientIP := extractClientIPFromResponse(t, a.CmdOutput())
 
-					if !clientIP.Equal(gatewayIP) {
+					if ip.CompareUnmap(clientIP, *gatewayIP) != 0 {
 						a.Failf("Request reached external echo service with wrong source IP: expected: %s, actual %s", gatewayIP.String(), clientIP.String())
 					}
 				})
@@ -341,8 +346,8 @@ func (s *egressGatewayMultigateway) Name() string {
 
 type gatewayNodeInfo struct {
 	name          string
-	internalIP    net.IP
-	internalIPsv6 net.IP
+	internalIP    *netip.Addr
+	internalIPsv6 *netip.Addr
 }
 
 func getSortedGatewayNodesInfo(t *check.Test, ipv6Enabled bool) []gatewayNodeInfo {
@@ -358,7 +363,7 @@ func getSortedGatewayNodesInfo(t *check.Test, ipv6Enabled bool) []gatewayNodeInf
 		if internalIP == nil {
 			t.Fatalf("Cannot get IPv4 internal IP for egress gateway node %s", nodeName)
 		}
-		var internalIPsv6 net.IP
+		var internalIPsv6 *netip.Addr
 		if ipv6Enabled {
 			internalIPsv6 = ct.GetGatewayNodeInternalIP(nodeName, true)
 			if internalIPsv6 == nil {
@@ -374,17 +379,7 @@ func getSortedGatewayNodesInfo(t *check.Test, ipv6Enabled bool) []gatewayNodeInf
 
 	// Sort gateway nodes by their IPv4 internal IP to ensure deterministic assignment
 	slices.SortFunc(gatewayNodes, func(a, b gatewayNodeInfo) int {
-		ipA, ok := netipx.FromStdIP(a.internalIP)
-		if !ok {
-			t.Fatalf("Cannot parse Gateway IP %s", a.internalIP.String())
-			return 0
-		}
-		ipB, ok := netipx.FromStdIP(b.internalIP)
-		if !ok {
-			t.Fatalf("Cannot parse Gateway IP %s", a.internalIP.String())
-			return 0
-		}
-		return ipA.Compare(ipB)
+		return ip.CompareUnmap(*a.internalIP, *b.internalIP)
 	})
 
 	return gatewayNodes
@@ -579,11 +574,14 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 					}
 					gatewayIP = assignedGateway.internalIPsv6
 				}
+				if gatewayIP == nil {
+					t.Fatalf("Cannot find internal IP for gateway: %s", assignedGateway.name)
+				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-service-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
-					clientIP := extractClientIPFromResponse(a.CmdOutput())
+					clientIP := extractClientIPFromResponse(t, a.CmdOutput())
 
-					if !clientIP.Equal(gatewayIP) {
+					if ip.CompareUnmap(clientIP, *gatewayIP) != 0 {
 						a.Failf("Request reached external echo service with wrong source IP: expected: %s, actual %s", gatewayIP.String(), clientIP.String())
 					}
 				})
@@ -611,11 +609,14 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 					}
 					gatewayIP = assignedGateway.internalIPsv6
 				}
+				if gatewayIP == nil {
+					t.Fatalf("Cannot find internal IP for gateway: %s", assignedGateway.name)
+				}
 				t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
-					clientIP := extractClientIPFromResponse(a.CmdOutput())
+					clientIP := extractClientIPFromResponse(t, a.CmdOutput())
 
-					if !clientIP.Equal(gatewayIP) {
+					if ip.CompareUnmap(clientIP, *gatewayIP) != 0 {
 						a.Failf("Request reached external echo service with wrong source IP: expected: %s, actual %s", gatewayIP.String(), clientIP.String())
 					}
 				})
@@ -772,13 +773,14 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
-				hostIP := net.ParseIP(client.Pod.Status.HostIP)
+				hostIP, _ := netip.ParseAddr(client.Pod.Status.HostIP)
 				if ipFam == features.IPFamilyV6 {
 					if !ipv6Enabled {
 						return
 					}
 					for _, addr := range client.Pod.Status.HostIPs {
-						if ip := net.ParseIP(addr.IP); ip != nil && ip.To4() == nil {
+						ip, err := netip.ParseAddr(addr.IP)
+						if err != nil && ip.Unmap().Is6() {
 							hostIP = ip
 							break
 						}
@@ -787,9 +789,9 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
-					clientIP := extractClientIPFromResponse(a.CmdOutput())
+					clientIP := extractClientIPFromResponse(t, a.CmdOutput())
 
-					if !clientIP.Equal(hostIP) {
+					if ip.CompareUnmap(clientIP, hostIP) != 0 {
 						a.Failf("Request reached external echo service with wrong source IP: expected: %s, actual %s", hostIP.String(), clientIP.String())
 					}
 				})
