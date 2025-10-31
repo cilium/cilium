@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -27,8 +26,11 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -54,42 +56,13 @@ const (
 
 // K8sReflectorCell reflects Kubernetes Service and EndpointSlice objects to the
 // load-balancing tables.
-//
-// Note that this implementation uses Resource[*Service] and Resource[*Endpoints],
-// which is not the desired end-game as we'll hold onto the same data multiple
-// times. We should instead have a reflector that is built directly on the client-go
-// reflector (k8s.RegisterReflector) and not populate an intermediate cache.Store.
-// But as we're still experimenting it's easier to build on what already exists.
 var K8sReflectorCell = cell.Module(
 	"k8s-reflector",
 	"Reflects load-balancing state from Kubernetes",
 
-	// Bridge Resource[XYZ] to Observable[Event[XYZ]]. Makes it easier to
-	// test [ReflectorCell].
-	cell.ProvidePrivate(resourcesToStreams),
+	cell.ProvidePrivate(newEventStream),
 	cell.Invoke(RegisterK8sReflector),
 )
-
-type resourceIn struct {
-	cell.In
-	ServicesResource  resource.Resource[*slim_corev1.Service]
-	EndpointsResource resource.Resource[*k8s.Endpoints]
-}
-
-type StreamsOut struct {
-	cell.Out
-	ServicesStream  stream.Observable[resource.Event[*slim_corev1.Service]]
-	EndpointsStream stream.Observable[resource.Event[*k8s.Endpoints]]
-}
-
-// resourcesToStreams extracts the stream.Observable from resource.Resource.
-// This makes the reflector easier to test as its API surface is reduced.
-func resourcesToStreams(in resourceIn) StreamsOut {
-	return StreamsOut{
-		ServicesStream:  in.ServicesResource,
-		EndpointsStream: in.EndpointsResource,
-	}
-}
 
 type reflectorParams struct {
 	cell.In
@@ -98,8 +71,8 @@ type reflectorParams struct {
 	Log                    *slog.Logger
 	Lifecycle              cell.Lifecycle
 	JobGroup               job.Group
-	ServicesResource       stream.Observable[resource.Event[*slim_corev1.Service]]
-	EndpointsResource      stream.Observable[resource.Event[*k8s.Endpoints]]
+	Clientset              client.Clientset
+	EventStream            stream.Observable[event]
 	Pods                   statedb.Table[daemonK8s.LocalPod]
 	Writer                 *writer.Writer
 	Config                 loadbalancer.Config
@@ -119,7 +92,7 @@ func (p reflectorParams) waitTime() time.Duration {
 }
 
 func RegisterK8sReflector(p reflectorParams) {
-	if !p.Writer.IsEnabled() || p.ServicesResource == nil {
+	if !p.Writer.IsEnabled() || !p.Clientset.IsEnabled() {
 		return
 	}
 	if p.SVCMetrics == nil {
@@ -233,40 +206,62 @@ func runPodReflector(ctx context.Context, health cell.Health, p reflectorParams,
 func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p reflectorParams, initServices, initEndpoints func(writer.WriteTxn)) error {
 	rh := newReflectorHealth(health, p.Log)
 
-	processServiceEvent := func(txn writer.WriteTxn, kind resource.EventKind, obj *slim_corev1.Service) {
-		switch kind {
+	upsertService := func(txn writer.WriteTxn, obj *slim_corev1.Service) {
+		localNode, _, _ := p.Nodes.Get(txn, node.LocalNodeQuery)
+		svc, fes := convertService(p.Config, p.ExtConfig, p.Log, localNode, obj, source.Kubernetes)
+		if svc == nil {
+			// The service should not be provisioned on this agent. Try to delete if it was previously.
+			name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)
+			rh.update("svc:"+name.String(), nil)
+
+			oldSvc, err := p.Writer.DeleteServiceAndFrontends(txn, name)
+			if err != nil && !errors.Is(err, statedb.ErrObjectNotFound) {
+				p.Log.Error("BUG: Unexpected failure in DeleteServiceAndFrontends",
+					logfields.Error, err)
+			}
+			if oldSvc != nil {
+				p.SVCMetrics.DelService(oldSvc)
+			}
+			return
+		}
+		p.SVCMetrics.AddService(svc)
+
+		// Sort the frontends by address
+		slices.SortStableFunc(fes, func(a, b loadbalancer.FrontendParams) int {
+			return bytes.Compare(a.Address.Bytes(), b.Address.Bytes())
+		})
+
+		err := p.Writer.UpsertServiceAndFrontends(txn, svc, fes...)
+		rh.update("svc:"+svc.Name.String(), err)
+	}
+
+	processServiceEvent := func(txn writer.WriteTxn, val bufferValue) {
+		switch val.kind {
 		case resource.Sync:
-			initServices(txn)
-
-		case resource.Upsert:
-			localNode, _, _ := p.Nodes.Get(txn, node.LocalNodeQuery)
-			svc, fes := convertService(p.Config, p.ExtConfig, p.Log, localNode, obj, source.Kubernetes)
-			if svc == nil {
-				// The service should not be provisioned on this agent. Try to delete if it was previously.
-				name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)
-				rh.update("svc:"+name.String(), nil)
-
-				oldSvc, err := p.Writer.DeleteServiceAndFrontends(txn, name)
+			orphans := sets.New[loadbalancer.ServiceName]()
+			for svc := range p.Writer.Services().All(txn) {
+				if svc.Source == source.Kubernetes {
+					orphans.Insert(svc.Name)
+				}
+			}
+			for _, svc := range val.servicesReplace {
+				orphans.Delete(loadbalancer.NewServiceName(svc.Namespace, svc.Name))
+				upsertService(txn, svc)
+			}
+			for name := range orphans {
+				_, err := p.Writer.DeleteServiceAndFrontends(txn, name)
 				if err != nil && !errors.Is(err, statedb.ErrObjectNotFound) {
 					p.Log.Error("BUG: Unexpected failure in DeleteServiceAndFrontends",
 						logfields.Error, err)
 				}
-				if oldSvc != nil {
-					p.SVCMetrics.DelService(oldSvc)
-				}
-				return
 			}
-			p.SVCMetrics.AddService(svc)
+			initServices(txn)
 
-			// Sort the frontends by address
-			slices.SortStableFunc(fes, func(a, b loadbalancer.FrontendParams) int {
-				return bytes.Compare(a.Address.Bytes(), b.Address.Bytes())
-			})
-
-			err := p.Writer.UpsertServiceAndFrontends(txn, svc, fes...)
-			rh.update("svc:"+svc.Name.String(), err)
+		case resource.Upsert:
+			upsertService(txn, val.svc)
 
 		case resource.Delete:
+			obj := val.svc
 			name := loadbalancer.NewServiceName(obj.Namespace, obj.Name)
 			rh.update("svc:"+name.String(), nil)
 
@@ -282,12 +277,51 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	}
 
 	currentEndpoints := map[string]endpointsEvent{}
-	processEndpointsEvent := func(txn writer.WriteTxn, key bufferKey, kind resource.EventKind, allEps allEndpoints) {
-		switch kind {
+	processEndpointsEvent := func(txn writer.WriteTxn, key bufferKey, val bufferValue) {
+		switch val.kind {
 		case resource.Sync:
+			// Gather known service names to refresh frontends since DeleteBackendsBySource
+			// does not refresh.
+			servicesToRefresh := sets.New[loadbalancer.ServiceName]()
+			for svc := range p.Writer.Services().All(txn) {
+				servicesToRefresh.Insert(svc.Name)
+			}
+
+			// Delete all previous endpoints
+			if err := p.Writer.DeleteBackendsBySource(txn, source.Kubernetes); err != nil {
+				p.Log.Error("BUG: Unexpected failure to delete backends", logfields.Error, err)
+			}
+			clear(currentEndpoints)
+
+			// Insert the replacements
+			for _, eps := range val.endpointsReplace {
+				name := eps.ServiceName
+
+				// UpsertBackend refreshes the frontends already.
+				servicesToRefresh.Delete(name)
+
+				// Convert [k8s.Endpoints] to [loadbalancer.BackendParams]
+				backends := convertEndpoints(p.Log, p.ExtConfig, name, maps.All(eps.Backends))
+
+				err := p.Writer.UpsertBackends(txn, name, source.Kubernetes, backends)
+				rh.update("eps:"+name.String(), err)
+
+				currentEndpoints[eps.EndpointSliceName] = endpointsEvent{
+					name:     eps.EndpointSliceName,
+					backends: eps.Backends,
+				}
+			}
+
+			// Refresh the remaining frontends that now have no backends.
+			for name := range servicesToRefresh {
+				p.Writer.RefreshFrontends(txn, name)
+			}
+
+			// Mark table as initialized (only on first replace)
 			initEndpoints(txn)
 
 		case resource.Upsert:
+			allEps := val.allEndpoints
 			name := loadbalancer.NewServiceName(
 				key.key.Namespace,
 				key.key.Name,
@@ -358,13 +392,10 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 	// in the same transaction and thus reconciled together and reducing overall processing costs.
 	events := stream.ToChannel(ctx,
 		stream.Buffer(
-			joinObservables(
-				toObjectObservable(p.ServicesResource),
-				toObjectObservable(p.EndpointsResource),
-			),
+			p.EventStream,
 			reflectorBufferSize,
 			p.waitTime(),
-			func(buf buffer, ev resource.Event[runtime.Object]) buffer {
+			func(buf buffer, ev event) buffer {
 				if buf == nil {
 					buf = bufferPool.Get().(buffer)
 				}
@@ -378,9 +409,9 @@ func runServiceEndpointsReflector(ctx context.Context, health cell.Health, p ref
 		defer txn.Commit()
 		for key, val := range buf.All() {
 			if key.isSvc {
-				processServiceEvent(txn, val.kind, val.svc)
+				processServiceEvent(txn, val)
 			} else {
-				processEndpointsEvent(txn, key, val.kind, val.allEndpoints)
+				processEndpointsEvent(txn, key, val)
 			}
 		}
 	}
@@ -400,9 +431,11 @@ type bufferKey struct {
 }
 
 type bufferValue struct {
-	kind         resource.EventKind
-	svc          *slim_corev1.Service
-	allEndpoints allEndpoints
+	kind             resource.EventKind
+	svc              *slim_corev1.Service
+	allEndpoints     allEndpoints
+	endpointsReplace []*k8s.Endpoints
+	servicesReplace  []*slim_corev1.Service
 }
 
 type endpointsEvent struct {
@@ -469,33 +502,56 @@ func (ae *allEndpoints) Backends() iter.Seq2[cmtypes.AddrCluster, *k8s.Backend] 
 // buffer for holding a batch of service or endpoint events
 type buffer = *container.InsertOrderedMap[bufferKey, bufferValue]
 
-func bufferInsert(buf buffer, ev resource.Event[runtime.Object]) buffer {
-	switch obj := ev.Object.(type) {
-	case *k8s.Endpoints:
-		if ev.Kind == resource.Sync {
-			buf.Insert(bufferKey{isSvc: false}, bufferValue{kind: ev.Kind})
-			return buf
-		}
+func bufferInsert(buf buffer, ev event) buffer {
+	switch ev := ev.(type) {
+	case upsertServiceEvent:
 		key := bufferKey{
-			resource.Key{Name: obj.ServiceName.Name(), Namespace: obj.ServiceName.Namespace()},
+			resource.Key{Name: ev.obj.Name, Namespace: ev.obj.Namespace},
+			true,
+		}
+		buf.Insert(key, bufferValue{kind: resource.Upsert, svc: ev.obj})
+	case deleteServiceEvent:
+		key := bufferKey{
+			resource.Key{Name: ev.obj.Name, Namespace: ev.obj.Namespace},
+			true,
+		}
+		buf.Insert(key, bufferValue{kind: resource.Delete, svc: ev.obj})
+	case replaceServicesEvent:
+		buf.Insert(bufferKey{isSvc: true}, bufferValue{kind: resource.Sync, servicesReplace: ev.objs})
+	case upsertEndpointEvent:
+		key := bufferKey{
+			resource.Key{Name: ev.obj.ServiceName.Name(), Namespace: ev.obj.ServiceName.Namespace()},
 			false,
 		}
 		var allEps allEndpoints
 		if old, ok := buf.Get(key); ok {
 			allEps = old.allEndpoints
 		}
-		allEps = allEps.insert(ev.Kind == resource.Delete, obj)
-
+		allEps = allEps.insert(false, ev.obj)
+		buf.Insert(key, bufferValue{
+			kind:         resource.Upsert,
+			allEndpoints: allEps,
+		})
+	case deleteEndpointEvent:
+		key := bufferKey{
+			resource.Key{Name: ev.obj.ServiceName.Name(), Namespace: ev.obj.ServiceName.Namespace()},
+			false,
+		}
+		var allEps allEndpoints
+		if old, ok := buf.Get(key); ok {
+			allEps = old.allEndpoints
+		}
+		allEps = allEps.insert(true, ev.obj)
 		// Since we may merge a mixture of Upsert and Delete events together we handle
 		// deletion as an Upsert of [endpointsEvent] with nil backends.
 		buf.Insert(key, bufferValue{
 			kind:         resource.Upsert,
 			allEndpoints: allEps,
 		})
-	case *slim_corev1.Service:
-		buf.Insert(bufferKey{key: ev.Key, isSvc: true}, bufferValue{kind: ev.Kind, svc: obj})
+	case replaceEndpointsEvent:
+		buf.Insert(bufferKey{isSvc: false}, bufferValue{kind: resource.Sync, endpointsReplace: ev.objs})
 	default:
-		panic(fmt.Sprintf("BUG: unhandled type %T", obj))
+		panic(fmt.Sprintf("unexpected reflectors.event: %#v", ev))
 	}
 	return buf
 }
@@ -747,18 +803,143 @@ func deleteHostPort(params reflectorParams, wtxn writer.WriteTxn, pod *slim_core
 	return nil
 }
 
-func toObjectObservable[T runtime.Object](src stream.Observable[resource.Event[T]]) stream.Observable[resource.Event[runtime.Object]] {
-	return stream.Map(src, func(ev resource.Event[T]) resource.Event[runtime.Object] {
-		// Already mark the event as handled as we don't need retries.
-		ev.Done(nil)
+type event interface {
+	isEvent()
+}
 
-		return resource.Event[runtime.Object]{
-			Kind:   ev.Kind,
-			Key:    ev.Key,
-			Object: ev.Object,
-			Done:   ev.Done,
-		}
-	})
+type upsertServiceEvent struct {
+	obj *slim_corev1.Service
+}
+
+func (upsertServiceEvent) isEvent() {}
+
+type deleteServiceEvent struct {
+	obj *slim_corev1.Service
+}
+
+func (deleteServiceEvent) isEvent() {}
+
+type replaceServicesEvent struct {
+	objs []*slim_corev1.Service
+}
+
+func (replaceServicesEvent) isEvent() {}
+
+type upsertEndpointEvent struct {
+	obj *k8s.Endpoints
+}
+
+func (upsertEndpointEvent) isEvent() {}
+
+type deleteEndpointEvent struct {
+	obj *k8s.Endpoints
+}
+
+func (deleteEndpointEvent) isEvent() {}
+
+type replaceEndpointsEvent struct {
+	objs []*k8s.Endpoints
+}
+
+func (replaceEndpointsEvent) isEvent() {}
+
+func endpointsEvents(log *slog.Logger, c client.Clientset) stream.Observable[event] {
+	lw := k8sUtils.ListerWatcherFromTyped(c.Slim().DiscoveryV1().EndpointSlices(""))
+	return stream.Map(
+		k8s.ListerWatcherToObservable(lw),
+		func(ev k8s.CacheStoreEvent) event {
+			if ev.Kind == k8s.CacheStoreEventReplace {
+				raw := ev.Obj.([]any)
+				objs := make([]*k8s.Endpoints, len(raw))
+				for i := range objs {
+					objs[i] = k8s.ParseEndpointSliceV1(log, raw[i].(*slim_discoveryv1.EndpointSlice))
+				}
+				return replaceEndpointsEvent{objs: objs}
+			}
+			obj := ev.Obj.(*slim_discoveryv1.EndpointSlice)
+			eps := k8s.ParseEndpointSliceV1(log, obj)
+			switch ev.Kind {
+			case k8s.CacheStoreEventAdd:
+				return upsertEndpointEvent{eps}
+			case k8s.CacheStoreEventUpdate:
+				return upsertEndpointEvent{eps}
+			case k8s.CacheStoreEventDelete:
+				return deleteEndpointEvent{eps}
+			default:
+				panic(fmt.Sprintf("unexpected k8s.CacheStoreEventKind: %#v", ev.Kind))
+			}
+		})
+}
+
+func serviceEvents(cs client.Clientset, cfg k8s.ConfigParams) (stream.Observable[event], error) {
+	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(cfg.Config.K8sServiceProxyName, cfg.WatchConfig.EnableHeadlessServiceWatch)
+	if err != nil {
+		return nil, err
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services("")),
+		optsModifier,
+	)
+
+	return stream.Map(
+		k8s.ListerWatcherToObservable(lw),
+		func(ev k8s.CacheStoreEvent) event {
+			if ev.Kind == k8s.CacheStoreEventReplace {
+				raw := ev.Obj.([]any)
+				objs := make([]*slim_corev1.Service, len(raw))
+				for i := range objs {
+					objs[i] = raw[i].(*slim_corev1.Service)
+				}
+				return replaceServicesEvent{objs: objs}
+			}
+			obj := ev.Obj.(*slim_corev1.Service)
+			switch ev.Kind {
+			case k8s.CacheStoreEventAdd, k8s.CacheStoreEventUpdate:
+				return upsertServiceEvent{obj}
+			case k8s.CacheStoreEventDelete:
+				return deleteServiceEvent{obj}
+			default:
+				panic(fmt.Sprintf("unexpected k8s.CacheStoreEventKind: %#v", ev.Kind))
+			}
+		}), nil
+}
+
+func newEventStream(log *slog.Logger, cs client.Clientset, cfg k8s.ConfigParams) (stream.Observable[event], error) {
+	if !cs.IsEnabled() {
+		return stream.Empty[event](), nil
+	}
+	svcEvents, err := serviceEvents(cs, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return joinObservables(
+		svcEvents,
+		endpointsEvents(log, cs),
+	), nil
+}
+
+func EventStreamForBenchmark(eps <-chan resource.Event[*k8s.Endpoints], svcs <-chan resource.Event[*slim_corev1.Service]) stream.Observable[event] {
+	return joinObservables(
+		stream.Concat(
+			stream.Just[event](replaceEndpointsEvent{}),
+			stream.Map(stream.FromChannel(eps),
+				func(ev resource.Event[*k8s.Endpoints]) event {
+					if ev.Kind == resource.Delete {
+						return deleteEndpointEvent{ev.Object}
+					}
+					return upsertEndpointEvent{ev.Object}
+				})),
+
+		stream.Concat(
+			stream.Just[event](replaceServicesEvent{}),
+			stream.Map(stream.FromChannel(svcs),
+				func(ev resource.Event[*slim_corev1.Service]) event {
+					if ev.Kind == resource.Delete {
+						return deleteServiceEvent{ev.Object}
+					}
+					return upsertServiceEvent{ev.Object}
+				})),
+	)
 }
 
 func joinObservables[T any](src stream.Observable[T], srcs ...stream.Observable[T]) stream.Observable[T] {

@@ -129,7 +129,7 @@ var (
 		// and clustermesh. We provide ServiceResource here as it is a dependency
 		// of the ServiceResolverCell.
 		cell.Provide(k8s.ServiceResource),
-		dial.ServiceResolverCell,
+		dial.ResourceServiceResolverCell,
 
 		// Provides the Client to access the KVStore.
 		cell.Provide(kvstoreExtraOptions),
@@ -544,7 +544,7 @@ type params struct {
 	Lifecycle                cell.Lifecycle
 	Clientset                k8sClient.Clientset
 	Resources                operatorK8s.Resources
-	SvcResolver              *dial.ServiceResolver
+	SvcResolver              dial.Resolver
 	CfgClusterMeshPolicy     cmtypes.PolicyConfig
 	Metrics                  *UnmanagedPodsMetric
 	MetricsRegistry          *metrics.Registry
@@ -722,7 +722,7 @@ func kvstoreExtraOptions(in struct {
 	Logger *slog.Logger
 
 	ClientSet k8sClient.Clientset
-	Resolver  *dial.ServiceResolver
+	Resolver  dial.Resolver
 }) kvstore.ExtraOptions {
 	var goopts kvstore.ExtraOptions
 
