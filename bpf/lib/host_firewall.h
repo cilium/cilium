@@ -91,7 +91,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			   ip6->daddr.s6_addr32[3], dst_sec_identity);
 
 		/* Perform policy lookup. */
-		verdict = policy_can_egress6(ctx, tuple, ct_buffer->l4_off, HOST_ID,
+		verdict = policy_can_egress6(ctx, tuple_ext, HOST_ID,
 					     dst_sec_identity, &policy_match_type,
 					     &audited, ext_err, &proxy_port, &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
@@ -238,7 +238,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 #  endif
 
 	/* Perform policy lookup */
-	verdict = policy_can_ingress6(ctx, tuple, ct_buffer->l4_off,
+	verdict = policy_can_ingress6(ctx, tuple_ext,
 				      is_untracked_fragment, *src_sec_identity, HOST_ID,
 				      &policy_match_type, &audited, ext_err, &proxy_port,
 				      &cookie);
@@ -380,7 +380,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 			   ip4->daddr, dst_sec_identity);
 
 		/* Perform policy lookup. */
-		verdict = policy_can_egress4(ctx, tuple, ct_buffer->l4_off, HOST_ID,
+		verdict = policy_can_egress4(ctx, tuple_ext, HOST_ID,
 					     dst_sec_identity, &policy_match_type,
 					     &audited, ext_err, &proxy_port, &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
@@ -521,7 +521,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 #  endif
 
 	/* Perform policy lookup */
-	verdict = policy_can_ingress4(ctx, tuple, ct_buffer->l4_off,
+	verdict = policy_can_ingress4(ctx, tuple_ext,
 				      is_untracked_fragment, *src_sec_identity, HOST_ID,
 				      &policy_match_type, &audited, ext_err, &proxy_port,
 				      &cookie);

@@ -530,8 +530,11 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 
-		if (ctx_load_bytes(ctx, off, &type, 1) < 0)
+		if (ctx_load_bytes(ctx, off, &tuple_ext->icmp_type, 1) < 0)
 			return DROP_CT_INVALID_HDR;
+
+		type = tuple_ext->icmp_type;
+
 		if ((type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmp6hdr,
 						       icmp6_dataun.u_echo.identifier),
@@ -793,8 +796,12 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 
-		if (ctx_load_bytes(ctx, off, &type, 1) < 0)
+		/* Also populates the icmp_code: */
+		if (ctx_load_bytes(ctx, off, &tuple_ext->icmp_type, 2) < 0)
 			return DROP_CT_INVALID_HDR;
+
+		type = tuple_ext->icmp_type;
+
 		if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmphdr, un.echo.id),
 				   &identifier, 2) < 0)
