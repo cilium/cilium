@@ -1347,6 +1347,17 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 		return nil
 	}, job.WithShutdown()))
 
+	// Register job to validate that daemon config is unchanged
+	params.JobGroup.Add(job.Timer(
+		"validate-unchanged-daemon-config",
+		// Validate that Daemon config has not changed, ignoring 'Opts'
+		// that may be modified via config patch events.
+		func(ctx context.Context) error { return option.Config.ValidateUnchanged() },
+		// avoid synhronized run with other
+		// jobs started at same time
+		61*time.Second,
+	))
+
 	return legacy.DaemonInitialization{}
 }
 
@@ -1462,22 +1473,7 @@ func startDaemon(ctx context.Context, params daemonParams) error {
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
 
-	// Register job to validate that daemon config is unchanged
-	registerDaemonConfigValidationJob(params)
-
 	return nil
-}
-
-func registerDaemonConfigValidationJob(params daemonParams) {
-	params.JobGroup.Add(job.Timer(
-		"daemon-validate-config",
-		// Validate that Daemon config has not changed, ignoring 'Opts'
-		// that may be modified via config patch events.
-		func(ctx context.Context) error { return option.Config.ValidateUnchanged() },
-		// avoid synhronized run with other
-		// jobs started at same time
-		61*time.Second,
-	))
 }
 
 func registerEndpointStateResolver(endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
