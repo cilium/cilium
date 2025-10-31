@@ -38,7 +38,7 @@ var errors = map[uint8]string{
 	135: "CT: Truncated or invalid header",
 	136: "Fragmentation needed",
 	137: "CT: Unknown L4 protocol",
-	138: "CT: Can't create entry from packet", // Unused
+	138: "Dropped by hook extension",
 	139: "Unsupported L3 protocol",
 	140: "Missed tail call",
 	141: "Error writing to packet",

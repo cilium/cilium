@@ -1091,7 +1091,7 @@ here.
 | CT_TRUNCATED_OR_INVALID_HEADER | 135 |  |
 | CT_MISSING_TCP_ACK_FLAG | 136 |  |
 | CT_UNKNOWN_L4_PROTOCOL | 137 |  |
-| CT_CANNOT_CREATE_ENTRY_FROM_PACKET | 138 |  |
+| DROP_HOOK | 138 | Packet got dropped by a BPF hook extension error. In other words, the drop originates from non-Cilium native code. |
 | UNSUPPORTED_L3_PROTOCOL | 139 |  |
 | MISSED_TAIL_CALL | 140 |  |
 | ERROR_WRITING_TO_PACKET | 141 |  |
