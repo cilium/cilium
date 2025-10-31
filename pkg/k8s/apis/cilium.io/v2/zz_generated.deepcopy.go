@@ -1113,6 +1113,11 @@ func (in *CiliumBGPTransport) DeepCopyInto(out *CiliumBGPTransport) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.SourceInterface != nil {
+		in, out := &in.SourceInterface, &out.SourceInterface
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
