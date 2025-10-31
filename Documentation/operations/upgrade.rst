@@ -333,6 +333,7 @@ communicating via the proxy must reconnect to re-establish connections.
   makes it compatible by default with the Helm ``--wait`` option or through ArgoCD.
   You are no longer expected to create a Job manually or as part of your own
   automation when bootstrapping your clusters.
+* This release introduces enabling packet layer path MTU discovery by default on CNI Pod endpoints, this is controlled via the ``enable-endpoint-packet-layer-pmtud`` flag.
 
 Removed Options
 ~~~~~~~~~~~~~~~

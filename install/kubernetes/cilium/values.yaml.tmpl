@@ -514,6 +514,10 @@ pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
   enabled: false
+  # -- Enable kernel probing path MTU discovery for Pods which uses different message
+  # sizes to search for correct MTU value.
+  packetizationLayerPMTUD:
+    enabled: true
 bpf:
   autoMount:
     # -- Enable automatic mount of BPF filesystem

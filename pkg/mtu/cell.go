@@ -39,6 +39,7 @@ type MTU interface {
 	GetRouteMTU() int
 	GetRoutePostEncryptMTU() int
 	IsEnableRouteMTUForCNIChaining() bool
+	IsEnablePacketizationLayerPMTUD() bool
 }
 
 type mtuParams struct {
@@ -65,16 +66,20 @@ type Config struct {
 	// Enable route MTU for pod netns when CNI chaining is used
 	EnableRouteMTUForCNIChaining bool
 	MTU                          int
+	// EnablePacketizationLayerPMTUD configures kernel packetization layer path mtu discovery on Pod netns.
+	EnablePacketizationLayerPMTUD bool
 }
 
 var defaultConfig = Config{
-	EnableRouteMTUForCNIChaining: false,
-	MTU:                          0,
+	EnableRouteMTUForCNIChaining:  false,
+	MTU:                           0,
+	EnablePacketizationLayerPMTUD: true,
 }
 
 func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-route-mtu-for-cni-chaining", c.EnableRouteMTUForCNIChaining, "Enable route MTU for pod netns when CNI chaining is used")
 	flags.Int("mtu", c.MTU, "Overwrite auto-detected MTU of underlying network")
+	flags.Bool("enable-packetization-layer-pmtud", c.EnablePacketizationLayerPMTUD, "Enables kernel packetization layer path mtu discovery on Pod netns")
 }
 
 func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
@@ -137,18 +142,20 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	})
 
 	return &LatestMTUGetter{
-		tbl:                            p.MTUTable,
-		db:                             p.DB,
-		isEnableRouteMTUForCNIChaining: cc.EnableRouteMTUForCNIChaining,
+		tbl:                             p.MTUTable,
+		db:                              p.DB,
+		isEnableRouteMTUForCNIChaining:  cc.EnableRouteMTUForCNIChaining,
+		isEnablePacketizationLayerPMTUD: cc.EnablePacketizationLayerPMTUD,
 	}, nil
 }
 
 var _ MTU = (*LatestMTUGetter)(nil)
 
 type LatestMTUGetter struct {
-	tbl                            statedb.Table[RouteMTU]
-	db                             *statedb.DB
-	isEnableRouteMTUForCNIChaining bool
+	tbl                             statedb.Table[RouteMTU]
+	db                              *statedb.DB
+	isEnableRouteMTUForCNIChaining  bool
+	isEnablePacketizationLayerPMTUD bool
 }
 
 func (m *LatestMTUGetter) GetDeviceMTU() int {
@@ -171,4 +178,8 @@ func (m *LatestMTUGetter) GetRoutePostEncryptMTU() int {
 
 func (m *LatestMTUGetter) IsEnableRouteMTUForCNIChaining() bool {
 	return m.isEnableRouteMTUForCNIChaining
+}
+
+func (m *LatestMTUGetter) IsEnablePacketizationLayerPMTUD() bool {
+	return m.isEnablePacketizationLayerPMTUD
 }
