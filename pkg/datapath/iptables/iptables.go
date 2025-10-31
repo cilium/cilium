@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
@@ -339,6 +340,8 @@ type params struct {
 	JobGroup job.Group
 	DB       *statedb.DB
 	Devices  statedb.Table[*tables.Device]
+
+	TunnelCfg tunnel.Config
 }
 
 func newIptablesManager(p params) datapath.IptablesManager {
@@ -633,6 +636,51 @@ func (m *Manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 		"--on-port", tProxyPort,
 	}
 	return prog.runProg(rule)
+}
+
+func (m *Manager) installTunnelNoTrackRules(ip4tables, ip6tables runnable) error {
+	port := m.sharedCfg.TunnelPort
+
+	if !m.sharedCfg.TunnelingEnabled || port == 0 {
+		return nil
+	}
+
+	input := []string{
+		"-t", "raw",
+		"-A", ciliumPreRawChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(port)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
+		"-j", "CT", "--notrack",
+	}
+	output := []string{
+		"-t", "raw",
+		"-A", ciliumOutputRawChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(port)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
+		"-j", "CT", "--notrack",
+	}
+
+	if m.sharedCfg.EnableIPv4 && ip4tables != nil {
+		if err := ip4tables.runProg(input); err != nil {
+			return err
+		}
+		if err := ip4tables.runProg(output); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 && ip6tables != nil {
+		if err := ip6tables.runProg(input); err != nil {
+			return err
+		}
+		if err := ip6tables.runProg(output); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (m *Manager) installStaticProxyRules() error {
@@ -1634,12 +1682,20 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
+	if err := m.installTunnelNoTrackRules(m.ip4tables, m.ip6tables); err != nil {
+		return fmt.Errorf("cannot install tunnel no track rules: %w", err)
+	}
+
 	if err := m.installStaticProxyRules(); err != nil {
 		return fmt.Errorf("cannot install static proxy rules: %w", err)
 	}
 
 	if err := m.addCiliumAcceptEncryptionRules(); err != nil {
 		return fmt.Errorf("cannot install encryption rules: %w", err)
+	}
+
+	if err := m.addCiliumAcceptTunnelRules(); err != nil {
+		return fmt.Errorf("cannot install accept tunnel rules: %w", err)
 	}
 
 	localDeliveryInterface := m.getDeliveryInterface(defaults.HostDevice)
@@ -1832,6 +1888,37 @@ func (m *Manager) addCiliumNoTrackEncryptionRules() (err error) {
 	if m.sharedCfg.EnableIPv6 {
 		return m.ciliumNoTrackEncryptionRules(m.ip6tables, "-I")
 	}
+	return nil
+}
+
+func (m *Manager) addCiliumAcceptTunnelRules() (err error) {
+	port := m.sharedCfg.TunnelPort
+
+	if !m.sharedCfg.TunnelingEnabled || port == 0 {
+		return nil
+	}
+
+	cmd := []string{
+		"-t", "filter",
+		"-A", ciliumOutputChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(port)),
+		"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
+		"-j", "ACCEPT",
+	}
+
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.ip4tables.runProg(cmd); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.ip6tables.runProg(cmd); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
