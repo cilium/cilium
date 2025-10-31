@@ -25,7 +25,7 @@ type ExporterConfigParser interface {
 
 // configWatcherCallback is a callback that receives successfully parsed configurations and the md5
 // checksum of the source content.
-type configWatcherCallback func(configs map[string]ExporterConfig, hash uint64)
+type configWatcherCallback func(ctx context.Context, configs map[string]ExporterConfig, hash uint64)
 
 // configWatcher provides dynamic configuration reload for DynamicExporter.
 type configWatcher struct {
@@ -48,8 +48,7 @@ func NewConfigWatcher(logger *slog.Logger, configFilePath string, configParser E
 		callback:       callback,
 	}
 
-	// initial configuration load
-	watcher.reload()
+	// initial configuration load will happen when watch() is called
 	return watcher
 }
 
@@ -57,24 +56,26 @@ func NewConfigWatcher(logger *slog.Logger, configFilePath string, configParser E
 func (c *configWatcher) watch(ctx context.Context, interval time.Duration) error {
 	// TODO replace ticker reloads with inotify watchers
 	ticker := time.NewTicker(interval)
+	// Do initial reload with context
+	c.reload(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			c.reload()
+			c.reload(ctx)
 		}
 	}
 }
 
-func (c *configWatcher) reload() {
+func (c *configWatcher) reload(ctx context.Context) {
 	configs, hash, err := c.parseConfig()
 	if err != nil {
 		DynamicExporterReconfigurations.WithLabelValues("failure").Inc()
 		c.logger.Error("Failed to parse dynamic exporter config", logfields.Error, err)
 		return
 	}
-	c.callback(configs, hash)
+	c.callback(ctx, configs, hash)
 }
 
 func (c *configWatcher) parseConfig() (map[string]ExporterConfig, uint64, error) {

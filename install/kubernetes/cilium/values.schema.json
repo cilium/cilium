@@ -2723,7 +2723,14 @@
                         "anyOf": [
                           {
                             "properties": {
+                              "aggregationInterval": {
+                                "type": "string"
+                              },
                               "excludeFilters": {
+                                "items": {},
+                                "type": "array"
+                              },
+                              "fieldAggregate": {
                                 "items": {},
                                 "type": "array"
                               },
@@ -2770,6 +2777,9 @@
             },
             "static": {
               "properties": {
+                "aggregationInterval": {
+                  "type": "string"
+                },
                 "allowList": {
                   "items": {},
                   "type": "array"
@@ -2780,6 +2790,10 @@
                 },
                 "enabled": {
                   "type": "boolean"
+                },
+                "fieldAggregate": {
+                  "items": {},
+                  "type": "array"
                 },
                 "fieldMask": {
                   "items": {},

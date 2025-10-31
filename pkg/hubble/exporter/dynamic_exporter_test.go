@@ -31,6 +31,18 @@ func TestDynamicExporterLifecycle(t *testing.T) {
 	exporterConfigParser := &exporterConfigParser{logger}
 	dynamicExporter := NewDynamicExporter(logger, fileName, exporterFactory, exporterConfigParser)
 
+	// Start watching to trigger initial config load
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		_ = dynamicExporter.Watch(ctx)
+	}()
+
+	// Wait for initial config to be loaded
+	assert.Eventually(t, func() bool {
+		return len(dynamicExporter.managedExporters) == 3
+	}, time.Second, 10*time.Millisecond)
+
 	// then
 	assert.Len(t, dynamicExporter.managedExporters, 3)
 	for _, v := range dynamicExporter.managedExporters {
@@ -69,7 +81,7 @@ func TestAddNewExporter(t *testing.T) {
 	}
 
 	// when
-	exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
+	exporter.onConfigReload(t.Context(), map[string]ExporterConfig{"test001": config}, 1)
 
 	// then
 	assert.Len(t, exporter.managedExporters, 1)
@@ -105,7 +117,7 @@ func TestConfigReloadChanges(t *testing.T) {
 	}
 
 	// when
-	exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
+	exporter.onConfigReload(t.Context(), map[string]ExporterConfig{"test001": config}, 1)
 
 	// then
 	assert.False(t, mockExporter.stopped, "should not reload when not changed")
@@ -119,7 +131,7 @@ func TestConfigReloadChanges(t *testing.T) {
 		ExcludeFilters: FlowFilters{},
 		End:            &future,
 	}
-	exporter.onConfigReload(map[string]ExporterConfig{"test001": newConfig}, 1)
+	exporter.onConfigReload(t.Context(), map[string]ExporterConfig{"test001": newConfig}, 1)
 
 	// then
 	assert.True(t, mockExporter.stopped, "should reload when changed")
@@ -183,7 +195,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
+		exporter.onConfigReload(t.Context(), map[string]ExporterConfig{"test001": config}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -211,7 +223,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
+		exporter.onConfigReload(t.Context(), map[string]ExporterConfig{"test001": config}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -239,7 +251,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, 1)
+		exporter.onConfigReload(t.Context(), map[string]ExporterConfig{"test001": config}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -257,7 +269,7 @@ func TestExporterReconfigurationMetricsReporting(t *testing.T) {
 
 	t.Run("should report flowlog removed metric", func(t *testing.T) {
 		// when
-		exporter.onConfigReload(map[string]ExporterConfig{}, 1)
+		exporter.onConfigReload(t.Context(), map[string]ExporterConfig{}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -303,7 +315,7 @@ func TestExporterReconfigurationHashMetricsReporting(t *testing.T) {
 	configHash := uint64(4367168)
 
 	// when
-	exporter.onConfigReload(map[string]ExporterConfig{"test001": config}, configHash)
+	exporter.onConfigReload(t.Context(), map[string]ExporterConfig{"test001": config}, configHash)
 
 	// then
 	metricFamilies, err := registry.Gather()
@@ -356,7 +368,7 @@ func TestExportersMetricsReporting(t *testing.T) {
 		}
 
 		// when
-		exporter.onConfigReload(map[string]ExporterConfig{"test001": config1, "test002": config2}, 1)
+		exporter.onConfigReload(t.Context(), map[string]ExporterConfig{"test001": config1, "test002": config2}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()
@@ -388,7 +400,7 @@ func TestExportersMetricsReporting(t *testing.T) {
 
 	t.Run("should remove individual status metric of removed flowlog", func(t *testing.T) {
 		// when
-		exporter.onConfigReload(map[string]ExporterConfig{}, 1)
+		exporter.onConfigReload(t.Context(), map[string]ExporterConfig{}, 1)
 
 		// then
 		metricFamilies, err := registry.Gather()

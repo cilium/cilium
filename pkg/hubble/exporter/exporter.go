@@ -51,17 +51,19 @@ var _ FlowLogExporter = (*exporter)(nil)
 
 // exporter is an implementation of OnDecodedEvent interface that writes Hubble events to a file.
 type exporter struct {
-	logger  *slog.Logger
-	encoder Encoder
-	writer  io.WriteCloser
-	flow    *flowpb.Flow
-
-	opts Options
+	logger     *slog.Logger
+	encoder    Encoder
+	writer     io.WriteCloser
+	flow       *flowpb.Flow
+	ctx        context.Context
+	cancel     context.CancelFunc
+	aggregator *AggregatorRunner
+	opts       Options
 }
 
 // NewExporter initializes an
 // NOTE: Stopped instances cannot be restarted and should be re-created.
-func NewExporter(logger *slog.Logger, options ...Option) (*exporter, error) {
+func NewExporter(ctx context.Context, logger *slog.Logger, options ...Option) (*exporter, error) {
 	opts := DefaultOptions // start with defaults
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
@@ -72,17 +74,21 @@ func NewExporter(logger *slog.Logger, options ...Option) (*exporter, error) {
 		"Configuring Hubble event exporter",
 		logfields.Options, opts,
 	)
-	return newExporter(logger, opts)
+	return newExporter(ctx, logger, opts)
 }
 
 // newExporter let's you supply your own WriteCloser for tests.
-func newExporter(logger *slog.Logger, opts Options) (*exporter, error) {
+func newExporter(ctx context.Context, logger *slog.Logger, opts Options) (*exporter, error) {
+	childCtx, cancel := context.WithCancel(ctx)
 	writer, err := opts.NewWriterFunc()()
 	if err != nil {
+		writer.Close()
+		cancel()
 		return nil, fmt.Errorf("failed to create writer: %w", err)
 	}
 	encoder, err := opts.NewEncoderFunc()(writer)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("failed to create encoder: %w", err)
 	}
 	var flow *flowpb.Flow
@@ -90,13 +96,34 @@ func newExporter(logger *slog.Logger, opts Options) (*exporter, error) {
 		flow = new(flowpb.Flow)
 		opts.FieldMask.Alloc(flow.ProtoReflect())
 	}
-	return &exporter{
+	ex := &exporter{
+		ctx:     childCtx,
+		cancel:  cancel,
 		logger:  logger,
 		encoder: encoder,
 		writer:  writer,
 		flow:    flow,
 		opts:    opts,
-	}, nil
+	}
+
+	// Initialize aggregator only if field aggregate is active and interval > 0
+	if opts.FieldAggregate.Active() && opts.aggregationInterval > 0 {
+		ex.aggregator = &AggregatorRunner{
+			aggregator: NewAggregatorWithFields(opts.FieldAggregate, logger),
+			interval:   opts.aggregationInterval,
+			encoder:    encoder,
+			logger:     logger,
+		}
+		ex.aggregator.Start(childCtx)
+
+	} else if opts.FieldAggregate.Active() && opts.aggregationInterval <= 0 {
+		logger.Warn(
+			"Field aggregation requested but disabled due to aggregation interval <= 0; Exporting raw events",
+			logfields.Interval, opts.aggregationInterval,
+		)
+	}
+
+	return ex, nil
 }
 
 // Export implements FlowLogExporter.
@@ -127,6 +154,12 @@ func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
 		}
 	}
 
+	// If aggregation enabled (interval > 0) aggregator is non-nil
+	if e.aggregator != nil {
+		e.aggregator.Add(ev)
+		return nil
+	}
+
 	res := e.eventToExportEvent(ev)
 	if res == nil {
 		return nil
@@ -137,6 +170,16 @@ func (e *exporter) Export(ctx context.Context, ev *v1.Event) error {
 // Stop implements FlowLogExporter.
 func (e *exporter) Stop() error {
 	e.logger.Debug("hubble flow exporter stopping")
+
+	if e.cancel != nil {
+		e.cancel()
+		e.cancel = nil
+	}
+
+	if e.aggregator != nil {
+		e.aggregator.Stop()
+	}
+
 	if e.writer == nil {
 		// Already stoppped
 		return nil
