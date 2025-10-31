@@ -426,23 +426,6 @@ func AddUserDefinedNumericIdentity(identity NumericIdentity, label string) error
 	return nil
 }
 
-// DelReservedNumericIdentity deletes the given Numeric Identity from the list
-// of reservedIdentities. If the numeric identity is not between
-// UserReservedNumericIdentity and MinimalNumericIdentity it will return
-// ErrNotUserIdentity.
-// Is not safe for concurrent use.
-func DelReservedNumericIdentity(identity NumericIdentity) error {
-	if !IsUserReservedIdentity(identity) {
-		return ErrNotUserIdentity
-	}
-	label, ok := reservedIdentityNames[identity]
-	if ok {
-		delete(reservedIdentities, label)
-		delete(reservedIdentityNames, identity)
-	}
-	return nil
-}
-
 // NumericIdentity is the numeric representation of a security identity.
 //
 // Bits:

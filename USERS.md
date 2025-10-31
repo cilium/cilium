@@ -309,6 +309,12 @@ Users (Alphabetically)
       L: https://www.equinix.nl/products/support-services/managed-services/netherlands
       Q: @jonkerj
 
+    * N: Eastern Switzerland University of Applied Sciences (OST)
+      D: OST is using Cilium in their production clusters (self-hosted, bare-metal, private cloud) and in their Cloud Native training courses.
+      U: CNI with Gateway API, Network Policies, L2 Announcements, Hubble Observability, Kube-proxy replacement
+      L: https://www.ost.ch
+      Q: @Jan Untersander
+
     * N: EvoCloud
       D: EvoCloud uses Cilium as a Kubernetes proxy replacement, CNI with Gateway API integration, Cluster mesh with BGP enabled, Network policy and Hubble Observability.
       U: L4/L7 Networking, L2 Announcement, Network Policies, Kube-proxy replacement, CNI with Gateway API, Hubble for tracing and observability, ClusterMesh and ServiceMesh
@@ -330,6 +336,11 @@ Users (Alphabetically)
       D: Form3 is using Cilium in their production clusters (self-hosted, bare-metal, private cloud)
       U: Service load-balancing, Encryption, CNI, NetworkPolicies
       Q: @kevholditch-f3, samo-f3, ewilde-form3
+
+    * N: FPT Telecom
+      D: FTEL uses Cilium as their CNI plugin to handle the massive CPE Management traffic to the backends
+      U: CNI, CiliumclusterWideNetworkPolicy, CiliumNetworkPolicy, Kube-Proxy Replacement, Hubble, Direct Routing, Egress Gateway, Service Load Balancing, L2 Announcement, BGP Advertisement
+      Q: @minhng99
 
     * N: FRSCA - Factory for Repeatable Secure Creation of Artifacts
       D: FRSCA is utilizing tetragon integrated with Tekton to create runtime attestation to attest artifact and builder attributes
@@ -936,6 +947,12 @@ Users (Alphabetically)
       U. CNI, BGP, eBPF, Hubble, DirectRouting (via kube-router)
       Q: @nerzhul
 
+    * N: Vietnam Post Cloud
+      D: Vietnnam Post Cloud is using Cilium in their production, staging, and development clusters
+      U: Networking, NetworkPolicy, Services, IPVLAN
+      L: https://www.vietnampost.vn
+      Q: @chint-vnpost-vn
+
     * N: Virtuozzo
       D: Cilium CNI is the default network plugin for Kubernetes clusters within Virtuozzo Hybrid Infrastructure.
       U: Networking, NetworkPolicy, Services
@@ -952,7 +969,11 @@ Users (Alphabetically)
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
       U: ClusterMesh, Global Service Load Balancing.
       Q: @Oki @luanguimaraesla @rsafonseca
-
+      
+    * N: University of Wisconsin - Madison
+      D: Leveraged in production clusters
+      U: ClusterMesh, Global Service Load Balancing
+      
     * N: WSO2
       D: WSO2 is using Cilium to implemented Zero Trust Network Security for their Kubernetes clusters
       U: CNI, WireGuard Transparent Encryption, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, Hubble, Layer 7 visibility and Service Mesh via Cilium Envoy

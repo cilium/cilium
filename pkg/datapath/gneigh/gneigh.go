@@ -62,6 +62,21 @@ type Interface struct {
 	iface *net.Interface
 }
 
+// Name returns the interface name.
+func (i Interface) Name() string {
+	return i.iface.Name
+}
+
+// HardwareAddr returns the interface hardware address.
+func (i Interface) HardwareAddr() net.HardwareAddr {
+	return i.iface.HardwareAddr
+}
+
+// InterfaceFromNetInterface constructs an Interface from the given *net.Interface.
+func InterfaceFromNetInterface(iface *net.Interface) Interface {
+	return Interface{iface: iface}
+}
+
 type sender struct{}
 
 // arpDropAllFilter filters out all packets, as we are only interested in
@@ -85,7 +100,7 @@ func (s *sender) NewArpSender(iface Interface) (ArpSender, error) {
 
 	return &arpSender{
 		cl:    cl,
-		srcHW: iface.iface.HardwareAddr,
+		srcHW: iface.HardwareAddr(),
 	}, nil
 }
 
@@ -118,7 +133,7 @@ func (s *sender) NewNdSender(iface Interface) (NdSender, error) {
 
 	return &ndSender{
 		cl:    cl,
-		srcHW: iface.iface.HardwareAddr,
+		srcHW: iface.HardwareAddr(),
 	}, nil
 }
 
@@ -216,13 +231,13 @@ func (s *sender) InterfaceByIndex(idx int) (Interface, error) {
 		return Interface{}, err
 	}
 
-	return Interface{
-		iface: &net.Interface{
+	return InterfaceFromNetInterface(
+		&net.Interface{
 			Index:        link.Attrs().Index,
 			MTU:          link.Attrs().MTU,
 			Name:         link.Attrs().Name,
 			Flags:        link.Attrs().Flags,
 			HardwareAddr: link.Attrs().HardwareAddr,
 		},
-	}, nil
+	), nil
 }

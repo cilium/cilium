@@ -32,7 +32,7 @@ type clusterMesh struct {
 	cfg       ClusterMeshConfig
 	cfgMCSAPI MCSAPIConfig
 	logger    *slog.Logger
-	Metrics   Metrics
+	metrics   Metrics
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
@@ -97,15 +97,14 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 	params.Logger.Info("Operator ClusterMesh component enabled")
 
 	cm := clusterMesh{
-		cfg:            params.Cfg,
-		cfgMCSAPI:      params.CfgMCSAPI,
-		logger:         params.Logger,
-		globalServices: common.NewGlobalServiceCache(params.Logger, params.Metrics.TotalGlobalServices.WithLabelValues(params.ClusterInfo.Name)),
-		globalServiceExports: NewGlobalServiceExportCache(
-			params.Metrics.TotalGlobalServiceExports.WithLabelValues(params.ClusterInfo.Name),
-		),
-		storeFactory:      params.StoreFactory,
-		syncTimeoutConfig: params.TimeoutConfig,
+		cfg:                  params.Cfg,
+		cfgMCSAPI:            params.CfgMCSAPI,
+		logger:               params.Logger,
+		metrics:              params.Metrics,
+		globalServices:       common.NewGlobalServiceCache(params.Logger),
+		globalServiceExports: NewGlobalServiceExportCache(),
+		storeFactory:         params.StoreFactory,
+		syncTimeoutConfig:    params.TimeoutConfig,
 	}
 	cm.common = common.NewClusterMesh(common.Configuration{
 		Logger:              params.Logger,
@@ -223,6 +222,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 			},
 		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
+		store.RWSWithEntriesMetric(cm.metrics.TotalServices.WithLabelValues(rc.name)),
 	)
 
 	rc.remoteServiceExports = cm.storeFactory.NewWatchStore(
@@ -245,6 +245,7 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 			},
 		),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.serviceExports.Stop() }),
+		store.RWSWithEntriesMetric(cm.metrics.TotalServiceExports.WithLabelValues(name)),
 	)
 
 	return rc

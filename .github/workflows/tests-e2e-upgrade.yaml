@@ -13,13 +13,13 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
-  push:
-    branches:
-      - 'renovate/main-**'
   # Run every 8 hours
   schedule:
     - cron:  '0 5/8 * * *'
@@ -50,7 +50,6 @@ concurrency:
     ${{ github.workflow }}
     ${{ github.event_name }}
     ${{
-      (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
@@ -96,7 +95,7 @@ jobs:
           destination_directory="/tmp/generated/e2e"
           mkdir -p "${destination_directory}"
 
-          cat ${work_dir}/* > "${destination_directory}/configs_merged.yaml"
+          cat ${work_dir}/*.yaml > "${destination_directory}/configs_merged.yaml"
 
           yq -o=json "${destination_directory}/configs_merged.yaml" | jq . > "${destination_directory}/configs.json"
 
@@ -177,6 +176,12 @@ jobs:
           fi
           echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
 
+      - name: Resolve full kernel version
+        id: kernel-version
+        uses: ./.github/actions/resolve-kernel-version
+        with:
+          kernel: ${{ matrix.kernel }}
+
       - name: Derive stable Cilium installation config
         if: ${{ matrix.skip-upgrade != 'true' }}
         id: cilium-stable-config
@@ -250,7 +255,7 @@ jobs:
         uses: ./.github/actions/lvh-kind
         with:
           test-name: e2e-conformance
-          kernel: ${{ matrix.kernel }}
+          kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
@@ -286,7 +291,7 @@ jobs:
 
       - name: Setup bootid file
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
-        uses: cilium/little-vm-helper@9c1f3a549af06e213863d034c13ba1c5d1e3c667 # v0.0.26
+        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
         with:
           provision: 'false'
           cmd: |
@@ -310,7 +315,7 @@ jobs:
           " >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@746083db48591ffbebd37743873a91a13a6b04b8 # v0.18.6
+        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -420,6 +425,7 @@ jobs:
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Start unencrypted packets check for connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
@@ -436,6 +442,7 @@ jobs:
           job-name: cilium-upgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*,!pod-to-world.*'
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Run concurrent Cilium tests
         uses: ./.github/actions/conn-disrupt-test-check
@@ -444,6 +451,7 @@ jobs:
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Check for unexpected packet drops during connectivity tests
         uses: ./.github/actions/conn-disrupt-test-check
@@ -451,13 +459,11 @@ jobs:
           job-name: cilium-upgrade-${{ matrix.name }}-postcheck
           tests: 'no-unexpected-packet-drops'
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after upgrade
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
-
-      - name: Setup conn-disrupt-test before downgrading
-        uses: ./.github/actions/conn-disrupt-test-setup
 
       - name: Features tested before downgrade
         uses: ./.github/actions/feature-status
@@ -465,8 +471,12 @@ jobs:
           title: "Summary of all features tested before downgrade"
           json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before downgrade"
 
+      - name: Setup conn-disrupt-test before downgrading
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        uses: ./.github/actions/conn-disrupt-test-setup
+
       - name: Start unencrypted packets check for downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/start
         with:
           # disable the check for proxy traffic.
@@ -474,7 +484,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
 
 
-      - name: Downgrade Cilium ${{ steps.vars.outputs.downgrade_version }}
+      - name: Downgrade to Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
         shell: bash
         run: |
@@ -489,7 +499,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Assert that no unencrypted packets are leaked during downgrade
-        if: ${{ matrix.encryption != '' }}
+        if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Test Cilium after downgrade to ${{ steps.vars.outputs.downgrade_version }}
@@ -498,6 +508,7 @@ jobs:
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Start unencrypted packets check for connectivity tests after downgrade
         if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
@@ -514,6 +525,7 @@ jobs:
           job-name: cilium-downgrade-${{ matrix.name }}-sequential
           tests: 'seq-.*,!pod-to-world.*'
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Run concurrent Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -523,6 +535,7 @@ jobs:
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Check for unexpected packet drops during connectivity tests
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -531,12 +544,14 @@ jobs:
           job-name: cilium-upgrade-${{ matrix.name }}-postcheck
           tests: 'no-unexpected-packet-drops'
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
 
       - name: Assert that no unencrypted packets are leaked during connectivity tests after downgrade
         if: ${{ matrix.skip-upgrade != 'true' && matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
       - name: Features tested after downgrade
+        if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/feature-status
         with:
           title: "Summary of all features tested after downgrade"
@@ -569,4 +584,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.setup-and-test.result }}
+      success: ${{ needs.setup-and-test.result == 'success' }}

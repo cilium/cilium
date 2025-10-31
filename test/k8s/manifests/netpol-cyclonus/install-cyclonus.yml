@@ -19,7 +19,14 @@ spec:
             - --cleanup-namespaces=true
             - --server-port=80
             - --server-protocol=tcp
+            - --junit-results-file=/results/cyclonus-results.xml
           name: cyclonus
           imagePullPolicy: IfNotPresent
           image: mfenwick100/cyclonus:v0.4.7@sha256:20103a6c8ffae57864d3c665612e69708f3efe6566492776340bad9c4cd98116
+          volumeMounts:
+            - name: results
+              mountPath: /results
+      volumes:
+        - name: results
+          emptyDir: {}
       serviceAccount: cyclonus

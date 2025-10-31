@@ -31,13 +31,13 @@ var (
 		"Operator Kubernetes resources",
 
 		cell.Config(k8s.DefaultConfig),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(
 			mcsapi.ServiceExportResource,
 			EndpointsResource,
 			LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
 			k8s.CiliumPodIPPoolResource,
-			k8s.CiliumBGPPeeringPolicyResource,
 			CiliumBGPClusterConfigResource,
 			k8s.CiliumBGPAdvertisementResource,
 			k8s.CiliumBGPPeerConfigResource,

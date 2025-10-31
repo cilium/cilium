@@ -8,11 +8,13 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	hubbleDefaults "github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	peercell "github.com/cilium/cilium/pkg/hubble/peer/cell"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -29,6 +31,9 @@ type config struct {
 	// MonitorEvents specifies Cilium monitor events for Hubble to observe. By
 	// default, Hubble observes all monitor events.
 	MonitorEvents []string `mapstructure:"hubble-monitor-events"`
+	// LostEventSendInterval specifies the interval at which lost events are
+	// sent from the Observer server, if any.
+	LostEventSendInterval time.Duration `mapstructure:"hubble-lost-event-send-interval"`
 
 	// SocketPath specifies the UNIX domain socket for Hubble server to listen
 	// to.
@@ -39,32 +44,20 @@ type config struct {
 	// PreferIpv6 controls whether IPv6 or IPv4 addresses should be preferred
 	// for communication to agents, if both are available.
 	PreferIpv6 bool `mapstructure:"hubble-prefer-ipv6"`
-
-	// EnableK8sDropEvents controls whether Hubble should create v1.Events for
-	// packet drops related to pods.
-	EnableK8sDropEvents bool `mapstructure:"hubble-drop-events"`
-	// K8sDropEventsInterval controls the minimum time between emitting events
-	// with the same source and destination IP.
-	K8sDropEventsInterval time.Duration `mapstructure:"hubble-drop-events-interval"`
-	// K8sDropEventsReasons controls which drop reasons to emit events for.
-	K8sDropEventsReasons []string `mapstructure:"hubble-drop-events-reasons"`
 }
 
 var defaultConfig = config{
 	EnableHubble: false,
 	// Hubble internals (parser, ringbuffer) configuration
-	EventBufferCapacity: observeroption.Default.MaxFlows.AsInt(),
-	EventQueueSize:      0, // see getDefaultMonitorQueueSize()
-	MonitorEvents:       []string{},
+	EventBufferCapacity:   observeroption.Default.MaxFlows.AsInt(),
+	EventQueueSize:        0, // see getDefaultMonitorQueueSize()
+	MonitorEvents:         []string{},
+	LostEventSendInterval: hubbleDefaults.LostEventSendInterval,
 	// Hubble local server configuration
 	SocketPath: hubbleDefaults.SocketPath,
 	// Hubble TCP server configuration
 	ListenAddress: "",
 	PreferIpv6:    false,
-	// Hubble k8s v1.Events integration configuration.
-	EnableK8sDropEvents:   false,
-	K8sDropEventsInterval: 2 * time.Minute,
-	K8sDropEventsReasons:  []string{"auth_required", "policy_denied"},
 }
 
 func (def config) Flags(flags *pflag.FlagSet) {
@@ -78,15 +71,12 @@ func (def config) Flags(flags *pflag.FlagSet) {
 			strings.Join(monitorAPI.AllMessageTypeNames(), " "),
 		),
 	)
+	flags.Duration("hubble-lost-event-send-interval", def.LostEventSendInterval, "Interval at which lost events are sent from the Observer server, if any.")
 	// Hubble local server configuration
 	flags.String("hubble-socket-path", def.SocketPath, "Set hubble's socket path to listen for connections")
 	// Hubble TCP server configuration
 	flags.String("hubble-listen-address", def.ListenAddress, `An additional address for Hubble server to listen to, e.g. ":4244"`)
 	flags.Bool("hubble-prefer-ipv6", def.PreferIpv6, "Prefer IPv6 addresses for announcing nodes when both address types are available.")
-	// Hubble k8s v1.Events integration configuration.
-	flags.Bool("hubble-drop-events", def.EnableK8sDropEvents, "Emit packet drop Events related to pods (alpha)")
-	flags.Duration("hubble-drop-events-interval", def.K8sDropEventsInterval, "Minimum time between emitting same events")
-	flags.StringSlice("hubble-drop-events-reasons", def.K8sDropEventsReasons, "Drop reasons to emit events for")
 }
 
 func (cfg *config) normalize() {
@@ -94,26 +84,23 @@ func (cfg *config) normalize() {
 	if cfg.EventQueueSize == 0 {
 		cfg.EventQueueSize = getDefaultMonitorQueueSize(runtime.NumCPU())
 	}
-	// Before moving the --hubble-drop-events-reasons flag to Config, it was
-	// registered as flags.String() and parsed through viper.GetStringSlice()
-	// in Cilium's DaemonConfig. In that case, viper is handling the split of
-	// the single string value into slice and it uses white spaces as
-	// separators. See also https://github.com/cilium/cilium/pull/33699 for
-	// more context.
-	//
-	// Since it moved to Config, the --hubble-drop-events-reasons flag is
-	// registered as flags.StringSlice() allowing multiple flag invocations,
-	// and splitting values using comma as separator (see
-	// https://pkg.go.dev/github.com/spf13/pflag#StringSlice). Since the
-	// reasons themselves have no commas nor white spaces, starting to split on
-	// commas should not introduce issues but we still need to handle white
-	// spaces splitting to maintain backward compatibility.
-	if len(cfg.K8sDropEventsReasons) == 1 {
-		cfg.K8sDropEventsReasons = strings.Fields(cfg.K8sDropEventsReasons[0])
-	}
 }
 
 func getDefaultMonitorQueueSize(numCPU int) int {
 	monitorQueueSize := min(numCPU*ciliumDefaults.MonitorQueueSizePerCPU, ciliumDefaults.MonitorQueueSizePerCPUMaximum)
 	return monitorQueueSize
 }
+
+// ConfigProviders provides configuration objects for Hubble components.
+// This group creates and provides configuration structs by combining
+// different configuration sources (hubble config, TLS config, etc.).
+var ConfigProviders = cell.Group(
+	// Provide HubbleConfig struct for peer service and other components
+	cell.ProvidePrivate(func(cfg config, tlsCfg certloaderConfig) *peercell.HubbleConfig {
+		return &peercell.HubbleConfig{
+			ListenAddress:   cfg.ListenAddress,
+			PreferIpv6:      cfg.PreferIpv6,
+			EnableServerTLS: !tlsCfg.DisableServerTLS,
+		}
+	}),
+)

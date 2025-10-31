@@ -25,7 +25,7 @@
 #define BACKEND_IP		v4_pod_one
 #define BACKEND_PORT		__bpf_htons(8080)
 
-#include <bpf_xdp.c>
+#include "lib/bpf_xdp.h"
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
@@ -33,19 +33,6 @@
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *lb_mac = mac_two;
-
-#define FROM_XDP	0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_XDP] = &cil_xdp_entry,
-	},
-};
 
 /* Test that a remote LB
  * - doesn't touch a NATed request,
@@ -90,10 +77,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_XDP);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "xdp_nodeport_nat_backend")

@@ -10,6 +10,9 @@
   jobs:
     call-backport-label-updater:
       name: Update backport labels for upstream PR
+      permissions:
+        pull-requests: write
+        repository-projects: read
       if: |
         github.event.pull_request.merged == true &&
         contains(github.event.pull_request.body, 'upstream-prs') &&

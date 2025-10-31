@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -68,10 +69,13 @@ type linuxNodeHandler struct {
 
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
+	ipsecAgent           datapath.IPsecAgent
 
 	enableEncapsulation func(node *nodeTypes.Node) bool
 
 	kprCfg kpr.KPRConfig
+
+	ipsecCfg datapath.IPsecConfig
 }
 
 var (
@@ -90,13 +94,14 @@ func NewNodeHandler(
 	nodeManager manager.NodeManager,
 	nodeConfigNotifier *manager.NodeConfigNotifier,
 	kprCfg kpr.KPRConfig,
+	ipsecAgent datapath.IPsecAgent,
 ) (datapath.NodeHandler, datapath.NodeIDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg)
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeTypes.IPsecConfig{})
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -118,6 +123,8 @@ func newNodeHandler(
 	datapathConfig DatapathConfiguration,
 	nodeMap nodemap.MapV2,
 	kprCfg kpr.KPRConfig,
+	ipsecAgent datapath.IPsecAgent,
+	ipsecCfg datapath.IPsecConfig,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
@@ -131,6 +138,8 @@ func newNodeHandler(
 		ipsecMetricCollector: ipsec.NewXFRMCollector(log),
 		ipsecUpdateNeeded:    map[nodeTypes.Identity]bool{},
 		kprCfg:               kprCfg,
+		ipsecAgent:           ipsecAgent,
+		ipsecCfg:             ipsecCfg,
 	}
 }
 
@@ -161,7 +170,7 @@ func createDirectRouteSpec(log *slog.Logger, CIDR *cidr.CIDR, nodeIP net.IP, ski
 
 	if routes[0].Gw != nil && !routes[0].Gw.IsUnspecified() && !routes[0].Gw.Equal(nodeIP) {
 		if skipUnreachable {
-			log.Warn("route to destination contains gateway, skipping route as not directly reachable",
+			log.Debug("route to destination contains gateway, skipping route as not directly reachable",
 				logfields.NodeIP, nodeIP,
 				logfields.GatewayIP, routes[0].Gw)
 			addRoute = false
@@ -662,22 +671,12 @@ func (n *linuxNodeHandler) replaceHostRules() error {
 				return err
 			}
 		}
-		rule.Mark = linux_defaults.RouteMarkEncrypt
-		if err := route.ReplaceRule(rule); err != nil {
-			n.log.Error("Replace IPv4 route encrypt rule failed", logfields.Error, err)
-			return err
-		}
 	}
 
 	if n.nodeConfig.EnableIPv6 {
 		rule.Mark = linux_defaults.RouteMarkDecrypt
 		if err := route.ReplaceRuleIPv6(rule); err != nil {
 			n.log.Error("Replace IPv6 route decrypt rule failed", logfields.Error, err)
-			return err
-		}
-		rule.Mark = linux_defaults.RouteMarkEncrypt
-		if err := route.ReplaceRuleIPv6(rule); err != nil {
-			n.log.Error("Replace IPv6 route ecrypt rule failed", logfields.Error, err)
 			return err
 		}
 	}
@@ -699,6 +698,11 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 
 	if err := n.updateOrRemoveNodeRoutes(prevConfig.AuxiliaryPrefixes, newConfig.AuxiliaryPrefixes, true); err != nil {
 		return fmt.Errorf("failed to update or remove node routes: %w", err)
+	}
+
+	// Clean up stale IP rules for IPsec. This can be removed in the v1.20 release.
+	if err := n.removeEncryptRules(); err != nil {
+		n.log.Warn("Cannot cleanup previous encryption rule state.", logfields.Error, err)
 	}
 
 	if newConfig.EnableIPSec {
@@ -723,10 +727,10 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		}
 		n.registerIpsecMetricOnce()
 	} else {
-		if err := n.removeEncryptRules(); err != nil {
-			n.log.Warn("Cannot cleanup previous encryption rule state.", logfields.Error, err)
+		if err := n.removeDecryptRules(); err != nil {
+			n.log.Warn("Cannot cleanup previous decryption rule state.", logfields.Error, err)
 		}
-		if err := ipsec.DeleteXFRM(n.log, ipsec.AllReqID); err != nil {
+		if err := n.ipsecAgent.DeleteXFRM(ipsec.AllReqID); err != nil {
 			return fmt.Errorf("failed to delete xfrm policies on node configuration changed: %w", err)
 		}
 	}

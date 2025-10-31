@@ -56,11 +56,11 @@ In the following example, peering status is displayed for two nodes in the clust
 .. code-block:: shell-session
 
     # cilium bgp peers
-    Node                                     Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
-    bgpv2-cplane-dev-service-control-plane   65001      65000     fd00:10::1     established     33m26s   ipv4/unicast   2          2
-                                                                                                          ipv6/unicast   2          2
-    bgpv2-cplane-dev-service-worker          65001      65000     fd00:10::1     established     33m25s   ipv4/unicast   2          2
-                                                                                                          ipv6/unicast   2          2
+    Node                                   Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
+    bgp-cplane-dev-service-control-plane   65001      65000     fd00:10::1     established     33m26s   ipv4/unicast   2          2
+                                                                                                        ipv6/unicast   2          2
+    bgp-cplane-dev-service-worker          65001      65000     fd00:10::1     established     33m25s   ipv4/unicast   2          2
+                                                                                                        ipv6/unicast   2          2
 
 
 Using this command, you can validate BGP session state is ``established`` and expected number
@@ -76,18 +76,18 @@ In the following example, the local BGP routing table for IPv4/Unicast address f
 .. code-block:: shell-session
 
     # cilium bgp routes available ipv4 unicast
-    Node                                     VRouter   Prefix        NextHop   Age      Attrs
-    bgpv2-cplane-dev-service-control-plane   65001     10.1.0.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
-    bgpv2-cplane-dev-service-worker          65001     10.1.1.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
+    Node                                   VRouter   Prefix        NextHop   Age      Attrs
+    bgp-cplane-dev-service-control-plane   65001     10.1.0.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
+    bgp-cplane-dev-service-worker          65001     10.1.1.0/24   0.0.0.0   46m45s   [{Origin: i} {Nexthop: 0.0.0.0}]
 
 Similarly, you can inspect per peer advertisements using following command.
 
 .. code-block:: shell-session
 
     # cilium bgp routes advertised ipv4 unicast
-    Node                                     VRouter   Peer         Prefix        NextHop          Age     Attrs
-    bgpv2-cplane-dev-service-control-plane   65001     fd00:10::1   10.1.0.0/24   fd00:10:0:1::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:1::2, NLRIs: [10.1.0.0/24]}}]
-    bgpv2-cplane-dev-service-worker          65001     fd00:10::1   10.1.1.0/24   fd00:10:0:2::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.1.1.0/24]}}]
+    Node                                   VRouter   Peer         Prefix        NextHop          Age     Attrs
+    bgp-cplane-dev-service-control-plane   65001     fd00:10::1   10.1.0.0/24   fd00:10:0:1::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:1::2, NLRIs: [10.1.0.0/24]}}]
+    bgp-cplane-dev-service-worker          65001     fd00:10::1   10.1.1.0/24   fd00:10:0:2::2   47m0s   [{Origin: i} {AsPath: 65001} {Communities: 65000:99} {MpReach(ipv4-unicast): {Nexthop: fd00:10:0:2::2, NLRIs: [10.1.1.0/24]}}]
 
 
 You can validate the BGP attributes are advertised based on configured :ref:`CiliumBGPAdvertisement <bgp-adverts>` resources.
@@ -146,12 +146,12 @@ node, it is managed by Cilium operator.
 Status field of ``CiliumBGPNodeConfig`` maintains real-time BGP operational state. This can be used for
 automation or monitoring purposes.
 
-In the following example, you can see BGP instance state from node ``bgpv2-cplane-dev-service-worker``.
+In the following example, you can see BGP instance state from node ``bgp-cplane-dev-service-worker``.
 
 .. code-block:: shell-session
 
-    # kubectl describe ciliumbgpnodeconfigs bgpv2-cplane-dev-service-worker
-    Name:         bgpv2-cplane-dev-service-worker
+    # kubectl describe ciliumbgpnodeconfigs bgp-cplane-dev-service-worker
+    Name:         bgp-cplane-dev-service-worker
     Namespace:
     Labels:       <none>
     Annotations:  <none>
@@ -216,7 +216,7 @@ status.
 Logs
 ====
 
-BGP Control Plane logs can be found in the Cilium operator (only for BGPv2) and the Cilium agent logs.
+BGP Control Plane logs can be found in the Cilium operator and the Cilium agent logs.
 
 The operator logs are tagged with ``subsys=bgp-cp-operator``. You can use this tag to filter
 the logs as in the following example:
@@ -248,7 +248,7 @@ speaker is integrated within the Cilium agent. The BGP session will be restored
 once the Cilium agent is restarted. However, while the Cilium agent is down,
 the advertised routes will be removed from the BGP peer. As a result, you may
 temporarily lose connectivity to the Pods or Services. You can enable the
-:ref:`Graceful Restart <bgp_control_plane_graceful_restart>` to continue
+:ref:`Graceful Restart <bgp_peer_configuration_graceful_restart>` to continue
 forwarding traffic to the Pods or Services during the agent restart.
 
 Upgrading or Downgrading Cilium
@@ -282,7 +282,7 @@ below to avoid packet loss as much as possible.
       kubectl drain <node-name> --ignore-daemonsets
 
 2. Reconfigure the BGP sessions by modifying or removing the
-   CiliumBGPPeeringPolicy or CiliumBGPClusterConfig node selector label on the Node object.
+   CiliumBGPClusterConfig node selector label on the Node object.
    This will shut down all BGP sessions on the node.
 
    .. code-block:: bash
@@ -344,7 +344,7 @@ Mitigation
 ''''''''''
 
 The recommended way to address this issue is by enabling the
-:ref:`bgp_control_plane_graceful_restart` feature. This feature allows the BGP
+:ref:`bgp_peer_configuration_graceful_restart` feature. This feature allows the BGP
 peer to retain routes for a specific period of time after the BGP session is
 lost. Since the datapath remains active even when the agent is down, this will
 prevent the loss of connectivity to the Pods or Services.
@@ -466,11 +466,17 @@ Service Losing All Backends
 
 If all service backends are gone due to an outage or a configuration mistake, BGP
 Control Plane behaves differently depending on the Service's
-``externalTrafficPolicy``. When the ``externalTrafficPolicy`` is set to
-``Cluster``, the Service's VIP remains advertised from all nodes selected by the
-``CiliumBGPPeeringPolicy`` or ``CiliumBGPClusterConfig``. When the ``externalTrafficPolicy``
-is set to ``Local``, the advertisement stops entirely because the Service's VIP is only advertised
-from the node where the Service backends are running.
+``externalTrafficPolicy`` and ``--enable-no-service-endpoints-routable`` flag.
+
+When the ``externalTrafficPolicy`` is set to ``Cluster``, then the
+Service's VIP remains advertised from all nodes selected by the
+``CiliumBGPClusterConfig`` **only** when
+``--enable-no-service-endpoints-routable`` is true (the default). If the flag is
+set to ``false`` then Service's VIP is withdrawn.
+
+When the ``externalTrafficPolicy`` is set to ``Local``, the advertisement stops
+entirely because the Service's VIP is only advertised from the node where the
+Service backends are running no matter on the value of ``--enable-no-service-endpoints-routable``.
 
 Mitigation
 ''''''''''

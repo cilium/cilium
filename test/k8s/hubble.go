@@ -24,7 +24,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 	// replacement, as the trace events depend on it. We thus run the tests
 	// on GKE and our 4.19 pipeline.
 	SkipContextIf(func() bool {
-		return helpers.RunsOnNetNextKernel() || helpers.RunsOnAKS()
+		return helpers.RunsOnNetNextKernel()
 	}, "Hubble Observe", func() {
 		var (
 			kubectl        *helpers.Kubectl
@@ -261,6 +261,15 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 			flows := getFlowsFromRelay(fmt.Sprintf(
 				"--last 1 --type trace:from-endpoint --from-pod %s/%s --to-fqdn %s",
 				namespaceForTest, appPods[helpers.App2], fqdnTarget))
+			var newFlows []*observerpb.GetFlowsResponse
+			for i := range flows {
+				// Ignore lost events, as they are not relevant to this test.
+				if flows[i].GetLostEvents() != nil {
+					continue
+				}
+				newFlows = append(newFlows, flows[i])
+			}
+			flows = newFlows
 			Expect(flows).To(HaveLen(1))
 			Expect(flows[0].GetFlow().Destination.Identity).To(BeNumerically(">=", identity.MinimalNumericIdentity))
 		})

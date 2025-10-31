@@ -32,6 +32,8 @@ import (
 
 var log = logf.RuntimeLog.WithName("source").WithName("EventHandler")
 
+var _ cache.ResourceEventHandler = &EventHandler[client.Object, any]{}
+
 // NewEventHandler creates a new EventHandler.
 func NewEventHandler[object client.Object, request comparable](
 	ctx context.Context,
@@ -57,19 +59,11 @@ type EventHandler[object client.Object, request comparable] struct {
 	predicates []predicate.TypedPredicate[object]
 }
 
-// HandlerFuncs converts EventHandler to a ResourceEventHandlerFuncs
-// TODO: switch to ResourceEventHandlerDetailedFuncs with client-go 1.27
-func (e *EventHandler[object, request]) HandlerFuncs() cache.ResourceEventHandlerFuncs {
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    e.OnAdd,
-		UpdateFunc: e.OnUpdate,
-		DeleteFunc: e.OnDelete,
-	}
-}
-
 // OnAdd creates CreateEvent and calls Create on EventHandler.
-func (e *EventHandler[object, request]) OnAdd(obj interface{}) {
-	c := event.TypedCreateEvent[object]{}
+func (e *EventHandler[object, request]) OnAdd(obj interface{}, isInInitialList bool) {
+	c := event.TypedCreateEvent[object]{
+		IsInInitialList: isInInitialList,
+	}
 
 	// Pull Object out of the object
 	if o, ok := obj.(object); ok {

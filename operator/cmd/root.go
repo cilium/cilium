@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/shell"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/operator/auth"
 	"github.com/cilium/cilium/operator/doublewrite"
 	"github.com/cilium/cilium/operator/endpointgc"
+	"github.com/cilium/cilium/operator/endpointslicegc"
 	"github.com/cilium/cilium/operator/identitygc"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
@@ -43,11 +44,11 @@ import (
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/kvstore/locksweeper"
+	"github.com/cilium/cilium/operator/pkg/kvstore/nodesgc"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
-	"github.com/cilium/cilium/operator/pkg/workqueuemetrics"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
@@ -60,7 +61,6 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
@@ -76,8 +76,6 @@ import (
 	features "github.com/cilium/cilium/pkg/metrics/features/operator"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
-	shellclient "github.com/cilium/cilium/pkg/shell/client"
-	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -152,7 +150,7 @@ var (
 		}),
 
 		// Shell for inspecting the operator. Listens on the 'shell.sock' UNIX socket.
-		shell.Cell,
+		shell.ServerCell(defaults.ShellSockPath),
 	)
 
 	// ControlPlane implements the control functions.
@@ -240,7 +238,6 @@ var (
 			endpointslicesync.Cell,
 			mcsapi.Cell,
 			locksweeper.Cell,
-			workqueuemetrics.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
@@ -271,6 +268,10 @@ var (
 			// Endpoints. Either once or periodically it validates all the present
 			// Cilium Endpoints and delete the ones that should be deleted.
 			endpointgc.Cell,
+
+			// Cilium Endpoint Slice Garbage Collector. One-off GC that deletes all CES
+			// present in a cluster when CES feature is disabled.
+			endpointslicegc.Cell,
 
 			// Integrates the controller-runtime library and provides its components via Hive.
 			controllerruntime.Cell,
@@ -312,6 +313,9 @@ var (
 			// configuration to describe, in form of prometheus metrics, which
 			// features are enabled on the operator.
 			features.Cell,
+
+			// GC of stale node entries in the KVStore
+			nodesgc.Cell,
 		),
 	)
 
@@ -366,7 +370,7 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 		MetricsCmd,
 		StatusCmd,
 		troubleshoot.Cmd,
-		shellclient.ShellCmd,
+		hive.CiliumShellCmd,
 		h.Command(),
 	)
 
@@ -426,6 +430,10 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 
 	// Register the user options in the logs
 	option.LogRegisteredSlogOptions(vp, logger)
+
+	// Create the run directory. Used at least by the shell.sock.
+	os.MkdirAll(defaults.RuntimePath, defaults.RuntimePathRights)
+
 	logger.Info("Cilium Operator", logfields.Version, version.Version)
 }
 
@@ -535,7 +543,6 @@ type params struct {
 	cell.In
 	Lifecycle                cell.Lifecycle
 	Clientset                k8sClient.Clientset
-	KVStoreClient            kvstore.Client
 	Resources                operatorK8s.Resources
 	SvcResolver              *dial.ServiceResolver
 	CfgClusterMeshPolicy     cmtypes.PolicyConfig
@@ -551,7 +558,6 @@ func registerLegacyOnLeader(p params) {
 		ctx:                      ctx,
 		cancel:                   cancel,
 		clientset:                p.Clientset,
-		kvstoreClient:            p.KVStoreClient,
 		resources:                p.Resources,
 		cfgClusterMeshPolicy:     p.CfgClusterMeshPolicy,
 		workqueueMetricsProvider: p.WorkQueueMetricsProvider,
@@ -569,7 +575,6 @@ type legacyOnLeader struct {
 	ctx                      context.Context
 	cancel                   context.CancelFunc
 	clientset                k8sClient.Clientset
-	kvstoreClient            kvstore.Client
 	wg                       sync.WaitGroup
 	resources                operatorK8s.Resources
 	cfgClusterMeshPolicy     cmtypes.PolicyConfig
@@ -611,11 +616,6 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 		}()
 	}
 
-	var (
-		nodeManager allocator.NodeEventHandler
-		withKVStore bool
-	)
-
 	legacy.logger.InfoContext(ctx,
 		"Initializing IPAM",
 		logfields.Mode, option.Config.IPAM,
@@ -649,11 +649,17 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to start %s allocator", ipamMode), logfields.Error, err)
 		}
 
-		nodeManager = nm
-	}
+		legacy.wg.Go(func() {
+			// The NodeEventHandler uses operatorWatchers.PodStore for IPAM surge allocation.
+			podStore, err := legacy.resources.Pods.Store(legacy.ctx)
+			if err != nil {
+				logging.Fatal(legacy.logger, "Unable to retrieve Pod store from Pod resource watcher", logfields.Error, err)
+			}
+			operatorWatchers.PodStore = podStore.CacheStore()
 
-	if legacy.kvstoreClient.IsEnabled() && legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sNodes {
-		withKVStore = true
+			withResync := option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMMultiPool
+			watchCiliumNodes(legacy.ctx, legacy.resources.CiliumNodes, nm, withResync)
+		})
 	}
 
 	if legacy.clientset.IsEnabled() &&
@@ -671,43 +677,11 @@ func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 			watcherLogger)
 	}
 
-	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.logger, legacy.clientset, legacy.kvstoreClient, nodeManager, withKVStore, legacy.workqueueMetricsProvider)
-
 	if legacy.clientset.IsEnabled() {
-		// ciliumNodeSynchronizer uses operatorWatchers.PodStore for IPAM surge
-		// allocation. Initializing PodStore from Pod resource is temporary until
-		// ciliumNodeSynchronizer is migrated to a cell.
-		podStore, err := legacy.resources.Pods.Store(legacy.ctx)
-		if err != nil {
-			logging.Fatal(legacy.logger, "Unable to retrieve Pod store from Pod resource watcher", logfields.Error, err)
-		}
-		operatorWatchers.PodStore = podStore.CacheStore()
-
-		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg, podStore); err != nil {
-			logging.Fatal(legacy.logger, "Unable to setup cilium node synchronizer", logfields.Error, err)
-		}
-
 		if operatorOption.Config.NodesGCInterval != 0 {
-			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore,
-				operatorOption.Config.NodesGCInterval, watcherLogger)
+			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, legacy.resources.CiliumNodes,
+				operatorOption.Config.NodesGCInterval, watcherLogger, legacy.workqueueMetricsProvider)
 		}
-	}
-
-	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMMultiPool {
-		// We will use CiliumNodes as the source of truth for the podCIDRs.
-		// Once the CiliumNodes are synchronized with the operator we will
-		// be able to watch for K8s Node events which they will be used
-		// to create the remaining CiliumNodes.
-		<-ciliumNodeSynchronizer.ciliumNodeManagerQueueSynced
-
-		// We don't want CiliumNodes that don't have podCIDRs to be
-		// allocated with a podCIDR already being used by another node.
-		// For this reason we will call Resync after all CiliumNodes are
-		// synced with the operator to signal the node manager, since it
-		// knows all podCIDRs that are currently set in the cluster, that
-		// it can allocate podCIDRs for the nodes that don't have a podCIDR
-		// set.
-		nodeManager.Resync(legacy.ctx, time.Time{})
 	}
 
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||

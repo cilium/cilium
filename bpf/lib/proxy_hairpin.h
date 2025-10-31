@@ -10,7 +10,6 @@
 #include "eth.h"
 #include "dbg.h"
 #include "trace.h"
-#include "csum.h"
 #include "l3.h"
 #include "l4.h"
 
@@ -27,7 +26,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 	union macaddr host_mac = CILIUM_HOST_MAC;
-	union macaddr router_mac = THIS_INTERFACE_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
 #endif
 	int ret = 0;
 

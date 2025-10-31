@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 type MTUConfiguration interface {
@@ -69,6 +70,11 @@ type LocalNodeConfiguration struct {
 	//
 	// Immutable at runtime.
 	ServiceLoopbackIPv4 net.IP
+
+	// ServiceLoopbackIPv6 is the source address used for SNAT when a Pod talks to itself
+	// over a Service.
+	// Immutable at runtime.
+	ServiceLoopbackIPv6 net.IP
 
 	// Devices is the native network devices selected for datapath use.
 	// Mutable at runtime.
@@ -166,11 +172,11 @@ type LocalNodeConfiguration struct {
 	// device and to cilium_wg0.
 	EnableWireguard bool
 
+	// Index of the cilium_wg0 interface if enabled.
+	WireguardIfIndex uint32
+
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
-
-	// EnableIPSecEncryptedOverlay enables IPSec routes for overlay traffic
-	EnableIPSecEncryptedOverlay bool
 
 	// EncryptNode enables encrypting NodeIP traffic
 	EncryptNode bool
@@ -197,6 +203,8 @@ type LocalNodeConfiguration struct {
 	MaglevConfig maglev.Config
 
 	KPRConfig kpr.KPRConfig
+
+	SvcRouteConfig svcrouteconfig.RoutesConfig
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {

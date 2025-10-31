@@ -2,7 +2,7 @@
 
 ## clustermesh-apiserver shell
 
-Connect to the Cilium shell
+Connect to the shell
 
 ```
 clustermesh-apiserver shell [command] [args]... [flags]
@@ -11,7 +11,8 @@ clustermesh-apiserver shell [command] [args]... [flags]
 ### Options
 
 ```
-  -h, --help   help for shell
+  -h, --help                     help for shell
+      --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
 ### SEE ALSO

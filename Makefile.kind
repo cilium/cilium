@@ -44,69 +44,53 @@ kind-ipv6: ## Create an ipv6 only kind cluster for Cilium development.
 kind-dual: ## Create a dual stack kind cluster for Cilium development.
 	$(QUIET)SED=$(SED) IPFAMILY=dual PODSUBNET=10.1.0.0/16,fd00:10:1::/48 SERVICESUBNET=172.20.1.0/24,fd00:10:f1::/112 ./contrib/scripts/kind.sh
 
-.PHONY: kind-bgp-v4
-kind-bgp-v4:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 deploy
+.PHONY: kind-bgp-service
+kind-bgp-service:
+	$(QUIET) $(MAKE) -C contrib/containerlab/service deploy
 
-.PHONY: kind-bgp-v4-down
-kind-bgp-v4-down:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 destroy
+.PHONY: kind-bgp-service-down
+kind-bgp-service-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/service destroy
 
-.PHONY: kind-bgp-v4-apply-policy
-kind-bgp-v4-apply-policy:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 apply-policy
+.PHONY: kind-bgp-service-apply-bgp
+kind-bgp-service-apply-bgp:
+	$(QUIET) $(MAKE) -C contrib/containerlab/service apply-bgp
 
-.PHONY: kind-bgp-v6
-kind-bgp-v6:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 deploy
+.PHONY: kind-bgp-service-apply-service
+kind-bgp-service-apply-service:
+	$(QUIET) $(MAKE) -C contrib/containerlab/service apply-service
 
-.PHONY: kind-bgp-v6-down
-kind-bgp-v6-down:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 destroy
+.PHONY: kind-bgp-service-apply-lb
+kind-bgp-service-apply-lb:
+	$(QUIET) $(MAKE) -C contrib/containerlab/service apply-lb
 
-.PHONY: kind-bgp-v6-apply-policy
-kind-bgp-v6-apply-policy:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 apply-policy
+.PHONY: kind-bgp-dg-service
+kind-bgp-dg-service:
+	$(QUIET) $(MAKE) -C contrib/containerlab/auto-discovery/default-gateway/service deploy
 
-.PHONY: kind-bgp-dual
-kind-bgp-dual:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual deploy
+.PHONY: kind-bgp-dg-service-down
+kind-bgp-dg-service-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/auto-discovery/default-gateway/service destroy
 
-.PHONY: kind-bgp-dual-down
-kind-bgp-dual-down:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual destroy
+.PHONY: kind-bgp-dg-service-apply-bgp
+kind-bgp-dg-service-apply-bgp:
+	$(QUIET) $(MAKE) -C contrib/containerlab/auto-discovery/default-gateway/service apply-bgp
 
-.PHONY: kind-bgp-dual-apply-policy
-kind-bgp-dual-apply-policy:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual apply-policy
+.PHONY: kind-bgp-dg-service-apply-service
+kind-bgp-dg-service-apply-service:
+	$(QUIET) $(MAKE) -C contrib/containerlab/auto-discovery/default-gateway/service apply-service
 
-.PHONY: kind-bgpv2-dg-service
-kind-bgpv2-dg-service:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/service deploy
+.PHONY: kind-bgp-dg-multi-homing
+kind-bgp-dg-multi-homing:
+	$(QUIET) $(MAKE) -C contrib/containerlab/auto-discovery/default-gateway/multi-homing deploy
 
-.PHONY: kind-bgpv2-dg-service-down
-kind-bgpv2-dg-service-down:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/service destroy
+.PHONY: kind-bgp-dg-multi-homing-down
+kind-bgp-dg-multi-homing-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/auto-discovery/default-gateway/multi-homing destroy
 
-.PHONY: kind-bgpv2-dg-service-apply-bgp
-kind-bgpv2-dg-service-apply-bgp:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/service apply-bgp
-
-.PHONY: kind-bgpv2-dg-service-apply-policy
-kind-bgpv2-dg-service-apply-service:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/service apply-service
-
-.PHONY: kind-bgpv2-dg-multi-homing
-kind-bgpv2-dg-multi-homing:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/multi-homing deploy
-
-.PHONY: kind-bgpv2-dg-multi-homing-down
-kind-bgpv2-dg-multi-homing-down:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/multi-homing destroy
-
-.PHONY: kind-bgpv2-dg-multi-homing-apply-bgp
-kind-bgpv2-dg-multi-homing-apply-bgp:
-	$(QUIET) $(MAKE) -C contrib/containerlab/bgpv2/auto-discovery/default-gateway/multi-homing apply-bgp
+.PHONY: kind-bgp-dg-multi-homing-apply-bgp
+kind-bgp-dg-multi-homing-apply-bgp:
+	$(QUIET) $(MAKE) -C contrib/containerlab/auto-discovery/default-gateway/multi-homing apply-bgp
 
 
 # Template for kind environment for a target. Parameters are:
@@ -140,7 +124,7 @@ $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
 	-$(CILIUM_CLI) --context=kind-clustermesh1 uninstall >/dev/null
-	$(CILIUM_CLI) --context=kind-clustermesh1 install \
+	$(CILIUM_CLI) --context=kind-clustermesh1 install --wait \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
 		--set=image.override=$(LOCAL_AGENT_IMAGE) \
@@ -152,7 +136,7 @@ kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a 
 	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
 	$(KUBECTL) --context=kind-clustermesh1 get secret -n kube-system cilium-ca -o yaml | \
 		$(KUBECTL) --context=kind-clustermesh2 replace --force -f -
-	$(CILIUM_CLI) --context=kind-clustermesh2 install \
+	$(CILIUM_CLI) --context=kind-clustermesh2 install --wait \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
 		--set=image.override=$(LOCAL_AGENT_IMAGE) \
@@ -249,6 +233,7 @@ kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium
 			kind load docker-image quay.io/cilium/cilium-ci:latest -n $$cluster_name --nodes $$node; \
 		done; \
 		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
+		sleep 5; \
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \
 			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 			$(KIND_VALUES_FAST_FILES) \
@@ -376,7 +361,7 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 
 GW_VERSION ?= $(shell grep "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
 # Set this to "standard" to use the standard CRDs instead
-GW_CHANNEL ?= "experimental"
+GW_CHANNEL ?= experimental
 KIND_NET_CIDR ?= $(shell docker network inspect kind-cilium -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
 LB_CIDR ?= $(shell echo $(KIND_NET_CIDR) | sed "s@0.0/16@255.200\/28@" | sed -e 's/[\/&]/\\&/g')
 
@@ -387,12 +372,12 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
@@ -414,12 +399,12 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 .PHONY: kind-servicemesh-prereqs
 kind-servicemesh-prereqs: check_deps kind-ready
 	@echo "  SETUP Servicemesh"
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gatewayclasses.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_gateways.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
 	$(eval KIND_VALUES_FAST_FILES += --helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml)
 

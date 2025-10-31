@@ -67,21 +67,21 @@ var (
 	disconnectionsMetric = expstats.RegisterInt64Count(expstats.MetricDescriptor{
 		Name:        "grpc.lb.pick_first.disconnections",
 		Description: "EXPERIMENTAL. Number of times the selected subchannel becomes disconnected.",
-		Unit:        "disconnection",
+		Unit:        "{disconnection}",
 		Labels:      []string{"grpc.target"},
 		Default:     false,
 	})
 	connectionAttemptsSucceededMetric = expstats.RegisterInt64Count(expstats.MetricDescriptor{
 		Name:        "grpc.lb.pick_first.connection_attempts_succeeded",
 		Description: "EXPERIMENTAL. Number of successful connection attempts.",
-		Unit:        "attempt",
+		Unit:        "{attempt}",
 		Labels:      []string{"grpc.target"},
 		Default:     false,
 	})
 	connectionAttemptsFailedMetric = expstats.RegisterInt64Count(expstats.MetricDescriptor{
 		Name:        "grpc.lb.pick_first.connection_attempts_failed",
 		Description: "EXPERIMENTAL. Number of failed connection attempts.",
-		Unit:        "attempt",
+		Unit:        "{attempt}",
 		Labels:      []string{"grpc.target"},
 		Default:     false,
 	})
@@ -283,7 +283,7 @@ func (b *pickfirstBalancer) UpdateClientConnState(state balancer.ClientConnState
 		newAddrs = state.ResolverState.Addresses
 		if cfg.ShuffleAddressList {
 			newAddrs = append([]resolver.Address{}, newAddrs...)
-			internal.RandShuffle(len(endpoints), func(i, j int) { endpoints[i], endpoints[j] = endpoints[j], endpoints[i] })
+			internal.RandShuffle(len(newAddrs), func(i, j int) { newAddrs[i], newAddrs[j] = newAddrs[j], newAddrs[i] })
 		}
 	}
 
@@ -351,6 +351,13 @@ func (b *pickfirstBalancer) ExitIdle() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.state == connectivity.Idle {
+		// Move the balancer into CONNECTING state immediately. This is done to
+		// avoid staying in IDLE if a resolver update arrives before the first
+		// SubConn reports CONNECTING.
+		b.updateBalancerState(balancer.State{
+			ConnectivityState: connectivity.Connecting,
+			Picker:            &picker{err: balancer.ErrNoSubConnAvailable},
+		})
 		b.startFirstPassLocked()
 	}
 }
@@ -604,7 +611,7 @@ func (b *pickfirstBalancer) updateSubConnState(sd *scData, newState balancer.Sub
 		if !b.addressList.seekTo(sd.addr) {
 			// This should not fail as we should have only one SubConn after
 			// entering READY. The SubConn should be present in the addressList.
-			b.logger.Errorf("Address %q not found address list in  %v", sd.addr, b.addressList.addresses)
+			b.logger.Errorf("Address %q not found address list in %v", sd.addr, b.addressList.addresses)
 			return
 		}
 		if !b.healthCheckingEnabled {

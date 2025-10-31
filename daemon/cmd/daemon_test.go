@@ -20,14 +20,20 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/dial"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
+	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
+	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
+	"github.com/cilium/cilium/pkg/ipam"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -44,7 +50,7 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
-	"github.com/cilium/cilium/pkg/promise"
+	policyUtils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -53,15 +59,18 @@ type DaemonSuite struct {
 	hive *hive.Hive
 	log  *slog.Logger
 
-	d *Daemon
-
 	// oldPolicyEnabled is the policy enforcement mode that was set before the test,
 	// as returned by policy.GetPolicyEnabled().
 	oldPolicyEnabled string
 
+	identityAllocator  identitycell.CachingIdentityAllocator
+	policyRepository   policy.PolicyRepository
 	PolicyImporter     policycell.PolicyImporter
 	envoyXdsServer     envoy.XDSServer
+	endpointManager    endpointmanager.EndpointManager
 	endpointAPIManager endpointapi.EndpointAPIManager
+	endpointCreator    endpointcreator.EndpointCreator
+	ipamManager        *ipam.IPAM
 }
 
 func setupTestDirectories() string {
@@ -70,13 +79,13 @@ func setupTestDirectories() string {
 		panic("TempDir() failed.")
 	}
 
-	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0777)
+	err = os.Mkdir(filepath.Join(tempRunDir, "globals"), 0o777)
 	if err != nil {
 		panic("Mkdir failed")
 	}
 
 	socketDir := envoy.GetSocketDir(tempRunDir)
-	err = os.MkdirAll(socketDir, 0700)
+	err = os.MkdirAll(socketDir, 0o700)
 	if err != nil {
 		panic("creating envoy socket directory failed")
 	}
@@ -109,7 +118,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
-	var daemonPromise promise.Promise[*Daemon]
 	ds.hive = hive.New(
 		cell.Provide(
 			func(log *slog.Logger) k8sClient.Clientset {
@@ -131,6 +139,7 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 		),
 		fakeDatapath.Cell,
 		neighbor.ForwardableIPCell,
+		reconciler.TableCell,
 		cell.Provide(neighbor.NewCommonTestConfig(true, false)),
 		prefilter.Cell,
 		monitorAgent.Cell,
@@ -138,8 +147,8 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 		ControlPlane,
 		metrics.Cell,
 		store.Cell,
-		cell.Invoke(func(p promise.Promise[*Daemon]) {
-			daemonPromise = p
+		cell.Invoke(func(legacy.DaemonInitialization) {
+			// with dry-run enabled it's enough to depend on DaemonInitialization
 		}),
 		cell.Invoke(func(pi policycell.PolicyImporter) {
 			ds.PolicyImporter = pi
@@ -149,6 +158,21 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 		}),
 		cell.Invoke(func(endpointAPIManager endpointapi.EndpointAPIManager) {
 			ds.endpointAPIManager = endpointAPIManager
+		}),
+		cell.Invoke(func(identityAllocator identitycell.CachingIdentityAllocator) {
+			ds.identityAllocator = identityAllocator
+		}),
+		cell.Invoke(func(policyRepository policy.PolicyRepository) {
+			ds.policyRepository = policyRepository
+		}),
+		cell.Invoke(func(endpointCreator endpointcreator.EndpointCreator) {
+			ds.endpointCreator = endpointCreator
+		}),
+		cell.Invoke(func(ipamManager *ipam.IPAM) {
+			ds.ipamManager = ipamManager
+		}),
+		cell.Invoke(func(endpointManager endpointmanager.EndpointManager) {
+			ds.endpointManager = endpointManager
 		}),
 	)
 
@@ -163,16 +187,13 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 	err := ds.hive.Start(ds.log, ctx)
 	require.NoError(tb, err)
 
-	ds.d, err = daemonPromise.Await(ctx)
-	require.NoError(tb, err)
-
-	ds.d.policy.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+	ds.policyRepository.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	// Ensure that the identity allocator is synchronized before starting the
 	// actual tests, to prevent flakes caused by the goroutine started by
 	// [(*CachingIdentityAllocator).InitIdentityAllocator] still lingering
 	// around when the Hive gets stopped.
-	ds.d.identityAllocator.WaitForInitialGlobalIdentities(tb.Context())
+	ds.identityAllocator.WaitForInitialGlobalIdentities(tb.Context())
 
 	// Reset the most common endpoint states before each test.
 	for _, s := range []string{
@@ -197,8 +218,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 
 		err := ds.hive.Stop(ds.log, ctx)
 		require.NoError(tb, err)
-
-		ds.d.Close()
 	})
 
 	return ds
@@ -227,7 +246,7 @@ func (ds *DaemonSuite) setupConfigOptions() {
 // convenience wrapper that adds a single policy
 func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {
 	ds.updatePolicy(&policyTypes.PolicyUpdate{
-		Rules: rules,
+		Rules: policyUtils.RulesToPolicyEntries(rules),
 	})
 }
 

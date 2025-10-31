@@ -1,18 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Hubble
 
+.DEFAULT_GOAL := all
+
 CURR_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
 
 include $(CURR_DIR)/../Makefile.defs
 # Add the ability to override variables
--include Makefile.override
+-include $(CURR_DIR)/Makefile.override
 
 TARGET := hubble
 
+.PHONY: all
 all: $(TARGET)
-
-.PHONY: all $(TARGET) release local-release clean
-
 
 SUBDIRS_HUBBLE_CLI := .
 TARGET_DIR=.
@@ -20,21 +20,21 @@ TARGET_DIR=.
 GIT_BRANCH = $(shell command -v git >/dev/null 2>&1 && git rev-parse --abbrev-ref HEAD 2> /dev/null)
 GIT_HASH = $(shell command -v git >/dev/null 2>&1 && git rev-parse --short HEAD 2> /dev/null)
 
-GOOS ?=
-GOARCH ?=
-
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/hubble/pkg.GitBranch=$(GIT_BRANCH)" \
 					-X "github.com/cilium/cilium/hubble/pkg.GitHash=$(GIT_HASH)" \
 					-X "github.com/cilium/cilium/hubble/pkg.Version=v$(VERSION)"
 
+.PHONY: $(TARGET)
 $(TARGET):
-	GOOS=$(GOOS) GOARCH=$(GOARCH) $(GO_BUILD) -o $(TARGET_DIR)/$(@)$(EXT) $(SUBDIRS_HUBBLE_CLI)
+	$(GO_BUILD) -o $(TARGET_DIR)/$(@)$(EXT) $(SUBDIRS_HUBBLE_CLI)
 
+.PHONY: release
 release:
 	cd $(CURR_DIR)/../ && \
 	$(CONTAINER_ENGINE) run --rm --workdir /cilium --volume `pwd`:/cilium --user "$(shell id -u):$(shell id -g)" \
 		$(CILIUM_BUILDER_IMAGE) sh -c "$(MAKE) -C $(TARGET) local-release"
 
+.PHONY: local-release
 local-release: clean
 	set -o errexit; \
 	for OS in darwin linux windows; do \
@@ -62,5 +62,22 @@ local-release: clean
 		rm -r release/$$OS; \
 	done;
 
+.PHONY: install
+install: install-binary install-bash-completion
+
+.PHONY: install-binary
+install-binary: $(TARGET)
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+
+.PHONY: install-bash-completion
+install-bash-completion: $(TARGET)
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(CONFDIR)/bash_completion.d
+	./$(TARGET) completion bash > $(TARGET)_bash_completion
+	$(QUIET)$(INSTALL) -m 0644 -T $(TARGET)_bash_completion $(DESTDIR)$(CONFDIR)/bash_completion.d/$(TARGET)
+
+.PHONY: clean
 clean:
-	rm -f $(TARGET)
+	@$(ECHO_CLEAN)
+	-$(QUIET)rm -f $(TARGET)
+	$(QUIET)$(GO_CLEAN)

@@ -2,27 +2,73 @@ name: Conformance EKS (ci-eks)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  workflow_call:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+        type: string
+      UID:
+        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
+        required: false
+        default: 1
+        type: number
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+        type: string
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+        type: string
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+        type: string
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+        type: string
+      is-workflow-call:
+        description: "Distinguish if it's a workflow_call event."
+        required: false
+        type: boolean
+        default: true
+      test-concurrency:
+        description: "Count of namespaces to perform the connectivity tests in parallel."
+        required: false
+        type: number
+        default: 3
+    secrets:
+      AWS_PR_ASSUME_ROLE:
+        required: true
+
   workflow_dispatch:
     inputs:
       PR-number:
         description: "Pull request number."
         required: true
+      UID:
+        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
+        required: false
+        default: 1
       context-ref:
         description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
         required: true
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
-  push:
-    branches:
-      - 'renovate/main-**'
-  # Run every 8 hours
+  # Run every 12 hours
   schedule:
-    - cron:  '0 1/8 * * *'
+    - cron:  '0 1/12 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -41,30 +87,36 @@ permissions:
 concurrency:
   # Structure:
   # - Workflow name
+  #   For workflow_call events, this is the name of the *parent* workflow.
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
-  #   - workflow_dispatch: PR number
+  #   - workflow_dispatch: PR number.
+  # The 'eks' suffix added to both schedule and workflow_dispatch ensures
+  # that for workflow_call events it doesn't conflict with other potential
+  # parallel workflow_call done to other workflows from the same parent
+  # workflow. As otherwise the group name would be identical.
   #
   # This structure ensures a unique concurrency group name is generated for each
   # type of testing, such that re-runs will cancel the previous run.
   group: |
     ${{ github.workflow }}
+    eks
     ${{ github.event_name }}
     ${{
-      (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
+    ${{ inputs.UID }}
   cancel-in-progress: true
 
 env:
-  test_concurrency: 3
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  test_concurrency: ${{ inputs.test-concurrency || 3 }}
+  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.214.0
+  eksctl_version: v0.215.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.33.4
+  kubectl_version: v1.34.1
 
 jobs:
   echo-inputs:
@@ -141,7 +193,7 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: us-west-1
@@ -150,6 +202,23 @@ jobs:
         id: set-matrix
         run: |
           cp /tmp/matrix.json /tmp/result.json
+
+          # Check if ipsec is requested via extra-args
+          IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
+          if [[ "$IPSEC" == "true" ]]; then
+            echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
+            jq '.include |= map(. + {"ipsec": true})' /tmp/result.json > /tmp/result.json.tmp
+            mv /tmp/result.json.tmp /tmp/result.json
+          fi
+
+          # Check if KPR is requested via extra-args
+          KPR=$(echo '${{ inputs.extra-args }}' | jq -r '.["kpr"] // false')
+          if [[ "$KPR" == "true" ]]; then
+            echo "::notice::KPR enabled - setting kpr=true for all matrix entries"
+            jq '.include |= map(. + {"kpr": true})' /tmp/result.json > /tmp/result.json.tmp
+            mv /tmp/result.json.tmp /tmp/result.json
+          fi
+
           jq -c '.include[]' /tmp/matrix.json | while read i; do
             VERSION=$(echo $i | jq -r '.version')
             aws eks describe-cluster-versions | jq -r '.clusterVersions[].clusterVersion' > /tmp/output
@@ -223,7 +292,7 @@ jobs:
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=cluster.name=${{ env.clusterName }} \
             --helm-set=hubble.relay.enabled=true \
-            --helm-set loadBalancer.l7.backend=envoy \
+            --helm-set=loadBalancer.l7.backend=envoy \
             --wait=false"
           if [[ "${{ matrix.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
@@ -233,6 +302,19 @@ jobs:
           fi
           if [[ "${{ matrix.aws-eni-pd }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set eni.awsEnablePrefixDelegation=true"
+          fi
+
+          ADV_FEAT=$(echo '${{ inputs.extra-args }}' | jq -r '.["advanced-features"] // false')
+          if [[ "$ADV_FEAT" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
+              --helm-set enableIPv4Masquerade=true \
+              --helm-set localRedirectPolicy=true \
+              --helm-set egressGateway.enabled=true"
+          fi
+
+          WG=$(echo '${{ inputs.extra-args }}' | jq -r '.["wireguard"] // false')
+          if [[ "$WG" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=wireguard"
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
@@ -257,7 +339,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -279,7 +361,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@746083db48591ffbebd37743873a91a13a6b04b8 # v0.18.6
+        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -375,20 +457,34 @@ jobs:
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ join(matrix.*, '-') }}"
+          artifacts_suffix: "${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
 
   merge-upload-and-status:
     name: Merge Upload and Status
-    if: ${{ always() }}
-    needs: installation-and-connectivity
+    if: ${{ always() && !inputs.is-workflow-call }}
+    needs: [generate-matrix, installation-and-connectivity]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.installation-and-connectivity.result }}
+      # The generate-matrix can be legitimately empty on older branches, so we
+      # consider that as success. On older branches the generated matrix will
+      # get fewer entries since the k8s versions will reach EOL and get removed
+      # from the matrix.
+      success: >-
+        ${{
+          needs.generate-matrix.result == 'success' &&
+        (
+          needs.installation-and-connectivity.result == 'success'
+          ||
+          (
+            needs.generate-matrix.outputs.empty == 'true' &&
+            github.ref_name != github.event.repository.default_branch
+          )
+        ) }}
 
   cleanup:
     name: Cleanup EKS Clusters
@@ -409,7 +505,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}

@@ -13,10 +13,7 @@ import (
 )
 
 func TestGlobalServiceExportCache(t *testing.T) {
-	metrics := NewMetrics()
-	globalServiceExports := NewGlobalServiceExportCache(
-		metrics.TotalGlobalServiceExports.WithLabelValues("foo"),
-	)
+	globalServiceExports := NewGlobalServiceExportCache()
 
 	globalServiceExports.OnUpdate(&mcsapitypes.MCSAPIServiceSpec{
 		Cluster:   "cluster1",

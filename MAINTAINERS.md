@@ -11,6 +11,7 @@ to learn how to level up through the project.
  * [Aditi Ghag] (Isovalent)
  * [Alexandre Perrin] (Isovalent)
  * [André Martins] (Isovalent)
+ * [Arthur Outhenin-Chalandre] (Ledger)
  * [Bill Mulligan] (Isovalent)
  * [Bruno M. Custódio] (Isovalent)
  * [Casey Callendrello] (Isovalent)
@@ -78,6 +79,7 @@ project.
 [Aditi Ghag]: https://github.com/aditighag
 [Alexandre Perrin]: https://github.com/kaworu
 [André Martins]: https://github.com/aanm
+[Arthur Outhenin-Chalandre]: https://github.com/MrFreezeex
 [Beatriz Martínez]: https://github.com/b3a-dev
 [Bill Mulligan]: https://github.com/xmulligan
 [Bruno M. Custódio]: https://github.com/bmcustodio

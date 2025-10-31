@@ -28,6 +28,7 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
@@ -75,6 +76,7 @@ func TestScript(t *testing.T) {
 			h := hive.New(
 				k8sClient.FakeClientCell(),
 				daemonk8s.ResourcesCell,
+				cell.Config(envoyCfg.SecretSyncConfig{}),
 				daemonk8s.TablesCell,
 				metrics.Cell,
 
@@ -84,21 +86,20 @@ func TestScript(t *testing.T) {
 				maglev.Cell,
 				node.LocalNodeStoreTestCell,
 				cell.Provide(
+					func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 					func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg },
 					tables.NewNodeAddressTable,
 					statedb.RWTable[tables.NodeAddress].ToTable,
 					source.NewSources,
 					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:                      true,
-							EnableIPv6:                      true,
-							EnableHealthCheckLoadBalancerIP: true,
+							EnableIPv4: true,
+							EnableIPv6: true,
 						}
 					},
 					func() kpr.KPRConfig {
 						return kpr.KPRConfig{
 							KubeProxyReplacement: true,
-							EnableNodePort:       true,
 						}
 					},
 				),
@@ -111,6 +112,7 @@ func TestScript(t *testing.T) {
 			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
 			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
 			flags.Set("bpf-lb-maglev-table-size", "1021")
+			flags.Set("enable-health-check-loadbalancer-ip", "true")
 
 			// Parse the shebang arguments in the script.
 			require.NoError(t, flags.Parse(args), "flags.Parse")

@@ -139,10 +139,10 @@ func TestPrivilegedReload(t *testing.T) {
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
 	tmp := testutils.TempBPFFS(t)
 
-	for range 2 {
-		spec, err := bpf.LoadCollectionSpec(logger, objPath)
-		require.NoError(t, err)
+	spec, err := ebpf.LoadCollectionSpec(objPath)
+	require.NoError(t, err)
 
+	for range 2 {
 		coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{Maps: ebpf.MapOptions{PinPath: tmp}},
 		})
@@ -287,12 +287,12 @@ func BenchmarkPrivilegedReplaceDatapath(b *testing.B) {
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
 
-	for b.Loop() {
-		spec, err := bpf.LoadCollectionSpec(logger, objPath)
-		if err != nil {
-			b.Fatal(err)
-		}
+	spec, err := ebpf.LoadCollectionSpec(objPath)
+	if err != nil {
+		b.Fatal(err)
+	}
 
+	for b.Loop() {
 		coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{Maps: ebpf.MapOptions{PinPath: tmp}},
 		})

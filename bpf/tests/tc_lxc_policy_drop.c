@@ -19,24 +19,11 @@
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *server_mac = mac_two;
 
-#include "bpf_lxc.c"
+#include "lib/bpf_lxc.h"
 
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
 
 #include "lib/policy.h"
-
-#define FROM_CONTAINER 0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_CONTAINER] = &cil_from_container,
-	},
-};
 
 /* Test that a packet drop results in BPF metric counters increament.
  */
@@ -74,10 +61,7 @@ int tc_lxc_policy_drop__setup(struct __ctx_buff *ctx)
 {
 	policy_add_egress_deny_all_entry();
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "tc_lxc_policy_drop")

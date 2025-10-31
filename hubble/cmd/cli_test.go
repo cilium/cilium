@@ -8,6 +8,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -40,6 +41,12 @@ var observeRawFilterOut = `allowlist:
 denylist:
     - '{"source_ip":["1.1.1.1"]}'
 `
+
+func normalizeNewlines(content string) string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	content = strings.ReplaceAll(content, "\r", "\n")
+	return content
+}
 
 func TestTestHubbleObserve(t *testing.T) {
 	tests := []struct {
@@ -116,7 +123,7 @@ Use "hubble [command] --help" for more information about a command.
 			cli.SetArgs(tt.args)
 			err := cli.Execute()
 			require.Equal(t, tt.expectErr, err)
-			output := b.String()
+			output := normalizeNewlines(b.String())
 			if tt.expectedOutput != "" {
 				assert.Equal(t, tt.expectedOutput, output, "expected output does not match")
 			}

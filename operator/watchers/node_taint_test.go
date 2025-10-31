@@ -654,3 +654,44 @@ func TestTaintNodeCiliumDown(t *testing.T) {
 	}, 1*time.Second)
 	require.Error(t, err, "no patch should have been received; code should short-circuit")
 }
+
+// TestNodeHasCiliumPodWithDeletedFinalStateUnknown tests that nodeHasCiliumPod
+// correctly handles cache.DeletedFinalStateUnknown objects.
+func TestNodeHasCiliumPodWithDeletedFinalStateUnknown(t *testing.T) {
+	// Create a ready Cilium pod
+	ciliumPod := &slim_corev1.Pod{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "cilium-pod",
+			Namespace: "kube-system",
+		},
+		Spec: slim_corev1.PodSpec{
+			NodeName: "test-node",
+		},
+		Status: slim_corev1.PodStatus{
+			Conditions: []slim_corev1.PodCondition{
+				{
+					Type:   slim_corev1.PodReady,
+					Status: slim_corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+
+	// First add the pod normally to the store
+	err := ciliumPodsStore.Add(ciliumPod)
+	require.NoError(t, err)
+
+	// Verify the pod is detected as scheduled and ready
+	scheduled, ready := nodeHasCiliumPod("test-node")
+	require.True(t, scheduled, "Pod should be scheduled")
+	require.True(t, ready, "Pod should be ready")
+
+	// Clean up
+	err = ciliumPodsStore.Delete(ciliumPod)
+	require.NoError(t, err)
+
+	// Verify the pod is no longer detected
+	scheduled, ready = nodeHasCiliumPod("test-node")
+	require.False(t, scheduled, "Deleted pod should not be scheduled")
+	require.False(t, ready, "Deleted pod should not be ready")
+}

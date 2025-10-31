@@ -2,7 +2,6 @@ package netlink
 
 import (
 	"encoding/binary"
-	"log"
 	"net"
 	"syscall"
 
@@ -516,8 +515,6 @@ func (result *IPSetResult) unserialize(msg []byte) {
 			result.ProtocolMinVersion = attr.Value[0]
 		case nl.IPSET_ATTR_MARKMASK:
 			result.MarkMask = attr.Uint32()
-		default:
-			log.Printf("unknown ipset attribute from kernel: %+v %v", attr, attr.Type&nl.NLA_TYPE_MASK)
 		}
 	}
 }
@@ -547,8 +544,6 @@ func (result *IPSetResult) parseAttrData(data []byte) {
 					result.Entries = append(result.Entries, IPSetEntry{IP: nested.Value})
 				case nl.IPSET_ATTR_IP:
 					result.IPFrom = nested.Value
-				default:
-					log.Printf("unknown nested ipset data attribute from kernel: %+v %v", nested, nested.Type&nl.NLA_TYPE_MASK)
 				}
 			}
 		case nl.IPSET_ATTR_IP_TO | nl.NLA_F_NESTED:
@@ -556,8 +551,6 @@ func (result *IPSetResult) parseAttrData(data []byte) {
 				switch nested.Type {
 				case nl.IPSET_ATTR_IP:
 					result.IPTo = nested.Value
-				default:
-					log.Printf("unknown nested ipset data attribute from kernel: %+v %v", nested, nested.Type&nl.NLA_TYPE_MASK)
 				}
 			}
 		case nl.IPSET_ATTR_PORT_FROM | nl.NLA_F_NET_BYTEORDER:
@@ -570,8 +563,6 @@ func (result *IPSetResult) parseAttrData(data []byte) {
 			result.Comment = nl.BytesToString(attr.Value)
 		case nl.IPSET_ATTR_MARKMASK:
 			result.MarkMask = attr.Uint32()
-		default:
-			log.Printf("unknown ipset data attribute from kernel: %+v %v", attr, attr.Type&nl.NLA_TYPE_MASK)
 		}
 	}
 }
@@ -581,8 +572,6 @@ func (result *IPSetResult) parseAttrADT(data []byte) {
 		switch attr.Type {
 		case nl.IPSET_ATTR_DATA | nl.NLA_F_NESTED:
 			result.Entries = append(result.Entries, parseIPSetEntry(attr.Value))
-		default:
-			log.Printf("unknown ADT attribute from kernel: %+v %v", attr, attr.Type&nl.NLA_TYPE_MASK)
 		}
 	}
 }
@@ -610,8 +599,6 @@ func parseIPSetEntry(data []byte) (entry IPSetEntry) {
 				switch attr.Type {
 				case nl.IPSET_ATTR_IPADDR_IPV4, nl.IPSET_ATTR_IPADDR_IPV6:
 					entry.IP = net.IP(attr.Value)
-				default:
-					log.Printf("unknown nested ADT attribute from kernel: %+v", attr)
 				}
 			}
 		case nl.IPSET_ATTR_IP2 | nl.NLA_F_NESTED:
@@ -619,8 +606,6 @@ func parseIPSetEntry(data []byte) (entry IPSetEntry) {
 				switch attr.Type {
 				case nl.IPSET_ATTR_IPADDR_IPV4, nl.IPSET_ATTR_IPADDR_IPV6:
 					entry.IP2 = net.IP(attr.Value)
-				default:
-					log.Printf("unknown nested ADT attribute from kernel: %+v", attr)
 				}
 			}
 		case nl.IPSET_ATTR_CIDR:
@@ -638,8 +623,6 @@ func parseIPSetEntry(data []byte) (entry IPSetEntry) {
 		case nl.IPSET_ATTR_MARK | nl.NLA_F_NET_BYTEORDER:
 			val := attr.Uint32()
 			entry.Mark = &val
-		default:
-			log.Printf("unknown ADT attribute from kernel: %+v", attr)
 		}
 	}
 	return

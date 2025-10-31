@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/crypto/certloader"
 )
 
 type logMatcher interface {
@@ -70,7 +71,13 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning, ciliumNodeConfigDeprecation,
 		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
-		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn}
+		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn}
+
+	if ciliumVersion.LT(semver.MustParse("1.18.0")) {
+		errorLogExceptions = append(errorLogExceptions, linkNotFound)
+		warningLogExceptions = append(warningLogExceptions, linkNotFound)
+	}
+
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -399,7 +406,12 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Acti
 }
 
 const (
-	// Logs messages that should not be in the cilium logs
+	// Logs messages that should not be in the cilium logs.
+	//
+	// Note: when adding a new exception, please also add a comment indicating
+	// the reason why this exception is needed.
+
+	// errors
 	panicMessage                         = "panic:"
 	deadLockHeader                       = "POTENTIAL DEADLOCK:"                                  // from github.com/sasha-s/go-deadlock/deadlock.go:header
 	RunInitFailed                        = "JoinEP: "                                             // from https://github.com/cilium/cilium/pull/5052
@@ -420,6 +432,7 @@ const (
 	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
 	nilDetailsForService   stringMatcher = "retrieved nil details for Service"                                         // from: https://github.com/cilium/cilium/issues/35595
 
+	// warnings
 	cantEnableJIT               stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
 	delMissingService           stringMatcher = "Deleting no longer present service"                                     // cf. https://github.com/cilium/cilium/issues/29679
 	podCIDRUnavailable          stringMatcher = " PodCIDR not available"                                                 // cf. https://github.com/cilium/cilium/issues/29680
@@ -459,6 +472,8 @@ const (
 	k8sEndpointDeprecatedWarn stringMatcher = "v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice" // cf. https://github.com/cilium/cilium/issues/39105
 	proxylibDeprecatedWarn    stringMatcher = "The support for Envoy Go Extensions (proxylib) has been deprecated"          // cf. https://github.com/cilium/cilium/issues/38224
 
+	certloaderInitialLoadWarn stringMatcher = certloader.InitialLoadWarn // Expected when certificates are not yet mounted.
+
 	// Logs messages that should not be in the cilium-envoy DS logs
 	envoyErrorMessage    = "[error]"
 	envoyCriticalMessage = "[critical]"
@@ -479,4 +494,6 @@ var (
 	bgpAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumBGP\w+ is deprecated`)}
 	// ccgAlphaResourceDeprecation is the same as bgpAlphaResourceDeprecation but for the CiliumCIDRGroup.
 	ccgAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumCIDRGroup is deprecated`)}
+	// For https://github.com/cilium/cilium/issues/39370: Fixed only in cilium version >= 1.18
+	linkNotFound = regexMatcher{regexp.MustCompile(`retrieving device .+\: Link not found`)}
 )

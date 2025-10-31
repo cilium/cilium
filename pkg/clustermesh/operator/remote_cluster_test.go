@@ -87,17 +87,16 @@ func TestRemoteClusterStatus(t *testing.T) {
 				require.NoError(t, client.DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
-			metrics := NewMetrics()
 			logger := hivetest.Logger(t)
+			metrics := NewMetrics()
 			cm := clusterMesh{
-				logger:         logger,
-				storeFactory:   st,
-				globalServices: common.NewGlobalServiceCache(logger, metrics.TotalGlobalServices.WithLabelValues("foo")),
-				globalServiceExports: NewGlobalServiceExportCache(
-					metrics.TotalGlobalServiceExports.WithLabelValues("foo"),
-				),
-				cfg:       ClusterMeshConfig{ClusterMeshEnableEndpointSync: tt.clusterMeshEnableEndpointSync},
-				cfgMCSAPI: MCSAPIConfig{ClusterMeshEnableMCSAPI: tt.clusterMeshEnableMCSAPI},
+				logger:               logger,
+				metrics:              metrics,
+				storeFactory:         st,
+				globalServices:       common.NewGlobalServiceCache(logger),
+				globalServiceExports: NewGlobalServiceExportCache(),
+				cfg:                  ClusterMeshConfig{ClusterMeshEnableEndpointSync: tt.clusterMeshEnableEndpointSync},
+				cfgMCSAPI:            MCSAPIConfig{ClusterMeshEnableMCSAPI: tt.clusterMeshEnableMCSAPI},
 			}
 
 			// Populate the kvstore with the appropriate KV pairs
@@ -186,15 +185,14 @@ func TestRemoteClusterHooks(t *testing.T) {
 		wg.Wait()
 	})
 	logger := hivetest.Logger(t)
-	st := store.NewFactory(logger, store.MetricsProvider())
 	metrics := NewMetrics()
+	st := store.NewFactory(logger, store.MetricsProvider())
 	cm := clusterMesh{
-		logger:         logger,
-		storeFactory:   st,
-		globalServices: common.NewGlobalServiceCache(logger, metrics.TotalGlobalServices.WithLabelValues("foo")),
-		globalServiceExports: NewGlobalServiceExportCache(
-			metrics.TotalGlobalServiceExports.WithLabelValues("foo"),
-		),
+		logger:               logger,
+		metrics:              metrics,
+		storeFactory:         st,
+		globalServices:       common.NewGlobalServiceCache(logger),
+		globalServiceExports: NewGlobalServiceExportCache(),
 	}
 
 	clusterAddCalledCount := atomic.Uint32{}

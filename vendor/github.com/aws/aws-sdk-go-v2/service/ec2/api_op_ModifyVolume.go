@@ -66,19 +66,18 @@ type ModifyVolumeInput struct {
 	//
 	// The following are the supported values for each volume type:
 	//
-	//   - gp3 : 3,000 - 16,000 IOPS
+	//   - gp3 : 3,000 - 80,000 IOPS
 	//
 	//   - io1 : 100 - 64,000 IOPS
 	//
 	//   - io2 : 100 - 256,000 IOPS
 	//
-	// For io2 volumes, you can achieve up to 256,000 IOPS on [instances built on the Nitro System]. On other instances,
-	// you can achieve performance up to 32,000 IOPS.
+	// [Instances built on the Nitro System]can support up to 256,000 IOPS. Other instances can support up to 32,000 IOPS.
 	//
 	// Default: The existing value is retained if you keep the same volume type. If
 	// you change the volume type to io1 , io2 , or gp3 , the default is 3,000.
 	//
-	// [instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
+	// [Instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	Iops *int32
 
 	// Specifies whether to enable Amazon EBS Multi-Attach. If you enable
@@ -95,7 +94,9 @@ type ModifyVolumeInput struct {
 	//
 	// The following are the supported volumes sizes for each volume type:
 	//
-	//   - gp2 and gp3 : 1 - 16,384 GiB
+	//   - gp2 : 1 - 16,384 GiB
+	//
+	//   - gp3 : 1 - 65,536 GiB
 	//
 	//   - io1 : 4 - 16,384 GiB
 	//
@@ -109,12 +110,12 @@ type ModifyVolumeInput struct {
 	Size *int32
 
 	// The target throughput of the volume, in MiB/s. This parameter is valid only for
-	// gp3 volumes. The maximum value is 1,000.
+	// gp3 volumes. The maximum value is 2,000.
 	//
 	// Default: The existing value is retained if the source and target volume type is
 	// gp3 . Otherwise, the default value is 125.
 	//
-	// Valid Range: Minimum value of 125. Maximum value of 1000.
+	// Valid Range: Minimum value of 125. Maximum value of 2,000.
 	Throughput *int32
 
 	// The target EBS volume type of the volume. For more information, see [Amazon EBS volume types] in the

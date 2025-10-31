@@ -452,6 +452,14 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 	clientHost := t.Context().HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
 	// serverHost is a pod running in a remote node's host netns.
 	serverHost := t.Context().HostNetNSPodsByNode()[server.Pod.Spec.NodeName]
+
+	if clientHost.Pod == nil {
+		t.Fatalf("Could not find host network namespace pod on client node %s", client.Pod.Spec.NodeName)
+	}
+	if serverHost.Pod == nil {
+		t.Fatalf("Could not find host network namespace pod on server node %s", server.Pod.Spec.NodeName)
+	}
+
 	assertNoLeaks, _ := t.Context().Features.MatchRequirements(s.reqs...)
 
 	if !assertNoLeaks {

@@ -7,11 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,10 +22,11 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type fakeRemoteCluster struct{ onRun, onStop, onRemove func(ctx context.Context) }
+type fakeRemoteCluster struct{ onRun, onStop, onRemove, onRevokeCache func(ctx context.Context) }
 
 func (f *fakeRemoteCluster) Run(ctx context.Context, _ kvstore.BackendOperations, _ types.CiliumClusterConfig, ready chan<- error) {
 	if f.onRun != nil {
@@ -36,6 +39,12 @@ func (f *fakeRemoteCluster) Run(ctx context.Context, _ kvstore.BackendOperations
 func (f *fakeRemoteCluster) Stop() {
 	if f.onStop != nil {
 		f.onStop(context.Background())
+	}
+}
+
+func (f *fakeRemoteCluster) RevokeCache(ctx context.Context) {
+	if f.onRevokeCache != nil {
+		f.onRevokeCache(ctx)
 	}
 }
 
@@ -103,7 +112,7 @@ func TestClusterMesh(t *testing.T) {
 			clusters = append(clusters, rc)
 			return rc
 		},
-		Metrics: MetricsProvider("clustermesh")(),
+		Metrics: MetricsProvider(metrics.SubsystemClusterMesh)(),
 	})
 
 	assertForEachRemoteCluster := func(t *testing.T, expected uint) {
@@ -191,8 +200,14 @@ func TestClusterMesh(t *testing.T) {
 }
 
 func TestClusterMeshMultipleAddRemove(t *testing.T) {
-	testutils.IntegrationTest(t)
-	client := kvstore.SetupDummy(t, "etcd")
+	var (
+		client  = kvstore.NewInMemoryClient(statedb.New(), "__all__")
+		factory = func(context.Context, *slog.Logger, string, kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
+			errch := make(chan error)
+			close(errch)
+			return client, errch
+		}
+	)
 
 	baseDir := t.TempDir()
 	path := func(name string) string { return filepath.Join(baseDir, name) }
@@ -219,7 +234,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 		Logger:              hivetest.Logger(t),
 		Config:              Config{ClusterMeshConfig: baseDir},
 		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
-		RemoteClientFactory: DefaultRemoteClientFactory(kvstore.Config{}),
+		RemoteClientFactory: factory,
 		NewRemoteCluster: func(name string, _ StatusFunc) RemoteCluster {
 			return &fakeRemoteCluster{
 				onRun: func(context.Context) { ready.Store(name, true) },
@@ -232,9 +247,8 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 				},
 			}
 		},
-		Metrics: MetricsProvider("clustermesh")(),
+		Metrics: MetricsProvider(metrics.SubsystemClusterMesh)(),
 	})
-	hivetest.Lifecycle(t).Append(gcm)
 	cm := gcm.(*clusterMesh)
 
 	// Directly call the add/remove methods, rather than creating/removing the
@@ -257,7 +271,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 
 	// Multiple removals and additions, ending with an addition should lead to a ready cluster
 	ready.Store("cluster2", false)
-	cm.remove("cluster2")
+	cm.remove("cluster2") // Note that the removal is blocked at this point
 	cm.add("cluster2", path("cluster2"))
 	cm.remove("cluster2")
 	cm.add("cluster2", path("cluster2"))
@@ -272,7 +286,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 
 	// Multiple removals and additions, ending with a removal should lead to a non-ready cluster
 	ready.Store("cluster3", false)
-	cm.remove("cluster3")
+	cm.remove("cluster3") // Note that the removal is blocked at this point
 	cm.add("cluster3", path("cluster3"))
 	cm.remove("cluster3")
 	cm.add("cluster3", path("cluster3"))

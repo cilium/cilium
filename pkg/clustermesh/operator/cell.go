@@ -17,8 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
-const subsystem = "clustermesh"
-
 // Cell is the cell for the Operator ClusterMesh
 var Cell = cell.Module(
 	"clustermesh",
@@ -35,7 +33,7 @@ var Cell = cell.Module(
 	cell.Config(wait.TimeoutConfigDefault),
 
 	metrics.Metric(NewMetrics),
-	metrics.Metric(common.MetricsProvider(subsystem)),
+	metrics.Metric(common.MetricsProvider(metrics.SubsystemClusterMesh)),
 )
 
 type clusterMeshParams struct {
@@ -47,7 +45,7 @@ type clusterMeshParams struct {
 	CfgMCSAPI MCSAPIConfig
 	Logger    *slog.Logger
 
-	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
+	// ClusterInfo is the id/name of the local cluster.
 	ClusterInfo types.ClusterInfo
 
 	// RemoteClientFactory is the factory to create new backend instances.

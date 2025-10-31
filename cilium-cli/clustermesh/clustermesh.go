@@ -43,6 +43,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
@@ -629,12 +630,11 @@ type ClusterStats struct {
 }
 
 type ConnectivityStatus struct {
-	GlobalServices StatisticalStatus        `json:"global_services,omitempty"`
-	Connected      StatisticalStatus        `json:"connected,omitempty"`
-	Clusters       map[string]*ClusterStats `json:"clusters,omitempty"`
-	Total          int64                    `json:"total,omitempty"`
-	NotReady       int64                    `json:"not_ready,omitempty"`
-	Errors         status.ErrorCountMapMap  `json:"errors,omitempty"`
+	Connected StatisticalStatus        `json:"connected,omitempty"`
+	Clusters  map[string]*ClusterStats `json:"clusters,omitempty"`
+	Total     int64                    `json:"total,omitempty"`
+	NotReady  int64                    `json:"not_ready,omitempty"`
+	Errors    status.ErrorCountMapMap  `json:"errors,omitempty"`
 }
 
 func (c *ConnectivityStatus) addError(pod, cluster string, err error) {
@@ -682,15 +682,6 @@ func remoteClusterStatusToError(status *models.RemoteCluster) error {
 }
 
 func (c *ConnectivityStatus) parseAgentStatus(name string, expected []string, s *status.ClusterMeshAgentConnectivityStatus) {
-	if c.GlobalServices.Min < 0 || c.GlobalServices.Min > s.GlobalServices {
-		c.GlobalServices.Min = s.GlobalServices
-	}
-
-	if c.GlobalServices.Max < s.GlobalServices {
-		c.GlobalServices.Max = s.GlobalServices
-	}
-
-	c.GlobalServices.Avg += float64(s.GlobalServices)
 	c.Total++
 
 	ready := int64(0)
@@ -797,10 +788,9 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context, secret
 	collector func(ctx context.Context, ciliumPod string) (*status.ClusterMeshAgentConnectivityStatus, error),
 ) (*ConnectivityStatus, error) {
 	stats := &ConnectivityStatus{
-		GlobalServices: StatisticalStatus{Min: -1},
-		Connected:      StatisticalStatus{Min: -1},
-		Errors:         status.ErrorCountMapMap{},
-		Clusters:       map[string]*ClusterStats{},
+		Connected: StatisticalStatus{Min: -1},
+		Errors:    status.ErrorCountMapMap{},
+		Clusters:  map[string]*ClusterStats{},
 	}
 
 	// Retrieve the remote clusters to connect to from the clustermesh configuration,
@@ -840,7 +830,6 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context, secret
 	}
 
 	if len(pods.Items) > 0 {
-		stats.GlobalServices.Avg /= float64(len(pods.Items))
 		stats.Connected.Avg /= float64(len(pods.Items))
 	}
 
@@ -969,12 +958,6 @@ func (k *K8sClusterMesh) outputConnectivityStatus(agents, kvstoremesh *Connectiv
 	} else {
 		k.Log("🔌 No cluster connected")
 	}
-
-	k.Log("")
-	k.Log("🔀 Global services: [ min:%d / avg:%.1f / max:%d ]",
-		agents.GlobalServices.Min,
-		agents.GlobalServices.Avg,
-		agents.GlobalServices.Max)
 
 	k.Log("")
 	errCount := len(agents.Errors)
@@ -1804,7 +1787,7 @@ func PolicyDefaultLocalClusterInspect(ctx context.Context, k8sClient *k8s.Client
 			return nil, fmt.Errorf("Error parsing network policies: %w", err)
 		}
 
-		res.NetworkPolicies[client.ObjectKeyFromObject(&np).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *api.Rule) bool { return a.DeepEqual(b) })
+		res.NetworkPolicies[client.ObjectKeyFromObject(&np).String()] = !slices.EqualFunc(rulesAny, rulesLocal, func(a, b *types.PolicyEntry) bool { return a.DeepEqual(b) })
 	}
 
 	cnps, err := k8sClient.ListCiliumNetworkPolicies(ctx, namespace, metav1.ListOptions{})

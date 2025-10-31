@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/source"
@@ -43,12 +44,13 @@ var LocalNodeStoreCell = cell.Module(
 type LocalNodeStoreParams struct {
 	cell.In
 
-	Logger    *slog.Logger
-	Lifecycle cell.Lifecycle
-	Sync      LocalNodeSynchronizer
-	DB        *statedb.DB
-	Nodes     statedb.RWTable[*LocalNode]
-	Jobs      job.Group
+	Logger      *slog.Logger
+	Lifecycle   cell.Lifecycle
+	Sync        LocalNodeSynchronizer
+	DB          *statedb.DB
+	Nodes       statedb.RWTable[*LocalNode]
+	Jobs        job.Group
+	ClusterInfo cmtypes.ClusterInfo
 }
 
 // LocalNodeStore is the canonical owner for the local node object and provides
@@ -69,7 +71,9 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 	params.Nodes.Insert(wtxn,
 		&LocalNode{
 			Node: types.Node{
-				Name: types.GetName(),
+				Name:      types.GetName(),
+				Cluster:   params.ClusterInfo.Name,
+				ClusterID: params.ClusterInfo.ID,
 				// Explicitly initialize the labels and annotations maps, so that
 				// we don't need to always check for nil values.
 				Labels:      make(map[string]string),
@@ -86,6 +90,9 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 		OnStart: func(ctx cell.HookContext) error {
 			wtxn := params.DB.WriteTxn(params.Nodes)
 			n, _, _ := params.Nodes.Get(wtxn, LocalNodeQuery)
+			// Delete the initial one as name might change.
+			params.Nodes.Delete(wtxn, n)
+
 			n = n.DeepCopy()
 			err := params.Sync.InitLocalNode(ctx, n)
 			params.Nodes.Insert(wtxn, n)
@@ -179,17 +186,30 @@ func (s *LocalNodeStore) Get(ctx context.Context) (LocalNode, error) {
 // Update modifies the local node with a mutator.
 func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 	txn := s.db.WriteTxn(s.nodes)
-	defer txn.Commit()
+	defer txn.Abort()
 	ln, _, found := s.nodes.Get(txn, LocalNodeQuery)
 	if !found {
 		panic("BUG: No local node exists")
 	}
+	orig := ln
 	ln = ln.DeepCopy()
 	update(ln)
 	if ln.Local == nil {
 		panic("BUG: Updated LocalNode has nil Local")
 	}
+
+	if ln.DeepEqual(orig) {
+		// No changes.
+		return
+	}
+
+	if orig.Fullname() != ln.Fullname() {
+		// Name or cluster has changed, delete first to remove it from the name index.
+		s.nodes.Delete(txn, orig)
+	}
+
 	s.nodes.Insert(txn, ln)
+	txn.Commit()
 }
 
 func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {

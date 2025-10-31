@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/act"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -21,15 +22,18 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	dpcfg "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	datapathmaps "github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/node"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/vtep"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -49,6 +53,9 @@ var Cell = cell.Module(
 
 	// Provides all BPF Map which are already provided by via hive cell.
 	maps.Cell,
+
+	// Cleanup of stale and disabled BPF maps
+	datapathmaps.Cell,
 
 	// Utime synchronizes utime from userspace to datapath via configmap.Map.
 	utime.Cell,
@@ -102,11 +109,14 @@ var Cell = cell.Module(
 	// The bandwidth manager provides efficient EDT-based rate-limiting (on Linux).
 	bandwidth.Cell,
 
-	// IPsec cell provides the IPsecKeyCustodian.
+	// IPsec cell provides the IPsecAgent.
 	ipsec.Cell,
 
 	// MTU provides the MTU configuration of the node.
 	mtu.Cell,
+
+	// Connector provides pod-specific interface configuration
+	connector.Cell,
 
 	orchestrator.Cell,
 
@@ -128,6 +138,8 @@ var Cell = cell.Module(
 	// XDP cell provides modularized XDP enablement.
 	xdp.Cell,
 
+	vtep.Cell,
+
 	// Provides node handler, which handles node events.
 	cell.Provide(linuxdatapath.NewNodeHandler),
 	cell.Provide(node.NewNodeIDApiHandler),
@@ -144,6 +156,10 @@ var Cell = cell.Module(
 	// "forwardable". The neighbor subsystem converts these IPs into neighbor entries
 	// in the kernel and ensures they are kept up to date.
 	neighbor.Cell,
+
+	// Provides the desired route table, and a reconciler that installs these desired routes
+	// into the Linux kernel routing table.
+	routeReconciler.Cell,
 )
 
 func initDatapath(rootLogger *slog.Logger, lifecycle cell.Lifecycle) {

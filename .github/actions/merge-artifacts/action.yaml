@@ -15,6 +15,12 @@ inputs:
     required: true
     description: 'If true, the artifacts that were merged will be deleted'
     default: 'true'
+  separate-directories:
+    required: false
+    description: |
+      If true, the artifacts will be merged into separate directories.
+      If false, the artifacts will be merged into the root of the destination.
+    default: 'false'
 
 runs:
   using: composite
@@ -48,10 +54,10 @@ runs:
         fi
     - name: Merge ${{ inputs.name }}
       if: ${{ steps.filter_artifacts.outputs.exists == 'true' }}
-      uses: actions/upload-artifact/merge@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+      uses: actions/upload-artifact/merge@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
       with:
         name: ${{ inputs.name }}
         pattern: ${{ inputs.pattern }}
         retention-days: 5
         delete-merged: ${{ inputs.delete-merged }}
-
+        separate-directories: ${{ inputs.separate-directories }}

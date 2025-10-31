@@ -162,7 +162,12 @@ in any of the Cilium pods and look for the line reporting the status for
 "Host Routing" which should state "BPF".
 
 .. note::
-   BPF host routing is incompatible with Istio (see :gh-issue:`36022` for details).
+   BPF Host Routing is incompatible with Istio (see :gh-issue:`36022` for details).
+
+.. note::
+   When using BPF Host Routing with IPsec, `a kernel bugfix <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=c4327229948879814229b46aa26a750718888503>`_
+   is required. If you observe connectivity problems, ensure that the kernel
+   package on your nodes has been upgraded recently before reporting an issue.
 
 **Requirements:**
 
@@ -365,6 +370,20 @@ To enable the iptables connection-tracking bypass:
              --set installNoConntrackIptablesRules=true \\
              --set kubeProxyReplacement=true
 
+If a Pod has the ``hostNetwork`` flag enabled, the ports for which connection tracking should be skipped
+must be explicitly listed using the ``network.cilium.io/no-track-host-ports`` annotation:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      annotations:
+        network.cilium.io/no-track-host-ports: "999/tcp,8123/tcp"
+
+.. note::
+    Only UDP and TCP transport protocols are supported with the network.cilium.io/no-track-host-ports annotation at the time of writing.
+
 Hubble
 ======
 
@@ -447,10 +466,21 @@ should consider increasing the aggregation interval or rate limiting events.
 Increase Aggregation Interval
 -----------------------------
 
-By default Cilium generates a tracing event for send packets only on every new
-connection, any time a packet contains TCP flags that have not been previously
-seen for the packet direction, and on average once per ``monitor-aggregation-interval``,
-which defaults to 5 seconds.
+By default Cilium generates tracing events according to the configured
+``monitor-aggregation`` level. For packet events, Cilium generates a tracing
+event for send packets only on every new connection, any time a packet contains
+TCP flags that have not been previously seen for the packet direction, and on
+average once per ``monitor-aggregation-interval``, which defaults to 5 seconds.
+When socket load-balancing is enabled, the same aggregation levels apply to
+socket translation events (for example, pre/post reverse translation):
+
+- ``none``: emit all socket trace events
+- ``lowest``/``low``: suppress reverse-direction (recv) socket traces
+- ``medium``/``maximum``: emit socket trace events only for connect system calls
+
+When aggregation is enabled (>= ``lowest``), socket trace emission is aligned
+to ``monitor-aggregation-interval`` using a strict cadence of approximately one
+trace per interval for active flows.
 
 Depending on your network traffic patterns, the re-emitting of trace events per
 aggregation interval can make up a large part of the total events. Increasing the

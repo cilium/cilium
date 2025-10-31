@@ -5,8 +5,15 @@ package v1
 
 import (
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/build"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
+
+// FlowEmitter is an identifier for the source system that emits a flow.
+const FlowEmitter = "Hubble"
+
+// FlowEmitterVersion is the version of the component that emits flows.
+var FlowEmitterVersion = build.ServerVersion.SemVer()
 
 // FlowProtocol returns the protocol best describing the flow. If available,
 // this is the L7 protocol name, then the L4 protocol name.
@@ -39,6 +46,10 @@ func FlowProtocol(flow *pb.Flow) string {
 				return "ICMPv6"
 			case l4.GetSCTP() != nil:
 				return "SCTP"
+			case l4.GetVRRP() != nil:
+				return "VRRP"
+			case l4.GetIGMP() != nil:
+				return "IGMP"
 			}
 		}
 		return "Unknown L4"

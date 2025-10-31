@@ -34,6 +34,7 @@ type Poller struct {
 	eventMu    sync.Mutex
 	closeEvent *eventFd
 	flushEvent *eventFd
+	cleanup    runtime.Cleanup
 }
 
 func New() (_ *Poller, err error) {
@@ -75,7 +76,10 @@ func New() (_ *Poller, err error) {
 		return nil, fmt.Errorf("add flush eventfd: %w", err)
 	}
 
-	runtime.SetFinalizer(p, (*Poller).Close)
+	p.cleanup = runtime.AddCleanup(p, func(raw int) {
+		_ = unix.Close(raw)
+	}, p.epollFd)
+
 	return p, nil
 }
 
@@ -84,7 +88,7 @@ func New() (_ *Poller, err error) {
 // Interrupts any calls to Wait. Multiple calls to Close are valid, but subsequent
 // calls will return os.ErrClosed.
 func (p *Poller) Close() error {
-	runtime.SetFinalizer(p, nil)
+	p.cleanup.Stop()
 
 	// Interrupt Wait() via the closeEvent fd if it's currently blocked.
 	if err := p.wakeWaitForClose(); err != nil {

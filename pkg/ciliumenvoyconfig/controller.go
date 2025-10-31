@@ -366,7 +366,7 @@ func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-cha
 				svc.Name,
 				res.ClusterReferences,
 				svc.PortNames,
-				bs.writer.SelectBackends(bes, svc, nil))
+				bs.writer.SelectBackends(wtxn, bes, svc, nil))
 		} else {
 			// No service found (yet) and thus there are no endpoints.
 			newEndpoints = nil

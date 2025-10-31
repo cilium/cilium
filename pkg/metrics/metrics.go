@@ -71,6 +71,9 @@ const (
 	// SubsystemAPILimiter is the subsystem to scope metrics related to the API limiter package.
 	SubsystemAPILimiter = "api_limiter"
 
+	// SubsystemClusterMesh is the subsystem to scope metrics related to the clustermesh area.
+	SubsystemClusterMesh = "clustermesh"
+
 	// CiliumAgentNamespace is used to scope metrics from the Cilium Agent
 	CiliumAgentNamespace = "cilium"
 
@@ -215,16 +218,11 @@ const (
 	LabelDirection = "direction"
 
 	// LabelSourceCluster is the label for source cluster name
+	// This should not be used to self identify the local cluster
 	LabelSourceCluster = "source_cluster"
-
-	// LabelSourceNodeName is the label for source node name
-	LabelSourceNodeName = "source_node_name"
 
 	// LabelTargetCluster is the label for target cluster name
 	LabelTargetCluster = "target_cluster"
-
-	// LabelLeaderElectionName is the name of leader election
-	LabelLeaderElectionName = "name"
 
 	// Rule label is a label for a L7 rule name.
 	LabelL7Rule = "rule"
@@ -255,8 +253,9 @@ var (
 	// LabelValuesBool is metric label value set for boolean type.
 	LabelValuesBool = metric.NewValues(LabelValueTrue, LabelValueFalse)
 
-	// Namespace is used to scope metrics from cilium. It is prepended to metric
-	// names and separated with a '_'
+	// Namespace is used to scope metrics from the current cilium component by
+	// overwriting its value at runtime before hive initialization. It is prepended
+	// to metric names and separated with a '_'
 	Namespace = CiliumAgentNamespace
 
 	registryResolver, registry = promise.New[*Registry]()
@@ -285,9 +284,6 @@ var (
 	// Endpoint is a function used to collect this metric.
 	// It must be thread-safe.
 	Endpoint metric.GaugeFunc
-
-	// EndpointMaxIfindex is the maximum observed interface index for existing endpoints
-	EndpointMaxIfindex = NoOpGauge
 
 	// EndpointRegenerationTotal is a count of the number of times any endpoint
 	// has been regenerated and success/fail outcome
@@ -626,7 +622,6 @@ type LegacyMetrics struct {
 	NodeHealthConnectivityStatus     metric.Vec[metric.Gauge]
 	NodeHealthConnectivityLatency    metric.Vec[metric.Observer]
 	Endpoint                         metric.GaugeFunc
-	EndpointMaxIfindex               metric.Gauge
 	EndpointRegenerationTotal        metric.Vec[metric.Counter]
 	EndpointStateCount               metric.Vec[metric.Gauge]
 	EndpointRegenerationTimeStats    metric.Vec[metric.Observer]
@@ -1243,8 +1238,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:       "node_health_connectivity_status",
 			Help:       "The number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes",
 		}, []string{
-			LabelSourceCluster,
-			LabelSourceNodeName,
 			LabelType,
 			LabelConnectivityStatus,
 		}),
@@ -1256,8 +1249,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "The histogram for last observed latency between the current Cilium agent and other Cilium nodes in seconds",
 			Buckets:    []float64{0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0},
 		}, []string{
-			LabelSourceCluster,
-			LabelSourceNodeName,
 			LabelType,
 			LabelProtocol,
 			LabelAddressType,
@@ -1272,15 +1263,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 		WorkQueueRetries:                 WorkQueueRetries,
 	}
 
-	ifindexOpts := metric.GaugeOpts{
-		ConfigName: Namespace + "_endpoint_max_ifindex",
-		Disabled:   true,
-		Namespace:  Namespace,
-		Name:       "endpoint_max_ifindex",
-		Help:       "Maximum interface index observed for existing endpoints",
-	}
-	lm.EndpointMaxIfindex = metric.NewGauge(ifindexOpts)
-
 	v := version.GetCiliumVersion()
 	lm.VersionMetric.WithLabelValues(v.Version, v.Revision, v.Arch)
 	lm.BPFMapCapacity.WithLabelValues("default").Set(DefaultMapCapacity)
@@ -1290,7 +1272,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	NodeHealthConnectivityStatus = lm.NodeHealthConnectivityStatus
 	NodeHealthConnectivityLatency = lm.NodeHealthConnectivityLatency
 	Endpoint = lm.Endpoint
-	EndpointMaxIfindex = lm.EndpointMaxIfindex
 	EndpointRegenerationTotal = lm.EndpointRegenerationTotal
 	EndpointStateCount = lm.EndpointStateCount
 	EndpointRegenerationTimeStats = lm.EndpointRegenerationTimeStats

@@ -168,6 +168,6 @@ func serveUI(pth string, assets []byte, next http.Handler) http.Handler {
 
 		rw.Header().Set(contentTypeHeader, "text/plain")
 		rw.WriteHeader(http.StatusNotFound)
-		_, _ = rw.Write([]byte(fmt.Sprintf("%q not found", pth)))
+		_, _ = fmt.Fprintf(rw, "%q not found", pth)
 	})
 }

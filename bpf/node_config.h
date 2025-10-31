@@ -45,12 +45,6 @@
 #define LOCAL_NODE_ID 6
 #define REMOTE_NODE_ID 6
 #define KUBE_APISERVER_NODE_ID 7
-/* This identity should never be seen on ingress or egress traffic to/from a
- * node.
- * It signals that the skb is overlay traffic that must be IPSec encrypted
- * before it leaves the host.
- */
-#define ENCRYPTED_OVERLAY_ID 11
 #define CILIUM_HOST_MAC { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 #define NODEPORT_PORT_MIN 30000
 #define NODEPORT_PORT_MAX 32767
@@ -196,17 +190,13 @@
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
-#ifdef ENABLE_WIREGUARD
-# define WG_IFINDEX	42
-# define WG_PORT    51871
-# ifdef ENCRYPTION_STRICT_MODE
-#  define STRICT_IPV4_NET	0
-#  define STRICT_IPV4_NET_SIZE	8
-# endif
-#endif
-
-#ifdef ENABLE_VTEP
-# define VTEP_MASK 0xffffff
+#ifdef ENCRYPTION_STRICT_MODE
+#  ifndef STRICT_IPV4_NET
+#   define STRICT_IPV4_NET	0
+#  endif
+#  ifndef STRICT_IPV4_NET_SIZE
+#   define STRICT_IPV4_NET_SIZE	8
+#  endif
 #endif
 
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \

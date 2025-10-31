@@ -819,6 +819,24 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 	}
 }
 
+// IfaceIndex returns the index of the Wireguard interface.
+func (a *Agent) IfaceIndex() (uint32, error) {
+	if !a.Enabled() {
+		return 0, nil
+	}
+
+	return link.GetIfIndex(types.IfaceName)
+}
+
+// IfaceBufferMargins() returns the buffer margins of the Wireguard interface.
+func (a *Agent) IfaceBufferMargins() (uint16, uint16, error) {
+	if !a.Enabled() {
+		return 0, 0, nil
+	}
+
+	return link.GetIfBufferMargins(types.IfaceName)
+}
+
 // Status returns the state of the WireGuard tunnel managed by this instance.
 // If withPeers is true, then the details about each connected peer are
 // are populated as well.

@@ -44,7 +44,7 @@ type MTU interface {
 type mtuParams struct {
 	cell.In
 
-	IPsec        types.IPsecKeyCustodian
+	IPsec        types.IPsecAgent
 	CNI          cni.CNIConfigManager
 	TunnelConfig tunnel.Config
 
@@ -64,14 +64,17 @@ type mtuParams struct {
 type Config struct {
 	// Enable route MTU for pod netns when CNI chaining is used
 	EnableRouteMTUForCNIChaining bool
+	MTU                          int
 }
 
 var defaultConfig = Config{
 	EnableRouteMTUForCNIChaining: false,
+	MTU:                          0,
 }
 
 func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-route-mtu-for-cni-chaining", c.EnableRouteMTUForCNIChaining, "Enable route MTU for pod netns when CNI chaining is used")
+	flags.Int("mtu", c.MTU, "Overwrite auto-detected MTU of underlying network")
 }
 
 func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
@@ -83,13 +86,13 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 				p.TunnelConfig.UnderlayProtocol() == tunnel.IPv6
 			*c = NewConfiguration(
 				p.IPsec.AuthKeySize(),
-				option.Config.EnableIPSec,
+				p.IPsec.Enabled(),
 				p.TunnelConfig.ShouldAdaptMTU(),
 				p.WgConfig.Enabled(),
 				tunnelOverIPv6,
 			)
 
-			configuredMTU := option.Config.MTU
+			configuredMTU := cc.MTU
 			if mtu := p.CNI.GetMTU(); mtu > 0 {
 				configuredMTU = mtu
 				p.Log.Info("Overwriting MTU based on CNI configuration", logfields.MTU, configuredMTU)

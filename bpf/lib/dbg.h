@@ -123,6 +123,8 @@ enum {
 				 * arg3: proxy port (in host byte order)
 				 */
 	DBG_SKIP_POLICY,	/**/
+	DBG_LB6_LOOPBACK_SNAT,
+	DBG_LB6_LOOPBACK_SNAT_REV,
 };
 
 /* Capture types */
@@ -145,10 +147,6 @@ enum {
 #define EVENT_SOURCE 0
 #endif
 
-#ifdef DEBUG
-#include "events.h"
-#endif
-
 #include "notify.h"
 
 struct debug_msg {
@@ -164,9 +162,14 @@ struct debug_capture_msg {
 	__u32		arg2;
 };
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_TAGGED)
+#include "events.h"
 #include "common.h"
 #include "utils.h"
+
+#ifdef DEBUG_TAGGED
+#include "trace_helpers.h"
+#endif
 
 /* This takes both literals and modifiers, e.g.,
  * printk("hello\n");
@@ -197,7 +200,10 @@ static __always_inline void cilium_dbg(struct __ctx_buff *ctx, __u8 type,
 		.arg1	= arg1,
 		.arg2	= arg2,
 	};
-
+#ifdef DEBUG_TAGGED
+	if (!load_ip_trace_id())
+		return;
+#endif
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
@@ -211,7 +217,10 @@ static __always_inline void cilium_dbg3(struct __ctx_buff *ctx, __u8 type,
 		.arg2	= arg2,
 		.arg3	= arg3,
 	};
-
+#ifdef DEBUG_TAGGED
+	if (!load_ip_trace_id())
+		return;
+#endif
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
 }
@@ -228,7 +237,10 @@ static __always_inline void cilium_dbg_capture2(struct __ctx_buff *ctx, __u8 typ
 		.arg1	= arg1,
 		.arg2	= arg2,
 	};
-
+#ifdef DEBUG_TAGGED
+	if (!load_ip_trace_id())
+		return;
+#endif
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));

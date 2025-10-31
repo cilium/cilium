@@ -64,6 +64,8 @@ func (w *testLogWriter) Write(p []byte) (n int, err error) {
 }
 
 func TestBPF(t *testing.T) {
+	ranTests := 0
+
 	if testPath == nil || *testPath == "" {
 		t.Skip("Set -bpf-test-path to run BPF tests")
 	}
@@ -113,6 +115,12 @@ func TestBPF(t *testing.T) {
 				}
 			}
 		})
+
+		ranTests++
+	}
+
+	if ranTests == 0 {
+		t.Fatal("no BPF programs found to test. Check --bpf-test-path and --test filter.")
 	}
 
 	if *testCoverageReport != "" {
@@ -292,8 +300,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 }
 
 func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
-	logger := hivetest.Logger(t)
-	spec, err := bpf.LoadCollectionSpec(logger, elfPath)
+	spec, err := ebpf.LoadCollectionSpec(elfPath)
 	if err != nil {
 		t.Fatalf("load spec %s: %v", elfPath, err)
 	}
@@ -308,7 +315,8 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 			continue
 		}
 
-		t.Logf("Skipping program '%s' of type '%s': BPF_PROG_RUN not supported", p.Name, p.Type)
+		t.Logf("Skipping program '%s' of type '%s': BPF_PROG_RUN not supported on program type",
+			p.Name, p.Type)
 		delete(spec.Programs, n)
 	}
 
@@ -352,6 +360,10 @@ func subTest(progSet programSet, resultMap *ebpf.Map, skbMdMap *ebpf.Map) func(t
 				t.Fatalf("error while running pktgen prog: %s", err)
 			}
 
+			if testSetUpError(statusCode) {
+				t.Fatalf("error while running pktgen prog: status code (%d)", statusCode)
+			}
+
 			if *dumpCtx {
 				t.Log("Pktgen returned status: ")
 				t.Log(statusCode)
@@ -365,6 +377,10 @@ func subTest(progSet programSet, resultMap *ebpf.Map, skbMdMap *ebpf.Map) func(t
 		if progSet.setupProg != nil {
 			if statusCode, data, ctx, err = runBpfProgram(progSet.setupProg, data, ctx); err != nil {
 				t.Fatalf("error while running setup prog: %s", err)
+			}
+
+			if testSetUpError(statusCode) {
+				t.Fatalf("error while running setup prog: status code (%d)", statusCode)
 			}
 
 			if *dumpCtx {
@@ -585,4 +601,16 @@ func runBpfProgram(prog *ebpf.Program, data, ctx []byte) (statusCode uint32, dat
 	}
 	ret, err := prog.Run(opts)
 	return ret, opts.DataOut, ctxOut, err
+}
+
+func testSetUpError(statusCode uint32) bool {
+	if SuiteResult_TestResult_TestStatus(statusCode) == SuiteResult_TestResult_ERROR {
+		return true
+	}
+
+	if SuiteResult_TestResult_TestStatus(statusCode) == SuiteResult_TestResult_FAIL {
+		return true
+	}
+
+	return false
 }

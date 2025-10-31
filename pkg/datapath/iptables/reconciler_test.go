@@ -20,8 +20,10 @@ import (
 	baseclocktest "k8s.io/utils/clock/testing"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -58,13 +60,15 @@ func TestReconciliationLoop(t *testing.T) {
 			store = store_
 			health = health_.NewScope("iptables-reconciler-test")
 			params = &reconcilerParams{
-				clock:          clock,
-				localNodeStore: store_,
-				db:             db_,
-				devices:        devices_,
-				proxies:        make(chan reconciliationRequest[proxyInfo]),
-				addNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
-				delNoTrackPod:  make(chan reconciliationRequest[noTrackPodInfo]),
+				clock:               clock,
+				localNodeStore:      store_,
+				db:                  db_,
+				devices:             devices_,
+				proxies:             make(chan reconciliationRequest[proxyInfo]),
+				addNoTrackPod:       make(chan reconciliationRequest[noTrackPodInfo]),
+				delNoTrackPod:       make(chan reconciliationRequest[noTrackPodInfo]),
+				addNoTrackHostPorts: make(chan reconciliationRequest[noTrackHostPortsPodInfo]),
+				delNoTrackHostPorts: make(chan reconciliationRequest[podAndNameSpace]),
 			}
 		}),
 	)
@@ -109,6 +113,35 @@ func TestReconciliationLoop(t *testing.T) {
 			ip:   addr,
 			port: port,
 		})
+		return nil
+	}
+
+	setNoTrackHostPortsFunc := func(currentState noTrackHostPortsByPod, pod podAndNameSpace, ports []string) error {
+		mu.Lock()
+		defer mu.Unlock()
+
+		parsedPorts := make([]lb.L4Addr, 0, len(ports))
+
+		for _, p := range ports {
+			parsed, err := lb.L4AddrFromString(p)
+
+			if err != nil {
+				return fmt.Errorf("failed to parse port/proto for %s: %w", p, err)
+			}
+
+			parsedPorts = append(parsedPorts, parsed)
+		}
+
+		state.noTrackHostPorts[pod] = set.NewSet(parsedPorts...)
+
+		return nil
+	}
+
+	removeNoTrackHostPortsFunc := func(currentState noTrackHostPortsByPod, pod podAndNameSpace) error {
+		mu.Lock()
+		defer mu.Unlock()
+		state.noTrackHostPorts = currentState.exclude(pod)
+		assert.NotContains(t, state.noTrackHostPorts, pod)
 		return nil
 	}
 
@@ -330,6 +363,106 @@ func TestReconciliationLoop(t *testing.T) {
 				),
 			},
 		},
+		{
+			name: "add no track host port",
+			action: func() {
+				params.addNoTrackHostPorts <- reconciliationRequest[noTrackHostPortsPodInfo]{
+					info:    noTrackHostPortsPodInfo{podKey: podAndNameSpace{podName: "mytest1", namespace: "mytestns"}, ports: []string{"443/tcp"}},
+					updated: make(chan struct{}),
+				}
+			},
+			expected: desiredState{
+				installRules: true,
+				devices:      sets.New("test-1", "test-2"),
+				localNodeInfo: localNodeInfo{
+					internalIPv4:  net.ParseIP("2.2.2.2"),
+					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
+					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+				},
+				proxies: map[string]proxyInfo{
+					"proxy-test-1": {
+						name: "proxy-test-1",
+						port: 9090,
+					},
+					"proxy-test-2": {
+						name: "proxy-test-2",
+						port: 9091,
+					},
+				},
+				noTrackPods: sets.New(
+					noTrackPodInfo{netip.MustParseAddr("11.22.33.44"), 10002},
+				),
+				noTrackHostPorts: noTrackHostPortsByPod{
+					podAndNameSpace{podName: "mytest1", namespace: "mytestns"}: set.NewSet(lb.L4Addr{Protocol: "TCP", Port: 443}),
+				},
+			},
+		},
+		{
+			name: "change no track host port",
+			action: func() {
+				params.addNoTrackHostPorts <- reconciliationRequest[noTrackHostPortsPodInfo]{
+					info:    noTrackHostPortsPodInfo{podKey: podAndNameSpace{podName: "mytest1", namespace: "mytestns"}, ports: []string{"443/udp"}},
+					updated: make(chan struct{}),
+				}
+			},
+			expected: desiredState{
+				installRules: true,
+				devices:      sets.New("test-1", "test-2"),
+				localNodeInfo: localNodeInfo{
+					internalIPv4:  net.ParseIP("2.2.2.2"),
+					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
+					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+				},
+				proxies: map[string]proxyInfo{
+					"proxy-test-1": {
+						name: "proxy-test-1",
+						port: 9090,
+					},
+					"proxy-test-2": {
+						name: "proxy-test-2",
+						port: 9091,
+					},
+				},
+				noTrackPods: sets.New(
+					noTrackPodInfo{netip.MustParseAddr("11.22.33.44"), 10002},
+				),
+				noTrackHostPorts: noTrackHostPortsByPod{
+					podAndNameSpace{podName: "mytest1", namespace: "mytestns"}: set.NewSet(lb.L4Addr{Protocol: "UDP", Port: 443}),
+				},
+			},
+		},
+		{
+			name: "delete no track host port",
+			action: func() {
+				params.delNoTrackHostPorts <- reconciliationRequest[podAndNameSpace]{
+					info:    podAndNameSpace{podName: "mytest1", namespace: "mytestns"},
+					updated: make(chan struct{}),
+				}
+			},
+			expected: desiredState{
+				installRules: true,
+				devices:      sets.New("test-1", "test-2"),
+				localNodeInfo: localNodeInfo{
+					internalIPv4:  net.ParseIP("2.2.2.2"),
+					ipv4AllocCIDR: cidr.MustParseCIDR("6.6.6.0/24").String(),
+					ipv6AllocCIDR: cidr.MustParseCIDR("3002:bbbb::/96").String(),
+				},
+				proxies: map[string]proxyInfo{
+					"proxy-test-1": {
+						name: "proxy-test-1",
+						port: 9090,
+					},
+					"proxy-test-2": {
+						name: "proxy-test-2",
+						port: 9091,
+					},
+				},
+				noTrackPods: sets.New(
+					noTrackPodInfo{netip.MustParseAddr("11.22.33.44"), 10002},
+				),
+				noTrackHostPorts: noTrackHostPortsByPod{},
+			},
+		},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -345,7 +478,12 @@ func TestReconciliationLoop(t *testing.T) {
 	errs := make(chan error)
 	go func() {
 		defer close(errs)
-		errs <- reconciliationLoop(ctx, tlog, health, true, params, updateFunc, updateProxyFunc, installNoTrackFunc, removeNoTrackFunc)
+		errs <- reconciliationLoop(
+			ctx, tlog, health, true,
+			params, updateFunc, updateProxyFunc,
+			installNoTrackFunc, removeNoTrackFunc,
+			setNoTrackHostPortsFunc, removeNoTrackHostPortsFunc,
+		)
 	}()
 
 	// wait for reconciler to react to the initial state
@@ -379,7 +517,7 @@ func TestReconciliationLoop(t *testing.T) {
 					return false
 				}
 				return true
-			}, 10*time.Second, 10*time.Millisecond, "expected state not reached. %v", tc.expected)
+			}, 10*time.Second, 1*time.Second, "expected state not reached. %v", tc.expected)
 		})
 	}
 
@@ -408,6 +546,8 @@ func TestReconciliationLoop(t *testing.T) {
 	close(params.proxies)
 	close(params.addNoTrackPod)
 	close(params.delNoTrackPod)
+	close(params.addNoTrackHostPorts)
+	close(params.delNoTrackHostPorts)
 	cancel()
 	assert.NoError(t, <-errs)
 }
@@ -434,6 +574,19 @@ func assertIptablesState(current, expected desiredState) error {
 		return fmt.Errorf("expected no tracking pods info to be %v, found %v",
 			expected.noTrackPods.UnsortedList(), current.noTrackPods.UnsortedList())
 	}
+	for k, v := range current.noTrackHostPorts {
+		if !v.Equal(expected.noTrackHostPorts[k]) {
+			return fmt.Errorf("expected no-host-track-ports info to be %v, found %v",
+				expected.noTrackHostPorts[k].AsSlice(), v.AsSlice())
+		}
+	}
+	for k, v := range expected.noTrackHostPorts {
+		if !v.Equal(current.noTrackHostPorts[k]) {
+			return fmt.Errorf("expected no-host-track-ports info to be %v, found %v",
+				v.AsSlice(), current.noTrackHostPorts[k].AsSlice())
+		}
+	}
+
 	return nil
 }
 
@@ -442,6 +595,12 @@ func (s desiredState) deepCopy() desiredState {
 	copy(ipv4, s.localNodeInfo.internalIPv4)
 	ipv6 := make(net.IP, len(s.localNodeInfo.internalIPv6))
 	copy(ipv6, s.localNodeInfo.internalIPv6)
+
+	noTrackHostPorts := make(noTrackHostPortsByPod, len(s.noTrackHostPorts))
+	for k, v := range s.noTrackHostPorts {
+		noTrackHostPorts[k] = v.Clone()
+	}
+
 	return desiredState{
 		installRules: s.installRules,
 		devices:      s.devices.Clone(),
@@ -453,7 +612,8 @@ func (s desiredState) deepCopy() desiredState {
 			ipv4NativeRoutingCIDR: s.localNodeInfo.ipv4NativeRoutingCIDR,
 			ipv6NativeRoutingCIDR: s.localNodeInfo.ipv6NativeRoutingCIDR,
 		},
-		proxies:     maps.Clone(s.proxies),
-		noTrackPods: s.noTrackPods.Clone(),
+		proxies:          maps.Clone(s.proxies),
+		noTrackPods:      s.noTrackPods.Clone(),
+		noTrackHostPorts: noTrackHostPorts,
 	}
 }

@@ -72,7 +72,7 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Login to quay.io
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_DEVELOPER_USERNAME }}
@@ -101,7 +101,7 @@ jobs:
 
       - name: Copy runtime image tag from stable branch
         run: |
-          cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/set-runtime-image/
+          cp -r .github/actions/set-runtime-image/runtime-image*.txt ../cilium-base-branch/set-runtime-image/
 
       - name: Set runtime image environment variable
         uses: ./../cilium-base-branch/set-runtime-image
@@ -152,7 +152,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -169,7 +169,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           path: image-digest/
           pattern: "*image-digest *"

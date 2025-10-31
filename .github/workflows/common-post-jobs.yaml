@@ -9,15 +9,18 @@ on:
       sha:
         required: true
         type: string
-      result:
+      success:
         required: true
-        type: string
+        type: boolean
 
 jobs:
   merge-upload:
-    if: ${{ always() && inputs.result != 'skipped' }}
+    if: ${{ always() }}
     name: Merge and Upload Artifacts
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -38,23 +41,31 @@ jobs:
           name: features-tested
           pattern: features-tested-*
           token: ${{ secrets.GITHUB_TOKEN }}
+          separate-directories: true
 
   commit-status-final:
     if: ${{ always() }}
     name: Commit Status Final
     runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
     steps:
       - name: Set final commit status
-        if: ${{ inputs.result != 'skipped' }}
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
           sha: ${{ inputs.sha }}
-          status: ${{ inputs.result == 'abandoned' && 'failure' || inputs.result }}
+          status: ${{ inputs.success && 'success' || 'failure' }}
 
-      - name: Set final commit status
-        if: ${{ inputs.result == 'skipped' }}
-        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
-        with:
-          sha: ${{ inputs.sha }}
-          status: ${{ github.event_name != 'schedule' && 'success' || 'failure' }}
-          description: 'Skipped'
+  fail-workflow:
+    if: ${{ inputs.success == false }}
+    name: Fail job if result is failure
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail job if result is failure
+        # Besides reporting in the commit SHA if the test was or not successful,
+        # we should also report it in the workflow itself. This will allow to
+        # store the failure rate of the workflow on OpenSearch, instead of
+        # marking it as successful.
+        run: |
+          echo "::error::Workflow failed because one or more jobs failed"
+          exit 1

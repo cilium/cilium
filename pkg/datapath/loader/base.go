@@ -184,7 +184,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	// the code below, specific to EncryptInterface. Specifically, we will load
 	// bpf_host code in reloadHostDatapath onto the physical devices as selected
 	// by configuration.
-	if !option.Config.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard) {
+	if !lnc.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard, lnc.EnableIPSec) {
 		return nil
 	}
 
@@ -217,7 +217,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 		return nil
 	}
 
-	spec, err := bpf.LoadCollectionSpec(l.logger, networkObj)
+	spec, err := ebpf.LoadCollectionSpec(networkObj)
 	if err != nil {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
@@ -227,7 +227,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: config.NewBPFNetwork(nodeConfig(lnc)),
+		Constants: config.NewBPFNetwork(config.NodeConfig(lnc)),
 	})
 	if err != nil {
 		return err
@@ -470,7 +470,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		if err := compileWithOptions(ctx, l.logger, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			logging.Fatal(l.logger, "failed to compile bpf_sock.c", logfields.Error, err)
 		}
-		if err := socketlb.Enable(l.logger, l.sysctl, lnc.KPRConfig); err != nil {
+		if err := socketlb.Enable(l.logger, l.sysctl, lnc); err != nil {
 			return err
 		}
 	} else {
@@ -494,7 +494,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
 	}
 
-	if option.Config.EnableIPSec {
+	if lnc.EnableIPSec {
 		if err := compileNetwork(ctx, l.logger); err != nil {
 			logging.Fatal(l.logger, "failed to compile encryption programs", logfields.Error, err)
 		}
@@ -517,10 +517,8 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	// Reinstall proxy rules for any running proxies if needed
-	if option.Config.EnableL7Proxy {
-		if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU); err != nil {
-			return err
-		}
+	if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU, lnc.EnableIPSec); err != nil {
+		return err
 	}
 
 	return nil

@@ -85,7 +85,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target.egress_gateway) {
 		/* Stay on the desired egress interface: */
-		if (target.ifindex && target.ifindex == THIS_INTERFACE_IFINDEX)
+		if (target.ifindex && target.ifindex == CONFIG(interface_ifindex))
 			goto apply_snat;
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
@@ -141,7 +141,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	 */
 	if (ret == CTX_ACT_OK)
 		send_trace_notify6(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   &saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				   &saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				   trace.reason, trace.monitor);
 
 	return ret;
@@ -209,7 +209,7 @@ skip_fib:
 		trace->monitor = monitor;
 
 		ret = __lb6_rev_nat(ctx, l4_off, &tuple, nat_info,
-				    ipfrag_has_l4_header(fraginfo), CT_EGRESS);
+				    ipfrag_has_l4_header(fraginfo), CT_EGRESS, false);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -247,12 +247,10 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 src_id __maybe_unused,
 }
 
 static __always_inline int
-handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
-		    __s8 *ext_err)
+handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 cb_nat_flags,
+		    __u32 src_id, struct trace_ctx *trace, __s8 *ext_err)
 {
-	__u32 cb_nat_flags = ctx_load_and_clear_meta(ctx, CB_NAT_FLAGS);
 	bool revdnat_only = cb_nat_flags & CB_NAT_FLAGS_REVDNAT_ONLY;
-	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 
 	return __handle_nat_fwd_ipv6(ctx, src_id, revdnat_only, trace, ext_err);
 }
@@ -261,8 +259,8 @@ __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_FWD)
 static __always_inline
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
-	/* Will be cleared out in handle_nat_fwd_ipv6 */
-	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 cb_nat_flags = ctx_load_and_clear_meta(ctx, CB_NAT_FLAGS);
+	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
@@ -270,13 +268,13 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	int ret;
 	__s8 ext_err = 0;
 
-	ret = handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
+	ret = handle_nat_fwd_ipv6(ctx, cb_nat_flags, src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 
 	return ret;
@@ -342,10 +340,10 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_MASQUERADE_IPV4)) {
-		struct endpoint_info *ep;
+		const struct endpoint_info *ep;
 
 		ep = __lookup_ip4_endpoint(ip4->saddr);
-		if (ep && ep->parent_ifindex && ep->parent_ifindex != THIS_INTERFACE_IFINDEX) {
+		if (ep && ep->parent_ifindex && ep->parent_ifindex != CONFIG(interface_ifindex)) {
 			/* This packet came from an endpoint with a parent interface and
 			 * it is currently not egressing on its parent interface.
 			 * Check if its a reply packet, if it is, redirect it to the
@@ -357,23 +355,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 				return ret;
 
 			if (ret != DROP_CT_UNKNOWN_PROTO &&
-			    ct_is_reply4(get_ct_map4(&tuple), &tuple)) {
-				/* Look up the parent interface's MAC address and set it as the
-				 * source MAC address of the packet. We will assume the destination
-				 * MAC address is still correct. This assumption only holds if the
-				 * current and parent interfaces are on the same L2 network such as
-				 * in EKS.
-				 */
-				union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(ep->parent_ifindex);
-
-				if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
-					return DROP_WRITE_ERROR;
-
-				/* For EKS we don't have to rewrite the dmac. Once we require a 5.10
-				 * kernel, this can turn into bpf_redirect_neigh() for robustness.
-				 */
-				return ctx_redirect(ctx, ep->parent_ifindex, 0);
-			}
+			    ct_is_reply4(get_ct_map4(&tuple), &tuple))
+				return redirect_neigh(ep->parent_ifindex, NULL, 0, 0);
 		}
 	}
 
@@ -388,7 +371,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target.egress_gateway) {
 		/* Stay on the desired egress interface: */
-		if (target.ifindex && target.ifindex == THIS_INTERFACE_IFINDEX)
+		if (target.ifindex && target.ifindex == CONFIG(interface_ifindex))
 			goto apply_snat;
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
@@ -452,7 +435,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	 */
 	if (ret == CTX_ACT_OK)
 		send_trace_notify4(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				   saddr, TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				   saddr, TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				   trace.reason, trace.monitor);
 
 	return ret;
@@ -565,13 +548,10 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 }
 
 static __always_inline int
-handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
-		    __s8 *ext_err)
+handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cb_nat_flags, __u32 cluster_id,
+		    __u32 src_id, struct trace_ctx *trace, __s8 *ext_err)
 {
-	__u32 cb_nat_flags = ctx_load_and_clear_meta(ctx, CB_NAT_FLAGS);
 	bool revdnat_only = cb_nat_flags & CB_NAT_FLAGS_REVDNAT_ONLY;
-	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
-	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 
 	return __handle_nat_fwd_ipv4(ctx, cluster_id, src_id, revdnat_only, trace, ext_err);
 }
@@ -580,8 +560,9 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
 static __always_inline
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
-	/* Will be cleared out in handle_nat_fwd_ipv4 */
-	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 cb_nat_flags = ctx_load_and_clear_meta(ctx, CB_NAT_FLAGS);
+	__u32 cluster_id = ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS);
+	__u32 src_id = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
@@ -589,13 +570,13 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	int ret;
 	__s8 ext_err = 0;
 
-	ret = handle_nat_fwd_ipv4(ctx, &trace, &ext_err);
+	ret = handle_nat_fwd_ipv4(ctx, cb_nat_flags, cluster_id, src_id, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, METRIC_EGRESS);
 
 	if (ret == CTX_ACT_OK)
 		send_trace_notify(ctx, NODEPORT_OBS_POINT_EGRESS, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 
 	return ret;
@@ -684,41 +665,41 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 	       __be16 proto, bool revdnat_only, struct trace_ctx *trace __maybe_unused,
 		   __s8 *ext_err __maybe_unused)
 {
+	bool use_tailcall = (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) ||
+			    (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+			    (is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && is_defined(ENABLE_INTER_CLUSTER_SNAT)) ||
+			    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST));
 	int ret = CTX_ACT_OK;
 	__u32 cb_nat_flags = 0;
 
 	if (revdnat_only)
 		cb_nat_flags |= CB_NAT_FLAGS_REVDNAT_ONLY;
 
-	ctx_store_meta(ctx, CB_NAT_FLAGS, cb_nat_flags);
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
-	ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
+	if (use_tailcall) {
+		ctx_store_meta(ctx, CB_NAT_FLAGS, cb_nat_flags);
+		ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
+	}
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = invoke_traced_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
-							    is_defined(ENABLE_IPV6)),
-						      __and(is_defined(ENABLE_HOST_FIREWALL),
-							    is_defined(IS_BPF_HOST)),
-						      __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
-							    is_defined(ENABLE_INTER_CLUSTER_SNAT)),
-						      __and(is_defined(ENABLE_EGRESS_GATEWAY_COMMON),
-							    is_defined(IS_BPF_HOST))),
-						CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
-						handle_nat_fwd_ipv4, trace, ext_err);
+		if (use_tailcall)
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
+						 ext_err);
+		else
+			ret = handle_nat_fwd_ipv4(ctx, cb_nat_flags, cluster_id, src_id,
+						  trace, ext_err);
 		break;
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = invoke_traced_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
-							    is_defined(ENABLE_IPV6)),
-						      __and(is_defined(ENABLE_HOST_FIREWALL),
-							    is_defined(IS_BPF_HOST)),
-						      __and(is_defined(ENABLE_EGRESS_GATEWAY_COMMON),
-							    is_defined(IS_BPF_HOST))),
-						CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
-						handle_nat_fwd_ipv6, trace, ext_err);
+		if (use_tailcall)
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
+						 ext_err);
+		else
+			ret = handle_nat_fwd_ipv6(ctx, cb_nat_flags, src_id,
+						  trace, ext_err);
 		break;
 #endif /* ENABLE_IPV6 */
 	default:

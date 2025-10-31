@@ -27,13 +27,11 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
+	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-)
-
-const (
-	conditionTypeReady = "Ready"
 )
 
 // mcsAPIServiceImportReconciler is a controller that automatically creates
@@ -47,15 +45,20 @@ type mcsAPIServiceImportReconciler struct {
 	cluster                    string
 	globalServiceExports       *operator.GlobalServiceExportCache
 	remoteClusterServiceSource *remoteClusterServiceExportSource
+
+	enableIPv4 bool
+	enableIPv6 bool
 }
 
-func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource) *mcsAPIServiceImportReconciler {
+func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, enableIPv4, enableIPv6 bool) *mcsAPIServiceImportReconciler {
 	return &mcsAPIServiceImportReconciler{
 		Client:                     mgr.GetClient(),
 		Logger:                     logger,
 		cluster:                    cluster,
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,
+		enableIPv4:                 enableIPv4,
+		enableIPv6:                 enableIPv6,
 	}
 }
 
@@ -124,6 +127,7 @@ func fromServiceToMCSAPIServiceSpec(svc *corev1.Service, cluster string, svcExpo
 		Type:                    mcsAPISvcType,
 		SessionAffinity:         svc.Spec.SessionAffinity,
 		SessionAffinityConfig:   svc.Spec.SessionAffinityConfig.DeepCopy(),
+		IPFamilies:              slices.Clone(svc.Spec.IPFamilies),
 		Annotations:             maps.Clone(svcExport.Spec.ExportedAnnotations),
 		Labels:                  maps.Clone(svcExport.Spec.ExportedLabels),
 	}
@@ -187,8 +191,8 @@ func checkPortConflict(port, olderPort portMerge) string {
 
 // mergePorts merge all the ports into a map while doing conflict resolution
 // with the oldest CreationTimestamp. It also return if it detects any conflict
-func mergePorts(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]portMerge, string) {
-	conflict := ""
+func mergePorts(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]portMerge, mcsapiv1alpha1.ServiceExportConditionReason, string) {
+	conflictMsg := ""
 	ports := []portMerge{}
 	portsByName := map[string]portMerge{}
 	for _, svcExport := range orderedSvcExports {
@@ -200,8 +204,8 @@ func mergePorts(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]portMerge
 			}
 
 			conflictDuplicatedPortName := checkDuplicatedPortNameConflict(portMergeValue, portsByName)
-			if conflict == "" {
-				conflict = conflictDuplicatedPortName
+			if conflictMsg == "" {
+				conflictMsg = conflictDuplicatedPortName
 			}
 			if conflictDuplicatedPortName != "" {
 				continue
@@ -216,12 +220,16 @@ func mergePorts(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]portMerge
 				// exporting that port name
 				portsByName[port.Name] = portMergeValue
 				ports = append(ports, portMergeValue)
-			} else if conflict == "" {
-				conflict = checkPortConflict(portMergeValue, ports[portIndex])
+			} else if conflictMsg == "" {
+				conflictMsg = checkPortConflict(portMergeValue, ports[portIndex])
 			}
 		}
 	}
-	return ports, conflict
+	reason := mcsapiv1alpha1.ServiceExportReasonNoConflicts
+	if conflictMsg != "" {
+		reason = mcsapiv1alpha1.ServiceExportReasonPortConflict
+	}
+	return ports, reason, conflictMsg
 }
 
 func mergedPortsToMCSPorts(mergedPorts []portMerge) []mcsapiv1alpha1.ServicePort {
@@ -232,14 +240,89 @@ func mergedPortsToMCSPorts(mergedPorts []portMerge) []mcsapiv1alpha1.ServicePort
 	return ports
 }
 
-func getServiceImportStatus(svcExportByCluster operator.ServiceExportsByCluster) mcsapiv1alpha1.ServiceImportStatus {
-	clusters := []mcsapiv1alpha1.ClusterStatus{}
+// intersectIPFamilies returns an intersection of all exported IPFamilies.
+// As we expect that all "pods" have endpoints in all IPFamilies the
+// (exported) Service is advertising, an intersection allows to  consistently
+// reach all "pods" from any ip protocol returned by this function.
+// If we were doing the opposite (a union of all IPFamilies) we could end up
+// in a situation where we would reach only a subset of "pods" depending on
+// the IP protocol used by the client.
+func intersectIPFamilies(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]corev1.IPFamily, mcsapiv1alpha1.ServiceExportConditionReason, string) {
+	// Skip empty IPFamilies to support clusters running Cilium 1.18 or older
+	orderedSvcExports = slices.DeleteFunc(slices.Clone(orderedSvcExports), func(svcExport *mcsapitypes.MCSAPIServiceSpec) bool {
+		return len(svcExport.IPFamilies) == 0
+	})
+	if len(orderedSvcExports) == 0 {
+		return nil, mcsapiv1alpha1.ServiceExportReasonNoConflicts, ""
+	}
+
+	ipFamilies := slices.Clone(orderedSvcExports[0].IPFamilies)
+	clusterConflict := ""
+	for _, svcExport := range orderedSvcExports[1:] {
+		intersection := make([]corev1.IPFamily, 0, len(ipFamilies))
+		for _, ipFamily := range ipFamilies {
+			if slices.Contains(svcExport.IPFamilies, ipFamily) {
+				intersection = append(intersection, ipFamily)
+			}
+		}
+		// If there is no common IPFamilies between the current intersection
+		// we skip the current cluster in order to not end up with no IPFamily
+		// as that may disrupt all traffic going to that ServiceImport and
+		// report a conflict
+		if len(intersection) == 0 {
+			if clusterConflict == "" {
+				// Only report conflict for the first cluster to be consistent
+				// with conflict reporting of other fields
+				clusterConflict = svcExport.Cluster
+			}
+			continue
+		}
+		ipFamilies = intersection
+	}
+
+	if clusterConflict != "" {
+		// Note that there is no standard export condition reason for this case at this time
+		return ipFamilies,
+			mcsapiv1alpha1.ServiceExportConditionReason("IPFamilyConflict"),
+			fmt.Sprintf("IPFamilies conflict. Cluster '%s' has no IPFamilies in common.", clusterConflict)
+	}
+
+	return ipFamilies, mcsapiv1alpha1.ServiceExportReasonNoConflicts, ""
+}
+
+func (r mcsAPIServiceImportReconciler) filterSupportedIPFamilies(ipfamilies []corev1.IPFamily) []corev1.IPFamily {
+	supportedIPFamilies := make([]corev1.IPFamily, 0, len(ipfamilies))
+	if ipfamilies == nil {
+		// All exported clusters are legacy, fallback to what we locally support
+		if r.enableIPv4 {
+			supportedIPFamilies = append(supportedIPFamilies, corev1.IPv4Protocol)
+		}
+		if r.enableIPv6 {
+			supportedIPFamilies = append(supportedIPFamilies, corev1.IPv6Protocol)
+		}
+		return supportedIPFamilies
+	}
+
+	// preserve the order of the input
+	for _, ipfamily := range ipfamilies {
+		if ipfamily == corev1.IPv4Protocol && !r.enableIPv4 {
+			continue
+		} else if ipfamily == corev1.IPv6Protocol && !r.enableIPv6 {
+			continue
+		}
+		supportedIPFamilies = append(supportedIPFamilies, ipfamily)
+	}
+	return supportedIPFamilies
+}
+
+func getClustersStatus(svcExportByCluster operator.ServiceExportsByCluster) []mcsapiv1alpha1.ClusterStatus {
+	clusters := make([]mcsapiv1alpha1.ClusterStatus, 0, len(svcExportByCluster))
 	for _, cluster := range slices.Sorted(maps.Keys(svcExportByCluster)) {
 		clusters = append(clusters, mcsapiv1alpha1.ClusterStatus{
 			Cluster: cluster,
 		})
 	}
-	return mcsapiv1alpha1.ServiceImportStatus{Clusters: clusters}
+	return clusters
 }
 
 func derefSessionAffinity(sessionAffinityConfig *corev1.SessionAffinityConfig) *int32 {
@@ -253,17 +336,19 @@ func derefSessionAffinity(sessionAffinityConfig *corev1.SessionAffinityConfig) *
 
 // checkConflictExport check if there are any conflict to be added on
 // the ServiceExport object. This function does not check for conflict on the
-// ports field this aspect should be done by mergePorts
-func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) string {
+// ports and the IPFamilies fields
+func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) (mcsapiv1alpha1.ServiceExportConditionReason, string) {
 	clusterCount := len(orderedSvcExports)
 
 	fieldStructs := []struct {
 		name       string
+		reason     mcsapiv1alpha1.ServiceExportConditionReason
 		getterFunc func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string
 		equalFunc  func(svc1, svc2 *mcsapitypes.MCSAPIServiceSpec) bool
 	}{
 		{
-			name: "type",
+			name:   "type",
+			reason: mcsapiv1alpha1.ServiceExportReasonTypeConflict,
 			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
 				return string(svcSpec.Type)
 			},
@@ -272,7 +357,8 @@ func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) str
 			},
 		},
 		{
-			name: "sessionAffinity",
+			name:   "sessionAffinity",
+			reason: mcsapiv1alpha1.ServiceExportReasonSessionAffinityConflict,
 			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
 				return string(svcSpec.SessionAffinity)
 			},
@@ -281,7 +367,8 @@ func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) str
 			},
 		},
 		{
-			name: "sessionAffinityConfig.clientIP",
+			name:   "sessionAffinityConfig.clientIP",
+			reason: mcsapiv1alpha1.ServiceExportReasonSessionAffinityConfigConflict,
 			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
 				timeoutSeconds := derefSessionAffinity(svcSpec.SessionAffinityConfig)
 				if timeoutSeconds == nil {
@@ -294,7 +381,8 @@ func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) str
 			},
 		},
 		{
-			name: "annotations",
+			name:   "annotations",
+			reason: mcsapiv1alpha1.ServiceExportReasonAnnotationsConflict,
 			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
 				return fmt.Sprintf("%v", svcSpec.Annotations)
 			},
@@ -303,7 +391,8 @@ func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) str
 			},
 		},
 		{
-			name: "labels",
+			name:   "labels",
+			reason: mcsapiv1alpha1.ServiceExportReasonLabelsConflict,
 			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
 				return fmt.Sprintf("%v", svcSpec.Labels)
 			},
@@ -329,7 +418,7 @@ func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) str
 				}
 			}
 
-			return fmt.Sprintf(
+			return fieldStruct.reason, fmt.Sprintf(
 				"Conflicting %s. %d/%d clusters disagree. Using \"%s\" from oldest service export in cluster \"%s\".",
 				fieldStruct.name, conflictCount, clusterCount,
 				fieldStruct.getterFunc(orderedSvcExports[0]),
@@ -338,7 +427,38 @@ func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) str
 		}
 	}
 
-	return ""
+	return mcsapiv1alpha1.ServiceExportReasonNoConflicts, ""
+}
+
+func setInvalidStatus(conditions *[]metav1.Condition, reason mcsapiv1alpha1.ServiceExportConditionReason, msg string) bool {
+	changed := meta.SetStatusCondition(conditions, mcsapiv1alpha1.NewServiceExportCondition(
+		mcsapiv1alpha1.ServiceExportConditionValid,
+		metav1.ConditionFalse,
+		reason,
+		msg,
+	))
+	changed = meta.SetStatusCondition(conditions, mcsapiv1alpha1.NewServiceExportCondition(
+		mcsapiv1alpha1.ServiceExportConditionReady,
+		metav1.ConditionFalse,
+		mcsapiv1alpha1.ServiceExportReasonPending,
+		"ServiceExport is not valid",
+	)) || changed
+	return meta.RemoveStatusCondition(conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict)) || changed
+}
+
+// checkLocalSvcValidForExport checks if the local service is valid for export.
+// The logic here MUST be kept up to date with the logic in checkLocalSlimSvcValidForExport.
+func checkLocalSvcValidForExport(localSvc *corev1.Service) (bool, mcsapiv1alpha1.ServiceExportConditionReason, string) {
+	if localSvc.Spec.Type == corev1.ServiceTypeExternalName {
+		return false, mcsapiv1alpha1.ServiceExportReasonInvalidServiceType, "Service type ExternalName is not supported"
+	}
+	return true, "", ""
+}
+
+// checkLocalSvcValidForExport checks if the local service is valid for export.
+// The logic here MUST be kept up to date with the logic in checkLocalSvcValidForExport.
+func checkLocalSlimSvcValidForExport(localSvc *slim_corev1.Service) bool {
+	return localSvc.Spec.Type != slim_corev1.ServiceTypeExternalName
 }
 
 func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -373,75 +493,76 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 			return controllerruntime.Fail(err)
 		}
 		if localSvc == nil {
-			if meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
-				Type:    mcsapiv1alpha1.ServiceExportValid,
-				Status:  metav1.ConditionFalse,
-				Reason:  "NoService",
-				Message: "Service doesn't exist",
-			}) {
-				meta.RemoveStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict)
-				meta.RemoveStatusCondition(&svcExport.Status.Conditions, conditionTypeReady)
+			if setInvalidStatus(
+				&svcExport.Status.Conditions,
+				mcsapiv1alpha1.ServiceExportReasonNoService,
+				"Service doesn't exist",
+			) {
 				if err := r.Client.Status().Update(ctx, svcExport); err != nil {
 					return controllerruntime.Fail(err)
 				}
 			}
 			return controllerruntime.Success()
 		}
+		if validForExport, reason, msg := checkLocalSvcValidForExport(localSvc); !validForExport {
+			if setInvalidStatus(
+				&svcExport.Status.Conditions,
+				reason,
+				msg,
+			) {
+				if err := r.Client.Status().Update(ctx, svcExport); err != nil {
+					return controllerruntime.Fail(err)
+				}
+			}
+			return controllerruntime.Success()
+		}
+
 		localSvcSpec := fromServiceToMCSAPIServiceSpec(localSvc, r.cluster, svcExport)
 		if svcExportByCluster == nil {
 			svcExportByCluster = operator.ServiceExportsByCluster{}
 		}
 		svcExportByCluster[r.cluster] = localSvcSpec
-
-		if localSvc.Spec.Type == corev1.ServiceTypeExternalName {
-			if meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
-				Type:    mcsapiv1alpha1.ServiceExportValid,
-				Status:  metav1.ConditionFalse,
-				Reason:  "ServiceType",
-				Message: "Service type ExternalName is not supported",
-			}) {
-				meta.RemoveStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict)
-				meta.RemoveStatusCondition(&svcExport.Status.Conditions, conditionTypeReady)
-				if err := r.Client.Status().Update(ctx, svcExport); err != nil {
-					return controllerruntime.Fail(err)
-				}
-			}
-			return controllerruntime.Success()
-		}
 	}
 
 	orderedSvcExports := orderSvcExportByPriority(svcExportByCluster)
-	mergedPorts, conflictMsg := mergePorts(orderedSvcExports)
+	mergedPorts, conflictReason, conflictMsg := mergePorts(orderedSvcExports)
+	ipFamilies, conflictReasonIPFamilies, conflictMsgIPFamilies := intersectIPFamilies(orderedSvcExports)
+	if conflictReason == mcsapiv1alpha1.ServiceExportReasonNoConflicts {
+		conflictReason, conflictMsg = conflictReasonIPFamilies, conflictMsgIPFamilies
+	}
+	if conflictReason == mcsapiv1alpha1.ServiceExportReasonNoConflicts {
+		conflictReason, conflictMsg = checkConflictExport(orderedSvcExports)
+	}
 
 	if svcExport != nil {
-		changedCondition := meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
-			Type:    mcsapiv1alpha1.ServiceExportValid,
-			Status:  metav1.ConditionTrue,
-			Reason:  mcsapiv1alpha1.ServiceExportValid,
-			Message: "Service is Valid for export",
-		})
+		changedCondition := meta.SetStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.NewServiceExportCondition(
+			mcsapiv1alpha1.ServiceExportConditionValid,
+			metav1.ConditionTrue,
+			mcsapiv1alpha1.ServiceExportReasonValid,
+			"ServiceExport is valid",
+		))
+		changedCondition = meta.SetStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.NewServiceExportCondition(
+			mcsapiv1alpha1.ServiceExportConditionReady,
+			metav1.ConditionTrue,
+			mcsapiv1alpha1.ServiceExportReasonReady,
+			"ServiceExport is ready",
+		)) || changedCondition
 
-		if conflictMsg == "" {
-			conflictMsg = checkConflictExport(orderedSvcExports)
+		if conflictReason != mcsapiv1alpha1.ServiceExportReasonNoConflicts {
+			changedCondition = meta.SetStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.NewServiceExportCondition(
+				mcsapiv1alpha1.ServiceExportConditionConflict,
+				metav1.ConditionTrue,
+				conflictReason,
+				conflictMsg,
+			)) || changedCondition
+		} else {
+			changedCondition = meta.SetStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.NewServiceExportCondition(
+				mcsapiv1alpha1.ServiceExportConditionConflict,
+				metav1.ConditionFalse,
+				mcsapiv1alpha1.ServiceExportReasonNoConflicts,
+				"ServiceExport has no conflicts",
+			)) || changedCondition
 		}
-		if conflictMsg != "" {
-			changedCondition = meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
-				Type:    mcsapiv1alpha1.ServiceExportConflict,
-				Status:  metav1.ConditionTrue,
-				Reason:  mcsapiv1alpha1.ServiceExportConflict,
-				Message: conflictMsg,
-			}) || changedCondition
-		}
-		readyStatus := metav1.ConditionFalse
-		if conflictMsg == "" {
-			readyStatus = metav1.ConditionTrue
-			changedCondition = meta.RemoveStatusCondition(&svcExport.Status.Conditions, mcsapiv1alpha1.ServiceExportConflict) || changedCondition
-		}
-		changedCondition = meta.SetStatusCondition(&svcExport.Status.Conditions, metav1.Condition{
-			Type:   conditionTypeReady,
-			Status: readyStatus,
-			Reason: conditionTypeReady,
-		}) || changedCondition
 		if changedCondition {
 			if err := r.Client.Status().Update(ctx, svcExport); err != nil {
 				return controllerruntime.Fail(err)
@@ -451,17 +572,21 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	oldestClusterSvc := orderedSvcExports[0]
 	svcImport.Spec.Ports = mergedPortsToMCSPorts(mergedPorts)
+	svcImport.Spec.IPFamilies = ipFamilies
 	svcImport.Spec.Type = oldestClusterSvc.Type
 	svcImport.Spec.SessionAffinity = oldestClusterSvc.SessionAffinity
 	svcImport.Spec.SessionAffinityConfig = oldestClusterSvc.SessionAffinityConfig.DeepCopy()
 	svcImport.Labels = maps.Clone(oldestClusterSvc.Labels)
 	annotations := maps.Clone(oldestClusterSvc.Annotations)
-	if _, ok := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]; ok {
-		if annotations == nil {
-			annotations = map[string]string{}
-		}
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	_, derivedSvcAnnotationExists := svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
+	if derivedSvcAnnotationExists {
 		annotations[mcsapicontrollers.DerivedServiceAnnotation] = svcImport.Annotations[mcsapicontrollers.DerivedServiceAnnotation]
 	}
+	supportedIPFamilies := r.filterSupportedIPFamilies(svcImport.Spec.IPFamilies)
+	annotations[annotation.SupportedIPFamilies] = mcsapitypes.IPFamiliesToString(supportedIPFamilies)
 	svcImport.Annotations = annotations
 
 	svcImport, err = r.createOrUpdateServiceImport(ctx, svcImport)
@@ -469,9 +594,31 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 		return controllerruntime.Fail(err)
 	}
 
-	newStatus := getServiceImportStatus(svcExportByCluster)
-	if !reflect.DeepEqual(svcImport.Status, newStatus) {
-		svcImport.Status = newStatus
+	svcImportStatusOriginal := svcImport.Status.DeepCopy()
+	svcImport.Status.Clusters = getClustersStatus(svcExportByCluster)
+	if len(supportedIPFamilies) == 0 {
+		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+			mcsapiv1alpha1.ServiceImportConditionReady,
+			metav1.ConditionFalse,
+			mcsapiv1alpha1.ServiceImportReasonIPFamilyNotSupported,
+			"The local cluster does not support any of the ServiceImport IPFamilies",
+		))
+	} else if derivedSvcAnnotationExists {
+		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+			mcsapiv1alpha1.ServiceImportConditionReady,
+			metav1.ConditionTrue,
+			mcsapiv1alpha1.ServiceImportReasonReady,
+			"ServiceImport is ready",
+		))
+	} else {
+		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+			mcsapiv1alpha1.ServiceImportConditionReady,
+			metav1.ConditionFalse,
+			mcsapiv1alpha1.ServiceImportReasonPending,
+			"Waiting for the derived Service to be created",
+		))
+	}
+	if !reflect.DeepEqual(svcImportStatusOriginal, svcImport.Status) {
 		if err := r.Client.Status().Update(ctx, svcImport); err != nil {
 			return controllerruntime.Fail(err)
 		}

@@ -20,7 +20,8 @@ import (
 	"io"
 )
 
-// A ClientResponse represents a client response
+// A ClientResponse represents a client response.
+//
 // This bridges between responses obtained from different transports
 type ClientResponse interface {
 	Code() int
@@ -44,6 +45,13 @@ type ClientResponseReader interface {
 	ReadResponse(ClientResponse, Consumer) (interface{}, error)
 }
 
+// APIError wraps an error model and captures the status code
+type APIError struct {
+	OperationName string
+	Response      interface{}
+	Code          int
+}
+
 // NewAPIError creates a new API error
 func NewAPIError(opName string, payload interface{}, code int) *APIError {
 	return &APIError{
@@ -51,13 +59,6 @@ func NewAPIError(opName string, payload interface{}, code int) *APIError {
 		Response:      payload,
 		Code:          code,
 	}
-}
-
-// APIError wraps an error model and captures the status code
-type APIError struct {
-	OperationName string
-	Response      interface{}
-	Code          int
 }
 
 func (o *APIError) Error() string {
@@ -74,27 +75,31 @@ func (o *APIError) String() string {
 	return o.Error()
 }
 
-// IsSuccess returns true when this elapse o k response returns a 2xx status code
+// IsSuccess returns true when this API response returns a 2xx status code
 func (o *APIError) IsSuccess() bool {
-	return o.Code/100 == 2
+	const statusOK = 2
+	return o.Code/100 == statusOK
 }
 
-// IsRedirect returns true when this elapse o k response returns a 3xx status code
+// IsRedirect returns true when this API response returns a 3xx status code
 func (o *APIError) IsRedirect() bool {
-	return o.Code/100 == 3
+	const statusRedirect = 3
+	return o.Code/100 == statusRedirect
 }
 
-// IsClientError returns true when this elapse o k response returns a 4xx status code
+// IsClientError returns true when this API response returns a 4xx status code
 func (o *APIError) IsClientError() bool {
-	return o.Code/100 == 4
+	const statusClientError = 4
+	return o.Code/100 == statusClientError
 }
 
-// IsServerError returns true when this elapse o k response returns a 5xx status code
+// IsServerError returns true when this API response returns a 5xx status code
 func (o *APIError) IsServerError() bool {
-	return o.Code/100 == 5
+	const statusServerError = 5
+	return o.Code/100 == statusServerError
 }
 
-// IsCode returns true when this elapse o k response returns a 4xx status code
+// IsCode returns true when this API response returns a given status code
 func (o *APIError) IsCode(code int) bool {
 	return o.Code == code
 }

@@ -109,7 +109,7 @@ static __always_inline __s32 mcast_ipv4_igmp_type(const struct iphdr *ip4,
 
 /* add a subscriber to a subscriber map */
 /* returns 1 on success or DROP_INVALID for error */
-static __always_inline __s32 mcast_ipv4_add_subscriber(void *map,
+static __always_inline __s32 mcast_ipv4_add_subscriber(const void *map,
 						       struct mcast_subscriber_v4 *sub)
 {
 	if ((map_update_elem(map, &sub->saddr, sub, BPF_ANY) != 0))
@@ -119,7 +119,7 @@ static __always_inline __s32 mcast_ipv4_add_subscriber(void *map,
 
 /* remove a subscriber to a subscriber map */
 /* always returns 1 */
-static __always_inline void mcast_ipv4_remove_subscriber(void *map,
+static __always_inline void mcast_ipv4_remove_subscriber(const void *map,
 							 struct mcast_subscriber_v4 *sub)
 {
 	map_delete_elem(map, &sub->saddr);
@@ -137,9 +137,9 @@ static __always_inline __s32 mcast_ipv4_handle_v3_membership_report(void *ctx,
 	};
 	const struct igmpv3_report *rep;
 	const struct igmpv3_grec *rec;
+	const void *sub_map = NULL;
 	int ip_len = ip4->ihl * 4;
 	__s32 subscribed = 0;
-	void *sub_map = 0;
 	__u16 ngrec = 0;
 	__u32 i = 0;
 
@@ -220,9 +220,9 @@ static __always_inline __s32 mcast_ipv4_handle_v2_membership_report(void *ctx,
 		.saddr = ip4->saddr,
 		.ifindex = ctx_get_ingress_ifindex(ctx)
 	};
+	const void *sub_map = NULL;
 	int ip_len = ip4->ihl * 4;
 	const struct igmphdr *hdr;
-	void *sub_map = 0;
 
 	if (data + ETH_HLEN + ip_len + sizeof(struct igmphdr) > data_end)
 		return DROP_INVALID;
@@ -251,9 +251,9 @@ static __always_inline __s32 mcast_ipv4_handle_igmp_leave(void *group_map,
 	struct mcast_subscriber_v4 subscriber = {
 		.saddr = ip4->saddr,
 	};
+	const void *sub_map = NULL;
 	int ip_len = ip4->ihl * 4;
 	const struct igmphdr *hdr;
-	void *sub_map = 0;
 
 	if (data + ETH_HLEN + ip_len + sizeof(struct igmphdr) > data_end)
 		return DROP_INVALID;
@@ -340,7 +340,6 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 				struct _mcast_ep_delivery_ctx *cb_ctx)
 {
 	int ret = 0;
-	__u32 tunnel_id = WORLD_ID;
 	__u8 from_overlay = 0;
 	struct bpf_tunnel_key tun_key = {0};
 
@@ -372,13 +371,7 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 		if (from_overlay)
 			return 0;
 
-#ifdef ENABLE_ENCRYPTED_OVERLAY
-		/* if encrypted overlay is enabled we'll mark the packet for
-		 * encryption via the tunnel ID.
-		 */
-		tunnel_id = ENCRYPTED_OVERLAY_ID;
-#endif /* ENABLE_ENCRYPTED_OVERLAY */
-		tun_key.tunnel_id = tunnel_id;
+		tun_key.tunnel_id = WORLD_ID;
 		tun_key.remote_ipv4 = bpf_ntohl(sub->saddr);
 		tun_key.tunnel_ttl = IPDEFTTL;
 
@@ -413,10 +406,10 @@ int tail_mcast_ep_delivery(struct __ctx_buff *ctx)
 		.ctx = ctx,
 		.ret = 0
 	};
+	struct iphdr *ip4 = NULL;
 	union macaddr mac = {0};
 	void *data, *data_end;
-	struct iphdr *ip4 = 0;
-	void *sub_map = 0;
+	void *sub_map = NULL;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;

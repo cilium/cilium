@@ -54,8 +54,6 @@ func (info *RoutingInfo) GetCIDRs() []net.IPNet {
 // NewRoutingInfo creates a new RoutingInfo struct, from data that will be
 // parsed and validated. Note, this code assumes IPv4 values because IPv4
 // (on either ENI or Azure interface) is the only supported path currently.
-// Azure does not support masquerade yet (subnets CIDRs aren't provided):
-// until it does, we forward a masquerade bool to opt out ipam.Cidrs use.
 func NewRoutingInfo(logger *slog.Logger, gateway string, cidrs []string, mac, ifaceNum, ipamMode string, masquerade bool) (*RoutingInfo, error) {
 	return parse(logger, gateway, cidrs, mac, ifaceNum, ipamMode, masquerade)
 }

@@ -121,6 +121,7 @@ Stormtroopers
 Suchakra
 Suricata
 Synchronizer
+Tailroom
 Talos
 Telco
 Terraform
@@ -477,7 +478,6 @@ keyless
 keypair
 keyspace
 keyspaces
-kiam
 kops
 kprobe
 kprobes
@@ -549,8 +549,8 @@ matchLabels
 matchPattern
 maxUnavailable
 mc
-mediabot
 mcsapi
+mediabot
 memcache
 memcached
 memcd
@@ -686,7 +686,6 @@ rebase
 rebased
 rebasing
 recompiles
-reconcilation
 reconciler
 reconcilers
 reconfigurations

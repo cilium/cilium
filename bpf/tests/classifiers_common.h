@@ -44,7 +44,7 @@ ASSIGN_CONFIG(__u32, trace_payload_len_overlay, 20UL);
 static __always_inline void
 adjust_l2(struct __ctx_buff *ctx)
 {
-	if (ETH_HLEN != 0)
+	if (!THIS_IS_L3_DEV)
 		return;
 
 	void *data = (void *)(long)ctx->data;

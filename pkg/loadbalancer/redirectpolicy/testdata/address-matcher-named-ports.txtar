@@ -1,0 +1,245 @@
+# AddressMatcherLRPs with named and unnamed ports, LRP resources applied in different orders
+
+hive start
+
+# Add LRP and then LRP-selected pod.
+k8s/add lrp-addr.yaml
+k8s/add pod.yaml
+
+# Add a correct LRP.
+
+# Compare tables
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+# Remove the LRP.
+k8s/delete lrp-addr.yaml
+
+# Tables and maps should now be empty.
+* db/empty services frontends backends localredirectpolicies
+
+# Add the LRP -- LRP-selected pod already exists.
+k8s/add lrp-addr.yaml
+
+# Compare tables
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends.table
+db/cmp backends backends.table
+
+# Remove the LRP.
+k8s/delete lrp-addr.yaml
+
+# Tables and maps should now be empty.
+* db/empty services frontends backends localredirectpolicies
+
+# Add LRP with single named port.
+k8s/add lrp-addr-single.yaml
+k8s/add pod-single.yaml
+
+# Compare tables
+db/cmp localredirectpolicies lrp-single.table
+db/cmp services services-single.table
+db/cmp frontends frontends-single.table
+db/cmp backends backends-single.table
+
+# Remove the LRP.
+k8s/delete lrp-addr-single.yaml
+
+# Tables and maps should now be empty.
+* db/empty services frontends backends localredirectpolicies
+
+# Add LRP with single unnamed port to cover https://github.com/cilium/cilium/issues/41407
+k8s/add lrp-addr-unnamed.yaml
+
+# Compare tables
+db/cmp localredirectpolicies lrp-unnamed.table
+db/cmp services services-unnamed.table
+db/cmp frontends frontends-unnamed.table
+db/cmp backends backends-unnamed.table
+
+-- lrp.table --
+Name               Type     FrontendType      Frontends
+test/lrp-addr      address  addr-named-ports  169.254.169.254:5050/TCP, 169.254.169.254:5051/TCP
+
+-- services.table --
+Name                              Source
+test/lrp-addr:local-redirect      k8s
+
+-- frontends.table --
+Address                    Type          ServiceName                       Backends            RedirectTo  Status
+169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:50/TCP               Done
+169.254.169.254:5051/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:51/TCP               Done
+
+-- backends.table --
+Address             Instances
+10.244.2.1:50/TCP   test/lrp-addr:local-redirect (test)
+10.244.2.1:51/TCP   test/lrp-addr:local-redirect (test1)
+
+-- lrp-single.table --
+Name                       Type     FrontendType      Frontends
+test/lrp-addr-single       address  addr-single-port  169.254.169.254:5050/TCP
+
+-- lrp-unnamed.table --
+Name                                      Type     FrontendType      Frontends
+test/lrp-addr-unnamed                     address  addr-single-port  169.254.169.254:5050/TCP
+
+-- services-single.table --
+Name                                     Source
+test/lrp-addr-single:local-redirect      k8s
+
+-- services-unnamed.table --
+Name                                     Source
+test/lrp-addr-unnamed:local-redirect     k8s
+
+-- frontends-single.table --
+Address                    Type          ServiceName                              Backends            RedirectTo  Status
+169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr-single:local-redirect      10.244.2.1:50/TCP               Done
+
+-- frontends-unnamed.table --
+Address                    Type          ServiceName                              Backends            RedirectTo  Status
+169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr-unnamed:local-redirect     10.244.2.1:50/TCP               Done
+
+-- backends-single.table --
+Address             Instances
+10.244.2.1:50/TCP   test/lrp-addr-single:local-redirect
+
+-- backends-unnamed.table --
+Address             Instances
+10.244.2.1:50/TCP   test/lrp-addr-unnamed:local-redirect
+
+-- lrp-addr.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+  namespace: test
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "5050"
+          name: "test"
+          protocol: TCP
+        - port: "5051"
+          name: "test1"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "50"
+        name: "test"
+        protocol: TCP
+      - port: "51"
+        name: "test1"
+        protocol: TCP
+
+-- lrp-addr-single.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr-single"
+  namespace: test
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "5050"
+          name: "test"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "50"
+        name: "test"
+        protocol: TCP
+
+-- lrp-addr-unnamed.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr-unnamed"
+  namespace: test
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "5050"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "50"
+        protocol: TCP
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 50
+          name: test
+          protocol: TCP
+        - containerPort: 51
+          name: test1
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  conditions:
+  - lastProbeTime: null
+    type: Ready
+
+-- pod-single.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 50
+          protocol: TCP
+        - containerPort: 51
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  conditions:
+  - lastProbeTime: null
+    type: Ready

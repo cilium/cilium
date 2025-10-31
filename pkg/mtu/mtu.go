@@ -106,23 +106,8 @@ func (c Configuration) Calculate(baseMTU int) RouteMTU {
 	return RouteMTU{
 		DeviceMTU:           c.getDeviceMTU(baseMTU),
 		RouteMTU:            c.getRouteMTU(baseMTU),
-		RoutePostEncryptMTU: c.getRoutePostEncryptMTU(baseMTU),
+		RoutePostEncryptMTU: c.getDeviceMTU(baseMTU),
 	}
-}
-
-// GetRoutePostEncryptMTU return the MTU to be used on the encryption routing
-// table. This is the MTU without encryption overhead and in the tunnel
-// case accounts for the tunnel overhead.
-func (c *Configuration) getRoutePostEncryptMTU(baseMTU int) int {
-	if c.encapEnabled {
-		postEncryptMTU := baseMTU - c.tunnelOverhead
-		if postEncryptMTU == 0 {
-			return EthernetMTU - c.tunnelOverhead
-		}
-		return postEncryptMTU
-
-	}
-	return c.getDeviceMTU(baseMTU)
 }
 
 // GetRouteMTU returns the MTU to be used on the network. When running in

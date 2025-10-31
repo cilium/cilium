@@ -18,6 +18,7 @@
 
 #define FRONTEND_IP_LOCAL	v4_svc_one
 #define FRONTEND_IP_REMOTE	v4_svc_two
+#define FRONTEND_IP_ETP_LOCAL	v4_svc_three
 #define FRONTEND_PORT		tcp_svc_one
 
 #define LB_IP			v4_node_one
@@ -77,24 +78,11 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	return 0;
 }
 
-#include <bpf_xdp.c>
+#include "lib/bpf_xdp.h"
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
-
-#define FROM_NETDEV	0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_NETDEV] = &cil_xdp_entry,
-	},
-};
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
@@ -141,10 +129,7 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "xdp_nodeport_local_backend")
@@ -212,6 +197,107 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
+/* Test that a eTP=local SVC request
+ * - gets passed up from XDP to TC without DNAT,
+ * - doesn't have the XFER_PKT_NO_SVC flag set, so that the TC layer applies
+ *   another round of SVC processing
+ */
+PKTGEN("xdp", "xdp_nodeport_etp_local")
+int nodeport_etp_local_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_ETP_LOCAL,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("xdp", "xdp_nodeport_etp_local")
+int nodeport_etp_local_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 2;
+
+	lb_v4_add_service_with_flags(FRONTEND_IP_ETP_LOCAL, FRONTEND_PORT,
+				     IPPROTO_TCP, 1, revnat_id,
+				     SVC_FLAG_ROUTABLE | SVC_FLAG_EXT_LOCAL_SCOPE,
+				     0);
+	lb_v4_add_backend(FRONTEND_IP_ETP_LOCAL, FRONTEND_PORT, 1, 124,
+			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	return xdp_receive_packet(ctx);
+}
+
+CHECK("xdp", "xdp_nodeport_etp_local")
+int nodeport_etp_local_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	status_code = data;
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	/* No meta information transferred. */
+
+	l2 = (void *)status_code + sizeof(__u32);
+	if ((void *)status_code + sizeof(__u32) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	assert(*status_code == CTX_ACT_OK);
+
+	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the client MAC")
+	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not the LB MAC")
+
+	if (l3->saddr != CLIENT_IP)
+		test_fatal("src IP has changed");
+
+	if (l3->daddr != FRONTEND_IP_ETP_LOCAL)
+		test_fatal("dst IP has changed");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed");
+
+	if (l4->dest != FRONTEND_PORT)
+		test_fatal("dst port has changed");
+
+	test_finish();
+}
+
 /* Test that a SVC request that is LBed to a NAT remote backend
  * - gets DNATed and SNATed,
  * - gets redirected back out by XDP
@@ -254,10 +340,7 @@ int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 
 	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, 0, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "xdp_nodeport_nat_fwd")
@@ -425,10 +508,7 @@ int nodeport_nat_fwd_reply_pktgen(struct __ctx_buff *ctx)
 SETUP("xdp", "xdp_nodeport_nat_fwd_reply")
 int nodeport_nat_fwd_reply_setup(struct __ctx_buff *ctx)
 {
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "xdp_nodeport_nat_fwd_reply")
@@ -456,10 +536,7 @@ int nodeport_nat_fwd_reply_no_fib_setup(struct __ctx_buff *ctx)
 	if (settings)
 		settings->fail_fib = true;
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "xdp_nodeport_nat_fwd_reply_no_fib")

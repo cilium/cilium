@@ -17,10 +17,6 @@ var (
 	// allowedMatchNameChars tests that MatchName contains only valid DNS characters
 	allowedMatchNameChars = regexp.MustCompile("^[-a-zA-Z0-9_.]+$")
 
-	// allowedPatternChars tests that the MatchPattern field contains only the
-	// characters we want in our wildcard scheme.
-	allowedPatternChars = regexp.MustCompile("^[-a-zA-Z0-9_.*]+$") // the * inside the [] is a literal *
-
 	// FQDNMatchNameRegexString is a regex string which matches what's expected
 	// in the MatchName field in the FQDNSelector. This should be kept in-sync
 	// with the marker comment for validation. There's no way to use a Golang
@@ -67,6 +63,8 @@ type FQDNSelector struct {
 	MatchPattern string `json:"matchPattern,omitempty"`
 }
 
+func (s FQDNSelector) IsPeerSelector() {}
+
 func (s *FQDNSelector) String() string {
 	const m = "MatchName: "
 	const mm = ", MatchPattern: "
@@ -103,9 +101,6 @@ func (s *FQDNSelector) sanitize() error {
 		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", s.MatchName)
 	}
 
-	if len(s.MatchPattern) > 0 && !allowedPatternChars.MatchString(s.MatchPattern) {
-		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", s.MatchPattern)
-	}
 	_, err := matchpattern.Validate(s.MatchPattern)
 	return err
 }
@@ -128,6 +123,12 @@ func (s *FQDNSelector) ToRegex() (*regexp.Regexp, error) {
 // PortRuleDNS is a list of allowed DNS lookups.
 type PortRuleDNS FQDNSelector
 
+// PortRulesDNS is a slice of PortRuleDNS.
+// This type allows for an order-agnostic deep equality comparison.
+//
+// +deepequal-gen:unordered-array=true
+type PortRulesDNS []PortRuleDNS
+
 // Sanitize checks that the matchName in the portRule can be compiled as a
 // regex. It does not check that a DNS name is a valid DNS name.
 func (r *PortRuleDNS) Sanitize() error {
@@ -135,9 +136,6 @@ func (r *PortRuleDNS) Sanitize() error {
 		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", r.MatchName)
 	}
 
-	if len(r.MatchPattern) > 0 && !allowedPatternChars.MatchString(r.MatchPattern) {
-		return fmt.Errorf("Invalid characters in MatchPattern: \"%s\". Only 0-9, a-z, A-Z and ., - and * characters are allowed", r.MatchPattern)
-	}
 	_, err := matchpattern.Validate(r.MatchPattern)
 	return err
 }

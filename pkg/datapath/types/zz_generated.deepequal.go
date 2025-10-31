@@ -132,6 +132,23 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		}
 	}
 
+	if ((in.ServiceLoopbackIPv6 != nil) && (other.ServiceLoopbackIPv6 != nil)) || ((in.ServiceLoopbackIPv6 == nil) != (other.ServiceLoopbackIPv6 == nil)) {
+		in, other := &in.ServiceLoopbackIPv6, &other.ServiceLoopbackIPv6
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if ((in.Devices != nil) && (other.Devices != nil)) || ((in.Devices == nil) != (other.Devices == nil)) {
 		in, other := &in.Devices, &other.Devices
 		if other == nil {
@@ -227,10 +244,10 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableWireguard != other.EnableWireguard {
 		return false
 	}
-	if in.EnableIPSec != other.EnableIPSec {
+	if in.WireguardIfIndex != other.WireguardIfIndex {
 		return false
 	}
-	if in.EnableIPSecEncryptedOverlay != other.EnableIPSecEncryptedOverlay {
+	if in.EnableIPSec != other.EnableIPSec {
 		return false
 	}
 	if in.EncryptNode != other.EncryptNode {
@@ -283,6 +300,10 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	}
 
 	if in.KPRConfig != other.KPRConfig {
+		return false
+	}
+
+	if in.SvcRouteConfig != other.SvcRouteConfig {
 		return false
 	}
 

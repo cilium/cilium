@@ -19,6 +19,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/client-go/util/workqueue"
@@ -375,7 +376,7 @@ func TestHubbleServerWithDynamicMetrics(t *testing.T) {
 }
 
 func assertMetricsFromServer(t *testing.T, in io.Reader, exportedMetrics map[string][]string) {
-	var parser expfmt.TextParser
+	var parser = expfmt.NewTextParser(model.LegacyValidation)
 	mfMap, err := parser.TextToMetricFamilies(in)
 	if err != nil {
 		log.Fatal(err)

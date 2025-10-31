@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -110,17 +109,19 @@ var (
 )
 
 type egressRule struct {
-	sourceIP  string
-	destCIDR  string
-	egressIP  string
-	gatewayIP string
+	sourceIP      string
+	destCIDR      string
+	egressIP      string
+	gatewayIP     string
+	egressIfindex uint32
 }
 
 type parsedEgressRule struct {
-	sourceIP  netip.Addr
-	destCIDR  netip.Prefix
-	egressIP  netip.Addr
-	gatewayIP netip.Addr
+	sourceIP      netip.Addr
+	destCIDR      netip.Prefix
+	egressIP      netip.Addr
+	gatewayIP     netip.Addr
+	egressIfindex uint32
 }
 
 func (v *parsedEgressRule) String() string {
@@ -306,31 +307,26 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
 	createTestInterface(t, k.sysctl, testInterface2, []string{egressCIDR2, egressCIDR2v6})
 
+	link, err := safenetlink.LinkByName(testInterface1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ifIndex1 := uint32(link.Attrs().Index)
+
 	policyMap4 := k.manager.policyMap4
 	policyMap6 := k.manager.policyMap6
 
 	egressGatewayManager := k.manager
-	reconciliationEventsCount := egressGatewayManager.reconciliationEventsCount.Load()
 
 	k.policies.sync(t)
 	k.nodes.sync(t)
 	k.endpoints.sync(t)
 
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
-
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
-	k.nodes.process(t, resource.Event[*cilium_api_v2.CiliumNode]{
-		Kind:   resource.Upsert,
-		Object: node1.ToCiliumNode(),
-	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addNodeAndReconcile(t, k, egressGatewayManager, &node1)
 
 	node2 := newCiliumNode(node2, node2IP, nodeGroup2Labels)
-	k.nodes.process(t, resource.Event[*cilium_api_v2.CiliumNode]{
-		Kind:   resource.Upsert,
-		Object: node2.ToCiliumNode(),
-	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addNodeAndReconcile(t, k, egressGatewayManager, &node2)
 
 	// Create a new policy
 	policy1 := policyParams{
@@ -345,8 +341,7 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 		},
 	}
 
-	addPolicy(t, k.policies, &policy1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
 
 	assertRPFilter(t, k.sysctl, []rpFilterSetting{
 		{iFaceName: testInterface1, rpFilterSetting: "2"},
@@ -356,57 +351,52 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 
 	// Add a new endpoint & ID which matches policy-1
 	ep1, id1 := newEndpointAndIdentity("ep-1", ep1IP, ep1IPv6, ep1Labels)
-	addEndpoint(t, k.endpoints, &ep1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP},
+		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
 	})
 
 	// Update the endpoint labels in order for it to not be a match
 	id1 = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
-	addEndpoint(t, k.endpoints, &ep1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{})
 	assertEgressRules6(t, policyMap6, []egressRule{})
 
 	// Restore the old endpoint lables in order for it to be a match
 	id1 = updateEndpointAndIdentity(&ep1, id1, ep1Labels)
-	addEndpoint(t, k.endpoints, &ep1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP},
+		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
 	})
 
 	// Changing the DestCIDR to 0.0.0.0 results in a conflict with
 	// the existing IP rules. Test that the manager is able to
 	// resolve this conflict.
 	policy1.destinationCIDRs = []string{allZeroDestCIDR, allZeroDestCIDRv6}
-	addPolicy(t, k.policies, &policy1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, allZeroDestCIDR, egressIP1, node1IP},
+		{ep1IP, allZeroDestCIDR, egressIP1, node1IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, allZeroDestCIDRv6, egressIP1v6, node1IP},
+		{ep1IPv6, allZeroDestCIDRv6, egressIP1v6, node1IP, ifIndex1},
 	})
 
 	// Restore old DestCIDR
 	policy1.destinationCIDRs = []string{destCIDR, destCIDRv6}
-	addPolicy(t, k.policies, &policy1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
 
 	// Create a new policy
-	addPolicy(t, k.policies, &policyParams{
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policyParams{
 		name:             "policy-2",
 		endpointLabels:   ep2Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
@@ -417,31 +407,29 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 			},
 		},
 	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP},
+		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
 	})
 
 	// Add a new endpoint and ID which matches policy-2
 	ep2, _ := newEndpointAndIdentity("ep-2", ep2IP, ep2IPv6, ep2Labels)
-	addEndpoint(t, k.endpoints, &ep2)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
-		{ep2IP, destCIDR, zeroIP4, node2IP},
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
+		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP},
-		{ep2IPv6, destCIDRv6, zeroIP6, node2IP},
+		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
+		{ep2IPv6, destCIDRv6, zeroIP6, node2IP, 0},
 	})
 
 	// Test excluded CIDRs by adding one to policy-1
-	addPolicy(t, k.policies, &policyParams{
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policyParams{
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
@@ -453,21 +441,20 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 			},
 		},
 	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
-		{ep1IP, excludedCIDR1, egressIP1, gatewayExcludedCIDRValue},
-		{ep2IP, destCIDR, zeroIP4, node2IP},
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
+		{ep1IP, excludedCIDR1, egressIP1, gatewayExcludedCIDRValue, ifIndex1},
+		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP},
-		{ep1IPv6, excludedCIDR1v6, egressIP1v6, gatewayExcludedCIDRValue},
-		{ep2IPv6, destCIDRv6, zeroIP6, node2IP},
+		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
+		{ep1IPv6, excludedCIDR1v6, egressIP1v6, gatewayExcludedCIDRValue, ifIndex1},
+		{ep2IPv6, destCIDRv6, zeroIP6, node2IP, 0},
 	})
 
 	// Add a second excluded CIDR to policy-1
-	addPolicy(t, k.policies, &policyParams{
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policyParams{
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
@@ -479,23 +466,22 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 			},
 		},
 	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
-		{ep1IP, excludedCIDR1, egressIP1, gatewayExcludedCIDRValue},
-		{ep1IP, excludedCIDR2, egressIP1, gatewayExcludedCIDRValue},
-		{ep2IP, destCIDR, zeroIP4, node2IP},
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
+		{ep1IP, excludedCIDR1, egressIP1, gatewayExcludedCIDRValue, 0},
+		{ep1IP, excludedCIDR2, egressIP1, gatewayExcludedCIDRValue, 0},
+		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP},
-		{ep1IPv6, excludedCIDR1v6, egressIP1v6, gatewayExcludedCIDRValue},
-		{ep1IPv6, excludedCIDR2v6, egressIP1v6, gatewayExcludedCIDRValue},
-		{ep2IPv6, destCIDRv6, zeroIP6, node2IP},
+		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
+		{ep1IPv6, excludedCIDR1v6, egressIP1v6, gatewayExcludedCIDRValue, ifIndex1},
+		{ep1IPv6, excludedCIDR2v6, egressIP1v6, gatewayExcludedCIDRValue, ifIndex1},
+		{ep2IPv6, destCIDRv6, zeroIP6, node2IP, 0},
 	})
 
 	// Remove the first excluded CIDR from policy-1
-	addPolicy(t, k.policies, &policyParams{
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policyParams{
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
@@ -507,21 +493,20 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 			},
 		},
 	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
-		{ep1IP, excludedCIDR2, egressIP1, gatewayExcludedCIDRValue},
-		{ep2IP, destCIDR, zeroIP4, node2IP},
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
+		{ep1IP, excludedCIDR2, egressIP1, gatewayExcludedCIDRValue, 0},
+		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP},
-		{ep1IPv6, excludedCIDR2v6, egressIP1v6, gatewayExcludedCIDRValue},
-		{ep2IPv6, destCIDRv6, zeroIP6, node2IP},
+		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
+		{ep1IPv6, excludedCIDR2v6, egressIP1v6, gatewayExcludedCIDRValue, ifIndex1},
+		{ep2IPv6, destCIDRv6, zeroIP6, node2IP, 0},
 	})
 
 	// Remove the second excluded CIDR
-	addPolicy(t, k.policies, &policyParams{
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policyParams{
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
@@ -532,19 +517,18 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 			},
 		},
 	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
-		{ep2IP, destCIDR, zeroIP4, node2IP},
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
+		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP},
-		{ep2IPv6, destCIDRv6, zeroIP6, node2IP},
+		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
+		{ep2IPv6, destCIDRv6, zeroIP6, node2IP, 0},
 	})
 
 	// Test matching no gateway
-	addPolicy(t, k.policies, &policyParams{
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policyParams{
 		name:             "policy-1",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR, destCIDRv6},
@@ -555,19 +539,18 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 			},
 		},
 	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, zeroIP4, gatewayNotFoundValue},
-		{ep2IP, destCIDR, zeroIP4, node2IP},
+		{ep1IP, destCIDR, zeroIP4, gatewayNotFoundValue, 0},
+		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, zeroIP6, gatewayNotFoundValue},
-		{ep2IPv6, destCIDRv6, zeroIP6, node2IP},
+		{ep1IPv6, destCIDRv6, zeroIP6, gatewayNotFoundValue, 0},
+		{ep2IPv6, destCIDRv6, zeroIP6, node2IP, 0},
 	})
 
 	// Test a policy without valid egressIP
-	addPolicy(t, k.policies, &policyParams{
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policyParams{
 		name:             "policy-3",
 		endpointLabels:   ep1Labels,
 		destinationCIDRs: []string{destCIDR3, destCIDR3v6},
@@ -578,29 +561,27 @@ func TestPrivilegedEgressGatewayManager(t *testing.T) {
 			},
 		},
 	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, zeroIP4, gatewayNotFoundValue},
-		{ep1IP, destCIDR3, egressIPNotFoundValue, node1IP},
-		{ep2IP, destCIDR, zeroIP4, node2IP},
+		{ep1IP, destCIDR, zeroIP4, gatewayNotFoundValue, 0},
+		{ep1IP, destCIDR3, egressIPNotFoundValue, node1IP, 0},
+		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, zeroIP6, gatewayNotFoundValue},
-		{ep1IPv6, destCIDR3v6, egressIPNotFoundValuev6, node1IP},
-		{ep2IPv6, destCIDRv6, zeroIP6, node2IP},
+		{ep1IPv6, destCIDRv6, zeroIP6, gatewayNotFoundValue, 0},
+		{ep1IPv6, destCIDR3v6, egressIPNotFoundValuev6, node1IP, 0},
+		{ep2IPv6, destCIDRv6, zeroIP6, node2IP, 0},
 	})
 
 	// Update the endpoint labels in order for it to not be a match
 	_ = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
-	addEndpoint(t, k.endpoints, &ep1)
-	waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep2IP, destCIDR, zeroIP4, node2IP},
+		{ep2IP, destCIDR, zeroIP4, node2IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep2IPv6, destCIDRv6, zeroIP6, node2IP},
+		{ep2IPv6, destCIDRv6, zeroIP6, node2IP, 0},
 	})
 }
 
@@ -608,6 +589,12 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
+
+	link, err := safenetlink.LinkByName(testInterface1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ifIndex1 := uint32(link.Attrs().Index)
 
 	policyMap4 := k.manager.policyMap4
 	policyMap6 := k.manager.policyMap6
@@ -617,20 +604,11 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 	k.nodes.sync(t)
 	k.endpoints.sync(t)
 
-	reconciliationEventsCount := egressGatewayManager.reconciliationEventsCount.Load()
-
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
-	k.nodes.process(t, resource.Event[*cilium_api_v2.CiliumNode]{
-		Kind:   resource.Upsert,
-		Object: node1.ToCiliumNode(),
-	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addNodeAndReconcile(t, k, egressGatewayManager, &node1)
+
 	node2 := newCiliumNode(node2, node2IP, nodeGroup2Labels)
-	k.nodes.process(t, resource.Event[*cilium_api_v2.CiliumNode]{
-		Kind:   resource.Upsert,
-		Object: node2.ToCiliumNode(),
-	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addNodeAndReconcile(t, k, egressGatewayManager, &node2)
 
 	// Create a new policy
 	policy1 := policyParams{
@@ -646,16 +624,14 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 		nodeSelectors: nodeGroup2Labels,
 	}
 
-	addPolicy(t, k.policies, &policy1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{})
 	assertEgressRules6(t, policyMap6, []egressRule{})
 
 	// Add a new endpoint & ID which matches policy-1
 	ep1, _ := newEndpointAndIdentityWithNodeIP("ep-1", ep1IP, ep1IPv6, node1IP, ep1Labels)
-	addEndpoint(t, k.endpoints, &ep1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{}) // This ep1 should not match the policy-1
 	assertEgressRules6(t, policyMap6, []egressRule{})
@@ -665,26 +641,22 @@ func TestPrivilegedNodeSelector(t *testing.T) {
 	ep2, _ := newEndpointAndIdentityWithNodeIP(ep1.Name, ep2IP, ep2IPv6, node2IP, ep1Labels)
 
 	// Test event order: add new -> delete old
-	addEndpoint(t, k.endpoints, &ep2)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
-	deleteEndpoint(t, k.endpoints, &ep1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
+	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{ // This ep2 should match the policy-1
-		{ep2IP, destCIDR, egressIP1, node1IP},
+		{ep2IP, destCIDR, egressIP1, node1IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{ // This ep2 should match the policy-1
-		{ep2IPv6, destCIDRv6, egressIP1v6, node1IP},
+		{ep2IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
 	})
 
 	// Produce a new endpoint ep3 similar to ep2 (and ep1) - with the same name & labels, but with a different IP address.
 	ep3, _ := newEndpointAndIdentityWithNodeIP(ep1.Name, ep3IP, ep3IPv6, node1IP, ep1Labels)
 
 	// Test event order: delete old -> update new
-	deleteEndpoint(t, k.endpoints, &ep2)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
-	addEndpoint(t, k.endpoints, &ep3)
-	waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep3)
 
 	assertEgressRules4(t, policyMap4, []egressRule{}) // This ep3 should not match the policy-1
 	assertEgressRules6(t, policyMap6, []egressRule{})
@@ -695,6 +667,12 @@ func TestPrivilegedEndpointDataStore(t *testing.T) {
 
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
 
+	link, err := safenetlink.LinkByName(testInterface1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ifIndex1 := uint32(link.Attrs().Index)
+
 	policyMap4 := k.manager.policyMap4
 	policyMap6 := k.manager.policyMap6
 	egressGatewayManager := k.manager
@@ -703,14 +681,8 @@ func TestPrivilegedEndpointDataStore(t *testing.T) {
 	k.nodes.sync(t)
 	k.endpoints.sync(t)
 
-	reconciliationEventsCount := egressGatewayManager.reconciliationEventsCount.Load()
-
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
-	k.nodes.process(t, resource.Event[*cilium_api_v2.CiliumNode]{
-		Kind:   resource.Upsert,
-		Object: node1.ToCiliumNode(),
-	})
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addNodeAndReconcile(t, k, egressGatewayManager, &node1)
 
 	// Create a new policy
 	policy1 := policyParams{
@@ -725,22 +697,20 @@ func TestPrivilegedEndpointDataStore(t *testing.T) {
 		},
 	}
 
-	addPolicy(t, k.policies, &policy1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{})
 	assertEgressRules6(t, policyMap6, []egressRule{})
 
 	// Add a new endpoint & ID which matches policy-1
 	ep1, _ := newEndpointAndIdentity("ep-1", ep1IP, ep1IPv6, ep1Labels)
-	addEndpoint(t, k.endpoints, &ep1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep1IP, destCIDR, egressIP1, node1IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP},
+		{ep1IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
 	})
 
 	// Simulate statefulset pod migrations to a different node.
@@ -750,38 +720,40 @@ func TestPrivilegedEndpointDataStore(t *testing.T) {
 	ep2, _ := newEndpointAndIdentity(ep1.Name, ep2IP, ep2IPv6, ep1Labels)
 
 	// Test event order: add new -> delete old
-	addEndpoint(t, k.endpoints, &ep2)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
-	deleteEndpoint(t, k.endpoints, &ep1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
+	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep1)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep2IP, destCIDR, egressIP1, node1IP},
+		{ep2IP, destCIDR, egressIP1, node1IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep2IPv6, destCIDRv6, egressIP1v6, node1IP},
+		{ep2IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
 	})
 
 	// Produce a new endpoint ep3 similar to ep2 (and ep1) - with the same name & labels, but with a different IP address.
 	ep3, _ := newEndpointAndIdentity(ep1.Name, ep3IP, ep3IPv6, ep1Labels)
 
 	// Test event order: delete old -> update new
-	deleteEndpoint(t, k.endpoints, &ep2)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
-	addEndpoint(t, k.endpoints, &ep3)
-	waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep2)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &ep3)
 
 	assertEgressRules4(t, policyMap4, []egressRule{
-		{ep3IP, destCIDR, egressIP1, node1IP},
+		{ep3IP, destCIDR, egressIP1, node1IP, 0},
 	})
 	assertEgressRules6(t, policyMap6, []egressRule{
-		{ep3IPv6, destCIDRv6, egressIP1v6, node1IP},
+		{ep3IPv6, destCIDRv6, egressIP1v6, node1IP, ifIndex1},
 	})
 }
 
 func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	k := setupEgressGatewayTestSuite(t)
 	createTestInterface(t, k.sysctl, testInterface1, []string{egressCIDR1, egressCIDR1v6})
+
+	link, err := safenetlink.LinkByName(testInterface1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ifIndex1 := uint32(link.Attrs().Index)
 
 	policyMap4 := k.manager.policyMap4
 	policyMap6 := k.manager.policyMap6
@@ -793,7 +765,7 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	k.nodes.sync(t)
 	k.endpoints.sync(t)
 
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	_ = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	// Create a couple gateway nodes with different labels
 	type testNodes struct {
@@ -809,13 +781,8 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	}
 	for i, node := range nodes {
 		newNode := newCiliumNode(node.name, node.ip, node.labels)
-		k.nodes.process(t, resource.Event[*cilium_api_v2.CiliumNode]{
-			Kind:   resource.Upsert,
-			Object: newNode.ToCiliumNode(),
-		})
+		addNodeAndReconcile(t, k, egressGatewayManager, &newNode)
 		nodes[i].node = &newNode
-		reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager,
-			reconciliationEventsCount)
 	}
 	// Sort the list of nodes by node IP
 	slices.SortFunc(nodes, func(a, b testNodes) int {
@@ -838,20 +805,24 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 	}
 	for i, ep := range eps {
 		newEP, newID := newEndpointAndIdentity(ep.name, ep.ipv4, ep.ipv6, ep1Labels)
-		addEndpoint(t, k.endpoints, &newEP)
+		addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, &newEP)
 		eps[i].ep = &newEP
 		eps[i].id = newID
-		reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 	}
 
 	// Function to generate the correct assignments for endpoints.
 	// List of nodes is expected to be sorted.
-	assignEndpoints := func(endpoints []testEndpoints, gateways []testNodes, ipv4 bool) []egressRule {
+	assignEndpoints := func(endpoints []testEndpoints, gateways []testNodes, egressIfindex uint32, ipv4 bool) []egressRule {
 		var rules []egressRule
 
 		for _, endpoint := range endpoints {
 			h := computeEndpointHash(endpoint.ep.UID)
 			gw := gateways[h%uint32(len(gateways))]
+			ifindex := egressIfindex
+
+			if gw.name != node1 {
+				ifindex = 0
+			}
 
 			var sourceIP, cidr, egressIP string
 			if ipv4 {
@@ -875,10 +846,11 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 			}
 
 			rules = append(rules, egressRule{
-				sourceIP:  sourceIP,
-				destCIDR:  cidr,
-				egressIP:  egressIP,
-				gatewayIP: gw.ip,
+				sourceIP:      sourceIP,
+				destCIDR:      cidr,
+				egressIP:      egressIP,
+				gatewayIP:     gw.ip,
+				egressIfindex: ifindex,
 			})
 		}
 		return rules
@@ -901,27 +873,24 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 		},
 	}
 
-	addPolicy(t, k.policies, &policy1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
 
 	// Check that the Egress rules are correctly created. Endpoints should have been assigned to
 	// gateways in round-robin way.
 	// Note that this is evaluated from the node1 perspective, so the entries for other nodes will
 	// have a zeroIP as EgressIP.
-	ipV4ExpectedpolicyMap := assignEndpoints(eps, nodes, true)
-	ipV6ExpectedpolicyMap := assignEndpoints(eps, nodes, false)
+	ipV4ExpectedpolicyMap := assignEndpoints(eps, nodes, 0, true)
+	ipV6ExpectedpolicyMap := assignEndpoints(eps, nodes, ifIndex1, false)
 	assertEgressRules4(t, policyMap4, ipV4ExpectedpolicyMap)
 	assertEgressRules6(t, policyMap6, ipV6ExpectedpolicyMap)
 
 	// Remove one endpoint and check that the remaining endpoints have not changed gateways.
-	deleteEndpoint(t, k.endpoints, eps[0].ep)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	deleteEndpointAndReconcile(t, egressGatewayManager, k.endpoints, eps[0].ep)
 	assertEgressRules4(t, policyMap4, ipV4ExpectedpolicyMap[1:])
 	assertEgressRules6(t, policyMap6, ipV6ExpectedpolicyMap[1:])
 
 	// Add one endpoint and check the configuration went back to the previous state.
-	addEndpoint(t, k.endpoints, eps[0].ep)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addEndpointAndReconcile(t, egressGatewayManager, k.endpoints, eps[0].ep)
 	assertEgressRules4(t, policyMap4, ipV4ExpectedpolicyMap)
 	assertEgressRules6(t, policyMap6, ipV6ExpectedpolicyMap)
 
@@ -932,36 +901,30 @@ func TestPrivilegedMultigatewayPolicy(t *testing.T) {
 		labels: nodeGroup3Labels,
 	})
 	newNode := newCiliumNode(node3, node3IP, nodeGroup3Labels)
-	k.nodes.process(t, resource.Event[*cilium_api_v2.CiliumNode]{
-		Kind:   resource.Upsert,
-		Object: newNode.ToCiliumNode(),
-	})
+	addNodeAndReconcile(t, k, egressGatewayManager, &newNode)
 	nodes[2].node = &newNode
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
 
 	policy1.policyGwParams = append(policy1.policyGwParams, policyGatewayParams{
 		nodeLabels: nodeGroup3Labels,
 		iface:      testInterface2,
 	})
-	addPolicy(t, k.policies, &policy1)
-	reconciliationEventsCount = waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
-	ipV4ExpectedpolicyMap = assignEndpoints(eps, nodes, true)
-	ipV6ExpectedpolicyMap = assignEndpoints(eps, nodes, false)
-	assertEgressRules4(t, policyMap4, assignEndpoints(eps, nodes, true))
-	assertEgressRules6(t, policyMap6, assignEndpoints(eps, nodes, false))
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
+	ipV4ExpectedpolicyMap = assignEndpoints(eps, nodes, 0, true)
+	ipV6ExpectedpolicyMap = assignEndpoints(eps, nodes, ifIndex1, false)
+	assertEgressRules4(t, policyMap4, ipV4ExpectedpolicyMap)
+	assertEgressRules6(t, policyMap6, ipV6ExpectedpolicyMap)
 
 	// Remove two gateways to ensure the endpoints are migrated to the single gateway left.
 	policy1.policyGwParams = policy1.policyGwParams[:1]
-	addPolicy(t, k.policies, &policy1)
-	waitForReconciliationRun(t, egressGatewayManager, reconciliationEventsCount)
+	addPolicyAndReconcile(t, egressGatewayManager, k.policies, &policy1)
 	for i := range ipV4ExpectedpolicyMap {
 		ipV4ExpectedpolicyMap[i].egressIP = egressIP1
 		ipV4ExpectedpolicyMap[i].gatewayIP = nodes[0].ip
 		ipV6ExpectedpolicyMap[i].egressIP = egressIP1
 		ipV6ExpectedpolicyMap[i].gatewayIP = nodes[0].ip
 	}
-	assertEgressRules4(t, policyMap4, assignEndpoints(eps, nodes[:1], true))
-	assertEgressRules6(t, policyMap6, assignEndpoints(eps, nodes[:1], false))
+	assertEgressRules4(t, policyMap4, assignEndpoints(eps, nodes[:1], 0, true))
+	assertEgressRules6(t, policyMap6, assignEndpoints(eps, nodes[:1], ifIndex1, false))
 }
 
 func TestCell(t *testing.T) {
@@ -1024,21 +987,6 @@ func ensureRPFilterIsEnabled(tb testing.TB, sysctl sysctl.Sysctl, iface string) 
 	}
 
 	tb.Fatal("failed to enable rp_filter")
-}
-
-func waitForReconciliationRun(tb testing.TB, egressGatewayManager *Manager, currentRun uint64) uint64 {
-	for range 100 {
-		count := egressGatewayManager.reconciliationEventsCount.Load()
-		if count > currentRun {
-			return count
-		}
-
-		// TODO: investigate why increasing the timeout was necessary to add IPv6 tests.
-		time.Sleep(30 * time.Millisecond)
-	}
-
-	tb.Fatal("Reconciliation is taking too long to run")
-	return 0
 }
 
 func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.Node {
@@ -1111,17 +1059,18 @@ func updateEndpointAndIdentity(endpoint *k8sTypes.CiliumEndpoint, oldID *identit
 	return newID
 }
 
-func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string) parsedEgressRule {
+func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string, egressIfindex uint32) parsedEgressRule {
 	sip := netip.MustParseAddr(sourceIP)
 	dc := netip.MustParsePrefix(destCIDR)
 	eip := netip.MustParseAddr(egressIP)
 	gip := netip.MustParseAddr(gatewayIP)
 
 	return parsedEgressRule{
-		sourceIP:  sip,
-		destCIDR:  dc,
-		egressIP:  eip,
-		gatewayIP: gip,
+		sourceIP:      sip,
+		destCIDR:      dc,
+		egressIP:      eip,
+		gatewayIP:     gip,
+		egressIfindex: egressIfindex,
 	}
 }
 
@@ -1135,7 +1084,7 @@ func assertEgressRules4(t *testing.T, policyMap *egressmap.PolicyMap4, rules []e
 func tryAssertEgressRules4(policyMap *egressmap.PolicyMap4, rules []egressRule) error {
 	parsedRules := []parsedEgressRule{}
 	for _, r := range rules {
-		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP))
+		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP, 0))
 	}
 
 	for _, r := range parsedRules {
@@ -1181,7 +1130,7 @@ func assertEgressRules6(t *testing.T, policyMap *egressmap.PolicyMap6, rules []e
 func tryAssertEgressRules6(policyMap *egressmap.PolicyMap6, rules []egressRule) error {
 	parsedRules := []parsedEgressRule{}
 	for _, r := range rules {
-		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP))
+		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP, r.egressIfindex))
 	}
 
 	for _, r := range parsedRules {
@@ -1197,13 +1146,17 @@ func tryAssertEgressRules6(policyMap *egressmap.PolicyMap6, rules []egressRule) 
 		if policyVal.GetGatewayAddr() != r.gatewayIP {
 			return fmt.Errorf("mismatched gateway IP. Expected: %s, Got: %s", r.String(), policyVal.String())
 		}
+
+		if policyVal.EgressIfindex != r.egressIfindex {
+			return fmt.Errorf("mismatched egress ifindex")
+		}
 	}
 
 	untrackedRule := false
 	policyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey6, val *egressmap.EgressPolicyVal6) {
 			for _, r := range parsedRules {
-				if key.Match(r.sourceIP, r.destCIDR) && val.Match(r.egressIP, r.gatewayIP) {
+				if key.Match(r.sourceIP, r.destCIDR) && val.Match(r.egressIP, r.gatewayIP, r.egressIfindex) {
 					return
 				}
 			}

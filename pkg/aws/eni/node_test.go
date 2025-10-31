@@ -11,13 +11,15 @@ import (
 
 	ec2mock "github.com/cilium/cilium/pkg/aws/ec2/mock"
 	"github.com/cilium/cilium/pkg/aws/eni/types"
+	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 func TestGetMaximumAllocatableIPv4(t *testing.T) {
 	api := ec2mock.NewAPI(nil, nil, nil, nil)
-	instances, err := NewInstancesManager(hivetest.Logger(t), api)
+	metadataMock, _ := metadataMock.NewMetadataMock()
+	instances, err := NewInstancesManager(hivetest.Logger(t), api, metadataMock)
 	require.NoError(t, err)
 	n := &Node{
 		rootLogger: hivetest.Logger(t),
@@ -53,13 +55,14 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 			Subnets: map[string]struct{}{
 				"subnet-1": {},
 				"subnet-2": {},
+				"subnet-3": {},
 			},
 		},
 		"rt-2": &ipamTypes.RouteTable{
 			ID:               "rt-2",
 			VirtualNetworkID: "vpc-2",
 			Subnets: map[string]struct{}{
-				"subnet-3": {},
+				"subnet-4": {},
 			},
 		},
 	}
@@ -68,9 +71,9 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 		k8sObj: &v2.CiliumNode{
 			Spec: v2.NodeSpec{
 				ENI: types.ENISpec{
-					VpcID:        "vpc-1",
-					NodeSubnetID: "subnet-1",
-					SubnetIDs:    []string{"subnet-1", "subnet-2", "subnet-3"},
+					VpcID:            "vpc-1",
+					NodeSubnetID:     "subnet-1",
+					AvailabilityZone: "us-east-1a",
 				},
 			},
 		},
@@ -79,14 +82,22 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 				"subnet-1": {
 					ID:                 "subnet-1",
 					AvailableAddresses: 10,
+					AvailabilityZone:   "us-east-1a",
 				},
 				"subnet-2": {
 					ID:                 "subnet-2",
 					AvailableAddresses: 20,
+					AvailabilityZone:   "us-east-1a",
 				},
 				"subnet-3": {
 					ID:                 "subnet-3",
+					AvailableAddresses: 25,
+					AvailabilityZone:   "us-east-1b",
+				},
+				"subnet-4": {
+					ID:                 "subnet-4",
 					AvailableAddresses: 15,
+					AvailabilityZone:   "us-east-1a",
 				},
 			},
 			routeTables: routeTableMap,
@@ -201,7 +212,8 @@ func TestIsPrefixDelegated(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			api := ec2mock.NewAPI(nil, nil, nil, nil)
-			instances, err := NewInstancesManager(hivetest.Logger(t), api)
+			metadataMock, _ := metadataMock.NewMetadataMock()
+			instances, err := NewInstancesManager(hivetest.Logger(t), api, metadataMock)
 			require.NoError(t, err)
 			n := &Node{
 				rootLogger: hivetest.Logger(t),

@@ -18,7 +18,7 @@ import (
 func TestDecodeTraceNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 48, traceNotifyV1Len)
+	require.Equal(t, 56, traceNotifyV2Len)
 
 	in := TraceNotify{
 		Type:     0x00,
@@ -27,20 +27,20 @@ func TestDecodeTraceNotify(t *testing.T) {
 		Hash:     0x05_06_07_08,
 		OrigLen:  0x09_0a_0b_0c,
 		CapLen:   0x0d_0e,
-		Version:  TraceNotifyVersion1,
-		SrcLabel: identity.NumericIdentity(0x_11_12_13_14),
-		DstLabel: identity.NumericIdentity(0x_15_16_17_18),
+		Version:  TraceNotifyVersion2,
+		SrcLabel: identity.NumericIdentity(0x11_12_13_14),
+		DstLabel: identity.NumericIdentity(0x15_16_17_18),
 		DstID:    0x19_1a,
 		Reason:   0x1b,
 		Flags:    0x1c,
 		Ifindex:  0x1d_1e_1f_20,
 		OrigIP: types.IPv6{
-			0x21, 0x22,
-			0x23, 0x24,
-			0x25, 0x26,
-			0x27, 0x28,
-			0x29, 0x2a,
+			0x21, 0x22, 0x23, 0x24,
+			0x25, 0x26, 0x27, 0x28,
+			0x29, 0x2a, 0x2b, 0x2c,
+			0x2d, 0x2e, 0x2f, 0x30,
 		},
+		IPTraceID: 0x2b_2c_2d_2e_2f_30_31_32,
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, in)
@@ -63,6 +63,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.Equal(t, in.Flags, out.Flags)
 	require.Equal(t, in.Ifindex, out.Ifindex)
 	require.Equal(t, in.OrigIP, out.OrigIP)
+	require.Equal(t, in.IPTraceID, out.IPTraceID)
 }
 
 func TestDecodeTraceNotifyErrors(t *testing.T) {
@@ -330,7 +331,9 @@ func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
 }
 
 func BenchmarkDecodeTraceNotifyVersion1(b *testing.B) {
-	input := TraceNotify{Version: TraceNotifyVersion1}
+	input := TraceNotify{
+		Version: TraceNotifyVersion1,
+	}
 	buf := bytes.NewBuffer(nil)
 
 	if err := binary.Write(buf, byteorder.Native, input); err != nil {
@@ -340,7 +343,9 @@ func BenchmarkDecodeTraceNotifyVersion1(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		tn := &TraceNotify{Version: TraceNotifyVersion1}
+		tn := &TraceNotify{
+			Version: TraceNotifyVersion1,
+		}
 		if err := tn.Decode(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}

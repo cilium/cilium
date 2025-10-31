@@ -34,7 +34,7 @@ func (s Set[T]) Len() int {
 
 func (s Set[T]) String() string {
 	if s.single != nil {
-		return fmt.Sprintf("%v", s.single)
+		return fmt.Sprintf("%v", *s.single)
 	}
 	res := ""
 	for m := range s.members {

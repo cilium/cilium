@@ -10,9 +10,11 @@ jobs:
     # Avoid running the 'auto-approve' environment if we don't need to.
     name: Pre-Approve
     runs-on: ubuntu-24.04
+    permissions: {}
     if: ${{
          github.event.pull_request.user.login == 'cilium-renovate[bot]' &&
-         github.triggering_actor == 'cilium-renovate[bot]' &&
+         (github.triggering_actor == 'cilium-renovate[bot]' ||
+          github.triggering_actor == 'auto-committer[bot]') &&
          github.event.requested_reviewer.login == 'ciliumbot'
         }}
     steps:
@@ -27,6 +29,7 @@ jobs:
     needs: pre-approve
     environment: auto-approve
     runs-on: ubuntu-24.04
+    permissions: {}
     steps:
     - name: Debug
       run: |
@@ -36,12 +39,13 @@ jobs:
 
     - name: Approve PR
       # Approve the PR if all the following conditions are true:
-      # - the PR review was requested by renovate bot and
-      # - the PR was also created by renovate bot
+      # - the PR was created by renovate bot and
+      # - the PR review was requested by renovate bot or auto-committer[bot] and
       # - the requested reviewer was the trusted 'ciliumbot'
       if: ${{
            github.event.pull_request.user.login == 'cilium-renovate[bot]' &&
-           github.triggering_actor == 'cilium-renovate[bot]' &&
+           (github.triggering_actor == 'cilium-renovate[bot]' ||
+            github.triggering_actor == 'auto-committer[bot]') &&
            github.event.requested_reviewer.login == 'ciliumbot'
           }}
       env:

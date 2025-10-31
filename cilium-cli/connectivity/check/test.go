@@ -913,7 +913,7 @@ func (t *Test) collectSysdump() {
 }
 
 func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
-	t.ctx.ForEachIPFamily(t.HasNetworkPolicies(), do)
+	t.ctx.ForEachIPFamily(do)
 }
 
 // CertificateCAs returns the CAs used to sign the certificates within the test.

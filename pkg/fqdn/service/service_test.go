@@ -5,11 +5,13 @@ package service
 
 import (
 	"context"
+	"iter"
 	"log/slog"
 	"net"
 	"net/netip"
 	"testing"
 
+	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
@@ -21,19 +23,66 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/time"
 
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
 )
+
+var (
+	sourceIdentity   = identity.NumericIdentity(1)
+	sourceEndpointId = uint16(101)
+	destIdentity     = identity.NumericIdentity(2)
+	destEndpointId   = uint16(102)
+	sourceIP         = "1.2.3.4/32"
+	destIP           = "5.6.7.8/32"
+)
+
+// mockEndpointManager provides a simple test implementation that returns
+// fake endpoints for specific test IPs
+type mockEndpointManager struct {
+	endpointmanager.EndpointManager
+}
+
+func (m *mockEndpointManager) LookupIP(ip netip.Addr) *endpoint.Endpoint {
+	// Return mock endpoints for test IPs
+	sourceAddr := netip.MustParsePrefix(sourceIP).Addr()
+	destAddr := netip.MustParsePrefix(destIP).Addr()
+
+	switch ip {
+	case sourceAddr:
+		ep := &endpoint.Endpoint{ID: sourceEndpointId,
+			DNSZombies: &fqdn.DNSZombieMappings{
+				Mutex: lock.Mutex{},
+			},
+		}
+
+		ep.UpdateLogger(nil)
+		ep.DNSHistory = fqdn.NewDNSCache(0)
+
+		return ep
+	case destAddr:
+		ep := &endpoint.Endpoint{ID: destEndpointId}
+		return ep
+	default:
+		// Fall back to the real implementation for other IPs
+		return m.EndpointManager.LookupIP(ip)
+	}
+}
 
 type bufconnListener struct {
 	buf *bufconn.Listener
@@ -85,11 +134,11 @@ func TestFQDNDataServer(t *testing.T) {
 			h := hive.New(
 				cell.Config(DefaultConfig),
 				cell.Provide(
-					func(logger *slog.Logger) endpointmanager.EndpointManager {
+					func(logger *slog.Logger) endpointmanager.EndpointsLookup {
 						return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
 					},
 
-					func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
+					func(logger *slog.Logger) *ipcache.IPCache {
 						return ipcache.NewIPCache(&ipcache.Configuration{
 							Context:           t.Context(),
 							Logger:            logger,
@@ -200,18 +249,20 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 			"Test FQDN gRPC server",
 			cell.Config(DefaultConfig),
 			cell.Provide(
-				func(logger *slog.Logger) endpointmanager.EndpointManager {
-					return endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
+				func(logger *slog.Logger) endpointmanager.EndpointsLookup {
+					baseEM := endpointmanager.New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, endpointmanager.EndpointManagerConfig{})
+					return &mockEndpointManager{EndpointManager: baseEM}
 				},
 
-				func(em endpointmanager.EndpointManager, logger *slog.Logger) *ipcache.IPCache {
+				func(logger *slog.Logger) *ipcache.IPCache {
 					return ipcache.NewIPCache(&ipcache.Configuration{
 						Context:           t.Context(),
 						IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
 					})
 				},
-				func(ipc *ipcache.IPCache) namemanager.NameManager {
+				func(ipc *ipcache.IPCache, logger *slog.Logger) namemanager.NameManager {
 					return namemanager.New(namemanager.ManagerParams{
+						Logger: logger,
 						Config: namemanager.NameManagerConfig{
 							MinTTL:            1,
 							DNSProxyLockCount: defaults.DNSProxyLockCount,
@@ -220,12 +271,12 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 						IPCache: ipc,
 					})
 				},
-				func(lc cell.Lifecycle, logger *slog.Logger) messagehandler.DNSMessageHandler {
+				func(lc cell.Lifecycle, logger *slog.Logger, nm namemanager.NameManager) messagehandler.DNSMessageHandler {
 					return messagehandler.NewDNSMessageHandler(
 						messagehandler.DNSMessageHandlerParams{
 							Lifecycle:         lc,
 							Logger:            logger,
-							NameManager:       nil,
+							NameManager:       nm,
 							ProxyAccessLogger: nil,
 						})
 				},
@@ -266,6 +317,20 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 	return h, fqdnDataServer
 }
 
+// addEndpointMapping adds source and destination endpoint to the server.
+func addEndpointMapping(t *testing.T, fqdnDataServer *FQDNDataServer) {
+	// Add the source endpoint mapping to the server
+	prefix := netip.MustParsePrefix(sourceIP)
+	validCIDR := types.NewPrefixCluster(prefix, 0)
+	dummyIdentity := ipcache.Identity{ID: sourceIdentity}
+	fqdnDataServer.OnIPIdentityCacheChange(ipcache.Upsert, validCIDR, nil, nil, nil, dummyIdentity, 0, nil, 0)
+	// Add the destination endpoint mapping to the server
+	prefix = netip.MustParsePrefix(destIP)
+	validCIDR = types.NewPrefixCluster(prefix, 0)
+	dummyIdentity = ipcache.Identity{ID: destIdentity}
+	fqdnDataServer.OnIPIdentityCacheChange(ipcache.Upsert, validCIDR, nil, nil, nil, dummyIdentity, 0, nil, 0)
+}
+
 // Test the gRPC server and client connection
 // GRPC server should be able to create a stream with the client.
 // It should send the current policy state to the client and the client should be able to receive it.
@@ -280,6 +345,9 @@ func TestSuccessfullyStreamPolicyState(t *testing.T) {
 		return lis.Dial()
 	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
+
+	// Update the endpoint information(identity to IP) in the server
+	addEndpointMapping(t, fqdnDataServer)
 
 	c := pb.NewFQDNDataClient(conn)
 
@@ -300,9 +368,8 @@ func TestSuccessfullyStreamPolicyState(t *testing.T) {
 			case <-closeChan:
 				return
 			case <-ticker.C:
-				policyRules := make(map[identity.NumericIdentity]policy.SelectorPolicy)
-				policyRules[identity.NumericIdentity(count)] = nil
-				fqdnDataServer.UpdatePolicyRules(policyRules, true)
+				policyRules := createSelectorPolicies(count, ValidWithDNS)
+				fqdnDataServer.UpdatePolicyRules(policyRules)
 				count++
 			}
 		}
@@ -323,9 +390,99 @@ func TestSuccessfullyStreamPolicyState(t *testing.T) {
 				RequestId: receivedResultClient.GetRequestId(),
 				Response:  pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
 			})
-			count++
+			// Increment the count for each response received
+			if len(receivedResultClient.GetEgressL7DnsPolicy()) > 0 {
+				count++
+			}
 			connected = true
-			if count == 2 { // We expect to receive 2 responses from the server (one for initial connection and one for the first update)
+			if count == 2 { // We expect to receive 2 responses from the server as we are adding 2 identities with policy rules
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second)
+
+	// If the server is running, we should get a response from the server
+	if !connected {
+		t.Fatalf("failed to connect to server")
+	}
+
+	// close the connection from the client
+	// and check if the server received the response
+	if clientStream != nil {
+		clientStream.CloseSend()
+	} else {
+		t.Fatalf("clientStream is nil, cannot close stream")
+	}
+
+	// close the goroutine that is sending updates to the server
+	closeChan <- struct{}{}
+
+	t.Cleanup(func() {
+		//Stop the client
+		conn.Close()
+	})
+}
+
+// Updates to the identity to IPs mapping should trigger the server to send the updated policy state to the client.
+func TestSuccessfullyStreamPolicyStateOnIdentityToIPsChange(t *testing.T) {
+	buffer := 1024 * 1024
+	lis := bufconn.Listen(buffer)
+	_, fqdnDataServer := setupServer(t, 1234, true, true, 40045, lis)
+
+	conn, err := grpc.NewClient("passthrough://bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		return lis.Dial()
+	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+
+	// Add the policy rules to the server
+	fqdnDataServer.UpdatePolicyRules(createSelectorPolicies(2, ValidWithDNS))
+
+	c := pb.NewFQDNDataClient(conn)
+	connected := false
+	var receivedResultClient *pb.PolicyState
+	var clientStream pb.FQDNData_StreamPolicyStateClient
+	var closeChan = make(chan struct{}, 1)
+	// A goroutine to simulate the identity to IPs mapping updates.
+	// This will run in the background and update the identity to IPs mapping every 2 seconds.
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		count := 1
+		for {
+			select {
+			case <-closeChan:
+				return
+			case <-ticker.C:
+				if count <= 2 {
+					addEndpointMapping(t, fqdnDataServer)
+				}
+				count++
+			}
+		}
+	}()
+
+	clientStream, err = c.StreamPolicyState(t.Context())
+	require.NoError(t, err)
+
+	count := 0
+	testutils.WaitUntil(func() bool {
+		receivedResultClient, err = clientStream.Recv()
+		if err != nil {
+			return false
+		}
+		if receivedResultClient.GetRequestId() != "" {
+			t.Logf("Received request from client: %s", receivedResultClient.GetRequestId())
+			clientStream.Send(&pb.PolicyStateResponse{
+				RequestId: receivedResultClient.GetRequestId(),
+				Response:  pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+			})
+			if len(receivedResultClient.GetIdentityToEndpointMapping()) > 0 {
+				count++
+			}
+			connected = true
+			if count == 2 { // We expect to receive 2 responses from the server
 				return true
 			}
 		}
@@ -514,13 +671,306 @@ func TestIsEnabled(t *testing.T) {
 
 			_, server := setupServer(t, tt.toFQDNsProxyPort, tt.enableL7Proxy, tt.enableStandaloneDNSProxy, tt.standaloneDNSProxyServerPort, lis)
 
-			if tt.expectedEnabled {
-				require.NotNil(t, server)
-				require.Equal(t, tt.expectedEnabled, server.IsEnabled())
+			enabled := server.IsEnabled()
+			require.Equal(t, tt.expectedEnabled, enabled)
+		})
+	}
+}
 
-			} else {
-				require.Nil(t, server)
+// PolicyType defines the type of selector policy to create
+type PolicyType int
+
+const (
+	ValidWithDNS    PolicyType = iota // Valid policy with DNS rules
+	ValidWithoutDNS                   // Valid policy without DNS rules
+)
+
+// testSelectorPolicy is a configurable mock selector policy
+type testSelectorPolicy struct {
+	policyType PolicyType
+}
+
+func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) *policy.EndpointPolicy {
+	return nil
+}
+
+func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
+	switch sp.policyType {
+	case ValidWithDNS:
+		return sp.createValidDNSPolicy()
+	case ValidWithoutDNS:
+		return sp.createValidNonDNSPolicy()
+	default:
+		return sp.createValidDNSPolicy()
+	}
+}
+
+// createSelectorCache creates a common selector cache setup used by both DNS and non-DNS policies
+func (sp *testSelectorPolicy) createSelectorCache() (policy.CachedSelector, *policy.SelectorCache) {
+	dnsServerIdentity := destIdentity
+	// slogloggercheck: the default logger is enough for tests.
+	sc := policy.NewSelectorCache(logging.DefaultSlogLogger,
+		identity.IdentityMap{
+			dnsServerIdentity: labels.LabelArray{
+				labels.Label{
+					Key:   "app",
+					Value: "test",
+				},
+			},
+		},
+	)
+	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+	dummySelectorCacheUser := &testpolicy.DummySelectorCacheUser{}
+	endpointSelector := api.NewESFromLabels(labels.ParseSelectLabel("app=test"))
+	cachedSelector, _ := sc.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, endpointSelector)
+	return cachedSelector, sc
+}
+
+// createPolicyIterator creates a common iterator for policy maps
+func (sp *testSelectorPolicy) createPolicyIterator(policyMap policy.L4PolicyMap) iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
+	return func(yield func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {
+		policyMap.ForEach(func(l4 *policy.L4Filter) bool {
+			for cs, perSelectorPolicy := range l4.PerSelectorPolicies {
+				return yield(l4, policy.PerSelectorPolicyTuple{
+					Policy:   perSelectorPolicy,
+					Selector: cs,
+				})
 			}
+			return true
+		})
+	}
+}
+
+func (sp *testSelectorPolicy) createValidDNSPolicy() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
+	cachedSelector, _ := sp.createSelectorCache()
+	expectedPolicy := policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+		"53/UDP": {
+			Port:     53,
+			Protocol: api.ProtoUDP,
+			U8Proto:  0x11,
+			Ingress:  false,
+			PerSelectorPolicies: policy.L7DataMap{
+				cachedSelector: &policy.PerSelectorPolicy{
+					L7Parser: policy.ParserTypeDNS,
+					L7Rules: api.L7Rules{
+						DNS: []api.PortRuleDNS{
+							{
+								MatchName:    "example.com",
+								MatchPattern: "*.cilium.io",
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	return sp.createPolicyIterator(expectedPolicy)
+}
+
+func (sp *testSelectorPolicy) createValidNonDNSPolicy() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
+	cachedSelector, _ := sp.createSelectorCache()
+
+	// Create a policy without DNS rules (HTTP policy)
+	expectedPolicy := policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{
+		"80/TCP": {
+			Port:     80,
+			Protocol: api.ProtoTCP,
+			U8Proto:  0x06,
+			Ingress:  false,
+			PerSelectorPolicies: policy.L7DataMap{
+				cachedSelector: &policy.PerSelectorPolicy{
+					L7Parser: policy.ParserTypeHTTP, // HTTP instead of DNS
+					L7Rules: api.L7Rules{
+						HTTP: []api.PortRuleHTTP{
+							{Method: "GET", Path: "/api"},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	return sp.createPolicyIterator(expectedPolicy)
+}
+
+func createSelectorPolicies(count int, policyType PolicyType) map[identity.NumericIdentity]policy.SelectorPolicy {
+	policies := make(map[identity.NumericIdentity]policy.SelectorPolicy, count)
+	for i := 1; i <= count; i++ {
+		policies[identity.NumericIdentity(i)] = &testSelectorPolicy{
+			policyType: policyType,
+		}
+	}
+	return policies
+}
+
+// TestUpdatePolicyRules tests the UpdatePolicyRules method of FQDNDataServer
+// It verifies that the method correctly updates the policy rules table and handles different scenarios.
+// The test covers adding, updating, and re-applying policies, ensuring that only DNS policies
+// create entries in the policyRulesTable.
+func TestUpdatePolicyRules(t *testing.T) {
+	// Helper function to count and validate stored policy rules
+	validateStoredPolicyRules := func(t *testing.T, server *FQDNDataServer, expectedDNSPolicies int, step string) {
+		storedRules := server.policyRulesTable.All(server.db.ReadTxn())
+		storeRulesCount := 0
+		for rule := range storedRules {
+			if rule.PolicyRules != nil {
+				storeRulesCount++
+			}
+		}
+		// Only DNS policies should create entries in policyRulesTable
+		require.Equal(t, expectedDNSPolicies, storeRulesCount, "%s: Expected %d DNS policies, got %d", step, expectedDNSPolicies, storeRulesCount)
+	}
+
+	// Create fresh server instance
+	buffer := 1024 * 1024
+	lis := bufconn.Listen(buffer)
+	_, server := setupServer(t, 1234, true, true, 40045, lis)
+
+	// Step 1: Start with empty policy map
+	t.Log("Step 1: Starting with empty policy map")
+	emptyPolicies := make(map[identity.NumericIdentity]policy.SelectorPolicy)
+	err := server.UpdatePolicyRules(emptyPolicies)
+	require.NoError(t, err, "Failed to handle empty policies")
+	validateStoredPolicyRules(t, server, 0, "Empty policies")
+
+	// Step 2: Apply HTTP policy first (should not create DNS table entries)
+	t.Log("Step 2: Adding HTTP policy for identity 1 (should not create table entries)")
+	httpPolicies := createSelectorPolicies(1, ValidWithoutDNS) // Identity 1 with HTTP policy
+	err = server.UpdatePolicyRules(httpPolicies)
+	require.NoError(t, err, "Failed to add HTTP policy")
+	validateStoredPolicyRules(t, server, 0, "HTTP policy added (no DNS table change)")
+
+	// Step 3: Apply DNS policy for identity 1 and 2
+	t.Log("Step 3: Adding DNS policy for identity 1 and 2")
+	dnsPolicies := createSelectorPolicies(1, ValidWithDNS) // Identity 1 with DNS policy, but we'll use it for identity 2
+	dnsPolicies[identity.NumericIdentity(2)] = dnsPolicies[identity.NumericIdentity(1)]
+	err = server.UpdatePolicyRules(dnsPolicies)
+	require.NoError(t, err, "Failed to add DNS policy")
+	validateStoredPolicyRules(t, server, 2, "DNS policy added")
+
+	// Step 4: Update existing DNS policy with HTTP policy for identity 2
+	t.Log("Step 4: Update existing DNS policy with HTTP policy for identity 2")
+	dnsPolicies[identity.NumericIdentity(2)] = &testSelectorPolicy{policyType: ValidWithoutDNS}
+	err = server.UpdatePolicyRules(dnsPolicies)
+	require.NoError(t, err, "Failed to add HTTP policy")
+	validateStoredPolicyRules(t, server, 1, "DNS policy removed after HTTP update")
+
+	// Step 5: Apply different DNS policy for identity 4 (should add another entry)
+	t.Log("Step 5: Adding different DNS policy for identity 4")
+	dnsPolicies[identity.NumericIdentity(4)] = dnsPolicies[identity.NumericIdentity(1)]
+	err = server.UpdatePolicyRules(dnsPolicies)
+	require.NoError(t, err, "Failed to add second DNS policy")
+	validateStoredPolicyRules(t, server, 2, "Second DNS policy added")
+
+	// Step 6: Apply same DNS policy again (should be idempotent)
+	t.Log("Step 6: Re-applying same DNS policy (should be idempotent)")
+	err = server.UpdatePolicyRules(dnsPolicies)
+	require.NoError(t, err, "Failed to re-apply DNS policy")
+	validateStoredPolicyRules(t, server, 2, "DNS policy re-applied")
+
+	// Step 7: Test nil policies (should be no-op)
+	t.Log("Step 7: Testing with nil policies (should be no-op)")
+	err = server.UpdatePolicyRules(nil)
+	require.NoError(t, err, "Failed to handle nil policies")
+	validateStoredPolicyRules(t, server, 2, "Nil policies (no-op)")
+
+	// Step 8: Test deletion of DNS policies for identity 1
+	t.Log("Step 8: Deleting DNS policy for identity 1")
+	dnsPolicies[identity.NumericIdentity(1)] = nil
+	err = server.UpdatePolicyRules(dnsPolicies)
+	require.NoError(t, err, "Failed to delete DNS policy for identity 1")
+	validateStoredPolicyRules(t, server, 1, "DNS policy for identity 1 deleted")
+}
+
+// TestUpdateMappingRequest tests the UpdateMappingRequest method focusing on key functionality
+func TestUpdateMappingRequest(t *testing.T) {
+	buffer := 1024 * 1024
+	lis := bufconn.Listen(buffer)
+	_, server := setupServer(t, 1234, true, true, 40045, lis)
+
+	addEndpointMapping(t, server) // Add a valid endpoint mapping for the test
+
+	testCases := map[string]struct {
+		mapping          *pb.FQDNMapping
+		expectedResponse pb.ResponseCode
+		shouldError      bool
+		errorMessage     string
+	}{
+		"nil source IP should return invalid argument error": {
+			mapping: &pb.FQDNMapping{
+				SourceIp:     nil,
+				Fqdn:         "example.com",
+				RecordIp:     [][]byte{[]byte("10.20.30.40")},
+				Ttl:          300,
+				ResponseCode: dns.RcodeSuccess,
+			},
+			expectedResponse: pb.ResponseCode_RESPONSE_CODE_ERROR_INVALID_ARGUMENT,
+			shouldError:      true,
+			errorMessage:     "source IP is nil in FQDN mapping",
+		},
+		"empty record IPs should return success": {
+			mapping: &pb.FQDNMapping{
+				SourceIp: []byte("1.2.3.4"),
+				Fqdn:     "example.com",
+				RecordIp: [][]byte{}, // Empty record IPs
+			},
+			expectedResponse: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+			shouldError:      false,
+		},
+		"endpoint not found should return error": {
+			mapping: &pb.FQDNMapping{
+				SourceIp:     []byte("192.168.1.1"), // Non-existent IP
+				Fqdn:         "example.com",
+				RecordIp:     [][]byte{[]byte("1.2.3.4")},
+				Ttl:          300,
+				ResponseCode: dns.RcodeSuccess,
+			},
+			expectedResponse: pb.ResponseCode_RESPONSE_CODE_ERROR_ENDPOINT_NOT_FOUND,
+			shouldError:      true,
+			errorMessage:     "endpoint not found for IP",
+		},
+		"fqdn is empty string should return error": {
+			mapping: &pb.FQDNMapping{
+				SourceIp:     []byte("1.2.3.4"),
+				Fqdn:         "",
+				RecordIp:     [][]byte{[]byte("5.6.7.8")},
+				Ttl:          300,
+				ResponseCode: dns.RcodeSuccess,
+			},
+			expectedResponse: pb.ResponseCode_RESPONSE_CODE_ERROR_INVALID_ARGUMENT,
+			shouldError:      true,
+			errorMessage:     "FQDN is nil or empty in FQDN mapping",
+		},
+		"valid mapping should succeed": {
+			mapping: &pb.FQDNMapping{
+				SourceIp:     []byte("1.2.3.4"),
+				Fqdn:         "example.com",
+				RecordIp:     [][]byte{[]byte("5.6.7.8")},
+				Ttl:          300,
+				ResponseCode: dns.RcodeSuccess,
+			},
+			expectedResponse: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+			shouldError:      false,
+		},
+	}
+
+	for scenario, tc := range testCases {
+		t.Run(scenario, func(t *testing.T) {
+			ctx := context.Background()
+			response, err := server.UpdateMappingRequest(ctx, tc.mapping)
+
+			if tc.shouldError {
+				require.Error(t, err, "Expected an error for scenario: %s", scenario)
+				if tc.errorMessage != "" {
+					require.Contains(t, err.Error(), tc.errorMessage, "Error message should contain expected text")
+				}
+			} else {
+				require.NoError(t, err, "Expected no error for scenario: %s", scenario)
+			}
+
+			require.NotNil(t, response, "Response should not be nil")
+			require.Equal(t, tc.expectedResponse, response.Response, "Response code mismatch for scenario: %s", scenario)
 		})
 	}
 }

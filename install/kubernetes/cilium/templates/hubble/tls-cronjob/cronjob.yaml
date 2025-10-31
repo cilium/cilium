@@ -23,6 +23,8 @@ metadata:
   {{- end }}
 spec:
   schedule: {{ .Values.hubble.tls.auto.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.certgen.cronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.certgen.cronJob.failedJobsHistoryLimit }}
   concurrencyPolicy: Forbid
   jobTemplate:
     {{- include "hubble-generate-certs.job.spec" . | nindent 4 }}

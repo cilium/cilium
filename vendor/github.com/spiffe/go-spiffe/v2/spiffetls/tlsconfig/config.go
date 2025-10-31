@@ -221,6 +221,7 @@ func getTLSCertificate(svid x509svid.Source, trace Trace) (*tls.Certificate, err
 	cert := &tls.Certificate{
 		Certificate: make([][]byte, 0, len(s.Certificates)),
 		PrivateKey:  s.PrivateKey,
+		Leaf:        s.Certificates[0],
 	}
 
 	for _, svidCert := range s.Certificates {

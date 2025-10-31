@@ -125,6 +125,7 @@ type policyGenerateResult struct {
 	policyRevision   uint64
 	endpointPolicy   *policy.EndpointPolicy
 	identityRevision int
+	identity         identityPkg.NumericIdentity
 }
 
 // Release resources held for the new policy
@@ -205,6 +206,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	result := &policyGenerateResult{
 		endpointPolicy:   e.desiredPolicy,
+		identity:         e.getIdentity(),
 		identityRevision: e.identityRevision,
 	}
 	e.unlock()
@@ -299,14 +301,25 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 
 		return nil
 	}
+
 	// if the security identity changed, reject the policy computation
-	if e.identityRevision != res.identityRevision {
+	if e.getIdentity() != res.identity {
 		// Detach the rejected endpoint policy.
 		// This is needed to release resources held for the EndpointPolicy
 		res.release(e.getLogger())
 
 		e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
 		return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
+	}
+
+	// if the security identity revision changed, reject the policy computation
+	if e.identityRevision != res.identityRevision {
+		// Detach the rejected endpoint policy.
+		// This is needed to release resources held for the EndpointPolicy
+		res.release(e.getLogger())
+
+		e.getLogger().Info("Endpoint SecurityIdentity revision changed during policy regeneration")
+		return fmt.Errorf("endpoint %d SecurityIdentity revision changed during policy regeneration", e.ID)
 	}
 
 	oldNextPolicyRevision := e.nextPolicyRevision
@@ -682,20 +695,14 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 	// bump the policy revision directly (as long as we didn't miss an update somehow).
 	if !idsToRegen.Has(secID) {
 		if e.policyRevision < fromRev {
-			if e.state == StateWaitingToRegenerate || e.state == StateRestoring {
-				// We can log this at less severity since a regeneration was already queued.
-				// This can happen if two policy updates come in quick succession, with the first
-				// affecting this endpoint and the second not.
-				e.getLogger().Info(
-					"Endpoint missed a policy revision; triggering regeneration",
-					logfields.PolicyRevision, fromRev,
-				)
-			} else {
-				e.getLogger().Warn(
-					"Endpoint missed a policy revision; triggering regeneration",
-					logfields.PolicyRevision, fromRev,
-				)
-			}
+			// FIXME: https://github.com/cilium/cilium/issues/36493
+			// Currently policy repository version can be bumped through multiple triggers
+			// async to each other. This can lead to out of order processing of regeneration
+			// events. Continue with endpoint regeneration to be safe but log as Info.
+			e.getLogger().Info(
+				"Endpoint missed a policy revision; triggering regeneration",
+				logfields.PolicyRevision, fromRev,
+			)
 		} else {
 			e.getLogger().Debug(
 				"Policy update is a no-op, bumping policyRevision",
@@ -1046,7 +1053,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 					e.runlock()
 					return controller.NewExitReason("Failed to get node IP")
 				}
-				key := node.GetEndpointEncryptKeyIndex(logger, e.wgConfig)
+				key := node.GetEndpointEncryptKeyIndex(logger, e.wgConfig.Enabled(), e.ipsecConfig.Enabled())
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName

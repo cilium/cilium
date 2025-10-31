@@ -18,6 +18,8 @@ import (
 // +kubebuilder:validation:Format=cidr
 type CIDR string
 
+func (s CIDR) IsPeerSelector() {}
+
 var (
 	ipv4All = CIDR("0.0.0.0/0")
 	ipv6All = CIDR("::/0")
@@ -64,6 +66,8 @@ type CIDRRule struct {
 	// or provided by user
 	Generated bool `json:"-"`
 }
+
+func (r CIDRRule) IsPeerSelector() {}
 
 // String converts the CIDRRule into a human-readable string.
 func (r CIDRRule) String() string {

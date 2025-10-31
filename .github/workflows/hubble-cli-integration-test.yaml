@@ -13,6 +13,9 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -21,7 +24,6 @@ on:
     branches:
     - main
     - ft/main/**
-    - 'renovate/main-**'
     paths-ignore:
     - 'Documentation/**'
 
@@ -52,6 +54,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
     runs-on: ubuntu-24.04
+    permissions: {}
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -60,6 +63,8 @@ jobs:
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
     steps:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
@@ -68,6 +73,8 @@ jobs:
 
   integration-test:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     env:
       job_name: "Integration Test"
     name: Hubble CLI Integration Test
@@ -119,7 +126,7 @@ jobs:
       # Build hubble CLI before setting up the cluster and waiting on images to
       # save time on failures.
       - name: Setup go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: 'go.mod'
 
@@ -147,7 +154,7 @@ jobs:
           done
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@746083db48591ffbebd37743873a91a13a6b04b8 # v0.18.6
+        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -207,8 +214,12 @@ jobs:
     if: ${{ always() }}
     needs: integration-test
     uses: ./.github/workflows/common-post-jobs.yaml
+    permissions:
+      contents: read
+      actions: read
+      statuses: write
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.integration-test.result }}
+      success: ${{ needs.integration-test.result == 'success' }}

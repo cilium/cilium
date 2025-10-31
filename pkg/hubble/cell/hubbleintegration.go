@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
-	"strconv"
 	"sync/atomic"
 
 	"github.com/go-openapi/strfmt"
@@ -31,16 +29,14 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
 	"github.com/cilium/cilium/pkg/hubble/observer"
+	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/peer"
-	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
@@ -66,42 +62,47 @@ type hubbleIntegration struct {
 	endpointManager   endpointmanager.EndpointManager
 	ipcache           *ipcache.IPCache
 	cgroupManager     manager.CGroupManager
-	clientset         k8sClient.Clientset
-	k8sWatcher        *watchers.K8sWatcher
 	nodeManager       nodeManager.NodeManager
 	nodeLocalStore    *node.LocalNodeStore
 	monitorAgent      monitorAgent.Agent
 	tlsConfigPromise  tlsConfigPromise
 	exporters         []exporter.FlowLogExporter
 
+	// dropEventEmitter emits Kubernetes events for packet drops.
+	dropEventEmitter dropeventemitter.FlowProcessor
+
 	// payloadParser is used to decode monitor events into Hubble events.
 	payloadParser parser.Decoder
+	// nsManager is used to monitor the namespaces seen in Hubble flows.
+	nsManager namespace.Manager
 
 	// GRPC metrics are registered on the Hubble gRPC server and are
 	// exposed by the Hubble metrics server (from hubble-metrics cell).
 	grpcMetrics          *grpc_prometheus.ServerMetrics
 	metricsFlowProcessor metrics.FlowProcessor
+	peerService          *peer.Service
 
 	config config
 }
 
-// new creates and return a new hubbleIntegration.
-func new(
+// createHubbleIntegration creates and return a new hubbleIntegration.
+func createHubbleIntegration(
 	identityAllocator identitycell.CachingIdentityAllocator,
 	endpointManager endpointmanager.EndpointManager,
 	ipcache *ipcache.IPCache,
 	cgroupManager manager.CGroupManager,
-	clientset k8sClient.Clientset,
-	k8sWatcher *watchers.K8sWatcher,
 	nodeManager nodeManager.NodeManager,
 	nodeLocalStore *node.LocalNodeStore,
 	monitorAgent monitorAgent.Agent,
 	tlsConfigPromise tlsConfigPromise,
 	observerOptions []observeroption.Option,
 	exporterBuilders []*exportercell.FlowLogExporterBuilder,
+	dropEventEmitter dropeventemitter.FlowProcessor,
 	payloadParser parser.Decoder,
+	nsManager namespace.Manager,
 	grpcMetrics *grpc_prometheus.ServerMetrics,
 	metricsFlowProcessor metrics.FlowProcessor,
+	peerService *peer.Service,
 	config config,
 	log *slog.Logger,
 ) (*hubbleIntegration, error) {
@@ -121,17 +122,18 @@ func new(
 		endpointManager:      endpointManager,
 		ipcache:              ipcache,
 		cgroupManager:        cgroupManager,
-		clientset:            clientset,
-		k8sWatcher:           k8sWatcher,
 		nodeManager:          nodeManager,
 		nodeLocalStore:       nodeLocalStore,
 		monitorAgent:         monitorAgent,
 		tlsConfigPromise:     tlsConfigPromise,
 		observerOptions:      observerOptions,
 		exporters:            exporters,
+		dropEventEmitter:     dropEventEmitter,
 		payloadParser:        payloadParser,
+		nsManager:            nsManager,
 		grpcMetrics:          grpcMetrics,
 		metricsFlowProcessor: metricsFlowProcessor,
+		peerService:          peerService,
 		config:               config,
 		log:                  log,
 	}
@@ -219,23 +221,10 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		}
 	}
 
-	if h.config.EnableK8sDropEvents {
-		h.log.Info(
-			"Starting packet drop events emitter",
-			logfields.Interval, h.config.K8sDropEventsInterval,
-			logfields.Reasons, h.config.K8sDropEventsReasons,
-		)
-
-		dropEventEmitter := dropeventemitter.NewDropEventEmitter(
-			h.config.K8sDropEventsInterval,
-			h.config.K8sDropEventsReasons,
-			h.clientset,
-			h.k8sWatcher,
-		)
-
+	if h.dropEventEmitter != nil {
 		observerOpts = append(observerOpts,
 			observeroption.WithOnDecodedFlowFunc(func(ctx context.Context, flow *flowpb.Flow) (bool, error) {
-				err := dropEventEmitter.ProcessFlow(ctx, flow)
+				err := h.dropEventEmitter.ProcessFlow(ctx, flow)
 				if err != nil {
 					h.log.Error("Failed to ProcessFlow in drop events handler", logfields.Error, err)
 				}
@@ -259,6 +248,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	observerOpts = append(observerOpts,
 		observeroption.WithMaxFlows(maxFlows),
 		observeroption.WithMonitorBuffer(h.config.EventQueueSize),
+		observeroption.WithLostEventSendInterval(h.config.LostEventSendInterval),
 	)
 
 	// register exporters
@@ -279,12 +269,9 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	// for explicit ordering of known dependencies
 	observerOpts = append(observerOpts, h.observerOptions...)
 
-	namespaceManager := observer.NewNamespaceManager()
-	go namespaceManager.Run(ctx)
-
 	hubbleObserver, err := observer.NewLocalServer(
 		h.payloadParser,
-		namespaceManager,
+		h.nsManager,
 		h.log,
 		observerOpts...,
 	)
@@ -292,7 +279,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		return nil, fmt.Errorf("failed to initialize observer server: %w", err)
 	}
 	go hubbleObserver.Start()
-	h.monitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver))
+	h.monitorAgent.RegisterNewConsumer(monitor.NewConsumer(hubbleObserver, h.config.LostEventSendInterval))
 
 	tlsEnabled := h.tlsConfigPromise != nil
 
@@ -300,32 +287,11 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	// This server can be used by the Hubble CLI when invoked from within the
 	// cilium Pod, typically in troubleshooting scenario.
 	sockPath := "unix://" + h.config.SocketPath
-	var peerServiceOptions []serviceoption.Option
-	if !tlsEnabled {
-		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
-	}
-	if h.config.PreferIpv6 {
-		peerServiceOptions = append(peerServiceOptions, serviceoption.WithAddressFamilyPreference(serviceoption.AddressPreferIPv6))
-	}
-	if addr := h.config.ListenAddress; addr != "" {
-		port, err := getPort(h.config.ListenAddress)
-		if err != nil {
-			// TODO: bubble up the error and/or set cell health as degraded
-			h.log.Warn(
-				"Hubble server will not pass port information in change notifications on exposed Hubble peer service",
-				logfields.Error, err,
-				logfields.Address, addr,
-			)
-		} else {
-			peerServiceOptions = append(peerServiceOptions, serviceoption.WithHubblePort(port))
-		}
-	}
-	peerSvc := peer.NewService(h.nodeManager, peerServiceOptions...)
 	localSrvOpts = append(localSrvOpts,
 		serveroption.WithUnixSocketListener(h.log, sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(hubbleObserver),
-		serveroption.WithPeerService(peerSvc),
+		serveroption.WithPeerService(h.peerService),
 		serveroption.WithInsecure(),
 		serveroption.WithGRPCUnaryInterceptor(serverVersionUnaryInterceptor()),
 		serveroption.WithGRPCStreamInterceptor(serverVersionStreamInterceptor()),
@@ -350,7 +316,6 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	go func() {
 		<-ctx.Done()
 		localSrv.Stop()
-		peerSvc.Close()
 	}()
 
 	// configure another hubble server listening on TCP. This server is
@@ -365,7 +330,7 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 		options := []serveroption.Option{
 			serveroption.WithTCPListener(address),
 			serveroption.WithHealthService(),
-			serveroption.WithPeerService(peerSvc),
+			serveroption.WithPeerService(h.peerService),
 			serveroption.WithObserverService(hubbleObserver),
 			serveroption.WithGRPCUnaryInterceptor(serverVersionUnaryInterceptor()),
 			serveroption.WithGRPCStreamInterceptor(serverVersionStreamInterceptor()),
@@ -409,18 +374,6 @@ func (h *hubbleIntegration) launch(ctx context.Context) (*observer.LocalObserver
 	}
 
 	return hubbleObserver, nil
-}
-
-func getPort(addr string) (int, error) {
-	_, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		return 0, fmt.Errorf("parse host address and port: %w", err)
-	}
-	portNum, err := strconv.Atoi(port)
-	if err != nil {
-		return 0, fmt.Errorf("parse port number: %w", err)
-	}
-	return portNum, nil
 }
 
 var serverVersionHeader = metadata.Pairs(defaults.GRPCMetadataServerVersionKey, build.ServerVersion.SemVer())

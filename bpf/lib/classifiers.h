@@ -122,7 +122,7 @@ ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point __
 		proto = ctx_get_protocol(ctx);
 
 	/* Check whether the packet comes from a L3 device (no ethernet). */
-	if (ETH_HLEN == 0)
+	if (THIS_IS_L3_DEV)
 		flags |= CLS_FLAG_L3_DEV;
 
 	/* Check if IPv6 packet. */

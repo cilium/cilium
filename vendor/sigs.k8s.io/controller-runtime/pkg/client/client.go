@@ -74,8 +74,8 @@ type NewClientFunc func(config *rest.Config, options Options) (Client, error)
 // New returns a new Client using the provided config and Options.
 //
 // By default, the client surfaces warnings returned by the server. To
-// suppress warnings, set config.WarningHandler = rest.NoWarnings{}. To
-// define custom behavior, implement the rest.WarningHandler interface.
+// suppress warnings, set config.WarningHandlerWithContext = rest.NoWarnings{}. To
+// define custom behavior, implement the rest.WarningHandlerWithContext interface.
 // See [sigs.k8s.io/controller-runtime/pkg/log.KubeAPIWarningLogger] for
 // an example.
 //
@@ -112,10 +112,9 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
 
-	if config.WarningHandler == nil {
+	if config.WarningHandler == nil && config.WarningHandlerWithContext == nil {
 		// By default, we surface warnings.
-		config.WarningHandler = log.NewKubeAPIWarningLogger(
-			log.Log.WithName("KubeAPIWarningLogger"),
+		config.WarningHandlerWithContext = log.NewKubeAPIWarningLogger(
 			log.KubeAPIWarningLoggerOptions{
 				Deduplicate: false,
 			},
@@ -152,8 +151,7 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 		mapper:     options.Mapper,
 		codecs:     serializer.NewCodecFactory(options.Scheme),
 
-		structuredResourceByType:   make(map[schema.GroupVersionKind]*resourceMeta),
-		unstructuredResourceByType: make(map[schema.GroupVersionKind]*resourceMeta),
+		resourceByType: make(map[cacheKey]*resourceMeta),
 	}
 
 	rawMetaClient, err := metadata.NewForConfigAndClient(metadata.ConfigFor(config), options.HTTPClient)
@@ -327,6 +325,16 @@ func (c *client) Patch(ctx context.Context, obj Object, patch Patch, opts ...Pat
 		return c.metadataClient.Patch(ctx, obj, patch, opts...)
 	default:
 		return c.typedClient.Patch(ctx, obj, patch, opts...)
+	}
+}
+
+func (c *client) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+	switch obj := obj.(type) {
+	case *unstructuredApplyConfiguration:
+		defer c.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+		return c.unstructuredClient.Apply(ctx, obj, opts...)
+	default:
+		return c.typedClient.Apply(ctx, obj, opts...)
 	}
 }
 

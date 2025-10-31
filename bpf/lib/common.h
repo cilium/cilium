@@ -105,6 +105,8 @@ union v6addr {
 #define d2 d.d2
 } __packed;
 
+#define THIS_IS_L3_DEV		(ETH_HLEN == 0)
+
 static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 						      int l2_off, __u16 *proto)
 {
@@ -113,7 +115,7 @@ static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 	void *data = ctx_data(ctx);
 	struct ethhdr *eth;
 
-	if (ETH_HLEN == 0) {
+	if (THIS_IS_L3_DEV) {
 		/* The packet is received on L2-less device. Determine L3
 		 * protocol from skb->protocol.
 		 */
@@ -297,7 +299,8 @@ struct remote_endpoint_info {
 	__u8		flag_skip_tunnel:1,
 			flag_has_tunnel_ep:1,
 			flag_ipv6_tunnel_ep:1,
-			pad2:5;
+			flag_remote_cluster:1,
+			pad2:4;
 };
 
 /*
@@ -341,7 +344,8 @@ struct policy_entry {
 			has_explicit_auth_type:1;
 	__u8		proxy_port_priority;
 	__u8		pad1;
-	__u16	        pad2;
+	__u16		pad2;
+	__u32		cookie;
 };
 
 /*
@@ -519,10 +523,10 @@ enum {
 #define REASON_LB_REVNAT_STALE		8
 #define REASON_FRAG_PACKET		9
 #define REASON_FRAG_PACKET_UPDATE	10
-#define REASON_MISSED_CUSTOM_CALL	11
 #define REASON_DECRYPTING			12
 #define REASON_ENCRYPTING			13
 #define REASON_LB_REVNAT_DELETE		14
+#define REASON_MTU_ERROR_MSG			15
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0
@@ -553,41 +557,22 @@ enum metric_dir {
  *  - the key index to use for encryption when multiple keys are in-flight.
  *    In the IPsec case this becomes the SPI on the wire.
  */
+/*						Packet mark content: */
 #define MARK_MAGIC_HOST_MASK		0x0F00
-#define MARK_MAGIC_PROXY_TO_WORLD	0x0800
-#define MARK_MAGIC_PROXY_EGRESS_EPID	0x0900 /* mark carries source endpoint ID */
-#define MARK_MAGIC_PROXY_INGRESS	0x0A00
-#define MARK_MAGIC_PROXY_EGRESS		0x0B00
+#define MARK_MAGIC_SKIP_TPROXY		0x0800
+#define MARK_MAGIC_PROXY_EGRESS_EPID	0x0900 /* source endpoint ID */
+#define MARK_MAGIC_PROXY_INGRESS	0x0A00 /* source identity (upstream traffic only) */
+#define MARK_MAGIC_PROXY_EGRESS		0x0B00 /* source identity (upstream traffic only) */
 #define MARK_MAGIC_HOST			0x0C00
 #define MARK_MAGIC_DECRYPT		0x0D00
 #define MARK_MAGIC_ENCRYPT		0x0E00
-#define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
+#define MARK_MAGIC_IDENTITY		0x0F00 /* source identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
-#define MARK_MAGIC_OVERLAY		0x0400 /* mark carries identity */
-/* used to indicate encrypted traffic was tunnel encapsulated
- * this is useful in the IPsec code paths where we need to know if overlay
- * traffic is encrypted or not.
- *
- * the SPI bit can be reused since this magic mark is only used POST encryption.
- */
-#define MARK_MAGIC_OVERLAY_ENCRYPTED	(MARK_MAGIC_OVERLAY | 0x1000)
-#define MARK_MAGIC_EGW_DONE		0x0500 /* mark carries identity */
+#define MARK_MAGIC_OVERLAY		0x0400 /* source identity */
+#define MARK_MAGIC_EGW_DONE		0x0500 /* source identity */
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
-
-
-/* The mark is used to indicate that the WireGuard tunnel device is done
- * encrypting a packet. The MSB invades the Kubernetes mark "space" which is
- * fine, as it's not used by K8s. See pkg/datapath/linux/linux_defaults/mark.go
- * for more details.
- *
- * NOTE: from v1.18 we reuse MARK_MAGIC_ENCRYPT for WireGuard-encrypted packets,
- * but we still need this value to handle upgrades from v1.17.
- *
- * TODO: can be removed in v1.19 in favor of MARK_MAGIC_ENCRYPT.
- */
-#define MARK_MAGIC_WG_ENCRYPTED		0x1E00
 
 /* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
  * being mutual exclusive given former is only under DSR. Used to push health
@@ -668,6 +653,7 @@ enum {
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
 #define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
+#define CB_VERDICT		CB_SRC_LABEL	/* Alias, non-overlapping */
 	CB_1,
 #define	CB_DELIVERY_REDIRECT	CB_1		/* Alias, non-overlapping */
 #define	CB_NAT_46X64		CB_1		/* Alias, non-overlapping */
@@ -692,7 +678,6 @@ enum {
 #define	CB_ENCRYPT_IDENTITY	CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
-#define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_FROM_TUNNEL		CB_CT_STATE	/* Alias, non-overlapping */
 };
@@ -827,7 +812,15 @@ struct ct_entry {
 	__u32 last_rx_report;
 };
 
-#define IPPROTO_ANY	0	/* For service lookup with ANY L4 protocol */
+/* We previously tolerated services with no specified L4 protocol (IPPROTO_ANY).
+ *
+ * This was deprecated, and we now re-purpose IPPROTO_ANY such that when combined with
+ * a zero L4 Destination Port, we can encode a wild-card service entry. This informs
+ * the data path to drop flows towards IPs we know about, but on services we don't.
+ */
+#define IPPROTO_ANY	0
+#define LB_SVC_WILDCARD_PROTO IPPROTO_ANY
+#define LB_SVC_WILDCARD_DPORT 0
 
 struct lb6_key {
 	union v6addr address;	/* Service virtual IPv6 address */

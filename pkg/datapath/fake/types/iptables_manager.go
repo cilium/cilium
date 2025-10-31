@@ -35,3 +35,9 @@ func (m *FakeIptablesManager) InstallNoTrackRules(ip netip.Addr, port uint16) {
 
 func (m *FakeIptablesManager) RemoveNoTrackRules(ip netip.Addr, port uint16) {
 }
+
+func (m *FakeIptablesManager) AddNoTrackHostPorts(namespace, name string, ports []string) {
+}
+
+func (m *FakeIptablesManager) RemoveNoTrackHostPorts(namespace, name string) {
+}

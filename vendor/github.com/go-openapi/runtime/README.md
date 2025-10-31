@@ -8,3 +8,32 @@
 # go OpenAPI toolkit runtime
 
 The runtime component for use in code generation or as untyped usage.
+
+## Release notes
+
+### v0.29.0 [draft, unpublished]
+
+**New with this release**:
+
+* upgraded to `go1.24` and modernized the code base accordingly
+* updated all dependencies, and removed an noticable indirect dependency (e.g. `mailru/easyjson`)
+* **breaking change** no longer imports `opentracing-go` (#365).
+    * the `WithOpentracing()` method now returns an opentelemetry transport
+    * for users who can't transition to opentelemetry, the previous behavior
+      of `WithOpentracing` delivering an opentracing transport is provided by a separate
+      module `github.com/go-openapi/runtime/client-middleware/opentracing`.
+* removed direct dependency to `gopkg.in/yaml.v3`, in favor of `go.yaml.in/yaml/v3` (an indirect
+  test dependency to the older package is still around)
+* technically, the repo has evolved to a mono-repo, multiple modules structures (2 go modules
+  published), with CI adapted accordingly
+
+**What coming next?**
+
+Moving forward, we want to :
+
+* [ ] continue narrowing down the scope of dependencies:
+  * yaml support in an independent module
+  * introduce more up-to-date support for opentelemetry as a separate module that evolves
+    independently from the main package (to avoid breaking changes, the existing API
+    will remain maintained, but evolve at a slower pace than opentelemetry).
+* [ ] fix a few known issues with some file upload requests (e.g. #286)

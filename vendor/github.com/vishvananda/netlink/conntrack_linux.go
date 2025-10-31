@@ -225,10 +225,11 @@ type ProtoInfo interface {
 type ProtoInfoTCP struct {
 	State uint8
 }
+
 // Protocol returns "tcp".
-func (*ProtoInfoTCP) Protocol() string {return "tcp"}
+func (*ProtoInfoTCP) Protocol() string { return "tcp" }
 func (p *ProtoInfoTCP) toNlData() ([]*nl.RtAttr, error) {
-	ctProtoInfo := nl.NewRtAttr(unix.NLA_F_NESTED | nl.CTA_PROTOINFO, []byte{})
+	ctProtoInfo := nl.NewRtAttr(unix.NLA_F_NESTED|nl.CTA_PROTOINFO, []byte{})
 	ctProtoInfoTCP := nl.NewRtAttr(unix.NLA_F_NESTED|nl.CTA_PROTOINFO_TCP, []byte{})
 	ctProtoInfoTCPState := nl.NewRtAttr(nl.CTA_PROTOINFO_TCP_STATE, nl.Uint8Attr(p.State))
 	ctProtoInfoTCP.AddChild(ctProtoInfoTCPState)
@@ -238,14 +239,16 @@ func (p *ProtoInfoTCP) toNlData() ([]*nl.RtAttr, error) {
 }
 
 // ProtoInfoSCTP only supports the protocol name.
-type ProtoInfoSCTP struct {}
+type ProtoInfoSCTP struct{}
+
 // Protocol returns "sctp".
-func (*ProtoInfoSCTP) Protocol() string {return "sctp"}
+func (*ProtoInfoSCTP) Protocol() string { return "sctp" }
 
 // ProtoInfoDCCP only supports the protocol name.
-type ProtoInfoDCCP struct {}
+type ProtoInfoDCCP struct{}
+
 // Protocol returns "dccp".
-func (*ProtoInfoDCCP) Protocol() string {return "dccp"}
+func (*ProtoInfoDCCP) Protocol() string { return "dccp" }
 
 // The full conntrack flow structure is very complicated and can be found in the file:
 // http://git.netfilter.org/libnetfilter_conntrack/tree/include/internal/object.h
@@ -287,7 +290,7 @@ func (t *IPTuple) toNlData(family uint8) ([]*nl.RtAttr, error) {
 	ctTupleProtoSrcPort := nl.NewRtAttr(nl.CTA_PROTO_SRC_PORT, nl.BEUint16Attr(t.SrcPort))
 	ctTupleProto.AddChild(ctTupleProtoSrcPort)
 	ctTupleProtoDstPort := nl.NewRtAttr(nl.CTA_PROTO_DST_PORT, nl.BEUint16Attr(t.DstPort))
-	ctTupleProto.AddChild(ctTupleProtoDstPort, )
+	ctTupleProto.AddChild(ctTupleProtoDstPort)
 
 	return []*nl.RtAttr{ctTupleIP, ctTupleProto}, nil
 }
@@ -363,8 +366,10 @@ func (s *ConntrackFlow) toNlData() ([]*nl.RtAttr, error) {
 	//	<BEuint64>
 	//	<len, CTA_TIMEOUT>
 	//	<BEuint64>
+	//	<len, CTA_LABELS>
+	//	<binary data>
 	//	<len, NLA_F_NESTED|CTA_PROTOINFO>
- 
+
 	// CTA_TUPLE_ORIG
 	ctTupleOrig := nl.NewRtAttr(unix.NLA_F_NESTED|nl.CTA_TUPLE_ORIG, nil)
 	forwardFlowAttrs, err := s.Forward.toNlData(s.FamilyType)
@@ -389,6 +394,14 @@ func (s *ConntrackFlow) toNlData() ([]*nl.RtAttr, error) {
 	ctTimeout := nl.NewRtAttr(nl.CTA_TIMEOUT, nl.BEUint32Attr(s.TimeOut))
 
 	payload = append(payload, ctTupleOrig, ctTupleReply, ctMark, ctTimeout)
+	// Labels: nil => do not send; 16 zero bytes => clear all labels.
+	if s.Labels != nil {
+		if len(s.Labels) != 16 {
+			return nil, fmt.Errorf("conntrack CTA_LABELS must be 16 bytes, got %d", len(s.Labels))
+		}
+		ctLabels := nl.NewRtAttr(nl.CTA_LABELS, s.Labels)
+		payload = append(payload, ctLabels)
+	}
 
 	if s.ProtoInfo != nil {
 		switch p := s.ProtoInfo.(type) {
@@ -547,12 +560,12 @@ func parseTimeStamp(r *bytes.Reader, readSize uint16) (tstart, tstop uint64) {
 
 func parseProtoInfoTCPState(r *bytes.Reader) (s uint8) {
 	binary.Read(r, binary.BigEndian, &s)
-	r.Seek(nl.SizeofNfattr - 1, seekCurrent)
+	r.Seek(nl.SizeofNfattr-1, seekCurrent)
 	return s
 }
 
 // parseProtoInfoTCP reads the entire nested protoinfo structure, but only parses the state attr.
-func parseProtoInfoTCP(r *bytes.Reader, attrLen uint16) (*ProtoInfoTCP) {
+func parseProtoInfoTCP(r *bytes.Reader, attrLen uint16) *ProtoInfoTCP {
 	p := new(ProtoInfoTCP)
 	bytesRead := 0
 	for bytesRead < int(attrLen) {
@@ -666,7 +679,7 @@ func parseRawData(data []byte) *ConntrackFlow {
 			switch t {
 			case nl.CTA_MARK:
 				s.Mark = parseConnectionMark(reader)
-				case nl.CTA_LABELS:
+			case nl.CTA_LABELS:
 				s.Labels = parseConnectionLabels(reader)
 			case nl.CTA_TIMEOUT:
 				s.TimeOut = parseTimeOut(reader)

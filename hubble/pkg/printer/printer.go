@@ -280,12 +280,17 @@ func formatPolicyNames(policies []*flowpb.Policy) string {
 }
 
 func (p Printer) getSummary(f *flowpb.Flow) string {
-	auth := p.getAuth(f)
-	if auth == "" {
-		return f.GetSummary()
+	b := strings.Builder{}
+	if f.IpTraceId != nil && f.IpTraceId.TraceId > 0 {
+		b.WriteString(fmt.Sprintf("IP Trace ID: %d; ", f.IpTraceId.TraceId))
+	}
+	b.WriteString(f.GetSummary())
+
+	if auth := p.getAuth(f); auth != "" {
+		b.WriteString("; Auth: " + auth)
 	}
 
-	return fmt.Sprintf("%s; Auth: %s", f.GetSummary(), auth)
+	return b.String()
 }
 
 func (p Printer) getAuth(f *flowpb.Flow) string {
@@ -943,6 +948,7 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 		src := f.GetSource()
 		numEventsLost := f.GetNumEventsLost()
 		cpu := f.GetCpu()
+		first, last := f.GetFirst(), f.GetLast()
 
 		if p.line == 0 {
 			w.print("TIMESTAMP", tab)
@@ -957,16 +963,24 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 				"SUMMARY", newline,
 			)
 		}
-		w.print("", tab)
+		w.print(fmtTimestamp(p.opts.timeFormat, res.GetTime()), tab)
 		if p.opts.nodeName {
-			w.print("", tab)
+			nodeName := res.GetNodeName()
+			if nodeName == "" {
+				nodeName = "-"
+			}
+			w.print(nodeName, tab)
+		}
+		summary := fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost)
+		if first != nil && last != nil {
+			summary += fmt.Sprintf(" (first: %s, last: %s)", fmtTimestamp(p.opts.timeFormat, first), fmtTimestamp(p.opts.timeFormat, last))
 		}
 		w.print(
 			src, tab,
-			"", tab,
+			"-", tab,
 			"EVENTS LOST", tab,
-			"", tab,
-			fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost), newline,
+			"-", tab,
+			summary, newline,
 		)
 		if w.err != nil {
 			return fmt.Errorf("failed to write out packet: %w", w.err)
@@ -976,6 +990,7 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 		src := f.GetSource()
 		numEventsLost := f.GetNumEventsLost()
 		cpu := f.GetCpu()
+		first, last := f.GetFirst(), f.GetLast()
 		if p.line != 0 {
 			// TODO: line length?
 			w.print(dictSeparator, newline)
@@ -983,15 +998,23 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 
 		// this is a little crude, but will do for now. should probably find the
 		// longest header and auto-format the keys
-		w.print("  TIMESTAMP: ", "", newline)
+		w.print("  TIMESTAMP: ", fmtTimestamp(p.opts.timeFormat, res.GetTime()), newline)
 		if p.opts.nodeName {
-			w.print("       NODE: ", "", newline)
+			nodeName := res.GetNodeName()
+			if nodeName == "" {
+				nodeName = "-"
+			}
+			w.print("       NODE: ", nodeName, newline)
+		}
+		summary := fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost)
+		if first != nil && last != nil {
+			summary += fmt.Sprintf(" (first: %s, last: %s)", fmtTimestamp(p.opts.timeFormat, first), fmtTimestamp(p.opts.timeFormat, last))
 		}
 		w.print(
 			"     SOURCE: ", src, newline,
 			"       TYPE: ", "EVENTS LOST", newline,
-			"    VERDICT: ", "", newline,
-			"    SUMMARY: ", fmt.Sprintf("CPU(%d) - %d", cpu.GetValue(), numEventsLost), newline,
+			"    VERDICT: ", "-", newline,
+			"    SUMMARY: ", summary, newline,
 		)
 		if w.err != nil {
 			return fmt.Errorf("failed to write out packet: %w", w.err)
@@ -1001,11 +1024,16 @@ func (p *Printer) WriteLostEvent(res *observerpb.GetFlowsResponse) error {
 		src := f.GetSource()
 		numEventsLost := f.GetNumEventsLost()
 		cpu := f.GetCpu()
+		first, last := f.GetFirst(), f.GetLast()
 
-		w.printf("EVENTS LOST: %s CPU(%d) %d\n",
+		summary := fmt.Sprintf("CPU(%d) %d", cpu.GetValue(), numEventsLost)
+		if first != nil && last != nil {
+			summary += fmt.Sprintf(" (first: %s, last: %s)", fmtTimestamp(p.opts.timeFormat, first), fmtTimestamp(p.opts.timeFormat, last))
+		}
+		w.printf("%s EVENTS LOST: %s %s\n",
+			fmtTimestamp(p.opts.timeFormat, res.GetTime()),
 			src,
-			cpu.GetValue(),
-			numEventsLost,
+			summary,
 		)
 		if w.err != nil {
 			return fmt.Errorf("failed to write out packet: %w", w.err)

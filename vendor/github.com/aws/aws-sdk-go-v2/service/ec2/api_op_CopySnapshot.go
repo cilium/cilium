@@ -13,32 +13,37 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Copies a point-in-time snapshot of an EBS volume and stores it in Amazon S3.
-// You can copy a snapshot within the same Region, from one Region to another, or
-// from a Region to an Outpost. You can't copy a snapshot from an Outpost to a
-// Region, from one Outpost to another, or within the same Outpost.
+// Creates an exact copy of an Amazon EBS snapshot.
 //
-// You can use the snapshot to create EBS volumes or Amazon Machine Images (AMIs).
+// The location of the source snapshot determines whether you can copy it or not,
+// and the allowed destinations for the snapshot copy.
 //
-// When copying snapshots to a Region, copies of encrypted EBS snapshots remain
-// encrypted. Copies of unencrypted snapshots remain unencrypted, unless you enable
-// encryption for the snapshot copy operation. By default, encrypted snapshot
-// copies use the default KMS key; however, you can specify a different KMS key. To
-// copy an encrypted snapshot that has been shared from another account, you must
-// have permissions for the KMS key used to encrypt the snapshot.
+//   - If the source snapshot is in a Region, you can copy it within that Region,
+//     to another Region, to an Outpost associated with that Region, or to a Local Zone
+//     in that Region.
 //
-// Snapshots copied to an Outpost are encrypted by default using the default
-// encryption key for the Region, or a different key that you specify in the
-// request using KmsKeyId. Outposts do not support unencrypted snapshots. For more
-// information, see [Amazon EBS local snapshots on Outposts]in the Amazon EBS User Guide.
+//   - If the source snapshot is in a Local Zone, you can copy it within that
+//     Local Zone, to another Local Zone in the same zone group, or to the parent
+//     Region of the Local Zone.
 //
-// Snapshots created by copying another snapshot have an arbitrary volume ID that
-// should not be used for any purpose.
+//   - If the source snapshot is on an Outpost, you can't copy it.
+//
+// When copying snapshots to a Region, the encryption outcome for the snapshot
+// copy depends on the Amazon EBS encryption by default setting for the destination
+// Region, the encryption status of the source snapshot, and the encryption
+// parameters you specify in the request. For more information, see [Encryption and snapshot copying].
+//
+// Snapshots copied to an Outpost must be encrypted. Unencrypted snapshots are not
+// supported on Outposts. For more information, [Amazon EBS local snapshots on Outposts].
+//
+// Snapshots copies have an arbitrary source volume ID. Do not use this volume ID
+// for any purpose.
 //
 // For more information, see [Copy an Amazon EBS snapshot] in the Amazon EBS User Guide.
 //
+// [Encryption and snapshot copying]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-copy-snapshot.html#creating-encrypted-snapshots
 // [Copy an Amazon EBS snapshot]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-copy-snapshot.html
-// [Amazon EBS local snapshots on Outposts]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#ami
+// [Amazon EBS local snapshots on Outposts]: https://docs.aws.amazon.com/ebs/latest/userguide/snapshots-outposts.html#considerations
 func (c *Client) CopySnapshot(ctx context.Context, params *CopySnapshotInput, optFns ...func(*Options)) (*CopySnapshotOutput, error) {
 	if params == nil {
 		params = &CopySnapshotInput{}
@@ -66,6 +71,8 @@ type CopySnapshotInput struct {
 	// This member is required.
 	SourceSnapshotId *string
 
+	// Not supported when copying snapshots to or from Local Zones or Outposts.
+	//
 	// Specify a completion duration, in 15 minute increments, to initiate a
 	// time-based snapshot copy. Time-based snapshot copy operations complete within
 	// the specified duration. For more information, see [Time-based copies].
@@ -79,11 +86,14 @@ type CopySnapshotInput struct {
 	// A description for the EBS snapshot.
 	Description *string
 
+	// The Local Zone, for example, cn-north-1-pkx-1a to which to copy the snapshot.
+	//
+	// Only supported when copying a snapshot to a Local Zone.
+	DestinationAvailabilityZone *string
+
 	// The Amazon Resource Name (ARN) of the Outpost to which to copy the snapshot.
-	// Only specify this parameter when copying a snapshot from an Amazon Web Services
-	// Region to an Outpost. The snapshot must be in the Region for the destination
-	// Outpost. You cannot copy a snapshot from an Outpost to a Region, from one
-	// Outpost to another, or within the same Outpost.
+	//
+	// Only supported when copying a snapshot to an Outpost.
 	//
 	// For more information, see [Copy snapshots from an Amazon Web Services Region to an Outpost] in the Amazon EBS User Guide.
 	//
@@ -98,7 +108,7 @@ type CopySnapshotInput struct {
 
 	// To encrypt a copy of an unencrypted snapshot if encryption by default is not
 	// enabled, enable encryption using this parameter. Otherwise, omit this parameter.
-	// Encrypted snapshots are encrypted, even if you omit this parameter and
+	// Copies of encrypted snapshots are encrypted, even if you omit this parameter and
 	// encryption by default is not enabled. You cannot set this parameter to false.
 	// For more information, see [Amazon EBS encryption]in the Amazon EBS User Guide.
 	//

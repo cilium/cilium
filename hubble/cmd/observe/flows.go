@@ -45,6 +45,8 @@ var protocols = []string{
 	"sctp",
 	"tcp",
 	"udp",
+	"vrrp",
+	"igmp",
 	// L7
 	"dns",
 	"http",
@@ -419,6 +421,10 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 	filterFlags.Var(filterVar(
 		"trace-id", ofilter,
 		"Show only flows which match this trace ID"))
+
+	filterFlags.Var(filterVar(
+		"ip-trace-id", ofilter,
+		"Show only flows which match this IP trace ID"))
 
 	filterFlags.Var(filterVar(
 		"from-fqdn", ofilter,

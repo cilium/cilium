@@ -17,8 +17,10 @@ import (
 	"github.com/cilium/cilium/daemon/cmd"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -35,15 +37,12 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
 )
 
 type agentHandle struct {
 	t         *testing.T
 	db        *statedb.DB
 	nodeAddrs statedb.Table[datapathTables.NodeAddress]
-	d         *cmd.Daemon
-	p         promise.Promise[*cmd.Daemon]
 	fnh       *fakeTypes.FakeNodeHandler
 
 	hive *hive.Hive
@@ -60,10 +59,6 @@ func (h *agentHandle) tearDown() {
 		if err := h.hive.Stop(h.log, context.TODO()); err != nil {
 			h.t.Fatalf("Failed to stop the agent: %s", err)
 		}
-	}
-
-	if h.d != nil {
-		h.d.Close()
 	}
 }
 
@@ -87,6 +82,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		kvstore.Cell(kvstore.DisabledBackendName),
 		fakeDatapath.Cell,
 		neighbor.ForwardableIPCell,
+		reconciler.TableCell,
 		cell.Provide(neighbor.NewCommonTestConfig(true, false)),
 		prefilter.Cell,
 		monitorAgent.Cell,
@@ -94,8 +90,8 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		store.Cell,
 		dial.ServiceResolverCell,
 		cmd.ControlPlane,
-		cell.Invoke(func(p promise.Promise[*cmd.Daemon], nh *fakeTypes.FakeNodeHandler) {
-			h.p = p
+		cell.Invoke(func(_ legacy.DaemonInitialization, nh *fakeTypes.FakeNodeHandler) {
+			// with dry-run enabled it's enough to depend on DaemonInitialization
 			h.fnh = nh
 		}),
 
@@ -125,7 +121,6 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
 	option.Config.Opts.SetBool(option.Debug, true)
-	option.Config.EnableIPSec = false
 	option.Config.EnableIPv6 = false
 	option.Config.K8sRequireIPv6PodCIDR = false
 	option.Config.EnableL7Proxy = false
@@ -138,15 +133,6 @@ func (h *agentHandle) populateCiliumAgentOptions(testDir string, modConfig func(
 	// (i.e. the ones defined through cell.Config(...)) must be set to the *viper.Viper
 	// object bound to the test hive.
 	h.hive.Viper().Set(option.EndpointGCInterval, 0)
-
-}
-
-func (h *agentHandle) startCiliumAgent() (*cmd.Daemon, error) {
-	if err := h.hive.Start(h.log, context.TODO()); err != nil {
-		return nil, err
-	}
-
-	return h.p.Await(context.TODO())
 }
 
 func setupTestDirectories() string {

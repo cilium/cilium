@@ -16,6 +16,9 @@ const (
 	maskStateDir = 0xf00
 	markStateIn  = 0xd00
 	markStateOut = 0xe00
+
+	// DefaultReqID is the default reqid used for all IPSec rules.
+	DefaultReqID = 1
 )
 
 func CountUniqueIPsecKeys(states []netlink.XfrmState) (int, error) {
@@ -38,6 +41,13 @@ func CountUniqueIPsecKeys(states []netlink.XfrmState) (int, error) {
 		return len(keys), errors.New("an unsupported XfrmStateAlgo combination has been found")
 	}
 	return len(keys), nil
+}
+
+func IsDecryptState(state netlink.XfrmState) bool {
+	if state.Mark == nil {
+		return false
+	}
+	return state.Mark.Value&maskStateDir == markStateOut
 }
 
 func CountXfrmStatesByDir(states []netlink.XfrmState) (int, int) {

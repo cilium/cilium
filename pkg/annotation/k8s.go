@@ -125,6 +125,10 @@ const (
 	// we have patched its configuration to enabled MCS-API support.
 	CoreDNSAutoPatched = ClusterMeshPrefix + "/autoPatchedAt"
 
+	// SupportedIPFamilies is an internal annotation in MCS-API to track which
+	// ip families are used and supported by the local cluster
+	SupportedIPFamilies = ClusterMeshPrefix + "/supported-ip-families"
+
 	// ServiceLoadBalancingAlgorithm indicates which backend selection algorithm
 	// for a given Service to use. This annotation will override the default
 	// value set in bpf-lb-algorithm.
@@ -207,6 +211,10 @@ const (
 	// ignore the given CiliumNode object
 	IPAMIgnore = IPAMPrefix + "/ignore"
 
+	// IPAMRequirePoolMatch is the annotation used to prevent fallback to the
+	// default pool when no pool selectors match. Can be set on pods or namespaces.
+	IPAMRequirePoolMatch = IPAMPrefix + "/require-pool-match"
+
 	LBIPAMIPsKey     = LBIPAMPrefix + "/ips"
 	LBIPAMIPKeyAlias = Prefix + "/lb-ipam-ips"
 
@@ -218,6 +226,8 @@ const (
 	CECInjectCiliumFilters      = CECPrefix + "/inject-cilium-filters"
 	CECIsL7LB                   = CECPrefix + "/is-l7lb"
 	CECUseOriginalSourceAddress = CECPrefix + "/use-original-source-address"
+
+	NoTrackHostPorts = NetworkPrefix + "/no-track-host-ports"
 )
 
 // CiliumPrefixRegex is a regex matching Cilium specific annotations.

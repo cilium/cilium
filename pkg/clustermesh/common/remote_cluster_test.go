@@ -13,11 +13,13 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -59,7 +61,7 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 				onRun: func(context.Context) { ready <- struct{}{} },
 			}
 		},
-		Metrics: MetricsProvider("clustermesh")(),
+		Metrics: MetricsProvider(metrics.SubsystemClusterMesh)(),
 	})
 
 	rc := cm.(*clusterMesh).newRemoteCluster(name, path)
@@ -107,4 +109,70 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	require.True(t, status.Ready, "Cluster status should report ready")
 	require.EqualValues(t, 2, status.NumFailures, "Cluster status should report two failures")
 	require.NotZero(t, status.LastFailure, "Cluster status should report two failures")
+}
+
+func TestRemoteClusterCacheRevokeOnTimeout(t *testing.T) {
+	client := kvstore.NewInMemoryClient(statedb.New(), "etcd")
+
+	const name = "remote-revoke-test"
+	path := filepath.Join(t.TempDir(), name)
+	writeFile(t, path, "endpoints:\n- in-memory\n")
+	require.NoError(t, clustercfg.Set(t.Context(), name, types.CiliumClusterConfig{ID: 2}, client))
+
+	ready := make(chan struct{}, 1)
+	revoked := make(chan struct{}, 1)
+
+	cm := NewClusterMesh(Configuration{
+		Logger:      hivetest.Logger(t),
+		ClusterInfo: types.ClusterInfo{ID: 255, Name: "local"},
+		NewRemoteCluster: func(name string, sf StatusFunc) RemoteCluster {
+			return &fakeRemoteCluster{
+				onRun: func(context.Context) {
+					ready <- struct{}{}
+				},
+				onRevokeCache: func(context.Context) {
+					revoked <- struct{}{}
+				},
+			}
+		},
+		Metrics: MetricsProvider("clustermesh")(),
+	})
+
+	rc := cm.(*clusterMesh).newRemoteCluster(name, path)
+
+	statusErrors := make(chan error, 1)
+	rc.remoteClientFactory = func(ctx context.Context, logger *slog.Logger, cfgpath string,
+		options kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
+		errch := make(chan error)
+		close(errch)
+		return &fakeBackend{client, statusErrors}, errch
+	}
+
+	rc.connect()
+	t.Cleanup(rc.onStop)
+
+	select {
+	case <-ready:
+	case <-time.After(timeout):
+		t.Fatal("Remote cluster didn't turn ready for the first time")
+	}
+
+	// Configure the TTL and mock the factory to permanently fail all future connections.
+	rc.ttlChecker.ttl = 100 * time.Millisecond
+	rc.remoteClientFactory = func(ctx context.Context, logger *slog.Logger, cfgpath string,
+		options kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
+		errCh := make(chan error, 1)
+		errCh <- errors.New("persistent connection failure")
+		return nil, errCh
+	}
+
+	// Trigger a status error to force a reconnection
+	statusErrors <- errors.New("error")
+
+	select {
+	case <-revoked:
+		// Success
+	case <-time.After(timeout):
+		t.Fatal("Cache was not revoked after timeout")
+	}
 }

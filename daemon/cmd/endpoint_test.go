@@ -23,8 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func getEPTemplate(t *testing.T, d *Daemon) *models.EndpointChangeRequest {
-	ip4, ip6, err := d.ipam.AllocateNext("", "test", ipam.PoolDefault())
+func getEPTemplate(t *testing.T, ipamManager *ipam.IPAM) *models.EndpointChangeRequest {
+	ip4, ip6, err := ipamManager.AllocateNext("", "test", ipam.PoolDefault())
 	require.NoError(t, err)
 	require.NotNil(t, ip4)
 	require.NotNil(t, ip6)
@@ -51,7 +51,7 @@ func TestEndpointAddReservedLabelEtcd(t *testing.T) {
 func (ds *DaemonSuite) testEndpointAddReservedLabel(t *testing.T) {
 	assertOnMetric(t, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 
-	epTemplate := getEPTemplate(t, ds.d)
+	epTemplate := getEPTemplate(t, ds.ipamManager)
 	epTemplate.Labels = []string{"reserved:world"}
 	_, code, err := ds.endpointAPIManager.CreateEndpoint(context.TODO(), epTemplate)
 	require.Error(t, err)
@@ -66,7 +66,7 @@ func (ds *DaemonSuite) testEndpointAddReservedLabel(t *testing.T) {
 	// reserved:world label.
 	epTemplate.Labels = append(epTemplate.Labels, "reserved:init")
 	_, code, err = ds.endpointAPIManager.CreateEndpoint(context.TODO(), epTemplate)
-	require.Condition(t, errorMatch(err, "not allowed to add reserved labels:.+"))
+	require.ErrorContains(t, err, "not allowed to add reserved labels:")
 	require.Equal(t, apiEndpoint.PutEndpointIDInvalidCode, code)
 
 	// Endpoint was created with invalid data; should transition from
@@ -83,7 +83,7 @@ func TestEndpointAddInvalidLabelEtcd(t *testing.T) {
 func (ds *DaemonSuite) testEndpointAddInvalidLabel(t *testing.T) {
 	assertOnMetric(t, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 
-	epTemplate := getEPTemplate(t, ds.d)
+	epTemplate := getEPTemplate(t, ds.ipamManager)
 	epTemplate.Labels = []string{"reserved:foo"}
 	_, code, err := ds.endpointAPIManager.CreateEndpoint(context.TODO(), epTemplate)
 	require.Error(t, err)
@@ -104,7 +104,7 @@ func (ds *DaemonSuite) testEndpointAddNoLabels(t *testing.T) {
 	assertOnMetric(t, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 
 	// Create the endpoint without any labels.
-	epTemplate := getEPTemplate(t, ds.d)
+	epTemplate := getEPTemplate(t, ds.ipamManager)
 	_, _, err := ds.endpointAPIManager.CreateEndpoint(context.TODO(), epTemplate)
 	require.NoError(t, err)
 
@@ -113,7 +113,7 @@ func (ds *DaemonSuite) testEndpointAddNoLabels(t *testing.T) {
 	// Check that the endpoint has the reserved:init label.
 	v4ip, err := netip.ParseAddr(epTemplate.Addressing.IPV4)
 	require.NoError(t, err)
-	ep, err := ds.d.endpointManager.Lookup(endpointid.NewIPPrefixID(v4ip))
+	ep, err := ds.endpointManager.Lookup(endpointid.NewIPPrefixID(v4ip))
 	require.NoError(t, err)
 	require.Equal(t, expectedLabels, ep.GetOpLabels())
 
@@ -145,7 +145,7 @@ func (ds *DaemonSuite) testUpdateLabelsFailed(t *testing.T) {
 	cancelFunc() // Cancel immediately to trigger the codepath to test.
 
 	// Create the endpoint without any labels.
-	epTemplate := getEPTemplate(t, ds.d)
+	epTemplate := getEPTemplate(t, ds.ipamManager)
 	_, _, err := ds.endpointAPIManager.CreateEndpoint(cancelledContext, epTemplate)
 	require.ErrorContains(t, err, "request cancelled while resolving identity")
 

@@ -114,7 +114,7 @@ func (m *l2ResponderMap) IterateWithCallback(cb IterateCallback) error {
 
 // L2ResponderKey implements the bpf.MapKey interface.
 //
-// Must be in sync with struct l2_responder_v4_key in <bpf/lib/maps.h>
+// Must be in sync with struct l2_responder_v4_key in bpf/...
 type L2ResponderKey struct {
 	IP      types.IPv4 `align:"ip4"`
 	IfIndex uint32     `align:"ifindex"`

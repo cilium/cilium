@@ -85,7 +85,6 @@ func (m *BGPRouterManager) reconcileInstanceDeletion(ctx context.Context, instan
 
 	for _, stateReconciler := range m.state.reconcilers {
 		err := stateReconciler.Reconcile(ctx, reconcilerv2.StateReconcileParams{
-			ConfigMode:      m.ConfigMode,
 			DeletedInstance: instanceName,
 		})
 		if err != nil {
@@ -113,7 +112,6 @@ func (m *BGPRouterManager) reconcileInstanceState(ctx context.Context, instanceN
 	var err error
 	for _, stateReconciler := range m.state.reconcilers {
 		err = errors.Join(err, stateReconciler.Reconcile(ctx, reconcilerv2.StateReconcileParams{
-			ConfigMode:      m.ConfigMode,
 			UpdatedInstance: instance,
 		}))
 	}

@@ -47,6 +47,12 @@ if you want to disable them, set Helm value ``operator.prometheus.enabled=false`
      --set prometheus.enabled=true \\
      --set operator.prometheus.enabled=true
 
+Cilium Metrics Scraping
+-----------------------
+
+Prometheus Port Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The ports can be configured via ``prometheus.port``,
 ``envoy.prometheus.port``, or ``operator.prometheus.port`` respectively.
 
@@ -90,25 +96,44 @@ option is set in the ``scrape_configs`` section:
           replacement: ${1}:${2}
           target_label: __address__
 
+Prometheus Operator ServiceMonitor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can automatically create a
+`Prometheus Operator <https://github.com/prometheus-operator/prometheus-operator>`__
+``ServiceMonitor`` by setting ``prometheus.serviceMonitor.enabled=true``, or
+``envoy.prometheus.serviceMonitor.enabled=true``, or
+``operator.prometheus.serviceMonitor.enabled=true`` respectively.
+
 .. _hubble_metrics:
 
 Hubble Metrics
 ==============
 
-While Cilium metrics allow you to monitor the state Cilium itself,
+While Cilium metrics allow you to monitor the state of Cilium itself,
 Hubble metrics on the other hand allow you to monitor the network behavior
 of your Cilium-managed Kubernetes pods with respect to connectivity and security.
-
-Installation
-------------
-
-To deploy Cilium with Hubble metrics enabled, you need to enable Hubble with
-``hubble.enabled=true`` and provide a set of Hubble metrics you want to
-enable via ``hubble.metrics.enabled``.
 
 Some of the metrics can also be configured with additional options.
 See the :ref:`Hubble exported metrics<hubble_exported_metrics>`
 section for the full list of available metrics and their options.
+
+Static or dynamic exporter
+--------------------------
+
+Hubble Metrics can either be configured with a static or dynamic exporter.
+
+The dynamic metrics exporter allows you to change defined metrics as needed
+without requiring an agent restart.
+
+
+Installation with a static metrics exporter
+-------------------------------------------
+
+To deploy Cilium with Hubble Metrics static exporter enabled, you need to enable
+Hubble with ``hubble.enabled=true`` and provide a set of Hubble metrics you want to
+enable via ``hubble.metrics.enabled``.
+
 
 .. parsed-literal::
 
@@ -119,6 +144,120 @@ section for the full list of available metrics and their options.
      --set hubble.enabled=true \\
      --set hubble.metrics.enableOpenMetrics=true \\
      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
+
+
+Installation with a dynamic metrics exporter
+--------------------------------------------
+
+To deploy Cilium with Hubble dynamic metrics enabled, you need to enable Hubble 
+with ``hubble.enabled=true`` and ``hubble.metrics.dynamic.enabled=true``.
+
+In this example, a ``ConfigMap`` with a set of metrics will be applied before
+enabling the exporter, but the desired set of metrics (together with the 
+``ConfigMap``) can be created during installation.
+
+See the :ref:`helm_reference` (keys with ``hubble.metrics.dynamic.*``)
+
+
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: cilium-dynamic-metrics-config
+      namespace: kube-system
+    data:
+      dynamic-metrics.yaml: |
+        metrics:
+          - name: dns
+          - contextOptions:
+            - name: sourceContext
+              values:
+              - workload-name
+              - reserved-identity
+            - name: destinationContext
+              values:
+              - workload-name
+              - reserved-identity
+            name: flow
+          - name: drop
+          - name: tcp
+          - contextOptions:
+            - name: sourceContext
+              values:
+              - workload-name
+              - reserved-identity
+            name: icmp
+          - contextOptions:
+            - name: exemplars
+              values:
+              - true
+            - name: labelsContext
+              values:
+              - source_ip
+              - source_namespace
+              - source_workload
+              - destination_ip
+              - destination_namespace
+              - destination_workload
+              - traffic_direction
+            - name: sourceContext
+              values:
+              - workload-name
+              - reserved-identity
+            - name: destinationContext
+              values:
+              - workload-name
+              - reserved-identity
+            name: httpV2
+          - contextOptions:
+            - name: sourceContext
+              values:
+              - app
+              - workload-name
+              - pod
+              - reserved-identity
+            - name: destinationContext
+              values:
+              - app
+              - workload-name
+              - pod
+              - dns
+              - reserved-identity
+            - name: labelsContext
+              values:
+              - source_namespace
+              - destination_namespace
+            excludeFilters:
+            - destination_pod:
+              - default/
+            name: policy
+    
+Deploy the :term:`ConfigMap`:
+
+.. code-block:: shell-session
+
+   kubectl apply -f dynamic-metrics.yaml
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set prometheus.enabled=true \\
+     --set operator.prometheus.enabled=true \\
+     --set hubble.enabled=true \\
+     --set hubble.metrics.enableOpenMetrics=true \\
+     --set hubble.metrics.enabled=[] \\
+     --set hubble.metrics.dynamic.enabled=true \\
+     --set hubble.metrics.dynamic.config.configMapName=cilium-dynamic-metrics-config \\
+     --set hubble.metrics.dynamic.config.createConfigMap=false
+
+Hubble Metrics Scraping
+-----------------------
+
+Prometheus Port Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The port of the Hubble metrics can be configured with the
 ``hubble.metrics.port`` Helm value.
@@ -159,6 +298,13 @@ have it scrape all Hubble metrics from the endpoints automatically:
             target_label: __address__
             regex: (.+)(?::\d+);(\d+)
             replacement: $1:$2
+
+Prometheus Operator ServiceMonitor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can automatically create a
+`Prometheus Operator <https://github.com/prometheus-operator/prometheus-operator>`__
+``ServiceMonitor`` by setting ``hubble.metrics.serviceMonitor.enabled=true``.
 
 .. _hubble_open_metrics:
 
@@ -321,19 +467,10 @@ Endpoint
 Name                                         Labels                                             Default    Description
 ============================================ ================================================== ========== ========================================================
 ``endpoint``                                                                                    Enabled    Number of endpoints managed by this agent
-``endpoint_max_ifindex``                                                                        Disabled   Maximum interface index observed for existing endpoints
 ``endpoint_regenerations_total``             ``outcome``                                        Enabled    Count of all endpoint regenerations that have completed
 ``endpoint_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Endpoint regeneration time stats
 ``endpoint_state``                           ``state``                                          Enabled    Count of all endpoints
 ============================================ ================================================== ========== ========================================================
-
-The default enabled status of ``endpoint_max_ifindex`` is dynamic. On earlier
-kernels (typically with version lower than 5.10), Cilium must store the
-interface index for each endpoint in the conntrack map, which reserves 16 bits
-for this field. If Cilium is running on such a kernel, this metric will be
-enabled by default. It can be used to implement an alert if the ifindex is
-approaching the limit of 65535. This may be the case in instances of
-significant Endpoint churn.
 
 Services
 ~~~~~~~~
@@ -358,26 +495,28 @@ Name                                       Labels                               
 Node Connectivity
 ~~~~~~~~~~~~~~~~~
 
-============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
-Name                                          Labels                                                                                                                                                                 Default    Description
-============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
-``node_health_connectivity_status``           ``source_cluster``, ``source_node_name``, ``type``, ``status``                                                                                                         Enabled    Number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
-``node_health_connectivity_latency_seconds``  ``source_cluster``, ``source_node_name``, ``type``, ``address_type``, ``protocol``                                                                                     Enabled    Histogram of the last observed latency between the current Cilium agent and other Cilium nodes in seconds
-============================================= ====================================================================================================================================================================== ========== ==================================================================================================================================================================================================================
+============================================= ======================================== ========== ==========================================================================================================================================
+Name                                          Labels                                    Default    Description
+============================================= ======================================== ========== ==========================================================================================================================================
+``node_health_connectivity_status``           ``type``, ``status``                     Enabled    Number of endpoints with last observed status of both ICMP and HTTP connectivity between the current Cilium agent and other Cilium nodes
+``node_health_connectivity_latency_seconds``  ``type``, ``address_type``, ``protocol`` Enabled    Histogram of the last observed latency between the current Cilium agent and other Cilium nodes in seconds
+============================================= ======================================== ========== ==========================================================================================================================================
 
 Clustermesh
 ~~~~~~~~~~~
 
-=============================================== ============================================================ ========== =================================================================
-Name                                            Labels                                                       Default    Description
-=============================================== ============================================================ ========== =================================================================
-``clustermesh_global_services``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of global services in the cluster mesh
-``clustermesh_remote_clusters``                 ``source_cluster``, ``source_node_name``                     Enabled    The total number of remote clusters meshed with the local cluster
-``clustermesh_remote_cluster_failures``         ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of failures related to the remote cluster
-``clustermesh_remote_cluster_nodes``            ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The total number of nodes in the remote cluster
-``clustermesh_remote_cluster_last_failure_ts``  ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
-``clustermesh_remote_cluster_readiness_status`` ``source_cluster``, ``source_node_name``, ``target_cluster`` Enabled    The readiness status of the remote cluster
-=============================================== ============================================================ ========== =================================================================
+================================================ ================== ========== =================================================================
+Name                                             Labels             Default    Description
+================================================ ================== ========== =================================================================
+``clustermesh_remote_cluster_services``          ``target_cluster`` Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_endpoints``         ``target_cluster`` Enabled    The total number of endpoints per remote cluster
+``clustermesh_remote_cluster_nodes``             ``target_cluster`` Enabled    The total number of nodes per remote cluster
+``clustermesh_remote_clusters``                                     Enabled    The total number of remote clusters meshed with the local cluster
+``clustermesh_remote_cluster_failures``          ``target_cluster`` Enabled    The total number of failures related to the remote cluster
+``clustermesh_remote_cluster_last_failure_ts``   ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
+``clustermesh_remote_cluster_readiness_status``  ``target_cluster`` Enabled    The readiness status of the remote cluster
+``clustermesh_remote_cluster_cache_revocations`` ``target_cluster`` Enabled    The total number of cache revocations related to the remote cluster
+================================================ ================== ========== =================================================================
 
 Datapath
 ~~~~~~~~
@@ -859,13 +998,30 @@ Name                                                 Labels                     
 MCS-API
 ~~~~~~~
 
-==================================== ============================================================ ========== ===========================================================
-Name                                                 Labels                                                    Default     Description
-==================================== ============================================================ ========== ===========================================================
-``serviceexport_info``               ``serviceexport``, ``namespace``                             Enabled    Information about ServiceExport in the local cluster
-``serviceexport_status_condition``   ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
-``serviceimport_info``               ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
-==================================== ============================================================ ========== ===========================================================
+========================================= ============================================================ ========== =========================================================
+Name                                      Labels                                                       Default    Description
+========================================= ============================================================ ========== =========================================================
+``mcsapi_serviceexport_info``             ``serviceexport``, ``namespace``                             Enabled    Information about ServiceExport in the local cluster
+``mcsapi_serviceexport_status_condition`` ``serviceexport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceExport in the local cluster
+``mcsapi_serviceimport_info``             ``serviceimport``, ``namespace``                             Enabled    Information about ServiceImport in the local cluster
+``mcsapi_serviceimport_status_condition`` ``serviceimport``, ``namespace``, ``condition``, ``status``  Enabled    Status Condition of ServiceImport in the local cluster
+``mcsapi_serviceimport_status_clusters``  ``serviceimport``, ``namespace``                             Enabled    The number of clusters currently backing a ServiceImport
+========================================= ============================================================ ========== =========================================================
+
+Clustermesh
+~~~~~~~~~~~
+
+================================================= ================== ========== ====================================================================
+Name                                              Labels             Default    Description
+================================================= ================== ========== ====================================================================
+``clustermesh_remote_clusters``                                      Enabled    The total number of remote clusters meshed with the local cluster
+``clustermesh_remote_cluster_failures``           ``target_cluster`` Enabled    The total number of failures related to the remote cluster
+``clustermesh_remote_cluster_last_failure_ts``    ``target_cluster`` Enabled    The timestamp of the last failure of the remote cluster
+``clustermesh_remote_cluster_readiness_status``   ``target_cluster`` Enabled    The readiness status of the remote cluster
+``clustermesh_remote_cluster_cache_revocations``  ``target_cluster`` Enabled    The total number of cache revocations related to the remote cluster
+``clustermesh_remote_cluster_services``           ``target_cluster`` Enabled    The total number of services per remote cluster
+``clustermesh_remote_cluster_service_exports``    ``target_cluster`` Enabled    The total number of MCS-API service exports per remote cluster
+================================================= ================== ========== ====================================================================
 
 
 Hubble
@@ -1315,11 +1471,11 @@ Prometheus namespace.
 Bootstrap
 ~~~~~~~~~
 
-======================================== ============================================ ========================================================
-Name                                     Labels                                       Description
-======================================== ============================================ ========================================================
-``bootstrap_seconds``                    ``source_cluster``                           Duration in seconds to complete bootstrap
-======================================== ============================================ ========================================================
+======================================== ========================================================
+Name                                     Description
+======================================== ========================================================
+``bootstrap_seconds``                    Duration in seconds to complete bootstrap
+======================================== ========================================================
 
 KVstore
 ~~~~~~~
@@ -1387,23 +1543,35 @@ All metrics are exported under the ``cilium_kvstoremesh_`` Prometheus namespace.
 Bootstrap
 ~~~~~~~~~
 
-======================================== ============================================ ========================================================
-Name                                     Labels                                       Description
-======================================== ============================================ ========================================================
-``bootstrap_seconds``                    ``source_cluster``                           Duration in seconds to complete bootstrap
-======================================== ============================================ ========================================================
+======================================== ========================================================
+Name                                     Description
+======================================== ========================================================
+``bootstrap_seconds``                    Duration in seconds to complete bootstrap
+======================================== ========================================================
 
-Remote clusters
-~~~~~~~~~~~~~~~
+KVStoremesh
+~~~~~~~~~~~
 
-==================================== ======================================= =================================================================
-Name                                 Labels                                                       Description
-==================================== ======================================= =================================================================
-``remote_clusters``                  ``source_cluster``                      The total number of remote clusters meshed with the local cluster
-``remote_cluster_failures``          ``source_cluster``, ``target_cluster``  The total number of failures related to the remote cluster
-``remote_cluster_last_failure_ts``   ``source_cluster``, ``target_cluster``  The timestamp of the last failure of the remote cluster
-``remote_cluster_readiness_status``  ``source_cluster``, ``target_cluster``  The readiness status of the remote cluster
-==================================== ======================================= =================================================================
+================================= ======== ==========================
+Name                              Labels   Description
+================================= ======== ==========================
+``leader_election_master_status`` ``name`` The leader election status
+================================= ======== ==========================
+
+Clustermesh
+~~~~~~~~~~~
+
+Note that these metrics are not prefixed by ``clustermesh_``.
+
+=============================================== ================== ====================================================================
+Name                                            Labels             Description
+=============================================== ================== ====================================================================
+``remote_clusters``                                                The total number of remote clusters meshed with the local cluster
+``remote_cluster_failures``                     ``target_cluster`` The total number of failures related to the remote cluster
+``remote_cluster_last_failure_ts``              ``target_cluster`` The timestamp of the last failure of the remote cluster
+``remote_cluster_readiness_status``             ``target_cluster`` The readiness status of the remote cluster
+``remote_cluster_cache_revocations``            ``target_cluster`` The total number of cache revocations related to the remote cluster
+=============================================== ================== ====================================================================
 
 KVstore
 ~~~~~~~

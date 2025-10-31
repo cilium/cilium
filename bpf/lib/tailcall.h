@@ -97,7 +97,8 @@
 #define CILIUM_CALL_IPV4_NO_SERVICE			45
 #define CILIUM_CALL_IPV6_NO_SERVICE			46
 #define CILIUM_CALL_MULTICAST_EP_DELIVERY		47
-#define CILIUM_CALL_SIZE				48
+#define CILIUM_CALL_IPV4_POLICY_DENIED			48
+#define CILIUM_CALL_SIZE				49
 
 /* Private per-EP map for internal tail calls. Its bpffs pin is replaced every
  * time the BPF object is loaded. An existing pinned map is never reused.
@@ -134,34 +135,3 @@ tail_call_internal(struct __ctx_buff *ctx, const __u32 index, __s8 *ext_err)
 		*ext_err = (__s8)index;
 	return DROP_MISSED_TAIL_CALL;
 }
-
-/* invoke_tailcall_if() is a helper which based on COND either selects to emit
- * a tail call for the underlying function when true or emits it as inlined
- * when false. COND can be selected by one or multiple compile time flags.
- *
- * [...]
- * invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
- *                    CILIUM_CALL_FOO, foo_fn);
- * [...]
- *
- * The loader will only load tail calls if they are invoked at least once.
- */
-
-#define __invoke_tailcall_if_0(NAME, FUNC, EXT_ERR)			\
-	FUNC(ctx)
-#define __invoke_tailcall_if_1(NAME, FUNC, EXT_ERR)			\
-	({								\
-		tail_call_internal(ctx, NAME, EXT_ERR);			\
-	})
-#define invoke_tailcall_if(COND, NAME, FUNC, EXT_ERR)			\
-	__eval(__invoke_tailcall_if_, COND)(NAME, FUNC, EXT_ERR)
-
-#define __invoke_traced_tailcall_if_0(NAME, FUNC, TRACE, EXT_ERR)	\
-	FUNC(ctx, TRACE, EXT_ERR)
-#define __invoke_traced_tailcall_if_1(NAME, FUNC, TRACE, EXT_ERR)	\
-	({								\
-		tail_call_internal(ctx, NAME, EXT_ERR);			\
-	})
-#define invoke_traced_tailcall_if(COND, NAME, FUNC, TRACE, EXT_ERR)	\
-	__eval(__invoke_traced_tailcall_if_, COND)(NAME, FUNC, TRACE,	\
-						   EXT_ERR)

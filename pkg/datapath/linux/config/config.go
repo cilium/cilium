@@ -23,7 +23,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -50,7 +49,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
-	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const NodePortMaxNAT = 65535
@@ -174,7 +172,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LOCAL_NODE_ID"] = fmt.Sprintf("%d", identity.ReservedIdentityRemoteNode)
 	cDefinesMap["REMOTE_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameRemoteNode))
 	cDefinesMap["KUBE_APISERVER_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameKubeAPIServer))
-	cDefinesMap["ENCRYPTED_OVERLAY_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameEncryptedOverlay))
 	cDefinesMap["CILIUM_LB_SERVICE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBServiceMapEntries)
 	cDefinesMap["CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBBackendMapEntries)
 	cDefinesMap["CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBRevNatEntries)
@@ -234,28 +231,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableSCTP {
 		cDefinesMap["ENABLE_SCTP"] = "1"
-	}
-
-	if option.Config.EnableIPSec {
-		cDefinesMap["ENABLE_IPSEC"] = "1"
-
-		if option.Config.EnableIPSecEncryptedOverlay {
-			cDefinesMap["ENABLE_ENCRYPTED_OVERLAY"] = "1"
-		}
-	}
-
-	if cfg.EnableWireguard {
-		cDefinesMap["ENABLE_WIREGUARD"] = "1"
-		ifindex, err := link.GetIfIndex(wgtypes.IfaceName)
-		if err != nil {
-			return fmt.Errorf("getting %s ifindex: %w", wgtypes.IfaceName, err)
-		}
-		cDefinesMap["WG_IFINDEX"] = fmt.Sprintf("%d", ifindex)
-		cDefinesMap["WG_PORT"] = fmt.Sprintf("%d", wgtypes.ListenPort)
-
-		if option.Config.EncryptNode {
-			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
-		}
 	}
 
 	if option.Config.ServiceNoBackendResponse == option.ServiceNoBackendResponseReject {
@@ -349,7 +324,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 	cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 
-	if h.kprCfg.EnableNodePort {
+	if h.kprCfg.KubeProxyReplacement {
 		if option.Config.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
@@ -433,7 +408,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if !option.Config.EnableHostLegacyRouting {
 			cDefinesMap["ENABLE_HOST_ROUTING"] = "1"
 		}
+	}
 
+	if h.kprCfg.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMin)
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMax+1)
@@ -520,47 +497,47 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 	cDefinesMap["SNAT_COLLISION_RETRIES"] = fmt.Sprintf("%d", nat.SnatCollisionRetries)
 
-	if h.kprCfg.EnableNodePort {
-		if option.Config.EnableBPFMasquerade {
-			if option.Config.EnableIPv4Masquerade {
-				cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
+	if option.Config.EnableBPFMasquerade {
+		cDefinesMap["ENABLE_NODEPORT"] = "1"
 
-				// ip-masq-agent depends on bpf-masq
-				var excludeCIDR *cidr.CIDR
-				if option.Config.EnableIPMasqAgent {
-					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
+		if option.Config.EnableIPv4Masquerade {
+			cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
 
-					// native-routing-cidr is optional with ip-masq-agent and may be nil
-					excludeCIDR = option.Config.IPv4NativeRoutingCIDR
-				} else {
-					excludeCIDR = cfg.NativeRoutingCIDRIPv4
-				}
+			// ip-masq-agent depends on bpf-masq
+			var excludeCIDR *cidr.CIDR
+			if option.Config.EnableIPMasqAgent {
+				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
 
-				if excludeCIDR != nil {
-					cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
-						fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(excludeCIDR.IP))
-					ones, _ := excludeCIDR.Mask.Size()
-					cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
-				}
+				// native-routing-cidr is optional with ip-masq-agent and may be nil
+				excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+			} else {
+				excludeCIDR = cfg.NativeRoutingCIDRIPv4
 			}
-			if option.Config.EnableIPv6Masquerade {
-				cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
 
-				var excludeCIDR *cidr.CIDR
-				if option.Config.EnableIPMasqAgent {
-					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
+			if excludeCIDR != nil {
+				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
+					fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(excludeCIDR.IP))
+				ones, _ := excludeCIDR.Mask.Size()
+				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
+			}
+		}
+		if option.Config.EnableIPv6Masquerade {
+			cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
 
-					excludeCIDR = option.Config.IPv6NativeRoutingCIDR
-				} else {
-					excludeCIDR = cfg.NativeRoutingCIDRIPv6
-				}
+			var excludeCIDR *cidr.CIDR
+			if option.Config.EnableIPMasqAgent {
+				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
 
-				if excludeCIDR != nil {
-					extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = excludeCIDR.IP.String()
-					fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", excludeCIDR.IP))
-					extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = excludeCIDR.Mask.String()
-					fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", excludeCIDR.Mask))
-				}
+				excludeCIDR = option.Config.IPv6NativeRoutingCIDR
+			} else {
+				excludeCIDR = cfg.NativeRoutingCIDRIPv6
+			}
+
+			if excludeCIDR != nil {
+				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = excludeCIDR.IP.String()
+				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", excludeCIDR.IP))
+				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = excludeCIDR.Mask.String()
+				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", excludeCIDR.Mask))
 			}
 		}
 	}
@@ -581,13 +558,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
 	}
 
-	if option.Config.EnableCustomCalls {
-		cDefinesMap["ENABLE_CUSTOM_CALLS"] = "1"
-	}
-
 	if option.Config.EnableVTEP {
 		cDefinesMap["ENABLE_VTEP"] = "1"
-		cDefinesMap["VTEP_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask)))
 	}
 
 	cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
@@ -677,7 +649,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	fmt.Fprint(fw, assignConfig("identity_length", identity.GetClusterIDShift()))
 
 	fmt.Fprint(fw, declareConfig("interface_ifindex", uint32(0), "ifindex of the interface the bpf program is attached to"))
-	cDefinesMap["THIS_INTERFACE_IFINDEX"] = "CONFIG(interface_ifindex)"
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 

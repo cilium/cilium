@@ -104,6 +104,7 @@ type bandwidthManagerParams struct {
 	Sysctl       sysctl.Sysctl
 	DB           *statedb.DB
 	EdtTable     statedb.RWTable[bwmap.Edt]
+	IPsecConfig  types.IPsecConfig
 }
 
 func deviceToBandwidthQDisc(device *tables.Device, deleted bool) (*tables.BandwidthQDisc, statedb.DeriveResult) {

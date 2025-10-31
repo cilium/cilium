@@ -3,8 +3,6 @@
 
 #pragma once
 
-#ifdef ENABLE_WIREGUARD
-
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
@@ -17,11 +15,16 @@
 
 #include "linux/icmpv6.h"
 
+DECLARE_CONFIG(__u32, wg_ifindex, "Index of the WireGuard interface.")
+DECLARE_CONFIG(__u16, wg_port, "Port for the WireGuard interface.")
+
+#ifdef ENABLE_WIREGUARD
+
 /* ctx_is_wireguard is used to check whether ctx is a WireGuard network packet.
  * This function returns true in case all the following conditions are satisfied:
  *
  * - ctx is a UDP packet;
- * - L4 dport == WG_PORT;
+ * - L4 dport == CONFIG(wg_port);
  * - L4 sport == dport;
  * - valid identity in cluster.
  */
@@ -42,7 +45,7 @@ ctx_is_wireguard(struct __ctx_buff *ctx, int l4_off, __u8 protocol, __u32 identi
 		return false;
 
 	/* Packet is not for cilium@WireGuard.*/
-	if (l4.dport != bpf_htons(WG_PORT))
+	if (l4.dport != bpf_htons(CONFIG(wg_port)))
 		return false;
 
 	/* Packet does not come from cilium@WireGuard. */
@@ -61,8 +64,8 @@ static __always_inline int
 wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			     __u32 src_sec_identity)
 {
-	struct remote_endpoint_info *dst = NULL;
-	struct remote_endpoint_info __maybe_unused *src = NULL;
+	const struct remote_endpoint_info *dst = NULL;
+	const struct remote_endpoint_info __maybe_unused *src = NULL;
 	void *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
@@ -135,17 +138,19 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	}
 
 #ifndef ENABLE_NODE_ENCRYPTION
-	/* A pkt coming from L7 proxy (i.e., Envoy or the DNS proxy on behalf of
-	 * a client pod) has src IP addr of a host, but not of the client pod
-	 * (if
-	 * --dnsproxy-enable-transparent-mode=false). Such a pkt must be
-	 *  encrypted.
+	/* We want to encrypt all proxy traffic. Looking at the packet mark is
+	 * needed for non-transparent connections.
+	 *
+	 * For connections by the egress proxy (MARK_MAGIC_PROXY_EGRESS) we
+	 * can rely on the provided source identity.
 	 */
 	magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-	if (magic == MARK_MAGIC_PROXY_INGRESS || magic == MARK_MAGIC_PROXY_EGRESS)
+	if (magic == MARK_MAGIC_PROXY_INGRESS ||
+	    magic == MARK_MAGIC_SKIP_TPROXY)
 		goto maybe_encrypt;
 #if defined(TUNNEL_MODE)
 	/* In tunneling mode the mark might have been reset. Check TC index instead.
+	 * TODO: remove this in v1.20, once we can rely on MARK_MAGIC_SKIP_TPROXY.
 	 */
 	if (tc_index_from_ingress_proxy(ctx) || tc_index_from_egress_proxy(ctx))
 		goto maybe_encrypt;
@@ -181,58 +186,10 @@ maybe_encrypt: __maybe_unused
 	if (dst && dst->key) {
 		set_identity_mark(ctx, src_sec_identity, MARK_MAGIC_IDENTITY);
 overlay_encrypt: __maybe_unused
-		return ctx_redirect(ctx, WG_IFINDEX, 0);
+		return ctx_redirect(ctx, CONFIG(wg_ifindex), 0);
 	}
 
 out:
 	return CTX_ACT_OK;
 }
-
-#ifdef ENCRYPTION_STRICT_MODE
-
-/* strict_allow checks whether the packet is allowed to pass through the strict mode. */
-static __always_inline bool
-strict_allow(struct __ctx_buff *ctx, __be16 proto) {
-	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
-	bool __maybe_unused in_strict_cidr = false;
-	void *data, *data_end;
-#ifdef ENABLE_IPV4
-	struct iphdr *ip4;
-#endif
-
-	switch (proto) {
-#ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP):
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return true;
-
-		/* Allow traffic that is sent from the node:
-		 * (1) When encapsulation is used and the destination is a remote pod.
-		 * (2) When the destination is a remote-node.
-		 */
-		if (ip4->saddr == IPV4_GATEWAY || ip4->saddr == IPV4_ENCRYPT_IFACE)
-			return true;
-
-		in_strict_cidr = ipv4_is_in_subnet(ip4->daddr,
-						   STRICT_IPV4_NET,
-						   STRICT_IPV4_NET_SIZE);
-		in_strict_cidr &= ipv4_is_in_subnet(ip4->saddr,
-						    STRICT_IPV4_NET,
-						    STRICT_IPV4_NET_SIZE);
-
-#if defined(TUNNEL_MODE) || defined(STRICT_IPV4_OVERLAPPING_CIDR)
-		/* Allow pod to remote-node communication */
-		dest_info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (dest_info && identity_is_node(dest_info->sec_identity))
-			return true;
-#endif /* TUNNEL_MODE || STRICT_IPV4_OVERLAPPING_CIDR */
-		return !in_strict_cidr;
-#endif /* ENABLE_IPV4 */
-	default:
-		return true;
-	}
-}
-
-#endif /* ENCRYPTION_STRICT_MODE */
-
 #endif /* ENABLE_WIREGUARD */

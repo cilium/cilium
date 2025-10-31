@@ -14,6 +14,9 @@
 
 #ifndef SKIP_CALLS_MAP
 #include "drop.h"
+#ifdef SERVICE_NO_BACKEND_RESPONSE
+#include "icmp.h"
+#endif
 #endif
 
 struct {
@@ -398,6 +401,52 @@ bool lb6_svc_is_l7_loadbalancer(const struct lb6_service *svc __maybe_unused)
 #endif
 }
 
+static __always_inline
+bool lb4_svc_is_external(const struct lb4_service *svc __maybe_unused)
+{
+	return svc->flags & (SVC_FLAG_EXTERNAL_IP | SVC_FLAG_LOADBALANCER | SVC_FLAG_NODEPORT);
+}
+
+static __always_inline
+bool lb6_svc_is_external(const struct lb6_service *svc __maybe_unused)
+{
+	return svc->flags & (SVC_FLAG_EXTERNAL_IP | SVC_FLAG_LOADBALANCER | SVC_FLAG_NODEPORT);
+}
+
+static __always_inline
+bool lb4_svc_is_etp_local(const struct lb4_service *svc)
+{
+	return svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb6_svc_is_etp_local(const struct lb6_service *svc)
+{
+	return svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb4_svc_is_itp_local(const struct lb4_service *svc)
+{
+	return svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb6_svc_is_itp_local(const struct lb6_service *svc)
+{
+	return svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb_punt_etp_local(void)
+{
+#if __ctx_is == __ctx_xdp
+	return true;
+#else
+	return false;
+#endif
+}
+
 static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 					       __be16 old_port, __be16 port, int l4_off,
 					       struct csum_offset *csum_off)
@@ -502,7 +551,8 @@ ipv6_l4_csum_update(struct __ctx_buff *ctx, int l4_off, union v6addr *old_addr,
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct ipv6_ct_tuple *tuple,
 					 struct lb6_reverse_nat *nat,
-					 bool has_l4_header, enum ct_dir dir)
+					 bool has_l4_header, enum ct_dir dir,
+					 bool loopback __maybe_unused)
 {
 	union v6addr old_saddr __align_stack_8;
 	int ret;
@@ -511,6 +561,33 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 
 	ipv6_addr_copy(&old_saddr, &tuple->saddr);
 	ipv6_addr_copy(&tuple->saddr, &nat->address);
+
+#ifdef USE_LOOPBACK_LB
+	if (loopback) {
+		union v6addr old_daddr;
+
+		ipv6_addr_copy(&old_daddr, &tuple->daddr);
+		cilium_dbg_lb(ctx, DBG_LB6_LOOPBACK_SNAT_REV, old_daddr.p4, old_saddr.p4);
+
+		ret = ipv6_store_daddr(ctx, old_saddr.addr, ETH_HLEN);
+		if (IS_ERR(ret))
+			return DROP_WRITE_ERROR;
+
+		/* Update the tuple address which is representing the destination address */
+		ipv6_addr_copy(&tuple->daddr, &old_saddr);
+
+		if (has_l4_header) {
+			struct csum_offset csum_off = {};
+
+			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
+			if (csum_off.offset &&
+			    ipv6_l4_csum_update(ctx, l4_off, &old_daddr, &old_saddr,
+						&csum_off, dir) < 0)
+				return DROP_CSUM_L4;
+		}
+	}
+#endif
 
 	ret = ipv6_store_saddr(ctx, nat->address.addr, ETH_HLEN);
 	if (IS_ERR(ret))
@@ -549,9 +626,11 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg ctx		packet
  * @arg l4_off		offset to L4
  * @arg index		reverse NAT index
+ * @arg loopback	loopback connection
  * @arg tuple		tuple
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16 index,
+				       bool loopback,
 				       struct ipv6_ct_tuple *tuple, bool has_l4_header,
 				       enum ct_dir dir)
 {
@@ -561,20 +640,13 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header, dir);
-}
-
-static __always_inline void
-lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-	key->proto = protocol;
+	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header, dir, loopback);
 }
 
 static __always_inline void
 lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
 {
-	lb6_key_set_protocol(key, tuple->nexthdr);
+	key->proto = tuple->nexthdr;
 	ipv6_addr_copy(&key->address, &tuple->daddr);
 	key->dport = tuple->sport;
 }
@@ -650,37 +722,68 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 static __always_inline
 struct lb6_service *__lb6_lookup_service(struct lb6_key *key)
 {
-	struct lb6_service *svc;
+	return map_lookup_elem(&cilium_lb6_services_v2, key);
+}
 
-	svc = map_lookup_elem(&cilium_lb6_services_v2, key);
+static __always_inline
+bool lb6_key_is_wildcard(const struct lb6_key *key)
+{
+	return unlikely(key->dport == LB_SVC_WILDCARD_DPORT &&
+			key->proto == LB_SVC_WILDCARD_PROTO);
+}
 
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb6_services_v2, key);
-	}
+static __always_inline
+void lb6_key_to_wildcard(struct lb6_key *key, __u8 *proto, __u16 *dport)
+{
+	*proto = key->proto;
+	*dport = key->dport;
 
-	return svc;
+	key->dport = LB_SVC_WILDCARD_DPORT;
+	key->proto = LB_SVC_WILDCARD_PROTO;
+}
+
+static __always_inline
+void lb6_wildcard_to_key(struct lb6_key *key, __u8 proto, __u16 dport)
+{
+	key->proto = proto;
+	key->dport = dport;
 }
 
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
-				       const bool scope_switch)
+				       const bool east_west)
 {
-	__u8 orig_proto = key->proto;
 	struct lb6_service *svc;
+	__u16 dport;
+	__u8 proto;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb6_lookup_service(key);
-	if (!svc)
-		return NULL;
+	if (!svc) {
+		if (east_west)
+			return NULL;
 
-	if (!scope_switch || !lb6_svc_is_two_scopes(svc))
+		/* If wildcard lookup was successful, we return the wildcard
+		 * service while leaving the modified dport/proto values in
+		 * the key. A wildcard service entry will have no backends
+		 * and so caller should trigger a drop.
+		 */
+		lb6_key_to_wildcard(key, &proto, &dport);
+		svc = __lb6_lookup_service(key);
+		if (svc)
+			return svc;
+
+		/* If we have no external scope for this, it's safe to return
+		 * NULL here because there can't be an internal scope today.
+		 */
+		lb6_wildcard_to_key(key, proto, dport);
+		return NULL;
+	}
+	if (!east_west || !lb6_svc_is_two_scopes(svc))
 		return svc;
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb6_lookup_service(key);
 }
@@ -818,7 +921,10 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 # error "Invalid load balancer backend selection algorithm!"
 #endif /* LB_SELECTION */
 
-static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
+static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
+				     const union v6addr *new_saddr __maybe_unused,
+				     const union v6addr *old_saddr __maybe_unused,
+				     __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     const struct lb6_key *key,
 				     const struct lb6_backend *backend,
@@ -826,16 +932,24 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 {
 	const union v6addr *new_dst = &backend->address;
 	struct csum_offset csum_off = {};
+	__be32 sum;
 
 	if (has_l4_header)
 		csum_l4_offset_and_flags(nexthdr, &csum_off);
 
 	if (ipv6_store_daddr(ctx, new_dst->addr, l3_off) < 0)
 		return DROP_WRITE_ERROR;
-	if (csum_off.offset) {
-		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr,
-				       16, 0);
+	sum = csum_diff(key->address.addr, 16, new_dst->addr, 16, 0);
+#ifdef USE_LOOPBACK_LB
+	if (new_saddr && (new_saddr->d1 || new_saddr->d2)) {
+		cilium_dbg_lb(ctx, DBG_LB6_LOOPBACK_SNAT, old_saddr->p4, new_saddr->p4);
 
+		if (ipv6_store_saddr(ctx, (void *)new_saddr->addr, l3_off) < 0)
+			return DROP_WRITE_ERROR;
+		sum = csum_diff(old_saddr->addr, 16, new_saddr->addr, 16, sum);
+	}
+#endif /* USE_LOOPBACK_LB */
+	if (csum_off.offset) {
 		if (csum_l4_replace(ctx, l4_off, &csum_off, 0, sum,
 				    BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
@@ -991,9 +1105,11 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     __net_cookie netns_cookie __maybe_unused)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
+	union v6addr saddr = tuple->saddr;
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
 	__u32 backend_id = 0;
+	union v6addr new_saddr = {};
 	int ret;
 	union lb6_affinity_client_id client_id;
 
@@ -1089,13 +1205,27 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
 
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
-	if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
-	    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
-		return CTX_ACT_OK;
+#if defined(USE_LOOPBACK_LB) || defined(ENABLE_LOCAL_REDIRECT_POLICY)
+	if (ipv6_addr_equals(&saddr, &backend->address)) {
+	#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
+		if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
+		    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+			return CTX_ACT_OK;
+	#endif
+
+	#ifdef USE_LOOPBACK_LB
+			union v6addr loopback_addr = CONFIG(service_loopback_ipv6);
+
+			ipv6_addr_copy(&new_saddr, &loopback_addr);
+			state->loopback = 1;
+	#endif
+	}
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
-	ipv6_addr_copy(&tuple->daddr, &backend->address);
+#ifdef USE_LOOPBACK_LB
+	if (!state->loopback)
+#endif
+		ipv6_addr_copy(&tuple->daddr, &backend->address);
 
 	if (lb6_svc_is_l7_punt_proxy(svc) &&
 	    __lookup_ip6_endpoint(&backend->address)) {
@@ -1108,7 +1238,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (likely(backend->port))
 		tuple->sport = backend->port;
 
-	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off, key,
+	return lb6_xlate(ctx, &new_saddr, &saddr, tuple->nexthdr, l3_off, l4_off, key,
 			 backend, ipfrag_has_l4_header(fraginfo));
 no_service:
 	ret = DROP_NO_SERVICE;
@@ -1129,7 +1259,12 @@ static __always_inline void lb6_ctx_store_state(struct __ctx_buff *ctx,
 					       __u16 proxy_port)
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index);
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+#ifdef USE_LOOPBACK_LB
+		state->loopback);
+#else
+		0);
+#endif /* USE_LOOPBACK_LB */
 }
 
 /* lb6_ctx_restore_state() restores per packet load balancing state from the
@@ -1142,10 +1277,14 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
 						 __u16 *proxy_port,
 						 bool clear)
 {
-	state->rev_nat_index = clear ? (__u16)ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
-				       (__u16)ctx_load_meta(ctx, CB_CT_STATE);
+	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
+				       ctx_load_meta(ctx, CB_CT_STATE);
 
-	/* No loopback support for IPv6, see lb6_local() above. */
+#ifdef USE_LOOPBACK_LB
+	if (meta & 1)
+		state->loopback = 1;
+#endif
+	state->rev_nat_index = meta >> 16;
 
 	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
 			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
@@ -1158,15 +1297,9 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
  */
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused,
-				       const bool scope_switch __maybe_unused)
+				       const bool east_west __maybe_unused)
 {
 	return NULL;
-}
-
-static __always_inline void
-lb6_key_set_protocol(struct lb6_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
 }
 
 static __always_inline
@@ -1287,16 +1420,9 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 }
 
 static __always_inline void
-lb4_key_set_protocol(struct lb4_key *key __maybe_unused,
-		     __u8 protocol __maybe_unused)
-{
-	key->proto = protocol;
-}
-
-static __always_inline void
 lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 {
-	lb4_key_set_protocol(key, tuple->nexthdr);
+	key->proto = tuple->nexthdr;
 	key->address = tuple->daddr;
 	/* CT tuple has ports in reverse order: */
 	key->dport = tuple->sport;
@@ -1372,37 +1498,68 @@ lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
 static __always_inline
 struct lb4_service *__lb4_lookup_service(struct lb4_key *key)
 {
-	struct lb4_service *svc;
+	return map_lookup_elem(&cilium_lb4_services_v2, key);
+}
 
-	svc = map_lookup_elem(&cilium_lb4_services_v2, key);
+static __always_inline
+bool lb4_key_is_wildcard(const struct lb4_key *key)
+{
+	return unlikely(key->dport == LB_SVC_WILDCARD_DPORT &&
+			key->proto == LB_SVC_WILDCARD_PROTO);
+}
 
-	/* If there are no elements for a specific protocol, check for ANY entries. */
-	if (!svc && key->proto != IPPROTO_ANY) {
-		key->proto = IPPROTO_ANY;
-		svc = map_lookup_elem(&cilium_lb4_services_v2, key);
-	}
+static __always_inline
+void lb4_key_to_wildcard(struct lb4_key *key, __u8 *proto, __u16 *dport)
+{
+	*proto = key->proto;
+	*dport = key->dport;
 
-	return svc;
+	key->dport = LB_SVC_WILDCARD_DPORT;
+	key->proto = LB_SVC_WILDCARD_PROTO;
+}
+
+static __always_inline
+void lb4_wildcard_to_key(struct lb4_key *key, __u8 proto, __u16 dport)
+{
+	key->proto = proto;
+	key->dport = dport;
 }
 
 static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
-				       const bool scope_switch)
+				       const bool east_west)
 {
-	__u8 orig_proto = key->proto;
 	struct lb4_service *svc;
+	__u16 dport;
+	__u8 proto;
 
 	key->backend_slot = 0;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
 	svc = __lb4_lookup_service(key);
-	if (!svc)
-		return NULL;
+	if (!svc) {
+		if (east_west)
+			return NULL;
 
-	if (!scope_switch || !lb4_svc_is_two_scopes(svc))
+		/* If wildcard lookup was successful, we return the wildcard
+		 * service while leaving the modified dport/proto values in
+		 * the key. A wildcard service entry will have no backends
+		 * and so caller should trigger a drop.
+		 */
+		lb4_key_to_wildcard(key, &proto, &dport);
+		svc = __lb4_lookup_service(key);
+		if (svc)
+			return svc;
+
+		/* If we have no external scope for this, it's safe to return
+		 * NULL here because there can't be an internal scope today.
+		 */
+		lb4_wildcard_to_key(key, proto, dport);
+		return NULL;
+	}
+	if (!east_west || !lb4_svc_is_two_scopes(svc))
 		return svc;
 
-	key->proto = orig_proto;
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb4_lookup_service(key);
 }
@@ -1712,9 +1869,9 @@ lb4_to_lb6(struct __ctx_buff *ctx __maybe_unused,
  * namespace. Currently only v4 and v4-in-v6, but no plain v6 is supported.
  *
  * For example, in EKS cluster, a local-redirect service exists with the AWS
- * metadata IP, port as the frontend <169.254.169.254, 80> and kiam proxy as a
- * backend Pod. When traffic destined to the frontend originates from the kiam
- * Pod in namespace ns1 (host ns when the kiam proxy Pod is deployed in
+ * metadata IP, port as the frontend <169.254.169.254, 80> and the proxy as a
+ * backend Pod. When traffic destined to the frontend originates from the
+ * Pod in namespace ns1 (host ns when the proxy Pod is deployed in
  * hostNetwork mode or regular Pod ns) and the Pod is selected as a backend, the
  * traffic would get looped back to the proxy Pod.
  */
@@ -1953,123 +2110,13 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 #ifndef SKIP_CALLS_MAP
 #ifdef SERVICE_NO_BACKEND_RESPONSE
 
-#define ICMP_PACKET_MAX_SAMPLE_SIZE 64
-
-static __always_inline
-__wsum icmp_wsum_accumulate(void *data_start, void *data_end, int sample_len);
-
-static __always_inline
-int __tail_no_service_ipv4(struct __ctx_buff *ctx)
-{
-	void *data, *data_end;
-	struct ethhdr *ethhdr;
-	struct iphdr *ip4;
-	struct icmphdr *icmphdr;
-	union macaddr smac = {};
-	union macaddr dmac = {};
-	__be32	saddr;
-	__be32	daddr;
-	__u8	tos;
-	__wsum csum;
-	int sample_len;
-	int ret;
-	const int inner_offset = sizeof(struct ethhdr) + sizeof(struct iphdr) +
-		sizeof(struct icmphdr);
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	/* copy the incoming src and dest IPs and mac addresses to the stack.
-	 * the pointers will not be valid after adding headroom.
-	 */
-
-	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
-		return DROP_INVALID;
-
-	if (eth_load_daddr(ctx, dmac.addr, 0) < 0)
-		return DROP_INVALID;
-
-	saddr = ip4->saddr;
-	daddr = ip4->daddr;
-	tos = ip4->tos;
-
-	/* Resize to ethernet header + 64 bytes or less */
-	sample_len = (int)ctx_full_len(ctx);
-	if (sample_len > ICMP_PACKET_MAX_SAMPLE_SIZE)
-		sample_len = ICMP_PACKET_MAX_SAMPLE_SIZE;
-	ctx_adjust_troom(ctx, (__s32)(sample_len + sizeof(struct ethhdr) - ctx_full_len(ctx)));
-
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	/* Calculate the checksum of the ICMP sample */
-	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, sample_len);
-
-	/* We need to insert a IPv4 and ICMP header before the original packet.
-	 * Make that room.
-	 */
-
-#if __ctx_is == __ctx_xdp
-	ret = xdp_adjust_head(ctx, 0 - (int)(sizeof(struct iphdr) + sizeof(struct icmphdr)));
-#else
-	ret = skb_adjust_room(ctx, sizeof(struct iphdr) + sizeof(struct icmphdr),
-			      BPF_ADJ_ROOM_MAC, 0);
-#endif
-
-	if (ret < 0)
-		return DROP_INVALID;
-
-	/* changing size invalidates pointers, so we need to re-fetch them. */
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-
-	/* Bound check all 3 headers at once. */
-	if (data + inner_offset > data_end)
-		return DROP_INVALID;
-
-	/* Write reversed eth header, ready for egress */
-	ethhdr = data;
-	memcpy(ethhdr->h_dest, smac.addr, sizeof(smac.addr));
-	memcpy(ethhdr->h_source, dmac.addr, sizeof(dmac.addr));
-	ethhdr->h_proto = bpf_htons(ETH_P_IP);
-
-	/* Write reversed ip header, ready for egress */
-	ip4 = data + sizeof(struct ethhdr);
-	ip4->version = 4;
-	ip4->ihl = sizeof(struct iphdr) >> 2;
-	ip4->tos = tos;
-	ip4->tot_len = bpf_htons(sizeof(struct iphdr) + sizeof(struct icmphdr) +
-		       (__u16)sample_len);
-	ip4->id = 0;
-	ip4->frag_off = 0;
-	ip4->ttl = IPDEFTTL;
-	ip4->protocol = IPPROTO_ICMP;
-	ip4->check = 0;
-	ip4->daddr = saddr;
-	ip4->saddr = daddr;
-	ip4->check = csum_fold(csum_diff(ip4, 0, ip4, sizeof(struct iphdr), 0));
-
-	/* Write reversed icmp header */
-	icmphdr = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
-	icmphdr->type = ICMP_DEST_UNREACH;
-	icmphdr->code = ICMP_PORT_UNREACH;
-	icmphdr->checksum = 0;
-	icmphdr->un.gateway = 0;
-
-	/* Add ICMP header checksum to sum of its body */
-	csum += csum_diff(icmphdr, 0, icmphdr, sizeof(struct icmphdr), 0);
-	icmphdr->checksum = csum_fold(csum);
-
-	return 0;
-}
-
 __declare_tail(CILIUM_CALL_IPV4_NO_SERVICE)
 int tail_no_service_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
 
-	ret = __tail_no_service_ipv4(ctx);
+	ret = generate_icmp4_reply(ctx, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH);
 	if (!ret) {
 		/* Redirect ICMP to the interface we received it on. */
 		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY,
@@ -2268,47 +2315,26 @@ drop_err:
 #endif /* SKIP_CALLS_MAP */
 #endif /* ENABLE_IPV6 */
 
-#ifdef SERVICE_NO_BACKEND_RESPONSE
-
 static __always_inline
-__wsum icmp_wsum_accumulate(void *data_start, void *data_end, int sample_len)
+int handle_nonroutable_endpoints_v4(struct lb4_service *svc)
 {
-	/* Unrolled loop to calculate the checksum of the ICMP sample
-	 * Done manually because the compiler refuses with #pragma unroll
-	 */
-	__wsum wsum = 0;
+	/* Drop the packet when eTP/iTP is set to Local, allow otherwise. */
+	if ((lb4_svc_is_external(svc) && lb4_svc_is_etp_local(svc)) ||
+	    (!lb4_svc_is_external(svc) && lb4_svc_is_itp_local(svc)))
+		return DROP_NO_SERVICE;
 
-	#define body(i) if ((i) > sample_len) \
-		return wsum; \
-	if (data_start + (i) + sizeof(__u16) > data_end) { \
-		if (data_start + (i) + sizeof(__u8) <= data_end)\
-			wsum += *(__u8 *)(data_start + (i)); \
-		return wsum; \
-	} \
-	wsum += *(__u16 *)(data_start + (i));
-
-	#define body4(i) body(i)\
-		body(i + 2) \
-		body(i + 4) \
-		body(i + 6)
-
-	#define body16(i) body4(i)\
-		body4(i + 8) \
-		body4(i + 16) \
-		body4(i + 24)
-
-	#define body128(i) body16(i)\
-		body16(i + 32) \
-		body16(i + 64) \
-		body16(i + 96)
-
-	body128(0)
-	body128(256)
-	body128(512)
-	body128(768)
-	body128(1024)
-
-	return wsum;
+	/* continue via the slowpath */
+	return CTX_ACT_OK;
 }
 
-#endif /* SERVICE_NO_BACKEND_RESPONSE */
+static __always_inline
+int handle_nonroutable_endpoints_v6(struct lb6_service *svc)
+{
+	/* Drop the packet when eTP/iTP is set to Local, allow otherwise. */
+	if ((lb6_svc_is_external(svc) && lb6_svc_is_etp_local(svc)) ||
+	    (!lb6_svc_is_external(svc) && lb6_svc_is_itp_local(svc)))
+		return DROP_NO_SERVICE;
+
+	/* continue via the slowpath */
+	return CTX_ACT_OK;
+}

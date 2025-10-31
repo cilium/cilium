@@ -11,11 +11,8 @@ import (
 	"time"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -70,10 +67,8 @@ type params struct {
 	Metrics     kvstoremesh.Metrics
 	Shutdowner  hive.Shutdowner
 	Log         *slog.Logger
-	SyncState   syncstate.SyncState
-	JobGroup    job.Group
+	SyncWaiter  kvstoremesh.SyncWaiter
 	KVStoreMesh *kvstoremesh.KVStoreMesh
-	Health      cell.Health
 }
 
 func registerLeaderElectionHooks(lc cell.Lifecycle, llc *LeaderLifecycle, params params) {
@@ -106,7 +101,7 @@ func runLeaderElection(ctx context.Context, lc *LeaderLifecycle, params params) 
 		params.Shutdowner.Shutdown(hive.ShutdownWithError(errors.New("Leader election lost")))
 	})
 
-	params.Metrics.LeaderElectionStatus.With(prometheus.Labels{metrics.LabelLeaderElectionName: "kvstoremesh"}).Set(float64(0))
+	params.Metrics.LeaderElectionStatus.Set(float64(0))
 
 	// Try to win leader election with short timeout to verify if we can
 	// be immediately promoted as leader (e.g., we are the only replica).
@@ -120,7 +115,7 @@ func runLeaderElection(ctx context.Context, lc *LeaderLifecycle, params params) 
 
 	if err != nil && errors.Is(err, kvstore.ErrEtcdTimeout) {
 		// signal readiness
-		params.SyncState.Stop()
+		params.SyncWaiter.ForceReady()
 
 		// try again with infinite timeout
 		params.Log.Info("Reattempting to acquire leader election lock")
@@ -146,16 +141,7 @@ func runLeaderElection(ctx context.Context, lc *LeaderLifecycle, params params) 
 	}()
 
 	params.Log.Info("Leader election lock acquired")
-	params.Metrics.LeaderElectionStatus.With(prometheus.Labels{metrics.LabelLeaderElectionName: "kvstoremesh"}).Set(float64(1))
-
-	kvstoremesh.RegisterSyncWaiter(kvstoremesh.SyncWaiterParams{
-		KVStoreMesh: params.KVStoreMesh,
-		SyncState:   params.SyncState,
-		Lifecycle:   lc,
-		JobGroup:    params.JobGroup,
-		Health:      params.Health,
-	})
-	params.SyncState.Stop()
+	params.Metrics.LeaderElectionStatus.Set(float64(1))
 
 	err = lc.Start(params.Log, ctx)
 	if err != nil {

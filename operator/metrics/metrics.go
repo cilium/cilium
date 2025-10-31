@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
+	k8sCtrlMetrics "sigs.k8s.io/controller-runtime/pkg/certwatcher/metrics"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -31,7 +32,8 @@ type params struct {
 
 	Metrics []metric.WithMetadata `group:"hive-metrics"`
 
-	Registry *metrics.Registry
+	Registry         *metrics.Registry
+	TLSConfigPromise metrics.TLSConfigPromise
 }
 
 // Note: metrics are always initialized so we have access to sampler ring buffer data
@@ -71,9 +73,12 @@ func initializeMetrics(p params) {
 		metrics.WorkQueueRetries,
 	)
 
+	p.Registry.Register(k8sCtrlMetrics.ReadCertificateTotal)
+	p.Registry.Register(k8sCtrlMetrics.ReadCertificateErrors)
+
 	metrics.InitOperatorMetrics()
 	p.Registry.MustRegister(metrics.ErrorsWarnings)
 	metrics.FlushLoggingMetrics()
 
-	p.Registry.AddServerRuntimeHooks()
+	p.Registry.AddServerRuntimeHooks("operator-prometheus-server", p.TLSConfigPromise)
 }

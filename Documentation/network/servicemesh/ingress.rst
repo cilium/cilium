@@ -48,8 +48,7 @@ an existing K8s cluster with Cilium installed.
 Prerequisites
 #############
 
-* Cilium must be configured with NodePort enabled, using
-  ``nodePort.enabled=true`` or by enabling the kube-proxy replacement with
+* Cilium must be configured with the kube-proxy replacement, using
   ``kubeProxyReplacement=true``. For more information, see :ref:`kube-proxy
   replacement <kubeproxy-free>`.
 * Cilium must be configured with the L7 proxy enabled using ``l7Proxy=true``
@@ -184,11 +183,18 @@ Supported Ingress Annotations
        | ``enforce-ingress-https`` configuration
        | file setting (or ``ingressController.enforceHttps``
        | in Helm).
-       | 
+       |
        | Any host with TLS config will have redirects to
        | HTTPS configured for each match specified in the
        | Ingress.
      - unspecified
+   * - ``ingress.cilium.io/request-timeout``
+     - | Request timeout in seconds for Ingress backend HTTP requests.
+       |
+       | Note that if the annotation is present, it will override
+       | any value set by the ``ingress-default-request-timeout`` operator flag.
+       | If neither is set, defaults to ``0`` (no limit)
+     - ``0``
 
 Additionally, cloud-provider specific annotations for the LoadBalancer Service
 are supported.
@@ -335,7 +341,7 @@ Cilium's Ingress features:
 
    http
    ingress-and-network-policy
-   path-types   
+   path-types
    grpc
    tls-termination
    tls-default-certificate

@@ -102,6 +102,8 @@ const (
 	DbgSkLookup6
 	DbgSkAssign
 	DbgL7LB
+	DbgLb6LoopbackSnat
+	DbgLb6LoopbackSnatRev
 )
 
 // must be in sync with <bpf/lib/conntrack.h>
@@ -348,6 +350,10 @@ func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 		return fmt.Sprintf("Reverse NAT lookup, index=%d", byteorder.NetworkToHost16(uint16(n.Arg1)))
 	case DbgLb6ReverseNat:
 		return fmt.Sprintf("Performing reverse NAT, address.p4=%x port=%d", n.Arg1, byteorder.NetworkToHost16(uint16(n.Arg2)))
+	case DbgLb6LoopbackSnat:
+		return fmt.Sprintf("Loopback SNAT from.p4=%x to.p4=%x", n.Arg1, n.Arg2)
+	case DbgLb6LoopbackSnatRev:
+		return fmt.Sprintf("Loopback reverse SNAT from.p4=%x to.p4=%x", n.Arg1, n.Arg2)
 	case DbgLb4LookupFrontend:
 		return fmt.Sprintf("Frontend service lookup, addr=%s key.dport=%d", ip4Str(n.Arg1), byteorder.NetworkToHost16(uint16(n.Arg2)))
 	case DbgLb4LookupFrontendFail:

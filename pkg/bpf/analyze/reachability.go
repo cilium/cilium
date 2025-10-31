@@ -6,6 +6,8 @@ package analyze
 import (
 	"errors"
 	"fmt"
+	"iter"
+	"strings"
 	"unique"
 
 	"github.com/cilium/ebpf"
@@ -92,7 +94,35 @@ func VariableSpecs(variables map[string]*ebpf.VariableSpec) map[string]VariableS
 	return variablesMap
 }
 
-// Reachability returns a copy of blocks with populated reachability information.
+type Reachable struct {
+	blocks Blocks
+	insns  asm.Instructions
+
+	// l is a bitmap tracking reachable blocks.
+	l Bitmap
+
+	// j is a bitmap tracking predicted jumps. If the nth bit is 1, the jump
+	// at the end of block n is predicted to always be taken.
+	j Bitmap
+}
+
+func (r *Reachable) isLive(id uint64) bool {
+	if id >= r.blocks.count() {
+		return false
+	}
+	return r.l.Get(id)
+}
+
+func (r *Reachable) countAll() uint64 {
+	return r.blocks.count()
+}
+
+func (r *Reachable) countLive() uint64 {
+	return r.l.Popcount()
+}
+
+// Reachability determines whether or not each Block in blocks is reachable
+// given the variables.
 //
 // Reachability of blocks is determined by predicting branches on BPF runtime
 // constants. A subsequent call to [Blocks.LiveInstructions] will iterate over
@@ -111,7 +141,7 @@ func VariableSpecs(variables map[string]*ebpf.VariableSpec) map[string]VariableS
 //	LoadMapValue dst: Rx, fd: 0 off: {offset of variable} <{name of global data map}>
 //	LdXMem{B,H,W,DW} dst: Ry src: Rx off: 0
 //	J{OP}IMM dst: Ry off:{relative jump offset} imm: {constant value}
-func Reachability(blocks *Blocks, insns asm.Instructions, variables map[string]VariableSpec) (*Blocks, error) {
+func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]VariableSpec) (*Reachable, error) {
 	if blocks == nil || blocks.count() == 0 {
 		return nil, errors.New("nil or empty blocks")
 	}
@@ -119,14 +149,6 @@ func Reachability(blocks *Blocks, insns asm.Instructions, variables map[string]V
 	if len(insns) == 0 {
 		return nil, errors.New("nil or empty instructions")
 	}
-
-	if len(blocks.l) != 0 {
-		return nil, errors.New("reachability already computed")
-	}
-
-	// Copy Blocks to avoid modifying the original, since they're often stored in
-	// instruction metadata in a cached CollectionSpec.
-	blocks = blocks.Copy()
 
 	// Variables in the CollectionSpec are identified by name. However,
 	// instructions refer to variables by map name and offset. Build a reverse
@@ -141,27 +163,66 @@ func Reachability(blocks *Blocks, insns asm.Instructions, variables map[string]V
 		}] = v
 	}
 
-	live := newBitmap(uint64(blocks.count()))
+	r := &Reachable{
+		blocks: blocks,
+		insns:  insns,
+		l:      NewBitmap(uint64(blocks.count())),
+		j:      NewBitmap(uint64(blocks.count())),
+	}
 
 	// Start recursing at first block since it is always live.
-	if err := visitBlock(blocks.first(), insns, vars, live); err != nil {
+	if err := r.visitBlock(blocks.first(), vars); err != nil {
 		return nil, fmt.Errorf("predicting blocks: %w", err)
 	}
 
-	blocks.l = live
-
-	return blocks, nil
+	return r, nil
 }
 
-// findBranch pulls exactly one instruction and checks if it's a branch
+// Iterate returns an iterator that wraps an internal BlockIterator. The
+// internal iterator is yielded along with a bool indicating whether the current
+// instruction is reachable.
+//
+// The BlockIterator itself is yielded so it can be cloned to start a
+// backtracking session.
+func (r *Reachable) Iterate() iter.Seq2[*BlockIterator, bool] {
+	return func(yield func(*BlockIterator, bool) bool) {
+		iter := r.blocks.iterate(r.insns)
+		for iter.Next() {
+			live := r.l.Get(iter.block.id)
+			if !yield(iter, live) {
+				return
+			}
+		}
+	}
+}
+
+func (r *Reachable) Dump(insns asm.Instructions) string {
+	var sb strings.Builder
+	for _, block := range r.blocks {
+		sb.WriteString(fmt.Sprintf("\n=== Block %d ===\n", block.id))
+		sb.WriteString(block.Dump(insns))
+
+		sb.WriteString(fmt.Sprintf("Live: %t, ", r.l.Get(uint64(block.id))))
+		sb.WriteString("branch: ")
+		if r.j.Get(uint64(block.id)) {
+			sb.WriteString("jump")
+		} else {
+			sb.WriteString("fallthrough")
+		}
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
+// findBranch backtracks exactly one instruction and checks if it's a branch
 // instruction comparing a register against an immediate value. Returns
 // the instruction if it met the criteria, nil otherwise.
-func findBranch(pull func() (*asm.Instruction, bool)) *asm.Instruction {
+func findBranch(iter *BlockIterator) *asm.Instruction {
 	// Only the last instruction of a block can be a branch instruction.
-	branch, ok := pull()
-	if !ok {
+	if !iter.Previous() {
 		return nil
 	}
+	branch := iter.Instruction()
 
 	switch branch.OpCode.JumpOp() {
 	case asm.Exit, asm.Call, asm.Ja, asm.InvalidJumpOp:
@@ -176,14 +237,15 @@ func findBranch(pull func() (*asm.Instruction, bool)) *asm.Instruction {
 	return branch
 }
 
-// findDereference pulls instructions until it finds a memory load (dereference)
-// into the given dst register.
+// findDereference backtracks instructions until it finds a memory load
+// (dereference) into the given dst register.
 //
 // Since all CONFIG() variables are `volatile`, the compiler should emit a
 // dereference before every branch instruction. These typically occur in the
 // same basic block, albeit with a few unrelated instructions in between.
-func findDereference(pull func() (*asm.Instruction, bool), dst asm.Register) *asm.Instruction {
-	for ins, ok := pull(); ok; ins, ok = pull() {
+func findDereference(iter *BlockIterator, dst asm.Register) *asm.Instruction {
+	for iter.Previous() {
+		ins := iter.Instruction()
 		op := ins.OpCode
 		if op.Class().IsLoad() && op.Mode() == asm.MemMode && ins.Dst == dst {
 			return ins
@@ -200,8 +262,8 @@ func findDereference(pull func() (*asm.Instruction, bool), dst asm.Register) *as
 	return nil
 }
 
-// findMapLoad pulls instructions until it finds a map load instruction that
-// populates the given src register.
+// findMapLoad backtracks instructions until it finds a map load instruction
+// that populates the given src register.
 //
 // Even though CONFIG() variables are declared volatile, the compiler may still
 // decide to reuse the register containing the map pointer for multiple
@@ -210,8 +272,9 @@ func findDereference(pull func() (*asm.Instruction, bool), dst asm.Register) *as
 //
 // Note: the compiler should favor reconstructing the map pointer over spilling
 // to the stack, so we don't consider stack spilling.
-func findMapLoad(pull func() (*asm.Instruction, bool), src asm.Register) *asm.Instruction {
-	for ins, ok := pull(); ok; ins, ok = pull() {
+func findMapLoad(iter *BlockIterator, src asm.Register) *asm.Instruction {
+	for iter.Previous() {
+		ins := iter.Instruction()
 		if ins.Dst == src {
 			if ins.IsLoadFromMap() {
 				return ins
@@ -232,11 +295,11 @@ type mapOffset struct {
 
 // unpredictableBlock is called when the branch cannot be predicted. It visits
 // both the branch and fallthrough blocks.
-func unpredictableBlock(b *Block, insns asm.Instructions, vars map[mapOffset]VariableSpec, live bitmap) error {
-	if err := visitBlock(b.branch, insns, vars, live); err != nil {
+func (r *Reachable) unpredictableBlock(b *Block, vars map[mapOffset]VariableSpec) error {
+	if err := r.visitBlock(b.branch, vars); err != nil {
 		return fmt.Errorf("visiting branch block %d: %w", b.branch.id, err)
 	}
-	if err := visitBlock(b.fthrough, insns, vars, live); err != nil {
+	if err := r.visitBlock(b.fthrough, vars); err != nil {
 		return fmt.Errorf("visiting fallthrough block %d: %w", b.fthrough.id, err)
 	}
 	return nil
@@ -244,33 +307,33 @@ func unpredictableBlock(b *Block, insns asm.Instructions, vars map[mapOffset]Var
 
 // visitBlock recursively visits a block and its successors to determine
 // reachability based on the branch instructions and the provided vars.
-func visitBlock(b *Block, insns asm.Instructions, vars map[mapOffset]VariableSpec, live bitmap) error {
+func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error {
 	if b == nil {
 		return nil
 	}
 
 	// Don't evaluate the same block twice, this would lead to an infinite loop.
 	// A live block implies a visited block.
-	if live.get(b.id) {
+	if r.l.Get(b.id) {
 		return nil
 	}
-	live.set(b.id, true)
+	r.l.Set(b.id, true)
 
-	pull := b.backward(insns)
+	iter := b.iterateGlobal(r.blocks, r.insns)
 
-	branch := findBranch(pull)
+	branch := findBranch(iter)
 	if branch == nil {
-		return unpredictableBlock(b, insns, vars, live)
+		return r.unpredictableBlock(b, vars)
 	}
 
-	deref := findDereference(pull, branch.Dst)
+	deref := findDereference(iter, branch.Dst)
 	if deref == nil {
-		return unpredictableBlock(b, insns, vars, live)
+		return r.unpredictableBlock(b, vars)
 	}
 
-	load := findMapLoad(pull, deref.Src)
+	load := findMapLoad(iter, deref.Src)
 	if load == nil {
-		return unpredictableBlock(b, insns, vars, live)
+		return r.unpredictableBlock(b, vars)
 	}
 
 	// TODO(tb): evalBranch doesn't currently take the deref's offset field into
@@ -278,7 +341,7 @@ func visitBlock(b *Block, insns asm.Instructions, vars map[mapOffset]VariableSpe
 	// to be more robust and remove this limitation.
 	vs := lookupVariable(load, vars)
 	if vs == nil || !vs.Constant() || vs.Size() > 8 {
-		return unpredictableBlock(b, insns, vars, live)
+		return r.unpredictableBlock(b, vars)
 	}
 
 	jump, err := evalBranch(branch, vs)
@@ -288,13 +351,12 @@ func visitBlock(b *Block, insns asm.Instructions, vars map[mapOffset]VariableSpe
 
 	// If the branch is always taken, only visit the branch target.
 	if jump {
-		b.predict = 1
-		return visitBlock(b.branch, insns, vars, live)
+		r.j.Set(b.id, true)
+		return r.visitBlock(b.branch, vars)
 	}
 
 	// Otherwise, only visit the fallthrough target.
-	b.predict = 2
-	return visitBlock(b.fthrough, insns, vars, live)
+	return r.visitBlock(b.fthrough, vars)
 }
 
 // lookupVariable retrieves the VariableSpec for the given load instruction from

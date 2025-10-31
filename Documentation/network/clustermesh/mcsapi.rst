@@ -18,14 +18,14 @@ Prerequisites
 You need to have a functioning Cluster Mesh setup, please follow the
 :ref:`gs_clustermesh` guide to set it up.
 
-Make sure you are running CoreDNS 1.12.2 or later.
+Make sure you are running CoreDNS 1.12.2 or later (installed by default from Kubernetes 1.35).
 
 You first need to install the required MCS-API CRDs:
 
    .. code-block:: shell-session
 
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/62ede9a032dcfbc41b3418d7360678cb83092498/config/crd/multicluster.x-k8s.io_serviceexports.yaml
-      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/62ede9a032dcfbc41b3418d7360678cb83092498/config/crd/multicluster.x-k8s.io_serviceimports.yaml
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/44eb577590157426d94d4ff6508f193e45b7f306/config/crd/multicluster.x-k8s.io_serviceexports.yaml
+      kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/mcs-api/44eb577590157426d94d4ff6508f193e45b7f306/config/crd/multicluster.x-k8s.io_serviceimports.yaml
 
 
 To install Cilium with MCS-API support, run:

@@ -15,22 +15,32 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
+const subsystem = "mcsapi"
+
 func registerMCSAPICollector(registry *metrics.Registry, logger *slog.Logger, client client.Client) {
 	registry.MustRegister(&mcsAPICollector{
 		logger: logger,
 		client: client,
 
 		serviceExportInfo: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceexport_info"),
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceexport_info"),
 			"Information about ServiceExport in the local cluster",
 			[]string{"serviceexport", "namespace"}, nil),
 		serviceExportStatusCondition: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceexport_status_condition"),
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceexport_status_condition"),
 			"Status Condition of ServiceExport in the local cluster",
 			[]string{"serviceexport", "namespace", "condition", "status"}, nil),
 		serviceImportInfo: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, "", "serviceimport_info"),
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceimport_info"),
 			"Information about ServiceImport in the local cluster",
+			[]string{"serviceimport", "namespace"}, nil),
+		serviceImportStatusCondition: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceimport_status_condition"),
+			"Status Condition of ServiceImport in the local cluster",
+			[]string{"serviceimport", "namespace", "condition", "status"}, nil),
+		serviceImportStatusClusters: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceimport_status_clusters"),
+			"The number of clusters currently backing a ServiceImport",
 			[]string{"serviceimport", "namespace"}, nil),
 	})
 }
@@ -42,12 +52,16 @@ type mcsAPICollector struct {
 	serviceExportInfo            *prometheus.Desc
 	serviceExportStatusCondition *prometheus.Desc
 	serviceImportInfo            *prometheus.Desc
+	serviceImportStatusCondition *prometheus.Desc
+	serviceImportStatusClusters  *prometheus.Desc
 }
 
 func (c *mcsAPICollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.serviceExportInfo
 	ch <- c.serviceExportStatusCondition
 	ch <- c.serviceImportInfo
+	ch <- c.serviceImportStatusCondition
+	ch <- c.serviceImportStatusClusters
 }
 
 func (c *mcsAPICollector) Collect(ch chan<- prometheus.Metric) {
@@ -103,5 +117,30 @@ func (c *mcsAPICollector) Collect(ch chan<- prometheus.Metric) {
 			return
 		}
 		ch <- metric
+		metric, err = prometheus.NewConstMetric(
+			c.serviceImportStatusClusters,
+			prometheus.GaugeValue,
+			float64(len(svcImport.Status.Clusters)),
+			svcImport.Name, svcImport.Namespace,
+		)
+		if err != nil {
+			c.logger.Error("Failed to generate ServiceImport metrics", logfields.Error, err)
+			return
+		}
+		ch <- metric
+		for _, condition := range svcImport.Status.Conditions {
+			metric, err := prometheus.NewConstMetric(
+				c.serviceImportStatusCondition,
+				prometheus.GaugeValue,
+				1,
+				svcImport.Name, svcImport.Namespace,
+				string(condition.Type), string(condition.Status),
+			)
+			if err != nil {
+				c.logger.Error("Failed to generate ServiceImport metrics", logfields.Error, err)
+				return
+			}
+			ch <- metric
+		}
 	}
 }

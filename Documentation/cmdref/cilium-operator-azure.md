@@ -27,6 +27,7 @@ cilium-operator-azure [flags]
       --cluster-pool-ipv4-mask-size int                      Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv4=true' (default 24)
       --cluster-pool-ipv6-cidr strings                       IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv6=true'
       --cluster-pool-ipv6-mask-size int                      Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv6=true' (default 112)
+      --clustermesh-cache-ttl duration                       The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked.
       --clustermesh-concurrent-service-endpoint-syncs int    The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)
       --clustermesh-config string                            Path to the ClusterMesh configuration directory
       --clustermesh-enable-endpoint-sync                     Whether or not the endpoint slice cluster mesh synchronization is enabled.
@@ -125,7 +126,11 @@ cilium-operator-azure [flags]
       --operator-pprof-block-profile-rate int                Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
       --operator-pprof-mutex-profile-fraction int            Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
+      --operator-prometheus-enable-tls                       Enable TLS for prometheus server
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
+      --operator-prometheus-tls-cert-file string             Path to TLS certificate file for prometheus server. The file must contain PEM encoded data
+      --operator-prometheus-tls-client-ca-files strings      Path to one or more TLS client CA certificates files to use for TLS with mutual authentication (mTLS) for prometheus server. The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
+      --operator-prometheus-tls-key-file string              Path to TLS private key file for prometheus server. The file must contain PEM encoded data.
       --parallel-alloc-workers int                           Maximum number of parallel IPAM workers (default 50)
       --pod-restart-selector string                          cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
       --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
@@ -133,10 +138,11 @@ cilium-operator-azure [flags]
       --remove-cilium-node-taints                            Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
       --set-cilium-is-up-condition                           Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
       --set-cilium-node-taints                               Set node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes if Cilium is scheduled but not up and running
+      --shell-sock-path string                               Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
       --subnet-ids-filter strings                            Subnets IDs (separated by commas)
       --subnet-tags-filter map                               Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
-      --synchronize-k8s-nodes                                Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
+      --synchronize-k8s-nodes                                Perform GC of stale node entries from the KVStore (default true)
       --synchronize-k8s-services                             Synchronize Kubernetes services to kvstore (default true)
       --taint-sync-workers int                               Number of workers used to synchronize node tains and conditions (default 10)
       --unmanaged-pod-watcher-interval int                   Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
@@ -149,7 +155,7 @@ cilium-operator-azure [flags]
 * [cilium-operator-azure completion](cilium-operator-azure_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-operator-azure hive](cilium-operator-azure_hive.md)	 - Inspect the hive
 * [cilium-operator-azure metrics](cilium-operator-azure_metrics.md)	 - Access metric status of the operator
-* [cilium-operator-azure shell](cilium-operator-azure_shell.md)	 - Connect to the Cilium shell
+* [cilium-operator-azure shell](cilium-operator-azure_shell.md)	 - Connect to the shell
 * [cilium-operator-azure status](cilium-operator-azure_status.md)	 - Display status of operator
 * [cilium-operator-azure troubleshoot](cilium-operator-azure_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 

@@ -20,9 +20,8 @@ import (
 	"strings"
 
 	"github.com/go-openapi/errors"
-	"github.com/go-openapi/swag"
-
 	"github.com/go-openapi/runtime"
+	"github.com/go-openapi/swag/stringutils"
 )
 
 type validation struct {
@@ -30,7 +29,7 @@ type validation struct {
 	result  []error
 	request *http.Request
 	route   *MatchedRoute
-	bound   map[string]interface{}
+	bound   map[string]any
 }
 
 // ContentType validates the content type of a request
@@ -42,14 +41,14 @@ func validateContentType(allowed []string, actual string) error {
 	if err != nil {
 		return errors.InvalidContentType(actual, allowed)
 	}
-	if swag.ContainsStringsCI(allowed, mt) {
+	if stringutils.ContainsStringsCI(allowed, mt) {
 		return nil
 	}
-	if swag.ContainsStringsCI(allowed, "*/*") {
+	if stringutils.ContainsStringsCI(allowed, "*/*") {
 		return nil
 	}
 	parts := strings.Split(actual, "/")
-	if len(parts) == 2 && swag.ContainsStringsCI(allowed, parts[0]+"/*") {
+	if len(parts) == 2 && stringutils.ContainsStringsCI(allowed, parts[0]+"/*") {
 		return nil
 	}
 	return errors.InvalidContentType(actual, allowed)
@@ -60,7 +59,7 @@ func validateRequest(ctx *Context, request *http.Request, route *MatchedRoute) *
 		context: ctx,
 		request: request,
 		route:   route,
-		bound:   make(map[string]interface{}),
+		bound:   make(map[string]any),
 	}
 	validate.debugLogf("validating request %s %s", request.Method, request.URL.EscapedPath())
 
@@ -83,7 +82,7 @@ func (v *validation) parameters() {
 	v.debugLogf("validating request parameters for %s %s", v.request.Method, v.request.URL.EscapedPath())
 	if result := v.route.Binder.Bind(v.request, v.route.Params, v.route.Consumer, v.bound); result != nil {
 		if result.Error() == "validation failure list" {
-			for _, e := range result.(*errors.Validation).Value.([]interface{}) {
+			for _, e := range result.(*errors.Validation).Value.([]any) {
 				v.result = append(v.result, e.(error))
 			}
 			return
@@ -111,7 +110,7 @@ func (v *validation) contentType() {
 		if ct != "" && v.route.Consumer == nil {
 			cons, ok := v.route.Consumers[ct]
 			if !ok {
-				v.result = append(v.result, errors.New(500, "no consumer registered for %s", ct))
+				v.result = append(v.result, errors.New(http.StatusInternalServerError, "no consumer registered for %s", ct))
 			} else {
 				v.route.Consumer = cons
 			}

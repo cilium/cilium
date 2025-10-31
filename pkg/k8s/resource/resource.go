@@ -24,7 +24,6 @@ import (
 
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	watcherMetrics "github.com/cilium/cilium/pkg/k8s/watchers/metrics"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -137,11 +136,13 @@ type Resource[T k8sRuntime.Object] interface {
 //	}
 //
 // See also pkg/k8s/resource/example/main.go for a runnable example.
-func New[T k8sRuntime.Object](lc cell.Lifecycle, lw cache.ListerWatcher, opts ...ResourceOption) Resource[T] {
+func New[T k8sRuntime.Object](lc cell.Lifecycle, lw cache.ListerWatcher, mp workqueue.MetricsProvider,
+	opts ...ResourceOption) Resource[T] {
 	r := &resource[T]{
-		subscribers: make(map[uint64]*subscriber[T]),
-		needed:      make(chan struct{}, 1),
-		lw:          lw,
+		subscribers:     make(map[uint64]*subscriber[T]),
+		needed:          make(chan struct{}, 1),
+		lw:              lw,
+		metricsProvider: mp,
 	}
 	r.opts.sourceObj = func() k8sRuntime.Object {
 		var obj T
@@ -239,6 +240,8 @@ type resource[T k8sRuntime.Object] struct {
 
 	storePromise  promise.Promise[Store[T]]
 	storeResolver promise.Resolver[Store[T]]
+
+	metricsProvider workqueue.MetricsProvider
 }
 
 var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}
@@ -417,7 +420,7 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		wq: workqueue.NewTypedRateLimitingQueueWithConfig[WorkItem](options.rateLimiter,
 			workqueue.TypedRateLimitingQueueConfig[WorkItem]{
 				Name:            r.resourceName(),
-				MetricsProvider: watcherMetrics.MetricsProvider,
+				MetricsProvider: r.metricsProvider,
 			}),
 	}
 
@@ -484,11 +487,7 @@ func (r *resource[T]) resourceName() string {
 		return r.opts.name
 	}
 
-	// We create a new pointer to the reconciled resource type.
-	// For example, with resource[*cilium_api_v2.CiliumNode] new(T) returns **cilium_api_v2.CiliumNode
-	// and *new(T) is nil. So we create a new pointer using reflect.New()
-	o := *new(T)
-	sourceObj := reflect.New(reflect.TypeOf(o).Elem()).Interface().(T)
+	sourceObj := reflect.New(reflect.TypeFor[T]().Elem()).Interface().(T)
 
 	gvk, err := apiutil.GVKForObject(sourceObj, scheme)
 	if err != nil {

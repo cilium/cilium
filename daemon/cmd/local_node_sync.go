@@ -14,6 +14,7 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -35,6 +36,7 @@ type localNodeSynchronizerParams struct {
 	TunnelConfig       tunnel.Config
 	K8sLocalNode       agentK8s.LocalNodeResource
 	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
+	IPsecConfig        datapath.IPsecConfig
 }
 
 // localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
@@ -61,7 +63,7 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 	}
 
 	n.BootID = node.GetBootID(ini.Logger)
-	if option.Config.EnableIPSec && n.BootID == "" {
+	if ini.IPsecConfig.Enabled() && n.BootID == "" {
 		return fmt.Errorf("IPSec requires a valid BootID")
 	}
 

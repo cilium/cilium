@@ -11,9 +11,11 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(1) {
+		for permutation := range permute(2) {
 			cfg := config.NewBPFLXC(*config.NewNode())
+			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
+			cfg.Node.PolicyDenyResponseEnabled = permutation[1]
 			if !yield(cfg) {
 				return
 			}
@@ -23,10 +25,17 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(2) {
+		for permutation := range permute(3) {
 			cfg := config.NewBPFHost(*config.NewNode())
+			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
 			cfg.EnableRemoteNodeMasquerade = permutation[1]
+			if permutation[2] {
+				cfg.EthHeaderLength = 0
+			} else {
+				cfg.EthHeaderLength = 14
+			}
+
 			if !yield(cfg) {
 				return
 			}
@@ -37,6 +46,7 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 func networkLoadPermutations() iter.Seq[*config.BPFNetwork] {
 	return func(yield func(*config.BPFNetwork) bool) {
 		cfg := config.NewBPFNetwork(*config.NewNode())
+		cfg.Node.TracingIPOptionType = 1
 		if !yield(cfg) {
 			return
 		}
@@ -47,6 +57,7 @@ func overlayLoadPermutations() iter.Seq[*config.BPFOverlay] {
 	return func(yield func(*config.BPFOverlay) bool) {
 		for permutation := range permute(1) {
 			cfg := config.NewBPFOverlay(*config.NewNode())
+			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
 			if !yield(cfg) {
 				return
@@ -68,6 +79,7 @@ func wireguardLoadPermutations() iter.Seq[*config.BPFWireguard] {
 	return func(yield func(*config.BPFWireguard) bool) {
 		for permutation := range permute(1) {
 			cfg := config.NewBPFWireguard(*config.NewNode())
+			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
 			if !yield(cfg) {
 				return
@@ -80,6 +92,7 @@ func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 	return func(yield func(*config.BPFXDP) bool) {
 		for permutation := range permute(1) {
 			cfg := config.NewBPFXDP(*config.NewNode())
+			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
 			if !yield(cfg) {
 				return

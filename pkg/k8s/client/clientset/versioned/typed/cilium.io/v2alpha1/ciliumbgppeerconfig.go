@@ -9,6 +9,7 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -34,18 +35,21 @@ type CiliumBGPPeerConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumBGPPeerConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumBGPPeerConfig, err error)
+	Apply(ctx context.Context, ciliumBGPPeerConfig *applyconfigurationciliumiov2alpha1.CiliumBGPPeerConfigApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumBGPPeerConfig, err error)
+	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
+	ApplyStatus(ctx context.Context, ciliumBGPPeerConfig *applyconfigurationciliumiov2alpha1.CiliumBGPPeerConfigApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumBGPPeerConfig, err error)
 	CiliumBGPPeerConfigExpansion
 }
 
 // ciliumBGPPeerConfigs implements CiliumBGPPeerConfigInterface
 type ciliumBGPPeerConfigs struct {
-	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumBGPPeerConfig, *ciliumiov2alpha1.CiliumBGPPeerConfigList]
+	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumBGPPeerConfig, *ciliumiov2alpha1.CiliumBGPPeerConfigList, *applyconfigurationciliumiov2alpha1.CiliumBGPPeerConfigApplyConfiguration]
 }
 
 // newCiliumBGPPeerConfigs returns a CiliumBGPPeerConfigs
 func newCiliumBGPPeerConfigs(c *CiliumV2alpha1Client) *ciliumBGPPeerConfigs {
 	return &ciliumBGPPeerConfigs{
-		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumBGPPeerConfig, *ciliumiov2alpha1.CiliumBGPPeerConfigList](
+		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumBGPPeerConfig, *ciliumiov2alpha1.CiliumBGPPeerConfigList, *applyconfigurationciliumiov2alpha1.CiliumBGPPeerConfigApplyConfiguration](
 			"ciliumbgppeerconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

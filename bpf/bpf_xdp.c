@@ -18,7 +18,7 @@
 #define SECLABEL_IPV6 WORLD_IPV6_ID
 
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
- * bpf_lxc object file.
+ * object file.
  */
 #define SKIP_ICMPV6_NS_HANDLING
 
@@ -362,6 +362,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 __section_entry
 int cil_xdp_entry(struct __ctx_buff *ctx)
 {
+	check_and_store_ip_trace_id(ctx);
 	return check_filters(ctx);
 }
 

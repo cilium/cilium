@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/hive/shell"
 	"github.com/cilium/statedb"
 	"google.golang.org/grpc"
 
@@ -41,6 +42,7 @@ import (
 	fqdn "github.com/cilium/cilium/pkg/fqdn/cell"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/health"
+	"github.com/cilium/cilium/pkg/healthconfig"
 	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cell"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
@@ -51,7 +53,7 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
-	"github.com/cilium/cilium/pkg/kpr"
+	kpr "github.com/cilium/cilium/pkg/kpr/initializer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
@@ -59,6 +61,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	ipmasqmaps "github.com/cilium/cilium/pkg/maps/ipmasq"
+	"github.com/cilium/cilium/pkg/maps/iptrace"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	natStats "github.com/cilium/cilium/pkg/maps/nat/stats"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
@@ -74,10 +77,10 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
-	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/svcrouteconfig"
 )
 
 var (
@@ -129,6 +132,9 @@ var (
 		// Provides cilium_datapath_drop/forward Prometheus metrics.
 		metricsmap.Cell,
 
+		// Provides the IP trace map.
+		iptrace.Cell,
+
 		// Provides cilium_bpf_ratelimit_dropped_total Prometheus metric.
 		ratelimitmap.Cell,
 
@@ -153,7 +159,7 @@ var (
 		k8sSynced.CRDSyncCell,
 
 		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
-		shell.Cell,
+		shell.ServerCell(defaults.ShellSockPath),
 
 		// Cilium Agent Healthz endpoints (agent, kubeproxy, ...)
 		healthz.Cell,
@@ -265,7 +271,7 @@ var (
 		// Provides the BPF ip-masq-agent implementation, which is responsible for managing IP masquerading rules
 		ipmasq.Cell,
 
-		// Provides KPRConfig
+		// Provides KPR config & initialization logic
 		kpr.Cell,
 
 		// Provides PolicyRepository (List of policy rules)
@@ -332,11 +338,16 @@ var (
 		// Cilium health infrastructure (host and endpoint connectivity)
 		health.Cell,
 
+		// Cilium health config
+		healthconfig.Cell,
+
 		// Cilium Status Collector
 		status.Cell,
 
 		// Cilium Debuginfo API
 		debugapi.Cell,
+
+		svcrouteconfig.Cell,
 	)
 )
 
@@ -418,7 +429,8 @@ func kvstoreExtraOptions(in struct {
 	NodeManager nodeManager.NodeManager
 	ClientSet   k8sClient.Clientset
 	Resolver    *dial.ServiceResolver
-}) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
+},
+) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
 	goopts := kvstore.ExtraOptions{
 		ClusterSizeDependantInterval: in.NodeManager.ClusterSizeDependantInterval,
 	}

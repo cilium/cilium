@@ -205,16 +205,17 @@ type params struct {
 	Log          *slog.Logger
 	DaemonConfig *option.DaemonConfig
 	UserConfig   types.BigTCPUserConfig
+	IPsecConfig  types.IPsecConfig
 	DB           *statedb.DB
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig) error {
+func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
 		if daemonCfg.TunnelingEnabled() {
 			return errors.New("BIG TCP is not supported in tunneling mode")
 		}
-		if daemonCfg.EncryptionEnabled() {
+		if ipsecCfg.Enabled() {
 			return errors.New("BIG TCP is not supported with encryption enabled")
 		}
 		if daemonCfg.EnableHostLegacyRouting {
@@ -225,7 +226,7 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig) 
 }
 
 func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
-	if err := validateConfig(p.UserConfig, p.DaemonConfig); err != nil {
+	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig); err != nil {
 		return nil, err
 	}
 	cfg := newDefaultConfiguration(p.UserConfig)

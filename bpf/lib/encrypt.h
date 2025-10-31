@@ -56,6 +56,15 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 #endif /* ENABLE_IPSEC */
 }
 
+#if defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD)
+static __always_inline void
+set_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
+{
+	/* Decrypt "key" is determined by SPI and originating node */
+	ctx->mark = MARK_MAGIC_DECRYPT | node_id << 16;
+}
+#endif /* defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD) */
+
 #ifdef ENABLE_IPSEC
 /**
  * or_encrypt_key - mask and shift key into encryption format
@@ -71,17 +80,10 @@ ipsec_encode_encryption_mark(__u8 key, __u32 node_id)
 	return or_encrypt_key(key) | node_id << 16;
 }
 
-static __always_inline void
-set_ipsec_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
-{
-	/* Decrypt "key" is determined by SPI and originating node */
-	ctx->mark = MARK_MAGIC_DECRYPT | node_id << 16;
-}
-
 static __always_inline int
-set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi,
-		  struct remote_endpoint_info *info, __u32 seclabel,
-		  bool use_meta, bool use_spi_from_map)
+set_ipsec_encrypt(struct __ctx_buff *ctx,
+		  const struct remote_endpoint_info *info,
+		  __u32 seclabel, bool use_meta)
 {
 	/* IPSec is performed by the stack on any packets with the
 	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
@@ -91,15 +93,15 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi,
 	 * bpf_host to send ctx onto tunnel for encap.
 	 */
 
-	struct node_value *node_value = NULL;
+	const struct node_value *node_value = NULL;
 	__u32 mark;
+	__u8 spi;
 
 	node_value = lookup_node(info);
 	if (!node_value || !node_value->id)
 		return DROP_NO_NODE_ID;
 
-	if (use_spi_from_map)
-		spi = get_min_encrypt_key(node_value->spi);
+	spi = get_min_encrypt_key(node_value->spi);
 
 	mark = ipsec_encode_encryption_mark(spi, node_value->id);
 
@@ -114,16 +116,12 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 spi,
 static __always_inline int
 do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 {
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
 	void *data, *data_end;
 	__u8 protocol = 0;
 	__u16 node_id = 0;
 	bool decrypted;
-#ifdef ENABLE_IPV6
-	struct ipv6hdr *ip6;
-#endif
-#ifdef ENABLE_IPV4
-	struct iphdr *ip4;
-#endif
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 
@@ -164,7 +162,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 		if (!node_id)
 			return send_drop_notify_error(ctx, UNKNOWN_ID, DROP_NO_NODE_ID,
 						      METRIC_INGRESS);
-		set_ipsec_decrypt_mark(ctx, node_id);
+		set_decrypt_mark(ctx, node_id);
 
 		/* We are going to pass this up the stack for IPsec decryption
 		 * but eth_type_trans may already have labeled this as an
@@ -182,26 +180,13 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 #endif /* ENABLE_ENDPOINT_ROUTES */
 }
 
-/* checks whether a IPsec redirect should be performed for the security id
- * we do not IPsec encrypt:
- * 1. Host-to-Host or Pod-to-Host traffic
- * 2. Traffic leaving the cluster
- * 3. Remote nodes including Kube API server
- * 4. Traffic is already ESP encrypted
+/* checks whether a IPsec redirect should be performed for the source
  */
 static __always_inline int
-ipsec_redirect_sec_id_ok(__u32 src_sec_id, __u32 dst_sec_id, int ip_proto) {
-	if (ip_proto == IPPROTO_ESP)
-		return 0;
+ipsec_redirect_sec_id_ok(__u32 src_sec_id) {
 	if (src_sec_id == HOST_ID)
 		return 0;
-	if (dst_sec_id == HOST_ID)
-		return 0;
-	if (!identity_is_cluster(dst_sec_id))
-		return 0;
 	if (!identity_is_cluster(src_sec_id))
-		return 0;
-	if (identity_is_remote_node(dst_sec_id))
 		return 0;
 	if (identity_is_remote_node(src_sec_id))
 		return 0;
@@ -213,31 +198,16 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 				__u32 src_sec_identity)
 {
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
-	struct remote_endpoint_info __maybe_unused *dst = NULL;
-	struct remote_endpoint_info __maybe_unused *src = NULL;
+	const struct remote_endpoint_info __maybe_unused *dst = NULL;
+	const struct remote_endpoint_info __maybe_unused *src = NULL;
 	void *data __maybe_unused, *data_end __maybe_unused;
 	struct iphdr __maybe_unused *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
-	int ip_proto = 0;
 	int ret = 0;
 	union macaddr dst_mac = CILIUM_NET_MAC;
 
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
-
-	/* if we are in tunnel mode the overlay prog can detect if the packet
-	 * was already encrypted before encapsulation.
-	 *
-	 * if it was, we can simply short-circuit here and return, no encryption
-	 * is required
-	 *
-	 * this would only be the case when transitioning from v1.17 -> v1.18
-	 * and can be removed on v1.19 release.
-	 */
-# if defined(TUNNEL_MODE)
-	if (ctx_is_overlay_encrypted(ctx))
-		return CTX_ACT_OK;
-# endif /* TUNNEL_MODE */
 
 	switch (proto) {
 # ifdef ENABLE_IPV4
@@ -257,9 +227,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		 * set_ipsec_encrypt to obtain the correct node ID and spi.
 		 */
 		if (ctx_is_overlay(ctx)) {
-			/* NOTE: we confirm double-encryption will not occur
-			 * above in the `ctx_is_overlay_encrypted` check
-			 */
 			fake_info.tunnel_endpoint.ip4 = ip4->daddr;
 			fake_info.flag_has_tunnel_ep = true;
 
@@ -268,8 +235,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			goto overlay_encrypt;
 		}
 #  endif /* TUNNEL_MODE */
-
-		ip_proto = ip4->protocol;
 
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
@@ -293,9 +258,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		/* See comment in IPv4 case.
 		 */
 		if (ctx_is_overlay(ctx)) {
-			/* NOTE: we confirm double-encryption will not occur
-			 * above in the `ctx_is_overlay_encrypted` check
-			 */
 			ipv6_addr_copy_unaligned(&fake_info.tunnel_endpoint.ip6,
 						 (union v6addr *)&ip6->daddr);
 			fake_info.flag_has_tunnel_ep = true;
@@ -306,8 +268,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			goto overlay_encrypt;
 		}
 #  endif /* TUNNEL_MODE */
-
-		ip_proto = ip6->nexthdr;
 
 		dst = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 
@@ -324,11 +284,10 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		return CTX_ACT_OK;
 	}
 
-	if (!dst || !dst->flag_has_tunnel_ep)
+	if (!dst || !dst->flag_has_tunnel_ep || !dst->key)
 		return CTX_ACT_OK;
 
-	if (!ipsec_redirect_sec_id_ok(src_sec_identity, dst->sec_identity,
-				      ip_proto))
+	if (!ipsec_redirect_sec_id_ok(src_sec_identity))
 		return CTX_ACT_OK;
 
 #  if defined(TUNNEL_MODE)
@@ -343,7 +302,7 @@ overlay_encrypt:
 	 * supports rhel 8.6 'use_meta' can be flipped back to false and we
 	 * can rely only on the mark.
 	 */
-	ret = set_ipsec_encrypt(ctx, 0, dst, src_sec_identity, true, true);
+	ret = set_ipsec_encrypt(ctx, dst, src_sec_identity, true);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
@@ -369,3 +328,46 @@ do_decrypt(struct __ctx_buff __maybe_unused *ctx, __u16 __maybe_unused proto)
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_IPSEC */
+
+#ifdef ENCRYPTION_STRICT_MODE
+/* strict_allow checks whether the packet is allowed to pass through the strict mode. */
+static __always_inline bool
+strict_allow(struct __ctx_buff *ctx, __be16 proto) {
+	const struct remote_endpoint_info __maybe_unused *dest_info;
+	bool __maybe_unused in_strict_cidr = false;
+	struct iphdr __maybe_unused *ip4;
+	void *data, *data_end;
+
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return true;
+
+		/* Allow traffic that is sent from the node:
+		 * (1) When encapsulation is used and the destination is a remote pod.
+		 * (2) When the destination is a remote-node.
+		 */
+		if (ip4->saddr == IPV4_GATEWAY || ip4->saddr == IPV4_ENCRYPT_IFACE)
+			return true;
+
+		in_strict_cidr = ipv4_is_in_subnet(ip4->daddr,
+						   STRICT_IPV4_NET,
+						   STRICT_IPV4_NET_SIZE);
+		in_strict_cidr &= ipv4_is_in_subnet(ip4->saddr,
+						    STRICT_IPV4_NET,
+						    STRICT_IPV4_NET_SIZE);
+
+#if defined(TUNNEL_MODE) || defined(STRICT_IPV4_OVERLAPPING_CIDR)
+		/* Allow pod to remote-node communication */
+		dest_info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		if (dest_info && identity_is_remote_node(dest_info->sec_identity))
+			return true;
+#endif /* TUNNEL_MODE || STRICT_IPV4_OVERLAPPING_CIDR */
+		return !in_strict_cidr;
+#endif /* ENABLE_IPV4 */
+	default:
+		return true;
+	}
+}
+#endif /* ENCRYPTION_STRICT_MODE */

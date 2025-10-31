@@ -14,6 +14,7 @@ clustermesh-apiserver kvstoremesh [flags]
       --api-serve-addr string                        Address to serve the KVStoreMesh API (default "localhost:9889")
       --cluster-id uint32                            Unique identifier of the cluster
       --cluster-name string                          Name of the cluster. It must consist of at most 32 lower case alphanumeric characters and '-', start and end with an alphanumeric character. (default "default")
+      --clustermesh-cache-ttl duration               The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked.
       --clustermesh-config string                    Path to the ClusterMesh configuration directory
       --controller-group-metrics strings             List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
   -D, --debug                                        Enable debugging mode
@@ -37,6 +38,7 @@ clustermesh-apiserver kvstoremesh [flags]
       --pprof-mutex-profile-fraction int             Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --pprof-port uint16                            Port that pprof listens on (default 6064)
       --prometheus-serve-addr string                 Address to serve Prometheus metrics
+      --shell-sock-path string                       Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
 ### SEE ALSO

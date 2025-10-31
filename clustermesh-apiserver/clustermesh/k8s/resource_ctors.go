@@ -6,6 +6,7 @@ package k8s
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -16,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
-func CiliumSlimEndpointResource(params k8s.CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
+func CiliumSlimEndpointResource(params k8s.CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
@@ -24,14 +25,14 @@ func CiliumSlimEndpointResource(params k8s.CiliumResourceParams, opts ...func(*m
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumEndpointList](params.ClientSet.CiliumV2().CiliumEndpoints(slim_corev1.NamespaceAll)),
 		opts...,
 	)
-	return resource.New[*types.CiliumEndpoint](params.Lifecycle, lw,
+	return resource.New[*types.CiliumEndpoint](params.Lifecycle, lw, mp,
 		resource.WithLazyTransform(func() runtime.Object {
 			return &cilium_api_v2.CiliumEndpoint{}
 		}, k8s.TransformToCiliumEndpoint), resource.WithCRDSync(params.CRDSyncPromise),
 	), nil
 }
 
-func CiliumNodeResource(params k8s.CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
+func CiliumNodeResource(params k8s.CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
@@ -39,12 +40,12 @@ func CiliumNodeResource(params k8s.CiliumResourceParams, opts ...func(*metav1.Li
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](params.ClientSet.CiliumV2().CiliumNodes()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumNode](params.Lifecycle, lw,
+	return resource.New[*cilium_api_v2.CiliumNode](params.Lifecycle, lw, mp,
 		resource.WithMetric("CiliumNode"), resource.WithCRDSync(params.CRDSyncPromise),
 	), nil
 }
 
-func CiliumEndpointSliceResource(params k8s.CiliumResourceParams, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice], error) {
+func CiliumEndpointSliceResource(params k8s.CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice], error) {
 	if !params.ClientSet.IsEnabled() {
 		return nil, nil
 	}
@@ -52,7 +53,7 @@ func CiliumEndpointSliceResource(params k8s.CiliumResourceParams, opts ...func(*
 		utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumEndpointSliceList](params.ClientSet.CiliumV2alpha1().CiliumEndpointSlices()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](params.Lifecycle, lw,
+	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](params.Lifecycle, lw, mp,
 		resource.WithMetric("CiliumEndpointSlice"), resource.WithCRDSync(params.CRDSyncPromise),
 	), nil
 }

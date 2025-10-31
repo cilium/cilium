@@ -12,7 +12,7 @@ debug: all
 
 include Makefile.defs
 
-SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool tools/mount tools/sysctlfix plugins/cilium-cni
+SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool hubble tools/mount tools/sysctlfix plugins/cilium-cni
 SUBDIR_OPERATOR_CONTAINER := operator
 SUBDIR_RELAY_CONTAINER := hubble-relay
 SUBDIR_CLUSTERMESH_APISERVER_CONTAINER := clustermesh-apiserver
@@ -37,7 +37,7 @@ SUBDIRS := $(filter-out $(foreach dir,$(SUBDIRS),$(dir)/%),$(SUBDIRS))
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
 # meaning 'all subpackages of the given package'.
 TESTPKGS ?= ./...
-UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/...
+UNPARALLELTESTPKGS ?= ./pkg/datapath/linux/... ./pkg/datapath/loader/... ./pkg/datapath/neighbor/test/...
 
 GOTEST_BASE := -timeout 720s
 GOTEST_COVER_OPTS += -coverprofile=coverage.out
@@ -575,21 +575,20 @@ gateway-api-conformance: ## Run Gateway API conformance tests.
 	GATEWAY_API_CONFORMANCE_TESTS=1 \
 	GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_USABLE_NETWORK_ADDRESSES} \
 	GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES=$${GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES} \
-	$(GO) test -p 4 -v ./operator/pkg/gateway-api \
+	$(GO_TEST) $(GO_TEST_FLAGS) -p 4 -v ./operator/pkg/gateway-api \
 		$(GATEWAY_TEST_FLAGS) \
 		-test.run "TestConformance" \
 		-test.timeout=29m \
-		-json \
-	| tparse -progress
+	| $(GOTEST_FORMATTER)
 
-BPF_TEST_FILE ?= ""
+BPF_TEST ?= ""
 BPF_TEST_DUMP_CTX ?= ""
 BPF_TEST_VERBOSE ?= 0
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
 	DOCKER_ARGS="--privileged -v /sys:/sys" RUN_AS_ROOT=1 contrib/scripts/builder.sh \
 		$(MAKE) $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run \
-			"BPF_TEST_FILE=$(BPF_TEST_FILE)" \
+			"BPF_TEST=$(BPF_TEST)" \
 			"BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" \
 			"LOG_CODEOWNERS=$(LOG_CODEOWNERS)" \
 			"JUNIT_PATH=$(JUNIT_PATH)" \

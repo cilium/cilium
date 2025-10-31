@@ -152,6 +152,7 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 				cleanup(wtxn)
 			}
 			delete(cleanupFuncs, lrpID)
+			delete(watchSets, lrpID)
 			if c.p.LRPMetrics != nil {
 				c.p.LRPMetrics.DelLRPConfig(lrpID)
 			}
@@ -169,8 +170,10 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 				if chanIsClosed(fesInitWatch) {
 					// Mark desired SkipLBs as initialized to allow pruning
 					c.desiredSkipLBInit(wtxn)
+
+					// All initializers marked done, we can stop tracking these.
+					initWatches = nil
 				}
-				initWatches = nil
 			}
 		}
 
@@ -256,64 +259,6 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 		}
 	}
 
-	switch lrp.LRPType {
-	case lrpConfigTypeSvc:
-		// Find frontends associated with the target service that match the redirection criteria and
-		// redirect them to the LRP "pseudo-service".
-		targetName := lrp.ServiceID
-		fes, watch := c.p.Writer.Frontends().ListWatch(wtxn, lb.FrontendByServiceName(targetName))
-		ws.Add(watch)
-		for fe := range fes {
-			// Only ClusterIP services can be redirected.
-			if fe.Type != lb.SVCTypeClusterIP {
-				continue
-			}
-			if shouldRedirectFrontend(c.p.Log, lrp, fe) {
-				c.p.Log.Debug("Redirecting frontend",
-					logfields.Frontend, fe,
-					logfields.ServiceName, targetName,
-					logfields.Target, &lrpServiceName)
-				c.p.Writer.SetRedirectTo(wtxn, fe, &lrpServiceName)
-			} else {
-				c.p.Writer.SetRedirectTo(wtxn, fe, nil)
-			}
-		}
-
-	case lrpConfigTypeAddr:
-		// In address-based mode there is no existing service/frontend to match against and
-		// instead the frontend is created here.
-		for _, feM := range lrp.FrontendMappings {
-			fe, _, found := c.p.Writer.Frontends().Get(wtxn, lb.FrontendByAddress(feM.feAddr))
-			if found {
-				if fe.Type != lb.SVCTypeLocalRedirect {
-					c.p.Log.Error("LocalRedirectPolicy matches an address owned by an existing service => refusing to override",
-						logfields.Address, feM.feAddr,
-						logfields.ServiceName, fe.ServiceName)
-				}
-				continue
-			}
-			_, err := c.p.Writer.UpsertFrontend(
-				wtxn,
-				lb.FrontendParams{
-					Address:     feM.feAddr,
-					Type:        lb.SVCTypeLocalRedirect,
-					ServiceName: lrpServiceName,
-					ServicePort: feM.feAddr.Port(),
-				},
-			)
-			if err != nil {
-				// Not expecting any errors here as the address conflict already handled above.
-				c.p.Log.Error("Failed to upsert frontend for LocalRedirectPolicy",
-					logfields.LRPName, lrp.ID,
-					logfields.Address, feM.feAddr,
-					logfields.Error, err)
-			}
-		}
-	case lrpConfigTypeNone:
-		cleanup(wtxn)
-		return ws, func(writer.WriteTxn) {}
-	}
-
 	// For each matching pod create a backend and associate it with the LocalRedirect
 	// service we just created above. We find pods by doing a prefix search with the
 	// namespace (more efficient than having a separate namespace index for pods).
@@ -330,12 +275,89 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 			matchingPods = append(matchingPods, getPodInfo(pod))
 		}
 	}
-	c.updateRedirectBackends(wtxn, ws, lrp, matchingPods)
+	c.updateRedirectBackends(wtxn, lrp, matchingPods)
 	c.updateSkipLB(wtxn, ws, lrp, matchingPods)
+	c.updateRedirects(wtxn, ws, cleanup, lrp, matchingPods)
+
 	return ws, cleanup
 }
 
-func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb.WatchSet, lrp *LocalRedirectPolicy, pods []podInfo) {
+func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchSet, cleanup func(writer.WriteTxn), lrp *LocalRedirectPolicy, pods []podInfo) func(writer.WriteTxn) {
+	lrpServiceName := lrp.RedirectServiceName()
+	switch lrp.LRPType {
+	case lrpConfigTypeSvc:
+		// Find frontends associated with the target service that match the redirection criteria and
+		// redirect them to the LRP "pseudo-service".
+		targetName := lrp.ServiceID
+		fes, watch := c.p.Writer.Frontends().ListWatch(wtxn, lb.FrontendByServiceName(targetName))
+		ws.Add(watch)
+		for fe := range fes {
+			// Only ClusterIP services can be redirected.
+			if fe.Type != lb.SVCTypeClusterIP {
+				continue
+			}
+			if shouldRedirectFrontend(c.p.Log, lrp, fe, pods) {
+				c.p.Log.Debug("Redirecting frontend",
+					logfields.Frontend, fe,
+					logfields.ServiceName, targetName,
+					logfields.Target, &lrpServiceName)
+				c.p.Writer.SetRedirectTo(wtxn, fe, &lrpServiceName)
+			} else {
+				c.p.Writer.SetRedirectTo(wtxn, fe, nil)
+			}
+		}
+
+	case lrpConfigTypeAddr:
+		// In address-based mode there is no existing service/frontend to match against and
+		// instead the frontend is created here.
+		for _, feM := range lrp.FrontendMappings {
+			if len(pods) == 0 {
+				// No pods exist to redirect the traffic to. Remove the frontend to let the traffic
+				// be handled normally.
+				c.p.Writer.DeleteFrontend(wtxn, feM.feAddr)
+			} else {
+				fe, _, found := c.p.Writer.Frontends().Get(wtxn, lb.FrontendByAddress(feM.feAddr))
+				if found {
+					if fe.Type != lb.SVCTypeLocalRedirect {
+						c.p.Log.Error("LocalRedirectPolicy matches an address owned by an existing service => refusing to override",
+							logfields.Address, feM.feAddr,
+							logfields.ServiceName, fe.ServiceName)
+					}
+					continue
+				}
+				_, err := c.p.Writer.UpsertFrontend(
+					wtxn,
+					lb.FrontendParams{
+						Address:     feM.feAddr,
+						Type:        lb.SVCTypeLocalRedirect,
+						ServiceName: lrpServiceName,
+						ServicePort: feM.feAddr.Port(),
+						//if we only have one frontend mapping, we dont need the frontend port name so it will not check the port name in the backend ports
+						PortName: func() lb.FEPortName {
+							if len(lrp.FrontendMappings) > 1 {
+								return feM.fePort
+							}
+							return lb.FEPortName("")
+						}(),
+					},
+				)
+				if err != nil {
+					// Not expecting any errors here as the address conflict already handled above.
+					c.p.Log.Error("Failed to upsert frontend for LocalRedirectPolicy",
+						logfields.LRPName, lrp.ID,
+						logfields.Address, feM.feAddr,
+						logfields.Error, err)
+				}
+			}
+		}
+	case lrpConfigTypeNone:
+		cleanup(wtxn)
+		return func(writer.WriteTxn) {}
+	}
+	return cleanup
+}
+
+func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalRedirectPolicy, pods []podInfo) {
 	portNameMatches := func(portName string) bool {
 		for bePortName := range lrp.BackendPortsByPortName {
 			if string(bePortName) == strings.ToLower(portName) {
@@ -360,10 +382,21 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 			if portNameMatches != nil && !portNameMatches(addr.portName) {
 				continue
 			}
+			portNumberMatches := slices.ContainsFunc(lrp.BackendPorts, func(p bePortInfo) bool {
+				return p.l4Addr.Port == addr.Port() && p.l4Addr.Protocol == addr.Protocol()
+			})
+			if !portNumberMatches {
+				continue
+			}
 			beps = append(beps, lb.BackendParams{
-				Address:   addr.L3n4Addr,
-				State:     lb.BackendStateActive,
-				PortNames: []string{addr.portName},
+				Address: addr.L3n4Addr,
+				State:   lb.BackendStateActive,
+				PortNames: func() []string {
+					if addr.portName != "" {
+						return []string{addr.portName}
+					}
+					return []string{}
+				}(),
 			})
 		}
 	}
@@ -372,8 +405,12 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 	newCount := len(beps)
 	orphanCount := 0
 	for be := range c.p.Writer.Backends().List(wtxn, lb.BackendByServiceName(lrpServiceName)) {
+		inst := be.GetInstance(lrpServiceName)
+		if inst == nil {
+			continue
+		}
 		if slices.ContainsFunc(beps, func(bep lb.BackendParams) bool {
-			return bep.Address == be.Address
+			return inst.DeepEqual(&bep)
 		}) {
 			newCount--
 		} else {
@@ -405,7 +442,12 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, ws *statedb
 	}
 }
 
-func shouldRedirectFrontend(log *slog.Logger, lrp *LocalRedirectPolicy, fe *lb.Frontend) bool {
+func shouldRedirectFrontend(log *slog.Logger, lrp *LocalRedirectPolicy, fe *lb.Frontend, pods []podInfo) bool {
+	// 0. Don't redirect if we have no matching target pods.
+	if len(pods) == 0 {
+		return false
+	}
+
 	// 1. First match the frontend based on "RedirectFrontend.ToPorts"
 	// 1.1. All frontends match if no ports are given
 	match := len(lrp.FrontendMappings) == 0
@@ -539,6 +581,7 @@ func (c *lrpController) frontendsToSkip(txn statedb.ReadTxn, ws *statedb.WatchSe
 	feAddrs := []lb.L3n4Addr{}
 	fes, watch := c.p.Writer.Frontends().ListWatch(txn, lb.FrontendByServiceName(targetName))
 	ws.Add(watch)
+
 	for fe := range fes {
 		if lrp.LRPType == lrpConfigTypeAddr || fe.RedirectTo != nil {
 			feAddrs = append(feAddrs, fe.Address)

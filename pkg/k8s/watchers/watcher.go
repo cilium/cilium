@@ -88,6 +88,11 @@ type ipcacheManager interface {
 	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool)
 }
 
+type hostNetworkManager interface {
+	AddNoTrackHostPorts(namespace, name string, ports []string)
+	RemoveNoTrackHostPorts(namespace, name string)
+}
+
 type K8sWatcher struct {
 	logger           *slog.Logger
 	resourceGroupsFn func(logger *slog.Logger, cfg WatcherConfiguration) (resourceGroups, waitForCachesOnly []string)
@@ -189,7 +194,6 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CESName):            {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
 	synced.CRDResourceName(cilium_v2.CCECName):          {skip, ""}, // Handled in pkg/ciliumenvoyconfig/
 	synced.CRDResourceName(cilium_v2.CECName):           {skip, ""}, // Handled in pkg/ciliumenvoyconfig/
-	synced.CRDResourceName(v2alpha1.BGPPName):           {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.BGPCCName):          {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.BGPAName):           {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.BGPPCName):          {skip, ""}, // Handled in BGP control plane

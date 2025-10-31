@@ -49,22 +49,9 @@ int mock_skb_get_tunnel_opt(__maybe_unused struct __sk_buff *skb,
 	return size;
 }
 
-#include "bpf_overlay.c"
+#include "lib/bpf_overlay.h"
 
 #include "lib/endpoint.h"
-
-#define FROM_OVERLAY 0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_OVERLAY] = &cil_from_overlay,
-	},
-};
 
 PKTGEN("tc", "tc_geneve_dsr_v4_legacy")
 int tc_geneve_dsr_v4_legacy_pktgen(struct __ctx_buff *ctx)
@@ -97,10 +84,8 @@ SETUP("tc", "tc_geneve_dsr_v4_legacy")
 int tc_geneve_dsr_v4_legacy_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, 0, 0, NULL, NULL);
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+
+	return overlay_receive_packet(ctx);
 }
 
 CHECK("tc", "tc_geneve_dsr_v4_legacy")

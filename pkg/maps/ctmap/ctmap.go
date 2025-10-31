@@ -13,14 +13,12 @@ import (
 	"net/netip"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -122,8 +120,8 @@ type CtMapRecord struct {
 
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols.
-func InitMapInfo(registry *metrics.Registry, v4, v6, nodeport bool) {
-	global4Map, global6Map := nat.GlobalMaps(registry, v4, v6, nodeport)
+func InitMapInfo(registry *metrics.Registry, v4, v6, natRequired bool) {
+	global4Map, global6Map := nat.GlobalMaps(registry, v4, v6, natRequired)
 	global4MapLock := &lock.Mutex{}
 	global6MapLock := &lock.Mutex{}
 
@@ -402,16 +400,7 @@ func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(
 	return nil
 }
 
-var batchAPISupported = sync.OnceValue(func() bool {
-	return !errors.Is(probes.HaveBatchAPI(), probes.ErrNotSupported)
-})
-
 func iterate[KT any, VT any, KP bpf.KeyPointer[KT], VP bpf.ValuePointer[VT]](m *Map, stats *gcStats, filterCallback func(key bpf.MapKey, value bpf.MapValue)) error {
-	// Note: We can drop this once the minimum supported kernel version has batch iteration (i.e. >=5.6).
-	if !batchAPISupported() {
-		return m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
-	}
-
 	ctx := context.Background()
 	iter := bpf.NewBatchIterator[KT, VT, KP, VP](&m.Map)
 	for k, v := range iter.IterateAll(ctx) {
@@ -731,16 +720,16 @@ func Exists(ipv4, ipv6 bool) bool {
 	return result
 }
 
-var cachedGCInterval time.Duration
-
 // GetInterval returns the interval adjusted based on the deletion ratio of the
-// last run
-func GetInterval(logger *slog.Logger, actualPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
+// last run.
+//   - actualPrevInterval 	= actual time elapsed since last GC.
+//   - expectedPrevInterval 	= Is the last computed interval, which we expected to
+//     wait *unless* a signal caused early pass. If this is set to zero then we use gc starting interval.
+func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
 	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
 		return val
 	}
 
-	expectedPrevInterval := cachedGCInterval
 	adjustedDeleteRatio := maxDeleteRatio
 	if expectedPrevInterval == time.Duration(0) {
 		expectedPrevInterval = defaults.ConntrackGCStartingInterval
@@ -769,6 +758,11 @@ func GetInterval(logger *slog.Logger, actualPrevInterval time.Duration, maxDelet
 	return newInterval
 }
 
+var (
+	MinGCInterval      = defaults.ConntrackGCMinInterval
+	GCIntervalRounding = time.Second
+)
+
 func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
 	interval = prevInterval
 
@@ -782,17 +776,14 @@ func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (inte
 			maxDeleteRatio = 0.9
 		}
 		// 25%..90% => 1.3x..10x shorter
-		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(time.Second), defaults.ConntrackGCMinInterval)
-
+		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(GCIntervalRounding), MinGCInterval)
 	case maxDeleteRatio < 0.05:
 		// When less than 5% of entries were deleted, increase the
 		// interval. Use a simple 1.5x multiplier to start growing slowly
 		// as a new node may not be seeing workloads yet and thus the
 		// scan will return a low deletion ratio at first.
-		interval = min(time.Duration(float64(interval)*1.5).Round(time.Second), defaults.ConntrackGCMaxLRUInterval)
+		interval = min(time.Duration(float64(interval)*1.5).Round(GCIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
 	}
-
-	cachedGCInterval = interval
 
 	return
 }

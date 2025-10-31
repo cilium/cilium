@@ -27,13 +27,18 @@ on:
         description: 'Which version are you releasing? (e.g. vX.Y.Z[-(pre|rc).W])'
         required: true
         type: string
+    secrets:
+      CILIUM_RELEASE_BOT_PEM:
+        required: true
+      CILIUM_RELEASE_BOT_APP_ID:
+        required: true
 
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.inputs.version }}
+  group: ${{ github.workflow }}-${{ inputs.version }}-${{ inputs.step }}
   cancel-in-progress: true
 
 jobs:
@@ -44,13 +49,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.0
+          go-version: 1.25.3
 
       - name: Install helm
-        if: ${{ github.event.inputs.step == '5-publish-helm' }}
+        if: ${{ inputs.step == '5-publish-helm' }}
         shell: bash
         run: |
           # We don't want renovate to update this version, because we want to
@@ -83,7 +88,7 @@ jobs:
         run: mv release ../
 
       - name: Checkout helm chart
-        if: ${{ github.event.inputs.step == '5-publish-helm' }}
+        if: ${{ inputs.step == '5-publish-helm' }}
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           persist-credentials: false
@@ -91,7 +96,7 @@ jobs:
           path: "./cilium-charts"
 
       - name: Set up charts repository git configuration
-        if: ${{ github.event.inputs.step == '5-publish-helm' }}
+        if: ${{ inputs.step == '5-publish-helm' }}
         shell: bash
         run: |
           mv cilium-charts ../charts
@@ -132,16 +137,16 @@ jobs:
             --charts-repo-dir "$(pwd)/../charts" \
             --repo-dir "$(pwd)/../cilium" \
             --repo ${{ github.repository }} \
-            --target-version ${{ github.event.inputs.version }} \
-            --steps ${{ github.event.inputs.step }} \
+            --target-version ${{ inputs.version }} \
+            --steps ${{ inputs.step }} \
             --exclude-labels "cilium-cli-exclusive"
 
       - name: Wait for helm chart PR checks and merge
-        if: ${{ github.event.inputs.step == '5-publish-helm' }}
+        if: ${{ inputs.step == '5-publish-helm' }}
         shell: bash
         env:
           GITHUB_TOKEN: "${{ steps.get_token.outputs.app_token }}"
-          VERSION: ${{ github.event.inputs.version }}
+          VERSION: ${{ inputs.version }}
         run: |
           echo "🔄 Waiting for helm chart PR checks and merging for version $VERSION"
 

@@ -2,7 +2,7 @@
 
 ## cilium-operator-alibabacloud shell
 
-Connect to the Cilium shell
+Connect to the shell
 
 ```
 cilium-operator-alibabacloud shell [command] [args]... [flags]
@@ -11,7 +11,8 @@ cilium-operator-alibabacloud shell [command] [args]... [flags]
 ### Options
 
 ```
-  -h, --help   help for shell
+  -h, --help                     help for shell
+      --shell-sock-path string   Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
 ```
 
 ### SEE ALSO

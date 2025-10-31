@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/metrics"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -166,8 +165,8 @@ func TestRemoteClusterRun(t *testing.T) {
 					FeatureMetrics:        NewClusterMeshMetricsNoop(),
 					Logger:                logger,
 				},
-				globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
 				FeatureMetrics: NewClusterMeshMetricsNoop(),
+				globalServices: common.NewGlobalServiceCache(logger),
 			}
 			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 			ready := make(chan error)
@@ -297,7 +296,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			Logger:                logger,
 		},
 		FeatureMetrics: NewClusterMeshMetricsNoop(),
-		globalServices: common.NewGlobalServiceCache(logger, metrics.NoOpGauge),
+		globalServices: common.NewGlobalServiceCache(logger),
 	}
 	rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 

@@ -190,7 +190,24 @@ func nodeHasCiliumPod(nodeName string) (scheduled bool, ready bool) {
 		return false, false
 	}
 	for _, ciliumPodInterface := range ciliumPodsInNode {
-		ciliumPod := ciliumPodInterface.(*slim_corev1.Pod)
+		if ciliumPodInterface == nil {
+			continue
+		}
+
+		var ciliumPod *slim_corev1.Pod
+		switch obj := ciliumPodInterface.(type) {
+		case *slim_corev1.Pod:
+			ciliumPod = obj
+		case cache.DeletedFinalStateUnknown:
+			pod, ok := obj.Obj.(*slim_corev1.Pod)
+			if !ok {
+				continue
+			}
+			ciliumPod = pod
+		default:
+			continue
+		}
+
 		if ciliumPod.DeletionTimestamp != nil { // even if the pod is running, it will be down shortly
 			continue
 		}
@@ -492,7 +509,7 @@ func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clien
 		SetCiliumIsUpCondition: option.Config.SetCiliumIsUpCondition,
 	}
 
-	nodesInit(wg, clientset.Slim(), stopCh, logger)
+	nodesInit(wg, clientset.Slim(), stopCh, nil)
 	// ciliumPodWatcher blocks waiting for cache sync.
 	// we need to do it before starting worker threads
 	// so checkAndMarkNode has cilium-pod information.

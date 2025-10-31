@@ -16,7 +16,7 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
 	"github.com/cilium/cilium/pkg/hubble/build"
-	"github.com/cilium/cilium/pkg/hubble/observer"
+	"github.com/cilium/cilium/pkg/hubble/observer/namespace"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -205,7 +205,7 @@ func (s *Server) GetNamespaces(ctx context.Context, req *observerpb.GetNamespace
 	// results over failing on the first error
 	g := new(errgroup.Group)
 
-	namespaceManager := observer.NewNamespaceManager()
+	nsManager := namespace.NewManager()
 
 	for _, p := range s.peers.List() {
 		if !isAvailable(p.Conn) {
@@ -229,7 +229,7 @@ func (s *Server) GetNamespaces(ctx context.Context, req *observerpb.GetNamespace
 				return nil
 			}
 			for _, ns := range nsResp.GetNamespaces() {
-				namespaceManager.AddNamespace(ns)
+				nsManager.AddNamespace(ns)
 			}
 			return nil
 		})
@@ -239,7 +239,7 @@ func (s *Server) GetNamespaces(ctx context.Context, req *observerpb.GetNamespace
 		return nil, err
 	}
 
-	return &observerpb.GetNamespacesResponse{Namespaces: namespaceManager.GetNamespaces()}, nil
+	return &observerpb.GetNamespacesResponse{Namespaces: nsManager.GetNamespaces()}, nil
 }
 
 // ServerStatus implements observerpb.ObserverServer.ServerStatus by aggregating

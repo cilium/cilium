@@ -26,6 +26,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 	"sigs.k8s.io/controller-runtime/pkg/internal/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -80,13 +81,82 @@ type TypedOptions[request comparable] struct {
 	// Only use a custom NewQueue if you know what you are doing.
 	NewQueue func(controllerName string, rateLimiter workqueue.TypedRateLimiter[request]) workqueue.TypedRateLimitingInterface[request]
 
+	// Logger will be used to build a default LogConstructor if unset.
+	Logger logr.Logger
+
 	// LogConstructor is used to construct a logger used for this controller and passed
 	// to each reconciliation via the context field.
 	LogConstructor func(request *request) logr.Logger
+
+	// UsePriorityQueue configures the controllers queue to use the controller-runtime provided
+	// priority queue.
+	//
+	// Note: This flag is disabled by default until a future version. This feature is currently in beta.
+	// For more details, see: https://github.com/kubernetes-sigs/controller-runtime/issues/2374.
+	UsePriorityQueue *bool
+
+	// EnableWarmup specifies whether the controller should start its sources when the manager is not
+	// the leader. This is useful for cases where sources take a long time to start, as it allows
+	// for the controller to warm up its caches even before it is elected as the leader. This
+	// improves leadership failover time, as the caches will be prepopulated before the controller
+	// transitions to be leader.
+	//
+	// Setting EnableWarmup to true and NeedLeaderElection to true means the controller will start its
+	// sources without waiting to become leader.
+	// Setting EnableWarmup to true and NeedLeaderElection to false is a no-op as controllers without
+	// leader election do not wait on leader election to start their sources.
+	// Defaults to false.
+	//
+	// Note: This feature is currently in beta and subject to change.
+	// For more details, see: https://github.com/kubernetes-sigs/controller-runtime/issues/3220.
+	EnableWarmup *bool
+
+	// ReconciliationTimeout is used as the timeout passed to the context of each Reconcile call.
+	// By default, there is no timeout.
+	ReconciliationTimeout time.Duration
 }
 
-// Controller implements a Kubernetes API.  A Controller manages a work queue fed reconcile.Requests
-// from source.Sources.  Work is performed through the reconcile.Reconciler for each enqueued item.
+// DefaultFromConfig defaults the config from a config.Controller
+func (options *TypedOptions[request]) DefaultFromConfig(config config.Controller) {
+	if options.Logger.GetSink() == nil {
+		options.Logger = config.Logger
+	}
+
+	if options.SkipNameValidation == nil {
+		options.SkipNameValidation = config.SkipNameValidation
+	}
+
+	if options.MaxConcurrentReconciles <= 0 && config.MaxConcurrentReconciles > 0 {
+		options.MaxConcurrentReconciles = config.MaxConcurrentReconciles
+	}
+
+	if options.CacheSyncTimeout == 0 && config.CacheSyncTimeout > 0 {
+		options.CacheSyncTimeout = config.CacheSyncTimeout
+	}
+
+	if options.UsePriorityQueue == nil {
+		options.UsePriorityQueue = config.UsePriorityQueue
+	}
+
+	if options.RecoverPanic == nil {
+		options.RecoverPanic = config.RecoverPanic
+	}
+
+	if options.NeedLeaderElection == nil {
+		options.NeedLeaderElection = config.NeedLeaderElection
+	}
+
+	if options.EnableWarmup == nil {
+		options.EnableWarmup = config.EnableWarmup
+	}
+
+	if options.ReconciliationTimeout == 0 {
+		options.ReconciliationTimeout = config.ReconciliationTimeout
+	}
+}
+
+// Controller implements an API. A Controller manages a work queue fed reconcile.Requests
+// from source.Sources. Work is performed through the reconcile.Reconciler for each enqueued item.
 // Work typically is reads and writes Kubernetes objects to make the system state match the state specified
 // in the object Spec.
 type Controller = TypedController[reconcile.Request]
@@ -119,7 +189,8 @@ func New(name string, mgr manager.Manager, options Options) (Controller, error) 
 //
 // The name must be unique as it is used to identify the controller in metrics and logs.
 func NewTyped[request comparable](name string, mgr manager.Manager, options TypedOptions[request]) (TypedController[request], error) {
-	c, err := NewTypedUnmanaged(name, mgr, options)
+	options.DefaultFromConfig(mgr.GetControllerOptions())
+	c, err := NewTypedUnmanaged(name, options)
 	if err != nil {
 		return nil, err
 	}
@@ -132,24 +203,20 @@ func NewTyped[request comparable](name string, mgr manager.Manager, options Type
 // caller is responsible for starting the returned controller.
 //
 // The name must be unique as it is used to identify the controller in metrics and logs.
-func NewUnmanaged(name string, mgr manager.Manager, options Options) (Controller, error) {
-	return NewTypedUnmanaged(name, mgr, options)
+func NewUnmanaged(name string, options Options) (Controller, error) {
+	return NewTypedUnmanaged(name, options)
 }
 
 // NewTypedUnmanaged returns a new typed controller without adding it to the manager.
 //
 // The name must be unique as it is used to identify the controller in metrics and logs.
-func NewTypedUnmanaged[request comparable](name string, mgr manager.Manager, options TypedOptions[request]) (TypedController[request], error) {
+func NewTypedUnmanaged[request comparable](name string, options TypedOptions[request]) (TypedController[request], error) {
 	if options.Reconciler == nil {
 		return nil, fmt.Errorf("must specify Reconciler")
 	}
 
 	if len(name) == 0 {
 		return nil, fmt.Errorf("must specify Name for Controller")
-	}
-
-	if options.SkipNameValidation == nil {
-		options.SkipNameValidation = mgr.GetControllerOptions().SkipNameValidation
 	}
 
 	if options.SkipNameValidation == nil || !*options.SkipNameValidation {
@@ -159,7 +226,7 @@ func NewTypedUnmanaged[request comparable](name string, mgr manager.Manager, opt
 	}
 
 	if options.LogConstructor == nil {
-		log := mgr.GetLogger().WithValues(
+		log := options.Logger.WithValues(
 			"controller", name,
 		)
 		options.LogConstructor = func(in *request) logr.Logger {
@@ -175,23 +242,15 @@ func NewTypedUnmanaged[request comparable](name string, mgr manager.Manager, opt
 	}
 
 	if options.MaxConcurrentReconciles <= 0 {
-		if mgr.GetControllerOptions().MaxConcurrentReconciles > 0 {
-			options.MaxConcurrentReconciles = mgr.GetControllerOptions().MaxConcurrentReconciles
-		} else {
-			options.MaxConcurrentReconciles = 1
-		}
+		options.MaxConcurrentReconciles = 1
 	}
 
 	if options.CacheSyncTimeout == 0 {
-		if mgr.GetControllerOptions().CacheSyncTimeout != 0 {
-			options.CacheSyncTimeout = mgr.GetControllerOptions().CacheSyncTimeout
-		} else {
-			options.CacheSyncTimeout = 2 * time.Minute
-		}
+		options.CacheSyncTimeout = 2 * time.Minute
 	}
 
 	if options.RateLimiter == nil {
-		if ptr.Deref(mgr.GetControllerOptions().UsePriorityQueue, false) {
+		if ptr.Deref(options.UsePriorityQueue, false) {
 			options.RateLimiter = workqueue.NewTypedItemExponentialFailureRateLimiter[request](5*time.Millisecond, 1000*time.Second)
 		} else {
 			options.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[request]()
@@ -200,9 +259,9 @@ func NewTypedUnmanaged[request comparable](name string, mgr manager.Manager, opt
 
 	if options.NewQueue == nil {
 		options.NewQueue = func(controllerName string, rateLimiter workqueue.TypedRateLimiter[request]) workqueue.TypedRateLimitingInterface[request] {
-			if ptr.Deref(mgr.GetControllerOptions().UsePriorityQueue, false) {
+			if ptr.Deref(options.UsePriorityQueue, false) {
 				return priorityqueue.New(controllerName, func(o *priorityqueue.Opts[request]) {
-					o.Log = mgr.GetLogger().WithValues("controller", controllerName)
+					o.Log = options.Logger.WithValues("controller", controllerName)
 					o.RateLimiter = rateLimiter
 				})
 			}
@@ -212,16 +271,8 @@ func NewTypedUnmanaged[request comparable](name string, mgr manager.Manager, opt
 		}
 	}
 
-	if options.RecoverPanic == nil {
-		options.RecoverPanic = mgr.GetControllerOptions().RecoverPanic
-	}
-
-	if options.NeedLeaderElection == nil {
-		options.NeedLeaderElection = mgr.GetControllerOptions().NeedLeaderElection
-	}
-
 	// Create controller with dependencies set
-	return &controller.Controller[request]{
+	return controller.New[request](controller.Options[request]{
 		Do:                      options.Reconciler,
 		RateLimiter:             options.RateLimiter,
 		NewQueue:                options.NewQueue,
@@ -231,7 +282,9 @@ func NewTypedUnmanaged[request comparable](name string, mgr manager.Manager, opt
 		LogConstructor:          options.LogConstructor,
 		RecoverPanic:            options.RecoverPanic,
 		LeaderElected:           options.NeedLeaderElection,
-	}, nil
+		EnableWarmup:            options.EnableWarmup,
+		ReconciliationTimeout:   options.ReconciliationTimeout,
+	}), nil
 }
 
 // ReconcileIDFromContext gets the reconcileID from the current context.

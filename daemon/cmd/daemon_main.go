@@ -16,8 +16,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -33,22 +31,14 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint"
-	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
-	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -56,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/health"
+	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -68,10 +59,10 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kpr"
+	kprinitializer "github.com/cilium/cilium/pkg/kpr/initializer"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
@@ -83,7 +74,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
-	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
@@ -103,6 +93,7 @@ const (
 	argDebugVerboseEnvoy    = "envoy"
 	argDebugVerboseDatapath = "datapath"
 	argDebugVerbosePolicy   = "policy"
+	argDebugVerboseTagged   = "tagged"
 
 	apiTimeout   = 60 * time.Second
 	daemonSubsys = "daemon"
@@ -174,6 +165,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	})
 
 	// Env bindings
+
+	hive.RegisterFlags(vp, flags)
+
 	flags.Int(option.AgentHealthPort, defaults.AgentHealthPort, "TCP port for agent health status API")
 	option.BindEnv(vp, option.AgentHealthPort)
 
@@ -230,17 +224,8 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(vp, option.EnableEndpointRoutes)
 
-	flags.Bool(option.EnableHealthChecking, defaults.EnableHealthChecking, "Enable connectivity health checking")
-	option.BindEnv(vp, option.EnableHealthChecking)
-
 	flags.Bool(option.AgentHealthRequireK8sConnectivity, true, "Require Kubernetes connectivity in agent health endpoint")
 	option.BindEnv(vp, option.AgentHealthRequireK8sConnectivity)
-
-	flags.Bool(option.EnableHealthCheckLoadBalancerIP, defaults.EnableHealthCheckLoadBalancerIP, "Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled")
-	option.BindEnv(vp, option.EnableHealthCheckLoadBalancerIP)
-
-	flags.Bool(option.EnableEndpointHealthChecking, defaults.EnableEndpointHealthChecking, "Enable connectivity health checking between virtual endpoints")
-	option.BindEnv(vp, option.EnableEndpointHealthChecking)
 
 	flags.Int(option.HealthCheckICMPFailureThreshold, defaults.HealthCheckICMPFailureThreshold, "Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy.")
 	option.BindEnv(vp, option.HealthCheckICMPFailureThreshold)
@@ -356,25 +341,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableUnreachableRoutes, false, "Add unreachable routes on pod deletion")
 	option.BindEnv(vp, option.EnableUnreachableRoutes)
-
-	flags.Bool(option.EnableIPSecName, defaults.EnableIPSec, "Enable IPsec support")
-	option.BindEnv(vp, option.EnableIPSecName)
-
-	flags.String(option.IPSecKeyFileName, "", "Path to IPsec key file")
-	option.BindEnv(vp, option.IPSecKeyFileName)
-
-	flags.Duration(option.IPsecKeyRotationDuration, defaults.IPsecKeyRotationDuration, "Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.")
-	option.BindEnv(vp, option.IPsecKeyRotationDuration)
-
-	flags.Bool(option.EnableIPsecKeyWatcher, defaults.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
-	option.BindEnv(vp, option.EnableIPsecKeyWatcher)
-
-	flags.Bool(option.EnableIPSecXfrmStateCaching, defaults.EnableIPSecXfrmStateCaching, "Enable XfrmState cache for IPSec. Significantly reduces CPU usage in large clusters.")
-	flags.MarkHidden(option.EnableIPSecXfrmStateCaching)
-	option.BindEnv(vp, option.EnableIPSecXfrmStateCaching)
-
-	flags.Bool(option.EnableIPSecEncryptedOverlay, defaults.EnableIPSecEncryptedOverlay, "Enable IPsec encrypted overlay. If enabled tunnel traffic will be encrypted before leaving the host. Requires ipsec and tunnel mode vxlan to be enabled.")
-	option.BindEnv(vp, option.EnableIPSecEncryptedOverlay)
 
 	flags.Bool(option.EnableL2Announcements, false, "Enable L2 announcements")
 	option.BindEnv(vp, option.EnableL2Announcements)
@@ -543,6 +509,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 		"when a Pod talks to itself over a Service.")
 	option.BindEnv(vp, option.ServiceLoopbackIPv4)
 
+	flags.String(option.ServiceLoopbackIPv6, defaults.ServiceLoopbackIPv6, "IPv6 source address to use for SNAT "+
+		"when a Pod talks to itself over a Service.")
+	option.BindEnv(vp, option.ServiceLoopbackIPv6)
+
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv4Masquerade)
 
@@ -557,10 +527,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableMasqueradeRouteSource, false, "Masquerade packets to the source IP provided from the routing layer rather than interface address")
 	option.BindEnv(vp, option.EnableMasqueradeRouteSource)
-
-	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
-	flags.MarkDeprecated(option.EnableIPv4EgressGateway, "Use --enable-egress-gateway instead")
-	option.BindEnv(vp, option.EnableIPv4EgressGateway)
 
 	flags.Bool(option.EnableEgressGateway, false, "Enable egress gateway")
 	option.BindEnv(vp, option.EnableEgressGateway)
@@ -579,9 +545,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
 	option.BindEnvWithLegacyEnvFallback(vp, option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
-
-	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
-	option.BindEnv(vp, option.MTUName)
 
 	flags.Int(option.RouteMetric, 0, "Overwrite the metric used by cilium when adding routes to its 'cilium_host' device")
 	option.BindEnv(vp, option.RouteMetric)
@@ -612,6 +575,10 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.ServiceNoBackendResponse)
 
 	flags.Int(option.TracePayloadlen, defaults.TracePayloadLen, "Length of payload to capture when tracing native packets.")
+
+	flags.String(option.PolicyDenyResponse, defaults.PolicyDenyResponse, "How to handle pod egress traffic dropped by network policy: either drop the packet (\"none\") or reject with an ICMP Destination Unreachable (\"icmp\")")
+	option.BindEnv(vp, option.PolicyDenyResponse)
+
 	option.BindEnv(vp, option.TracePayloadlen)
 
 	flags.Int(option.TracePayloadlenOverlay, defaults.TracePayloadLenOverlay, "Length of payload to capture when tracing overlay packets.")
@@ -731,10 +698,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DNSProxyEnableTransparentMode, defaults.DNSProxyEnableTransparentMode, "Enable DNS proxy transparent mode")
 	option.BindEnv(vp, option.DNSProxyEnableTransparentMode)
 
-	flags.Bool(option.DNSProxyInsecureSkipTransparentModeCheck, false, "Allows DNS proxy transparent mode to be disabled even if encryption is enabled. Enabling this flag and disabling DNS proxy transparent mode will cause proxied DNS traffic to leave the node unencrypted.")
-	flags.MarkHidden(option.DNSProxyInsecureSkipTransparentModeCheck)
-	option.BindEnv(vp, option.DNSProxyInsecureSkipTransparentModeCheck)
-
 	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "Size of EventQueue per-endpoint")
 	option.BindEnv(vp, option.EndpointQueueSize)
 
@@ -791,10 +754,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 		"Value \"auto\" reserves the WireGuard and VXLAN ports used by Cilium")
 	option.BindEnv(vp, option.ContainerIPLocalReservedPorts)
 
-	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
-	option.BindEnv(vp, option.EnableCustomCallsName)
-	flags.MarkDeprecated(option.EnableCustomCallsName, "The feature has been deprecated and it will be removed in v1.19")
-
 	// flags.IntSlice cannot be used due to missing support for appropriate conversion in Viper.
 	// See https://github.com/cilium/cilium/pull/20282 for more information.
 	flags.StringSlice(option.VLANBPFBypass, []string{}, "List of explicitly allowed VLAN IDs, '0' id will allow all VLAN IDs")
@@ -807,10 +766,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableICMPRules)
 	option.BindEnv(vp, option.EnableICMPRules)
 
-	flags.Bool(option.UseCiliumInternalIPForIPsec, defaults.UseCiliumInternalIPForIPsec, "Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation")
-	flags.MarkHidden(option.UseCiliumInternalIPForIPsec)
-	option.BindEnv(vp, option.UseCiliumInternalIPForIPsec)
-
 	flags.Bool(option.BypassIPAvailabilityUponRestore, false, "Bypasses the IP availability error within IPAM upon endpoint restore")
 	flags.MarkHidden(option.BypassIPAvailabilityUponRestore)
 	option.BindEnv(vp, option.BypassIPAvailabilityUponRestore)
@@ -821,17 +776,8 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableVTEP, defaults.EnableVTEP, "Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)")
 	option.BindEnv(vp, option.EnableVTEP)
 
-	flags.StringSlice(option.VtepEndpoint, []string{}, "List of VTEP IP addresses")
-	option.BindEnv(vp, option.VtepEndpoint)
-
-	flags.StringSlice(option.VtepCIDR, []string{}, "List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress")
-	option.BindEnv(vp, option.VtepCIDR)
-
 	flags.String(option.VtepMask, "255.255.255.0", "VTEP CIDR Mask for all VTEP CIDRs")
 	option.BindEnv(vp, option.VtepMask)
-
-	flags.StringSlice(option.VtepMAC, []string{}, "List of VTEP MAC addresses for forwarding traffic outside the cluster")
-	option.BindEnv(vp, option.VtepMAC)
 
 	flags.Int(option.TCFilterPriority, 1, "Priority of TC BPF filter")
 	flags.MarkHidden(option.TCFilterPriority)
@@ -897,6 +843,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableExtendedIPProtocols, defaults.EnableExtendedIPProtocols, "Enable traffic with extended IP protocols in datapath")
 	option.BindEnv(vp, option.EnableExtendedIPProtocols)
 
+	flags.Uint8(option.IPTracingOptionType, 0, "Specifies what IPv4 option type should be used to extract trace information from a packet; a value of 0 (default) disables IP tracing.")
+	option.BindEnv(vp, option.IPTracingOptionType)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		logging.Fatal(logger, "BindPFlags failed", logfields.Error, err)
 	}
@@ -919,7 +868,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 		// Changing files permissions to -rwx:r--:---, we are only
 		// adding executable permission to the owner and keeping the
 		// same permissions stored by go-bindata.
-		if err := os.Chmod(fileToChange, os.FileMode(0740)); err != nil {
+		if err := os.Chmod(fileToChange, os.FileMode(0o740)); err != nil {
 			return err
 		}
 	}
@@ -969,13 +918,11 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 			debugDatapath = true
 		case argDebugVerbosePolicy:
 			option.Config.Opts.SetBool(option.DebugPolicy, true)
+		case argDebugVerboseTagged:
+			option.Config.Opts.SetBool(option.DebugTagged, true)
 		default:
 			logger.Warn("Unknown verbose debug group", logfields.Group, grp)
 		}
-	}
-	// Enable policy debugging if debug is enabled.
-	if option.Config.Debug {
-		option.Config.Opts.SetBool(option.DebugPolicy, true)
 	}
 
 	common.RequireRootPrivilege("cilium-agent")
@@ -1154,22 +1101,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, "L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
 	}
 
-	if !option.Config.DNSProxyInsecureSkipTransparentModeCheck {
-		if option.Config.EnableIPSec && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
-			logging.Fatal(logger, "IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
-		}
-	}
-
-	if option.Config.EnableIPSec && option.Config.TunnelingEnabled() {
-		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
-			logging.Fatal(logger, "IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later).", logfields.Error, err)
-		}
-	}
-
-	if option.Config.EnableIPSecEncryptedOverlay && !option.Config.EnableIPSec {
-		logger.Warn("IPSec encrypted overlay is enabled but IPSec is not. Ignoring option.")
-	}
-
 	if option.Config.EnableRemoteNodeMasquerade && !option.Config.EnableBPFMasquerade {
 		logging.Fatal(logger, "Option "+option.EnableRemoteNodeMasquerade+" requires BPF masquerade to be enabled ("+option.EnableBPFMasquerade+")")
 	}
@@ -1186,12 +1117,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		}
 	}
 
-	if option.Config.EnableHostFirewall {
-		if option.Config.EnableIPSec {
-			logging.Fatal(logger, "IPSec cannot be used with the host firewall.")
-		}
-	}
-
 	if option.Config.EnableIPv4FragmentsTracking {
 		if !option.Config.EnableIPv4 {
 			option.Config.EnableIPv4FragmentsTracking = false
@@ -1204,13 +1129,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		}
 	}
 
-	if option.Config.EnableBPFTProxy {
-		if probes.HaveProgramHelper(logger, ebpf.SchedCLS, asm.FnSkAssign) != nil {
-			option.Config.EnableBPFTProxy = false
-			logger.Info("Disabled support for BPF TProxy due to missing kernel support for socket assign (Linux 5.7 or later)")
-		}
-	}
-
 	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
 		// TODO(weil0ng): add a proper check for ipam in PR# 15429.
 		if option.Config.TunnelingEnabled() {
@@ -1218,9 +1136,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		}
 		if !option.Config.EnableEndpointRoutes {
 			logging.Fatal(logger, fmt.Sprintf("Cannot specify %s or %s  without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes))
-		}
-		if option.Config.EnableIPSec {
-			logging.Fatal(logger, fmt.Sprintf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSecName))
 		}
 	}
 
@@ -1291,20 +1206,21 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 }
 
 // daemonCell wraps the existing implementation of the cilium-agent that has
-// not yet been converted into a cell. Provides *Daemon as a Promise that is
-// resolved once daemon has been started to facilitate conversion into modules.
+// not yet been converted into a cell.
 var daemonCell = cell.Module(
 	"daemon",
 	"Legacy Daemon",
 
 	cell.Provide(
-		newDaemonPromise,
+		daemonLegacyInitialization,
 		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
+		newEndpointRestorer,
+		newInfraIPAllocator,
 	),
 	cell.Invoke(registerEndpointStateResolver),
-	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
+	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force instantiation.
 )
 
 type daemonParams struct {
@@ -1327,10 +1243,9 @@ type daemonParams struct {
 	K8sResourceSynced   *k8sSynced.Resources
 	K8sAPIGroups        *k8sSynced.APIGroups
 	NodeHandler         datapath.NodeHandler
-	NodeAddressing      datapath.NodeAddressing
 	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
-	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
+	EndpointRestorer    *endpointRestorer
 	CertManager         certificatemanager.CertificateManager
 	SecretManager       certificatemanager.SecretManager
 	IdentityAllocator   identitycell.CachingIdentityAllocator
@@ -1344,103 +1259,86 @@ type daemonParams struct {
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
 	Namespaces          statedb.Table[agentK8s.Namespace]
-	Routes              statedb.Table[*datapathTables.Route]
 	Devices             statedb.Table[*datapathTables.Device]
-	NodeAddrs           statedb.Table[datapathTables.NodeAddress]
 	DirectRoutingDevice datapathTables.DirectRoutingDevice
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
-	CTNATMapGC          ctmap.GCRunner
-	IPIdentityWatcher   *ipcache.LocalIPIdentityWatcher
-	EndpointRegenerator *endpoint.Regenerator
-	ClusterInfo         cmtypes.ClusterInfo
-	TunnelConfig        tunnel.Config
-	BandwidthManager    datapath.BandwidthManager
-	IPsecKeyCustodian   datapath.IPsecKeyCustodian
-	MTU                 mtu.MTU
-	Sysctl              sysctl.Sysctl
-	SyncHostIPs         *syncHostIPs
-	NodeDiscovery       *nodediscovery.NodeDiscovery
-	IPAM                *ipam.IPAM
-	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	IdentityManager     identitymanager.IDManager
-	MaglevConfig        maglev.Config
-	LBConfig            loadbalancer.Config
-	DNSProxy            bootstrap.FQDNProxyBootstrapper
-	DNSNameManager      namemanager.NameManager
-	KPRConfig           kpr.KPRConfig
-	EndpointAPIFence    endpointapi.Fence
+	CTNATMapGC        ctmap.GCRunner
+	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
+	ClusterInfo       cmtypes.ClusterInfo
+	IPsecAgent        datapath.IPsecAgent
+	SyncHostIPs       *syncHostIPs
+	NodeDiscovery     *nodediscovery.NodeDiscovery
+	IPAM              *ipam.IPAM
+	CRDSyncPromise    promise.Promise[k8sSynced.CRDSync]
+	IdentityManager   identitymanager.IDManager
+	MaglevConfig      maglev.Config
+	DNSProxy          bootstrap.FQDNProxyBootstrapper
+	DNSNameManager    namemanager.NameManager
+	KPRConfig         kpr.KPRConfig
+	KPRInitializer    kprinitializer.KPRInitializer
+	IPSecConfig       datapath.IPsecConfig
+	HealthConfig      healthconfig.CiliumHealthConfig
+	InfraIPAllocator  *infraIPAllocator
 }
 
-func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
-	daemonResolver, daemonPromise := promise.New[*Daemon]()
-
+func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization {
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
 	cleaner := NewDaemonCleanup()
 
-	var daemon *Daemon
 	var wg sync.WaitGroup
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) (err error) {
-			defer func() {
-				// Reject promises on error
-				if err != nil {
-					params.CfgResolver.Reject(err)
-					daemonResolver.Reject(err)
-				}
-			}()
-
-			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, &params)
-			if err != nil {
+		OnStart: func(cell.HookContext) error {
+			if err := configureDaemon(daemonCtx, cleaner, params); err != nil {
 				cancelDaemonCtx()
 				cleaner.Clean()
-				return fmt.Errorf("daemon creation failed: %w", err)
+				params.CfgResolver.Reject(err)
+				return fmt.Errorf("daemon configuration failed: %w", err)
 			}
-			daemon = d
 
 			if !option.Config.DryMode {
-				d.logger.Info("Initializing daemon")
+				params.Logger.Info("Initializing daemon")
 
 				// This validation needs to be done outside of the agent until
 				// datapath.NodeAddressing is used consistently across the code base.
-				d.logger.Info("Validating configured node address ranges")
+				params.Logger.Info("Validating configured node address ranges")
 				if err := node.ValidatePostInit(params.Logger); err != nil {
+					params.CfgResolver.Reject(err)
 					return fmt.Errorf("postinit failed: %w", err)
 				}
 
 				// Store config in file before resolving the DaemonConfig promise.
-				err = option.Config.StoreInFile(d.logger, option.Config.StateDir)
-				if err != nil {
-					d.logger.Error("Unable to store Cilium's configuration", logfields.Error, err)
+				if err := option.Config.StoreInFile(params.Logger, option.Config.StateDir); err != nil {
+					params.Logger.Error("Unable to store Cilium's configuration", logfields.Error, err)
+					params.CfgResolver.Reject(err)
+					return err
 				}
 
-				err = option.StoreViperInFile(d.logger, option.Config.StateDir)
-				if err != nil {
-					d.logger.Error("Unable to store Viper's configuration", logfields.Error, err)
+				if err := option.StoreViperInFile(params.Logger, option.Config.StateDir); err != nil {
+					params.Logger.Error("Unable to store Viper's configuration", logfields.Error, err)
+					params.CfgResolver.Reject(err)
+					return err
 				}
 			}
 
-			// 'option.Config' is assumed to be stable at this point, execpt for
+			// 'option.Config' is assumed to be stable at this point, except for
 			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
 			params.CfgResolver.Resolve(option.Config)
 
 			if option.Config.DryMode {
-				daemonResolver.Resolve(daemon)
-			} else {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					if err := startDaemon(daemon, restoredEndpoints, cleaner, params); err != nil {
-						d.logger.Error("Daemon start failed", logfields.Error, err)
-						daemonResolver.Reject(err)
-					} else {
-						daemonResolver.Resolve(daemon)
-					}
-				}()
+				return nil
 			}
+
+			wg.Go(func() {
+				if err := startDaemon(daemonCtx, params); err != nil {
+					params.Logger.Error("Daemon start failed", logfields.Error, err)
+					params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
+				}
+			})
+
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
@@ -1450,21 +1348,21 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 			return nil
 		},
 	})
-	return daemonPromise, legacy.DaemonInitialization{}
+	return legacy.DaemonInitialization{}
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
 // option.Config has already been exposed via *option.DaemonConfig promise,
 // so it may not be modified here
-func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) error {
+func startDaemon(ctx context.Context, params daemonParams) error {
 	bootstrapStats.k8sInit.Start()
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
 		select {
 		case <-params.CacheStatus:
-		case <-d.ctx.Done():
-			return d.ctx.Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 
@@ -1475,69 +1373,45 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	// After K8s caches have been synced, IPCache can start label injection.
 	// Ensure that the initial labels are injected before we regenerate endpoints
-	d.logger.Debug("Waiting for initial IPCache revision")
-	if err := d.ipcache.WaitForRevision(d.ctx, 1); err != nil {
-		d.logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
+	params.Logger.Debug("Waiting for initial IPCache revision")
+	if err := params.IPCache.WaitForRevision(ctx, 1); err != nil {
+		params.Logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
 	}
 
-	d.initRestore(restoredEndpoints, params.EndpointRegenerator)
+	params.EndpointRestorer.InitRestore()
 
 	bootstrapStats.enableConntrack.Start()
-	d.logger.Info("Starting connection tracking garbage collector")
+	params.Logger.Info("Starting connection tracking garbage collector")
 	params.CTNATMapGC.Enable()
-	params.CTNATMapGC.Observe4().Observe(d.ctx, ctmap.NatMapNext4, func(err error) {})
-	params.CTNATMapGC.Observe6().Observe(d.ctx, ctmap.NatMapNext6, func(err error) {})
+	params.CTNATMapGC.Observe4().Observe(ctx, ctmap.NatMapNext4, func(err error) {})
+	params.CTNATMapGC.Observe6().Observe(ctx, ctmap.NatMapNext6, func(err error) {})
 	bootstrapStats.enableConntrack.End(true)
 
-	if d.endpointManager.HostEndpointExists() {
-		d.endpointManager.InitHostEndpointLabels(d.ctx)
+	if params.EndpointManager.HostEndpointExists() {
+		params.EndpointManager.InitHostEndpointLabels(ctx)
 	} else {
-		d.logger.Info("Creating host endpoint")
-		if err := d.endpointCreator.AddHostEndpoint(d.ctx); err != nil {
+		params.Logger.Info("Creating host endpoint")
+		if err := params.EndpointCreator.AddHostEndpoint(ctx); err != nil {
 			return fmt.Errorf("unable to create host endpoint: %w", err)
 		}
 	}
 
 	if option.Config.EnableEnvoyConfig {
-		if !d.endpointManager.IngressEndpointExists() {
+		if !params.EndpointManager.IngressEndpointExists() {
 			// Creating Ingress Endpoint depends on the Ingress IPs having been
 			// allocated first. This happens earlier in the agent bootstrap.
 			if (option.Config.EnableIPv4 && len(node.GetIngressIPv4(params.Logger)) == 0) ||
 				(option.Config.EnableIPv6 && len(node.GetIngressIPv6(params.Logger)) == 0) {
-				d.logger.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
+				params.Logger.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
 			} else {
-				d.logger.Info("Creating ingress endpoint")
-				err := d.endpointCreator.AddIngressEndpoint(d.ctx)
+				params.Logger.Info("Creating ingress endpoint")
+				err := params.EndpointCreator.AddIngressEndpoint(ctx)
 				if err != nil {
 					return fmt.Errorf("unable to create ingress endpoint: %w", err)
 				}
 			}
 		}
 	}
-
-	go func() {
-		if d.endpointRestoreComplete != nil {
-			select {
-			case <-d.endpointRestoreComplete:
-			case <-d.ctx.Done():
-				return
-			}
-		}
-
-		ms := maps.NewMapSweeper(
-			d.logger,
-			&EndpointMapManager{
-				logger:          d.logger,
-				EndpointManager: d.endpointManager,
-			}, d.bwManager, d.lbConfig, d.kprCfg)
-		ms.CollectStaleMapGarbage()
-		ms.RemoveDisabledMaps()
-
-		// Sleep for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
-		// the normal allocation processes to finish, before releasing restored resources.
-		time.Sleep(option.Config.IdentityRestoreGracePeriod)
-		d.identityRestorer.ReleaseRestoredIdentities()
-	}()
 
 	// Migrating the ENI datapath must happen before the API is served to
 	// prevent endpoints from being created. It also must be before the health
@@ -1546,7 +1420,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	// logic runs before any endpoint creates.
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		migrated, failed := linuxrouting.NewMigrator(
-			d.logger,
+			params.Logger,
 			&eni.InterfaceDB{Clientset: params.Clientset},
 		).MigrateENIDatapath(option.Config.EgressMultiHomeIPRuleCompat)
 		switch {
@@ -1554,7 +1428,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			// No need to handle this case specifically because it is handled
 			// in the call already.
 		case migrated >= 0 && failed > 0:
-			d.logger.Error(fmt.Sprintf(
+			params.Logger.Error(fmt.Sprintf(
 				"Failed to migrate ENI datapath. "+
 					"%d endpoints were successfully migrated and %d failed to migrate completely. "+
 					"The original datapath is still in-place, however it is recommended to retry the migration.",
@@ -1562,7 +1436,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			)
 
 		case migrated >= 0 && failed == 0:
-			d.logger.Info(fmt.Sprintf(
+			params.Logger.Info(fmt.Sprintf(
 				"Migration of ENI datapath successful, %d endpoints were migrated and none failed.",
 				migrated),
 			)
@@ -1570,18 +1444,18 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	bootstrapStats.healthCheck.Start()
-	if option.Config.EnableHealthChecking {
-		if err := d.ciliumHealth.Init(d.ctx, d.healthEndpointRouting, cleaner.cleanupFuncs.Add); err != nil {
+	if params.HealthConfig.IsHealthCheckingEnabled() {
+		if err := params.CiliumHealth.Init(ctx, params.InfraIPAllocator.GetHealthEndpointRouting()); err != nil {
 			return fmt.Errorf("failed to initialize cilium health: %w", err)
 		}
 	}
 	bootstrapStats.healthCheck.End(true)
 
-	if err := d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
-		d.logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
+	if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
+		params.Logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
 	}
 
-	d.logger.Info(
+	params.Logger.Info(
 		"Daemon initialization completed",
 		logfields.BootstrapTime, time.Since(bootstrapTimestamp),
 	)
@@ -1589,49 +1463,28 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()
 
-	// Start controller to validate daemon config is unchanged
-	cfgGroup := controller.NewGroup("daemon-validate-config")
-	d.controllers.UpdateController(
-		cfgGroup.Name,
-		controller.ControllerParams{
-			Group:  cfgGroup,
-			Health: params.Health,
-			DoFunc: func(context.Context) error {
-				// Validate that Daemon config has not changed, ignoring 'Opts'
-				// that may be modified via config patch events.
-				return option.Config.ValidateUnchanged()
-			},
-			// avoid synhronized run with other
-			// controllers started at same time
-			RunInterval: 61 * time.Second,
-			Context:     d.ctx,
-		})
+	// Register job to validate that daemon config is unchanged
+	registerDaemonConfigValidationJob(params)
 
 	return nil
 }
 
-func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {
-	var wg sync.WaitGroup
+func registerDaemonConfigValidationJob(params daemonParams) {
+	params.JobGroup.Add(job.Timer(
+		"daemon-validate-config",
+		// Validate that Daemon config has not changed, ignoring 'Opts'
+		// that may be modified via config patch events.
+		func(ctx context.Context) error { return option.Config.ValidateUnchanged() },
+		// avoid synhronized run with other
+		// jobs started at same time
+		61*time.Second,
+	))
+}
 
-	lc.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				daemon, err := daemonPromise.Await(context.Background())
-				if err != nil {
-					resolver.Reject(err)
-				} else {
-					resolver.Resolve(daemon)
-				}
-			}()
-			return nil
-		},
-		OnStop: func(ctx cell.HookContext) error {
-			wg.Wait()
-			return nil
-		},
-	})
+func registerEndpointStateResolver(endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
+	// Restorer promise is still required to avoid circular dependencies -
+	// but we can immediately resolve it.
+	resolver.Resolve(endpointRestorer)
 }
 
 func initClockSourceOption(logger *slog.Logger) {

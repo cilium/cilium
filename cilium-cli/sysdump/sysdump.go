@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/tabwriter"
 	"time"
 
 	"github.com/cilium/workerpool"
@@ -32,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/kubectl/pkg/util/podutils"
+	metricsapi "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/k8s"
@@ -622,6 +625,52 @@ func (c *Collector) Run() error {
 				}
 				if err := c.WriteString(kubernetesMetricsFileName, result); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes metrics: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Kubernetes nodes memory/cpu usage",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				// Use the raw client to get the table format directly from the metrics API
+				// This gives us the same output as kubectl top nodes
+				result, err := c.Client.GetRaw(ctx, "/apis/metrics.k8s.io/v1beta1/nodes")
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes nodes memory/cpu usage: %w", err)
+				}
+
+				// Parse the JSON response and format as table
+				output, err := c.formatNodeMetricsAsTable(result)
+				if err != nil {
+					return fmt.Errorf("failed to format node memory/cpu usage metrics: %w", err)
+				}
+
+				if err := c.WriteString(kubernetesTopNodesFileName, output); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes nodes memory/cpu usage: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Kubernetes pods memory/cpu usage",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				// Use the raw client to get the table format directly from the metrics API
+				// This gives us the same output as kubectl top pods
+				result, err := c.Client.GetRaw(ctx, "/apis/metrics.k8s.io/v1beta1/pods")
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes pods memory/cpu usage: %w", err)
+				}
+
+				// Parse the JSON response and format as table
+				output, err := c.formatPodMetricsAsTable(result)
+				if err != nil {
+					return fmt.Errorf("failed to format pod memory/cpu usage metrics: %w", err)
+				}
+
+				if err := c.WriteString(kubernetesTopPodsFileName, output); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes pods memory/cpu usage: %w", err)
 				}
 				return nil
 			},
@@ -1716,7 +1765,6 @@ func (c *Collector) Run() error {
 	// First, run each serial task in its own workerpool.
 	var r []workerpool.Task
 	for i, t := range serialTasks {
-		t := t
 		if c.shouldSkipTask(t) {
 			c.logDebug("Skipping %q", t.Description)
 			continue
@@ -1770,7 +1818,6 @@ func (c *Collector) Run() error {
 
 	// Add the tasks to the worker pool.
 	for i, t := range tasks {
-		t := t
 		if c.shouldSkipTask(t) {
 			c.logDebug("Skipping %q", t.Description)
 			continue
@@ -2128,18 +2175,20 @@ func (c *Collector) getEnvoyConfigTasks() []Task {
 func (c *Collector) getBGPControlPlaneTasks() []Task {
 	return []Task{
 		// BGPv1 resource
+		// NOTE: BGPv1 was removed in v1.19, this can be removed once v1.18 is out of support
 		{
 			Description: "Collecting Cilium BGP Peering Policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumBGPPeeringPolicies(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
-				}
-				if err := c.WriteYAML(ciliumBPGPeeringPoliciesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
-				}
-				return nil
+				return c.GatherResourceUnstructured(
+					ctx,
+					schema.GroupVersionResource{
+						Group:    "cilium.io",
+						Resource: "ciliumbgppeeringpolicies",
+						Version:  "v2alpha1",
+					},
+					fmt.Sprintf(k8sResourceFileName, "ciliumbgppeeringpolicies"),
+				)
 			},
 		},
 		// BGPv2 resources - can be either v2 or v2alpha1 version
@@ -2206,7 +2255,6 @@ func (c *Collector) shouldSkipTask(t Task) bool {
 func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgentContainerName,
 	tetragonBugtoolPrefix, tetragonCLICommand string) error {
 	for _, p := range pods {
-		p := p
 		workerID := fmt.Sprintf("%s-%s", tetragonBugtoolPrefix, p.Name)
 		if err := c.Pool.Submit(workerID, func(ctx context.Context) error {
 			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, tetragonAgentContainerName)
@@ -2371,7 +2419,6 @@ func zipDirectory(src string, dst string) error {
 
 func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit("cilium-bugtool-"+p.Name, func(ctx context.Context) error {
 			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, ciliumAgentContainerName)
 			if err != nil {
@@ -2436,7 +2483,6 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 
 func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit("hubble-flows-"+p.Name, func(ctx context.Context) error {
 			if err := c.WithFileSink(fmt.Sprintf(hubbleFlowsFileName, p.Name), func(stdout io.Writer) error {
 				return c.WithFileSink(fmt.Sprintf(hubbleObserveFileName, p.Name), func(stderr io.Writer) error {
@@ -2463,7 +2509,6 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 
 func (c *Collector) submitSpireEntriesTasks(pods []*corev1.Pod) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit("spire-entries-"+p.Name, func(ctx context.Context) error {
 			p, containerName, cleanupFunc, err := c.ensureExecTarget(ctx, p, spireServerContainerName)
 			if err != nil {
@@ -2523,16 +2568,20 @@ func extractGopsProfileData(output string) (string, error) {
 
 func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("cniconflist-%s", p.GetName()), func(ctx context.Context) error {
 			outputStr, err := c.Client.ExecInPod(ctx, p.GetNamespace(), p.GetName(), containerName, []string{
 				lsCommand,
+				"-1",
 				c.Options.CNIConfigDirectory,
 			})
 			if err != nil {
 				return err
 			}
 			for cniFileName := range strings.SplitSeq(strings.TrimSpace(outputStr.String()), "\n") {
+				// Skip empty filenames (from trailing newlines or extra whitespace)
+				if cniFileName == "" {
+					continue
+				}
 				cniConfigPath := path.Join(c.Options.CNIConfigDirectory, cniFileName)
 				if err := c.WithFileSink(fmt.Sprintf(cniConfigFileName, cniFileName, p.GetName()), func(out io.Writer) error {
 					return c.Client.ExecInPodWithWriters(ctx, nil, p.GetNamespace(), p.GetName(), containerName, []string{
@@ -2574,14 +2623,11 @@ func (c *Collector) getGopsPID(ctx context.Context, pod *corev1.Pod, containerNa
 // SubmitGopsSubtasks submits tasks to collect gops statistics from pods.
 func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
-
 		if !podIsRunningAndHasContainer(p, containerName) {
 			continue
 		}
 
 		for _, g := range gopsStats {
-			g := g
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
 				agentPID, err := c.getGopsPID(ctx, p, containerName)
 				if err != nil {
@@ -2610,9 +2656,7 @@ func (c *Collector) SubmitGopsSubtasks(pods []*corev1.Pod, containerName string)
 // SubmitProfilingGopsSubtasks submits tasks to collect profiling data from pods.
 func (c *Collector) SubmitProfilingGopsSubtasks(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
 		for g := range gopsProfiling {
-			g := g
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
 				agentPID, err := c.getGopsPID(ctx, p, containerName)
 				if err != nil {
@@ -2654,8 +2698,6 @@ func (c *Collector) SubmitProfilingGopsSubtasks(pods []*corev1.Pod, containerNam
 // containers as well, as it does not depend on any shell tools.
 func (c *Collector) SubmitStreamProfilingGopsSubtasks(pods []*corev1.Pod, containerName string, port uint16) error {
 	for _, p := range pods {
-		p := p
-
 		if !podIsRunningAndHasContainer(p, containerName) {
 			continue
 		}
@@ -2700,7 +2742,6 @@ func (c *Collector) SubmitStreamProfilingGopsSubtasks(pods []*corev1.Pod, contai
 // SubmitTracingGopsSubtask submits task to collect tracing data from pods.
 func (c *Collector) SubmitTracingGopsSubtask(pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
-		p := p
 		if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, gopsTrace), func(ctx context.Context) error {
 			agentPID, err := c.getGopsPID(ctx, p, containerName)
 			if err != nil {
@@ -2739,10 +2780,8 @@ func (c *Collector) SubmitTracingGopsSubtask(pods []*corev1.Pod, containerName s
 func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, limitBytes int64) error {
 	t := metav1.NewTime(time.Now().Add(-since))
 	for _, p := range pods {
-		p := p
 		allContainers := append(p.Spec.Containers, p.Spec.InitContainers...)
 		for _, d := range allContainers {
-			d := d
 			if err := c.Pool.Submit(fmt.Sprintf("logs-%s-%s", p.Name, d.Name), func(ctx context.Context) error {
 				if err := c.WithFileSink(fmt.Sprintf(ciliumLogsFileName, p.Name, d.Name), func(out io.Writer) error {
 					return c.Client.GetLogs(ctx, p.Namespace, p.Name, d.Name,
@@ -2754,9 +2793,9 @@ func (c *Collector) SubmitLogsTasks(pods []*corev1.Pod, since time.Duration, lim
 				// Check if this container has restarted, in which case we should gather the previous one's logs too.
 				previous := false
 				for _, s := range p.Status.ContainerStatuses {
-					s := s
 					if s.Name == d.Name && s.RestartCount > 0 {
 						previous = true
+						break
 					}
 				}
 				if previous {
@@ -2870,7 +2909,6 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 // SubmitMetricsSubtask submits tasks to collect metrics from pods.
 func (c *Collector) SubmitMetricsSubtask(pods []*corev1.Pod, containerName, portName string) error {
 	for _, p := range pods {
-		p := p
 		if !podIsRunningAndHasContainer(p, containerName) {
 			continue
 		}
@@ -3076,7 +3114,6 @@ func filterRestartedContainersPods(l *corev1.PodList, limit int) []*corev1.Pod {
 func filterPods(l *corev1.PodList, filter func(po *corev1.Pod) bool, limit int) []*corev1.Pod {
 	r := make([]*corev1.Pod, 0)
 	for _, p := range l.Items {
-		p := p
 		if filter(&p) {
 			r = append(r, &p)
 			if limit > 0 && len(r) >= limit {
@@ -3292,6 +3329,115 @@ func InitSysdumpFlags(cmd *cobra.Command, options *Options, optionPrefix string,
 		"Retry limit for file copying operations. If set to -1, copying will be retried indefinitely. Useful for collecting sysdump while on unreliable connection.")
 
 	hooks.AddSysdumpFlags(cmd.Flags())
+}
+
+// formatMetricsAsTable formats the raw metrics JSON into a table format like kubectl top nodes
+func (c *Collector) formatNodeMetricsAsTable(rawMetrics string) (string, error) {
+	// Parse the metrics JSON
+	var nodeMetrics metricsapi.NodeMetricsList
+	if err := json.Unmarshal([]byte(rawMetrics), &nodeMetrics); err != nil {
+		return "", fmt.Errorf("failed to parse metrics JSON: %w", err)
+	}
+
+	// Get node information to calculate percentages
+	nodes, err := c.Client.ListNodes(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get nodes: %w", err)
+	}
+
+	// Create a map of node names to their capacity
+	nodeCapacities := make(map[string]corev1.ResourceList)
+	for _, node := range nodes.Items {
+		nodeCapacities[node.Name] = node.Status.Capacity
+	}
+
+	var sb strings.Builder
+	tw := tabwriter.NewWriter(&sb, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAME\tCPU(cores)\tCPU(%)\tMEMORY(bytes)\tMEMORY(%)")
+
+	for _, metric := range nodeMetrics.Items {
+		name := metric.Name
+
+		// Get current usage
+		cpuUsage := metric.Usage[corev1.ResourceCPU]
+		memUsage := metric.Usage[corev1.ResourceMemory]
+
+		cpuMillis := cpuUsage.MilliValue()
+		memBytes := memUsage.Value()
+		memMi := float64(memBytes) / (1024 * 1024)
+
+		// Calculate percentages if we have capacity info
+		cpuPercent := "<unknown>"
+		memPercent := "<unknown>"
+
+		if capacity, exists := nodeCapacities[metric.Name]; exists {
+			if cpuCap := capacity[corev1.ResourceCPU]; !cpuCap.IsZero() {
+				cpuCapMillis := cpuCap.MilliValue()
+				cpuPct := float64(cpuMillis) / float64(cpuCapMillis) * 100
+				cpuPercent = fmt.Sprintf("%.0f%%", cpuPct)
+			}
+
+			if memCap := capacity[corev1.ResourceMemory]; !memCap.IsZero() {
+				memCapBytes := memCap.Value()
+				memPct := float64(memBytes) / float64(memCapBytes) * 100
+				memPercent = fmt.Sprintf("%.0f%%", memPct)
+			}
+		}
+
+		fmt.Fprintf(tw, "%s\t%dm\t%s\t%dMi\t%s\n",
+			name,
+			cpuMillis,
+			cpuPercent,
+			int64(memMi),
+			memPercent)
+	}
+
+	tw.Flush()
+
+	return sb.String(), nil
+}
+
+// formatPodMetricsAsTable formats the raw pod metrics JSON into a table format like kubectl top pods
+func (c *Collector) formatPodMetricsAsTable(rawMetrics string) (string, error) {
+	// Parse the metrics JSON
+	var podMetrics metricsapi.PodMetricsList
+	if err := json.Unmarshal([]byte(rawMetrics), &podMetrics); err != nil {
+		return "", fmt.Errorf("failed to parse pod metrics JSON: %w", err)
+	}
+
+	var sb strings.Builder
+	tw := tabwriter.NewWriter(&sb, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAMESPACE\tNAME\tCPU(cores)\tMEMORY(bytes)")
+
+	for _, metric := range podMetrics.Items {
+		namespace := metric.Namespace
+		name := metric.Name
+
+		// Sum CPU and memory usage across all containers in the pod
+		var totalCPUMillis int64
+		var totalMemBytes int64
+
+		for _, container := range metric.Containers {
+			if cpuUsage, exists := container.Usage[corev1.ResourceCPU]; exists {
+				totalCPUMillis += cpuUsage.MilliValue()
+			}
+			if memUsage, exists := container.Usage[corev1.ResourceMemory]; exists {
+				totalMemBytes += memUsage.Value()
+			}
+		}
+
+		memMi := float64(totalMemBytes) / (1024 * 1024)
+
+		fmt.Fprintf(tw, "%s\t%s\t%dm\t%dMi\n",
+			namespace,
+			name,
+			totalCPUMillis,
+			int64(memMi))
+	}
+
+	tw.Flush()
+
+	return sb.String(), nil
 }
 
 // Hooks to extend cilium-cli with additional sysdump tasks and related flags.

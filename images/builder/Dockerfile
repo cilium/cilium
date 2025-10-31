@@ -3,11 +3,11 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1755973935-c5bf38b@sha256:448b126455a301c48d4189bfa9335f44d7d4524d69dcbc8151013ecb6ac0f042
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:15744a5d10090a7962712a87762d6ac4fbaccab9@sha256:4e3e8b57400908b426a1945f99f0a280a40dd1ec7405362ebbccccce9e5f366f
-ARG TESTER_IMAGE=quay.io/cilium/image-tester:1755531540-60ee83e@sha256:1b05459281d6613acb8573b2cd7f488a0d224eebf031770babbfc6a294501cf7
-ARG GOLANG_IMAGE=docker.io/library/golang:1.25.0@sha256:5502b0e56fca23feba76dbc5387ba59c593c02ccc2f0f7355871ea9a0852cebe
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1755973935-c5bf38b@sha256:40f98e82b2fdeb4936776792ee0dedaacab1892c2d689748a1745e3ee911cecf
+ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1758805548-08727cd@sha256:8117b456fbf5a5cb70800143eba1b2540b3ecb0917d418ad4c8469f3b72b67fe
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:b32d6c1494d89f70bb7721556364e889b90df95d@sha256:2916deda458867d29db13c9fbaee7fe63e06d67cb1c4e9e8498fdebee78172a6
+ARG TESTER_IMAGE=quay.io/cilium/image-tester:1759394670-a9b1df3@sha256:404d9ba9bdf068232f7c5a806b18bbf99dcc946fdd9e3805763f8f40d7def720
+ARG GOLANG_IMAGE=docker.io/library/golang:1.25.3@sha256:dd08f769578a5f51a22bf6a81109288e23cfe2211f051a5c29bd1c05ad3db52a
+ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:1758805548-08727cd@sha256:cd569066773bf559aca856f38b893df390f889e85e3075013b308deebb527006
 
 FROM ${COMPILERS_IMAGE} AS compilers-image
 
@@ -27,28 +27,28 @@ RUN \
     apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
-      # Install cross tools for both arm64 on amd64
-      gcc-aarch64-linux-gnu \
-      g++-aarch64-linux-gnu \
-      libc6-dev-arm64-cross \
-      binutils-aarch64-linux-gnu \
-      gcc-x86-64-linux-gnu \
-      g++-x86-64-linux-gnu \
-      libc6-dev-amd64-cross \
-      binutils-x86-64-linux-gnu \
-      # Dependencies to unzip protoc
-      unzip \
-      # Base Cilium-build dependencies
-      binutils \
-      coreutils \
-      curl \
-      gcc \
-      git \
-      libc6-dev \
-      make \
-      ccache \
-      python3-scapy \
-      python3-jinja2 && \
+    # Install cross tools for both arm64 on amd64
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu \
+    libc6-dev-arm64-cross \
+    binutils-aarch64-linux-gnu \
+    gcc-x86-64-linux-gnu \
+    g++-x86-64-linux-gnu \
+    libc6-dev-amd64-cross \
+    binutils-x86-64-linux-gnu \
+    # Dependencies to unzip protoc
+    unzip \
+    # Base Cilium-build dependencies
+    binutils \
+    coreutils \
+    curl \
+    gcc \
+    git \
+    libc6-dev \
+    make \
+    ccache \
+    python3-scapy \
+    python3-jinja2 && \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*

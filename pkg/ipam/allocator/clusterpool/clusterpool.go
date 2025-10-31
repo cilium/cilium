@@ -66,7 +66,7 @@ func (a *AllocatorOperator) Init(ctx context.Context, logger *slog.Logger, reg *
 }
 
 // Start kicks of Operator allocation.
-func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater, _ *metrics.Registry) (allocator.NodeEventHandler, error) {
+func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGetterUpdater, reg *metrics.Registry) (allocator.NodeEventHandler, error) {
 	a.logger.Info(
 		"Starting ClusterPool IP allocator",
 		logfields.IPv4CIDRs, operatorOption.Config.ClusterPoolIPv4CIDR,
@@ -78,7 +78,9 @@ func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGe
 	)
 
 	if operatorOption.Config.EnableMetrics {
-		iMetrics = ipamMetrics.NewTriggerMetrics(metrics.Namespace, "k8s_sync")
+		triggerMetrics := ipamMetrics.NewTriggerMetrics(metrics.Namespace, "k8s_sync")
+		triggerMetrics.Register(reg)
+		iMetrics = triggerMetrics
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetricsObserver{}
 	}

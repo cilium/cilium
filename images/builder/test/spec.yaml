@@ -4,7 +4,7 @@ fileExistenceTests:
 - name: '/usr/local/bin/protoc'
   path: '/usr/local/bin/protoc'
   shouldExist: true
-  permissions: '-rwxr-xr-x'
+  permissions: '-r-xr-xr-x'
 - name: '/usr/local/readme.txt'
   path: '/usr/local/readme.txt'
   shouldExist: false
@@ -22,4 +22,4 @@ commandTests:
   command: "protoc"
   args: ["--version"]
   expectedOutput:
-  - 'libprotoc\ 4\.24\.1'
+  - 'libprotoc\ 32\.0'

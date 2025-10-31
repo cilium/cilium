@@ -305,7 +305,8 @@ communicating via the proxy must reconnect to re-establish connections.
   to update your network policies.
 * Kafka Network Policy support is deprecated and will be removed in Cilium v1.20.
 * Hubble field mask support was stabilized. In the Observer gRPC API, ``GetFlowsRequest.Experimental.field_mask`` was removed in favor of ``GetFlowsRequest.field_mask``. In the Hubble CLI, the ``--experimental-field-mask`` has been renamed to ``--field-mask`` and ``--experimental-use-default-field-mask`` renamed to ``-use-default-field-mask`` (now ``true`` by default).
-
+* Cilium-agent ClusterMesh status will no longer report the global services count. When using the CLI
+  with a version lower than 1.19, the global services count will be reported as 0.
 * ``enable-remote-node-masquerade`` config option is introduced.
   To masquerade traffic to remote nodes in BPF masquerading mode,
   use the option ``enable-remote-node-masquerade: "true"``.
@@ -315,6 +316,23 @@ communicating via the proxy must reconnect to re-establish connections.
   This flag currently masquerades traffic to node ``InternalIP`` addresses.
   This may change in future. See :gh-issue:`35823`
   and :gh-issue:`17177` for further discussion on this topic.
+* MCS-API CRDs need to be updated, see the MCS-API :ref:`clustermesh_mcsapi_prereqs` for updated CRD links.
+* Cilium will stop reporting its local cluster name and node name in metrics. Users relying on those
+  should configure their metrics collection system to add similar labels instead.
+* The previously deprecated ``CiliumBGPPeeringPolicy`` CRD and its control plane (BGPv1) has been removed.
+  Please migrate to ``cilium.io/v2`` CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``,
+  ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) before upgrading.
+* If running Cilium with IPsec, Kube-Proxy Replacement, and BPF Masquerading enabled,
+  `eBPF_Host_Routing` will be automatically enabled. That was already the case when running without
+  IPsec. Running BPF Host Routing with IPsec however requires
+  `a kernel bugfix <`https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=c4327229948879814229b46aa26a750718888503>`_.
+  You can disable BPF Host Routing with ``--enable-host-legacy-routing=true``.
+* Certificate generation with the CronJob method for Hubble and ClusterMesh has
+  changed. The Job resource to generate certificates is now created like any other
+  resource and is no longer part of Helm post-install or post-upgrade hooks. This
+  makes it compatible by default with the Helm ``--wait`` option or through ArgoCD.
+  You are no longer expected to create a Job manually or as part of your own
+  automation when bootstrapping your clusters.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -324,10 +342,17 @@ Removed Options
 * The previously deprecated ``--enable-session-affinity``, ``--enable-internal-traffic-policy``, and
   ``--enable-svc-source-range-check`` flags have been removed. Their corresponding features are
   enabled by default.
+* The previously deprecated ``--enable-node-port``, ``--enable-host-port``, and ``--enable-external-ips``
+  flags have been removed. To enable the corresponding features, users must set ``--kube-proxy-replacement=true``.
+* The previously deprecated custom calls feature (``--enable-custom-calls``) has been removed.
+* The previously deprecated ``--enable-ipv4-egress-gateway`` flag has been removed. To enable the
+  corresponding features, users must set ``--enable-egress-gateway=true``.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
-
+* The ``--enable-ipsec-encrypted-overlay`` flag has no effect and will be removed in Cilium 1.20. Starting from
+  Cilium 1.18 the IPsec encryption is always applied after overlay encapsulation, and therefore this special opt-in
+  flag is no longer needed.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -353,16 +378,57 @@ Bugtool Options
 
 Added Metrics
 ~~~~~~~~~~~~~
+* ``cilium_agent_clustermesh_remote_cluster_endpoints`` was added and report
+  the total number of endpoints per remote cluster in a ClusterMesh environment.
 
 Removed Metrics
 ~~~~~~~~~~~~~~~
 
 * ``k8s_internal_traffic_policy_enabled`` has been removed, because the corresponding feature is enabled by default.
+* ``endpoint_max_ifindex`` has been removed, because the corresponding datapath limitation no longer applies.
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
+The following metrics previously had instances (i.e. for some watcher K8s resource type labels) under ``workqueue_``.
+In this release any such metrics have been renamed and combined into the correct metric name prefixed with ``cilium_operator_``.
+
+As well, any remaining Operator k8s workqueue metrics that use the label ``queue_name`` have had it renamed to
+``name`` to be consistent with agent k8s workqueue metrics.
+
+* The metric ``workqueue_adds_total`` has been renamed and combined into to ``cilium_operator_k8s_workqueue_adds_total``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_depth`` has been renamed and combined into ``cilium_operator_k8s_workqueue_adds_total``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_longest_running_processor_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_longest_running_processor_seconds``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_queue_duration_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_queue_duration_seconds``, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_retries_total`` has been renamed and combined into ``cilium_operator_k8s_workqueue_retries_total`, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_unfinished_work_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_unfinished_work_seconds`, the label ``queue_name`` has been renamed to ``name``.
+* The metric ``workqueue_work_duration_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_work_duration_seconds``, the label ``queue_name`` has been renamed to ``name``.
+
 * ``k8s_client_rate_limiter_duration_seconds`` no longer has labels ``path`` and ``method``.
+* ``hubble_icmp_total`` has been fixed to correctly use ``family`` label value ``IPv6`` on ``ICMPv6`` flows instead of ``IPv4``.
+
+The following metrics:
+* ``cilium_agent_clustermesh_global_services``
+* ``cilium_operator_clustermesh_global_services``
+* ``cilium_operator_clustermesh_global_service_exports``
+now report per cluster metric instead of a "global" count and were renamed to respectively:
+* ``cilium_agent_clustermesh_remote_cluster_services``
+* ``cilium_operator_clustermesh_remote_cluster_services``
+* ``cilium_operator_clustermesh_remote_cluster_service_exports``
+
+The following metrics no longer reports a ``source_cluster`` and a ``source_node_name`` label:
+* ``node_health_connectivity_status``
+* ``node_health_connectivity_latency_seconds``
+* ``bootstrap_seconds``
+* ``*_remote_clusters``
+* ``*_remote_cluster_last_failure_ts``
+* ``*_remote_cluster_readiness_status``
+* ``*_remote_cluster_failures``
+* ``*_remote_cluster_nodes``
+* ``*_remote_cluster_services``
+* ``*_remote_cluster_endpoints``
+* ``cilium_operator_clustermesh_remote_cluster_service_exports``
+
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~

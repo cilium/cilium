@@ -86,6 +86,9 @@ type ResourceMutator interface {
 	// The returned version value is the set's version after update.
 	// This method call cannot be reverted.
 	Clear(typeURL string) (version uint64, updated bool)
+
+	// Empty returns 'true' if there are any resources of the given type
+	HasAny(typeURL string) bool
 }
 
 // ResourceSet provides read-write access to a versioned set of resources.

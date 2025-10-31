@@ -13,8 +13,28 @@ import (
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
-func newClient() (*imds.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+type metadataClient struct {
+	client *imds.Client
+}
+
+type MetaDataInfo struct {
+	InstanceID       string
+	InstanceType     string
+	AvailabilityZone string
+	VPCID            string
+	SubnetID         string
+}
+
+func NewClient(ctx context.Context) (*metadataClient, error) {
+	client, err := newClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &metadataClient{client: client}, nil
+}
+
+func newClient(ctx context.Context) (*imds.Client, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -22,8 +42,8 @@ func newClient() (*imds.Client, error) {
 	return imds.NewFromConfig(cfg), nil
 }
 
-func getMetadata(client *imds.Client, path string) (string, error) {
-	res, err := client.GetMetadata(context.TODO(), &imds.GetMetadataInput{
+func getMetadata(ctx context.Context, client *imds.Client, path string) (string, error) {
+	res, err := client.GetMetadata(ctx, &imds.GetMetadataInput{
 		Path: path,
 	})
 	if err != nil {
@@ -40,42 +60,44 @@ func getMetadata(client *imds.Client, path string) (string, error) {
 }
 
 // GetInstanceMetadata returns required AWS metadatas
-func GetInstanceMetadata() (instanceID, instanceType, availabilityZone, vpcID, subnetID string, err error) {
-	client, err := newClient()
+func (m *metadataClient) GetInstanceMetadata(ctx context.Context) (MetaDataInfo, error) {
+
+	instanceID, err := getMetadata(ctx, m.client, "instance-id")
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
-	instanceID, err = getMetadata(client, "instance-id")
+	instanceType, err := getMetadata(ctx, m.client, "instance-type")
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
-	instanceType, err = getMetadata(client, "instance-type")
+	eth0MAC, err := getMetadata(ctx, m.client, "mac")
 	if err != nil {
-		return
-	}
-
-	eth0MAC, err := getMetadata(client, "mac")
-	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 	vpcIDPath := fmt.Sprintf("network/interfaces/macs/%s/vpc-id", eth0MAC)
-	vpcID, err = getMetadata(client, vpcIDPath)
+	vpcID, err := getMetadata(ctx, m.client, vpcIDPath)
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
 	subnetIDPath := fmt.Sprintf("network/interfaces/macs/%s/subnet-id", eth0MAC)
-	subnetID, err = getMetadata(client, subnetIDPath)
+	subnetID, err := getMetadata(ctx, m.client, subnetIDPath)
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
-	availabilityZone, err = getMetadata(client, "placement/availability-zone")
+	availabilityZone, err := getMetadata(ctx, m.client, "placement/availability-zone")
 	if err != nil {
-		return
+		return MetaDataInfo{}, err
 	}
 
-	return
+	return MetaDataInfo{
+		InstanceID:       instanceID,
+		InstanceType:     instanceType,
+		AvailabilityZone: availabilityZone,
+		VPCID:            vpcID,
+		SubnetID:         subnetID,
+	}, nil
 }

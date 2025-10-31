@@ -244,6 +244,7 @@
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
 /.github/actions/bpftrace/ @cilium/sig-encryption @cilium/github-sec @cilium/ci-structure
 /.github/actions/e2e/*ipsec* @cilium/ipsec @cilium/github-sec @cilium/ci-structure
+/.github/actions/e2e/*wireguard* @cilium/wireguard @cilium/github-sec @cilium/ci-structure
 /.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /.github/workflows/auto-approve.yaml @cilium/cilium-maintainers
@@ -254,6 +255,7 @@
 /.github/workflows/*hubble*.yaml @cilium/sig-hubble @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ipsec*.yaml @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*ingress*.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
+/.github/workflows/*kpr*.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.github/actions/cl2-modules/ @cilium/sig-scalability
 /.github/workflows/*scale*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/*perf*.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
@@ -279,7 +281,6 @@
 Makefile* @cilium/build
 /bpf/ @cilium/sig-datapath
 /bpf/bpf_wireguard.c @cilium/wireguard @cilium/sig-datapath
-/bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/include/bpf/tailcall.h @cilium/loader
 /bpf/include/bpf/config @cilium/loader
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
@@ -301,7 +302,6 @@ Makefile* @cilium/build
 /cilium-cli/clustermesh/ @cilium/sig-clustermesh
 /cilium-cli/connectivity/ @cilium/ci-structure
 /cilium-cli/connectivity/check/frr.go @cilium/sig-bgp
-/cilium-cli/connectivity/check/ipcache.go @cilium/ipcache
 /cilium-cli/connectivity/check/manifests/egress-gateway-policy.yaml @cilium/egress-gateway
 /cilium-cli/connectivity/check/metrics*.go @cilium/metrics
 /cilium-cli/connectivity/check/policy.go @cilium/sig-policy
@@ -364,13 +364,12 @@ Makefile* @cilium/build
 /contrib/scripts/portgen.py @cilium/sig-datapath
 /contrib/scripts/check-datapathconfig.sh @cilium/loader
 /contrib/scripts/check-fipsonly.sh @cilium/build @cilium/security
+/contrib/scripts/verifier_diff.py @cilium/sig-datapath
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
 /daemon/cmd/endpoint* @cilium/endpoint
-/daemon/cmd/kube_proxy* @cilium/sig-datapath
 /daemon/cmd/bootstrap_statistics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
-/daemon/cmd/state.go @cilium/endpoint
 /daemon/cmd/cells*.go @cilium/sig-foundations
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure
@@ -434,6 +433,7 @@ Makefile* @cilium/build
 /Documentation/network/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure
 /Documentation/observability/ @cilium/sig-policy @cilium/docs-structure
 /Documentation/observability/hubble* @cilium/sig-hubble @cilium/docs-structure
+/Documentation/observability/metrics.rst @cilium/hubble-metrics @cilium/docs-structure
 /Documentation/operations/performance/ @cilium/sig-datapath @cilium/docs-structure
 /Documentation/operations/system_requirements.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/operations/troubleshooting_clustermesh.rst @cilium/sig-clustermesh @cilium/docs-structure
@@ -494,7 +494,7 @@ Makefile* @cilium/build
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
 /pkg/alignchecker/ @cilium/sig-datapath @cilium/loader
-/pkg/allocator/ @cilium/kvstore
+/pkg/allocator/ @cilium/sig-policy
 /pkg/api/ @cilium/api
 /pkg/auth/ @cilium/sig-servicemesh
 /pkg/aws/ @cilium/aws
@@ -526,7 +526,7 @@ Makefile* @cilium/build
 /pkg/crypto/certificatemanager @cilium/envoy @cilium/sig-servicemesh
 /pkg/crypto/certloader @cilium/sig-hubble
 /pkg/datapath/ @cilium/sig-datapath
-/pkg/datapath/fake/ipsec.go @cilium/ipsec
+/pkg/datapath/fake/types/ipsec.go @cilium/ipsec
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/datapath/linux/config/ @cilium/loader
 /pkg/datapath/linux/ipsec/ @cilium/ipsec
@@ -558,13 +558,14 @@ Makefile* @cilium/build
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
 /pkg/gops/ @cilium/sig-agent
 /pkg/health/ @cilium/sig-agent
+/pkg/healthconfig/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
 /pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/hubble-metrics
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
 /pkg/identity/restoration @cilium/sig-policy @cilium/ipcache
-/pkg/idpool/ @cilium/kvstore
+/pkg/idpool/ @cilium/sig-policy
 /pkg/ip/ @cilium/sig-agent
 /pkg/ipalloc/ @cilium/sig-ipam
 /pkg/ipam/ @cilium/sig-ipam
@@ -594,6 +595,7 @@ Makefile* @cilium/build
 /pkg/maglev @cilium/sig-lb
 /pkg/maps/ @cilium/sig-datapath
 /pkg/maps/egressmap @cilium/egress-gateway
+/pkg/maps/encrypt @cilium/ipsec
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
 /pkg/monitor @cilium/sig-datapath
@@ -627,7 +629,6 @@ Makefile* @cilium/build
 /pkg/revert/ @cilium/sig-agent
 /pkg/safeio @cilium/sig-agent
 /pkg/safetime/ @cilium/sig-agent
-/pkg/shell @cilium/sig-foundations
 /pkg/shortener @cilium/sig-foundations @cilium/sig-k8s
 /pkg/signal @cilium/sig-datapath
 /pkg/slices @cilium/sig-foundations
@@ -635,6 +636,7 @@ Makefile* @cilium/build
 /pkg/source @cilium/ipcache
 /pkg/spanstat/ @cilium/sig-agent
 /pkg/status/ @cilium/sig-agent
+/pkg/svcrouteconfig/ @cilium/sig-datapath @cilium/sig-bgp
 /pkg/testutils/ @cilium/ci-structure
 /pkg/testutils/scriptnet @cilium/sig-foundations
 /pkg/time @cilium/sig-agent
@@ -645,6 +647,7 @@ Makefile* @cilium/build
 /pkg/util/ @cilium/sig-datapath
 /pkg/version/ @cilium/sig-agent
 /pkg/versioncheck/ @cilium/sig-agent
+/pkg/wal/ @cilium/sig-foundations
 /pkg/wireguard @cilium/wireguard
 /pkg/xds/ @cilium/envoy
 /plugins/cilium-cni/ @cilium/sig-k8s
@@ -658,10 +661,12 @@ Makefile* @cilium/build
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
+/test/k8s/lrp.go @cilium/sig-lb
 # Datapath tests
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
 # Policy tests
+/test/k8s/chaos.go @cilium/sig-policy
 /test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
 /test/runtime/net_policies.go @cilium/sig-policy @cilium/ci-structure
 # Hubble/monitoring tests
@@ -674,6 +679,8 @@ Makefile* @cilium/build
 # BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
+/test/k8s/config.go @cilium/sig-k8s
+/test/k8s/pod_mac_address.go @cilium/sig-k8s
 /tools/dpgen @cilium/loader
 /tools/metricslint @cilium/metrics
 /tools/ @cilium/contributing

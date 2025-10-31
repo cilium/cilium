@@ -49,6 +49,7 @@ TARGETS := \
 	testdata/constants \
 	testdata/errors \
 	testdata/variables \
+	testdata/arena \
 	btf/testdata/relocs \
 	btf/testdata/relocs_read \
 	btf/testdata/relocs_read_tgt \
@@ -91,8 +92,8 @@ all: format $(addsuffix -el.elf,$(TARGETS)) $(addsuffix -eb.elf,$(TARGETS)) gene
 	ln -srf testdata/loader-$(CLANG)-eb.elf testdata/loader-eb.elf
 
 generate:
-	go generate -run "internal/cmd/gentypes" ./...
-	go generate -skip "internal/cmd/gentypes" ./...
+	go generate -run "gentypes" ./...
+	go generate -skip "gentypes" ./...
 
 testdata/loader-%-el.elf: testdata/loader.c
 	$* $(CFLAGS) -target bpfel -c $< -o $@

@@ -1,10 +1,12 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 
+#include <lib/static_data.h>
+
 #include <bpf/tailcall.h>
 #include <lib/tailcall.h>
 
-volatile const int global_var = 0;
+DECLARE_CONFIG(bool, use_tail_b, "Use tailcall B or C")
 
 #define TAIL_A 0
 #define TAIL_B 1
@@ -36,7 +38,7 @@ static int b(void *ctx) {
 
 __declare_tail(TAIL_A)
 static int a(void *ctx) {
-        if (global_var == 0x01) {
+        if (CONFIG(use_tail_b)) {
                 tail_call_static(ctx, cilium_calls, TAIL_B);
         } else {
                 tail_call_static(ctx, cilium_calls, TAIL_C);
@@ -48,5 +50,11 @@ static int a(void *ctx) {
 __section_entry
 static int cil_entry(void *ctx) {
         tail_call_static(ctx, cilium_calls, TAIL_A);
+
+        // Technically unreachable, but makes sure all paths are visited by the
+        // pruner. In real-world code, tail calls are often invoked
+        // conditionally, e.g. for error reporting or v4/v6 handling depending
+        // on the packet, so the search can't stop after the first tail call.
+        tail_call_static(ctx, cilium_calls, TAIL_E);
         return 0;
 }

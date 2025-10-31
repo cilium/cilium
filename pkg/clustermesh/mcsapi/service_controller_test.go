@@ -419,3 +419,69 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 		require.Equal(t, corev1.ClusterIPNone, svc.Spec.ClusterIP)
 	})
 }
+
+func TestGetDesiredIPs(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		svc      *corev1.Service
+		expected []string
+	}{
+		{
+			name: "headless service",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SupportedIPFamilies: "IPv4,IPv6",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIP: corev1.ClusterIPNone,
+				},
+			},
+			expected: []string{},
+		},
+		{
+			name: "no annotation",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					ClusterIP:  "10.0.0.1",
+					ClusterIPs: []string{"10.0.0.1", "fd00::1"},
+				},
+			},
+			expected: []string{"10.0.0.1", "fd00::1"},
+		},
+		{
+			name: "invert ips",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SupportedIPFamilies: "IPv6,IPv4",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIPs: []string{"10.0.0.2", "fd00::2"},
+				},
+			},
+			expected: []string{"fd00::2", "10.0.0.2"},
+		},
+		{
+			name: "filter one ip",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SupportedIPFamilies: "IPv6",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					ClusterIPs: []string{"10.0.0.2", "fd00::2"},
+				},
+			},
+			expected: []string{"fd00::2"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ips := getDesiredIPs(tt.svc)
+			require.Equal(t, tt.expected, ips)
+		})
+	}
+}

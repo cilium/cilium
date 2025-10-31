@@ -121,19 +121,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	return 0;
 }
 
-#include "bpf_xdp.c"
+#include "lib/bpf_xdp.h"
 #include "lib/lb.h"
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-.values = {
-  [0] = &cil_xdp_entry,
-},
-};
 
 static __always_inline int
 generate_packet(struct __ctx_buff *ctx, int client_id, __u16 src_port)
@@ -281,10 +270,8 @@ SETUP("xdp", "session_affinity_maglev_client_1_port_1")
 int setup_1_1(struct __ctx_buff *ctx)
 {
 	setup_test();
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "session_affinity_maglev_client_1_port_1")
@@ -306,10 +293,8 @@ SETUP("xdp", "session_affinity_maglev_client_1_port_2")
 int setup_1_2(struct __ctx_buff *ctx)
 {
 	setup_test();
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "session_affinity_maglev_client_1_port_2")
@@ -331,10 +316,8 @@ SETUP("xdp", "session_affinity_maglev_client_1_port_3")
 int setup_1_3(struct __ctx_buff *ctx)
 {
 	setup_test();
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "session_affinity_maglev_client_1_port_3")
@@ -356,10 +339,8 @@ SETUP("xdp", "session_affinity_maglev_client_2_port_1")
 int setup_2_1(struct __ctx_buff *ctx)
 {
 	setup_test();
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "session_affinity_maglev_client_2_port_1")
@@ -381,10 +362,8 @@ SETUP("xdp", "session_affinity_maglev_client_2_port_2")
 int setup_2_2(struct __ctx_buff *ctx)
 {
 	setup_test();
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "session_affinity_maglev_client_2_port_2")
@@ -406,10 +385,8 @@ SETUP("xdp", "session_affinity_maglev_client_2_port_3")
 int setup_2_3(struct __ctx_buff *ctx)
 {
 	setup_test();
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+
+	return xdp_receive_packet(ctx);
 }
 
 CHECK("xdp", "session_affinity_maglev_client_2_port_3")

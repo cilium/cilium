@@ -68,20 +68,7 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 	return 0;
 }
 
-#include "bpf_host.c"
-
-#define TO_NETDEV	0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
+#include "lib/bpf_host.h"
 
 /* Test that a health-check request to a remote backend is IPIP-encapsulated. */
 PKTGEN("tc", "l4lb_health_check_host")
@@ -123,10 +110,7 @@ int l4lb_health_check_host_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&cilium_lb4_health, &key, &value, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "l4lb_health_check_host")

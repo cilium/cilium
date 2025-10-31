@@ -1090,6 +1090,46 @@ func (m *validateOpCopySnapshot) HandleInitialize(ctx context.Context, in middle
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCopyVolumes struct {
+}
+
+func (*validateOpCopyVolumes) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCopyVolumes) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CopyVolumesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCopyVolumesInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpCreateCapacityManagerDataExport struct {
+}
+
+func (*validateOpCreateCapacityManagerDataExport) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateCapacityManagerDataExport) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateCapacityManagerDataExportInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateCapacityManagerDataExportInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateCapacityReservationBySplitting struct {
 }
 
@@ -1405,6 +1445,26 @@ func (m *validateOpCreateImage) HandleInitialize(ctx context.Context, in middlew
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpCreateImageInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpCreateImageUsageReport struct {
+}
+
+func (*validateOpCreateImageUsageReport) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateImageUsageReport) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateImageUsageReportInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateImageUsageReportInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -2630,6 +2690,26 @@ func (m *validateOpCreateVpnGateway) HandleInitialize(ctx context.Context, in mi
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDeleteCapacityManagerDataExport struct {
+}
+
+func (*validateOpDeleteCapacityManagerDataExport) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteCapacityManagerDataExport) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteCapacityManagerDataExportInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteCapacityManagerDataExportInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDeleteCarrierGateway struct {
 }
 
@@ -2845,6 +2925,26 @@ func (m *validateOpDeleteFpgaImage) HandleInitialize(ctx context.Context, in mid
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpDeleteFpgaImageInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDeleteImageUsageReport struct {
+}
+
+func (*validateOpDeleteImageUsageReport) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteImageUsageReport) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteImageUsageReportInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteImageUsageReportInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -4550,6 +4650,26 @@ func (m *validateOpDescribeImageAttribute) HandleInitialize(ctx context.Context,
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDescribeImageReferences struct {
+}
+
+func (*validateOpDescribeImageReferences) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDescribeImageReferences) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DescribeImageReferencesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDescribeImageReferencesInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDescribeInstanceAttribute struct {
 }
 
@@ -5905,6 +6025,46 @@ func (m *validateOpGetAssociatedIpv6PoolCidrs) HandleInitialize(ctx context.Cont
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpGetAssociatedIpv6PoolCidrsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetCapacityManagerMetricData struct {
+}
+
+func (*validateOpGetCapacityManagerMetricData) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetCapacityManagerMetricData) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetCapacityManagerMetricDataInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetCapacityManagerMetricDataInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetCapacityManagerMetricDimensions struct {
+}
+
+func (*validateOpGetCapacityManagerMetricDimensions) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetCapacityManagerMetricDimensions) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetCapacityManagerMetricDimensionsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetCapacityManagerMetricDimensionsInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -9630,6 +9790,26 @@ func (m *validateOpUnmonitorInstances) HandleInitialize(ctx context.Context, in 
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpUpdateCapacityManagerOrganizationsAccess struct {
+}
+
+func (*validateOpUpdateCapacityManagerOrganizationsAccess) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpUpdateCapacityManagerOrganizationsAccess) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*UpdateCapacityManagerOrganizationsAccessInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpUpdateCapacityManagerOrganizationsAccessInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpWithdrawByoipCidr struct {
 }
 
@@ -9866,6 +10046,14 @@ func addOpCopySnapshotValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCopySnapshot{}, middleware.After)
 }
 
+func addOpCopyVolumesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCopyVolumes{}, middleware.After)
+}
+
+func addOpCreateCapacityManagerDataExportValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateCapacityManagerDataExport{}, middleware.After)
+}
+
 func addOpCreateCapacityReservationBySplittingValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateCapacityReservationBySplitting{}, middleware.After)
 }
@@ -9928,6 +10116,10 @@ func addOpCreateFpgaImageValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpCreateImageValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateImage{}, middleware.After)
+}
+
+func addOpCreateImageUsageReportValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateImageUsageReport{}, middleware.After)
 }
 
 func addOpCreateInstanceConnectEndpointValidationMiddleware(stack *middleware.Stack) error {
@@ -10174,6 +10366,10 @@ func addOpCreateVpnGatewayValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateVpnGateway{}, middleware.After)
 }
 
+func addOpDeleteCapacityManagerDataExportValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteCapacityManagerDataExport{}, middleware.After)
+}
+
 func addOpDeleteCarrierGatewayValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteCarrierGateway{}, middleware.After)
 }
@@ -10216,6 +10412,10 @@ func addOpDeleteFlowLogsValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpDeleteFpgaImageValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteFpgaImage{}, middleware.After)
+}
+
+func addOpDeleteImageUsageReportValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteImageUsageReport{}, middleware.After)
 }
 
 func addOpDeleteInstanceConnectEndpointValidationMiddleware(stack *middleware.Stack) error {
@@ -10558,6 +10758,10 @@ func addOpDescribeImageAttributeValidationMiddleware(stack *middleware.Stack) er
 	return stack.Initialize.Add(&validateOpDescribeImageAttribute{}, middleware.After)
 }
 
+func addOpDescribeImageReferencesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDescribeImageReferences{}, middleware.After)
+}
+
 func addOpDescribeInstanceAttributeValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDescribeInstanceAttribute{}, middleware.After)
 }
@@ -10828,6 +11032,14 @@ func addOpGetAssociatedEnclaveCertificateIamRolesValidationMiddleware(stack *mid
 
 func addOpGetAssociatedIpv6PoolCidrsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetAssociatedIpv6PoolCidrs{}, middleware.After)
+}
+
+func addOpGetCapacityManagerMetricDataValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetCapacityManagerMetricData{}, middleware.After)
+}
+
+func addOpGetCapacityManagerMetricDimensionsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetCapacityManagerMetricDimensions{}, middleware.After)
 }
 
 func addOpGetCapacityReservationUsageValidationMiddleware(stack *middleware.Stack) error {
@@ -11572,6 +11784,10 @@ func addOpUnlockSnapshotValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpUnmonitorInstancesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpUnmonitorInstances{}, middleware.After)
+}
+
+func addOpUpdateCapacityManagerOrganizationsAccessValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpUpdateCapacityManagerOrganizationsAccess{}, middleware.After)
 }
 
 func addOpWithdrawByoipCidrValidationMiddleware(stack *middleware.Stack) error {
@@ -13405,6 +13621,42 @@ func validateOpCopySnapshotInput(v *CopySnapshotInput) error {
 	}
 }
 
+func validateOpCopyVolumesInput(v *CopyVolumesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CopyVolumesInput"}
+	if v.SourceVolumeId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SourceVolumeId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateCapacityManagerDataExportInput(v *CreateCapacityManagerDataExportInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateCapacityManagerDataExportInput"}
+	if v.S3BucketName == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("S3BucketName"))
+	}
+	if len(v.Schedule) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("Schedule"))
+	}
+	if len(v.OutputFormat) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("OutputFormat"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateCapacityReservationBySplittingInput(v *CreateCapacityReservationBySplittingInput) error {
 	if v == nil {
 		return nil
@@ -13482,9 +13734,6 @@ func validateOpCreateClientVpnEndpointInput(v *CreateClientVpnEndpointInput) err
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "CreateClientVpnEndpointInput"}
-	if v.ClientCidrBlock == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("ClientCidrBlock"))
-	}
 	if v.ServerCertificateArn == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("ServerCertificateArn"))
 	}
@@ -13687,6 +13936,24 @@ func validateOpCreateImageInput(v *CreateImageInput) error {
 	}
 	if v.Name == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("Name"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateImageUsageReportInput(v *CreateImageUsageReportInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateImageUsageReportInput"}
+	if v.ImageId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
+	}
+	if v.ResourceTypes == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ResourceTypes"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -14806,6 +15073,21 @@ func validateOpCreateVpnGatewayInput(v *CreateVpnGatewayInput) error {
 	}
 }
 
+func validateOpDeleteCapacityManagerDataExportInput(v *DeleteCapacityManagerDataExportInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteCapacityManagerDataExportInput"}
+	if v.CapacityManagerDataExportId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityManagerDataExportId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDeleteCarrierGatewayInput(v *DeleteCarrierGatewayInput) error {
 	if v == nil {
 		return nil
@@ -14972,6 +15254,21 @@ func validateOpDeleteFpgaImageInput(v *DeleteFpgaImageInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "DeleteFpgaImageInput"}
 	if v.FpgaImageId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("FpgaImageId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDeleteImageUsageReportInput(v *DeleteImageUsageReportInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteImageUsageReportInput"}
+	if v.ReportId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ReportId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -16288,6 +16585,21 @@ func validateOpDescribeImageAttributeInput(v *DescribeImageAttributeInput) error
 	}
 }
 
+func validateOpDescribeImageReferencesInput(v *DescribeImageReferencesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DescribeImageReferencesInput"}
+	if v.ImageIds == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ImageIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDescribeInstanceAttributeInput(v *DescribeInstanceAttributeInput) error {
 	if v == nil {
 		return nil
@@ -17415,6 +17727,54 @@ func validateOpGetAssociatedIpv6PoolCidrsInput(v *GetAssociatedIpv6PoolCidrsInpu
 	invalidParams := smithy.InvalidParamsError{Context: "GetAssociatedIpv6PoolCidrsInput"}
 	if v.PoolId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("PoolId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetCapacityManagerMetricDataInput(v *GetCapacityManagerMetricDataInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetCapacityManagerMetricDataInput"}
+	if v.MetricNames == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("MetricNames"))
+	}
+	if v.StartTime == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("StartTime"))
+	}
+	if v.EndTime == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("EndTime"))
+	}
+	if v.Period == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Period"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetCapacityManagerMetricDimensionsInput(v *GetCapacityManagerMetricDimensionsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetCapacityManagerMetricDimensionsInput"}
+	if v.GroupBy == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("GroupBy"))
+	}
+	if v.StartTime == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("StartTime"))
+	}
+	if v.EndTime == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("EndTime"))
+	}
+	if v.MetricNames == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("MetricNames"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -20566,6 +20926,21 @@ func validateOpUnmonitorInstancesInput(v *UnmonitorInstancesInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "UnmonitorInstancesInput"}
 	if v.InstanceIds == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("InstanceIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpUpdateCapacityManagerOrganizationsAccessInput(v *UpdateCapacityManagerOrganizationsAccessInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "UpdateCapacityManagerOrganizationsAccessInput"}
+	if v.OrganizationsAccess == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("OrganizationsAccess"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

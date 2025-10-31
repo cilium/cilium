@@ -2,6 +2,35 @@ name: Conformance AKS (ci-aks)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  workflow_call:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: false
+        type: string
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: false
+        type: string
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: false
+        type: string
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+        type: string
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        type: string
+        default: '{}'
+      is-workflow-call:
+        description: "Distinguish if it's a workflow_call event."
+        required: false
+        type: boolean
+        default: true
+
   workflow_dispatch:
     inputs:
       PR-number:
@@ -13,16 +42,16 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
-  push:
-    branches:
-      - 'renovate/main-**'
-  # Run every 8 hours
+  # Run every 12 hours
   schedule:
-    - cron:  '0 0/8 * * *'
+    - cron:  '0 0/12 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -41,18 +70,23 @@ permissions:
 concurrency:
   # Structure:
   # - Workflow name
+  #   For workflow_call events, this is the name of the *parent* workflow.
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
-  #   - workflow_dispatch: PR number
+  #   - workflow_dispatch: PR number.
+  # The 'aks' suffix added to both schedule and workflow_dispatch ensures
+  # that for workflow_call events it doesn't conflict with other potential
+  # parallel workflow_call done to other workflows from the same parent
+  # workflow. As otherwise the group name would be identical.
   #
   # This structure ensures a unique concurrency group name is generated for each
   # type of testing, such that re-runs will cancel the previous run.
   group: |
     ${{ github.workflow }}
+    aks
     ${{ github.event_name }}
     ${{
-      (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
@@ -224,15 +258,23 @@ jobs:
           # which are 10.0.0.0/16 and fd12:3456:789a:1::/108
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --datapath-mode=aks-byocni \
-            --helm-set cluster.name=${{ env.name }} \
-            --helm-set loadBalancer.l7.backend=envoy \
+            --helm-set=cluster.name=${{ env.name }} \
+            --helm-set=loadBalancer.l7.backend=envoy \
             --helm-set=azure.resourceGroup=${{ env.name }} \
-            --helm-set kubeProxyReplacement=true \
+            --helm-set=kubeProxyReplacement=true \
             --helm-set=bpf.masquerade=true \
             --helm-set=ipv4.enabled=true \
             --helm-set=ipv6.enabled=true \
             --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
             --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
+
+          # Check if ipsec is requested via extra-args
+          IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
+          if [[ "$IPSEC" == "true" ]]; then
+            echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true \
+              --helm-set encryption.type=ipsec"
+          fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
@@ -240,6 +282,7 @@ jobs:
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo ipsec=${IPSEC} >> $GITHUB_OUTPUT
 
       - name: Login to Azure
         uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
@@ -268,7 +311,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@746083db48591ffbebd37743873a91a13a6b04b8 # v0.18.6
+        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -287,6 +330,11 @@ jobs:
           path: untrusted
           sparse-checkout: |
             install/kubernetes/cilium
+
+      - name: Create custom IPsec secret
+        if: ${{ steps.vars.outputs.ipsec == 'true' }}
+        run: |
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
       - name: Install Cilium
         id: install-cilium
@@ -330,39 +378,6 @@ jobs:
         run: |
           cilium uninstall --wait
 
-      - name: Create custom IPsec secret
-        run: |
-          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
-
-      - name: Install Cilium with encryption
-        run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --helm-set encryption.enabled=true \
-            --helm-set encryption.type=ipsec
-
-      - name: Enable Relay
-        run: |
-          cilium hubble enable
-
-      - name: Wait for Cilium status to be ready
-        run: |
-          cilium status --wait --interactive=false --wait-duration=10m
-
-      - name: Run sequential connectivity test with IPSec (${{ join(matrix.*, ', ') }})
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-          --test "seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-sequential-ipsec (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
-
-      - name: Run concurrent connectivity test with IPSec (${{ join(matrix.*, ', ') }})
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-          --test-concurrency=${{ env.test_concurrency }} \
-          --test "!seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-concurrent-ipsec (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
-
       - name: Run common post steps
         if: ${{ always() }}
         uses: ./.github/actions/post-logic
@@ -378,11 +393,25 @@ jobs:
 
   merge-upload-and-status:
     name: Merge Upload and Status
-    if: ${{ always() }}
-    needs: installation-and-connectivity
+    if: ${{ always() && !inputs.is-workflow-call }}
+    needs: [generate-matrix, installation-and-connectivity]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.installation-and-connectivity.result }}
+      # The generate-matrix can be legitimately empty on older branches, so we
+      # consider that as success. On older branches the generated matrix will
+      # get fewer entries since the k8s versions will reach EOL and get removed
+      # from the matrix.
+      success: >-
+        ${{
+          needs.generate-matrix.result == 'success' &&
+        (
+          needs.installation-and-connectivity.result == 'success'
+          ||
+          (
+            needs.generate-matrix.outputs.empty == 'true' &&
+            github.ref_name != github.event.repository.default_branch
+          )
+        ) }}

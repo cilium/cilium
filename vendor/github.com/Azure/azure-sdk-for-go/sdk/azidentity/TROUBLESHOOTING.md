@@ -12,13 +12,13 @@ This troubleshooting guide covers failure investigation techniques, common error
 - [Troubleshoot AzureCLICredential authentication issues](#troubleshoot-azureclicredential-authentication-issues)
 - [Troubleshoot AzureDeveloperCLICredential authentication issues](#troubleshoot-azuredeveloperclicredential-authentication-issues)
 - [Troubleshoot AzurePipelinesCredential authentication issues](#troubleshoot-azurepipelinescredential-authentication-issues)
+- [Troubleshoot AzurePowerShellCredential authentication issues](#troubleshoot-azurepowershellcredential-authentication-issues)
 - [Troubleshoot ClientCertificateCredential authentication issues](#troubleshoot-clientcertificatecredential-authentication-issues)
 - [Troubleshoot ClientSecretCredential authentication issues](#troubleshoot-clientsecretcredential-authentication-issues)
 - [Troubleshoot DefaultAzureCredential authentication issues](#troubleshoot-defaultazurecredential-authentication-issues)
 - [Troubleshoot EnvironmentCredential authentication issues](#troubleshoot-environmentcredential-authentication-issues)
 - [Troubleshoot ManagedIdentityCredential authentication issues](#troubleshoot-managedidentitycredential-authentication-issues)
   - [Azure App Service and Azure Functions managed identity](#azure-app-service-and-azure-functions-managed-identity)
-  - [Azure Kubernetes Service managed identity](#azure-kubernetes-service-managed-identity)
   - [Azure Virtual Machine managed identity](#azure-virtual-machine-managed-identity)
 - [Troubleshoot WorkloadIdentityCredential authentication issues](#troubleshoot-workloadidentitycredential-authentication-issues)
 - [Get additional help](#get-additional-help)
@@ -120,7 +120,6 @@ azlog.SetEvents(azidentity.EventAuthentication)
 |---|---|---|
 |Azure Virtual Machines and Scale Sets|[Configuration](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/qs-configure-portal-windows-vm)|[Troubleshooting](#azure-virtual-machine-managed-identity)|
 |Azure App Service and Azure Functions|[Configuration](https://learn.microsoft.com/azure/app-service/overview-managed-identity)|[Troubleshooting](#azure-app-service-and-azure-functions-managed-identity)|
-|Azure Kubernetes Service|[Configuration](https://azure.github.io/aad-pod-identity/docs/)|[Troubleshooting](#azure-kubernetes-service-managed-identity)|
 |Azure Arc|[Configuration](https://learn.microsoft.com/azure/azure-arc/servers/managed-identity-authentication)||
 |Azure Service Fabric|[Configuration](https://learn.microsoft.com/azure/service-fabric/concepts-managed-identity)||
 
@@ -158,14 +157,6 @@ curl "$IDENTITY_ENDPOINT?resource=https://management.core.windows.net&api-versio
 ```
 
 > This command's output will contain an access token and SHOULD NOT BE SHARED, to avoid compromising account security.
-
-### Azure Kubernetes Service managed identity
-
-#### Pod Identity
-
-| Error Message |Description| Mitigation |
-|---|---|---|
-|"no azure identity found for request clientID"|The application attempted to authenticate before an identity was assigned to its pod|Verify the pod is labeled correctly. This also occurs when a correctly labeled pod authenticates before the identity is ready. To prevent initialization races, configure NMI to set the Retry-After header in its responses as described in [Pod Identity documentation](https://azure.github.io/aad-pod-identity/docs/configure/feature_flags/#set-retry-after-header-in-nmi-response).
 
 <a id="azure-cli"></a>
 ## Troubleshoot AzureCLICredential authentication issues
@@ -212,6 +203,34 @@ Once you've verified the Azure Developer CLI is using correct account, you can v
 
 ```sh
 azd auth token --output json --scope https://management.core.windows.net/.default
+```
+>Note that output of this command will contain a valid access token, and SHOULD NOT BE SHARED to avoid compromising account security.
+
+<a id="azure-pwsh"></a>
+## Troubleshoot `AzurePowerShellCredential` authentication issues
+
+| Error Message |Description| Mitigation |
+|---|---|---|
+|executable not found on path|No local installation of PowerShell was found.|Ensure that PowerShell is properly installed on the machine. Instructions for installing PowerShell can be found [here](https://learn.microsoft.com/powershell/scripting/install/installing-powershell).|
+|Az.Accounts module not found|The Az.Account module needed for authentication in Azure PowerShell isn't installed.|Install the latest Az.Account module. Installation instructions can be found [here](https://learn.microsoft.com/powershell/azure/install-az-ps).|
+|Please run "Connect-AzAccount" to set up account.|No account is currently logged into Azure PowerShell.|<ul><li>Log in to Azure PowerShell using the `Connect-AzAccount` command. More instructions for authenticating Azure PowerShell can be found at [Sign in with Azure PowerShell](https://learn.microsoft.com/powershell/azure/authenticate-azureps).</li><li>Validate that Azure PowerShell can obtain tokens. For instructions, see [Verify Azure PowerShell can obtain tokens](#verify-azure-powershell-can-obtain-tokens).</li></ul>|
+
+#### __Verify Azure PowerShell can obtain tokens__
+
+You can manually verify that Azure PowerShell is authenticated and can obtain tokens. First, use the `Get-AzContext` command to verify the account that is currently logged in to Azure PowerShell.
+
+```
+PS C:\> Get-AzContext
+
+Name                                     Account             SubscriptionName    Environment         TenantId
+----                                     -------             ----------------    -----------         --------
+Subscription1 (xxxxxxxx-xxxx-xxxx-xxx... test@outlook.com    Subscription1       AzureCloud          xxxxxxxx-x...
+```
+
+Once you've verified Azure PowerShell is using correct account, validate that it's able to obtain tokens for this account:
+
+```bash
+Get-AzAccessToken -ResourceUrl "https://management.core.windows.net"
 ```
 >Note that output of this command will contain a valid access token, and SHOULD NOT BE SHARED to avoid compromising account security.
 

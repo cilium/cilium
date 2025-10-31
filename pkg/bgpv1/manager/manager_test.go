@@ -16,13 +16,11 @@ import (
 	"k8s.io/utils/ptr"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
-	"github.com/cilium/cilium/pkg/bgpv1/agent/mode"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/instance"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/reconcilerv2"
 	"github.com/cilium/cilium/pkg/bgpv1/manager/tables"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 var (
@@ -167,36 +165,31 @@ func TestGetRoutes(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := instance.NewServerWithConfig(context.Background(), hivetest.Logger(t), srvParams)
+			testInstance, err := instance.NewBGPInstance(context.Background(), hivetest.Logger(t), "test-instance", srvParams)
 			require.NoError(t, err)
 
-			testSC.Config = &v2alpha1.CiliumBGPVirtualRouter{
-				LocalASN:  int64(testRouterASN),
-				Neighbors: []v2alpha1.CiliumBGPNeighbor{},
+			testInstance.Config = &v2.CiliumBGPNodeInstance{
+				LocalASN: ptr.To(int64(testRouterASN)),
+				Peers:    []v2.CiliumBGPNodePeer{},
 			}
-			cm := mode.NewConfigMode()
-			cm.Set(mode.BGPv1)
-
 			brm := &BGPRouterManager{
-				ConfigMode: cm,
-				Servers: map[int64]*instance.ServerWithConfig{
-					int64(testRouterASN): testSC,
+				BGPInstances: LocalInstanceMap{
+					testInstance.Name: testInstance,
 				},
 				running: true,
 			}
 
 			// add a neighbor
-			n := &v2alpha1.CiliumBGPNeighbor{
-				PeerAddress: testNeighborIP + "/32",
-				PeerASN:     64100,
+			n := &types.Neighbor{
+				Address: netip.MustParseAddr(testNeighborIP),
+				ASN:     64100,
 			}
-			n.SetDefaults()
-			err = testSC.Server.AddNeighbor(context.Background(), types.ToNeighborV1(n, ""))
+			err = testInstance.Router.AddNeighbor(context.Background(), n)
 			require.NoError(t, err)
 
 			// advertise test-provided prefixes
 			for _, cidr := range tt.advertisedPrefixes {
-				_, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
+				_, err := testInstance.Router.AdvertisePath(context.Background(), types.PathRequest{
 					Path: types.NewPathForPrefix(cidr),
 				})
 				require.NoError(t, err)
@@ -487,7 +480,7 @@ func TestStatedbReconcileErrors(t *testing.T) {
 
 			// call reconcile for each instance
 			for _, inst := range tt.instances {
-				err = m.reconcileBGPConfigV2(
+				err = m.reconcileBGPConfig(
 					context.Background(),
 					inst,
 					&v2.CiliumBGPNodeInstance{

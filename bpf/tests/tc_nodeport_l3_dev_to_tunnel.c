@@ -28,23 +28,12 @@
 #define BACKEND_IPV6		{ .addr = { 0x3, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #define BACKEND_PORT		__bpf_htons(8080)
 
-#include "bpf_host.c"
+#include "lib/bpf_host.h"
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
 static volatile const __u8 *node_mac = mac_two;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[0] = &cil_from_netdev,
-	},
-};
 
 PKTGEN("tc", "ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel")
 int ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel(struct __ctx_buff *ctx)
@@ -104,8 +93,7 @@ int ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel_setup(struct __ctx_buff *ct
 
 	skb_adjust_room(ctx, -__ETH_HLEN, BPF_ADJ_ROOM_MAC, flags);
 
-	tail_call_static(ctx, entry_call_map, 0);
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "ipv4_tc_nodeport_l3_to_remote_backend_via_tunnel")
@@ -204,8 +192,7 @@ int ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel_setup(struct __ctx_buff *ct
 
 	skb_adjust_room(ctx, -__ETH_HLEN, BPF_ADJ_ROOM_MAC, flags);
 
-	tail_call_static(ctx, entry_call_map, 0);
-	return TEST_ERROR;
+	return netdev_receive_packet(ctx);
 }
 
 CHECK("tc", "ipv6_tc_nodeport_l3_to_remote_backend_via_tunnel")

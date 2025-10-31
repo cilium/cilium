@@ -2200,10 +2200,6 @@ func init() {
           "items": {
             "$ref": "#/definitions/RemoteCluster"
           }
-        },
-        "num-global-services": {
-          "description": "Number of global services",
-          "type": "integer"
         }
       }
     },
@@ -2454,8 +2450,16 @@ func init() {
         "datapathMode": {
           "$ref": "#/definitions/DatapathMode"
         },
+        "deviceHeadroom": {
+          "description": "Headroom buffer margin on workload facing devices",
+          "type": "integer"
+        },
         "deviceMTU": {
           "description": "MTU on workload facing devices",
+          "type": "integer"
+        },
+        "deviceTailroom": {
+          "description": "Tailroom buffer margin on workload facing devices",
           "type": "integer"
         },
         "egress-multi-home-ip-rule-compat": {
@@ -7569,10 +7573,6 @@ func init() {
           "items": {
             "$ref": "#/definitions/RemoteCluster"
           }
-        },
-        "num-global-services": {
-          "description": "Number of global services",
-          "type": "integer"
         }
       }
     },
@@ -7875,8 +7875,16 @@ func init() {
         "datapathMode": {
           "$ref": "#/definitions/DatapathMode"
         },
+        "deviceHeadroom": {
+          "description": "Headroom buffer margin on workload facing devices",
+          "type": "integer"
+        },
         "deviceMTU": {
           "description": "MTU on workload facing devices",
+          "type": "integer"
+        },
+        "deviceTailroom": {
+          "description": "Tailroom buffer margin on workload facing devices",
           "type": "integer"
         },
         "egress-multi-home-ip-rule-compat": {

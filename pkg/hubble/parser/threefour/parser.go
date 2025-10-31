@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/correlation"
 )
 
@@ -66,6 +67,8 @@ type packet struct {
 	layers.TCP
 	layers.UDP
 	layers.SCTP
+	layers.VRRPv2
+	layers.IGMPv1or2
 
 	overlay struct {
 		Layers []gopacket.LayerType
@@ -79,6 +82,8 @@ type packet struct {
 		layers.TCP
 		layers.UDP
 		layers.SCTP
+		layers.VRRPv2
+		layers.IGMPv1or2
 	}
 }
 
@@ -99,6 +104,7 @@ func New(
 		&packet.IPv4, &packet.IPv6,
 		&packet.ICMPv4, &packet.ICMPv6,
 		&packet.TCP, &packet.UDP, &packet.SCTP,
+		&packet.VRRPv2, &packet.IGMPv1or2,
 	}
 	packet.decLayerL2Dev = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decoders...)
 	packet.decLayerL3Dev.IPv4 = gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, decoders...)
@@ -110,6 +116,7 @@ func New(
 		&packet.overlay.IPv4, &packet.overlay.IPv6,
 		&packet.overlay.ICMPv4, &packet.overlay.ICMPv6,
 		&packet.overlay.TCP, &packet.overlay.UDP, &packet.overlay.SCTP,
+		&packet.overlay.VRRPv2, &packet.overlay.IGMPv1or2,
 	}
 	packet.decLayerOverlay.VXLAN = gopacket.NewDecodingLayerParser(layers.LayerTypeVXLAN, overlayDecoders...)
 	packet.decLayerOverlay.Geneve = gopacket.NewDecodingLayerParser(layers.LayerTypeGeneve, overlayDecoders...)
@@ -270,6 +277,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.TrafficDirection = decodeTrafficDirection(srcEndpoint.ID, dn, tn, pvn)
 	decoded.EventType = decodeCiliumEventType(eventType, eventSubType)
 	decoded.TraceReason = decodeTraceReason(tn)
+	decoded.IpTraceId = decodeIpTraceId(dn, tn)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
 	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
@@ -351,6 +359,12 @@ func decodeLayers(payload []byte, packet *packet, isL3Device, isIPv6, isVXLAN, i
 		case layers.LayerTypeICMPv6:
 			l4 = decodeICMPv6(&packet.ICMPv6)
 			summary = "ICMPv6 " + packet.ICMPv6.TypeCode.String()
+		case layers.LayerTypeVRRP:
+			l4 = decodeVRRP(&packet.VRRPv2)
+			summary = "VRRP " + packet.VRRPv2.Type.String()
+		case layers.LayerTypeIGMP:
+			l4 = decodeIGMP(&packet.IGMPv1or2)
+			summary = "IGMP " + packet.IGMPv1or2.Type.String()
 		}
 	}
 
@@ -419,6 +433,12 @@ func decodeLayers(payload []byte, packet *packet, isL3Device, isIPv6, isVXLAN, i
 		case layers.LayerTypeICMPv6:
 			l4 = decodeICMPv6(&packet.overlay.ICMPv6)
 			summary = "ICMPv6 " + packet.overlay.ICMPv6.TypeCode.String()
+		case layers.LayerTypeVRRP:
+			l4 = decodeVRRP(&packet.overlay.VRRPv2)
+			summary = "VRRP " + packet.overlay.VRRPv2.Type.String()
+		case layers.LayerTypeIGMP:
+			l4 = decodeIGMP(&packet.overlay.IGMPv1or2)
+			summary = "IGMP " + packet.overlay.IGMPv1or2.Type.String()
 		}
 	}
 
@@ -563,6 +583,25 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 	}
 }
 
+func decodeVRRP(vrrp *layers.VRRPv2) *pb.Layer4 {
+	return &pb.Layer4{
+		Protocol: &pb.Layer4_VRRP{VRRP: &pb.VRRP{
+			Type:     uint32(vrrp.Type),
+			Vrid:     uint32(vrrp.VirtualRtrID),
+			Priority: uint32(vrrp.Priority),
+		}},
+	}
+}
+
+func decodeIGMP(igmp *layers.IGMPv1or2) *pb.Layer4 {
+	return &pb.Layer4{
+		Protocol: &pb.Layer4_IGMP{IGMP: &pb.IGMP{
+			Type:         uint32(igmp.Type),
+			GroupAddress: igmp.GroupAddress.String(),
+		}},
+	}
+}
+
 func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrapperspb.BoolValue {
 	switch {
 	case tn != nil && tn.TraceReasonIsKnown():
@@ -615,6 +654,23 @@ func decodeTraceReason(tn *monitor.TraceNotify) pb.TraceReason {
 	}
 }
 
+func decodeIpTraceId(dn *monitor.DropNotify, tn *monitor.TraceNotify) *pb.IPTraceID {
+	var id uint64
+	switch {
+	case dn != nil:
+		id = uint64(dn.IPTraceID)
+	case tn != nil:
+		id = uint64(tn.IPTraceID)
+	}
+	if id == 0 {
+		return nil
+	}
+	return &pb.IPTraceID{
+		TraceId:      id,
+		IpOptionType: uint32(option.Config.IPTracingOptionType),
+	}
+}
+
 func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) (
 	sourceSecurityIdentiy, destinationSecurityIdentity uint32,
 ) {
@@ -662,13 +718,6 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 			isReply := tn.TraceReasonIsReply()
 
 			switch {
-			// Although technically the corresponding packet is ingressing the
-			// stack (TraceReasonEncryptOverlay traces are TraceToStack), it is
-			// ultimately originating from the local node and destinated to a
-			// remote node, so egress make more sense to expose at a high
-			// level.
-			case tn.TraceReason() == monitor.TraceReasonEncryptOverlay:
-				return pb.TrafficDirection_EGRESS
 			// isSourceEP != isReply ==
 			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)
 			case isSourceEP != isReply:

@@ -197,10 +197,22 @@ func GetServiceLoopbackIPv4(logger *slog.Logger) net.IP {
 	return getLocalNode(logger).Local.ServiceLoopbackIPv4
 }
 
+// GetServiceLoopbackIPv6 returns the service loopback IPv6 address of this node.
+func GetServiceLoopbackIPv6(logger *slog.Logger) net.IP {
+	return getLocalNode(logger).Local.ServiceLoopbackIPv6
+}
+
 // SetIPv4Loopback sets the service loopback IPv4 address of this node.
 func SetServiceLoopbackIPv4(ip net.IP) {
 	localNode.Update(func(n *LocalNode) {
 		n.Local.ServiceLoopbackIPv4 = ip
+	})
+}
+
+// SetServiceLoopbackIPv6 sets the service loopback IPv6 address of this node.
+func SetServiceLoopbackIPv6(ip net.IP) {
+	localNode.Update(func(n *LocalNode) {
+		n.Local.ServiceLoopbackIPv6 = ip
 	})
 }
 
@@ -528,11 +540,11 @@ func GetIngressIPv6(logger *slog.Logger) net.IP {
 // Note that the key index returned by this function is only valid for _endpoints_
 // of the local node. If you want to obtain the key index of the local node itself,
 // access the `EncryptionKey` field via the LocalNodeStore.
-func GetEndpointEncryptKeyIndex(logger *slog.Logger, wgCfg wgTypes.WireguardConfig) uint8 {
+func GetEndpointEncryptKeyIndex(logger *slog.Logger, wgEnabled, ipsecEnabled bool) uint8 {
 	switch {
-	case option.Config.EnableIPSec:
+	case ipsecEnabled:
 		return getLocalNode(logger).EncryptionKey
-	case wgCfg.Enabled():
+	case wgEnabled:
 		return wgTypes.StaticEncryptKey
 
 	}

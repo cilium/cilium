@@ -27,7 +27,7 @@
 #define NODE_MAC mac_two
 #define LOCAL_BACKEND_MAC mac_three
 
-#define ctx_redirect mock_ctx_redirect
+#define redirect_neigh mock_redirect_neigh
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
@@ -37,8 +37,10 @@ struct {
 } redirect_ifindex_map __section_maps_btf;
 
 static __always_inline __maybe_unused int
-mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+mock_redirect_neigh(int ifindex,
+		    __maybe_unused struct bpf_redir_neigh *params,
+		    __maybe_unused int plen,
+		    __maybe_unused __u32 flags)
 {
 	__u32 key = 0;
 	__u32 *value = map_lookup_elem(&redirect_ifindex_map, &key);
@@ -49,25 +51,12 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 	return CTX_ACT_REDIRECT;
 }
 
-#include <bpf_host.c>
+#include "lib/bpf_host.h"
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
-#define TO_NETDEV	0
-
 ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[TO_NETDEV] = &cil_to_netdev,
-	},
-};
 
 /* Setup for this test:
  *
@@ -140,10 +129,7 @@ int eni_nlb_symetric_routing_egress_v4_setup_setup(struct __ctx_buff *ctx)
 
 	ct_create4(&cilium_ct4_global, NULL, &ct, ctx, CT_INGRESS, &state, NULL);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "eni_nlb_symetric_routing_egress_v4_setup")
@@ -254,10 +240,7 @@ int eni_nlb_symetric_routing_egress_v4_setup_icmp_setup(struct __ctx_buff *ctx)
 
 	ct_create4(&cilium_ct_any4_global, NULL, &ct, ctx, CT_INGRESS, &state, NULL);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, TO_NETDEV);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+	return netdev_send_packet(ctx);
 }
 
 CHECK("tc", "eni_nlb_symetric_routing_egress_v4_setup_icmp")

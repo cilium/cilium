@@ -25,9 +25,9 @@ The full documentation can be found at [VERSIONING.md](VERSIONING.md), but TL;DR
 
 Users:
 
-- We follow [Semantic Versioning (semver)](https://semver.org)
-- Use releases with your dependency management to ensure that you get compatible code
-- The main branch contains all the latest code, some of which may break compatibility (so "normal" `go get` is not recommended)
+- We stick to a zero major version
+- We publish a minor version for each Kubernetes minor release and allow breaking changes between minor versions
+- We publish patch versions as needed and we don't allow breaking changes in them
 
 Contributors:
 
@@ -53,6 +53,7 @@ Compatible k8s.io/*, client-go and minimum Go versions can be looked up in our [
 
 |          | k8s.io/*, client-go | minimum Go version |
 |----------|:-------------------:|:------------------:|
+| CR v0.21 |        v0.33        |        1.24        |
 | CR v0.20 |        v0.32        |        1.23        |
 | CR v0.19 |        v0.31        |        1.22        |
 | CR v0.18 |        v0.30        |        1.22        |
@@ -67,9 +68,6 @@ See [FAQ.md](FAQ.md)
 ## Community, discussion, contribution, and support
 
 Learn how to engage with the Kubernetes community on the [community page](http://kubernetes.io/community/).
-
-controller-runtime is a subproject of the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) project
-in sig apimachinery.
 
 You can reach the maintainers of this project at:
 

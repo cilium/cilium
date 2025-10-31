@@ -62,6 +62,7 @@ Filters Flags:
       --identity filter                     Show all flows related to an endpoint with the given security identity
       --interface filter                    Show all flows observed at the given interface name (e.g. eth0)
       --ip filter                           Show all flows originating or terminating at the given IP address. Each of the IPs can be specified as an exact match (e.g. '1.1.1.1') or as a CIDR range (e.g.'1.1.1.0/24').
+      --ip-trace-id filter                  Show only flows which match this IP trace ID
       --ip-version filter                   Show only IPv4, IPv6 flows or non IP flows (e.g. ARP packets) (ie: "none", "v4", "v6")
   -4, --ipv4 filter[=v4]                    Show only IPv4 flows
   -6, --ipv6 filter[=v6]                    Show only IPv6 flows

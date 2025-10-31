@@ -111,6 +111,9 @@ var (
 
 	//go:embed manifests/echo-ingress-from-cidr.yaml
 	echoIngressFromCIDRYAML string
+
+	//go:embed manifests/bgp-peering-policy.yaml
+	bgpPeeringPolicyYAML string
 )
 
 var (
@@ -310,6 +313,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		bgpControlPlane{},
 		multicast{},
 		strictModeEncryption{},
+		ipsecKeyDerivation{},
 	}
 	return injectTests(tests, connTests...)
 }
@@ -422,7 +426,7 @@ func withKPRReqForMultiCluster(ct *check.ConnectivityTest, reqs ...features.Requ
 	// Skip the nodeport-related tests in the multicluster scenario if KPR is not
 	// enabled, since global nodeport services are not supported in that case.
 	if ct.Params().MultiCluster != "" {
-		reqs = append(reqs, features.RequireEnabled(features.KPRNodePort))
+		reqs = append(reqs, features.RequireEnabled(features.KPR))
 	}
 	return reqs
 }

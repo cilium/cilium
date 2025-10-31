@@ -25,7 +25,7 @@ const (
 	PathParamCharacter = '='
 
 	// MaxSize is max size of records and internal slice.
-	MaxSize = (1 << 22) - 1
+	MaxSize = (1 << 22) - 1 //nolint:mnd
 )
 
 // Router represents a URL router.
@@ -62,7 +62,7 @@ func (rt *Router) Lookup(path string) (data interface{}, params Params, found bo
 	if !found {
 		return nil, nil, false
 	}
-	for i := 0; i < len(params); i++ {
+	for i := range params {
 		params[i].Name = nd.paramNames[i]
 	}
 	return nd.data, params, true
@@ -138,12 +138,17 @@ func newDoubleArray() *doubleArray {
 // 32                    10  8         0
 type baseCheck uint32
 
+const (
+	flagsBits = 10
+	checkBits = 8
+)
+
 func (bc baseCheck) Base() int {
-	return int(bc >> 10)
+	return int(bc >> flagsBits)
 }
 
 func (bc *baseCheck) SetBase(base int) {
-	*bc |= baseCheck(base) << 10
+	*bc |= baseCheck(base) << flagsBits //nolint:gosec // integer conversion is ok
 }
 
 func (bc baseCheck) Check() byte {
@@ -171,24 +176,27 @@ func (bc baseCheck) IsAnyParam() bool {
 }
 
 func (bc *baseCheck) SetSingleParam() {
-	*bc |= (1 << 8)
+	*bc |= (1 << checkBits)
 }
 
 func (bc *baseCheck) SetWildcardParam() {
-	*bc |= (1 << 9)
+	*bc |= (1 << (checkBits + 1))
 }
 
 const (
 	paramTypeSingle   = 0x0100
 	paramTypeWildcard = 0x0200
 	paramTypeAny      = 0x0300
+
+	indexOffset = 32
+	indexMask   = uint64(0xffffffff)
 )
 
 func (da *doubleArray) lookup(path string, params []Param, idx int) (*node, []Param, bool) {
 	indices := make([]uint64, 0, 1)
-	for i := 0; i < len(path); i++ {
+	for i := range len(path) {
 		if da.bc[idx].IsAnyParam() {
-			indices = append(indices, (uint64(i)<<32)|(uint64(idx)&0xffffffff))
+			indices = append(indices, (uint64(i)<<indexOffset)|(uint64(idx)&indexMask)) //nolint:gosec // integer conversion is okay
 		}
 		c := path[i]
 		if idx = nextIndex(da.bc[idx].Base(), c); idx >= len(da.bc) || da.bc[idx].Check() != c {
@@ -201,7 +209,7 @@ func (da *doubleArray) lookup(path string, params []Param, idx int) (*node, []Pa
 
 BACKTRACKING:
 	for j := len(indices) - 1; j >= 0; j-- {
-		i, idx := int(indices[j]>>32), int(indices[j]&0xffffffff)
+		i, idx := int(indices[j]>>indexOffset), int(indices[j]&indexMask) //nolint:gosec // integer conversion is okay
 		if da.bc[idx].IsSingleParam() {
 			nextIdx := nextIndex(da.bc[idx].Base(), ParamCharacter)
 			if nextIdx >= len(da.bc) {
@@ -428,6 +436,7 @@ func NewRecord(key string, value interface{}) Record {
 // record represents a record that use to build the Double-Array.
 type record struct {
 	Record
+
 	paramNames []string
 }
 

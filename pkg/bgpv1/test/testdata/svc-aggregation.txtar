@@ -12,8 +12,8 @@ gobgp/add-server test 65010 10.99.4.211 1790
 # Configure peers on GoBGP
 gobgp/add-peer 10.99.4.212 65001
 
-# Add k8s services
-k8s/add service-1.yaml service-2.yaml service-3.yaml endpoints.yaml
+# Add k8s services and endpoints
+k8s/add service-1.yaml service-2.yaml service-3.yaml endpoints-ipv4.yaml endpoints-ipv6.yaml
 
 # Configure BGP on Cilium
 k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement-1.yaml
@@ -274,18 +274,40 @@ status:
     - ip: 172.16.1.3
     - ip: fd00:cc:dd::3
 
--- endpoints.yaml --
+-- endpoints-ipv4.yaml --
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
   labels:
     kubernetes.io/service-name: svc3
-  name: svc3-eps1
+  name: svc3-eps-ipv4
   uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
 addressType: IPv4
 endpoints:
 - addresses:
   - 10.244.1.20
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: test-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpoints-ipv6.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: svc3
+  name: svc3-eps-ipv6
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd76
+addressType: IPv6
+endpoints:
+- addresses:
+  - 2001::1:20
   conditions:
     ready: true
     serving: true

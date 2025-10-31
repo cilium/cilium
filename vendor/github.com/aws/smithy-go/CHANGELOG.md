@@ -1,3 +1,24 @@
+# Release (2025-10-15)
+
+## General Highlights
+* **Dependency Update**: Bump minimum go version to 1.23.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# Release (2025-09-18)
+
+## Module Highlights
+* `github.com/aws/smithy-go/aws-http-auth`: [v1.1.0](aws-http-auth/CHANGELOG.md#v110-2025-09-18)
+  * **Feature**: Added support for SIG4/SIGV4A querystring authentication.
+
+# Release (2025-08-27)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.23.0
+  * **Feature**: Sort map keys in JSON Document types.
+
 # Release (2025-07-24)
 
 ## General Highlights
@@ -5,8 +26,7 @@
 
 ## Module Highlights
 * `github.com/aws/smithy-go`: v1.22.5
-  * **Bug Fix**: Fix HTTP metrics data race.
-  * **Bug Fix**: Replace usages of deprecated ioutil package.
+  * **Feature**: Add HTTP interceptors.
 
 # Release (2025-06-16)
 

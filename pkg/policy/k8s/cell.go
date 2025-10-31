@@ -20,11 +20,8 @@ import (
 	slim_networking_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
@@ -39,7 +36,7 @@ const (
 // policy related K8s resources (Kubernetes NetworkPolicy (KNP),
 // CiliumNetworkPolicy (CNP), ClusterwideCiliumNetworkPolicy (CCNP),
 // and CiliumCIDRGroup (CCG)), translates them to Cilium's own
-// policy representation (api.Rules) and updates the policy repository
+// policy representation (PolicyEntry) and updates the policy repository
 // (via PolicyManager) accordingly.
 var Cell = cell.Module(
 	"policy-k8s-watcher",
@@ -47,11 +44,6 @@ var Cell = cell.Module(
 
 	cell.Invoke(startK8sPolicyWatcher),
 )
-
-type PolicyManager interface {
-	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
-	PolicyDelete(labels labels.LabelArray, opts *policy.DeleteOptions) (newRev uint64, err error)
-}
 
 type ipc interface {
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)

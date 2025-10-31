@@ -1,0 +1,112 @@
+name: Conformance Race Detection (ci-conformance-race)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+  # Run daily at midnight UTC
+  schedule:
+    - cron: '0 0 * * *'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with catchpoint/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Parent concurrency group name to avoid deadlock with child workflows
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    parent
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  prepare-extra-args:
+    name: Prepare extra-args
+    runs-on: ubuntu-24.04
+    outputs:
+      extra-args: ${{ steps.merge.outputs.extra-args }}
+    steps:
+      - name: Merge extra-args with "detect-race"
+        id: merge
+        run: |
+          ARGS='${{ inputs.extra-args }}'
+          echo "extra-args=$(echo "${ARGS}" | jq -c '. + {"detect-race": true}')" >> "$GITHUB_OUTPUT"
+
+  conformance-ginkgo-race:
+    name: Conformance Ginkgo with Race Detection
+    needs: prepare-extra-args
+    uses: ./.github/workflows/conformance-ginkgo.yaml
+    secrets: inherit
+    with:
+      PR-number: ${{ inputs.PR-number || github.ref_name }}
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      SHA: ${{ inputs.SHA || github.sha }}
+      extra-args: ${{ needs.prepare-extra-args.outputs.extra-args }}
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: conformance-ginkgo-race
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      success: ${{ needs.conformance-ginkgo-race.result == 'success' }}

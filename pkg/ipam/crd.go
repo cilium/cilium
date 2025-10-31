@@ -532,8 +532,17 @@ func (n *nodeStore) updateLocalNodeResource(node *ciliumv2.CiliumNode) {
 // its resourceVersion) without updating the available IP pool.
 func (n *nodeStore) setOwnNodeWithoutPoolUpdate(node *ciliumv2.CiliumNode) {
 	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	// Do not update to an inconsistent state (see updateLocalNodeResource)
+	if n.conf.IPAMMode() == ipamOption.IPAMENI {
+		if err := validateENIConfig(node); err != nil {
+			n.logger.Info("ENI state is not consistent yet", logfields.Error, err)
+			return
+		}
+	}
+
 	n.ownNode = node
-	n.mutex.Unlock()
 }
 
 // refreshNodeTrigger is called to refresh the custom resource after taking the
@@ -681,7 +690,13 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 		}
 	}
 
-	return nil, nil, fmt.Errorf("No more IPs available")
+	msg := "no IPs currently available on the node, allocation will be retried "
+	if n.conf.IPAMMode() == ipamOption.IPAMCRD {
+		msg += "once IPs are added to CiliumNode spec.ipam.pool"
+	} else {
+		msg += "once Cilium Operator allocates more IPs"
+	}
+	return nil, nil, errors.New(msg)
 }
 
 // totalPoolSize returns the total size of the allocation pool
@@ -810,6 +825,24 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				result.PrimaryMAC = iface.MAC
 				result.GatewayIP = iface.Gateway
 				result.CIDRs = append(result.CIDRs, iface.CIDR)
+				// Add manually configured Native Routing CIDR
+				if a.conf.IPv4NativeRoutingCIDR != nil {
+					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR.String())
+				}
+				// If the ip-masq-agent is enabled, get the CIDRs that are not masqueraded.
+				// Note that the resulting ip rules will not be dynamically regenerated if the
+				// ip-masq-agent configuration changes.
+				if a.conf.EnableIPMasqAgent {
+					nonMasqCidrs := a.ipMasqAgent.NonMasqCIDRsFromConfig()
+					for _, prefix := range nonMasqCidrs {
+						if ip.To4() != nil && prefix.Addr().Is4() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						} else if ip.To4() == nil && prefix.Addr().Is6() {
+							result.CIDRs = append(result.CIDRs, prefix.String())
+						}
+					}
+				}
+
 				// For now, we can hardcode the interface number to a valid
 				// integer because it will not be used in the allocation result
 				// anyway. To elaborate, Azure IPAM mode automatically sets

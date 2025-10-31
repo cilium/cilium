@@ -385,9 +385,6 @@ func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap], err erro
 
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
-			if !p.NetNSCookieSupport() {
-				return nil
-			}
 			return m.OpenOrCreate()
 		},
 		OnStop: func(cell.HookContext) error {

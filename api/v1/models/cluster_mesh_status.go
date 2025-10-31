@@ -10,6 +10,7 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -26,9 +27,6 @@ type ClusterMeshStatus struct {
 
 	// List of remote clusters
 	Clusters []*RemoteCluster `json:"clusters"`
-
-	// Number of global services
-	NumGlobalServices int64 `json:"num-global-services,omitempty"`
 }
 
 // Validate validates this cluster mesh status
@@ -57,11 +55,15 @@ func (m *ClusterMeshStatus) validateClusters(formats strfmt.Registry) error {
 
 		if m.Clusters[i] != nil {
 			if err := m.Clusters[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("clusters" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("clusters" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -96,11 +98,15 @@ func (m *ClusterMeshStatus) contextValidateClusters(ctx context.Context, formats
 			}
 
 			if err := m.Clusters[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("clusters" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("clusters" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}

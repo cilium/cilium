@@ -7,6 +7,18 @@ import (
 	"time"
 )
 
+// Hive options
+const (
+	// HiveStartTimeout is the default value for option.HiveStartTimeout
+	HiveStartTimeout = 5 * time.Minute
+
+	// HiveStopTimeout is the default value for option.HiveStopTimeout
+	HiveStopTimeout = time.Minute
+
+	// HiveLogThreshold is the default value for option.HiveLogThreshold
+	HiveLogThreshold = 100 * time.Millisecond
+)
+
 const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
 	AgentHealthPort = 9879
@@ -207,26 +219,6 @@ const (
 	// PreAllocateMaps is the default value for BPF map preallocation
 	PreAllocateMaps = true
 
-	// EnableIPSec is the default value for IPSec enablement
-	EnableIPSec = false
-
-	// IPsecKeyRotationDuration is the time to wait before removing old keys when
-	// the IPsec key is changing.
-	IPsecKeyRotationDuration = 5 * time.Minute
-
-	// Enable watcher for IPsec key. If disabled, a restart of the agent will
-	// be necessary on key rotations.
-	EnableIPsecKeyWatcher = true
-
-	// Enable caching for XfrmState for IPSec. Significantly reduces CPU usage
-	// in large clusters.
-	EnableIPSecXfrmStateCaching = true
-
-	// Enable IPSec encrypted overlay
-	//
-	// This feature will encrypt overlay traffic before it leaves the cluster.
-	EnableIPSecEncryptedOverlay = false
-
 	// EncryptNode enables encrypting traffic from host networking applications
 	// which are not part of Cilium manged pods.
 	EncryptNode = false
@@ -269,10 +261,6 @@ const (
 	// EnableEndpointHealthChecking
 	EnableEndpointHealthChecking = true
 
-	// EnableHealthCheckLoadBalancerIP is the default value for
-	// EnableHealthCheckLoadBalancerIP
-	EnableHealthCheckLoadBalancerIP = false
-
 	// HealthCheckICMPFailureThreshold is the default value for HealthCheckICMPFailureThreshold
 	HealthCheckICMPFailureThreshold = 3
 
@@ -309,6 +297,9 @@ const (
 
 	// ServiceLoopbackIPv4 is the default address for service loopback
 	ServiceLoopbackIPv4 = "169.254.42.1"
+
+	// ServiceLoopbackIPv6 is the default address for service loopback
+	ServiceLoopbackIPv6 = "fe80::1"
 
 	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
 	// It is disabled by default for backwards compatibility.
@@ -380,8 +371,8 @@ const (
 	// per GC interval
 	ENIGarbageCollectionMaxPerInterval = 25
 
-	// ENIMaxResultsPerApiCall is the maximum number of ENI objects to fetch per DescribeNetworkInterfaces API call
-	ENIMaxResultsPerApiCall = 1000
+	// AWSResultsPerApiCall is the maximum number of objects to fetch per paginated API call
+	AWSResultsPerApiCall = 1000
 
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
@@ -490,8 +481,8 @@ const (
 	// The value is aligned to 3 cache-lines, see above comment in TracePayloadLen.
 	TracePayloadLenOverlay = 192
 
-	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
-	UseCiliumInternalIPForIPsec = false
+	// PolicyDenyResponse is the default action for pod egress network policy denials (drop packets silently)
+	PolicyDenyResponse = "none"
 
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN uint16 = 8472
@@ -557,6 +548,9 @@ const (
 
 	// EnableExtendedIPProtocols controls whether traffic with extended IP protocols is supported in datapath.
 	EnableExtendedIPProtocols = false
+
+	// IPTracingOptionType is the default value for option.IPTracingOptionType
+	IPTracingOptionType = 0
 )
 
 var (

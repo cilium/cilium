@@ -16,22 +16,9 @@
 /* Test SRH encap. Reduced encap code path is a subset of SRH encap */
 #define ENABLE_SRV6_SRH_ENCAP
 
-#include "bpf_lxc.c"
+#include "lib/bpf_lxc.h"
 #include "lib/ipcache.h"
 #include "lib/policy.h"
-
-#define FROM_CONTAINER 0
-
-struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 1);
-	__array(values, int());
-} entry_call_map __section(".maps") = {
-	.values = {
-		[FROM_CONTAINER] = &cil_from_container,
-	},
-};
 
 #define POD_IPV4 v4_pod_one
 #define EXT_IPV4 v4_ext_one
@@ -101,8 +88,7 @@ int srv6_encap_from_pod_ipv4_setup(struct __ctx_buff *ctx __maybe_unused)
 	/* We need this rule. Otherwise, network policy will drop the inner packet. */
 	policy_add_egress_allow_all_entry();
 
-	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
-	return TEST_FAIL;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "tc_srv6_encap_from_pod_ipv4")
@@ -254,8 +240,7 @@ int srv6_encap_from_pod_ipv6_setup(struct __ctx_buff *ctx __maybe_unused)
 	/* We need this rule. Otherwise, network policy will drop the inner packet. */
 	policy_add_egress_allow_all_entry();
 
-	tail_call_static(ctx, entry_call_map, FROM_CONTAINER);
-	return TEST_FAIL;
+	return pod_send_packet(ctx);
 }
 
 CHECK("tc", "tc_srv6_encap_from_pod_ipv6")

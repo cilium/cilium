@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -155,7 +156,7 @@ func TestCreateL4Filter(t *testing.T) {
 	}
 
 	for _, selector := range selectors {
-		eps := []api.EndpointSelector{selector}
+		eps := types.PeerSelectorSlice{selector}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
@@ -163,17 +164,17 @@ func TestCreateL4Filter(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := sp.getAuthType()
+			explicit, authType := getAuthType(sp.Authentication)
 			require.False(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 
-		filter, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil)
+		filter, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := sp.getAuthType()
+			explicit, authType := getAuthType(sp.Authentication)
 			require.False(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
@@ -199,7 +200,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 
 	auth := &api.Authentication{Mode: api.AuthenticationModeDisabled}
 	for _, selector := range selectors {
-		eps := []api.EndpointSelector{selector}
+		eps := types.PeerSelectorSlice{selector}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
@@ -207,17 +208,17 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := sp.getAuthType()
+			explicit, authType := getAuthType(sp.Authentication)
 			require.True(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 
-		filter, err = createL4EgressFilter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol, nil)
+		filter, err = createL4EgressFilter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
-			explicit, authType := sp.getAuthType()
+			explicit, authType := getAuthType(sp.Authentication)
 			require.True(t, explicit)
 			require.Equal(t, AuthTypeDisabled, authType)
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
@@ -249,14 +250,14 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 	}
 
 	for _, selector := range selectors {
-		eps := []api.EndpointSelector{selector}
+		eps := types.PeerSelectorSlice{selector}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
 		_, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol)
 		require.Error(t, err)
 
-		_, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil)
+		_, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol)
 		require.Error(t, err)
 	}
 }

@@ -1679,17 +1679,15 @@ func (ipam *LBIPAM) updatePoolCounts(pool *cilium_api_v2.CiliumLoadBalancerIPPoo
 		totalCounts.Used += used
 	}
 
-	if ipam.setPoolCondition(pool, ciliumPoolIPsTotalCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Total.String()) ||
-		ipam.setPoolCondition(pool, ciliumPoolIPsAvailableCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Available.String()) ||
-		ipam.setPoolCondition(pool, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.FormatUint(totalCounts.Used, 10)) {
-		modifiedPoolStatus = true
-	}
+	totalChanged := ipam.setPoolCondition(pool, ciliumPoolIPsTotalCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Total.String())
+	availableChanged := ipam.setPoolCondition(pool, ciliumPoolIPsAvailableCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Available.String())
+	usedChanged := ipam.setPoolCondition(pool, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.FormatUint(totalCounts.Used, 10))
 
 	available, _ := new(big.Float).SetInt(totalCounts.Available).Float64()
 	ipam.metrics.AvailableIPs.WithLabelValues(pool.Name).Set(available)
 	ipam.metrics.UsedIPs.WithLabelValues(pool.Name).Set(float64(totalCounts.Used))
 
-	return modifiedPoolStatus
+	return totalChanged || availableChanged || usedChanged
 }
 
 func (ipam *LBIPAM) setPoolCondition(
@@ -1905,6 +1903,20 @@ func (ipam *LBIPAM) settleConflicts(ctx context.Context) error {
 		}
 	}
 
+	// Count the number of conflicting pools and update the metric.
+	var conflictingPools float64
+	for _, pool := range ipam.pools {
+		lbRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
+		// When a pool is marked as conflicting, all of its lbRanges are
+		// internally disabled. Therefore, checking a single lbRange
+		// is sufficient to conclude that the pool is conflicting.
+		if len(lbRanges) > 0 && lbRanges[0].internallyDisabled {
+			conflictingPools++
+		}
+	}
+
+	ipam.metrics.ConflictingPools.Set(conflictingPools)
+
 	return nil
 }
 
@@ -1918,8 +1930,6 @@ func (ipam *LBIPAM) markPoolConflicting(
 	if isPoolConflicting(targetPool) {
 		return nil
 	}
-
-	ipam.metrics.ConflictingPools.Inc()
 
 	ipam.logger.WarnContext(ctx,
 		fmt.Sprintf("Pool '%s' conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
@@ -1963,8 +1973,6 @@ func (ipam *LBIPAM) unmarkPool(ctx context.Context, targetPool *cilium_api_v2.Ci
 	for _, poolRange := range targetPoolRanges {
 		poolRange.internallyDisabled = false
 	}
-
-	ipam.metrics.ConflictingPools.Dec()
 
 	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionFalse, "resolved", "") {
 		err := ipam.patchPoolStatus(ctx, targetPool)

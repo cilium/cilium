@@ -93,7 +93,6 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 			func() kpr.KPRConfig {
 				return kpr.KPRConfig{
 					KubeProxyReplacement: true,
-					EnableNodePort:       true,
 					EnableSocketLB:       true,
 				}
 			},

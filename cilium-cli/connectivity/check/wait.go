@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -319,31 +320,6 @@ func WaitForNodePorts(ctx context.Context, log Logger, client Pod, nodeIP string
 	return nil
 }
 
-// WaitForIPCache waits until all the specified pods are present in the IPCache of the given agent.
-func WaitForIPCache(ctx context.Context, log Logger, agent Pod, pods []Pod) error {
-	log.Logf("⌛ [%s] Waiting for Cilium pod %s to have all the pod IPs in eBPF IPCache...",
-		agent.K8sClient.ClusterName(), agent.Name())
-
-	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
-	defer cancel()
-
-	for {
-		err := validateIPCache(ctx, agent, pods)
-		if err == nil {
-			return nil
-		}
-
-		log.Debugf("[%s] Error checking pod IPs in IPCache: %s", agent.K8sClient.ClusterName(), err)
-
-		select {
-		case <-time.After(PollInterval):
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for pod IPs to be in IPCache of Cilium pod %s (last error: %w)",
-				agent.Name(), err)
-		}
-	}
-}
-
 // BPFEgressGatewayPolicyEntry represents an entry in the BPF egress gateway policy map
 type BPFEgressGatewayPolicyEntry struct {
 	SourceIP  string `json:"sourceIP"`
@@ -441,27 +417,6 @@ func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context,
 	}
 }
 
-func validateIPCache(ctx context.Context, agent Pod, pods []Pod) error {
-	stdout, err := agent.K8sClient.ExecInPod(ctx, agent.Namespace(), agent.NameWithoutNamespace(),
-		defaults.AgentContainerName, []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
-	if err != nil {
-		return fmt.Errorf("failed to list ipcache bpf map: %w", err)
-	}
-
-	var ic ipCache
-	if err := json.Unmarshal(stdout.Bytes(), &ic); err != nil {
-		return fmt.Errorf("failed to unmarshal Cilium ipcache stdout json: %w", err)
-	}
-
-	for _, pod := range pods {
-		if _, err := ic.findPodID(pod); err != nil {
-			return fmt.Errorf("couldn't find pod %s in ipcache: %w", pod.Name(), err)
-		}
-	}
-
-	return nil
-}
-
 // DeleteK8sResourceWithWait deletes the provided k8s resource and waits until it is deleted.
 func DeleteK8sResourceWithWait[T any](ctx context.Context, t *Test, k8sClient k8s.ResourceClient[T], resourceName string) {
 	w := wait.NewObserver(ctx, wait.Parameters{Timeout: ShortTimeout})
@@ -478,6 +433,25 @@ func DeleteK8sResourceWithWait[T any](ctx context.Context, t *Test, k8sClient k8
 		}
 		if err = w.Retry(err); err != nil {
 			t.Fatalf("Failed to ensure k8s resorce %s is deleted: %v", resourceName, err)
+		}
+	}
+}
+
+// DeleteK8sObjectWithWait deletes the provided unstructured k8s object and waits until it is deleted.
+func DeleteK8sObjectWithWait(ctx context.Context, t *Test, obj *unstructured.Unstructured) {
+	err := t.Context().K8sClient().DeleteGeneric(ctx, obj)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		t.Fatalf("Failed to delete k8s object %s: %v", obj.GetName(), err)
+	}
+	w := wait.NewObserver(ctx, wait.Parameters{Timeout: ShortTimeout})
+	defer w.Cancel()
+	for {
+		_, err := t.Context().K8sClient().GetGeneric(ctx, obj.GetNamespace(), obj.GetName(), obj)
+		if err != nil && k8serrors.IsNotFound(err) {
+			break // got expected not found
+		}
+		if err = w.Retry(err); err != nil {
+			t.Fatalf("Failed to ensure k8s object %s is deleted: %v", obj.GetName(), err)
 		}
 	}
 }

@@ -45,7 +45,7 @@ func NewSecurityPerimetersClient(subscriptionID string, credential azcore.TokenC
 // CreateOrUpdate - Creates or updates a Network Security Perimeter.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - parameters - Parameter supplied to create or update the network security perimeter.
@@ -93,7 +93,7 @@ func (client *SecurityPerimetersClient) createOrUpdateCreateRequest(ctx context.
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -114,7 +114,7 @@ func (client *SecurityPerimetersClient) createOrUpdateHandleResponse(resp *http.
 // BeginDelete - Deletes a network security perimeter.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - options - SecurityPerimetersClientBeginDeleteOptions contains the optional parameters for the SecurityPerimetersClient.BeginDelete
@@ -140,7 +140,7 @@ func (client *SecurityPerimetersClient) BeginDelete(ctx context.Context, resourc
 // Delete - Deletes a network security perimeter.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 func (client *SecurityPerimetersClient) deleteOperation(ctx context.Context, resourceGroupName string, networkSecurityPerimeterName string, options *SecurityPerimetersClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "SecurityPerimetersClient.BeginDelete"
@@ -182,7 +182,7 @@ func (client *SecurityPerimetersClient) deleteCreateRequest(ctx context.Context,
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	if options != nil && options.ForceDeletion != nil {
 		reqQP.Set("forceDeletion", strconv.FormatBool(*options.ForceDeletion))
 	}
@@ -194,7 +194,7 @@ func (client *SecurityPerimetersClient) deleteCreateRequest(ctx context.Context,
 // Get - Gets the specified network security perimeter by the name.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - options - SecurityPerimetersClientGetOptions contains the optional parameters for the SecurityPerimetersClient.Get method.
@@ -240,7 +240,7 @@ func (client *SecurityPerimetersClient) getCreateRequest(ctx context.Context, re
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -257,7 +257,7 @@ func (client *SecurityPerimetersClient) getHandleResponse(resp *http.Response) (
 
 // NewListPager - List network security perimeters in a resource group.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - options - SecurityPerimetersClientListOptions contains the optional parameters for the SecurityPerimetersClient.NewListPager
 //     method.
@@ -306,7 +306,7 @@ func (client *SecurityPerimetersClient) listCreateRequest(ctx context.Context, r
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -323,7 +323,7 @@ func (client *SecurityPerimetersClient) listHandleResponse(resp *http.Response) 
 
 // NewListBySubscriptionPager - List all network security perimeters in a subscription.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - options - SecurityPerimetersClientListBySubscriptionOptions contains the optional parameters for the SecurityPerimetersClient.NewListBySubscriptionPager
 //     method.
 func (client *SecurityPerimetersClient) NewListBySubscriptionPager(options *SecurityPerimetersClientListBySubscriptionOptions) *runtime.Pager[SecurityPerimetersClientListBySubscriptionResponse] {
@@ -367,7 +367,7 @@ func (client *SecurityPerimetersClient) listBySubscriptionCreateRequest(ctx cont
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -385,7 +385,7 @@ func (client *SecurityPerimetersClient) listBySubscriptionHandleResponse(resp *h
 // Patch - Patch Tags for a Network Security Perimeter.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - parameters - Parameter supplied to the network security perimeter.
@@ -433,7 +433,7 @@ func (client *SecurityPerimetersClient) patchCreateRequest(ctx context.Context, 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {

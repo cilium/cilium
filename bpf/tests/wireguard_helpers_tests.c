@@ -21,6 +21,9 @@
 
 #include "lib/ipcache.h"
 
+ASSIGN_CONFIG(__u32, wg_ifindex, 42)
+ASSIGN_CONFIG(__u16, wg_port, 51871)
+
 PKTGEN("tc", "ctx_is_wireguard_success")
 static __always_inline int
 pktgen_wireguard_mock_check1(struct __ctx_buff *ctx) {
@@ -34,8 +37,8 @@ pktgen_wireguard_mock_check1(struct __ctx_buff *ctx) {
 					  (__u8 *)mac_two,
 					  v4_node_one,
 					  v4_node_two,
-					  bpf_htons(WG_PORT),
-					  bpf_htons(WG_PORT));
+					  bpf_htons(CONFIG(wg_port)),
+					  bpf_htons(CONFIG(wg_port)));
 	if (!l4)
 		return TEST_ERROR;
 
@@ -91,7 +94,7 @@ int check2(struct __ctx_buff *ctx)
 
 	assert(!ctx_mark_is_wireguard(ctx));
 
-	ctx->mark = MARK_MAGIC_WG_ENCRYPTED;
+	ctx->mark = MARK_MAGIC_ENCRYPT;
 
 	assert(ctx_mark_is_wireguard(ctx));
 

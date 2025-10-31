@@ -16,7 +16,6 @@ import (
 // Loader is an interface to abstract out loading of datapath programs.
 type Loader interface {
 	CallsMapPath(id uint16) string
-	CustomCallsMapPath(id uint16) string
 	Unload(ep Endpoint)
 	HostDatapathInitialized() <-chan struct{}
 
@@ -40,7 +39,7 @@ type PreFilter interface {
 // Proxy is any type which installs rules related to redirecting traffic to
 // a proxy.
 type Proxy interface {
-	ReinstallRoutingRules(ctx context.Context, mtu int) error
+	ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled bool) error
 }
 
 // IptablesManager manages iptables rules.
@@ -71,6 +70,11 @@ type IptablesManager interface {
 
 	// See comments for InstallNoTrackRules.
 	RemoveNoTrackRules(ip netip.Addr, port uint16)
+
+	// AddNoTrackHostPorts/RemoveNoTrackHostPort are explicitly called when a pod has a valid "no-track-host-ports" annotation.
+	// causes iptables notrack rules to be added/removed so CT is skipped for pods using host networking on the requested ports.
+	AddNoTrackHostPorts(namespace, name string, ports []string)
+	RemoveNoTrackHostPorts(namespace, name string)
 }
 
 // CompilationLock is a interface over a mutex, it is used by both the loader, daemon

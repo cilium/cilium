@@ -56,11 +56,11 @@ type MapSweeper struct {
 	kprCfg    kpr.KPRConfig
 }
 
-// NewMapSweeper creates an object that walks map paths and garbage-collects
+// newMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
+func newMapSweeper(logger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
 	return &MapSweeper{
-		logger:          defaultLogger.With(logfields.LogSubsys, "datapath-maps"),
+		logger:          logger,
 		endpointManager: g,
 		bwManager:       bwm,
 		lbConfig:        lbConfig,
@@ -101,7 +101,6 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 		ctmap.MapNameAny6,
 		ctmap.MapNameAny4,
 		callsmap.MapName,
-		callsmap.CustomCallsMapName,
 	}
 
 	for _, m := range mapPrefix {
@@ -187,7 +186,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}...)
 	}
 
-	if !ms.kprCfg.EnableNodePort {
+	if !ms.kprCfg.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
 		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
 	}
 

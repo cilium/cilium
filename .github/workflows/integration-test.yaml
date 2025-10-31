@@ -13,6 +13,9 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -21,7 +24,6 @@ on:
     branches:
     - main
     - ft/main/**
-    - 'renovate/main-**'
     paths-ignore:
     - 'Documentation/**'
   # Run every 8 hours
@@ -100,7 +102,7 @@ jobs:
         if: ${{ startsWith(matrix.arch, 'ubuntu-latest') || startsWith(matrix.arch, 'ubuntu-24.04') }}
         shell: bash
         run: |
-          # This is required for libtinfo5
+          # This is required for libtinfo6
           uri="http://security.ubuntu.com/ubuntu"
           arch="amd64"
           if [ ${{ runner.arch }} == "ARM64" ]; then
@@ -120,7 +122,7 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          sudo apt update && sudo apt install -y --no-install-recommends build-essential make libtinfo5
+          sudo apt update && sudo apt install -y --no-install-recommends build-essential make libtinfo6
 
       - name: Checkout context ref (trusted)
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -153,15 +155,15 @@ jobs:
           persist-credentials: false
 
       - name: Install Go
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.0
+          go-version: 1.25.3
 
       # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -174,7 +176,7 @@ jobs:
         run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@a7a1a882e2d06ebe05d5bb97c3e1f8c984ae96fc # v2.0.7
+        uses: KyleMayes/install-llvm-action@98e68e10c96dffcb7bfed8b2144541a66b49aa02 # v2.0.8
         with:
           version: "19.1.7"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
@@ -228,7 +230,7 @@ jobs:
 
       - name: Upload JUnits [junit]
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: cilium-junits-${{ env.job_name }}
           path: cilium-junits/*.xml

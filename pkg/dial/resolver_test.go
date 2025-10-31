@@ -60,6 +60,7 @@ func TestServiceResolver(t *testing.T) {
 		ServiceResolverCell,
 
 		cell.Config(k8s.DefaultConfig),
+		cell.Provide(k8s.DefaultServiceWatchConfig),
 		cell.Provide(k8s.ServiceResource),
 
 		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ *ServiceResolver) {
@@ -183,6 +184,7 @@ func TestServiceBackendResolver(t *testing.T) {
 		writer.Cell,
 
 		cell.Provide(
+			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 			ServiceBackendResolverFactory("test1"),
 
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },

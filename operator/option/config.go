@@ -49,9 +49,6 @@ const (
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
 
-	// SyncK8sNodes synchronizes k8s nodes into the kvstore
-	SyncK8sNodes = "synchronize-k8s-nodes"
-
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval = "unmanaged-pod-watcher-interval"
 
@@ -183,10 +180,6 @@ const (
 	// is used to provide hints for misconfiguration.
 	KubeProxyReplacement = "kube-proxy-replacement"
 
-	// EnableNodePort is equivalent to the cilium-agent option, and
-	// is used to provide hints for misconfiguration.
-	EnableNodePort = "enable-node-port"
-
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace = "cilium-pod-namespace"
 
@@ -234,9 +227,6 @@ type OperatorConfig struct {
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
-
-	// SyncK8sNodes synchronizes k8s nodes into the kvstore
-	SyncK8sNodes bool
 
 	// UnmanagedPodWatcherInterval is the interval to check for unmanaged kube-dns pods (0 to disable)
 	UnmanagedPodWatcherInterval int
@@ -292,10 +282,9 @@ type OperatorConfig struct {
 	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
 	IPAMAutoCreateCiliumPodIPPools map[string]string
 
-	// KubeProxyReplacement or NodePort are required to implement cluster
+	// KubeProxyReplacement is required to implement cluster
 	// Ingress (or equivalent Gateway API functionality)
 	KubeProxyReplacement bool
-	EnableNodePort       bool
 
 	// AWS options
 
@@ -406,7 +395,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
-	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
 	c.NodeCIDRMaskSizeIPv4 = vp.GetInt(NodeCIDRMaskSizeIPv4)
 	c.NodeCIDRMaskSizeIPv6 = vp.GetInt(NodeCIDRMaskSizeIPv6)
@@ -449,7 +437,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	// Gateways and Ingress
 	c.KubeProxyReplacement = vp.GetBool(KubeProxyReplacement)
-	c.EnableNodePort = vp.GetBool(EnableNodePort)
 
 	// AWS options
 

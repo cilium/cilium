@@ -13,6 +13,9 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -22,7 +25,6 @@ on:
     branches:
       - main
       - ft/main/**
-      - 'renovate/main-**'
     paths-ignore:
       - 'Documentation/**'
 
@@ -66,7 +68,7 @@ env:
   contextName2: kind-cluster2-${{ github.run_id }}
 
   # renovate: datasource=github-releases depName=cert-manager/cert-manager
-  CERT_MANAGER_VERSION: v1.18.2
+  CERT_MANAGER_VERSION: v1.19.1
 
 jobs:
   echo-inputs:
@@ -286,8 +288,12 @@ jobs:
       - name: Set up job variables for GHA environment
         id: vars
         run: |
+          # GitHub workflows run on non-LTS kernel that is missing an upstream
+          # fix (c43272299488) for IPsec + BPF Host Routing, thus we need to
+          # fallback to legacy host routing if IPsec is enabled.
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=kubeProxyReplacement=${{ matrix.kube-proxy == 'none' }} \
+            --helm-set=bpf.hostLegacyRouting=${{ matrix.kube-proxy != 'none' || matrix.encryption == 'ipsec' }} \
             --helm-set=bpf.masquerade=${{ matrix.kube-proxy == 'none' }} \
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
@@ -355,7 +361,12 @@ jobs:
 
           CILIUM_INSTALL_INGRESS=""
           if [ "${{ matrix.kube-proxy }}" == "none" ]; then
-            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true"
+            CILIUM_INSTALL_INGRESS="--helm-set=ingressController.enabled=true --helm-set=ingressController.service.type=NodePort"
+          fi
+
+          CILIUM_INSTALL_WAIT=""
+          if [ "${{ matrix.tls-auto-method }}" != "certmanager" ]; then
+            CILIUM_INSTALL_WAIT="--wait"
           fi
 
           CILIUM_INSTALL_MULTIPOOL_IPAM=""
@@ -403,7 +414,7 @@ jobs:
               --test='!/pod-to-cidr'"
           fi
 
-          echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} \
+          echo cilium_install_defaults="${CILIUM_INSTALL_WAIT} ${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} \
             ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION} ${CILIUM_INSTALL_INGRESS} ${CILIUM_INSTALL_MULTIPOOL_IPAM}" >> $GITHUB_OUTPUT
           echo cilium_install_multipool_ipam_cluster1="${CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER1}" >> $GITHUB_OUTPUT
           echo cilium_install_multipool_ipam_cluster2="${CILIUM_INSTALL_MULTIPOOL_IPAM_CLUSTER2}" >> $GITHUB_OUTPUT
@@ -450,7 +461,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@746083db48591ffbebd37743873a91a13a6b04b8 # v0.18.6
+        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -566,13 +577,12 @@ jobs:
         env:
           KVSTORE_ID: 1
         run: |
-          # Explicitly configure the NodePort to make sure that it is different in
-          # each cluster, to workaround #24692
+          # Let the NodePort to be selected randomly, to prevent the risk of conflicts.
           cilium --context ${{ env.contextName1 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.ciliumClusterName1 }} \
             --helm-set cluster.id=1 \
-            --helm-set clustermesh.apiserver.service.nodePort=32379 \
+            --helm-set clustermesh.apiserver.service.nodePort=0 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }} \
             ${{ steps.vars.outputs.cilium_install_multipool_ipam_cluster1 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
@@ -589,13 +599,12 @@ jobs:
         env:
           KVSTORE_ID: 2
         run: |
-          # Explicitly configure the NodePort to make sure that it is different in
-          # each cluster, to workaround #24692
+          # Let the NodePort to be selected randomly, to prevent the risk of conflicts.
           cilium --context ${{ env.contextName2 }} install \
             ${{ steps.vars.outputs.cilium_install_defaults }} \
             --helm-set cluster.name=${{ env.ciliumClusterName2 }} \
             --helm-set cluster.id=${{ matrix.maxConnectedClusters }} \
-            --helm-set clustermesh.apiserver.service.nodePort=32380 \
+            --helm-set clustermesh.apiserver.service.nodePort=0 \
             --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }} \
             ${{ steps.vars.outputs.cilium_install_multipool_ipam_cluster2 }} \
             ${{ steps.kvstore.outputs.cilium_install_kvstore }} \
@@ -736,4 +745,4 @@ jobs:
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.installation-and-connectivity.result }}
+      success: ${{ needs.installation-and-connectivity.result == 'success' }}

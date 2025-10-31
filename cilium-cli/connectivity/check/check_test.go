@@ -13,7 +13,8 @@ import (
 func TestAnnotationMap(t *testing.T) {
 	var a annotationsMap
 	err := a.Set(`not json`)
-	assert.IsType(t, &json.SyntaxError{}, err)
+	var wantErr *json.SyntaxError
+	assert.ErrorAs(t, err, &wantErr)
 
 	err = a.Set(`{"foo*bar":{}}`)
 	assert.ErrorContains(t, err, "wildcard only allowed at end of key")

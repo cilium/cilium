@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/node"
@@ -139,42 +140,6 @@ var nodeAddressTests = []struct {
 		wantNodePort: []netip.Addr{
 			netip.MustParseAddr("10.0.0.1"),
 			netip.MustParseAddr("2001:db8::1"),
-		},
-	},
-	{
-
-		name: "skip-out-of-scope-addrs",
-		addrs: []DeviceAddress{
-			{
-				Addr:  netip.MustParseAddr("10.0.1.1"),
-				Scope: RT_SCOPE_UNIVERSE,
-			},
-			{
-				Addr:  netip.MustParseAddr("10.0.2.2"),
-				Scope: RT_SCOPE_LINK,
-			},
-			{
-				Addr:      netip.MustParseAddr("10.0.3.3"),
-				Secondary: true,
-				Scope:     RT_SCOPE_HOST,
-			},
-		},
-
-		// The default AddressMaxScope is set to LINK-1, so addresses with
-		// scope LINK or above are ignored (except for cilium_host addresses)
-		wantAddrs: []netip.Addr{
-			ciliumHostIP,
-			ciliumHostIPLinkScoped,
-			netip.MustParseAddr("10.0.1.1"),
-		},
-
-		wantPrimary: []netip.Addr{
-			ciliumHostIP,
-			netip.MustParseAddr("10.0.1.1"),
-		},
-
-		wantNodePort: []netip.Addr{
-			netip.MustParseAddr("10.0.1.1"),
 		},
 	},
 
@@ -796,6 +761,7 @@ func fixture(t *testing.T, addressScopeMax int, beforeStart func(*hive.Hive)) (*
 		NodeAddressCell,
 		node.LocalNodeStoreCell,
 		cell.Provide(
+			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 			NewDeviceTable,
 			statedb.RWTable[*Device].ToTable,
 			NewRouteTable,
@@ -1088,10 +1054,15 @@ func TestNodeAddressFromRoute(t *testing.T) {
 					statedb.RWTable[*Route].ToTable,
 				),
 				NodeAddressCell,
-				cell.Provide(func() node.LocalNodeSynchronizer { return testLocalNodeSync{} }),
-				cell.Provide(func() *option.DaemonConfig {
-					return &option.DaemonConfig{AddressScopeMax: defaults.AddressScopeMax}
-				}),
+				cell.Provide(
+					func() node.LocalNodeSynchronizer { return testLocalNodeSync{} },
+					func() *option.DaemonConfig {
+						return &option.DaemonConfig{AddressScopeMax: defaults.AddressScopeMax}
+					},
+					func() cmtypes.ClusterInfo {
+						return cmtypes.ClusterInfo{}
+					},
+				),
 
 				// Capture table handles for use in the test.
 				cell.Invoke(func(db_ *statedb.DB, d statedb.RWTable[*Device], r statedb.RWTable[*Route], na statedb.Table[NodeAddress]) {
@@ -1139,7 +1110,7 @@ func TestNodeAddressFromRoute(t *testing.T) {
 			route := &Route{
 				LinkIndex: testDevice.Index,
 				Dst:       routeBasedPrefix,
-				Scope:     uint8(RT_SCOPE_HOST),
+				Scope:     RT_SCOPE_HOST,
 				Table:     RT_TABLE_LOCAL,
 			}
 			if tc.customizeRoute != nil {
