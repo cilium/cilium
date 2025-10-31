@@ -395,5 +395,17 @@ func ParseToCiliumLabels(namespace, name string, uid types.UID, ruleLbs labels.L
 	}
 
 	policyLbls := GetPolicyLabels(namespace, name, uid, resourceType)
-	return append(policyLbls, ruleLbs...).Sort()
+
+	// Ensure user-defined labels have consistent source
+	userLbls := make(labels.LabelArray, len(ruleLbs))
+	for i, lbl := range ruleLbs {
+		if lbl.Source == "" {
+			// If source is empty, set it to unspec
+			userLbls[i] = labels.NewLabel(lbl.Key, lbl.Value, labels.LabelSourceUnspec)
+		} else {
+			userLbls[i] = lbl
+		}
+	}
+
+	return append(policyLbls, userLbls...).Sort()
 }
