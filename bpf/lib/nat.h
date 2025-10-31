@@ -631,23 +631,6 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
-	/* To prevent aliasing with masqueraded connections,
-	 * we need to track all host connections that use config
-	 * nat_ipv4_masquerade.
-	 *
-	 * This either reserves the source port (so that it's not used
-	 * for masquerading), or port-SNATs the host connection (if the sport
-	 * is already in use for a masqueraded connection).
-	 */
-	if (tuple->saddr == CONFIG(nat_ipv4_masquerade).be32) {
-		target->addr = CONFIG(nat_ipv4_masquerade).be32;
-		target->needs_ct = true;
-
-		return NAT_NEEDED;
-	}
-
-	local_ep = __lookup_ip4_endpoint(tuple->saddr);
-
 	/* Check if this packet belongs to reply traffic coming from a
 	 * local endpoint.
 	 *
@@ -655,6 +638,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	 * node which matches the packet source IP, which means we can
 	 * skip the CT lookup since this cannot be reply traffic.
 	 */
+	local_ep = __lookup_ip4_endpoint(tuple->saddr);
 	if (local_ep) {
 		int err;
 
@@ -682,6 +666,21 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		default:
 			return err;
 		}
+	}
+
+	/* To prevent aliasing with masqueraded connections,
+	 * we need to track all host connections that use config
+	 * nat_ipv4_masquerade.
+	 *
+	 * This either reserves the source port (so that it's not used
+	 * for masquerading), or port-SNATs the host connection (if the sport
+	 * is already in use for a masqueraded connection).
+	 */
+	if (tuple->saddr == CONFIG(nat_ipv4_masquerade).be32) {
+		target->addr = CONFIG(nat_ipv4_masquerade).be32;
+		target->needs_ct = true;
+
+		return NAT_NEEDED;
 	}
 
 	/* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
@@ -1673,15 +1672,7 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 	/* See comments in snat_v4_needs_masquerade(). */
 #if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
-	if (ipv6_addr_equals(&tuple->saddr, &masq_addr)) {
-		ipv6_addr_copy(&target->addr, &masq_addr);
-		target->needs_ct = true;
-
-		return NAT_NEEDED;
-	}
-
 	local_ep = __lookup_ip6_endpoint(&tuple->saddr);
-
 	if (local_ep) {
 		int err;
 
@@ -1705,6 +1696,13 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		default:
 			return err;
 		}
+	}
+
+	if (ipv6_addr_equals(&tuple->saddr, &masq_addr)) {
+		ipv6_addr_copy(&target->addr, &masq_addr);
+		target->needs_ct = true;
+
+		return NAT_NEEDED;
 	}
 
 /* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed. */
