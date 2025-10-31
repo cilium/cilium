@@ -310,6 +310,10 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 		} else {
 			allocOptions = append(allocOptions, allocator.WithMasterKeyProtection())
 		}
+		if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD ||
+			option.Config.IdentityAllocationMode == option.IdentityAllocationModeDoubleWriteReadKVstore {
+			allocOptions = append(allocOptions, allocator.WithInitialJitter()) // crd mode can have collisions, jitter allocs
+		}
 		if m.maxAllocAttempts > 0 {
 			allocOptions = append(allocOptions, allocator.WithMaxAllocAttempts(m.maxAllocAttempts))
 		}
