@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
@@ -1236,7 +1235,6 @@ type daemonParams struct {
 	KVStoreClient       kvstore.Client
 	WGAgent             wgTypes.WireguardAgent
 	LocalNodeStore      *node.LocalNodeStore
-	Shutdowner          hive.Shutdowner
 	Resources           agentK8s.Resources
 	K8sWatcher          *watchers.K8sWatcher
 	CacheStatus         k8sSynced.CacheStatus
@@ -1288,8 +1286,6 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
 	cleaner := NewDaemonCleanup()
 
-	var wg sync.WaitGroup
-
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
 			if err := configureDaemon(daemonCtx, cleaner, params); err != nil {
@@ -1328,26 +1324,29 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
 			params.CfgResolver.Resolve(option.Config)
 
-			if option.Config.DryMode {
-				return nil
-			}
-
-			wg.Go(func() {
-				if err := startDaemon(daemonCtx, params); err != nil {
-					params.Logger.Error("Daemon start failed", logfields.Error, err)
-					params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
-				}
-			})
-
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
 			cancelDaemonCtx()
 			cleaner.Clean()
-			wg.Wait()
 			return nil
 		},
 	})
+
+	if option.Config.DryMode {
+		return legacy.DaemonInitialization{}
+	}
+
+	// Register job that starts the legacy daemon functionality.
+	// This job itself isn't long-running - it only initializes and kicks off other components.
+	params.JobGroup.Add(job.OneShot("legacy-start", func(ctx context.Context, _ cell.Health) error {
+		if err := startDaemon(ctx, params); err != nil {
+			params.Logger.Error("Daemon start failed", logfields.Error, err)
+			return err
+		}
+		return nil
+	}, job.WithShutdown()))
+
 	return legacy.DaemonInitialization{}
 }
 
