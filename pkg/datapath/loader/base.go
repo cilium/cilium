@@ -31,6 +31,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -222,6 +223,10 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
+	if err := takeMapSpecsFromRegistry(l.mapSpecRegistry, spec); err != nil {
+		return fmt.Errorf("taking map specs from registry: %w", err)
+	}
+
 	var obj networkObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
@@ -264,7 +269,13 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	return nil
 }
 
-func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config) error {
+func reinitializeOverlay(
+	ctx context.Context,
+	logger *slog.Logger,
+	lnc *datapath.LocalNodeConfiguration,
+	mapSpecRegistry *registry.MapSpecRegistry,
+	tunnelConfig tunnel.Config,
+) error {
 	// tunnelConfig.EncapProtocol() can be one of tunnel.[Disabled, VXLAN, Geneve]
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.EncapProtocol() == tunnel.Disabled {
@@ -281,14 +292,19 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 	// gather compile options for bpf_overlay.c
 	opts := []string{}
 
-	if err := replaceOverlayDatapath(ctx, logger, lnc, opts, link); err != nil {
+	if err := replaceOverlayDatapath(ctx, logger, lnc, mapSpecRegistry, opts, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
 	}
 
 	return nil
 }
 
-func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration) (err error) {
+func reinitializeWireguard(
+	ctx context.Context,
+	logger *slog.Logger,
+	lnc *datapath.LocalNodeConfiguration,
+	mapSpecRegistry *registry.MapSpecRegistry,
+) (err error) {
 	if !lnc.EnableWireguard {
 		cleanCallsMaps("cilium_calls_wireguard*")
 		return
@@ -299,13 +315,20 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", wgTypes.IfaceName, err)
 	}
 
-	if err := replaceWireguardDatapath(ctx, logger, lnc, link); err != nil {
+	if err := replaceWireguardDatapath(ctx, logger, lnc, mapSpecRegistry, link); err != nil {
 		return fmt.Errorf("failed to load wireguard programs: %w", err)
 	}
 	return
 }
 
-func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, extraCArgs []string, devices []string) error {
+func reinitializeXDPLocked(
+	ctx context.Context,
+	logger *slog.Logger,
+	lnc *datapath.LocalNodeConfiguration,
+	mapSpecRegistry *registry.MapSpecRegistry,
+	extraCArgs []string,
+	devices []string,
+) error {
 	xdpConfig := lnc.XDPConfig
 	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpf.CiliumPath())
 	if xdpConfig.Disabled() {
@@ -320,7 +343,7 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapa
 			continue
 		}
 
-		if err := compileAndLoadXDPProg(ctx, logger, lnc, dev, xdpConfig.Mode(), extraCArgs); err != nil {
+		if err := compileAndLoadXDPProg(ctx, logger, lnc, mapSpecRegistry, dev, xdpConfig.Mode(), extraCArgs); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
 				logger.Info("Failed to attach XDP program, ignoring due to best-effort mode",
 					logfields.Error, err,
@@ -343,7 +366,7 @@ func (l *loader) ReinitializeXDP(ctx context.Context, lnc *datapath.LocalNodeCon
 	defer l.compilationLock.Unlock()
 	devices := lnc.DeviceNames()
 
-	return reinitializeXDPLocked(ctx, l.logger, lnc, extraCArgs, devices)
+	return reinitializeXDPLocked(ctx, l.logger, lnc, l.mapSpecRegistry, extraCArgs, devices)
 }
 
 func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
@@ -480,7 +503,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := reinitializeXDPLocked(ctx, l.logger, lnc, extraArgs, devices); err != nil {
+	if err := reinitializeXDPLocked(ctx, l.logger, lnc, l.mapSpecRegistry, extraArgs, devices); err != nil {
 		logging.Fatal(l.logger, "Failed to compile XDP program", logfields.Error, err)
 	}
 
@@ -504,11 +527,11 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		}
 	}
 
-	if err := reinitializeOverlay(ctx, l.logger, lnc, tunnelConfig); err != nil {
+	if err := reinitializeOverlay(ctx, l.logger, lnc, l.mapSpecRegistry, tunnelConfig); err != nil {
 		return err
 	}
 
-	if err := reinitializeWireguard(ctx, l.logger, lnc); err != nil {
+	if err := reinitializeWireguard(ctx, l.logger, lnc, l.mapSpecRegistry); err != nil {
 		return err
 	}
 

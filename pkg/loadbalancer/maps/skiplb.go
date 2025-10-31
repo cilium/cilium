@@ -9,13 +9,15 @@ import (
 	"iter"
 	"log/slog"
 	"net"
-	"unsafe"
+	"os"
 
-	"golang.org/x/sys/unix"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -36,7 +38,7 @@ type SkipLBMap interface {
 	Close() error
 }
 
-func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
+func newSkipLBMap(lifecycle cell.Lifecycle, logger *slog.Logger, specRegistry *registry.MapSpecRegistry) (out bpf.MapOut[SkipLBMap], err error) {
 	skipLBMap := &skipLBMap{logger: logger}
 
 	pinning := ebpf.PinByName
@@ -45,30 +47,53 @@ func NewSkipLBMap(logger *slog.Logger) (SkipLBMap, error) {
 		pinning = ebpf.PinNone
 	}
 
-	if option.Config.EnableIPv4 {
-		skipLBMap.bpfMap4 = ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       SkipLB4MapName,
-			Type:       ebpf.Hash,
-			KeySize:    uint32(unsafe.Sizeof(SkipLB4Key{})),
-			ValueSize:  uint32(unsafe.Sizeof(SkipLB4Value{})),
-			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      unix.BPF_F_NO_PREALLOC,
-			Pinning:    pinning,
-		})
-	}
-	if option.Config.EnableIPv6 {
-		skipLBMap.bpfMap6 = ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       SkipLB6MapName,
-			Type:       ebpf.Hash,
-			KeySize:    uint32(unsafe.Sizeof(SkipLB6Key{})),
-			ValueSize:  uint32(unsafe.Sizeof(SkipLB6Value{})),
-			MaxEntries: SkipLBMapMaxEntries,
-			Flags:      unix.BPF_F_NO_PREALLOC,
-			Pinning:    pinning,
-		})
+	err = specRegistry.Modify(SkipLB4MapName, func(spec *ebpf.MapSpec) error {
+		spec.Pinning = pinning
+		return nil
+	})
+	if err != nil {
+		return
 	}
 
-	return skipLBMap, nil
+	err = specRegistry.Modify(SkipLB6MapName, func(spec *ebpf.MapSpec) error {
+		spec.Pinning = pinning
+		return nil
+	})
+	if err != nil {
+		return
+	}
+
+	out = bpf.NewMapOut[SkipLBMap](skipLBMap)
+
+	if os.Getuid() != 0 {
+		return
+	}
+
+	lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			if option.Config.EnableIPv4 {
+				var err error
+				skipLBMap.bpfMap4, err = specRegistry.NewMap(SkipLB4MapName, &SkipLB4Key{}, &SkipLB4Value{})
+				if err != nil {
+					return fmt.Errorf("failed to get map spec for %s: %w", SkipLB4MapName, err)
+				}
+			}
+			if option.Config.EnableIPv6 {
+				var err error
+				skipLBMap.bpfMap6, err = specRegistry.NewMap(SkipLB6MapName, &SkipLB6Key{}, &SkipLB6Value{})
+				if err != nil {
+					return fmt.Errorf("failed to get map spec for %s: %w", SkipLB6MapName, err)
+				}
+			}
+
+			return skipLBMap.OpenOrCreate()
+		},
+		OnStop: func(cell.HookContext) error {
+			return skipLBMap.Close()
+		},
+	})
+
+	return
 }
 
 func (m *skipLBMap) OpenOrCreate() error {
@@ -101,15 +126,14 @@ func (m *skipLBMap) AllLB4() iter.Seq2[*SkipLB4Key, *SkipLB4Value] {
 			return
 		}
 		stop := false
-		m.bpfMap4.IterateWithCallback(&SkipLB4Key{}, &SkipLB4Value{},
-			func(k, v any) {
-				key := k.(*SkipLB4Key)
-				value := v.(*SkipLB4Value)
-				key.Port = byteorder.NetworkToHost16(key.Port)
-				if !stop && !yield(key, value) {
-					stop = true
-				}
-			})
+		m.bpfMap4.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+			key := k.(*SkipLB4Key)
+			value := v.(*SkipLB4Value)
+			key.Port = byteorder.NetworkToHost16(key.Port)
+			if !stop && !yield(key, value) {
+				stop = true
+			}
+		})
 	}
 }
 
@@ -119,15 +143,14 @@ func (m *skipLBMap) AllLB6() iter.Seq2[*SkipLB6Key, *SkipLB6Value] {
 			return
 		}
 		stop := false
-		m.bpfMap6.IterateWithCallback(&SkipLB6Key{}, &SkipLB6Value{},
-			func(k, v any) {
-				key := k.(*SkipLB6Key)
-				value := v.(*SkipLB6Value)
-				key.Port = byteorder.NetworkToHost16(key.Port)
-				if !stop && !yield(key, value) {
-					stop = true
-				}
-			})
+		m.bpfMap6.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+			key := k.(*SkipLB6Key)
+			value := v.(*SkipLB6Value)
+			key.Port = byteorder.NetworkToHost16(key.Port)
+			if !stop && !yield(key, value) {
+				stop = true
+			}
+		})
 	}
 }
 
@@ -135,14 +158,14 @@ func (m *skipLBMap) AllLB6() iter.Seq2[*SkipLB6Key, *SkipLB6Value] {
 func (m *skipLBMap) AddLB4(netnsCookie uint64, ip net.IP, port uint16) error {
 	return m.bpfMap4.Update(
 		NewSkipLB4Key(netnsCookie, ip.To4(), port),
-		&SkipLB4Value{}, 0)
+		&SkipLB4Value{})
 }
 
 // AddLB6 adds the given tuple to skip LB for to the BPF v6 map.
 func (m *skipLBMap) AddLB6(netnsCookie uint64, ip net.IP, port uint16) error {
 	return m.bpfMap6.Update(
 		NewSkipLB6Key(netnsCookie, ip.To16(), port),
-		&SkipLB6Value{}, 0)
+		&SkipLB6Value{})
 }
 
 func (m *skipLBMap) DeleteLB4(key *SkipLB4Key) error {
@@ -177,12 +200,11 @@ func (m *skipLBMap) DeleteLB4ByAddrPort(ip net.IP, port uint16) {
 			deleted++
 		}
 	}
-	if err := m.bpfMap4.IterateWithCallback(&SkipLB4Key{}, &SkipLB4Value{},
-		func(k, v any) {
-			key := k.(*SkipLB4Key)
-			value := v.(*SkipLB4Value)
-			deleteEntry(key, value)
-		}); err != nil {
+	if err := m.bpfMap4.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*SkipLB4Key)
+		value := v.(*SkipLB4Value)
+		deleteEntry(key, value)
+	}); err != nil {
 		m.logger.Error("error iterating over skip_lb4 map", logfields.Error, err)
 	}
 	m.logger.Info(
@@ -215,12 +237,11 @@ func (m *skipLBMap) DeleteLB4ByNetnsCookie(cookie uint64) {
 			deleted++
 		}
 	}
-	if err := m.bpfMap4.IterateWithCallback(&SkipLB4Key{}, &SkipLB4Value{},
-		func(k, v any) {
-			key := k.(*SkipLB4Key)
-			value := v.(*SkipLB4Value)
-			deleteEntry(key, value)
-		}); err != nil {
+	if err := m.bpfMap4.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*SkipLB4Key)
+		value := v.(*SkipLB4Value)
+		deleteEntry(key, value)
+	}); err != nil {
 		m.logger.Error("error iterating over skip_lb4 map", logfields.Error, err)
 	}
 	m.logger.Info(
@@ -252,12 +273,11 @@ func (m *skipLBMap) DeleteLB6ByAddrPort(ip net.IP, port uint16) {
 			deleted++
 		}
 	}
-	if err := m.bpfMap6.IterateWithCallback(&SkipLB6Key{}, &SkipLB6Value{},
-		func(k, v any) {
-			key := k.(*SkipLB6Key)
-			value := v.(*SkipLB6Value)
-			deleteEntry(key, value)
-		}); err != nil {
+	if err := m.bpfMap6.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*SkipLB6Key)
+		value := v.(*SkipLB6Value)
+		deleteEntry(key, value)
+	}); err != nil {
 		m.logger.Error("error iterating over skip_lb6 map", logfields.Error, err)
 	}
 	m.logger.Info(
@@ -291,12 +311,11 @@ func (m *skipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
 			deleted++
 		}
 	}
-	if err := m.bpfMap6.IterateWithCallback(&SkipLB6Key{}, &SkipLB6Value{},
-		func(k, v any) {
-			key := k.(*SkipLB6Key)
-			value := v.(*SkipLB6Value)
-			deleteEntry(key, value)
-		}); err != nil {
+	if err := m.bpfMap6.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*SkipLB6Key)
+		value := v.(*SkipLB6Value)
+		deleteEntry(key, value)
+	}); err != nil {
 		m.logger.Error("error iterating over skip_lb6 map", logfields.Error, err)
 	}
 	m.logger.Info(
@@ -309,6 +328,6 @@ func (m *skipLBMap) DeleteLB6ByNetnsCookie(cookie uint64) {
 
 type skipLBMap struct {
 	logger  *slog.Logger
-	bpfMap4 *ebpf.Map
-	bpfMap6 *ebpf.Map
+	bpfMap4 *bpf.Map
+	bpfMap6 *bpf.Map
 }

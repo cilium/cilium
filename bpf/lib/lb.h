@@ -24,7 +24,7 @@ struct {
 	__type(key, struct skip_lb6_key);
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+	__uint(max_entries, 100);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_skip_lb6 __section_maps_btf;
 
@@ -33,7 +33,7 @@ struct {
 	__type(key, __u16);
 	__type(value, struct lb6_reverse_nat);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb6_reverse_nat __section_maps_btf;
 
@@ -42,7 +42,7 @@ struct {
 	__type(key, struct lb6_key);
 	__type(value, struct lb6_service);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SERVICE_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb6_services_v2 __section_maps_btf;
 
@@ -51,7 +51,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct lb6_backend);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb6_backends_v3 __section_maps_btf;
 
@@ -60,7 +60,7 @@ struct {
 	__type(key, struct lb6_affinity_key);
 	__type(value, struct lb_affinity_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_affinity __section_maps_btf;
 
@@ -69,7 +69,7 @@ struct {
 	__type(key, struct lb6_src_range_key);
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, LB6_SRC_RANGE_MAP_SIZE);
+	__uint(max_entries, 1000);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_lb6_source_range __section_maps_btf;
 
@@ -78,7 +78,7 @@ struct {
 	__type(key, __sock_cookie);
 	__type(value, struct lb6_health);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb6_health __section_maps_btf;
 
@@ -88,7 +88,7 @@ struct {
 	__type(key, __u16);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 	/* Maglev inner map definition */
 	__array(values, struct {
@@ -105,7 +105,7 @@ struct {
 	__type(key, struct skip_lb4_key);
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+	__uint(max_entries, 100);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_skip_lb4 __section_maps_btf;
 
@@ -114,7 +114,7 @@ struct {
 	__type(key, __u16);
 	__type(value, struct lb4_reverse_nat);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb4_reverse_nat __section_maps_btf;
 
@@ -123,7 +123,7 @@ struct {
 	__type(key, struct lb4_key);
 	__type(value, struct lb4_service);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SERVICE_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb4_services_v2 __section_maps_btf;
 
@@ -132,7 +132,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct lb4_backend);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb4_backends_v3 __section_maps_btf;
 
@@ -141,7 +141,7 @@ struct {
 	__type(key, struct lb4_affinity_key);
 	__type(value, struct lb_affinity_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_affinity __section_maps_btf;
 
@@ -150,7 +150,7 @@ struct {
 	__type(key, struct lb4_src_range_key);
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, LB4_SRC_RANGE_MAP_SIZE);
+	__uint(max_entries, 1000);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_lb4_source_range __section_maps_btf;
 
@@ -159,7 +159,7 @@ struct {
 	__type(key, __sock_cookie);
 	__type(value, struct lb4_health);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_health __section_maps_btf;
 
@@ -169,7 +169,7 @@ struct {
 	__type(key, __u16);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 	/* Maglev inner map definition */
 	__array(values, struct {
@@ -186,7 +186,7 @@ struct {
 	__type(key, struct lb_affinity_match);
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb_affinity_match __section_maps_btf;
 

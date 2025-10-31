@@ -23,7 +23,7 @@ struct {
 	__type(key, struct lb_act_key);
 	__type(value, struct lb_act_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_ACT_MAP_MAX_ENTRIES);
+	__uint(max_entries, 65536);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb_act __section_maps_btf;
 
