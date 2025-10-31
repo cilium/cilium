@@ -762,6 +762,10 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instan
 		DeviceIndex:        aws.Int32(index),
 		InstanceId:         aws.String(instanceID),
 		NetworkInterfaceId: aws.String(eniID),
+		// AWS is experiencing a bug in the validation of available device indexes when the network card index
+		// is not set explicitly on instances with multiple network cards.
+		// This workaround can be removed once AWS rolls out a fix, which is scheduled by January 30, 2026
+		NetworkCardIndex: aws.Int32(0),
 	}
 
 	c.limiter.Limit(ctx, AttachNetworkInterface)
