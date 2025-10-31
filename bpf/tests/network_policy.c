@@ -23,7 +23,8 @@ check_egress_policy(struct __ctx_buff *ctx, __u32 dst_id, __u8 proto, __be16 dpo
 
 	return policy_can_egress(ctx, 0 /* ignored */, dst_id,
 				 0 /* ICMP only */,
-				 dport, proto, 0 /* ICMP only */,
+				 dport, proto,
+				 0 /* ICMP only */, 0 /* ICMP only */,
 				 &match_type, &audited, &ext_err, &proxy_port,
 				 &cookie);
 }

@@ -529,8 +529,11 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 
-		if (ctx_load_bytes(ctx, off, &type, 1) < 0)
+		if (ctx_load_bytes(ctx, off, &tuple_ext->icmp_type, 1) < 0)
 			return DROP_CT_INVALID_HDR;
+
+		type = tuple_ext->icmp_type;
+
 		if ((type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmp6hdr,
 						       icmp6_dataun.u_echo.identifier),
@@ -782,10 +785,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP: {
 		__be16 identifier = 0;
-		struct {
-			__u8 type;
-			__u8 code;
-		} hdr;
+		__u8 type;
 
 		/* Fragmented ECHO packets are not supported currently. Drop all
 		 * fragments, because letting the first fragment pass would be
@@ -795,9 +795,13 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 
-		if (ctx_load_bytes(ctx, off, &hdr, 2) < 0)
+		/* Also populates the icmp_code: */
+		if (ctx_load_bytes(ctx, off, &tuple_ext->icmp_type, 2) < 0)
 			return DROP_CT_INVALID_HDR;
-		if ((hdr.type == ICMP_ECHO || hdr.type == ICMP_ECHOREPLY) &&
+
+		type = tuple_ext->icmp_type;
+
+		if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmphdr, un.echo.id),
 				   &identifier, 2) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -805,9 +809,9 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		tuple->sport = 0;
 		tuple->dport = 0;
 
-		switch (hdr.type) {
+		switch (type) {
 		case ICMP_DEST_UNREACH:
-			if (hdr.code == ICMP_FRAG_NEEDED)
+			if (tuple_ext->icmp_code == ICMP_FRAG_NEEDED)
 				update_metrics(ctx_full_len(ctx),
 					       ct_to_metrics_dir(dir),
 					       REASON_MTU_ERROR_MSG);

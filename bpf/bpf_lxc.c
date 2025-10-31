@@ -459,7 +459,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, verdict, l4_off, zero = 0;
+	int ret, verdict, zero = 0;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -517,7 +517,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ret = ct_buffer->ret;
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
-	l4_off = ct_buffer->l4_off;
 
 	/* Apply network policy: */
 	switch (ct_status) {
@@ -548,7 +547,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		 * within the cluster, it must match policy or be dropped. If it's
 		 * bound for the host/outside, perform the CIDR policy check.
 		 */
-		verdict = policy_can_egress6(ctx, tuple, l4_off, SECLABEL_IPV6,
+		verdict = policy_can_egress6(ctx, tuple_ext, SECLABEL_IPV6,
 					     *dst_sec_identity, &policy_match_type, &audited,
 					     ext_err, &proxy_port, &cookie);
 
@@ -901,7 +900,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 #endif
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret, verdict, l4_off;
+	int ret, verdict;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -957,7 +956,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ret = ct_buffer->ret;
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
-	l4_off = ct_buffer->l4_off;
 
 	/* Apply network policy: */
 	switch (ct_status) {
@@ -988,7 +986,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		 * within the cluster, it must match policy or be dropped. If it's
 		 * bound for the host/outside, perform the CIDR policy check.
 		 */
-		verdict = policy_can_egress4(ctx, tuple, l4_off, SECLABEL_IPV4,
+		verdict = policy_can_egress4(ctx, tuple_ext, SECLABEL_IPV4,
 					     *dst_sec_identity, &policy_match_type, &audited,
 					     ext_err, &proxy_port, &cookie);
 
@@ -1656,7 +1654,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 			break;
 #endif /* ENABLE_PER_PACKET_LB */
 
-		verdict = policy_can_ingress6(ctx, tuple, l4_off,
+		verdict = policy_can_ingress6(ctx, tuple_ext,
 					      is_untracked_fragment, src_label, SECLABEL_IPV6,
 					      &policy_match_type, &audited, ext_err, proxy_port,
 					      &cookie);
@@ -1971,7 +1969,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 			break;
 #endif /* ENABLE_PER_PACKET_LB */
 
-		verdict = policy_can_ingress4(ctx, tuple, l4_off,
+		verdict = policy_can_ingress4(ctx, tuple_ext,
 					      is_untracked_fragment, src_label, SECLABEL_IPV4,
 					      &policy_match_type, &audited, ext_err, proxy_port,
 					      &cookie);
