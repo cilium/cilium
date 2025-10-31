@@ -50,7 +50,11 @@ func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Vi
 	flags.String(operatorOption.EC2APIEndpoint, "", "AWS API endpoint for the EC2 service")
 	option.BindEnv(vp, operatorOption.EC2APIEndpoint)
 
-	flags.Bool(operatorOption.AWSPaginationEnabled, true, "Enable pagination for AWS EC2 API requests. The default page size is 1000 items.")
+	// Deprecated: aws-pagination-enabled is deprecated and a no-op in v1.19.
+	// It will be removed in v1.20. Pagination now happens automatically with
+	// fallback from unpaginated to paginated requests.
+	flags.Bool(operatorOption.AWSPaginationEnabled, true, "Deprecated: This flag is a no-op and will be removed in v1.20")
+	flags.MarkHidden(operatorOption.AWSPaginationEnabled)
 	option.BindEnv(vp, operatorOption.AWSPaginationEnabled)
 
 	vp.BindPFlags(flags)

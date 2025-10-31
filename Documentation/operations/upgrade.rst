@@ -353,6 +353,10 @@ Deprecated Options
 * The ``--enable-ipsec-encrypted-overlay`` flag has no effect and will be removed in Cilium 1.20. Starting from
   Cilium 1.18 the IPsec encryption is always applied after overlay encapsulation, and therefore this special opt-in
   flag is no longer needed.
+* The ``--aws-pagination-enabled`` flag for cilium-operator is now deprecated and has no effect. The operator
+  automatically handles AWS API pagination by attempting unpaginated requests first and falling back to paginated
+  requests on failure. This provides better performance while maintaining compatibility with large AWS accounts.
+  The flag will be removed in Cilium 1.20.
 
 Helm Options
 ~~~~~~~~~~~~
