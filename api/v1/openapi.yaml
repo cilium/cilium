@@ -1237,6 +1237,9 @@ definitions:
       container-name:
         description: Name assigned to container
         type: string
+      container-netns-path:
+        description: Path of Container Netns
+        type: string
       docker-endpoint-id:
         description: Docker endpoint ID
         type: string

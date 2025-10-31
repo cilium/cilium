@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 
@@ -791,6 +792,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 		// Specify that endpoint must be regenerated synchronously. See GH-4409.
 		ep.SyncBuildEndpoint = true
+		ep.ContainerNetnsPath = filepath.Join(defaults.NetNsPath, filepath.Base(args.Netns))
 		var newEp *models.Endpoint
 		if newEp, err = c.EndpointCreate(ep); err != nil {
 			scopedLogger.Warn(
@@ -822,6 +824,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			Mac:     macAddrStr,
 			Sandbox: args.Netns,
 		})
+
 		scopedLogger.Debug(
 			"Endpoint successfully created",
 			logfields.Error, err,
