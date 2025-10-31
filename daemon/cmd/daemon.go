@@ -44,11 +44,7 @@ func initNodeLocalRoutingRule(params daemonParams) error {
 	return nil
 }
 
-func configureDaemon(ctx context.Context, params daemonParams) error {
-	var err error
-
-	bootstrapStats.daemonInit.Start()
-
+func initAndValidateDaemonConfig(params daemonParams) error {
 	// WireGuard and IPSec are mutually exclusive.
 	if params.IPsecAgent.Enabled() && params.WGAgent.Enabled() {
 		return fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
@@ -112,6 +108,50 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		return fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
+	if params.Clientset.IsEnabled() {
+		// Kubernetes demands that the localhost can always reach local
+		// pods. Therefore unless the AllowLocalhost policy is set to a
+		// specific mode, always allow localhost to reach local
+		// endpoints.
+		if option.Config.AllowLocalhost == option.AllowLocalhostAuto {
+			option.Config.AllowLocalhost = option.AllowLocalhostAlways
+			params.Logger.Info("k8s mode: Allowing localhost to reach local endpoints")
+		}
+	}
+
+	// BPF masquerade depends on BPF NodePort, so the following checks should
+	// happen after invoking initKubeProxyReplacementOptions().
+	if option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
+		var err error
+		switch {
+		case len(option.Config.MasqueradeInterfaces) > 0:
+			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
+				option.MasqueradeInterfaces, option.Devices)
+		}
+		if err != nil {
+			params.Logger.Error("unable to initialize BPF masquerade support", logfields.Error, err)
+			return fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
+		}
+		if option.Config.EnableMasqueradeRouteSource {
+			params.Logger.Error("BPF masquerading does not yet support masquerading to source IP from routing layer")
+			return fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
+		}
+	} else if option.Config.EnableIPMasqAgent {
+		params.Logger.Error(fmt.Sprintf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade))
+		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
+	} else if !option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
+		params.Logger.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
+		return fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
+	}
+
+	return nil
+}
+
+func configureDaemon(ctx context.Context, params daemonParams) error {
+	var err error
+
+	bootstrapStats.daemonInit.Start()
+
 	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
 
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
@@ -124,8 +164,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	if option.Config.RestoreState && !option.Config.DryMode {
 		// this *must* be called before initMaps(), which will "hide"
 		// the "old" ipcache.
-		err := params.IdentityRestorer.RestoreLocalIdentities()
-		if err != nil {
+		if err := params.IdentityRestorer.RestoreLocalIdentities(); err != nil {
 			params.Logger.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", logfields.Error, err)
 		}
 	}
@@ -180,15 +219,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 			return fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
 		}
 
-		// Kubernetes demands that the localhost can always reach local
-		// pods. Therefore unless the AllowLocalhost policy is set to a
-		// specific mode, always allow localhost to reach local
-		// endpoints.
-		if option.Config.AllowLocalhost == option.AllowLocalhostAuto {
-			option.Config.AllowLocalhost = option.AllowLocalhostAlways
-			params.Logger.Info("k8s mode: Allowing localhost to reach local endpoints")
-		}
-
 		bootstrapStats.k8sInit.End(true)
 	}
 
@@ -216,35 +246,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	if err := params.KPRInitializer.FinishKubeProxyReplacementInit(nativeDevices, drdName); err != nil {
 		params.Logger.Error("failed to finalise LB initialization", logfields.Error, err)
 		return fmt.Errorf("failed to finalise LB initialization: %w", err)
-	}
-
-	// BPF masquerade depends on BPF NodePort, so the following checks should
-	// happen after invoking initKubeProxyReplacementOptions().
-	if option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
-
-		var err error
-		switch {
-		case len(option.Config.MasqueradeInterfaces) > 0:
-			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
-				option.MasqueradeInterfaces, option.Devices)
-		}
-		if err != nil {
-			params.Logger.Error("unable to initialize BPF masquerade support", logfields.Error, err)
-			return fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
-		}
-		if option.Config.EnableMasqueradeRouteSource {
-			params.Logger.Error("BPF masquerading does not yet support masquerading to source IP from routing layer")
-			return fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
-		}
-	} else if option.Config.EnableIPMasqAgent {
-		params.Logger.Error(
-			fmt.Sprintf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade),
-			logfields.Error, err,
-		)
-		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
-	} else if !option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
-		params.Logger.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
-		return fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
 	}
 	if len(nativeDevices) == 0 {
 		if option.Config.EnableHostFirewall {
@@ -394,6 +395,13 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	if err := params.IPsecAgent.StartBackgroundJobs(params.NodeHandler); err != nil {
 		params.Logger.Error("Unable to start IPsec key watcher", logfields.Error, err)
+	}
+
+	if !option.Config.DryMode {
+		params.Logger.Info("Validating configured node address ranges")
+		if err := node.ValidatePostInit(params.Logger); err != nil {
+			return fmt.Errorf("postinit failed: %w", err)
+		}
 	}
 
 	return nil
