@@ -1030,7 +1030,7 @@ func (kub *Kubectl) getNodeIPByLabel(label string, external bool, ipFamily v1.IP
 		return "", fmt.Errorf("no matching node to read IP with label '%v'", label)
 	}
 
-	for _, ipStr := range strings.Fields(out) {
+	for ipStr := range strings.FieldsSeq(out) {
 		ip := net.ParseIP(ipStr)
 		switch ipFamily {
 		case v1.IPv4Protocol:
