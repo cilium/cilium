@@ -5,6 +5,7 @@ package utime
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -66,7 +67,7 @@ type utimeController struct {
 	offset    UTime
 }
 
-func (u *utimeController) sync() error {
+func (u *utimeController) sync(_ context.Context) error {
 	offset := getCurrentUTimeOffset(u.logger)
 	if offset != u.offset {
 		if err := u.configMap.Update(configmap.UTimeOffset, uint64(offset)); err != nil {
