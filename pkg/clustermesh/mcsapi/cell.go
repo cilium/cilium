@@ -17,8 +17,10 @@ import (
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -29,6 +31,8 @@ var Cell = cell.Module(
 	"mcsapi",
 	"Multi-Cluster Services API",
 	cell.Invoke(registerMCSAPIController),
+
+	cell.Provide(newMCSAPICRDs),
 )
 
 var ServiceExportSyncCell = cell.Module(
@@ -44,7 +48,7 @@ type mcsAPIParams struct {
 	AgentConfig *option.DaemonConfig
 	ClusterMesh operator.ClusterMesh
 	Cfg         operator.ClusterMeshConfig
-	CfgMCSAPI   operator.MCSAPIConfig
+	CfgMCSAPI   mcsapitypes.MCSAPIConfig
 
 	// ClusterInfo is the id/name of the local cluster.
 	ClusterInfo types.ClusterInfo
@@ -98,7 +102,7 @@ func checkRequiredCRDs(ctx context.Context, clientset k8sClient.Clientset) error
 }
 
 func registerMCSAPIController(params mcsAPIParams) error {
-	if !params.Clientset.IsEnabled() || params.ClusterMesh == nil || !params.CfgMCSAPI.ClusterMeshEnableMCSAPI {
+	if !params.Clientset.IsEnabled() || params.ClusterMesh == nil || !params.CfgMCSAPI.EnableMCSAPI {
 		return nil
 	}
 
@@ -106,12 +110,14 @@ func registerMCSAPIController(params mcsAPIParams) error {
 		"Checking for required MCS-API resources",
 		logfields.RequiredGVK, requiredGVK,
 	)
-	if err := checkRequiredCRDs(context.Background(), params.Clientset); err != nil {
-		params.Logger.Error(
-			"Required MCS-API resources are not found, please refer to docs for installation instructions",
-			logfields.Error, err,
-		)
-		return err
+	if !params.CfgMCSAPI.ShouldInstallMCSAPICrds() {
+		if err := checkRequiredCRDs(context.Background(), params.Clientset); err != nil {
+			params.Logger.Error(
+				"Required MCS-API resources are not found, please refer to docs for installation instructions",
+				logfields.Error, err,
+			)
+			return err
+		}
 	}
 	if err := mcsapiv1alpha1.AddToScheme(params.Scheme); err != nil {
 		return err
@@ -152,4 +158,16 @@ func registerMCSAPIController(params mcsAPIParams) error {
 		return nil
 	}))
 	return nil
+}
+
+func newMCSAPICRDs(cfg mcsapitypes.MCSAPIConfig) apis.RegisterCRDsFuncOut {
+	return apis.RegisterCRDsFuncOut{
+		Func: func(logger *slog.Logger, client k8sClient.Clientset) error {
+			if !cfg.ShouldInstallMCSAPICrds() {
+				return nil
+			}
+
+			return createCustomResourceDefinitions(logger, client)
+		},
+	}
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -96,7 +97,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 				globalServices:       common.NewGlobalServiceCache(logger),
 				globalServiceExports: NewGlobalServiceExportCache(),
 				cfg:                  ClusterMeshConfig{ClusterMeshEnableEndpointSync: tt.clusterMeshEnableEndpointSync},
-				cfgMCSAPI:            MCSAPIConfig{ClusterMeshEnableMCSAPI: tt.clusterMeshEnableMCSAPI},
+				cfgMCSAPI:            mcsapitypes.MCSAPIConfig{EnableMCSAPI: tt.clusterMeshEnableMCSAPI},
 			}
 
 			// Populate the kvstore with the appropriate KV pairs
