@@ -1328,6 +1328,7 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 		},
 		OnStop: func(cell.HookContext) error {
 			cancelDaemonCtx()
+			unloadDNSPolicies(params)
 			cleaner.Clean()
 			return nil
 		},
