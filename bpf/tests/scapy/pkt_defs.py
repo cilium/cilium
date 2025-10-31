@@ -237,3 +237,47 @@ v6_wireguard_proto_mismatch = (
     IPv6(src=v6_node_one, dst=v6_node_two) /
     TCP(sport=wireguard_port, dport=wireguard_port)
 )
+
+## Layer 4 protocols unsupported by NodePort
+
+v4_gre_v4_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_svc_one) /
+    GRE() /
+    IP(src=v4_ext_two, dst=v4_svc_two) /
+    UDP(sport=tcp_src_three, dport=tcp_svc_three) /
+    Raw(default_data)
+)
+v6_gre_v4_udp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
+    GRE() /
+    IP(src=v4_ext_two, dst=v4_svc_two) /
+    UDP(sport=tcp_src_three, dport=tcp_svc_three) /
+    Raw(default_data)
+)
+
+v4_esp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_svc_one) /
+    ESP(spi=123456789, seq=12345, data=default_data)
+)
+v6_esp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
+    ESP(spi=123456789, seq=12345, data=default_data)
+)
+
+load_contrib("rsvp")
+v4_rsvp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_svc_one) /
+    RSVP() /
+    RSVP_Object()
+)
+v6_rsvp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_ext_node_one, dst=v6_svc_one) /
+    RSVP() /
+    RSVP_Object()
+)
