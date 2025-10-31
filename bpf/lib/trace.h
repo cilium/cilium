@@ -167,12 +167,13 @@ struct trace_notify {
 		union v6addr	orig_ip6;
 	};
 	__u64		ip_trace_id;
+	__be16		orig_port;
 };
 
 #ifdef TRACE_NOTIFY
 
-/* Trace notify version 2 includes IP Trace support. */
-#define NOTIFY_TRACE_VER 2
+/* Trace notify version 3 includes OrigPort. */
+#define NOTIFY_TRACE_VER 3
 
 static __always_inline bool
 emit_trace_notify(enum trace_point obs_point, __u32 monitor)
@@ -248,6 +249,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.flags		= flags,
 		.ifindex	= ifindex,
 		.ip_trace_id	= ip_trace_id,
+		.orig_port = 0,
 	};
 	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
 
@@ -258,7 +260,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 
 static __always_inline void
 _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
-		    __u32 src, __u32 dst, __be32 orig_addr, __u16 dst_id,
+		    __u32 src, __u32 dst, __be32 orig_addr, __be16 orig_port, __u16 dst_id,
 		    __u32 ifindex, enum trace_reason reason, __u32 monitor,
 		    __u16 line, __u8 file)
 {
@@ -300,6 +302,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.flags		= flags,
 		.orig_ip4	= orig_addr,
 		.ip_trace_id	= ip_trace_id,
+		.orig_port = orig_port,
 	};
 
 	ctx_event_output(ctx, &cilium_events,
@@ -309,7 +312,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 
 static __always_inline void
 _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
-		    __u32 src, __u32 dst, const union v6addr *orig_addr,
+		    __u32 src, __u32 dst, const union v6addr *orig_addr, __be16 orig_port,
 		    __u16 dst_id, __u32 ifindex, enum trace_reason reason,
 		    __u32 monitor, __u16 line, __u8 file)
 {
@@ -350,6 +353,7 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.ifindex	= ifindex,
 		.flags		= flags,
 		.ip_trace_id	= ip_trace_id,
+		.orig_port = orig_port,
 	};
 
 	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
@@ -372,9 +376,9 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 static __always_inline void
 _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u32 src __maybe_unused, __u32 dst __maybe_unused,
-		    __be32 orig_addr __maybe_unused, __u16 dst_id __maybe_unused,
-		    __u32 ifindex __maybe_unused, enum trace_reason reason,
-		    __u32 monitor __maybe_unused,
+		    __be32 orig_addr __maybe_unused, __be16 orig_port __maybe_unused,
+			__u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
+			enum trace_reason reason, __u32 monitor __maybe_unused,
 		    __u16 line, __u8 file)
 {
 	_update_trace_metrics(ctx, obs_point, reason, line, file);
@@ -383,7 +387,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 static __always_inline void
 _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 		    __u32 src __maybe_unused, __u32 dst __maybe_unused,
-		    union v6addr *orig_addr __maybe_unused,
+		    union v6addr *orig_addr __maybe_unused, __be16 orig_port __maybe_unused,
 		    __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
 		    enum trace_reason reason, __u32 monitor __maybe_unused,
 		    __u16 line, __u8 file)
@@ -398,11 +402,15 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 	__MAGIC_LINE__, __MAGIC_FILE__)
 
 /* send_trace_notify4 emits a trace notify with the original IPv4 address before translation. */
-#define send_trace_notify4(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor) \
-	_send_trace_notify4(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor, \
+#define send_trace_notify4(ctx, obs_point, src, dst, orig_addr, orig_port, \
+	dst_id, ifindex, reason, monitor) \
+	_send_trace_notify4(ctx, obs_point, src, dst, orig_addr, orig_port, dst_id, \
+		ifindex, reason, monitor, \
 	__MAGIC_LINE__, __MAGIC_FILE__)
 
 /* send_trace_notify6 emits a trace notify with the original IPv6 address before translation. */
-#define send_trace_notify6(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor) \
-	_send_trace_notify6(ctx, obs_point, src, dst, orig_addr, dst_id, ifindex, reason, monitor, \
+#define send_trace_notify6(ctx, obs_point, src, dst, orig_addr, orig_port, \
+	dst_id, ifindex, reason, monitor) \
+	_send_trace_notify6(ctx, obs_point, src, dst, orig_addr, orig_port, dst_id, \
+		ifindex, reason, monitor, \
 	__MAGIC_LINE__, __MAGIC_FILE__)
