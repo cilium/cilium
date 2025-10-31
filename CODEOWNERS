@@ -244,6 +244,8 @@
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
 /.github/actions/bpftrace/ @cilium/sig-encryption @cilium/github-sec @cilium/ci-structure
 /.github/actions/e2e/*ipsec* @cilium/ipsec @cilium/github-sec @cilium/ci-structure
+/.github/actions/e2e/*lb* @cilium/sig-lb @cilium/github-sec @cilium/ci-structure
+/.github/actions/e2e/*netkit* @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
 /.github/actions/e2e/*wireguard* @cilium/wireguard @cilium/github-sec @cilium/ci-structure
 /.github/actions/kvstore/ @cilium/sig-clustermesh @cilium/kvstore @cilium/github-sec @cilium/ci-structure
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
