@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -184,6 +185,8 @@ type selectorPolicy struct {
 	// EgressPolicyEnabled specifies whether this policy contains any policy
 	// at egress.
 	EgressPolicyEnabled bool
+
+	bakery cookie.PolicyBakery
 }
 
 func (p *selectorPolicy) Attach(ctx PolicyContext) {
@@ -234,7 +237,7 @@ func (p *EndpointPolicy) LookupRedirectPort(ingress bool, protocol string, port 
 	if proxyPort, exists := p.Redirects[proxyID]; exists {
 		return proxyPort, nil
 	}
-	return 0, fmt.Errorf("Proxy port for redirect %q not found", proxyID)
+	return 0, fmt.Errorf("proxy port for redirect %q not found", proxyID)
 }
 
 // Lookup finds the policy verdict applicable to the given 'key' using the same precedence logic
@@ -267,11 +270,12 @@ type PolicyOwner interface {
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
-func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
+func newSelectorPolicy(selectorCache *SelectorCache, bakery cookie.PolicyBakery) *selectorPolicy {
 	return &selectorPolicy{
 		Revision:      0,
 		SelectorCache: selectorCache,
 		L4Policy:      NewL4Policy(0),
+		bakery:        bakery,
 	}
 }
 
@@ -323,7 +327,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		calculatedPolicy = &EndpointPolicy{
 			selectorPolicy: p,
 			VersionHandle:  version,
-			policyMapState: newMapState(logger, policyOwner.MapStateSize()),
+			policyMapState: newMapState(logger, policyOwner.MapStateSize(), p.bakery),
 			policyMapChanges: MapChanges{
 				logger:       logger,
 				firstVersion: version.Version(),
@@ -579,7 +583,7 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
-		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
-		policyMapState: emptyMapState(logger),
+		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache(), repo.GetCookieBakery()),
+		policyMapState: newMapState(logger, 0, repo.GetCookieBakery()),
 	}
 }

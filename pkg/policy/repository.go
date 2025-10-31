@@ -27,12 +27,15 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 type PolicyRepository interface {
+	cookieBaker
+
 	BumpRevision() uint64
 	GetAuthTypes(localID identity.NumericIdentity, remoteID identity.NumericIdentity) AuthTypes
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
@@ -54,6 +57,24 @@ type PolicyRepository interface {
 	ReplaceByResource(rules types.PolicyEntries, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	ReplaceByLabels(rules types.PolicyEntries, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	Search(lbls labels.LabelArray) (types.PolicyEntries, uint64)
+}
+
+type cookieBaker interface {
+	// GetCookieBakery returns a cookie bakery.
+	GetCookieBakery() cookie.PolicyBakery
+
+	// GetCookie returns the policy metadata associated with the given cookie, if it exists.
+	GetCookie(cookie uint32) (dow *cookie.BakedCookie, exists bool)
+
+	// CookieCount returns the number of allocated policy cookies.
+	CookieCount() int
+
+	// MarkCookieInUse marks a policy cookie as in use (i.e. present in an endpoint's
+	// policy map).
+	MarkCookieInUse(cookie uint32)
+
+	// SweepCookies garbage collects all policy cookies not marked in-use.
+	SweepCookies()
 }
 
 type GetPolicyStatistics interface {
@@ -93,6 +114,7 @@ type Repository struct {
 
 	metricsManager    types.PolicyMetrics
 	l7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
+	bakery            cookie.PolicyBakery
 }
 
 func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
@@ -128,6 +150,7 @@ func NewPolicyRepository(
 		certManager:       certManager,
 		metricsManager:    metricsManager,
 		l7RulesTranslator: l7RulesTranslator,
+		bakery:            cookie.NewBakery[uint32, *cookie.BakedCookie](logger),
 	}
 	repo.revision.Store(1)
 	repo.policyCache = newPolicyCache(repo, idmgr)
@@ -581,4 +604,28 @@ func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPo
 	defer p.mutex.RUnlock()
 
 	return p.policyCache.GetPolicySnapshot()
+}
+
+// GetCookie returns the policy cookie value associated with the given cookie, if it exists.
+func (p *Repository) GetCookie(cookie uint32) (*cookie.BakedCookie, bool) {
+	return p.bakery.Get(cookie)
+}
+
+// CookieCount returns the number of allocated policy cookies.
+func (p *Repository) CookieCount() int {
+	return p.bakery.Count()
+}
+
+// MarkCookieInUse marks a policy cookie as in use (i.e. present in an endpoint's policy map).
+func (p *Repository) MarkCookieInUse(cookie uint32) {
+	p.bakery.MarkInUse(cookie)
+}
+
+// SweepCookies garbage collects all policy cookies not marked in-use.
+func (p *Repository) SweepCookies() {
+	p.bakery.Sweep()
+}
+
+func (p *Repository) GetCookieBakery() cookie.PolicyBakery {
+	return p.bakery
 }
