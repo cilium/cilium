@@ -222,37 +222,21 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.Time {
 	resyncStart := time.Now()
 
-	m.mutex.RLock()
-	currentVpcID := m.vpcID
-	m.mutex.RUnlock()
-
-	vpcs, err := m.ec2api.GetVpcs(ctx, currentVpcID)
-	if err != nil {
-		m.logger.Warn("Unable to synchronize EC2 VPC list", logfields.Error, err)
-		return time.Time{}
-	}
-
-	subnets, err := m.ec2api.GetSubnets(ctx, currentVpcID)
-	if err != nil {
-		m.logger.Warn("Unable to retrieve EC2 subnets list", logfields.Error, err)
-		return time.Time{}
-	}
-
-	securityGroups, err := m.ec2api.GetSecurityGroups(ctx, currentVpcID)
-	if err != nil {
-		m.logger.Warn("Unable to retrieve EC2 security group list", logfields.Error, err)
-		return time.Time{}
-	}
-	routeTables, err := m.ec2api.GetRouteTables(ctx, currentVpcID)
-	if err != nil {
-		m.logger.Warn("Unable to retrieve EC2 route table list", logfields.Error, err)
-		return time.Time{}
-	}
-
 	// An empty instanceID indicates that this is full resync, ENIs from all instances
 	// will be refetched from EC2 API and updated to the local cache. Otherwise only
 	// the given instance will be updated.
 	if instanceID == "" {
+		// Only sync infrastructure in full resync.
+		if err := m.syncInfrastructure(ctx); err != nil {
+			m.logger.Warn("Unable to synchronize infrastructure", logfields.Error, err)
+			return time.Time{}
+		}
+		m.mutex.RLock()
+		vpcs := m.vpcs
+		subnets := m.subnets
+		routeTables := m.routeTables
+		securityGroups := m.securityGroups
+		m.mutex.RUnlock()
 		instances, err := m.ec2api.GetInstances(ctx, vpcs, subnets)
 		if err != nil {
 			m.logger.Warn("Unable to synchronize EC2 interface list", logfields.Error, err)
@@ -267,11 +251,14 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			logfields.NumRouteTables, len(routeTables),
 			logfields.NumSecurityGroups, len(securityGroups),
 		)
-
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
 		m.instances = instances
 	} else {
+		m.mutex.RLock()
+		vpcs := m.vpcs
+		subnets := m.subnets
+		m.mutex.RUnlock()
 		instance, err := m.ec2api.GetInstance(ctx, vpcs, subnets, instanceID)
 		if err != nil {
 			m.logger.Warn("Unable to synchronize EC2 interface list", logfields.Error, err)
@@ -281,22 +268,12 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 		m.logger.Info(
 			"Synchronized ENI information for the corresponding instance",
 			logfields.InstanceID, instanceID,
-			logfields.NumVPCs, len(vpcs),
-			logfields.NumSubnets, len(subnets),
-			logfields.NumRouteTables, len(routeTables),
-			logfields.NumSecurityGroups, len(securityGroups),
 		)
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
 		m.instances.UpdateInstance(instanceID, instance)
 	}
-
-	m.vpcID = currentVpcID
-	m.subnets = subnets
-	m.vpcs = vpcs
-	m.securityGroups = securityGroups
-	m.routeTables = routeTables
 
 	return resyncStart
 }
@@ -389,4 +366,43 @@ func (m *InstancesManager) DeleteInstance(instanceID string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.instances.Delete(instanceID)
+}
+
+func (m *InstancesManager) syncInfrastructure(ctx context.Context) error {
+
+	m.mutex.RLock()
+	currentVpcID := m.vpcID
+	m.mutex.RUnlock()
+
+	vpcs, err := m.ec2api.GetVpcs(ctx, currentVpcID)
+	if err != nil {
+		m.logger.Warn("Unable to synchronize EC2 VPC list", logfields.Error, err)
+		return err
+	}
+
+	subnets, err := m.ec2api.GetSubnets(ctx, currentVpcID)
+	if err != nil {
+		m.logger.Warn("Unable to retrieve EC2 subnets list", logfields.Error, err)
+		return err
+	}
+
+	securityGroups, err := m.ec2api.GetSecurityGroups(ctx, currentVpcID)
+	if err != nil {
+		m.logger.Warn("Unable to retrieve EC2 security group list", logfields.Error, err)
+		return err
+	}
+	routeTables, err := m.ec2api.GetRouteTables(ctx, currentVpcID)
+	if err != nil {
+		m.logger.Warn("Unable to retrieve EC2 route table list", logfields.Error, err)
+		return err
+	}
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.vpcID = currentVpcID
+	m.subnets = subnets
+	m.vpcs = vpcs
+	m.securityGroups = securityGroups
+	m.routeTables = routeTables
+	return nil
 }
