@@ -372,6 +372,19 @@ func newIptablesManager(p params) datapath.IptablesManager {
 	iptMgr.ip4tables = ip4tables
 	iptMgr.ip6tables = ip6tables
 
+	// IPTables manager cannot start properly if MASQ is enabled with no
+	// egressMasqeuradingInterfaces for any IPAM mode other then ClusterPool or
+	// Kubernetes.
+	//
+	// This is because a PodCIDR is only guaranteed to be available
+	// with the above IPAM modes, and PodCIDR and without this IPTable MASQ
+	// rules MUST be interface-specific and cannot rely on selecting a source
+	// range. See the IPTable's MASQ rule creation bits for more detail.
+	if (iptMgr.sharedCfg.IptablesMasqueradingIPv4Enabled || iptMgr.sharedCfg.IptablesMasqueradingIPv6Enabled) &&
+		len(iptMgr.sharedCfg.MasqueradeInterfaces) == 0 && (iptMgr.sharedCfg.IPAM != ipamOption.IPAMClusterPool && iptMgr.sharedCfg.IPAM != ipamOption.IPAMKubernetes) {
+		panic("Egress masquerading interfaces cannot be empty when IP masquerading is enabled with IPAM mode other than ClusterPool or Kubernetes")
+	}
+
 	// init iptables/ip6tables wait arguments before using them in the reconciler or in the manager (e.g: GetProxyPorts)
 	initDone := iptMgr.argsInit.Add()
 	p.Lifecycle.Append(cell.Hook{
