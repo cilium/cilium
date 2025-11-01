@@ -346,20 +346,102 @@ func maxSequenceNumber() (string, error) {
 	return fmt.Sprintf("0x%x/0xffffffffffffffff", maxSeqNum), nil
 }
 
+// getTunnelDeviceName dynamically determines the tunnel device name from daemon configuration.
+// Returns the device name if tunneling is enabled, empty string if disabled, or error.
+func getTunnelDeviceName() (string, error) {
+	// Check if daemon client is available (not available during testing)
+	if client == nil {
+		return "", fmt.Errorf("daemon client not available")
+	}
+
+	// Get daemon configuration
+	resp, err := client.ConfigGet()
+	if err != nil {
+		return "", fmt.Errorf("failed to get daemon configuration: %w", err)
+	}
+
+	if resp.Status == nil {
+		return "", fmt.Errorf("empty configuration status returned")
+	}
+
+	// Check routing mode to determine if tunneling is enabled
+	// TunnelingEnabled() returns true when routing mode is not "native"
+	routingMode, ok := resp.Status.DaemonConfigurationMap["RoutingMode"]
+	if !ok {
+		return "", fmt.Errorf("routing mode not found in configuration")
+	}
+
+	// If routing mode is native, tunneling is disabled
+	if routingMode == "native" {
+		return "", nil
+	}
+
+	// Get tunnel protocol to determine device name
+	tunnelProtocol, ok := resp.Status.DaemonConfigurationMap["TunnelProtocol"]
+	if !ok {
+		// Default to vxlan if not specified (matches Cilium defaults)
+		tunnelProtocol = "vxlan"
+	}
+
+	// Map tunnel protocol to device name
+	switch tunnelProtocol {
+	case "vxlan":
+		return "cilium_vxlan", nil
+	case "geneve":
+		return "cilium_geneve", nil
+	default:
+		return "", fmt.Errorf("unsupported tunnel protocol: %v", tunnelProtocol)
+	}
+}
+
+// isOverlayInterface checks if the given interface is a Cilium overlay/tunnel interface.
+// It dynamically determines the expected tunnel device from daemon configuration.
+func isOverlayInterface(link netlink.Link) bool {
+	name := link.Attrs().Name
+
+	// Get the expected tunnel device name from configuration
+	tunnelDevice, err := getTunnelDeviceName()
+	if err != nil {
+		// If we can't get configuration, fall back to hardcoded names for backward compatibility
+		return name == "cilium_vxlan" || name == "cilium_geneve"
+	}
+
+	// If tunneling is disabled, no overlay interfaces
+	if tunnelDevice == "" {
+		return false
+	}
+
+	// Check if this interface matches the configured tunnel device
+	return name == tunnelDevice
+}
+
 // isDecryptionInterface returns whether we think an interface is used for decryption or not.
 func isDecryptionInterface(link netlink.Link) (bool, error) {
 	filters, err := safenetlink.FilterList(link, tcFilterParentIngress)
 	if err != nil {
 		return false, err
 	}
+
+	isOverlay := isOverlayInterface(link)
+
 	for _, f := range filters {
 		if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
 			// We consider the interface a decryption interface if it has the
-			// BPF program we use to mark ESP packets for decryption, that is
-			// the cil_from_network or cil_from_netdev BPF programs.
-			if strings.Contains(bpfFilter.Name, "cil_from_network") ||
-				strings.Contains(bpfFilter.Name, "cil_from_netdev") {
-				return true, nil
+			// BPF program we use to mark ESP packets for decryption.
+			//
+			// For overlay/tunnel interfaces:
+			//   - Must have cil_from_overlay program (handles tunnel decapsulation)
+			// For native interfaces:
+			//   - Must have cil_from_network or cil_from_netdev programs
+			if isOverlay {
+				if strings.Contains(bpfFilter.Name, "cil_from_overlay") {
+					return true, nil
+				}
+			} else {
+				if strings.Contains(bpfFilter.Name, "cil_from_network") ||
+					strings.Contains(bpfFilter.Name, "cil_from_netdev") {
+					return true, nil
+				}
 			}
 		}
 	}
@@ -392,22 +474,81 @@ func isDecryptionInterface(link netlink.Link) (bool, error) {
 	return false, nil
 }
 
+// getTunnelDecryptionInterface specifically checks if the tunnel device is a decryption interface.
+// This function is separate to handle tunnel-specific logic and provide better error messages.
+func getTunnelDecryptionInterface() (string, error) {
+	tunnelDevice, err := getTunnelDeviceName()
+	if err != nil {
+		return "", fmt.Errorf("failed to get tunnel device name: %w", err)
+	}
+
+	// If no tunnel device (tunneling disabled), return empty
+	if tunnelDevice == "" {
+		return "", nil
+	}
+
+	// Get the tunnel device link
+	link, err := safenetlink.LinkByName(tunnelDevice)
+	if err != nil {
+		// If the tunnel device doesn't exist, it's not a decryption interface
+		// This can happen during startup or in certain configurations
+		if errors.As(err, &netlink.LinkNotFoundError{}) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to get tunnel device %s: %w", tunnelDevice, err)
+	}
+
+	// Check if it has the proper eBPF decap program attached
+	isDecryption, err := isDecryptionInterface(link)
+	if err != nil {
+		return "", fmt.Errorf("failed to check BPF programs for tunnel device %s: %w", tunnelDevice, err)
+	}
+
+	if isDecryption {
+		return tunnelDevice, nil
+	}
+
+	return "", nil
+}
+
 // getDecryptionInterfaces returns the interfaces used for decryption.
 func getDecryptionInterfaces() ([]string, error) {
 	links, err := safenetlink.LinkList()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list interfaces: %w", err)
 	}
-	decryptionIfaces := []string{}
+
+	var decryptionIfaces []string
+
+	// First, check if we're in tunnel mode and if the tunnel device is a decryption interface
+	tunnelDecryptionInterface, err := getTunnelDecryptionInterface()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check tunnel decryption interface: %w", err)
+	}
+
+	// If tunnel device is a decryption interface, add it to the list
+	if tunnelDecryptionInterface != "" {
+		decryptionIfaces = append(decryptionIfaces, tunnelDecryptionInterface)
+	}
+
+	// Then check all other interfaces for native decryption interfaces
 	for _, link := range links {
-		itIs, err := isDecryptionInterface(link)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list BPF programs for %s: %w", link.Attrs().Name, err)
+		linkName := link.Attrs().Name
+
+		// Skip if this is the tunnel device (already handled above)
+		if linkName == tunnelDecryptionInterface {
+			continue
 		}
-		if itIs {
-			decryptionIfaces = append(decryptionIfaces, link.Attrs().Name)
+
+		isDecryption, err := isDecryptionInterface(link)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check BPF programs for interface %s: %w", linkName, err)
+		}
+		if isDecryption {
+			decryptionIfaces = append(decryptionIfaces, linkName)
 		}
 	}
+
 	return decryptionIfaces, nil
 }
 
