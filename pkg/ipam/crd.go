@@ -352,6 +352,11 @@ func (n *nodeStore) hasMinimumIPsInPool(localNodeStore *node.LocalNodeStore) (mi
 			if !n.autoDetectIPv4NativeRoutingCIDR(localNodeStore) {
 				minimumReached = false
 			}
+
+			// If no n.conf.MasqueradeInterfaces is set, IPTables manager will
+			// attempt to use the n.
+			if n.conf.IPAMMode() == ipamOption.IPAMENI && len(n.conf.MasqueradeInterfaces) == 0 {
+			}
 		}
 	}
 

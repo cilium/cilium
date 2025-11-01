@@ -38,6 +38,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
+	"github.com/cilium/cilium/pkg/ipam/option"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -1437,7 +1438,7 @@ func (m *Manager) installMasqueradeRules(
 		//     range
 		// * Non-tunnel mode:
 		//   * May not be targeted to an IP in the cluster range
-		cmds := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, m.sharedCfg.MasqueradeInterfaces,
+		cmds := allEgressMasqueradeCmds(allocRange, snatDstExclusionCIDR, m.sharedCfg,
 			m.cfg.IPTablesRandomFully)
 		for _, cmd := range cmds {
 			if err := prog.runProg(cmd); err != nil {
@@ -1973,8 +1974,7 @@ func nodeIpsetNATCmds(allocRange string, ipset string, masqueradeInterfaces []st
 	return cmds
 }
 
-func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string,
-	masqueradeInterfaces []string, iptablesRandomFully bool) [][]string {
+func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string, sharedConf SharedConfig, iptablesRandomFully bool) [][]string {
 	preArgs := []string{
 		"-t", "nat",
 		"-A", ciliumPostNatChain,
@@ -1986,7 +1986,18 @@ func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string,
 		"-j", "MASQUERADE",
 	}
 
-	if len(masqueradeInterfaces) == 0 {
+	if len(sharedConf.MasqueradeInterfaces) == 0 {
+		if sharedConf.IPAM == option.IPAMENI {
+			// when we are in ENI IPAM mode with no MasqueradeInterfaces specified,
+			// the `initDefaultPrefix` will have lead to `allocRange` being a
+			// defaultPrefix which won't make any sense and break MASQ, see
+			// 'setDefaultPrefix'
+			//
+			// instead, we should set the source MASQ cider to the
+			// snatDstExclusionCIDR which reflects the VPC subnet.
+			allocRange = snatDstExclusionCIDR
+		}
+
 		cmd := append(preArgs,
 			"-s", allocRange,
 			"!", "-o", "cilium_+",
@@ -1998,8 +2009,8 @@ func allEgressMasqueradeCmds(allocRange string, snatDstExclusionCIDR string,
 		return [][]string{cmd}
 	}
 
-	cmds := make([][]string, 0, len(masqueradeInterfaces))
-	for _, inf := range masqueradeInterfaces {
+	cmds := make([][]string, 0, len(sharedConf.MasqueradeInterfaces))
+	for _, inf := range sharedConf.MasqueradeInterfaces {
 		cmd := append(preArgs, "-o", inf)
 		cmd = append(cmd, postArgs...)
 		if iptablesRandomFully {
