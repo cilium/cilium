@@ -13,6 +13,7 @@
 #include "l3.h"
 #include "lb.h"
 #include "common.h"
+#include "drop.h"
 #include "overloadable.h"
 #include "egress_gateway.h"
 #include "eps.h"
