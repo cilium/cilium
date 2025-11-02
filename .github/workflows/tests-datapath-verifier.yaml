@@ -120,15 +120,15 @@ jobs:
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "rhel8.6") FULL_KERNEL="rhel8.6-20250812.093650" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.10") FULL_KERNEL="5.10-20251021.054756" ;;
+            "5.10") FULL_KERNEL="5.10-20251031.120020" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.15") FULL_KERNEL="5.15-20251021.054756" ;;
+            "5.15") FULL_KERNEL="5.15-20251031.120020" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.1") FULL_KERNEL="6.1-20251021.054756" ;;
+            "6.1") FULL_KERNEL="6.1-20251031.120020" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.6") FULL_KERNEL="6.6-20251021.054756" ;;
+            "6.6") FULL_KERNEL="6.6-20251031.120020" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.12") FULL_KERNEL="6.12-20251021.054756" ;;
+            "6.12") FULL_KERNEL="6.12-20251031.120020" ;;
             *) FULL_KERNEL="$KERNEL" ;;
           esac
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
