@@ -1191,8 +1191,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.2.4"
-    digest: "sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff"
+    tag: "v0.3.0"
+    digest: "sha256:c6f836b5352adc16a241c5c24ba5576341c23a81b73c9fab4daba07b92d811a8"
     useDigest: true
     pullPolicy: "Always"
   # @schema
@@ -3994,7 +3994,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.37.0"
-          digest: "sha256:fba0711bd6995f7e0158f397d85f63998b4c8b1a1e3b1e9e0394c7b165585440"
+          digest: "sha256:e3652a00a2fabd16ce889f0aa32c38eec347b997e73bd09e69c962ec7f8732ee"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration
