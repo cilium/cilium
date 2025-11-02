@@ -1447,6 +1447,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	union macaddr smac;
 	__be32 sip;
 	__be32 tip;
+	int ret;
 
 	/* Pass any unknown ARP requests to the Linux stack */
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
@@ -1465,7 +1466,11 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (tip == CONFIG(endpoint_ipv4).be32)
 		return CTX_ACT_OK;
 
-	return arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
+
+	return ret;
 }
 #endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
