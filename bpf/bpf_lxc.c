@@ -685,6 +685,14 @@ ct_recreate6:
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
+#ifdef ENABLE_IDENTITY_MARK
+	/* Always encode the source identity when forwarding the packet.
+	 * This prevents loss of identity if the packet is later SNATed,
+	 * or the endpoint is torn down.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
+#endif
+
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
 		const struct endpoint_info *ep;
 		union v6addr daddr;
@@ -773,15 +781,6 @@ pass_to_stack:
 	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
-#endif
-
-#ifdef ENABLE_IDENTITY_MARK
-	/* Always encode the source identity when passing to the stack.
-	 * If the stack hairpins the packet back to a local endpoint the
-	 * source identity can still be derived even if SNAT is
-	 * performed by a component such as portmap.
-	 */
-	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 #endif
 
 pass_to_stack_hostfw: __maybe_unused
@@ -1158,6 +1157,14 @@ ct_recreate4:
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
+#ifdef ENABLE_IDENTITY_MARK
+	/* Always encode the source identity when forwarding the packet.
+	 * This prevents loss of identity if the packet is later SNATed,
+	 * or the endpoint is torn down.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
+#endif
+
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
 	 * disabled (for example, with per-endpoint routes). Otherwise, the
 	 * packet will be dropped by the kernel if the packet will be routed to
@@ -1330,15 +1337,6 @@ pass_to_stack:
 	ret = ipv4_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
-#endif
-
-#ifdef ENABLE_IDENTITY_MARK
-	/* Always encode the source identity when passing to the stack.
-	 * If the stack hairpins the packet back to a local endpoint the
-	 * source identity can still be derived even if SNAT is
-	 * performed by a component such as portmap.
-	 */
-	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 #endif
 
 pass_to_stack_hostfw: __maybe_unused
