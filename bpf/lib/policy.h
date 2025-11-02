@@ -7,7 +7,6 @@
 
 #include "drop.h"
 #include "dbg.h"
-#include "eps.h"
 
 #ifndef EFFECTIVE_EP_ID
 #define EFFECTIVE_EP_ID 0
