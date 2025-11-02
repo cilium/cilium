@@ -5,7 +5,7 @@
 
 #include <linux/icmp.h>
 
-#include "drop.h"
+#include "common.h"
 #include "dbg.h"
 
 #ifndef EFFECTIVE_EP_ID

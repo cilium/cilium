@@ -4,6 +4,7 @@
 #pragma once
 
 #include "lib/common.h"
+#include "lib/drop.h"
 #include "lib/identity.h"
 #include "lib/tailcall.h"
 
