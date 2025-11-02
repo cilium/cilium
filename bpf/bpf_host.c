@@ -1768,15 +1768,9 @@ static __always_inline int
 /* Handles packet from a local endpoint entering the host namespace. Applies
  * ingress host policies.
  */
-to_host_from_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
+to_host_from_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 {
 	int ret = CTX_ACT_OK;
-	__u16 proto = 0;
-
-	if (!validate_ethertype(ctx, &proto)) {
-		ret = DROP_UNSUPPORTED_L2;
-		goto out;
-	}
 
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
@@ -1811,7 +1805,6 @@ to_host_from_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 		break;
 	}
 
-out:
 	return ret;
 }
 
@@ -1820,7 +1813,7 @@ out:
  * control back to bpf_lxc.
  */
 static __always_inline int
-from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
+from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1830,10 +1823,6 @@ from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 	void *data, *data_end;
 	struct iphdr *ip4 __maybe_unused;
 	struct ipv6hdr *ip6 __maybe_unused;
-	__u16 proto = 0;
-
-	if (!validate_ethertype(ctx, &proto))
-		return DROP_UNSUPPORTED_L2;
 
 	switch (proto) {
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
@@ -1895,6 +1884,7 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	__u32 src_sec_identity;
 	enum metric_dir dir;
+	__be16 proto = 0;
 	__s8 ext_err = 0;
 	int ret;
 
@@ -1906,10 +1896,15 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 		dir = METRIC_INGRESS;
 	}
 
+	if (!validate_ethertype(ctx, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto drop_err;
+	}
+
 	if (from_host) {
 		__u32 lxc_id = ctx_load_meta(ctx, CB_DST_ENDPOINT_ID);
 
-		ret = from_host_to_lxc(ctx, &ext_err);
+		ret = from_host_to_lxc(ctx, proto, &ext_err);
 		if (IS_ERR(ret))
 			goto drop_err;
 
@@ -1917,7 +1912,7 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 					 true, false, 0);
 		ret = tail_call_policy(ctx, (__u16)lxc_id);
 	} else {
-		ret = to_host_from_lxc(ctx, &ext_err);
+		ret = to_host_from_lxc(ctx, proto, &ext_err);
 	}
 
 drop_err:
