@@ -14,7 +14,6 @@
 #include "ipv6.h"
 #include "dbg.h"
 #include "l4.h"
-#include "signal.h"
 #include "ipfrag.h"
 
 /* Traffic is allowed/dropped based on user-defined policies. */
