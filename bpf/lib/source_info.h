@@ -53,11 +53,10 @@ __id_for_file(const char *const header_name)
 	_strcase_(109, "local_delivery.h");
 	_strcase_(110, "trace.h");
 	_strcase_(111, "encap.h");
-	_strcase_(112, "encrypt.h");
-	_strcase_(113, "host_firewall.h");
-	_strcase_(114, "nodeport_egress.h");
-	_strcase_(115, "ipv6.h");
-	_strcase_(116, "classifiers.h");
+	_strcase_(112, "host_firewall.h");
+	_strcase_(113, "nodeport_egress.h");
+	_strcase_(114, "ipv6.h");
+	_strcase_(115, "classifiers.h");
 
 	/* @@ source files list end */
 
