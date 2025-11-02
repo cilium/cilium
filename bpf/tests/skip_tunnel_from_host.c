@@ -48,7 +48,6 @@ static volatile const union macaddr __cilium_net_mac = CILIUM_NET_MAC;
  * Include test helpers
  */
 #include "lib/ipcache.h"
-#include "lib/policy.h"
 
 static __always_inline int
 pktgen_from_host(struct __ctx_buff *ctx, bool v4)
@@ -96,8 +95,6 @@ setup(struct __ctx_buff *ctx, bool flag_skip_tunnel, bool v4)
 	key.dir = METRIC_EGRESS;
 
 	map_delete_elem(&cilium_metrics, &key);
-
-	policy_add_egress_allow_all_entry();
 
 	if (v4)
 		ipcache_v4_add_entry_with_flags(DST_IPV4,

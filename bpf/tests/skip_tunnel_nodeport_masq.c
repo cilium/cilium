@@ -43,7 +43,6 @@ ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, {.addr = v6_node_one_addr})
  */
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
-#include "lib/policy.h"
 #include "lib/clear.h"
 
 static __always_inline int
@@ -97,8 +96,6 @@ setup(struct __ctx_buff *ctx, bool v4, bool flag_skip_tunnel)
 	clear_map(&cilium_ct6_global);
 	clear_map(get_cluster_snat_map_v4(0));
 	clear_map(get_cluster_snat_map_v6(0));
-
-	policy_add_egress_allow_all_entry();
 
 	/*
 	 * For this scenario, an endpoint for the source addresses needs
