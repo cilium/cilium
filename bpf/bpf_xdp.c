@@ -38,6 +38,7 @@
 #undef ENABLE_HEALTH_CHECK
 
 #include "lib/common.h"
+#include "lib/drop.h"
 #include "lib/eps.h"
 #include "lib/events.h"
 #include "lib/nodeport.h"

@@ -10,7 +10,6 @@
 #include "common.h"
 #include "csum.h"
 #include "dbg.h"
-#include "drop.h"
 #include "eth.h"
 #include "overloadable.h"
 
