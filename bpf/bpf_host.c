@@ -1101,6 +1101,9 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 		#ifdef ENABLE_L2_ANNOUNCEMENTS
 			ret = handle_l2_announcement(ctx, NULL);
+			if (IS_ERR(ret))
+				return send_drop_notify_error(ctx, identity,
+							      ret, METRIC_EGRESS);
 		#else
 			ret = CTX_ACT_OK;
 		#endif
@@ -1115,6 +1118,10 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 #ifdef ENABLE_L2_ANNOUNCEMENTS
 		if (ip6->nexthdr == NEXTHDR_ICMP) {
 			ret = handle_l2_announcement(ctx, ip6);
+			if (IS_ERR(ret))
+				return send_drop_notify_error(ctx, identity,
+							      ret, METRIC_EGRESS);
+
 			if (ret != CTX_ACT_OK)
 				break;
 			/* Verifier invalidates ip6 for some reason.. sigh*/
