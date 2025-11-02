@@ -11,33 +11,69 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Create a verification token.
+// Creates an IPAM prefix list resolver target.
 //
-// A verification token is an Amazon Web Services-generated random value that you
-// can use to prove ownership of an external resource. For example, you can use a
-// verification token to validate that you control a public IP address range when
-// you bring an IP address range to Amazon Web Services (BYOIP).
-func (c *Client) CreateIpamExternalResourceVerificationToken(ctx context.Context, params *CreateIpamExternalResourceVerificationTokenInput, optFns ...func(*Options)) (*CreateIpamExternalResourceVerificationTokenOutput, error) {
+// An IPAM prefix list resolver target is an association between a specific
+// customer-managed prefix list and an IPAM prefix list resolver. The target
+// enables the resolver to synchronize CIDRs selected by its rules into the
+// specified prefix list, which can then be referenced in Amazon Web Services
+// resources.
+//
+// For more information about IPAM prefix list resolver, see [Automate prefix list updates with IPAM] in the Amazon VPC
+// IPAM User Guide.
+//
+// [Automate prefix list updates with IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/automate-prefix-list-updates.html
+func (c *Client) CreateIpamPrefixListResolverTarget(ctx context.Context, params *CreateIpamPrefixListResolverTargetInput, optFns ...func(*Options)) (*CreateIpamPrefixListResolverTargetOutput, error) {
 	if params == nil {
-		params = &CreateIpamExternalResourceVerificationTokenInput{}
+		params = &CreateIpamPrefixListResolverTargetInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateIpamExternalResourceVerificationToken", params, optFns, c.addOperationCreateIpamExternalResourceVerificationTokenMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "CreateIpamPrefixListResolverTarget", params, optFns, c.addOperationCreateIpamPrefixListResolverTargetMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*CreateIpamExternalResourceVerificationTokenOutput)
+	out := result.(*CreateIpamPrefixListResolverTargetOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type CreateIpamExternalResourceVerificationTokenInput struct {
+type CreateIpamPrefixListResolverTargetInput struct {
 
-	// The ID of the IPAM that will create the token.
+	// The ID of the IPAM prefix list resolver that will manage the synchronization of
+	// CIDRs to the target prefix list.
 	//
 	// This member is required.
-	IpamId *string
+	IpamPrefixListResolverId *string
+
+	// The ID of the managed prefix list that will be synchronized with CIDRs selected
+	// by the IPAM prefix list resolver. This prefix list becomes an IPAM managed
+	// prefix list.
+	//
+	// An IPAM-managed prefix list is a customer-managed prefix list that has been
+	// associated with an IPAM prefix list resolver target. When a prefix list becomes
+	// IPAM managed, its CIDRs are automatically synchronized based on the IPAM prefix
+	// list resolver's CIDR selection rules, and direct CIDR modifications are
+	// restricted.
+	//
+	// This member is required.
+	PrefixListId *string
+
+	// The Amazon Web Services Region where the prefix list is located. This is
+	// required when referencing a prefix list in a different Region.
+	//
+	// This member is required.
+	PrefixListRegion *string
+
+	// Indicates whether the resolver target should automatically track the latest
+	// version of the prefix list. When enabled, the target will always synchronize
+	// with the most current version of the prefix list.
+	//
+	// Choose this for automatic updates when you want your prefix lists to stay
+	// current with infrastructure changes without manual intervention.
+	//
+	// This member is required.
+	TrackLatestVersion *bool
 
 	// A unique, case-sensitive identifier that you provide to ensure the idempotency
 	// of the request. For more information, see [Ensuring idempotency].
@@ -45,22 +81,27 @@ type CreateIpamExternalResourceVerificationTokenInput struct {
 	// [Ensuring idempotency]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
+	// The specific version of the prefix list to target. If not specified, the
+	// resolver will target the latest version.
+	DesiredVersion *int64
+
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// Token tags.
+	// The tags to apply to the IPAM prefix list resolver target during creation. Tags
+	// help you organize and manage your Amazon Web Services resources.
 	TagSpecifications []types.TagSpecification
 
 	noSmithyDocumentSerde
 }
 
-type CreateIpamExternalResourceVerificationTokenOutput struct {
+type CreateIpamPrefixListResolverTargetOutput struct {
 
-	// The verification token.
-	IpamExternalResourceVerificationToken *types.IpamExternalResourceVerificationToken
+	// Information about the IPAM prefix list resolver target that was created.
+	IpamPrefixListResolverTarget *types.IpamPrefixListResolverTarget
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -68,19 +109,19 @@ type CreateIpamExternalResourceVerificationTokenOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationCreateIpamExternalResourceVerificationTokenMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationCreateIpamPrefixListResolverTargetMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateIpamExternalResourceVerificationToken{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateIpamPrefixListResolverTarget{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCreateIpamExternalResourceVerificationToken{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCreateIpamPrefixListResolverTarget{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateIpamExternalResourceVerificationToken"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateIpamPrefixListResolverTarget"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -135,13 +176,13 @@ func (c *Client) addOperationCreateIpamExternalResourceVerificationTokenMiddlewa
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addIdempotencyToken_opCreateIpamExternalResourceVerificationTokenMiddleware(stack, options); err != nil {
+	if err = addIdempotencyToken_opCreateIpamPrefixListResolverTargetMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addOpCreateIpamExternalResourceVerificationTokenValidationMiddleware(stack); err != nil {
+	if err = addOpCreateIpamPrefixListResolverTargetValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateIpamExternalResourceVerificationToken(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateIpamPrefixListResolverTarget(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -204,24 +245,24 @@ func (c *Client) addOperationCreateIpamExternalResourceVerificationTokenMiddlewa
 	return nil
 }
 
-type idempotencyToken_initializeOpCreateIpamExternalResourceVerificationToken struct {
+type idempotencyToken_initializeOpCreateIpamPrefixListResolverTarget struct {
 	tokenProvider IdempotencyTokenProvider
 }
 
-func (*idempotencyToken_initializeOpCreateIpamExternalResourceVerificationToken) ID() string {
+func (*idempotencyToken_initializeOpCreateIpamPrefixListResolverTarget) ID() string {
 	return "OperationIdempotencyTokenAutoFill"
 }
 
-func (m *idempotencyToken_initializeOpCreateIpamExternalResourceVerificationToken) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+func (m *idempotencyToken_initializeOpCreateIpamPrefixListResolverTarget) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
 	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
 ) {
 	if m.tokenProvider == nil {
 		return next.HandleInitialize(ctx, in)
 	}
 
-	input, ok := in.Parameters.(*CreateIpamExternalResourceVerificationTokenInput)
+	input, ok := in.Parameters.(*CreateIpamPrefixListResolverTargetInput)
 	if !ok {
-		return out, metadata, fmt.Errorf("expected middleware input to be of type *CreateIpamExternalResourceVerificationTokenInput ")
+		return out, metadata, fmt.Errorf("expected middleware input to be of type *CreateIpamPrefixListResolverTargetInput ")
 	}
 
 	if input.ClientToken == nil {
@@ -233,14 +274,14 @@ func (m *idempotencyToken_initializeOpCreateIpamExternalResourceVerificationToke
 	}
 	return next.HandleInitialize(ctx, in)
 }
-func addIdempotencyToken_opCreateIpamExternalResourceVerificationTokenMiddleware(stack *middleware.Stack, cfg Options) error {
-	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateIpamExternalResourceVerificationToken{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
+func addIdempotencyToken_opCreateIpamPrefixListResolverTargetMiddleware(stack *middleware.Stack, cfg Options) error {
+	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateIpamPrefixListResolverTarget{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
 }
 
-func newServiceMetadataMiddleware_opCreateIpamExternalResourceVerificationToken(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opCreateIpamPrefixListResolverTarget(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "CreateIpamExternalResourceVerificationToken",
+		OperationName: "CreateIpamPrefixListResolverTarget",
 	}
 }

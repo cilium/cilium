@@ -11,84 +11,51 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Cancels the specified Spot Fleet requests.
-//
-// After you cancel a Spot Fleet request, the Spot Fleet launches no new instances.
-//
-// You must also specify whether a canceled Spot Fleet request should terminate
-// its instances. If you choose to terminate the instances, the Spot Fleet request
-// enters the cancelled_terminating state. Otherwise, the Spot Fleet request
-// enters the cancelled_running state and the instances continue to run until they
-// are interrupted or you terminate them manually.
-//
-// Terminating an instance is permanent and irreversible.
-//
-// After you terminate an instance, you can no longer connect to it, and it can't
-// be recovered. All attached Amazon EBS volumes that are configured to be deleted
-// on termination are also permanently deleted and can't be recovered. All data
-// stored on instance store volumes is permanently lost. For more information, see [How instance termination works]
-// .
-//
-// Before you terminate an instance, ensure that you have backed up all data that
-// you need to retain after the termination to persistent storage.
-//
-// Restrictions
-//
-//   - You can delete up to 100 fleets in a single request. If you exceed the
-//     specified number, no fleets are deleted.
-//
-// [How instance termination works]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-termination-works.html
-func (c *Client) CancelSpotFleetRequests(ctx context.Context, params *CancelSpotFleetRequestsInput, optFns ...func(*Options)) (*CancelSpotFleetRequestsOutput, error) {
+// Modifies an IPAM prefix list resolver. You can update the description and CIDR
+// selection rules. Changes to rules will trigger re-evaluation and potential
+// updates to associated prefix lists.
+func (c *Client) ModifyIpamPrefixListResolver(ctx context.Context, params *ModifyIpamPrefixListResolverInput, optFns ...func(*Options)) (*ModifyIpamPrefixListResolverOutput, error) {
 	if params == nil {
-		params = &CancelSpotFleetRequestsInput{}
+		params = &ModifyIpamPrefixListResolverInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CancelSpotFleetRequests", params, optFns, c.addOperationCancelSpotFleetRequestsMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "ModifyIpamPrefixListResolver", params, optFns, c.addOperationModifyIpamPrefixListResolverMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*CancelSpotFleetRequestsOutput)
+	out := result.(*ModifyIpamPrefixListResolverOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-// Contains the parameters for CancelSpotFleetRequests.
-type CancelSpotFleetRequestsInput struct {
+type ModifyIpamPrefixListResolverInput struct {
 
-	// The IDs of the Spot Fleet requests.
-	//
-	// Constraint: You can specify up to 100 IDs in a single request.
+	// The ID of the IPAM prefix list resolver to modify.
 	//
 	// This member is required.
-	SpotFleetRequestIds []string
+	IpamPrefixListResolverId *string
 
-	// Indicates whether to terminate the associated instances when the Spot Fleet
-	// request is canceled. The default is to terminate the instances.
-	//
-	// To let the instances continue to run after the Spot Fleet request is canceled,
-	// specify no-terminate-instances .
-	//
-	// This member is required.
-	TerminateInstances *bool
+	// A new description for the IPAM prefix list resolver.
+	Description *string
 
-	// Checks whether you have the required permissions for the action, without
-	// actually making the request, and provides an error response. If you have the
+	// A check for whether you have the required permissions for the action without
+	// actually making the request and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The updated CIDR selection rules for the resolver. These rules replace the
+	// existing rules entirely.
+	Rules []types.IpamPrefixListResolverRuleRequest
+
 	noSmithyDocumentSerde
 }
 
-// Contains the output of CancelSpotFleetRequests.
-type CancelSpotFleetRequestsOutput struct {
+type ModifyIpamPrefixListResolverOutput struct {
 
-	// Information about the Spot Fleet requests that are successfully canceled.
-	SuccessfulFleetRequests []types.CancelSpotFleetRequestsSuccessItem
-
-	// Information about the Spot Fleet requests that are not successfully canceled.
-	UnsuccessfulFleetRequests []types.CancelSpotFleetRequestsErrorItem
+	// Information about the modified IPAM prefix list resolver.
+	IpamPrefixListResolver *types.IpamPrefixListResolver
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -96,19 +63,19 @@ type CancelSpotFleetRequestsOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationCancelSpotFleetRequestsMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationModifyIpamPrefixListResolverMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsEc2query_serializeOpCancelSpotFleetRequests{}, middleware.After)
+	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyIpamPrefixListResolver{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCancelSpotFleetRequests{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpModifyIpamPrefixListResolver{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CancelSpotFleetRequests"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyIpamPrefixListResolver"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -163,10 +130,10 @@ func (c *Client) addOperationCancelSpotFleetRequestsMiddlewares(stack *middlewar
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpCancelSpotFleetRequestsValidationMiddleware(stack); err != nil {
+	if err = addOpModifyIpamPrefixListResolverValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCancelSpotFleetRequests(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyIpamPrefixListResolver(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -229,10 +196,10 @@ func (c *Client) addOperationCancelSpotFleetRequestsMiddlewares(stack *middlewar
 	return nil
 }
 
-func newServiceMetadataMiddleware_opCancelSpotFleetRequests(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opModifyIpamPrefixListResolver(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "CancelSpotFleetRequests",
+		OperationName: "ModifyIpamPrefixListResolver",
 	}
 }
