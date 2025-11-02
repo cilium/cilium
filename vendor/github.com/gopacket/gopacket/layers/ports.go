@@ -76,8 +76,12 @@ func (a TCPPort) LayerType() gopacket.LayerType {
 		return LayerTypeTLS
 	case 995: // pop3s
 		return LayerTypeTLS
+	case 2222: // EtherNet/IP-1
+		return LayerTypeENIP
 	case 5061: // ips
 		return LayerTypeTLS
+	case 44818: // EtherNet/IP-2
+		return LayerTypeENIP
 	}
 	return gopacket.LayerTypePayload
 }
@@ -127,10 +131,18 @@ func (a UDPPort) LayerType() gopacket.LayerType {
 		return LayerTypeDHCPv6
 	case 623:
 		return LayerTypeRMCP
+	case 666:
+		return LayerTypeAGUEVar0
+	case 1000:
+		return LayerTypeAPSP
 	case 1812:
 		return LayerTypeRADIUS
+	case 2123:
+		return LayerTypeGTPv2
 	case 2152:
 		return LayerTypeGTPv1U
+	case 2222: // EtherNet/IP-1
+		return LayerTypeENIP
 	case 3784:
 		return LayerTypeBFD
 	case 4789:
@@ -141,6 +153,8 @@ func (a UDPPort) LayerType() gopacket.LayerType {
 		return LayerTypeGeneve
 	case 6343:
 		return LayerTypeSFlow
+	case 44818: // EtherNet/IP-2
+		return LayerTypeENIP
 	}
 	return gopacket.LayerTypePayload
 }
