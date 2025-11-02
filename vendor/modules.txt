@@ -264,7 +264,7 @@ github.com/cilium/deepequal-gen/generators
 # github.com/cilium/dns v1.1.51-0.20240603182237-af788769786a
 ## explicit; go 1.18
 github.com/cilium/dns
-# github.com/cilium/ebpf v0.19.1-0.20251027143413-c64ffee6a962
+# github.com/cilium/ebpf v0.20.0
 ## explicit; go 1.24.0
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
@@ -1357,11 +1357,11 @@ github.com/prometheus/client_golang/prometheus/testutil/promlint/validations
 # github.com/prometheus/client_model v0.6.2
 ## explicit; go 1.22.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.67.1
+# github.com/prometheus/common v0.67.2
 ## explicit; go 1.24.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
-# github.com/prometheus/procfs v0.19.1
+# github.com/prometheus/procfs v0.19.2
 ## explicit; go 1.24.0
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
@@ -1468,7 +1468,7 @@ github.com/tidwall/pretty
 # github.com/tidwall/sjson v1.2.5
 ## explicit; go 1.14
 github.com/tidwall/sjson
-# github.com/vishvananda/netlink v1.3.2-0.20251022194116-03b8f90390d9
+# github.com/vishvananda/netlink v1.3.2-0.20251101063711-6e61cd407d1d
 ## explicit; go 1.23
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
@@ -1827,7 +1827,7 @@ gomodules.xyz/jsonpatch/v2
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20251022142026-3a174f9686a8
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda
 ## explicit; go 1.24.0
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.76.0
