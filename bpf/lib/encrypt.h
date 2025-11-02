@@ -9,7 +9,6 @@
 #include <linux/ip.h>
 
 #include "lib/common.h"
-#include "lib/drop.h"
 #include "lib/eps.h"
 #include "lib/ipv4.h"
 #include "lib/node.h"
@@ -160,8 +159,8 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 			return CTX_ACT_OK;
 
 		if (!node_id)
-			return send_drop_notify_error(ctx, UNKNOWN_ID, DROP_NO_NODE_ID,
-						      METRIC_INGRESS);
+			return DROP_NO_NODE_ID;
+
 		set_decrypt_mark(ctx, node_id);
 
 		/* We are going to pass this up the stack for IPsec decryption

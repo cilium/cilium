@@ -1229,7 +1229,10 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	 * decrypted), we want to run all subsequent logic here. We therefore
 	 * ignore the return value from do_decrypt.
 	 */
-	do_decrypt(ctx, proto);
+	ret = do_decrypt(ctx, proto);
+	if (IS_ERR(ret))
+		goto drop_err;
+
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
 		return CTX_ACT_OK;
 #endif
