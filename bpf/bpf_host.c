@@ -1768,10 +1768,9 @@ static __always_inline int
 /* Handles packet from a local endpoint entering the host namespace. Applies
  * ingress host policies.
  */
-to_host_from_lxc(struct __ctx_buff *ctx)
+to_host_from_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 {
 	int ret = CTX_ACT_OK;
-	__s8 ext_err = 0;
 	__u16 proto = 0;
 
 	if (!validate_ethertype(ctx, &proto)) {
@@ -1791,7 +1790,7 @@ to_host_from_lxc(struct __ctx_buff *ctx)
 		ctx_store_meta(ctx, CB_TRACED, 1);
 		if ((is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) || is_defined(DEBUG))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
-						 &ext_err);
+						 ext_err);
 		else
 			ret = tail_ipv6_host_policy_ingress(ctx);
 		break;
@@ -1802,7 +1801,7 @@ to_host_from_lxc(struct __ctx_buff *ctx)
 		ctx_store_meta(ctx, CB_TRACED, 1);
 		if ((is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) || is_defined(DEBUG))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
-						 &ext_err);
+						 ext_err);
 		else
 			ret = tail_ipv4_host_policy_ingress(ctx);
 		break;
@@ -1813,9 +1812,6 @@ to_host_from_lxc(struct __ctx_buff *ctx)
 	}
 
 out:
-	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-						  METRIC_INGRESS);
 	return ret;
 }
 
@@ -1897,12 +1893,21 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 {
 #ifdef ENABLE_HOST_FIREWALL
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	__u32 src_sec_identity;
+	enum metric_dir dir;
+	__s8 ext_err = 0;
+	int ret;
+
+	if (from_host) {
+		src_sec_identity = HOST_ID;
+		dir = METRIC_EGRESS;
+	} else {
+		src_sec_identity = UNKNOWN_ID;
+		dir = METRIC_INGRESS;
+	}
 
 	if (from_host) {
 		__u32 lxc_id = ctx_load_meta(ctx, CB_DST_ENDPOINT_ID);
-		__u32 src_sec_identity = HOST_ID;
-		__s8 ext_err = 0;
-		int ret;
 
 		ret = from_host_to_lxc(ctx, &ext_err);
 		if (IS_ERR(ret))
@@ -1911,13 +1916,16 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 		local_delivery_fill_meta(ctx, src_sec_identity, false,
 					 true, false, 0);
 		ret = tail_call_policy(ctx, (__u16)lxc_id);
-
-drop_err:
-		return send_drop_notify_error_ext(ctx, src_sec_identity,
-						  ret, ext_err, METRIC_EGRESS);
+	} else {
+		ret = to_host_from_lxc(ctx, &ext_err);
 	}
 
-	return to_host_from_lxc(ctx);
+drop_err:
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, src_sec_identity,
+						  ret, ext_err, dir);
+
+	return ret;
 #else
 	return 0;
 #endif /* ENABLE_HOST_FIREWALL */
