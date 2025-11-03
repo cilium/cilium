@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -35,21 +34,18 @@ type CiliumL2AnnouncementPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumL2AnnouncementPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumL2AnnouncementPolicy, err error)
-	Apply(ctx context.Context, ciliumL2AnnouncementPolicy *applyconfigurationciliumiov2alpha1.CiliumL2AnnouncementPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumL2AnnouncementPolicy, err error)
-	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, ciliumL2AnnouncementPolicy *applyconfigurationciliumiov2alpha1.CiliumL2AnnouncementPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumL2AnnouncementPolicy, err error)
 	CiliumL2AnnouncementPolicyExpansion
 }
 
 // ciliumL2AnnouncementPolicies implements CiliumL2AnnouncementPolicyInterface
 type ciliumL2AnnouncementPolicies struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumL2AnnouncementPolicy, *ciliumiov2alpha1.CiliumL2AnnouncementPolicyList, *applyconfigurationciliumiov2alpha1.CiliumL2AnnouncementPolicyApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumL2AnnouncementPolicy, *ciliumiov2alpha1.CiliumL2AnnouncementPolicyList]
 }
 
 // newCiliumL2AnnouncementPolicies returns a CiliumL2AnnouncementPolicies
 func newCiliumL2AnnouncementPolicies(c *CiliumV2alpha1Client) *ciliumL2AnnouncementPolicies {
 	return &ciliumL2AnnouncementPolicies{
-		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumL2AnnouncementPolicy, *ciliumiov2alpha1.CiliumL2AnnouncementPolicyList, *applyconfigurationciliumiov2alpha1.CiliumL2AnnouncementPolicyApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumL2AnnouncementPolicy, *ciliumiov2alpha1.CiliumL2AnnouncementPolicyList](
 			"ciliuml2announcementpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

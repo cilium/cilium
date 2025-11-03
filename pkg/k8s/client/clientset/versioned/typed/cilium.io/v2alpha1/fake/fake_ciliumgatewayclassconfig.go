@@ -7,20 +7,19 @@ package fake
 
 import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
-	typedciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumGatewayClassConfigs implements CiliumGatewayClassConfigInterface
 type fakeCiliumGatewayClassConfigs struct {
-	*gentype.FakeClientWithListAndApply[*v2alpha1.CiliumGatewayClassConfig, *v2alpha1.CiliumGatewayClassConfigList, *ciliumiov2alpha1.CiliumGatewayClassConfigApplyConfiguration]
+	*gentype.FakeClientWithList[*v2alpha1.CiliumGatewayClassConfig, *v2alpha1.CiliumGatewayClassConfigList]
 	Fake *FakeCiliumV2alpha1
 }
 
-func newFakeCiliumGatewayClassConfigs(fake *FakeCiliumV2alpha1) typedciliumiov2alpha1.CiliumGatewayClassConfigInterface {
+func newFakeCiliumGatewayClassConfigs(fake *FakeCiliumV2alpha1) ciliumiov2alpha1.CiliumGatewayClassConfigInterface {
 	return &fakeCiliumGatewayClassConfigs{
-		gentype.NewFakeClientWithListAndApply[*v2alpha1.CiliumGatewayClassConfig, *v2alpha1.CiliumGatewayClassConfigList, *ciliumiov2alpha1.CiliumGatewayClassConfigApplyConfiguration](
+		gentype.NewFakeClientWithList[*v2alpha1.CiliumGatewayClassConfig, *v2alpha1.CiliumGatewayClassConfigList](
 			fake.Fake,
 			"",
 			v2alpha1.SchemeGroupVersion.WithResource("ciliumgatewayclassconfigs"),

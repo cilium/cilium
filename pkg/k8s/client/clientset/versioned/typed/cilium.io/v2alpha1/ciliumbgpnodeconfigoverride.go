@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type CiliumBGPNodeConfigOverrideInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumBGPNodeConfigOverride, err error)
-	Apply(ctx context.Context, ciliumBGPNodeConfigOverride *applyconfigurationciliumiov2alpha1.CiliumBGPNodeConfigOverrideApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumBGPNodeConfigOverride, err error)
 	CiliumBGPNodeConfigOverrideExpansion
 }
 
 // ciliumBGPNodeConfigOverrides implements CiliumBGPNodeConfigOverrideInterface
 type ciliumBGPNodeConfigOverrides struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, *ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList, *applyconfigurationciliumiov2alpha1.CiliumBGPNodeConfigOverrideApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, *ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList]
 }
 
 // newCiliumBGPNodeConfigOverrides returns a CiliumBGPNodeConfigOverrides
 func newCiliumBGPNodeConfigOverrides(c *CiliumV2alpha1Client) *ciliumBGPNodeConfigOverrides {
 	return &ciliumBGPNodeConfigOverrides{
-		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, *ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList, *applyconfigurationciliumiov2alpha1.CiliumBGPNodeConfigOverrideApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumBGPNodeConfigOverride, *ciliumiov2alpha1.CiliumBGPNodeConfigOverrideList](
 			"ciliumbgpnodeconfigoverrides",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -7,20 +7,19 @@ package fake
 
 import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
-	typedciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumPodIPPools implements CiliumPodIPPoolInterface
 type fakeCiliumPodIPPools struct {
-	*gentype.FakeClientWithListAndApply[*v2alpha1.CiliumPodIPPool, *v2alpha1.CiliumPodIPPoolList, *ciliumiov2alpha1.CiliumPodIPPoolApplyConfiguration]
+	*gentype.FakeClientWithList[*v2alpha1.CiliumPodIPPool, *v2alpha1.CiliumPodIPPoolList]
 	Fake *FakeCiliumV2alpha1
 }
 
-func newFakeCiliumPodIPPools(fake *FakeCiliumV2alpha1) typedciliumiov2alpha1.CiliumPodIPPoolInterface {
+func newFakeCiliumPodIPPools(fake *FakeCiliumV2alpha1) ciliumiov2alpha1.CiliumPodIPPoolInterface {
 	return &fakeCiliumPodIPPools{
-		gentype.NewFakeClientWithListAndApply[*v2alpha1.CiliumPodIPPool, *v2alpha1.CiliumPodIPPoolList, *ciliumiov2alpha1.CiliumPodIPPoolApplyConfiguration](
+		gentype.NewFakeClientWithList[*v2alpha1.CiliumPodIPPool, *v2alpha1.CiliumPodIPPoolList](
 			fake.Fake,
 			"",
 			v2alpha1.SchemeGroupVersion.WithResource("ciliumpodippools"),

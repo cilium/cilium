@@ -7,20 +7,19 @@ package fake
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
-	typedciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumLoadBalancerIPPools implements CiliumLoadBalancerIPPoolInterface
 type fakeCiliumLoadBalancerIPPools struct {
-	*gentype.FakeClientWithListAndApply[*v2.CiliumLoadBalancerIPPool, *v2.CiliumLoadBalancerIPPoolList, *ciliumiov2.CiliumLoadBalancerIPPoolApplyConfiguration]
+	*gentype.FakeClientWithList[*v2.CiliumLoadBalancerIPPool, *v2.CiliumLoadBalancerIPPoolList]
 	Fake *FakeCiliumV2
 }
 
-func newFakeCiliumLoadBalancerIPPools(fake *FakeCiliumV2) typedciliumiov2.CiliumLoadBalancerIPPoolInterface {
+func newFakeCiliumLoadBalancerIPPools(fake *FakeCiliumV2) ciliumiov2.CiliumLoadBalancerIPPoolInterface {
 	return &fakeCiliumLoadBalancerIPPools{
-		gentype.NewFakeClientWithListAndApply[*v2.CiliumLoadBalancerIPPool, *v2.CiliumLoadBalancerIPPoolList, *ciliumiov2.CiliumLoadBalancerIPPoolApplyConfiguration](
+		gentype.NewFakeClientWithList[*v2.CiliumLoadBalancerIPPool, *v2.CiliumLoadBalancerIPPoolList](
 			fake.Fake,
 			"",
 			v2.SchemeGroupVersion.WithResource("ciliumloadbalancerippools"),

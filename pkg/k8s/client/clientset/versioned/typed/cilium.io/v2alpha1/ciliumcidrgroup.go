@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type CiliumCIDRGroupInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumCIDRGroupList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumCIDRGroup, err error)
-	Apply(ctx context.Context, ciliumCIDRGroup *applyconfigurationciliumiov2alpha1.CiliumCIDRGroupApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumCIDRGroup, err error)
 	CiliumCIDRGroupExpansion
 }
 
 // ciliumCIDRGroups implements CiliumCIDRGroupInterface
 type ciliumCIDRGroups struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumCIDRGroup, *ciliumiov2alpha1.CiliumCIDRGroupList, *applyconfigurationciliumiov2alpha1.CiliumCIDRGroupApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumCIDRGroup, *ciliumiov2alpha1.CiliumCIDRGroupList]
 }
 
 // newCiliumCIDRGroups returns a CiliumCIDRGroups
 func newCiliumCIDRGroups(c *CiliumV2alpha1Client) *ciliumCIDRGroups {
 	return &ciliumCIDRGroups{
-		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumCIDRGroup, *ciliumiov2alpha1.CiliumCIDRGroupList, *applyconfigurationciliumiov2alpha1.CiliumCIDRGroupApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumCIDRGroup, *ciliumiov2alpha1.CiliumCIDRGroupList](
 			"ciliumcidrgroups",
 			c.RESTClient(),
 			scheme.ParameterCodec,

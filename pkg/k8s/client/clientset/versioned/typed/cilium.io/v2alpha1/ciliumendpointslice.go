@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type CiliumEndpointSliceInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumEndpointSliceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumEndpointSlice, err error)
-	Apply(ctx context.Context, ciliumEndpointSlice *applyconfigurationciliumiov2alpha1.CiliumEndpointSliceApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumEndpointSlice, err error)
 	CiliumEndpointSliceExpansion
 }
 
 // ciliumEndpointSlices implements CiliumEndpointSliceInterface
 type ciliumEndpointSlices struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumEndpointSlice, *ciliumiov2alpha1.CiliumEndpointSliceList, *applyconfigurationciliumiov2alpha1.CiliumEndpointSliceApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumEndpointSlice, *ciliumiov2alpha1.CiliumEndpointSliceList]
 }
 
 // newCiliumEndpointSlices returns a CiliumEndpointSlices
 func newCiliumEndpointSlices(c *CiliumV2alpha1Client) *ciliumEndpointSlices {
 	return &ciliumEndpointSlices{
-		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumEndpointSlice, *ciliumiov2alpha1.CiliumEndpointSliceList, *applyconfigurationciliumiov2alpha1.CiliumEndpointSliceApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumEndpointSlice, *ciliumiov2alpha1.CiliumEndpointSliceList](
 			"ciliumendpointslices",
 			c.RESTClient(),
 			scheme.ParameterCodec,

@@ -7,20 +7,19 @@ package fake
 
 import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
-	typedciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumBGPPeerConfigs implements CiliumBGPPeerConfigInterface
 type fakeCiliumBGPPeerConfigs struct {
-	*gentype.FakeClientWithListAndApply[*v2alpha1.CiliumBGPPeerConfig, *v2alpha1.CiliumBGPPeerConfigList, *ciliumiov2alpha1.CiliumBGPPeerConfigApplyConfiguration]
+	*gentype.FakeClientWithList[*v2alpha1.CiliumBGPPeerConfig, *v2alpha1.CiliumBGPPeerConfigList]
 	Fake *FakeCiliumV2alpha1
 }
 
-func newFakeCiliumBGPPeerConfigs(fake *FakeCiliumV2alpha1) typedciliumiov2alpha1.CiliumBGPPeerConfigInterface {
+func newFakeCiliumBGPPeerConfigs(fake *FakeCiliumV2alpha1) ciliumiov2alpha1.CiliumBGPPeerConfigInterface {
 	return &fakeCiliumBGPPeerConfigs{
-		gentype.NewFakeClientWithListAndApply[*v2alpha1.CiliumBGPPeerConfig, *v2alpha1.CiliumBGPPeerConfigList, *ciliumiov2alpha1.CiliumBGPPeerConfigApplyConfiguration](
+		gentype.NewFakeClientWithList[*v2alpha1.CiliumBGPPeerConfig, *v2alpha1.CiliumBGPPeerConfigList](
 			fake.Fake,
 			"",
 			v2alpha1.SchemeGroupVersion.WithResource("ciliumbgppeerconfigs"),

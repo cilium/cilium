@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type CiliumBGPAdvertisementInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumBGPAdvertisementList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumBGPAdvertisement, err error)
-	Apply(ctx context.Context, ciliumBGPAdvertisement *applyconfigurationciliumiov2alpha1.CiliumBGPAdvertisementApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumBGPAdvertisement, err error)
 	CiliumBGPAdvertisementExpansion
 }
 
 // ciliumBGPAdvertisements implements CiliumBGPAdvertisementInterface
 type ciliumBGPAdvertisements struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumBGPAdvertisement, *ciliumiov2alpha1.CiliumBGPAdvertisementList, *applyconfigurationciliumiov2alpha1.CiliumBGPAdvertisementApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumBGPAdvertisement, *ciliumiov2alpha1.CiliumBGPAdvertisementList]
 }
 
 // newCiliumBGPAdvertisements returns a CiliumBGPAdvertisements
 func newCiliumBGPAdvertisements(c *CiliumV2alpha1Client) *ciliumBGPAdvertisements {
 	return &ciliumBGPAdvertisements{
-		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumBGPAdvertisement, *ciliumiov2alpha1.CiliumBGPAdvertisementList, *applyconfigurationciliumiov2alpha1.CiliumBGPAdvertisementApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumBGPAdvertisement, *ciliumiov2alpha1.CiliumBGPAdvertisementList](
 			"ciliumbgpadvertisements",
 			c.RESTClient(),
 			scheme.ParameterCodec,
