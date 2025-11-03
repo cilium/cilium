@@ -212,8 +212,8 @@ const (
 
 	// AWSEnableRouteTableDiscovery enables route table discovery and route-table-aware subnet selection.
 	// Disabling this option can significantly reduce memory usage and AWS API calls in environments with
-	// many route tables, or where route-table-aware subnet selection is not needed (e.g., when pod subnets
-	// are in different subnets from node subnets).
+	// many route tables, or where pods have their own route tables different from nodes. Disabling restores
+	// pre-1.18 operator behavior and is completely safe.
 	AWSEnableRouteTableDiscovery = "aws-enable-route-table-discovery"
 )
 

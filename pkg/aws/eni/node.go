@@ -1052,7 +1052,7 @@ func (n *Node) logSubnetRouteTableMismatch(subnet *ipamTypes.Subnet, matchType s
 func (n *Node) findSuitableSubnet(spec eniTypes.ENISpec, limits ipamTypes.Limits) *ipamTypes.Subnet {
 	if len(spec.SubnetIDs) > 0 {
 		if subnet := n.manager.FindSubnetByIDs(spec.VpcID, spec.AvailabilityZone, spec.SubnetIDs); subnet != nil {
-			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) && n.manager.enableRouteTableDiscovery {
 				n.logSubnetRouteTableMismatch(subnet, "Specified")
 			}
 			return subnet
@@ -1061,7 +1061,7 @@ func (n *Node) findSuitableSubnet(spec eniTypes.ENISpec, limits ipamTypes.Limits
 
 	if len(spec.SubnetTags) > 0 {
 		if subnet := n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, spec.SubnetTags); subnet != nil {
-			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) && n.manager.enableRouteTableDiscovery {
 				n.logSubnetRouteTableMismatch(subnet, "Tagged")
 			}
 			return subnet

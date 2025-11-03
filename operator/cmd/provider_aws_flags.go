@@ -54,8 +54,8 @@ func (hook *awsFlagsHooks) RegisterProviderFlag(cmd *cobra.Command, vp *viper.Vi
 	option.BindEnv(vp, operatorOption.AWSPaginationEnabled)
 
 	flags.Bool(operatorOption.AWSEnableRouteTableDiscovery, true, "Enable route table discovery and route-table-aware subnet selection. "+
-		"Disabling this can significantly reduce memory usage and AWS API calls in environments with many route tables, "+
-		"or where route-table-aware subnet selection is not needed.")
+		"Disabling this can significantly reduce memory usage and AWS API calls in environments with many route tables. "+
+		"Disabling is safe and restores pre-1.18 operator behavior.")
 	option.BindEnv(vp, operatorOption.AWSEnableRouteTableDiscovery)
 
 	vp.BindPFlags(flags)
