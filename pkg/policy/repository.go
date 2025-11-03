@@ -45,6 +45,11 @@ type PolicyRepository interface {
 	// calculation.
 	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics, endpointID uint64) (SelectorPolicy, uint64, error)
 
+	// GetCurrentPolicy returns a snapshot of the current policy for the given identity.
+	// Returned policy can already be stale, but generally is the revision that was previously
+	// plumbed to the datapath.
+	GetCurrentPolicy(id *identity.Identity) SelectorPolicy
+
 	// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
 	GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy
 	GetRevision() uint64
@@ -581,4 +586,11 @@ func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPo
 	defer p.mutex.RUnlock()
 
 	return p.policyCache.GetPolicySnapshot()
+}
+
+// GetCurrentPolicy returns the current SelectorPolicy for the given identity.
+func (p *Repository) GetCurrentPolicy(id *identity.Identity) SelectorPolicy {
+	// repo locking not needed as 'p.policyCache' is set when Repositoryy is created, and
+	// it has its own locking.
+	return p.policyCache.GetCurrentPolicy(id)
 }

@@ -6,6 +6,7 @@ package policy
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/bits"
@@ -21,7 +22,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
 	"github.com/cilium/cilium/pkg/container/versioned"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -1581,41 +1581,43 @@ func NewL4Policy(revision uint64) L4Policy {
 	}
 }
 
+var (
+	ErrStalePolicy = errors.New("Stale policy")
+)
+
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be forwarded to the users of it.
 // May not call into SelectorCache, as SelectorCache is locked during this call.
-func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
+// Returns an error if the policy was already detached.
+func (l4 *L4Policy) insertUser(user *EndpointPolicy) error {
 	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
 
 	// 'users' is set to nil when the policy is detached. This
-	// happens to the old policy when it is being replaced with a
-	// new one, or when the last endpoint using this policy is
-	// removed.
-	// In the case of an policy update it is possible that an
-	// endpoint has started regeneration before the policy was
-	// updated, and that the policy was updated before the said
-	// endpoint reached this point. In this case the endpoint's
-	// policy is going to be recomputed soon after and we do
-	// nothing here.
-	if l4.users != nil {
-		l4.users[user] = struct{}{}
+	// happens when the last endpoint using this policy is
+	// removed. It is not possible to add users to a detached policy.
+	if l4.users == nil {
+		return ErrStalePolicy
 	}
-
-	l4.mutex.Unlock()
+	l4.users[user] = struct{}{}
+	return nil
 }
 
 // removeUser removes a user that no longer needs incremental updates
 // from the L4Policy.
-func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
+// Returns 'true' if 'user' was the last one.
+func (l4 *L4Policy) removeUser(user *EndpointPolicy) bool {
 	// 'users' is set to nil when the policy is detached. This
 	// happens to the old policy when it is being replaced with a
 	// new one, or when the last endpoint using this policy is
 	// removed.
 	l4.mutex.Lock()
-	if l4.users != nil {
+	defer l4.mutex.Unlock()
+	if len(l4.users) > 0 {
 		delete(l4.users, user)
+		return len(l4.users) == 0
 	}
-	l4.mutex.Unlock()
+	return false
 }
 
 // AccumulateMapChanges distributes the given changes to the registered users.
@@ -1722,31 +1724,27 @@ func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn *versioned.Tx) {
 }
 
 // detach makes the L4Policy ready for garbage collection, removing
-// circular pointer references.
-// The endpointID argument is only necessary if isDelete is false.
-// It ensures that detach does not call a regeneration trigger on
-// the same endpoint that initiated a selector policy update.
+// references to it from the selector cache.
 // Note that the L4Policy itself is not modified in any way, so that it may still
 // be used concurrently.
-func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpointID uint64) {
+func (l4 *L4Policy) detach(selectorCache *SelectorCache) {
 	l4.Ingress.Detach(selectorCache)
 	l4.Egress.Detach(selectorCache)
 
 	l4.mutex.Lock()
 	defer l4.mutex.Unlock()
-	// If this detach is a delete there is no reason to initiate
-	// a regenerate.
-	if !isDelete {
-		for ePolicy := range l4.users {
-			if endpointID != ePolicy.PolicyOwner.GetID() {
-				go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-					Reason:            "selector policy has changed because of another endpoint with the same identity",
-					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-				})
-			}
-		}
+	if len(l4.users) > 0 {
+		selectorCache.logger.Warn("Policy released with remaining users",
+			logfields.Count, len(l4.users))
 	}
 	l4.users = nil
+}
+
+// detached return 'true' if the policy has been detached from the selector cache
+func (l4 *L4Policy) detached() bool {
+	l4.mutex.RLock()
+	defer l4.mutex.RUnlock()
+	return l4.users == nil
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.

@@ -2079,10 +2079,12 @@ func TestDenyPreferredInsertLogic(t *testing.T) {
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
 	p, _ := td.repo.resolvePolicyLocked(fooIdentity)
 
-	epPolicy := p.DistillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, nil)
+	epPolicy, err := p.DistillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, nil)
+	require.NoError(t, err)
 	epPolicy.Ready()
+	epPolicy.Detach(hivetest.Logger(t))
 
 	n := epPolicy.policyMapState.Len()
-	p.detach(true, 0)
+	p.detach()
 	assert.Positive(t, n)
 }

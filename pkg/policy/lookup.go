@@ -44,6 +44,8 @@ type EndpointInfo struct {
 // This function is only used for testing, but in multiple packages.
 //
 // TODO: add support for redirects
+//
+// TODO: Do not compute policies, but locate the current realized policies on existing endpoints.
 func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (verdict api.Decision, egress, ingress RuleMeta, err error) {
 	if flow.From.ID == 0 || flow.To.ID == 0 {
 		return api.Undecided, ingress, egress, fmt.Errorf("cannot lookup flow: numeric IDs missing")
@@ -82,7 +84,10 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, ds
 		return api.Undecided, ingress, egress, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
 	}
 
-	epp := selPolSrc.DistillPolicy(logger, srcEP, nil)
+	epp, err := selPolSrc.DistillPolicy(logger, srcEP, nil)
+	if err != nil {
+		return api.Undecided, ingress, egress, fmt.Errorf("DistillPolicy(from) failed: %w", err)
+	}
 	epp.Ready()
 	epp.Detach(logger)
 	key := EgressKey().WithIdentity(flow.To.ID).WithPortProto(flow.Proto, flow.Dport)
@@ -96,7 +101,10 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, ds
 	if err != nil {
 		return api.Undecided, ingress, egress, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
 	}
-	epp = selPolDst.DistillPolicy(logger, dstEP, nil)
+	epp, err = selPolDst.DistillPolicy(logger, dstEP, nil)
+	if err != nil {
+		return api.Undecided, ingress, egress, fmt.Errorf("DistillPolicy(to) failed: %w", err)
+	}
 	epp.Ready()
 	epp.Detach(logger)
 	key = IngressKey().WithIdentity(flow.From.ID).WithPortProto(flow.Proto, flow.Dport)

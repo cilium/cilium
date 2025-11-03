@@ -160,7 +160,7 @@ type SelectorPolicy interface {
 
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
-	DistillPolicy(logger *slog.Logger, owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
+	DistillPolicy(logger *slog.Logger, owner PolicyOwner, redirects map[string]uint16) (*EndpointPolicy, error)
 }
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -277,24 +277,31 @@ func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
 
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be fowarded.
-func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
-	p.L4Policy.insertUser(user)
+func (p *selectorPolicy) insertUser(user *EndpointPolicy) error {
+	return p.L4Policy.insertUser(user)
 }
 
-// removeUser removes a user from the L4Policy so the EndpointPolicy
-// can be freed when not needed any more
+// removeUser removes a user from the L4Policy so the selectorPolicy
+// can be freed when not needed any more. To facilitate this the
+// selectorPolicy is detached from the selector cache when the last
+// user is removed.
 func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
-	p.L4Policy.removeUser(user)
+	if p.L4Policy.removeUser(user) {
+		p.detach()
+	}
 }
 
 // detach releases resources held by a selectorPolicy to enable
 // successful eventual GC.  Note that the selectorPolicy itself if not
-// modified in any way, so that it can be used concurrently.
-// The endpointID argument is only necessary if isDelete is false.
-// It ensures that detach does not call a regeneration trigger on
-// the same endpoint that initiated a selector policy update.
-func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
-	p.L4Policy.detach(p.SelectorCache, isDelete, endpointID)
+// modified in any way, so that it can be used concurrently. It will no longer
+// receive incremental policy updates after this, however.
+func (p *selectorPolicy) detach() {
+	p.L4Policy.detach(p.SelectorCache)
+}
+
+// isStale returns 'true' if the policy is stale
+func (p *selectorPolicy) isStale(minRev uint64) bool {
+	return p.Revision < minRev || p.L4Policy.detached()
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts
@@ -304,8 +311,9 @@ func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
 // Called without holding the Selector cache or Repository locks.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOwner, redirects map[string]uint16) *EndpointPolicy {
+func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOwner, redirects map[string]uint16) (*EndpointPolicy, error) {
 	var calculatedPolicy *EndpointPolicy
+	var err error
 
 	// EndpointPolicy is initialized while 'GetCurrentVersionHandleFunc' keeps the selector
 	// cache write locked. This syncronizes the SelectorCache handle creation and the insertion
@@ -333,8 +341,15 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		}
 		// Register the new EndpointPolicy as a receiver of incremental
 		// updates before selector cache lock is released by 'GetCurrentVersionHandleFunc'.
-		p.insertUser(calculatedPolicy)
+		// This must be reversed with removeUser() before calculatedPolicy is released!
+		err = p.insertUser(calculatedPolicy)
 	})
+
+	if err != nil {
+		// selectorPolicy was already stale, insertUser failed, no need to call Detach()
+		calculatedPolicy.Ready() // release resouces
+		return nil, err
+	}
 
 	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
 		calculatedPolicy.policyMapState.allowAllIdentities(
@@ -349,7 +364,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
 	}
 
-	return calculatedPolicy
+	return calculatedPolicy, nil
 }
 
 // Ready releases the handle on a selector cache version so that stale state can be released.

@@ -5,7 +5,6 @@ package policy
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -63,7 +62,7 @@ func TestCacheManagement(t *testing.T) {
 	// Insert directly to cache and delete the entry.
 	csp := cache.lookupOrCreate(identity)
 	require.NotNil(t, csp)
-	require.Nil(t, csp.getPolicy())
+	require.Nil(t, csp.policy.Load())
 	removed := cache.delete(identity)
 	require.True(t, removed)
 
@@ -132,9 +131,9 @@ func TestCachePopulation(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, updated)
 
-	// policy3 must be different from ep1, ep2
+	// policy3 must be different pointer from ep1, ep2, even though the policy could be the same
 	require.NoError(t, err)
-	require.NotEqual(t, policy1, policy3)
+	require.False(t, policy1 == policy3)
 }
 
 // Distillery integration tests
@@ -419,11 +418,8 @@ func (d *policyDistillery) distillEndpointPolicy(logger *slog.Logger, owner Poli
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate policy: %w", err)
 	}
-	epp := sp.DistillPolicy(logger, owner, testRedirects)
-	if epp == nil {
-		return nil, errors.New("policy distillation failure")
-	}
-	return epp, nil
+	epp, err := sp.DistillPolicy(logger, owner, testRedirects)
+	return epp, err
 }
 
 // distillPolicy distills the policy repository into a set of bpf map state
