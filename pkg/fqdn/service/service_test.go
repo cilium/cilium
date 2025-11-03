@@ -690,8 +690,8 @@ type testSelectorPolicy struct {
 	policyType PolicyType
 }
 
-func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) *policy.EndpointPolicy {
-	return nil
+func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) (*policy.EndpointPolicy, error) {
+	return nil, nil
 }
 
 func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {

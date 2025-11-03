@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
@@ -190,11 +189,13 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		epPolicy := ip.DistillPolicy(logger, owner, nil)
+		epPolicy, err := ip.DistillPolicy(logger, owner, nil)
+		require.NoError(b, err)
 		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()
+		epPolicy.Detach(logger)
 	}
-	ip.detach(true, 0)
+	ip.detach()
 	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
 }
 
@@ -203,11 +204,14 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	td := newTestData(logger)
 	td.bootstrapRepo(GenerateCIDRDenyRules, 10, t)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-	epPolicy := ip.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	epPolicy, err := ip.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	require.NoError(t, err)
 	n := epPolicy.policyMapState.Len()
 	epPolicy.Ready()
-	ip.detach(true, 0)
-	assert.Positive(t, n)
+	epPolicy.Detach(logger)
+	ip.detach()
+
+	require.Positive(t, n)
 }
 
 func TestL3WithIngressDenyWildcard(t *testing.T) {
@@ -246,8 +250,10 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	defer repo.mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
-	policy := selPolicy.DistillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, nil)
+	policy, err := selPolicy.DistillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, nil)
+	require.NoError(t, err)
 	policy.Ready()
+	policy.Detach(hivetest.Logger(t))
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -282,7 +288,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.selectorPolicy.detach()
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -340,8 +346,10 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	policy, err := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	require.NoError(t, err)
 	policy.Ready()
+	policy.Detach(hivetest.Logger(t))
 
 	cachedSelectorHost := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	require.NotNil(t, cachedSelectorHost)
@@ -379,7 +387,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.selectorPolicy.detach()
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -436,8 +444,10 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	policy, err := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	require.NoError(t, err)
 	policy.Ready()
+	policy.Detach(logger)
 
 	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel})
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
@@ -489,7 +499,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	require.Empty(t, policy.policyMapChanges.synced)
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.selectorPolicy.detach()
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -563,8 +573,10 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	policy, err := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	require.NoError(t, err)
 	policy.Ready()
+	defer policy.Detach(logger)
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
@@ -657,8 +669,8 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	require.Equal(t, Keys{}, changes.Deletes)
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
-	// Verify that cached selector is not found after Detach().
+	policy.selectorPolicy.detach()
+	// Verify that cached selector no longer has users after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
 	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.Nil(t, cachedSelectorTest)

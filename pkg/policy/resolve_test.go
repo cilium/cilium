@@ -195,47 +195,56 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 }
 
 func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
-	td := newTestData(hivetest.Logger(b))
+	logger := hivetest.Logger(b)
+	td := newTestData(logger)
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-	owner := DummyOwner{logger: hivetest.Logger(b)}
+	owner := DummyOwner{logger: logger}
 	b.ReportAllocs()
-
 	for b.Loop() {
-		epPolicy := ip.DistillPolicy(hivetest.Logger(b), owner, nil)
+		epPolicy, err := ip.DistillPolicy(logger, owner, nil)
+		require.NoError(b, err)
 		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()
+		epPolicy.Detach(logger)
 	}
-	ip.detach(true, 0)
+	ip.detach()
 	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
-	td := newTestData(hivetest.Logger(b))
+	logger := hivetest.Logger(b)
+	owner := DummyOwner{logger: logger}
+	td := newTestData(logger)
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, b)
 
 	for b.Loop() {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
+		policy, err := ip.DistillPolicy(logger, owner, nil)
+		require.NoError(b, err)
 		policy.Ready()
-		ip.detach(true, 0)
+		policy.Detach(logger)
+		ip.detach()
 	}
 }
 
 func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
-	td := newTestData(hivetest.Logger(b))
+	logger := hivetest.Logger(b)
+	owner := DummyOwner{logger: logger}
+	td := newTestData(logger)
 	td.bootstrapRepo(GenerateL3EgressRules, 1000, b)
 
 	for b.Loop() {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
+		policy, err := ip.DistillPolicy(logger, owner, nil)
+		require.NoError(b, err)
 		policy.Ready()
-		ip.detach(true, 0)
+		policy.Detach(logger)
+		ip.detach()
 	}
 }
 
 func TestL7WithIngressWildcard(t *testing.T) {
-
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
 	repo := td.repo
@@ -279,8 +288,10 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, redirectTypeEnvoy, selPolicy.L4Policy.redirectTypes)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, err := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	require.NoError(t, err)
 	policy.Ready()
+	defer policy.Detach(logger)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		Redirects: testRedirects,
@@ -325,7 +336,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.selectorPolicy.detach()
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -342,7 +353,6 @@ func TestL7WithIngressWildcard(t *testing.T) {
 }
 
 func TestL7WithLocalHostWildcard(t *testing.T) {
-
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
 	repo := td.repo
@@ -392,8 +402,10 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, err := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	require.NoError(t, err)
 	policy.Ready()
+	defer policy.Detach(logger)
 
 	cachedSelectorHost := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	require.NotNil(t, cachedSelectorHost)
@@ -442,7 +454,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.selectorPolicy.detach()
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -473,7 +485,6 @@ func resetCachedEnvoyHTTPRules(policy *EndpointPolicy) {
 }
 
 func TestMapStateWithIngressWildcard(t *testing.T) {
-
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
 	repo := td.repo
@@ -517,8 +528,10 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, err := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	require.NoError(t, err)
 	policy.Ready()
+	defer policy.Detach(logger)
 
 	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel)
 	allowEgressMapStateEntry := newAllowEntryWithLabels(ruleLabelAllowAnyEgress)
@@ -566,7 +579,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	require.Empty(t, policy.policyMapChanges.synced) // XXX why 0?
 
 	// Have to remove circular reference before testing to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
+	policy.selectorPolicy.detach()
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
@@ -581,7 +594,6 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 }
 
 func TestMapStateWithIngress(t *testing.T) {
-
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
 	repo := td.repo
@@ -646,8 +658,10 @@ func TestMapStateWithIngress(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, err := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	require.NoError(t, err)
 	policy.Ready()
+	defer policy.Detach(logger)
 
 	// Add new identity to test accumulation of MapChanges
 	added1 := identity.IdentityMap{
@@ -735,8 +749,8 @@ func TestMapStateWithIngress(t *testing.T) {
 	}
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
-	policy.selectorPolicy.detach(true, 0)
-	// Verify that cached selector is not found after Detach().
+	policy.selectorPolicy.detach()
+	// Verify that cached selector has no users after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
 	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.Nil(t, cachedSelectorTest)

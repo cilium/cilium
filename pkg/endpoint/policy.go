@@ -143,6 +143,10 @@ func (res *policyGenerateResult) release(logger *slog.Logger) {
 	}
 }
 
+const (
+	immediateRetryLimit = 5
+)
+
 // regeneratePolicy computes the policy for the given endpoint based off of the
 // rules in regeneration.Owner's policy repository.
 //
@@ -218,61 +222,76 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		skipPolicyRevision = 0
 	}
 
+	// Selector policy can get stale concurrently if the last user detaches before we get
+	// to distill an EndpointPolicy from it. Retry immediately if that happens
 	var selectorPolicy policy.SelectorPolicy
-	selectorPolicy, result.policyRevision, err = e.policyRepo.GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats, e.GetID())
-	if err != nil {
-		e.getLogger().Warn("Failed to calculate SelectorPolicy", logfields.Error, err)
-		return err
-	}
-
-	// selectorPolicy is nil if skipRevision was matched.
-	if selectorPolicy == nil {
-		e.getLogger().Debug(
-			"Skipping unnecessary endpoint policy recalculation",
-			logfields.PolicyRevisionNext, e.nextPolicyRevision,
-			logfields.PolicyRevisionRepo, result.policyRevision,
-			logfields.PolicyChanged, e.nextPolicyRevision > e.policyRevision,
-		)
-		datapathRegenCtxt.policyResult = result
-		return nil
-	}
-
-	// Add new redirects before Consume() so that all required proxy ports are available for it.
 	var desiredRedirects map[string]uint16
-	err = e.rlockAlive()
-	if err != nil {
-		return err
-	}
-	// Ingress endpoint needs no redirects
-	if !e.isProperty(PropertySkipBPFPolicy) {
-		stats.proxyConfiguration.Start()
-		desiredRedirects, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
-		stats.proxyConfiguration.End(true)
-		datapathRegenCtxt.revertStack.Push(rf)
-
-		// Add a finalize function to clear out stale redirects. This will be called after
-		// new redirects have been acknowledged, and policy maps and NetworkPolicy have been
-		// updated.  We are not waiting for an acknowledgement for the removal.
-		var previousRedirects map[string]uint16
-		if e.desiredPolicy != nil {
-			previousRedirects = e.desiredPolicy.Redirects
+	retryCount := 0
+	for retryCount < immediateRetryLimit {
+		selectorPolicy, result.policyRevision, err = e.policyRepo.GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats, e.GetID())
+		if err != nil {
+			e.getLogger().Warn("Failed to calculate SelectorPolicy", logfields.Error, err)
+			return err
 		}
-		datapathRegenCtxt.finalizeList.Append(func() {
-			// At the point of this call, traffic is no longer redirected to the proxy
-			// for now-obsolete redirects, since we synced the updated policy map above.
-			// It's now safe to remove the redirects from the proxy's configuration.
-			e.removeOldRedirects(desiredRedirects, previousRedirects)
-		})
-	}
-	e.runlock()
 
-	// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
-	stats.endpointPolicyCalculation.Start()
-	result.endpointPolicy = selectorPolicy.DistillPolicy(e.getLogger(), e, desiredRedirects)
-	stats.endpointPolicyCalculation.End(true)
+		// selectorPolicy is nil if skipRevision was matched.
+		if selectorPolicy == nil {
+			e.getLogger().Debug(
+				"Skipping unnecessary endpoint policy recalculation",
+				logfields.PolicyRevisionNext, e.nextPolicyRevision,
+				logfields.PolicyRevisionRepo, result.policyRevision,
+				logfields.PolicyChanged, e.nextPolicyRevision > e.policyRevision,
+			)
+			datapathRegenCtxt.policyResult = result
+			return nil
+		}
+
+		// Add new redirects (once) before Consume() so that all required proxy ports are
+		// available for it.
+		if retryCount == 0 {
+			err = e.rlockAlive()
+			if err != nil {
+				return err
+			}
+			// Ingress endpoint needs no redirects
+			if !e.isProperty(PropertySkipBPFPolicy) {
+				stats.proxyConfiguration.Start()
+				desiredRedirects, rf = e.addNewRedirects(selectorPolicy, datapathRegenCtxt.proxyWaitGroup)
+				stats.proxyConfiguration.End(true)
+				datapathRegenCtxt.revertStack.Push(rf)
+
+				// Add a finalize function to clear out stale redirects. This will
+				// be called after new redirects have been acknowledged, and policy
+				// maps and NetworkPolicy have been updated.  We are not waiting for
+				// an acknowledgement for the removal.
+				var previousRedirects map[string]uint16
+				if e.desiredPolicy != nil {
+					previousRedirects = e.desiredPolicy.Redirects
+				}
+				datapathRegenCtxt.finalizeList.Append(func() {
+					// At the point of this call, traffic is no longer
+					// redirected to the proxy for now-obsolete redirects, since
+					// we synced the updated policy map above.  It's now safe to
+					// remove the redirects from the proxy's configuration.
+					e.removeOldRedirects(desiredRedirects, previousRedirects)
+				})
+			}
+			e.runlock()
+		}
+		// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
+		stats.endpointPolicyCalculation.Start()
+
+		result.endpointPolicy, err = selectorPolicy.DistillPolicy(e.getLogger(), e, desiredRedirects)
+		stats.endpointPolicyCalculation.End(true)
+
+		if err != policy.ErrStalePolicy {
+			break
+		}
+		retryCount++
+	}
 
 	datapathRegenCtxt.policyResult = result
-	return nil
+	return err
 }
 
 // setDesiredPolicy updates the endpoint with the results of a policy calculation.
