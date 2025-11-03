@@ -42,42 +42,7 @@
 #include "lib/events.h"
 #include "lib/nodeport.h"
 #include "lib/tailcall.h"
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct lpm_v4_key);
-	__type(value, struct lpm_val);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_cidr_v4_fix __section_maps_btf;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct lpm_v4_key);
-	__type(value, struct lpm_val);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_cidr_v4_dyn __section_maps_btf;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct lpm_v6_key);
-	__type(value, struct lpm_val);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_cidr_v6_fix __section_maps_btf;
-
-struct {
-	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
-	__type(key, struct lpm_v6_key);
-	__type(value, struct lpm_val);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_cidr_v6_dyn __section_maps_btf;
+#include "lib/xdp_prefilter.h"
 
 static __always_inline __maybe_unused int
 bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)

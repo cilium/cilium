@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	fakeencryptmap "github.com/cilium/cilium/pkg/maps/encrypt/fake"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -90,6 +91,7 @@ var Cell = cell.Module(
 	datapath.NodeAddressingCell,
 	tables.DirectRoutingDeviceCell,
 
+	registry.Cell,
 	tunnel.Cell,
 	cell.Provide(fakeDevices),
 	link.Cell,

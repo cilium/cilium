@@ -34,9 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
@@ -172,18 +170,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["LOCAL_NODE_ID"] = fmt.Sprintf("%d", identity.ReservedIdentityRemoteNode)
 	cDefinesMap["REMOTE_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameRemoteNode))
 	cDefinesMap["KUBE_APISERVER_NODE_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameKubeAPIServer))
-	cDefinesMap["CILIUM_LB_SERVICE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBServiceMapEntries)
-	cDefinesMap["CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBBackendMapEntries)
-	cDefinesMap["CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBRevNatEntries)
-	cDefinesMap["CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBAffinityMapEntries)
-	cDefinesMap["CILIUM_LB_SOURCE_RANGE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBSourceRangeMapEntries)
-	cDefinesMap["CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBMaglevMapEntries)
-	cDefinesMap["CILIUM_LB_SKIP_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmaps.SkipLBMapMaxEntries)
 
 	cDefinesMap["ENDPOINTS_MAP_SIZE"] = fmt.Sprintf("%d", lxcmap.MaxEntries)
 	cDefinesMap["METRICS_MAP_SIZE"] = fmt.Sprintf("%d", metricsmap.MaxEntries)
-	cDefinesMap["AUTH_MAP_SIZE"] = fmt.Sprintf("%d", option.Config.AuthMapEntries)
-	cDefinesMap["CONFIG_MAP_SIZE"] = fmt.Sprintf("%d", configmap.MaxEntries)
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
 	cDefinesMap["NODE_MAP_SIZE"] = fmt.Sprintf("%d", h.nodeMap.Size())
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
@@ -208,8 +197,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	cDefinesMap["EVENTS_MAP_RATE_LIMIT"] = fmt.Sprintf("%d", option.Config.BPFEventsDefaultRateLimit)
 	cDefinesMap["EVENTS_MAP_BURST_LIMIT"] = fmt.Sprintf("%d", option.Config.BPFEventsDefaultBurstLimit)
-	cDefinesMap["LB6_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSockRevNatEntries)
-	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSockRevNatEntries)
 	cDefinesMap["MTU"] = fmt.Sprintf("%d", cfg.DeviceMTU)
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
@@ -416,9 +403,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", cfg.LBConfig.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = strconv.Itoa(NodePortMaxNAT)
 	}
-
-	cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSourceRangeMapEntries)
-	cDefinesMap["LB6_SRC_RANGE_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSourceRangeMapEntries)
 
 	macByIfIndexMacro, isL3DevMacro, err := devMacros(nativeDevices)
 	if err != nil {

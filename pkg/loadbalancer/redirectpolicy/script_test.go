@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
-	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -96,14 +95,15 @@ func TestScript(t *testing.T) {
 							KubeProxyReplacement: true,
 						}
 					},
-					func() redirectpolicy.TestSkipLBMap {
-						// Only use fake SkipLBMap if we're running unprivileged tests.
-						if testutils.IsPrivileged() {
-							return nil
-						}
-						return &fakeSkipLBMap{}
-					},
 				),
+
+				cell.DecorateAll(func(original lbmaps.SkipLBMap) lbmaps.SkipLBMap {
+					// Only use fake SkipLBMap if we're running unprivileged tests.
+					if testutils.IsPrivileged() {
+						return original
+					}
+					return &fakeSkipLBMap{}
+				}),
 			)
 
 			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
