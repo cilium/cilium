@@ -301,9 +301,10 @@ func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
 // newIPs.
-// updated is true when the new IPs differ from the old IPs
-func (n *manager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int, caches ...*fqdn.DNSCache) (updated bool) {
-	return n.cache.UpdateAndCompare(lookupTime, dnsName, newIPs, ttl, caches...)
+// upserted is true when the new IPs differ from the old IPs
+func (n *manager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int, caches ...*fqdn.DNSCache) (upserted bool) {
+	_, upserted = n.cache.Update(lookupTime, dnsName, newIPs, ttl, caches...)
+	return upserted
 }
 
 func ipcacheResource(dnsName string) ipcacheTypes.ResourceID {

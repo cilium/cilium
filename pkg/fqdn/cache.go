@@ -16,7 +16,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
@@ -184,7 +183,7 @@ func (c *DNSCache) DisableCleanupTrack() {
 // name is used as is and may be an unqualified name (e.g. myservice.namespace).
 // ips may be an IPv4 or IPv6 IP. Duplicates will be removed.
 // ttl is the DNS TTL for ips and is a seconds value.
-func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, ttl int) bool {
+func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, ttl int, updates ...*DNSCache) (bool, bool) {
 	if c.minTTL > ttl {
 		ttl = c.minTTL
 	}
@@ -199,29 +198,31 @@ func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, t
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	for _, cache := range updates {
+		c.updated.Insert(cache)
+	}
 	return c.updateWithEntry(entry)
 }
 
 // updateWithEntry implements the insertion of a cacheEntry. It is used by
 // DNSCache.Update and DNSCache.UpdateWithEntry.
-// This needs a write lock
-func (c *DNSCache) updateWithEntry(entry *cacheEntry) bool {
-	changed := false
+// This needs a write lock. Returns true if one or more IPs added to the cache
+// were new.
+// It returns two booleans that indicate if the dns cache was updated, and if one
+// or more IPs were new and therefore upserted
+func (c *DNSCache) updateWithEntry(entry *cacheEntry) (bool, bool) {
 	entries, exists := c.forward[entry.Name]
 	if !exists {
-		changed = true
 		entries = make(map[netip.Addr]*cacheEntry)
 		c.forward[entry.Name] = entries
 	}
 
-	if c.updateWithEntryIPs(entries, entry) {
-		changed = true
-	}
+	updated, upserted := c.updateWithEntryIPs(entries, entry)
 
 	if c.perHostLimit > 0 && len(entries) > c.perHostLimit {
 		c.overLimit[entry.Name] = true
 	}
-	return changed
+	return updated, upserted
 }
 
 // AddNameToCleanup adds the IP with the given TTL to the cleanup map to
@@ -551,64 +552,26 @@ func (c *DNSCache) RemoveKnown(mappings map[netip.Addr][]string) {
 	}
 }
 
-// UpdateAndCompare is the same as Update, it just returns true iff the cache was updated with new IPs
-func (c *DNSCache) UpdateAndCompare(lookupTime time.Time, name string, ips []netip.Addr, ttl int, caches ...*DNSCache) bool {
-	if c.minTTL > ttl {
-		ttl = c.minTTL
-	}
-
-	entry := &cacheEntry{
-		Name:           name,
-		LookupTime:     lookupTime,
-		ExpirationTime: lookupTime.Add(time.Duration(ttl) * time.Second),
-		TTL:            ttl,
-		IPs:            ips,
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	for _, cache := range caches {
-		c.updated.Insert(cache)
-	}
-
-	oldCacheIPs := c.lookupLocked(name)
-	changed := c.updateWithEntry(entry)
-	if !changed { // Changed may have false positives, but not false negatives
-		return false
-	}
-
-	newCacheIPs := c.lookupLocked(name) // DNSCache returns IPs unsorted
-
-	// The 0 checks below account for an unlike race condition where this
-	// function is called with already expired data and if other cache data
-	// from before also expired.
-	if len(oldCacheIPs) != len(newCacheIPs) || len(oldCacheIPs) == 0 {
-		return true
-	}
-
-	ip.SortAddrList(oldCacheIPs) // sorts in place
-	ip.SortAddrList(newCacheIPs)
-
-	return !slices.Equal(oldCacheIPs, newCacheIPs)
-}
-
 // updateWithEntryIPs adds a mapping for every IP found in `entry` to `ipEntries`
 // (which maps IP -> cacheEntry). It will replace existing IP->old mappings in
 // `entries` if the current entry expires sooner (or has already expired).
 // This needs a write lock
-func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) bool {
-	added := false
+func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) (bool, bool) {
+	updated := false
+	upserted := false
 	for _, ip := range entry.IPs {
 		old, exists := entries[ip]
 		if old == nil || !exists || old.isExpiredBy(entry.ExpirationTime) {
 			entries[ip] = entry
 			c.upsertReverse(ip, entry)
 			c.addNameToCleanup(entry)
-			added = true
+			updated = true
+		}
+		if !exists {
+			upserted = true
 		}
 	}
-	return added
+	return updated, upserted
 
 }
 
