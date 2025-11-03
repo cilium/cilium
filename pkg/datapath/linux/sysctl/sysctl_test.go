@@ -5,8 +5,11 @@ package sysctl
 
 import (
 	"context"
+	"errors"
 	"os"
+	"path"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -17,7 +20,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -129,7 +134,9 @@ func TestSysctl(t *testing.T) {
 		{"net", "ipv6", "conf", "all", "forwarding"},
 	}
 
-	var sysctl Sysctl
+	var sysctl SysctlManager
+	var table statedb.RWTable[*tables.Sysctl]
+	var db *statedb.DB
 
 	hive := hive.New(
 		cell.Config(defaultConfig),
@@ -146,8 +153,11 @@ func TestSysctl(t *testing.T) {
 			newOps,
 		),
 
-		cell.Invoke(func(s Sysctl) {
+		cell.Invoke(func(s SysctlManager, t statedb.RWTable[*tables.Sysctl],
+			d *statedb.DB) {
 			sysctl = s
+			db = d
+			table = t
 		}),
 		cell.Invoke(func(fs afero.Fs) {
 			for _, s := range settings {
@@ -209,12 +219,164 @@ func TestSysctl(t *testing.T) {
 		batch[i].Name = s
 		batch[i].Val = "2"
 	}
-	assert.NoError(t, sysctl.ApplySettings(batch))
+	assert.NoError(t, sysctl.UpsertSettings(batch))
 	for _, s := range batch {
 		val, err := sysctl.Read(s.Name)
 		assert.NoError(t, err)
 		assert.Equal(t, s.Val, val, "unexpected value %q for parameter %q", val, s.Name)
 	}
+
+	sysctl.DeleteSettings([]tables.Sysctl{batch[0]})
+
+	for _, entry := range table.All(db.ReadTxn()) {
+		assert.NotEqual(t, entry, batch[0])
+	}
+
+	sysctl.DeleteSettings(batch)
+
+	for range table.All(db.ReadTxn()) {
+		assert.Fail(t, "should not have any remaining entries")
+	}
+
+	assert.NoError(t, hive.Stop(tlog, context.Background()))
+}
+
+func assertCiliumNetNSDir(t *testing.T) {
+	err := os.MkdirAll(defaults.NetNsPath, 0755)
+	if err != nil {
+		if !errors.Is(err, os.ErrExist) {
+			return
+		}
+		assert.NoError(t, err)
+	}
+}
+
+// createTestNetns cleans up any leftover testns of the same name, and attempts
+// to create a new one - also schedules cleanup task to cleanup afterwards.
+func createTestNetns(t *testing.T, name string) *netns.NetNS {
+	// cleanup old test files
+	pin := path.Join(defaults.NetNsPath, name)
+	syscall.Unmount(pin, 0)
+	os.RemoveAll(pin)
+
+	assertCiliumNetNSDir(t)
+
+	ns, err := netns.NewPinned(pin)
+	assert.NoError(t, err)
+	t.Cleanup(func() {
+		ns.Close()
+		syscall.Unmount(pin, 0)
+		os.RemoveAll(pin)
+	})
+
+	assert.NoError(t, err)
+
+	return ns
+}
+
+// TestSysctlNamespaced checks functionality of a namespaced sysctl setting, that is
+// to be reconciled inside a netns.
+func TestSysctlNamespaced(t *testing.T) {
+	defer testutils.GoleakVerifyNone(t)
+
+	reconcilerRefreshTime = time.Millisecond * 250
+
+	direct := NewDirectSysctl(afero.NewOsFs(), "/proc")
+	hostNSVal, err := direct.Read([]string{"net", "ipv4", "tcp_mtu_probing"})
+	assert.NoError(t, err)
+
+	ns := createTestNetns(t, "cilium_test_sysctl_namespaced")
+
+	nsc, err := ns.GetNetNSCookie()
+	assert.NoError(t, err)
+
+	settings := [][]string{
+		{"net", "ipv4", "ip_forward"},
+		{"net", "ipv4", "conf", "all", "forwarding"},
+		{"net", "ipv6", "conf", "all", "forwarding"},
+	}
+
+	var sysctl SysctlManager
+
+	hive := hive.New(
+		cell.Config(defaultConfig),
+
+		cell.Provide(
+			func() afero.Fs {
+				//return afero.NewMemMapFs()
+				return afero.NewOsFs()
+			},
+		),
+		cell.Provide(
+			newReconcilingSysctl,
+			tables.NewSysctlTable,
+			newReconciler,
+			newOps,
+		),
+
+		cell.Invoke(func(s SysctlManager, t statedb.RWTable[*tables.Sysctl],
+			d *statedb.DB) {
+			sysctl = s
+		}),
+		cell.Invoke(func(fs afero.Fs) {
+			for _, s := range settings {
+				path := sysctlToPath(s)
+				if err := fs.MkdirAll(filepath.Dir(path), os.ModeDir); err != nil {
+					t.Fatalf("unable to create directory %q: %s", filepath.Dir(path), err)
+				}
+				f, err := fs.Create(path)
+				if err != nil {
+					t.Fatalf("unable to create test file %q: %s", path, err)
+				}
+				if _, err := f.WriteString("0"); err != nil {
+					t.Fatalf("unable to write to test file %q: %s", path, err)
+				}
+				if err := f.Close(); err != nil {
+					t.Fatalf("unable to close test file %q: %s", path, err)
+				}
+			}
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	assert.NoError(t, hive.Start(tlog, context.Background()))
+
+	netNSVal := "2"
+	// do something else but what host netns has.
+	if hostNSVal == "2" {
+		netNSVal = "0"
+	}
+	assert.NoError(t, sysctl.UpsertSettings([]tables.Sysctl{
+		{Name: []string{"net", "ipv4", "tcp_mtu_probing"}, Val: netNSVal, NetNSCookie: nsc},
+	}))
+
+	ns.Do(func() error {
+		val, err := direct.Read([]string{"net", "ipv4", "tcp_mtu_probing"})
+		assert.NoError(t, err)
+		assert.Equal(t, val, netNSVal)
+		return err
+	})
+
+	// Ensure host netns was not affected.
+	hostNSVal, err = direct.Read([]string{"net", "ipv4", "tcp_mtu_probing"})
+	assert.NoError(t, err)
+	assert.NotEqual(t, netNSVal, hostNSVal)
+
+	// Force a out-of-band change and ensure reconciler fixes it.
+	ns.Do(func() error {
+		err := direct.Write([]string{"net", "ipv4", "tcp_mtu_probing"}, hostNSVal)
+		assert.NoError(t, err)
+		return nil
+	})
+
+	assert.EventuallyWithT(t, func(t *assert.CollectT) {
+		ns.Do(func() error {
+			val, err := direct.Read([]string{"net", "ipv4", "tcp_mtu_probing"})
+			assert.NoError(t, err)
+			assert.Equal(t, netNSVal, val)
+			return nil
+		})
+	}, time.Second*5, time.Millisecond*500)
 
 	assert.NoError(t, hive.Stop(tlog, context.Background()))
 }
@@ -250,7 +412,7 @@ func TestSysctlIgnoreErr(t *testing.T) {
 	assert.NoError(t, hive.Start(tlog, context.Background()))
 
 	// should not return an error since the parameter is marked as IgnoreErr
-	assert.NoError(t, sysctl.ApplySettings([]tables.Sysctl{parameter}))
+	assert.NoError(t, sysctl.UpsertSettings([]tables.Sysctl{parameter}))
 
 	assert.NoError(t, hive.Stop(tlog, context.Background()))
 }
