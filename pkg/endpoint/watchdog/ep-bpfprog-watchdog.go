@@ -68,14 +68,22 @@ func registerEndpointBPFProgWatchdog(p epBPFProgWatchdogParams) {
 		orchestrator:    p.Orchestrator,
 	}
 
-	p.JobGroup.Add(job.Timer(epBPFProgWatchdog, func(ctx context.Context) error {
-		_, err := p.RestorerPromise.Await(ctx)
+	p.JobGroup.Add(job.OneShot("wait-for-endpoint-restore", func(ctx context.Context, _ cell.Health) error {
+		restorer, err := p.RestorerPromise.Await(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to wait for endpoint restorer promise: %w", err)
 		}
 
-		return watchdog.checkEndpointBPFPrograms(ctx, p)
-	}, p.Config.EndpointBPFProgWatchdogInterval))
+		if err := restorer.WaitForEndpointRestore(ctx); err != nil {
+			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
+		}
+
+		p.JobGroup.Add(job.Timer(epBPFProgWatchdog, func(ctx context.Context) error {
+			return watchdog.checkEndpointBPFPrograms(ctx)
+		}, p.Config.EndpointBPFProgWatchdogInterval))
+
+		return nil
+	}))
 }
 
 type endpointBPFProgWatchdog struct {
@@ -85,7 +93,7 @@ type endpointBPFProgWatchdog struct {
 	orchestrator    datapath.Orchestrator
 }
 
-func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchdogParams) error {
+func (r *endpointBPFProgWatchdog) checkEndpointBPFPrograms(ctx context.Context) error {
 	eps := r.endpointManager.GetEndpoints()
 	for _, ep := range eps {
 		if ep.GetState() != endpoint.StateReady {
