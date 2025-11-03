@@ -99,15 +99,25 @@ func New(params ManagerParams) *manager {
 	// - preallocator
 	// (optional for tests)
 	if params.JobGroup != nil {
-		params.JobGroup.Add(job.Timer(
-			dnsGCJobName,
-			n.doGC,
-			DNSGCJobInterval,
-		))
-
 		params.JobGroup.Add(job.OneShot(
 			"wait-for-endpoint-restore",
-			n.waitForEndpointRestore,
+			func(ctx context.Context, h cell.Health) error {
+				h.OK("Waiting for endpoint restoration")
+				err := n.waitForEndpointRestore(ctx)
+				if err != nil {
+					h.Stopped("Waiting for endpoint restoration failed: " + err.Error())
+					return err
+				}
+				h.OK("OK")
+
+				params.JobGroup.Add(job.Timer(
+					dnsGCJobName,
+					n.doGC,
+					DNSGCJobInterval,
+				))
+
+				return nil
+			},
 		))
 
 		// Start the asynchronous prefix allocator
@@ -226,7 +236,7 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, n
 
 // waitForEndpointRestore is a one-shot job. It waits for
 // all endpoints to be regenerated.
-func (n *manager) waitForEndpointRestore(ctx context.Context, _ cell.Health) error {
+func (n *manager) waitForEndpointRestore(ctx context.Context) error {
 	epRestorer, err := n.params.RestorerPromise.Await(ctx)
 	if err != nil {
 		n.logger.Error("Failed to get endpoint restorer", logfields.Error, err)
@@ -242,12 +252,6 @@ func (n *manager) waitForEndpointRestore(ctx context.Context, _ cell.Health) err
 
 	n.bootstrapCompleted = true
 	return nil
-}
-
-func (n *manager) hasBootstrapCompleted() bool {
-	n.RLock()
-	defer n.RUnlock()
-	return n.bootstrapCompleted
 }
 
 // updateDNSIPs updates the IPs for a DNS name. It returns whether the name's IPs
