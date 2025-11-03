@@ -856,7 +856,7 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 		}
 
 		if err := r.runCommonRouteChecks(i, hr.Spec.ParentRefs, hr.Namespace); err != nil {
-			return r.handleHTTPRouteReconcileErrorWithStatus(ctx, scopedLog, err, hr, &original)
+			return r.handleHTTPRouteReconcileErrorWithStatus(ctx, scopedLog, err, &original, hr)
 		}
 
 		// Route-specific checks will go in here separately if required.
