@@ -7,20 +7,19 @@ package fake
 
 import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
-	typedciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumEndpoints implements CiliumEndpointInterface
 type fakeCiliumEndpoints struct {
-	*gentype.FakeClientWithListAndApply[*v2.CiliumEndpoint, *v2.CiliumEndpointList, *ciliumiov2.CiliumEndpointApplyConfiguration]
+	*gentype.FakeClientWithList[*v2.CiliumEndpoint, *v2.CiliumEndpointList]
 	Fake *FakeCiliumV2
 }
 
-func newFakeCiliumEndpoints(fake *FakeCiliumV2, namespace string) typedciliumiov2.CiliumEndpointInterface {
+func newFakeCiliumEndpoints(fake *FakeCiliumV2, namespace string) ciliumiov2.CiliumEndpointInterface {
 	return &fakeCiliumEndpoints{
-		gentype.NewFakeClientWithListAndApply[*v2.CiliumEndpoint, *v2.CiliumEndpointList, *ciliumiov2.CiliumEndpointApplyConfiguration](
+		gentype.NewFakeClientWithList[*v2.CiliumEndpoint, *v2.CiliumEndpointList](
 			fake.Fake,
 			namespace,
 			v2.SchemeGroupVersion.WithResource("ciliumendpoints"),

@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type CiliumEnvoyConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumEnvoyConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumEnvoyConfig, err error)
-	Apply(ctx context.Context, ciliumEnvoyConfig *applyconfigurationciliumiov2.CiliumEnvoyConfigApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumEnvoyConfig, err error)
 	CiliumEnvoyConfigExpansion
 }
 
 // ciliumEnvoyConfigs implements CiliumEnvoyConfigInterface
 type ciliumEnvoyConfigs struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumEnvoyConfig, *ciliumiov2.CiliumEnvoyConfigList, *applyconfigurationciliumiov2.CiliumEnvoyConfigApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2.CiliumEnvoyConfig, *ciliumiov2.CiliumEnvoyConfigList]
 }
 
 // newCiliumEnvoyConfigs returns a CiliumEnvoyConfigs
 func newCiliumEnvoyConfigs(c *CiliumV2Client, namespace string) *ciliumEnvoyConfigs {
 	return &ciliumEnvoyConfigs{
-		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumEnvoyConfig, *ciliumiov2.CiliumEnvoyConfigList, *applyconfigurationciliumiov2.CiliumEnvoyConfigApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2.CiliumEnvoyConfig, *ciliumiov2.CiliumEnvoyConfigList](
 			"ciliumenvoyconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

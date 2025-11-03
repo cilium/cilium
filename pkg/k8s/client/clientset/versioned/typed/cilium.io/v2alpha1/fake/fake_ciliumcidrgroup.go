@@ -7,20 +7,19 @@ package fake
 
 import (
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
-	typedciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeCiliumCIDRGroups implements CiliumCIDRGroupInterface
 type fakeCiliumCIDRGroups struct {
-	*gentype.FakeClientWithListAndApply[*v2alpha1.CiliumCIDRGroup, *v2alpha1.CiliumCIDRGroupList, *ciliumiov2alpha1.CiliumCIDRGroupApplyConfiguration]
+	*gentype.FakeClientWithList[*v2alpha1.CiliumCIDRGroup, *v2alpha1.CiliumCIDRGroupList]
 	Fake *FakeCiliumV2alpha1
 }
 
-func newFakeCiliumCIDRGroups(fake *FakeCiliumV2alpha1) typedciliumiov2alpha1.CiliumCIDRGroupInterface {
+func newFakeCiliumCIDRGroups(fake *FakeCiliumV2alpha1) ciliumiov2alpha1.CiliumCIDRGroupInterface {
 	return &fakeCiliumCIDRGroups{
-		gentype.NewFakeClientWithListAndApply[*v2alpha1.CiliumCIDRGroup, *v2alpha1.CiliumCIDRGroupList, *ciliumiov2alpha1.CiliumCIDRGroupApplyConfiguration](
+		gentype.NewFakeClientWithList[*v2alpha1.CiliumCIDRGroup, *v2alpha1.CiliumCIDRGroupList](
 			fake.Fake,
 			"",
 			v2alpha1.SchemeGroupVersion.WithResource("ciliumcidrgroups"),
