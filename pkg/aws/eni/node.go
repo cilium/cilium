@@ -971,11 +971,6 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
 
-	// Route table discovery must be enabled for route-table-aware subnet selection
-	if !n.manager.enableRouteTableDiscovery {
-		return nil
-	}
-
 	nodeSubnetID := n.k8sObj.Spec.ENI.NodeSubnetID
 	var bestSubnet *ipamTypes.Subnet
 
