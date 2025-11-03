@@ -427,6 +427,12 @@ Users (Alphabetically)
       L: https://www.cloud-migration.ch/
       Q: @fakod
 
+    * N: IONX Networks Limited
+      D: IONX's Infrastructure uses Cilium as CNI plugin
+      U: CNI, IPv4 and IPv6 Networking, SCTP, Service load balancing and Kubernetes services
+      L: https://ionxnetworks.com/
+      Q: @murali509
+
     * N: Intility AS
       D: Intility is a managed service provider for enterprises and we use Cilium, Tetragon and Hubble to deliver world class managed Kubernetes clusters to customers from our own private cloud
       U: Networking, CiliumNetworkPolicy, CiliumCIDRGroup, security, CNI
