@@ -66,8 +66,9 @@ func TestMapIPsToSelectors(t *testing.T) {
 
 	// Just one IP.
 	ciliumIOName := prepareMatchName(ciliumIOSel.MatchName)
-	changed := cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1}, 100)
-	require.True(t, changed)
+	updated, upserted := cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1}, 100)
+	require.True(t, updated)
+	require.True(t, upserted)
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
 	require.Len(t, nameIPMapping, 1)
 	println(ciliumIOSel.MatchName)
@@ -77,8 +78,35 @@ func TestMapIPsToSelectors(t *testing.T) {
 	require.Equal(t, ciliumIP1, ciliumIPs[0])
 
 	// Two IPs now.
-	changed = cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2}, 100)
-	require.True(t, changed)
+	updated, upserted = cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2}, 100)
+	require.True(t, updated)
+	require.True(t, upserted)
+	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
+	require.Len(t, nameIPMapping, 1)
+	ciliumIPs, ok = nameIPMapping[ciliumIOName]
+	require.True(t, ok)
+	require.Len(t, ciliumIPs, 2)
+	ip.SortAddrList(ciliumIPs)
+	require.Equal(t, ciliumIP1, ciliumIPs[0])
+	require.Equal(t, ciliumIP2, ciliumIPs[1])
+
+	// Two IPs again with long ttl.
+	updated, upserted = cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2}, 101)
+	require.True(t, updated)
+	require.False(t, upserted)
+	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
+	require.Len(t, nameIPMapping, 1)
+	ciliumIPs, ok = nameIPMapping[ciliumIOName]
+	require.True(t, ok)
+	require.Len(t, ciliumIPs, 2)
+	ip.SortAddrList(ciliumIPs)
+	require.Equal(t, ciliumIP1, ciliumIPs[0])
+	require.Equal(t, ciliumIP2, ciliumIPs[1])
+
+	// Two IPs again with short ttl.
+	updated, upserted = cache.Update(now, ciliumIOName, []netip.Addr{ciliumIP1, ciliumIP2}, 1)
+	require.False(t, updated)
+	require.False(t, upserted)
 	nameIPMapping = nameManager.mapSelectorsToNamesLocked(ciliumIOSel)
 	require.Len(t, nameIPMapping, 1)
 	ciliumIPs, ok = nameIPMapping[ciliumIOName]
