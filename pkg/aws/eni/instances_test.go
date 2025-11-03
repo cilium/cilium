@@ -209,7 +209,7 @@ func TestGetSubnet(t *testing.T) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 	metadataMockapi, _ := metadataMock.NewMetadataMock()
-	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi, false)
+	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi, true)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -248,7 +248,7 @@ func TestFindSubnetByIDs(t *testing.T) {
 	api := ec2mock.NewAPI(subnets2, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 	metadataMockapi, _ := metadataMock.NewMetadataMock()
-	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi, false)
+	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi, true)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -288,7 +288,7 @@ func TestFindSubnetByTags(t *testing.T) {
 	api := ec2mock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 	metadataMockapi, _ := metadataMock.NewMetadataMock()
-	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi, false)
+	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi, true)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -326,7 +326,7 @@ func TestGetSecurityGroupByTags(t *testing.T) {
 	require.NotNil(t, api)
 
 	metadataMockapi, _ := metadataMock.NewMetadataMock()
-	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi, false)
+	mngr, err := NewInstancesManager(hivetest.Logger(t), api, metadataMockapi, true)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 

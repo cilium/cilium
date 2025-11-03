@@ -972,7 +972,7 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 	defer n.manager.mutex.RUnlock()
 
 	// Route table discovery must be enabled for route-table-aware subnet selection
-	if n.manager.disableRouteTableDiscovery {
+	if !n.manager.enableRouteTableDiscovery {
 		return nil
 	}
 
@@ -1011,7 +1011,7 @@ func (n *Node) checkSubnetInSameRouteTableWithNodeSubnet(subnet *ipamTypes.Subne
 	defer n.manager.mutex.RUnlock()
 
 	// Skip route table check if discovery is disabled
-	if n.manager.disableRouteTableDiscovery {
+	if !n.manager.enableRouteTableDiscovery {
 		return true // Treat as always matching when disabled
 	}
 

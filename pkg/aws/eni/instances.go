@@ -69,18 +69,18 @@ type InstancesManager struct {
 	ec2api                       EC2API
 	metadataapi                  MetadataAPI
 	limitsGetter                 *limits.LimitsGetter
-	disableRouteTableDiscovery   bool
+	enableRouteTableDiscovery    bool
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(logger *slog.Logger, ec2api EC2API, metadataapi MetadataAPI, disableRouteTableDiscovery bool) (*InstancesManager, error) {
+func NewInstancesManager(logger *slog.Logger, ec2api EC2API, metadataapi MetadataAPI, enableRouteTableDiscovery bool) (*InstancesManager, error) {
 
 	m := &InstancesManager{
-		logger:                     logger.With(subsysLogAttr...),
-		instances:                  ipamTypes.NewInstanceMap(),
-		ec2api:                     ec2api,
-		metadataapi:                metadataapi,
-		disableRouteTableDiscovery: disableRouteTableDiscovery,
+		logger:                    logger.With(subsysLogAttr...),
+		instances:                 ipamTypes.NewInstanceMap(),
+		ec2api:                    ec2api,
+		metadataapi:               metadataapi,
+		enableRouteTableDiscovery: enableRouteTableDiscovery,
 	}
 
 	limitsGetter, err := limits.NewLimitsGetter(logger, ec2api, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
@@ -248,7 +248,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	// is routed the same way as the node's primary interface. If disabled, subnet selection
 	// falls back to availability-zone-based selection only.
 	routeTables := ipamTypes.RouteTableMap{}
-	if !m.disableRouteTableDiscovery {
+	if m.enableRouteTableDiscovery {
 		routeTables, err = m.ec2api.GetRouteTables(ctx, currentVpcID)
 		if err != nil {
 			m.logger.Warn("Unable to retrieve EC2 route table list", logfields.Error, err)
@@ -271,7 +271,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			logfields.NumVPCs, len(vpcs),
 			logfields.NumSubnets, len(subnets),
 		}
-		if !m.disableRouteTableDiscovery {
+		if m.enableRouteTableDiscovery {
 			logArgs = append(logArgs, logfields.NumRouteTables, len(routeTables))
 		}
 		logArgs = append(logArgs, logfields.NumSecurityGroups, len(securityGroups))
@@ -292,7 +292,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 			logfields.NumVPCs, len(vpcs),
 			logfields.NumSubnets, len(subnets),
 		}
-		if !m.disableRouteTableDiscovery {
+		if m.enableRouteTableDiscovery {
 			logArgs = append(logArgs, logfields.NumRouteTables, len(routeTables))
 		}
 		logArgs = append(logArgs, logfields.NumSecurityGroups, len(securityGroups))
