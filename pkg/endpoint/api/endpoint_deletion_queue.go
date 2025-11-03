@@ -27,19 +27,13 @@ import (
 // This state is populated by CNI when the API is unreachable (agent restart),
 // and is only processed *once* as a hive lifecycle job during startup.
 type DeletionQueue struct {
-	logger                 *slog.Logger
-	lf                     *lockfile.Lockfile
-	endpointRestorePromise promise.Promise[endpointstate.Restorer]
-	endpointAPIManager     EndpointAPIManager
-	processed              chan struct{}
+	logger             *slog.Logger
+	lf                 *lockfile.Lockfile
+	endpointAPIManager EndpointAPIManager
+	processed          chan struct{}
 }
 
 func (dq *DeletionQueue) process(ctx context.Context, health cell.Health) error {
-	if _, err := dq.endpointRestorePromise.Await(ctx); err != nil {
-		dq.logger.Error("deletionQueue: restorer promise failed", logfields.Error, err)
-		return fmt.Errorf("restorer promise failed: %w", err)
-	}
-
 	if err := dq.lock(ctx); err != nil {
 		return fmt.Errorf("unable to get exclusive lock: %w", err)
 	}
@@ -68,10 +62,9 @@ type deletionQueueParams struct {
 
 func newDeletionQueue(params deletionQueueParams) *DeletionQueue {
 	dq := &DeletionQueue{
-		logger:                 params.Logger,
-		endpointRestorePromise: params.Restorer,
-		endpointAPIManager:     params.EndpointAPIManager,
-		processed:              make(chan struct{}),
+		logger:             params.Logger,
+		endpointAPIManager: params.EndpointAPIManager,
+		processed:          make(chan struct{}),
 	}
 
 	params.JobGroup.Add(job.OneShot("cni-deletion-queue", dq.process))
