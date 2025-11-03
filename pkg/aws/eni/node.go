@@ -971,14 +971,8 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
 
-	// If route table discovery is disabled, fall back to AZ-based selection
+	// Route table discovery must be enabled for route-table-aware subnet selection
 	if !n.manager.enableRouteTableDiscovery {
-		if subnet := n.manager.FindSubnetByTags(n.k8sObj.Spec.ENI.VpcID, n.k8sObj.Spec.ENI.AvailabilityZone, nil); subnet != nil {
-			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
-				n.logSubnetRouteTableMismatch(subnet, "")
-			}
-			return subnet
-		}
 		return nil
 	}
 
@@ -1078,11 +1072,13 @@ func (n *Node) findSuitableSubnet(spec eniTypes.ENISpec, limits ipamTypes.Limits
 		return subnet
 	}
 
-	if subnet := n.findSubnetInSameRouteTableWithNodeSubnet(); subnet != nil {
-		return subnet
+	if n.manager.enableRouteTableDiscovery {
+		if subnet := n.findSubnetInSameRouteTableWithNodeSubnet(); subnet != nil {
+			return subnet
+		}
 	}
 	if subnet := n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, nil); subnet != nil {
-		if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+		if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) && n.manager.enableRouteTableDiscovery {
 			n.logSubnetRouteTableMismatch(subnet, "")
 		}
 		return subnet
