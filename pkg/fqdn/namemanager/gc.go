@@ -38,11 +38,6 @@ const dnsGCJobName = "dns-garbage-collector-job"
 // finally deleted from the global DNSCache. Until then, each of these IPs is
 // inserted into the global cache as a synthetic DNS lookup.
 func (n *manager) doGC(ctx context.Context) error {
-	if !n.hasBootstrapCompleted() {
-		n.logger.Debug("Skipping DNS GC since bootstrap is not yet completed")
-		return nil
-	}
-
 	var (
 		GCStart = time.Now()
 
