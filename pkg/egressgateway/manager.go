@@ -157,7 +157,7 @@ type Manager struct {
 	// events have occoured
 	reconciliationEventsCount atomic.Uint64
 
-	sysctl sysctl.Sysctl
+	sysctl sysctl.SysctlManager
 }
 
 type Params struct {
@@ -174,7 +174,7 @@ type Params struct {
 	Policies          resource.Resource[*Policy]
 	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 	Endpoints         resource.Resource[*k8sTypes.CiliumEndpoint]
-	Sysctl            sysctl.Sysctl
+	Sysctl            sysctl.SysctlManager
 
 	Lifecycle cell.Lifecycle
 }
@@ -622,7 +622,7 @@ func (manager *Manager) relaxRPFilter() error {
 		return nil
 	}
 
-	return manager.sysctl.ApplySettings(sysSettings)
+	return manager.sysctl.UpsertSettings(sysSettings)
 }
 
 func (manager *Manager) updateEgressRules4() {

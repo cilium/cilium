@@ -224,7 +224,7 @@ func TestSysctlIgnoreErr(t *testing.T) {
 
 	parameter := tables.Sysctl{Name: []string{"net", "core", "bpf_jit_enable"}, Val: "1", IgnoreErr: true}
 
-	var sysctl Sysctl
+	var sysctl SysctlManager
 
 	hive := hive.New(
 		cell.Config(defaultConfig),
@@ -241,7 +241,7 @@ func TestSysctlIgnoreErr(t *testing.T) {
 			newOps,
 		),
 
-		cell.Invoke(func(s Sysctl) {
+		cell.Invoke(func(s SysctlManager) {
 			sysctl = s
 		}),
 	)

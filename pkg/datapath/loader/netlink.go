@@ -38,7 +38,7 @@ func directionToParent(dir string) uint32 {
 }
 
 // enableForwarding puts the given link into the up state and enables IP forwarding.
-func enableForwarding(logger *slog.Logger, sysctl sysctl.Sysctl, link netlink.Link) error {
+func enableForwarding(logger *slog.Logger, sysctl sysctl.Manager, link netlink.Link) error {
 	ifName := link.Attrs().Name
 
 	if err := netlink.LinkSetUp(link); err != nil {
@@ -62,14 +62,14 @@ func enableForwarding(logger *slog.Logger, sysctl sysctl.Sysctl, link netlink.Li
 			{Name: []string{"net", "ipv4", "conf", ifName, "send_redirects"}, Val: "0", IgnoreErr: false},
 		}...)
 	}
-	if err := sysctl.ApplySettings(sysSettings); err != nil {
+	if err := sysctl.UpsertSettings(sysSettings); err != nil {
 		return fmt.Errorf("failed to apply sysctl settings for %s: %w", ifName, err)
 	}
 
 	return nil
 }
 
-func setupVethPair(logger *slog.Logger, sysctl sysctl.Sysctl, name, peerName string) error {
+func setupVethPair(logger *slog.Logger, sysctl sysctl.Manager, name, peerName string) error {
 	// Create the veth pair if it doesn't exist.
 	if _, err := safenetlink.LinkByName(name); err != nil {
 		hostMac, err := mac.GenerateRandMAC()
@@ -117,7 +117,7 @@ func setupVethPair(logger *slog.Logger, sysctl sysctl.Sysctl, name, peerName str
 // the first step of datapath initialization, then performs the setup (and
 // creation, if needed) of those interfaces. It returns two links and an error.
 // By default, it sets up the veth pair - cilium_host and cilium_net.
-func setupBaseDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mtu int) (netlink.Link, netlink.Link, error) {
+func setupBaseDevice(logger *slog.Logger, sysctl sysctl.Manager, mtu int) (netlink.Link, netlink.Link, error) {
 	if err := setupVethPair(logger, sysctl, defaults.HostDevice, defaults.SecondHostDevice); err != nil {
 		return nil, nil, fmt.Errorf("failed to setup veth pair: %w", err)
 	}
@@ -179,7 +179,7 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 
 // setupTunnelDevice ensures the cilium_{mode} device is created and
 // unused leftover devices are cleaned up in case mode changes.
-func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mode tunnel.EncapProtocol, port, srcPortLow, srcPortHigh uint16, mtu int) error {
+func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Manager, mode tunnel.EncapProtocol, port, srcPortLow, srcPortHigh uint16, mtu int) error {
 	switch mode {
 	case tunnel.Geneve:
 		if err := setupGeneveDevice(logger, sysctl, port, srcPortLow, srcPortHigh, mtu); err != nil {
@@ -214,7 +214,7 @@ func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mode tunnel.En
 //
 // Changing the destination port will recreate the device. Changing the MTU will
 // modify the device without recreating it.
-func setupGeneveDevice(logger *slog.Logger, sysctl sysctl.Sysctl, dport, srcPortLow, srcPortHigh uint16, mtu int) error {
+func setupGeneveDevice(logger *slog.Logger, sysctl sysctl.Manager, dport, srcPortLow, srcPortHigh uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return fmt.Errorf("failed to generate random MAC address for geneve device: %w", err)
@@ -271,7 +271,7 @@ func setupGeneveDevice(logger *slog.Logger, sysctl sysctl.Sysctl, dport, srcPort
 // device without recreating it. Changing the source port range at runtime is
 // not possible, and it's also not worth to recreate. It's a best effort hint
 // for first-time creation.
-func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLow, srcPortHigh uint16, mtu int) error {
+func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Manager, port, srcPortLow, srcPortHigh uint16, mtu int) error {
 	mac, err := mac.GenerateRandMAC()
 	if err != nil {
 		return fmt.Errorf("failed to generate random MAC address for vxlan device: %w", err)
@@ -346,7 +346,7 @@ func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLo
 // explicitly support sharing it with other tools/CNIs. Fallback devices are left
 // unused for production traffic. Only devices that were explicitly created are
 // used. As of Cilium 1.18, cilium_tunl and cilium_ip6tnl are not created anymore.
-func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Sysctl, ipv4, ipv6 bool, mtu int) error {
+func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Manager, ipv4, ipv6 bool, mtu int) error {
 	// FlowBased sets IFLA_IPTUN_COLLECT_METADATA, the equivalent of 'ip link add
 	// ... type ipip/ip6tnl external'. This is needed so bpf programs can use
 	// bpf_skb_[gs]et_tunnel_key() on packets flowing through tunnels.
@@ -408,7 +408,7 @@ func setupIPIPDevices(logger *slog.Logger, sysctl sysctl.Sysctl, ipv4, ipv6 bool
 //
 // The device's state is set to 'up', L3 forwarding sysctls are applied, and MTU
 // is set.
-func ensureDevice(logger *slog.Logger, sysctl sysctl.Sysctl, attrs netlink.Link) (netlink.Link, error) {
+func ensureDevice(logger *slog.Logger, sysctl sysctl.Manager, attrs netlink.Link) (netlink.Link, error) {
 	name := attrs.Attrs().Name
 
 	// Reuse existing tunnel interface created by previous runs.

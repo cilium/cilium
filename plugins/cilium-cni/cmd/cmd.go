@@ -33,8 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	ciliumSysctl "github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -497,7 +497,7 @@ func configureCongestionControl(conf *models.DaemonConfigurationStatus, sysctl s
 	}
 
 	// Note: This setting applies to IPv4 and IPv6
-	return sysctl.ApplySettings([]tables.Sysctl{
+	return sysctl.ApplySettings([]ciliumSysctl.Setting{
 		{Name: []string{"net", "ipv4", "tcp_congestion_control"}, Val: "cubic"},
 	})
 }

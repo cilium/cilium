@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -27,6 +28,11 @@ import (
 // sysctl kernel parameters with the desired state in statedb[Sysctl].
 const reconciliationTimeout = time.Second
 
+type SysctlManager interface {
+	Sysctl
+	Manager
+}
+
 type Sysctl interface {
 	// Disable disables the given sysctl parameter.
 	// It blocks until the parameter has been actually set to "0",
@@ -43,21 +49,47 @@ type Sysctl interface {
 	// or timeouts after reconciliationTimeout.
 	Write(name []string, val string) error
 
+	// ApplySettings applies all settings in sysSettings.
+	// After applying all settings, it blocks until the parameters have been
+	// reconciled, or timeouts after reconciliationTimeout.
+	ApplySettings([]Setting) error
+
 	// WriteInt writes the given integer type sysctl parameter.
 	// It blocks until the parameter has been actually set to val,
 	// or timeouts after reconciliationTimeout.
 	WriteInt(name []string, val int64) error
-
-	// ApplySettings applies all settings in sysSettings.
-	// After applying all settings, it blocks until the parameters have been
-	// reconciled, or timeouts after reconciliationTimeout.
-	ApplySettings(sysSettings []tables.Sysctl) error
 
 	// Read reads the given sysctl parameter.
 	Read(name []string) (string, error)
 
 	// ReadInt reads the given sysctl parameter, return an int64 value.
 	ReadInt(name []string) (int64, error)
+}
+
+type Setting struct {
+	Name []string
+	Val  string
+}
+
+func (s Setting) toSysctl() tables.Sysctl {
+	return tables.Sysctl{
+		Name: s.Name,
+		Val:  s.Val,
+	}
+}
+
+// Manager manages the lifecycle of reconciled settings
+type Manager interface {
+	// ApplySettings applies all settings in sysSettings.
+	// After applying all settings, it blocks until the parameters have been
+	// reconciled, or timeouts after reconciliationTimeout.
+	UpsertSettings([]tables.Sysctl) error
+
+	// DeleteSettings deletes settings from tracked settings, effectively
+	// "unmanaging" them.
+	// Note: This will leave the underlying system settings in whatever state
+	// was last written, meaning this only applies a lifecycle change to a setting.
+	DeleteSettings([]tables.Sysctl)
 }
 
 // reconcilingSysctl is a Sysctl implementation that uses reconciliation to
@@ -77,8 +109,9 @@ func newReconcilingSysctl(
 	cfg Config,
 	fs afero.Fs,
 	_ reconciler.Reconciler[*tables.Sysctl], // needed to enforce the correct hive ordering
-) Sysctl {
-	return &reconcilingSysctl{db, settings, fs, cfg.ProcFs}
+) (Sysctl, Manager, SysctlManager) {
+	sm := &reconcilingSysctl{db, settings, fs, cfg.ProcFs}
+	return sm, sm, sm
 }
 
 func (sysctl *reconcilingSysctl) Disable(name []string) error {
@@ -129,7 +162,15 @@ func (sysctl *reconcilingSysctl) WriteInt(name []string, val int64) error {
 	return sysctl.waitForReconciliation(name)
 }
 
-func (sysctl *reconcilingSysctl) ApplySettings(sysSettings []tables.Sysctl) error {
+func (sysctl *reconcilingSysctl) ApplySettings(ss []Setting) error {
+	tss := make([]tables.Sysctl, len(ss), len(ss))
+	for s := range slices.Values(ss) {
+		tss = append(tss, s.toSysctl())
+	}
+	return sysctl.UpsertSettings(tss)
+}
+
+func (sysctl *reconcilingSysctl) UpsertSettings(sysSettings []tables.Sysctl) error {
 	txn := sysctl.db.WriteTxn(sysctl.settings)
 	for _, s := range sysSettings {
 		_, _, _ = sysctl.settings.Insert(txn, s.Clone().SetStatus(reconciler.StatusPending()))
@@ -142,6 +183,14 @@ func (sysctl *reconcilingSysctl) ApplySettings(sysSettings []tables.Sysctl) erro
 	}
 
 	return errors.Join(errs...)
+}
+
+func (sysctl *reconcilingSysctl) DeleteSettings(sysSettings []tables.Sysctl) {
+	txn := sysctl.db.WriteTxn(sysctl.settings)
+	for _, s := range sysSettings {
+		_, _, _ = sysctl.settings.Delete(txn, s.Clone())
+	}
+	txn.Commit()
 }
 
 func (sysctl *reconcilingSysctl) Read(name []string) (string, error) {
@@ -224,7 +273,7 @@ func (ay *directSysctl) WriteInt(name []string, val int64) error {
 	return ay.Write(name, strconv.FormatInt(val, 10))
 }
 
-func (ay *directSysctl) ApplySettings(sysSettings []tables.Sysctl) error {
+func (ay *directSysctl) ApplySettings(sysSettings []Setting) error {
 	for _, s := range sysSettings {
 		if err := ay.Write(s.Name, s.Val); err != nil {
 			return err

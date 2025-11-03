@@ -84,7 +84,7 @@ type loader struct {
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
 
-	sysctl             sysctl.Sysctl
+	sysctl             sysctl.SysctlManager
 	prefilter          datapath.PreFilter
 	compilationLock    datapath.CompilationLock
 	configWriter       datapath.ConfigWriter
@@ -100,7 +100,7 @@ type Params struct {
 
 	JobGroup           job.Group
 	Logger             *slog.Logger
-	Sysctl             sysctl.Sysctl
+	SysctlManager      sysctl.SysctlManager
 	Prefilter          datapath.PreFilter
 	CompilationLock    datapath.CompilationLock
 	ConfigWriter       datapath.ConfigWriter
@@ -121,7 +121,7 @@ func newLoader(p Params) *loader {
 	return &loader{
 		logger:             p.Logger,
 		templateCache:      newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
-		sysctl:             p.Sysctl,
+		sysctl:             p.SysctlManager,
 		hostDpInitialized:  make(chan struct{}),
 		prefilter:          p.Prefilter,
 		compilationLock:    p.CompilationLock,

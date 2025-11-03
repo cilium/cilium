@@ -405,7 +405,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		sysIPIP := []tables.Sysctl{
 			{Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true},
 		}
-		if err := l.sysctl.ApplySettings(sysIPIP); err != nil {
+		if err := l.sysctl.UpsertSettings(sysIPIP); err != nil {
 			return err
 		}
 		if err := setupIPIPDevices(l.logger, l.sysctl, option.Config.IPv4Enabled(), option.Config.IPv6Enabled(), lnc.DeviceMTU); err != nil {
@@ -426,7 +426,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	// Any code that relies on sysctl settings being applied needs to be called after this.
-	if err := l.sysctl.ApplySettings(sysSettings); err != nil {
+	if err := l.sysctl.UpsertSettings(sysSettings); err != nil {
 		return err
 	}
 

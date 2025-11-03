@@ -18,7 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -257,7 +257,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 		congctl = "bbr"
 	}
 
-	sysctls := []tables.Sysctl{
+	sysctls := []sysctl.Setting{
 		{Name: []string{"net", "core", "default_qdisc"}, Val: "fq"},
 		{Name: []string{"net", "ipv4", "tcp_congestion_control"}, Val: congctl},
 	}
@@ -265,7 +265,7 @@ func setBaselineSysctls(p bandwidthManagerParams) error {
 	// Few extra knobs which can be turned on along with pacing. EnableBBR
 	// also provides the right kernel dependency implicitly as well.
 	if p.Config.EnableBBR {
-		sysctls = append(sysctls, tables.Sysctl{
+		sysctls = append(sysctls, sysctl.Setting{
 			Name: []string{"net", "ipv4", "tcp_slow_start_after_idle"}, Val: "0",
 		})
 	}
