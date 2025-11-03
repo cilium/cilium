@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -35,21 +34,18 @@ type CiliumBGPClusterConfigInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumBGPClusterConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumBGPClusterConfig, err error)
-	Apply(ctx context.Context, ciliumBGPClusterConfig *applyconfigurationciliumiov2.CiliumBGPClusterConfigApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumBGPClusterConfig, err error)
-	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, ciliumBGPClusterConfig *applyconfigurationciliumiov2.CiliumBGPClusterConfigApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumBGPClusterConfig, err error)
 	CiliumBGPClusterConfigExpansion
 }
 
 // ciliumBGPClusterConfigs implements CiliumBGPClusterConfigInterface
 type ciliumBGPClusterConfigs struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumBGPClusterConfig, *ciliumiov2.CiliumBGPClusterConfigList, *applyconfigurationciliumiov2.CiliumBGPClusterConfigApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2.CiliumBGPClusterConfig, *ciliumiov2.CiliumBGPClusterConfigList]
 }
 
 // newCiliumBGPClusterConfigs returns a CiliumBGPClusterConfigs
 func newCiliumBGPClusterConfigs(c *CiliumV2Client) *ciliumBGPClusterConfigs {
 	return &ciliumBGPClusterConfigs{
-		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumBGPClusterConfig, *ciliumiov2.CiliumBGPClusterConfigList, *applyconfigurationciliumiov2.CiliumBGPClusterConfigApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2.CiliumBGPClusterConfig, *ciliumiov2.CiliumBGPClusterConfigList](
 			"ciliumbgpclusterconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,

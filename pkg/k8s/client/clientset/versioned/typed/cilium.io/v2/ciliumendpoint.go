@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -35,21 +34,18 @@ type CiliumEndpointInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumEndpointList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumEndpoint, err error)
-	Apply(ctx context.Context, ciliumEndpoint *applyconfigurationciliumiov2.CiliumEndpointApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumEndpoint, err error)
-	// Add a +genclient:noStatus comment above the type to avoid generating ApplyStatus().
-	ApplyStatus(ctx context.Context, ciliumEndpoint *applyconfigurationciliumiov2.CiliumEndpointApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumEndpoint, err error)
 	CiliumEndpointExpansion
 }
 
 // ciliumEndpoints implements CiliumEndpointInterface
 type ciliumEndpoints struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumEndpoint, *ciliumiov2.CiliumEndpointList, *applyconfigurationciliumiov2.CiliumEndpointApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2.CiliumEndpoint, *ciliumiov2.CiliumEndpointList]
 }
 
 // newCiliumEndpoints returns a CiliumEndpoints
 func newCiliumEndpoints(c *CiliumV2Client, namespace string) *ciliumEndpoints {
 	return &ciliumEndpoints{
-		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumEndpoint, *ciliumiov2.CiliumEndpointList, *applyconfigurationciliumiov2.CiliumEndpointApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2.CiliumEndpoint, *ciliumiov2.CiliumEndpointList](
 			"ciliumendpoints",
 			c.RESTClient(),
 			scheme.ParameterCodec,

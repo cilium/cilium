@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type CiliumEgressGatewayPolicyInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumEgressGatewayPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumEgressGatewayPolicy, err error)
-	Apply(ctx context.Context, ciliumEgressGatewayPolicy *applyconfigurationciliumiov2.CiliumEgressGatewayPolicyApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumEgressGatewayPolicy, err error)
 	CiliumEgressGatewayPolicyExpansion
 }
 
 // ciliumEgressGatewayPolicies implements CiliumEgressGatewayPolicyInterface
 type ciliumEgressGatewayPolicies struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumEgressGatewayPolicy, *ciliumiov2.CiliumEgressGatewayPolicyList, *applyconfigurationciliumiov2.CiliumEgressGatewayPolicyApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2.CiliumEgressGatewayPolicy, *ciliumiov2.CiliumEgressGatewayPolicyList]
 }
 
 // newCiliumEgressGatewayPolicies returns a CiliumEgressGatewayPolicies
 func newCiliumEgressGatewayPolicies(c *CiliumV2Client) *ciliumEgressGatewayPolicies {
 	return &ciliumEgressGatewayPolicies{
-		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumEgressGatewayPolicy, *ciliumiov2.CiliumEgressGatewayPolicyList, *applyconfigurationciliumiov2.CiliumEgressGatewayPolicyApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2.CiliumEgressGatewayPolicy, *ciliumiov2.CiliumEgressGatewayPolicyList](
 			"ciliumegressgatewaypolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,

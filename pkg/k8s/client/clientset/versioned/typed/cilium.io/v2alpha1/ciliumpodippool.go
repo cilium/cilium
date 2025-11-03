@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	applyconfigurationciliumiov2alpha1 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2alpha1"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type CiliumPodIPPoolInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2alpha1.CiliumPodIPPoolList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2alpha1.CiliumPodIPPool, err error)
-	Apply(ctx context.Context, ciliumPodIPPool *applyconfigurationciliumiov2alpha1.CiliumPodIPPoolApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2alpha1.CiliumPodIPPool, err error)
 	CiliumPodIPPoolExpansion
 }
 
 // ciliumPodIPPools implements CiliumPodIPPoolInterface
 type ciliumPodIPPools struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2alpha1.CiliumPodIPPool, *ciliumiov2alpha1.CiliumPodIPPoolList, *applyconfigurationciliumiov2alpha1.CiliumPodIPPoolApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2alpha1.CiliumPodIPPool, *ciliumiov2alpha1.CiliumPodIPPoolList]
 }
 
 // newCiliumPodIPPools returns a CiliumPodIPPools
 func newCiliumPodIPPools(c *CiliumV2alpha1Client) *ciliumPodIPPools {
 	return &ciliumPodIPPools{
-		gentype.NewClientWithListAndApply[*ciliumiov2alpha1.CiliumPodIPPool, *ciliumiov2alpha1.CiliumPodIPPoolList, *applyconfigurationciliumiov2alpha1.CiliumPodIPPoolApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumPodIPPool, *ciliumiov2alpha1.CiliumPodIPPoolList](
 			"ciliumpodippools",
 			c.RESTClient(),
 			scheme.ParameterCodec,
