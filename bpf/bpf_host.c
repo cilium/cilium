@@ -1080,6 +1080,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	__u32 __maybe_unused ipcache_srcid = 0;
+	enum metric_dir dir = METRIC_INGRESS;
 	void __maybe_unused *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
@@ -1093,17 +1094,17 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 # if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || \
      defined ENABLE_L2_ANNOUNCEMENTS
 	case bpf_htons(ETH_P_ARP):
-		if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp))
-			return send_drop_notify_error(ctx, identity,
-						      DROP_INVALID,
-						      METRIC_INGRESS);
+		if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
+			ret = DROP_INVALID;
+			goto drop_err_ingress;
+		}
+
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 		#ifdef ENABLE_L2_ANNOUNCEMENTS
 			ret = handle_l2_announcement(ctx, NULL);
 			if (IS_ERR(ret))
-				return send_drop_notify_error(ctx, identity,
-							      ret, METRIC_EGRESS);
+				goto drop_err_egress;
 		#else
 			ret = CTX_ACT_OK;
 		#endif
@@ -1111,24 +1112,24 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 # endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
-			return send_drop_notify_error(ctx, identity,
-						      DROP_INVALID,
-						      METRIC_INGRESS);
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err_ingress;
+		}
+
 #ifdef ENABLE_L2_ANNOUNCEMENTS
 		if (ip6->nexthdr == NEXTHDR_ICMP) {
 			ret = handle_l2_announcement(ctx, ip6);
 			if (IS_ERR(ret))
-				return send_drop_notify_error(ctx, identity,
-							      ret, METRIC_EGRESS);
+				goto drop_err_egress;
 
 			if (ret != CTX_ACT_OK)
 				break;
 			/* Verifier invalidates ip6 for some reason.. sigh*/
-			if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
-				return send_drop_notify_error(ctx, identity,
-							      DROP_INVALID,
-							      METRIC_INGRESS);
+			if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+				ret = DROP_INVALID;
+				goto drop_err_ingress;
+			}
 		}
 
 #endif /*ENABLE_L2_ANNOUNCEMENTS */
@@ -1169,9 +1170,10 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 * Make sure that we don't legitimately drop the packet if the skb
 		 * arrived with the header not being not in the linear data.
 		 */
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
-			return send_drop_notify_error(ctx, identity, DROP_INVALID,
-						      METRIC_INGRESS);
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto drop_err_ingress;
+		}
 
 		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
@@ -1211,8 +1213,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 #ifdef ENABLE_HOST_FIREWALL
-		ret = send_drop_notify_error(ctx, identity, DROP_UNKNOWN_L3,
-					     METRIC_INGRESS);
+		ret = DROP_UNKNOWN_L3;
+		goto drop_err_ingress;
 #else
 		/* Pass unknown traffic to the stack */
 		ret = CTX_ACT_OK;
@@ -1220,6 +1222,11 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	}
 
 	return ret;
+
+drop_err_egress: __maybe_unused
+	dir = METRIC_EGRESS;
+drop_err_ingress: __maybe_unused
+	return send_drop_notify_error(ctx, identity, ret, dir);
 }
 
 /*
