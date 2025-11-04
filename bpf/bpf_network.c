@@ -10,7 +10,7 @@
 #include "lib/common.h"
 #include "lib/drop.h"
 #include "lib/trace.h"
-#include "lib/encrypt.h"
+#include "lib/ipsec.h"
 
 __section_entry
 int cil_from_network(struct __ctx_buff *ctx)
