@@ -151,6 +151,7 @@ jobs:
         run: ./test-cyclonus.sh
 
       - name: Install Cilium CLI
+        if: ${{ always() }}
         uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
@@ -158,6 +159,11 @@ jobs:
           image-tag: ${{ steps.vars.outputs.tag }}
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
           release-version: ${{ env.CILIUM_CLI_VERSION }}
+
+      - name: Wait for Cilium to be ready
+        if: ${{ always() }}
+        run: |
+          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
 
       - name: Run common post steps
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
