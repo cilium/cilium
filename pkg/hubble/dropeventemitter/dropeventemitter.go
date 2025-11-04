@@ -26,6 +26,7 @@ import (
 	slimscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -42,11 +43,12 @@ type dropEventEmitter struct {
 	recorder        record.EventRecorder
 	k8sWatcher      watchers.CacheAccessK8SWatcher
 	showPolicies    bool
+	rateLimiter     *rate.Limiter
 	reasons         []flowpb.DropReason
 	endpointsLookup endpointsLookup
 }
 
-func new(log *slog.Logger, interval time.Duration, reasons []string, showPolicies bool, k8s client.Clientset, watcher watchers.CacheAccessK8SWatcher, endpointsLookup endpointsLookup) *dropEventEmitter {
+func new(log *slog.Logger, interval time.Duration, reasons []string, showPolicies bool, rateLimit int64, k8s client.Clientset, watcher watchers.CacheAccessK8SWatcher, endpointsLookup endpointsLookup) *dropEventEmitter {
 	broadcaster := record.NewBroadcasterWithCorrelatorOptions(record.CorrelatorOptions{
 		BurstSize:            1,
 		QPS:                  1 / float32(interval.Seconds()),
@@ -64,7 +66,10 @@ func new(log *slog.Logger, interval time.Duration, reasons []string, showPolicie
 			log.Warn("Ignoring invalid drop reason", logfields.Reason, reason)
 		}
 	}
-
+	var rateLimiter *rate.Limiter
+	if rateLimit > 0 {
+		rateLimiter = rate.NewLimiter(time.Second, rateLimit)
+	}
 	return &dropEventEmitter{
 		broadcaster:     broadcaster,
 		recorder:        broadcaster.NewRecorder(slimscheme.Scheme, v1.EventSource{Component: "cilium"}),
@@ -72,10 +77,15 @@ func new(log *slog.Logger, interval time.Duration, reasons []string, showPolicie
 		reasons:         rs,
 		showPolicies:    showPolicies,
 		endpointsLookup: endpointsLookup,
+		rateLimiter:     rateLimiter,
 	}
 }
 
 func (e *dropEventEmitter) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+	if e.rateLimiter != nil && !e.rateLimiter.Allow() {
+		return nil
+	}
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

@@ -1846,4 +1846,6 @@ const (
 	ReloadKeypairError = "reloadKeypairError"
 
 	ReloadCAError = "reloadCAError"
+
+	ExtendedMessage = "extendedMessage"
 )
