@@ -67,6 +67,7 @@ type endpointRestorer struct {
 
 	restoreState                  *endpointRestoreState
 	endpointRestoreComplete       chan struct{}
+	endpointRegenerateComplete    chan struct{}
 	endpointInitialPolicyComplete chan struct{}
 }
 
@@ -84,6 +85,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 		ipamManager:         params.IPAMManager,
 
 		endpointRestoreComplete:       make(chan struct{}),
+		endpointRegenerateComplete:    make(chan struct{}),
 		endpointInitialPolicyComplete: make(chan struct{}),
 		restoreState: &endpointRestoreState{
 			possible: nil,
@@ -93,7 +95,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 	}
 }
 
-func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
+func (r *endpointRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
 	}
@@ -106,6 +108,19 @@ func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
 	return nil
 }
 
+func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
+	if !option.Config.RestoreState {
+		return nil
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.endpointRegenerateComplete:
+	}
+	return nil
+}
+
 func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
@@ -114,7 +129,7 @@ func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-r.endpointRestoreComplete:
+	case <-r.endpointRegenerateComplete:
 	case <-r.endpointInitialPolicyComplete:
 	}
 	return nil
@@ -559,7 +574,7 @@ func (r *endpointRestorer) handleRestoredEndpointsRegeneration(endpoints []*endp
 		logfields.Failed, failed,
 		logfields.Total, total,
 	)
-	close(r.endpointRestoreComplete)
+	close(r.endpointRegenerateComplete)
 }
 
 func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
@@ -622,4 +637,6 @@ func (r *endpointRestorer) InitRestore() {
 	// received the full list of policies present at the time the daemon
 	// is bootstrapped.
 	r.regenerateRestoredEndpoints(r.restoreState)
+
+	close(r.endpointRestoreComplete)
 }

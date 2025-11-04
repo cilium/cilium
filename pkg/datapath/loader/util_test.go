@@ -97,13 +97,22 @@ func newTestLoader(tb testing.TB) *loader {
 
 type FakeRestorer struct{}
 
+func (fr *FakeRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
+	return nil
+}
+
 func (fr *FakeRestorer) WaitForEndpointRestore(ctx context.Context) error { return nil }
-func (fr *FakeRestorer) WaitForInitialPolicy(ctx context.Context) error   { return nil }
+
+func (fr *FakeRestorer) WaitForInitialPolicy(ctx context.Context) error { return nil }
 
 type FakePreFilter struct{}
 
-func (fpf *FakePreFilter) Enabled() bool                                  { return true }
-func (fpf *FakePreFilter) WriteConfig(fw io.Writer)                       {}
-func (fpf *FakePreFilter) Dump(to []string) ([]string, int64)             { return nil, 0 }
+func (fpf *FakePreFilter) Enabled() bool { return true }
+
+func (fpf *FakePreFilter) WriteConfig(fw io.Writer) {}
+
+func (fpf *FakePreFilter) Dump(to []string) ([]string, int64) { return nil, 0 }
+
 func (fpf *FakePreFilter) Insert(revision int64, cidrs []net.IPNet) error { return nil }
+
 func (fpf *FakePreFilter) Delete(revision int64, cidrs []net.IPNet) error { return nil }
