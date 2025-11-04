@@ -398,7 +398,7 @@ srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
 }
 
 static __always_inline void
-srv6_load_meta_sid(struct __ctx_buff *ctx, const struct in6_addr *sid)
+srv6_load_meta_sid(struct __ctx_buff *ctx, struct in6_addr *sid)
 {
 	ctx_load_meta_ipv6(ctx, (union v6addr *)sid, CB_SRV6_SID_1);
 }
