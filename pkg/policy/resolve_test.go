@@ -760,11 +760,10 @@ func TestMapStateWithIngress(t *testing.T) {
 		}),
 	}
 
-	// Verify that cached selector is not found after Detach().
+	// Verify that cached selector has no users after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
 	policy.SelectorPolicy.detach(true, 0)
-	cachedSelectorTest = td.sc.findCachedIdentitySelector(api.NewESFromLabels(lblTest))
-	require.Nil(t, cachedSelectorTest)
+	require.Zero(t, td.sc.userCount(cachedSelectorTest))
 
 	closer, changes := policy.ConsumeMapChanges()
 	closer()

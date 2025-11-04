@@ -65,7 +65,7 @@ func (sc *SelectorCache) findCachedIdentitySelector(selector api.EndpointSelecto
 	sc.mutex.RLock()
 	idSel := sc.selectors[key]
 	sc.mutex.RUnlock()
-	return idSel
+	return idSel.Value()
 }
 
 func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) CachedSelector {
@@ -86,32 +86,11 @@ func (csu *cachedSelectionUser) AddIdentitySelector(sel api.EndpointSelector) Ca
 	return cached
 }
 
-func (csu *cachedSelectionUser) AddFQDNSelector(sel api.FQDNSelector) CachedSelector {
+func (csu *cachedSelectionUser) RemoveUser(sel CachedSelector) {
 	csu.updateMutex.Lock()
 	defer csu.updateMutex.Unlock()
 
-	var cached types.CachedSelector
-	css, added := csu.sc.AddSelectors(csu, EmptyStringLabels, types.ToSelectors(api.FQDNSelectorSlice{sel})...)
-	cached = css[0]
-
-	require.NotNil(csu.t, cached)
-
-	_, exists := csu.selections[cached]
-	// Not added if already exists for this user
-	require.Equal(csu.t, !exists, added)
-	csu.selections[cached] = cached.GetSelections()
-
-	// Pre-existing selections are not notified as updates
-	require.False(csu.t, csu.sc.haveUserNotifications())
-
-	return cached
-}
-
-func (csu *cachedSelectionUser) RemoveSelector(sel CachedSelector) {
-	csu.updateMutex.Lock()
-	defer csu.updateMutex.Unlock()
-
-	csu.sc.RemoveSelector(sel, csu)
+	csu.sc.RemoveUser(csu, sel)
 	delete(csu.selections, sel)
 
 	// No notifications for a removed selector
@@ -157,10 +136,6 @@ func (csu *cachedSelectionUser) IdentitySelectionUpdated(logger *slog.Logger, se
 
 func (csu *cachedSelectionUser) IdentitySelectionCommit(*slog.Logger, SelectorReadTxn) {
 	csu.updateCond.Signal()
-}
-
-func (csu *cachedSelectionUser) IsPeerSelector() bool {
-	return true
 }
 
 // Mock CachedSelector for unit testing.
@@ -283,17 +258,18 @@ func TestAddRemoveSelector(t *testing.T) {
 	require.Equal(t, cached, cached3)
 
 	// Removing the first user does not remove the cached selector
-	user1.RemoveSelector(cached)
+	user1.RemoveUser(cached)
 	// Remove is idempotent
-	user1.RemoveSelector(cached)
+	user1.RemoveUser(cached)
 
 	// Removing the last user removes the cached selector
-	user2.RemoveSelector(cached3)
+	user2.RemoveUser(cached3)
 	// Remove is idempotent
-	user2.RemoveSelector(cached3)
+	user2.RemoveUser(cached3)
 
-	// All identities removed
-	require.Empty(t, sc.selectors)
+	require.Zero(t, sc.userCount(cached))
+	require.Zero(t, sc.userCount(cached2))
+	require.Zero(t, sc.userCount(cached3))
 }
 
 func TestMultipleIdentitySelectors(t *testing.T) {
@@ -342,7 +318,7 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 		csel := user1.AddIdentitySelector(sel)
 		selections := csel.GetSelections()
 		require.Equal(t, identity.NumericIdentitySlice(wantIDs), selections)
-		user1.RemoveSelector(csel)
+		user1.RemoveUser(csel)
 	}
 
 	shouldSelect(cidr32Selector, li1)
@@ -350,11 +326,11 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 	shouldSelect(cidr8Selector, li1, li2)
 	shouldSelect(cidr7Selector, li1, li2)
 
-	user1.RemoveSelector(cached)
-	user1.RemoveSelector(cached2)
+	user1.RemoveUser(cached)
+	user1.RemoveUser(cached2)
 
-	// All identities removed
-	require.Empty(t, sc.selectors)
+	require.Zero(t, sc.userCount(cached))
+	require.Zero(t, sc.userCount(cached2))
 }
 
 func TestIdentityUpdates(t *testing.T) {
@@ -423,11 +399,11 @@ func TestIdentityUpdates(t *testing.T) {
 	require.Len(t, selections, 1)
 	require.Equal(t, identity.NumericIdentity(1234), selections[0])
 
-	user1.RemoveSelector(cached)
-	user1.RemoveSelector(cached2)
+	user1.RemoveUser(cached)
+	user1.RemoveUser(cached2)
 
-	// All identities removed
-	require.Empty(t, sc.selectors)
+	require.Zero(t, sc.userCount(cached))
+	require.Zero(t, sc.userCount(cached2))
 }
 
 func TestIdentityUpdatesMultipleUsers(t *testing.T) {
@@ -503,11 +479,12 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 
 	require.Equal(t, cached2.GetSelections(), cached.GetSelections())
 
-	user1.RemoveSelector(cached)
-	user2.RemoveSelector(cached2)
+	user1.RemoveUser(cached)
+	user2.RemoveUser(cached2)
 
-	// All identities removed
-	require.Empty(t, sc.selectors)
+	require.Zero(t, sc.userCount(cached))
+	require.Zero(t, sc.userCount(cached2))
+
 }
 
 func TestTransactionalUpdate(t *testing.T) {
@@ -592,13 +569,21 @@ func TestTransactionalUpdate(t *testing.T) {
 	require.Equal(t, identity.NumericIdentitySlice{li2, li3}, cs8.GetSelectionsAt(txn3))
 	require.Equal(t, identity.NumericIdentitySlice{li2, li3, li4}, cs7.GetSelectionsAt(txn3))
 
-	user1.RemoveSelector(cs32)
-	user1.RemoveSelector(cs24)
-	user1.RemoveSelector(cs8)
-	user1.RemoveSelector(cs7)
+	user1.RemoveUser(cs32)
+	user1.RemoveUser(cs24)
+	user1.RemoveUser(cs8)
+	user1.RemoveUser(cs7)
 
-	// All identities removed
-	require.Empty(t, sc.selectors)
+	require.Zero(t, sc.userCount(cs32))
+	require.Zero(t, sc.userCount(cs24))
+	require.Zero(t, sc.userCount(cs8))
+	require.Zero(t, sc.userCount(cs7))
+
+	require.Empty(t, user1.selections)
+
+	txn3.Close()
+	txn2.Close()
+	txn.Close()
 }
 
 func TestSelectorCacheCanSkipUpdate(t *testing.T) {

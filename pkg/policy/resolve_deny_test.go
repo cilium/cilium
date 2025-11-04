@@ -280,7 +280,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 func TestL3WithLocalHostWildcardd(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
-	td.addIdentitySelector(hostSelector)
+
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
@@ -324,9 +324,6 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
 	policy.Ready()
 
-	cachedSelectorHost := td.sc.findCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
-	require.NotNil(t, cachedSelectorHost)
-
 	expectedEndpointPolicy := EndpointPolicy{
 		SelectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
@@ -356,6 +353,11 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 	}
 
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
+
+	// local policy ingress is added to mapstate, make sure it is in there
+	v, ok := policy.policyMapState.Get(localHostKey)
+	require.True(t, ok)
+	require.False(t, v.IsDeny())
 }
 
 func TestMapStateWithIngressDenyWildcard(t *testing.T) {
@@ -610,11 +612,10 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	}, changes.Adds)
 	require.Equal(t, Keys{}, changes.Deletes)
 
-	// Verify that cached selector is not found after Detach().
+	// Verify that cached selector no longer has users after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
 	policy.SelectorPolicy.detach(true, 0)
-	cachedSelectorTest = td.sc.findCachedIdentitySelector(api.NewESFromLabels(lblTest))
-	require.Nil(t, cachedSelectorTest)
+	require.Zero(t, td.sc.userCount(cachedSelectorTest))
 
 	// compare policyMapState separately
 	require.Truef(t, policy.policyMapState.Equal(&expectedEndpointPolicy.policyMapState), policy.policyMapState.diff(&expectedEndpointPolicy.policyMapState))

@@ -83,8 +83,7 @@ func newTestData(logger *slog.Logger) *testData {
 	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
 
 	td.cachedSelectorCIDR = func(cidr api.CIDR) CachedSelector {
-		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, EmptyStringLabels, types.ToSelector(cidr))
-		return css[0]
+		return td.sc.AddSelectors(EmptyStringLabels, types.ToSelector(cidr))[0]
 	}(api.CIDR("10.1.1.1"))
 
 	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA, idA.ID)
@@ -151,11 +150,6 @@ func (td *testData) removeIdentity(id *identity.Identity) {
 		}, wg)
 	wg.Wait()
 	td.idSet.Remove(id.ID)
-}
-
-func (td *testData) addIdentitySelector(sel api.EndpointSelector) bool {
-	_, added := td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, sel)
-	return added
 }
 
 func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4PolicyMap, availableIDs ...identity.NumericIdentity) {

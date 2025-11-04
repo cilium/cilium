@@ -829,18 +829,6 @@ func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn SelectorRea
 	}
 }
 
-func (l4 *L4Filter) IsPeerSelector() bool {
-	return true
-}
-
-func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls stringLabels, selectorCache *SelectorCache) CachedSelector {
-	cs, added := selectorCache.AddIdentitySelectorForTest(l4, lbls, sel)
-	if added {
-		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
-	}
-	return cs
-}
-
 // add L7 rules for all endpoints in the L7DataMap
 func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, priority ListenerPriority) {
 	for epsel := range l7 {
@@ -951,7 +939,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.Selectors, auth
 		Ingress:             ingress,
 	}
 
-	css, _ := selectorCache.AddSelectorsTxn(l4, origin.stringLabels(), peerEndpoints...)
+	css := selectorCache.AddSelectorsTxn(origin.stringLabels(), peerEndpoints...)
 	for _, cs := range css {
 		if cs.IsWildcard() {
 			l4.wildcard = cs
@@ -1073,20 +1061,12 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.Selectors, auth
 	return l4, nil
 }
 
-func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
-	selectors := make(types.CachedSelectorSlice, 0, len(l4.PerSelectorPolicies))
-	for cs := range l4.PerSelectorPolicies {
-		selectors = append(selectors, cs)
-	}
-	selectorCache.RemoveSelectors(selectors, l4)
-}
-
 // detach releases the references held in the L4Filter and must be called before
 // the filter is left to be garbage collected.
 // L4Filter may still be accessed concurrently after it has been detached.
 func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
-	l4.removeSelectors(selectorCache)
 	l4.policy.Store(nil)
+	RemoveSelectorUser(selectorCache, l4, l4.PerSelectorPolicies)
 }
 
 // attach signifies that the L4Filter is ready and reacheable for updates
@@ -1095,20 +1075,22 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy, allowLocalhost bool) (policyFeatures, redirectTypes) {
 	var redirectTypes redirectTypes
 	var features policyFeatures
+	var hostCs CachedSelector
 
 	// Daemon options may induce L3 ingress allows for host. If a filter would apply
 	// proxy redirection for the Host, when we should accept everything from host, then
 	// wildcard Host at L7 (which is taken care of at the mapstate level).
+	if allowLocalhost {
+		// Make sure host selector is in the selector cache.
+		host := api.ReservedEndpointSelectors[labels.IDNameHost]
+		css := ctx.GetSelectorCache().AddSelectors(ctx.Origin().stringLabels(), types.ToSelector(host))
+		hostCs = css[0]
+	}
 
 	for cs, sp := range l4.PerSelectorPolicies {
 		if sp != nil {
 			// Allow localhost if requested and this is a redirect that selects the host
 			if allowLocalhost && sp.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
-				// Make sure host selector is in the selector cache.
-				host := api.ReservedEndpointSelectors[labels.IDNameHost]
-				css, _ := ctx.GetSelectorCache().AddSelectors(l4, ctx.Origin().stringLabels(), types.ToSelector(host))
-				hostCs := css[0]
-
 				// Only add the plain allow policy if no policy for the host
 				// selector already exists. Some day we may support L7 policies for
 				// the host so the selector could already be there with an explicit
@@ -1153,6 +1135,8 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy, allowLocalhost
 			}
 		}
 	}
+
+	AddSelectorUser(ctx.GetSelectorCache(), l4, l4.PerSelectorPolicies)
 
 	l4.policy.Store(l4Policy)
 	return features, redirectTypes
