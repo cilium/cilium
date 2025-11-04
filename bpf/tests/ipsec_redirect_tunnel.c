@@ -7,12 +7,12 @@
 
 #include "node_config.h"
 
-/* must define `HAVE_ENCAP 1` before including 'lib/encrypt.h'.
- * lib/encrypt.h eventually imports overloadable_skb.h which exposes
+/* must define `HAVE_ENCAP 1` before including 'lib/ipsec.h'.
+ * lib/ipsec.h eventually imports overloadable_skb.h which exposes
  * ctx_is_overlay, utilized within 'ipsec_maybe_redirect_to_encrypt'
  */
 #define HAVE_ENCAP 1
-#include "lib/encrypt.h"
+#include "lib/ipsec.h"
 #include "lib/node.h"
 #include "tests/lib/ipcache.h"
 
