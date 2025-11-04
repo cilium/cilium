@@ -411,13 +411,14 @@ jobs:
             2>&1 | tee cl2-output.txt
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           capture_sysdump: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && true || false }}
           always_capture_sysdump: ${{ steps.vars.outputs.WORKLOAD_NODES <= 100 && true || false }}
           artifacts_suffix: "final"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-cl2.outcome != 'skipped' }}
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}

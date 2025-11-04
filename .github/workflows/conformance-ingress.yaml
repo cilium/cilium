@@ -413,6 +413,7 @@ jobs:
             -stop-on-failure
 
       - name: Run basic CLI tests
+        id: run-tests
         shell: bash
         run: |
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
@@ -423,11 +424,12 @@ jobs:
             --test 'packet-drops'
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }} ${{ matrix.name }}"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
   merge-upload-and-status:
     name: Merge Upload and Status

@@ -317,6 +317,7 @@ jobs:
 
       - name: Run basic CLI tests (${{ join(matrix.*, ', ') }})
         shell: bash
+        id: run-tests
         run: |
           mkdir -p cilium-junits
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
@@ -337,11 +338,12 @@ jobs:
           if-no-files-found: ignore
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
   merge-upload-and-status:
     name: Merge Upload and Status

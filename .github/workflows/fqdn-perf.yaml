@@ -225,6 +225,7 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
@@ -269,13 +270,14 @@ jobs:
             2>&1 | tee cl2-output.txt
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           job_status: "${{ job.status }}"
           junits-directory: 'report'
           always_capture_sysdump: true
           artifacts_suffix: "final"
+          capture_features_tested: ${{ steps.run-cl2.outcome != 'skipped' }}
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}

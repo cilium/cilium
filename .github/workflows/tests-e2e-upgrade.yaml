@@ -347,6 +347,7 @@ jobs:
 
       - name: Install Cilium ${{ matrix.skip-upgrade == 'true' && 'from main' || steps.vars.outputs.downgrade_version }}
         shell: bash
+        id: install-cilium
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
@@ -568,7 +569,7 @@ jobs:
           fi
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"

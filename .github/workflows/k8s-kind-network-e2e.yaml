@@ -208,6 +208,7 @@ jobs:
           EOF
 
       - name: Run Kubernetes sig-network test
+        id: run-tests
         run: |
           # output_dir
           mkdir -p _artifacts
@@ -310,8 +311,9 @@ jobs:
           retention-days: 5
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.ipFamily }}"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}

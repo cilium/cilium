@@ -337,17 +337,19 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
   merge-upload-and-status:
     name: Merge Upload and Status
