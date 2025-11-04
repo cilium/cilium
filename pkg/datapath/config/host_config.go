@@ -14,6 +14,8 @@ type BPFHost struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Enable L2 Announcements.
+	EnableL2Announcements bool `config:"enable_l2_announcements"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
@@ -29,6 +31,8 @@ type BPFHost struct {
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
+	// If the agent is down for longer than the lease duration, stop responding.
+	L2AnnouncementsMaxLiveness uint64 `config:"l2_announcements_max_liveness"`
 	// Masquerade address for IPv4 traffic.
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
@@ -48,8 +52,8 @@ type BPFHost struct {
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{0x5dc, false, false, false, false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		[4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{0x5dc, false, false, false, false, false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		false, 0x0, 0x0, 0x0, 0x0, node}
 }
