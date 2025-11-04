@@ -173,7 +173,7 @@ func TestDeletionFallbackClient(t *testing.T) {
 				errorMock:       newClientErrorOnce,
 				clientErrorMock: deletionClientErrorOnce,
 			},
-			shouldQueueDeletion: false,
+			shouldQueueDeletion: true,
 		},
 		{
 			newClientCreator: fakeCiliumClientCreator{
