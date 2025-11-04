@@ -333,6 +333,8 @@ communicating via the proxy must reconnect to re-establish connections.
   makes it compatible by default with the Helm ``--wait`` option or through ArgoCD.
   You are no longer expected to create a Job manually or as part of your own
   automation when bootstrapping your clusters.
+* Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
+  (previously this was a RHEL8.6-compatible kernel).
 
 Removed Options
 ~~~~~~~~~~~~~~~
