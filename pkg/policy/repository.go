@@ -355,6 +355,13 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		}
 	}
 
+	// Make sure host selector is in the selector cache if needed
+	if ingressEnabled && option.Config.AlwaysAllowLocalhost() {
+		host := types.ToSelector(api.ReservedEndpointSelectors[labels.IDNameHost])
+		css := sc.AddSelectors(EmptyStringLabels, host)
+		policyCtx.allowHostSelector = css[0]
+	}
+
 	// Make the calculated policy ready for incremental updates
 	calculatedPolicy.Attach(&policyCtx)
 

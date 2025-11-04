@@ -1074,31 +1074,24 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeatures, redirectTypes) {
 	var redirectTypes redirectTypes
 	var features policyFeatures
-	var hostCs CachedSelector
 
-	allowLocalhost := ctx.AllowLocalhost()
+	allowHostSelector := ctx.AllowHostSelector()
 
 	// Daemon options may induce L3 ingress allows for host. If a filter would apply
 	// proxy redirection for the Host, when we should accept everything from host, then
 	// wildcard Host at L7 (which is taken care of at the mapstate level).
-	if allowLocalhost {
-		// Make sure host selector is in the selector cache.
-		host := api.ReservedEndpointSelectors[labels.IDNameHost]
-		css := ctx.GetSelectorCache().AddSelectors(EmptyStringLabels, types.ToSelector(host))
-		hostCs = css[0]
-	}
 
 	for cs, sp := range l4.PerSelectorPolicies {
 		if sp != nil {
 			// Allow localhost if requested and this is a redirect that selects the host
-			if allowLocalhost && sp.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
+			if allowHostSelector != nil && sp.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
 				// Only add the plain allow policy if no policy for the host
 				// selector already exists. Some day we may support L7 policies for
 				// the host so the selector could already be there with an explicit
 				// (non-nil) policy.
-				if _, exists := l4.PerSelectorPolicies[hostCs]; !exists {
+				if _, exists := l4.PerSelectorPolicies[allowHostSelector]; !exists {
 					// nil is a plain allow policy.
-					l4.PerSelectorPolicies[hostCs] = nil
+					l4.PerSelectorPolicies[allowHostSelector] = nil
 				}
 			}
 

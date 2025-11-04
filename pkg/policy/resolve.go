@@ -28,9 +28,9 @@ type PolicyContext interface {
 	IsIngress() bool
 	SetIngress(bool)
 
-	// AllowLocalhost returns true if policy should allow ingress from local host.
-	// Always returns false for egress.
-	AllowLocalhost() bool
+	// AllowHostSelector() returns a non-nil cached selector if needed for ingress allow
+	// localhost
+	AllowHostSelector() CachedSelector
 
 	// return the namespace in which the policy rule is being resolved
 	GetNamespace() string
@@ -85,6 +85,8 @@ type policyContext struct {
 	defaultDenyIngress bool
 	defaultDenyEgress  bool
 
+	allowHostSelector CachedSelector
+
 	origin ruleOrigin
 
 	logger       *slog.Logger
@@ -102,8 +104,11 @@ func (p *policyContext) SetIngress(ingress bool) {
 	p.isIngress = ingress
 }
 
-func (p *policyContext) AllowLocalhost() bool {
-	return p.isIngress && option.Config.AlwaysAllowLocalhost()
+func (p *policyContext) AllowHostSelector() CachedSelector {
+	if p.isIngress && option.Config.AlwaysAllowLocalhost() {
+		return p.allowHostSelector
+	}
+	return nil
 }
 
 // GetNamespace() returns the namespace for the policy rule being resolved
