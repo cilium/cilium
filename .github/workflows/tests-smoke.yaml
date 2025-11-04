@@ -203,6 +203,7 @@ jobs:
           kubectl -n kube-system get pods
 
       - name: Run conformance test (e.g. connectivity check)
+        id: run-tests
         run: |
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
@@ -269,8 +270,9 @@ jobs:
           fi
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}

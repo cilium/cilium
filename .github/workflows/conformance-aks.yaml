@@ -354,6 +354,7 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run sequential connectivity test (${{ join(matrix.*, ', ') }})
+        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --test "seq-.*" \
@@ -379,11 +380,12 @@ jobs:
           cilium uninstall --wait
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
       - name: Clean up AKS
         if: ${{ always() }}

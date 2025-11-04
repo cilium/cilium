@@ -144,6 +144,7 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test
+        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --curl-parallel 3 \
@@ -183,7 +184,7 @@ jobs:
           json-filename: "${{ env.job_name }}-without-secret-sync"
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }}"

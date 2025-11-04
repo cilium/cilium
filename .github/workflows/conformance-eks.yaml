@@ -422,6 +422,7 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --test-concurrency=${{ env.test_concurrency }} \
@@ -454,7 +455,7 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
