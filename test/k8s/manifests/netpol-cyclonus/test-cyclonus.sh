@@ -11,7 +11,7 @@ kubectl create -f ./install-cyclonus.yml
 # don't fail on errors, so we can dump the logs.
 set +e
 
-time kubectl wait --for=condition=complete --timeout=60m -n kube-system job.batch/cyclonus
+time kubectl wait --for=condition=complete --timeout=20m -n kube-system job.batch/cyclonus
 rc=$?
 
 # Dump the logs of every pod that ever backed the job, current and previous
@@ -50,8 +50,8 @@ RESULTS_DIR="cyclonus-results"
 mkdir -p "$RESULTS_DIR"
 RESULTS_FILE="$RESULTS_DIR/cyclonus-results.xml"
 
-# Get the pod name for the completed job
-POD_NAME=$(kubectl get pods -n kube-system -l job-name=cyclonus -o jsonpath='{.items[0].metadata.name}')
+# Get all pod names for the completed job
+POD_NAMES=$(kubectl get pods -n kube-system -l job-name=cyclonus -o jsonpath='{.items[*].metadata.name}')
 
 if [ -n "$POD_NAMES" ]; then
     for POD_NAME in $POD_NAMES; do
@@ -79,6 +79,11 @@ else
     echo "Warning: Could not find cyclonus pod to retrieve results"
 fi
 
-# if 'failure' is in the logs, fail; otherwise succeed
-cat "$LOG_FILE" | grep "failure" > /dev/null 2>&1 && rc=1
+# Check for test failures by looking for percentage results less than 100%
+# Only check lines after "Tag results:" header
+# If any line contains a percentage that's not 100%, it's a failure
+if sed -n '/Tag results:/,$p' "$LOG_FILE" | grep -E '\|.*[0-9]+ / [0-9]+ = [0-9]+%' | grep -v '100% ✅' | grep -E '[0-9]+%'; then
+    echo "Test failures detected: some tests did not achieve 100% success"
+    rc=1
+fi
 exit $rc
