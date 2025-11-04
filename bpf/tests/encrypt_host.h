@@ -28,6 +28,7 @@
 #include "lib/bpf_host.h"
 
 #include "lib/ipcache.h"
+#include "lib/ipsec.h"
 #include "lib/node.h"
 
 static __always_inline
@@ -65,13 +66,7 @@ int encrypt_v4_1_missing_dst_setup(struct __ctx_buff *ctx)
 					    v4_pod_cidr_size);
 
 #ifdef ENABLE_IPSEC
-	__u32 encrypt_key = 0;
-	struct encrypt_config cfg = {
-		.encrypt_key = ENCRYPT_KEY,
-	};
-
-	map_update_elem(&cilium_encrypt_state, &encrypt_key, &cfg, BPF_ANY);
-
+	ipsec_set_encrypt_state(ENCRYPT_KEY);
 	node_v4_add_entry(DST_NODE_V4, 123, ENCRYPT_KEY);
 #endif
 
