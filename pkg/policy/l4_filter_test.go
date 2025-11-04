@@ -46,6 +46,7 @@ var (
 
 type testData struct {
 	sc              *SelectorCache
+	subjectSc       *SelectorCache
 	repo            *Repository
 	identityManager identitymanager.IDManager
 
@@ -77,14 +78,17 @@ func newTestData(tb testing.TB, logger *slog.Logger) *testData {
 	td := &testData{
 		identityManager:   idMgr,
 		sc:                testNewSelectorCache(tb, logger, nil),
+		subjectSc:         testNewSelectorCache(tb, logger, nil),
 		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
 		idSet:             set.NewSet[identity.NumericIdentity](),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}
-	td.testPolicyContext.sc = td.sc
 	td.repo.selectorCache = td.sc
+	td.repo.subjectSelectorCache = td.subjectSc
+	td.testPolicyContext.sc = td.sc
 
 	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
+	td.sc.AddIdentitySelectorForTest(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
 
 	td.cachedSelectorCIDR = func(cidr api.CIDR) CachedSelector {
 		css, _ := td.sc.AddSelectors(dummySelectorCacheUser, EmptyStringLabels, types.ToSelector(cidr))
@@ -130,6 +134,9 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 	for _, im := range initIDs {
 		maps.Copy(initial, im)
 	}
+	for id, lbls := range initial {
+		td.identityManager.Add(&identity.Identity{ID: id, Labels: lbls.Labels(), LabelArray: lbls})
+	}
 	wg := &sync.WaitGroup{}
 	td.sc.UpdateIdentities(initial, nil, wg)
 	wg.Wait()
@@ -142,6 +149,10 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 
 func (td *testData) addIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
+	td.subjectSc.UpdateIdentities(
+		identity.IdentityMap{
+			id.ID: id.LabelArray,
+		}, nil, wg)
 	td.sc.UpdateIdentities(
 		identity.IdentityMap{
 			id.ID: id.LabelArray,
@@ -152,6 +163,11 @@ func (td *testData) addIdentity(id *identity.Identity) {
 
 func (td *testData) removeIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
+	td.subjectSc.UpdateIdentities(
+		nil,
+		identity.IdentityMap{
+			id.ID: id.LabelArray,
+		}, wg)
 	td.sc.UpdateIdentities(
 		nil,
 		identity.IdentityMap{

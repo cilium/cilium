@@ -5,6 +5,7 @@ package policy
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
@@ -72,6 +73,12 @@ func (cache *policyCache) GetPolicySnapshot() map[identityPkg.NumericIdentity]Se
 func (cache *policyCache) insert(identity *identityPkg.Identity) *cachedSelectorPolicy {
 	cache.Lock()
 	defer cache.Unlock()
+
+	wg := sync.WaitGroup{}
+	// This is only used for updating identities in the subject selector cache, that is used to index and track
+	// policies selecting identities used on the local node
+	cache.repo.subjectSelectorCache.UpdateIdentities(identityPkg.IdentityMap{identity.ID: identity.LabelArray}, nil, &wg)
+
 	cip, ok := cache.lookupLocked(identity)
 	if !ok {
 		cip = newCachedSelectorPolicy(identity)
@@ -86,6 +93,12 @@ func (cache *policyCache) insert(identity *identityPkg.Identity) *cachedSelector
 func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 	cache.Lock()
 	defer cache.Unlock()
+
+	wg := sync.WaitGroup{}
+	// This is only used for updating identities in the subject selector cache, that is used to index and track
+	// policies selecting identities used on the local node
+	cache.repo.subjectSelectorCache.UpdateIdentities(nil, identityPkg.IdentityMap{identity.ID: identity.LabelArray}, &wg)
+
 	cip, ok := cache.policies[identity.ID]
 	if ok {
 		delete(cache.policies, identity.ID)
