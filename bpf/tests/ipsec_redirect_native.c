@@ -6,7 +6,7 @@
 #include "lib/bpf_host.h"
 
 #include "node_config.h"
-#include "lib/encrypt.h"
+
 #include "tests/lib/ipcache.h"
 #include "tests/lib/node.h"
 

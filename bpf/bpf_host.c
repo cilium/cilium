@@ -52,6 +52,7 @@
 #include "lib/tailcall.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
+#include "lib/ipsec.h"
 #include "lib/wireguard.h"
 #include "lib/l2_responder.h"
 #include "lib/vtep.h"
