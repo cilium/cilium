@@ -688,6 +688,7 @@ jobs:
           echo "total_drops=$total_drops" >> $GITHUB_OUTPUT
 
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+        id: run-tests
         run: |
           cilium --context ${{ env.contextName1 }} connectivity test ${{ steps.connectivity_flags.outputs.flags }} \
           --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -756,7 +757,7 @@ jobs:
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium-cluster1.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"

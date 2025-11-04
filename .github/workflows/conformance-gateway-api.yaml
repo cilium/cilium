@@ -345,6 +345,7 @@ jobs:
 
       - name: Run basic CLI tests (${{ join(matrix.*, ', ') }})
         shell: bash
+        id: run-tests
         run: |
           mkdir -p cilium-junits
           cilium connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
@@ -365,11 +366,19 @@ jobs:
           if-no-files-found: ignore
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
+          # Cilium runs on the runner host against a live kind cluster, so its
+          # feature status can be captured whenever Cilium installed
+          # successfully. Do not gate feature capture on the basic CLI test
+          # outcome: when the Gateway API conformance test fails or times out
+          # the basic CLI test is skipped, but the cluster is still healthy and
+          # its features must still be collected so features-tested-*.json
+          # exists on every leg.
+          capture_features_tested: ${{ steps.install-cilium.outcome == 'success' }}
 
   merge-upload-and-status:
     name: Merge Upload and Status

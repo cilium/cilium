@@ -302,6 +302,7 @@ jobs:
             install/kubernetes/cilium
 
       - name: Install Cilium
+        id: install-cilium
         shell: bash
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
@@ -336,6 +337,7 @@ jobs:
           args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "ipsec"
 
       - name: Run sequential tests (${{ join(matrix.*, ', ') }})
+        id: run-tests
         shell: bash
         run: |
           mkdir -p cilium-junits
@@ -458,7 +460,7 @@ jobs:
           kubectl -n kube-system logs kvstore
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ matrix.name }}"
