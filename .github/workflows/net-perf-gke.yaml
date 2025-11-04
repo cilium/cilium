@@ -296,12 +296,13 @@ jobs:
           sudo chmod -R +r ./output
 
       - name: Run common post steps
-        if: ${{ always() && matrix.mode != 'baseline' }}
+        if: ${{ always() && matrix.mode != 'baseline' && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           always_capture_sysdump: true
           artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-perf.outcome != 'skipped' }}
 
       - name: Clean up ESP allow firewall rule
         if: ${{ always() && matrix.name == 'tunnel-ipsec' }}

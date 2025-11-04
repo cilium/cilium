@@ -201,6 +201,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Run tests after migration
+        id: run-tests
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: ces-enable
@@ -209,12 +210,13 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           always_capture_sysdump: true
           artifacts_suffix: "tests-ces-migrate"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
   merge-upload-and-status:
     name: Merge Upload and Status
