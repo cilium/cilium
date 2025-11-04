@@ -374,6 +374,10 @@ func (p *testPolicyContextType) GetLogger() *slog.Logger {
 	return p.logger
 }
 
+func (p *testPolicyContextType) HostSelector() CachedSelector {
+	return nil // not implemented
+}
+
 func (p *testPolicyContextType) Origin() ruleOrigin {
 	return NilRuleOrigin
 }

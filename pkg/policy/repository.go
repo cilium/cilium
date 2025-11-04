@@ -326,6 +326,13 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		logger:             p.logger.With(logfields.Identity, securityIdentity.ID),
 	}
 
+	// Make sure host selector is in the selector cache if needed
+	if ingressEnabled && option.Config.AlwaysAllowLocalhost() {
+		host := types.ToSelector(api.ReservedEndpointSelectors[labels.IDNameHost])
+		css := sc.AddSelectors(EmptyStringLabels, host)
+		policyCtx.hostSelector = css[0]
+	}
+
 	if ingressEnabled || egressEnabled {
 		// function to be able to use defer
 		err := func() error {

@@ -57,6 +57,9 @@ type PolicyContext interface {
 	// DefaultDenyEgress returns true if default deny is enabled for egress
 	DefaultDenyEgress() bool
 
+	// HostSelector() returns a non-nil cached selector if needed for ingress allow localhost
+	HostSelector() CachedSelector
+
 	SetOrigin(ruleOrigin)
 	Origin() ruleOrigin
 
@@ -73,6 +76,8 @@ type policyContext struct {
 	isDeny             bool
 	defaultDenyIngress bool
 	defaultDenyEgress  bool
+
+	hostSelector CachedSelector
 
 	origin ruleOrigin
 
@@ -127,6 +132,10 @@ func (p *policyContext) DefaultDenyIngress() bool {
 // DefaultDenyEgress returns true if default deny is enabled for egress
 func (p *policyContext) DefaultDenyEgress() bool {
 	return p.defaultDenyEgress
+}
+
+func (p *policyContext) HostSelector() CachedSelector {
+	return p.hostSelector
 }
 
 func (p *policyContext) SetOrigin(ro ruleOrigin) {
