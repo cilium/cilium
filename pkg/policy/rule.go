@@ -326,7 +326,7 @@ func mergePortProto(policyCtx PolicyContext, existingFilter, filterToMerge *L4Fi
 func mergeIngressPortProto(policyCtx PolicyContext, endpoints types.Selectors, auth *api.Authentication,
 	r api.Ports, p api.PortProtocol, proto api.L4Proto, resMap L4PolicyMap) (int, error) {
 	// Create a new L4Filter
-	filterToMerge, err := createL4IngressFilter(policyCtx, endpoints, auth, r, p, proto)
+	filterToMerge, err := createL4Filter(policyCtx, endpoints, auth, r, p, proto, true)
 	if err != nil {
 		return 0, err
 	}
@@ -584,7 +584,8 @@ func mergeEgress(policyCtx PolicyContext, toEndpoints types.Selectors, auth *api
 func mergeEgressPortProto(policyCtx PolicyContext, endpoints types.Selectors, auth *api.Authentication, r api.Ports, p api.PortProtocol,
 	proto api.L4Proto, resMap L4PolicyMap) (int, error) {
 	// Create a new L4Filter
-	filterToMerge, err := createL4EgressFilter(policyCtx, endpoints, auth, r, p, proto)
+	filterToMerge, err := createL4Filter(policyCtx, endpoints, auth, r, p, proto, false)
+
 	if err != nil {
 		return 0, err
 	}
