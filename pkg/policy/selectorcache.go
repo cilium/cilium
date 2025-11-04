@@ -6,7 +6,9 @@ package policy
 import (
 	"iter"
 	"log/slog"
+	"runtime"
 	"sync"
+	"weak"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
@@ -121,16 +123,16 @@ func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.
 
 type selectorMap struct {
 	// map key is the string representation of the selector being cached.
-	selectors map[string]*identitySelector
+	selectors map[string]weak.Pointer[identitySelector]
 
 	// selectorsByNamespace indexes selectors by namespace for faster updates
-	selectorsByNamespace map[string]map[*identitySelector]struct{}
+	selectorsByNamespace map[string]map[weak.Pointer[identitySelector]]struct{}
 }
 
 func selectorMapInitializer() selectorMap {
 	return selectorMap{
-		selectors:            make(map[string]*identitySelector),
-		selectorsByNamespace: make(map[string]map[*identitySelector]struct{}),
+		selectors:            make(map[string]weak.Pointer[identitySelector]),
+		selectorsByNamespace: make(map[string]map[weak.Pointer[identitySelector]]struct{}),
 	}
 }
 
@@ -142,10 +144,12 @@ func (m selectorMap) Empty() bool {
 	return m.Len() == 0
 }
 
+// All returns an iterator to all valid selectors in the map
 func (m *selectorMap) All() iter.Seq2[string, *identitySelector] {
 	return func(yield func(string, *identitySelector) bool) {
-		for key, sel := range m.selectors {
-			if !yield(key, sel) {
+		for key, wp := range m.selectors {
+			sel := wp.Value()
+			if sel != nil && !yield(key, sel) {
 				return
 			}
 		}
@@ -154,7 +158,16 @@ func (m *selectorMap) All() iter.Seq2[string, *identitySelector] {
 
 func (m *selectorMap) ByNamespace(ns string) iter.Seq[*identitySelector] {
 	return func(yield func(*identitySelector) bool) {
-		for sel := range m.selectorsByNamespace[ns] {
+		for wp := range m.selectorsByNamespace[ns] {
+			sel := wp.Value()
+			if sel == nil {
+				// clean up stale cached selectors as we go
+				delete(m.selectorsByNamespace[ns], wp)
+				if len(m.selectorsByNamespace[ns]) == 0 {
+					delete(m.selectorsByNamespace, ns)
+				}
+				continue
+			}
 			if !yield(sel) {
 				return
 			}
@@ -162,13 +175,38 @@ func (m *selectorMap) ByNamespace(ns string) iter.Seq[*identitySelector] {
 	}
 }
 
+// Get returns a selector in the map if it exists and is still valid
 func (m *selectorMap) Get(key string) (*identitySelector, bool) {
-	sel, exists := m.selectors[key]
-	return sel, exists
+	wp, exists := m.selectors[key]
+	sel := wp.Value()
+	return sel, exists && sel != nil
 }
 
-func (m *selectorMap) Set(key string, sel *identitySelector) {
-	m.selectors[key] = sel
+func (m *selectorMap) finalizer(sel *identitySelector) {
+	sel.selectorCache.mutex.Lock()
+	defer sel.selectorCache.mutex.Unlock()
+
+	if len(sel.users) > 0 {
+		sel.selectorCache.logger.Warn(
+			"selector GC'd with registered users",
+			logfields.User, sel.users,
+		)
+	}
+
+	// Must check that the selector has not been cached again while GC took the time to run this
+	// finalizer! We remove the weak pointer only if it cant be turned into a strong one.
+	wp, exists := m.selectors[sel.key]
+	newSel := wp.Value()
+	if exists && newSel == nil {
+		delete(m.selectors, sel.key)
+	}
+}
+
+func (m *selectorMap) Set(key string, sel *identitySelector, sc *SelectorCache) {
+	runtime.SetFinalizer(sel, m.finalizer)
+
+	wp := weak.Make(sel)
+	m.selectors[key] = wp
 
 	namespaces := sel.source.SelectedNamespaces()
 	if len(namespaces) == 0 {
@@ -178,31 +216,11 @@ func (m *selectorMap) Set(key string, sel *identitySelector) {
 	for _, ns := range namespaces {
 		idx, exists := m.selectorsByNamespace[ns]
 		if !exists {
-			idx = make(map[*identitySelector]struct{})
+			idx = make(map[weak.Pointer[identitySelector]]struct{})
 			m.selectorsByNamespace[ns] = idx
 		}
-		idx[sel] = struct{}{}
+		idx[wp] = struct{}{}
 	}
-}
-
-func (m *selectorMap) Delete(sel *identitySelector) {
-	namespaces := sel.source.SelectedNamespaces()
-	if len(namespaces) == 0 {
-		// use empty namespace string for selectors without namespace
-		// requirements
-		namespaces = []string{""}
-	}
-	for _, ns := range namespaces {
-		idx, exists := m.selectorsByNamespace[ns]
-		if exists {
-			delete(idx, sel)
-			if len(idx) == 0 {
-				delete(m.selectorsByNamespace, ns)
-			}
-		}
-	}
-
-	delete(m.selectors, sel.key)
 }
 
 // userNotification stores the information needed to call
@@ -320,7 +338,7 @@ func (sc *SelectorCache) Stats() selectorStats {
 	version := sc.getReadTxn()
 
 	for _, sel := range sc.selectors.All() {
-		if !sel.MaySelectPeers() {
+		if !sel.hasUsers() {
 			// Peer selectors impact policymap cardinality, but
 			// subject selectors do not. Do not count cardinality
 			// if the selector is only used for policy subjects.
@@ -479,6 +497,62 @@ func (sc *SelectorCache) Commit() {
 	sc.commit()
 }
 
+// AddSelectorUser registers 'user' for incremental updates for each CachedSelector in 'csMap'.
+func AddSelectorUser[T any](sc *SelectorCache, user CachedSelectionUser, csMap map[CachedSelector]T) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	for cs := range csMap {
+		cs.(*identitySelector).addUser(user, sc.localIdentityNotifier)
+	}
+}
+
+// RemoveUser removes the user from the given cached selector.
+func RemoveSelectorUser[T any](sc *SelectorCache, user CachedSelectionUser, csMap map[CachedSelector]T) {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	for cs := range csMap {
+		cs.(*identitySelector).removeUser(user, sc.localIdentityNotifier)
+	}
+}
+
+// AddUser registers 'user' for incremental updates for each CachedSelector in 'css'.
+func (sc *SelectorCache) AddUser(user CachedSelectionUser, css ...CachedSelector) bool {
+	sc.mutex.Lock()
+	defer sc.mutex.Unlock()
+
+	added := false
+	for _, cs := range css {
+		if sel, ok := cs.(*identitySelector); ok {
+			if sel.addUser(user, sc.localIdentityNotifier) {
+				added = true
+			}
+		}
+	}
+	return added
+}
+
+// RemoveUser removes the user from the given cached selector.
+func (sc *SelectorCache) RemoveUser(user CachedSelectionUser, selectors ...types.CachedSelector) {
+	sc.mutex.Lock()
+	for _, selector := range selectors {
+		selector.(*identitySelector).removeUser(user, sc.localIdentityNotifier)
+	}
+	sc.mutex.Unlock()
+}
+
+// userCount returns the current user count of the given cached selector
+// Useful for testing that users are removed properly.
+func (sc *SelectorCache) userCount(cs CachedSelector) int {
+	if sel, ok := cs.(*identitySelector); ok {
+		sc.mutex.RLock()
+		defer sc.mutex.RUnlock()
+		return sel.numUsers()
+	}
+	return 0
+}
+
 func selectsAll(selectors ...Selector) bool {
 	if len(selectors) == 0 {
 		return true
@@ -494,7 +568,7 @@ func selectsAll(selectors ...Selector) bool {
 // AddSelectorsTxn adds Selectors in to the selector cache, and returns the corresponding
 // slice of cached selectors.
 // Commit() must be called aftewards to make the selections of new selectors observable by readers.
-func (sc *SelectorCache) AddSelectorsTxn(user CachedSelectionUser, lbls stringLabels, selectors ...Selector) (CachedSelectorSlice, bool) {
+func (sc *SelectorCache) AddSelectorsTxn(lbls stringLabels, selectors ...Selector) CachedSelectorSlice {
 	if selectsAll(selectors...) {
 		selectors = []Selector{types.WildcardSelector}
 	}
@@ -502,13 +576,13 @@ func (sc *SelectorCache) AddSelectorsTxn(user CachedSelectionUser, lbls stringLa
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
-	return sc.addSelectorsTxn(user, lbls, selectors...)
+	return sc.addSelectorsTxn(lbls, selectors...)
 }
 
 // AddSelectors adds Selectors in to the selector cache, and returns the corresponding slice of
 // cached selectors.
 // Selections of new selectors are visible to readers right after this call.
-func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabels, selectors ...Selector) (CachedSelectorSlice, bool) {
+func (sc *SelectorCache) AddSelectors(lbls stringLabels, selectors ...Selector) CachedSelectorSlice {
 	if selectsAll(selectors...) {
 		selectors = []Selector{types.WildcardSelector}
 	}
@@ -517,13 +591,12 @@ func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabel
 	defer sc.mutex.Unlock()
 
 	defer sc.commit()
-	return sc.addSelectorsTxn(user, lbls, selectors...)
+	return sc.addSelectorsTxn(lbls, selectors...)
 }
 
-func (sc *SelectorCache) addSelectorsTxn(user CachedSelectionUser, lbls stringLabels, selectors ...Selector) (CachedSelectorSlice, bool) {
+func (sc *SelectorCache) addSelectorsTxn(lbls stringLabels, selectors ...Selector) CachedSelectorSlice {
 	css := make(CachedSelectorSlice, len(selectors))
 
-	added := false
 	for i, selector := range selectors {
 		// Check if the selector has already been cached
 		key := selector.Key()
@@ -533,20 +606,16 @@ func (sc *SelectorCache) addSelectorsTxn(user CachedSelectionUser, lbls stringLa
 			sel = sc.addSelectorLocked(sc.writeTxn, lbls, key, selector)
 		}
 
-		if sel.addUser(user, sc.localIdentityNotifier) {
-			added = true
-		}
 		css[i] = sel
 	}
-
-	return css, added
+	return css
 }
 
 // must hold lock for writing
 func (sc *SelectorCache) addSelectorLocked(txn SelectorTxn, lbls stringLabels, key string, source Selector) *identitySelector {
 	idSel := newIdentitySelector(sc, key, source, lbls)
 
-	sc.selectors.Set(key, idSel)
+	sc.selectors.Set(key, idSel, sc)
 
 	// Scan the cached set of IDs to determine any new matchers
 	for nid := range sc.idCache.selections(idSel) {
@@ -587,54 +656,6 @@ func (sc *SelectorCache) AddIdentitySelectorForTest(user CachedSelectionUser, lb
 	return sel, sel.addUser(user, sc.localIdentityNotifier)
 }
 
-// lock must be held
-func (sc *SelectorCache) removeSelectorLocked(txn SelectorTxn, selector CachedSelector, user CachedSelectionUser) {
-	key := selector.String()
-	sel, exists := sc.selectors.Get(key)
-	if exists && sel.removeUser(user, sc.localIdentityNotifier) {
-		sc.selectors.Delete(sel)
-		sel.updateSelections(txn)
-	}
-}
-
-// RemoveSelector removes CachedSelector for the user.
-func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
-	sc.mutex.Lock()
-	txn := sc.selections.Txn()
-	sc.removeSelectorLocked(txn, selector, user)
-	sc.revision++
-	sc.selections = txn.Commit()
-	sc.mutex.Unlock()
-}
-
-// RemoveSelectors removes CachedSelectorSlice for the user.
-func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
-	sc.mutex.Lock()
-	txn := sc.selections.Txn()
-	for _, selector := range selectors {
-		sc.removeSelectorLocked(txn, selector, user)
-	}
-	sc.revision++
-	sc.selections = txn.Commit()
-	sc.mutex.Unlock()
-}
-
-// ChangeUser changes the CachedSelectionUser that gets updates on the
-// updates on the cached selector.
-func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSelectionUser) {
-	key := selector.String()
-	sc.mutex.Lock()
-	sel, exists := sc.selectors.Get(key)
-	if exists {
-		// Add before remove so that the count does not dip to zero in between,
-		// as this causes FQDN unregistration (if applicable).
-		sel.addUser(to, nil)
-		// ignoring the return value as we have just added a user above
-		sel.removeUser(from, nil)
-	}
-	sc.mutex.Unlock()
-}
-
 // CanSkipUpdate returns true if a proposed update is already known to the SelectorCache
 // and thus a no-op. Is used to de-dup an ID update stream, because identical updates
 // may come from multiple sources.
@@ -668,7 +689,7 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 // Returns:
 // - updated as true if any changes were made
 // - mutated as true if any identity was mutated
-func (sc *SelectorCache) updateSelections(txn SelectorTxn, sel *identitySelector, added identity.NumericIdentitySlice, deleted identity.IdentityMap, wg *sync.WaitGroup) (updated, mutated bool) {
+func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.NumericIdentitySlice, deleted identity.IdentityMap, wg *sync.WaitGroup) (updated, mutated bool) {
 	var adds, dels []identity.NumericIdentity
 	for numericID := range deleted {
 		if _, exists := sel.cachedSelections[numericID]; exists {
@@ -697,7 +718,7 @@ func (sc *SelectorCache) updateSelections(txn SelectorTxn, sel *identitySelector
 	}
 	if len(dels)+len(adds) > 0 {
 		updated = true
-		sel.updateSelections(txn)
+		sel.updateSelections(sc.writeTxn)
 		sel.notifyUsers(sc, adds, dels, wg)
 	}
 	return updated, mutated
@@ -808,7 +829,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 			// Iterate through all locally used identity selectors and
 			// update the cached numeric identities as required.
 			for sel := range sc.selectors.ByNamespace(ns) {
-				u, m := sc.updateSelections(sc.writeTxn, sel, nsAdded, deleted, wg)
+				u, m := sc.updateSelections(sel, nsAdded, deleted, wg)
 				updated = updated || u
 				mutated = mutated || m
 			}

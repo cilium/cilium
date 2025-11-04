@@ -87,21 +87,6 @@ func (s *Selectors) DeepEqual(other *Selectors) bool {
 	return true
 }
 
-// SelectsAllEndpoints returns true if the Selectors selects all endpoints.
-// This is the case if the slice is empty, or if any of the Selectors is a wildcard
-// EndpointSelector.
-func (s Selectors) SelectsAllEndpoints() bool {
-	if len(s) == 0 {
-		return true
-	}
-	for idx := range s {
-		if s[idx].IsWildcard() {
-			return true
-		}
-	}
-	return false
-}
-
 // WithRequirements returns a copy of the Selectors with the specified
 // label requirements applied to all EndpointSelectors.
 func (s Selectors) WithRequirements(requirements []slim_metav1.LabelSelectorRequirement) Selectors {
@@ -174,7 +159,6 @@ func ToSelectors[T PeerSelector](peers ...T) Selectors {
 		}
 		sources = append(sources, sr)
 	}
-
 	return sources
 }
 
@@ -673,9 +657,4 @@ type CachedSelectionUser interface {
 	// IdentitySelectionCommit tells the user that all IdentitySelectionUpdated calls relating
 	// to a specific added or removed identity have been made.
 	IdentitySelectionCommit(*slog.Logger, SelectorReadTxn)
-
-	// IsPeerSelector returns true if the selector is used by the policy
-	// engine for selecting traffic for remote peers. False if used for
-	// selecting policy subjects.
-	IsPeerSelector() bool
 }

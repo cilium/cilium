@@ -85,13 +85,10 @@ func newIdentitySelector(sc *SelectorCache, key string, source Selector, lbls st
 	}
 }
 
-func (i *identitySelector) MaySelectPeers() bool {
-	for user := range i.users {
-		if user.IsPeerSelector() {
-			return true
-		}
-	}
-	return false
+// read lock must be held
+func (i *identitySelector) hasUsers() bool {
+	// Any identity selector with users may select peers
+	return len(i.users) > 0
 }
 
 // identitySelector implements CachedSelector
@@ -199,21 +196,17 @@ func (i *identitySelector) addUser(user CachedSelectionUser, idNotifier identity
 	return true
 }
 
-// locks must be held for the dnsProxy and the SelectorCache (if the selector is a FQDN selector)
-func (i *identitySelector) removeUser(user CachedSelectionUser, idNotifier identityNotifier) (last bool) {
+// locks must be held for the SelectorCache
+func (i *identitySelector) removeUser(user CachedSelectionUser, idNotifier identityNotifier) {
 	if _, exists := i.users[user]; exists {
 		delete(i.users, user)
 
-		if len(i.users) == 0 {
-			if idNotifier != nil {
-				if fqdn, ok := i.source.GetFQDNSelector(); ok {
-					idNotifier.UnregisterFQDNSelector(*fqdn)
-				}
+		if len(i.users) == 0 && idNotifier != nil {
+			if fqdn, ok := i.source.GetFQDNSelector(); ok {
+				idNotifier.UnregisterFQDNSelector(*fqdn)
 			}
-			return true
 		}
 	}
-	return false
 }
 
 // lock must be held

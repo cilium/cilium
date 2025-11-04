@@ -17,7 +17,3 @@ func (d *DummySelectorCacheUser) IdentitySelectionUpdated(logger *slog.Logger, s
 
 func (d *DummySelectorCacheUser) IdentitySelectionCommit(logger *slog.Logger, txn types.SelectorReadTxn) {
 }
-
-func (d *DummySelectorCacheUser) IsPeerSelector() bool {
-	return true
-}
