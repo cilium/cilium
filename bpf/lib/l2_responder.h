@@ -40,7 +40,10 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_l2_responder_v6 __section_maps_btf;
 
-#ifdef ENABLE_L2_ANNOUNCEMENTS
+DECLARE_CONFIG(bool, enable_l2_announcements, "Enable L2 Announcements")
+DECLARE_CONFIG(__u64, l2_announcements_max_liveness,
+	       "If the agent is down for longer than the lease duration, stop responding")
+
 static __always_inline
 int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 {
@@ -65,7 +68,7 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 	 * of the responder map anymore. So stop responding, assuming other nodes
 	 * will take over for a node without an active agent.
 	 */
-	if (ktime_get_ns() - (time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
+	if (ktime_get_ns() - (time) > CONFIG(l2_announcements_max_liveness))
 		return CTX_ACT_OK;
 
 	if (!ip6) {
@@ -109,4 +112,3 @@ int handle_l2_announcement(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 
 	return ret;
 }
-#endif

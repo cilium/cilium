@@ -1019,25 +1019,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 	int ret;
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || \
-     defined ENABLE_L2_ANNOUNCEMENTS
-	case bpf_htons(ETH_P_ARP):
-		if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
-			ret = DROP_INVALID;
-			goto drop_err_ingress;
-		}
-
-		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
-				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
-		#ifdef ENABLE_L2_ANNOUNCEMENTS
-			ret = handle_l2_announcement(ctx, NULL);
-			if (IS_ERR(ret))
-				goto drop_err_egress;
-		#else
-			ret = CTX_ACT_OK;
-		#endif
-		break;
-# endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
@@ -1045,8 +1026,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			goto drop_err_ingress;
 		}
 
-#ifdef ENABLE_L2_ANNOUNCEMENTS
-		if (ip6->nexthdr == NEXTHDR_ICMP) {
+		if (CONFIG(enable_l2_announcements) && ip6->nexthdr == NEXTHDR_ICMP) {
 			ret = handle_l2_announcement(ctx, ip6);
 			if (IS_ERR(ret))
 				goto drop_err_egress;
@@ -1059,8 +1039,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 				goto drop_err_ingress;
 			}
 		}
-
-#endif /*ENABLE_L2_ANNOUNCEMENTS */
 
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
@@ -1137,6 +1115,30 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
+	case bpf_htons(ETH_P_ARP):
+		if (is_defined(ENABLE_ARP_PASSTHROUGH) ||
+		    is_defined(ENABLE_ARP_RESPONDER) ||
+		    CONFIG(enable_l2_announcements)) {
+			if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
+				ret = DROP_INVALID;
+				goto drop_err_ingress;
+			}
+
+			send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+					  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
+
+			if (CONFIG(enable_l2_announcements)) {
+				ret = handle_l2_announcement(ctx, NULL);
+				if (IS_ERR(ret))
+					goto drop_err_egress;
+			} else {
+				ret = CTX_ACT_OK;
+			}
+
+			break;
+		}
+
+		fallthrough;
 	default:
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);

@@ -25,7 +25,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(3) {
+		for permutation := range permute(4) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
@@ -35,6 +35,7 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 			} else {
 				cfg.EthHeaderLength = 14
 			}
+			cfg.EnableL2Announcements = permutation[3]
 
 			if !yield(cfg) {
 				return
