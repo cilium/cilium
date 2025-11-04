@@ -1470,8 +1470,8 @@ func TestReplaceByResource(t *testing.T) {
 	// selectorcache changes carefully
 	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
-	repo.selectorCache = sc
 	assert.True(t, sc.selectors.Empty())
+	repo.subjectSelectorCache = sc
 
 	// create 10 rules, each with a subject selector that selects one identity.
 

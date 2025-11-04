@@ -56,10 +56,10 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager iden
 	if flow.From.ID == 0 || flow.To.ID == 0 {
 		return api.Undecided, ingress, egress, fmt.Errorf("cannot lookup flow: numeric IDs missing")
 	}
-	if !repo.GetSelectorCache().idCache.exists(flow.From.ID) {
+	if !repo.GetSubjectSelectorCache().idCache.exists(flow.From.ID) {
 		return api.Undecided, ingress, egress, fmt.Errorf("From.ID not in SelectorCache!")
 	}
-	if !repo.GetSelectorCache().idCache.exists(flow.To.ID) {
+	if !repo.GetSubjectSelectorCache().idCache.exists(flow.To.ID) {
 		return api.Undecided, ingress, egress, fmt.Errorf("To.ID not in SelectorCache!")
 	}
 	if flow.Dport == 0 {
