@@ -1184,7 +1184,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		if updateEnvoy {
 			e.getLogger().Debug(
 				"applyPolicyMapChanges: Updating Envoy NetworkPolicy",
-				logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
+				logfields.SelectorCacheVersion, e.GetPolicyReadTxn(),
 			)
 			stats.proxyPolicyCalculation.Start()
 			var rf revert.RevertFunc
@@ -1197,7 +1197,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			// Wait for a possible ongoing update to be done if there were no current changes.
 			e.getLogger().Debug(
 				"applyPolicyMapChanges: Using current Networkpolicy",
-				logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
+				logfields.SelectorCacheVersion, e.GetPolicyReadTxn(),
 			)
 			e.proxy.UseCurrentNetworkPolicy(e, &e.desiredPolicy.SelectorPolicy.L4Policy, proxyWaitGroup)
 		}

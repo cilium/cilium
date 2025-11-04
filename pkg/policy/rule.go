@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -40,7 +39,7 @@ type rule struct {
 func (r *rule) IdentitySelectionUpdated(logger *slog.Logger, selector types.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
-func (d *rule) IdentitySelectionCommit(*slog.Logger, *versioned.Tx) {
+func (d *rule) IdentitySelectionCommit(*slog.Logger, SelectorReadTxn) {
 }
 
 func (r *rule) IsPeerSelector() bool {
@@ -489,7 +488,7 @@ func (r *rule) matchesSubject(logger *slog.Logger, securityIdentity *identity.Id
 		return r.Subject.Matches(logger, securityIdentity.LabelArray)
 	}
 
-	return r.subjectSelector.Selects(versioned.Latest(), securityIdentity.ID)
+	return r.subjectSelector.Selects(securityIdentity.ID)
 }
 
 func (r *rule) getSubjects() []identity.NumericIdentity {
@@ -497,7 +496,7 @@ func (r *rule) getSubjects() []identity.NumericIdentity {
 		return []identity.NumericIdentity{identity.ReservedIdentityHost}
 	}
 
-	return r.subjectSelector.GetSelections(versioned.Latest())
+	return r.subjectSelector.GetSelections()
 }
 
 // ****************** EGRESS POLICY ******************

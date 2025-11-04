@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 
 	"github.com/cilium/cilium/pkg/container/bitlpm"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -891,12 +890,12 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 // granularity of individual mapstate key-value pairs for both adds
 // and deletes. 'mutex' must be held for any access.
 type MapChanges struct {
-	logger       *slog.Logger
-	firstVersion versioned.KeepVersion
-	mutex        lock.Mutex
-	changes      []mapChange
-	synced       []mapChange
-	version      *versioned.VersionHandle
+	logger   *slog.Logger
+	firstRev types.SelectorRevision
+	mutex    lock.Mutex
+	changes  []mapChange
+	synced   []mapChange
+	txn      SelectorReadTxn
 }
 
 type mapChange struct {
@@ -942,23 +941,23 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 }
 
 // SyncMapChanges moves the current batch of changes to 'synced' to be consumed as a unit
-func (mc *MapChanges) SyncMapChanges(txn *versioned.Tx) {
+func (mc *MapChanges) SyncMapChanges(txn SelectorReadTxn) {
 	mc.mutex.Lock()
 	defer mc.mutex.Unlock()
 	if len(mc.changes) > 0 {
 		// Only apply changes after the initial version
-		if txn.After(mc.firstVersion) {
+
+		if txn.After(mc.firstRev) {
 			mc.synced = append(mc.synced, mc.changes...)
-			mc.version.Close()
-			mc.version = txn.GetVersionHandle()
+			mc.txn = txn
 			mc.logger.Debug(
 				"SyncMapChanges: Got handle on the new version",
-				logfields.NewVersion, mc.version,
+				logfields.NewVersion, mc.txn,
 			)
 		} else {
 			mc.logger.Debug(
 				"SyncMapChanges: Discarding already applied changes",
-				logfields.Version, mc.firstVersion,
+				logfields.Version, mc.firstRev,
 				logfields.OldVersion, txn,
 			)
 		}
@@ -969,13 +968,13 @@ func (mc *MapChanges) SyncMapChanges(txn *versioned.Tx) {
 // detach releases any version handle we may hold
 func (mc *MapChanges) detach() {
 	mc.mutex.Lock()
-	mc.version.Close()
+	mc.txn.Close()
 	mc.mutex.Unlock()
 }
 
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,
 // while applying the changes to PolicyMapState.
-func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatures) (*versioned.VersionHandle, ChangeState) {
+func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatures) (SelectorReadTxn, ChangeState) {
 	mc.mutex.Lock()
 	defer mc.mutex.Unlock()
 	changes := ChangeState{
@@ -1000,8 +999,8 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 	}
 
 	// move version to the caller
-	version := mc.version
-	mc.version = nil
+	version := mc.txn
+	mc.txn.Close()
 
 	mc.synced = nil
 

@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
@@ -748,19 +747,19 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 			continue
 		}
 
-		idents := cs.GetSelections(p.VersionHandle)
+		idents := cs.GetSelectionsAt(p.readTxn)
 		if option.Config.Debug {
 			if entry.IsDeny() {
 				scopedLog.Debug(
 					"ToMapState: Denied remote IDs",
-					logfields.Version, p.VersionHandle,
+					logfields.Version, p.readTxn,
 					logfields.EndpointSelector, cs,
 					logfields.PolicyID, idents,
 				)
 			} else {
 				scopedLog.Debug(
 					"ToMapState: Allowed remote IDs",
-					logfields.Version, p.VersionHandle,
+					logfields.Version, p.readTxn,
 					logfields.EndpointSelector, cs,
 					logfields.PolicyID, idents,
 				)
@@ -814,7 +813,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(logger *slog.Logger, cs types.Cache
 	}
 }
 
-func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn *versioned.Tx) {
+func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn SelectorReadTxn) {
 	logger.Debug(
 		"identity selection updates done",
 		logfields.NewVersion, txn,
@@ -1104,7 +1103,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy, allowLocalhost
 	for cs, sp := range l4.PerSelectorPolicies {
 		if sp != nil {
 			// Allow localhost if requested and this is a redirect that selects the host
-			if allowLocalhost && sp.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
+			if allowLocalhost && sp.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
 				// Make sure host selector is in the selector cache.
 				host := api.ReservedEndpointSelectors[labels.IDNameHost]
 				css, _ := ctx.GetSelectorCache().AddSelectors(l4, ctx.Origin().stringLabels(), types.ToSelector(host))
@@ -1647,7 +1646,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 }
 
 // SyncMapChanges marks earlier updates as completed
-func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn *versioned.Tx) {
+func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn SelectorReadTxn) {
 	// SelectorCache may not be called into while holding this lock!
 	l4Policy.mutex.RLock()
 

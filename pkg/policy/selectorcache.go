@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -100,7 +99,7 @@ func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.
 			// iterate identities in selected namespaces
 			for _, ns := range namespaces {
 				for id := range c.byNamespace[ns] {
-					if idSel.source.Matches(idSel.logger, id.lbls) {
+					if idSel.source.Matches(idSel.selectorCache.logger, id.lbls) {
 						if !yield(id.NID) {
 							return
 						}
@@ -110,7 +109,7 @@ func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.
 		} else {
 			// no namespaces selected, iterate through all identities
 			for nid, id := range c.ids {
-				if idSel.source.Matches(idSel.logger, id.lbls) {
+				if idSel.source.Matches(idSel.selectorCache.logger, id.lbls) {
 					if !yield(nid) {
 						return
 					}
@@ -126,8 +125,8 @@ func (c *scIdentityCache) selections(idSel *identitySelector) iter.Seq[identity.
 // in FIFO order while not holding any locks.
 type userNotification struct {
 	user     CachedSelectionUser
-	selector CachedSelector // nil for a sync notification
-	txn      *versioned.Tx  // nil for non-sync notifications
+	selector CachedSelector  // nil for a sync notification
+	txn      SelectorReadTxn // empty for non-sync notifications
 	added    []identity.NumericIdentity
 	deleted  []identity.NumericIdentity
 	wg       *sync.WaitGroup
@@ -138,12 +137,10 @@ type userNotification struct {
 type SelectorCache struct {
 	logger *slog.Logger
 
-	versioned *versioned.Coordinator
-
 	mutex lock.RWMutex
 
-	// selectorUpdates tracks changed selectors for efficient cleanup of old versions
-	selectorUpdates versioned.VersionedSlice[*identitySelector]
+	selections types.SelectionsMap
+	revision   types.SelectorRevision
 
 	// idCache contains all known identities as informed by the
 	// kv-store and the local identity facility via our
@@ -172,27 +169,30 @@ type SelectorCache struct {
 	startNotificationsHandlerOnce sync.Once
 }
 
-// GetVersionHandleFunc calls the given function with a versioned.VersionHandle for the
-// current version of SelectorCache selections while selector cache is locked for writing, so that
-// the caller may get ready for getting incremental updates that are possible right after the lock
-// is released.
-// This should only be used with trivial functions that can not lock or sleep.
-// Use the plain 'GetVersionHandle' whenever possible, as it does not lock the selector cache.
-// VersionHandle passed to 'f' must be closed with Close().
-func (sc *SelectorCache) GetVersionHandleFunc(f func(*versioned.VersionHandle)) {
+func (sc *SelectorCache) getReadTxn() SelectorReadTxn {
+	return types.GetSelectorReadTxn(sc.selections, sc.revision)
+}
+
+func (sc *SelectorCache) GetReadTxn() SelectorReadTxn {
+	sc.mutex.RLock()
+	defer sc.mutex.RUnlock()
+	return sc.getReadTxn()
+}
+
+// GetReadTxnFunc calls the given function with a statedb.ReadTxn for the current version of
+// SelectorCache selections while selector cache is locked for writing, so that the caller may get
+// ready for getting incremental updates that are possible right after the lock is released.
+// This should only be used with trivial functions that can not lock or sleep.  Use the plain
+// 'GetReadTxn' whenever possible, as it does not lock the selector cache.  SelectorReadTxn passed
+// to 'f' must be closed with Close().
+func (sc *SelectorCache) GetReadTxnFunc(f func(SelectorReadTxn)) {
 	// Lock synchronizes with UpdateIdentities() so that we do not use a stale version
 	// that may already have received partial incremental updates.
 	// Incremental updates are delivered asynchronously, so so the caller may still receive
 	// updates for older versions. These should be filtered out.
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-	f(sc.GetVersionHandle())
-}
-
-// GetVersionHandle returns a VersoionHandle for the current version.
-// The returned VersionHandle must be closed with Close()
-func (sc *SelectorCache) GetVersionHandle() *versioned.VersionHandle {
-	return sc.versioned.GetVersionHandle()
+	sc.mutex.RLock()
+	defer sc.mutex.RUnlock()
+	f(sc.getReadTxn())
 }
 
 // GetModel returns the API model of the SelectorCache.
@@ -204,20 +204,19 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 
 	// Get handle to the current version. Any concurrent updates will not be visible in the
 	// returned model.
-	version := sc.GetVersionHandle()
-	defer version.Close()
+	version := sc.getReadTxn()
 
-	for selector, idSel := range sc.selectors {
-		selections := idSel.GetSelections(version)
+	for key, sel := range sc.selectors {
+		selections := sel.GetSelectionsAt(version)
 		ids := make([]int64, 0, len(selections))
 		for i := range selections {
 			ids = append(ids, int64(selections[i]))
 		}
 		selMdl := &models.SelectorIdentityMapping{
-			Selector:   selector,
+			Selector:   key,
 			Identities: ids,
-			Users:      int64(idSel.numUsers()),
-			Labels:     labelArrayToModel(idSel.GetMetadataLabels()),
+			Users:      int64(sel.numUsers()),
+			Labels:     labelArrayToModel(sel.GetMetadataLabels()),
 		}
 		selCacheMdl = append(selCacheMdl, selMdl)
 	}
@@ -231,19 +230,18 @@ func (sc *SelectorCache) Stats() selectorStats {
 	sc.mutex.RLock()
 	defer sc.mutex.RUnlock()
 
-	version := sc.GetVersionHandle()
-	defer version.Close()
+	version := sc.getReadTxn()
 
-	for _, idSel := range sc.selectors {
-		if !idSel.MaySelectPeers() {
+	for _, sel := range sc.selectors {
+		if !sel.MaySelectPeers() {
 			// Peer selectors impact policymap cardinality, but
 			// subject selectors do not. Do not count cardinality
 			// if the selector is only used for policy subjects.
 			continue
 		}
 
-		selections := idSel.GetSelections(version)
-		class := idSel.source.MetricsClass()
+		selections := sel.GetSelectionsAt(version)
+		class := sel.source.MetricsClass()
 		if result.maxCardinalityByClass[class] < len(selections) {
 			result.maxCardinalityByClass[class] = len(selections)
 		}
@@ -308,7 +306,7 @@ func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selecto
 	sc.userCond.Signal()
 }
 
-func (sc *SelectorCache) queueNotifiedUsersCommit(txn *versioned.Tx, wg *sync.WaitGroup) {
+func (sc *SelectorCache) queueNotifiedUsersCommit(txn SelectorReadTxn, wg *sync.WaitGroup) {
 	sc.userMutex.Lock()
 	for user := range sc.notifiedUsers {
 		wg.Add(1)
@@ -334,11 +332,6 @@ func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCa
 		selectorsByNamespace: make(map[string]map[*identitySelector]struct{}),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
-	sc.versioned = &versioned.Coordinator{
-		Cleaner: sc.oldVersionCleaner,
-		Logger:  logger,
-	}
-
 	return sc
 }
 
@@ -346,28 +339,6 @@ func (sc *SelectorCache) RegisterMetrics() {
 	if err := metrics.Register(newSelectorCacheMetrics(sc)); err != nil {
 		sc.logger.Warn("Selector cache metrics registration failed. No metrics will be reported.", logfields.Error, err)
 	}
-}
-
-// oldVersionCleaner is called from a goroutine without holding any locks
-func (sc *SelectorCache) oldVersionCleaner(keepVersion versioned.KeepVersion) {
-	// Log before taking the lock so that if we ever have a deadlock here this log line will be seen
-	sc.logger.Debug(
-		"Cleaning old selector and identity versions",
-		logfields.Version, keepVersion,
-	)
-
-	// This is called when some versions are no longer needed, from wherever
-	// VersionHandle's may be kept, so we must take the lock to safely access
-	// 'sc.selectorUpdates'.
-	sc.mutex.Lock()
-	defer sc.mutex.Unlock()
-
-	n := 0
-	for idSel := range sc.selectorUpdates.Before(keepVersion) {
-		idSel.selections.RemoveBefore(keepVersion)
-		n++
-	}
-	sc.selectorUpdates = sc.selectorUpdates[n:]
 }
 
 // SetLocalIdentityNotifier injects the provided identityNotifier into the
@@ -428,34 +399,35 @@ func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabel
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
+	txn := sc.selections.Txn()
+	changed := false
 	for i, selector := range selectors {
 		// Check if the selector has already been cached
 		key := selector.Key()
 		sel, exists := sc.selectors[key]
 		if !exists {
 			// add the selector to the selector cache
-			sel = sc.addSelectorLocked(lbls, key, selector)
+			sel = sc.addSelectorLocked(txn, lbls, key, selector)
+			changed = true
 		}
 
 		if sel.addUser(user, sc.localIdentityNotifier) {
 			added = true
 		}
-
 		css[i] = sel
 	}
+
+	if changed {
+		sc.revision++
+		sc.selections = txn.Commit()
+	}
+
 	return css, added
 }
 
 // must hold lock for writing
-func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source Selector) *identitySelector {
-	idSel := &identitySelector{
-		logger:           sc.logger,
-		key:              key,
-		users:            make(map[CachedSelectionUser]struct{}),
-		cachedSelections: make(map[identity.NumericIdentity]struct{}),
-		source:           source,
-		metadataLbls:     lbls,
-	}
+func (sc *SelectorCache) addSelectorLocked(txn SelectorTxn, lbls stringLabels, key string, source Selector) *identitySelector {
+	idSel := newIdentitySelector(sc, key, source, lbls)
 
 	sc.selectors[key] = idSel
 
@@ -486,9 +458,7 @@ func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source
 
 	// Create the immutable slice representation of the selected
 	// numeric identities
-	txn := sc.versioned.PrepareNextVersion()
 	idSel.updateSelections(txn)
-	txn.Commit()
 
 	return idSel
 }
@@ -506,15 +476,18 @@ func (sc *SelectorCache) AddIdentitySelectorForTest(user CachedSelectionUser, lb
 	key := es.CachedString()
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
-	idSel, exists := sc.selectors[key]
+	sel, exists := sc.selectors[key]
 	if !exists {
-		idSel = sc.addSelectorLocked(lbls, key, types.NewLabelSelector(es))
+		txn := sc.selections.Txn()
+		sel = sc.addSelectorLocked(txn, lbls, key, types.NewLabelSelector(es))
+		sc.revision++
+		sc.selections = txn.Commit()
 	}
-	return idSel, idSel.addUser(user, sc.localIdentityNotifier)
+	return sel, sel.addUser(user, sc.localIdentityNotifier)
 }
 
 // lock must be held
-func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
+func (sc *SelectorCache) removeSelectorLocked(txn SelectorTxn, selector CachedSelector, user CachedSelectionUser) {
 	key := selector.String()
 	sel, exists := sc.selectors[key]
 	if exists {
@@ -536,6 +509,7 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 			}
 
 			delete(sc.selectors, key)
+			sel.updateSelections(txn)
 		}
 	}
 }
@@ -543,16 +517,22 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 // RemoveSelector removes CachedSelector for the user.
 func (sc *SelectorCache) RemoveSelector(selector CachedSelector, user CachedSelectionUser) {
 	sc.mutex.Lock()
-	sc.removeSelectorLocked(selector, user)
+	txn := sc.selections.Txn()
+	sc.removeSelectorLocked(txn, selector, user)
+	sc.revision++
+	sc.selections = txn.Commit()
 	sc.mutex.Unlock()
 }
 
 // RemoveSelectors removes CachedSelectorSlice for the user.
 func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user CachedSelectionUser) {
 	sc.mutex.Lock()
+	txn := sc.selections.Txn()
 	for _, selector := range selectors {
-		sc.removeSelectorLocked(selector, user)
+		sc.removeSelectorLocked(txn, selector, user)
 	}
+	sc.revision++
+	sc.selections = txn.Commit()
 	sc.mutex.Unlock()
 }
 
@@ -561,13 +541,13 @@ func (sc *SelectorCache) RemoveSelectors(selectors CachedSelectorSlice, user Cac
 func (sc *SelectorCache) ChangeUser(selector CachedSelector, from, to CachedSelectionUser) {
 	key := selector.String()
 	sc.mutex.Lock()
-	idSel, exists := sc.selectors[key]
+	sel, exists := sc.selectors[key]
 	if exists {
 		// Add before remove so that the count does not dip to zero in between,
 		// as this causes FQDN unregistration (if applicable).
-		idSel.addUser(to, nil)
+		sel.addUser(to, nil)
 		// ignoring the return value as we have just added a user above
-		idSel.removeUser(from, nil)
+		sel.removeUser(from, nil)
 	}
 	sc.mutex.Unlock()
 }
@@ -621,7 +601,7 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 
-	txn := sc.versioned.PrepareNextVersion()
+	txn := sc.selections.Txn()
 
 	// Update idCache so that newly added selectors get
 	// prepopulated with all matching numeric identities.
@@ -702,21 +682,21 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 		for ns, nsAdded := range namespaces {
 			// Iterate through all locally used identity selectors and
 			// update the cached numeric identities as required.
-			for idSel := range sc.selectorsByNamespace[ns] {
+			for sel := range sc.selectorsByNamespace[ns] {
 				var adds, dels []identity.NumericIdentity
 				for numericID := range deleted {
-					if _, exists := idSel.cachedSelections[numericID]; exists {
+					if _, exists := sel.cachedSelections[numericID]; exists {
 						dels = append(dels, numericID)
-						delete(idSel.cachedSelections, numericID)
+						delete(sel.cachedSelections, numericID)
 					}
 				}
 				for _, numericID := range nsAdded {
 					identity, _ := sc.idCache.find(numericID)
-					matches := idSel.source.Matches(sc.logger, identity.lbls)
-					_, exists := idSel.cachedSelections[numericID]
+					matches := sel.source.Matches(sc.logger, identity.lbls)
+					_, exists := sel.cachedSelections[numericID]
 					if matches && !exists {
 						adds = append(adds, numericID)
-						idSel.cachedSelections[numericID] = struct{}{}
+						sel.cachedSelections[numericID] = struct{}{}
 					} else if !matches && exists {
 						// Identity was mutated and no longer matches, the
 						// identity is deleted from the cached selections,
@@ -726,34 +706,22 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 						// recompute the policy as if the mutated identity
 						// was never selected by the affected selector.
 						mutated = true
-						delete(idSel.cachedSelections, numericID)
+						delete(sel.cachedSelections, numericID)
 					}
 				}
 				if len(dels)+len(adds) > 0 {
 					updated = true
-					sc.selectorUpdates = sc.selectorUpdates.Append(idSel, txn)
-					idSel.updateSelections(txn)
-					idSel.notifyUsers(sc, adds, dels, wg)
+					sel.updateSelections(txn)
+					sel.notifyUsers(sc, adds, dels, wg)
 				}
 			}
 		}
 	}
 
 	if updated {
-		// Launch a waiter that holds the new version as long as needed for users to have
-		// grabbed it
-		sc.queueNotifiedUsersCommit(txn, wg)
-
-		go func(version *versioned.VersionHandle) {
-			wg.Wait()
-			sc.logger.Debug(
-				"UpdateIdentities: Waited for incremental updates to have committed, closing handle on the new version.",
-				logfields.NewVersion, txn,
-			)
-			version.Close()
-		}(txn.GetVersionHandle())
-
-		txn.Commit()
+		sc.revision++
+		sc.selections = txn.Commit()
+		sc.queueNotifiedUsersCommit(sc.getReadTxn(), wg)
 	}
 	return mutated
 }

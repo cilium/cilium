@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -1203,11 +1202,8 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, NoAuthRequirement)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
-		policyMaps.SyncMapChanges(versioned.LatestTx)
-		handle, changes := policyMaps.consumeMapChanges(epPolicy, denyRules)
-		if handle != nil {
-			handle.Close()
-		}
+		policyMaps.SyncMapChanges(types.MockSelectorReadTxn())
+		_, changes := policyMaps.consumeMapChanges(epPolicy, denyRules)
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
 		require.Equal(t, tt.adds, changes.Adds, tt.name+" (adds)")
@@ -1687,11 +1683,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			value := newMapStateEntry(NilRuleOrigin, proxyPort, priority, x.deny, x.authReq)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
-		policyMaps.SyncMapChanges(versioned.LatestTx)
-		handle, changes := policyMaps.consumeMapChanges(epPolicy, authRules|denyRules)
-		if handle != nil {
-			handle.Close()
-		}
+		policyMaps.SyncMapChanges(types.MockSelectorReadTxn())
+		_, changes := policyMaps.consumeMapChanges(epPolicy, authRules|denyRules)
 		policyMapState.validatePortProto(t)
 		require.True(t, policyMapState.Equal(&tt.state), "%s (MapState):\n%s", tt.name, policyMapState.diff(&tt.state))
 		require.Equal(t, tt.adds, changes.Adds, tt.name+" (adds)")

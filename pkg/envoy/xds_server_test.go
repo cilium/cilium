@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -33,12 +32,15 @@ var (
 	IPv4Addr = "10.1.1.1"
 
 	ep endpoint.EndpointUpdater = &test.ProxyUpdaterMock{
-		Id:            1000,
-		Ipv4:          "10.0.0.1",
-		Ipv6:          "f00d::1",
-		VersionHandle: versioned.Latest(),
+		Id:   1000,
+		Ipv4: "10.0.0.1",
+		Ipv6: "f00d::1",
 	}
 )
+
+func updateReadTxn() {
+	ep.(*test.ProxyUpdaterMock).Txn = testSelectorCache.GetReadTxn()
+}
 
 var PortRuleHTTP1 = &api.PortRuleHTTP{
 	Path:    "/foo",
@@ -539,7 +541,6 @@ var PortRuleHeaderMatchSecretLogOnMismatch = &api.PortRuleHTTP{
 }
 
 func Test_getWildcardNetworkPolicyRules(t *testing.T) {
-	version := versioned.Latest()
 	perSelectorPoliciesWithWildcard := policy.L7DataMap{
 		cachedSelector1:           nil,
 		cachedRequiresV2Selector1: nil,
@@ -548,6 +549,7 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 
 	xds := testXdsServer(t)
 
+	version := testSelectorCache.GetReadTxn()
 	obtained := xds.getWildcardNetworkPolicyRules(version, perSelectorPoliciesWithWildcard)
 	require.Equal(t, []*cilium.PortNetworkPolicyRule{{}}, obtained)
 
@@ -570,7 +572,7 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 func TestGetPortNetworkPolicyRule(t *testing.T) {
 	xds := testXdsServer(t)
 
-	version := versioned.Latest()
+	version := testSelectorCache.GetReadTxn()
 	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
@@ -1754,6 +1756,7 @@ func Test_getLocalListenerAddresses(t *testing.T) {
 
 func testXdsServer(t *testing.T) *xdsServer {
 	logger := hivetest.Logger(t)
+	updateReadTxn()
 	return &xdsServer{
 		logger:            logger,
 		l7RulesTranslator: envoypolicy.NewEnvoyL7RulesTranslator(logger, nil),
