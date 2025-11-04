@@ -5,15 +5,18 @@ package utils
 
 import (
 	"log/slog"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/api/v1/flow"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 const (
@@ -67,6 +70,37 @@ func GetPolicyLabels(ns, name string, uid types.UID, derivedFrom string) labels.
 
 	srcLabel := labels.NewLabel(k8sConst.PolicyLabelUID, string(uid), labels.LabelSourceK8s)
 	return append(labelsArr, srcLabel)
+}
+
+// GetPolicyFromLabels derives and sets fields in the flow policy from the label set array.
+//
+// This function supports namespaced and cluster-scoped resources.
+func GetPolicyFromLabels(policyLabels []string, revision uint64) *flow.Policy {
+	f := &flow.Policy{
+		Labels:   policyLabels,
+		Revision: revision,
+	}
+
+	for _, lbl := range policyLabels {
+		if lbl, isK8sLabel := strings.CutPrefix(lbl, string(source.Kubernetes)+":"); isK8sLabel {
+			if key, value, found := strings.Cut(lbl, "="); found {
+				switch key {
+				case k8sConst.PolicyLabelName:
+					f.Name = value
+				case k8sConst.PolicyLabelNamespace:
+					f.Namespace = value
+				case k8sConst.PolicyLabelDerivedFrom:
+					f.Kind = value
+				default:
+					if f.Kind != "" && f.Name != "" && f.Namespace != "" {
+						return f
+					}
+				}
+			}
+		}
+	}
+
+	return f
 }
 
 // addClusterFilterByDefault attempt to add a cluster filter if the cluster name

@@ -1705,6 +1705,7 @@ func (l4 *L4Policy) HasProxylibRedirect() bool {
 	return l4 != nil && l4.redirectTypes&redirectTypeProxylib == redirectTypeProxylib
 }
 
+// GetModel returns the API model of the L4 policy.
 func (l4 *L4Policy) GetModel() *models.L4Policy {
 	if l4 == nil {
 		return nil
@@ -1737,6 +1738,44 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 		}
 		egress = append(egress, &models.PolicyRule{
 			Rule:             v.Marshal(),
+			DerivedFromRules: derivedFrom.GetModel(),
+		})
+		return true
+	})
+
+	return &models.L4Policy{
+		Ingress: ingress,
+		Egress:  egress,
+	}
+}
+
+// GetRuleOriginModel returns the API model of the L4 policy with the rule origins only.
+func (l4 *L4Policy) GetRuleOriginModel() *models.L4Policy {
+	if l4 == nil {
+		return nil
+	}
+
+	ingress := []*models.PolicyRule{}
+	l4.Ingress.PortRules.ForEach(func(v *L4Filter) bool {
+		derivedFrom := labels.LabelArrayList{}
+		for _, rules := range v.RuleOrigin {
+			lal := rules.GetLabelArrayList()
+			derivedFrom.MergeSorted(lal)
+		}
+		ingress = append(ingress, &models.PolicyRule{
+			DerivedFromRules: derivedFrom.GetModel(),
+		})
+		return true
+	})
+
+	egress := []*models.PolicyRule{}
+	l4.Egress.PortRules.ForEach(func(v *L4Filter) bool {
+		derivedFrom := labels.LabelArrayList{}
+		for _, rules := range v.RuleOrigin {
+			lal := rules.GetLabelArrayList()
+			derivedFrom.MergeSorted(lal)
+		}
+		egress = append(egress, &models.PolicyRule{
 			DerivedFromRules: derivedFrom.GetModel(),
 		})
 		return true
