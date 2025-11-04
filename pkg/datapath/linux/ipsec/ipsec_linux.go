@@ -94,15 +94,15 @@ type oldXfrmStateKey struct {
 }
 
 var (
-	wildcardIPv4   = net.ParseIP("0.0.0.0")
-	wildcardCIDRv4 = &net.IPNet{
-		IP:   wildcardIPv4,
-		Mask: net.IPv4Mask(0, 0, 0, 0),
-	}
 	wildcardIPv6   = net.ParseIP("0::0")
 	wildcardCIDRv6 = &net.IPNet{
 		IP:   wildcardIPv6,
 		Mask: net.CIDRMask(0, 128),
+	}
+	wildcardIPv4   = net.ParseIP("0.0.0.0")
+	wildcardCIDRv4 = &net.IPNet{
+		IP:   wildcardIPv4,
+		Mask: net.IPv4Mask(0, 0, 0, 0),
 	}
 
 	defaultDropMark = &netlink.XfrmMark{

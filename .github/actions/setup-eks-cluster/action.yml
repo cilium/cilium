@@ -43,15 +43,7 @@ runs:
           clusterEndpoints:
             publicAccess: true
             privateAccess: true
-
-        addonsConfig:
-          disableDefaultAddons: true
-        addons:
         EOF
-
-        for addon in ${{ inputs.addons }}; do
-          echo "- name: $addon" >> eks-config.yaml
-        done
 
         if [[ -n "${{ inputs.zones }}"  ]]; then
           echo "availabilityZones:" >> eks-config.yaml

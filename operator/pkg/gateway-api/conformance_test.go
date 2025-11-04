@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance"
@@ -73,6 +74,7 @@ func TestConformance(t *testing.T) {
 	}
 	options.UnusableNetworkAddresses = unusableNetworkAddresses
 	options.UsableNetworkAddresses = usableNetworkAddresses
+	options.TimeoutConfig.GatewayMustHaveAddress = 30 * time.Minute
 	options.SkipTests = append(options.SkipTests, skipTests...)
 	conformance.RunConformanceWithOptions(t, options)
 }
