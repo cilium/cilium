@@ -8,6 +8,7 @@
 #include "node_config.h"
 
 #include "tests/lib/ipcache.h"
+#include "tests/lib/ipsec.h"
 #include "tests/lib/node.h"
 
 static __always_inline
@@ -55,19 +56,13 @@ void set_dst_identity(bool ipv4_inner, bool ipv4_outer, __u32 identity, __u8 spi
 static __always_inline
 int ipsec_redirect_setup(struct __ctx_buff *ctx, bool ipv4_inner, bool ipv4_outer)
 {
-	__u32 encrypt_key = 0;
-
 	if (ipv4_outer)
 		node_v4_add_entry(DST_NODE_IP, DST_NODE_ID, TARGET_SPI);
 	else
 		node_v6_add_entry((const union v6addr *)DST_NODE_IP_6,
 				  DST_NODE_ID, TARGET_SPI);
 
-	/* fill encrypt map with node's current SPI 3 */
-	struct encrypt_config cfg = {
-		.encrypt_key = BAD_SPI,
-	};
-	map_update_elem(&cilium_encrypt_state, &encrypt_key, &cfg, BPF_ANY);
+	ipsec_set_encrypt_state(BAD_SPI);
 
 	set_src_identity(ipv4_inner, ipv4_outer, SOURCE_IDENTITY);
 	set_dst_identity(ipv4_inner, ipv4_outer, DST_IDENTITY, TARGET_SPI);
@@ -119,11 +114,7 @@ int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 	int ret = 0;
 	__be16 proto = is_ipv4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6);
 
-	/* fill encrypt map with node's current SPI 3 */
-	struct encrypt_config cfg = {
-		.encrypt_key = BAD_SPI,
-	};
-	map_update_elem(&cilium_encrypt_state, &ret, &cfg, BPF_ANY);
+	ipsec_set_encrypt_state(BAD_SPI);
 
 	/*
 	 * Ensure host-to-pod traffic is not encrypted.
