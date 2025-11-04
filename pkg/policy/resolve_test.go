@@ -186,9 +186,11 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 		c[ni] = id.Labels.LabelArray()
 	})
 	td.sc.UpdateIdentities(c, nil, wg)
+	td.policySc.UpdateIdentities(c, nil, nil)
 
 	apiRules, ids := ruleGenFunc(numRules)
 	td.sc.UpdateIdentities(ids, nil, wg)
+	td.policySc.UpdateIdentities(ids, nil, nil)
 	wg.Wait()
 	td.repo.MustAddList(apiRules)
 }

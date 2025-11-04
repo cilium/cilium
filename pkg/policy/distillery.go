@@ -45,6 +45,7 @@ func (cache *policyCache) lookupOrCreate(identity *identityPkg.Identity) *cached
 	if !ok {
 		cip = newCachedSelectorPolicy(identity)
 		cache.policies[identity.ID] = cip
+		cache.repo.policySelectorCache.UpdateIdentities(identityPkg.IdentityMap{identity.ID: identity.LabelArray}, nil, nil)
 	}
 	return cip
 }
@@ -77,6 +78,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 		if selPolicy != nil {
 			selPolicy.detach(true, 0)
 		}
+		cache.repo.policySelectorCache.UpdateIdentities(nil, identityPkg.IdentityMap{identity.ID: identity.LabelArray}, nil)
 	}
 	return ok
 }

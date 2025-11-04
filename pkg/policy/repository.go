@@ -50,6 +50,7 @@ type PolicyRepository interface {
 	GetRevision() uint64
 	GetRulesList() *models.Policy
 	GetSelectorCache() *SelectorCache
+	GetPolicySelectorCache() *SelectorCache
 	Iterate(f func(rule *types.PolicyEntry))
 	ReplaceByResource(rules types.PolicyEntries, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	ReplaceByLabels(rules types.PolicyEntries, searchLabelsList []labels.LabelArray) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
@@ -83,8 +84,12 @@ type Repository struct {
 	revision atomic.Uint64
 
 	// selectorCache tracks the selectors used in the policies
-	// resolved from the repository.
+	// resolved from the repository by alive endpoints.
 	selectorCache *SelectorCache
+
+	// policySelectorCache tracks the selectors used by policies
+	// to select what endpoints they apply to
+	policySelectorCache *SelectorCache
 
 	// policyCache tracks the selector policies created from this repo
 	policyCache *policyCache
@@ -104,6 +109,11 @@ func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
 }
 
+// GetPolicySelectorCache() returns the selector cache used by the Repository for indexing policies
+func (p *Repository) GetPolicySelectorCache() *SelectorCache {
+	return p.policySelectorCache
+}
+
 // GetAuthTypes returns the AuthTypes required by the policy between the localID and remoteID
 func (p *Repository) GetAuthTypes(localID, remoteID identity.NumericIdentity) AuthTypes {
 	return p.policyCache.getAuthTypes(localID, remoteID)
@@ -119,15 +129,17 @@ func NewPolicyRepository(
 	metricsManager types.PolicyMetrics,
 ) *Repository {
 	selectorCache := NewSelectorCache(logger, initialIDs)
+	policySelectorCache := NewSelectorCache(logger, nil)
 	repo := &Repository{
-		logger:            logger,
-		rules:             make(map[ruleKey]*rule),
-		rulesByNamespace:  make(map[string]sets.Set[ruleKey]),
-		rulesByResource:   make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
-		selectorCache:     selectorCache,
-		certManager:       certManager,
-		metricsManager:    metricsManager,
-		l7RulesTranslator: l7RulesTranslator,
+		logger:              logger,
+		rules:               make(map[ruleKey]*rule),
+		rulesByNamespace:    make(map[string]sets.Set[ruleKey]),
+		rulesByResource:     make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
+		selectorCache:       selectorCache,
+		policySelectorCache: policySelectorCache,
+		certManager:         certManager,
+		metricsManager:      metricsManager,
+		l7RulesTranslator:   l7RulesTranslator,
 	}
 	repo.revision.Store(1)
 	repo.policyCache = newPolicyCache(repo, idmgr)
@@ -218,14 +230,14 @@ func (p *Repository) newRule(policyEntry types.PolicyEntry, key ruleKey) *rule {
 		PolicyEntry: policyEntry,
 		key:         key,
 	}
-	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), r.Subject)
+	r.subjectSelector, _ = p.policySelectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), r.Subject)
 	return r
 }
 
 // releaseRule releases the cached selector for a given rul
 func (p *Repository) releaseRule(r *rule) {
 	if r.subjectSelector != nil {
-		p.selectorCache.RemoveSelector(r.subjectSelector, r)
+		p.policySelectorCache.RemoveSelector(r.subjectSelector, r)
 	}
 }
 
