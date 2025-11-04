@@ -311,9 +311,11 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		hasIngressDefaultDeny, hasEgressDefaultDeny,
 		matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
+	sc := p.GetSelectorCache()
+
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
-		SelectorCache:        p.GetSelectorCache(),
+		SelectorCache:        sc,
 		L4Policy:             NewL4Policy(p.GetRevision()),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
@@ -328,20 +330,31 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		logger:             p.logger.With(logfields.Identity, securityIdentity.ID),
 	}
 
-	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&policyCtx)
-		if err != nil {
-			return nil, err
-		}
-		calculatedPolicy.L4Policy.Ingress.PortRules = newL4IngressPolicy
-	}
+	if ingressEnabled || egressEnabled {
+		// function to be able to use defer
+		err := func() error {
+			defer sc.Commit()
 
-	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&policyCtx)
+			if ingressEnabled {
+				newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&policyCtx)
+				if err != nil {
+					return err
+				}
+				calculatedPolicy.L4Policy.Ingress.PortRules = newL4IngressPolicy
+			}
+
+			if egressEnabled {
+				newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&policyCtx)
+				if err != nil {
+					return err
+				}
+				calculatedPolicy.L4Policy.Egress.PortRules = newL4EgressPolicy
+			}
+			return nil
+		}()
 		if err != nil {
 			return nil, err
 		}
-		calculatedPolicy.L4Policy.Egress.PortRules = newL4EgressPolicy
 	}
 
 	// Make the calculated policy ready for incremental updates

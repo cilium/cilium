@@ -533,6 +533,7 @@ func init() {
 
 type SelectionsMap = part.Map[SelectorId, identity.NumericIdentitySlice]
 type SelectorTxn = part.MapTxn[SelectorId, identity.NumericIdentitySlice]
+type SelectorWriteTxn = part.MapTxn[SelectorId, identity.NumericIdentitySlice]
 
 // SelectorReadTxn contains state needed to observe a coherent set of selectors
 type SelectorReadTxn struct {

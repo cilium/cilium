@@ -951,7 +951,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.Selectors, auth
 		Ingress:             ingress,
 	}
 
-	css, _ := selectorCache.AddSelectors(l4, origin.stringLabels(), peerEndpoints...)
+	css, _ := selectorCache.AddSelectorsTxn(l4, origin.stringLabels(), peerEndpoints...)
 	for _, cs := range css {
 		if cs.IsWildcard() {
 			l4.wildcard = cs
