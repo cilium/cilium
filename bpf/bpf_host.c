@@ -1720,7 +1720,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = TRACE_PAYLOAD_LEN,
+		.monitor = 0,
 	};
 	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool traced = ctx_load_meta(ctx, CB_TRACED);
