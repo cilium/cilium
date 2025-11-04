@@ -131,6 +131,7 @@ var (
 	LayerTypeICMPv6NeighborAdvertisement  = gopacket.RegisterLayerType(127, gopacket.LayerTypeMetadata{Name: "ICMPv6NeighborAdvertisement", Decoder: gopacket.DecodeFunc(decodeICMPv6NeighborAdvertisement)})
 	LayerTypeICMPv6Redirect               = gopacket.RegisterLayerType(128, gopacket.LayerTypeMetadata{Name: "ICMPv6Redirect", Decoder: gopacket.DecodeFunc(decodeICMPv6Redirect)})
 	LayerTypeGTPv1U                       = gopacket.RegisterLayerType(129, gopacket.LayerTypeMetadata{Name: "GTPv1U", Decoder: gopacket.DecodeFunc(decodeGTPv1u)})
+	LayerTypeGTPv2                        = gopacket.RegisterLayerType(1010, gopacket.LayerTypeMetadata{Name: "GTPv2", Decoder: gopacket.DecodeFunc(decodeGTPv2)})
 	LayerTypeEAPOLKey                     = gopacket.RegisterLayerType(130, gopacket.LayerTypeMetadata{Name: "EAPOLKey", Decoder: gopacket.DecodeFunc(decodeEAPOLKey)})
 	LayerTypeLCM                          = gopacket.RegisterLayerType(131, gopacket.LayerTypeMetadata{Name: "LCM", Decoder: gopacket.DecodeFunc(decodeLCM)})
 	LayerTypeICMPv6Echo                   = gopacket.RegisterLayerType(132, gopacket.LayerTypeMetadata{Name: "ICMPv6Echo", Decoder: gopacket.DecodeFunc(decodeICMPv6Echo)})
@@ -148,8 +149,13 @@ var (
 	LayerTypeASFPresencePong              = gopacket.RegisterLayerType(144, gopacket.LayerTypeMetadata{Name: "ASFPresencePong", Decoder: gopacket.DecodeFunc(decodeASFPresencePong)})
 	LayerTypeERSPANII                     = gopacket.RegisterLayerType(145, gopacket.LayerTypeMetadata{Name: "ERSPAN Type II", Decoder: gopacket.DecodeFunc(decodeERSPANII)})
 	LayerTypeRADIUS                       = gopacket.RegisterLayerType(146, gopacket.LayerTypeMetadata{Name: "RADIUS", Decoder: gopacket.DecodeFunc(decodeRADIUS)})
-	LayerTypeLinuxSLL2                    = gopacket.RegisterLayerType(276, gopacket.LayerTypeMetadata{Name: "Linux SLL2", Decoder: gopacket.DecodeFunc(decodeLinuxSLL2)})
 	LayerTypeMDP                          = gopacket.RegisterLayerType(147, gopacket.LayerTypeMetadata{Name: "MDP", Decoder: gopacket.DecodeFunc(decodeMDP)})
+	LayerTypeAGUEVar0                     = gopacket.RegisterLayerType(148, gopacket.LayerTypeMetadata{Name: "AGUEVar0", Decoder: gopacket.DecodeFunc(decodeAGUE)})
+	LayerTypeAGUEVar1                     = gopacket.RegisterLayerType(149, gopacket.LayerTypeMetadata{Name: "AGUEVar1", Decoder: gopacket.DecodeFunc(decodeAGUE)})
+	LayerTypeAPSP                         = gopacket.RegisterLayerType(150, gopacket.LayerTypeMetadata{Name: "APSP", Decoder: gopacket.DecodeFunc(decodeAPSP)})
+	LayerTypeENIP                         = gopacket.RegisterLayerType(151, gopacket.LayerTypeMetadata{Name: "ENIP", Decoder: gopacket.DecodeFunc(decodeENIP)})
+	LayerTypeCIP                          = gopacket.RegisterLayerType(152, gopacket.LayerTypeMetadata{Name: "CIP", Decoder: gopacket.DecodeFunc(decodeCIP)})
+	LayerTypeLinuxSLL2                    = gopacket.RegisterLayerType(276, gopacket.LayerTypeMetadata{Name: "Linux SLL2", Decoder: gopacket.DecodeFunc(decodeLinuxSLL2)})
 )
 
 var (

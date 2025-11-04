@@ -1595,6 +1595,15 @@ func (m *Dot11InformationElement) NextLayerType() gopacket.LayerType {
 	return LayerTypeDot11InformationElement
 }
 
+func checkOffsetLength(start int, end int, df *gopacket.DecodeFeedback) error {
+	if start > end {
+		(*df).SetTruncated()
+		return fmt.Errorf("information element length %v too short, %v required", end, start)
+	}
+
+	return nil
+}
+
 func (m *Dot11InformationElement) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	if len(data) < 2 {
 		df.SetTruncated()
@@ -1617,9 +1626,15 @@ func (m *Dot11InformationElement) DecodeFromBytes(data []byte, df gopacket.Decod
 
 		// Vendor extension
 		m.OUI = data[offset : offset+4]
+		if err := checkOffsetLength(offset+4, offset+int(m.Length), &df); err != nil {
+			return err
+		}
 		m.Info = data[offset+4 : offset+int(m.Length)]
 	} else if m.ID == 255 {
 		m.ExtensionID = Dot11InformationElementExtId(data[offset])
+		if err := checkOffsetLength(offset+1, offset+int(m.Length), &df); err != nil {
+			return err
+		}
 		m.Info = data[offset+1 : offset+int(m.Length)]
 	} else {
 		m.Info = data[offset : offset+int(m.Length)]

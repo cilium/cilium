@@ -746,10 +746,6 @@ func (c *Client) DeleteCiliumLocalRedirectPolicy(ctx context.Context, namespace,
 	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).Delete(ctx, name, opts)
 }
 
-func (c *Client) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
-	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies().List(ctx, opts)
-}
-
 func (c *Client) ListCiliumBGPClusterConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPClusterConfigList, error) {
 	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPClusterConfigs().List(ctx, opts)
 }

@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -421,33 +420,6 @@ func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, 
 			getHTTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[0].NodePort),
 			getTFTPLink(ni.PrimaryK8s2IPv6, v6Data.Spec.Ports[1].NodePort),
 		)
-	}
-
-	if helpers.RunsOnGKE() {
-		k8s1ExternalIP, err := kubectl.GetNodeIPByLabel(helpers.K8s1, true)
-		Expect(err).Should(BeNil(), "Cannot retrieve Node External IP for %s", helpers.K8s1)
-		k8s2ExternalIP, err := kubectl.GetNodeIPByLabel(helpers.K8s2, true)
-		Expect(err).Should(BeNil(), "Cannot retrieve Node External IP for %s", helpers.K8s2)
-		testURLsFromPods = append(testURLsFromPods,
-			getHTTPLink(k8s1ExternalIP, data.Spec.Ports[0].NodePort),
-			getTFTPLink(k8s1ExternalIP, data.Spec.Ports[1].NodePort),
-			getHTTPLink(k8s2ExternalIP, data.Spec.Ports[0].NodePort),
-			getTFTPLink(k8s2ExternalIP, data.Spec.Ports[1].NodePort),
-		)
-
-		// Testing LoadBalancer types subject to bpf_sock.
-		lbIP, err := kubectl.GetLoadBalancerIP(helpers.DefaultNamespace, "test-lb", 60*time.Second)
-		Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
-
-		testURLsFromHosts = append(testURLsFromHosts, []string{
-			getHTTPLink(lbIP, 80),
-			getHTTPLink("::ffff:"+lbIP, 80),
-		}...)
-
-		testURLsFromPods = append(testURLsFromPods, []string{
-			getHTTPLink(lbIP, 80),
-			getHTTPLink("::ffff:"+lbIP, 80),
-		}...)
 	}
 
 	testURLsFromOutside := []string{}
@@ -952,30 +924,4 @@ func testMaglev(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 			}
 		}
 	}
-}
-
-func testDSR(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, k8s1IP string, k8s2SvcName string, sourcePortForCTGCtest int) {
-	var data v1.Service
-	err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
-	url := getHTTPLink(ni.K8s1IP, data.Spec.Ports[0].NodePort)
-	testCurlFromOutside(kubectl, ni, url, 10, true)
-
-	// Test whether DSR NAT entries are evicted by GC
-
-	pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
-	ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
-	// "test-nodeport-k8s2" because we want to trigger SNAT with a single request:
-	// client -> k8s1 -> endpoint @ k8s2.
-	err = kubectl.Get(helpers.DefaultNamespace, k8s2SvcName).Unmarshal(&data)
-	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
-	url = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
-
-	testCurlFromOutsideWithLocalPort(kubectl, ni, url, 1, true, sourcePortForCTGCtest)
-	res := kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium-dbg bpf nat list | grep %d", sourcePortForCTGCtest))
-	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "NAT entry was not found")
-	// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
-	_ = kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium-dbg bpf ct flush global", "Unable to flush CT maps")
-	res = kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium-dbg bpf nat list | grep %d", sourcePortForCTGCtest))
-	res.ExpectFail("NAT entry was not evicted")
 }

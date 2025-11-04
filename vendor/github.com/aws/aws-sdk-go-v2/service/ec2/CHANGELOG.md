@@ -1,3 +1,23 @@
+# v1.260.0 (2025-10-31)
+
+* **Feature**: Amazon VPC IP Address Manager (IPAM) now supports automated prefix list management, allowing you to create rules that automatically populate customer-managed prefix lists with CIDRs from your IPAM pools or AWS resources based on tags, Regions, or other criteria.
+
+# v1.259.1 (2025-10-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.259.0 (2025-10-28)
+
+* **Feature**: This released the DescribeCapacityReservationTopology API.
+
+# v1.258.1 (2025-10-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.258.0 (2025-10-22)
+
+* **Feature**: This release adds AvailabilityZoneId support for CreateNetworkInterface and DescribeNetworkInterfaces APIs.
+
 # v1.257.2 (2025-10-17)
 
 * **Documentation**: Documentation updates for Amazon EC2.

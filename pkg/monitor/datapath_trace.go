@@ -163,7 +163,7 @@ func (n *TraceNotify) TraceReasonIsReply() bool {
 // related, false otherwise.
 func (n *TraceNotify) TraceReasonIsEncap() bool {
 	switch n.TraceReason() {
-	case TraceReasonSRv6Encap, TraceReasonEncryptOverlay:
+	case TraceReasonSRv6Encap:
 		return true
 	}
 	return false
@@ -197,22 +197,22 @@ const (
 	TraceReasonUnknown
 	TraceReasonSRv6Encap
 	TraceReasonSRv6Decap
-	TraceReasonEncryptOverlay
+	TraceReasonDeprecatedEncryptOverlay
 	// TraceReasonEncryptMask is the bit used to indicate encryption or not.
 	TraceReasonEncryptMask = uint8(0x80)
 )
 
 /* keep in sync with api/v1/flow/flow.proto */
 var traceReasons = map[uint8]string{
-	TraceReasonPolicy:               "new",
-	TraceReasonCtEstablished:        "established",
-	TraceReasonCtReply:              "reply",
-	TraceReasonCtRelated:            "related",
-	TraceReasonCtDeprecatedReopened: "reopened",
-	TraceReasonUnknown:              "unknown",
-	TraceReasonSRv6Encap:            "srv6-encap",
-	TraceReasonSRv6Decap:            "srv6-decap",
-	TraceReasonEncryptOverlay:       "encrypt-overlay",
+	TraceReasonPolicy:                   "new",
+	TraceReasonCtEstablished:            "established",
+	TraceReasonCtReply:                  "reply",
+	TraceReasonCtRelated:                "related",
+	TraceReasonCtDeprecatedReopened:     "reopened",
+	TraceReasonUnknown:                  "unknown",
+	TraceReasonSRv6Encap:                "srv6-encap",
+	TraceReasonSRv6Decap:                "srv6-decap",
+	TraceReasonDeprecatedEncryptOverlay: "encrypt-overlay",
 }
 
 // dumpIdentity dumps the source and destination identities in numeric or

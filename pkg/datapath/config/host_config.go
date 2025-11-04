@@ -14,6 +14,8 @@ type BPFHost struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Use netkit devices for pods.
+	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Masquerade traffic to remote nodes.
@@ -35,6 +37,8 @@ type BPFHost struct {
 	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
+	// VXLAN tunnel endpoint network mask.
+	VtepMask uint32 `config:"vtep_mask"`
 	// Index of the WireGuard interface.
 	WgIfindex uint32 `config:"wg_ifindex"`
 	// Port for the WireGuard interface.
@@ -44,8 +48,8 @@ type BPFHost struct {
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{0x5dc, false, false, false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{0x5dc, false, false, false, false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, 0x0, 0x0, 0x0, node}
+		false, 0x0, 0x0, 0x0, 0x0, node}
 }

@@ -37,7 +37,6 @@ CRDS_CILIUM_V2="ciliumnetworkpolicies \
 
 # Set CRDS_CILIUM_V2ALPHA1 with the list of CRDs for v2alpha1
 CRDS_CILIUM_V2ALPHA1="ciliumendpointslices \
-                      ciliumbgppeeringpolicies \
                       ciliuml2announcementpolicies \
                       ciliumpodippools \
                       ciliumgatewayclassconfigs"

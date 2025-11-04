@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/netip"
 	"path/filepath"
 	"slices"
@@ -17,18 +18,22 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -37,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -92,6 +98,7 @@ type loader struct {
 type Params struct {
 	cell.In
 
+	JobGroup           job.Group
 	Logger             *slog.Logger
 	Sysctl             sysctl.Sysctl
 	Prefilter          datapath.PreFilter
@@ -101,6 +108,7 @@ type Params struct {
 	RouteManager       *routeReconciler.DesiredRouteManager
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
+	EPRestorer         promise.Promise[endpointstate.Restorer]
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
@@ -109,6 +117,7 @@ type Params struct {
 
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
+	registerRouteInitializer(p)
 	return &loader{
 		logger:             p.Logger,
 		templateCache:      newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
@@ -123,6 +132,31 @@ func newLoader(p Params) *loader {
 		db:      p.DB,
 		devices: p.Devices,
 	}
+}
+
+func registerRouteInitializer(p Params) {
+	// [upsertEndpointRoute] Creates routes for endpoints that need per endpoint routes.
+	// We need to tell the route reconciler to delay pruning of routes from the kernel until we have had a chance
+	// to insert desired routes for all endpoints that need them.
+	//
+	// Use the endpoint restorer to get a signal when all existing endpoints have been restored, and thus
+	// [loader.ReloadDatapath] has been called for all existing endpoints. After that we can finalize the route
+	// initializer.
+	routeInitializer := p.RouteManager.RegisterInitializer("per-endpoint-routes")
+	p.JobGroup.Add(job.OneShot("per-endpoint-route-initializer", func(ctx context.Context, _ cell.Health) error {
+		defer p.RouteManager.FinalizeInitializer(routeInitializer)
+
+		epRestorer, err := p.EPRestorer.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("waiting for endpoint restorer: %w", err)
+		}
+
+		if err := epRestorer.WaitForEndpointRestore(ctx); err != nil {
+			return fmt.Errorf("waiting for endpoint restore: %w", err)
+		}
+
+		return nil
+	}))
 }
 
 func upsertEndpointRoute(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, ip netip.Prefix) error {
@@ -211,10 +245,6 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		cfg.EthHeaderLength = 0
 	}
 
-	if !option.Config.EnableHostLegacyRouting {
-		cfg.SecctxFromIPCache = true
-	}
-
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	ifindex := link.Attrs().Index
@@ -237,10 +267,16 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	if lnc.EnableWireguard {
 		cfg.WgIfindex = lnc.WireguardIfIndex
 		cfg.WgPort = wgtypes.ListenPort
+	}
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
 	renames := map[string]string{
@@ -384,10 +420,16 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	if lnc.EnableWireguard {
 		cfg.WgIfindex = lnc.WireguardIfIndex
 		cfg.WgPort = wgtypes.ListenPort
+	}
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
 	renames := map[string]string{
@@ -464,6 +506,8 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfindex = uint32(ifindex)
@@ -473,6 +517,10 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	if lnc.EnableWireguard {
 		cfg.WgIfindex = lnc.WireguardIfIndex
 		cfg.WgPort = wgtypes.ListenPort
+	}
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
 	renames := map[string]string{
@@ -638,6 +686,12 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+	}
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
@@ -752,6 +806,12 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+
+	if option.Config.EnableVTEP {
+		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+	}
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -803,6 +863,8 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
+		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{

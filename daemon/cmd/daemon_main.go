@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -64,7 +63,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
@@ -167,6 +165,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	})
 
 	// Env bindings
+
+	hive.RegisterFlags(vp, flags)
+
 	flags.Int(option.AgentHealthPort, defaults.AgentHealthPort, "TCP port for agent health status API")
 	option.BindEnv(vp, option.AgentHealthPort)
 
@@ -225,9 +226,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.AgentHealthRequireK8sConnectivity, true, "Require Kubernetes connectivity in agent health endpoint")
 	option.BindEnv(vp, option.AgentHealthRequireK8sConnectivity)
-
-	flags.Bool(option.EnableHealthCheckLoadBalancerIP, defaults.EnableHealthCheckLoadBalancerIP, "Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled")
-	option.BindEnv(vp, option.EnableHealthCheckLoadBalancerIP)
 
 	flags.Int(option.HealthCheckICMPFailureThreshold, defaults.HealthCheckICMPFailureThreshold, "Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy.")
 	option.BindEnv(vp, option.HealthCheckICMPFailureThreshold)
@@ -547,9 +545,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
 	option.BindEnvWithLegacyEnvFallback(vp, option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
-
-	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
-	option.BindEnv(vp, option.MTUName)
 
 	flags.Int(option.RouteMetric, 0, "Overwrite the metric used by cilium when adding routes to its 'cilium_host' device")
 	option.BindEnv(vp, option.RouteMetric)
@@ -1211,14 +1206,13 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 }
 
 // daemonCell wraps the existing implementation of the cilium-agent that has
-// not yet been converted into a cell. Provides *Daemon as a Promise that is
-// resolved once daemon has been started to facilitate conversion into modules.
+// not yet been converted into a cell.
 var daemonCell = cell.Module(
 	"daemon",
 	"Legacy Daemon",
 
 	cell.Provide(
-		newDaemonPromise,
+		daemonLegacyInitialization,
 		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
@@ -1226,7 +1220,7 @@ var daemonCell = cell.Module(
 		newInfraIPAllocator,
 	),
 	cell.Invoke(registerEndpointStateResolver),
-	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
+	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force instantiation.
 )
 
 type daemonParams struct {
@@ -1273,7 +1267,6 @@ type daemonParams struct {
 	CTNATMapGC        ctmap.GCRunner
 	IPIdentityWatcher *ipcache.LocalIPIdentityWatcher
 	ClusterInfo       cmtypes.ClusterInfo
-	BandwidthManager  datapath.BandwidthManager
 	IPsecAgent        datapath.IPsecAgent
 	SyncHostIPs       *syncHostIPs
 	NodeDiscovery     *nodediscovery.NodeDiscovery
@@ -1281,7 +1274,6 @@ type daemonParams struct {
 	CRDSyncPromise    promise.Promise[k8sSynced.CRDSync]
 	IdentityManager   identitymanager.IDManager
 	MaglevConfig      maglev.Config
-	LBConfig          loadbalancer.Config
 	DNSProxy          bootstrap.FQDNProxyBootstrapper
 	DNSNameManager    namemanager.NameManager
 	KPRConfig         kpr.KPRConfig
@@ -1291,33 +1283,21 @@ type daemonParams struct {
 	InfraIPAllocator  *infraIPAllocator
 }
 
-func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.DaemonInitialization) {
-	daemonResolver, daemonPromise := promise.New[*Daemon]()
-
+func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization {
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
 	cleaner := NewDaemonCleanup()
 
-	var daemon *Daemon
 	var wg sync.WaitGroup
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) (err error) {
-			defer func() {
-				// Reject promises on error
-				if err != nil {
-					params.CfgResolver.Reject(err)
-					daemonResolver.Reject(err)
-				}
-			}()
-
-			d, err := newDaemon(daemonCtx, cleaner, params)
-			if err != nil {
+		OnStart: func(cell.HookContext) error {
+			if err := configureDaemon(daemonCtx, cleaner, params); err != nil {
 				cancelDaemonCtx()
 				cleaner.Clean()
-				return fmt.Errorf("daemon creation failed: %w", err)
+				params.CfgResolver.Reject(err)
+				return fmt.Errorf("daemon configuration failed: %w", err)
 			}
-			daemon = d
 
 			if !option.Config.DryMode {
 				params.Logger.Info("Initializing daemon")
@@ -1326,39 +1306,39 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 				// datapath.NodeAddressing is used consistently across the code base.
 				params.Logger.Info("Validating configured node address ranges")
 				if err := node.ValidatePostInit(params.Logger); err != nil {
+					params.CfgResolver.Reject(err)
 					return fmt.Errorf("postinit failed: %w", err)
 				}
 
 				// Store config in file before resolving the DaemonConfig promise.
-				err = option.Config.StoreInFile(params.Logger, option.Config.StateDir)
-				if err != nil {
+				if err := option.Config.StoreInFile(params.Logger, option.Config.StateDir); err != nil {
 					params.Logger.Error("Unable to store Cilium's configuration", logfields.Error, err)
+					params.CfgResolver.Reject(err)
+					return err
 				}
 
-				err = option.StoreViperInFile(params.Logger, option.Config.StateDir)
-				if err != nil {
+				if err := option.StoreViperInFile(params.Logger, option.Config.StateDir); err != nil {
 					params.Logger.Error("Unable to store Viper's configuration", logfields.Error, err)
+					params.CfgResolver.Reject(err)
+					return err
 				}
 			}
 
-			// 'option.Config' is assumed to be stable at this point, execpt for
+			// 'option.Config' is assumed to be stable at this point, except for
 			// 'option.Config.Opts' that are explicitly deemed to be runtime-changeable
 			params.CfgResolver.Resolve(option.Config)
 
 			if option.Config.DryMode {
-				daemonResolver.Resolve(daemon)
-			} else {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					if err := startDaemon(daemonCtx, daemon, cleaner, params); err != nil {
-						params.Logger.Error("Daemon start failed", logfields.Error, err)
-						daemonResolver.Reject(err)
-					} else {
-						daemonResolver.Resolve(daemon)
-					}
-				}()
+				return nil
 			}
+
+			wg.Go(func() {
+				if err := startDaemon(daemonCtx, params); err != nil {
+					params.Logger.Error("Daemon start failed", logfields.Error, err)
+					params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
+				}
+			})
+
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
@@ -1368,13 +1348,13 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], legacy.Dae
 			return nil
 		},
 	})
-	return daemonPromise, legacy.DaemonInitialization{}
+	return legacy.DaemonInitialization{}
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
 // option.Config has already been exposed via *option.DaemonConfig promise,
 // so it may not be modified here
-func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params daemonParams) error {
+func startDaemon(ctx context.Context, params daemonParams) error {
 	bootstrapStats.k8sInit.Start()
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
@@ -1398,7 +1378,7 @@ func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params 
 		params.Logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
 	}
 
-	d.params.EndpointRestorer.InitRestore()
+	params.EndpointRestorer.InitRestore()
 
 	bootstrapStats.enableConntrack.Start()
 	params.Logger.Info("Starting connection tracking garbage collector")
@@ -1433,26 +1413,6 @@ func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params 
 		}
 	}
 
-	go func() {
-		if err := d.params.EndpointRestorer.WaitForEndpointRestore(ctx); err != nil {
-			return
-		}
-
-		ms := maps.NewMapSweeper(
-			params.Logger,
-			&EndpointMapManager{
-				logger:          params.Logger,
-				EndpointManager: params.EndpointManager,
-			}, params.BandwidthManager, params.LBConfig, params.KPRConfig)
-		ms.CollectStaleMapGarbage()
-		ms.RemoveDisabledMaps()
-
-		// Sleep for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
-		// the normal allocation processes to finish, before releasing restored resources.
-		time.Sleep(option.Config.IdentityRestoreGracePeriod)
-		params.IdentityRestorer.ReleaseRestoredIdentities()
-	}()
-
 	// Migrating the ENI datapath must happen before the API is served to
 	// prevent endpoints from being created. It also must be before the health
 	// initialization logic which creates the health endpoint, for the same
@@ -1485,7 +1445,7 @@ func startDaemon(ctx context.Context, d *Daemon, cleaner *daemonCleanup, params 
 
 	bootstrapStats.healthCheck.Start()
 	if params.HealthConfig.IsHealthCheckingEnabled() {
-		if err := params.CiliumHealth.Init(ctx, params.InfraIPAllocator.GetHealthEndpointRouting(), cleaner.cleanupFuncs.Add); err != nil {
+		if err := params.CiliumHealth.Init(ctx, params.InfraIPAllocator.GetHealthEndpointRouting()); err != nil {
 			return fmt.Errorf("failed to initialize cilium health: %w", err)
 		}
 	}
@@ -1521,28 +1481,10 @@ func registerDaemonConfigValidationJob(params daemonParams) {
 	))
 }
 
-func registerEndpointStateResolver(lc cell.Lifecycle, daemonPromise promise.Promise[*Daemon], resolver promise.Resolver[endpointstate.Restorer]) {
-	var wg sync.WaitGroup
-
-	lc.Append(cell.Hook{
-		OnStart: func(ctx cell.HookContext) error {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				daemon, err := daemonPromise.Await(context.Background())
-				if err != nil {
-					resolver.Reject(err)
-				} else {
-					resolver.Resolve(daemon.params.EndpointRestorer)
-				}
-			}()
-			return nil
-		},
-		OnStop: func(ctx cell.HookContext) error {
-			wg.Wait()
-			return nil
-		},
-	})
+func registerEndpointStateResolver(endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
+	// Restorer promise is still required to avoid circular dependencies -
+	// but we can immediately resolve it.
+	resolver.Resolve(endpointRestorer)
 }
 
 func initClockSourceOption(logger *slog.Logger) {

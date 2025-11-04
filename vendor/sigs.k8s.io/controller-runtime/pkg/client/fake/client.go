@@ -141,6 +141,7 @@ type ClientBuilder struct {
 	interceptorFuncs      *interceptor.Funcs
 	typeConverters        []managedfields.TypeConverter
 	returnManagedFields   bool
+	isBuilt               bool
 
 	// indexes maps each GroupVersionKind (GVK) to the indexes registered for that GVK.
 	// The inner map maps from index name to IndexerFunc.
@@ -267,6 +268,9 @@ func (f *ClientBuilder) WithReturnManagedFields() *ClientBuilder {
 
 // Build builds and returns a new fake client.
 func (f *ClientBuilder) Build() client.WithWatch {
+	if f.isBuilt {
+		panic("Build() must not be called multiple times when creating a ClientBuilder")
+	}
 	if f.scheme == nil {
 		f.scheme = scheme.Scheme
 	}
@@ -344,6 +348,7 @@ func (f *ClientBuilder) Build() client.WithWatch {
 		result = interceptor.NewClient(result, *f.interceptorFuncs)
 	}
 
+	f.isBuilt = true
 	return result
 }
 

@@ -5,6 +5,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cilium/hive/cell"
@@ -15,6 +16,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/time"
+)
+
+var (
+	ErrStoreUninitialized = errors.New("the store has not initialized yet")
 )
 
 // BGPCPResourceStore is a wrapper around the resource.Store for the BGP Control Plane reconcilers usage.

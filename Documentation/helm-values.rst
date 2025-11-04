@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:d82f458899c9696cb26a7c02d5568f81c8c8223f8661bb2a7988b269c8b9051e","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:e3652a00a2fabd16ce889f0aa32c38eec347b997e73bd09e69c962ec7f8732ee","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -273,7 +273,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane`
-     - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
+     - This feature set enables virtual BGP routers to be created via BGP CRDs.
      - object
      - ``{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
@@ -281,7 +281,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute`
-     - Legacy BGP ORIGIN attribute settings (BGPv2 only)
+     - Legacy BGP ORIGIN attribute settings
      - object
      - ``{"enabled":false}``
    * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute.enabled`
@@ -313,11 +313,11 @@
      - string
      - ``"kube-system"``
    * - :spelling:ignore:`bgpControlPlane.statusReport`
-     - Status reporting settings (BGPv2 only)
+     - Status reporting settings
      - object
      - ``{"enabled":true}``
    * - :spelling:ignore:`bgpControlPlane.statusReport.enabled`
-     - Enable/Disable BGPv2 status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
+     - Enable/Disable BGP status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
      - bool
      - ``true``
    * - :spelling:ignore:`bpf.authMapMax`
@@ -432,6 +432,10 @@
      - Configure the typical time between monitor notifications for active connections.
      - string
      - ``"5s"``
+   * - :spelling:ignore:`bpf.monitorTraceIPOption`
+     - Configure the IP tracing option type. This option is used to specify the IP option type to use for tracing. The value must be an integer between 0 and 255. @schema type: [null, integer] minimum: 0 maximum: 255 @schema
+     - int
+     - ``0``
    * - :spelling:ignore:`bpf.natMax`
      - Configure the maximum number of entries for the NAT table.
      - int
@@ -479,7 +483,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.4","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:c6f836b5352adc16a241c5c24ba5576341c23a81b73c9fab4daba07b92d811a8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.3.0","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -488,6 +492,14 @@
      - Annotations to be added to the hubble-certgen initial Job and CronJob
      - object
      - ``{"cronJob":{},"job":{}}``
+   * - :spelling:ignore:`certgen.cronJob.failedJobsHistoryLimit`
+     - The number of failed finished jobs to keep
+     - int
+     - ``1``
+   * - :spelling:ignore:`certgen.cronJob.successfulJobsHistoryLimit`
+     - The number of successful finished jobs to keep
+     - int
+     - ``3``
    * - :spelling:ignore:`certgen.extraVolumeMounts`
      - Additional certgen volumeMounts.
      - list
@@ -522,8 +534,8 @@
      - ``[]``
    * - :spelling:ignore:`certgen.ttlSecondsAfterFinished`
      - Seconds after which the completed job pod will be deleted
-     - int
-     - ``1800``
+     - string
+     - ``nil``
    * - :spelling:ignore:`cgroup`
      - Configure cgroup related configuration
      - object
@@ -916,6 +928,10 @@
      - clustermesh-apiserver update strategy
      - object
      - ``{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}``
+   * - :spelling:ignore:`clustermesh.cacheTTL`
+     - The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default).
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`clustermesh.config`
      - Clustermesh explicit configuration.
      - object
@@ -1297,7 +1313,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode`
-     - Configure the WireGuard Pod2Pod strict mode.
+     - Configure the Encryption Pod2Pod strict mode.
      - object
      - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false}``
    * - :spelling:ignore:`encryption.strictMode.allowRemoteNodeIdentities`
@@ -1305,11 +1321,11 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode.cidr`
-     - CIDR for the WireGuard Pod2Pod strict mode.
+     - CIDR for the Encryption Pod2Pod strict mode.
      - string
      - ``""``
    * - :spelling:ignore:`encryption.strictMode.enabled`
-     - Enable WireGuard Pod2Pod strict mode.
+     - Enable Encryption Pod2Pod strict mode.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.type`
@@ -1455,7 +1471,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}``
+     - ``{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -2452,6 +2468,10 @@
      - base64 encoded PEM values for the Hubble UI client key (deprecated). Use existingSecret instead.
      - string
      - ``""``
+   * - :spelling:ignore:`hubble.ui.tmpVolume`
+     - Configure temporary volume for hubble-ui
+     - object
+     - ``{}``
    * - :spelling:ignore:`hubble.ui.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
@@ -3287,7 +3307,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}``
+     - ``{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
@@ -3632,6 +3652,10 @@
      - Name of TLS Interception secret namespace.
      - string
      - ``"cilium-secrets"``
+   * - :spelling:ignore:`tmpVolume`
+     - Configure temporary volume for cilium-agent
+     - object
+     - ``{}``
    * - :spelling:ignore:`tolerations`
      - Node tolerations for agent scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list

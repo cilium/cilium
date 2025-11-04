@@ -11,6 +11,7 @@ package models
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -88,11 +89,15 @@ func (m *BgpRoutePolicyStatement) validateMatchFamilies(formats strfmt.Registry)
 
 		if m.MatchFamilies[i] != nil {
 			if err := m.MatchFamilies[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("match-families" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("match-families" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -114,11 +119,15 @@ func (m *BgpRoutePolicyStatement) validateMatchPrefixes(formats strfmt.Registry)
 
 		if m.MatchPrefixes[i] != nil {
 			if err := m.MatchPrefixes[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("match-prefixes" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("match-prefixes" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -135,11 +144,15 @@ func (m *BgpRoutePolicyStatement) validateNexthop(formats strfmt.Registry) error
 
 	if m.Nexthop != nil {
 		if err := m.Nexthop.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("nexthop")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("nexthop")
 			}
+
 			return err
 		}
 	}
@@ -147,7 +160,7 @@ func (m *BgpRoutePolicyStatement) validateNexthop(formats strfmt.Registry) error
 	return nil
 }
 
-var bgpRoutePolicyStatementTypeRouteActionPropEnum []interface{}
+var bgpRoutePolicyStatementTypeRouteActionPropEnum []any
 
 func init() {
 	var res []string
@@ -225,11 +238,15 @@ func (m *BgpRoutePolicyStatement) contextValidateMatchFamilies(ctx context.Conte
 			}
 
 			if err := m.MatchFamilies[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("match-families" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("match-families" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -250,11 +267,15 @@ func (m *BgpRoutePolicyStatement) contextValidateMatchPrefixes(ctx context.Conte
 			}
 
 			if err := m.MatchPrefixes[i].ContextValidate(ctx, formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
 					return ve.ValidateName("match-prefixes" + "." + strconv.Itoa(i))
-				} else if ce, ok := err.(*errors.CompositeError); ok {
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
 					return ce.ValidateName("match-prefixes" + "." + strconv.Itoa(i))
 				}
+
 				return err
 			}
 		}
@@ -273,11 +294,15 @@ func (m *BgpRoutePolicyStatement) contextValidateNexthop(ctx context.Context, fo
 		}
 
 		if err := m.Nexthop.ContextValidate(ctx, formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
 				return ve.ValidateName("nexthop")
-			} else if ce, ok := err.(*errors.CompositeError); ok {
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
 				return ce.ValidateName("nexthop")
 			}
+
 			return err
 		}
 	}

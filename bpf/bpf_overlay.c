@@ -42,12 +42,9 @@
 #include "lib/clustermesh.h"
 #include "lib/egress_gateway.h"
 #include "lib/tailcall.h"
-
-#ifdef ENABLE_VTEP
 #include "lib/vtep.h"
 #include "lib/arp.h"
 #include "lib/encap.h"
-#endif /* ENABLE_VTEP */
 
 #define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
 
@@ -59,7 +56,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	int ret, l3_off = ETH_HLEN;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	bool __maybe_unused is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 
@@ -106,7 +103,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	 */
 	if (identity_is_remote_node(*identity) ||
 	    (is_dsr && identity_is_world_ipv6(*identity))) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 		if (info)
@@ -224,7 +221,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	struct iphdr *ip4;
 	__u32 cluster_id = 0;
 	void *data_end, *data;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	__u32 cluster_id_from_identity =
 		extract_cluster_id_from_identity(src_sec_identity);
 	const struct ipv4_nat_target target = {
@@ -292,7 +289,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 {
 	void *data_end, *data;
 	struct iphdr *ip4;
-	struct endpoint_info *ep;
+	const struct endpoint_info *ep;
 	bool __maybe_unused is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 	int ret;
@@ -346,7 +343,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->saddr & VTEP_MASK;
+		vkey.vtep_ip = ip4->saddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
 		if (!vtep)
 			goto skip_vtep;
@@ -383,7 +380,7 @@ skip_vtep:
 	/* See comment at equivalent code in handle_ipv6() */
 	if (identity_is_remote_node(*identity) ||
 	    (is_dsr && identity_is_world_ipv4(*identity))) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info)
@@ -496,7 +493,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip) || !__lookup_ip4_endpoint(tip))
 		goto pass_to_stack;
-	vkey.vtep_ip = sip & VTEP_MASK;
+	vkey.vtep_ip = sip & CONFIG(vtep_mask);
 	info = map_lookup_elem(&cilium_vtep_map, &vkey);
 	if (!info)
 		goto pass_to_stack;

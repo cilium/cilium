@@ -80,7 +80,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state_new = {};
 	fraginfo_t fraginfo;
-	struct lb4_service *svc;
+	const struct lb4_service *svc;
 	struct lb4_key key = {};
 	__u16 proxy_port = 0;
 	__u32 cluster_id = 0;
@@ -154,7 +154,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state_new = {};
 	fraginfo_t fraginfo;
-	struct lb6_service *svc;
+	const struct lb6_service *svc;
 	struct lb6_key key = {};
 	__u16 proxy_port = 0;
 	int l4_off;
@@ -446,7 +446,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						__s8 *ext_err)
 {
 	struct ct_state *ct_state, ct_state_new = {};
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = CONFIG(interface_mac);
@@ -685,8 +685,16 @@ ct_recreate6:
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
+#ifdef ENABLE_IDENTITY_MARK
+	/* Always encode the source identity when forwarding the packet.
+	 * This prevents loss of identity if the packet is later SNATed,
+	 * or the endpoint is torn down.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
+#endif
+
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
-		struct endpoint_info *ep;
+		const struct endpoint_info *ep;
 		union v6addr daddr;
 
 		ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
@@ -773,15 +781,6 @@ pass_to_stack:
 	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
-#endif
-
-#ifdef ENABLE_IDENTITY_MARK
-	/* Always encode the source identity when passing to the stack.
-	 * If the stack hairpins the packet back to a local endpoint the
-	 * source identity can still be derived even if SNAT is
-	 * performed by a component such as portmap.
-	 */
-	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 #endif
 
 pass_to_stack_hostfw: __maybe_unused
@@ -885,7 +884,8 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 						__s8 *ext_err)
 {
 	struct ct_state *ct_state, ct_state_new = {};
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
+	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	struct ipv4_ct_tuple *tuple;
 #ifdef ENABLE_ROUTING
 	union macaddr router_mac = CONFIG(interface_mac);
@@ -1157,6 +1157,14 @@ ct_recreate4:
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
+#ifdef ENABLE_IDENTITY_MARK
+	/* Always encode the source identity when forwarding the packet.
+	 * This prevents loss of identity if the packet is later SNATed,
+	 * or the endpoint is torn down.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
+#endif
+
 	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
 	 * disabled (for example, with per-endpoint routes). Otherwise, the
 	 * packet will be dropped by the kernel if the packet will be routed to
@@ -1172,7 +1180,7 @@ ct_recreate4:
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
 	    is_defined(ENABLE_HOST_ROUTING)) {
 		__be32 daddr = ip4->daddr;
-		struct endpoint_info *ep;
+		const struct endpoint_info *ep;
 
 		/* Loopback replies are addressed to config service_loopback_ipv4,
 		 * so an endpoint lookup with ip4->daddr won't work.
@@ -1217,11 +1225,10 @@ ct_recreate4:
 	 */
 #if defined(ENABLE_VTEP)
 	{
-		struct remote_endpoint_info fake_info = {0};
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
-		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
+		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
 		if (!vtep)
 			goto skip_vtep;
@@ -1271,8 +1278,10 @@ skip_vtep:
 		 */
 		if (ct_status == CT_REPLY) {
 			if (identity_is_remote_node(*dst_sec_identity) && ct_state->from_tunnel) {
-				info->tunnel_endpoint.ip4 = ip4->daddr;
-				info->flag_has_tunnel_ep = true;
+				/* Do not modify [info], as this will update IPcache */
+				fake_info.tunnel_endpoint.ip4 = ip4->daddr;
+				fake_info.flag_has_tunnel_ep = true;
+				info = &fake_info;
 			}
 		}
 #endif
@@ -1328,15 +1337,6 @@ pass_to_stack:
 	ret = ipv4_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
-#endif
-
-#ifdef ENABLE_IDENTITY_MARK
-	/* Always encode the source identity when passing to the stack.
-	 * If the stack hairpins the packet back to a local endpoint the
-	 * source identity can still be derived even if SNAT is
-	 * performed by a component such as portmap.
-	 */
-	set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 #endif
 
 pass_to_stack_hostfw: __maybe_unused
@@ -1445,6 +1445,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	union macaddr smac;
 	__be32 sip;
 	__be32 tip;
+	int ret;
 
 	/* Pass any unknown ARP requests to the Linux stack */
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
@@ -1463,7 +1464,11 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (tip == CONFIG(endpoint_ipv4).be32)
 		return CTX_ACT_OK;
 
-	return arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	ret = arp_respond(ctx, &mac, tip, &smac, sip, 0);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_EGRESS);
+
+	return ret;
 }
 #endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
@@ -1640,8 +1645,9 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 					      &policy_match_type, &audited, ext_err, proxy_port,
 					      &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			struct remote_endpoint_info *sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
+			const struct remote_endpoint_info *sep;
 
+			sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV6, src_label,
@@ -1742,7 +1748,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
-			ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host,
+			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
+					  should_fast_redirect(ctx, from_host),
 					  from_tunnel);
 		break;
 	default:
@@ -1781,8 +1788,8 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_sec_identity)) {
-		union v6addr *src = (union v6addr *)&ip6->saddr;
-		struct remote_endpoint_info *info;
+		const union v6addr *src = (union v6addr *)&ip6->saddr;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info != NULL) {
@@ -1949,8 +1956,9 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 					      &policy_match_type, &audited, ext_err, proxy_port,
 					      &cookie);
 		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			struct remote_endpoint_info *sep = lookup_ip4_remote_endpoint(orig_sip, 0);
+			const struct remote_endpoint_info *sep;
 
+			sep = lookup_ip4_remote_endpoint(orig_sip, 0);
 			if (sep) {
 				auth_type = (__u8)*ext_err;
 				verdict = auth_lookup(ctx, SECLABEL_IPV4, src_label,
@@ -2063,7 +2071,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 #endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
-			ret = redirect_ep(ctx, CONFIG(interface_ifindex), from_host,
+			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
+					  should_fast_redirect(ctx, from_host),
 					  from_tunnel);
 		break;
 	default:
@@ -2097,7 +2106,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_sec_identity)) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info != NULL) {

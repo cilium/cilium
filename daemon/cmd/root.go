@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	shell "github.com/cilium/cilium/pkg/shell/client"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -49,7 +48,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 			// Initialize the daemon configuration and logging with the
 			// DefaultSlogLogger without any logfields.
 			// slogloggercheck: the logger has been initialized in the cobra.OnInitialize
-			if err := h.Run(logging.DefaultSlogLogger); err != nil {
+			if err := h.Run(logging.DefaultSlogLogger, hive.GetOptions(option.Config.HiveConfig)...); err != nil {
 				logging.Fatal(daemonLogger, fmt.Sprintf("unable to run agent: %s", err))
 			} else {
 				// If h.Run() exits with no errors, it means the agent gracefully shut down.
@@ -65,7 +64,7 @@ func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
 
 	rootCmd.AddCommand(
 		cmdref.NewCmd(rootCmd),
-		shell.ShellCmd,
+		hive.CiliumShellCmd,
 		h.Command(),
 	)
 

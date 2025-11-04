@@ -204,6 +204,28 @@ clusters for the service under examination.
       Cluster1Global-->|no|Cluster1SelfCluster2Self
       Cluster2Global-->|no|Cluster1SelfCluster2Self
 
+Handling Unreachable Clusters
+#############################
+
+By default, if a remote cluster becomes unreachable, Cilium will retain the last-known service
+information in its cache. This can lead to traffic being sent to "stale" or unreachable backends.
+
+To mitigate this, you can configure a cache time-to-live (TTL). If a remote cluster's connection is
+lost and not re-established within this duration, Cilium will automatically revoke the cached data
+for that cluster. For global services, this means **Cilium will stop load-balancing to the service
+backends in the unreachable cluster**. When connectivity is re-established, the remote cluster's
+services are repopulated, and load-balancing to its backends resumes.
+
+The default value is ``"0s"``, which disables this feature and means caches are never revoked. To
+enable it, set ``clustermesh.cacheTTL`` to a duration greater than zero (e.g., ``"15m"``).
+
+.. parsed-literal::
+
+   helm upgrade cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --reuse-values \\
+     --set clustermesh.cacheTTL="15m"
+
 Limitations
 ###########
 

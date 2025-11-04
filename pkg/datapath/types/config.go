@@ -40,6 +40,9 @@ type LoadTimeConfiguration interface {
 
 	// GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter for the endpoint
 	GetPolicyVerdictLogFilter() uint32
+
+	// GetPropertyValue returns the endpoint property value for this key.
+	GetPropertyValue(key string) any
 }
 
 // CompileTimeConfiguration provides datapath implementations a clean interface

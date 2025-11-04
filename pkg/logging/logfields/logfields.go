@@ -241,6 +241,9 @@ const (
 	// Port is a L4 port
 	Port = "port"
 
+	// EndPort is the last L4 port in a range of ports
+	EndPort = "endPort"
+
 	// Ports is a list of L4 ports
 	Ports = "ports"
 
@@ -1834,4 +1837,8 @@ const (
 
 	// CompiledPools is a map of pools that use podSelectors
 	CompiledPools = "compiledPools"
+
+	ReloadKeypairError = "reloadKeypairError"
+
+	ReloadCAError = "reloadCAError"
 )

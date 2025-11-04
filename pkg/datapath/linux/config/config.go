@@ -233,18 +233,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_SCTP"] = "1"
 	}
 
-	if cfg.EnableIPSec {
-		cDefinesMap["ENABLE_IPSEC"] = "1"
-	}
-
-	if cfg.EnableWireguard {
-		cDefinesMap["ENABLE_WIREGUARD"] = "1"
-
-		if option.Config.EncryptNode {
-			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
-		}
-	}
-
 	if option.Config.ServiceNoBackendResponse == option.ServiceNoBackendResponseReject {
 		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
 	}
@@ -572,7 +560,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableVTEP {
 		cDefinesMap["ENABLE_VTEP"] = "1"
-		cDefinesMap["VTEP_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask)))
 	}
 
 	cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)

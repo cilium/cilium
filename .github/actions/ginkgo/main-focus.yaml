@@ -89,7 +89,6 @@ include:
     cliFocus: "K8sAgentPolicyTest Basic|K8sPolicyTestExtended"
 
   ###
-  # K8sDatapathConfig Host firewall Check connectivity with IPv6 disabled
   # K8sDatapathConfig Host firewall With native routing
   # K8sDatapathConfig Host firewall With native routing and endpoint routes
   # K8sDatapathConfig Host firewall With VXLAN
@@ -146,7 +145,6 @@ include:
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests GH#10983
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests NodePort with sessionAffinity from outside
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests security id propagation in N/S LB requests fwd-ed over tunnel
-  # K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct routing and DSR
   - focus: "f12-datapath-service-ns-misc"
     cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing Tests externalIPs|K8sDatapathServicesTest Checks N/S loadbalancing Tests GH|K8sDatapathServicesTest Checks N/S loadbalancing Tests NodePort|K8sDatapathServicesTest Checks N/S loadbalancing Tests security|K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct|K8sDatapathServicesTest Checks N/S loadbalancing with"
 
@@ -161,8 +159,6 @@ include:
 
   ###
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, SNAT and Maglev
-  # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, SNAT and Random
-  # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, vxlan tunnel, SNAT and Random
   # K8sDatapathServicesTest Checks N/S loadbalancing With ClusterIP external access ClusterIP can be accessed when external access is enabled
   # K8sDatapathServicesTest Checks N/S loadbalancing With host policy Tests NodePort
   - focus: "f14-datapath-service-ns-xdp-2"
@@ -225,6 +221,11 @@ exclude:
   - k8s-version: "1.33"
     focus: "f05-agent-policy-multi-node-2"
 
+  # These tests require an external node which is only available on
+  # "net-next". So there's no point on running them.
+  - k8s-version: "1.33"
+    focus: "f09-datapath-misc-2"
+
   # These tests require kernel net-next so there's no point on running them
   - k8s-version: "1.33"
     focus: "f11-datapath-service-ns-tc"
@@ -242,6 +243,11 @@ exclude:
   # / net-next so there's no point on running them
   - k8s-version: "1.32"
     focus: "f05-agent-policy-multi-node-2"
+
+  # These tests require an external node which is only available on
+  # "net-next". So there's no point on running them.
+  - k8s-version: "1.32"
+    focus: "f09-datapath-misc-2"
 
   # These tests require kernel net-next so there's no point on running them
   - k8s-version: "1.32"
@@ -268,6 +274,11 @@ exclude:
 
   - k8s-version: "1.31"
     focus: "f05-agent-policy-multi-node-2"
+
+  # These tests require an external node which is only available on
+  # "net-next". So there's no point on running them.
+  - k8s-version: "1.31"
+    focus: "f09-datapath-misc-2"
 
   - k8s-version: "1.31"
     focus: "f11-datapath-service-ns-tc"

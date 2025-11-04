@@ -40,7 +40,7 @@ cilium install [flags]
       --set-file stringArray     Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
       --set-string stringArray   Set helm STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
   -f, --values strings           Specify helm values in a YAML file or a URL (can specify multiple)
-      --version string           Cilium version to install (default "v1.18.2")
+      --version string           Cilium version to install (default "v1.18.3")
       --wait                     Wait for helm install to finish
       --wait-duration duration   Maximum time to wait for status (default 5m0s)
 ```
@@ -53,7 +53,7 @@ cilium install [flags]
       --context string             Kubernetes configuration context
       --helm-release-name string   Helm release name (default "cilium")
       --kubeconfig string          Path to the kubeconfig file
-  -n, --namespace string           Namespace Cilium is running in (default "kube-system")
+  -n, --namespace string           Namespace Cilium is running in. Can also be set via CILIUM_NAMESPACE env var (default "kube-system")
 ```
 
 ### SEE ALSO

@@ -644,6 +644,14 @@
         "monitorInterval": {
           "type": "string"
         },
+        "monitorTraceIPOption": {
+          "minimum": 0,
+          "maximum": 255,
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
         "natMax": {
           "type": [
             "null",
@@ -720,6 +728,17 @@
           },
           "type": "object"
         },
+        "cronJob": {
+          "properties": {
+            "failedJobsHistoryLimit": {
+              "type": "integer"
+            },
+            "successfulJobsHistoryLimit": {
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
         "extraVolumeMounts": {
           "items": {},
           "type": "array"
@@ -774,7 +793,10 @@
           "type": "array"
         },
         "ttlSecondsAfterFinished": {
-          "type": "integer"
+          "type": [
+            "null",
+            "integer"
+          ]
         }
       },
       "type": "object"
@@ -1457,6 +1479,9 @@
             }
           },
           "type": "object"
+        },
+        "cacheTTL": {
+          "type": "string"
         },
         "config": {
           "properties": {
@@ -3770,6 +3795,9 @@
               },
               "type": "object"
             },
+            "tmpVolume": {
+              "type": "object"
+            },
             "tolerations": {
               "items": {},
               "type": "array"
@@ -5918,6 +5946,9 @@
           "type": "object"
         }
       },
+      "type": "object"
+    },
+    "tmpVolume": {
       "type": "object"
     },
     "tolerations": {

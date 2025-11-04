@@ -153,7 +153,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 			   struct trace_ctx *trace, __s8 *ext_err __maybe_unused)
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
-	struct lb6_reverse_nat *nat_info;
+	const struct lb6_reverse_nat *nat_info;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	void *data, *data_end;
 	fraginfo_t fraginfo;
@@ -340,7 +340,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_MASQUERADE_IPV4)) {
-		struct endpoint_info *ep;
+		const struct endpoint_info *ep;
 
 		ep = __lookup_ip4_endpoint(ip4->saddr);
 		if (ep && ep->parent_ifindex && ep->parent_ifindex != CONFIG(interface_ifindex)) {
@@ -448,7 +448,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 {
 	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	int ret, l3_off = ETH_HLEN, l4_off;
-	struct lb4_reverse_nat *nat_info;
+	const struct lb4_reverse_nat *nat_info;
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;

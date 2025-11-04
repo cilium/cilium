@@ -27,6 +27,7 @@ cilium-operator-aws [flags]
       --cluster-pool-ipv4-mask-size int                      Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv4=true' (default 24)
       --cluster-pool-ipv6-cidr strings                       IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv6=true'
       --cluster-pool-ipv6-mask-size int                      Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv6=true' (default 112)
+      --clustermesh-cache-ttl duration                       The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked.
       --clustermesh-concurrent-service-endpoint-syncs int    The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)
       --clustermesh-config string                            Path to the ClusterMesh configuration directory
       --clustermesh-enable-endpoint-sync                     Whether or not the endpoint slice cluster mesh synchronization is enabled.
@@ -159,7 +160,7 @@ cilium-operator-aws [flags]
 * [cilium-operator-aws completion](cilium-operator-aws_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-operator-aws hive](cilium-operator-aws_hive.md)	 - Inspect the hive
 * [cilium-operator-aws metrics](cilium-operator-aws_metrics.md)	 - Access metric status of the operator
-* [cilium-operator-aws shell](cilium-operator-aws_shell.md)	 - Connect to the Cilium shell
+* [cilium-operator-aws shell](cilium-operator-aws_shell.md)	 - Connect to the shell
 * [cilium-operator-aws status](cilium-operator-aws_status.md)	 - Display status of operator
 * [cilium-operator-aws troubleshoot](cilium-operator-aws_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 

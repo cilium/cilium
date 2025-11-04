@@ -448,7 +448,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	var realizedL4Policy *policy.L4Policy
 	if e.realizedPolicy != nil {
-		realizedL4Policy = &e.realizedPolicy.L4Policy
+		realizedL4Policy = &e.realizedPolicy.SelectorPolicy.L4Policy
 	}
 
 	mdl := &models.EndpointPolicy{
@@ -466,7 +466,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	var desiredL4Policy *policy.L4Policy
 	if e.desiredPolicy != nil {
-		desiredL4Policy = &e.desiredPolicy.L4Policy
+		desiredL4Policy = &e.desiredPolicy.SelectorPolicy.L4Policy
 	}
 
 	desiredMdl := &models.EndpointPolicy{
@@ -497,11 +497,11 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
-	case e.realizedPolicy.IngressPolicyEnabled && e.realizedPolicy.EgressPolicyEnabled:
+	case e.realizedPolicy.SelectorPolicy.IngressPolicyEnabled && e.realizedPolicy.SelectorPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledBoth
-	case e.realizedPolicy.IngressPolicyEnabled:
+	case e.realizedPolicy.SelectorPolicy.IngressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledIngress
-	case e.realizedPolicy.EgressPolicyEnabled:
+	case e.realizedPolicy.SelectorPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledEgress
 	}
 

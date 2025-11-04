@@ -247,22 +247,24 @@ func (n *nodeAddressController) register() {
 
 				// Start the background job for continuous reconciliation.
 				n.Jobs.Add(job.OneShot("node-address-update", func(ctx context.Context, reporter cell.Health) error {
-					return n.run(ctx, reporter, ws)
+					return n.run(ctx, ws)
 				}))
 				return nil
 			},
 		})
 }
 
-func (n *nodeAddressController) run(ctx context.Context, reporter cell.Health, ws *statedb.WatchSet) error {
+func (n *nodeAddressController) run(ctx context.Context, ws *statedb.WatchSet) error {
 	for {
 		// Wait for changes
-		if _, err := ws.Wait(ctx, nodeAddressControllerMinInterval); err != nil {
+		closedChannels, err := ws.Wait(ctx, nodeAddressControllerMinInterval)
+		if err != nil {
 			return nil
 		}
-
-		// Perform the full reconciliation and get new watch set
-		ws = n.reconcile()
+		if len(closedChannels) > 0 {
+			// Perform the full reconciliation and get new watch set
+			ws = n.reconcile()
+		}
 	}
 }
 

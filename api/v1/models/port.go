@@ -50,7 +50,7 @@ func (m *Port) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var portTypeProtocolPropEnum []interface{}
+var portTypeProtocolPropEnum []any
 
 func init() {
 	var res []string

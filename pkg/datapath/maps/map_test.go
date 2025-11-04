@@ -60,7 +60,6 @@ func newTestBWManager() types.BandwidthManager {
 }
 
 func TestCollectStaleMapGarbage(t *testing.T) {
-
 	testCases := []struct {
 		name            string
 		endpoints       []uint16
@@ -190,7 +189,7 @@ func TestCollectStaleMapGarbage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			testEPManager := newTestEPManager(tt.paths)
 			bwManager := newTestBWManager()
-			sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+			sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
 
 			for _, ep := range tt.endpoints {
 				testEPManager.addEndpoint(ep)
@@ -225,7 +224,7 @@ func TestRemoveDisabledMaps(t *testing.T) {
 			"cilium_policy_01234",
 		}
 		bwManager := newTestBWManager()
-		sweeper := NewMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, bwManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
 
 		sweeper.RemoveDisabledMaps()
 		require.Equal(t, depricatedMaps, testEPManager.removedPaths)

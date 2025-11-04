@@ -853,6 +853,10 @@ data:
   bpf-lb-maglev-hash-seed: {{ .Values.maglev.hashSeed | quote}}
 {{- end }}
 
+{{- if .Values.bpf.monitorTraceIPOption }}
+  ip-tracing-option-type: {{ .Values.bpf.monitorTraceIPOption | quote }}
+{{- end }}
+
 {{- if hasKey .Values "l2NeighDiscovery" }}
 {{- if hasKey .Values.l2NeighDiscovery "enabled" }}
   enable-l2-neigh-discovery: {{ .Values.l2NeighDiscovery.enabled | quote }}
@@ -1403,6 +1407,7 @@ data:
 {{- if hasKey .Values.clustermesh "maxConnectedClusters" }}
   max-connected-clusters: {{ .Values.clustermesh.maxConnectedClusters | quote }}
 {{- end }}
+  clustermesh-cache-ttl: {{ .Values.clustermesh.cacheTTL | quote }}
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
   clustermesh-enable-mcs-api: {{ (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) | quote }}
   policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}

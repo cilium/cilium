@@ -391,7 +391,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 __be16 svc_port,
 						 int *ifindex, int *ohead)
 {
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct geneve_dsr_opt6 gopt;
 	union v6addr *dst;
@@ -808,7 +808,7 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline struct lb6_reverse_nat *
+static __always_inline const struct lb6_reverse_nat *
 nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 				struct ipv6_ct_tuple *tuple)
 {
@@ -911,7 +911,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 		},
 	};
 	int ret, l4_off;
-	struct remote_endpoint_info *info __maybe_unused;
+	const struct remote_endpoint_info *info __maybe_unused;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
@@ -1197,7 +1197,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	fraginfo_t fraginfo;
 	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	union v6addr *dst;
 #endif
 
@@ -1304,7 +1304,7 @@ drop_err:
 
 static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 					    struct ipv6_ct_tuple *tuple,
-					    struct lb6_service *svc,
+					    const struct lb6_service *svc,
 					    struct lb6_key *key,
 					    struct ipv6hdr *ip6,
 					    int l3_off,
@@ -1458,7 +1458,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
-	struct lb6_service *svc;
+	const struct lb6_service *svc;
 	struct lb6_key key = {};
 
 	tuple.nexthdr = ip6->nexthdr;
@@ -1726,7 +1726,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 						 struct iphdr *ip4, __be32 svc_addr,
 						 __be16 svc_port, int *ifindex, __be16 *ohead)
 {
-	struct remote_endpoint_info *info __maybe_unused;
+	const struct remote_endpoint_info *info __maybe_unused;
 	struct geneve_dsr_opt4 gopt __align_stack_8;
 	bool need_opt = true;
 	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
@@ -2189,7 +2189,7 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline struct lb4_reverse_nat *
+static __always_inline const struct lb4_reverse_nat *
 nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 				struct ipv4_ct_tuple *tuple)
 {
@@ -2239,7 +2239,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			.ifindex	= ctx_get_ifindex(ctx),
 		},
 	};
-	struct remote_endpoint_info *info __maybe_unused = NULL;
+	const struct remote_endpoint_info *info __maybe_unused = NULL;
 	int ifindex = 0, ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
@@ -2546,7 +2546,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u8 cluster_id __maybe_unused = (__u8)ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	__be32 tunnel_endpoint = 0;
 #endif
 
@@ -2649,7 +2649,7 @@ drop_err:
 
 static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    struct ipv4_ct_tuple *tuple,
-					    struct lb4_service *svc,
+					    const struct lb4_service *svc,
 					    struct lb4_key *key,
 					    struct iphdr *ip4,
 					    int l3_off,
@@ -2838,7 +2838,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	fraginfo_t fraginfo;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_svc_proto = true;
-	struct lb4_service *svc;
+	const struct lb4_service *svc;
 	struct lb4_key key = {};
 	int ret, l4_off;
 

@@ -364,6 +364,7 @@ Makefile* @cilium/build
 /contrib/scripts/portgen.py @cilium/sig-datapath
 /contrib/scripts/check-datapathconfig.sh @cilium/loader
 /contrib/scripts/check-fipsonly.sh @cilium/build @cilium/security
+/contrib/scripts/verifier_diff.py @cilium/sig-datapath
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
 /daemon/cmd/endpoint* @cilium/endpoint
@@ -493,7 +494,7 @@ Makefile* @cilium/build
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
 /pkg/alignchecker/ @cilium/sig-datapath @cilium/loader
-/pkg/allocator/ @cilium/kvstore
+/pkg/allocator/ @cilium/sig-policy
 /pkg/api/ @cilium/api
 /pkg/auth/ @cilium/sig-servicemesh
 /pkg/aws/ @cilium/aws
@@ -564,7 +565,7 @@ Makefile* @cilium/build
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
 /pkg/identity/restoration @cilium/sig-policy @cilium/ipcache
-/pkg/idpool/ @cilium/kvstore
+/pkg/idpool/ @cilium/sig-policy
 /pkg/ip/ @cilium/sig-agent
 /pkg/ipalloc/ @cilium/sig-ipam
 /pkg/ipam/ @cilium/sig-ipam
@@ -628,7 +629,6 @@ Makefile* @cilium/build
 /pkg/revert/ @cilium/sig-agent
 /pkg/safeio @cilium/sig-agent
 /pkg/safetime/ @cilium/sig-agent
-/pkg/shell @cilium/sig-foundations
 /pkg/shortener @cilium/sig-foundations @cilium/sig-k8s
 /pkg/signal @cilium/sig-datapath
 /pkg/slices @cilium/sig-foundations

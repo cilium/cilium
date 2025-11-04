@@ -1168,7 +1168,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	}
 
 	epPolicy := &EndpointPolicy{
-		selectorPolicy: &selectorPolicy{
+		SelectorPolicy: &selectorPolicy{
 			SelectorCache: selectorCache,
 		},
 		PolicyOwner: DummyOwner{logger: hivetest.Logger(t)},
@@ -1655,7 +1655,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	}
 
 	epPolicy := &EndpointPolicy{
-		selectorPolicy: &selectorPolicy{
+		SelectorPolicy: &selectorPolicy{
 			SelectorCache: selectorCache,
 		},
 		PolicyOwner: DummyOwner{logger: hivetest.Logger(t)},

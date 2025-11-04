@@ -311,6 +311,12 @@ type AzureFirewallsClientListResponse struct {
 	AzureFirewallListResult
 }
 
+// AzureFirewallsClientPacketCaptureOperationResponse contains the response from method AzureFirewallsClient.BeginPacketCaptureOperation.
+type AzureFirewallsClientPacketCaptureOperationResponse struct {
+	// Response of an Azure Firewall Packet Capture Operation.
+	AzureFirewallPacketCaptureResponse
+}
+
 // AzureFirewallsClientPacketCaptureResponse contains the response from method AzureFirewallsClient.BeginPacketCapture.
 type AzureFirewallsClientPacketCaptureResponse struct {
 	// placeholder for future response values
@@ -2795,6 +2801,12 @@ type SecurityPerimeterProfilesClientListResponse struct {
 	NspProfileListResult
 }
 
+// SecurityPerimeterServiceTagsClientListResponse contains the response from method SecurityPerimeterServiceTagsClient.NewListPager.
+type SecurityPerimeterServiceTagsClientListResponse struct {
+	// Result of the request to list NSP service tags.
+	NspServiceTagsListResult
+}
+
 // SecurityPerimetersClientCreateOrUpdateResponse contains the response from method SecurityPerimetersClient.CreateOrUpdate.
 type SecurityPerimetersClientCreateOrUpdateResponse struct {
 	// The Network Security Perimeter resource
@@ -3265,6 +3277,12 @@ type VPNServerConfigurationsClientListByResourceGroupResponse struct {
 	// Result of the request to list all VpnServerConfigurations. It contains a list of VpnServerConfigurations and a URL nextLink
 	// to get the next set of results.
 	ListVPNServerConfigurationsResult
+}
+
+// VPNServerConfigurationsClientListRadiusSecretsResponse contains the response from method VPNServerConfigurationsClient.ListRadiusSecrets.
+type VPNServerConfigurationsClientListRadiusSecretsResponse struct {
+	// List of Radius servers with respective radius secrets.
+	RadiusAuthServerListResult
 }
 
 // VPNServerConfigurationsClientListResponse contains the response from method VPNServerConfigurationsClient.NewListPager.
@@ -3837,6 +3855,12 @@ type VirtualNetworkGatewaysClientInvokePrepareMigrationResponse struct {
 type VirtualNetworkGatewaysClientListConnectionsResponse struct {
 	// Response for the VirtualNetworkGatewayListConnections API service call.
 	VirtualNetworkGatewayListConnectionsResult
+}
+
+// VirtualNetworkGatewaysClientListRadiusSecretsResponse contains the response from method VirtualNetworkGatewaysClient.ListRadiusSecrets.
+type VirtualNetworkGatewaysClientListRadiusSecretsResponse struct {
+	// List of Radius servers with respective radius secrets.
+	RadiusAuthServerListResult
 }
 
 // VirtualNetworkGatewaysClientListResponse contains the response from method VirtualNetworkGatewaysClient.NewListPager.
