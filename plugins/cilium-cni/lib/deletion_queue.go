@@ -179,14 +179,14 @@ func (dc *DeletionFallbackClient) deleteEndpointsBatch(req *models.EndpointBatch
 		// reduce contention.
 		// Instead, we wait for it to complete its bootstrap and retry to
 		// connect again later.
-		var dirNotExists, socketNotExists bool
-		if _, err := os.Stat(filepath.Dir(client.DefaultSockPath())); errors.Is(err, fs.ErrNotExist) {
-			dirNotExists = true
+		var dirExists, socketNotExists bool
+		if _, err := os.Stat(filepath.Dir(client.DefaultSockPath())); err == nil {
+			dirExists = true
 		}
 		if _, err := os.Stat(client.DefaultSockPath()); errors.Is(err, fs.ErrNotExist) {
 			socketNotExists = true
 		}
-		if !dirNotExists || !socketNotExists {
+		if !dirExists || !socketNotExists {
 			// Agent is not bootstrapping
 			return true, err
 		}
