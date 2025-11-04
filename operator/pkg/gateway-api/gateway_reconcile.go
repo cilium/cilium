@@ -861,6 +861,11 @@ func (r *gatewayReconciler) setHTTPRouteStatuses(scopedLog *slog.Logger, ctx con
 
 		// Route-specific checks will go in here separately if required.
 
+		// Validate the HTTPRoute header name
+		if err := i.ValidateHeaderModifier(); err != nil {
+			return r.handleHTTPRouteReconcileErrorWithStatus(ctx, scopedLog, err, &original, hr)
+		}
+
 		// Checks finished, apply the status to the actual objects.
 		if err := r.updateHTTPRouteStatus(ctx, scopedLog, &original, hr); err != nil {
 			return fmt.Errorf("failed to update HTTPRoute status: %w", err)

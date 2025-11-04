@@ -187,3 +187,19 @@ func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 	}
 	return refs
 }
+
+// Validates the HTTPRoute header
+func (r *HTTPRouteInput) ValidateHeaderModifier() error {
+	for _, backendref := range r.HTTPRoute.Spec.Rules {
+		for _, f := range backendref.Filters {
+			if f.Type == gatewayv1.HTTPRouteFilterRequestHeaderModifier {
+				for _, set := range f.RequestHeaderModifier.Set {
+					if set.Name == "Host" {
+						return fmt.Errorf("Invalid HTTPRoute header: %q", set.Name)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
