@@ -59,3 +59,73 @@ func TestCESCacheNodeState(t *testing.T) {
 
 	assert.Empty(t, cmap.nodeData)
 }
+
+func TestCESCacheCIDState(t *testing.T) {
+	testCases := []struct {
+		name      string
+		cid       CID
+		gidLabels Label
+		count     int
+		gidCount  int
+	}{
+		{
+			name:      "Insert CID - 1",
+			cid:       CID("cid1"),
+			gidLabels: Label("test:hello"),
+			count:     1,
+			gidCount:  1,
+		},
+		{
+			name:      "Insert CID - 2",
+			cid:       CID("cid2"),
+			gidLabels: Label("key:value"),
+			count:     2,
+			gidCount:  2,
+		},
+		{
+			name:      "Insert CID - 3",
+			cid:       CID("cid3"),
+			gidLabels: Label("hello:world"),
+			count:     3,
+			gidCount:  3,
+		},
+		{
+			name:      "Check new CID with duplicate labels",
+			cid:       CID("cid4"),
+			gidLabels: Label("key:value"),
+			count:     4,
+			gidCount:  3,
+		},
+	}
+	cmap := newCESCache()
+
+	// Insert new CEPs in cepCache map and check its total count
+	for _, tc := range testCases {
+		t.Run(tc.name, func(*testing.T) {
+			prevSelectedId, _ := cmap.GetSelectedId(tc.gidLabels)
+			cmap.insertCID(CID(tc.cid), Label(tc.gidLabels))
+			assert.Equal(t, len(cmap.cidToGidLabels), tc.count, "Number of CIDs in cmap should match with Count")
+			assert.Equal(t, len(cmap.globalIdLabelsToCIDSet), tc.gidCount, "Number of GID label entries in cmap should match with Count")
+			assert.True(t, cmap.hasCID(tc.cid, tc.gidLabels), "CID should present in cmap")
+			assert.False(t, cmap.hasCID("not-really-cid", tc.gidLabels), "Random string should NOT present in cmap as Key")
+
+			newSelectedId, _ := cmap.GetSelectedId(tc.gidLabels)
+			if prevSelectedId == "" {
+				assert.Equal(t, newSelectedId, tc.cid, "Newly inserted CID should be selected as the first CID for the GID labels")
+			} else {
+				assert.Equal(t, newSelectedId, prevSelectedId, "Selected CID should not change if it was already set")
+			}
+		})
+	}
+
+	// Insert and remove CEPs in cepCache and check for any stale entries present in cepCache.
+	for _, tc := range testCases {
+		t.Run(tc.name, func(*testing.T) {
+			cmap.insertCID(CID(tc.cid), Label(tc.gidLabels))
+			cmap.deleteCID(tc.cid, tc.gidLabels)
+			assert.False(t, cmap.hasCID(tc.cid, tc.gidLabels), "CID should be removed from cache")
+		})
+	}
+	assert.Empty(t, cmap.cidToGidLabels)
+	assert.Empty(t, cmap.globalIdLabelsToCIDSet)
+}
