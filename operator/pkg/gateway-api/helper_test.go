@@ -68,8 +68,7 @@ func readInput(t *testing.T, file string) []client.Object {
 	require.NoError(t, err)
 
 	var res []client.Object
-	objects := strings.Split(string(inputYaml), "---")
-	for _, o := range objects {
+	for o := range strings.SplitSeq(string(inputYaml), "---") {
 		o = strings.TrimSpace(o)
 		if o == "" {
 			continue
