@@ -41,9 +41,14 @@ func (i *multiSlogHandler) Handle(ctx context.Context, record slog.Record) error
 	defer i.mu.RUnlock()
 	var errs error
 	for _, h := range i.handlers {
-		err := h.Handle(ctx, record)
-		if err != nil {
-			errs = errors.Join(errs, err)
+		// MultiSlogHandler will process all records that have higher level than the
+		// minimum level across all registered handlers.
+		// Only call individual handlers if they enable the provided record level.
+		if h.Enabled(ctx, record.Level) {
+			err := h.Handle(ctx, record)
+			if err != nil {
+				errs = errors.Join(errs, err)
+			}
 		}
 	}
 	return errs
