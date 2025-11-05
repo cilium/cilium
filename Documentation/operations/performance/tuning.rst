@@ -166,7 +166,6 @@ in any of the Cilium pods and look for the line reporting the status for
 
 **Requirements:**
 
-* Kernel >= 5.10
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading
 
@@ -339,7 +338,6 @@ bypassing the iptables connection tracker.
 
 **Requirements:**
 
-* Kernel >= 4.19.57, >= 5.1.16, >= 5.2
 * Direct-routing configuration
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading or no masquerading
@@ -780,8 +778,8 @@ any of the Cilium Pods and look for the line ``Clock Source for BPF``.
 Linux Kernel
 ============
 
-In general, we highly recommend using the most recent LTS stable kernel (such
-as >= 5.10) provided by the `kernel community <https://www.kernel.org/category/releases.html>`_
+In general, we highly recommend using the most recent LTS stable kernel
+provided by the `kernel community <https://www.kernel.org/category/releases.html>`_
 or by a downstream distribution of your choice. The newer the kernel, the more
 likely it is that various datapath optimizations can be used.
 
