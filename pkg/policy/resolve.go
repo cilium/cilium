@@ -24,6 +24,10 @@ import (
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
+	// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
+	IsIngress() bool
+	SetIngress(bool)
+
 	// return the namespace in which the policy rule is being resolved
 	GetNamespace() string
 
@@ -69,6 +73,8 @@ type PolicyContext interface {
 type policyContext struct {
 	repo *Repository
 	ns   string
+	// isIngress is set to true for ingress rule processing, false for egress
+	isIngress bool
 	// isDeny this field is set to true if the given policy computation should
 	// be done for the policy deny.
 	isDeny             bool
@@ -82,6 +88,15 @@ type policyContext struct {
 }
 
 var _ PolicyContext = &policyContext{}
+
+// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
+func (p *policyContext) IsIngress() bool {
+	return p.isIngress
+}
+
+func (p *policyContext) SetIngress(ingress bool) {
+	p.isIngress = ingress
+}
 
 // GetNamespace() returns the namespace for the policy rule being resolved
 func (p *policyContext) GetNamespace() string {
