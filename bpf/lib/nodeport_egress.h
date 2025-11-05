@@ -57,28 +57,31 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
-	struct ipv6_ct_tuple tuple = {};
+	struct ipv6_ct_tuple_ext tuple_ext = {};
+	struct ipv6_ct_tuple *tuple;
 	int hdrlen, l4_off, ret;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo;
 
+	tuple = &tuple_ext.tuple;
+
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	tuple->nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
 	if (hdrlen < 0)
 		return hdrlen;
 
-	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, &tuple);
+	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, tuple);
 	l4_off = ETH_HLEN + hdrlen;
 
-	if (lb_is_svc_proto(tuple.nexthdr) &&
+	if (lb_is_svc_proto(tuple->nexthdr) &&
 	    nodeport_has_nat_conflict_ipv6(ip6, &target))
 		goto apply_snat;
 
-	ret = snat_v6_needs_masquerade(ctx, &tuple, ip6, fraginfo, l4_off, &target);
+	ret = snat_v6_needs_masquerade(ctx, &tuple_ext, ip6, fraginfo, l4_off, &target);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -90,7 +93,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
 		ret = egress_gw_fib_lookup_and_redirect_v6(ctx, &target.addr,
-							   &tuple.daddr, target.ifindex,
+							   &tuple->daddr, target.ifindex,
 							   ext_err);
 		if (ret != CTX_ACT_OK)
 			return ret;
@@ -101,8 +104,8 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 #endif
 
 apply_snat:
-	ipv6_addr_copy(saddr, &tuple.saddr);
-	ret = snat_v6_nat(ctx, &tuple, ip6, fraginfo, l4_off,
+	ipv6_addr_copy(saddr, &tuple->saddr);
+	ret = snat_v6_nat(ctx, tuple, ip6, fraginfo, l4_off,
 			  &target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;
@@ -325,18 +328,21 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		.cluster_id = cluster_id,
 #endif
 	};
-	struct ipv4_ct_tuple tuple = {};
+	struct ipv4_ct_tuple_ext tuple_ext = {};
+	struct ipv4_ct_tuple *tuple;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo;
 	int l4_off, ret;
+
+	tuple = &tuple_ext.tuple;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 
-	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_MASQUERADE_IPV4)) {
@@ -350,21 +356,21 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 			 * parent interface.
 			 */
 			ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
-						CT_EGRESS, &tuple);
+						CT_EGRESS, &tuple_ext);
 			if (ret < 0 && ret != DROP_CT_UNKNOWN_PROTO)
 				return ret;
 
 			if (ret != DROP_CT_UNKNOWN_PROTO &&
-			    ct_is_reply4(get_ct_map4(&tuple), &tuple))
+			    ct_is_reply4(get_ct_map4(tuple), tuple))
 				return redirect_neigh(ep->parent_ifindex, NULL, 0, 0);
 		}
 	}
 
-	if (lb_is_svc_proto(tuple.nexthdr) &&
+	if (lb_is_svc_proto(tuple->nexthdr) &&
 	    nodeport_has_nat_conflict_ipv4(ip4, &target))
 		goto apply_snat;
 
-	ret = snat_v4_needs_masquerade(ctx, &tuple, ip4, fraginfo, l4_off, &target);
+	ret = snat_v4_needs_masquerade(ctx, &tuple_ext, ip4, fraginfo, l4_off, &target);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -376,7 +382,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 
 		/* Send packet to the correct egress interface, and SNAT it there. */
 		ret = egress_gw_fib_lookup_and_redirect(ctx, target.addr,
-							tuple.daddr, target.ifindex,
+							tuple->daddr, target.ifindex,
 							ext_err);
 		if (ret != CTX_ACT_OK)
 			return ret;
@@ -387,8 +393,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 #endif
 
 apply_snat:
-	*saddr = tuple.saddr;
-	ret = snat_v4_nat(ctx, &tuple, ip4, fraginfo, l4_off,
+	*saddr = tuple->saddr;
+	ret = snat_v4_nat(ctx, tuple, ip4, fraginfo, l4_off,
 			  &target, trace, ext_err);
 	if (IS_ERR(ret))
 		goto out;

@@ -432,20 +432,25 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 			     __u32 src_sec_identity, __u32 dst_sec_identity,
 			     struct trace_ctx *trace)
 {
+	struct ipv6_ct_tuple_ext __maybe_unused tuple6_ext = {};
+	struct ipv4_ct_tuple_ext tuple4_ext = {};
 	struct remote_endpoint_info fake_info = {0};
 	const struct endpoint_info *gateway_node_ep;
 	__be32 gateway_ip = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
-	struct ipv4_ct_tuple tuple4 = {};
-	struct ipv6_ct_tuple __maybe_unused tuple6 = {};
+	struct ipv4_ct_tuple *tuple4;
+	struct ipv6_ct_tuple __maybe_unused *tuple6;
 	int l4_off;
 	const struct remote_endpoint_info *info;
 	const struct endpoint_info *src_ep;
 	bool is_reply;
 	fraginfo_t fraginfo;
 	int ret;
+
+	tuple4 = &tuple4_ext.tuple;
+	tuple6 = &tuple6_ext.tuple;
 
 	if (src_sec_identity == HOST_ID)
 		return CTX_ACT_OK;
@@ -457,13 +462,13 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 
 		fraginfo = ipfrag_encode_ipv4(ip4);
 
-		tuple4.nexthdr = ip4->protocol;
-		tuple4.daddr = ip4->daddr;
-		tuple4.saddr = ip4->saddr;
+		tuple4->nexthdr = ip4->protocol;
+		tuple4->daddr = ip4->daddr;
+		tuple4->saddr = ip4->saddr;
 
 		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 		ret = ct_extract_ports4(ctx, ip4, fraginfo, l4_off,
-					CT_EGRESS, &tuple4);
+					CT_EGRESS, &tuple4_ext);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_CT_UNKNOWN_PROTO)
 				return CTX_ACT_OK;
@@ -471,7 +476,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		}
 
 		/* Only handle outbound connections: */
-		is_reply = ct_is_reply4(get_ct_map4(&tuple4), &tuple4);
+		is_reply = ct_is_reply4(get_ct_map4(tuple4), tuple4);
 		if (is_reply)
 			return CTX_ACT_OK;
 
@@ -484,8 +489,8 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 			dst_sec_identity = info->sec_identity;
 
 		/* lower-level code expects CT tuple to be flipped: */
-		__ipv4_ct_tuple_reverse(&tuple4);
-		ret = egress_gw_handle_packet(&tuple4, dst_sec_identity,
+		__ipv4_ct_tuple_reverse(tuple4);
+		ret = egress_gw_handle_packet(tuple4, dst_sec_identity,
 					      &gateway_ip);
 		break;
 #if defined(ENABLE_IPV6)
@@ -493,17 +498,17 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		tuple6.nexthdr = ip6->nexthdr;
-		ipv6_addr_copy(&tuple6.daddr, (union v6addr *)&ip6->daddr);
-		ipv6_addr_copy(&tuple6.saddr, (union v6addr *)&ip6->saddr);
+		tuple6->nexthdr = ip6->nexthdr;
+		ipv6_addr_copy(&tuple6->daddr, (union v6addr *)&ip6->daddr);
+		ipv6_addr_copy(&tuple6->saddr, (union v6addr *)&ip6->saddr);
 
-		ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple6.nexthdr, &fraginfo);
+		ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple6->nexthdr, &fraginfo);
 		if (ret < 0)
 			return ret;
 
 		l4_off = ETH_HLEN + ret;
 		ret = ct_extract_ports6(ctx, ip6, fraginfo, l4_off,
-					CT_EGRESS, &tuple6);
+					CT_EGRESS, &tuple6_ext);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_CT_UNKNOWN_PROTO)
 				return CTX_ACT_OK;
@@ -511,7 +516,7 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		}
 
 		/* Only handle outbound connections: */
-		is_reply = ct_is_reply6(get_ct_map6(&tuple6), &tuple6);
+		is_reply = ct_is_reply6(get_ct_map6(tuple6), tuple6);
 		if (is_reply)
 			return CTX_ACT_OK;
 
@@ -524,8 +529,8 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 			dst_sec_identity = info->sec_identity;
 
 		/* lower-level code expects CT tuple to be flipped: */
-		__ipv6_ct_tuple_reverse(&tuple6);
-		ret = egress_gw_handle_packet_v6(&tuple6, dst_sec_identity,
+		__ipv6_ct_tuple_reverse(tuple6);
+		ret = egress_gw_handle_packet_v6(tuple6, dst_sec_identity,
 						 &gateway_ip);
 		break;
 #endif

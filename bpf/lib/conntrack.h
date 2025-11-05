@@ -39,7 +39,7 @@ enum ct_entry_type {
 };
 
 struct ct_buffer4 {
-	struct ipv4_ct_tuple tuple;
+	struct ipv4_ct_tuple_ext tuple_ext;
 	struct ct_state ct_state;
 	__u32 monitor;
 	int ret;
@@ -47,7 +47,7 @@ struct ct_buffer4 {
 };
 
 struct ct_buffer6 {
-	struct ipv6_ct_tuple tuple;
+	struct ipv6_ct_tuple_ext tuple_ext;
 	struct ct_state ct_state;
 	__u32 monitor;
 	int ret;
@@ -512,8 +512,10 @@ ipv6_ct_reverse_tuple_daddr(const struct ipv6_ct_tuple *rtuple)
 
 static __always_inline int
 ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fraginfo,
-		  int off, enum ct_dir dir, struct ipv6_ct_tuple *tuple)
+		  int off, enum ct_dir dir, struct ipv6_ct_tuple_ext *tuple_ext)
 {
+	struct ipv6_ct_tuple *tuple = &tuple_ext->tuple;
+
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMPV6: {
 		__be16 identifier = 0;
@@ -527,8 +529,11 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 
-		if (ctx_load_bytes(ctx, off, &type, 1) < 0)
+		if (ctx_load_bytes(ctx, off, &tuple_ext->icmp_type, 1) < 0)
 			return DROP_CT_INVALID_HDR;
+
+		type = tuple_ext->icmp_type;
+
 		if ((type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmp6hdr,
 						       icmp6_dataun.u_echo.identifier),
@@ -662,18 +667,19 @@ ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff 
 
 /* Offset must point to IPv6 */
 static __always_inline int ct_lookup6(const void *map,
-				      struct ipv6_ct_tuple *tuple,
+				      struct ipv6_ct_tuple_ext *tuple_ext,
 				      struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				      fraginfo_t fraginfo, int l4_off,
 				      enum ct_dir dir, enum ct_scope scope,
 				      struct ct_state *ct_state,
 				      __u32 *monitor)
 {
+	struct ipv6_ct_tuple *tuple = &tuple_ext->tuple;
 	int ret;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
-	ret = ct_extract_ports6(ctx, ip6, fraginfo, l4_off, dir, tuple);
+	ret = ct_extract_ports6(ctx, ip6, fraginfo, l4_off, dir, tuple_ext);
 	if (ret < 0)
 		return ret;
 
@@ -772,15 +778,14 @@ ipv4_ct_reverse_tuple_daddr(const struct ipv4_ct_tuple *rtuple)
 
 static __always_inline int
 ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo,
-		  int off, enum ct_dir dir, struct ipv4_ct_tuple *tuple)
+		  int off, enum ct_dir dir, struct ipv4_ct_tuple_ext *tuple_ext)
 {
+	struct ipv4_ct_tuple *tuple = &tuple_ext->tuple;
+
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP: {
 		__be16 identifier = 0;
-		struct {
-			__u8 type;
-			__u8 code;
-		} hdr;
+		__u8 type;
 
 		/* Fragmented ECHO packets are not supported currently. Drop all
 		 * fragments, because letting the first fragment pass would be
@@ -790,9 +795,13 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 
-		if (ctx_load_bytes(ctx, off, &hdr, 2) < 0)
+		/* Also populates the icmp_code: */
+		if (ctx_load_bytes(ctx, off, &tuple_ext->icmp_type, 2) < 0)
 			return DROP_CT_INVALID_HDR;
-		if ((hdr.type == ICMP_ECHO || hdr.type == ICMP_ECHOREPLY) &&
+
+		type = tuple_ext->icmp_type;
+
+		if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmphdr, un.echo.id),
 				   &identifier, 2) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -800,9 +809,9 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		tuple->sport = 0;
 		tuple->dport = 0;
 
-		switch (hdr.type) {
+		switch (type) {
 		case ICMP_DEST_UNREACH:
-			if (hdr.code == ICMP_FRAG_NEEDED)
+			if (tuple_ext->icmp_code == ICMP_FRAG_NEEDED)
 				update_metrics(ctx_full_len(ctx),
 					       ct_to_metrics_dir(dir),
 					       REASON_MTU_ERROR_MSG);
@@ -945,11 +954,12 @@ ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff 
 
 /* Offset must point to IPv4 header */
 static __always_inline int ct_lookup4(const void *map,
-				      struct ipv4_ct_tuple *tuple,
+				      struct ipv4_ct_tuple_ext *tuple_ext,
 				      struct __ctx_buff *ctx, struct iphdr *ip4,
 				      int off, enum ct_dir dir, enum ct_scope scope,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
+	struct ipv4_ct_tuple *tuple = &tuple_ext->tuple;
 	fraginfo_t fraginfo;
 	int ret;
 
@@ -957,7 +967,7 @@ static __always_inline int ct_lookup4(const void *map,
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
-	ret = ct_extract_ports4(ctx, ip4, fraginfo, off, dir, tuple);
+	ret = ct_extract_ports4(ctx, ip4, fraginfo, off, dir, tuple_ext);
 	if (ret < 0)
 		return ret;
 

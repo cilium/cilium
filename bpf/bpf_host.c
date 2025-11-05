@@ -287,7 +287,8 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 		if (!ct_buffer)
 			return DROP_INVALID_TC_BUFFER;
-		if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
+		if (ct_buffer->tuple_ext.tuple.saddr.d1 == 0 &&
+		    ct_buffer->tuple_ext.tuple.saddr.d2 == 0)
 			/* The map value is zeroed so the map update didn't happen somehow. */
 			return DROP_INVALID_TC_BUFFER;
 
@@ -712,7 +713,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		ct_buffer = map_lookup_elem(&cilium_tail_call_buffer4, &zero);
 		if (!ct_buffer)
 			return DROP_INVALID_TC_BUFFER;
-		if (ct_buffer->tuple.saddr == 0)
+		if (ct_buffer->tuple_ext.tuple.saddr == 0)
 			/* The map value is zeroed so the map update didn't happen somehow. */
 			return DROP_INVALID_TC_BUFFER;
 

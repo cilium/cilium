@@ -761,6 +761,12 @@ struct ipv6_ct_tuple {
 	__u8		flags;
 } __packed;
 
+struct ipv6_ct_tuple_ext {
+	struct ipv6_ct_tuple tuple;
+	__u8 icmp_type;
+	__u8 icmp_code;
+};
+
 struct ipv4_ct_tuple {
 	/* Address fields are reversed, i.e.,
 	 * these field names are correct for reply direction traffic.
@@ -775,6 +781,12 @@ struct ipv4_ct_tuple {
 	__u8		nexthdr;
 	__u8		flags;
 } __packed;
+
+struct ipv4_ct_tuple_ext {
+	struct ipv4_ct_tuple tuple;
+	__u8 icmp_type;
+	__u8 icmp_code;
+};
 
 struct ct_entry {
 	__u64 reserved0;	/* unused since v1.16 */
