@@ -143,7 +143,7 @@ var decodeHooks = cell.DecodeHooks{
 		if from.Kind() != reflect.String {
 			return data, nil
 		}
-		if to != reflect.TypeOf(netip.Prefix{}) {
+		if to != reflect.TypeFor[netip.Prefix]() {
 			return data, nil
 		}
 		return netip.ParsePrefix(data.(string))

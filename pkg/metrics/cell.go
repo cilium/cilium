@@ -68,11 +68,6 @@ var OperatorCell = cell.Module("operator-metrics", "Operator Metrics",
 // `github.com/cilium/cilium/pkg/metrics/metric.WithMetadata`
 // and `github.com/prometheus/client_golang/prometheus.Collector` interfaces.
 func Metric[S any](ctor func() S) cell.Cell {
-	var (
-		withMeta  pkgmetric.WithMetadata
-		collector prometheus.Collector
-	)
-
 	var nilOut S
 	outTyp := reflect.TypeOf(nilOut)
 	if outTyp.Kind() == reflect.Ptr {
@@ -95,8 +90,6 @@ func Metric[S any](ctor func() S) cell.Cell {
 		))
 	}
 
-	withMetaTyp := reflect.TypeOf(&withMeta).Elem()
-	collectorTyp := reflect.TypeOf(&collector).Elem()
 	for i := range outTyp.NumField() {
 		field := outTyp.Field(i)
 		if !field.IsExported() {
@@ -107,14 +100,14 @@ func Metric[S any](ctor func() S) cell.Cell {
 			))
 		}
 
-		if !field.Type.Implements(withMetaTyp) {
+		if !field.Type.Implements(reflect.TypeFor[pkgmetric.WithMetadata]()) {
 			panic(fmt.Errorf(
 				"The struct returned by the constructor passed to metrics.Metric has a field '%s', which is not metric.WithMetadata.",
 				field.Name,
 			))
 		}
 
-		if !field.Type.Implements(collectorTyp) {
+		if !field.Type.Implements(reflect.TypeFor[prometheus.Collector]()) {
 			panic(fmt.Errorf(
 				"The struct returned by the constructor passed to metrics.Metric has a field '%s', which is not prometheus.Collector.",
 				field.Name,
