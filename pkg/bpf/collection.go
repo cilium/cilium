@@ -253,7 +253,9 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if logger.Enabled(context.Background(), slog.LevelDebug) {
 		if err := verifyUnusedMaps(coll, keep); err != nil {
-			logger.Debug(fmt.Sprintf("verifying unused maps: %v", err))
+			if !errors.Is(err, ebpf.ErrRestrictedKernel) {
+				return nil, nil, fmt.Errorf("verifying unused maps: %w", err)
+			}
 		} else {
 			logger.Debug("Verified no unused maps after loading Collection")
 		}
