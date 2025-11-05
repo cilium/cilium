@@ -1116,10 +1116,32 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 // attach signifies that the L4Filter is ready and reacheable for updates
 // from SelectorCache. L4Filter (and L4Policy) is read-only after this is called,
 // multiple goroutines will be reading the fields from that point on.
-func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures {
+func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy, allowLocalhost bool) (policyFeatures, redirectTypes) {
+	var redirectTypes redirectTypes
 	var features policyFeatures
+
+	// Daemon options may induce L3 ingress allows for host. If a filter would apply
+	// proxy redirection for the Host, when we should accept everything from host, then
+	// wildcard Host at L7 (which is taken care of at the mapstate level).
+
 	for cs, sp := range l4.PerSelectorPolicies {
 		if sp != nil {
+			// Allow localhost if requested and this is a redirect that selects the host
+			//
+			// Identities with a reserved:host label are never changed incrementally, so
+			// it is correct to use the latest version here. In case the host identity
+			// is mutated, the whole policy is recomputed.
+			if allowLocalhost && sp.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
+				host := api.ReservedEndpointSelectors[labels.IDNameHost]
+				// Add the cached host selector to the PerSelectorPolicies, if not
+				// already there. Use empty string labels due to this selector being
+				// added due to agent config rather than any specific rule.
+				l4.cacheIdentitySelector(host, EmptyStringLabels, ctx.GetSelectorCache())
+			}
+
+			// collect redirect types (if any)
+			redirectTypes |= sp.redirectType()
+
 			if sp.L7Parser != "" {
 				features.setFeature(redirectRules)
 			}
@@ -1153,38 +1175,17 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 	}
 
 	l4.policy.Store(l4Policy)
-	return features
+	return features, redirectTypes
 }
 
 // createL4IngressFilter creates a filter for L4 policy that applies to the
 // specified endpoints and port/protocol for ingress traffic, with reference
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
-//
-// hostWildcardL7 determines if L7 traffic from Host should be
-// wildcarded (in the relevant daemon mode).
-func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints types.PeerSelectorSlice, auth *api.Authentication, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
+func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto,
 ) (*L4Filter, error) {
-	filter, err := createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, true)
-	if err != nil {
-		return nil, err
-	}
-
-	// If the filter would apply proxy redirection for the Host, when we should accept
-	// everything from host, then wildcard Host at L7.
-	if len(hostWildcardL7) > 0 {
-		for cs, l7 := range filter.PerSelectorPolicies {
-			if l7.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
-				for _, name := range hostWildcardL7 {
-					selector := api.ReservedEndpointSelectors[name]
-					filter.cacheIdentitySelector(selector, policyCtx.Origin().stringLabels(), policyCtx.GetSelectorCache())
-				}
-			}
-		}
-	}
-
-	return filter, nil
+	return createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, true)
 }
 
 // createL4EgressFilter creates a filter for L4 policy that applies to the
@@ -1489,14 +1490,14 @@ func (l4M *l4PolicyMap) Detach(selectorCache *SelectorCache) {
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4PolicyMap is exposed to concurrent access.
 // Returns the bitmask of all redirect types for this policymap.
-func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redirectTypes {
+func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy, allowLocalhost bool) redirectTypes {
 	var redirectTypes redirectTypes
 	var features policyFeatures
+
 	l4.PortRules.ForEach(func(f *L4Filter) bool {
-		features |= f.attach(ctx, l4Policy)
-		for _, sp := range f.PerSelectorPolicies {
-			redirectTypes |= sp.redirectType()
-		}
+		feat, redir := f.attach(ctx, l4Policy, allowLocalhost)
+		features |= feat
+		redirectTypes |= redir
 		return true
 	})
 	l4.features = features
@@ -1706,8 +1707,10 @@ func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpoint
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4Policy is exposed to concurrent access.
 func (l4 *L4Policy) Attach(ctx PolicyContext) {
-	ingressRedirects := l4.Ingress.attach(ctx, l4)
-	egressRedirects := l4.Egress.attach(ctx, l4)
+	// Pass the AlwaysAllowLocalhost setting down to ingress attach.
+	ingressRedirects := l4.Ingress.attach(ctx, l4, option.Config.AlwaysAllowLocalhost())
+	// Never add allow local host rules on egress.
+	egressRedirects := l4.Egress.attach(ctx, l4, false)
 	l4.redirectTypes = ingressRedirects | egressRedirects
 }
 

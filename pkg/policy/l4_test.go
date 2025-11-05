@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -140,6 +141,11 @@ func TestParserTypeMerge(t *testing.T) {
 }
 
 func TestCreateL4Filter(t *testing.T) {
+	// disable allow local host to simplify the this test
+	oldLocalhostOpt := option.Config.AllowLocalhost
+	option.Config.AllowLocalhost = option.AllowLocalhostPolicy
+	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
+
 	td := newTestData(hivetest.Logger(t))
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
@@ -160,7 +166,7 @@ func TestCreateL4Filter(t *testing.T) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol)
+		filter, err := createL4IngressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -183,6 +189,11 @@ func TestCreateL4Filter(t *testing.T) {
 }
 
 func TestCreateL4FilterAuthRequired(t *testing.T) {
+	// disable allow local host to simplify the this test
+	oldLocalhostOpt := option.Config.AllowLocalhost
+	option.Config.AllowLocalhost = option.AllowLocalhostPolicy
+	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
+
 	td := newTestData(hivetest.Logger(t))
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
@@ -204,7 +215,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter, err := createL4IngressFilter(td.testPolicyContext, eps, auth, nil, portrule, tuple, tuple.Protocol)
+		filter, err := createL4IngressFilter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -254,7 +265,7 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		_, err := createL4IngressFilter(td.testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol)
+		_, err := createL4IngressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol)
 		require.Error(t, err)
 
 		_, err = createL4EgressFilter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol)
