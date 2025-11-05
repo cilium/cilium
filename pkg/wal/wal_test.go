@@ -190,10 +190,7 @@ type SmallReadsReader struct {
 }
 
 func (r *SmallReadsReader) Read(p []byte) (int, error) {
-	l := min(len(p), 8)
-	if l > len(r.data) {
-		l = len(r.data)
-	}
+	l := min(len(p), 8, len(r.data))
 
 	copy(p, r.data[:l])
 	r.data = r.data[l:]
