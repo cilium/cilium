@@ -38,23 +38,6 @@ func (in *PolicyEntry) DeepEqual(other *PolicyEntry) bool {
 		}
 	}
 
-	if ((in.Requirements != nil) && (other.Requirements != nil)) || ((in.Requirements == nil) != (other.Requirements == nil)) {
-		in, other := &in.Requirements, &other.Requirements
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
-		}
-	}
-
 	if ((in.L4 != nil) && (other.L4 != nil)) || ((in.L4 == nil) != (other.L4 == nil)) {
 		in, other := &in.L4, &other.L4
 		if other == nil || !in.DeepEqual(other) {

@@ -156,7 +156,7 @@ Additional Label Requirements
 .. warning::
 
    The ``fromRequires`` and ``toRequires`` fields are deprecated as of Cilium
-   1.17.x. They will be dropped from support in Cilium 1.18.
+   1.17.x. They have been removed as of Cilium 1.19.
 
 It is often required to apply the principle of *separation of concern* when defining
 policies. For this reason, an additional construct exists which allows to establish

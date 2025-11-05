@@ -4,7 +4,6 @@
 package utils
 
 import (
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -18,7 +17,6 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 		for _, iRule := range rule.Ingress {
 			defaultDeny := rule.EnableDefaultDeny.Ingress == nil || *rule.EnableDefaultDeny.Ingress
 
-			req := convertToLabelSelectorRequirementSlice(iRule.FromRequires)
 			l3 := mergeEndpointSelectors(
 				iRule.FromEndpoints,
 				iRule.FromNodes,
@@ -38,7 +36,6 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				DefaultDeny:    defaultDeny,
 				Deny:           false,
 				Ingress:        true,
-				Requirements:   req,
 				L3:             l3,
 				L4:             l4,
 				Authentication: iRule.Authentication,
@@ -50,7 +47,6 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 		for _, iRule := range rule.IngressDeny {
 			defaultDeny := rule.EnableDefaultDeny.Ingress == nil || *rule.EnableDefaultDeny.Ingress
 
-			req := convertToLabelSelectorRequirementSlice(iRule.FromRequires)
 			l3 := mergeEndpointSelectors(
 				iRule.FromEndpoints,
 				iRule.FromNodes,
@@ -64,16 +60,15 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				Subject:      es,
-				Node:         node,
-				Labels:       rule.Labels,
-				DefaultDeny:  defaultDeny,
-				Deny:         true,
-				Ingress:      true,
-				Requirements: req,
-				L3:           l3,
-				L4:           l4,
-				Log:          rule.Log,
+				Subject:     es,
+				Node:        node,
+				Labels:      rule.Labels,
+				DefaultDeny: defaultDeny,
+				Deny:        true,
+				Ingress:     true,
+				L3:          l3,
+				L4:          l4,
+				Log:         rule.Log,
 			}
 			entries = append(entries, entry)
 		}
@@ -81,7 +76,6 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 		for _, eRule := range rule.Egress {
 			defaultDeny := rule.EnableDefaultDeny.Egress == nil || *rule.EnableDefaultDeny.Egress
 
-			req := convertToLabelSelectorRequirementSlice(eRule.ToRequires)
 			l3 := mergeEndpointSelectors(
 				eRule.ToEndpoints,
 				eRule.ToNodes,
@@ -101,7 +95,6 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				DefaultDeny:    defaultDeny,
 				Deny:           false,
 				Ingress:        false,
-				Requirements:   req,
 				L3:             l3,
 				L4:             l4,
 				Authentication: eRule.Authentication,
@@ -113,7 +106,6 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 		for _, eRule := range rule.EgressDeny {
 			defaultDeny := rule.EnableDefaultDeny.Egress == nil || *rule.EnableDefaultDeny.Egress
 
-			req := convertToLabelSelectorRequirementSlice(eRule.ToRequires)
 			l3 := mergeEndpointSelectors(
 				eRule.ToEndpoints,
 				eRule.ToNodes,
@@ -127,16 +119,15 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				Subject:      es,
-				Node:         node,
-				Labels:       rule.Labels,
-				DefaultDeny:  defaultDeny,
-				Deny:         true,
-				Ingress:      false,
-				Requirements: req,
-				L3:           l3,
-				L4:           l4,
-				Log:          rule.Log,
+				Subject:     es,
+				Node:        node,
+				Labels:      rule.Labels,
+				DefaultDeny: defaultDeny,
+				Deny:        true,
+				Ingress:     false,
+				L3:          l3,
+				L4:          l4,
+				Log:         rule.Log,
 			}
 			entries = append(entries, entry)
 		}
@@ -181,14 +172,6 @@ func icmpRules(icmpRules api.ICMPRules) api.PortRules {
 		return nil
 	})
 	return out
-}
-
-func convertToLabelSelectorRequirementSlice(s []api.EndpointSelector) []slim_metav1.LabelSelectorRequirement {
-	var requirements []slim_metav1.LabelSelectorRequirement
-	for _, selector := range s {
-		requirements = append(requirements, selector.ConvertToLabelSelectorRequirementSlice()...)
-	}
-	return requirements
 }
 
 // getSelector returns either the endpoint selector, which is the target of a policy rule and true if the endpoint represents a node.

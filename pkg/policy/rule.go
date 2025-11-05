@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -435,15 +434,10 @@ func mergeIngress(policyCtx PolicyContext, fromEndpoints types.PeerSelectorSlice
 
 // resolveIngressPolicy analyzes the rule against the given SearchContext, and
 // merges it with any prior-generated policy within the provided L4Policy.
-// Requirements based off of all Ingress requirements (set in FromRequires) in
-// other rules are stored in the specified slice of LabelSelectorRequirement.
-// These requirements are dynamically inserted into a copy of the receiver rule,
-// as requirements form conjunctions across all rules.
 func (r *rule) resolveIngressPolicy(
 	policyCtx PolicyContext,
 	state *traceState,
 	result L4PolicyMap,
-	requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement,
 ) error {
 	state.selectRule(policyCtx, r)
 	found, foundDeny := 0, 0
@@ -456,8 +450,7 @@ func (r *rule) resolveIngressPolicy(
 	}
 
 	if !r.Deny {
-		fromEndpoints := r.L3.WithRequirements(requirements)
-		cnt, err := mergeIngress(policyCtx, fromEndpoints, r.Authentication, r.L4, result)
+		cnt, err := mergeIngress(policyCtx, r.L3, r.Authentication, r.L4, result)
 		if err != nil {
 			return err
 		}
@@ -472,8 +465,7 @@ func (r *rule) resolveIngressPolicy(
 	}()
 
 	if r.Deny {
-		fromEndpoints := r.L3.WithRequirements(requirementsDeny)
-		cnt, err := mergeIngress(policyCtx, fromEndpoints, r.Authentication, r.L4, result)
+		cnt, err := mergeIngress(policyCtx, r.L3, r.Authentication, r.L4, result)
 		if err != nil {
 			return err
 		}
@@ -618,7 +610,6 @@ func (r *rule) resolveEgressPolicy(
 	policyCtx PolicyContext,
 	state *traceState,
 	result L4PolicyMap,
-	requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement,
 ) error {
 
 	state.selectRule(policyCtx, r)
@@ -631,8 +622,7 @@ func (r *rule) resolveEgressPolicy(
 	}
 
 	if !r.Deny {
-		toEndpoints := r.L3.WithRequirements(requirements)
-		cnt, err := mergeEgress(policyCtx, toEndpoints, r.Authentication, r.L4, result)
+		cnt, err := mergeEgress(policyCtx, r.L3, r.Authentication, r.L4, result)
 		if err != nil {
 			return err
 		}
@@ -647,8 +637,7 @@ func (r *rule) resolveEgressPolicy(
 	}()
 
 	if r.Deny {
-		toEndpoints := r.L3.WithRequirements(requirementsDeny)
-		cnt, err := mergeEgress(policyCtx, toEndpoints, nil, r.L4, result)
+		cnt, err := mergeEgress(policyCtx, r.L3, nil, r.L4, result)
 		if err != nil {
 			return err
 		}

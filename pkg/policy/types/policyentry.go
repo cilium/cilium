@@ -4,7 +4,6 @@
 package types
 
 import (
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -24,10 +23,6 @@ type PolicyEntry struct {
 
 	// L3 specifies the source/destination endpoints or all endpoints if empty
 	L3 PeerSelectorSlice
-
-	// Requirements is a list of additional constraints which must be met
-	// in order for the selected peer endpoints to be reachable
-	Requirements []slim_metav1.LabelSelectorRequirement
 
 	// L4 specifies the source/destination port rules or none if empty
 	L4 api.PortRules
@@ -114,26 +109,6 @@ func (s PeerSelectorSlice) GetAsEndpointSelectors() api.EndpointSelectorSlice {
 			res = append(res, api.CIDRRuleSlice{v}.GetAsEndpointSelectors()...)
 		case api.FQDNSelector:
 			// FQDN selector are excluded because they have to be handled separately
-		}
-	}
-	return res
-}
-
-// WithRequirements returns a copy of the PeerSelectorSlice with the specified
-// label requirements applied to all EndpointSelectors.
-func (s PeerSelectorSlice) WithRequirements(requirements []slim_metav1.LabelSelectorRequirement) PeerSelectorSlice {
-	if len(requirements) == 0 || len(s) == 0 {
-		return s
-	}
-	res := make(PeerSelectorSlice, 0, len(s))
-	for idx := range s {
-		if peer, ok := s[idx].(api.EndpointSelector); ok {
-			sel := peer.DeepCopy()
-			sel.MatchExpressions = append(sel.MatchExpressions, requirements...)
-			sel.SyncRequirementsWithLabelSelector()
-			res = append(res, *sel)
-		} else {
-			res = append(res, s[idx])
 		}
 	}
 	return res
