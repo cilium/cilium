@@ -255,6 +255,12 @@ func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPoli
 // The repository is cleared when called.
 func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMap, rules ...*api.Rule) {
 	t.Helper()
+	entries := utils.RulesToPolicyEntries(rules)
+	td.policyMapEqualsPolicyEntries(t, expectedIn, expectedOut, entries...)
+}
+
+func (td *testData) policyMapEqualsPolicyEntries(t *testing.T, expectedIn, expectedOut L4PolicyMap, entries ...*policytypes.PolicyEntry) {
+	t.Helper()
 	logger := hivetest.Logger(t)
 
 	// Initialize with test identity
@@ -262,13 +268,12 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 	defer td.removeIdentity(idA)
 
 	// Add the rules to policy repository.
-	for _, r := range rules {
-		if r.EndpointSelector.LabelSelector == nil {
-			r.EndpointSelector = endpointSelectorA
+	for _, e := range entries {
+		if e.Subject.LabelSelector == nil {
+			e.Subject = endpointSelectorA
 		}
-		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
+	td.repo.ReplaceByLabels(entries, []labels.LabelArray{{}})
 
 	// Resolve the Selector policy for test identity
 	td.repo.mutex.RLock()

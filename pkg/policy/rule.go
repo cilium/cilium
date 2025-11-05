@@ -451,7 +451,7 @@ func (result *l4PolicyMap) resolveL4Policy(
 
 	policyCtx.SetDeny(false)
 	if !r.Deny {
-		policyCtx.SetPriority(0)
+		policyCtx.SetPriority(r.Priority)
 		cnt, err := result.mergeL4Filter(policyCtx, r)
 		if err != nil {
 			return err
@@ -463,7 +463,7 @@ func (result *l4PolicyMap) resolveL4Policy(
 
 	policyCtx.SetDeny(true)
 	if r.Deny {
-		policyCtx.SetPriority(0)
+		policyCtx.SetPriority(r.Priority)
 		cnt, err := result.mergeL4Filter(policyCtx, r)
 		if err != nil {
 			return err
