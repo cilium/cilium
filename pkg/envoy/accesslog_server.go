@@ -29,9 +29,9 @@ type AccessLogServer struct {
 	logger             *slog.Logger
 	accessLogger       accesslog.ProxyAccessLogger
 	socketPath         string
+	socketListener     *net.UnixListener
 	proxyGID           uint
 	localEndpointStore *LocalEndpointStore
-	stopCh             chan struct{}
 	bufferSize         uint
 }
 
@@ -47,47 +47,36 @@ func newAccessLogServer(logger *slog.Logger, accessLogger accesslog.ProxyAccessL
 }
 
 // start starts the access log server.
-func (s *AccessLogServer) start() error {
+func (s *AccessLogServer) start(ctx context.Context) error {
 	socketListener, err := s.newSocketListener()
 	if err != nil {
 		return fmt.Errorf("failed to create socket listener: %w", err)
 	}
+	s.socketListener = socketListener
 
-	s.stopCh = make(chan struct{})
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		s.logger.Info("Envoy: Starting access log server listening",
-			logfields.Address, socketListener.Addr(),
-		)
-		for {
-			// Each Envoy listener opens a new connection over the Unix domain socket.
-			// Multiple worker threads serving the listener share that same connection
-			uc, err := socketListener.AcceptUnix()
-			if err != nil {
-				// These errors are expected when we are closing down
-				if errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EINVAL) {
-					break
-				}
-				s.logger.Warn("Envoy: Failed to accept access log connection",
-					logfields.Error, err,
-				)
-				continue
+	s.logger.Info("Envoy: Starting access log server listening",
+		logfields.Address, socketListener.Addr(),
+	)
+	for {
+		// Each Envoy listener opens a new connection over the Unix domain socket.
+		// Multiple worker threads serving the listener share that same connection
+		uc, err := socketListener.AcceptUnix()
+		if err != nil {
+			// These errors are expected when we are closing down
+			if errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EINVAL) {
+				break
 			}
-			s.logger.Info("Envoy: Accepted access log connection")
-
-			// Serve this access log socket in a goroutine, so we can serve multiple
-			// connections concurrently.
-			go s.handleConn(ctx, uc)
+			s.logger.Warn("Envoy: Failed to accept access log connection",
+				logfields.Error, err,
+			)
+			continue
 		}
-	}()
+		s.logger.Info("Envoy: Accepted access log connection")
 
-	go func() {
-		<-s.stopCh
-		_ = socketListener.Close()
-		cancel()
-	}()
+		// Serve this access log socket in a goroutine, so we can serve multiple
+		// connections concurrently.
+		go s.handleConn(ctx, uc)
+	}
 
 	return nil
 }
@@ -104,7 +93,7 @@ func (s *AccessLogServer) newSocketListener() (*net.UnixListener, error) {
 	accessLogListener.SetUnlinkOnClose(true)
 
 	// Make the socket accessible by owner and group only.
-	if err = os.Chmod(s.socketPath, 0660); err != nil {
+	if err = os.Chmod(s.socketPath, 0o660); err != nil {
 		return nil, fmt.Errorf("failed to change mode of access log listen socket at %s: %w", s.socketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
@@ -118,8 +107,8 @@ func (s *AccessLogServer) newSocketListener() (*net.UnixListener, error) {
 }
 
 func (s *AccessLogServer) stop() {
-	if s.stopCh != nil {
-		s.stopCh <- struct{}{}
+	if s.socketListener != nil {
+		_ = s.socketListener.Close()
 	}
 }
 

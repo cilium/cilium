@@ -157,6 +157,7 @@ type accessLogServerParams struct {
 	cell.In
 
 	Lifecycle          cell.Lifecycle
+	JobGroup           job.Group
 	Logger             *slog.Logger
 	AccessLogger       accesslog.ProxyAccessLogger
 	LocalEndpointStore *LocalEndpointStore
@@ -180,9 +181,9 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(_ cell.HookContext) error {
-			if err := accessLogServer.start(); err != nil {
-				return fmt.Errorf("failed to start Envoy AccessLog server: %w", err)
-			}
+			params.JobGroup.Add(job.OneShot("accesslog-server", func(ctx context.Context, _ cell.Health) error {
+				return accessLogServer.start(ctx)
+			}, job.WithShutdown()))
 			return nil
 		},
 		OnStop: func(_ cell.HookContext) error {
