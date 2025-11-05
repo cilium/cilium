@@ -335,6 +335,7 @@ communicating via the proxy must reconnect to re-establish connections.
   automation when bootstrapping your clusters.
 * Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
   (previously this was a RHEL8.6-compatible kernel).
+* The previously deprecated ``FromRequires`` and ``ToRequires`` fields of the `CiliumNetworkPolicy` and `CiliumClusterwideNetworkPolicy` CRDs have been removed.
 
 Removed Options
 ~~~~~~~~~~~~~~~

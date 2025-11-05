@@ -226,23 +226,6 @@ func (in *EgressCommonRule) deepEqual(other *EgressCommonRule) bool {
 		}
 	}
 
-	if ((in.ToRequires != nil) && (other.ToRequires != nil)) || ((in.ToRequires == nil) != (other.ToRequires == nil)) {
-		in, other := &in.ToRequires, &other.ToRequires
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
-		}
-	}
-
 	if ((in.ToCIDR != nil) && (other.ToCIDR != nil)) || ((in.ToCIDR == nil) != (other.ToCIDR == nil)) {
 		in, other := &in.ToCIDR, &other.ToCIDR
 		if other == nil || !in.DeepEqual(other) {
@@ -635,23 +618,6 @@ func (in *IngressCommonRule) deepEqual(other *IngressCommonRule) bool {
 
 	if ((in.FromEndpoints != nil) && (other.FromEndpoints != nil)) || ((in.FromEndpoints == nil) != (other.FromEndpoints == nil)) {
 		in, other := &in.FromEndpoints, &other.FromEndpoints
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
-		}
-	}
-
-	if ((in.FromRequires != nil) && (other.FromRequires != nil)) || ((in.FromRequires == nil) != (other.FromRequires == nil)) {
-		in, other := &in.FromRequires, &other.FromRequires
 		if other == nil {
 			return false
 		}

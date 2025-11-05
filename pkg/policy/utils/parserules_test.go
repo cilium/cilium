@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
@@ -499,47 +498,6 @@ func TestIcmpRules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := icmpRules(tt.icmpRules)
 			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestConvertToLabelSelectorRequirementSlice(t *testing.T) {
-	tests := []struct {
-		name      string
-		selectors []api.EndpointSelector
-		want      []slim_metav1.LabelSelectorRequirement
-	}{
-		{
-			name:      "empty",
-			selectors: []api.EndpointSelector{},
-			want:      nil,
-		},
-		{
-			name: "single selector",
-			selectors: []api.EndpointSelector{
-				api.NewESFromLabels(labels.ParseSelectLabel("foo=bar")),
-			},
-			want: []slim_metav1.LabelSelectorRequirement{
-				{Key: "any.foo", Operator: slim_metav1.LabelSelectorOpIn, Values: []string{"bar"}},
-			},
-		},
-		{
-			name: "multiple selectors",
-			selectors: []api.EndpointSelector{
-				api.NewESFromLabels(labels.ParseSelectLabel("foo=bar")),
-				api.NewESFromLabels(labels.ParseSelectLabel("baz=qux")),
-			},
-			want: []slim_metav1.LabelSelectorRequirement{
-				{Key: "any.foo", Operator: slim_metav1.LabelSelectorOpIn, Values: []string{"bar"}},
-				{Key: "any.baz", Operator: slim_metav1.LabelSelectorOpIn, Values: []string{"qux"}},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := convertToLabelSelectorRequirementSlice(tt.selectors)
-			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
 }
