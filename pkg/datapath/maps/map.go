@@ -104,10 +104,8 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	}
 
 	for _, m := range mapPrefix {
-		if strings.HasPrefix(filename, m) {
-			if endpointID := strings.TrimPrefix(filename, m); endpointID != filename {
-				ms.deleteMapIfStale(path, filename, endpointID)
-			}
+		if endpointID, found := strings.CutPrefix(filename, m); found {
+			ms.deleteMapIfStale(path, filename, endpointID)
 		}
 	}
 
