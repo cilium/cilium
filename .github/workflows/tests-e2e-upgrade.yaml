@@ -103,6 +103,12 @@ jobs:
         id: generate-matrix
         run: |
           cd /tmp/generated/e2e
+
+          if [[ "${{ github.event_name == 'schedule' }}" == "false" ]]; then
+            cp configs.json tmp.json
+            jq '[ .[] | select( (has("schedule-only") | not) or (."schedule-only" == "false") )]' tmp.json > configs.json
+          fi
+
           jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
