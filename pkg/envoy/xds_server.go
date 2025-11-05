@@ -246,15 +246,8 @@ func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpoints
 	return xdsServer
 }
 
-func (s *xdsServer) start() error {
-	socketListener, err := s.newSocketListener()
-	if err != nil {
-		return fmt.Errorf("failed to create socket listener: %w", err)
-	}
-
-	s.stopFunc = s.startXDSGRPCServer(socketListener, s.resourceConfig)
-
-	return nil
+func (s *xdsServer) start(ctx context.Context) error {
+	return s.startXDSGRPCServer(ctx, s.resourceConfig)
 }
 
 func (s *xdsServer) initializeXdsConfigs() {
@@ -1678,7 +1671,6 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			})
 			return true
 		})
-
 	}
 	if len(PerPortPolicies) == 0 || len(PerPortPolicies) == 0 && wildcardAllowAll {
 		return nil
