@@ -31,7 +31,7 @@
   kpr: 'false'
   tunnel: 'geneve'
   endpoint-routes: 'true'
-  misc: 'socketLB.enabled=false,nodePort.enabled=true,bpf.masquerade=true'
+  misc: 'socketLB.enabled=false,bpf.masquerade=true'
   local-redirect-policy: 'true'
   node-local-dns: 'true'
   skip-include-conn-disrupt-test-ns-traffic: 'true'
