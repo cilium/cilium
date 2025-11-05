@@ -335,7 +335,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 		})
 
 		It("Tests NodePort with sessionAffinity from outside", func() {
-			testSessionAffinity(kubectl, ni, true, true)
+			testSessionAffinity(kubectl, ni)
 		})
 
 		It("Tests externalIPs", func() {
