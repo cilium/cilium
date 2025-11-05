@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/launcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -217,7 +216,6 @@ func (h *ciliumHealthManager) cleanupEndpoint() {
 // cleanup of prior cilium-health endpoint instances.
 func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig *bigtcp.Configuration, routingConfig routingConfigurer, sysctl sysctl.Sysctl) (*Client, error) {
 	var (
-		cmd  = launcher.Launcher{Logger: h.logger}
 		info = &models.EndpointChangeRequest{
 			ContainerName: ciliumHealth,
 			State:         models.EndpointStateWaitingDashForDashIdentity.Pointer(),
@@ -296,22 +294,31 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	}
 
 	pidfile := filepath.Join(option.Config.StateDir, healthDefaults.PidfilePath)
-	args := []string{"--listen", strconv.Itoa(option.Config.ClusterHealthPort), "--pidfile", pidfile}
-	cmd.SetTarget(binaryName)
-	cmd.SetArgs(args)
-	h.logger.Debug("Spawning health endpoint with command",
-		logfields.Prog, binaryName,
-		logfields.Args, args,
-	)
+	cmd := exec.Command(binaryName, "--listen", strconv.Itoa(option.Config.ClusterHealthPort), "--pidfile", pidfile)
+	cmd.Stderr = os.Stderr
+	h.logger.Debug("Spawning health endpoint with command", logfields.Cmd, cmd)
 
 	// Run the health binary inside a netnamespace. Since `Do()` implicitly does
 	// `runtime.LockOSThread` the exec'd binary is guaranteed to inherit the
 	// correct netnamespace.
 	if err := ns.Do(func() error {
-		return cmd.Run()
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to start health endpoint process: %w", err)
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
+
+	// Wait for the process to exit in the background to release all
+	// resources
+	go func() {
+		err := cmd.Wait()
+		h.logger.Debug("Health endpoint process exited",
+			logfields.ExitCode, err,
+			logfields.Cmd, cmd,
+		)
+	}()
 
 	// Create the endpoint
 	ep, err := endpointCreator.NewEndpointFromChangeModel(baseCtx, info)
