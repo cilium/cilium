@@ -32,9 +32,8 @@ var Cell = cell.Module(
 			PrometheusServeAddr: conf.OperatorPrometheusServeAddr,
 		}
 	}),
-	// Note: [metrics.OperatorCell] provides a bare-bones registry that
-	// has not been initialized yet.
-	metrics.OperatorCell,
+	// Metrics cell provides a bare-bones registry that has not been initialized yet.
+	metrics.NewCell("operator"),
 	cell.Invoke(initializeMetrics),
 )
 

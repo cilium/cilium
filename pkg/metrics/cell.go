@@ -14,6 +14,19 @@ import (
 	pkgmetric "github.com/cilium/cilium/pkg/metrics/metric"
 )
 
+// NewCell constructs a metrics cell for the provided module.
+// The returned cell is barebones with an empty registry configured with default
+// sampler and metrics script commands.
+func NewCell(module string) cell.Cell {
+	return cell.Module(
+		fmt.Sprintf("%s-metrics", module),
+		fmt.Sprintf("Metrics for %s module", module),
+		cell.Config(defaultSamplerConfig),
+		cell.Provide(NewRegistry),
+		cell.Provide(metricsCommands, newSampler),
+	)
+}
+
 // Cell provides metrics registry and the 'metrics*' shell commands.
 var Cell = cell.Module("metrics", "Metrics",
 	// Provide registry to hive, but also invoke if case no cells decide to use as dependency
@@ -49,12 +62,6 @@ var AgentCell = cell.Group(
 
 		},
 	),
-)
-
-var OperatorCell = cell.Module("operator-metrics", "Operator Metrics",
-	cell.Config(defaultSamplerConfig),
-	cell.Provide(NewRegistry),
-	cell.Provide(metricsCommands, newSampler),
 )
 
 // Metric constructs a new metric cell.

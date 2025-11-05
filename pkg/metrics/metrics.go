@@ -957,7 +957,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 				"from the time the service or the service pod was changed excluding the event queue latency",
 		}, []string{LabelAction}),
 
-		ErrorsWarnings: newErrorsWarningsMetric(),
+		ErrorsWarnings: newErrorsWarningsMetric(Namespace),
 
 		ControllerRuns: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_controllers_runs_total",
@@ -1340,13 +1340,17 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 // InitOperatorMetrics is used to init legacy metrics necessary during operator init.
 func InitOperatorMetrics() {
-	ErrorsWarnings = newErrorsWarningsMetric()
+	InitErrorsWarningsMetric(Namespace)
 }
 
-func newErrorsWarningsMetric() metric.Vec[metric.Counter] {
+func InitErrorsWarningsMetric(namespace string) {
+	ErrorsWarnings = newErrorsWarningsMetric(namespace)
+}
+
+func newErrorsWarningsMetric(namespace string) metric.Vec[metric.Counter] {
 	return metric.NewCounterVec(metric.CounterOpts{
-		ConfigName: Namespace + "_errors_warnings_total",
-		Namespace:  Namespace,
+		ConfigName: namespace + "_errors_warnings_total",
+		Namespace:  namespace,
 		Name:       "errors_warnings_total",
 		Help:       "Number of total errors in cilium-agent instances",
 	}, []string{"level", "subsystem"})
