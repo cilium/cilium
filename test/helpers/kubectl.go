@@ -2312,17 +2312,11 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
-	if RunsOn54OrLaterKernel() {
-		// To enable SA for both cases when KPR is enabled and disabled
-		addIfNotOverwritten(options, "sessionAffinity", "true")
-	}
-
 	// Disable unsupported features that will just generated unnecessary
 	// warnings otherwise.
 	if DoesNotRunOnNetNextKernel() {
 		addIfNotOverwritten(options, "kubeProxyReplacement", "false")
 		addIfNotOverwritten(options, "bpf.masquerade", "false")
-		addIfNotOverwritten(options, "sessionAffinity", "false")
 		addIfNotOverwritten(options, "bandwidthManager.enabled", "false")
 	}
 

@@ -1418,9 +1418,6 @@ kernel). If the socket-LB is not used (i.e. the loadbalancing is done
 at the pod network interface, on a per-packet basis), then the request's source
 IP address is used as the source.
 
-The session affinity support is enabled by default. To disable the feature,
-set ``config.sessionAffinity=false``.
-
 The session affinity of a service with multiple ports is per service IP and port.
 Meaning that all requests for a given service sent from the same source and to the
 same service port will be routed to the same service endpoints; but two requests
