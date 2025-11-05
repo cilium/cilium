@@ -11,36 +11,19 @@ import (
 // to be written with []*rule as a receiver.
 type ruleSlice []*rule
 
-func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext) (L4PolicyMap, error) {
+func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMap, error) {
 	result := NewL4PolicyMap()
 
-	policyCtx.PolicyTrace("Resolving ingress policy")
-
-	state := traceState{}
-
-	for _, r := range rules {
-		err := r.resolveIngressPolicy(policyCtx, &state, result)
-		if err != nil {
-			return nil, err
-		}
-		state.ruleID++
+	ingress := policyCtx.IsIngress()
+	msg := "Resolving egress policy"
+	if ingress {
+		msg = "Resolving ingress policy"
 	}
-
-	state.trace(len(rules), policyCtx)
-
-	return result, nil
-}
-
-func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext) (L4PolicyMap, error) {
-	result := NewL4PolicyMap()
-
-	policyCtx.PolicyTrace("resolving egress policy")
+	policyCtx.PolicyTrace(msg)
 
 	state := traceState{}
-
-	for i, r := range rules {
-		state.ruleID = i
-		err := r.resolveEgressPolicy(policyCtx, &state, result)
+	for _, r := range rules {
+		err := result.resolveL4Policy(policyCtx, &state, r)
 		if err != nil {
 			return nil, err
 		}
