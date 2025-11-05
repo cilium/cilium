@@ -20,13 +20,14 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func TestL4Policy(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
 
-	rule1 := api.Rule{
+	rule1 := &api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -54,6 +55,14 @@ func TestL4Policy(t *testing.T) {
 		},
 	}
 
+	// Transform to PolicyEntries and set priority level to 1.
+	require.NoError(t, rule1.Sanitize())
+	entries := utils.RulesToPolicyEntries(api.Rules{rule1})
+	require.Len(t, entries, 2)
+	for i := range entries {
+		entries[i].Priority = 1
+	}
+
 	l7rules := api.L7Rules{
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
@@ -62,6 +71,12 @@ func TestL4Policy(t *testing.T) {
 			L7Parser:         ParserTypeHTTP,
 			ListenerPriority: ListenerPriorityHTTP,
 			L7Rules:          l7rules,
+			Priority:         1,
+		},
+	}
+	l7mapLevelOnly := L7DataMap{
+		td.wildcardCachedSelector: &PerSelectorPolicy{
+			Priority: 1,
 		},
 	}
 
@@ -81,30 +96,24 @@ func TestL4Policy(t *testing.T) {
 
 	expected.Egress.PortRules.Upsert("3000", 0, "TCP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
-		wildcard: td.wildcardCachedSelector,
-		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: nil,
-		},
-		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		wildcard:            td.wildcardCachedSelector,
+		PerSelectorPolicies: l7mapLevelOnly,
+		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "UDP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
-		wildcard: td.wildcardCachedSelector,
-		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: nil,
-		},
-		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		wildcard:            td.wildcardCachedSelector,
+		PerSelectorPolicies: l7mapLevelOnly,
+		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "SCTP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
-		wildcard: td.wildcardCachedSelector,
-		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: nil,
-		},
-		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		wildcard:            td.wildcardCachedSelector,
+		PerSelectorPolicies: l7mapLevelOnly,
+		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 
-	td.policyMapEquals(t, expected.Ingress.PortRules, expected.Egress.PortRules, &rule1)
+	td.policyMapEqualsPolicyEntries(t, expected.Ingress.PortRules, expected.Egress.PortRules, entries...)
 
 	// This rule actually overlaps with the existing ingress "http" rule,
 	// so we'd expect it to merge.

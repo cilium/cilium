@@ -12,7 +12,14 @@ import (
 //
 // +deepequal-gen=true
 type PolicyEntry struct {
-	// Authentication specifies the cryptographic authentication required for the traffic to be allowed
+	// Priority defines the precedence of this rule in relation to other rules.  Lower values
+	// take precedence over higher values. Rules having the default priority level 0 are
+	// considered first, then the rest of the rules, from the earliest to later priority levels.
+	// This is currently limited to 24 bits, i.e., max allowed priority is (1<<24-1).
+	Priority uint32
+
+	// Authentication specifies the cryptographic authentication required for the traffic to be
+	// allowed
 	Authentication *api.Authentication
 
 	// Log specifies custom policy-specific Hubble logging configuration.
