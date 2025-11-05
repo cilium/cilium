@@ -62,9 +62,9 @@ func newCmdFeaturesStatus() *cobra.Command {
 		Short: "Display features status",
 		Long:  "This command returns features enabled from all nodes in the cluster",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
-			params.CiliumOperatorNamespace = namespace
-			s := features.NewFeatures(k8sClient, params)
+			params.CiliumNamespace = RootParams.Namespace
+			params.CiliumOperatorNamespace = RootParams.Namespace
+			s := features.NewFeatures(RootK8sClient, params)
 			if err := s.PrintFeatureStatus(context.Background()); err != nil {
 				fatalf("Unable to print features status: %s", err)
 			}

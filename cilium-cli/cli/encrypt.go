@@ -36,8 +36,8 @@ func newCmdEncryptStatus() *cobra.Command {
 		Short: "Display encryption status",
 		Long:  "This command returns encryption status from all nodes in the cluster",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
-			s := encrypt.NewEncrypt(k8sClient, params)
+			params.CiliumNamespace = RootParams.Namespace
+			s := encrypt.NewEncrypt(RootK8sClient, params)
 			if err := s.PrintEncryptStatus(context.Background()); err != nil {
 				fatalf("Unable to print encryption status: %s", err)
 			}
@@ -59,11 +59,11 @@ func newCmdIPsecRotateKey() *cobra.Command {
 		Short: "Rotate IPsec key",
 		Long:  "This command rotates IPsec encryption key in the cluster",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
+			params.CiliumNamespace = RootParams.Namespace
 			if err := checkParams(params); err != nil {
 				fatalf("Input params are invalid: %s", err)
 			}
-			s := encrypt.NewEncrypt(k8sClient, params)
+			s := encrypt.NewEncrypt(RootK8sClient, params)
 			if err := s.IPsecRotateKey(context.Background()); err != nil {
 				fatalf("Unable to rotate IPsec key: %s", err)
 			}
@@ -83,8 +83,8 @@ func newCmdIPsecKeyStatus() *cobra.Command {
 		Short:   "Display IPsec key",
 		Long:    "This command displays IPsec encryption key",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
-			s := encrypt.NewEncrypt(k8sClient, params)
+			params.CiliumNamespace = RootParams.Namespace
+			s := encrypt.NewEncrypt(RootK8sClient, params)
 			if err := s.IPsecKeyStatus(context.Background()); err != nil {
 				fatalf("Unable to display IPsec key: %s", err)
 			}
@@ -103,11 +103,11 @@ func newCmdNewIPsecKey() *cobra.Command {
 		Short: "Create IPsec key",
 		Long:  "This command creates IPsec encryption key for the cluster",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
+			params.CiliumNamespace = RootParams.Namespace
 			if err := checkParams(params); err != nil {
 				fatalf("Input params are invalid: %s", err)
 			}
-			s := encrypt.NewEncrypt(k8sClient, params)
+			s := encrypt.NewEncrypt(RootK8sClient, params)
 			if err := s.IPsecNewKey(context.Background()); err != nil {
 				fatalf("Unable to create IPsec key: %s", err)
 			}

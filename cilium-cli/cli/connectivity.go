@@ -54,9 +54,9 @@ var tests []string
 
 func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		params.CiliumNamespace = namespace
-		params.ImpersonateAs = impersonateAs
-		params.ImpersonateGroups = impersonateGroups
+		params.CiliumNamespace = RootParams.Namespace
+		params.ImpersonateAs = RootParams.ImpersonateAs
+		params.ImpersonateGroups = RootParams.ImpersonateGroups
 
 		for _, test := range tests {
 			if after, ok := strings.CutPrefix(test, "!"); ok {
@@ -328,7 +328,7 @@ func newConnectivityTests(
 		}
 		params.ExternalDeploymentPort += i
 		params.EchoServerHostPort += i
-		cc, err := check.NewConnectivityTest(k8sClient, params, hooks, logger, owners)
+		cc, err := check.NewConnectivityTest(RootK8sClient, params, hooks, logger, owners)
 		if err != nil {
 			return nil, err
 		}

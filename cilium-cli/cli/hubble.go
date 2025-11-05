@@ -42,8 +42,8 @@ func newCmdPortForwardCommand() *cobra.Command {
 			ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, os.Kill)
 			defer cancel()
 
-			params.Namespace = namespace
-			if err := params.RelayPortForwardCommand(ctx, k8sClient); err != nil {
+			params.Namespace = RootParams.Namespace
+			if err := params.RelayPortForwardCommand(ctx, RootK8sClient); err != nil {
 				fatalf("Unable to port forward: %s", err)
 			}
 			return nil
@@ -67,8 +67,8 @@ func newCmdUI() *cobra.Command {
 			ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, os.Kill)
 			defer cancel()
 
-			params.Namespace = namespace
-			if err := params.UIPortForwardCommand(ctx, k8sClient); err != nil {
+			params.Namespace = RootParams.Namespace
+			if err := params.UIPortForwardCommand(ctx, RootK8sClient); err != nil {
 				fatalf("Unable to port forward: %s", err)
 			}
 			return nil
@@ -97,10 +97,10 @@ func newCmdHubbleEnableWithHelm() *cobra.Command {
 		Short: "Enable Hubble observability using Helm",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
-			params.HelmReleaseName = helmReleaseName
+			params.Namespace = RootParams.Namespace
+			params.HelmReleaseName = RootParams.HelmReleaseName
 			ctx := context.Background()
-			if err := hubble.EnableWithHelm(ctx, k8sClient, params); err != nil {
+			if err := hubble.EnableWithHelm(ctx, RootK8sClient, params); err != nil {
 				fatalf("Unable to enable Hubble: %s", err)
 			}
 			return nil
@@ -121,10 +121,10 @@ func newCmdHubbleDisableWithHelm() *cobra.Command {
 		Short: "Disable Hubble observability using Helm",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
-			params.HelmReleaseName = helmReleaseName
+			params.Namespace = RootParams.Namespace
+			params.HelmReleaseName = RootParams.HelmReleaseName
 			ctx := context.Background()
-			if err := hubble.DisableWithHelm(ctx, k8sClient, params); err != nil {
+			if err := hubble.DisableWithHelm(ctx, RootK8sClient, params); err != nil {
 				fatalf("Unable to disable Hubble:  %s", err)
 			}
 			return nil

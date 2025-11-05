@@ -70,18 +70,18 @@ name and ID to prepare for multi-cluster capabilities.
   $ cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=cluster1
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			params.Namespace = namespace
-			params.HelmReleaseName = helmReleaseName
+			params.Namespace = RootParams.Namespace
+			params.HelmReleaseName = RootParams.HelmReleaseName
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
 			if params.IsDryRun() {
 				params.Writer = io.Discard
 			}
-			installer, err := install.NewK8sInstaller(k8sClient, params)
+			installer, err := install.NewK8sInstaller(RootK8sClient, params)
 			if err != nil {
 				return err
 			}
 			cmd.SilenceUsage = true
-			if err := installer.InstallWithHelm(context.Background(), k8sClient); err != nil {
+			if err := installer.InstallWithHelm(context.Background(), RootK8sClient); err != nil {
 				fatalf("Unable to install Cilium: %s", err)
 			}
 			return nil
@@ -105,17 +105,17 @@ func newCmdUninstallWithHelm() *cobra.Command {
 		Short: "Uninstall Cilium using Helm",
 		Long:  ``,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.Namespace = namespace
-			params.HelmReleaseName = helmReleaseName
+			params.Namespace = RootParams.Namespace
+			params.HelmReleaseName = RootParams.HelmReleaseName
 			ctx := context.Background()
 
-			uninstaller := install.NewK8sUninstaller(k8sClient, params)
+			uninstaller := install.NewK8sUninstaller(RootK8sClient, params)
 			uninstaller.DeleteTestNamespace(ctx)
 			var hubbleParams = hubble.Parameters{
 				Writer:          os.Stdout,
 				Wait:            true,
-				Namespace:       namespace,
-				HelmReleaseName: helmReleaseName,
+				Namespace:       RootParams.Namespace,
+				HelmReleaseName: RootParams.HelmReleaseName,
 			}
 
 			if params.Wait {
@@ -123,11 +123,11 @@ func newCmdUninstallWithHelm() *cobra.Command {
 				// This guarantees that relay Pods are terminated fully via Cilium (rather than
 				// being queued for deletion) before uninstalling Cilium.
 				fmt.Printf("⌛ Waiting to disable Hubble before uninstalling Cilium\n")
-				if err := hubble.DisableWithHelm(ctx, k8sClient, hubbleParams); err != nil {
+				if err := hubble.DisableWithHelm(ctx, RootK8sClient, hubbleParams); err != nil {
 					fmt.Printf("⚠ ️ Failed to disable Hubble prior to uninstalling Cilium: %s\n", err)
 				}
 				for {
-					ps, err := k8sClient.ListPods(ctx, hubbleParams.Namespace, metav1.ListOptions{
+					ps, err := RootK8sClient.ListPods(ctx, hubbleParams.Namespace, metav1.ListOptions{
 						LabelSelector: "k8s-app=hubble-relay",
 					})
 					if err != nil {
@@ -148,7 +148,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 			}
 
 			fmt.Printf("⌛ Uninstalling Cilium\n")
-			if err := uninstaller.UninstallWithHelm(ctx, k8sClient.HelmActionConfig); err != nil {
+			if err := uninstaller.UninstallWithHelm(ctx, RootK8sClient.HelmActionConfig); err != nil {
 				fatalf("Unable to uninstall Cilium:  %s", err)
 			}
 			return nil
@@ -181,19 +181,19 @@ to prepare for multi-cluster capabilities.
   $ cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			params.Namespace = namespace
-			params.HelmReleaseName = helmReleaseName
+			params.Namespace = RootParams.Namespace
+			params.HelmReleaseName = RootParams.HelmReleaseName
 
 			// Don't log anything if it's a dry run so that the dry run output can easily be piped to other commands.
 			if params.IsDryRun() {
 				params.Writer = io.Discard
 			}
-			installer, err := install.NewK8sInstaller(k8sClient, params)
+			installer, err := install.NewK8sInstaller(RootK8sClient, params)
 			if err != nil {
 				return err
 			}
 			cmd.SilenceUsage = true
-			if err := installer.UpgradeWithHelm(context.Background(), k8sClient); err != nil {
+			if err := installer.UpgradeWithHelm(context.Background(), RootK8sClient); err != nil {
 				fatalf("Unable to upgrade Cilium: %s", err)
 			}
 			return nil

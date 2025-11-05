@@ -50,8 +50,8 @@ func newCmdMulticastListGroup() *cobra.Command {
 		Use:   "group",
 		Short: "Show list of multicast groups in every node",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
-			mc := multicast.NewMulticast(k8sClient, params)
+			params.CiliumNamespace = RootParams.Namespace
+			mc := multicast.NewMulticast(RootK8sClient, params)
 			err := mc.ListGroups()
 			if err != nil {
 				fatalf("Unable to list multicast groups: %s", err)
@@ -73,8 +73,8 @@ func newCmdMulticastListSubscriber() *cobra.Command {
 		Use:   "subscriber",
 		Short: "Show list of subscribers belonging to the specified multicast group",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
-			mc := multicast.NewMulticast(k8sClient, params)
+			params.CiliumNamespace = RootParams.Namespace
+			mc := multicast.NewMulticast(RootK8sClient, params)
 			err := mc.ListSubscribers()
 			if err != nil {
 				fatalf("Unable to list subscribers of the multicast group: %s", err)
@@ -98,8 +98,8 @@ func newCmdMulticastAdd() *cobra.Command {
 		Use:   "add",
 		Short: "Add all nodes to the specified multicast group as subscribers in every cilium-agent",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
-			mc := multicast.NewMulticast(k8sClient, params)
+			params.CiliumNamespace = RootParams.Namespace
+			mc := multicast.NewMulticast(RootK8sClient, params)
 			err := mc.AddAllNodes()
 			if err != nil {
 				fatalf("Unable to add all nodes: %s", err)
@@ -120,8 +120,8 @@ func newCmdMulticastDel() *cobra.Command {
 		Use:   "delete",
 		Short: "Delete the specified multicast group in every cilium-agent",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			params.CiliumNamespace = namespace
-			mc := multicast.NewMulticast(k8sClient, params)
+			params.CiliumNamespace = RootParams.Namespace
+			mc := multicast.NewMulticast(RootK8sClient, params)
 			err := mc.DelAllNodes()
 			if err != nil {
 				fatalf("Unable to delete all nodes: %s", err)
