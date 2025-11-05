@@ -594,9 +594,8 @@ func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, _, ch
 	}
 }
 
-// fromOutside=true tests session affinity implementation from lb.h, while
-// fromOutside=false tests from  bpf_sock.c.
-func testSessionAffinity(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, fromOutside, vxlan bool) {
+// Tests session affinity implementation from lb.h
+func testSessionAffinity(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	var (
 		data   v1.Service
 		dstPod string
@@ -622,24 +621,13 @@ func testSessionAffinity(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, fromOu
 
 		httpURL := getHTTPLink(nodeIP, data.Spec.Ports[0].NodePort)
 		cmd := helpers.CurlFail(httpURL) + " | grep 'Hostname:' " // pod name is in the hostname
-
-		if fromOutside {
-			from = ni.OutsideNodeName
-		} else {
-			pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, testDSClient)
-			ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
-			from = pods[0]
-		}
+		from = ni.OutsideNodeName
 
 		// Send 10 requests to the test-affinity and check that the same backend is chosen
 		By("Making %d HTTP requests from %s to %q (sessionAffinity)", count, from, httpURL)
 
 		for i := 1; i <= count; i++ {
-			if fromOutside {
-				res = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
-			} else {
-				res = kubectl.ExecPodCmd(helpers.DefaultNamespace, from, cmd)
-			}
+			res = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 				"Cannot connect to service %q from %s (%d/%d)", httpURL, from, i, count)
 			pod := strings.TrimSpace(strings.Split(res.Stdout(), ": ")[1])
@@ -671,21 +659,15 @@ func testSessionAffinity(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, fromOu
 		// in the vxlan mode (the tailcall IPV4_NODEPORT_NAT body won't pass
 		// the request to the encap routines, and instead it will be dropped
 		// due to failing fib_lookup).
-		if fromOutside && vxlan {
-			podIPs, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, testDS)
-			ExpectWithOffset(1, err).Should(BeNil(), "Cannot get pod IP addrs for -l %s pods", testDS)
-			for _, ipAddr := range podIPs {
-				err = kubectl.WaitForIPCacheEntry(helpers.K8s1, ipAddr)
-				ExpectWithOffset(1, err).Should(BeNil(), "Failed waiting for %s ipcache entry on k8s1", ipAddr)
-			}
+		podIPs, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, testDS)
+		ExpectWithOffset(1, err).Should(BeNil(), "Cannot get pod IP addrs for -l %s pods", testDS)
+		for _, ipAddr := range podIPs {
+			err = kubectl.WaitForIPCacheEntry(helpers.K8s1, ipAddr)
+			ExpectWithOffset(1, err).Should(BeNil(), "Failed waiting for %s ipcache entry on k8s1", ipAddr)
 		}
 
 		for i := 1; i <= count; i++ {
-			if fromOutside {
-				res = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
-			} else {
-				res = kubectl.ExecPodCmd(helpers.DefaultNamespace, from, cmd)
-			}
+			res = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 				"Cannot connect to service %q from %s (%d/%d) after restart", httpURL, from, i, count)
 			pod := strings.TrimSpace(strings.Split(res.Stdout(), ": ")[1])
