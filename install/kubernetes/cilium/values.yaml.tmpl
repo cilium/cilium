@@ -3595,6 +3595,9 @@ clustermesh:
       # - "external": ``clustermesh-apiserver`` will sync remote cluster information to the etcd used as kvstore. This can't be enabled with crd identity allocation mode.
       kvstoreMode: "internal"
     service:
+      # -- (bool) Set externallyCreated to true to create the clustermesh-apiserver service outside this helm chart.
+      # For example after external load balancer controllers are created.
+      externallyCreated: false
       # -- The type of service used for apiserver access.
       type: NodePort
       # -- Optional port to use as the node port for apiserver access.

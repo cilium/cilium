@@ -836,6 +836,10 @@
      - The externalTrafficPolicy of service used for apiserver access.
      - string
      - ``"Cluster"``
+   * - :spelling:ignore:`clustermesh.apiserver.service.externallyCreated`
+     - Set externallyCreated to true to create the clustermesh-apiserver service outside this helm chart. For example after external load balancer controllers are created.
+     - bool
+     - ``false``
    * - :spelling:ignore:`clustermesh.apiserver.service.internalTrafficPolicy`
      - The internalTrafficPolicy of service used for apiserver access.
      - string
