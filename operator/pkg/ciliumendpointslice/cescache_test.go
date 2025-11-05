@@ -149,3 +149,54 @@ func TestCESCacheCIDUpdates(t *testing.T) {
 	assert.True(t, ok, "Selected ID should be present for labels1 after removing cid1")
 	assert.Equal(t, selectedId, cid2, "Selected ID should now be cid2")
 }
+
+func TestCESCacheCESState(t *testing.T) {
+	testCases := []struct {
+		name    string
+		cesName CESName
+		ns      string
+		count   int
+		nsCount int
+	}{
+		{
+			name:    "Insert CES - 1",
+			cesName: CESName("ces-dfbkjswert-twis"),
+			ns:      "ns",
+			count:   1,
+			nsCount: 1,
+		},
+		{
+			name:    "Insert CES - 2",
+			cesName: CESName("ces-dfbkjswert-rsci"),
+			ns:      "ns2",
+			count:   2,
+			nsCount: 1,
+		},
+		{
+			name:    "Insert CES - 3",
+			cesName: CESName("ces-dfbkjswert-fgih"),
+			ns:      "ns2",
+			count:   3,
+			nsCount: 2,
+		},
+	}
+	cmap := newCESCache()
+
+	// Insert new CESs in ces cache and check its total count
+	for _, tc := range testCases {
+		cmap.insertCES(tc.cesName, tc.ns)
+		assert.Equal(t, cmap.getCESCount(), tc.count, "Number of CES entries in cmap should match with Count")
+		assert.Len(t, cmap.getCESInNs(tc.ns), tc.nsCount, "Number of CES entries for the given namespace should match with nsCount")
+	}
+
+	// Insert and remove CES in cescache and check for any stale entries present in cescache.
+	for _, tc := range testCases {
+		cmap.insertCES(tc.cesName, tc.ns)
+		assert.True(t, cmap.hasCESName(tc.cesName), "CES name should be there in map")
+		cmap.deleteCES(tc.cesName)
+		assert.False(t, cmap.hasCESName(tc.cesName), "CES name is removed from cache, so it shouldn't be in cache")
+	}
+
+	assert.Empty(t, cmap.cesData)
+	assert.Empty(t, cmap.nsData)
+}
