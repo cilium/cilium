@@ -273,30 +273,6 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 				},
 			},
 		},
-		{
-			EndpointSelector: api.NewESFromLabels(lblQA),
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromRequires: []api.EndpointSelector{
-							api.NewESFromLabels(lblQA),
-						},
-					},
-				},
-			},
-		},
-		{
-			EndpointSelector: api.NewESFromLabels(lblProd),
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromRequires: []api.EndpointSelector{
-							api.NewESFromLabels(lblProd),
-						},
-					},
-				},
-			},
-		},
 	}
 	for i := range rules {
 		rules[i].Sanitize()
@@ -809,30 +785,6 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 				},
 			},
 		},
-		{
-			EndpointSelector: api.NewESFromLabels(lblQA),
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromRequires: []api.EndpointSelector{
-							api.NewESFromLabels(lblQA),
-						},
-					},
-				},
-			},
-		},
-		{
-			EndpointSelector: api.NewESFromLabels(lblProd),
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromRequires: []api.EndpointSelector{
-							api.NewESFromLabels(lblProd),
-						},
-					},
-				},
-			},
-		},
 	}
 	for i := range rules {
 		rules[i].Sanitize()
@@ -898,30 +850,6 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 					ToPorts: []api.PortRule{
 						// Allow Port 80 GET /bar
 						CNPAllowGETbar,
-					},
-				},
-			},
-		},
-		{
-			EndpointSelector: api.NewESFromLabels(lblQA),
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromRequires: []api.EndpointSelector{
-							api.NewESFromLabels(lblQA),
-						},
-					},
-				},
-			},
-		},
-		{
-			EndpointSelector: api.NewESFromLabels(lblProd),
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromRequires: []api.EndpointSelector{
-							api.NewESFromLabels(lblProd),
-						},
 					},
 				},
 			},
