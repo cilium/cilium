@@ -82,7 +82,7 @@ func TestEnvoy(t *testing.T) {
 		nil)
 	require.NotNil(t, xdsServer)
 
-	err = xdsServer.start()
+	err = xdsServer.start(t.Context())
 	require.NoError(t, err)
 	defer xdsServer.stop()
 
@@ -199,7 +199,7 @@ func TestEnvoyNACK(t *testing.T) {
 		}, nil)
 	require.NotNil(t, xdsServer)
 
-	err = xdsServer.start()
+	err = xdsServer.start(t.Context())
 	require.NoError(t, err)
 	defer xdsServer.stop()
 
