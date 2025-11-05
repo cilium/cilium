@@ -4,6 +4,8 @@
 package mockmaps
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 )
 
@@ -37,4 +39,15 @@ func (m *MetricsMockMap) IterateWithCallback(cb metricsmap.IterateCallback) erro
 	}
 
 	return nil
+}
+
+// Delete removes the provided key from the map
+func (m *MetricsMockMap) Delete(key *metricsmap.Key) error {
+	for i, e := range m.Entries {
+		if e.Key == *key {
+			m.Entries = append(m.Entries[:i], m.Entries[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("key not found")
 }
