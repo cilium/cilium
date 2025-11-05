@@ -1327,6 +1327,9 @@
                     "Cluster"
                   ]
                 },
+                "externallyCreated": {
+                  "type": "boolean"
+                },
                 "internalTrafficPolicy": {
                   "enum": [
                     "Local",

@@ -350,6 +350,7 @@ extTrafficPolicy
 extern
 externalIPs
 externalTrafficPolicy
+externallyCreated
 extraConfig
 facto
 failover
