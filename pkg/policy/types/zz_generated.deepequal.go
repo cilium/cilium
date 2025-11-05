@@ -128,6 +128,9 @@ func (in *PolicyEntry) DeepEqual(other *PolicyEntry) bool {
 		return false
 	}
 
+	if in.Priority != other.Priority {
+		return false
+	}
 	if (in.Authentication == nil) != (other.Authentication == nil) {
 		return false
 	} else if in.Authentication != nil {
