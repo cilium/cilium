@@ -105,9 +105,11 @@ func (c *cleanup) run(ctx context.Context) error {
 	// know what endpoints exist post-restoration in our endpointManager cache to perform cleanup.
 	restorer, err := c.restorerPromise.Await(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to wait for endpoint restorer promise: %w", err)
 	}
-	restorer.WaitForEndpointRestore(ctx)
+	if err := restorer.WaitForEndpointRestore(ctx); err != nil {
+		return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
+	}
 
 	var (
 		retries int
