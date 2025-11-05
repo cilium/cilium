@@ -943,12 +943,11 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto, ingress bool,
-) (*L4Filter, error) {
+func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol, protocol api.L4Proto) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 	logger := policyCtx.GetLogger()
 	origin := policyCtx.Origin()
+	ingress := policyCtx.IsIngress()
 
 	portName := ""
 	p := uint64(0)
@@ -1178,26 +1177,6 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy, allowLocalhost
 	return features, redirectTypes
 }
 
-// createL4IngressFilter creates a filter for L4 policy that applies to the
-// specified endpoints and port/protocol for ingress traffic, with reference
-// to the original rules that the filter is derived from. This filter may be
-// associated with a series of L7 rules via the `rule` parameter.
-func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto,
-) (*L4Filter, error) {
-	return createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, true)
-}
-
-// createL4EgressFilter creates a filter for L4 policy that applies to the
-// specified endpoints and port/protocol for egress traffic, with reference
-// to the original rules that the filter is derived from. This filter may be
-// associated with a series of L7 rules via the `rule` parameter.
-func createL4EgressFilter(policyCtx PolicyContext, toEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol,
-	protocol api.L4Proto,
-) (*L4Filter, error) {
-	return createL4Filter(policyCtx, toEndpoints, auth, rule, port, protocol, false)
-}
-
 // redirectType returns the redirectType for this filter
 func (sp *PerSelectorPolicy) redirectType() redirectTypes {
 	if sp == nil {
@@ -1237,10 +1216,8 @@ func (l4 *L4Filter) String() string {
 // addL4Filter adds 'filterToMerge' into the 'resMap'. Returns an error if it
 // the 'filterToMerge' can't be merged with an existing filter for the same
 // port and proto.
-func addL4Filter(policyCtx PolicyContext,
-	resMap L4PolicyMap,
-	p api.PortProtocol, proto api.L4Proto,
-	filterToMerge *L4Filter,
+func (resMap *l4PolicyMap) addL4Filter(policyCtx PolicyContext,
+	p api.PortProtocol, proto api.L4Proto, filterToMerge *L4Filter,
 ) error {
 	existingFilter := resMap.ExactLookup(p.Port, uint16(p.EndPort), string(proto))
 	if existingFilter == nil {
@@ -1248,14 +1225,13 @@ func addL4Filter(policyCtx PolicyContext,
 		return nil
 	}
 
-	selectorCache := policyCtx.GetSelectorCache()
-	if err := mergePortProto(policyCtx, existingFilter, filterToMerge, selectorCache); err != nil {
-		filterToMerge.detach(selectorCache)
+	if err := existingFilter.mergePortProto(policyCtx, filterToMerge); err != nil {
+		filterToMerge.detach(policyCtx.GetSelectorCache())
 		return err
 	}
 
-	// To keep the rule origin tracking correct, merge the rule label arrays for each CachedSelector
-	// we know about. New CachedSelectors are added.
+	// To keep the rule origin tracking correct, merge the rule label arrays for each
+	// CachedSelector we know about. New CachedSelectors are added.
 	for cs, newLabels := range filterToMerge.RuleOrigin {
 		if existingLabels, ok := existingFilter.RuleOrigin[cs]; ok {
 			existingFilter.RuleOrigin[cs] = existingLabels.Merge(newLabels)
@@ -1279,7 +1255,7 @@ type L4PolicyMap interface {
 }
 
 // NewL4PolicyMap creates an new L4PolicMap.
-func NewL4PolicyMap() L4PolicyMap {
+func NewL4PolicyMap() *l4PolicyMap {
 	return &l4PolicyMap{
 		NamedPortMap:   make(map[string]*L4Filter),
 		RangePortMap:   make(map[portProtoKey]*L4Filter),

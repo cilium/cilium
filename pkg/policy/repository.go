@@ -327,7 +327,8 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if ingressEnabled {
-		newL4IngressPolicy, err := matchingRules.resolveL4IngressPolicy(&policyCtx)
+		policyCtx.SetIngress(true)
+		newL4IngressPolicy, err := matchingRules.resolveL4Policy(&policyCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -335,7 +336,8 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if egressEnabled {
-		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&policyCtx)
+		policyCtx.SetIngress(false)
+		newL4EgressPolicy, err := matchingRules.resolveL4Policy(&policyCtx)
 		if err != nil {
 			return nil, err
 		}
