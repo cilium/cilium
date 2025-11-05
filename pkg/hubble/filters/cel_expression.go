@@ -24,7 +24,7 @@ var (
 
 	celTypes = cel.Types(&flowpb.Flow{})
 
-	goBoolType = reflect.TypeOf(false)
+	goBoolType = reflect.TypeFor[bool]()
 
 	celEnv *cel.Env
 )
