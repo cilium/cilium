@@ -159,14 +159,14 @@ func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfi
 					} else {
 						logger.Warn(
 							"Unknown CiliumNode object type received",
-							logfields.Type, reflect.TypeOf(oldNode),
-							logfields.Object, oldNode,
+							logfields.Type, reflect.TypeOf(newNode), //nolint:modernize // newNode is any, can't use TypeFor
+							logfields.Object, newNode,
 						)
 					}
 				} else {
 					logger.Warn(
 						"Unknown CiliumNode object type received",
-						logfields.Type, reflect.TypeOf(oldNode),
+						logfields.Type, reflect.TypeOf(oldNode), //nolint:modernize // oldNode is any, can't use TypeFor
 						logfields.Object, oldNode,
 					)
 				}
