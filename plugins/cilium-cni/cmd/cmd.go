@@ -241,7 +241,6 @@ func allocateIPsWithDelegatedPlugin(
 	}
 	// Interface number could not be determined from IPAM result for now.
 	// Set a static value zero before we have a proper solution.
-	// option.Config.EgressMultiHomeIPRuleCompat also needs to be set to true.
 	for _, ipConfig := range ipamResult.IPs {
 		ipNet := ipConfig.Address
 		if ipNet.IP.To4() != nil {

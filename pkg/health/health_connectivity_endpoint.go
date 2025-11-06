@@ -357,7 +357,6 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		if err := routingConfig.Configure(
 			healthIP,
 			mtuConfig.GetDeviceMTU(),
-			option.Config.EgressMultiHomeIPRuleCompat,
 			false,
 		); err != nil {
 			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %w", err)
@@ -381,5 +380,5 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 }
 
 type routingConfigurer interface {
-	Configure(ip net.IP, mtu int, compat bool, host bool) error
+	Configure(ip net.IP, mtu int, host bool) error
 }
