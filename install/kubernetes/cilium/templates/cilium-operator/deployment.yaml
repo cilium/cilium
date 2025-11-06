@@ -186,8 +186,11 @@ spec:
         {{- with .Values.operator.extraEnv }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        {{- if .Values.operator.prometheus.enabled }}
         ports:
+        - name: health
+          containerPort: 9234
+          hostPort: 9234
+        {{- if .Values.operator.prometheus.enabled }}
         - name: prometheus
           containerPort: {{ .Values.operator.prometheus.port }}
         {{- if .Values.operator.hostNetwork }}
@@ -201,7 +204,7 @@ spec:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
         {{- end }}
             path: /healthz
-            port: 9234
+            port: health
             scheme: HTTP
           initialDelaySeconds: 60
           periodSeconds: 10
@@ -212,7 +215,7 @@ spec:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
         {{- end }}
             path: /healthz
-            port: 9234
+            port: health
             scheme: HTTP
           initialDelaySeconds: 0
           periodSeconds: 5
