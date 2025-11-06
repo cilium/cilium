@@ -24,13 +24,11 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -1426,36 +1424,6 @@ func startDaemon(ctx context.Context, params daemonParams) error {
 					return fmt.Errorf("unable to create ingress endpoint: %w", err)
 				}
 			}
-		}
-	}
-
-	// Migrating the ENI datapath must happen before the API is served to
-	// prevent endpoints from being created. It also must be before the health
-	// initialization logic which creates the health endpoint, for the same
-	// reasons as the API being served. We want to ensure that this migration
-	// logic runs before any endpoint creates.
-	if option.Config.IPAM == ipamOption.IPAMENI {
-		migrated, failed := linuxrouting.NewMigrator(
-			params.Logger,
-			&eni.InterfaceDB{Clientset: params.Clientset},
-		).MigrateENIDatapath(option.Config.EgressMultiHomeIPRuleCompat)
-		switch {
-		case failed == -1:
-			// No need to handle this case specifically because it is handled
-			// in the call already.
-		case migrated >= 0 && failed > 0:
-			params.Logger.Error(fmt.Sprintf(
-				"Failed to migrate ENI datapath. "+
-					"%d endpoints were successfully migrated and %d failed to migrate completely. "+
-					"The original datapath is still in-place, however it is recommended to retry the migration.",
-				migrated, failed),
-			)
-
-		case migrated >= 0 && failed == 0:
-			params.Logger.Info(fmt.Sprintf(
-				"Migration of ENI datapath successful, %d endpoints were migrated and none failed.",
-				migrated),
-			)
 		}
 	}
 
