@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -27,6 +28,10 @@ type PolicyContext interface {
 	// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
 	IsIngress() bool
 	SetIngress(bool)
+
+	// AllowLocalhost returns true if policy should allow ingress from local host.
+	// Always returns false for egress.
+	AllowLocalhost() bool
 
 	// return the namespace in which the policy rule is being resolved
 	GetNamespace() string
@@ -96,6 +101,10 @@ func (p *policyContext) IsIngress() bool {
 
 func (p *policyContext) SetIngress(ingress bool) {
 	p.isIngress = ingress
+}
+
+func (p *policyContext) AllowLocalhost() bool {
+	return p.isIngress && option.Config.AlwaysAllowLocalhost()
 }
 
 // GetNamespace() returns the namespace for the policy rule being resolved
