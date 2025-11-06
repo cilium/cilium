@@ -540,10 +540,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	ctmap.WriteBPFMacros(fw)
 
-	if option.Config.AllowICMPFragNeeded {
-		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
-	}
-
 	if option.Config.ClockSource == option.ClockSourceJiffies {
 		cDefinesMap["ENABLE_JIFFIES"] = "1"
 	}
@@ -566,10 +562,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.DisableExternalIPMitigation {
 		cDefinesMap["DISABLE_EXTERNAL_IP_MITIGATION"] = "1"
-	}
-
-	if option.Config.EnableICMPRules {
-		cDefinesMap["ENABLE_ICMP_RULE"] = "1"
 	}
 
 	cDefinesMap["CIDR_IDENTITY_RANGE_START"] = fmt.Sprintf("%d", identity.MinLocalIdentity)
