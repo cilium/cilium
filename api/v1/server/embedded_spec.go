@@ -2462,10 +2462,6 @@ func init() {
           "description": "Tailroom buffer margin on workload facing devices",
           "type": "integer"
         },
-        "egress-multi-home-ip-rule-compat": {
-          "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
-          "type": "boolean"
-        },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",
           "type": "boolean"
@@ -7890,10 +7886,6 @@ func init() {
         "deviceTailroom": {
           "description": "Tailroom buffer margin on workload facing devices",
           "type": "integer"
-        },
-        "egress-multi-home-ip-rule-compat": {
-          "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
-          "type": "boolean"
         },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",

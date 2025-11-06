@@ -730,11 +730,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Var(option.NewMapOptions(&option.Config.BPFMapEventBuffers, option.Config.BPFMapEventBuffersValidator), option.BPFMapEventBuffers, "Configuration for BPF map event buffers: (example: --bpf-map-event-buffers cilium_ipcache_v2=enabled_1024_1h)")
 	flags.MarkHidden(option.BPFMapEventBuffers)
 
-	flags.Bool(option.EgressMultiHomeIPRuleCompat, false,
-		"Offset routing table IDs under ENI IPAM mode to avoid collisions with reserved table IDs. If false, the offset is performed (new scheme), otherwise, the old scheme stays in-place.")
-	flags.MarkDeprecated(option.EgressMultiHomeIPRuleCompat, "The feature will be removed in v1.19")
-	option.BindEnv(vp, option.EgressMultiHomeIPRuleCompat)
-
 	flags.Bool(option.InstallUplinkRoutesForDelegatedIPAM, false,
 		"Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.")
 	option.BindEnv(vp, option.InstallUplinkRoutesForDelegatedIPAM)
@@ -1144,17 +1139,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 			"Auto-set option to `false` because it is redundant to per-endpoint routes",
 			logfields.Option, option.EnableLocalNodeRoute,
 			option.EnableEndpointRoutes, true,
-		)
-	}
-
-	if option.Config.IPAM == ipamOption.IPAMAzure {
-		option.Config.EgressMultiHomeIPRuleCompat = true
-		logger.Debug(
-			fmt.Sprintf("Auto-set %q to `true` because the Azure datapath has not been migrated over to a new scheme. "+
-				"A future version of Cilium will support a newer Azure datapath. "+
-				"Connectivity is not affected.",
-				option.EgressMultiHomeIPRuleCompat),
-			logfields.URL, "https://github.com/cilium/cilium/issues/14705",
 		)
 	}
 
