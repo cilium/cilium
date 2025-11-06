@@ -254,6 +254,9 @@ exclude:
   - k8s-version: "1.29"
     focus: "f14-datapath-service-ns-xdp-2"
 
+  - k8s-version: "1.29"
+    focus: "f15-datapath-service-ew-1"
+
   # These tests require an external node which is only available on 1.28
   # / net-next so there's no point on running them
   - k8s-version: "1.28"
@@ -276,6 +279,9 @@ exclude:
 
   - k8s-version: "1.28"
     focus: "f14-datapath-service-ns-xdp-2"
+
+  - k8s-version: "1.28"
+    focus: "f15-datapath-service-ew-1"
 
   # These tests require are not intended to run on kernel 5.4, thus we can ignore them
   - k8s-version: "1.27"
