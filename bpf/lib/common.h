@@ -404,13 +404,13 @@ struct metrics_value {
 
 struct egress_gw_policy_key {
 	struct bpf_lpm_trie_key lpm_key;
-	__u32 saddr;
-	__u32 daddr;
+	__be32 saddr;
+	__be32 daddr;
 };
 
 struct egress_gw_policy_entry {
-	__u32 egress_ip;
-	__u32 gateway_ip;
+	__be32 egress_ip;
+	__be32 gateway_ip;
 };
 
 struct egress_gw_policy_key6 {
@@ -421,7 +421,7 @@ struct egress_gw_policy_key6 {
 
 struct egress_gw_policy_entry6 {
 	union v6addr egress_ip;
-	__u32 gateway_ip;
+	__be32 gateway_ip;
 	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
 	__u32 egress_ifindex;
 	__u32 reserved2; /* for even more future extension */
