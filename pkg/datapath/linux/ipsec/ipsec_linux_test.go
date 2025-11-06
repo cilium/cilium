@@ -631,3 +631,43 @@ func TestPrivilegedUpdateExistingIPSecEndpoint(t *testing.T) {
 	_, err = UpsertIPsecEndpoint(log, params)
 	require.NoError(t, err)
 }
+
+func Test_getDirFromXfrmMark(t *testing.T) {
+	tests := []struct {
+		name string
+		mark *netlink.XfrmMark
+		want dir
+	}{
+		{
+			name: "Should return ingress for decrypt mark",
+			mark: &netlink.XfrmMark{
+				Value: 0xcb200d00,
+			},
+			want: dirIngress,
+		},
+		{
+			name: "Should return egress for encrypt mark",
+			mark: &netlink.XfrmMark{
+				Value: 0xcb200e00,
+			},
+			want: dirEgress,
+		},
+		{
+			name: "Should return unspec for nil mark",
+			mark: nil,
+			want: dirUnspec,
+		},
+		{
+			name: "Should return unspec for invalid mark",
+			mark: &netlink.XfrmMark{
+				Value: 0xcb200a1b,
+			},
+			want: dirUnspec,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, getDirFromXfrmMark(tt.mark), tt.want)
+		})
+	}
+}
