@@ -1115,9 +1115,11 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 // attach signifies that the L4Filter is ready and reacheable for updates
 // from SelectorCache. L4Filter (and L4Policy) is read-only after this is called,
 // multiple goroutines will be reading the fields from that point on.
-func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy, allowLocalhost bool) (policyFeatures, redirectTypes) {
+func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeatures, redirectTypes) {
 	var redirectTypes redirectTypes
 	var features policyFeatures
+
+	allowLocalhost := ctx.AllowLocalhost()
 
 	// Daemon options may induce L3 ingress allows for host. If a filter would apply
 	// proxy redirection for the Host, when we should accept everything from host, then
@@ -1466,12 +1468,12 @@ func (l4M *l4PolicyMap) Detach(selectorCache *SelectorCache) {
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4PolicyMap is exposed to concurrent access.
 // Returns the bitmask of all redirect types for this policymap.
-func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy, allowLocalhost bool) redirectTypes {
+func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redirectTypes {
 	var redirectTypes redirectTypes
 	var features policyFeatures
 
 	l4.PortRules.ForEach(func(f *L4Filter) bool {
-		feat, redir := f.attach(ctx, l4Policy, allowLocalhost)
+		feat, redir := f.attach(ctx, l4Policy)
 		features |= feat
 		redirectTypes |= redir
 		return true
@@ -1683,10 +1685,8 @@ func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpoint
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4Policy is exposed to concurrent access.
 func (l4 *L4Policy) Attach(ctx PolicyContext) {
-	// Pass the AlwaysAllowLocalhost setting down to ingress attach.
-	ingressRedirects := l4.Ingress.attach(ctx, l4, option.Config.AlwaysAllowLocalhost())
-	// Never add allow local host rules on egress.
-	egressRedirects := l4.Egress.attach(ctx, l4, false)
+	ingressRedirects := l4.Ingress.attach(ctx, l4)
+	egressRedirects := l4.Egress.attach(ctx, l4)
 	l4.redirectTypes = ingressRedirects | egressRedirects
 }
 
