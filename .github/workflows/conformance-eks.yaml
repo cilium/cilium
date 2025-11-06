@@ -345,7 +345,8 @@ jobs:
           aws-region: ${{ matrix.region }}
           role-duration-seconds: 28800 # 8h
 
-      - name: Create EKS cluster
+      - name: Setup EKS cluster (from pool or create new)
+        id: setup-cluster
         uses: ./.github/actions/setup-eks-cluster
         with:
           cluster_name: ${{ env.clusterName }}
@@ -392,10 +393,12 @@ jobs:
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
+      # Wait for Cilium to be ready after install (before creating nodegroups)
+      # since the nodegroups creation depends on Cilium being ready.
       - name: Create EKS nodegroups
         uses: ./.github/actions/setup-eks-nodegroup
         with:
-          cluster_name: ${{ env.clusterName }}
+          cluster_name: ${{ steps.setup-cluster.outputs.cluster_name }}
           region: ${{ matrix.region }}
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
@@ -462,6 +465,24 @@ jobs:
           job_status: "${{ job.status }}"
           capture_features_tested: false
 
+      - name: Trigger cluster deletion workflow
+        if: ${{ always() && steps.setup-cluster.outputs.cluster_name != '' }}
+        continue-on-error: true
+        run: |
+          CLUSTER_NAME="${{ steps.setup-cluster.outputs.cluster_name }}"
+          REGION="${{ matrix.region }}"
+
+          echo "Triggering delete-eks-clusters workflow with:"
+          echo "  Cluster: $CLUSTER_NAME"
+          echo "  Region: $REGION"
+
+          gh workflow run eks-cluster-delete.yaml \
+            --ref ${{ github.ref_name }} \
+            --field cluster_name="$CLUSTER_NAME" \
+            --field region="$REGION"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() && !inputs.is-workflow-call }}
@@ -486,32 +507,3 @@ jobs:
             github.ref_name != github.event.repository.default_branch
           )
         ) }}
-
-  cleanup:
-    name: Cleanup EKS Clusters
-    if: ${{ always() && needs.generate-matrix.outputs.empty == 'false' }}
-    continue-on-error: true
-    needs: [generate-matrix, installation-and-connectivity]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
-
-    steps:
-      - name: Install eksctl CLI
-        run: |
-          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
-          rm "eksctl_$(uname -s)_amd64.tar.gz"
-
-      - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
-        with:
-          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
-          aws-region: ${{ matrix.region }}
-
-      - name: Clean up EKS
-        run: |
-          eksctl delete cluster --name ${{ env.clusterName }} --region ${{ matrix.region }}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently

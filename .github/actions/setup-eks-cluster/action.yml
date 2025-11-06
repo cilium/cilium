@@ -1,32 +1,128 @@
-name: Create an EKS cluster
-description: Create an EKS cluster
+name: Setup EKS cluster (from pool or create new)
+description: Gets an EKS cluster from the pool or creates a new one if none available
 inputs:
+  create-cluster:
+    description: 'Force creating a new cluster without checking the pool'
+    required: false
+    default: 'false'
   cluster_name:
-    description: ''
+    description: 'Name to use if creating a new cluster'
     required: true
   region:
-    description: ''
+    description: 'AWS region'
     required: true
   zones:
     description: 'Space-separated list of availability zones (auto-selected if unspecified)'
     required: false
   owner:
-    description: ''
+    description: 'Owner tag for the cluster'
     required: true
   version:
-    description: ''
+    description: 'Kubernetes version'
     required: false
     default: ''
   addons:
     description: 'Space-separated list of add-ons to include'
     required: false
     default: 'coredns kube-proxy vpc-cni'
+outputs:
+  cluster_name:
+    description: 'Actual cluster name (from pool or newly created)'
+    value: ${{ steps.cluster-info.outputs.cluster_name }}
+  kubeconfig_path:
+    description: 'Path to kubeconfig file'
+    value: ${{ steps.cluster-info.outputs.kubeconfig_path }}
+  new_cluster_created:
+    description: 'Whether a new cluster was created (true) or obtained from pool (false)'
+    value: ${{ steps.cluster-info.outputs.new_cluster_created }}
+
 runs:
   using: composite
   steps:
-    - name: Create EKS cluster with ${{ inputs.addons }}
+    - name: Try to get cluster from pool
+      id: get-from-pool
+      if: ${{ inputs.create-cluster != 'true' }}
       shell: bash
       run: |
+        set -e
+
+        # Compute SHA256 hash of addons to differentiate pools by addon configuration
+        ADDONS_HASH=$(echo -n "${{ inputs.addons }} ${{ inputs.zones }}" | sha256sum | cut -c1-8)
+
+        KUBECONFIG_PATH="${{ inputs.region }}-${{ inputs.version }}-${ADDONS_HASH}"
+        # Sanitize KUBECONFIG_PATH name for S3 key
+        KUBECONFIG_PATH_SAFE="${KUBECONFIG_PATH//[.\/]/-}"
+        S3_PREFIX="kubeconfig-pool/${KUBECONFIG_PATH_SAFE}/"
+
+        # Get bucket name from organization variable "<owner>-<repository>-eks-kubeconfig-pool"
+        S3_BUCKET="${{ format('{0}-{1}-eks-kubeconfig-pool', github.repository_owner, github.event.repository.name) }}"
+
+        echo "Looking for kubeconfig in s3://${S3_BUCKET}/${S3_PREFIX}"
+
+        # List available kubeconfigs in the pool
+        AVAILABLE_CONFIGS=$(aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}" --region ${{ inputs.region }} | awk '{print $4}' || echo "")
+
+        if [ -n "$AVAILABLE_CONFIGS" ]; then
+          # Iterate through available kubeconfigs and try to claim each one until successful
+          for KUBECONFIG_KEY in $AVAILABLE_CONFIGS; do
+            if [ -z "$KUBECONFIG_KEY" ]; then
+              continue
+            fi
+
+            echo "Trying kubeconfig: ${KUBECONFIG_KEY}"
+
+            # Try to download and delete atomically
+            KUBECONFIG_PATH="/tmp/kubeconfig-${RANDOM}"
+
+            # Download the kubeconfig
+            if aws s3 cp "s3://${S3_BUCKET}/${S3_PREFIX}${KUBECONFIG_KEY}" "${KUBECONFIG_PATH}" --region ${{ inputs.region }}; then
+              # Delete it from S3 to prevent others from using it
+              if aws s3 rm "s3://${S3_BUCKET}/${S3_PREFIX}${KUBECONFIG_KEY}" --region ${{ inputs.region }}; then
+                echo "Successfully claimed kubeconfig: ${KUBECONFIG_KEY}"
+
+                # Extract cluster name from filename (format: cluster-name-timestamp.yaml)
+                CLUSTER_NAME=$(echo "${KUBECONFIG_KEY}" | sed 's/-[0-9]\+\.yaml$//')
+
+                # Health check: verify cluster is accessible
+                echo "Checking cluster health for ${CLUSTER_NAME}..."
+                export KUBECONFIG="${KUBECONFIG_PATH}"
+
+                if timeout 30 kubectl cluster-info &> /dev/null && \
+                   timeout 30 kubectl get --raw /healthz &> /dev/null; then
+                  echo "Cluster ${CLUSTER_NAME} is healthy"
+
+                  echo "kubeconfig_path=${KUBECONFIG_PATH}" >> $GITHUB_OUTPUT
+                  echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
+                  echo "found=true" >> $GITHUB_OUTPUT
+                  echo "kubeconfig_key=${KUBECONFIG_KEY}" >> $GITHUB_OUTPUT
+                  exit 0
+                else
+                  echo "Cluster ${CLUSTER_NAME} failed health check, trying next available config"
+                  rm -f "${KUBECONFIG_PATH}"
+                  continue
+                fi
+              else
+                echo "Failed to delete from S3, someone else may have claimed it; trying next available config"
+                rm -f "${KUBECONFIG_PATH}"
+                continue
+              fi
+            else
+              echo "Failed to download s3://${S3_BUCKET}/${S3_PREFIX}${KUBECONFIG_KEY}; trying next available config"
+              rm -f "${KUBECONFIG_PATH}"
+              continue
+            fi
+          done
+        fi
+
+        echo "found=false" >> $GITHUB_OUTPUT
+        echo "No kubeconfig found in pool"
+
+    - name: Create EKS cluster if not from pool
+      if: ${{ inputs.create-cluster == 'true' || steps.get-from-pool.outputs.found != 'true' }}
+      shell: bash
+      run: |
+        echo "Creating new EKS cluster: ${{ inputs.cluster_name }}"
+
         cat <<EOF > eks-config.yaml
         apiVersion: eksctl.io/v1alpha5
         kind: ClusterConfig
@@ -61,3 +157,31 @@ runs:
         fi
 
         eksctl create cluster -f ./eks-config.yaml
+
+    - name: Set cluster info output
+      id: cluster-info
+      shell: bash
+      run: |
+        if [ "${{ steps.get-from-pool.outputs.found }}" = "true" ]; then
+          echo "Using cluster from pool: ${{ steps.get-from-pool.outputs.cluster_name }}"
+          echo "cluster_name=${{ steps.get-from-pool.outputs.cluster_name }}" >> $GITHUB_OUTPUT
+          echo "kubeconfig_path=${{ steps.get-from-pool.outputs.kubeconfig_path }}" >> $GITHUB_OUTPUT
+          echo "new_cluster_created=false" >> $GITHUB_OUTPUT
+
+          # Copy the pool kubeconfig to the default location
+          mkdir -p ~/.kube
+          cp "${{ steps.get-from-pool.outputs.kubeconfig_path }}" ~/.kube/config
+        else
+          echo "Created new cluster: ${{ inputs.cluster_name }}"
+          echo "cluster_name=${{ inputs.cluster_name }}" >> $GITHUB_OUTPUT
+          echo "kubeconfig_path=~/.kube/config" >> $GITHUB_OUTPUT
+          echo "new_cluster_created=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Trigger pool manager to replenish clusters
+      continue-on-error: true
+      if: ${{ inputs.create-cluster != 'true' }}
+      shell: bash
+      run: |
+        echo "Triggering pool manager workflow to replenish the pool..."
+        gh workflow run eks-cluster-pool-manager.yaml --ref ${{ github.ref_name }} || echo "Failed to trigger pool manager (may not have permissions or workflow doesn't exist)"
