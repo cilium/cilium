@@ -962,6 +962,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 			break;
 		case ICMP_ECHOREPLY:
+		case ICMP_REDIRECT:
 			return NAT_PUNT_TO_STACK;
 		case ICMP_DEST_UNREACH:
 			if (icmphdr.code > NR_ICMP_UNREACH)
@@ -1939,6 +1940,7 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 		switch (icmp6hdr.icmp6_type) {
 		case ICMPV6_ECHO_REPLY:
+		case ICMPV6_REDIRECT:
 		case ICMP6_NS_MSG_TYPE:
 		case ICMP6_NA_MSG_TYPE:
 			return NAT_PUNT_TO_STACK;
