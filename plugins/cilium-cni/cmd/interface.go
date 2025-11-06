@@ -71,7 +71,6 @@ func interfaceAdd(logger *slog.Logger, ipConfig *current.IPConfig, ipam *models.
 	if err := routingInfo.Configure(
 		ipConfig.Address.IP,
 		int(conf.DeviceMTU),
-		conf.EgressMultiHomeIPRuleCompat,
 		false,
 	); err != nil {
 		return fmt.Errorf("unable to install ip rules and routes: %w", err)

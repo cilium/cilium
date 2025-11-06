@@ -290,7 +290,6 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family types
 		if err = routingInfo.Configure(
 			result.IP,
 			r.mtuManager.GetDeviceMTU(),
-			option.Config.EgressMultiHomeIPRuleCompat,
 			true,
 		); err != nil {
 			return nil, fmt.Errorf("failed to configure router IP rules and routes: %w", err)
@@ -307,7 +306,6 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family types
 			for {
 				watchSet, err := routingInfo.ReconcileGatewayRoutes(
 					r.mtuManager.GetDeviceMTU(),
-					option.Config.EgressMultiHomeIPRuleCompat,
 					r.db.ReadTxn(),
 					r.routes,
 				)
@@ -469,7 +467,6 @@ func (r *infraIPAllocator) allocateIngressIPs() error {
 					if err := ingressRouting.Configure(
 						result.IP,
 						r.mtuManager.GetDeviceMTU(),
-						option.Config.EgressMultiHomeIPRuleCompat,
 						false,
 					); err != nil {
 						r.logger.Warn("Error while configuring ingress IP rules and routes.", logfields.Error, err)

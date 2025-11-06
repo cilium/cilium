@@ -87,7 +87,7 @@ func TestPrivilegedConfigureRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	_, ri := getFakes(t, ipamOption.IPAMENI, true, false)
-	err := ri.Configure(nil, 1500, false, false)
+	err := ri.Configure(nil, 1500, false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
@@ -96,7 +96,7 @@ func TestPrivilegedDeleteRouteWithIncompatibleIP(t *testing.T) {
 	setupLinuxRoutingSuite(t)
 
 	ip := netip.Addr{}
-	err := Delete(hivetest.Logger(t), ip, false)
+	err := Delete(hivetest.Logger(t), ip)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "IP not compatible")
 }
@@ -175,7 +175,7 @@ func TestPrivilegedDelete(t *testing.T) {
 				defer ifaceCleanup()
 
 				ip := tt.preRun()
-				err := Delete(hivetest.Logger(t), ip, false)
+				err := Delete(hivetest.Logger(t), ip)
 				require.Equalf(t, tt.wantErr, (err != nil), "got error: %v", err)
 
 				return nil
@@ -209,7 +209,7 @@ func runConfigureThenDelete(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int
 }
 
 func runConfigure(t *testing.T, ri RoutingInfo, ip netip.Addr, mtu int) {
-	err := ri.Configure(ip.AsSlice(), mtu, false, false)
+	err := ri.Configure(ip.AsSlice(), mtu, false)
 	require.NoError(t, err)
 }
 
@@ -241,7 +241,7 @@ func verifyMasqueradeRules(t *testing.T, rules []netlink.Rule, ri RoutingInfo, i
 }
 
 func runDelete(t *testing.T, ip netip.Addr) {
-	err := Delete(hivetest.Logger(t), ip, false)
+	err := Delete(hivetest.Logger(t), ip)
 	require.NoError(t, err)
 }
 
