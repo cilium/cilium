@@ -88,12 +88,18 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 			Statements: []*types.RoutePolicyStatement{
 				{
 					Conditions: types.RoutePolicyConditions{
-						MatchNeighbors: []netip.Addr{netip.MustParseAddr(*redPeer65001.PeerAddress)},
-						MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-							{
-								CIDR:         redInterfaceIPv4Prefix,
-								PrefixLenMin: 32,
-								PrefixLenMax: 32,
+						MatchNeighbors: &types.RoutePolicyNeighborMatch{
+							Type:      types.RoutePolicyMatchAny,
+							Neighbors: []netip.Addr{netip.MustParseAddr(*redPeer65001.PeerAddress)},
+						},
+						MatchPrefixes: &types.RoutePolicyPrefixMatch{
+							Type: types.RoutePolicyMatchAny,
+							Prefixes: []types.RoutePolicyPrefix{
+								{
+									CIDR:         redInterfaceIPv4Prefix,
+									PrefixLenMin: 32,
+									PrefixLenMax: 32,
+								},
 							},
 						},
 					},
@@ -109,12 +115,18 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 			Statements: []*types.RoutePolicyStatement{
 				{
 					Conditions: types.RoutePolicyConditions{
-						MatchNeighbors: []netip.Addr{netip.MustParseAddr(*redPeer65001.PeerAddress)},
-						MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-							{
-								CIDR:         redInterfaceIPv6Prefix,
-								PrefixLenMin: 128,
-								PrefixLenMax: 128,
+						MatchNeighbors: &types.RoutePolicyNeighborMatch{
+							Type:      types.RoutePolicyMatchAny,
+							Neighbors: []netip.Addr{netip.MustParseAddr(*redPeer65001.PeerAddress)},
+						},
+						MatchPrefixes: &types.RoutePolicyPrefixMatch{
+							Type: types.RoutePolicyMatchAny,
+							Prefixes: []types.RoutePolicyPrefix{
+								{
+									CIDR:         redInterfaceIPv6Prefix,
+									PrefixLenMin: 128,
+									PrefixLenMax: 128,
+								},
 							},
 						},
 					},
@@ -131,12 +143,18 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 			Statements: []*types.RoutePolicyStatement{
 				{
 					Conditions: types.RoutePolicyConditions{
-						MatchNeighbors: []netip.Addr{netip.MustParseAddr(*bluePeer65001.PeerAddress)},
-						MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-							{
-								CIDR:         blueInterfaceIPv4Prefix,
-								PrefixLenMin: 32,
-								PrefixLenMax: 32,
+						MatchNeighbors: &types.RoutePolicyNeighborMatch{
+							Type:      types.RoutePolicyMatchAny,
+							Neighbors: []netip.Addr{netip.MustParseAddr(*bluePeer65001.PeerAddress)},
+						},
+						MatchPrefixes: &types.RoutePolicyPrefixMatch{
+							Type: types.RoutePolicyMatchAny,
+							Prefixes: []types.RoutePolicyPrefix{
+								{
+									CIDR:         blueInterfaceIPv4Prefix,
+									PrefixLenMin: 32,
+									PrefixLenMax: 32,
+								},
 							},
 						},
 					},
@@ -152,12 +170,18 @@ func Test_InterfaceAdvertisement(t *testing.T) {
 			Statements: []*types.RoutePolicyStatement{
 				{
 					Conditions: types.RoutePolicyConditions{
-						MatchNeighbors: []netip.Addr{netip.MustParseAddr(*bluePeer65001.PeerAddress)},
-						MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-							{
-								CIDR:         blueInterfaceIPv6Prefix,
-								PrefixLenMin: 128,
-								PrefixLenMax: 128,
+						MatchNeighbors: &types.RoutePolicyNeighborMatch{
+							Type:      types.RoutePolicyMatchAny,
+							Neighbors: []netip.Addr{netip.MustParseAddr(*bluePeer65001.PeerAddress)},
+						},
+						MatchPrefixes: &types.RoutePolicyPrefixMatch{
+							Type: types.RoutePolicyMatchAny,
+							Prefixes: []types.RoutePolicyPrefix{
+								{
+									CIDR:         blueInterfaceIPv6Prefix,
+									PrefixLenMin: 128,
+									PrefixLenMax: 128,
+								},
 							},
 						},
 					},

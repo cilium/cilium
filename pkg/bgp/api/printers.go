@@ -155,9 +155,9 @@ func PrintBGPRoutePoliciesTable(w *tabwriter.Writer, policies []*models.BgpRoute
 			if i > 0 {
 				fmt.Fprint(w, strings.Repeat("\t", 3))
 			}
-			fmt.Fprintf(w, "%s\t", formatStringArray(stmt.MatchNeighbors))
+			fmt.Fprintf(w, "%s\t", formatMatchNeighbors(stmt.MatchNeighbors))
 			fmt.Fprintf(w, "%s\t", formatStringArray(formatFamilies(stmt.MatchFamilies)))
-			fmt.Fprintf(w, "%s\t", formatStringArray(formatMatchPrefixes(stmt.MatchPrefixes)))
+			fmt.Fprintf(w, "%s\t", formatMatchPrefixes(stmt.MatchPrefixes))
 			fmt.Fprintf(w, "%s\t", stmt.RouteAction)
 			fmt.Fprintf(w, "%s\n", formatStringArray(formatPathActions(stmt)))
 		}
@@ -200,12 +200,30 @@ func formatFamilies(families []*models.BgpFamily) []string {
 	return res
 }
 
-func formatMatchPrefixes(pfxs []*models.BgpRoutePolicyPrefixMatch) []string {
-	var res []string
-	for _, p := range pfxs {
-		res = append(res, fmt.Sprintf("%s (%d..%d)", p.Cidr, p.PrefixLenMin, p.PrefixLenMax))
+func formatMatchNeighbors(match *models.BgpRoutePolicyNeighborMatch) string {
+	if match == nil || len(match.Neighbors) == 0 {
+		return ""
 	}
-	return res
+	neighborsStr := formatStringArray(match.Neighbors)
+	if len(match.Neighbors) > 1 {
+		return fmt.Sprintf("(%s) %s", match.Type, neighborsStr)
+	}
+	return neighborsStr
+}
+
+func formatMatchPrefixes(match *models.BgpRoutePolicyPrefixMatch) string {
+	if match == nil || len(match.Prefixes) == 0 {
+		return ""
+	}
+	var prefixes []string
+	for _, p := range match.Prefixes {
+		prefixes = append(prefixes, fmt.Sprintf("%s (%d..%d)", p.Cidr, p.PrefixLenMin, p.PrefixLenMax))
+	}
+	prefixesStr := formatStringArray(prefixes)
+	if len(prefixes) > 1 {
+		return fmt.Sprintf("(%s) %s", match.Type, prefixesStr)
+	}
+	return prefixesStr
 }
 
 func formatPathActions(stmt *models.BgpRoutePolicyStatement) []string {

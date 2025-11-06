@@ -245,7 +245,7 @@ func PolicyName(peer, family string, advertType v2.BGPAdvertisementType, resourc
 	return fmt.Sprintf("%s-%s-%s-%s", peer, family, advertType, resourceID)
 }
 
-func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixMatchList, advert v2.BGPAdvertisement) (*types.RoutePolicy, error) {
+func CreatePolicy(name string, peerAddr netip.Addr, v4Prefixes, v6Prefixes types.PolicyPrefixList, advert v2.BGPAdvertisement) (*types.RoutePolicy, error) {
 	policy := &types.RoutePolicy{
 		Name: name,
 		Type: types.RoutePolicyTypeExport,
@@ -331,17 +331,20 @@ func MergeRoutePolicies(policyA *types.RoutePolicy, policyB *types.RoutePolicy) 
 		}
 	}
 
-	// Sorting the prefixes for traffic engineering in core network based on BGP attributes
-	for n := range mergedPolicy.Statements {
-		sort.SliceStable(mergedPolicy.Statements[n].Conditions.MatchPrefixes, func(i, j int) bool {
-			return mergedPolicy.Statements[n].Conditions.MatchPrefixes[i].PrefixLenMax > mergedPolicy.Statements[n].Conditions.MatchPrefixes[j].PrefixLenMax
-		})
-	}
+	// Sort statements based on prefix length:
+	// - Statements with greater prefix length should go first, so that longer prefix match has higher priority.
+	//   Main use-case is service route aggregation, where a single svc can have e.g. /32 and /24 match statements,
+	//   and the /32 one should be prioritized.
+	// - For simplicity, we only compare the length of the first prefix, as we never populate different prefix lengths
+	//   in a single condition. PrefixLenMin and PrefixLenMax are always populated equally, so we only compare one of them.
 	sort.SliceStable(mergedPolicy.Statements, func(i, j int) bool {
-		if mergedPolicy.Statements[i].Conditions.MatchPrefixes != nil && mergedPolicy.Statements[j].Conditions.MatchPrefixes != nil {
-			return mergedPolicy.Statements[i].Conditions.MatchPrefixes[0].PrefixLenMax > mergedPolicy.Statements[j].Conditions.MatchPrefixes[0].PrefixLenMax
+		condI := mergedPolicy.Statements[i].Conditions
+		condJ := mergedPolicy.Statements[j].Conditions
+		if condI.MatchPrefixes != nil && condJ.MatchPrefixes != nil &&
+			len(condI.MatchPrefixes.Prefixes) > 0 && len(condJ.MatchPrefixes.Prefixes) > 0 {
+			return condI.MatchPrefixes.Prefixes[0].PrefixLenMin > condJ.MatchPrefixes.Prefixes[0].PrefixLenMin
 		}
-		return true
+		return false
 	})
 
 	return mergedPolicy, nil
@@ -478,11 +481,17 @@ func dedupLargeCommunities(advert v2.BGPAdvertisement) []string {
 	return res
 }
 
-func policyStatement(neighborAddr netip.Addr, prefixes []*types.RoutePolicyPrefixMatch, localPref *int64, communities, largeCommunities []string) *types.RoutePolicyStatement {
+func policyStatement(neighborAddr netip.Addr, prefixes types.PolicyPrefixList, localPref *int64, communities, largeCommunities []string) *types.RoutePolicyStatement {
 	return &types.RoutePolicyStatement{
 		Conditions: types.RoutePolicyConditions{
-			MatchNeighbors: []netip.Addr{neighborAddr},
-			MatchPrefixes:  prefixes,
+			MatchNeighbors: &types.RoutePolicyNeighborMatch{
+				Type:      types.RoutePolicyMatchAny,
+				Neighbors: []netip.Addr{neighborAddr},
+			},
+			MatchPrefixes: &types.RoutePolicyPrefixMatch{
+				Type:     types.RoutePolicyMatchAny,
+				Prefixes: prefixes,
+			},
 		},
 		Actions: types.RoutePolicyActions{
 			RouteAction:         types.RoutePolicyActionAccept,
@@ -503,10 +512,10 @@ func peerAddressesFromPolicy(p *types.RoutePolicy) ([]netip.Addr, bool) {
 	addrs := []netip.Addr{}
 	allPeers := false
 	for _, s := range p.Statements {
-		if len(s.Conditions.MatchNeighbors) == 0 {
+		if s.Conditions.MatchNeighbors == nil || len(s.Conditions.MatchNeighbors.Neighbors) == 0 {
 			allPeers = true
 		}
-		addrs = append(addrs, s.Conditions.MatchNeighbors...)
+		addrs = append(addrs, s.Conditions.MatchNeighbors.Neighbors...)
 	}
 	return addrs, allPeers
 }

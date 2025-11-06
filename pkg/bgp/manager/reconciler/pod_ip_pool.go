@@ -384,12 +384,12 @@ func (r *PodIPPoolReconciler) getPodIPPoolPolicy(peer PeerID, family types.Famil
 		return nil, nil
 	}
 
-	var v4Prefixes, v6Prefixes types.PolicyPrefixMatchList
+	var v4Prefixes, v6Prefixes types.PolicyPrefixList
 
 	for _, prefix := range prefixes {
 		if family.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
 			prefixLen := int(pool.Spec.IPv4.MaskSize)
-			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{
+			v4Prefixes = append(v4Prefixes, types.RoutePolicyPrefix{
 				CIDR:         prefix,
 				PrefixLenMin: prefixLen,
 				PrefixLenMax: prefixLen,
@@ -398,7 +398,7 @@ func (r *PodIPPoolReconciler) getPodIPPoolPolicy(peer PeerID, family types.Famil
 
 		if family.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
 			prefixLen := int(pool.Spec.IPv6.MaskSize)
-			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{
+			v6Prefixes = append(v6Prefixes, types.RoutePolicyPrefix{
 				CIDR:         prefix,
 				PrefixLenMin: prefixLen,
 				PrefixLenMax: prefixLen,

@@ -3848,20 +3848,16 @@ definitions:
     description: Single BGP route policy statement
     properties:
       match-neighbors:
-        description: Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.
-        type: array
-        items:
-          type: string
+        description: Matches BGP neighbor IP address with the provided match rules
+        "$ref": "#/definitions/BgpRoutePolicyNeighborMatch"
       match-families:
         description:  Matches any of the provided address families. If empty matches all address families.
         type: array
         items:
           "$ref": "#/definitions/BgpFamily"
       match-prefixes:
-        description:  Matches any of the provided prefixes. If empty matches all prefixes.
-        type: array
-        items:
-          "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
+        description: Matches CIDR prefix with the provided match rules
+        "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
       route-action:
         description: RIB processing action taken on the matched route
         type: string
@@ -3894,7 +3890,29 @@ definitions:
       unchanged:
         description: Don't change nexthop
         type: boolean
+  BgpRoutePolicyNeighborMatch:
+    description: Matches a neighbor in a BGP route policy
+    properties:
+      type:
+        description: Defines matching logic in case of multiple neighbors
+        "$ref": "#/definitions/BgpRoutePolicyMatchType"
+      neighbors:
+        description: Neighbor IP addresses to match with
+        type: array
+        items:
+          type: string
   BgpRoutePolicyPrefixMatch:
+    description: Matches a CIDR prefix in a BGP route policy
+    properties:
+      type:
+        description: Defines matching logic in case of multiple prefixes
+        "$ref": "#/definitions/BgpRoutePolicyMatchType"
+      prefixes:
+        description: Prefixes to match with
+        type: array
+        items:
+          "$ref": "#/definitions/BgpRoutePolicyPrefix"
+  BgpRoutePolicyPrefix:
     description: Matches a CIDR prefix in a BGP route policy
     properties:
       cidr:
@@ -3906,6 +3924,13 @@ definitions:
       prefix-len-max:
         description: Maximal prefix length that will match if it falls under CIDR
         type: integer
+  BgpRoutePolicyMatchType:
+    description: Defines BGP route policy matching logic in case of multiple match elements.
+    type: string
+    enum:
+      - any
+      - all
+      - invert
   BgpCapabilities:
     description: Represents the BGP capabilities.
     properties:

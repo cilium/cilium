@@ -1987,6 +1987,31 @@ func init() {
         }
       }
     },
+    "BgpRoutePolicyMatchType": {
+      "description": "Defines BGP route policy matching logic in case of multiple match elements.",
+      "type": "string",
+      "enum": [
+        "any",
+        "all",
+        "invert"
+      ]
+    },
+    "BgpRoutePolicyNeighborMatch": {
+      "description": "Matches a neighbor in a BGP route policy",
+      "properties": {
+        "neighbors": {
+          "description": "Neighbor IP addresses to match with",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "description": "Defines matching logic in case of multiple neighbors",
+          "$ref": "#/definitions/BgpRoutePolicyMatchType"
+        }
+      }
+    },
     "BgpRoutePolicyNexthopAction": {
       "description": "BGP nexthop action",
       "properties": {
@@ -2000,7 +2025,7 @@ func init() {
         }
       }
     },
-    "BgpRoutePolicyPrefixMatch": {
+    "BgpRoutePolicyPrefix": {
       "description": "Matches a CIDR prefix in a BGP route policy",
       "properties": {
         "cidr": {
@@ -2014,6 +2039,22 @@ func init() {
         "prefix-len-min": {
           "description": "Minimal prefix length that will match if it falls under CIDR",
           "type": "integer"
+        }
+      }
+    },
+    "BgpRoutePolicyPrefixMatch": {
+      "description": "Matches a CIDR prefix in a BGP route policy",
+      "properties": {
+        "prefixes": {
+          "description": "Prefixes to match with",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpRoutePolicyPrefix"
+          }
+        },
+        "type": {
+          "description": "Defines matching logic in case of multiple prefixes",
+          "$ref": "#/definitions/BgpRoutePolicyMatchType"
         }
       }
     },
@@ -2042,18 +2083,12 @@ func init() {
           }
         },
         "match-neighbors": {
-          "description": "Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "description": "Matches BGP neighbor IP address with the provided match rules",
+          "$ref": "#/definitions/BgpRoutePolicyNeighborMatch"
         },
         "match-prefixes": {
-          "description": "Matches any of the provided prefixes. If empty matches all prefixes.",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
-          }
+          "description": "Matches CIDR prefix with the provided match rules",
+          "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
         },
         "nexthop": {
           "description": "BGP nexthop action",
@@ -7360,6 +7395,31 @@ func init() {
         }
       }
     },
+    "BgpRoutePolicyMatchType": {
+      "description": "Defines BGP route policy matching logic in case of multiple match elements.",
+      "type": "string",
+      "enum": [
+        "any",
+        "all",
+        "invert"
+      ]
+    },
+    "BgpRoutePolicyNeighborMatch": {
+      "description": "Matches a neighbor in a BGP route policy",
+      "properties": {
+        "neighbors": {
+          "description": "Neighbor IP addresses to match with",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "type": {
+          "description": "Defines matching logic in case of multiple neighbors",
+          "$ref": "#/definitions/BgpRoutePolicyMatchType"
+        }
+      }
+    },
     "BgpRoutePolicyNexthopAction": {
       "description": "BGP nexthop action",
       "properties": {
@@ -7373,7 +7433,7 @@ func init() {
         }
       }
     },
-    "BgpRoutePolicyPrefixMatch": {
+    "BgpRoutePolicyPrefix": {
       "description": "Matches a CIDR prefix in a BGP route policy",
       "properties": {
         "cidr": {
@@ -7387,6 +7447,22 @@ func init() {
         "prefix-len-min": {
           "description": "Minimal prefix length that will match if it falls under CIDR",
           "type": "integer"
+        }
+      }
+    },
+    "BgpRoutePolicyPrefixMatch": {
+      "description": "Matches a CIDR prefix in a BGP route policy",
+      "properties": {
+        "prefixes": {
+          "description": "Prefixes to match with",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpRoutePolicyPrefix"
+          }
+        },
+        "type": {
+          "description": "Defines matching logic in case of multiple prefixes",
+          "$ref": "#/definitions/BgpRoutePolicyMatchType"
         }
       }
     },
@@ -7415,18 +7491,12 @@ func init() {
           }
         },
         "match-neighbors": {
-          "description": "Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+          "description": "Matches BGP neighbor IP address with the provided match rules",
+          "$ref": "#/definitions/BgpRoutePolicyNeighborMatch"
         },
         "match-prefixes": {
-          "description": "Matches any of the provided prefixes. If empty matches all prefixes.",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
-          }
+          "description": "Matches CIDR prefix with the provided match rules",
+          "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
         },
         "nexthop": {
           "description": "BGP nexthop action",

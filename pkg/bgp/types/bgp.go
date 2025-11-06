@@ -153,13 +153,53 @@ type PathResponse struct {
 	Path *Path
 }
 
-// RoutePolicyPrefixMatch can be used to match a CIDR prefix in a routing policy.
+// RoutePolicyMatchType defines the route policy matching logic in case of multiple match elements.
+type RoutePolicyMatchType int
+
+const (
+	RoutePolicyMatchAny RoutePolicyMatchType = iota
+	RoutePolicyMatchAll
+	RoutePolicyMatchInvert
+)
+
+func (d RoutePolicyMatchType) String() string {
+	switch d {
+	case RoutePolicyMatchAny:
+		return "any"
+	case RoutePolicyMatchAll:
+		return "all"
+	case RoutePolicyMatchInvert:
+		return "invert"
+	default:
+		return "unknown"
+	}
+}
+
+// RoutePolicyNeighborMatch matches BGP neighbor IP address with the provided IPs using the provided match logic type.
+//
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
+type RoutePolicyNeighborMatch struct {
+	Type RoutePolicyMatchType
+	// +deepequal-gen=false
+	Neighbors []netip.Addr
+}
+
+// RoutePolicyPrefixMatch matches CIDR prefix with the provided prefixes using the provided match logic type.
+//
+// +deepequal-gen=true
+type RoutePolicyPrefixMatch struct {
+	Type     RoutePolicyMatchType
+	Prefixes []RoutePolicyPrefix
+}
+
+// RoutePolicyPrefix can be used to match a CIDR prefix in a routing policy.
 // It can be used to perform exact prefix length matches (if CIDR.Bits() == PrefixLenMin == PrefixLenMax),
 // or variable prefix length matches.
 //
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
-type RoutePolicyPrefixMatch struct {
+type RoutePolicyPrefix struct {
 	// CIDR is a prefix to match with.
 	// +deepequal-gen=false
 	CIDR netip.Prefix
@@ -172,28 +212,41 @@ type RoutePolicyPrefixMatch struct {
 // RoutePolicyConditions represent conditions of a policy statement.
 //
 // +deepequal-gen=true
-// +deepequal-gen:private-method=true
 type RoutePolicyConditions struct {
-	// MatchNeighbors matches ANY of the provided BGP neighbor IP addresses. If empty matches all neighbors.
-	// +deepequal-gen=false
-	MatchNeighbors []netip.Addr
-	// MatchPrefixes matches ANY of the provided prefixes. If empty matches all prefixes.
-	MatchPrefixes []*RoutePolicyPrefixMatch
-	// MatchFamilies matches ANY of the provided address families. If empty matches all address families.
+	// MatchNeighbors matches BGP neighbor IP address with the provided match rules.
+	MatchNeighbors *RoutePolicyNeighborMatch
+	// MatchPrefixes matches CIDR prefix with the provided match rules.
+	MatchPrefixes *RoutePolicyPrefixMatch
+	// MatchFamilies matches ANY of the provided address families. If empty, matches all address families.
+	// (Note: the underlying GoBGP infrastructure does not support any other matching criteria for families).
 	MatchFamilies []Family
 }
 
 // String() constructs a string identifier
 func (r RoutePolicyConditions) String() string {
 	values := []string{}
-	for _, neighbor := range r.MatchNeighbors {
-		values = append(values, neighbor.String())
+	if r.MatchNeighbors != nil {
+		neighbors := []string{}
+		for _, neighbor := range r.MatchNeighbors.Neighbors {
+			neighbors = append(neighbors, neighbor.String())
+		}
+		if len(neighbors) > 1 {
+			values = append(values, r.MatchNeighbors.Type.String())
+		}
+		values = append(values, strings.Join(neighbors, ","))
 	}
 	for _, family := range r.MatchFamilies {
 		values = append(values, family.String())
 	}
-	for _, prefix := range r.MatchPrefixes {
-		values = append(values, prefix.CIDR.String())
+	if r.MatchPrefixes != nil {
+		prefixes := []string{}
+		for _, prefix := range r.MatchPrefixes.Prefixes {
+			prefixes = append(prefixes, prefix.CIDR.String())
+		}
+		if len(prefixes) > 1 {
+			values = append(values, r.MatchPrefixes.Type.String())
+		}
+		values = append(values, strings.Join(prefixes, ","))
 	}
 	return strings.Join(values, "-")
 }
@@ -201,23 +254,34 @@ func (r RoutePolicyConditions) String() string {
 // DeepEqual is a manually created deepequal function, deeply comparing the receiver with another.
 // It compares fields with types that do not implement the `DeepEqual` method
 // and calls the generated private `deepEqual` method which compares the rest of the fields.
-func (r *RoutePolicyConditions) DeepEqual(other *RoutePolicyConditions) bool {
+func (n *RoutePolicyNeighborMatch) DeepEqual(other *RoutePolicyNeighborMatch) bool {
 	if other == nil {
 		return false
 	}
-
-	if len(r.MatchNeighbors) != len(other.MatchNeighbors) {
+	if len(n.Neighbors) != len(other.Neighbors) {
 		return false
 	}
-
-	for i, neighbor := range r.MatchNeighbors {
-		if neighbor != other.MatchNeighbors[i] {
+	for i, neighbor := range n.Neighbors {
+		if neighbor != other.Neighbors[i] {
 			return false
 		}
 	}
+	// Call generated `deepEqual` method which compares all fields except 'Neighbors'
+	return n.deepEqual(other)
+}
 
-	// Call generated `deepEqual` method which compares all fields except 'MatchNeighbors'
-	return r.deepEqual(other)
+// DeepEqual is a manually created deepequal function, deeply comparing the receiver with another.
+// It compares fields with types that do not implement the `DeepEqual` method
+// and calls the generated private `deepEqual` method which compares the rest of the fields.
+func (p *RoutePolicyPrefix) DeepEqual(other *RoutePolicyPrefix) bool {
+	if other == nil {
+		return false
+	}
+	if p.CIDR != other.CIDR {
+		return false
+	}
+	// Call generated `deepEqual` method which compares all fields except 'CIDR'
+	return p.deepEqual(other)
 }
 
 // RoutePolicyAction defines the action taken on a route matched by a routing policy.

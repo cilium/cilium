@@ -34,11 +34,11 @@ type BgpRoutePolicyStatement struct {
 	// Matches any of the provided address families. If empty matches all address families.
 	MatchFamilies []*BgpFamily `json:"match-families"`
 
-	// Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.
-	MatchNeighbors []string `json:"match-neighbors"`
+	// Matches BGP neighbor IP address with the provided match rules
+	MatchNeighbors *BgpRoutePolicyNeighborMatch `json:"match-neighbors,omitempty"`
 
-	// Matches any of the provided prefixes. If empty matches all prefixes.
-	MatchPrefixes []*BgpRoutePolicyPrefixMatch `json:"match-prefixes"`
+	// Matches CIDR prefix with the provided match rules
+	MatchPrefixes *BgpRoutePolicyPrefixMatch `json:"match-prefixes,omitempty"`
 
 	// BGP nexthop action
 	Nexthop *BgpRoutePolicyNexthopAction `json:"nexthop,omitempty"`
@@ -56,6 +56,10 @@ func (m *BgpRoutePolicyStatement) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateMatchFamilies(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateMatchNeighbors(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -107,31 +111,47 @@ func (m *BgpRoutePolicyStatement) validateMatchFamilies(formats strfmt.Registry)
 	return nil
 }
 
+func (m *BgpRoutePolicyStatement) validateMatchNeighbors(formats strfmt.Registry) error {
+	if swag.IsZero(m.MatchNeighbors) { // not required
+		return nil
+	}
+
+	if m.MatchNeighbors != nil {
+		if err := m.MatchNeighbors.Validate(formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("match-neighbors")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("match-neighbors")
+			}
+
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *BgpRoutePolicyStatement) validateMatchPrefixes(formats strfmt.Registry) error {
 	if swag.IsZero(m.MatchPrefixes) { // not required
 		return nil
 	}
 
-	for i := 0; i < len(m.MatchPrefixes); i++ {
-		if swag.IsZero(m.MatchPrefixes[i]) { // not required
-			continue
-		}
-
-		if m.MatchPrefixes[i] != nil {
-			if err := m.MatchPrefixes[i].Validate(formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
-					return ve.ValidateName("match-prefixes" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
-					return ce.ValidateName("match-prefixes" + "." + strconv.Itoa(i))
-				}
-
-				return err
+	if m.MatchPrefixes != nil {
+		if err := m.MatchPrefixes.Validate(formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("match-prefixes")
 			}
-		}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("match-prefixes")
+			}
 
+			return err
+		}
 	}
 
 	return nil
@@ -213,6 +233,10 @@ func (m *BgpRoutePolicyStatement) ContextValidate(ctx context.Context, formats s
 		res = append(res, err)
 	}
 
+	if err := m.contextValidateMatchNeighbors(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateMatchPrefixes(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -256,30 +280,51 @@ func (m *BgpRoutePolicyStatement) contextValidateMatchFamilies(ctx context.Conte
 	return nil
 }
 
-func (m *BgpRoutePolicyStatement) contextValidateMatchPrefixes(ctx context.Context, formats strfmt.Registry) error {
+func (m *BgpRoutePolicyStatement) contextValidateMatchNeighbors(ctx context.Context, formats strfmt.Registry) error {
 
-	for i := 0; i < len(m.MatchPrefixes); i++ {
+	if m.MatchNeighbors != nil {
 
-		if m.MatchPrefixes[i] != nil {
-
-			if swag.IsZero(m.MatchPrefixes[i]) { // not required
-				return nil
-			}
-
-			if err := m.MatchPrefixes[i].ContextValidate(ctx, formats); err != nil {
-				ve := new(errors.Validation)
-				if stderrors.As(err, &ve) {
-					return ve.ValidateName("match-prefixes" + "." + strconv.Itoa(i))
-				}
-				ce := new(errors.CompositeError)
-				if stderrors.As(err, &ce) {
-					return ce.ValidateName("match-prefixes" + "." + strconv.Itoa(i))
-				}
-
-				return err
-			}
+		if swag.IsZero(m.MatchNeighbors) { // not required
+			return nil
 		}
 
+		if err := m.MatchNeighbors.ContextValidate(ctx, formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("match-neighbors")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("match-neighbors")
+			}
+
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *BgpRoutePolicyStatement) contextValidateMatchPrefixes(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.MatchPrefixes != nil {
+
+		if swag.IsZero(m.MatchPrefixes) { // not required
+			return nil
+		}
+
+		if err := m.MatchPrefixes.ContextValidate(ctx, formats); err != nil {
+			ve := new(errors.Validation)
+			if stderrors.As(err, &ve) {
+				return ve.ValidateName("match-prefixes")
+			}
+			ce := new(errors.CompositeError)
+			if stderrors.As(err, &ce) {
+				return ce.ValidateName("match-prefixes")
+			}
+
+			return err
+		}
 	}
 
 	return nil

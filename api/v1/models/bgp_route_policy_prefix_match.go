@@ -10,7 +10,10 @@ package models
 
 import (
 	"context"
+	stderrors "errors"
+	"strconv"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
@@ -20,23 +23,148 @@ import (
 // swagger:model BgpRoutePolicyPrefixMatch
 type BgpRoutePolicyPrefixMatch struct {
 
-	// CIDR prefix to match with
-	Cidr string `json:"cidr,omitempty"`
+	// Prefixes to match with
+	Prefixes []*BgpRoutePolicyPrefix `json:"prefixes"`
 
-	// Maximal prefix length that will match if it falls under CIDR
-	PrefixLenMax int64 `json:"prefix-len-max,omitempty"`
-
-	// Minimal prefix length that will match if it falls under CIDR
-	PrefixLenMin int64 `json:"prefix-len-min,omitempty"`
+	// Defines matching logic in case of multiple prefixes
+	Type BgpRoutePolicyMatchType `json:"type,omitempty"`
 }
 
 // Validate validates this bgp route policy prefix match
 func (m *BgpRoutePolicyPrefixMatch) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validatePrefixes(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateType(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
 	return nil
 }
 
-// ContextValidate validates this bgp route policy prefix match based on context it is used
+func (m *BgpRoutePolicyPrefixMatch) validatePrefixes(formats strfmt.Registry) error {
+	if swag.IsZero(m.Prefixes) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.Prefixes); i++ {
+		if swag.IsZero(m.Prefixes[i]) { // not required
+			continue
+		}
+
+		if m.Prefixes[i] != nil {
+			if err := m.Prefixes[i].Validate(formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("prefixes" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("prefixes" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *BgpRoutePolicyPrefixMatch) validateType(formats strfmt.Registry) error {
+	if swag.IsZero(m.Type) { // not required
+		return nil
+	}
+
+	if err := m.Type.Validate(formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("type")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("type")
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this bgp route policy prefix match based on the context it is used
 func (m *BgpRoutePolicyPrefixMatch) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidatePrefixes(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateType(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *BgpRoutePolicyPrefixMatch) contextValidatePrefixes(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Prefixes); i++ {
+
+		if m.Prefixes[i] != nil {
+
+			if swag.IsZero(m.Prefixes[i]) { // not required
+				return nil
+			}
+
+			if err := m.Prefixes[i].ContextValidate(ctx, formats); err != nil {
+				ve := new(errors.Validation)
+				if stderrors.As(err, &ve) {
+					return ve.ValidateName("prefixes" + "." + strconv.Itoa(i))
+				}
+				ce := new(errors.CompositeError)
+				if stderrors.As(err, &ce) {
+					return ce.ValidateName("prefixes" + "." + strconv.Itoa(i))
+				}
+
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *BgpRoutePolicyPrefixMatch) contextValidateType(ctx context.Context, formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Type) { // not required
+		return nil
+	}
+
+	if err := m.Type.ContextValidate(ctx, formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("type")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("type")
+		}
+
+		return err
+	}
+
 	return nil
 }
 
