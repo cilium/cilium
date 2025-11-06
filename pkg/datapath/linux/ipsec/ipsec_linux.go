@@ -505,7 +505,12 @@ func (a *Agent) xfrmDeleteConflictingState(states []netlink.XfrmState, new *netl
 		errs             = resiliency.NewErrorSet("failed to delete conflicting XFRM states", len(states))
 	)
 	for _, s := range states {
-		if new.Spi == s.Spi && (new.Mark == nil) == (s.Mark == nil) &&
+		newNodeId := getNodeIDAsHexFromXfrmMark(new.Mark)
+		oldNodeId := getNodeIDAsHexFromXfrmMark(s.Mark)
+		newDir := getDirFromXfrmMark(new.Mark)
+		oldDir := getDirFromXfrmMark(s.Mark)
+		clashingNodeId := newNodeId == oldNodeId && newDir == oldDir
+		if clashingNodeId || new.Spi == s.Spi && (new.Mark == nil) == (s.Mark == nil) &&
 			(new.Mark == nil || new.Mark.Value&new.Mark.Mask&s.Mark.Mask == s.Mark.Value) &&
 			xfrmIPEqual(new.Src, s.Src) && xfrmIPEqual(new.Dst, s.Dst) {
 			if err := a.xfrmStateCache.XfrmStateDel(&s); err != nil {
