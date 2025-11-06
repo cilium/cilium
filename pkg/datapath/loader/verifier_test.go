@@ -70,6 +70,10 @@ func TestPrivilegedVerifier(t *testing.T) {
 			t.Fatalf("Failed to set permissions on temporary directory %s: %v", resultDir, err)
 		}
 		flagResultDir = &resultDir
+	} else {
+		if err := os.Mkdir(*flagResultDir, 0755); err != nil && !os.IsExist(err) && !os.IsPermission(err) {
+			t.Fatalf("Failed to create directory %s with permissions: %v", *flagResultDir, err)
+		}
 	}
 
 	if err := rlimit.RemoveMemlock(); err != nil {
