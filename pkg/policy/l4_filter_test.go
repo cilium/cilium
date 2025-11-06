@@ -347,6 +347,10 @@ func (p *testPolicyContextType) IsIngress() bool {
 	return p.isIngress
 }
 
+func (p *testPolicyContextType) AllowLocalhost() bool {
+	return p.isIngress && option.Config.AlwaysAllowLocalhost()
+}
+
 func (p *testPolicyContextType) SetIngress(ingress bool) {
 	p.isIngress = ingress
 }
