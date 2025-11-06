@@ -74,11 +74,11 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8081
+            port: http
         readinessProbe:
           httpGet:
             path: /
-            port: 8081
+            port: http
         {{- with .Values.hubble.ui.frontend.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
