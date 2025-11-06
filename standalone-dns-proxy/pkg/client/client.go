@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
+	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -169,13 +170,13 @@ func (i PrefixToIdentity) TableHeader() []string {
 }
 
 type dialClient interface {
-	Dial(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
+	CreateClient(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 }
 
 // defaultDialClient implements dialClient by using grpc.NewClient.
 type defaultDialClient struct{}
 
-func (d *defaultDialClient) Dial(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (d *defaultDialClient) CreateClient(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	return grpc.NewClient(target, opts...)
 }
 
@@ -219,13 +220,6 @@ type GRPCClient struct {
 	port    uint16
 	address string
 
-	// connectJobInProgress indicates if an existing job to create a connection is in progress.
-	// This field is used to ensure that only one job is running at a time to create a connection.
-	connectJobInProgress atomic.Bool
-
-	// policyStreamJobActive indicates if the policy stream (i.e., the gRPC stream for DNS policy updates) job is currently active
-	policyStreamJobActive atomic.Bool
-
 	// dialClient is used to create gRPC client connections
 	dialClient dialClient
 
@@ -248,36 +242,28 @@ func createGRPCClient(params clientParams) *GRPCClient {
 	}
 }
 
-// ConnectToAgent attempts to connect to the Cilium agent
-// This method runs periodically and tries to establish a gRPC connection
-// The flow is as follows:
-// 1. If already connected, return immediately
-// 2. If a connection attempt is already in progress, return immediately
-// 3. Attempt to dial the Cilium agent
-// 4. If dial fails, log the error and return
+// ConnectToAgent creates a new gRPC client
+// This method runs periodically
+// 1. If already a client exist, return immediately
+// 3. Create a connection with the Cilium agent
+// 4. If it fails, log the error and return
 func (c *GRPCClient) ConnectToAgent(ctx context.Context) error {
 	if c.connManager.isConnected() {
 		return nil
 	}
 
-	// Prevent overlapping dial attempts.
-	if !c.connectJobInProgress.CompareAndSwap(false, true) {
-		return nil
-	}
-	defer c.connectJobInProgress.Store(false)
-
-	conn, err := c.dialClient.Dial(
+	conn, err := c.dialClient.CreateClient(
 		c.address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithKeepaliveParams(kap),
 	)
 	if err != nil {
-		c.logger.Error("Dial failed", logfields.Error, err)
+		c.logger.Error("Client creation failed", logfields.Error, err)
 		return err
 	}
 
 	c.connManager.updateConnection(conn)
-	c.logger.Info("gRPC client connection installed (dial complete)")
+	c.logger.Info("gRPC client created")
 	return nil
 }
 
@@ -285,21 +271,17 @@ func (c *GRPCClient) ConnectToAgent(ctx context.Context) error {
 // It starts the policy stream if a connection is established
 func (c *GRPCClient) handleConnEvent(ctx context.Context, ev connEvent) error {
 	if ev.Connected {
-		if c.policyStreamJobActive.CompareAndSwap(false, true) {
-			// Use observer-provided context so that shutdown cancels the stream.
-			go c.handlePolicyStream(ctx)
-		}
+		// Use observer-provided context so that shutdown cancels the stream.
+		go c.handlePolicyStream(ctx)
 	}
 	return nil
 }
 
 // handlePolicyStream runs the policy stream to receive DNS policy updates from the Cilium agent
 func (c *GRPCClient) handlePolicyStream(ctx context.Context) {
-	// Ensure policyStreamJobActive is reset when this goroutine exits
 	defer func() {
-		c.policyStreamJobActive.Store(false)
 		c.connected.Store(false)
-		c.logger.Debug("Policy stream goroutine exiting, reset policyStreamActive to false")
+		c.logger.Debug("Policy stream goroutine exiting")
 	}()
 
 	client, rev, err := c.connManager.getFqdnClientWithRev()
@@ -381,6 +363,7 @@ func (c *GRPCClient) NotifyOnMsg(msg *pb.FQDNMapping) error {
 	if err != nil && isConnectionError(err) {
 		c.logger.Error("Connection error during UpdateMappingRequest", logfields.Error, err)
 		c.connManager.removeConnection(rev)
+		return dnsproxy.ErrDNSProxyConnection
 	}
 	return err
 }
