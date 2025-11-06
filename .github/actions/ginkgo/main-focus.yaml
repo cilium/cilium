@@ -176,16 +176,16 @@ include:
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks in-cluster KPR Tests HealthCheckNodePort
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks in-cluster KPR Tests that binding to NodePort port fails
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks in-cluster KPR with L7 policy Tests NodePort with L7 Policy
-  # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks service accessing itself (hairpin flow)
   - focus: "f15-datapath-service-ew-1"
-    cliFocus: 'K8sDatapathServicesTest Checks device|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) Checks'
+    cliFocus: 'K8sDatapathServicesTest Checks device|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) Checks in-cluster KPR'
 
   ###
+  # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks service accessing itself (hairpin flow)
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) TFTP with DNS Proxy port collision Tests TFTP from DNS Proxy Port
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) with L4 policy Tests NodePort with L4 Policy
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) with L7 policy Tests NodePort with L7 Policy
   - focus: "f16-datapath-service-ew-2"
-    cliFocus: 'K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) TFTP|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) with'
+    cliFocus: 'K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) Checks service|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) TFTP|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) with'
 
   ###
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) vanilla
