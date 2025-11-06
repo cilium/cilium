@@ -2542,9 +2542,6 @@ definitions:
           ipv6:
             description: Status of masquerading for IPv6 traffic
             type: boolean
-      egress-multi-home-ip-rule-compat:
-        description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
-        type: boolean
       installUplinkRoutesForDelegatedIPAM:
         description: |
           Install ingress/egress routes through uplink on host for Pods when working with

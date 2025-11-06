@@ -892,11 +892,6 @@ const (
 	// K8sEnableAPIDiscovery enables Kubernetes API discovery
 	K8sEnableAPIDiscovery = "enable-k8s-api-discovery"
 
-	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
-	// store rules and routes under ENI and Azure IPAM modes, if false.
-	// Otherwise, it will use the old scheme.
-	EgressMultiHomeIPRuleCompat = "egress-multi-home-ip-rule-compat"
-
 	// Install ingress/egress routes through uplink on host for Pods when working with
 	// delegated IPAM plugin.
 	InstallUplinkRoutesForDelegatedIPAM = "install-uplink-routes-for-delegated-ipam"
@@ -1756,11 +1751,6 @@ type DaemonConfig struct {
 	// This is only enabled for cilium-operator
 	K8sEnableLeasesFallbackDiscovery bool
 
-	// EgressMultiHomeIPRuleCompat instructs Cilium to use a new scheme to
-	// store rules and routes under ENI and Azure IPAM modes, if false.
-	// Otherwise, it will use the old scheme.
-	EgressMultiHomeIPRuleCompat bool
-
 	// Install ingress/egress routes through uplink on host for Pods when working with
 	// delegated IPAM plugin.
 	InstallUplinkRoutesForDelegatedIPAM bool
@@ -2618,7 +2608,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	default:
 		logging.Fatal(logger, "Invalid value for --%s: %s (must be 'icmp' or 'none')", PolicyDenyResponse, c.PolicyDenyResponse)
 	}
-	c.EgressMultiHomeIPRuleCompat = vp.GetBool(EgressMultiHomeIPRuleCompat)
 	c.InstallUplinkRoutesForDelegatedIPAM = vp.GetBool(InstallUplinkRoutesForDelegatedIPAM)
 
 	vlanBPFBypassIDs := vp.GetStringSlice(VLANBPFBypass)
