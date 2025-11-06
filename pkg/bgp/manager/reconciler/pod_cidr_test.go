@@ -37,17 +37,22 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(podCIDR1v4),
-							PrefixLenMin: netip.MustParsePrefix(podCIDR1v4).Bits(),
-							PrefixLenMax: netip.MustParsePrefix(podCIDR1v4).Bits(),
-						},
-						{
-							CIDR:         netip.MustParsePrefix(podCIDR2v4),
-							PrefixLenMin: netip.MustParsePrefix(podCIDR2v4).Bits(),
-							PrefixLenMax: netip.MustParsePrefix(podCIDR2v4).Bits(),
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         netip.MustParsePrefix(podCIDR1v4),
+								PrefixLenMin: netip.MustParsePrefix(podCIDR1v4).Bits(),
+								PrefixLenMax: netip.MustParsePrefix(podCIDR1v4).Bits(),
+							},
+							{
+								CIDR:         netip.MustParsePrefix(podCIDR2v4),
+								PrefixLenMin: netip.MustParsePrefix(podCIDR2v4).Bits(),
+								PrefixLenMax: netip.MustParsePrefix(podCIDR2v4).Bits(),
+							},
 						},
 					},
 				},
@@ -65,17 +70,22 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(podCIDR1v6),
-							PrefixLenMin: netip.MustParsePrefix(podCIDR1v6).Bits(),
-							PrefixLenMax: netip.MustParsePrefix(podCIDR1v6).Bits(),
-						},
-						{
-							CIDR:         netip.MustParsePrefix(podCIDR2v6),
-							PrefixLenMin: netip.MustParsePrefix(podCIDR2v6).Bits(),
-							PrefixLenMax: netip.MustParsePrefix(podCIDR2v6).Bits(),
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         netip.MustParsePrefix(podCIDR1v6),
+								PrefixLenMin: netip.MustParsePrefix(podCIDR1v6).Bits(),
+								PrefixLenMax: netip.MustParsePrefix(podCIDR1v6).Bits(),
+							},
+							{
+								CIDR:         netip.MustParsePrefix(podCIDR2v6),
+								PrefixLenMin: netip.MustParsePrefix(podCIDR2v6).Bits(),
+								PrefixLenMax: netip.MustParsePrefix(podCIDR2v6).Bits(),
+							},
 						},
 					},
 				},
@@ -93,17 +103,22 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(podCIDR1v4),
-							PrefixLenMin: netip.MustParsePrefix(podCIDR1v4).Bits(),
-							PrefixLenMax: netip.MustParsePrefix(podCIDR1v4).Bits(),
-						},
-						{
-							CIDR:         netip.MustParsePrefix(podCIDR2v4),
-							PrefixLenMin: netip.MustParsePrefix(podCIDR2v4).Bits(),
-							PrefixLenMax: netip.MustParsePrefix(podCIDR2v4).Bits(),
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         netip.MustParsePrefix(podCIDR1v4),
+								PrefixLenMin: netip.MustParsePrefix(podCIDR1v4).Bits(),
+								PrefixLenMax: netip.MustParsePrefix(podCIDR1v4).Bits(),
+							},
+							{
+								CIDR:         netip.MustParsePrefix(podCIDR2v4),
+								PrefixLenMin: netip.MustParsePrefix(podCIDR2v4).Bits(),
+								PrefixLenMax: netip.MustParsePrefix(podCIDR2v4).Bits(),
+							},
 						},
 					},
 				},
@@ -121,17 +136,22 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(podCIDR1v6),
-							PrefixLenMin: netip.MustParsePrefix(podCIDR1v6).Bits(),
-							PrefixLenMax: netip.MustParsePrefix(podCIDR1v6).Bits(),
-						},
-						{
-							CIDR:         netip.MustParsePrefix(podCIDR2v6),
-							PrefixLenMin: netip.MustParsePrefix(podCIDR2v6).Bits(),
-							PrefixLenMax: netip.MustParsePrefix(podCIDR2v6).Bits(),
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         netip.MustParsePrefix(podCIDR1v6),
+								PrefixLenMin: netip.MustParsePrefix(podCIDR1v6).Bits(),
+								PrefixLenMax: netip.MustParsePrefix(podCIDR1v6).Bits(),
+							},
+							{
+								CIDR:         netip.MustParsePrefix(podCIDR2v6),
+								PrefixLenMin: netip.MustParsePrefix(podCIDR2v6).Bits(),
+								PrefixLenMax: netip.MustParsePrefix(podCIDR2v6).Bits(),
+							},
 						},
 					},
 				},

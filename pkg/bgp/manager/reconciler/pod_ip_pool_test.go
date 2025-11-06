@@ -59,17 +59,22 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix1v4)),
-							PrefixLenMin: 24,
-							PrefixLenMax: 24,
-						},
-						{
-							CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix2v4)),
-							PrefixLenMin: 24,
-							PrefixLenMax: 24,
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix1v4)),
+								PrefixLenMin: 24,
+								PrefixLenMax: 24,
+							},
+							{
+								CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix2v4)),
+								PrefixLenMin: 24,
+								PrefixLenMax: 24,
+							},
 						},
 					},
 				},
@@ -87,17 +92,22 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix1v6)),
-							PrefixLenMin: 96,
-							PrefixLenMax: 96,
-						},
-						{
-							CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix2v6)),
-							PrefixLenMin: 96,
-							PrefixLenMax: 96,
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.1")},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix1v6)),
+								PrefixLenMin: 96,
+								PrefixLenMax: 96,
+							},
+							{
+								CIDR:         netip.MustParsePrefix(string(redPoolNodePrefix2v6)),
+								PrefixLenMin: 96,
+								PrefixLenMax: 96,
+							},
 						},
 					},
 				},
@@ -156,17 +166,22 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix1v4)),
-							PrefixLenMin: 24,
-							PrefixLenMax: 24,
-						},
-						{
-							CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix2v4)),
-							PrefixLenMin: 24,
-							PrefixLenMax: 24,
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix1v4)),
+								PrefixLenMin: 24,
+								PrefixLenMax: 24,
+							},
+							{
+								CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix2v4)),
+								PrefixLenMin: 24,
+								PrefixLenMax: 24,
+							},
 						},
 					},
 				},
@@ -184,17 +199,22 @@ var (
 		Statements: []*types.RoutePolicyStatement{
 			{
 				Conditions: types.RoutePolicyConditions{
-					MatchNeighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
-					MatchPrefixes: []*types.RoutePolicyPrefixMatch{
-						{
-							CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix1v6)),
-							PrefixLenMin: 96,
-							PrefixLenMax: 96,
-						},
-						{
-							CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix2v6)),
-							PrefixLenMin: 96,
-							PrefixLenMax: 96,
+					MatchNeighbors: &types.RoutePolicyNeighborMatch{
+						Neighbors: []netip.Addr{netip.MustParseAddr("10.10.10.2")},
+					},
+					MatchPrefixes: &types.RoutePolicyPrefixMatch{
+						Type: types.RoutePolicyMatchAny,
+						Prefixes: []types.RoutePolicyPrefix{
+							{
+								CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix1v6)),
+								PrefixLenMin: 96,
+								PrefixLenMax: 96,
+							},
+							{
+								CIDR:         netip.MustParsePrefix(string(bluePoolNodePrefix2v6)),
+								PrefixLenMin: 96,
+								PrefixLenMax: 96,
+							},
 						},
 					},
 				},

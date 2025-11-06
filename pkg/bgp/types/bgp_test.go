@@ -29,29 +29,55 @@ func Test_RoutePolicyConditionsString(t *testing.T) {
 		{
 			name: "sets only neighbors",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []netip.Addr{netip.MustParseAddr("192.2.0.1"), netip.MustParseAddr("192.2.0.2")},
-				MatchPrefixes:  []*RoutePolicyPrefixMatch{},
-				MatchFamilies:  []Family{},
+				MatchNeighbors: &RoutePolicyNeighborMatch{
+					Type:      RoutePolicyMatchAny,
+					Neighbors: []netip.Addr{netip.MustParseAddr("192.2.0.1"), netip.MustParseAddr("192.2.0.2")},
+				},
+				MatchPrefixes: nil,
+				MatchFamilies: nil,
 			},
-			expected: "192.2.0.1-192.2.0.2",
+			expected: "any-192.2.0.1,192.2.0.2",
 		},
 		{
 			name: "sets only prefixes",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []netip.Addr{},
-				MatchPrefixes: []*RoutePolicyPrefixMatch{
-					{
-						CIDR: testPrefix,
-					}},
-				MatchFamilies: []Family{},
+				MatchNeighbors: nil,
+				MatchPrefixes: &RoutePolicyPrefixMatch{
+					Type: RoutePolicyMatchAny,
+					Prefixes: []RoutePolicyPrefix{
+						{
+							CIDR: testPrefix,
+						},
+					},
+				},
+				MatchFamilies: nil,
 			},
 			expected: "192.2.0.1/24",
 		},
 		{
+			name: "multiple prefixes",
+			conditions: RoutePolicyConditions{
+				MatchNeighbors: nil,
+				MatchPrefixes: &RoutePolicyPrefixMatch{
+					Type: RoutePolicyMatchAll,
+					Prefixes: []RoutePolicyPrefix{
+						{
+							CIDR: netip.MustParsePrefix("192.1.0.1/24"),
+						},
+						{
+							CIDR: netip.MustParsePrefix("192.2.0.1/24"),
+						},
+					},
+				},
+				MatchFamilies: nil,
+			},
+			expected: "all-192.1.0.1/24,192.2.0.1/24",
+		},
+		{
 			name: "sets only families",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []netip.Addr{},
-				MatchPrefixes:  []*RoutePolicyPrefixMatch{},
+				MatchNeighbors: nil,
+				MatchPrefixes:  nil,
 				MatchFamilies: []Family{
 					{
 						Afi:  AfiIPv6,
@@ -64,10 +90,13 @@ func Test_RoutePolicyConditionsString(t *testing.T) {
 		{
 			name: "sets families and prefixes",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []netip.Addr{},
-				MatchPrefixes: []*RoutePolicyPrefixMatch{
-					{
-						CIDR: testPrefix,
+				MatchNeighbors: nil,
+				MatchPrefixes: &RoutePolicyPrefixMatch{
+					Type: RoutePolicyMatchAny,
+					Prefixes: []RoutePolicyPrefix{
+						{
+							CIDR: testPrefix,
+						},
 					},
 				},
 				MatchFamilies: []Family{
@@ -82,10 +111,16 @@ func Test_RoutePolicyConditionsString(t *testing.T) {
 		{
 			name: "sets families prefixes neighbors",
 			conditions: RoutePolicyConditions{
-				MatchNeighbors: []netip.Addr{netip.MustParseAddr("192.2.0.1"), netip.MustParseAddr("192.2.0.2")},
-				MatchPrefixes: []*RoutePolicyPrefixMatch{
-					{
-						CIDR: testPrefix,
+				MatchNeighbors: &RoutePolicyNeighborMatch{
+					Type:      RoutePolicyMatchInvert,
+					Neighbors: []netip.Addr{netip.MustParseAddr("192.2.0.1"), netip.MustParseAddr("192.2.0.2")},
+				},
+				MatchPrefixes: &RoutePolicyPrefixMatch{
+					Type: RoutePolicyMatchAny,
+					Prefixes: []RoutePolicyPrefix{
+						{
+							CIDR: testPrefix,
+						},
 					},
 				},
 				MatchFamilies: []Family{
@@ -95,7 +130,7 @@ func Test_RoutePolicyConditionsString(t *testing.T) {
 					},
 				},
 			},
-			expected: "192.2.0.1-192.2.0.2-ipv6-unicast-192.2.0.1/24",
+			expected: "invert-192.2.0.1,192.2.0.2-ipv6-unicast-192.2.0.1/24",
 		},
 	}
 

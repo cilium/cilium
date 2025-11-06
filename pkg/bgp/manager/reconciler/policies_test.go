@@ -25,13 +25,17 @@ func Test_MergeRoutePolicies(t *testing.T) {
 	var nilPointerInt64 *int64
 
 	conditionsNeighborOne := types.RoutePolicyConditions{
-		MatchNeighbors: []netip.Addr{netip.MustParseAddr("fd00::1")},
-		MatchFamilies:  []types.Family{{Afi: types.AfiIPv6}},
+		MatchNeighbors: &types.RoutePolicyNeighborMatch{
+			Neighbors: []netip.Addr{netip.MustParseAddr("fd00::1")},
+		},
+		MatchFamilies: []types.Family{{Afi: types.AfiIPv6}},
 	}
 
 	conditionsNeighborThree := types.RoutePolicyConditions{
-		MatchNeighbors: []netip.Addr{netip.MustParseAddr("fd00::3")},
-		MatchFamilies:  []types.Family{{Afi: types.AfiIPv6}},
+		MatchNeighbors: &types.RoutePolicyNeighborMatch{
+			Neighbors: []netip.Addr{netip.MustParseAddr("fd00::3")},
+		},
+		MatchFamilies: []types.Family{{Afi: types.AfiIPv6}},
 	}
 
 	tests := []struct {
@@ -994,7 +998,9 @@ func TestRoutePolicySoftReset(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: policy.neighbors,
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Neighbors: policy.neighbors,
+								},
 							},
 						},
 					},
@@ -1009,7 +1015,9 @@ func TestRoutePolicySoftReset(t *testing.T) {
 					Statements: []*types.RoutePolicyStatement{
 						{
 							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: policy.neighbors,
+								MatchNeighbors: &types.RoutePolicyNeighborMatch{
+									Neighbors: policy.neighbors,
+								},
 							},
 						},
 					},
