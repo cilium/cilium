@@ -9,11 +9,15 @@ package config
 // not instantiate directly! Always use [NewBPFLXC] to ensure the default values
 // configured in the ELF are honored.
 type BPFLXC struct {
+	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
+	AllowIcmpFragNeeded bool `config:"allow_icmp_frag_needed"`
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Apply Network Policy for ICMP packets.
+	EnableIcmpRule bool `config:"enable_icmp_rule"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
@@ -51,7 +55,7 @@ type BPFLXC struct {
 }
 
 func NewBPFLXC(node Node) *BPFLXC {
-	return &BPFLXC{0x5dc, false, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFLXC{false, 0x5dc, false, false, false, false, false, 0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
