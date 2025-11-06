@@ -183,7 +183,7 @@ func TestInitKubeProxyReplacementOptions(t *testing.T) {
 			kprConfig{
 				expectedErrorRegex:         ".+with enable-bpf-masquerade.",
 				enableSocketLB:             true,
-				enableHostLegacyRouting:    false,
+				enableHostLegacyRouting:    true,
 				installNoConntrackIptRules: true,
 				enableIPv4Masquerade:       true,
 				enableSocketLBTracing:      true,
