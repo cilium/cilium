@@ -4,7 +4,7 @@
 package endpoint
 
 import (
-	"github.com/cilium/cilium/pkg/container/versioned"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -33,10 +33,10 @@ type EndpointUpdater interface {
 	// for a new observed flow with the given characteristics.
 	UpdateProxyStatistics(proxyType, l4Protocol string, port, proxyPort uint16, ingress, request bool, verdict accesslog.FlowVerdict)
 
-	// GetPolicyVersionHandle returns the selector cache version handle held for Endpoint's
+	// GetPolicyReadTxn returns the selector cache version handle held for Endpoint's
 	// desired policy, if any.
 	// Must be called with Endpoint's read lock taken.
-	GetPolicyVersionHandle() *versioned.VersionHandle
+	GetPolicyReadTxn() policy.SelectorReadTxn
 
 	// GetListenerProxyPort returns the proxy port for the given listener reference.
 	// Returns zero if the proxy port does not exist (yet).

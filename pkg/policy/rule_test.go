@@ -1174,6 +1174,8 @@ func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
 }
 
 func TestL3RuleLabels(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	ruleLabels := map[string]labels.LabelArray{
 		"rule0": labels.ParseLabelArray("name=apiRule0"),
 		"rule1": labels.ParseLabelArray("name=apiRule1"),
@@ -1257,7 +1259,7 @@ func TestL3RuleLabels(t *testing.T) {
 
 	for i, test := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
+			td := newTestData(logger).withIDs(ruleTestIDs)
 
 			for _, r := range test.rulesToApply {
 				td.repo.mustAdd(rules[r])
@@ -1287,7 +1289,7 @@ func TestL3RuleLabels(t *testing.T) {
 						for sel := range filter.PerSelectorPolicies {
 							cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
 							t.Logf("Testing %+v", cidrLabels)
-							if matches = sel.(*identitySelector).source.(*labelIdentitySelector).xxxMatches(cidrLabels); matches {
+							if matches = sel.(*identitySelector).source.(*types.CIDRSelector).Matches(logger, cidrLabels); matches {
 								break
 							}
 						}
@@ -1496,6 +1498,7 @@ var (
 	}
 	idA               = identity.NewIdentity(1001, labelsA.Labels())
 	endpointSelectorA = api.NewESFromLabels(labels.ParseSelectLabel("id=a"))
+	labelSelectorA    = types.NewLabelSelector(endpointSelectorA)
 
 	labelsB = labels.LabelArray{
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
@@ -1511,6 +1514,7 @@ var (
 	}
 	idC               = identity.NewIdentity(1003, labelsC.Labels())
 	endpointSelectorC = api.NewESFromLabels(labels.ParseSelectLabel("id=t"))
+	labelSelectorC    = types.NewLabelSelector(endpointSelectorC)
 
 	flowAToB   = Flow{From: idA, To: idB, Proto: u8proto.TCP, Dport: 80}
 	flowAToC   = Flow{From: idA, To: idC, Proto: u8proto.TCP, Dport: 80}
@@ -1526,7 +1530,7 @@ var (
 	}
 
 	defaultDenyIngress = &types.PolicyEntry{
-		Subject:     api.WildcardEndpointSelector,
+		Subject:     types.WildcardSelector,
 		Ingress:     true,
 		DefaultDeny: true,
 	}
@@ -1561,11 +1565,11 @@ func TestIngressAllowAll(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
+			L3: types.ToSelectors([]api.EndpointSelector{
 				api.WildcardEndpointSelector,
-			},
+			}),
 		}})
 
 	checkFlow(t, repo, flowAToB, api.Denied)
@@ -1583,15 +1587,15 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
+			L3: types.ToSelectors([]api.EndpointSelector{
 				api.WildcardEndpointSelector,
-			},
+			}),
 		}, &types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
 			// port 80 only
@@ -1614,11 +1618,11 @@ func TestIngressAllowAllNamedPort(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
+			L3: types.ToSelectors([]api.EndpointSelector{
 				api.WildcardEndpointSelector,
-			},
+			}),
 			L4: []api.PortRule{{
 				Ports: []api.PortProtocol{
 					{Port: "port-80", Protocol: api.ProtoTCP},
@@ -1640,15 +1644,15 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
+			L3: types.ToSelectors([]api.EndpointSelector{
 				api.WildcardEndpointSelector,
-			},
+			}),
 		}, &types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
 			// port 80 only
@@ -1671,8 +1675,8 @@ func TestIngressL4AllowAll(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
-			L3:          types.PeerSelectorSlice{},
+			Subject:     labelSelectorC,
+			L3:          types.Selectors{},
 			L4: []api.PortRule{{
 				Ports: []api.PortProtocol{
 					{Port: "80", Protocol: api.ProtoTCP},
@@ -2312,18 +2316,18 @@ func TestMatches(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorA,
-			L3:          types.PeerSelectorSlice{endpointSelectorC},
+			Subject:     labelSelectorA,
+			L3:          types.Selectors{labelSelectorC},
 		},
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject: api.NewESFromLabels(
+			Subject: types.NewLabelSelectorFromLabels(
 				labels.ParseSelectLabel("id=a"),
 				labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 			),
 			Node: true,
-			L3:   types.PeerSelectorSlice{endpointSelectorC},
+			L3:   types.Selectors{labelSelectorC},
 		},
 	})
 
@@ -2345,40 +2349,40 @@ func TestMatches(t *testing.T) {
 
 	// notSelectedEndpoint is not selected by rule, so we it shouldn't be added
 	// to EndpointsSelected.
-	require.False(t, epRule.matchesSubject(notSelectedIdentity))
+	require.False(t, epRule.matchesSubject(repo.logger, notSelectedIdentity))
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
-	require.True(t, epRule.matchesSubject(selectedIdentity))
+	require.True(t, epRule.matchesSubject(repo.logger, selectedIdentity))
 
 	// Test again to check for caching working correctly.
-	require.True(t, epRule.matchesSubject(selectedIdentity))
+	require.True(t, epRule.matchesSubject(repo.logger, selectedIdentity))
 
 	// Possible scenario where an endpoint is deleted, and soon after another
 	// endpoint is added with the same ID, but with a different identity. Matching
 	// needs to handle this case correctly.
-	require.False(t, epRule.matchesSubject(notSelectedIdentity))
+	require.False(t, epRule.matchesSubject(repo.logger, notSelectedIdentity))
 
 	// host endpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.False(t, epRule.matchesSubject(hostIdentity))
+	require.False(t, epRule.matchesSubject(repo.logger, hostIdentity))
 
 	// selectedEndpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
-	require.False(t, hostRule.matchesSubject(selectedIdentity))
+	require.False(t, hostRule.matchesSubject(repo.logger, selectedIdentity))
 
 	// host endpoint is selected by rule, but host labels are mutable, so don't cache them
-	require.True(t, hostRule.matchesSubject(hostIdentity))
+	require.True(t, hostRule.matchesSubject(repo.logger, hostIdentity))
 
 	// Assert that mutable host identities are handled
 	// First, add an additional label, ensure that match succeeds
 	hostLabels.MergeLabels(labels.NewLabelsFromModel([]string{"foo=bar"}))
 	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
 	td.addIdentity(hostIdentity)
-	require.True(t, hostRule.matchesSubject(hostIdentity))
+	require.True(t, hostRule.matchesSubject(repo.logger, hostIdentity))
 
 	// Then, change host to id=c, which is not selected, and ensure match is correct
 	hostIdentity = identity.NewIdentity(identity.ReservedIdentityHost, labels.NewLabelsFromModel([]string{"id=c"}))
 	td.addIdentity(hostIdentity)
-	require.False(t, hostRule.matchesSubject(hostIdentity))
+	require.False(t, hostRule.matchesSubject(repo.logger, hostIdentity))
 }
 
 // Test merging of L7 rules when the same rules apply to multiple selectors.

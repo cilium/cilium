@@ -104,12 +104,8 @@ func (in *CIDRRule) DeepEqual(other *CIDRRule) bool {
 	if in.CIDRGroupRef != other.CIDRGroupRef {
 		return false
 	}
-	if (in.CIDRGroupSelector == nil) != (other.CIDRGroupSelector == nil) {
+	if !in.CIDRGroupSelector.DeepEqual(&other.CIDRGroupSelector) {
 		return false
-	} else if in.CIDRGroupSelector != nil {
-		if !in.CIDRGroupSelector.DeepEqual(other.CIDRGroupSelector) {
-			return false
-		}
 	}
 
 	if ((in.ExceptCIDRs != nil) && (other.ExceptCIDRs != nil)) || ((in.ExceptCIDRs == nil) != (other.ExceptCIDRs == nil)) {
@@ -400,14 +396,6 @@ func (in *EndpointSelector) DeepEqual(other *EndpointSelector) bool {
 		return false
 	} else if in.LabelSelector != nil {
 		if !in.LabelSelector.DeepEqual(other.LabelSelector) {
-			return false
-		}
-	}
-
-	if (in.requirements == nil) != (other.requirements == nil) {
-		return false
-	} else if in.requirements != nil {
-		if !in.requirements.DeepEqual(other.requirements) {
 			return false
 		}
 	}
@@ -1430,14 +1418,6 @@ func (in *ServiceSelector) DeepEqual(other *ServiceSelector) bool {
 		return false
 	} else if in.LabelSelector != nil {
 		if !in.LabelSelector.DeepEqual(other.LabelSelector) {
-			return false
-		}
-	}
-
-	if (in.requirements == nil) != (other.requirements == nil) {
-		return false
-	} else if in.requirements != nil {
-		if !in.requirements.DeepEqual(other.requirements) {
 			return false
 		}
 	}
