@@ -55,6 +55,9 @@ const (
 	ProxyBindRetryInterval = ProxyBindTimeout / 5
 )
 
+// Error from standalone DNS proxy when it cannot connect to Cilium agent
+var ErrDNSProxyConnection = errors.New("standalone dns proxy not connected to cilium agent")
+
 // DNSProxy is a L7 proxy for DNS traffic. It keeps a list of allowed DNS
 // lookups that can be regexps and blocks lookups that are not allowed.
 // A singleton is always running inside cilium-agent.
@@ -1042,8 +1045,12 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
 	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServer, request, protocol, true, &stat); err != nil {
 		scopedLog.Error("Failed to process DNS query", logfields.Error, err)
-		p.sendErrorResponse(scopedLog, w, request, false)
-		return
+		// If the error is from the standalone dns proxy and is a connection error from cilium agent,
+		// we should be able to forward the request anyway.
+		if !errors.Is(err, ErrDNSProxyConnection) {
+			p.sendErrorResponse(scopedLog, w, request, false)
+			return
+		}
 	}
 
 	// Keep the same L4 protocol. This handles DNS re-requests over TCP, for
@@ -1129,8 +1136,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 			logfields.Error, err,
 			logfields.Response, response,
 		)
-		p.sendErrorResponse(scopedLog, w, request, false)
-		return
+		if !errors.Is(err, ErrDNSProxyConnection) {
+			p.sendErrorResponse(scopedLog, w, request, false)
+			return
+		}
 	}
 
 	scopedLog.Debug("Responding to original DNS query")
