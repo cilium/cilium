@@ -351,6 +351,11 @@ Removed Options
 * The previously deprecated custom calls feature (``--enable-custom-calls``) has been removed.
 * The previously deprecated ``--enable-ipv4-egress-gateway`` flag has been removed. To enable the
   corresponding features, users must set ``--enable-egress-gateway=true``.
+* The previously deprecated ``--egress-multi-home-ip-rule-compat`` flag has been removed. If you are running ENI IPAM
+  mode and had this flag explicitly set to ``true``, please unset it and let Cilium v1.18 migrate your rules prior
+  to the upgrade to Cilium v1.19. Azure IPAM users are unaffected by this change, as Cilium continues to use
+  old-style IP rules with Azure IPAM.
+
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
