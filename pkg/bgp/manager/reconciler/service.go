@@ -649,13 +649,13 @@ func (r *ServiceReconciler) getServiceRoutePolicy(peer PeerID, family types.Fami
 		return nil, nil
 	}
 
-	var v4Prefixes, v6Prefixes types.PolicyPrefixMatchList
+	var v4Prefixes, v6Prefixes types.PolicyPrefixList
 	for _, prefix := range svcPrefixes {
 		if family.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
-			v4Prefixes = append(v4Prefixes, &types.RoutePolicyPrefixMatch{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()})
+			v4Prefixes = append(v4Prefixes, types.RoutePolicyPrefix{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()})
 		}
 		if family.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
-			v6Prefixes = append(v6Prefixes, &types.RoutePolicyPrefixMatch{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()})
+			v6Prefixes = append(v6Prefixes, types.RoutePolicyPrefix{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()})
 		}
 	}
 	if len(v4Prefixes) == 0 && len(v6Prefixes) == 0 {
