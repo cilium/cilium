@@ -1849,6 +1849,32 @@ For more information, ensure that you have the fix `Pull Request <https://github
 Known Issues
 ############
 
+Connection Collisions When a Service Endpoint Is Accessed via Multiple VIPs
+***************************************************************************
+
+If a given backend endpoint is reachable through multiple services (i.e., via different VIPs or NodePorts),
+a new connection from a client to a different VIP or NodePort may reuse an existing connection tracking state
+from a connection to a different VIP or NodePort. This can happen if the client selects the same source port.
+In such cases, the connection might be dropped.
+
+The following scenarios are prone to this problem:
+
+* With :ref:`DSR<DSR Mode>`: A client running outside a cluster sends requests ``CLIENT_IP:SRC_PORT -> LB1_IP:LB1_PORT``
+  and ``CLIENT_IP:SRC_PORT -> LB2_IP:LB2_PORT`` via an intermediate K8s node(s). The intermediate node selects
+  ``BACKEND_IP:BACKEND_PORT`` for each request and forwards them to the backend endpoint. Each request
+  appears identical as ``CLIENT_IP:SRC_PORT -> BACKEND_IP:BACKEND_PORT``, so the backend cannot distinguish
+  between them.
+
+* With or without DSR: A client running outside a cluster sends requests ``CLIENT_IP:SRC_PORT -> LB1_IP:LB1_PORT``
+  and ``CLIENT_IP:SRC_PORT -> LB2_IP:LB2_PORT`` to a K8s node that runs the selected backend endpoint.
+  Again, each request appears the same: ``CLIENT_IP:SRC_PORT -> BACKEND_IP:BACKEND_PORT``.
+
+* Without Socket LB: A client running in a Pod sends requests ``CLIENT_IP:SRC_PORT -> LB1_IP:LB1_PORT`` and
+  ``CLIENT_IP:SRC_PORT -> LB2_IP:LB2_PORT``. The per-packet load-balancer then DNATs each request to the backend,
+  resulting in ``CLIENT_IP:SRC_PORT -> BACKEND_IP:BACKEND_PORT``.
+
+Therefore, it is highly recommended not to expose a backend endpoint via multiple VIPs :gh-issue:`11810` :gh-issue:`18632`.
+
 Limitations
 ###########
 
