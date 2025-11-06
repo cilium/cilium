@@ -27,6 +27,7 @@ type StandaloneDNSProxy struct {
 	enableL7Proxy                bool
 	enableStandaloneDNSProxy     bool
 	dnsProxier                   proxy.DNSProxier
+	proxyPort                    uint16
 
 	// connHandler is the gRPC connection handler client for standalone DNS proxy
 	connHandler client.ConnectionHandler
@@ -45,6 +46,7 @@ func NewStandaloneDNSProxy(params standaloneDNSProxyParams) *StandaloneDNSProxy 
 		enableL7Proxy:                params.AgentConfig.EnableL7Proxy,
 		enableStandaloneDNSProxy:     params.FQDNConfig.EnableStandaloneDNSProxy,
 		standaloneDNSProxyServerPort: uint16(params.FQDNConfig.StandaloneDNSProxyServerPort),
+		proxyPort:                    uint16(params.AgentConfig.ToFQDNsProxyPort),
 		connHandler:                  params.ConnectionHandler,
 		dnsProxier:                   params.DNSProxier,
 		db:                           params.DB,
@@ -88,6 +90,11 @@ func (sdp *StandaloneDNSProxy) WatchConnection(ctx context.Context, _ cell.Healt
 		case <-ticker.C:
 			if sdp.connHandler.IsConnected() {
 				sdp.logger.Info("Connection to Cilium agent established")
+				// Start the DNS proxy once the connection is established
+				if err := sdp.dnsProxier.Listen(sdp.proxyPort); err != nil {
+					sdp.logger.Error("Failed to start DNS proxy", logfields.Error, err)
+					return err
+				}
 				return nil
 			}
 		}
