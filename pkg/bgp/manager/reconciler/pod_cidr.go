@@ -207,16 +207,16 @@ func (r *PodCIDRReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdver
 			fam := types.ToAgentFamily(family)
 
 			for _, advert := range adverts {
-				var v4Prefixes, v6Prefixes types.PolicyPrefixMatchList
+				var v4Prefixes, v6Prefixes types.PolicyPrefixList
 				for _, prefix := range desiredPrefixes {
-					match := &types.RoutePolicyPrefixMatch{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()}
+					rpPrefix := types.RoutePolicyPrefix{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()}
 
 					if fam.Afi == types.AfiIPv4 && prefix.Addr().Is4() {
-						v4Prefixes = append(v4Prefixes, match)
+						v4Prefixes = append(v4Prefixes, rpPrefix)
 					}
 
 					if fam.Afi == types.AfiIPv6 && prefix.Addr().Is6() {
-						v6Prefixes = append(v6Prefixes, match)
+						v6Prefixes = append(v6Prefixes, rpPrefix)
 					}
 				}
 
