@@ -450,11 +450,6 @@ enum {
 	POLICY_MATCH_PROTO_ONLY = 6,
 };
 
-enum {
-	CAPTURE_INGRESS = 1,
-	CAPTURE_EGRESS = 2,
-};
-
 #ifndef BPF_F_PSEUDO_HDR
 # define BPF_F_PSEUDO_HDR                (1ULL << 4)
 #endif
