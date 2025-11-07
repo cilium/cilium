@@ -67,7 +67,7 @@
    * - :spelling:ignore:`authentication.enabled`
      - Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
      - bool
-     - ``true``
+     - ``false``
    * - :spelling:ignore:`authentication.gcInterval`
      - Interval for garbage collection of auth map entries.
      - string
