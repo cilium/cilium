@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package sync
 
 import (
 	"context"
@@ -28,6 +28,17 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
+var LocalNodeSyncCell = cell.Module(
+	"local-node-sync",
+	"Provides LocalNodeSynchronizer that syncs the LocalNodeStore with the K8s Node",
+
+	// Provides a newLocalNodeSynchronizer that is invoked when LocalNodeStore is started.
+	// This fills in the initial state before it is accessed by other sub-systems.
+	// Then, it takes care of keeping selected fields (e.g., labels, annotations)
+	// synchronized with the corresponding kubernetes object.
+	cell.Provide(newLocalNodeSynchronizer),
+)
+
 type localNodeSynchronizerParams struct {
 	cell.In
 
@@ -52,7 +63,7 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 	n.Source = source.Local
 	n.NodeIdentity = uint32(identity.ReservedIdentityHost)
 
-	if err := ini.initFromConfig(ctx, n); err != nil {
+	if err := ini.initFromConfig(n); err != nil {
 		return err
 	}
 
@@ -110,7 +121,7 @@ func newLocalNodeSynchronizer(p localNodeSynchronizerParams) node.LocalNodeSynch
 	}
 }
 
-func (ini *localNodeSynchronizer) initFromConfig(ctx context.Context, n *node.LocalNode) error {
+func (ini *localNodeSynchronizer) initFromConfig(n *node.LocalNode) error {
 	n.Cluster = ini.Config.ClusterName
 	n.ClusterID = ini.Config.ClusterID
 	n.Name = nodeTypes.GetName()
