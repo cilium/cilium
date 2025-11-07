@@ -45,7 +45,8 @@ Installation
 
         .. cilium-helm-install::
            :namespace: kube-system
-           :set: authentication.mutual.spire.enabled=true
+           :set: authentication.enabled=true
+                 authentication.mutual.spire.enabled=true
                  authentication.mutual.spire.install.enabled=true
            :post-commands: kubectl -n kube-system rollout restart deployment/cilium-operator
                            kubectl -n kube-system rollout restart ds/cilium
