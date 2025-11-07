@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -383,6 +385,19 @@ func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, objects iter.Seq
 	return nil
 }
 
+func addrToNetlinkVia(addr netip.Addr) *netlink.Via {
+	var family int
+	if addr.Is4() {
+		family = nl.FAMILY_V4
+	} else {
+		family = nl.FAMILY_V6
+	}
+	return &netlink.Via{
+		AddrFamily: family,
+		Addr:       addr.AsSlice(),
+	}
+}
+
 func desiredRouteToNetlinkRoute(route *DesiredRoute) *netlink.Route {
 	nlRoute := &netlink.Route{
 		Table: int(route.Table),
@@ -390,7 +405,15 @@ func desiredRouteToNetlinkRoute(route *DesiredRoute) *netlink.Route {
 	}
 
 	if route.Nexthop.IsValid() {
-		nlRoute.Gw = route.Nexthop.AsSlice()
+		if route.Prefix.Addr().Is4() == route.Nexthop.Is4() {
+			// If the family of the nexthop matches the family of
+			// the route, use RTA_GATEWAY.
+			nlRoute.Gw = route.Nexthop.AsSlice()
+		} else {
+			// If the family of the nexthop does not match the
+			// family of the route, use RTA_VIA.
+			nlRoute.Via = addrToNetlinkVia(route.Nexthop)
+		}
 	}
 
 	if route.Src.IsValid() {

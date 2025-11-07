@@ -648,8 +648,22 @@ func routeListCmd(nsm *NetNSManager) script.Cmd {
 
 					fmt.Fprintf(&sb, "%s", route.Dst.String())
 
-					if route.Gw.Equal(net.IPv4zero) || route.Gw.Equal(net.IPv6zero) {
+					if len(route.Gw) != 0 {
 						fmt.Fprintf(&sb, " via %s", route.Gw)
+					} else if route.Via != nil {
+						switch nh := route.Via.(type) {
+						case *netlink.Via:
+							var family string
+							switch nh.Family() {
+							case netlink.FAMILY_V4:
+								family = "inet"
+							case netlink.FAMILY_V6:
+								family = "inet6"
+							default:
+								family = fmt.Sprintf("unknown(%d)", nh.Family())
+							}
+							fmt.Fprintf(&sb, " via %s %s", family, nh.Addr.String())
+						}
 					}
 
 					fmt.Fprintf(&sb, " dev %s scope %s", link.Attrs().Name, route.Scope)
