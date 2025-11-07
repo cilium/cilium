@@ -325,14 +325,14 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
 func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, endpoints types.PeerSelectorSlice, auth *api.Authentication,
-	r api.Ports, p api.PortProtocol, proto api.L4Proto) (int, error) {
+	r api.Ports, p api.PortProtocol) (int, error) {
 	// Create a new L4Filter
-	filterToMerge, err := createL4Filter(policyCtx, endpoints, auth, r, p, proto)
+	filterToMerge, err := createL4Filter(policyCtx, endpoints, auth, r, p)
 	if err != nil {
 		return 0, err
 	}
 
-	err = resMap.addL4Filter(policyCtx, p, proto, filterToMerge)
+	err = resMap.addL4Filter(policyCtx, p, filterToMerge)
 	if err != nil {
 		return 0, err
 	}
@@ -357,7 +357,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 
 	// L3-only rule (with requirements folded into peerEndpoints).
 	if rule.L4.Len() == 0 && len(peerEndpoints) > 0 {
-		cnt, err = resMap.addFilter(policyCtx, peerEndpoints, auth, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny)
+		cnt, err = resMap.addFilter(policyCtx, peerEndpoints, auth, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny})
 		if err != nil {
 			return found, err
 		}
@@ -406,7 +406,8 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 				}
 			}
 			for _, protocol := range protocols {
-				cnt, err := resMap.addFilter(policyCtx, peerEndpoints, auth, ports, p, protocol)
+				p.Protocol = protocol
+				cnt, err := resMap.addFilter(policyCtx, peerEndpoints, auth, ports, p)
 				if err != nil {
 					return err
 				}

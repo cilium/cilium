@@ -167,7 +167,7 @@ func TestCreateL4Filter(t *testing.T) {
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
 		td.testPolicyContext.SetIngress(true)
-		filter, err := createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol)
+		filter, err := createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -178,7 +178,7 @@ func TestCreateL4Filter(t *testing.T) {
 		}
 
 		td.testPolicyContext.SetIngress(false)
-		filter, err = createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol)
+		filter, err = createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -218,7 +218,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
 		td.testPolicyContext.SetIngress(true)
-		filter, err := createL4Filter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol)
+		filter, err := createL4Filter(td.testPolicyContext, eps, auth, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -229,7 +229,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		}
 
 		td.testPolicyContext.SetIngress(false)
-		filter, err = createL4Filter(td.testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol)
+		filter, err = createL4Filter(td.testPolicyContext, eps, auth, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -270,11 +270,11 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
 		td.testPolicyContext.SetIngress(true)
-		_, err := createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol)
+		_, err := createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple)
 		require.Error(t, err)
 
 		td.testPolicyContext.SetIngress(false)
-		_, err = createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol)
+		_, err = createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple)
 		require.Error(t, err)
 	}
 }
