@@ -16,6 +16,92 @@ DECLARE_CONFIG(bool, enable_icmp_rule, "Apply Network Policy for ICMP packets")
 #define EFFECTIVE_EP_ID 0
 #endif
 
+enum {
+	POLICY_INGRESS = 1,
+	POLICY_EGRESS = 2,
+};
+
+enum {
+	POLICY_MATCH_NONE = 0,
+	POLICY_MATCH_L3_ONLY = 1,
+	POLICY_MATCH_L3_L4 = 2,
+	POLICY_MATCH_L4_ONLY = 3,
+	POLICY_MATCH_ALL = 4,
+	POLICY_MATCH_L3_PROTO = 5,
+	POLICY_MATCH_PROTO_ONLY = 6,
+};
+
+/*
+ * Longest-prefix match map lookup only matches the number of bits from the
+ * beginning of the key stored in the map indicated by the 'lpm_key' field in
+ * the same stored map key, not including the 'lpm_key' field itself. Note that
+ * the 'lpm_key' value passed in the lookup function argument needs to be a
+ * "full prefix" (POLICY_FULL_PREFIX defined below).
+ *
+ * Since we need to be able to wildcard 'sec_label' independently on 'protocol'
+ * and 'dport' fields, we'll need to do that explicitly with a separate lookup
+ * where 'sec_label' is zero. For the 'protocol' and 'port' we can use the
+ * longest-prefix match by placing them at the end ot the key in this specific
+ * order, as we want to be able to wildcard those fields in a specific pattern:
+ * 'protocol' can only be wildcarded if dport is also fully wildcarded.
+ * 'protocol' is never partially wildcarded, so it is either fully wildcarded or
+ * not wildcarded at all. 'dport' can be partially wildcarded, but only when
+ * 'protocol' is fully specified. This follows the logic that the destination
+ * port is a property of a transport protocol and can not be specified without
+ * also specifying the protocol.
+ */
+struct policy_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u32		sec_label;
+	__u8		egress:1,
+			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
+};
+
+/* POLICY_FULL_PREFIX gets full prefix length of policy_key */
+#define POLICY_FULL_PREFIX						\
+  (8 * (sizeof(struct policy_key) - sizeof(struct bpf_lpm_trie_key)))
+
+struct policy_entry {
+	__be16		proxy_port;
+	__u8		deny:1,
+			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
+			lpm_prefix_length:5; /* map key protocol and dport prefix length */
+	__u8		auth_type:7,
+			has_explicit_auth_type:1;
+	__u8		proxy_port_priority;
+	__u8		pad1;
+	__u16		pad2;
+	__u32		cookie;
+};
+
+/*
+ * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_length' when none of the protocol or
+ * dport bits in the key are wildcarded.
+ */
+#define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
+#define LPM_FULL_PREFIX_BITS (LPM_PROTO_PREFIX_BITS + 16)   /* protocol and dport specified */
+
+/*
+ * policy_stats_key has the same layout as policy_key, apart from the first four bytes.
+ */
+struct policy_stats_key {
+	__u16		endpoint_id;
+	__u8		pad1;
+	__u8		prefix_len;
+	__u32		sec_label;
+	__u8		egress:1,
+			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
+};
+
+struct policy_stats_value {
+	__u64		packets;
+	__u64		bytes;
+};
+
 /* Global policy stats map */
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_PERCPU_HASH);

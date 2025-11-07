@@ -7,6 +7,29 @@
 #include <bpf/section.h>
 #include <bpf/loader.h>
 
+#include "eps.h"
+
+struct node_key {
+	__u16 pad1;
+	__u8 pad2;
+	__u8 family;
+	union {
+		struct {
+			__u32 ip4;
+			__u32 pad4;
+			__u32 pad5;
+			__u32 pad6;
+		};
+		union v6addr ip6;
+	};
+};
+
+struct node_value {
+	__u16 id;
+	__u8  spi;
+	__u8  pad;
+};
+
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct node_key);

@@ -8,6 +8,44 @@
 #include <linux/ip.h>
 #include "ipv6.h"
 
+#define ENDPOINT_KEY_IPV4 1
+#define ENDPOINT_KEY_IPV6 2
+
+/* Structure representing an IPv4 or IPv6 address, being used as the key
+ * for the endpoints map.
+ */
+struct endpoint_key {
+	union {
+		struct {
+			__u32		ip4;
+			__u32		pad1;
+			__u32		pad2;
+			__u32		pad3;
+		};
+		union v6addr	ip6;
+	};
+	__u8 family;
+	__u8 key;
+	__u16 cluster_id;
+} __packed;
+
+#define ENDPOINT_F_HOST			1 /* Special endpoint representing local host */
+#define ENDPOINT_F_ATHOSTNS		2 /* Endpoint located at the host networking namespace */
+#define ENDPOINT_MASK_HOST_DELIVERY	(ENDPOINT_F_HOST | ENDPOINT_F_ATHOSTNS)
+
+/* Value of endpoint map */
+struct endpoint_info {
+	__u32		ifindex;
+	__u16		unused; /* used to be sec_label, no longer used */
+	__u16		lxc_id;
+	__u32		flags;
+	mac_t		mac;
+	mac_t		node_mac;
+	__u32		sec_id;
+	__u32		parent_ifindex;
+	__u32		pad[2];
+};
+
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct endpoint_key);
@@ -50,6 +88,26 @@ lookup_ip4_endpoint(const struct iphdr *ip4)
 {
 	return __lookup_ip4_endpoint(ip4->daddr);
 }
+
+struct remote_endpoint_info {
+	__u32		sec_identity;
+	union {
+		struct {
+			__u32	ip4;
+			__u32	pad1;
+			__u32	pad2;
+			__u32	pad3;
+		};
+		union v6addr	ip6;
+	} tunnel_endpoint;
+	__u16		pad;
+	__u8		key;
+	__u8		flag_skip_tunnel:1,
+			flag_has_tunnel_ep:1,
+			flag_ipv6_tunnel_ep:1,
+			flag_remote_cluster:1,
+			pad2:4;
+};
 
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;
