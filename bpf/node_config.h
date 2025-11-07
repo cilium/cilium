@@ -226,7 +226,6 @@ return false;
 
 #ifndef __CLUSTERMESH_IDENTITY__
 #define __CLUSTERMESH_IDENTITY__
-#define CLUSTER_ID_MAX 255
 #endif
 
 #ifndef __CLUSTERMESH_HELPERS__

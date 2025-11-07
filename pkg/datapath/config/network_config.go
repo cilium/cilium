@@ -9,9 +9,12 @@ package config
 // do not instantiate directly! Always use [NewBPFNetwork] to ensure the default
 // values configured in the ELF are honored.
 type BPFNetwork struct {
+	// Maximum number of clusters that can be connected in a clustermesh.
+	ClusterIDMax uint32 `config:"cluster_id_max"`
+
 	Node
 }
 
 func NewBPFNetwork(node Node) *BPFNetwork {
-	return &BPFNetwork{node}
+	return &BPFNetwork{0x0, node}
 }

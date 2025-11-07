@@ -67,6 +67,7 @@ type ProbesMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ProbesVariableSpecs struct {
+	ConfigClusterIdMax *ebpf.VariableSpec `ebpf:"__config_cluster_id_max"`
 }
 
 // ProbesObjects contains all objects after they have been loaded into the kernel.
@@ -99,6 +100,7 @@ func (m *ProbesMaps) Close() error {
 //
 // It can be passed to LoadProbesObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ProbesVariables struct {
+	ConfigClusterIdMax *ebpf.Variable `ebpf:"__config_cluster_id_max"`
 }
 
 // ProbesPrograms contains all programs after they have been loaded into the kernel.
