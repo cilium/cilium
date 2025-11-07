@@ -711,6 +711,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.

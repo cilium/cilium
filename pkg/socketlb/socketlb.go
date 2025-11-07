@@ -69,6 +69,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 
 	cfg := config.NewBPFSock(config.NodeConfig(lnc))
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
 	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{

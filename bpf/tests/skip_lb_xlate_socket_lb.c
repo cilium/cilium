@@ -10,7 +10,6 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 #undef ENABLE_HEALTH_CHECK
-#define ENABLE_LOCAL_REDIRECT_POLICY 1
 
 #define BACKEND_PORT 7000
 #define NETNS_COOKIE 5000
@@ -44,6 +43,9 @@ int test_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 }
 
 #include "bpf_sock.c"
+
+ASSIGN_CONFIG(bool, enable_lrp, true)
+
 #include "lib/common.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
