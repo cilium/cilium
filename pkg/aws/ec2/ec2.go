@@ -684,6 +684,18 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instan
 		DeviceIndex:        aws.Int32(index),
 		InstanceId:         aws.String(instanceID),
 		NetworkInterfaceId: aws.String(eniID),
+		// NetworkCardIndex is the index of the physical network card on the instance (default is 0)
+		//
+		// While some instance types support multiple NICs, Cilium is only set up to use the primary NIC.
+		// In the future, if multi-NIC support is introduced, this hard-coded value will need to be replaced by
+		// a dynamic value.
+		//
+		// AWS is experiencing a bug in the validation of available device indexes when the network card index
+		// is not set explicitly on instances supporting multiple network cards.
+		// This workaround can be removed once AWS rolls out a fix, which is scheduled by January 30, 2026
+		//
+		// See https://github.com/cilium/cilium/pull/42512
+		NetworkCardIndex: aws.Int32(0),
 	}
 
 	c.limiter.Limit(ctx, AttachNetworkInterface)
