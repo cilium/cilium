@@ -306,10 +306,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.EnableLocalRedirectPolicy {
-		cDefinesMap["ENABLE_LOCAL_REDIRECT_POLICY"] = "1"
-	}
-
 	cDefinesMap["NAT_46X64_PREFIX_0"] = "0"
 	cDefinesMap["NAT_46X64_PREFIX_1"] = "0"
 	cDefinesMap["NAT_46X64_PREFIX_2"] = "0"
