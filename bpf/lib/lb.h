@@ -190,6 +190,57 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_lb_affinity_match __section_maps_btf;
 
+/* Lookup scope for externalTrafficPolicy=Local */
+#define LB_LOOKUP_SCOPE_EXT	0
+#define LB_LOOKUP_SCOPE_INT	1
+
+/* Service flags (lb{4,6}_service->flags) */
+enum {
+	SVC_FLAG_EXTERNAL_IP     = (1 << 0),	/* External IPs */
+	SVC_FLAG_NODEPORT        = (1 << 1),	/* NodePort service */
+	SVC_FLAG_EXT_LOCAL_SCOPE = (1 << 2),	/* externalTrafficPolicy=Local */
+	SVC_FLAG_HOSTPORT        = (1 << 3),	/* hostPort forwarding */
+	SVC_FLAG_AFFINITY        = (1 << 4),	/* sessionAffinity=clientIP */
+	SVC_FLAG_LOADBALANCER    = (1 << 5),	/* LoadBalancer service */
+	SVC_FLAG_ROUTABLE        = (1 << 6),	/* Not a surrogate/ClusterIP entry */
+	SVC_FLAG_SOURCE_RANGE    = (1 << 7),	/* Check LoadBalancer source range */
+};
+
+/* Service flags (lb{4,6}_service->flags2) */
+enum {
+	SVC_FLAG_LOCALREDIRECT     = (1 << 0),	/* Local redirect service */
+	SVC_FLAG_NAT_46X64         = (1 << 1),	/* NAT-46/64 entry */
+	SVC_FLAG_L7_LOADBALANCER   = (1 << 2),	/* TPROXY redirect to local L7 load-balancer */
+	SVC_FLAG_LOOPBACK          = (1 << 3),	/* HostPort with a loopback hostIP */
+	SVC_FLAG_L7_DELEGATE       = (1 << 3),	/* If set then delegate unmodified to local L7 proxy */
+	SVC_FLAG_INT_LOCAL_SCOPE   = (1 << 4),	/* internalTrafficPolicy=Local */
+	SVC_FLAG_TWO_SCOPES        = (1 << 5),	/* Two sets of backends are used for external/internal connections */
+	SVC_FLAG_QUARANTINED       = (1 << 6),	/* Backend slot (key: backend_slot > 0) is quarantined */
+	SVC_FLAG_SOURCE_RANGE_DENY = (1 << 6),	/* Master slot: LoadBalancer source range check is inverted */
+	SVC_FLAG_FWD_MODE_DSR      = (1 << 7),	/* If bit is set, use DSR instead of SNAT in annotation mode */
+};
+
+/* Backend flags (lb{4,6}_backends->flags) */
+enum {
+	BE_STATE_ACTIVE		= 0,
+	BE_STATE_TERMINATING,
+	BE_STATE_QUARANTINED,
+	BE_STATE_MAINTENANCE,
+};
+
+/* We previously tolerated services with no specified L4 protocol (IPPROTO_ANY).
+ *
+ * This was deprecated, and we now re-purpose IPPROTO_ANY such that when combined with
+ * a zero L4 Destination Port, we can encode a wild-card service entry. This informs
+ * the data path to drop flows towards IPs we know about, but on services we don't.
+ */
+#define IPPROTO_ANY	0
+#define LB_SVC_WILDCARD_PROTO IPPROTO_ANY
+#define LB_SVC_WILDCARD_DPORT 0
+
+#define LB_ALGORITHM_SHIFT	24
+#define AFFINITY_TIMEOUT_MASK	((1 << LB_ALGORITHM_SHIFT) - 1)
+
 #ifdef LB_DEBUG
 #define cilium_dbg_lb cilium_dbg
 #else
