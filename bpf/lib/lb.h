@@ -1423,10 +1423,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	#endif
 
 	#ifdef USE_LOOPBACK_LB
-			union v6addr loopback_addr = CONFIG(service_loopback_ipv6);
+		union v6addr loopback_addr = CONFIG(service_loopback_ipv6);
 
-			ipv6_addr_copy(&new_saddr, &loopback_addr);
-			state->loopback = 1;
+		ipv6_addr_copy(&new_saddr, &loopback_addr);
+		state->loopback = 1;
 	#endif
 	}
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
