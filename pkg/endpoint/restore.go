@@ -257,6 +257,17 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	case <-allocatedIdentity:
 	}
 
+	releaseNewlyAllocatedIdentity := func() {
+		_, err := e.allocator.Release(context.Background(), id, false)
+		if err != nil {
+			scopedLog.Warn(
+				"Unable to release newly allocated identity again",
+				logfields.Error, err,
+				logfields.Identity, id.ID,
+			)
+		}
+	}
+
 	// Wait for initial identities and ipcache from the
 	// kvstore before doing any policy calculation for
 	// endpoints that don't have a fixed identity or are
@@ -289,6 +300,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		// is deleted.
 		select {
 		case <-e.aliveCtx.Done():
+			releaseNewlyAllocatedIdentity()
 			return ErrNotAlive
 		case <-gotInitialGlobalIdentities:
 		}
@@ -312,11 +324,13 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	// Wait for ipcache and identities synchronization from all remote clusters,
 	// to prevent disrupting cross-cluster connections on endpoint regeneration.
 	if err := regenerator.WaitForClusterMeshIPIdentitiesSync(e.aliveCtx); err != nil {
+		releaseNewlyAllocatedIdentity()
 		return err
 	}
 
 	if err := e.lockAlive(); err != nil {
 		scopedLog.Warn("Endpoint to restore has been deleted")
+		releaseNewlyAllocatedIdentity()
 		return err
 	}
 

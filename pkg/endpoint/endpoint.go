@@ -247,6 +247,12 @@ type Endpoint struct {
 	// the endpoint's labels.
 	SecurityIdentity *identity.Identity `json:"SecLabel"`
 
+	// identitySet is used to keep track of whether the SecurityIdentity of an endpoint
+	// has been added to the identity manager. This is only false for new endpoints without an identity or
+	// on endpoints that have been restored. We do this to ensure we only remove it from
+	// the identity manager if we are sure it was added.
+	identitySet bool
+
 	// policyMap is the policy related state of the datapath including
 	// reference to all policy related BPF
 	policyMap *policymap.PolicyMap
@@ -1247,19 +1253,20 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	}
 
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
-		// Restored endpoint may be created with a reserved identity of 5
-		// (init), which is not registered in the identity manager and
-		// therefore doesn't need to be removed.
-		if e.SecurityIdentity.ID != identity.ReservedIdentityInit {
-			e.owner.RemoveIdentity(e.SecurityIdentity)
-		}
+		if e.identitySet {
+			// Restored endpoint may be created with a reserved identity of 5
+			// (init), which is not registered in the identity manager and
+			// therefore doesn't need to be removed.
+			// If identity was never set, eg. if the endpoint was disconnecting when it was restored
+			// we have not yet added its identity - hence we should not remove it.
+			if e.SecurityIdentity.ID != identity.ReservedIdentityInit {
+				e.owner.RemoveIdentity(e.SecurityIdentity)
+			}
 
-		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
-		defer cancel()
-
-		_, err := e.allocator.Release(releaseCtx, e.SecurityIdentity, false)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("unable to release identity: %w", err))
+			_, err := e.allocator.Release(context.Background(), e.SecurityIdentity, false)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to release identity: %w", err))
+			}
 		}
 		e.removeNetworkPolicy()
 		e.SecurityIdentity = nil
