@@ -13,21 +13,16 @@
 
 #include "endian.h"
 #include "eth.h"
+#include "ipv6_core.h"
+#include "map_defs.h"
 #include "mono.h"
 #include "config.h"
+#include "socket.h"
 #include "tunnel.h"
 #include "notify.h"
 #include "drop_reasons.h"
 
 #include "source_info.h"
-
-#ifndef AF_INET
-#define AF_INET 2
-#endif
-
-#ifndef AF_INET6
-#define AF_INET6 10
-#endif
 
 #ifndef IP_DF
 #define IP_DF 0x4000
@@ -35,18 +30,6 @@
 
 #ifndef EVENT_SOURCE
 #define EVENT_SOURCE 0
-#endif
-
-#ifdef PREALLOCATE_MAPS
-#define CONDITIONAL_PREALLOC 0
-#else
-#define CONDITIONAL_PREALLOC BPF_F_NO_PREALLOC
-#endif
-
-#ifdef NO_COMMON_MEM_MAPS
-#define LRU_MEM_FLAVOR BPF_F_NO_COMMON_LRU
-#else
-#define LRU_MEM_FLAVOR 0
 #endif
 
 #if defined(ENABLE_EGRESS_GATEWAY)
@@ -84,26 +67,6 @@ union v4addr {
 	__be32 be32;
 	__u8 addr[4];
 };
-
-union v6addr {
-	__u8 addr[16];
-	struct {
-		__u32 p1;
-		__u32 p2;
-		__u32 p3;
-		__u32 p4;
-	} p;
-#define p1 p.p1
-#define p2 p.p2
-#define p3 p.p3
-#define p4 p.p4
-	struct {
-		__u64 d1;
-		__u64 d2;
-	} d;
-#define d1 d.d1
-#define d2 d.d2
-} __packed;
 
 #define THIS_IS_L3_DEV		(ETH_HLEN == 0)
 
@@ -869,19 +832,6 @@ struct lb6_reverse_nat {
 	__be16 port;
 } __packed;
 
-struct ipv6_revnat_tuple {
-	__sock_cookie cookie;
-	union v6addr address;
-	__be16 port;
-	__u16 pad;
-};
-
-struct ipv6_revnat_entry {
-	union v6addr address;
-	__be16 port;
-	__u16 rev_nat_index;
-};
-
 struct lb4_key {
 	__be32 address;		/* Service virtual IPv4 address */
 	__be16 dport;		/* L4 port filter, if unset, all ports apply */
@@ -948,19 +898,6 @@ struct lb4_reverse_nat {
 	__be32 address;
 	__be16 port;
 } __packed;
-
-struct ipv4_revnat_tuple {
-	__sock_cookie cookie;
-	__be32 address;
-	__be16 port;
-	__u16 pad;
-};
-
-struct ipv4_revnat_entry {
-	__be32 address;
-	__be16 port;
-	__u16 rev_nat_index;
-};
 
 union lb4_affinity_client_id {
 	__u32 client_ip;
