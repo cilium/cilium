@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -44,7 +45,14 @@ type EndpointInfo struct {
 // This function is only used for testing, but in multiple packages.
 //
 // TODO: add support for redirects
-func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, dstEP *EndpointInfo) (verdict api.Decision, egress, ingress RuleMeta, err error) {
+func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager identitymanager.IDManager, flow Flow, srcEP, dstEP *EndpointInfo) (verdict api.Decision, egress, ingress RuleMeta, err error) {
+	identityManager.Add(flow.From)
+	identityManager.Add(flow.To)
+	defer func() {
+		identityManager.Remove(flow.From)
+		identityManager.Remove(flow.To)
+	}()
+
 	if flow.From.ID == 0 || flow.To.ID == 0 {
 		return api.Undecided, ingress, egress, fmt.Errorf("cannot lookup flow: numeric IDs missing")
 	}

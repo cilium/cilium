@@ -287,8 +287,8 @@ func TestDeniesIngress(t *testing.T) {
 	flowCtoB := flowAToB
 	flowCtoB.From = idC
 
-	checkFlow(t, repo, flowAToB, api.Denied)
-	checkFlow(t, repo, flowCtoB, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToB, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowCtoB, api.Allowed)
 }
 
 func TestDeniesEgress(t *testing.T) {
@@ -319,9 +319,9 @@ func TestDeniesEgress(t *testing.T) {
 	}
 	repo.mustAdd(rule1)
 
-	checkFlow(t, repo, flowAToB, api.Denied)
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToWorld80, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToB, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToWorld80, api.Allowed)
 }
 
 func TestWildcardL3RulesIngressDeny(t *testing.T) {
