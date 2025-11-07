@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package sync
 
 import (
 	"context"
@@ -105,10 +105,11 @@ func (fln *fakeLocalNode) Store(context.Context) (resource.Store[*slim_corev1.No
 
 func TestLocalNodeSync(t *testing.T) {
 	var (
-		local = node.LocalNode{Node: types.Node{
-			Labels:      map[string]string{"ex": "label"},
-			Annotations: map[string]string{"ex": "annot"},
-		},
+		local = node.LocalNode{
+			Node: types.Node{
+				Labels:      map[string]string{"ex": "label"},
+				Annotations: map[string]string{"ex": "annot"},
+			},
 			Local: &node.LocalNodeInfo{},
 		}
 		fln  = newFakeLocalNode()
