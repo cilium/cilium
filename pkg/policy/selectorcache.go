@@ -616,17 +616,26 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 				updated = true
 				sc.selectorUpdates = sc.selectorUpdates.Append(idSel, txn)
 				idSel.updateSelections(txn)
-				idSel.notifyUsers(sc, adds, dels, wg)
+				// just for proof-of-concept
+				if wg != nil {
+					idSel.notifyUsers(sc, adds, dels, wg)
+				}
 			}
 		}
 	}
 
 	if updated {
-		// Launch a waiter that holds the new version as long as needed for users to have grabbed it
-		sc.queueNotifiedUsersCommit(txn, wg)
+		// just for proof-of-concept
+		if wg != nil {
+			// Launch a waiter that holds the new version as long as needed for users to have grabbed it
+			sc.queueNotifiedUsersCommit(txn, wg)
+		}
 
 		go func(version *versioned.VersionHandle) {
-			wg.Wait()
+			// just for proof-of-concept
+			if wg != nil {
+				wg.Wait()
+			}
 			sc.logger.Debug(
 				"UpdateIdentities: Waited for incremental updates to have committed, closing handle on the new version.",
 				logfields.NewVersion, txn,

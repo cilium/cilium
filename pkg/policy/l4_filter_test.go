@@ -44,8 +44,9 @@ var (
 )
 
 type testData struct {
-	sc   *SelectorCache
-	repo *Repository
+	sc       *SelectorCache
+	policySc *SelectorCache
+	repo     *Repository
 
 	idSet set.Set[identity.NumericIdentity]
 
@@ -72,14 +73,17 @@ func newTestData(logger *slog.Logger) *testData {
 
 	td := &testData{
 		sc:                testNewSelectorCache(logger, nil),
+		policySc:          testNewSelectorCache(logger, nil),
 		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
 		idSet:             set.NewSet[identity.NumericIdentity](),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}
 	td.testPolicyContext.sc = td.sc
 	td.repo.selectorCache = td.sc
+	td.repo.policySelectorCache = td.policySc
 
 	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
+	td.policySc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
 
 	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA, idA.ID)
 	td.cachedSelectorB = td.getCachedSelectorForTest(endpointSelectorB, idB.ID)
@@ -122,6 +126,7 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 		maps.Copy(initial, im)
 	}
 	wg := &sync.WaitGroup{}
+	td.policySc.UpdateIdentities(initial, nil, nil)
 	td.sc.UpdateIdentities(initial, nil, wg)
 	wg.Wait()
 
@@ -133,6 +138,10 @@ func (td *testData) withIDs(initIDs ...identity.IdentityMap) *testData {
 
 func (td *testData) addIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
+	td.policySc.UpdateIdentities(
+		identity.IdentityMap{
+			id.ID: id.LabelArray,
+		}, nil, nil)
 	td.sc.UpdateIdentities(
 		identity.IdentityMap{
 			id.ID: id.LabelArray,
@@ -143,6 +152,11 @@ func (td *testData) addIdentity(id *identity.Identity) {
 
 func (td *testData) removeIdentity(id *identity.Identity) {
 	wg := &sync.WaitGroup{}
+	td.policySc.UpdateIdentities(
+		nil,
+		identity.IdentityMap{
+			id.ID: id.LabelArray,
+		}, nil)
 	td.sc.UpdateIdentities(
 		nil,
 		identity.IdentityMap{
