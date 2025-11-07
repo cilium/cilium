@@ -388,3 +388,143 @@ int host_bpf_masq_v6_3_icmp_unhandled_check(const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+/* Host-originating ICMP ECHO should be tracked by BPF Masq. */
+PKTGEN("tc", "host_bpf_masq_v4_4_icmp_echo")
+int host_bpf_masq_v4_4_icmp_echo_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmphdr *icmp;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	icmp = pktgen__push_ipv4_icmp_packet(&builder,
+					     (__u8 *)node_mac, (__u8 *)server_mac,
+					     NODE_IP, SERVER_IP,
+					     ICMP_ECHO);
+	if (!icmp)
+		return TEST_ERROR;
+
+	icmp->un.echo.id = bpf_htons(NAT_MIN_EGRESS - 1);
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "host_bpf_masq_v4_4_icmp_echo")
+int host_bpf_masq_v4_4_icmp_echo_setup(struct __ctx_buff *ctx)
+{
+	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "host_bpf_masq_v4_4_icmp_echo")
+int host_bpf_masq_v4_4_icmp_echo_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	/* Check whether BPF MASQ created a CT entry */
+	struct ipv4_ct_tuple tuple = {
+		.daddr   = NODE_IP,
+		.saddr   = SERVER_IP,
+		.dport   = 0,
+		.sport   = bpf_htons(NAT_MIN_EGRESS - 1),
+		.nexthdr = IPPROTO_ICMP,
+		.flags = TUPLE_F_OUT,
+	};
+	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+
+	if (!ct_entry)
+		test_fatal("no CT entry found");
+
+	assert(ct_entry->packets == 1);
+
+	test_finish();
+}
+
+PKTGEN("tc", "host_bpf_masq_v6_4_icmp_echo")
+int host_bpf_masq_v6_4_icmp_echo_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct icmp6hdr *icmp;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	icmp = pktgen__push_ipv6_icmp6_packet(&builder,
+					      (__u8 *)node_mac, (__u8 *)server_mac,
+					      (__u8 *)NODE_IP_V6, (__u8 *)SERVER_IP_V6,
+					      ICMPV6_ECHO_REQUEST);
+	if (!icmp)
+		return TEST_ERROR;
+
+	icmp->icmp6_dataun.u_echo.identifier = bpf_htons(NAT_MIN_EGRESS - 1);
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "host_bpf_masq_v6_4_icmp_echo")
+int host_bpf_masq_v6_4_icmp_echo_setup(struct __ctx_buff *ctx)
+{
+	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "host_bpf_masq_v6_4_icmp_echo")
+int host_bpf_masq_v6_4_icmp_echo_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	/* Check whether BPF MASQ created a CT entry */
+	struct ipv6_ct_tuple tuple = {
+		.dport   = 0,
+		.sport   = bpf_htons(NAT_MIN_EGRESS - 1),
+		.nexthdr = IPPROTO_ICMPV6,
+		.flags = TUPLE_F_OUT,
+	};
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *)NODE_IP_V6);
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)SERVER_IP_V6);
+
+	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map6(&tuple), &tuple);
+
+	if (!ct_entry)
+		test_fatal("no CT entry found");
+
+	assert(ct_entry->packets == 1);
+
+	test_finish();
+}
