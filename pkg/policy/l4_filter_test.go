@@ -2630,7 +2630,7 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 
 			toEndpoints := policytypes.PeerSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
 
-			l4Filter, err := createL4Filter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto)
+			l4Filter, err := createL4Filter(ctx, toEndpoints, nil, egressRule, portProto)
 
 			require.NoError(t, err)
 			require.NotNil(t, l4Filter)
