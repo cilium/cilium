@@ -85,6 +85,7 @@ cilium-operator-azure hive dot-graph [flags]
       --loadbalancer-l7-algorithm string                     Default LB algorithm for services that do not specify related annotation (default "round_robin")
       --loadbalancer-l7-ports strings                        List of service ports that will be automatically redirected to backend.
       --max-connected-clusters uint32                        Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available. Valid configurations are [255, 511]. (default 255)
+      --mesh-auth-enabled                                    Enable authentication processing & garbage collection (beta)
       --mesh-auth-mutual-enabled                             The flag to enable mutual authentication for the SPIRE server (beta).
       --mesh-auth-spiffe-trust-domain string                 The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")

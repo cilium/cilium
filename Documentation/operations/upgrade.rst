@@ -343,6 +343,13 @@ communicating via the proxy must reconnect to re-establish connections.
   This change introduces a difference in behavior for existing policies with ``**.`` wildcard prefix in match patterns.
   This pattern now selects all cascaded subdomains in prefix as opposed to just a single level. For example: ``**.cilium.io`` now selects both ``app.cilium.io`` and ``test.app.cilium.io`` as
   opposed to just ``app.cilium.io`` previously.
+* The mesh auth flag ``mesh-auth-enabled`` (Helm ``authentication.enabled``) is
+  now disabled by default. Ensure that the flag is explicitly configured to
+  turn the feature back in especially if you are using the feature in your
+  network policies. If the flag is not explicitly configured and you are using
+  the feature in your policies, then the feature will forward the traffic
+  without authentication and the policy will be updated with a validation
+  warning to inform you that the authentication rules are ineffective.
 
 Removed Options
 ~~~~~~~~~~~~~~~
