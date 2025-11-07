@@ -49,7 +49,7 @@ var Cell = cell.Module(
 		newAlwaysFailAuthHandler,
 	),
 	cell.Config(config{
-		MeshAuthEnabled:               true,
+		MeshAuthEnabled:               false,
 		MeshAuthQueueSize:             1024,
 		MeshAuthGCInterval:            5 * time.Minute,
 		MeshAuthSignalBackoffDuration: 1 * time.Second, // this default is based on the default TCP retransmission timeout
