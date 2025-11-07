@@ -6,7 +6,6 @@
 #include <bpf/config/node.h>
 
 #include "lib/common.h"
-#include "lib/eps.h"
 #include "lib/nat.h"
 #include "lib/trace.h"
 #include "lib/policy_log.h"
@@ -27,21 +26,31 @@
 
 add_type(struct ipv4_ct_tuple);
 add_type(struct ipv6_ct_tuple);
+
+#include "lib/conntrack.h"
 add_type(struct ct_entry);
+
+#include "lib/eps.h"
+add_type(struct endpoint_key);
+add_type(struct endpoint_info);
 add_type(struct ipcache_key);
 add_type(struct remote_endpoint_info);
+
 add_type(struct lb4_key);
 add_type(struct lb4_service);
 add_type(struct lb4_backend);
 add_type(struct lb6_key);
 add_type(struct lb6_service);
 add_type(struct lb6_backend);
-add_type(struct endpoint_key);
-add_type(struct endpoint_info);
+
+#include "lib/metrics.h"
 add_type(struct metrics_key);
 add_type(struct metrics_value);
+
+#include "lib/policy.h"
 add_type(struct policy_key);
 add_type(struct policy_entry);
+
 add_type(struct ipv4_nat_entry);
 add_type(struct ipv6_nat_entry);
 add_type(struct trace_notify);
@@ -67,8 +76,11 @@ add_type(struct lb_affinity_val);
 add_type(struct lb_affinity_match);
 add_type(struct lb4_src_range_key);
 add_type(struct lb6_src_range_key);
+
+#include "lib/edt.h"
 add_type(struct edt_id);
 add_type(struct edt_info);
+
 add_type(struct egress_gw_policy_key);
 add_type(struct egress_gw_policy_entry);
 add_type(struct egress_gw_policy_key6);
@@ -82,9 +94,15 @@ add_type(struct srv6_policy_key6);
 add_type(struct trace_sock_notify);
 add_type(struct auth_key);
 add_type(struct auth_info);
+
+#include "lib/ipsec.h"
 add_type(struct encrypt_config);
+
 add_type(struct mcast_subscriber_v4);
+
+#include "lib/node.h"
 add_type(struct node_key);
 add_type(struct node_value);
+
 add_type(struct skip_lb4_key);
 add_type(struct skip_lb6_key);

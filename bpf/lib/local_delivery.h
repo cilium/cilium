@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "dbg.h"
+#include "eps.h"
 #include "l3.h"
 #include "token_bucket.h"
 
