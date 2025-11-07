@@ -507,7 +507,7 @@ func (a *Agent) xfrmDeleteConflictingState(states []netlink.XfrmState, new *netl
 	for _, s := range states {
 		if new.Spi == s.Spi && (new.Mark == nil) == (s.Mark == nil) &&
 			(new.Mark == nil || new.Mark.Value&new.Mark.Mask&s.Mark.Mask == s.Mark.Value) &&
-			xfrmIPEqual(new.Src, s.Src) && xfrmIPEqual(new.Dst, s.Dst) {
+			xfrmIPEqual(new.Dst, s.Dst) {
 			if err := a.xfrmStateCache.XfrmStateDel(&s); err != nil {
 				errs.Add(err)
 				continue
