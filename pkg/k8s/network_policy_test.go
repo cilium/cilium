@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
@@ -131,31 +132,32 @@ var (
 	}
 )
 
-func testNewPolicyRepository(t *testing.T, initialIDs []*identity.Identity) *policy.Repository {
+func testNewPolicyRepository(t *testing.T, initialIDs []*identity.Identity) (identitymanager.IDManager, *policy.Repository) {
 	idmap := identity.IdentityMap{}
 	for _, id := range initialIDs {
 		idmap[id.ID] = id.LabelArray
 	}
 	logger := hivetest.Logger(t)
-	repo := policy.NewPolicyRepository(logger, idmap, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
+	idManager := identitymanager.NewIDManager(logger)
+	repo := policy.NewPolicyRepository(logger, idmap, nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
 	repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-	return repo
+	return idManager, repo
 }
 
 // validateNetworkPolicy takes a repository and validates
 // that the set of flows are allowed and denied as expected.
-func validateNetworkPolicy(t *testing.T, repo *policy.Repository, allowFlows, denyFlows []policy.Flow) {
+func validateNetworkPolicy(t *testing.T, repo *policy.Repository, identityManager identitymanager.IDManager, allowFlows, denyFlows []policy.Flow) {
 	t.Helper()
 	logger := hivetest.Logger(t)
 
 	for i, allow := range allowFlows {
-		verdict, _, _, err := policy.LookupFlow(logger, repo, allow, nil, nil)
+		verdict, _, _, err := policy.LookupFlow(logger, repo, identityManager, allow, nil, nil)
 		require.NoError(t, err, "Looking up allow flow %i failed", i)
 		require.Equal(t, api.Allowed, verdict, "Verdict for allow flow %d must match", i)
 	}
 
 	for i, allow := range denyFlows {
-		verdict, _, _, err := policy.LookupFlow(logger, repo, allow, nil, nil)
+		verdict, _, _, err := policy.LookupFlow(logger, repo, identityManager, allow, nil, nil)
 		require.NoError(t, err, "Looking up deny flow %i failed", i)
 		require.Equal(t, api.Denied, verdict, "Verdict for deny flow %d must match", i)
 	}
@@ -445,7 +447,7 @@ func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 	np := slim_networkingv1.NetworkPolicy{}
 	err := json.Unmarshal(ex1, &np)
 	require.NoError(t, err)
-	repo := parseAndAddRules(t, &np)
+	idManager, repo := parseAndAddRules(t, &np)
 
 	allowedFlows := []policy.Flow{
 		flowAToB,
@@ -459,7 +461,7 @@ func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 		flowAToOther,
 	}
 
-	validateNetworkPolicy(t, repo, allowedFlows, deniedFlows)
+	validateNetworkPolicy(t, repo, idManager, allowedFlows, deniedFlows)
 }
 
 func TestParseNetworkPolicyNoSelectors(t *testing.T) {
@@ -577,8 +579,9 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 	flowAToB81 := flowAToB
 	flowAToB81.Dport = 81
 
-	repo := parseAndAddRules(t, netPolicy)
+	idManager, repo := parseAndAddRules(t, netPolicy)
 	validateNetworkPolicy(t, repo,
+		idManager,
 		[]policy.Flow{
 			flowAToB,
 		}, []policy.Flow{
@@ -588,9 +591,9 @@ func TestParseNetworkPolicyEgress(t *testing.T) {
 		})
 }
 
-func parseAndAddRules(t *testing.T, ps ...*slim_networkingv1.NetworkPolicy) *policy.Repository {
+func parseAndAddRules(t *testing.T, ps ...*slim_networkingv1.NetworkPolicy) (identitymanager.IDManager, *policy.Repository) {
 	t.Helper()
-	repo := testNewPolicyRepository(t, allIDs)
+	idManager, repo := testNewPolicyRepository(t, allIDs)
 
 	for i, p := range ps {
 		if p.Name == "" {
@@ -605,11 +608,11 @@ func parseAndAddRules(t *testing.T, ps ...*slim_networkingv1.NetworkPolicy) *pol
 		_, id := repo.MustAddList(rules)
 		require.Equal(t, rev+1, id)
 	}
-	return repo
+	return idManager, repo
 }
 
 func TestParseNetworkPolicyEgressAllowAll(t *testing.T) {
-	repo := parseAndAddRules(t,
+	idManager, repo := parseAndAddRules(t,
 		// pod A: allow all egress
 		&slim_networkingv1.NetworkPolicy{Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorA,
@@ -626,7 +629,7 @@ func TestParseNetworkPolicyEgressAllowAll(t *testing.T) {
 		}},
 	)
 
-	validateNetworkPolicy(t, repo,
+	validateNetworkPolicy(t, repo, idManager,
 		[]policy.Flow{
 			flowAToB,
 			flowAToC,
@@ -637,7 +640,7 @@ func TestParseNetworkPolicyEgressAllowAll(t *testing.T) {
 }
 
 func TestParseNetworkPolicyEgressL4AllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
+	idManager, repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorA,
 			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
@@ -651,14 +654,14 @@ func TestParseNetworkPolicyEgressL4AllowAll(t *testing.T) {
 	flowAToC90 := flowAToC
 	flowAToC90.Dport = 90
 
-	validateNetworkPolicy(t, repo,
+	validateNetworkPolicy(t, repo, idManager,
 		[]policy.Flow{flowAToC},
 		[]policy.Flow{flowAToC90})
 
 }
 
 func TestParseNetworkPolicyEgressL4PortRangeAllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
+	idManager, repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorA,
 			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
@@ -679,14 +682,14 @@ func TestParseNetworkPolicyEgressL4PortRangeAllowAll(t *testing.T) {
 		flow := flowAToC
 		flow.Dport = port
 
-		verdict, _, _, err := policy.LookupFlow(hivetest.Logger(t), repo, flow, nil, nil)
+		verdict, _, _, err := policy.LookupFlow(hivetest.Logger(t), repo, idManager, flow, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, expected, verdict, "Port %d", port)
 	}
 }
 
 func TestParseNetworkPolicyIngressAllowAll(t *testing.T) {
-	repo := parseAndAddRules(t,
+	idManager, repo := parseAndAddRules(t,
 		// pod a: deny all ingress
 		&slim_networkingv1.NetworkPolicy{Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorA,
@@ -709,7 +712,7 @@ func TestParseNetworkPolicyIngressAllowAll(t *testing.T) {
 			},
 		}})
 
-	validateNetworkPolicy(t, repo, []policy.Flow{
+	validateNetworkPolicy(t, repo, idManager, []policy.Flow{
 		flowAToB,
 		flowAToC,
 	}, []policy.Flow{
@@ -718,7 +721,7 @@ func TestParseNetworkPolicyIngressAllowAll(t *testing.T) {
 }
 
 func TestParseNetworkPolicyIngressL4AllowAll(t *testing.T) {
-	repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
+	idManager, repo := parseAndAddRules(t, &slim_networkingv1.NetworkPolicy{
 		Spec: slim_networkingv1.NetworkPolicySpec{
 			PodSelector: labelSelectorC,
 			Ingress: []slim_networkingv1.NetworkPolicyIngressRule{
@@ -732,7 +735,7 @@ func TestParseNetworkPolicyIngressL4AllowAll(t *testing.T) {
 	flowAToC90 := flowAToC
 	flowAToC90.Dport = 90
 
-	validateNetworkPolicy(t, repo,
+	validateNetworkPolicy(t, repo, idManager,
 		[]policy.Flow{
 			flowAToC,
 		}, []policy.Flow{
@@ -837,8 +840,8 @@ func TestParseNetworkPolicyEmptyFrom(t *testing.T) {
 		},
 	}
 
-	repo := parseAndAddRules(t, netPolicy1)
-	validateNetworkPolicy(t, repo, []policy.Flow{
+	idManager, repo := parseAndAddRules(t, netPolicy1)
+	validateNetworkPolicy(t, repo, idManager, []policy.Flow{
 		flowBToA,
 		flowCToA,
 		flowOtherToA,
@@ -856,8 +859,8 @@ func TestParseNetworkPolicyDenyAll(t *testing.T) {
 		},
 	}
 
-	repo := parseAndAddRules(t, netPolicy1)
-	validateNetworkPolicy(t, repo,
+	idManager, repo := parseAndAddRules(t, netPolicy1)
+	validateNetworkPolicy(t, repo, idManager,
 		[]policy.Flow{
 			flowAToOther,
 		},
@@ -934,9 +937,9 @@ func TestNetworkPolicyExamples(t *testing.T) {
 	nsBob := makePod("nsBob", map[string]string{"role": "frontend"}, map[string]string{"user": "bob"})
 	nsSally := makePod("nsSally", map[string]string{"role": "frontend"}, map[string]string{"user": "sally"})
 
-	makeRepo := func(pol ...[]byte) *policy.Repository {
+	makeRepo := func(pol ...[]byte) (identitymanager.IDManager, *policy.Repository) {
 		t.Helper()
-		repo := testNewPolicyRepository(t, allIDs)
+		idManager, repo := testNewPolicyRepository(t, allIDs)
 
 		for i, p := range pol {
 			np := slim_networkingv1.NetworkPolicy{}
@@ -949,7 +952,7 @@ func TestNetworkPolicyExamples(t *testing.T) {
 
 			repo.MustAddList(rules)
 		}
-		return repo
+		return idManager, repo
 	}
 
 	// Example 1a: Only allow traffic from frontend pods on TCP port 6379 to
@@ -989,8 +992,8 @@ func TestNetworkPolicyExamples(t *testing.T) {
   }
 }`)
 
-	repo := makeRepo(ex1)
-	validateNetworkPolicy(t, repo,
+	idManager, repo := makeRepo(ex1)
+	validateNetworkPolicy(t, repo, idManager,
 		[]policy.Flow{
 			tcpFlow(frontend, backend, 6379),
 		}, []policy.Flow{
@@ -1044,8 +1047,8 @@ func TestNetworkPolicyExamples(t *testing.T) {
 		  }
 		}`)
 
-	repo = makeRepo(ex1b)
-	validateNetworkPolicy(t, repo,
+	idManager, repo = makeRepo(ex1b)
+	validateNetworkPolicy(t, repo, idManager,
 		[]policy.Flow{
 			// allows all from frontend
 			tcpFlow(frontend, backend, 6379),
@@ -1102,8 +1105,8 @@ func TestNetworkPolicyExamples(t *testing.T) {
 		  }
 		}`)
 
-	repo = makeRepo(ex2)
-	validateNetworkPolicy(t, repo,
+	idManager, repo = makeRepo(ex2)
+	validateNetworkPolicy(t, repo, idManager,
 		[]policy.Flow{
 			// allows nsbob 443, rejects everything else
 			tcpFlow(nsBob, frontend, 443),
@@ -1131,8 +1134,8 @@ func TestNetworkPolicyExamples(t *testing.T) {
 		    ]
 		  }
 		}`)
-	repo = makeRepo(ex3)
-	validateNetworkPolicy(t, repo,
+	idManager, repo = makeRepo(ex3)
+	validateNetworkPolicy(t, repo, idManager,
 		[]policy.Flow{
 			// allows all
 			tcpFlow(nsBob, frontend, 443),
@@ -1217,9 +1220,9 @@ func TestNetworkPolicyExamples(t *testing.T) {
 		  }
 		}`)
 
-	repo = makeRepo(ex4a, ex4b)
+	idManager, repo = makeRepo(ex4a, ex4b)
 
-	validateNetworkPolicy(t, repo,
+	validateNetworkPolicy(t, repo, idManager,
 		[]policy.Flow{
 			// allows all from bob
 			udpFlow(nsBob, frontend, 8080),
@@ -1349,11 +1352,11 @@ func TestNetworkPolicyExamples(t *testing.T) {
 		"environment": "prod",
 	})
 
-	repo = makeRepo(defaultDeny, ex5)
+	idManager, repo = makeRepo(defaultDeny, ex5)
 
 	// Policy allows FROM all namespaces with the desired labels
 	// TO pods with the desired labels
-	validateNetworkPolicy(t, repo, []policy.Flow{
+	validateNetworkPolicy(t, repo, idManager, []policy.Flow{
 		udpFlow(redisCacheProdOther, redisCacheProd, 8080),
 	}, []policy.Flow{
 		udpFlow(redisCacheDevOther, redisCacheProd, 8080),

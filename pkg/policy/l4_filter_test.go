@@ -22,6 +22,7 @@ import (
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -42,8 +43,9 @@ var (
 )
 
 type testData struct {
-	sc   *SelectorCache
-	repo *Repository
+	sc              *SelectorCache
+	repo            *Repository
+	identityManager identitymanager.IDManager
 
 	testPolicyContext *testPolicyContextType
 
@@ -67,9 +69,11 @@ type testData struct {
 func newTestData(logger *slog.Logger) *testData {
 	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
 
+	idMgr := identitymanager.NewIDManager(logger)
 	td := &testData{
+		identityManager:   idMgr,
 		sc:                testNewSelectorCache(logger, nil),
-		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
+		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
 		testPolicyContext: &testPolicyContextType{logger: logger},
 	}
 	td.testPolicyContext.sc = td.sc
@@ -93,6 +97,10 @@ func newTestData(logger *slog.Logger) *testData {
 	td.cachedSelectorWorldV4, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.EntitySelectorMapping[api.EntityWorldIPv4][0])
 
 	td.cachedSelectorWorldV6, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.EntitySelectorMapping[api.EntityWorldIPv6][0])
+
+	td.repo.policyCache.insert(idA)
+	td.repo.policyCache.insert(idB)
+	td.repo.policyCache.insert(idC)
 
 	return td
 }
