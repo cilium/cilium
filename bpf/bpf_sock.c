@@ -314,12 +314,11 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock4_skip_xlate(svc, orig_key.address))
 		return -EPERM;
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
-	if (lb4_svc_is_localredirect(svc) &&
+	if (CONFIG(enable_lrp) &&
+	    lb4_svc_is_localredirect(svc) &&
 	    lrp_v4_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx_full),
 					      orig_key.address, orig_key.dport))
 		return -ENXIO;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 #ifdef ENABLE_L7_LB
 	/* Do not perform service translation at socker layer for
@@ -1017,12 +1016,11 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
-	if (lb6_svc_is_localredirect(svc) &&
+	if (CONFIG(enable_lrp) &&
+	    lb6_svc_is_localredirect(svc) &&
 	    lrp_v6_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx),
 					      orig_key.address, orig_key.dport))
 		return -ENXIO;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 #ifdef ENABLE_L7_LB
 	/* See __sock4_xlate_fwd for commentary. */

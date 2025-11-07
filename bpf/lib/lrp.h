@@ -36,7 +36,8 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_skip_lb4 __section_maps_btf;
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
+DECLARE_CONFIG(bool, enable_lrp, "Enable support for Local Redirect Policy")
+
 static __always_inline bool
 lrp_v6_skip_xlate_from_ctx_to_svc(__net_cookie cookie, union v6addr addr, __be16 port)
 {
@@ -85,4 +86,3 @@ lrp_v4_skip_xlate_from_ctx_to_svc(__net_cookie cookie, __be32 address, __be16 po
 		return true;
 	return false;
 }
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
