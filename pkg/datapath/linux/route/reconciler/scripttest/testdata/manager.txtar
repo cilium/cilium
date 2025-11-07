@@ -48,6 +48,7 @@ table: 2000
 prefix: "10.2.3.4/32"
 adminDistance: 101
 device: veth0
+nexthop: fe80::1
 
 -- route2.yaml --
 table: 2000
@@ -57,12 +58,12 @@ device: veth1
 
 -- desired-routes-both.table --
 Owner    Table   Prefix        Priority   AD    Selected   Nexthop   Src    Device      MTU    Scope      Type  
-owner1   2000    10.2.3.4/32   none       101   false      none      none   veth0 (2)   none   universe   unspec
+owner1   2000    10.2.3.4/32   none       101   false      fe80::1   none   veth0 (2)   none   universe   unspec
 owner2   2000    10.2.3.4/32   none       100   true       none      none   veth1 (3)   none   universe   unspec
 -- desired-routes-owner1.table --
 Owner    Table   Prefix        Priority   AD    Selected   Nexthop   Src    Device      MTU    Scope      Type  
-owner1   2000    10.2.3.4/32   none       101   true       none      none   veth0 (2)   none   universe   unspec
+owner1   2000    10.2.3.4/32   none       101   true       fe80::1   none   veth0 (2)   none   universe   unspec
 -- route1.txt --
-10.2.3.4/32 dev veth0 scope universe table 2000
+10.2.3.4/32 via inet6 fe80::1 dev veth0 scope universe table 2000
 -- route2.txt --
 10.2.3.4/32 dev veth1 scope universe table 2000
