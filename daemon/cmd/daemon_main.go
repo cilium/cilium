@@ -1228,7 +1228,8 @@ var daemonCell = cell.Module(
 type daemonConfigParams struct {
 	cell.In
 
-	CfgResolver promise.Resolver[*option.DaemonConfig]
+	CfgResolver  promise.Resolver[*option.DaemonConfig]
+	DaemonConfig *option.DaemonConfig
 
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
@@ -1246,6 +1247,7 @@ type daemonParams struct {
 
 	// Ensures that the legacy daemon config initialization is executed
 	legacy.DaemonConfigInitialization
+	DaemonConfig *option.DaemonConfig
 
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
@@ -1410,11 +1412,11 @@ func startDaemon(ctx context.Context, params daemonParams) error {
 		}
 	}
 
-	if option.Config.EnableEnvoyConfig {
+	if params.DaemonConfig.EnableEnvoyConfig {
 		if !params.EndpointManager.IngressEndpointExists() {
 			// Creating Ingress Endpoint depends on the Ingress IPs having been
 			// allocated first. This happens earlier in the agent bootstrap.
-			if (option.Config.EnableIPv4 && len(node.GetIngressIPv4(params.Logger)) == 0) ||
+			if (params.DaemonConfig.EnableIPv4 && len(node.GetIngressIPv4(params.Logger)) == 0) ||
 				(option.Config.EnableIPv6 && len(node.GetIngressIPv6(params.Logger)) == 0) {
 				params.Logger.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
 			} else {
