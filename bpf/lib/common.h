@@ -187,156 +187,6 @@ static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto 
 	__revalidate_data_pull(ctx, data, data_end, (void **)arp,	\
 		ETH_HLEN + sizeof(struct arphdr), sizeof(**arp), true)
 
-#define ENDPOINT_KEY_IPV4 1
-#define ENDPOINT_KEY_IPV6 2
-
-/* Structure representing an IPv4 or IPv6 address, being used as the key
- * for the endpoints map.
- */
-struct endpoint_key {
-	union {
-		struct {
-			__u32		ip4;
-			__u32		pad1;
-			__u32		pad2;
-			__u32		pad3;
-		};
-		union v6addr	ip6;
-	};
-	__u8 family;
-	__u8 key;
-	__u16 cluster_id;
-} __packed;
-
-#define ENDPOINT_F_HOST			1 /* Special endpoint representing local host */
-#define ENDPOINT_F_ATHOSTNS		2 /* Endpoint located at the host networking namespace */
-#define ENDPOINT_MASK_HOST_DELIVERY	(ENDPOINT_F_HOST | ENDPOINT_F_ATHOSTNS)
-
-/* Value of endpoint map */
-struct endpoint_info {
-	__u32		ifindex;
-	__u16		unused; /* used to be sec_label, no longer used */
-	__u16		lxc_id;
-	__u32		flags;
-	mac_t		mac;
-	mac_t		node_mac;
-	__u32		sec_id;
-	__u32		parent_ifindex;
-	__u32		pad[2];
-};
-
-#define DIRECTION_EGRESS 0
-#define DIRECTION_INGRESS 1
-
-struct edt_id {
-	__u32		id;
-	__u8		direction;
-	__u8		pad[3];
-};
-
-struct edt_info {
-	__u64		bps;
-	__u64		t_last;
-	union {
-		__u64	t_horizon_drop;
-		__u64	tokens;
-	};
-	__u32		prio;
-	__u32		pad_32;
-	__u64		pad[3];
-};
-
-struct remote_endpoint_info {
-	__u32		sec_identity;
-	union {
-		struct {
-			__u32	ip4;
-			__u32	pad1;
-			__u32	pad2;
-			__u32	pad3;
-		};
-		union v6addr	ip6;
-	} tunnel_endpoint;
-	__u16		pad;
-	__u8		key;
-	__u8		flag_skip_tunnel:1,
-			flag_has_tunnel_ep:1,
-			flag_ipv6_tunnel_ep:1,
-			flag_remote_cluster:1,
-			pad2:4;
-};
-
-/*
- * Longest-prefix match map lookup only matches the number of bits from the
- * beginning of the key stored in the map indicated by the 'lpm_key' field in
- * the same stored map key, not including the 'lpm_key' field itself. Note that
- * the 'lpm_key' value passed in the lookup function argument needs to be a
- * "full prefix" (POLICY_FULL_PREFIX defined below).
- *
- * Since we need to be able to wildcard 'sec_label' independently on 'protocol'
- * and 'dport' fields, we'll need to do that explicitly with a separate lookup
- * where 'sec_label' is zero. For the 'protocol' and 'port' we can use the
- * longest-prefix match by placing them at the end ot the key in this specific
- * order, as we want to be able to wildcard those fields in a specific pattern:
- * 'protocol' can only be wildcarded if dport is also fully wildcarded.
- * 'protocol' is never partially wildcarded, so it is either fully wildcarded or
- * not wildcarded at all. 'dport' can be partially wildcarded, but only when
- * 'protocol' is fully specified. This follows the logic that the destination
- * port is a property of a transport protocol and can not be specified without
- * also specifying the protocol.
- */
-struct policy_key {
-	struct bpf_lpm_trie_key lpm_key;
-	__u32		sec_label;
-	__u8		egress:1,
-			pad:7;
-	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
-	__be16		dport; /* can be wildcarded with CIDR-like prefix */
-};
-
-/* POLICY_FULL_PREFIX gets full prefix length of policy_key */
-#define POLICY_FULL_PREFIX						\
-  (8 * (sizeof(struct policy_key) - sizeof(struct bpf_lpm_trie_key)))
-
-struct policy_entry {
-	__be16		proxy_port;
-	__u8		deny:1,
-			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
-			lpm_prefix_length:5; /* map key protocol and dport prefix length */
-	__u8		auth_type:7,
-			has_explicit_auth_type:1;
-	__u8		proxy_port_priority;
-	__u8		pad1;
-	__u16		pad2;
-	__u32		cookie;
-};
-
-/*
- * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_length' when none of the protocol or
- * dport bits in the key are wildcarded.
- */
-#define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
-#define LPM_FULL_PREFIX_BITS (LPM_PROTO_PREFIX_BITS + 16)   /* protocol and dport specified */
-
-/*
- * policy_stats_key has the same layout as policy_key, apart from the first four bytes.
- */
-struct policy_stats_key {
-	__u16		endpoint_id;
-	__u8		pad1;
-	__u8		prefix_len;
-	__u32		sec_label;
-	__u8		egress:1,
-			pad:7;
-	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
-	__be16		dport; /* can be wildcarded with CIDR-like prefix */
-};
-
-struct policy_stats_value {
-	__u64		packets;
-	__u64		bytes;
-};
-
 struct auth_key {
 	__u32       local_sec_label;
 	__u32       remote_sec_label;
@@ -348,21 +198,6 @@ struct auth_key {
 /* expiration is Unix epoch time in unit nanosecond/2^9 (ns/512). */
 struct auth_info {
 	__u64       expiration;
-};
-
-struct metrics_key {
-	__u8      reason;	/* 0: forwarded, >0 dropped */
-	__u8      dir:2,	/* 1: ingress 2: egress */
-		  pad:6;
-	__u16	  line;		/* __MAGIC_LINE__ */
-	__u8	  file;		/* __MAGIC_FILE__, needs to fit __id_for_file */
-	__u8	  reserved[3];	/* reserved for future extension */
-};
-
-
-struct metrics_value {
-	__u64	count;
-	__u64	bytes;
 };
 
 struct egress_gw_policy_key {
@@ -412,42 +247,6 @@ struct srv6_policy_key6 {
 	struct bpf_lpm_trie_key lpm;
 	__u32 vrf_id;
 	union v6addr dst_cidr;
-};
-
-struct node_key {
-	__u16 pad1;
-	__u8 pad2;
-	__u8 family;
-	union {
-		struct {
-			__u32 ip4;
-			__u32 pad4;
-			__u32 pad5;
-			__u32 pad6;
-		};
-		union v6addr ip6;
-	};
-};
-
-struct node_value {
-	__u16 id;
-	__u8  spi;
-	__u8  pad;
-};
-
-enum {
-	POLICY_INGRESS = 1,
-	POLICY_EGRESS = 2,
-};
-
-enum {
-	POLICY_MATCH_NONE = 0,
-	POLICY_MATCH_L3_ONLY = 1,
-	POLICY_MATCH_L3_L4 = 2,
-	POLICY_MATCH_L4_ONLY = 3,
-	POLICY_MATCH_ALL = 4,
-	POLICY_MATCH_L3_PROTO = 5,
-	POLICY_MATCH_PROTO_ONLY = 6,
 };
 
 #ifndef BPF_F_PSEUDO_HDR
@@ -573,11 +372,6 @@ enum metric_dir {
 #define DSR_IPV6_OPT_TYPE	0x1B
 #define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
 #define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
-
-/* encrypt_config is the current encryption context on the node */
-struct encrypt_config {
-	__u8 encrypt_key;
-} __packed;
 
 /*
  * ctx->tc_index uses
@@ -733,42 +527,6 @@ struct ipv4_ct_tuple {
 	__u8		nexthdr;
 	__u8		flags;
 } __packed;
-
-struct ct_entry {
-	__u64 reserved0;	/* unused since v1.16 */
-	__u64 backend_id;
-	__u64 packets;
-	__u64 bytes;
-	__u32 lifetime;
-	__u16 rx_closing:1,
-	      tx_closing:1,
-	      reserved1:1,	/* unused since v1.12 */
-	      lb_loopback:1,
-	      seen_non_syn:1,
-	      node_port:1,
-	      proxy_redirect:1,	/* Connection is redirected to a proxy */
-	      dsr_internal:1,	/* DSR is k8s service related, cluster internal */
-	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved2:1,	/* unused since v1.14 */
-	      from_tunnel:1,	/* Connection is over tunnel */
-	      reserved3:5;
-	__u16 rev_nat_index;
-	__u16 reserved4;	/* unused since v1.18 */
-
-	/* *x_flags_seen represents the OR of all TCP flags seen for the
-	 * transmit/receive direction of this entry.
-	 */
-	__u8  tx_flags_seen;
-	__u8  rx_flags_seen;
-
-	__u32 src_sec_id; /* Used from userspace proxies, do not change offset! */
-
-	/* last_*x_report is a timestamp of the last time a monitor
-	 * notification was sent for the transmit/receive direction.
-	 */
-	__u32 last_tx_report;
-	__u32 last_rx_report;
-};
 
 /* We previously tolerated services with no specified L4 protocol (IPPROTO_ANY).
  *
@@ -933,35 +691,6 @@ struct lb_affinity_match {
 	__u16 rev_nat_id;
 	__u16 pad;
 } __packed;
-
-struct ct_state {
-	__u16 rev_nat_index;
-#ifdef USE_LOOPBACK_LB
-	__u16 loopback:1,
-#else
-	__u16 loopback_disabled:1,
-#endif
-	      node_port:1,
-	      dsr_internal:1,   /* DSR is k8s service related, cluster internal */
-	      syn:1,
-	      proxy_redirect:1,	/* Connection is redirected to a proxy */
-	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved1:1,	/* Was auth_required, not used in production anywhere */
-	      from_tunnel:1,	/* Connection is from tunnel */
-		  closing:1,
-	      reserved:7;
-	__u32 src_sec_id;
-	__u32 backend_id;	/* Backend ID in lb4_backends */
-};
-
-static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
-{
-#ifdef ENABLE_L7_LB
-	return ct_state->from_l7lb;
-#else
-	return false;
-#endif
-}
 
 #define SRC_RANGE_STATIC_PREFIX(STRUCT)		\
 	(8 * (sizeof(STRUCT) - sizeof(struct bpf_lpm_trie_key)))
