@@ -302,6 +302,14 @@ Network Policy
   These fields were previously deprecated and can no longer be used. If you
   are using this feature, remove these fields from your policies before upgrade.
 * Kafka Network Policy support is deprecated and will be removed in Cilium v1.20.
+* The mesh auth flag ``mesh-auth-enabled`` (Helm ``authentication.enabled``) is
+  now disabled by default. Ensure that the flag is explicitly configured to
+  turn the feature back in especially if you are using the feature in your
+  network policies. If the flag is not explicitly configured and you are using
+  the feature in your policies, then the feature will forward the traffic
+  without authentication and the policy will be updated with a validation
+  warning to inform you that the authentication rules are ineffective.
+  Enable this flag if you are using :ref:`gs_mutual_authentication`.
 
 Cluster Mesh
 ############
