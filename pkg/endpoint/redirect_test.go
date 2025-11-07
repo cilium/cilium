@@ -165,11 +165,11 @@ const (
 	crd2Port  = uint16(19005)
 )
 
-func (s *RedirectSuite) NewTestEndpoint(t *testing.T) *Endpoint {
+func (s *RedirectSuite) NewTestEndpoint(t *testing.T, idManager identitymanager.IDManager) *Endpoint {
 	logger := hivetest.Logger(t)
 	model := newTestEndpointModel(12345, StateRegenerating)
 	kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), kvstoreSync, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, idManager, nil, nil, s.do.repo, testipcache.NewMockIPCache(), s.rsp, s.mgr, ctmap.NewFakeGCRunner(), kvstoreSync, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -336,7 +336,7 @@ func (obtained LabelArrayListMap) Diff(expected LabelArrayListMap) (res string) 
 
 func TestRedirectWithDeny(t *testing.T) {
 	s := setupRedirectSuite(t)
-	ep := s.NewTestEndpoint(t)
+	ep := s.NewTestEndpoint(t, s.do.idmgr)
 
 	// Policy denies anything to "foo"
 	s.AddRules(api.Rules{
@@ -464,7 +464,7 @@ var (
 func TestRedirectWithPriority(t *testing.T) {
 	s := setupRedirectSuite(t)
 
-	ep := s.NewTestEndpoint(t)
+	ep := s.NewTestEndpoint(t, s.do.idmgr)
 	api.TestAllowIngressListener = true
 	defer func() { api.TestAllowIngressListener = false }()
 
@@ -517,7 +517,7 @@ func TestRedirectWithPriority(t *testing.T) {
 func TestRedirectWithEqualPriority(t *testing.T) {
 	s := setupRedirectSuite(t)
 
-	ep := s.NewTestEndpoint(t)
+	ep := s.NewTestEndpoint(t, s.do.idmgr)
 
 	api.TestAllowIngressListener = true
 	defer func() { api.TestAllowIngressListener = false }()
