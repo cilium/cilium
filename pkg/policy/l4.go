@@ -943,7 +943,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol, protocol api.L4Proto) (*L4Filter, error) {
+func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 	logger := policyCtx.GetLogger()
 	origin := policyCtx.Origin()
@@ -960,13 +960,13 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 
 	// already validated via L4Proto.Validate(), never "ANY"
 	// NOTE: "ANY" for wildcarded port/proto!
-	u8p, _ := u8proto.ParseProtocol(string(protocol))
+	u8p, _ := u8proto.ParseProtocol(string(port.Protocol))
 
 	l4 := &L4Filter{
 		Port:                uint16(p),            // 0 for L3-only rules and named ports
 		EndPort:             uint16(port.EndPort), // 0 for a single port, >= 'Port' for a range
 		PortName:            portName,             // non-"" for named ports
-		Protocol:            protocol,
+		Protocol:            port.Protocol,
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),
 		RuleOrigin:          make(map[CachedSelector]ruleOrigin), // Filled in below.
@@ -1018,7 +1018,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 			// we need this to redirect DNS UDP (or ANY, which is more useful)
 			if len(rules.DNS) > 0 {
 				l7Parser = ParserTypeDNS
-			} else if protocol == api.ProtoTCP { // Other than DNS only support TCP
+			} else if port.Protocol == api.ProtoTCP { // Other than DNS only support TCP
 				switch {
 				case len(rules.HTTP) > 0:
 					l7Parser = ParserTypeHTTP
@@ -1217,11 +1217,11 @@ func (l4 *L4Filter) String() string {
 // the 'filterToMerge' can't be merged with an existing filter for the same
 // port and proto.
 func (resMap *l4PolicyMap) addL4Filter(policyCtx PolicyContext,
-	p api.PortProtocol, proto api.L4Proto, filterToMerge *L4Filter,
+	p api.PortProtocol, filterToMerge *L4Filter,
 ) error {
-	existingFilter := resMap.ExactLookup(p.Port, uint16(p.EndPort), string(proto))
+	existingFilter := resMap.ExactLookup(p.Port, uint16(p.EndPort), string(p.Protocol))
 	if existingFilter == nil {
-		resMap.Upsert(p.Port, uint16(p.EndPort), string(proto), filterToMerge)
+		resMap.Upsert(p.Port, uint16(p.EndPort), string(p.Protocol), filterToMerge)
 		return nil
 	}
 
@@ -1240,7 +1240,7 @@ func (resMap *l4PolicyMap) addL4Filter(policyCtx PolicyContext,
 		}
 	}
 
-	resMap.Upsert(p.Port, uint16(p.EndPort), string(proto), existingFilter)
+	resMap.Upsert(p.Port, uint16(p.EndPort), string(p.Protocol), existingFilter)
 	return nil
 }
 
