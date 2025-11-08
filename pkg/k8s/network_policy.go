@@ -78,17 +78,21 @@ func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networking
 		return nil
 	}
 
+	// peer should not be nutated in this function
+
 	var retSel *api.EndpointSelector
+	podSelector := peer.PodSelector.DeepCopy()
+
 	// The PodSelector should only reflect to the configured cluster unless the selector
 	// explicitly targets another cluster already.
-	if clusterName != cmtypes.PolicyAnyCluster && !isPodSelectorSelectingCluster(peer.PodSelector) {
-		if peer.PodSelector == nil {
-			peer.PodSelector = &slim_metav1.LabelSelector{}
+	if clusterName != cmtypes.PolicyAnyCluster && !isPodSelectorSelectingCluster(podSelector) {
+		if podSelector == nil {
+			podSelector = &slim_metav1.LabelSelector{}
 		}
-		if peer.PodSelector.MatchLabels == nil {
-			peer.PodSelector.MatchLabels = map[string]slim_metav1.MatchLabelsValue{}
+		if podSelector.MatchLabels == nil {
+			podSelector.MatchLabels = map[string]slim_metav1.MatchLabelsValue{}
 		}
-		peer.PodSelector.MatchLabels[k8sConst.PolicyLabelCluster] = clusterName
+		podSelector.MatchLabels[k8sConst.PolicyLabelCluster] = clusterName
 	}
 
 	if peer.NamespaceSelector != nil {
@@ -122,10 +126,10 @@ func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networking
 			namespaceSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
 		}
 
-		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, namespaceSelector, peer.PodSelector)
+		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, namespaceSelector, podSelector)
 		retSel = &selector
-	} else if peer.PodSelector != nil {
-		podSelector := parsePodSelector(peer.PodSelector, namespace)
+	} else if podSelector != nil {
+		podSelector = parsePodSelector(podSelector, namespace)
 		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)
 		retSel = &selector
 	}
