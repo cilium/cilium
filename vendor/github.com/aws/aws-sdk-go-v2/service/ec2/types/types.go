@@ -3883,6 +3883,9 @@ type DescribeFastSnapshotRestoreSuccessItem struct {
 	// The Availability Zone.
 	AvailabilityZone *string
 
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
+
 	// The time at which fast snapshot restores entered the disabled state.
 	DisabledTime *time.Time
 
@@ -4122,6 +4125,9 @@ type DisableFastSnapshotRestoreStateErrorItem struct {
 	// The Availability Zone.
 	AvailabilityZone *string
 
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
+
 	// The error.
 	Error *DisableFastSnapshotRestoreStateError
 
@@ -4133,6 +4139,9 @@ type DisableFastSnapshotRestoreSuccessItem struct {
 
 	// The Availability Zone.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
 
 	// The time at which fast snapshot restores entered the disabled state.
 	DisabledTime *time.Time
@@ -4294,6 +4303,32 @@ type DnsOptions struct {
 	// Indicates whether to enable private DNS only for inbound endpoints.
 	PrivateDnsOnlyForInboundResolverEndpoint *bool
 
+	//  The preference for which private domains have a private hosted zone created
+	// for and associated with the specified VPC. Only supported when private DNS is
+	// enabled and when the VPC endpoint type is ServiceNetwork or Resource.
+	//
+	//   - ALL_DOMAINS - VPC Lattice provisions private hosted zones for all custom
+	//   domain names.
+	//
+	//   - VERIFIED_DOMAINS_ONLY - VPC Lattice provisions a private hosted zone only if
+	//   custom domain name has been verified by the provider.
+	//
+	//   - VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS - VPC Lattice provisions private
+	//   hosted zones for all verified custom domain names and other domain names that
+	//   the resource consumer specifies. The resource consumer specifies the domain
+	//   names in the PrivateDnsSpecifiedDomains parameter.
+	//
+	//   - SPECIFIED_DOMAINS_ONLY - VPC Lattice provisions a private hosted zone for
+	//   domain names specified by the resource consumer. The resource consumer specifies
+	//   the domain names in the PrivateDnsSpecifiedDomains parameter.
+	PrivateDnsPreference *string
+
+	//  Indicates which of the private domains to create private hosted zones for and
+	// associate with the specified VPC. Only supported when private DNS is enabled and
+	// the private DNS preference is VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS or
+	// SPECIFIED_DOMAINS_ONLY .
+	PrivateDnsSpecifiedDomains []string
+
 	noSmithyDocumentSerde
 }
 
@@ -4308,6 +4343,32 @@ type DnsOptionsSpecification struct {
 	// endpoints. It routes traffic that originates from the VPC to the gateway
 	// endpoint and traffic that originates from on-premises to the interface endpoint.
 	PrivateDnsOnlyForInboundResolverEndpoint *bool
+
+	//  The preference for which private domains have a private hosted zone created
+	// for and associated with the specified VPC. Only supported when private DNS is
+	// enabled and when the VPC endpoint type is ServiceNetwork or Resource.
+	//
+	//   - ALL_DOMAINS - VPC Lattice provisions private hosted zones for all custom
+	//   domain names.
+	//
+	//   - VERIFIED_DOMAINS_ONLY - VPC Lattice provisions a private hosted zone only if
+	//   custom domain name has been verified by the provider.
+	//
+	//   - VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS - VPC Lattice provisions private
+	//   hosted zones for all verified custom domain names and other domain names that
+	//   the resource consumer specifies. The resource consumer specifies the domain
+	//   names in the PrivateDnsSpecifiedDomains parameter.
+	//
+	//   - SPECIFIED_DOMAINS_ONLY - VPC Lattice provisions a private hosted zone for
+	//   domain names specified by the resource consumer. The resource consumer specifies
+	//   the domain names in the PrivateDnsSpecifiedDomains parameter.
+	PrivateDnsPreference *string
+
+	//  Indicates which of the private domains to create private hosted zones for and
+	// associate with the specified VPC. Only supported when private DNS is enabled and
+	// the private DNS preference is verified-domains-and-specified-domains or
+	// specified-domains-only.
+	PrivateDnsSpecifiedDomains []string
 
 	noSmithyDocumentSerde
 }
@@ -4938,6 +4999,9 @@ type EnableFastSnapshotRestoreStateErrorItem struct {
 	// The Availability Zone.
 	AvailabilityZone *string
 
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
+
 	// The error.
 	Error *EnableFastSnapshotRestoreStateError
 
@@ -4949,6 +5013,9 @@ type EnableFastSnapshotRestoreSuccessItem struct {
 
 	// The Availability Zone.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone.
+	AvailabilityZoneId *string
 
 	// The time at which fast snapshot restores entered the disabled state.
 	DisabledTime *time.Time
@@ -5482,6 +5549,26 @@ type ExportToS3TaskSpecification struct {
 	// The image is written to a single object in the Amazon S3 bucket at the S3 key
 	// s3prefix + exportTaskId + '.' + diskImageFormat.
 	S3Prefix *string
+
+	noSmithyDocumentSerde
+}
+
+// The configuration that links an Amazon VPC IPAM scope to an external authority
+// system. It specifies the type of external system and the external resource
+// identifier that identifies your account or instance in that system.
+//
+// For more information, see [Integrate VPC IPAM with Infoblox infrastructure] in the Amazon VPC IPAM User Guide..
+//
+// [Integrate VPC IPAM with Infoblox infrastructure]: https://docs.aws.amazon.com/vpc/latest/ipam/integrate-infoblox-ipam.html
+type ExternalAuthorityConfiguration struct {
+
+	// The identifier for the external resource managing this scope. For Infoblox
+	// integrations, this is the Infoblox resource identifier in the format
+	// .identity.account.. .
+	ExternalResourceIdentifier *string
+
+	// The type of external authority.
+	Type IpamScopeExternalAuthorityType
 
 	noSmithyDocumentSerde
 }
@@ -11033,27 +11120,25 @@ type IpamPrefixListResolverRule struct {
 // prefix list resolver without any CIDR selection rules, but it will generate
 // empty versions (containing no CIDRs) until you add rules.
 //
-// There are three rule types:
+// There are three rule types. Only 2 of the 3 rule types support conditions -
+// IPAM pool CIDR and Scope resource CIDR. Static CIDR rules cannot have
+// conditions.
 //
 //   - Static CIDR: A fixed list of CIDRs that do not change (like a manual list
-//     replicated across Regions).
+//     replicated across Regions)
 //
 //   - IPAM pool CIDR: CIDRs from specific IPAM pools (like all CIDRs from your
-//     IPAM production pool).
+//     IPAM production pool)
 //
-//   - Scope resource CIDR: CIDRs for Amazon Web Services resources like VPCs,
-//     subnets, and EIPs within a specific IPAM scope.
+// If you choose this option, choose the following:
 //
-// Condition availability by resource type:
+//   - IPAM scope: Select the IPAM scope to search for resources
 //
-//   - Only 2 of the 3 rule types support conditions - IPAM pool CIDR and Scope
-//     resource CIDR. Static CIDR rules cannot have conditions.
+//   - Conditions:
 //
-//   - Condition available for the IPAM pool CIDR resource type:
+//   - Property
 //
-//   - Property:
-//
-//   - IPAM Pool ID
+//   - IPAM pool ID: Select an IPAM pool that contains the resources
 //
 //   - CIDR (like 10.24.34.0/23)
 //
@@ -11061,13 +11146,20 @@ type IpamPrefixListResolverRule struct {
 //
 //   - Value: The value on which to match the condition
 //
-//   - Conditions for the Scope resource CIDR resource type:
+//   - Scope resource CIDR: CIDRs from Amazon Web Services resources like VPCs,
+//     subnets, EIPs within an IPAM scope
+//
+// If you choose this option, choose the following:
+//
+//   - IPAM scope: Select the IPAM scope to search for resources
+//
+//   - Resource type: Select a resource, like a VPC or subnet.
+//
+//   - Conditions:
 //
 //   - Property:
 //
 //   - Resource ID: The unique ID of a resource (like vpc-1234567890abcdef0)
-//
-//   - Resource type (like VPC or Subnet)
 //
 //   - Resource owner (like 111122223333)
 //
@@ -11080,8 +11172,6 @@ type IpamPrefixListResolverRule struct {
 //   - Operation: Equals/Not equals
 //
 //   - Value: The value on which to match the condition
-//
-//   - When setting conditions for a rule, one or more conditions is required.
 type IpamPrefixListResolverRuleCondition struct {
 
 	// A CIDR block to match against. This condition selects CIDRs that fall within or
@@ -11123,27 +11213,25 @@ type IpamPrefixListResolverRuleCondition struct {
 // prefix list resolver without any CIDR selection rules, but it will generate
 // empty versions (containing no CIDRs) until you add rules.
 //
-// There are three rule types:
+// There are three rule types. Only 2 of the 3 rule types support conditions -
+// IPAM pool CIDR and Scope resource CIDR. Static CIDR rules cannot have
+// conditions.
 //
 //   - Static CIDR: A fixed list of CIDRs that do not change (like a manual list
-//     replicated across Regions).
+//     replicated across Regions)
 //
 //   - IPAM pool CIDR: CIDRs from specific IPAM pools (like all CIDRs from your
-//     IPAM production pool).
+//     IPAM production pool)
 //
-//   - Scope resource CIDR: CIDRs for Amazon Web Services resources like VPCs,
-//     subnets, and EIPs within a specific IPAM scope.
+// If you choose this option, choose the following:
 //
-// Condition availability by resource type:
+//   - IPAM scope: Select the IPAM scope to search for resources
 //
-//   - Only 2 of the 3 rule types support conditions - IPAM pool CIDR and Scope
-//     resource CIDR. Static CIDR rules cannot have conditions.
+//   - Conditions:
 //
-//   - Condition available for the IPAM pool CIDR resource type:
+//   - Property
 //
-//   - Property:
-//
-//   - IPAM Pool ID
+//   - IPAM pool ID: Select an IPAM pool that contains the resources
 //
 //   - CIDR (like 10.24.34.0/23)
 //
@@ -11151,13 +11239,20 @@ type IpamPrefixListResolverRuleCondition struct {
 //
 //   - Value: The value on which to match the condition
 //
-//   - Conditions for the Scope resource CIDR resource type:
+//   - Scope resource CIDR: CIDRs from Amazon Web Services resources like VPCs,
+//     subnets, EIPs within an IPAM scope
+//
+// If you choose this option, choose the following:
+//
+//   - IPAM scope: Select the IPAM scope to search for resources
+//
+//   - Resource type: Select a resource, like a VPC or subnet.
+//
+//   - Conditions:
 //
 //   - Property:
 //
 //   - Resource ID: The unique ID of a resource (like vpc-1234567890abcdef0)
-//
-//   - Resource type (like VPC or Subnet)
 //
 //   - Resource owner (like 111122223333)
 //
@@ -11170,8 +11265,6 @@ type IpamPrefixListResolverRuleCondition struct {
 //   - Operation: Equals/Not equals
 //
 //   - Value: The value on which to match the condition
-//
-//   - When setting conditions for a rule, one or more conditions is required.
 type IpamPrefixListResolverRuleConditionRequest struct {
 
 	// The operation to perform when evaluating this condition.
@@ -11215,27 +11308,25 @@ type IpamPrefixListResolverRuleConditionRequest struct {
 // prefix list resolver without any CIDR selection rules, but it will generate
 // empty versions (containing no CIDRs) until you add rules.
 //
-// There are three rule types:
+// There are three rule types. Only 2 of the 3 rule types support conditions -
+// IPAM pool CIDR and Scope resource CIDR. Static CIDR rules cannot have
+// conditions.
 //
 //   - Static CIDR: A fixed list of CIDRs that do not change (like a manual list
-//     replicated across Regions).
+//     replicated across Regions)
 //
 //   - IPAM pool CIDR: CIDRs from specific IPAM pools (like all CIDRs from your
-//     IPAM production pool).
+//     IPAM production pool)
 //
-//   - Scope resource CIDR: CIDRs for Amazon Web Services resources like VPCs,
-//     subnets, and EIPs within a specific IPAM scope.
+// If you choose this option, choose the following:
 //
-// Condition availability by resource type:
+//   - IPAM scope: Select the IPAM scope to search for resources
 //
-//   - Only 2 of the 3 rule types support conditions - IPAM pool CIDR and Scope
-//     resource CIDR. Static CIDR rules cannot have conditions.
+//   - Conditions:
 //
-//   - Condition available for the IPAM pool CIDR resource type:
+//   - Property
 //
-//   - Property:
-//
-//   - IPAM Pool ID
+//   - IPAM pool ID: Select an IPAM pool that contains the resources
 //
 //   - CIDR (like 10.24.34.0/23)
 //
@@ -11243,13 +11334,20 @@ type IpamPrefixListResolverRuleConditionRequest struct {
 //
 //   - Value: The value on which to match the condition
 //
-//   - Conditions for the Scope resource CIDR resource type:
+//   - Scope resource CIDR: CIDRs from Amazon Web Services resources like VPCs,
+//     subnets, EIPs within an IPAM scope
+//
+// If you choose this option, choose the following:
+//
+//   - IPAM scope: Select the IPAM scope to search for resources
+//
+//   - Resource type: Select a resource, like a VPC or subnet.
+//
+//   - Conditions:
 //
 //   - Property:
 //
 //   - Resource ID: The unique ID of a resource (like vpc-1234567890abcdef0)
-//
-//   - Resource type (like VPC or Subnet)
 //
 //   - Resource owner (like 111122223333)
 //
@@ -11262,8 +11360,6 @@ type IpamPrefixListResolverRuleConditionRequest struct {
 //   - Operation: Equals/Not equals
 //
 //   - Value: The value on which to match the condition
-//
-//   - When setting conditions for a rule, one or more conditions is required.
 type IpamPrefixListResolverRuleRequest struct {
 
 	// The type of CIDR selection rule. Valid values include include for selecting
@@ -11687,6 +11783,19 @@ type IpamScope struct {
 	// The description of the scope.
 	Description *string
 
+	// The external authority configuration for this IPAM scope, if configured.
+	//
+	// The configuration that links an Amazon VPC IPAM scope to an external authority
+	// system. It specifies the type of external system and the external resource
+	// identifier that identifies your account or instance in that system.
+	//
+	// In IPAM, an external authority is a third-party IP address management system
+	// that provides CIDR blocks when you provision address space for top-level IPAM
+	// pools. This allows you to use your existing IP management system to control
+	// which address ranges are allocated to Amazon Web Services while using Amazon VPC
+	// IPAM to manage subnets within those ranges.
+	ExternalAuthorityConfiguration *IpamScopeExternalAuthorityConfiguration
+
 	// The ARN of the IPAM.
 	IpamArn *string
 
@@ -11719,6 +11828,29 @@ type IpamScope struct {
 	// resources that have a tag with the key Owner and the value TeamA , specify
 	// tag:Owner for the filter name and TeamA for the filter value.
 	Tags []Tag
+
+	noSmithyDocumentSerde
+}
+
+// The configuration that links an Amazon VPC IPAM scope to an external authority
+// system. It specifies the type of external system and the external resource
+// identifier that identifies your account or instance in that system.
+//
+// In IPAM, an external authority is a third-party IP address management system
+// that provides CIDR blocks when you provision address space for top-level IPAM
+// pools. This allows you to use your existing IP management system to control
+// which address ranges are allocated to Amazon Web Services while using Amazon VPC
+// IPAM to manage subnets within those ranges.
+type IpamScopeExternalAuthorityConfiguration struct {
+
+	// The identifier for the external resource managing this scope. For Infoblox
+	// integrations, this is the Infoblox resource identifier in the format
+	// .identity.account.. .
+	ExternalResourceIdentifier *string
+
+	// The type of external authority managing this scope. Currently supports Infoblox
+	// for integration with Infoblox Universal DDI.
+	Type IpamScopeExternalAuthorityType
 
 	noSmithyDocumentSerde
 }
@@ -16340,7 +16472,7 @@ type PrivateDnsNameConfiguration struct {
 
 	// The verification state of the VPC endpoint service.
 	//
-	// >Consumers of the endpoint service can use the private name only when the state
+	// Consumers of the endpoint service can use the private name only when the state
 	// is verified .
 	State DnsNameState
 
