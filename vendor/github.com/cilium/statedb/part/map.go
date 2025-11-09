@@ -60,7 +60,7 @@ func FromMap[K comparable, V any](m Map[K, V], hm map[K]V) Map[K, V] {
 // an empty map does not allocate anything.
 func (m *Map[K, V]) ensureTree() {
 	if m.tree == nil {
-		m.tree = New[mapKVPair[K, V]](RootOnlyWatch, NoCache)
+		m.tree = New[mapKVPair[K, V]](RootOnlyWatch)
 	}
 }
 
@@ -88,7 +88,7 @@ func (m Map[K, V]) Set(key K, value V) Map[K, V] {
 
 	m.ensureTree()
 	txn := m.tree.Txn()
-	txn.Insert(m.keyToBytes(key), mapKVPair[K, V]{key, value})
+	txn.Insert(keyBytes, mapKVPair[K, V]{key, value})
 	if m.singleton != nil {
 		txn.Insert(m.keyToBytes(m.singleton.Key), *m.singleton)
 		m.singleton = nil
@@ -382,4 +382,83 @@ func (m *Map[K, V]) UnmarshalYAML(value *yaml.Node) error {
 	}
 	m.tree = txn.CommitOnly()
 	return nil
+}
+
+func (m Map[K, V]) Txn() MapTxn[K, V] {
+	m.ensureTree()
+	txn := m.tree.Txn()
+	if m.singleton != nil {
+		txn.Insert(m.keyToBytes(m.singleton.Key), mapKVPair[K, V]{m.singleton.Key, m.singleton.Value})
+	}
+	bytesFromKey := m.bytesFromKeyFunc
+	if bytesFromKey == nil {
+		bytesFromKey = lookupKeyType[K]()
+	}
+	return MapTxn[K, V]{
+		bytesFromKeyFunc: bytesFromKey,
+		txn:              txn,
+	}
+}
+
+// MapTxn is a write transaction for efficiently doing multiple
+// modifications to a map.
+type MapTxn[K, V any] struct {
+	bytesFromKeyFunc func(K) []byte
+	txn              *Txn[mapKVPair[K, V]]
+}
+
+func (txn MapTxn[K, V]) Commit() (m Map[K, V]) {
+	m.bytesFromKeyFunc = txn.bytesFromKeyFunc
+	switch txn.txn.Len() {
+	case 0:
+	case 1:
+		_, kv, _ := txn.txn.Iterator().Next()
+		m.singleton = &kv
+	default:
+		m.tree = txn.txn.CommitOnly()
+	}
+	return
+}
+
+// Set a value.
+func (txn MapTxn[K, V]) Set(key K, value V) {
+	txn.txn.Insert(txn.bytesFromKeyFunc(key), mapKVPair[K, V]{key, value})
+}
+
+// Delete a value from the map.
+// Returns true if the key was found.
+func (txn MapTxn[K, V]) Delete(key K) bool {
+	_, hadOld := txn.txn.Delete(txn.bytesFromKeyFunc(key))
+	return hadOld
+}
+
+// Get a value from the map by its key.
+func (txn MapTxn[K, V]) Get(key K) (value V, found bool) {
+	kv, _, found := txn.txn.Get(txn.bytesFromKeyFunc(key))
+	return kv.Value, found
+}
+
+// Prefix iterates in order over all keys that start with
+// the given prefix.
+func (txn MapTxn[K, V]) Prefix(prefix K) iter.Seq2[K, V] {
+	iter, _ := txn.txn.Prefix(txn.bytesFromKeyFunc(prefix))
+	return toSeq2(iter)
+}
+
+// LowerBound iterates over all keys in order with value equal
+// to or greater than [from].
+func (txn MapTxn[K, V]) LowerBound(from K) iter.Seq2[K, V] {
+	return toSeq2(txn.txn.LowerBound(txn.bytesFromKeyFunc(from)))
+}
+
+// All iterates every key-value in the map in order.
+// The order is in bytewise order of the byte slice
+// returned by bytesFromKey.
+func (txn MapTxn[K, V]) All() iter.Seq2[K, V] {
+	return toSeq2(txn.txn.Iterator())
+}
+
+// Len returns the number of elements in the map.
+func (txn MapTxn[K, V]) Len() int {
+	return txn.txn.Len()
 }

@@ -354,15 +354,15 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 	parents := txn.deleteParentsCache[:1] // Placeholder for root
 
 	newRoot = root
-	this := root
+	target := root
 
 	// Find the target node and record the path to it.
 	var leaf *leaf[T]
 	for {
-		if bytes.HasPrefix(key, this.prefix()) {
-			key = key[this.prefixLen:]
+		if bytes.HasPrefix(key, target.prefix()) {
+			key = key[target.prefixLen:]
 			if len(key) == 0 {
-				leaf = this.getLeaf()
+				leaf = target.getLeaf()
 				if leaf == nil {
 					return
 				}
@@ -370,11 +370,11 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 				break
 			}
 			var idx int
-			this, idx = this.findIndex(key[0])
-			if this == nil {
+			target, idx = target.findIndex(key[0])
+			if target == nil {
 				return
 			}
-			parents = append(parents, deleteParent[T]{this, idx})
+			parents = append(parents, deleteParent[T]{target, idx})
 		} else {
 			// Reached a node with a different prefix, so node not found.
 			return
@@ -389,7 +389,7 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 		txn.watches[leaf.watch] = struct{}{}
 	}
 
-	if this == root {
+	if target == root {
 		// Target is the root, clear it.
 		if root.isLeaf() || newRoot.size() == 0 {
 			// Replace leaf or empty root with a node4
@@ -401,75 +401,90 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 		return
 	}
 
-	// The target was found, rebuild the tree from the root upwards.
+	// The target was found, rebuild the tree from the leaf upwards to the root.
 	parents[0].node = root
-
-	for i := len(parents) - 1; i > 0; i-- {
-		parent := &parents[i-1]
-		target := &parents[i]
-
-		// Clone the parent to mutate it.
+	index := len(parents) - 1
+	this := &parents[index]
+	parent := &parents[index-1]
+	if this.node.size() > 0 {
+		// The target node is not a leaf node and has children.
+		// Drop the leaf.
+		this.node = txn.cloneNode(this.node)
+		this.node.setLeaf(nil)
 		parent.node = txn.cloneNode(parent.node)
-		children := parent.node.children()
-
-		if target.node == this && target.node.size() > 0 {
-			// This is the node that we want to delete, but it has
-			// children. Clone and clear the leaf.
-			target.node = txn.cloneNode(target.node)
-			target.node.setLeaf(nil)
-			children[target.index] = target.node
-		} else if target.node.size() == 0 && (target.node == this || target.node.getLeaf() == nil) {
-			// The node is empty, remove it from the parent.
-			parent.node.remove(target.index)
-		} else {
-			// Update the target (as it may have been cloned)
-			children[target.index] = target.node
-		}
-
-		if parent.node.size() > 0 {
-			// Check if the node should be demoted.
-			// To avoid thrashing we don't demote at the boundary, but at a slightly
-			// smaller size.
-			// TODO: Can we avoid the initial clone of parent.node?
-			var newNode *header[T]
-			switch {
-			case parent.node.kind() == nodeKind256 && parent.node.size() <= 37:
-				newNode = (&node48[T]{header: *parent.node}).self()
-				newNode.setKind(nodeKind48)
-				n48 := newNode.node48()
-				n48.leaf = parent.node.getLeaf()
-				children := n48.children[:0]
-				for k, n := range parent.node.node256().children[:] {
-					if n != nil {
-						n48.index[k] = int8(len(children))
-						children = append(children, n)
-					}
-				}
-			case parent.node.kind() == nodeKind48 && parent.node.size() <= 12:
-				newNode = (&node16[T]{header: *parent.node}).self()
-				newNode.setKind(nodeKind16)
-				copy(newNode.children()[:], parent.node.children())
-				n16 := newNode.node16()
-				n16.leaf = parent.node.getLeaf()
-				size := n16.size()
-				for i := range size {
-					n16.keys[i] = n16.children[i].key()
-				}
-			case parent.node.kind() == nodeKind16 && parent.node.size() <= 3:
-				newNode = (&node4[T]{header: *parent.node}).self()
-				newNode.setKind(nodeKind4)
-				n16 := parent.node.node16()
-				size := n16.size()
-				n4 := newNode.node4()
-				n4.leaf = n16.leaf
-				copy(n4.children[:], n16.children[:size])
-				copy(n4.keys[:], n16.keys[:size])
-			}
-			if newNode != nil {
-				parent.node = newNode
-			}
-		}
+		parent.node.children()[this.index] = this.node
+	} else {
+		// The target node is a leaf node or a non-leaf node without any
+		// children. We can just drop it from the parent.
+		parent.node = txn.removeChild(parent.node, this.index)
 	}
+	index--
+
+	// Update the child pointers all the way up to the root.
+	for index > 0 {
+		parent = &parents[index-1]
+		this = &parents[index]
+		parent.node = txn.cloneNode(parent.node)
+		parent.node.children()[this.index] = this.node
+		index--
+	}
+
 	newRoot = parents[0].node
 	return
+}
+
+func (txn *Txn[T]) removeChild(parent *header[T], index int) *header[T] {
+	size := parent.size()
+	// Check if the node should be demoted.
+	switch {
+	case parent.kind() == nodeKind256 && size <= 49:
+		demoted := (&node48[T]{header: *parent}).self()
+		demoted.setKind(nodeKind48)
+		demoted.setSize(size - 1)
+		n48 := demoted.node48()
+		n48.leaf = parent.getLeaf()
+		children := n48.children[:0]
+		for k, n := range parent.node256().children[:] {
+			if k != index && n != nil {
+				n48.index[k] = int8(len(children))
+				children = append(children, n)
+			}
+		}
+		return demoted
+	case parent.kind() == nodeKind48 && size <= 17:
+		demoted := (&node16[T]{header: *parent}).self()
+		demoted.setKind(nodeKind16)
+		demoted.setSize(size - 1)
+		n16 := demoted.node16()
+		n16.leaf = parent.getLeaf()
+		idx := 0
+		for i, child := range parent.children() {
+			if i != index {
+				n16.children[idx] = child
+				n16.keys[idx] = child.key()
+				idx++
+			}
+		}
+		return demoted
+	case parent.kind() == nodeKind16 && size <= 5:
+		demoted := (&node4[T]{header: *parent}).self()
+		demoted.setKind(nodeKind4)
+		demoted.setSize(size - 1)
+		n16 := parent.node16()
+		n4 := demoted.node4()
+		n4.leaf = n16.leaf
+		idx := 0
+		for i := range size {
+			if i != index {
+				n4.children[idx] = n16.children[i]
+				n4.keys[idx] = n16.keys[i]
+				idx++
+			}
+		}
+		return demoted
+	default:
+		parent = txn.cloneNode(parent)
+		parent.remove(index)
+		return parent
+	}
 }

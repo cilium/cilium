@@ -308,6 +308,42 @@ type ByObject struct {
 	//
 	// Defaults to true.
 	EnableWatchBookmarks *bool
+
+	// SyncPeriod determines the minimum frequency at which watched resources are
+	// reconciled. A lower period will correct entropy more quickly, but reduce
+	// responsiveness to change if there are many watched resources. Change this
+	// value only if you know what you are doing. Defaults to 10 hours if unset.
+	// there will a 10 percent jitter between the SyncPeriod of all controllers
+	// so that all controllers will not send list requests simultaneously.
+	//
+	// This applies to all controllers.
+	//
+	// A period sync happens for two reasons:
+	// 1. To insure against a bug in the controller that causes an object to not
+	// be requeued, when it otherwise should be requeued.
+	// 2. To insure against an unknown bug in controller-runtime, or its dependencies,
+	// that causes an object to not be requeued, when it otherwise should be
+	// requeued, or to be removed from the queue, when it otherwise should not
+	// be removed.
+	//
+	// If you want
+	// 1. to insure against missed watch events, or
+	// 2. to poll services that cannot be watched,
+	// then we recommend that, instead of changing the default period, the
+	// controller requeue, with a constant duration `t`, whenever the controller
+	// is "done" with an object, and would otherwise not requeue it, i.e., we
+	// recommend the `Reconcile` function return `reconcile.Result{RequeueAfter: t}`,
+	// instead of `reconcile.Result{}`.
+	//
+	// SyncPeriod will locally trigger an artificial Update event with the same
+	// object in both ObjectOld and ObjectNew for everything that is in the
+	// cache.
+	//
+	// Predicates or Handlers that expect ObjectOld and ObjectNew to be different
+	// (such as GenerationChangedPredicate) will filter out this event, preventing
+	// it from triggering a reconciliation.
+	// SyncPeriod does not sync between the local cache and the server.
+	SyncPeriod *time.Duration
 }
 
 // Config describes all potential options for a given watch.
@@ -343,6 +379,42 @@ type Config struct {
 	//
 	// Defaults to true.
 	EnableWatchBookmarks *bool
+
+	// SyncPeriod determines the minimum frequency at which watched resources are
+	// reconciled. A lower period will correct entropy more quickly, but reduce
+	// responsiveness to change if there are many watched resources. Change this
+	// value only if you know what you are doing. Defaults to 10 hours if unset.
+	// there will a 10 percent jitter between the SyncPeriod of all controllers
+	// so that all controllers will not send list requests simultaneously.
+	//
+	// This applies to all controllers.
+	//
+	// A period sync happens for two reasons:
+	// 1. To insure against a bug in the controller that causes an object to not
+	// be requeued, when it otherwise should be requeued.
+	// 2. To insure against an unknown bug in controller-runtime, or its dependencies,
+	// that causes an object to not be requeued, when it otherwise should be
+	// requeued, or to be removed from the queue, when it otherwise should not
+	// be removed.
+	//
+	// If you want
+	// 1. to insure against missed watch events, or
+	// 2. to poll services that cannot be watched,
+	// then we recommend that, instead of changing the default period, the
+	// controller requeue, with a constant duration `t`, whenever the controller
+	// is "done" with an object, and would otherwise not requeue it, i.e., we
+	// recommend the `Reconcile` function return `reconcile.Result{RequeueAfter: t}`,
+	// instead of `reconcile.Result{}`.
+	//
+	// SyncPeriod will locally trigger an artificial Update event with the same
+	// object in both ObjectOld and ObjectNew for everything that is in the
+	// cache.
+	//
+	// Predicates or Handlers that expect ObjectOld and ObjectNew to be different
+	// (such as GenerationChangedPredicate) will filter out this event, preventing
+	// it from triggering a reconciliation.
+	// SyncPeriod does not sync between the local cache and the server.
+	SyncPeriod *time.Duration
 }
 
 // NewCacheFunc - Function for creating a new cache from the options and a rest config.
@@ -413,6 +485,7 @@ func optionDefaultsToConfig(opts *Options) Config {
 		Transform:             opts.DefaultTransform,
 		UnsafeDisableDeepCopy: opts.DefaultUnsafeDisableDeepCopy,
 		EnableWatchBookmarks:  opts.DefaultEnableWatchBookmarks,
+		SyncPeriod:            opts.SyncPeriod,
 	}
 }
 
@@ -423,6 +496,7 @@ func byObjectToConfig(byObject ByObject) Config {
 		Transform:             byObject.Transform,
 		UnsafeDisableDeepCopy: byObject.UnsafeDisableDeepCopy,
 		EnableWatchBookmarks:  byObject.EnableWatchBookmarks,
+		SyncPeriod:            byObject.SyncPeriod,
 	}
 }
 
@@ -436,7 +510,7 @@ func newCache(restConfig *rest.Config, opts Options) newCacheFunc {
 				HTTPClient:   opts.HTTPClient,
 				Scheme:       opts.Scheme,
 				Mapper:       opts.Mapper,
-				ResyncPeriod: *opts.SyncPeriod,
+				ResyncPeriod: ptr.Deref(config.SyncPeriod, defaultSyncPeriod),
 				Namespace:    namespace,
 				Selector: internal.Selector{
 					Label: config.LabelSelector,
@@ -534,6 +608,7 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 			byObject.Transform = defaultedConfig.Transform
 			byObject.UnsafeDisableDeepCopy = defaultedConfig.UnsafeDisableDeepCopy
 			byObject.EnableWatchBookmarks = defaultedConfig.EnableWatchBookmarks
+			byObject.SyncPeriod = defaultedConfig.SyncPeriod
 		}
 
 		opts.ByObject[obj] = byObject
@@ -555,10 +630,6 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		opts.DefaultNamespaces[namespace] = cfg
 	}
 
-	// Default the resync period to 10 hours if unset
-	if opts.SyncPeriod == nil {
-		opts.SyncPeriod = &defaultSyncPeriod
-	}
 	return opts, nil
 }
 
@@ -577,6 +648,9 @@ func defaultConfig(toDefault, defaultFrom Config) Config {
 	}
 	if toDefault.EnableWatchBookmarks == nil {
 		toDefault.EnableWatchBookmarks = defaultFrom.EnableWatchBookmarks
+	}
+	if toDefault.SyncPeriod == nil {
+		toDefault.SyncPeriod = defaultFrom.SyncPeriod
 	}
 	return toDefault
 }

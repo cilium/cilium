@@ -124,8 +124,8 @@ type priorityqueue[T comparable] struct {
 	get chan item[T]
 
 	// waiters is the number of routines blocked in Get, we use it to determine
-	// if we can push items.
-	waiters atomic.Int64
+	// if we can push items. Every manipulation has to be protected with the lock.
+	waiters int64
 
 	// Configurable for testing
 	now  func() time.Time
@@ -269,7 +269,7 @@ func (w *priorityqueue[T]) spin() {
 						}
 					}
 
-					if w.waiters.Load() == 0 {
+					if w.waiters == 0 {
 						// Have to keep iterating here to ensure we update metrics
 						// for further items that became ready and set nextReady.
 						return true
@@ -277,7 +277,7 @@ func (w *priorityqueue[T]) spin() {
 
 					w.metrics.get(item.Key, item.Priority)
 					w.locked.Insert(item.Key)
-					w.waiters.Add(-1)
+					w.waiters--
 					delete(w.items, item.Key)
 					toDelete = append(toDelete, item)
 					w.becameReady.Delete(item.Key)
@@ -316,7 +316,9 @@ func (w *priorityqueue[T]) GetWithPriority() (_ T, priority int, shutdown bool) 
 		return zero, 0, true
 	}
 
-	w.waiters.Add(1)
+	w.lock.Lock()
+	w.waiters++
+	w.lock.Unlock()
 
 	w.notifyItemOrWaiterAdded()
 
