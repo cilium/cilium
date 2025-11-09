@@ -1,3 +1,24 @@
+# v1.264.0 (2025-11-07)
+
+* **Feature**: Adds PrivateDnsPreference and PrivateDnsSpecifiedDomains to control private DNS resolution for resource and service network VPC endpoints and IpamScopeExternalAuthorityConfiguration to integrate Amazon VPC IPAM with a third-party IPAM service
+
+# v1.263.0 (2025-11-06)
+
+* **Feature**: Add Amazon EC2 R8a instance types
+
+# v1.262.0 (2025-11-05)
+
+* **Feature**: This release adds AvailabilityZoneId support for DescribeFastSnapshotRestores, DisableFastSnapshotRestores, and EnableFastSnapshotRestores APIs.
+
+# v1.261.1 (2025-11-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.23.2 which should convey some passive reduction of overall allocations, especially when not using the metrics system.
+
+# v1.261.0 (2025-11-03)
+
+* **Feature**: Add Amazon EC2 trn2.3xlarge instance type.
+
 # v1.260.0 (2025-10-31)
 
 * **Feature**: Amazon VPC IP Address Manager (IPAM) now supports automated prefix list management, allowing you to create rules that automatically populate customer-managed prefix lists with CIDRs from your IPAM pools or AWS resources based on tags, Regions, or other criteria.
