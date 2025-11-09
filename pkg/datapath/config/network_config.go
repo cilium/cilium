@@ -9,9 +9,12 @@ package config
 // do not instantiate directly! Always use [NewBPFNetwork] to ensure the default
 // values configured in the ELF are honored.
 type BPFNetwork struct {
+	// Cluster ID.
+	ClusterID uint32 `config:"cluster_id"`
+
 	Node
 }
 
 func NewBPFNetwork(node Node) *BPFNetwork {
-	return &BPFNetwork{node}
+	return &BPFNetwork{0x0, node}
 }
