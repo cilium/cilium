@@ -84168,6 +84168,19 @@ func awsEc2query_deserializeDocumentDescribeFastSnapshotRestoreSuccessItem(v **t
 				sv.AvailabilityZone = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("availabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("disabledTime", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -85529,6 +85542,19 @@ func awsEc2query_deserializeDocumentDisableFastSnapshotRestoreStateErrorItem(v *
 				sv.AvailabilityZone = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("availabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("error", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentDisableFastSnapshotRestoreStateError(&sv.Error, nodeDecoder); err != nil {
@@ -85650,6 +85676,19 @@ func awsEc2query_deserializeDocumentDisableFastSnapshotRestoreSuccessItem(v **ty
 			{
 				xtv := string(val)
 				sv.AvailabilityZone = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("availabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("disabledTime", t.Name.Local):
@@ -86372,6 +86411,25 @@ func awsEc2query_deserializeDocumentDnsOptions(v **types.DnsOptions, decoder smi
 					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
 				}
 				sv.PrivateDnsOnlyForInboundResolverEndpoint = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("privateDnsPreference", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.PrivateDnsPreference = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("privateDnsSpecifiedDomainSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentPrivateDnsSpecifiedDomainSet(&sv.PrivateDnsSpecifiedDomains, nodeDecoder); err != nil {
+				return err
 			}
 
 		default:
@@ -88639,6 +88697,19 @@ func awsEc2query_deserializeDocumentEnableFastSnapshotRestoreStateErrorItem(v **
 				sv.AvailabilityZone = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("availabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("error", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentEnableFastSnapshotRestoreStateError(&sv.Error, nodeDecoder); err != nil {
@@ -88760,6 +88831,19 @@ func awsEc2query_deserializeDocumentEnableFastSnapshotRestoreSuccessItem(v **typ
 			{
 				xtv := string(val)
 				sv.AvailabilityZone = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("availabilityZoneId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AvailabilityZoneId = ptr.String(xtv)
 			}
 
 		case strings.EqualFold("disabledTime", t.Name.Local):
@@ -111773,6 +111857,12 @@ func awsEc2query_deserializeDocumentIpamScope(v **types.IpamScope, decoder smith
 				sv.Description = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("externalAuthorityConfiguration", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentIpamScopeExternalAuthorityConfiguration(&sv.ExternalAuthorityConfiguration, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("ipamArn", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -111901,6 +111991,68 @@ func awsEc2query_deserializeDocumentIpamScope(v **types.IpamScope, decoder smith
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentTagList(&sv.Tags, nodeDecoder); err != nil {
 				return err
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentIpamScopeExternalAuthorityConfiguration(v **types.IpamScopeExternalAuthorityConfiguration, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.IpamScopeExternalAuthorityConfiguration
+	if *v == nil {
+		sv = &types.IpamScopeExternalAuthorityConfiguration{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("externalResourceIdentifier", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ExternalResourceIdentifier = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("type", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.Type = types.IpamScopeExternalAuthorityType(xtv)
 			}
 
 		default:
@@ -130876,6 +131028,86 @@ func awsEc2query_deserializeDocumentPrivateDnsNameOptionsResponse(v **types.Priv
 	return nil
 }
 
+func awsEc2query_deserializeDocumentPrivateDnsSpecifiedDomainSet(v *[]string, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []string
+	if *v == nil {
+		sv = make([]string, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		memberDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		decoder = memberDecoder
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col string
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				col = xtv
+			}
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentPrivateDnsSpecifiedDomainSetUnwrapped(v *[]string, decoder smithyxml.NodeDecoder) error {
+	var sv []string
+	if *v == nil {
+		sv = make([]string, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv string
+		t := decoder.StartEl
+		_ = t
+		val, err := decoder.Value()
+		if err != nil {
+			return err
+		}
+		if val == nil {
+			break
+		}
+		{
+			xtv := string(val)
+			mv = xtv
+		}
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
 func awsEc2query_deserializeDocumentPrivateIpAddressSpecification(v **types.PrivateIpAddressSpecification, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
