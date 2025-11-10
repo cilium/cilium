@@ -876,6 +876,14 @@
      - base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key. Used if 'auto' is not enabled.
      - object
      - ``{"cert":"","key":""}``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.admin.cert`
+     - Deprecated, as secrets will always need to be created externally if ``auto`` is disabled.
+     - string
+     - ``""``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.admin.key`
+     - Deprecated, as secrets will always need to be created externally if ``auto`` is disabled.
+     - string
+     - ``""``
    * - :spelling:ignore:`clustermesh.apiserver.tls.authMode`
      - Configure the clustermesh authentication mode. Supported values: - legacy:     All clusters access remote clustermesh instances with the same               username (i.e., remote). The "remote" certificate must be               generated with CN=remote if provided manually. - migration:  Intermediate mode required to upgrade from legacy to cluster               (and vice versa) with no disruption. Specifically, it enables               the creation of the per-cluster usernames, while still using               the common one for authentication. The "remote" certificate must               be generated with CN=remote if provided manually (same as legacy). - cluster:    Each cluster accesses remote etcd instances with a username               depending on the local cluster name (i.e., remote-\ :raw-html-m2r:`<cluster-name>`\ ).               The "remote" certificate must be generated with CN=remote-\ :raw-html-m2r:`<cluster-name>`               if provided manually. Cluster mode is meaningful only when the same               CA is shared across all clusters part of the mesh.
      - string
@@ -893,21 +901,33 @@
      - int
      - ``1095``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.enabled`
-     - When set to true, automatically generate a CA and certificates to enable mTLS between clustermesh-apiserver and external workload instances. If set to false, the certs to be provided by setting appropriate values below.
+     - When set to true, automatically generate a CA and certificates to enable mTLS between clustermesh-apiserver and external workload instances.  When set to false you need to pre-create the following secrets: - clustermesh-apiserver-server-cert - clustermesh-apiserver-admin-cert - clustermesh-apiserver-remote-cert - clustermesh-apiserver-local-cert The above secret should at least contains the keys ``tls.crt`` and ``tls.key`` and optionally ``ca.crt`` if a CA bundle is not configured.
      - bool
      - ``true``
    * - :spelling:ignore:`clustermesh.apiserver.tls.enableSecrets`
-     - Allow users to provide their own certificates Users may need to provide their certificates using a mechanism that requires they provide their own secrets. This setting does not apply to any of the auto-generated mechanisms below, it only restricts the creation of secrets via the ``tls-provided`` templates.
-     - bool
+     - Allow users to provide their own certificates Users may need to provide their certificates using a mechanism that requires they provide their own secrets. This setting does not apply to any of the auto-generated mechanisms below, it only restricts the creation of secrets via the ``tls-provided`` templates. This option is deprecated as secrets are expected to be created externally when 'auto' is not enabled.
+     - deprecated
      - ``true``
    * - :spelling:ignore:`clustermesh.apiserver.tls.remote`
      - base64 encoded PEM values for the clustermesh-apiserver remote cluster certificate and private key. Used if 'auto' is not enabled.
      - object
      - ``{"cert":"","key":""}``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.remote.cert`
+     - Deprecated, as secrets will always need to be created externally if ``auto`` is disabled.
+     - string
+     - ``""``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.remote.key`
+     - Deprecated, as secrets will always need to be created externally if ``auto`` is disabled.
+     - string
+     - ``""``
    * - :spelling:ignore:`clustermesh.apiserver.tls.server`
      - base64 encoded PEM values for the clustermesh-apiserver server certificate and private key. Used if 'auto' is not enabled.
      - object
      - ``{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.server.cert`
+     - Deprecated, as secrets will always need to be created externally if ``auto`` is disabled.
+     - string
+     - ``""``
    * - :spelling:ignore:`clustermesh.apiserver.tls.server.extraDnsNames`
      - Extra DNS names added to certificate when it's auto generated
      - list
@@ -916,6 +936,10 @@
      - Extra IP addresses added to certificate when it's auto generated
      - list
      - ``[]``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.server.key`
+     - Deprecated, as secrets will always need to be created externally if ``auto`` is disabled.
+     - string
+     - ``""``
    * - :spelling:ignore:`clustermesh.apiserver.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
