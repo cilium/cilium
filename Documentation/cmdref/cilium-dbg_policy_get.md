@@ -5,7 +5,7 @@
 Display policy node information (deprecated)
 
 ```
-cilium-dbg policy get [<labels>] [flags]
+cilium-dbg policy get [flags]
 ```
 
 ### Options
