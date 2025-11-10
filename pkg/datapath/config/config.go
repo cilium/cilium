@@ -56,6 +56,10 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 
 	node.EnableConntrackAccounting = lnc.EnableConntrackAccounting
 
+	if lnc.KPRConfig.KubeProxyReplacement {
+		node.EnableNodeportAcceleration = option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled
+	}
+
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
 
 	node.HashInit4Seed = lnc.MaglevConfig.SeedJhash0
