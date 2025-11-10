@@ -148,29 +148,11 @@ Get the current agent configuration
 
     cilium-dbg config
 
-Policy management
------------------
-
-
-Importing a Cilium Network Policy
-
-.. code-block:: shell-session
-
-    cilium-dbg policy import my-policy.json
-
-
 Get list of all imported policy rules
 
 .. code-block:: shell-session
 
     cilium-dbg policy get
-
-Remove all policies
-
-.. code-block:: shell-session
-
-    cilium-dbg policy delete --all
-
 
 Monitoring
 ~~~~~~~~~~~
