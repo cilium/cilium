@@ -263,7 +263,7 @@ func TestSelectID(t *testing.T) {
 
 	// allocate all available IDs
 	for i := minID; i <= maxID; i++ {
-		id, val, unmaskedID := a.selectAvailableID()
+		id, val, unmaskedID := a.selectAvailableID(nil)
 		require.NotEqual(t, idpool.NoID, id)
 		require.Equal(t, id.String(), val)
 		require.Equal(t, unmaskedID, id)
@@ -273,7 +273,7 @@ func TestSelectID(t *testing.T) {
 	}
 
 	// we should be out of IDs
-	id, val, unmaskedID := a.selectAvailableID()
+	id, val, unmaskedID := a.selectAvailableID(nil)
 	require.Equal(t, idpool.ID(0), id)
 	require.Equal(t, unmaskedID, id)
 	require.Empty(t, val)
@@ -288,7 +288,7 @@ func TestPrefixMask(t *testing.T) {
 
 	// allocate all available IDs
 	for i := minID; i <= maxID; i++ {
-		id, val, unmaskedID := a.selectAvailableID()
+		id, val, unmaskedID := a.selectAvailableID(nil)
 		require.NotEqual(t, idpool.NoID, id)
 		require.Equal(t, idpool.ID(1), id>>16)
 		require.NotEqual(t, unmaskedID, id)

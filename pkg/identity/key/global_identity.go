@@ -6,6 +6,7 @@ package key
 import (
 	"maps"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/labelsfilter"
 
@@ -19,31 +20,61 @@ const (
 )
 
 // GlobalIdentity is the structure used to store an identity
+// Note: GlobalIdentity is immutable; use the mutator methods.
 type GlobalIdentity struct {
-	labels.LabelArray
+	labels labels.LabelArray
 
 	// metadata contains metadata that are stored for example by the backends.
 	metadata map[any]any
+
+	// memoized key
+	key atomic.Pointer[string]
+}
+
+func MakeGlobalIdentity(labels labels.LabelArray) *GlobalIdentity {
+	return &GlobalIdentity{
+		labels: labels,
+	}
+}
+
+func (gi *GlobalIdentity) Labels() labels.LabelArray {
+	return gi.labels
 }
 
 // GetKey encodes an Identity as string
 func (gi *GlobalIdentity) GetKey() string {
-	var str strings.Builder
-	for _, l := range gi.LabelArray {
-		str.Write(l.FormatForKVStore())
+	if key := gi.key.Load(); key != nil {
+		return *key
 	}
-	return str.String()
+
+	var buf strings.Builder
+	for _, l := range gi.labels {
+		buf.Write(l.FormatForKVStore())
+	}
+	key := buf.String()
+	gi.key.Store(&key)
+	return key
+}
+
+func (gi *GlobalIdentity) String() string {
+	return gi.labels.String()
+}
+
+// Equals compares keys without comparing metadata.
+func (gi *GlobalIdentity) Equals(i *GlobalIdentity) bool {
+	return gi.labels.Equals(i.labels)
 }
 
 // GetAsMap encodes a GlobalIdentity a map of keys to values. The keys will
 // include a source delimted by a ':'. This output is pareable by PutKeyFromMap.
 func (gi *GlobalIdentity) GetAsMap() map[string]string {
-	return gi.StringMap()
+	return gi.labels.StringMap()
 }
 
-// PutKey decodes an Identity from its string representation
+// PutKey decodes an Identity from its string representation.
+// This allocates a new identity.
 func (gi *GlobalIdentity) PutKey(v string) allocator.AllocatorKey {
-	return &GlobalIdentity{LabelArray: labels.NewLabelArrayFromSortedList(v)}
+	return MakeGlobalIdentity(labels.NewLabelArrayFromSortedList(v))
 }
 
 // PutKeyFromMap decodes an Identity from a map of key to value. Output
@@ -51,11 +82,12 @@ func (gi *GlobalIdentity) PutKey(v string) allocator.AllocatorKey {
 // Note: NewLabelArrayFromMap will parse the ':' separated label source from
 // the keys because the source parameter is ""
 func (gi *GlobalIdentity) PutKeyFromMap(v map[string]string) allocator.AllocatorKey {
-	return &GlobalIdentity{LabelArray: labels.Map2Labels(v, "").LabelArray()}
+	return MakeGlobalIdentity(labels.Map2Labels(v, "").LabelArray())
 }
 
 // PutValue puts metadata inside the global identity for the given 'key' with
 // the given 'value'.
+// Returns a copy.
 func (gi *GlobalIdentity) PutValue(key, value any) allocator.AllocatorKey {
 	newMap := map[any]any{}
 	if gi.metadata != nil {
@@ -63,8 +95,8 @@ func (gi *GlobalIdentity) PutValue(key, value any) allocator.AllocatorKey {
 	}
 	newMap[key] = value
 	return &GlobalIdentity{
-		LabelArray: gi.LabelArray,
-		metadata:   newMap,
+		labels:   gi.labels,
+		metadata: newMap,
 	}
 }
 
@@ -76,5 +108,5 @@ func (gi *GlobalIdentity) Value(key any) any {
 func GetCIDKeyFromLabels(allLabels map[string]string, source string) *GlobalIdentity {
 	lbs := labels.Map2Labels(allLabels, source)
 	idLabels, _ := labelsfilter.Filter(lbs)
-	return &GlobalIdentity{LabelArray: idLabels.LabelArray()}
+	return MakeGlobalIdentity(idLabels.LabelArray())
 }

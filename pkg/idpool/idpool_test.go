@@ -4,12 +4,18 @@
 package idpool
 
 import (
+	"bytes"
 	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+// make a simple seed, just the bottom byte repeated 32 times.
+func seed(i int) []byte {
+	return bytes.Repeat([]byte{byte(i)}, 32)
+}
 
 func TestLeaseAvailableID(t *testing.T) {
 	minID, maxID := 1, 5
@@ -41,7 +47,7 @@ func TestInsertRemoveIDs(t *testing.T) {
 		require.False(t, p.Remove(ID(i)))
 	}
 	// We should be out of IDs.
-	id := p.LeaseAvailableID()
+	id := p.LeaseAvailableID(nil)
 	require.Equal(t, NoID, id)
 
 	// Re-insert all IDs.
@@ -62,14 +68,14 @@ func TestInsertRemoveIDs(t *testing.T) {
 	actualIDs := make([]int, 0)
 	for i := minID; i <= maxID; i++ {
 		if i%2 == 0 {
-			id := p.LeaseAvailableID()
+			id := p.LeaseAvailableID(seed(i))
 			require.NotEqual(t, NoID, id)
 			actualIDs = append(actualIDs, int(id))
 			evenIDs = append(evenIDs, i)
 		}
 	}
 	// We should be out of IDs.
-	id = p.LeaseAvailableID()
+	id = p.LeaseAvailableID(seed(0))
 	require.Equal(t, NoID, id)
 
 	require.ElementsMatch(t, evenIDs, actualIDs)
@@ -81,11 +87,11 @@ func TestReleaseID(t *testing.T) {
 
 	// Lease all ids and release them.
 	for i := minID; i <= maxID; i++ {
-		id := p.LeaseAvailableID()
+		id := p.LeaseAvailableID(seed(i))
 		require.NotEqual(t, NoID, id)
 	}
 	// We should be out of IDs.
-	id := p.LeaseAvailableID()
+	id := p.LeaseAvailableID(seed(1))
 	require.Equal(t, NoID, id)
 
 	for i := minID; i <= maxID; i++ {
@@ -245,13 +251,13 @@ func leaseAllIDs(p *IDPool, minID int, maxID int, t *testing.T) {
 	expected := make([]int, 0)
 	actual := make([]int, 0)
 	for i := minID; i <= maxID; i++ {
-		id := p.LeaseAvailableID()
+		id := p.LeaseAvailableID(seed(i))
 		require.NotEqual(t, NoID, id)
 		actual = append(actual, int(id))
 		expected = append(expected, i)
 	}
 	// We should be out of IDs.
-	id := p.LeaseAvailableID()
+	id := p.LeaseAvailableID(seed(42))
 	require.Equal(t, NoID, id)
 
 	// Unique ids must have been leased.
@@ -259,7 +265,7 @@ func leaseAllIDs(p *IDPool, minID int, maxID int, t *testing.T) {
 }
 
 func BenchmarkRemoveIDs(b *testing.B) {
-	minID, maxID := 1, b.N
+	minID, maxID := 1, max(b.N, 2)
 	p := NewIDPool(ID(minID), ID(maxID))
 
 	b.ResetTimer()
@@ -269,27 +275,27 @@ func BenchmarkRemoveIDs(b *testing.B) {
 }
 
 func BenchmarkLeaseIDs(b *testing.B) {
-	minID, maxID := 1, b.N
+	minID, maxID := 1, max(b.N, 2)
 	p := NewIDPool(ID(minID), ID(maxID))
 
 	b.ResetTimer()
-	for i := 1; i <= b.N; i++ {
-		id := p.LeaseAvailableID()
+	for i := minID; i <= maxID; i++ {
+		id := p.LeaseAvailableID(seed(i))
 		require.True(b, p.Release(ID(id)))
 	}
 }
 
 func BenchmarkUseAndRelease(b *testing.B) {
-	minID, maxID := 1, b.N
+	minID, maxID := 1, max(b.N, 2)
 	p := NewIDPool(ID(minID), ID(maxID))
 
 	b.ResetTimer()
-	for i := 1; i <= b.N; i++ {
-		id := p.LeaseAvailableID()
+	for i := minID; i <= maxID; i++ {
+		id := p.LeaseAvailableID(seed(i))
 		require.True(b, p.Use(ID(id)))
 	}
 
-	for i := 1; i <= b.N; i++ {
+	for i := minID; i <= maxID; i++ {
 		require.True(b, p.Insert(ID(i)))
 	}
 }
@@ -331,5 +337,18 @@ func testAllocatedID(t *testing.T, nGoRoutines int) {
 		if p.Insert(id) != true {
 			t.Error("ID insertion failed")
 		}
+	}
+}
+
+// Test that the same seed gets the same sequence of IDs
+func TestLeaseIDSeeded(t *testing.T) {
+	minID, maxID := 101, 105
+	p1 := NewIDPool(ID(minID), ID(maxID))
+	p2 := NewIDPool(ID(minID), ID(maxID))
+
+	for i := minID; i <= maxID; i++ {
+		id1 := p1.LeaseAvailableID(seed(i))
+		id2 := p2.LeaseAvailableID(seed(i))
+		require.Equal(t, id1, id2)
 	}
 }

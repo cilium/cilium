@@ -72,7 +72,7 @@ func (f FakeHandler) OnUpsert(id idpool.ID, key allocator.AllocatorKey) { f.onUp
 func (f FakeHandler) OnDelete(id idpool.ID, key allocator.AllocatorKey) {}
 
 func getLabelsKey(rawMap map[string]string) allocator.AllocatorKey {
-	return &key.GlobalIdentity{LabelArray: labels.Map2Labels(rawMap, labels.LabelSourceK8s).LabelArray()}
+	return key.MakeGlobalIdentity(labels.Map2Labels(rawMap, labels.LabelSourceK8s).LabelArray())
 }
 
 func getLabelsMap(rawMap map[string]string) map[string]string {

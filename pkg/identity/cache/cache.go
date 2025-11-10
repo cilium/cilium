@@ -48,7 +48,7 @@ func (m *CachingIdentityAllocator) GetIdentityCache() identity.IdentityMap {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if val != nil {
 				if gi, ok := val.(*key.GlobalIdentity); ok {
-					cache[identity.NumericIdentity(id)] = gi.LabelArray
+					cache[identity.NumericIdentity(id)] = gi.Labels()
 				} else {
 					m.logger.Warn(
 						"Ignoring unknown identity type",
@@ -81,7 +81,7 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if gi, ok := val.(*key.GlobalIdentity); ok {
-				identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray)
+				identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.Labels())
 				identities = append(identities, identitymodel.CreateModel(identity))
 			}
 
@@ -129,7 +129,7 @@ func (w *identityWatcher) collectEvent(event allocator.AllocatorEvent) {
 			// 'deleted' so that collected events can be
 			// processed in any order.
 			delete(w.deleted, id)
-			w.added[id] = gi.LabelArray
+			w.added[id] = gi.Labels()
 		} else {
 			w.logger.Warn(
 				"collectEvent: Ignoring unknown identity type",
@@ -236,7 +236,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 	}
 
 	lblArray := lbls.LabelArray()
-	id, err := m.IdentityAllocator.GetIncludeRemoteCaches(ctx, &key.GlobalIdentity{LabelArray: lblArray})
+	id, err := m.IdentityAllocator.GetIncludeRemoteCaches(ctx, key.MakeGlobalIdentity(lblArray))
 	if err != nil {
 		return nil
 	}
@@ -286,7 +286,7 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id id
 	}
 
 	if gi, ok := allocatorKey.(*key.GlobalIdentity); ok {
-		return identity.NewIdentityFromLabelArray(id, gi.LabelArray)
+		return identity.NewIdentityFromLabelArray(id, gi.Labels())
 	}
 
 	return nil
