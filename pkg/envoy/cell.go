@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-	"runtime/pprof"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -198,10 +197,8 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 type versionCheckParams struct {
 	cell.In
 
-	Lifecycle        cell.Lifecycle
 	Logger           *slog.Logger
-	JobRegistry      job.Registry
-	Health           cell.Health
+	JobGroup         job.Group
 	EnvoyProxyConfig config.ProxyConfig
 	EnvoyAdminClient *EnvoyAdminClient
 }
@@ -217,18 +214,11 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 		adminClient:   params.EnvoyAdminClient,
 	}
 
-	jobGroup := params.JobRegistry.NewGroup(
-		params.Health,
-		params.Lifecycle,
-		job.WithLogger(params.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "envoy")),
-	)
-
 	// To prevent agent restarts in case the Envoy DaemonSet isn't ready yet,
 	// version check is performed periodically and any errors are logged
 	// and reported via health reporter.
 	var previousError error
-	jobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
+	params.JobGroup.Add(job.Timer("version-check", func(_ context.Context) error {
 		if err := checker.checkEnvoyVersion(); err != nil {
 			// We only log it as an error if it happens at least twice,
 			// as it is expected that during upgrade of Cilium, the Envoy version might differ
@@ -275,10 +265,9 @@ func newArtifactCopier(lifecycle cell.Lifecycle, logger *slog.Logger) *ArtifactC
 type syncerParams struct {
 	cell.In
 
-	Logger      *slog.Logger
-	Lifecycle   cell.Lifecycle
-	JobRegistry job.Registry
-	Health      cell.Health
+	Logger    *slog.Logger
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
 
 	K8sClientset client.Clientset
 
@@ -315,13 +304,6 @@ func registerSecretSyncer(params syncerParams) error {
 		return nil
 	}
 
-	jobGroup := params.JobRegistry.NewGroup(
-		params.Health,
-		params.Lifecycle,
-		job.WithLogger(params.Logger),
-		job.WithPprofLabels(pprof.Labels("cell", "envoy-secretsyncer")),
-	)
-
 	secretSyncerLogger := params.Logger.With(logfields.Controller, "secretSyncer")
 
 	secretSyncer := newSecretSyncer(secretSyncerLogger, params.XdsServer)
@@ -331,7 +313,7 @@ func registerSecretSyncer(params syncerParams) error {
 	)
 
 	for ns := range namespaces {
-		jobGroup.Add(job.Observer(
+		params.JobGroup.Add(job.Observer(
 			shortener.ShortenK8sResourceName(fmt.Sprintf("k8s-secrets-resource-events-%s", ns)),
 			secretSyncer.handleSecretEvent,
 			newK8sSecretResource(params.Lifecycle, params.K8sClientset, params.MetricsProvider, ns),
