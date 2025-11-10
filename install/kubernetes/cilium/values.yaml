@@ -3388,7 +3388,7 @@ clustermesh:
     #     # you have multiple IPs to access the Clustermesh API server.
     #     ips:
     #     - 172.18.255.201
-    #     # -- base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
+    #     # -- (deprecated) base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
     #     # These fields can (and should) be omitted in case the CA is shared across clusters. In that case, the
     #     # "remote" private key and certificate available in the local cluster are automatically used instead.
     #     tls:
@@ -3409,7 +3409,7 @@ clustermesh:
     #   # you have multiple IPs to access the Clustermesh API server.
     #   ips:
     #   - 172.18.255.201
-    #   # -- base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
+    #   # -- (deprecated) base64 encoded PEM values for the cluster client certificate, private key and certificate authority.
     #   # These fields can (and should) be omitted in case the CA is shared across clusters. In that case, the
     #   # "remote" private key and certificate available in the local cluster are automatically used instead.
     #   tls:
@@ -3735,12 +3735,14 @@ clustermesh:
       #               if provided manually. Cluster mode is meaningful only when the same
       #               CA is shared across all clusters part of the mesh.
       authMode: legacy
-      # -- Allow users to provide their own certificates
+      # -- (deprecated) Allow users to provide their own certificates
       # Users may need to provide their certificates using
       # a mechanism that requires they provide their own secrets.
       # This setting does not apply to any of the auto-generated
       # mechanisms below, it only restricts the creation of secrets
       # via the `tls-provided` templates.
+      # This option is deprecated as secrets are expected to be created
+      # externally when 'auto' is not enabled.
       enableSecrets: true
       # -- Configure automatic TLS certificates generation.
       # A Kubernetes CronJob is used the generate any
@@ -3749,7 +3751,14 @@ clustermesh:
       auto:
         # -- When set to true, automatically generate a CA and certificates to
         # enable mTLS between clustermesh-apiserver and external workload instances.
-        # If set to false, the certs to be provided by setting appropriate values below.
+        #
+        # When set to false you need to pre-create the following secrets:
+        # - clustermesh-apiserver-server-cert
+        # - clustermesh-apiserver-admin-cert
+        # - clustermesh-apiserver-remote-cert
+        # - clustermesh-apiserver-local-cert
+        # The above secret should at least contains the keys `tls.crt` and `tls.key`
+        # and optionally `ca.crt` if a CA bundle is not configured.
         enabled: true
         # Sets the method to auto-generate certificates. Supported values:
         # - helm:         This method uses Helm to generate all certificates.
@@ -3784,7 +3793,9 @@ clustermesh:
       # -- base64 encoded PEM values for the clustermesh-apiserver server certificate and private key.
       # Used if 'auto' is not enabled.
       server:
+        # -- Deprecated, as secrets will always need to be created externally if `auto` is disabled.
         cert: ""
+        # -- Deprecated, as secrets will always need to be created externally if `auto` is disabled.
         key: ""
         # -- Extra DNS names added to certificate when it's auto generated
         extraDnsNames: []
@@ -3793,12 +3804,16 @@ clustermesh:
       # -- base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key.
       # Used if 'auto' is not enabled.
       admin:
+        # -- Deprecated, as secrets will always need to be created externally if `auto` is disabled.
         cert: ""
+        # -- Deprecated, as secrets will always need to be created externally if `auto` is disabled.
         key: ""
       # -- base64 encoded PEM values for the clustermesh-apiserver remote cluster certificate and private key.
       # Used if 'auto' is not enabled.
       remote:
+        # -- Deprecated, as secrets will always need to be created externally if `auto` is disabled.
         cert: ""
+        # -- Deprecated, as secrets will always need to be created externally if `auto` is disabled.
         key: ""
     # clustermesh-apiserver Prometheus metrics configuration
     metrics:
