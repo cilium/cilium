@@ -24,7 +24,6 @@ DeleteFqdnCache       Deletes matching DNS lookups from the cache, optionally
                       restricted by DNS name. The removed IP data will no longer
                       be used in generated policies.
 DeleteIPAMIP          -
-DeletePolicy          Deprecated: will be removed in v1.19
 DeletePrefilter       -
 GetBGPPeers           Retrieves current operational state of BGP peers created by
                       Cilium BGP virtual router. This includes session state,
@@ -88,7 +87,6 @@ PatchPrefilter        -
 PostIPAM              -
 PostIPAMIP            -
 PutEndpointID         Creates a new endpoint
-PutPolicy             Deprecated: will be removed in v1.19
 ===================== ====================
 
 Cilium Agent Clusterwide Health API
