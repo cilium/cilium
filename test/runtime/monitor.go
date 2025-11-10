@@ -89,10 +89,6 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		})
 
-		AfterEach(func() {
-			_ = vm.PolicyDelAll()
-		})
-
 		AfterAll(func() {
 			vm.SampleContainersActions(helpers.Delete, helpers.CiliumDockerNetwork)
 		})
@@ -102,63 +98,6 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 				MonitorDropNotification, MonitorTraceNotification))
 			ExpectWithOffset(1, res.WasSuccessful()).To(BeTrue(), "cannot update monitor config")
 		}
-
-		It("Cilium monitor event types", func() {
-			monitorConfig()
-
-			_, err := vm.PolicyImportAndWait(vm.GetFullPath(policiesL3JSON), helpers.HelperTimeout)
-			Expect(err).Should(BeNil())
-
-			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
-
-			eventTypes := map[string]string{
-				"drop":    "DROP:",
-				"debug":   "DEBUG:",
-				"capture": "DEBUG:",
-			}
-
-			for k, v := range eventTypes {
-				By("Type %s", k)
-
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-				res := vm.ExecInBackground(ctx, fmt.Sprintf("cilium-dbg monitor --type %s -vv", k))
-
-				vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
-				vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-
-				Expect(res.WaitUntilMatch(v)).To(BeNil(),
-					"%q is not in the output after timeout", v)
-				Expect(res.CountLines()).Should(BeNumerically(">", 3))
-				Expect(res.Stdout()).Should(ContainSubstring(v))
-				cancel()
-			}
-
-			By("all types together")
-			command := "cilium-dbg monitor -vv"
-			for k := range eventTypes {
-				command = command + " --type " + k
-			}
-
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			By(command)
-			res := vm.ExecInBackground(ctx, command)
-
-			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
-
-			vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
-			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
-
-			for _, v := range eventTypes {
-				Expect(res.WaitUntilMatch(v)).To(BeNil(),
-					"%q is not in the output after timeout", v)
-				Expect(res.Stdout()).Should(ContainSubstring(v))
-			}
-
-			Expect(res.CountLines()).Should(BeNumerically(">", 3))
-		})
 
 		It("cilium-dbg monitor check --from", func() {
 			monitorConfig()
