@@ -12,5 +12,11 @@ var (
 )
 
 const (
-	fieldEniID = "eniID"
+	fieldEniID         = "eniID"
+	fieldStatusCode    = "statusCode"
+	fieldProto         = "proto"
+	fieldContentLength = "contentLength"
+	fieldHeader        = "header"
+	fieldBodyLength    = "bodyLength"
+	fieldBodyContent   = "bodyContent"
 )

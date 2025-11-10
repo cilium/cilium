@@ -9,6 +9,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"net/http"
 	"slices"
 
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -22,6 +23,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -215,9 +217,49 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.T
 	metadataInfo, err := m.metadataapi.GetInstanceMetadata(ctx)
 	if err != nil {
 		// when we can't retrieve the VPC ID from AWS metadata, we use the cached VPC ID
-		m.logger.Info("Unable to retrieve AWS instance metadata and will use cached VPC ID",
+		m.logger.Warn("Unable to retrieve AWS instance metadata and will use cached VPC ID",
 			logfields.VPCID, m.vpcID,
 			logfields.Error, err)
+
+		// Debug: Try to curl IMDS endpoint to check server response
+		m.logger.Info("DEBUG: Attempting to curl IMDS endpoint directly",
+			logfields.URL, "http://169.254.169.254/latest/meta-data/")
+
+		if resp, curlErr := http.Get("http://169.254.169.254/latest/meta-data/"); curlErr == nil {
+			defer resp.Body.Close()
+
+			// Print all response headers
+			m.logger.Info("DEBUG: IMDS HTTP response received",
+				fieldStatusCode, resp.StatusCode,
+				logfields.Status, resp.Status,
+				fieldProto, resp.Proto,
+				fieldContentLength, resp.ContentLength)
+
+			// Print all headers
+			for headerName, headerValues := range resp.Header {
+				for _, headerValue := range headerValues {
+					m.logger.Info("DEBUG: IMDS response header",
+						fieldHeader, headerName,
+						logfields.Value, headerValue)
+				}
+			}
+
+			// Read and print body
+			body, readErr := safeio.ReadAllLimit(resp.Body, safeio.MB)
+			if readErr == nil {
+				m.logger.Info("DEBUG: IMDS response body",
+					fieldBodyLength, len(body),
+					fieldBodyContent, string(body))
+			} else {
+				m.logger.Warn("DEBUG: Unable to read IMDS response body",
+					logfields.Error, readErr)
+			}
+		} else {
+			m.logger.Warn("DEBUG: Unable to reach IMDS endpoint",
+				logfields.URL, "http://169.254.169.254/latest/meta-data/",
+				logfields.Error, curlErr)
+		}
+
 		currentVpcID = m.vpcID
 	} else {
 		currentVpcID = metadataInfo.VPCID
