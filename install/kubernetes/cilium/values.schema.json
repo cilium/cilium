@@ -1400,17 +1400,6 @@
                   },
                   "type": "object"
                 },
-                "client": {
-                  "properties": {
-                    "cert": {
-                      "type": "string"
-                    },
-                    "key": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                },
                 "enableSecrets": {
                   "type": "boolean"
                 },
