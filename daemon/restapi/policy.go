@@ -51,7 +51,7 @@ type getPolicyHandler struct {
 }
 
 func (h *getPolicyHandler) Handle(params policyrest.GetPolicyParams) middleware.Responder {
-	ruleList, rev := h.Repo.Search(nil)
+	ruleList, rev := h.Repo.Search()
 
 	policy := &models.Policy{
 		Revision: int64(rev),
