@@ -20,6 +20,7 @@ triggers:
     - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
     - tests-e2e-upgrade.yaml
+    - tests-with-extra-args.yaml
     - hubble-cli-integration-test.yaml
   /ci-aks:
     workflows:
@@ -40,6 +41,9 @@ triggers:
   /ci-e2e-upgrade:
     workflows:
     - tests-e2e-upgrade.yaml
+  /ci-extra-args:
+    workflows:
+    - tests-with-extra-args.yaml
   /ci-ipsec-upgrade:
     workflows:
     - tests-ipsec-upgrade.yaml
@@ -159,6 +163,8 @@ workflows:
   tests-e2e-upgrade.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   tests-ipsec-upgrade.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  tests-with-extra-args.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   hubble-cli-integration-test.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
