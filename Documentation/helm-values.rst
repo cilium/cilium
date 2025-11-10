@@ -2893,7 +2893,7 @@
      - string
      - ``"cilium"``
    * - :spelling:ignore:`namespaceOverride`
-     - namespaceOverride allows to override the destination namespace for Cilium resources. This property allows to use Cilium as part of an Umbrella Chart with different targets.
+     - namespaceOverride allows to override the destination namespace for Cilium resources.
      - string
      - ``""``
    * - :spelling:ignore:`nat.mapStatsEntries`
