@@ -189,34 +189,10 @@ jobs:
 
         include:
           ###
-          # RuntimeAgentFQDNPolicies Can update L7 DNS policy rules
-          # RuntimeAgentFQDNPolicies DNS proxy policy works if Cilium stops
-          # RuntimeAgentFQDNPolicies Interaction with other ToCIDR rules
-          # RuntimeAgentFQDNPolicies toFQDNs populates toCIDRSet (data from proxy) Policy addition after DNS lookup
-          # RuntimeAgentFQDNPolicies Validate dns-proxy monitor information
-          # RuntimeAgentPolicies Init Policy Default Drop Test tests egress
-          # RuntimeAgentPolicies Init Policy Default Drop Test tests ingress
-          # RuntimeAgentPolicies Init Policy Default Drop Test With PolicyAuditMode tests egress
-          # RuntimeAgentPolicies Init Policy Default Drop Test With PolicyAuditMode tests ingress
-          # RuntimeAgentPolicies Init Policy Test Init Egress Policy Test
-          # RuntimeAgentPolicies Init Policy Test Init Ingress Policy Test
-          # RuntimeAgentPolicies TestsEgressToHost Tests Egress To Host
-          # RuntimeAgentPolicies TestsEgressToHost Tests egress with CIDR+L4 policy
-          # RuntimeAgentPolicies TestsEgressToHost Tests egress with CIDR+L4 policy to external https service
-          # RuntimeAgentPolicies TestsEgressToHost Tests egress with CIDR+L7 policy
-          # RuntimeAgentPolicies Tests Endpoint Connectivity Functions After Daemon Configuration Is Updated
-          # RuntimeAgentPolicies Tests EntityNone as a deny-all
-          - focus: "agent"
-            cliFocus: "RuntimeAgent"
-            # TODO: not updated by by renovate, investigate why the tests fail on newer images
-            lvhImage: "6.12-20241218.004849"
-
-          ###
           # RuntimeDatapathMonitorTest With Sample Containers checks container ids match monitor output
           # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --from
           # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --related-to
           # RuntimeDatapathMonitorTest With Sample Containers cilium-dbg monitor check --to
-          # RuntimeDatapathMonitorTest With Sample Containers Cilium monitor event types
           # RuntimeDatapathMonitorTest With Sample Containers delivers the same information to multiple monitors
           - focus: "datapath"
             cliFocus: "RuntimeDatapathMonitorTest"

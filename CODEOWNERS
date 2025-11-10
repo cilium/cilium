@@ -679,14 +679,12 @@ Makefile* @cilium/build
 # Policy tests
 /test/k8s/chaos.go @cilium/sig-policy
 /test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
-/test/runtime/net_policies.go @cilium/sig-policy @cilium/ci-structure
 # Hubble/monitoring tests
 /test/k8s/hubble.go @cilium/sig-hubble @cilium/ci-structure
 /test/runtime/monitor.go @cilium/sig-hubble @cilium/ci-structure
 # L7 proxy tests
 /test/k8s/fqdn.go @cilium/fqdn @cilium/ci-structure
 /test/k8s/kafka_policies.go @cilium/envoy @cilium/ci-structure
-/test/runtime/fqdn.go @cilium/fqdn @cilium/ci-structure
 # BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
