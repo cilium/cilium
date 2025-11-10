@@ -1957,11 +1957,6 @@ func nodeIpsetNATCmds(allocRange string, ipset string, masqueradeInterfaces []st
 		"-j", "ACCEPT",
 	}
 
-	if len(masqueradeInterfaces) == 0 {
-		cmd := append(preArgs, "-s", allocRange)
-		return [][]string{append(cmd, postArgs...)}
-	}
-
 	// If MasqueradeInterfaces is set, we need to mirror base condition of the
 	// "cilium masquerade non-cluster" rule below, as the allocRange might not
 	// be valid in such setups (e.g. in ENI mode).
