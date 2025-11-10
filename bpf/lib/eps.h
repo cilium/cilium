@@ -101,8 +101,23 @@ struct remote_endpoint_info {
 			flag_has_tunnel_ep:1,
 			flag_ipv6_tunnel_ep:1,
 			flag_remote_cluster:1,
-			pad2:4;
+			flag_null_route:1,
+			pad2:3;
 };
+
+static __always_inline __maybe_unused bool
+ip4_remote_endpoint_is_null_route(const struct remote_endpoint_info *info)
+{
+	return unlikely(info->flag_null_route &&
+			info->sec_identity == WORLD_IPV4_ID);
+}
+
+static __always_inline __maybe_unused bool
+ip6_remote_endpoint_is_null_route(const struct remote_endpoint_info *info)
+{
+	return unlikely(info->flag_null_route &&
+			info->sec_identity == WORLD_IPV6_ID);
+}
 
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;

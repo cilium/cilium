@@ -122,6 +122,12 @@ type EndpointFlags struct {
 	// It's always unset when clustermesh is disabled or for pods.
 	flagRemoteCluster bool
 
+	// flagNullRoute is set when it's preferential that traffic towards
+	// an IP or CIDR should be dropped in the datapath. This can be used to
+	// facilitate dropping of unknown transport protocols to avoid routing
+	// loops.
+	flagNullRoute bool
+
 	// Note: if you add any more flags here, be sure to update (*prefixInfo).flatten()
 	// to merge them across different resources.
 }
@@ -136,6 +142,11 @@ func (e *EndpointFlags) SetRemoteCluster(remote bool) {
 	e.flagRemoteCluster = remote
 }
 
+func (e *EndpointFlags) SetNullRoute(nullRoute bool) {
+	e.isInit = true
+	e.flagNullRoute = nullRoute
+}
+
 func (e EndpointFlags) IsValid() bool {
 	return e.isInit
 }
@@ -145,6 +156,7 @@ func (e EndpointFlags) IsValid() bool {
 const (
 	FlagSkipTunnel    uint8 = 1 << iota
 	FlagRemoteCluster uint8 = 1 << 3
+	FlagNullRoute     uint8 = 1 << 4
 )
 
 func (e EndpointFlags) Uint8() uint8 {
@@ -154,6 +166,9 @@ func (e EndpointFlags) Uint8() uint8 {
 	}
 	if e.flagRemoteCluster {
 		flags |= FlagRemoteCluster
+	}
+	if e.flagNullRoute {
+		flags |= FlagNullRoute
 	}
 	return flags
 }
