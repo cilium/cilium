@@ -559,11 +559,6 @@ paths:
       deprecated: true
       tags:
       - policy
-      parameters:
-      - name: labels
-        in: body
-        schema:
-          "$ref": "#/definitions/Labels"
       responses:
         '200':
           description: Success

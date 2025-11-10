@@ -11,8 +11,8 @@ import (
 
 // PolicyGet returns policy rules
 // Deprecated, to be removed in v1.19
-func (c *Client) PolicyGet(labels []string) (*models.Policy, error) {
-	params := policy.NewGetPolicyParams().WithLabels(labels).WithTimeout(api.ClientTimeout)
+func (c *Client) PolicyGet() (*models.Policy, error) {
+	params := policy.NewGetPolicyParams().WithTimeout(api.ClientTimeout)
 	resp, err := c.Policy.GetPolicy(params)
 	if err != nil {
 		return nil, Hint(err)
