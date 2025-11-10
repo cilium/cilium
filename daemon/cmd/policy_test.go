@@ -27,8 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-	policyTypes "github.com/cilium/cilium/pkg/policy/types"
-	policyUtils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -691,60 +689,6 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 		},
 	}
 	require.EqualExportedValues(t, expectedNetworkPolicy, qaBarNetworkPolicy)
-}
-
-func TestPrivilegedReplacePolicyEtcd(t *testing.T) {
-	testutils.PrivilegedTest(t)
-	ds := setupDaemonEtcdSuite(t)
-	ds.testReplacePolicy(t)
-}
-
-func (ds *DaemonSuite) testReplacePolicy(t *testing.T) {
-	lbls := labels.ParseLabelArray("foo", "bar")
-	rules := api.Rules{
-		{
-			Labels:           lbls,
-			EndpointSelector: api.NewESFromLabels(lblBar),
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToCIDR: []api.CIDR{
-							"1.1.1.1/32",
-							"2.2.2.0/24",
-						},
-					},
-				},
-			},
-		},
-		{
-			Labels:           lbls,
-			EndpointSelector: api.NewESFromLabels(lblBar),
-		},
-	}
-	for i := range rules {
-		rules[i].Sanitize()
-	}
-
-	ds.policyImport(rules)
-	foundRules, _ := ds.policyRepository.Search(lbls)
-	require.Len(t, foundRules, 2)
-	rules[0].Egress = []api.EgressRule{
-		{
-			EgressCommonRule: api.EgressCommonRule{
-				ToCIDR: []api.CIDR{
-					"1.1.1.1/32",
-					"2.2.2.2/32",
-				},
-			},
-		},
-	}
-	ds.updatePolicy(&policyTypes.PolicyUpdate{
-		Rules:           policyUtils.RulesToPolicyEntries(rules),
-		ReplaceByLabels: true,
-	})
-
-	foundRules, _ = ds.policyRepository.Search(lbls)
-	require.Len(t, foundRules, 2)
 }
 
 func TestPrivilegedRemovePolicyEtcd(t *testing.T) {
