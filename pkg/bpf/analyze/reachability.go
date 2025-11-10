@@ -360,6 +360,14 @@ func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error 
 	}
 	r.l.Set(b.id, true)
 
+	// Visit all bpf2bpf callees of this block since they are always reachable, as
+	// references always appear before the block's final jump instruction.
+	for _, callee := range b.calls {
+		if err := r.visitBlock(callee, vars); err != nil {
+			return fmt.Errorf("visiting callee %d: %w", callee.id, err)
+		}
+	}
+
 	bt := b.backtrack(r.insns)
 
 	branch := findBranch(bt)
