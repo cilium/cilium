@@ -113,7 +113,7 @@ func preflightPoller() {
 // different combination of names, the IPs set per name will reflects IPs that
 // actuall belong to other names also seen in the toFQDNs section of that rule.
 func getDNSMappings() (DNSData map[string][]netip.Addr, err error) {
-	policy, err := client.PolicyGet(nil)
+	policy, err := client.PolicyGet()
 	if err != nil {
 		return nil, err
 	}

@@ -1280,15 +1280,6 @@ func init() {
         ],
         "summary": "Retrieve entire policy tree",
         "deprecated": true,
-        "parameters": [
-          {
-            "name": "labels",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/Labels"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Success",
@@ -6530,15 +6521,6 @@ func init() {
         ],
         "summary": "Retrieve entire policy tree",
         "deprecated": true,
-        "parameters": [
-          {
-            "name": "labels",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/Labels"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Success",
