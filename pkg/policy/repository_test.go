@@ -57,14 +57,14 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	fooEgressRule1Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule1", labels.LabelSourceAny)
 	fooEgressRule2Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule2", labels.LabelSourceAny)
 	combinedLabel := labels.NewLabel(k8sConst.PolicyLabelName, "combined", labels.LabelSourceAny)
+	fooIngressRule1Resource := ipcachetypes.ResourceID("fooIngressRule1Resource")
+	fooIngressRule2Resource := ipcachetypes.ResourceID("fooIngressRule2Resource")
+	fooEgressRule1Resource := ipcachetypes.ResourceID("fooEgressRule1Resource")
+	fooEgressRule2Resource := ipcachetypes.ResourceID("fooEgressRule2Resource")
+	combinedResource := ipcachetypes.ResourceID("combinedResource")
 	initIdentity := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 
-	// lal takes a single label and returns a []labels.LabelArray containing only that label
-	lal := func(lbl labels.Label) []labels.LabelArray {
-		return []labels.LabelArray{{lbl}}
-	}
-
-	fooIngressRule1 := policytypes.PolicyEntry{
+	fooIngressRule1 := &policytypes.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
@@ -76,7 +76,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 		},
 	}
 
-	fooIngressRule2 := policytypes.PolicyEntry{
+	fooIngressRule2 := &policytypes.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
@@ -88,7 +88,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 		},
 	}
 
-	fooEgressRule1 := policytypes.PolicyEntry{
+	fooEgressRule1 := &policytypes.PolicyEntry{
 		Ingress:     false,
 		DefaultDeny: true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
@@ -100,7 +100,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 		},
 	}
 
-	fooEgressRule2 := policytypes.PolicyEntry{
+	fooEgressRule2 := &policytypes.PolicyEntry{
 		Ingress:     false,
 		DefaultDeny: true,
 		Subject:     api.NewESFromLabels(fooSelectLabel),
@@ -141,29 +141,26 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, "egress policy enforcement should not apply since no rules are in repository")
 	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
-	_, _, err := repo.mustAddPolicyEntry(fooIngressRule1)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	repo.ReplaceByResource([]*policytypes.PolicyEntry{fooIngressRule1}, fooIngressRule1Resource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
-	require.Equal(t, fooIngressRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooIngressRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 
-	_, _, err = repo.mustAddPolicyEntry(fooIngressRule2)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	repo.ReplaceByResource([]*policytypes.PolicyEntry{fooIngressRule2}, fooIngressRule2Resource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
-	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), policytypes.PolicyEntries{&fooIngressRule1, &fooIngressRule2})
+	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), policytypes.PolicyEntries{fooIngressRule1, fooIngressRule2})
 
-	_, _, numDeleted := repo.ReplaceByLabels(nil, lal(fooIngressRule1Label))
+	_, _, numDeleted := repo.ReplaceByResource(nil, fooIngressRule1Resource)
 	require.Equal(t, 1, numDeleted)
-	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
-	require.Equal(t, fooIngressRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooIngressRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooIngressRule2Label))
+	_, _, numDeleted = repo.ReplaceByResource(nil, fooIngressRule2Resource)
 	require.Equal(t, 1, numDeleted)
 
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
@@ -171,36 +168,32 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, "egress policy enforcement should not apply since no rules are in repository")
 	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
-	_, _, err = repo.mustAddPolicyEntry(fooEgressRule1)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	repo.ReplaceByResource([]*policytypes.PolicyEntry{fooEgressRule1}, fooEgressRule1Resource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, "ingress policy enforcement should not apply since no ingress rules select")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
-	require.Equal(t, fooEgressRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
-	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressRule1Label))
+	require.Equal(t, *fooEgressRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	repo.ReplaceByResource(nil, fooEgressRule1Resource)
 	require.Equal(t, 1, numDeleted)
 
-	_, _, err = repo.mustAddPolicyEntry(fooEgressRule2)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	repo.ReplaceByResource([]*policytypes.PolicyEntry{fooEgressRule2}, fooEgressRule2Resource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, "ingress policy enforcement should not apply since no ingress rules select")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
-	require.Equal(t, fooEgressRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooEgressRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressRule2Label))
+	_, _, numDeleted = repo.ReplaceByResource(nil, fooEgressRule2Resource)
 	require.Equal(t, 1, numDeleted)
 
-	_, _ = repo.MustAddPolicyEntries(combinedRule)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	repo.ReplaceByResource(combinedRule, combinedResource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules selects")
 	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), combinedRule, "returned matching rules did not match")
-	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(combinedLabel))
+	_, _, numDeleted = repo.ReplaceByResource(nil, combinedResource)
 	require.Equal(t, 2, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
-	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules selects")
@@ -234,44 +227,6 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	ingress, egress, _, _, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	require.False(t, ingress)
 	require.False(t, egress)
-}
-
-func BenchmarkParseLabel(b *testing.B) {
-	td := newTestData(hivetest.Logger(b))
-	repo := td.repo
-
-	var err error
-	var cntAdd, cntFound int
-
-	lbls := make([]labels.LabelArray, 100)
-	for i := range 100 {
-		I := fmt.Sprintf("%d", i)
-		lbls[i] = labels.LabelArray{labels.NewLabel("tag3", I, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)}
-	}
-	for b.Loop() {
-		for j := range 100 {
-			J := fmt.Sprintf("%d", j)
-			_, _, err = repo.mustAddPolicyEntry(policytypes.PolicyEntry{
-				Subject: api.NewESFromLabels(labels.NewLabel("foo", J, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)),
-				Labels: labels.LabelArray{
-					labels.ParseLabel("k8s:tag1"),
-					labels.NewLabel("namespace", "default", labels.LabelSourceK8s),
-					labels.NewLabel("tag3", J, labels.LabelSourceK8s),
-				},
-			})
-			if err == nil {
-				cntAdd++
-			}
-		}
-
-		repo.mutex.RLock()
-		for j := range 100 {
-			cntFound += len(repo.searchRLocked(lbls[j]))
-		}
-		repo.mutex.RUnlock()
-	}
-	b.Log("Added: ", cntAdd)
-	b.Log("found: ", cntFound)
 }
 
 func TestWildcardL3RulesIngress(t *testing.T) {
@@ -1357,14 +1312,6 @@ func TestIterate(t *testing.T) {
 	repo.Iterate(countEgressRules)
 
 	require.Equal(t, numRules-numModified, numWithEgress)
-
-	_, _, numDeleted := repo.ReplaceByLabels(nil, []labels.LabelArray{{lbls[0]}})
-	require.Equal(t, 1, numDeleted)
-
-	numWithEgress = 0
-	repo.Iterate(countEgressRules)
-
-	require.Equal(t, numRules-numModified-numDeleted, numWithEgress)
 }
 
 // TestDefaultAllow covers the defaulting logic in determining an identity's default rule
@@ -1629,115 +1576,4 @@ func TestReplaceByResource(t *testing.T) {
 	assert.Empty(t, repo.rulesByResource)
 	assert.Empty(t, sc.selectors)
 	assert.Equal(t, 2, oldRuleCnt)
-}
-
-func TestReplaceByLabels(t *testing.T) {
-	// don't use the full testdata() here, since we want to watch
-	// selectorcache changes carefully
-	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
-	sc := testNewSelectorCache(hivetest.Logger(t), nil)
-	repo.selectorCache = sc
-	assert.Empty(t, sc.selectors)
-
-	// create 10 rules, each with a subject selector that selects one identity.
-
-	numRules := 10
-	rules := make(policytypes.PolicyEntries, 0, numRules)
-	ids := identity.IdentityMap{}
-	ruleLabels := make([]labels.LabelArray, 0, numRules)
-	// share the dest selector
-	destSelector := api.NewESFromLabels(labels.NewLabel("peer", "pod", "k8s"))
-	for i := range numRules {
-		it := fmt.Sprintf("num-%d", i)
-		ids[identity.NumericIdentity(i+100)] = labels.LabelArray{labels.Label{
-			Source: labels.LabelSourceK8s,
-			Key:    "subject-pod",
-			Value:  it,
-		}}
-		epSelector := api.NewESFromLabels(
-			labels.NewLabel(
-				"subject-pod",
-				it,
-				labels.LabelSourceK8s,
-			),
-		)
-		lbl := labels.NewLabel("policy-label", it, labels.LabelSourceK8s)
-		rule := &policytypes.PolicyEntry{
-			Subject: epSelector,
-			Labels:  labels.LabelArray{lbl},
-			L3: policytypes.PeerSelectorSlice{
-				destSelector,
-			},
-		}
-		rules = append(rules, rule)
-		ruleLabels = append(ruleLabels, rule.Labels)
-	}
-	sc.UpdateIdentities(ids, nil, &sync.WaitGroup{})
-
-	rulesMatch := func(s ruleSlice, rs policytypes.PolicyEntries) {
-		t.Helper()
-		ss := make(policytypes.PolicyEntries, 0, len(s))
-		for _, rule := range s {
-			ss = append(ss, &rule.PolicyEntry)
-		}
-		assert.ElementsMatch(t, ss, rs)
-	}
-	_ = rulesMatch
-	toSlice := func(m map[ruleKey]*rule) ruleSlice {
-		out := ruleSlice{}
-		for _, v := range m {
-			out = append(out, v)
-		}
-		return out
-	}
-	_ = toSlice
-
-	affectedIDs, rev, oldRuleCnt := repo.ReplaceByLabels(rules[0:1], ruleLabels[0:1])
-	assert.ElementsMatch(t, []identity.NumericIdentity{100}, affectedIDs.AsSlice())
-	assert.EqualValues(t, 2, rev)
-	assert.Equal(t, 0, oldRuleCnt)
-
-	// check basic bookkeeping
-	assert.Len(t, repo.rules, 1)
-	assert.Len(t, sc.selectors, 1)
-
-	// Replace rule 0 with rule 1
-	affectedIDs, rev, oldRuleCnt = repo.ReplaceByLabels(rules[1:2], ruleLabels[0:1])
-	assert.ElementsMatch(t, []identity.NumericIdentity{100, 101}, affectedIDs.AsSlice())
-	assert.EqualValues(t, 3, rev)
-	assert.Equal(t, 1, oldRuleCnt)
-
-	// check basic bookkeeping
-	assert.Len(t, repo.rules, 1)
-	assert.Len(t, sc.selectors, 1)
-
-	// Add rules 2, 3
-	affectedIDs, rev, oldRuleCnt = repo.ReplaceByLabels(rules[2:4], ruleLabels[2:4])
-	assert.ElementsMatch(t, []identity.NumericIdentity{102, 103}, affectedIDs.AsSlice())
-	assert.EqualValues(t, 4, rev)
-	assert.Equal(t, 0, oldRuleCnt)
-
-	// check basic bookkeeping
-	assert.Len(t, repo.rules, 3)
-	assert.Len(t, sc.selectors, 3)
-
-	// Delete rules 2, 3
-	affectedIDs, rev, oldRuleCnt = repo.ReplaceByLabels(nil, ruleLabels[2:4])
-	assert.ElementsMatch(t, []identity.NumericIdentity{102, 103}, affectedIDs.AsSlice())
-	assert.EqualValues(t, 5, rev)
-	assert.Equal(t, 2, oldRuleCnt)
-
-	// check basic bookkeeping
-	assert.Len(t, repo.rules, 1)
-	assert.Len(t, sc.selectors, 1)
-
-	// delete rules 2, 3 again
-	affectedIDs, _, oldRuleCnt = repo.ReplaceByLabels(nil, ruleLabels[2:4])
-	assert.ElementsMatch(t, []identity.NumericIdentity{}, affectedIDs.AsSlice())
-	assert.Equal(t, 0, oldRuleCnt)
-
-	// check basic bookkeeping
-	assert.Len(t, repo.rules, 1)
-	assert.Len(t, sc.selectors, 1)
-
 }
