@@ -7,7 +7,6 @@ import (
 	"time"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -20,14 +19,6 @@ type PolicyUpdate struct {
 	// Resource provides the object ID for the underlying object that backs
 	// this information from 'source'.
 	Resource ipcacheTypes.ResourceID
-
-	// Replace if true indicates that existing rules with identical labels should be replaced,
-	// and that the set of labels should be taken from the rules.
-	ReplaceByLabels bool
-
-	// ReplaceWithLabels, if present, indicates that existing rules with the
-	// given LabelArray should be deleted.
-	ReplaceWithLabels labels.LabelArray
 
 	// The source of this policy, used for prefix allocation
 	Source source.Source
