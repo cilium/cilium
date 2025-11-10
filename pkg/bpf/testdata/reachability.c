@@ -14,6 +14,20 @@ DECLARE_CONFIG(__s64, sym_e, "Make sym_e reachable if value is negative")
 DECLARE_CONFIG(__s8, sym_f, "Make sym_f reachable if value is negative, testing sign extension")
 DECLARE_CONFIG(__s16, sym_g, "Make sym_g reachable if value is negative, testing sign extension")
 DECLARE_CONFIG(__s32, sym_h, "Make sym_h reachable if value is negative, testing sign extension")
+DECLARE_CONFIG(bool, sym_i, "Make sym_i reachable")
+DECLARE_CONFIG(bool, sym_j, "Make sym_j reachable")
+
+__noinline
+void func_i() {
+        SYMBOL(sym_i);
+}
+
+__noinline
+void func_j() {
+        if CONFIG(sym_j) {
+                SYMBOL(sym_j);
+        }
+}
 
 __section("tc")
 static int entry() {
@@ -40,6 +54,11 @@ static int entry() {
 
         if (CONFIG(sym_h) < 0)
                 SYMBOL(sym_h);
+
+        if (CONFIG(sym_i))
+                func_i();
+
+        func_j();
 
         return 0;
 }

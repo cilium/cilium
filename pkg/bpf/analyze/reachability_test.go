@@ -89,6 +89,8 @@ func TestReachabilitySimple(t *testing.T) {
 		SymF    *ebpf.VariableSpec `ebpf:"__config_sym_f"`
 		SymG    *ebpf.VariableSpec `ebpf:"__config_sym_g"`
 		SymH    *ebpf.VariableSpec `ebpf:"__config_sym_h"`
+		SymI    *ebpf.VariableSpec `ebpf:"__config_sym_i"`
+		SymJ    *ebpf.VariableSpec `ebpf:"__config_sym_j"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
 	insns := obj.Program.Instructions
@@ -120,6 +122,8 @@ func TestReachabilitySimple(t *testing.T) {
 	require.NoError(t, obj.SymF.Set(int8(-1)))
 	require.NoError(t, obj.SymG.Set(int16(-1)))
 	require.NoError(t, obj.SymH.Set(int32(-1)))
+	require.NoError(t, obj.SymI.Set(true))
+	require.NoError(t, obj.SymJ.Set(true))
 
 	rr, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
@@ -189,7 +193,7 @@ func TestReachabilityLongJump(t *testing.T) {
 	const offset = 0
 	insns := asm.Instructions{
 		// Load the pointer to the config variable into a register
-		asm.LoadMapValue(asm.R0, 0, offset).WithReference("map"),
+		asm.LoadMapValue(asm.R0, 0, offset).WithReference("map").WithSymbol("prog"),
 		// Dereference the pointer, getting the actual config value
 		asm.LoadMem(asm.R1, asm.R0, 0, asm.Word),
 		// If `a_enabled` is 0, skip over the long jump
