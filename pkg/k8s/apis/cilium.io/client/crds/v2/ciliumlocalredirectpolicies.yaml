@@ -116,6 +116,16 @@ spec:
                         type: object
                     type: object
                     x-kubernetes-map-type: atomic
+                  toIP:
+                    description: |-
+                      ToIP is an IP address used to override the Pod IP.
+                      This is useful when redirecting pod traffic to a DaemonSet running
+                      in the host network namespace, listening on the loopback interface or
+                      other interfaces for which Cilium cannot obtain the IP from Kubernetes.
+                    type: string
+                    x-kubernetes-validations:
+                    - message: toIP must be a valid IP address
+                      rule: isIP(self)
                   toPorts:
                     description: |-
                       ToPorts is a list of L4 ports with protocol of node local pod(s) where traffic

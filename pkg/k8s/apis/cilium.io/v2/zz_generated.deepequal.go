@@ -2421,6 +2421,10 @@ func (in *RedirectBackend) DeepEqual(other *RedirectBackend) bool {
 		}
 	}
 
+	if in.ToIP != other.ToIP {
+		return false
+	}
+
 	return true
 }
 

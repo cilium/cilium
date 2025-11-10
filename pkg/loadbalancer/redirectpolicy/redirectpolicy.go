@@ -6,6 +6,7 @@ package redirectpolicy
 import (
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -101,6 +102,11 @@ type LocalRedirectPolicy struct {
 	ServiceID lb.ServiceName
 	// BackendSelector is an endpoint selector generated from the parsed policy selector
 	BackendSelector *policytypes.LabelSelector
+	// BackendIP is an IP address used to override the Pod IP.
+	// This is useful when redirecting pod traffic to a DaemonSet running
+	// in the host network namespace, listening on the loopback interface or
+	// other interfaces for which Cilium cannot obtain the IP from Kubernetes.
+	BackendIP netip.Addr
 	// BackendPorts is a slice of backend port and protocol along with the port name
 	BackendPorts []bePortInfo
 	// BackendPortsByPortName is a map indexed by port name with the value as
@@ -192,6 +198,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		feMappings     []feMapping
 		bePorts        []bePortInfo
 		bePortsMap     = make(map[lb.FEPortName]bePortInfo)
+		backendIP      netip.Addr
 	)
 
 	// Parse frontend config
@@ -303,6 +310,14 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 
 		}
 	}
+	// parse ToIP
+	if redirectTo.ToIP != "" {
+		ip, err := netip.ParseAddr(redirectTo.ToIP)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ToIP: %s", redirectTo.ToIP)
+		}
+		backendIP = ip
+	}
 	// When a single port is specified in the LRP frontend, the protocol for frontend and
 	// backend must match.
 	if len(feMappings) == 1 {
@@ -322,6 +337,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		BackendSelector:         sel,
 		BackendPorts:            bePorts,
 		BackendPortsByPortName:  bePortsMap,
+		BackendIP:               backendIP,
 		LRPType:                 lrpType,
 		FrontendType:            frontendType,
 		SkipRedirectFromBackend: spec.SkipRedirectFromBackend,
