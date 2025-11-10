@@ -2399,6 +2399,10 @@ func (in *RedirectBackend) DeepEqual(other *RedirectBackend) bool {
 		}
 	}
 
+	if in.OverrideIP != other.OverrideIP {
+		return false
+	}
+
 	return true
 }
 
