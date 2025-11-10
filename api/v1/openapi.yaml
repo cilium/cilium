@@ -571,69 +571,6 @@ paths:
             "$ref": "#/definitions/Policy"
         '404':
           description: No policy rules found
-    put:
-      summary: Create or update a policy (sub)tree
-      description: "Deprecated: will be removed in v1.19"
-      deprecated: true
-      tags:
-      - policy
-      parameters:
-      - "$ref": "#/parameters/policy-rules"
-      - "$ref": "#/parameters/policy-replace"
-      - "$ref": "#/parameters/policy-replace-with-labels"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/Policy"
-        '400':
-          description: Invalid policy
-          x-go-name: InvalidPolicy
-          schema:
-            "$ref": "#/definitions/Error"
-        '403':
-          description: Forbidden
-        '460':
-          description: Invalid path
-          x-go-name: InvalidPath
-          schema:
-            "$ref": "#/definitions/Error"
-        '500':
-          description: Policy import failed
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
-    delete:
-      summary: Delete a policy (sub)tree
-      description: "Deprecated: will be removed in v1.19"
-      deprecated: true
-      tags:
-      - policy
-      parameters:
-      - name: labels
-        in: body
-        required: false
-        schema:
-          "$ref": "#/definitions/Labels"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/Policy"
-        '400':
-          description: Invalid request
-          x-go-name: Invalid
-          schema:
-            "$ref": "#/definitions/Error"
-        '403':
-          description: Forbidden
-        '404':
-          description: Policy not found
-        '500':
-          description: Error while deleting policy
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
   "/policy/selectors":
     get:
       summary: See what selectors match which identities
