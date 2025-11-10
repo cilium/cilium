@@ -3811,11 +3811,6 @@ clustermesh:
       admin:
         cert: ""
         key: ""
-      # -- base64 encoded PEM values for the clustermesh-apiserver client certificate and private key.
-      # Used if 'auto' is not enabled.
-      client:
-        cert: ""
-        key: ""
       # -- base64 encoded PEM values for the clustermesh-apiserver remote cluster certificate and private key.
       # Used if 'auto' is not enabled.
       remote:
