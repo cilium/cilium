@@ -334,6 +334,9 @@ communicating via the proxy must reconnect to re-establish connections.
   makes it compatible by default with the Helm ``--wait`` option or through ArgoCD.
   You are no longer expected to create a Job manually or as part of your own
   automation when bootstrapping your clusters.
+* Adding ClusterMesh certificates and keys in Helm values is deprecated.
+  You are now expected to pre-create those secrets outside of the Cilium Helm chart
+  when setting ``clustermesh.apiserver.tls.auto.enabled=false``.
 * Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
   (previously this was a RHEL8.6-compatible kernel).
 * The previously deprecated ``FromRequires`` and ``ToRequires`` fields of the `CiliumNetworkPolicy` and `CiliumClusterwideNetworkPolicy` CRDs have been removed.
