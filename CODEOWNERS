@@ -603,6 +603,7 @@ Makefile* @cilium/build
 /pkg/maps/ @cilium/sig-datapath
 /pkg/maps/egressmap @cilium/egress-gateway
 /pkg/maps/encrypt @cilium/ipsec
+/pkg/maps/policymap @cilium/sig-policy
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
 /pkg/monitor @cilium/sig-datapath
