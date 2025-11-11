@@ -411,6 +411,10 @@ func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
 	p.logger.Info(fmt.Sprintf(format, a...))
 }
 
+func (p *testPolicyContextType) GetL4Policy() *L4Policy {
+	return nil
+}
+
 // Tests in this file:
 //
 // How to read this table:

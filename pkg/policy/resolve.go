@@ -72,6 +72,8 @@ type PolicyContext interface {
 
 	GetLogger() *slog.Logger
 
+	GetL4Policy() *L4Policy
+
 	PolicyTrace(format string, a ...any)
 }
 
@@ -90,6 +92,8 @@ type policyContext struct {
 
 	logger       *slog.Logger
 	traceEnabled bool
+
+	l4policy *L4Policy
 }
 
 var _ PolicyContext = &policyContext{}
@@ -174,6 +178,10 @@ func (p *policyContext) PolicyTrace(format string, a ...any) {
 	p.logger.Info(fmt.Sprintf(format, a...))
 }
 
+func (p *policyContext) GetL4Policy() *L4Policy {
+	return p.l4policy
+}
+
 // SelectorPolicy represents a selectorPolicy, previously resolved from
 // the policy repository and ready to be distilled against a set of identities
 // to compute datapath-level policy configuration.
@@ -210,8 +218,8 @@ type selectorPolicy struct {
 	EgressPolicyEnabled bool
 }
 
-func (p *selectorPolicy) Attach(ctx PolicyContext) {
-	p.L4Policy.Attach(ctx)
+func (p *selectorPolicy) Finalize(ctx PolicyContext) {
+	p.L4Policy.Finalize(ctx)
 }
 
 // EndpointPolicy is a structure which contains the resolved policy across all

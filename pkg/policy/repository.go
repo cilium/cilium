@@ -324,6 +324,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		defaultDenyEgress:  hasEgressDefaultDeny,
 		traceEnabled:       option.Config.TracingEnabled(),
 		logger:             p.logger.With(logfields.Identity, securityIdentity.ID),
+		l4policy:           &calculatedPolicy.L4Policy,
 	}
 
 	if ingressEnabled {
@@ -345,7 +346,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	// Make the calculated policy ready for incremental updates
-	calculatedPolicy.Attach(&policyCtx)
+	calculatedPolicy.Finalize(&policyCtx)
 
 	return calculatedPolicy, nil
 }
