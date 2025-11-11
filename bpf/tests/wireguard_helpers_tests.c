@@ -101,6 +101,20 @@ int check2(struct __ctx_buff *ctx)
 	test_finish();
 }
 
+CHECK("tc", "ctx_is_decrypt_success")
+int check3(struct __ctx_buff *ctx)
+{
+	test_init();
+
+	assert(!ctx_is_decrypt(ctx));
+
+	ctx->mark = MARK_MAGIC_DECRYPT;
+
+	assert(ctx_is_decrypt(ctx));
+
+	test_finish();
+}
+
 PKTGEN("tc", "wireguard_icmpv6_na_skip")
 int wireguard_icmpv6_na_skip_pktgen(struct __ctx_buff *ctx)
 {

@@ -255,6 +255,14 @@ static __always_inline bool ctx_is_encrypt(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT;
 }
 
+static __always_inline bool ctx_is_decrypt(const struct __sk_buff *ctx)
+{
+	if (!is_defined(ENABLE_WIREGUARD) && !is_defined(ENABLE_IPSEC))
+		return false;
+
+	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT;
+}
+
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 static __always_inline bool ctx_egw_done(const struct __sk_buff *ctx)
 {

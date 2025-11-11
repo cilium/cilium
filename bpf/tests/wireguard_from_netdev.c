@@ -75,7 +75,7 @@ int ipv4_not_decrypted_wireguard_from_netdev_check(const struct __ctx_buff *ctx)
 	assert(*status_code == CTX_ACT_OK);
 
 	/* we use this mark to skip conntrack for encrypted flows */
-	assert((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+	assert(ctx_is_decrypt(ctx));
 
 	l2 = data + sizeof(*status_code);
 
@@ -164,7 +164,7 @@ int ipv6_not_decrypted_wireguard_from_netdev_check(const struct __ctx_buff *ctx)
 	assert(*status_code == CTX_ACT_OK);
 
 	/* we use this mark to skip conntrack for encrypted flows */
-	assert((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+	assert(ctx_is_decrypt(ctx));
 
 	l2 = data + sizeof(*status_code);
 
@@ -244,7 +244,7 @@ int ipv4_not_decrypted_wireguard_from_netdev_no_identity_check(const struct __ct
 
 	status_code = data;
 
-	assert((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_DECRYPT);
+	assert(!ctx_is_decrypt(ctx));
 
 	test_finish();
 }
@@ -280,7 +280,7 @@ int ipv6_not_decrypted_wireguard_from_netdev_no_identity_check(const struct __ct
 
 	status_code = data;
 
-	assert((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_DECRYPT);
+	assert(!ctx_is_decrypt(ctx));
 
 	test_finish();
 }
@@ -328,7 +328,7 @@ int ipv4_not_decrypted_wireguard_from_netdev_port_mismatch_check(const struct __
 
 	status_code = data;
 
-	assert((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_DECRYPT);
+	assert(!ctx_is_decrypt(ctx));
 
 	test_finish();
 }
@@ -375,7 +375,7 @@ int ipv6_not_decrypted_wireguard_from_netdev_port_mismatch_check(const struct __
 
 	status_code = data;
 
-	assert((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_DECRYPT);
+	assert(!ctx_is_decrypt(ctx));
 
 	test_finish();
 }
@@ -424,7 +424,7 @@ int ipv4_not_decrypted_wireguard_from_netdev_protocol_mismatch_check(const struc
 
 	status_code = data;
 
-	assert((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_DECRYPT);
+	assert(!ctx_is_decrypt(ctx));
 
 	test_finish();
 }
@@ -471,7 +471,7 @@ int ipv6_not_decrypted_wireguard_from_netdev_protocol_mismatch_check(const struc
 
 	status_code = data;
 
-	assert((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_DECRYPT);
+	assert(!ctx_is_decrypt(ctx));
 
 	test_finish();
 }
