@@ -227,8 +227,10 @@ cilium-agent [flags]
       --hubble-dynamic-metrics-config-path string                 Filepath with dynamic configuration of hubble metrics.
       --hubble-event-buffer-capacity int                          Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                               Buffer size of the channel to receive monitor events.
+      --hubble-export-aggregation-interval duration               Interval at which to aggregate before exporting Hubble flows. 0s disables aggregation.
       --hubble-export-allowlist string                            Specify allowlist as JSON encoded FlowFilters to Hubble exporter.
       --hubble-export-denylist string                             Specify denylist as JSON encoded FlowFilters to Hubble exporter.
+      --hubble-export-fieldaggregate strings                      Specify list of fields to use for aggregation in Hubble exporter. Empty list disables aggregation.
       --hubble-export-fieldmask strings                           Specify list of fields to use for field mask in Hubble exporter.
       --hubble-export-file-compress                               Compress rotated Hubble export files.
       --hubble-export-file-max-backups int                        Number of rotated Hubble export files to keep. (default 5)

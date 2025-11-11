@@ -11,7 +11,9 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/parser/fieldaggregate"
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // DefaultOptions specifies default values for Hubble exporter options.
@@ -24,12 +26,14 @@ var DefaultOptions = Options{
 type Options struct {
 	AllowList, DenyList []*flowpb.FlowFilter
 	FieldMask           fieldmask.FieldMask
+	FieldAggregate      fieldaggregate.FieldAggregate
 	OnExportEvent       []OnExportEvent
 
 	// keep types that can't be marshalled as JSON private
 	newWriterFunc             NewWriterFunc
 	newEncoderFunc            NewEncoderFunc
 	allowFilters, denyFilters filters.FilterFuncs
+	aggregationInterval       time.Duration
 }
 
 // Option customizes the configuration of the hubble server.
@@ -87,6 +91,30 @@ func WithFieldMask(paths []string) Option {
 			return err
 		}
 		o.FieldMask = fieldMask
+		return nil
+	}
+}
+
+// WithFieldAggregate sets field aggregate for the exporter, specifying which fields to aggregate on.
+func WithFieldAggregate(paths []string) Option {
+	return func(o *Options) error {
+		fma, err := fieldmaskpb.New(&flowpb.Flow{}, paths...)
+		if err != nil {
+			return err
+		}
+		fieldAggregate, err := fieldaggregate.New(fma)
+		if err != nil {
+			return err
+		}
+		o.FieldAggregate = fieldAggregate
+		return nil
+	}
+}
+
+// WithAggregationInterval sets the interval at which to aggregate events before exporting.
+func WithAggregationInterval(interval time.Duration) Option {
+	return func(o *Options) error {
+		o.aggregationInterval = interval
 		return nil
 	}
 }
