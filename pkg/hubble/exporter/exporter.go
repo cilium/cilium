@@ -83,6 +83,7 @@ func newExporter(logger *slog.Logger, opts Options) (*exporter, error) {
 	}
 	encoder, err := opts.NewEncoderFunc()(writer)
 	if err != nil {
+		writer.Close()
 		return nil, fmt.Errorf("failed to create encoder: %w", err)
 	}
 	var flow *flowpb.Flow
