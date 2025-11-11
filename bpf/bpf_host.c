@@ -1054,7 +1054,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 			next_proto = ip6->nexthdr;
 			hdrlen = ipv6_hdrlen(ctx, &next_proto);
 			if (likely(hdrlen > 0) &&
-			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
+			    ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
 				set_decrypt_mark(ctx, 0);
 			}
@@ -1094,7 +1094,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		if (!from_host) {
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
-			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto, identity)) {
+			if (ctx_is_wireguard(ctx, ETH_HLEN + hdrlen, next_proto)) {
 				trace.reason = TRACE_REASON_ENCRYPTED;
 				set_decrypt_mark(ctx, 0);
 			}

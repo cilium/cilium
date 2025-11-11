@@ -68,21 +68,18 @@ int check1(struct __ctx_buff *ctx)
 	protocol = ipv4->protocol;
 
 	/* Valid Wireguard packet. */
-	assert(ctx_is_wireguard(ctx, l4_off, protocol, CLUSTER_IDENTITY));
-
-	/* Invalid identity within CIDR. */
-	assert(!ctx_is_wireguard(ctx, l4_off, protocol, CIDR_IDENTITY_RANGE_START));
+	assert(ctx_is_wireguard(ctx, l4_off, protocol));
 
 	/* Invalid protocol TCP. */
-	assert(!ctx_is_wireguard(ctx, l4_off, IPPROTO_TCP, CLUSTER_IDENTITY));
+	assert(!ctx_is_wireguard(ctx, l4_off, IPPROTO_TCP));
 
 	/* Invalid L4 offset. */
-	assert(!ctx_is_wireguard(ctx, l4_off + 2, protocol, CLUSTER_IDENTITY));
+	assert(!ctx_is_wireguard(ctx, l4_off + 2, protocol));
 
 	udp->source += 1;
 
 	/* Invalid L4 ports mismatching. */
-	assert(!ctx_is_wireguard(ctx, l4_off, protocol, CLUSTER_IDENTITY));
+	assert(!ctx_is_wireguard(ctx, l4_off, protocol));
 
 	test_finish();
 }
