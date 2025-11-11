@@ -112,9 +112,7 @@ do_decrypt(struct __ctx_buff *ctx, __u16 proto)
 	void *data, *data_end;
 	__u8 protocol = 0;
 	__u16 node_id = 0;
-	bool decrypted;
-
-	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+	bool decrypted = ctx_is_decrypt(ctx);
 
 	switch (proto) {
 #ifdef ENABLE_IPV6

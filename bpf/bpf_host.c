@@ -1234,7 +1234,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+	if (ctx_is_decrypt(ctx))
 		return CTX_ACT_OK;
 #endif
 	ret = tcx_early_hook(ctx, proto);
