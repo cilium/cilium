@@ -19,6 +19,7 @@ about the different roles.
 .. toctree::
    :maxdepth: 2
 
+   triage
    review_process
    review_docs
    review_vendor
