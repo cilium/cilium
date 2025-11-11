@@ -247,20 +247,12 @@ static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY;
 }
 
-static __always_inline bool ctx_mark_is_encrypted(const struct __sk_buff *ctx)
+static __always_inline bool ctx_is_encrypt(const struct __sk_buff *ctx)
 {
 	if (!is_defined(ENABLE_WIREGUARD) && !is_defined(ENABLE_IPSEC))
 		return false;
 
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT;
-}
-
-static __always_inline bool ctx_mark_is_wireguard(const struct __sk_buff *ctx)
-{
-	if (!is_defined(ENABLE_WIREGUARD))
-		return false;
-
-	return ctx_mark_is_encrypted(ctx);
 }
 
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
