@@ -477,6 +477,7 @@ func (m *manager) restoreNodeCheckpoint() {
 		)
 		return
 	}
+	defer f.Close()
 
 	r := jsoniter.ConfigFastest.NewDecoder(bufio.NewReader(f))
 	var nodeCheckpoint []*nodeTypes.Node
