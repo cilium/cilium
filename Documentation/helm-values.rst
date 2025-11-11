@@ -969,7 +969,7 @@
      - string
      - ``"mesh.cilium.io"``
    * - :spelling:ignore:`clustermesh.config.enabled`
-     - Enable the Clustermesh explicit configuration.
+     - Enable the Clustermesh explicit configuration. If set to false, you need to provide the following secrets yourself: - cilium-clustermesh (used by cilium-agent/cilium-operator to connect to   the local etcd instance if KVStoreMesh is enabled or the remote clusters   if KVStoreMesh is disabled) - cilium-kvstoremesh (used by KVStoreMesh to connect to the remote clusters)
      - bool
      - ``false``
    * - :spelling:ignore:`clustermesh.enableEndpointSliceSynchronization`
