@@ -1215,8 +1215,12 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {
+		send_trace_notify(ctx, TRACE_FROM_NETWORK, UNKNOWN_ID, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				  TRACE_REASON_ENCRYPTED, TRACE_PAYLOAD_LEN, proto);
 		return CTX_ACT_OK;
+	}
 #endif /* ENABLE_IPSEC || ENABLE_WIREGUARD */
 	ret = tcx_early_hook(ctx, proto);
 	if (ret != CTX_ACT_OK)
