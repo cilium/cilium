@@ -19,7 +19,7 @@ import (
 func TestGetMaximumAllocatableIPv4(t *testing.T) {
 	api := ec2mock.NewAPI(nil, nil, nil, nil)
 	metadataMock, _ := metadataMock.NewMetadataMock()
-	instances, err := NewInstancesManager(hivetest.Logger(t), api, metadataMock)
+	instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), api, metadataMock)
 	require.NoError(t, err)
 	n := &Node{
 		rootLogger: hivetest.Logger(t),
@@ -213,7 +213,7 @@ func TestIsPrefixDelegated(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			api := ec2mock.NewAPI(nil, nil, nil, nil)
 			metadataMock, _ := metadataMock.NewMetadataMock()
-			instances, err := NewInstancesManager(hivetest.Logger(t), api, metadataMock)
+			instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), api, metadataMock)
 			require.NoError(t, err)
 			n := &Node{
 				rootLogger: hivetest.Logger(t),
