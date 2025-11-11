@@ -1831,11 +1831,11 @@
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object
-     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}}``
+     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregationInterval":"0s","excludeFilters":[],"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"aggregationInterval":"0s","allowList":[],"denyList":[],"enabled":false,"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}}``
    * - :spelling:ignore:`hubble.export.dynamic`
      - - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts.
      - object
-     - ``{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}``
+     - ``{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregationInterval":"0s","excludeFilters":[],"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}``
    * - :spelling:ignore:`hubble.export.dynamic.config.configMapName`
      - -- Name of configmap with configuration that may be altered to reconfigure exporters within a running agents.
      - string
@@ -1843,7 +1843,7 @@
    * - :spelling:ignore:`hubble.export.dynamic.config.content`
      - -- Exporters configuration in YAML format.
      - list
-     - ``[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]``
+     - ``[{"aggregationInterval":"0s","excludeFilters":[],"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]``
    * - :spelling:ignore:`hubble.export.dynamic.config.createConfigMap`
      - -- True if helm installer should create config map. Switch to false if you want to self maintain the file content.
      - bool
@@ -1851,7 +1851,11 @@
    * - :spelling:ignore:`hubble.export.static`
      - - Static exporter configuration. Static exporter is bound to agent lifecycle.
      - object
-     - ``{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}``
+     - ``{"aggregationInterval":"0s","allowList":[],"denyList":[],"enabled":false,"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}``
+   * - :spelling:ignore:`hubble.export.static.aggregationInterval`
+     - - Defines the interval at which to aggregate before exporting Hubble flows.     Aggregation feature is only enabled when fieldAggregate is specified and aggregationInterval > 0s.
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`hubble.export.static.fileCompress`
      - - Enable compression of rotated files.
      - bool
