@@ -214,7 +214,7 @@ runs:
 
           LOCAL_REDIRECT_POLICY=""
           if [ "${{ inputs.local-redirect-policy }}" == "true" ]; then
-            LOCAL_REDIRECT_POLICY="--helm-set=localRedirectPolicy=true"
+            LOCAL_REDIRECT_POLICY="--helm-set=localRedirectPolicies.enabled=true"
           fi
 
           BGP_CONTROL_PLANE=""

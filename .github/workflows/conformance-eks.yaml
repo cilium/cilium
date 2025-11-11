@@ -308,7 +308,7 @@ jobs:
           if [[ "$ADV_FEAT" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
               --helm-set enableIPv4Masquerade=true \
-              --helm-set localRedirectPolicy=true \
+              --helm-set localRedirectPolicies.enabled=true \
               --helm-set egressGateway.enabled=true"
           fi
 
