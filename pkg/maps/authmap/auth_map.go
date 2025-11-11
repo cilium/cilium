@@ -6,13 +6,12 @@ package authmap
 import (
 	"fmt"
 	"log/slog"
-	"unsafe"
 
-	"golang.org/x/sys/unix"
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
-	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/maps/registry"
 )
 
 const (
@@ -42,36 +41,25 @@ type Map interface {
 }
 
 type authMap struct {
-	bpfMap *ebpf.Map
-}
-
-func newMap(logger *slog.Logger, maxEntries int) *authMap {
-	return &authMap{
-		bpfMap: ebpf.NewMap(logger, &ebpf.MapSpec{
-			Name:       MapName,
-			Type:       ebpf.Hash,
-			KeySize:    uint32(unsafe.Sizeof(AuthKey{})),
-			ValueSize:  uint32(unsafe.Sizeof(AuthInfo{})),
-			MaxEntries: uint32(maxEntries),
-			Flags:      unix.BPF_F_NO_PREALLOC,
-			Pinning:    ebpf.PinByName,
-		}),
-	}
+	specReg *registry.MapSpecRegistry
+	bpfMap  *bpf.Map
 }
 
 // LoadAuthMap loads the pre-initialized auth map for access.
 // This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 // It needs to initialized beforehand via the Cilium Agent.
 func LoadAuthMap(logger *slog.Logger) (Map, error) {
-	bpfMap, err := ebpf.LoadRegisterMap(logger, MapName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load bpf map: %w", err)
-	}
-
-	return &authMap{bpfMap: bpfMap}, nil
+	m, err := bpf.OpenMap(bpf.MapPath(logger, MapName), &AuthKey{}, &AuthInfo{})
+	return &authMap{bpfMap: m}, err
 }
 
-func (m *authMap) init() error {
+func (m *authMap) Start(_ cell.HookContext) error {
+	var err error
+	m.bpfMap, err = m.specReg.NewMap(MapName, &AuthKey{}, &AuthInfo{})
+	if err != nil {
+		return err
+	}
+
 	if err := m.bpfMap.OpenOrCreate(); err != nil {
 		return fmt.Errorf("failed to init bpf map: %w", err)
 	}
@@ -79,7 +67,7 @@ func (m *authMap) init() error {
 	return nil
 }
 
-func (m *authMap) close() error {
+func (m *authMap) Stop(_ cell.HookContext) error {
 	if err := m.bpfMap.Close(); err != nil {
 		return fmt.Errorf("failed to close bpf map: %w", err)
 	}
@@ -89,17 +77,20 @@ func (m *authMap) close() error {
 
 func (m *authMap) Update(key AuthKey, expiration utime.UTime) error {
 	val := AuthInfo{Expiration: expiration}
-	return m.bpfMap.Update(key, val, 0)
+	return m.bpfMap.Update(&key, &val)
 }
 
 func (m *authMap) Delete(key AuthKey) error {
-	return m.bpfMap.Delete(key)
+	return m.bpfMap.Delete(&key)
 }
 
 func (m *authMap) Lookup(key AuthKey) (AuthInfo, error) {
-	val := AuthInfo{}
-	err := m.bpfMap.Lookup(key, &val)
-	return val, err
+	val, err := m.bpfMap.Lookup(&key)
+	if err != nil {
+		return AuthInfo{}, err
+	}
+
+	return *val.(*AuthInfo), nil
 }
 
 // IterateCallback represents the signature of the callback function
@@ -108,13 +99,11 @@ func (m *authMap) Lookup(key AuthKey) (AuthInfo, error) {
 type IterateCallback func(*AuthKey, *AuthInfo)
 
 func (m *authMap) IterateWithCallback(cb IterateCallback) error {
-	return m.bpfMap.IterateWithCallback(&AuthKey{}, &AuthInfo{},
-		func(k, v any) {
-			key := k.(*AuthKey)
-			value := v.(*AuthInfo)
-			cb(key, value)
-		},
-	)
+	return m.bpfMap.DumpWithCallback(func(k bpf.MapKey, v bpf.MapValue) {
+		key := k.(*AuthKey)
+		value := v.(*AuthInfo)
+		cb(key, value)
+	})
 }
 
 func (m *authMap) MaxEntries() uint32 {
@@ -147,3 +136,4 @@ type AuthInfo struct {
 func (r *AuthInfo) String() string {
 	return fmt.Sprintf("expiration=%q", r.Expiration)
 }
+func (r *AuthInfo) New() bpf.MapValue { return &AuthInfo{} }

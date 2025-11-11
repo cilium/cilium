@@ -23,6 +23,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -64,13 +65,14 @@ func newTestLoader(tb testing.TB) *loader {
 	setupCompilationDirectories(tb)
 
 	var l *loader
-	err := hive.New(
+	h := hive.New(
 		cell.Invoke(func(ld datapath.Loader) {
 			l = ld.(*loader)
 		}),
 		Cell,
 
 		routeReconciler.TableCell,
+		registry.Cell,
 		cell.Provide(tables.NewDeviceTable), cell.Provide(statedb.RWTable[*tables.Device].ToTable),
 		cell.Provide(func() (
 			sysctl.Sysctl,
@@ -87,10 +89,19 @@ func newTestLoader(tb testing.TB) *loader {
 				promise,
 				&FakePreFilter{}
 		}),
-	).Populate(hivetest.Logger(tb))
+	)
+	err := h.Populate(hivetest.Logger(tb))
 	if err != nil {
 		tb.Fatal(err)
 	}
+
+	err = h.Start(hivetest.Logger(tb), tb.Context())
+	if err != nil {
+		tb.Fatal(err)
+	}
+	tb.Cleanup(func() {
+		h.Stop(hivetest.Logger(tb), tb.Context())
+	})
 
 	return l
 }
