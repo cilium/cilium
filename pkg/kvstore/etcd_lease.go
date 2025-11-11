@@ -168,6 +168,13 @@ func (elm *etcdLeaseManager) GetSession(ctx context.Context, key string) (*concu
 	elm.leases[session.Lease()] = &leaseInfo{session: session}
 	elm.mu.Unlock()
 
+	// Kick off a goroutine that will remove the references to this lease when
+	// it expires. We add it to the map of leases before starting this goroutine,
+	// to ensure the cleanup always happens after adding it, and not in the opposite order.
+	elm.wg.Go(func() {
+		elm.waitForExpiration(session)
+	})
+
 	return elm.GetSession(ctx, key)
 }
 
@@ -252,9 +259,6 @@ func (elm *etcdLeaseManager) newSession(ctx context.Context) (session *concurren
 		return nil, err
 	}
 
-	elm.wg.Add(1)
-	go elm.waitForExpiration(session)
-
 	elm.log.Info(
 		"New lease successfully acquired",
 		logfields.LeaseID, leaseID,
@@ -264,8 +268,6 @@ func (elm *etcdLeaseManager) newSession(ctx context.Context) (session *concurren
 }
 
 func (elm *etcdLeaseManager) waitForExpiration(session *concurrency.Session) {
-	defer elm.wg.Done()
-
 	// Block until the session gets orphaned, either because it fails to be
 	// renewed or the etcd client is closed.
 	<-session.Done()
