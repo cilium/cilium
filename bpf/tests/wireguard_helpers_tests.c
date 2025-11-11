@@ -55,31 +55,29 @@ int check1(struct __ctx_buff *ctx)
 	void *data, *data_end = NULL;
 	struct iphdr *ipv4 = NULL;
 	struct udphdr *udp = NULL;
-	int l4_off = 0;
-	__u8 protocol = 0;
-
-	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
-
-	udp = (void *)ipv4 + sizeof(struct iphdr);
-
-	assert((void *)udp + sizeof(struct udphdr) <= data_end)
-
-	l4_off = ETH_LEN + ipv4_hdrlen(ipv4);
-	protocol = ipv4->protocol;
+	__be16 proto = bpf_htons(ETH_P_IP);
 
 	/* Valid Wireguard packet. */
-	assert(ctx_is_wireguard(ctx, l4_off, protocol));
+	wg_do_decrypt(ctx, proto);
+	assert(ctx->mark == MARK_MAGIC_DECRYPT);
+
+	ctx->mark = 0;
 
 	/* Invalid protocol TCP. */
-	assert(!ctx_is_wireguard(ctx, l4_off, IPPROTO_TCP));
-
-	/* Invalid L4 offset. */
-	assert(!ctx_is_wireguard(ctx, l4_off + 2, protocol));
-
-	udp->source += 1;
+	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
+	ipv4->protocol = IPPROTO_TCP;
+	wg_do_decrypt(ctx, proto);
+	assert(ctx->mark == 0);
 
 	/* Invalid L4 ports mismatching. */
-	assert(!ctx_is_wireguard(ctx, l4_off, protocol));
+	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
+	udp = (void *)ipv4 + sizeof(struct iphdr);
+	assert((void *)udp + sizeof(struct udphdr) <= data_end)
+	ipv4->protocol = IPPROTO_UDP;
+	udp->source += 1;
+	wg_do_decrypt(ctx, proto);
+	assert(ctx->mark == 0);
+
 
 	test_finish();
 }
