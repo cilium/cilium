@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	uhive "github.com/cilium/hive"
@@ -16,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -91,6 +93,7 @@ var Hive = hive.New(
 	cell.Config(loadbalancer.TestConfig{}),
 	cell.Config(envoyCfg.SecretSyncConfig{}),
 	cell.Provide(
+		func() *ipcache.IPCache { return ipcache.NewIPCache(&ipcache.Configuration{Context: context.TODO()}) },
 		func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 		source.NewSources,
 		tables.NewNodeAddressTable,
