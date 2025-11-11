@@ -72,7 +72,7 @@ type InstancesManager struct {
 }
 
 // NewInstancesManager returns a new instances manager
-func NewInstancesManager(logger *slog.Logger, ec2api EC2API, metadataapi MetadataAPI) (*InstancesManager, error) {
+func NewInstancesManager(ctx context.Context, logger *slog.Logger, ec2api EC2API, metadataapi MetadataAPI) (*InstancesManager, error) {
 
 	m := &InstancesManager{
 		logger:      logger.With(subsysLogAttr...),
@@ -84,6 +84,17 @@ func NewInstancesManager(logger *slog.Logger, ec2api EC2API, metadataapi Metadat
 	limitsGetter, err := limits.NewLimitsGetter(logger, ec2api, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
 	if err != nil {
 		return nil, err
+	}
+
+	metadataInfo, err := m.metadataapi.GetInstanceMetadata(ctx)
+	if err != nil {
+		// when we can't retrieve the VPC ID from AWS metadata, we use the empty VPC ID
+		// it will still work but just not filter resources based on operator's VPC ID
+		m.logger.Info("Unable to retrieve AWS instance metadata and will use empty VPC ID",
+			logfields.Error, err)
+		m.vpcID = ""
+	} else {
+		m.vpcID = metadataInfo.VPCID
 	}
 	m.limitsGetter = limitsGetter
 	return m, nil
@@ -211,17 +222,9 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 func (m *InstancesManager) resync(ctx context.Context, instanceID string) time.Time {
 	resyncStart := time.Now()
 
-	var currentVpcID string
-	metadataInfo, err := m.metadataapi.GetInstanceMetadata(ctx)
-	if err != nil {
-		// when we can't retrieve the VPC ID from AWS metadata, we use the cached VPC ID
-		m.logger.Info("Unable to retrieve AWS instance metadata and will use cached VPC ID",
-			logfields.VPCID, m.vpcID,
-			logfields.Error, err)
-		currentVpcID = m.vpcID
-	} else {
-		currentVpcID = metadataInfo.VPCID
-	}
+	m.mutex.RLock()
+	currentVpcID := m.vpcID
+	m.mutex.RUnlock()
 
 	vpcs, err := m.ec2api.GetVpcs(ctx, currentVpcID)
 	if err != nil {

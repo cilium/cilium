@@ -133,7 +133,7 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize metadata client: %w", err)
 	}
-	instances, err := eni.NewInstancesManager(a.rootLogger, a.client, imds)
+	instances, err := eni.NewInstancesManager(ctx, a.rootLogger, a.client, imds)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI instances manager: %w", err)
 	}
