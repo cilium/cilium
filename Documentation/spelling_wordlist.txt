@@ -149,6 +149,7 @@ Zhou
 aarch
 addr
 agentNotReadyTaintKey
+aggregationInterval
 alibabacloud
 allocatable
 allocateLoadBalancerNodePorts
@@ -353,6 +354,7 @@ facto
 failover
 fcfs
 fec
+fieldAggregate
 filesystem
 filesystems
 firewalling
