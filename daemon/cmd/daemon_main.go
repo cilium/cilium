@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
+	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
@@ -1200,7 +1201,6 @@ var daemonCell = cell.Module(
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
 		newEndpointRestorer,
-		newInfraIPAllocator,
 	),
 	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force instantiation.
@@ -1265,7 +1265,7 @@ type daemonParams struct {
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
 	HealthConfig        healthconfig.CiliumHealthConfig
-	InfraIPAllocator    *infraIPAllocator
+	InfraIPAllocator    infraendpoints.InfraIPAllocator
 }
 
 func daemonConfigInitialization(params daemonConfigParams) legacy.DaemonConfigInitialization {
