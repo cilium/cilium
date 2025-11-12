@@ -1028,6 +1028,65 @@ func TestManager_OnAddRedirectPolicy(t *testing.T) {
 	m.rpm.EndpointCreated(ep)
 
 	wg.Wait()
+
+	// Sequence of events: RedirectPolicy -> Endpoint -> Pod
+	cookies = map[netip.Addr]uint64{}
+	addr, _ = netip.ParseAddr(pod.Status.PodIP)
+	cookies[addr] = cookie
+	m.epM = &fakeEpManager{cookies: cookies}
+	sMgr = &fakeSvcManager{}
+	sMgr.upsertEvents = make(chan *lb.SVC)
+	m.svc = sMgr
+	pod = pod1.DeepCopy()
+	pod.Status.PodIPs = []slimcorev1.PodIP{pod1IP1}
+	pods = make(map[resource.Key]*slimcorev1.Pod)
+	pk1 = resource.Key{
+		Name:      pod1.Name,
+		Namespace: pod1.Namespace,
+	}
+	pods[pk1] = pod
+	fps = &fakePodResource{
+		fakePodStore{
+			Pods: pods,
+		},
+	}
+	m.rpm = NewRedirectPolicyManager(m.svc, nil, fps, m.epM, NewLRPMetricsNoop())
+	m.rpm.policyConfigs[pc.id] = &pc
+	lbEvents = make(chan skipLBParams)
+	m.rpm.skipLBMap = &fakeSkipLBMap{lb4Events: lbEvents}
+
+	wg = sync.WaitGroup{}
+	// Asserts skipLBMap events
+	wg.Add(1)
+	go func() {
+		ev := <-lbEvents
+
+		require.Equal(t, cookie, ev.cookie)
+		require.Equal(t, fe1.AddrCluster.Addr().String(), ev.ip.String())
+		require.Equal(t, fe1.L4Addr.Port, ev.port)
+
+		wg.Done()
+	}()
+	// Asserts UpsertService events
+	wg.Add(1)
+	go func() {
+		ev := <-sMgr.upsertEvents
+
+		require.Equal(t, lb.SVCTypeLocalRedirect, ev.Type)
+		require.Equal(t, configAddrType.frontendMappings[0].feAddr.String(), ev.Frontend.String())
+		require.Len(t, ev.Backends, 1)
+		require.Equal(t, backend{
+			L3n4Addr: lb.L3n4Addr{AddrCluster: cmtypes.MustParseAddrCluster(pod.Status.PodIP), L4Addr: beP1.l4Addr},
+			podID:    pod1ID,
+		}.Hash(), ev.Backends[0].Hash())
+
+		wg.Done()
+	}()
+
+	// Pod selected by the policy added.
+	m.rpm.OnAddPod(pod)
+
+	wg.Wait()
 }
 
 // Tests connections to deleted LRP backend pods getting terminated.
