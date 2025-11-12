@@ -77,14 +77,15 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 
 	name := loadbalancer.NewServiceName(svc.Namespace, svc.Name)
 	s = &loadbalancer.Service{
-		Name:                name,
-		Source:              source,
-		Labels:              labels.Map2Labels(svc.Labels, string(source)),
-		Selector:            svc.Spec.Selector,
-		Annotations:         svc.Annotations,
-		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
-		ForwardingMode:      loadbalancer.SVCForwardingModeUndef,
-		LoadBalancerClass:   svc.Spec.LoadBalancerClass,
+		Name:                   name,
+		Source:                 source,
+		Labels:                 labels.Map2Labels(svc.Labels, string(source)),
+		Selector:               svc.Spec.Selector,
+		Annotations:            svc.Annotations,
+		HealthCheckNodePort:    uint16(svc.Spec.HealthCheckNodePort),
+		ForwardingMode:         loadbalancer.SVCForwardingModeUndef,
+		UnsupportedProtoAction: annotation.UnsupportedProtoActionUnspec,
+		LoadBalancerClass:      svc.Spec.LoadBalancerClass,
 	}
 
 	if cfg.LBModeAnnotation {
@@ -97,6 +98,16 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 				logfields.Annotations, annotation.ServiceForwardingMode,
 			)
 		}
+	}
+
+	unsupportedProtoAction, err := annotation.GetAnnotationUnsupportedProtoAction(svc)
+	if err == nil {
+		s.UnsupportedProtoAction = unsupportedProtoAction
+	} else {
+		log().Warn("Ignoring annotation",
+			logfields.Error, err,
+			logfields.Annotations, annotation.NetworkUnsupportedProtoAction,
+		)
 	}
 
 	if localNode != nil {
