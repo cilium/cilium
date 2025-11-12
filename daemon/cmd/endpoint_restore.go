@@ -662,9 +662,6 @@ func (r *endpointRestorer) InitRestore(ctx context.Context) error {
 		return fmt.Errorf("failed to wait for initial IPCache revision: %w", err)
 	}
 
-	bootstrapStats.restore.Start()
-	defer bootstrapStats.restore.End(true)
-
 	// When we regenerate restored endpoints, it is guaranteed that we have
 	// received the full list of policies present at the time the daemon
 	// is bootstrapped.
