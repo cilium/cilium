@@ -1321,6 +1321,12 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 				return fmt.Errorf("daemon configuration failed: %w", err)
 			}
 
+			params.Logger.Info("Daemon initialization completed", logfields.BootstrapTime, time.Since(bootstrapTimestamp))
+
+			if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
+				params.Logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
+			}
+
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
@@ -1353,18 +1359,6 @@ func startDaemon(ctx context.Context, params daemonParams) error {
 	if err := params.EndpointRestorer.InitRestore(ctx); err != nil {
 		return err
 	}
-
-	if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
-		params.Logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
-	}
-
-	params.Logger.Info(
-		"Daemon initialization completed",
-		logfields.BootstrapTime, time.Since(bootstrapTimestamp),
-	)
-
-	bootstrapStats.overall.End(true)
-	bootstrapStats.updateMetrics()
 
 	return nil
 }
