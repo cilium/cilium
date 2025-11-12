@@ -149,7 +149,7 @@ kprobe:br_forward
 
       $pod_to_pod_via_proxy =
           !($ip4h->protocol == PROTO_UDP || $ip4h->protocol == PROTO_TCP) ?
-          @trace_ip4[$ip4h->saddr, 0, 0] :
+          @trace_ip4[$ip4h->saddr, (uint16)0, (uint8)0] :
           @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ?
             @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] :
             @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
@@ -242,7 +242,7 @@ kprobe:br_forward
 
       $pod_to_pod_via_proxy =
           !($ip6h->nexthdr == PROTO_UDP || $ip6h->nexthdr == PROTO_TCP) ?
-          @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, 0, 0] :
+          @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, (uint16)0, (uint8)0] :
           @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ?
             @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] :
             @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
@@ -298,8 +298,8 @@ kprobe:br_forward
         }
 
         if ($ip6h->nexthdr == PROTO_ICMP_IPV6 || $ip6h->nexthdr == PROTO_FRAGMENT_IPV6) {
-          $frag_id = 0;
-          $frag_off_res_m = 0;
+          $frag_id = (uint32)0;
+          $frag_off_res_m = (uint16)0;
 
           if ($ip6h->nexthdr == PROTO_FRAGMENT_IPV6) {
             $frag_hdr = (struct frag_hdr *)($ip6h + 1);
@@ -350,7 +350,7 @@ kprobe:tcp_connect
         $sk->__sk_common.skc_daddr == (uint32)pton(str($5));
 
     if ($dst_is_pod && !(str($8) == "ipsec" && ($src_is_internal || $dst_is_internal))) {
-      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = 1;
+      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), (uint8)PROTO_TCP] = 1;
       @trace_sk[$sk] = true;
       @sanity[TYPE_PROXY_L7_IP4] = true;
     }
@@ -370,7 +370,7 @@ kprobe:tcp_connect
         $sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8 == pton(str($6));
 
     if ($dst_is_pod && !(str($8) == "ipsec" && ($src_is_internal || $dst_is_internal))) {
-      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP] = 1;
+      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), (uint8)PROTO_TCP] = 1;
       @trace_sk[$sk] = true;
       @sanity[TYPE_PROXY_L7_IP6] = true;
     }
@@ -384,11 +384,11 @@ kprobe:tcp_close
   $inet_family = $sk->__sk_common.skc_family;
 
   if ($inet_family == AF_INET) {
-    delete(@trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP]);
+    delete(@trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), (uint8)PROTO_TCP]);
   }
 
   if ($inet_family == AF_INET6) {
-    delete(@trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP]);
+    delete(@trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), (uint8)PROTO_TCP]);
   }
 }
 
@@ -406,7 +406,7 @@ kprobe:udp_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
         $sk->__sk_common.skc_rcv_saddr == (uint32)pton(str($5));
 
     if (!(str($8) == "ipsec" && $src_is_internal)) {
-      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP] = 1;
+      @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), (uint8)PROTO_UDP] = 1;
       @trace_sk[$sk] = true;
       @sanity[TYPE_PROXY_DNS_IP4] = true;
     }
@@ -427,7 +427,7 @@ kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
         $sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8 == pton(str($6));
 
     if (!(str($8) == "ipsec" && $src_is_internal)) {
-      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = 1;
+      @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), (uint8)PROTO_UDP] = 1;
       @trace_sk[$sk] = true;
       @sanity[TYPE_PROXY_DNS_IP6] = true;
     }
@@ -441,11 +441,11 @@ kprobe:udp_destroy_sock
   $inet_family = $sk->__sk_common.skc_family;
 
   if ($inet_family == AF_INET) {
-    delete(@trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP]);
+    delete(@trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), (uint8)PROTO_UDP]);
   }
 
   if ($inet_family == AF_INET6) {
-    delete(@trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP]);
+    delete(@trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), (uint8)PROTO_UDP]);
   }
 
   delete(@trace_sk[$sk]);
