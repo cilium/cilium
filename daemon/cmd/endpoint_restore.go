@@ -25,8 +25,10 @@ import (
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
@@ -35,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -51,6 +54,9 @@ type endpointRestorerParams struct {
 	EndpointAPIFence    endpointapi.Fence
 	IPSecAgent          datapath.IPsecAgent
 	IPAMManager         *ipam.IPAM
+	CacheStatus         k8sSynced.CacheStatus
+	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
+	IPCache             *ipcache.IPCache
 }
 
 type endpointRestorer struct {
@@ -64,6 +70,10 @@ type endpointRestorer struct {
 	endpointAPIFence    endpointapi.Fence
 	ipSecAgent          datapath.IPsecAgent
 	ipamManager         *ipam.IPAM
+
+	cacheStatus   k8sSynced.CacheStatus
+	dirReadStatus policyDirectory.DirectoryWatcherReadStatus
+	ipCache       *ipcache.IPCache
 
 	restoreState                  *endpointRestoreState
 	endpointRestoreComplete       chan struct{}
@@ -83,6 +93,10 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 		endpointAPIFence:    params.EndpointAPIFence,
 		ipSecAgent:          params.IPSecAgent,
 		ipamManager:         params.IPAMManager,
+
+		cacheStatus:   params.CacheStatus,
+		dirReadStatus: params.DirReadStatus,
+		ipCache:       params.IPCache,
 
 		endpointRestoreComplete:       make(chan struct{}),
 		endpointRegenerateComplete:    make(chan struct{}),
@@ -624,10 +638,28 @@ func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) 
 	return nil
 }
 
-func (r *endpointRestorer) InitRestore() {
+func (r *endpointRestorer) InitRestore(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		r.logger.Info("State restore is disabled. Existing endpoints on node are ignored")
-		return
+		return nil
+	}
+
+	// Wait only for certain caches, but not all!
+	// (Check K8sWatcher.InitK8sSubsystem() for more info)
+	select {
+	case <-r.cacheStatus:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// wait for directory watcher to ingest policy from files
+	r.dirReadStatus.Wait()
+
+	// After K8s caches have been synced, IPCache can start label injection.
+	// Ensure that the initial labels are injected before we regenerate endpoints
+	r.logger.Debug("Waiting for initial IPCache revision")
+	if err := r.ipCache.WaitForRevision(ctx, 1); err != nil {
+		return fmt.Errorf("failed to wait for initial IPCache revision: %w", err)
 	}
 
 	bootstrapStats.restore.Start()
@@ -639,4 +671,6 @@ func (r *endpointRestorer) InitRestore() {
 	r.regenerateRestoredEndpoints(r.restoreState)
 
 	close(r.endpointRestoreComplete)
+
+	return nil
 }

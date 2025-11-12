@@ -72,7 +72,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
-	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -1250,8 +1249,6 @@ type daemonParams struct {
 	IdentityAllocator   identitycell.CachingIdentityAllocator
 	IdentityRestorer    *identityrestoration.LocalIdentityRestorer
 	Policy              policy.PolicyRepository
-	IPCache             *ipcache.IPCache
-	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
 	CiliumHealth        health.CiliumHealthManager
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
@@ -1360,30 +1357,9 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 // option.Config has already been exposed via *option.DaemonConfig promise,
 // so it may not be modified here
 func startDaemon(ctx context.Context, params daemonParams) error {
-	bootstrapStats.k8sInit.Start()
-	if params.Clientset.IsEnabled() {
-		// Wait only for certain caches, but not all!
-		// (Check Daemon.InitK8sSubsystem() for more info)
-		select {
-		case <-params.CacheStatus:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+	if err := params.EndpointRestorer.InitRestore(ctx); err != nil {
+		return err
 	}
-
-	// wait for directory watcher to ingest policy from files
-	params.DirReadStatus.Wait()
-
-	bootstrapStats.k8sInit.End(true)
-
-	// After K8s caches have been synced, IPCache can start label injection.
-	// Ensure that the initial labels are injected before we regenerate endpoints
-	params.Logger.Debug("Waiting for initial IPCache revision")
-	if err := params.IPCache.WaitForRevision(ctx, 1); err != nil {
-		params.Logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
-	}
-
-	params.EndpointRestorer.InitRestore()
 
 	if params.EndpointManager.HostEndpointExists() {
 		params.EndpointManager.InitHostEndpointLabels(ctx)
