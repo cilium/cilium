@@ -1,5 +1,80 @@
 # Changelog
 
+## v1.18.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* fix indentation for certgen resources in helm templates (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42412, @sdickhoven)
+
+**Bugfixes:**
+* bpf: Do not accidentally update IPcache in cluster-aware routing (Backport PR cilium/cilium#42577, Upstream PR cilium/cilium#42472, @brb)
+* cilium-operator: ciliumendpoints are not garbage collected until a minimum age is reached (5m by default) (Backport PR cilium/cilium#42577, Upstream PR cilium/cilium#42413, @zhouhaibing089)
+* controller: avoid spurious errors when RemoveControllerAndWait is invoked when the controller does not exist (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#41384, @asdfmi)
+* encrypt status: also check tcx attachment on interfaces (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42328, @bersoare)
+* envoy: pass stream idle timeout from Helm to configmap (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#42499, @mhofstetter)
+* Fix BGP operator crash when bgp-secrets-namespace not set. (Backport PR cilium/cilium#42577, Upstream PR cilium/cilium#42425, @rastislavs)
+* Fix cilium_operator_lbipam_conflicting_pools metric to report correct value. (Backport PR cilium/cilium#42289, Upstream PR cilium/cilium#41999, @hanapedia)
+* Fix issue where fqdn GC starts too early that results in potentially missed ips in the IPCache (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#42502, @odinuge)
+* Fix potential policy deadlock causing endpoint to use previous identity for policy calculation when endpoint changes identity (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#42420, @odinuge)
+* Fix the output of cilium lrp list command to show LRP selected backends. (Backport PR cilium/cilium#42577, Upstream PR cilium/cilium#42110, @Bigdelle)
+* Fix trace aggregation for IPv4 Host Firewall, reducing the amount of generated events. (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#42595, @smagnani96)
+* fix: Panic during endpoint restore due to nil logger (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42385, @pinaki-08)
+* gatewayAPI: correctly handle reference to CGCC as cluster-scoped resource instead of namespaced one (Backport PR cilium/cilium#42289, Upstream PR cilium/cilium#42172, @oblazek)
+* operator/ciliumenvoyconfig: consistently propagate --http-stream-idle-timeout value (Backport PR cilium/cilium#42577, Upstream PR cilium/cilium#42495, @tklauser)
+* policy: prevent incorrect mutation of network policy when using policy-default-local-cluster (Backport PR cilium/cilium#42698, Upstream PR cilium/cilium#42668, @MrFreezeex)
+* Preventing removal of existing tproxy iptables rules for other services when they share a name prefix. (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42236, @dackroyd)
+* When using the Egress Strict Mode for Transparent Encryption with Wireguard, packets destined to the local host are no longer excluded from encryption enforcement (when leaving the node), and will be dropped. (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42419, @julianwiedmann)
+
+**CI Changes:**
+* .github/actions/e2e: define static job names (Backport PR cilium/cilium#42435, Upstream PR cilium/cilium#42332, @aanm)
+* [v1.18] .github/workflows: Add base-SHA input to ariane triggered workflows (cilium/cilium#42192, @dylandreimerink)
+* ci: Allow for alpine image overwrite within cache Dockerfile (Backport PR cilium/cilium#42289, Upstream PR cilium/cilium#42108, @jpayne3506)
+* conformance-aws-cni: disable l7 proxy with aws-cni (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#42578, @aanm)
+* Deflake TestNodeManagerAbortReleaseIPReassignment (Backport PR cilium/cilium#42577, Upstream PR cilium/cilium#42276, @lconnery)
+* gh: ginkgo: fix focus for service hairpin test (Backport PR cilium/cilium#42641, Upstream PR cilium/cilium#42633, @julianwiedmann)
+* gh: ginkgo: reduce number of tested k8s versions in PRs (Backport PR cilium/cilium#42470, Upstream PR cilium/cilium#42465, @julianwiedmann)
+* gh: ginkgo: replace rhel8 with 5.10 kernel (Backport PR cilium/cilium#42449, Upstream PR cilium/cilium#42084, @julianwiedmann)
+* gha/conformance-clustermesh: let service nodeport be selected randomly (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#41697, @giorio94)
+* gha: allow configuring runner for workflows building Cilium binaries (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#42582, @giorio94)
+* Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel (previously this was a RHEL8.6-compatible kernel). (Backport PR cilium/cilium#42604, Upstream PR cilium/cilium#41639, @julianwiedmann)
+
+**Misc Changes:**
+* [v1.18] deps: bump CNI plugins version (cilium/cilium#42443, @ferozsalam)
+* bpf: host: remove stale code comment (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42237, @julianwiedmann)
+* bpf: lxc: always set identity mark on forwarded egressing traffic (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#42551, @julianwiedmann)
+* bpf: nodeport: don't include EGW reply hook in bpf_wireguard (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42187, @julianwiedmann)
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#42397, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#42541, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#42682, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.8 (v1.18) (cilium/cilium#42346, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.37.0 docker digest to e3652a0 (v1.18) (cilium/cilium#42539, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.10 docker digest to c3ea417 (v1.18) (cilium/cilium#42679, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.9 docker digest to 5034fa4 (v1.18) (cilium/cilium#42396, @cilium-renovate[bot])
+* chore(deps): update github artifact actions (v1.18) (cilium/cilium#42398, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.10 (v1.18) (cilium/cilium#42621, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.34.10-1762597008-ff7ae7d623be00078865cff1b0672cc5d9bfc6d5 (v1.18) (cilium/cilium#42680, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-llvm docker tag to v1758805548 (v1.18) (cilium/cilium#42399, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#42540, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#42681, @cilium-renovate[bot])
+* ci: Add workflow permissions for auto-approve and renovate (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42281, @kyle-c-simmons)
+* ci: Fix call-backport-label-updater permissions (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42510, @kyle-c-simmons)
+* ci: Update hubble test workflow permissions (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#41911, @kyle-c-simmons)
+* cilium, routes: Downgrade warning on direct-routing-skip-unreachable (Backport PR cilium/cilium#42289, Upstream PR cilium/cilium#42210, @borkmann)
+* docs: tuning: remove some references to old kernels (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#42601, @julianwiedmann)
+* Docs: update fragmentation docs to reflect ipv6 (Backport PR cilium/cilium#42289, Upstream PR cilium/cilium#41748, @tommyp1ckles)
+* fix: run post-release and publish-helm workflows on cilium org (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42279, @sekhar-isovalent)
+* loadbalancer: fix up code comment (Backport PR cilium/cilium#42450, Upstream PR cilium/cilium#42273, @julianwiedmann)
+* Log proxy instance creation at debug level (Backport PR cilium/cilium#42617, Upstream PR cilium/cilium#42319, @sjohnsonpal)
+* operator: Prevent panic when GCing identities (Backport PR cilium/cilium#42289, Upstream PR cilium/cilium#42217, @HadrienPatte)
+* pkg/nodediscover: Don't log warnings for intermittent updates (Backport PR cilium/cilium#42577, Upstream PR cilium/cilium#42505, @aditighag)
+
+**Other Changes:**
+* [v1.18] ipam: fix TestNodeManagerAbortReleaseIPReassignment test (cilium/cilium#42636, @rastislavs)
+* [v1.18] test: ginkgo: skip BPF masq tests on configs without external node (cilium/cilium#42462, @julianwiedmann)
+* install: Update image digests for v1.18.3 (cilium/cilium#42344, @cilium-release-bot[bot])
+
 ## v1.18.3
 
 Summary of Changes
