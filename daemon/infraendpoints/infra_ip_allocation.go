@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package infraendpoints
 
 import (
 	"context"
@@ -50,6 +50,13 @@ type infraIPAllocatorParams struct {
 	IPAM           *ipam.IPAM
 }
 
+type InfraIPAllocator interface {
+	AllocateIPs(ctx context.Context, router RestoredIPs) error
+	GetHealthEndpointRouting() *linuxrouting.RoutingInfo
+}
+
+var _ InfraIPAllocator = &infraIPAllocator{}
+
 // infraIPAllocator is responsible to create infra related IPs (router, ingress & health)
 type infraIPAllocator struct {
 	logger         *slog.Logger
@@ -73,7 +80,7 @@ type ipamAllocator interface {
 	ReleaseIP(ip net.IP, pool ipam.Pool) error
 }
 
-func newInfraIPAllocator(params infraIPAllocatorParams) *infraIPAllocator {
+func newInfraIPAllocator(params infraIPAllocatorParams) InfraIPAllocator {
 	return &infraIPAllocator{
 		logger:         params.Logger,
 		jobGroup:       params.JobGroup,
@@ -331,8 +338,6 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family types
 }
 
 func (r *infraIPAllocator) allocateHealthIPs() error {
-	bootstrapStats.healthCheck.Start()
-	defer bootstrapStats.healthCheck.End(true)
 	if !option.Config.EnableHealthChecking || !option.Config.EnableEndpointHealthChecking {
 		return nil
 	}
@@ -415,7 +420,6 @@ func (r *infraIPAllocator) allocateHealthIPs() error {
 }
 
 func (r *infraIPAllocator) allocateIngressIPs() error {
-	bootstrapStats.ingressIPAM.Start()
 	if option.Config.EnableEnvoyConfig {
 		if option.Config.EnableIPv4 {
 			var result *ipam.AllocationResult
@@ -521,18 +525,15 @@ func (r *infraIPAllocator) allocateIngressIPs() error {
 			r.logger.Info(fmt.Sprintf("  Ingress IPv6: %s", node.GetIngressIPv6(r.logger)))
 		}
 	}
-	bootstrapStats.ingressIPAM.End(true)
 	return nil
 }
 
-type restoredIPs struct {
+type RestoredIPs struct {
 	IPv4FromK8s, IPv4FromFS net.IP
 	IPv6FromK8s, IPv6FromFS net.IP
 }
 
-func (r *infraIPAllocator) AllocateIPs(ctx context.Context, router restoredIPs) error {
-	bootstrapStats.ipam.Start()
-
+func (r *infraIPAllocator) AllocateIPs(ctx context.Context, router RestoredIPs) error {
 	if option.Config.EnableIPv4 {
 		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), router.IPv4FromK8s, router.IPv4FromFS)
 		if err != nil {
@@ -618,8 +619,6 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, router restoredIPs) 
 			}
 		}
 	}
-
-	bootstrapStats.ipam.End(true)
 
 	if option.Config.EnableEnvoyConfig {
 		if err := r.allocateIngressIPs(); err != nil {
