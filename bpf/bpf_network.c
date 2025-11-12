@@ -7,6 +7,8 @@
 #include <bpf/config/node.h>
 #include <netdev_config.h>
 
+#define IS_BPF_NETWORK 1
+
 #include "lib/common.h"
 #include "lib/drop.h"
 #include "lib/trace.h"
