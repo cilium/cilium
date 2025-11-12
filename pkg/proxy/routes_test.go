@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -62,6 +63,9 @@ func TestPrivilegedRoutes(t *testing.T) {
 				return &option.DaemonConfig{
 					StateDir: t.TempDir(),
 				}
+			}),
+			cell.Provide(func() (_ statedbReconciler.Reconciler[*reconciler.DesiredRoute]) {
+				return nil
 			}),
 			cell.Invoke(func(routeManagerp *reconciler.DesiredRouteManager, metrics reconciler.RouteReconcilerMetrics) {
 				*routeManager = routeManagerp
