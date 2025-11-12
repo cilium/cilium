@@ -334,16 +334,6 @@ func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint,
 	return o.params.Loader.ReloadDatapath(ctx, ep, o.latestLocalNodeConfig.Load(), stats)
 }
 
-func (o *orchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
-	select {
-	case <-o.dpInitialized:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
-	return o.params.Loader.ReinitializeXDP(ctx, o.latestLocalNodeConfig.Load(), extraCArgs)
-}
-
 func (o *orchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
 	<-o.dpInitialized
 	return o.params.Loader.EndpointHash(cfg, o.latestLocalNodeConfig.Load())

@@ -27,10 +27,6 @@ func (f *FakeOrchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpo
 	return "", nil
 }
 
-func (f *FakeOrchestrator) ReinitializeXDP(ctx context.Context, extraCArgs []string) error {
-	return nil
-}
-
 func (f *FakeOrchestrator) EndpointHash(cfg datapath.EndpointConfiguration) (string, error) {
 	return "", nil
 }
