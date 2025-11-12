@@ -170,7 +170,17 @@ func (s *DNSProxyTestSuite) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.E
 		return nil, false, fmt.Errorf("No EPs available when restoring")
 	}
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep, err := endpoint.NewEndpointFromChangeModel(context.TODO(), s.logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(s.logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
+		NamedPortsGetter: testipcache.NewMockIPCache(),
+		Allocator:        testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:          ctmap.NewFakeGCRunner(),
+		WgConfig:         &fakeTypes.WireguardConfig{},
+		IPSecConfig:      fakeTypes.IPsecConfig{},
+		Logger:           s.logger,
+		IdentityManager:  identitymanager.NewIDManager(s.logger),
+		PolicyRepo:       s.repo,
+	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	ep.Start(uint16(model.ID))
 	defer ep.Stop()
 	return ep, false, err
@@ -895,7 +905,17 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	ep1, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
+		NamedPortsGetter: testipcache.NewMockIPCache(),
+		Allocator:        testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:          ctmap.NewFakeGCRunner(),
+		WgConfig:         &fakeTypes.WireguardConfig{},
+		IPSecConfig:      fakeTypes.IPsecConfig{},
+		Logger:           hivetest.Logger(t),
+		IdentityManager:  identitymanager.NewIDManager(logger),
+		PolicyRepo:       s.repo,
+	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))
@@ -947,7 +967,17 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules for epID3
 	modelEP3 := newTestEndpointModel(int(epID3), endpoint.StateReady)
-	ep3, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, modelEP3, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	ep3, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
+		NamedPortsGetter: testipcache.NewMockIPCache(),
+		Allocator:        testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:          ctmap.NewFakeGCRunner(),
+		WgConfig:         &fakeTypes.WireguardConfig{},
+		IPSecConfig:      fakeTypes.IPsecConfig{},
+		Logger:           hivetest.Logger(t),
+		IdentityManager:  identitymanager.NewIDManager(logger),
+		PolicyRepo:       s.repo,
+	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep3.Start(uint16(modelEP3.ID))
@@ -1159,7 +1189,17 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	// restore rules, set the mock to restoring state
 	s.restoring = true
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	ep1, err := endpoint.NewEndpointFromChangeModel(context.Background(), endpoint.EndpointParams{
+		EPBuildQueue:     &endpoint.MockEndpointBuildQueue{},
+		NamedPortsGetter: testipcache.NewMockIPCache(),
+		Allocator:        testidentity.NewMockIdentityAllocator(nil),
+		CTMapGC:          ctmap.NewFakeGCRunner(),
+		WgConfig:         &fakeTypes.WireguardConfig{},
+		IPSecConfig:      fakeTypes.IPsecConfig{},
+		Logger:           hivetest.Logger(t),
+		IdentityManager:  identitymanager.NewIDManager(logger),
+		PolicyRepo:       s.repo,
+	}, nil, &endpoint.FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))

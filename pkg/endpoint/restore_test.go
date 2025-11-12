@@ -4,10 +4,10 @@
 package endpoint
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -18,27 +18,25 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	fqdnrestore "github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
-	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+func (s *EndpointSuite) createEndpointParams(tb testing.TB) EndpointParams {
+	return createEndpointParams(tb, s.orchestrator, s.repo)
+}
+
 func (s *EndpointSuite) createEndpoints(t testing.TB) ([]*Endpoint, map[uint16]*Endpoint) {
+	p := s.createEndpointParams(t)
 	epsWanted := []*Endpoint{
-		s.endpointCreator(t, 256, identity.NumericIdentity(1256)),
-		s.endpointCreator(t, 257, identity.NumericIdentity(1257)),
-		s.endpointCreator(t, 258, identity.NumericIdentity(1258)),
-		s.endpointCreator(t, 259, identity.NumericIdentity(1259)),
+		s.endpointCreator(t, 256, identity.NumericIdentity(1256), p),
+		s.endpointCreator(t, 257, identity.NumericIdentity(1257), p),
+		s.endpointCreator(t, 258, identity.NumericIdentity(1258), p),
+		s.endpointCreator(t, 259, identity.NumericIdentity(1259), p),
 	}
 	epsMap := map[uint16]*Endpoint{
 		epsWanted[0].ID: epsWanted[0],
@@ -53,8 +51,7 @@ func getStrID(id uint16) string {
 	return fmt.Sprintf("%05d", id)
 }
 
-func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.NumericIdentity) *Endpoint {
-	logger := hivetest.Logger(t)
+func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.NumericIdentity, p EndpointParams) *Endpoint {
 	strID := getStrID(id)
 	b := make([]byte, 2)
 	binary.LittleEndian.PutUint16(b, id)
@@ -68,7 +65,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 	identity.Sanitize()
 
 	model := newTestEndpointModel(int(id), StateReady)
-	ep, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, &FakeEndpointProxy{}, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -140,7 +137,11 @@ func TestReadEPsFromDirNames(t *testing.T) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps, _ := ReadEPsFromDirNames(t.Context(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
+	p := s.createEndpointParams(t)
+	p.Logger = logger
+	p.Orchestrator = s.orchestrator
+	p.PolicyRepo = s.repo
+	eps, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: p}, tmpDir, epsNames)
 	require.Len(t, eps, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -203,7 +204,11 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult, _ := ReadEPsFromDirNames(t.Context(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epNames)
+	p := s.createEndpointParams(t)
+	p.Logger = logger
+	p.Orchestrator = s.orchestrator
+	p.PolicyRepo = s.repo
+	epResult, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: p}, tmpDir, epNames)
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -256,7 +261,11 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	}
 
 	for b.Loop() {
-		eps, _ := ReadEPsFromDirNames(b.Context(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
+		p := s.createEndpointParams(b)
+		p.Logger = logger
+		p.Orchestrator = s.orchestrator
+		p.PolicyRepo = s.repo
+		eps, _ := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{p: p}, tmpDir, epsNames)
 		require.Len(b, eps, len(epsWanted))
 	}
 }
@@ -309,13 +318,11 @@ func TestPartitionEPDirNamesByRestoreStatus(t *testing.T) {
 }
 
 type fakeParser struct {
-	logger       *slog.Logger
-	orchestrator datapath.Orchestrator
-	policyRepo   policy.PolicyRepository
+	p EndpointParams
 }
 
 func (f *fakeParser) ParseEndpoint(epJSON []byte) (*Endpoint, error) {
-	return ParseEndpoint(f.logger, nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, nil, nil, nil, nil, epJSON, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
+	return ParseEndpoint(f.p, nil, nil, epJSON)
 }
 
 var _ EndpointParser = &fakeParser{}

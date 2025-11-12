@@ -26,6 +26,12 @@ type LocalNodeSynchronizer interface {
 	WaitForNodeInformation(context.Context, *LocalNodeStore) error
 }
 
+// NodeGetter describes the behavior of a node store used for retrieving the
+// local node.
+type NodeGetter interface {
+	Get(ctx context.Context) (LocalNode, error)
+}
+
 // LocalNodeStoreCell provides the LocalNodeStore instance.
 // The LocalNodeStore is the canonical owner of `types.Node` for the local node and
 // provides a reactive API for observing and updating it.
@@ -62,7 +68,7 @@ type LocalNodeStore struct {
 	sync  LocalNodeSynchronizer
 }
 
-func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
+func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, NodeGetter, error) {
 	wtxn := params.DB.WriteTxn(params.Nodes)
 
 	// Register an initializer that'll mark the table initialized once we're done
@@ -127,7 +133,7 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 		},
 	})
 
-	return s, nil
+	return s, s, nil
 }
 
 // observeRatePerSecond sets the maximum number of [LocalNode] updates per second that
