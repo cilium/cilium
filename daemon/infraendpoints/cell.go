@@ -14,4 +14,5 @@ var Cell = cell.Module(
 
 	cell.Provide(newInfraIPAllocator),
 	cell.Invoke(registerIngressEndpoint),
+	cell.Invoke(registerHostEndpoint),
 )

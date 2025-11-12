@@ -34,7 +34,6 @@ import (
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -1240,7 +1239,6 @@ type daemonParams struct {
 	Resources           agentK8s.Resources
 	K8sWatcher          *watchers.K8sWatcher
 	NodeHandler         datapath.NodeHandler
-	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointRestorer    *endpointRestorer
 	IdentityAllocator   identitycell.CachingIdentityAllocator
@@ -1354,15 +1352,6 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 func startDaemon(ctx context.Context, params daemonParams) error {
 	if err := params.EndpointRestorer.InitRestore(ctx); err != nil {
 		return err
-	}
-
-	if params.EndpointManager.HostEndpointExists() {
-		params.EndpointManager.InitHostEndpointLabels(ctx)
-	} else {
-		params.Logger.Info("Creating host endpoint")
-		if err := params.EndpointCreator.AddHostEndpoint(ctx); err != nil {
-			return fmt.Errorf("unable to create host endpoint: %w", err)
-		}
 	}
 
 	if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
