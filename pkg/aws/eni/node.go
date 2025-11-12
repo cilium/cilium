@@ -959,6 +959,7 @@ func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (leftoverPref
 // findSubnetInSameRouteTableWithNodeSubnet returns the subnet with the most addresses
 // that is in the same route table as the node's subnet to make sure the pod traffic
 // leaving secondary interfaces is routed in the same way as the primary interface.
+// Returns nil if route table discovery is disabled.
 func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -992,6 +993,7 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 
 // checkSubnetInSameRouteTableWithNodeSubnet checks if the given subnet is in the same route table as the node's subnet
 // to make sure the pod traffic leaving secondary interfaces is routed in the same way as the primary interface.
+// When route table discovery is disabled, returns true to suppress warnings.
 func (n *Node) checkSubnetInSameRouteTableWithNodeSubnet(subnet *ipamTypes.Subnet) bool {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -1002,6 +1004,11 @@ func (n *Node) checkSubnetInSameRouteTableWithNodeSubnet(subnet *ipamTypes.Subne
 
 	n.manager.mutex.RLock()
 	defer n.manager.mutex.RUnlock()
+
+	// Skip route table check if discovery is disabled
+	if !n.manager.enableRouteTableDiscovery {
+		return true // Treat as always matching when disabled
+	}
 
 	for _, routeTable := range n.manager.routeTables {
 		if _, ok := routeTable.Subnets[n.k8sObj.Spec.ENI.NodeSubnetID]; ok && routeTable.VirtualNetworkID == n.k8sObj.Spec.ENI.VpcID {
@@ -1040,7 +1047,7 @@ func (n *Node) logSubnetRouteTableMismatch(subnet *ipamTypes.Subnet, matchType s
 func (n *Node) findSuitableSubnet(spec eniTypes.ENISpec, limits ipamTypes.Limits) *ipamTypes.Subnet {
 	if len(spec.SubnetIDs) > 0 {
 		if subnet := n.manager.FindSubnetByIDs(spec.VpcID, spec.AvailabilityZone, spec.SubnetIDs); subnet != nil {
-			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) && n.manager.enableRouteTableDiscovery {
 				n.logSubnetRouteTableMismatch(subnet, "Specified")
 			}
 			return subnet
@@ -1049,7 +1056,7 @@ func (n *Node) findSuitableSubnet(spec eniTypes.ENISpec, limits ipamTypes.Limits
 
 	if len(spec.SubnetTags) > 0 {
 		if subnet := n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, spec.SubnetTags); subnet != nil {
-			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+			if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) && n.manager.enableRouteTableDiscovery {
 				n.logSubnetRouteTableMismatch(subnet, "Tagged")
 			}
 			return subnet
@@ -1060,11 +1067,13 @@ func (n *Node) findSuitableSubnet(spec eniTypes.ENISpec, limits ipamTypes.Limits
 		return subnet
 	}
 
-	if subnet := n.findSubnetInSameRouteTableWithNodeSubnet(); subnet != nil {
-		return subnet
+	if n.manager.enableRouteTableDiscovery {
+		if subnet := n.findSubnetInSameRouteTableWithNodeSubnet(); subnet != nil {
+			return subnet
+		}
 	}
 	if subnet := n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, nil); subnet != nil {
-		if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) {
+		if !n.checkSubnetInSameRouteTableWithNodeSubnet(subnet) && n.manager.enableRouteTableDiscovery {
 			n.logSubnetRouteTableMismatch(subnet, "")
 		}
 		return subnet
