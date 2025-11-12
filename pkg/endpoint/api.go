@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"maps"
 	"slices"
 	"sort"
@@ -19,28 +18,18 @@ import (
 	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
-	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // GetLabelsModel returns the labels of the endpoint in their representation
@@ -67,12 +56,12 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 }
 
 // NewEndpointFromChangeModel creates a new endpoint from a request
-func NewEndpointFromChangeModel(ctx context.Context, logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, model *models.EndpointChangeRequest, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map, localNodeStore *node.LocalNodeStore) (*Endpoint, error) {
+func NewEndpointFromChangeModel(ctx context.Context, p EndpointParams, dnsRulesAPI DNSRulesAPI, proxy EndpointProxy, model *models.EndpointChangeRequest, policyDebugLog io.Writer) (*Endpoint, error) {
 	if model == nil {
 		return nil, nil
 	}
 
-	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, uint16(model.ID), model.InterfaceName, wgCfg, ipsecCfg, policyDebugLog, lxcMap, localNodeStore)
+	ep := createEndpoint(p, dnsRulesAPI, proxy, uint16(model.ID), model.InterfaceName, policyDebugLog)
 	ep.ifIndex = int(model.InterfaceIndex)
 	ep.containerIfName = model.ContainerInterfaceName
 	ep.containerNetnsPath = model.ContainerNetnsPath

@@ -164,14 +164,14 @@ type Endpoint struct {
 	wgConfig         wgTypes.WireguardConfig
 	ipsecConfig      datapath.IPsecConfig
 	lxcMap           lxcmap.Map
-	localNodeStore   *node.LocalNodeStore
+	localNodeStore   node.NodeGetter
 
 	epBuildQueue EndpointBuildQueue
 
 	policyRepo policy.PolicyRepository
 
 	// namedPortsGetter can get the ipcache.IPCache object.
-	namedPortsGetter namedPortsGetter
+	namedPortsGetter NamedPortsGetter
 
 	// kvstoreSyncher updates the kvstore (e.g., etcd) with up-to-date
 	// information about endpoints. Initialized by manager.expose.
@@ -523,7 +523,7 @@ func (e *Endpoint) Close() {
 	}
 }
 
-type namedPortsGetter interface {
+type NamedPortsGetter interface {
 	GetNamedPorts() (npm types.NamedPortMultiMap)
 }
 
@@ -622,24 +622,29 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 	return nil
 }
 
-func createEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, ID uint16, ifName string, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map, localNodeStore *node.LocalNodeStore) *Endpoint {
+func createEndpoint(
+	p EndpointParams,
+	dnsRulesAPI DNSRulesAPI,
+	proxy EndpointProxy,
+	ID uint16,
+	ifName string, policyDebugLog io.Writer) *Endpoint {
 	ep := &Endpoint{
 		dnsRulesAPI:        dnsRulesAPI,
-		epBuildQueue:       epBuildQueue,
-		loader:             loader,
-		orchestrator:       orchestrator,
-		compilationLock:    compilationLock,
-		bandwidthManager:   bandwidthManager,
-		ipTablesManager:    ipTablesManager,
-		identityManager:    identityManager,
-		monitorAgent:       monitorAgent,
-		wgConfig:           wgCfg,
-		ipsecConfig:        ipsecCfg,
-		lxcMap:             lxcMap,
-		localNodeStore:     localNodeStore,
-		policyMapFactory:   policyMapFactory,
-		policyRepo:         policyRepo,
-		namedPortsGetter:   namedPortsGetter,
+		epBuildQueue:       p.EPBuildQueue,
+		loader:             p.Loader,
+		orchestrator:       p.Orchestrator,
+		compilationLock:    p.CompilationLock,
+		bandwidthManager:   p.BandwidthManager,
+		ipTablesManager:    p.IPTablesManager,
+		identityManager:    p.IdentityManager,
+		monitorAgent:       p.MonitorAgent,
+		wgConfig:           p.WgConfig,
+		ipsecConfig:        p.IPSecConfig,
+		lxcMap:             p.LxcMap,
+		policyMapFactory:   p.PolicyMapFactory,
+		policyRepo:         p.PolicyRepo,
+		namedPortsGetter:   p.NamedPortsGetter,
+		localNodeStore:     p.LocalNodeStore,
 		ID:                 ID,
 		createdAt:          time.Now(),
 		proxy:              proxy,
@@ -648,19 +653,19 @@ func createEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue E
 		Options:            option.NewIntOptions(&EndpointMutableOptionLibrary),
 		DNSRules:           nil,
 		DNSHistory:         fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies:         fqdn.NewDNSZombieMappings(logger, option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
+		DNSZombies:         fqdn.NewDNSZombieMappings(p.Logger, option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:              "",
 		status:             NewEndpointStatus(),
 		hasBPFProgram:      make(chan struct{}),
-		desiredPolicy:      policy.NewEndpointPolicy(logger, policyRepo),
+		desiredPolicy:      policy.NewEndpointPolicy(p.Logger, p.PolicyRepo),
 		controllers:        controller.NewManager(),
 		regenFailedChan:    make(chan struct{}, 1),
-		allocator:          allocator,
+		allocator:          p.Allocator,
 		logLimiter:         logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 		noTrackPort:        0,
 		properties:         map[string]any{},
-		ctMapGC:            ctMapGC,
-		kvstoreSyncher:     kvstoreSyncher,
+		ctMapGC:            p.CTMapGC,
+		kvstoreSyncher:     p.KVStoreSynchronizer,
 		policyDebugLog:     policyDebugLog,
 		forcePolicyCompute: true,
 	}
@@ -704,8 +709,10 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
-func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map, localNodeStore *node.LocalNodeStore, ipv4 netip.Addr, ipv6 netip.Addr) (*Endpoint, error) {
-	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, "", wgCfg, ipsecCfg, policyDebugLog, lxcMap, localNodeStore)
+func CreateIngressEndpoint(p EndpointParams,
+	dnsRulesAPI DNSRulesAPI, proxy EndpointProxy,
+	policyDebugLog io.Writer, ipv4, ipv6 netip.Addr) (*Endpoint, error) {
+	ep := createEndpoint(p, dnsRulesAPI, proxy, uint16(0), "", policyDebugLog)
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 
 	ep.isIngress = true
@@ -733,13 +740,16 @@ func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuild
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
-func CreateHostEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map, localNodeStore *node.LocalNodeStore) (*Endpoint, error) {
+func CreateHostEndpoint(p EndpointParams,
+	dnsRulesAPI DNSRulesAPI, proxy EndpointProxy,
+	policyDebugLog io.Writer) (*Endpoint, error) {
+
 	iface, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
 	}
 
-	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, defaults.HostDevice, wgCfg, ipsecCfg, policyDebugLog, lxcMap, localNodeStore)
+	ep := createEndpoint(p, dnsRulesAPI, proxy, 0, defaults.HostDevice, policyDebugLog)
 	ep.isHost = true
 	ep.mac = mac.MAC(iface.Attrs().HardwareAddr)
 	ep.nodeMAC = mac.MAC(iface.Attrs().HardwareAddr)
@@ -955,28 +965,30 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 //
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func ParseEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, epJSON []byte, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, lxcMap lxcmap.Map, localNodeStore *node.LocalNodeStore) (*Endpoint, error) {
+func ParseEndpoint(p EndpointParams,
+	dnsRulesAPI DNSRulesAPI,
+	proxy EndpointProxy, epJSON []byte) (*Endpoint, error) {
 	ep := Endpoint{
 		dnsRulesAPI:      dnsRulesAPI,
-		epBuildQueue:     epBuildQueue,
-		loader:           loader,
-		orchestrator:     orchestrator,
-		compilationLock:  compilationLock,
-		bandwidthManager: bandwidthManager,
-		ipTablesManager:  ipTablesManager,
-		identityManager:  identityManager,
-		monitorAgent:     monitorAgent,
-		wgConfig:         wgCfg,
-		ipsecConfig:      ipsecCfg,
-		lxcMap:           lxcMap,
-		localNodeStore:   localNodeStore,
-		policyMapFactory: policyMapFactory,
-		namedPortsGetter: namedPortsGetter,
-		policyRepo:       policyRepo,
+		epBuildQueue:     p.EPBuildQueue,
+		loader:           p.Loader,
+		orchestrator:     p.Orchestrator,
+		compilationLock:  p.CompilationLock,
+		bandwidthManager: p.BandwidthManager,
+		ipTablesManager:  p.IPTablesManager,
+		identityManager:  p.IdentityManager,
+		monitorAgent:     p.MonitorAgent,
+		wgConfig:         p.WgConfig,
+		ipsecConfig:      p.IPSecConfig,
+		lxcMap:           p.LxcMap,
+		policyMapFactory: p.PolicyMapFactory,
+		namedPortsGetter: p.NamedPortsGetter,
+		policyRepo:       p.PolicyRepo,
 		proxy:            proxy,
-		allocator:        allocator,
-		ctMapGC:          ctMapGC,
-		kvstoreSyncher:   kvstoreSyncher,
+		allocator:        p.Allocator,
+		ctMapGC:          p.CTMapGC,
+		kvstoreSyncher:   p.KVStoreSynchronizer,
+		localNodeStore:   p.LocalNodeStore,
 	}
 
 	if err := ep.UnmarshalJSON(epJSON); err != nil {
@@ -989,7 +1001,7 @@ func ParseEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue En
 
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{})
-	ep.desiredPolicy = policy.NewEndpointPolicy(logger, policyRepo)
+	ep.desiredPolicy = policy.NewEndpointPolicy(p.Logger, p.PolicyRepo)
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.forcePolicyCompute = true
 	ep.controllers = controller.NewManager()
