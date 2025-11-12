@@ -45,6 +45,7 @@ type k8sWatcherParams struct {
 	Clientset         k8sClient.Clientset
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
+	K8sCacheStatus    k8sSynced.CacheStatus
 	ResourceGroupsFn  ResourceGroupFunc
 
 	KVStoreClient kvstore.Client
@@ -61,6 +62,7 @@ func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
 		params.K8sCiliumEndpointsWatcher,
 		params.K8sEventReporter,
 		params.K8sResourceSynced,
+		params.K8sCacheStatus,
 		params.K8sAPIGroups,
 		params.AgentConfig,
 		params.KVStoreClient,
