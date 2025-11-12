@@ -93,7 +93,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 // Returns whether the cache was updated, or an error.
 //
 // Must be called with repo.Mutex held for reading.
-func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, bool, error) {
+func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity) (*selectorPolicy, bool, error) {
 	cip := cache.lookupOrCreate(identity)
 
 	// As long as UpdatePolicy() is triggered from endpoint
@@ -123,7 +123,7 @@ func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, e
 	// There is now an outstanding reference to this policy, so increment the counter
 	selPolicy.L4Policy.acquire()
 
-	cip.setPolicy(selPolicy, endpointID)
+	cip.setPolicy(selPolicy)
 
 	return selPolicy, true, nil
 }
@@ -207,7 +207,7 @@ func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
 // the endpoint that initiated the old selector policy detach. Since detach
 // can trigger endpoint regenerations of all it users, this ensures
 // that endpoints do not continuously update themselves.
-func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) {
+func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy) {
 	policy.L4Policy.acquire()
 	oldPolicy := cip.policy.Swap(policy)
 	if oldPolicy != nil {

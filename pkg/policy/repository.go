@@ -43,7 +43,7 @@ type PolicyRepository interface {
 	// This is used to skip policy calculation when a certain revision delta is
 	// known to not affect the given identity. Pass a skipRevision of 0 to force
 	// calculation.
-	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics, endpointID uint64) (SelectorPolicy, uint64, error)
+	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64, error)
 
 	// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
 	GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy
@@ -470,7 +470,7 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 //
 // Done() must be called on the returned SelectorPolicy, if supplied, to prevent
 // unnecessary garbage collection.
-func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics, endpointID uint64) (SelectorPolicy, uint64, error) {
+func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics) (SelectorPolicy, uint64, error) {
 	stats.WaitingForPolicyRepository().Start()
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
@@ -487,7 +487,7 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 	stats.SelectorPolicyCalculation().Start()
 	// This may call back in to the (locked) repository to generate the
 	// selector policy
-	sp, updated, err := r.policyCache.updateSelectorPolicy(id, endpointID)
+	sp, updated, err := r.policyCache.updateSelectorPolicy(id)
 	stats.SelectorPolicyCalculation().EndError(err)
 
 	// If we hit cache, reset the statistics.

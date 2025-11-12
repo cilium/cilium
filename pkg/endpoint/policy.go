@@ -219,7 +219,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 
 	var selectorPolicy policy.SelectorPolicy
-	selectorPolicy, result.policyRevision, err = e.policyRepo.GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats, e.GetID())
+	selectorPolicy, result.policyRevision, err = e.policyRepo.GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats)
 	if err != nil {
 		e.getLogger().Warn("Failed to calculate SelectorPolicy", logfields.Error, err)
 		return err
