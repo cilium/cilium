@@ -258,19 +258,14 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		}
 	}
 
+	// Launch the K8s watchers in parallel as we continue to process other
+	// daemon options.
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
-	if params.Clientset.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-
-		// Launch the K8s watchers in parallel as we continue to process other
-		// daemon options.
-		params.K8sWatcher.InitK8sSubsystem(ctx, params.CacheStatus)
-		bootstrapStats.k8sInit.End(true)
-	} else {
-		close(params.CacheStatus)
-	}
+	bootstrapStats.k8sInit.Start()
+	params.K8sWatcher.InitK8sSubsystem(ctx)
+	bootstrapStats.k8sInit.End(true)
 
 	bootstrapStats.cleanup.Start()
 	err = clearCiliumVeths(params.Logger)
