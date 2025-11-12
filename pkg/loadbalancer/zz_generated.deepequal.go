@@ -237,6 +237,9 @@ func (in *Service) deepEqual(other *Service) bool {
 	if in.ForwardingMode != other.ForwardingMode {
 		return false
 	}
+	if in.UnsupportedProtoAction != other.UnsupportedProtoAction {
+		return false
+	}
 	if in.SessionAffinity != other.SessionAffinity {
 		return false
 	}
