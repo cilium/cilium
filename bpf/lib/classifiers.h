@@ -149,6 +149,47 @@ ctx_is_overlay_hdr(struct __ctx_buff *ctx, __be16 proto)
 }
 
 /**
+ * ctx_is_encrypted_by_point
+ * @ctx: socket buffer
+ * @obs_point: trace observation point (TRACE_{FROM,TO}_*)
+ *
+ * Returns true whether the provided observation point can observe an encrypted
+ * IPSec/WireGuard packet based on MARK_MAGIC_{EN,DE}CRYPT.
+ *
+ * The following cases are handled:
+ * 1. Encrypted IPSec/WireGuard packets pre-decryption in from-netdev.
+ * 2. Encrypted IPSec/WireGuard packets post-encryption in to-netdev.
+ * 3. Encrypted IPSec packets pre-decryption in from-network.
+ *
+ * The TRACE_{FROM,TO}_CRYPTO in bpf_wireguard are explicitly ignored, given
+ * they handle post-decryption/pre-encryption packets. This can come at hand in
+ * future extension, but for now Hubble has enough info from the obs_point.
+ * In addition, in these hook we can still observe unmarked overlay packets,
+ * so we don't want to skip the `ctx_is_overlay_hdr` parsing in `ctx_classify`.
+ */
+static __always_inline bool
+ctx_is_encrypted_by_point(struct __ctx_buff *ctx __maybe_unused,
+			  enum trace_point obs_point __maybe_unused)
+{
+#if __ctx_is == __ctx_skb
+	if (is_defined(IS_BPF_HOST) &&
+	    (is_defined(ENABLE_IPSEC) || is_defined(ENABLE_WIREGUARD)) &&
+	    (obs_point == TRACE_FROM_NETWORK || obs_point == TRACE_TO_NETWORK || obs_point == TRACE_POINT_UNKNOWN))
+		return ctx_is_decrypt(ctx);
+
+	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_IPSEC) &&
+	    (obs_point == TRACE_FROM_STACK || obs_point == TRACE_POINT_UNKNOWN))
+		return ctx_is_encrypt(ctx);
+
+	if (is_defined(IS_BPF_NETWORK) && is_defined(ENABLE_IPSEC) &&
+	    (obs_point == TRACE_FROM_NETWORK || obs_point == TRACE_TO_HOST || obs_point == TRACE_POINT_UNKNOWN))
+		return ctx_is_decrypt(ctx);
+#endif
+
+	return false;
+}
+
+/**
  * ctx_classify
  * @ctx: socket buffer
  * @proto: the layer 3 protocol (ETH_P_IP, ETH_P_IPV6).
@@ -185,6 +226,10 @@ ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point)
 
 /* ctx->mark not available in XDP. */
 #if __ctx_is == __ctx_skb
+	/* Check if Encrypted by packet mark. */
+	if (ctx_is_encrypted_by_point(ctx, obs_point))
+		goto out;
+
 	/* Check if Overlay by packet mark. */
 	if (can_observe_overlay_mark(obs_point) && ctx_is_overlay(ctx)) {
 		flags |= CLS_FLAG_TUNNEL;
