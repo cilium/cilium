@@ -456,8 +456,17 @@ spec:
                 path: common-etcd-client.key
               - key: tls.crt
                 path: common-etcd-client.crt
+          {{- if not .Values.tls.caBundle.enabled }}
               - key: ca.crt
                 path: common-etcd-client-ca.crt
+          {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              optional: true
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: common-etcd-client-ca.crt
+          {{- end }}
       {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
       - configMap:
           defaultMode: 0400
