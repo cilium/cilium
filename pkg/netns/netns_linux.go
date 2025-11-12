@@ -42,6 +42,16 @@ func newNetNS(f *os.File) *NetNS {
 //
 // Not calling Close() is an error.
 func New() (*NetNS, error) {
+	return newNetns("")
+}
+
+// NewPinned creates a netns and attempts to pin it to a file name inside
+// the specified cilium netns path.
+func NewPinned(path string) (*NetNS, error) {
+	return newNetns(path)
+}
+
+func newNetns(path string) (*NetNS, error) {
 	var f *os.File
 
 	// Perform network namespace creation in a new goroutine to give us the
@@ -64,6 +74,20 @@ func New() (*NetNS, error) {
 		f, err = getCurrent()
 		if err != nil {
 			return fmt.Errorf("get current netns: %w (terminating OS thread)", err)
+		}
+
+		// If we specified a pin path, we now mount that in the new netns context.
+		if path != "" {
+			_, err := os.Create(path)
+			if err != nil {
+				return fmt.Errorf("could not create netns pin file %q: %w", path, err)
+			}
+
+			if err := unix.Mount(
+				fmt.Sprintf("/proc/%d/task/%d/ns/net", os.Getpid(), unix.Gettid()),
+				path, "none", syscall.MS_BIND, ""); err != nil {
+				return fmt.Errorf("could not bind mount to %s: %w", path, err)
+			}
 		}
 
 		// Restore the OS thread to its original network namespace or implicitly
@@ -136,7 +160,7 @@ func (h *NetNS) FD() int {
 // mean destroying the network namespace itself, which only happens when all
 // references to it are gone and all of its processes have been terminated.
 func (h *NetNS) Close() error {
-	if h.f == nil {
+	if h == nil || h.f == nil {
 		return nil
 	}
 
