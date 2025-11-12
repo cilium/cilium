@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -467,6 +468,10 @@ type Endpoint struct {
 	NetNsCookie uint64
 
 	ctMapGC ctmap.GCRunner
+
+	// We only use the manager in the context of endpoints as these settings
+	// will be bound to the ep lifecycle and namespaced.
+	sysctl sysctl.Manager
 }
 
 // GetPolicyNames returns the policy names for this endpoint.
