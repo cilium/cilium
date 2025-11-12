@@ -4,26 +4,19 @@
 package endpoint
 
 import (
-	"context"
 	"testing"
 
-	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
-	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/node"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 func TestGetCiliumEndpointStatus(t *testing.T) {
-	s := setupEndpointSuite(t)
-
-	e, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), nil, &models.EndpointChangeRequest{
+	p := createTestEndpointParams(t)
+	m := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
 			IPV4: "192.168.1.100",
 			IPV6: "f00d::a10:0:0:abcd",
@@ -40,7 +33,8 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 			"k8s:name=probe",
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, node.NewTestLocalNodeStore(node.LocalNode{}))
+	}
+	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, m, nil)
 	require.NoError(t, err)
 
 	status := e.GetCiliumEndpointStatus()
@@ -65,9 +59,8 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 }
 
 func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
-	s := setupEndpointSuite(t)
-
-	e, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), nil, &models.EndpointChangeRequest{
+	p := createTestEndpointParams(t)
+	m := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
 			IPV4: "192.168.1.100",
 			IPV6: "f00d::a10:0:0:abcd",
@@ -84,7 +77,8 @@ func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 			"k8s:name=probe",
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, node.NewTestLocalNodeStore(node.LocalNode{}))
+	}
+	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, m, nil)
 	require.NoError(t, err)
 
 	// Create a mock pod with ServiceAccount
