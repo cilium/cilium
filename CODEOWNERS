@@ -379,6 +379,7 @@ Makefile* @cilium/build
 /daemon/cmd/bootstrap_statistics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
 /daemon/cmd/cells*.go @cilium/sig-foundations
+/daemon/infraendpoints/ @cilium/sig-agent @cilium/endpoint
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
