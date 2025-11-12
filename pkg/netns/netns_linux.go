@@ -6,11 +6,14 @@ package netns
 import (
 	"fmt"
 	"iter"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
+	"syscall"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
@@ -253,9 +256,13 @@ func getFromThread(pid, tid int) (*os.File, error) {
 //
 // Note: Namespace descriptors are closed following the yield, thus
 // namespaces should not be copied and used outside of the iterator loop.
-// The *NetNS handle is provided for to allow for cases where the ns must
-// be used explicitly*inside* the loop.
+// The *NetNS handle is provided to allow for cases where the ns must
+// be used explicitly *inside* the loop.
 func All() (iter.Seq2[string, *NetNS], <-chan error) {
+	return all(true)
+}
+
+func all(closeFD bool) (iter.Seq2[string, *NetNS], <-chan error) {
 	errCh := make(chan error, 1)
 	files, err := os.ReadDir(defaults.NetNsPath)
 	if err != nil {
@@ -266,17 +273,25 @@ func All() (iter.Seq2[string, *NetNS], <-chan error) {
 
 	errCh = make(chan error, len(files))
 
+	var ns *NetNS
+	maybeClose := func() {
+		// if closeFD is not set, we don't attempt to close the descriptor.
+		if closeFD {
+			ns.Close()
+		}
+	}
+
 	return func(yield func(string, *NetNS) bool) {
 		defer close(errCh)
 		for _, file := range files {
-			ns, err := OpenPinned(filepath.Join(defaults.NetNsPath, file.Name()))
+			ns, err = OpenPinned(filepath.Join(defaults.NetNsPath, file.Name()))
 			if err != nil {
 				errCh <- err
 				continue
 			}
 			// Defer ns.Close(), in case we return early - otherwise explicitly
 			// close following iteration step.
-			defer ns.Close()
+			defer maybeClose()
 			done := false
 			if err = ns.Do(func() error {
 				done = !yield(file.Name(), ns)
@@ -284,10 +299,50 @@ func All() (iter.Seq2[string, *NetNS], <-chan error) {
 			}); err != nil {
 				errCh <- err
 			}
-			ns.Close()
+			maybeClose()
 			if done {
 				break
 			}
 		}
 	}, errCh
+}
+
+func (ns *NetNS) GetNetNSCookie() (uint64, error) {
+	s, err := ns.f.Stat()
+	if err != nil {
+		return 0, fmt.Errorf("failed to stat netns fd: %w", err)
+	}
+	ss, ok := s.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, fmt.Errorf("could not get netns cookie: could not assert as '*syscall.Stat_t'")
+	}
+
+	return ss.Ino, nil
+}
+
+// FindByNetNSCookie is a utility function that attempts to find
+// a netns with the specified id, returning nil otherwise.
+// All errors are logged.
+func FindByNetNSCookie(logger *slog.Logger, id uint64) *NetNS {
+	it, errs := all(false)
+	for name, ns := range it {
+		ino, err := ns.GetNetNSCookie()
+		if err != nil {
+			logger.Warn("could not get stat info from netns file",
+				logfields.NetNSName, name,
+				logfields.Error, err)
+			ns.Close()
+			continue
+		}
+
+		if ino == id {
+			return ns
+		} else {
+			ns.Close()
+		}
+	}
+	for err := range errs {
+		logger.Warn("failed to open netns", logfields.Error, err)
+	}
+	return nil
 }
