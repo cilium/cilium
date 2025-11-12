@@ -23,10 +23,6 @@ func (f *FakeLoader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, l
 	panic("implement me")
 }
 
-func (f *FakeLoader) ReinitializeXDP(ctx context.Context, lnc *datapath.LocalNodeConfiguration, extraCArgs []string) error {
-	panic("implement me")
-}
-
 func (f *FakeLoader) EndpointHash(cfg datapath.EndpointConfiguration, _ *datapath.LocalNodeConfiguration) (string, error) {
 	panic("implement me")
 }
