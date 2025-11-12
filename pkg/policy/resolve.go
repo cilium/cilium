@@ -193,6 +193,10 @@ type SelectorPolicy interface {
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
 	DistillPolicy(logger *slog.Logger, owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
+
+	// Done says that the reference to the SelectorPolicy has been released.
+	// This is safe to call after Distill(), or when the SelectorPolicy is no longer needed.
+	Done()
 }
 
 // selectorPolicy is a structure which contains the resolved policy for a
@@ -309,14 +313,14 @@ func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
 
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be fowarded.
-func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
-	p.L4Policy.insertUser(user)
+func (p *selectorPolicy) insertUser(logger *slog.Logger, user *EndpointPolicy) {
+	p.L4Policy.insertUser(logger, user)
 }
 
 // removeUser removes a user from the L4Policy so the EndpointPolicy
 // can be freed when not needed any more
 func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
-	p.L4Policy.removeUser(user)
+	p.L4Policy.removeUser(user, p.SelectorCache)
 }
 
 // detach releases resources held by a selectorPolicy to enable
@@ -325,8 +329,14 @@ func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
 // The endpointID argument is only necessary if isDelete is false.
 // It ensures that detach does not call a regeneration trigger on
 // the same endpoint that initiated a selector policy update.
-func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
-	p.L4Policy.detach(p.SelectorCache, isDelete, endpointID)
+//func (p *selectorPolicy) detach(isDelete bool, endpointID uint64) {
+//	p.L4Policy.detach(p.SelectorCache, isDelete, endpointID)
+//}
+
+// Done says that the reference to the SelectorPolicy has been released.
+// This is safe to call after Distill(), or when the SelectorPolicy is no longer needed.
+func (p *selectorPolicy) Done() {
+	p.L4Policy.release(p.SelectorCache)
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts
@@ -365,7 +375,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		}
 		// Register the new EndpointPolicy as a receiver of incremental
 		// updates before selector cache lock is released by 'GetCurrentVersionHandleFunc'.
-		p.insertUser(calculatedPolicy)
+		p.insertUser(logger, calculatedPolicy)
 	})
 
 	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {

@@ -237,6 +237,9 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		return nil
 	}
 
+	// Release our claim on the SelectorPolicy
+	defer selectorPolicy.Done()
+
 	// Add new redirects before Consume() so that all required proxy ports are available for it.
 	var desiredRedirects map[string]uint16
 	err = e.rlockAlive()

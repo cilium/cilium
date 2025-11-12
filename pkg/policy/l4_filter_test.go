@@ -276,7 +276,6 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 
 	selPolicy, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
-	defer selPolicy.detach(true, 0)
 
 	// Distill Selector policy to Endpoint Policy
 	epPolicy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)

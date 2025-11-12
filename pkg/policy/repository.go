@@ -467,6 +467,9 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 // This is used to skip policy calculation when a certain revision delta is
 // known to not affect the given identity. Pass a skipRevision of 0 to force
 // calculation.
+//
+// Done() must be called on the returned SelectorPolicy, if supplied, to prevent
+// unnecessary garbage collection.
 func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics, endpointID uint64) (SelectorPolicy, uint64, error) {
 	stats.WaitingForPolicyRepository().Start()
 	r.mutex.RLock()

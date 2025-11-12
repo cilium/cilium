@@ -75,7 +75,8 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 		delete(cache.policies, identity.ID)
 		selPolicy := cip.getPolicy()
 		if selPolicy != nil {
-			selPolicy.detach(true, 0)
+			// release the reference from the cache to the policy
+			selPolicy.Done()
 		}
 	}
 	return ok
@@ -109,6 +110,7 @@ func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, e
 
 	// Don't resolve policy if it was already done for this or later revision.
 	if selPolicy := cip.getPolicy(); selPolicy != nil && selPolicy.Revision >= cache.repo.GetRevision() {
+		selPolicy.L4Policy.acquire()
 		return selPolicy, false, nil
 	}
 
@@ -117,6 +119,9 @@ func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, e
 	if err != nil {
 		return nil, false, err
 	}
+
+	// There is now an outstanding reference to this policy, so increment the counter
+	selPolicy.L4Policy.acquire()
 
 	cip.setPolicy(selPolicy, endpointID)
 
@@ -203,9 +208,10 @@ func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
 // can trigger endpoint regenerations of all it users, this ensures
 // that endpoints do not continuously update themselves.
 func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) {
+	policy.L4Policy.acquire()
 	oldPolicy := cip.policy.Swap(policy)
 	if oldPolicy != nil {
 		// Release the references the previous policy holds on the selector cache.
-		oldPolicy.detach(false, endpointID)
+		oldPolicy.Done()
 	}
 }
