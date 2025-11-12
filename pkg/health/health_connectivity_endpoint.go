@@ -5,6 +5,7 @@ package health
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -214,7 +215,7 @@ func (h *ciliumHealthManager) cleanupEndpoint() {
 //
 // cleanupEndpoint() must be called before calling launchAsEndpoint() to ensure
 // cleanup of prior cilium-health endpoint instances.
-func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig *bigtcp.Configuration, routingConfig routingConfigurer, sysctl sysctl.Sysctl) (*Client, error) {
+func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpointCreator endpointcreator.EndpointCreator, endpointManager endpointmanager.EndpointsModify, mtuConfig mtu.MTU, bigTCPConfig *bigtcp.Configuration, sysctl sysctl.Sysctl) (*Client, error) {
 	var (
 		info = &models.EndpointChangeRequest{
 			ContainerName: ciliumHealth,
@@ -353,8 +354,12 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
+		ri := h.infraIPAllocator.GetHealthEndpointRouting()
+		if ri == nil {
+			return nil, errors.New("failed to configure health endpoint routing - no IP allocated")
+		}
 		// ENI mode does not support IPv6.
-		if err := routingConfig.Configure(
+		if err := ri.Configure(
 			healthIP,
 			mtuConfig.GetDeviceMTU(),
 			false,
@@ -377,8 +382,4 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil
-}
-
-type routingConfigurer interface {
-	Configure(ip net.IP, mtu int, host bool) error
 }

@@ -10,17 +10,19 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/daemon/infraendpoints"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
-	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/healthconfig"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -29,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -46,20 +49,20 @@ var Cell = cell.Module(
 )
 
 type CiliumHealthManager interface {
-	Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo) error
 	GetStatus() *models.Status
 }
 
 type ciliumHealthManager struct {
-	logger          *slog.Logger
-	healthSpec      *healthApi.Spec
-	sysctl          sysctl.Sysctl
-	loader          datapath.Loader
-	mtuConfig       mtu.MTU
-	bigTCPConfig    *bigtcp.Configuration
-	endpointCreator endpointcreator.EndpointCreator
-	endpointManager endpointmanager.EndpointManager
-	k8sClientSet    k8sClient.Clientset
+	logger           *slog.Logger
+	healthSpec       *healthApi.Spec
+	sysctl           sysctl.Sysctl
+	loader           datapath.Loader
+	mtuConfig        mtu.MTU
+	bigTCPConfig     *bigtcp.Configuration
+	endpointCreator  endpointcreator.EndpointCreator
+	endpointManager  endpointmanager.EndpointManager
+	k8sClientSet     k8sClient.Clientset
+	infraIPAllocator infraendpoints.InfraIPAllocator
 
 	ctrlMgr      *controller.Manager
 	ciliumHealth *CiliumHealth
@@ -70,33 +73,55 @@ type ciliumHealthManager struct {
 type ciliumHealthParams struct {
 	cell.In
 
-	Logger          *slog.Logger
-	Lifecycle       cell.Lifecycle
-	HealthSpec      *healthApi.Spec
-	Sysctl          sysctl.Sysctl
-	Loader          datapath.Loader
-	MtuConfig       mtu.MTU
-	BigTCPConfig    *bigtcp.Configuration
-	EndpointCreator endpointcreator.EndpointCreator
-	EndpointManager endpointmanager.EndpointManager
-	K8sClientSet    k8sClient.Clientset
-	Config          healthconfig.CiliumHealthConfig
+	Logger                 *slog.Logger
+	Lifecycle              cell.Lifecycle
+	JobGroup               job.Group
+	HealthSpec             *healthApi.Spec
+	Sysctl                 sysctl.Sysctl
+	Loader                 datapath.Loader
+	MtuConfig              mtu.MTU
+	BigTCPConfig           *bigtcp.Configuration
+	EndpointCreator        endpointcreator.EndpointCreator
+	EndpointManager        endpointmanager.EndpointManager
+	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
+	K8sClientSet           k8sClient.Clientset
+	InfraIPAllocator       infraendpoints.InfraIPAllocator
+	Config                 healthconfig.CiliumHealthConfig
 }
 
 func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 	h := &ciliumHealthManager{
-		ctrlMgr:         controller.NewManager(),
-		logger:          params.Logger,
-		healthSpec:      params.HealthSpec,
-		sysctl:          params.Sysctl,
-		loader:          params.Loader,
-		mtuConfig:       params.MtuConfig,
-		bigTCPConfig:    params.BigTCPConfig,
-		endpointCreator: params.EndpointCreator,
-		endpointManager: params.EndpointManager,
-		k8sClientSet:    params.K8sClientSet,
-		healthConfig:    params.Config,
+		ctrlMgr:          controller.NewManager(),
+		logger:           params.Logger,
+		healthSpec:       params.HealthSpec,
+		sysctl:           params.Sysctl,
+		loader:           params.Loader,
+		mtuConfig:        params.MtuConfig,
+		bigTCPConfig:     params.BigTCPConfig,
+		endpointCreator:  params.EndpointCreator,
+		endpointManager:  params.EndpointManager,
+		k8sClientSet:     params.K8sClientSet,
+		infraIPAllocator: params.InfraIPAllocator,
+		healthConfig:     params.Config,
 	}
+	if !params.Config.IsHealthCheckingEnabled() {
+		return h
+	}
+
+	params.JobGroup.Add(job.OneShot("init", func(ctx context.Context, health cell.Health) error {
+		health.OK("Wait for endpoint restoration")
+		r, err := params.EndpointRestorePromise.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for endpoint restorer promise: %w", err)
+		}
+
+		if err := r.WaitForEndpointRestoreWithoutRegeneration(ctx); err != nil {
+			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
+		}
+
+		health.OK("Start initialization")
+		return h.init(ctx)
+	}, job.WithShutdown()))
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
@@ -113,7 +138,7 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 	return h
 }
 
-func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxrouting.RoutingInfo) error {
+func (h *ciliumHealthManager) init(ctx context.Context) error {
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	h.logger.Info("Launching Cilium health daemon")
 	ch, err := h.launchCiliumNodeHealth(h.healthSpec, h.loader.HostDatapathInitialized())
@@ -171,7 +196,7 @@ func (h *ciliumHealthManager) Init(ctx context.Context, routingInfo *linuxroutin
 					h.logger.Debug("Restart health endpoint after timeout")
 					h.cleanupHealthEndpoint()
 
-					client, err = h.launchAsEndpoint(ctx, h.endpointCreator, h.endpointManager, h.mtuConfig, h.bigTCPConfig, routingInfo, h.sysctl)
+					client, err = h.launchAsEndpoint(ctx, h.endpointCreator, h.endpointManager, h.mtuConfig, h.bigTCPConfig, h.sysctl)
 					if err == nil {
 						// Reset lastSuccessfulPing after the new endpoint
 						// is launched to give it time to come up before
