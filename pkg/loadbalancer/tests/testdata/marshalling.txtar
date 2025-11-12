@@ -62,6 +62,7 @@ test/echo  [2002::2]:8080/TCP
   "ExtTrafficPolicy": "Cluster",
   "IntTrafficPolicy": "Cluster",
   "ForwardingMode": "",
+  "UnsupportedProtoAction": "",
   "SessionAffinity": false,
   "SessionAffinityTimeout": 0,
   "LoadBalancerClass": null,
@@ -213,6 +214,7 @@ natpolicy: ""
 exttrafficpolicy: Cluster
 inttrafficpolicy: Cluster
 forwardingmode: ""
+unsupportedprotoaction: ""
 sessionaffinity: false
 sessionaffinitytimeout: 0s
 loadbalancerclass: null
