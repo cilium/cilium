@@ -187,24 +187,41 @@ func TestEndpointStatus(t *testing.T) {
 	require.Equal(t, "OK", eps.String())
 }
 
-func TestEndpointDatapathOptions(t *testing.T) {
-	s := setupEndpointSuite(t)
+func createTestEndpointParams(tb testing.TB) EndpointParams {
+	s := setupEndpointSuite(tb)
+	logger := hivetest.Logger(tb)
+	return EndpointParams{
+		Logger:          logger,
+		EPBuildQueue:    &MockEndpointBuildQueue{},
+		Orchestrator:    s.orchestrator,
+		PolicyRepo:      s.repo,
+		IdentityManager: identitymanager.NewIDManager(logger),
+		IPCache:         testipcache.NewMockIPCache(),
+		IPSecConfig:     fakeTypes.IPsecConfig{},
+		WgConfig:        fakeTypes.WireguardConfig{},
+		CTMapGC:         ctmap.NewFakeGCRunner(),
+		Allocator:       testidentity.NewMockIdentityAllocator(nil),
+	}
+}
 
-	e, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, nil, nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, ctmap.NewFakeGCRunner(), nil, &models.EndpointChangeRequest{
+func TestEndpointDatapathOptions(t *testing.T) {
+	m := &models.EndpointChangeRequest{
 		DatapathConfiguration: &models.EndpointDatapathConfiguration{
 			DisableSipVerification: true,
 		},
-	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	}
+
+	p := createTestEndpointParams(t)
+	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, m, nil)
 	require.NoError(t, err)
 	require.Equal(t, option.OptionDisabled, e.Options.GetValue(option.SourceIPVerification))
 }
 
 func TestEndpointUpdateLabels(t *testing.T) {
-	s := setupEndpointSuite(t)
-	logger := hivetest.Logger(t)
-
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	e, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	p := createTestEndpointParams(t)
+
+	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
 	require.NoError(t, err)
 
 	e.Start(uint16(model.ID))
@@ -247,11 +264,9 @@ func TestEndpointUpdateLabels(t *testing.T) {
 }
 
 func TestEndpointState(t *testing.T) {
-	s := setupEndpointSuite(t)
-	logger := hivetest.Logger(t)
-
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	e, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	p := createTestEndpointParams(t)
+	e, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
 	require.NoError(t, err)
 	e.Start(uint16(model.ID))
 	t.Cleanup(e.Stop)
@@ -626,9 +641,6 @@ func (n *EndpointDeadlockEvent) Handle(ifc chan any) {
 // This unit test is a bit weird - see
 // https://github.com/cilium/cilium/pull/8687 .
 func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
-	s := setupEndpointSuite(t)
-	logger := hivetest.Logger(t)
-
 	// Need to modify global configuration (hooray!), change back when test is
 	// done.
 	oldQueueSize := option.Config.EndpointQueueSize
@@ -638,7 +650,8 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 	}()
 
 	model := newTestEndpointModel(12345, StateReady)
-	ep, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	p := createTestEndpointParams(t)
+	ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -716,11 +729,9 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 }
 
 func BenchmarkEndpointGetModel(b *testing.B) {
-	s := setupEndpointSuite(b)
-	logger := hivetest.Logger(b)
-
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	e, err := NewEndpointFromChangeModel(b.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	p := createTestEndpointParams(b)
+	e, err := NewEndpointFromChangeModel(b.Context(), p, nil, nil, model, nil)
 	require.NoError(b, err)
 
 	e.Start(uint16(model.ID))
@@ -761,7 +772,7 @@ func (e *Endpoint) getK8sPodLabels() labels.Labels {
 }
 
 func TestMetadataResolver(t *testing.T) {
-	s := setupEndpointSuite(t)
+	p := createTestEndpointParams(t)
 	logger := hivetest.Logger(t)
 
 	tests := []struct {
@@ -799,7 +810,8 @@ func TestMetadataResolver(t *testing.T) {
 			t.Run(fmt.Sprintf("%s (restored=%t)", tt.name, restored), func(t *testing.T) {
 				model := newTestEndpointModel(100, StateWaitingForIdentity)
 				kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-				ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, &fakeTypes.BandwidthManager{}, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), kvstoreSync, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+				p.KVStoreSynchronizer = kvstoreSync
+				ep, err := NewEndpointFromChangeModel(t.Context(), p, nil, nil, model, nil)
 				require.NoError(t, err)
 
 				ep.K8sNamespace, ep.K8sPodName, ep.K8sUID = "bar", "foo", "uid"
