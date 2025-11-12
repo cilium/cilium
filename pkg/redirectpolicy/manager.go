@@ -363,6 +363,7 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 	var podData *podMetadata
 	pendingPolicies := sets.New[policyID]()
 	// Check if any of the current redirect policies select this pod.
+	policyConfigsWithSkipRedirect := make([]*LRPConfig, 0)
 	for _, config := range rpm.policyConfigs {
 		if config.checkNamespace(pod.GetNamespace()) && config.policyConfigSelectsPod(pod) {
 			if podData = rpm.getPodMetadata(pod); podData == nil {
@@ -371,6 +372,8 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 			if !config.skipRedirectFromBackend {
 				rpm.processConfig(config, podData)
 				continue
+			} else {
+				policyConfigsWithSkipRedirect = append(policyConfigsWithSkipRedirect, config)
 			}
 		}
 	}
@@ -378,30 +381,29 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 		return
 	}
 	// Process redirect policies that need additional pod metadata.
-	for _, config := range rpm.policyConfigs {
+	for _, config := range policyConfigsWithSkipRedirect {
 		if !config.skipRedirectFromBackend {
 			continue
 		}
-		if podData.netnsCookie != 0 {
-			rpm.processConfig(config, podData)
-			continue
+		if podData.netnsCookie == 0 {
+			addr, _ := netip.ParseAddr(podData.ips[0])
+			cookie, err := rpm.epManager.GetEndpointNetnsCookieByIP(addr)
+			if err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					"addr": addr,
+				}).Debug("Track pod for endpoint metadata")
+				// Netns cookie not available yet.
+				// Track the pod for this policy in order to retrieve metadata via endpoint events.
+				pendingPolicies.Insert(config.id)
+				continue
+			}
+			log.WithFields(logrus.Fields{
+				logfields.K8sPodName:  pod.Name,
+				logfields.NetnsCookie: cookie,
+			}).Debug("Pod endpoint netNsCookie")
+			podData.netnsCookie = cookie
 		}
-		addr, _ := netip.ParseAddr(podData.ips[0])
-		cookie, err := rpm.epManager.GetEndpointNetnsCookieByIP(addr)
-		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				"addr": addr,
-			}).Debug("Track pod for endpoint metadata")
-			// Netns cookie not available yet.
-			// Track the pod for this policy in order to retrieve metadata via endpoint events.
-			pendingPolicies.Insert(config.id)
-			continue
-		}
-		log.WithFields(logrus.Fields{
-			logfields.K8sPodName:  pod.Name,
-			logfields.NetnsCookie: cookie,
-		}).Debug("Pod endpoint netNsCookie")
-		podData.netnsCookie = cookie
+		rpm.processConfig(config, podData)
 	}
 	if len(pendingPolicies) > 0 {
 		rpm.policyEndpoints[id] = pendingPolicies
@@ -831,6 +833,7 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) ([]*podMetadata, er
 				if ok {
 					if !pp.Has(config.id) {
 						pp.Insert(config.id)
+						rpm.policyEndpoints[podID] = pp
 					}
 				} else {
 					rpm.policyEndpoints[podID] = sets.New(config.id)
