@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.16.17
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* cilium-operator: ciliumendpoints are not garbage collected until a minimum age is reached (5m by default) (Backport PR cilium/cilium#42565, Upstream PR cilium/cilium#42413, @zhouhaibing089)
+* encrypt status: also check tcx attachment on interfaces (Backport PR cilium/cilium#42451, Upstream PR cilium/cilium#42328, @bersoare)
+* Fix cilium_operator_lbipam_conflicting_pools metric to report correct value. (Backport PR cilium/cilium#42321, Upstream PR cilium/cilium#41999, @hanapedia)
+
+**CI Changes:**
+* .github/actions/e2e: define static job names (Backport PR cilium/cilium#42438, Upstream PR cilium/cilium#42332, @aanm)
+* [v1.16] .github/workflows: Add base-SHA input to ariane triggered workflows (cilium/cilium#42195, @dylandreimerink)
+* ariane: don't run full test suite for BPF test changes (Backport PR cilium/cilium#41846, Upstream PR cilium/cilium#34931, @julianwiedmann)
+* ariane: manage workflow exclusions for changes to CODEOWNERS and USERS.md (Backport PR cilium/cilium#41846, Upstream PR cilium/cilium#34894, @julianwiedmann)
+* Ariane: skip E2E tests when changing unit tests only (Backport PR cilium/cilium#41846, Upstream PR cilium/cilium#35334, @giorio94)
+* conformance-aws-cni: disable l7 proxy with aws-cni (Backport PR cilium/cilium#42634, Upstream PR cilium/cilium#42578, @aanm)
+* gh: ginkgo: fix focus for service hairpin test (Backport PR cilium/cilium#42650, Upstream PR cilium/cilium#42633, @julianwiedmann)
+* gha: allow configuring runner for workflows building Cilium binaries (Backport PR cilium/cilium#42634, Upstream PR cilium/cilium#42582, @giorio94)
+* Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel (previously this was a RHEL8.6-compatible kernel). (Backport PR cilium/cilium#42628, Upstream PR cilium/cilium#41639, @julianwiedmann)
+
+**Misc Changes:**
+* [v1.16] deps: bump CNI plugins version (cilium/cilium#42445, @ferozsalam)
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#42406, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#42546, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.8 (v1.16) (cilium/cilium#42347, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.36.1 docker digest to 355b3a1 (v1.16) (cilium/cilium#42544, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.10 docker digest to c3ea417 (v1.16) (cilium/cilium#42686, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.9 docker digest to 5034fa4 (v1.16) (cilium/cilium#42410, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.9 docker digest to f542f0a (v1.16) (cilium/cilium#42404, @cilium-renovate[bot])
+* chore(deps): update github artifact actions (v1.16) (cilium/cilium#42407, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.10 (v1.16) (cilium/cilium#42623, @cilium-renovate[bot])
+* chore(deps): update module github.com/containerd/containerd to v1.7.29 [security] (v1.16) (cilium/cilium#42639, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/certgen docker tag to v0.2.4 (v1.16) (cilium/cilium#42422, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.34.10-1761014632-c360e8557eb41011dfb5210f8fb53fed6c0b3222 (v1.16) (cilium/cilium#42405, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.34.10-1762597008-ff7ae7d623be00078865cff1b0672cc5d9bfc6d5 (v1.16) (cilium/cilium#42687, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#42545, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#42688, @cilium-renovate[bot])
+* ci: Add workflow permissions for auto-approve and renovate (Backport PR cilium/cilium#42321, Upstream PR cilium/cilium#42281, @kyle-c-simmons)
+* ci: Fix call-backport-label-updater permissions (Backport PR cilium/cilium#42634, Upstream PR cilium/cilium#42510, @kyle-c-simmons)
+* ci: Skip full CI for USERS.md file (Backport PR cilium/cilium#41846, Upstream PR cilium/cilium#34605, @sayboras)
+* fix: run post-release and publish-helm workflows on cilium org (Backport PR cilium/cilium#42321, Upstream PR cilium/cilium#42279, @sekhar-isovalent)
+
+**Other Changes:**
+* [v1.16] test: ginkgo: skip BPF masq tests on configs without external node (cilium/cilium#42464, @julianwiedmann)
+* install: Update image digests for v1.16.16 (cilium/cilium#42342, @cilium-release-bot[bot])
+* Stop tracking selectorPolicy in endpoint to fix policy deadlock referencing the the old identity after an identity change (cilium/cilium#42418, @odinuge)
+
 ## v1.16.16
 
 Summary of Changes
