@@ -41,8 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
-	"github.com/cilium/cilium/pkg/health"
-	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -1248,7 +1246,6 @@ type daemonParams struct {
 	IdentityAllocator   identitycell.CachingIdentityAllocator
 	IdentityRestorer    *identityrestoration.LocalIdentityRestorer
 	Policy              policy.PolicyRepository
-	CiliumHealth        health.CiliumHealthManager
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
 	Devices             statedb.Table[*datapathTables.Device]
@@ -1264,7 +1261,6 @@ type daemonParams struct {
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
-	HealthConfig        healthconfig.CiliumHealthConfig
 	InfraIPAllocator    infraendpoints.InfraIPAllocator
 }
 
@@ -1385,14 +1381,6 @@ func startDaemon(ctx context.Context, params daemonParams) error {
 			}
 		}
 	}
-
-	bootstrapStats.healthCheck.Start()
-	if params.HealthConfig.IsHealthCheckingEnabled() {
-		if err := params.CiliumHealth.Init(ctx, params.InfraIPAllocator.GetHealthEndpointRouting()); err != nil {
-			return fmt.Errorf("failed to initialize cilium health: %w", err)
-		}
-	}
-	bootstrapStats.healthCheck.End(true)
 
 	if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
 		params.Logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
