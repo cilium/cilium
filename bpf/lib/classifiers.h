@@ -18,7 +18,7 @@ enum {
 	 * - carrying the orig_ip IPv6 info from send_trace_notify6, or
 	 * - with L3 IPv6 packets, to instruct Hubble to use the right decoder.
 	 */
-	CLS_FLAG_IPV6	   = (1 << 0),
+	CLS_FLAG_IPV6      = (1 << 0),
 	/* Packet originates from a L3 device (no ethernet header). */
 	CLS_FLAG_L3_DEV    = (1 << 1),
 	/* Packet uses underlay VXLAN. */
@@ -38,6 +38,11 @@ enum {
 		 (TUNNEL_PROTOCOL) == TUNNEL_PROTOCOL_GENEVE ? CLS_FLAG_GENEVE : \
 		 (__throw_build_bug(), 0))                        \
 	: (__throw_build_bug(), 0))
+#define is_tunnel_port(dport) (dport == bpf_htons(TUNNEL_PORT))
+#else
+#define CLS_FLAG_TUNNEL 0
+#define is_tunnel_port(dport) false
+#endif
 
 /**
  * can_observe_overlay_mark
@@ -49,7 +54,9 @@ enum {
 static __always_inline bool
 can_observe_overlay_mark(enum trace_point obs_point __maybe_unused)
 {
-# if __ctx_is == __ctx_skb
+	if (!is_defined(HAVE_ENCAP) || ctx_is_xdp())
+		return false;
+
 	if (is_defined(IS_BPF_HOST) && (obs_point == TRACE_TO_NETWORK ||
 					obs_point == TRACE_POINT_UNKNOWN))
 		return true;
@@ -57,7 +64,6 @@ can_observe_overlay_mark(enum trace_point obs_point __maybe_unused)
 	if (is_defined(IS_BPF_WIREGUARD) && (obs_point == TRACE_TO_CRYPTO ||
 					     obs_point == TRACE_POINT_UNKNOWN))
 		return true;
-# endif /* __ctx_is == __ctx_skb */
 
 	return false;
 }
@@ -73,6 +79,9 @@ can_observe_overlay_mark(enum trace_point obs_point __maybe_unused)
 static __always_inline bool
 can_observe_overlay_hdr(enum trace_point obs_point)
 {
+	if (!is_defined(HAVE_ENCAP))
+		return false;
+
 	if (is_defined(IS_BPF_HOST) && (obs_point == TRACE_FROM_NETWORK ||
 					obs_point == TRACE_POINT_UNKNOWN ||
 					(is_defined(ENABLE_IPSEC) && obs_point == TRACE_TO_STACK)))
@@ -84,7 +93,60 @@ can_observe_overlay_hdr(enum trace_point obs_point)
 
 	return false;
 }
-#endif /* HAVE_ENCAP */
+
+/**
+ * ctx_is_overlay_hdr
+ * @ctx: socket buffer
+ * @proto: the layer 3 protocol (ETH_P_IP, ETH_P_IPV6).
+ *
+ * Returns true whether the packet carries Overlay traffic. This is true when the
+ * outer L4 header is UDP and the destination port matches TUNNEL_PORT.
+ */
+static __always_inline bool
+ctx_is_overlay_hdr(struct __ctx_buff *ctx, __be16 proto)
+{
+	void __maybe_unused *data;
+	void __maybe_unused *data_end;
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
+	__be16 dport;
+	__u8 l4_proto;
+	int l3_hdrlen;
+
+	if (!is_defined(HAVE_ENCAP))
+		return false;
+
+	switch (proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return false;
+
+		l4_proto = ip6->nexthdr;
+		l3_hdrlen = sizeof(struct ipv6hdr);
+		break;
+#endif
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return false;
+
+		l4_proto = ip4->protocol;
+		l3_hdrlen = ipv4_hdrlen(ip4);
+		break;
+#endif
+	default:
+		return false;
+	}
+
+	if (l4_proto != IPPROTO_UDP)
+		return false;
+
+	if (l4_load_port(ctx, ETH_HLEN + l3_hdrlen + UDP_DPORT_OFF, &dport) < 0)
+		return false;
+
+	return is_tunnel_port(dport);
+}
 
 /**
  * ctx_classify
@@ -95,29 +157,21 @@ can_observe_overlay_hdr(enum trace_point obs_point)
  * Compute classifiers (CLS_FLAG_*) for the given packet to be used during
  * trace/drop notification events. There exists two main computation methods:
  *
- * 1. inspecting ctx->mark for known magic values (ex. MARK_MAGIC_OVERLAY).
- * 3. inspecting L3/L4 headers for known traffic patterns (ex. UDP+OverlayPort).
+ * 1. inspecting ctx->mark for known magic values (ex. MARK_MAGIC_OVERLAY):
+ *    this is used for matching patterns that mark packets (e.g., Overlay).
+ * 2. inspecting L3/L4 headers for known traffic patterns (ex. UDP+OverlayPort):
+ *    this is done ONLY to match Overlay packets, given all the other known
+ *    patterns (IPSec/WireGuard) will mark packets accordingly.
  *
  * Both the two methods are optimized based on the observation point to preserve
  * performance and verifier complexity.
  */
 static __always_inline cls_flags_t
-ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point __maybe_unused)
+ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point)
 {
 	cls_flags_t flags = CLS_FLAG_NONE;
-	bool parse_overlay = false;
-	void __maybe_unused *data;
-	void __maybe_unused *data_end;
-	struct ipv6hdr __maybe_unused *ip6;
-	struct iphdr __maybe_unused *ip4;
-	__be16 __maybe_unused dport;
-	__u8 __maybe_unused l4_proto;
-	int __maybe_unused l3_hdrlen;
 
-	/*
-	 * Retrieve protocol when not being provided.
-	 * (ex. from drop notifications, or when previous calls to validate_ethertype failed)
-	 */
+	/* Retrieve protocol when not being provided. */
 	if (!proto)
 		proto = ctx_get_protocol(ctx);
 
@@ -131,72 +185,18 @@ ctx_classify(struct __ctx_buff *ctx, __be16 proto, enum trace_point obs_point __
 
 /* ctx->mark not available in XDP. */
 #if __ctx_is == __ctx_skb
-# ifdef HAVE_ENCAP
-	if (can_observe_overlay_mark(obs_point) &&
-	    (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY) {
+	/* Check if Overlay by packet mark. */
+	if (can_observe_overlay_mark(obs_point) && ctx_is_overlay(ctx)) {
 		flags |= CLS_FLAG_TUNNEL;
 		goto out;
 	}
-# endif /* HAVE_ENCAP */
 #endif /* __ctx_skb */
 
-#ifdef HAVE_ENCAP
-	if (can_observe_overlay_hdr(obs_point))
-		parse_overlay = true;
-#endif /* HAVE_ENCAP */
+	/* Check if Overlay by packet header. */
+	if (can_observe_overlay_hdr(obs_point) && ctx_is_overlay_hdr(ctx, proto))
+		flags |= CLS_FLAG_TUNNEL;
 
-	/*
-	 * Skip subsequent logic that parses the packet L3/L4 headers
-	 * when not needed. For new classifiers, let's use other variables `parse_*`.
-	 */
-	if (!parse_overlay)
-		goto out;
-
-	/*
-	 * Inspect the L3 protocol, and retrieve l4_proto and l3_hdrlen.
-	 * For IPv6, let's stop at the first header.
-	 */
-	switch (proto) {
-# ifdef ENABLE_IPV6
-	case bpf_htons(ETH_P_IPV6):
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			goto out;
-
-		l4_proto = ip6->nexthdr;
-		l3_hdrlen = sizeof(struct ipv6hdr);
-		break;
-# endif /* ENABLE_IPV6 */
-# ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP):
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			goto out;
-
-		l4_proto = ip4->protocol;
-		l3_hdrlen = ipv4_hdrlen(ip4);
-		break;
-# endif /* ENABLE_IPV4 */
-	default:
-		goto out;
-	}
-
-	/*
-	 * Inspect the L4 protocol, looking for specific traffic patterns:
-	 * - Overlay: UDP with destination port TUNNEL_PORT.
-	 */
-	switch (l4_proto) {
-	case IPPROTO_UDP:
-		if (l4_load_port(ctx, ETH_HLEN + l3_hdrlen + UDP_DPORT_OFF, &dport) < 0)
-			goto out;
-#ifdef HAVE_ENCAP
-		if (parse_overlay && dport == bpf_htons(TUNNEL_PORT)) {
-			flags |= CLS_FLAG_TUNNEL;
-			goto out;
-		}
-#endif /* HAVE_ENCAP */
-		break;
-	}
-
-out:
+out: __maybe_unused
 	return flags;
 }
 
@@ -215,16 +215,12 @@ out:
  */
 static __always_inline __u64
 compute_capture_len(struct __ctx_buff *ctx, __u64 monitor,
-		    cls_flags_t flags __maybe_unused,
-		    enum trace_point obs_point __maybe_unused)
+		    cls_flags_t flags, enum trace_point obs_point)
 {
 	__u32 cap_len_default = CONFIG(trace_payload_len);
 
-#ifdef HAVE_ENCAP
-	if ((can_observe_overlay_mark(obs_point) || can_observe_overlay_hdr(obs_point)) &&
-	    flags & CLS_FLAG_TUNNEL)
+	if ((can_observe_overlay_mark(obs_point) || can_observe_overlay_hdr(obs_point)) && flags & CLS_FLAG_TUNNEL)
 		cap_len_default = CONFIG(trace_payload_len_overlay);
-#endif
 
 	if (monitor == 0 || monitor == CONFIG(trace_payload_len))
 		monitor = cap_len_default;
