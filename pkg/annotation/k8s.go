@@ -179,6 +179,18 @@ const (
 	//		use SNAT so that reply traffic comes back
 	ServiceForwardingMode = ServicePrefix + "/forwarding-mode"
 
+	// NetworkUnsupportedProtoAction annotations determine whether packets towards
+	// Service IPs with unsupported transport protocols are handled.
+	//
+	// Allowed values are of type annotation.UnsupportedProtoAction and map onto
+	// standard datapath option strings.
+	//
+	// Allowed values:
+	// - drop	Drop in datapath to avoid routing loops
+	// - forward	Forward to network stack for processing
+	//
+	NetworkUnsupportedProtoAction = NetworkPrefix + "/unsupported-protocol-action"
+
 	// NoTrack / NoTrackAlias is the annotation name used to store the port and
 	// protocol that we should bypass kernel conntrack for a given pod. This
 	// applies for both TCP and UDP connection. Current use case is NodeLocalDNS.
