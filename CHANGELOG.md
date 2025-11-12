@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.17.10
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* cilium-operator: ciliumendpoints are not garbage collected until a minimum age is reached (5m by default) (Backport PR cilium/cilium#42569, Upstream PR cilium/cilium#42413, @zhouhaibing089)
+* encrypt status: also check tcx attachment on interfaces (Backport PR cilium/cilium#42468, Upstream PR cilium/cilium#42328, @bersoare)
+* Fix cilium_operator_lbipam_conflicting_pools metric to report correct value. (Backport PR cilium/cilium#42316, Upstream PR cilium/cilium#41999, @hanapedia)
+
+**CI Changes:**
+* .github/actions/e2e: define static job names (Backport PR cilium/cilium#42436, Upstream PR cilium/cilium#42332, @aanm)
+* [v1.17] .github/workflows: Add base-SHA input to ariane triggered workflows (cilium/cilium#42194, @dylandreimerink)
+* conformance-aws-cni: disable l7 proxy with aws-cni (Backport PR cilium/cilium#42631, Upstream PR cilium/cilium#42578, @aanm)
+* gh: ginkgo: fix focus for service hairpin test (Backport PR cilium/cilium#42651, Upstream PR cilium/cilium#42633, @julianwiedmann)
+* gh: ginkgo: reduce number of tested k8s versions in PRs (Backport PR cilium/cilium#42471, Upstream PR cilium/cilium#42465, @julianwiedmann)
+* gha: allow configuring runner for workflows building Cilium binaries (Backport PR cilium/cilium#42631, Upstream PR cilium/cilium#42582, @giorio94)
+* Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel (previously this was a RHEL8.6-compatible kernel). (Backport PR cilium/cilium#42626, Upstream PR cilium/cilium#41639, @julianwiedmann)
+* workflows: fix GCP OIDC authentication's project ID (cilium/cilium#42174, @nbusseneau)
+
+**Misc Changes:**
+* [v1.17] deps: bump CNI plugins version (cilium/cilium#42444, @ferozsalam)
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#42401, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#42543, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.8 (v1.17) (cilium/cilium#41514, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.10 docker digest to c3ea417 (v1.17) (cilium/cilium#42683, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.9 docker digest to 5034fa4 (v1.17) (cilium/cilium#42409, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.9 docker digest to f542f0a (v1.17) (cilium/cilium#42400, @cilium-renovate[bot])
+* chore(deps): update github artifact actions (v1.17) (cilium/cilium#42403, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.10 (v1.17) (cilium/cilium#42622, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#42542, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#42684, @cilium-renovate[bot])
+* ci: Add workflow permissions for auto-approve and renovate (Backport PR cilium/cilium#42316, Upstream PR cilium/cilium#42281, @kyle-c-simmons)
+* ci: Fix call-backport-label-updater permissions (Backport PR cilium/cilium#42631, Upstream PR cilium/cilium#42510, @kyle-c-simmons)
+* cilium, routes: Downgrade warning on direct-routing-skip-unreachable (Backport PR cilium/cilium#42468, Upstream PR cilium/cilium#42210, @borkmann)
+* Don't emit error on ctmap GC delete attempts to delete key that does not exist. (Backport PR cilium/cilium#42468, Upstream PR cilium/cilium#38855, @tommyp1ckles)
+* fix: run post-release and publish-helm workflows on cilium org (Backport PR cilium/cilium#42316, Upstream PR cilium/cilium#42279, @sekhar-isovalent)
+
+**Other Changes:**
+* [v1.17] test: ginkgo: skip BPF masq tests on configs without external node (cilium/cilium#42463, @julianwiedmann)
+* install: Update image digests for v1.17.9 (cilium/cilium#42343, @cilium-release-bot[bot])
+
 ## v1.17.9
 
 Summary of Changes
