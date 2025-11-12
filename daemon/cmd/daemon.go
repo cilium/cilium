@@ -385,6 +385,9 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		}
 	}
 
+	bootstrapStats.overall.End(true)
+	bootstrapStats.updateMetrics()
+
 	return nil
 }
 
