@@ -14,7 +14,6 @@ type bootstrapStatistics struct {
 	earlyInit   spanstat.SpanStat
 	k8sInit     spanstat.SpanStat
 	restore     spanstat.SpanStat
-	healthCheck spanstat.SpanStat
 	cleanup     spanstat.SpanStat
 	bpfBase     spanstat.SpanStat
 	ipam        spanstat.SpanStat
@@ -46,7 +45,6 @@ func (b *bootstrapStatistics) getMap() map[string]*spanstat.SpanStat {
 		"earlyInit":   &b.earlyInit,
 		"k8sInit":     &b.k8sInit,
 		"restore":     &b.restore,
-		"healthCheck": &b.healthCheck,
 		"cleanup":     &b.cleanup,
 		"bpfBase":     &b.bpfBase,
 		"ipam":        &b.ipam,
