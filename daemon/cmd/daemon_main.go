@@ -1338,29 +1338,12 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 	})
 
 	if !option.Config.DryMode {
-		// Register job that starts the legacy daemon functionality.
-		// This job itself isn't long-running - it only initializes and kicks off other components.
-		params.JobGroup.Add(job.OneShot("legacy-start", func(ctx context.Context, _ cell.Health) error {
-			if err := startDaemon(ctx, params); err != nil {
-				params.Logger.Error("Daemon start failed", logfields.Error, err)
-				return err
-			}
-			return nil
+		params.JobGroup.Add(job.OneShot("finish-endpoint-restore", func(ctx context.Context, _ cell.Health) error {
+			return params.EndpointRestorer.InitRestore(ctx)
 		}, job.WithShutdown()))
 	}
 
 	return legacy.DaemonInitialization{}
-}
-
-// startDaemon starts the old unmodular part of the cilium-agent.
-// option.Config has already been exposed via *option.DaemonConfig promise,
-// so it may not be modified here
-func startDaemon(ctx context.Context, params daemonParams) error {
-	if err := params.EndpointRestorer.InitRestore(ctx); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func registerEndpointStateResolver(endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
