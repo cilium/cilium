@@ -2412,6 +2412,9 @@
         "rollOutPods": {
           "type": "boolean"
         },
+        "runtime": {
+          "type": "object"
+        },
         "securityContext": {
           "properties": {
             "capabilities": {
