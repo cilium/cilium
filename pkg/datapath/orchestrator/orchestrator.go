@@ -5,7 +5,6 @@ package orchestrator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -278,15 +277,22 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		ctx = req.ctx
 	}
 
-	var errs []error
-	if err := o.params.Loader.Reinitialize(
+	err := o.params.Loader.Reinitialize(
 		ctx,
 		localNodeConfig,
 		o.params.TunnelConfig,
 		o.params.IPTablesManager,
 		o.params.Proxy,
-	); err != nil {
-		errs = append(errs, err)
+	)
+	if err != nil {
+		if req.errChan != nil {
+			select {
+			case req.errChan <- err:
+			default:
+			}
+			close(req.errChan)
+		}
+		return err
 	}
 
 	// Store the latest local node configuration before triggering the regeneration and
@@ -309,17 +315,7 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		ParentContext:     ctx,
 	}
 	o.params.EndpointManager.RegenerateAllEndpoints(regenRequest).Wait()
-
-	err := errors.Join(errs...)
-	if req.errChan != nil {
-		select {
-		case req.errChan <- err:
-		default:
-		}
-		close(req.errChan)
-	}
-
-	return err
+	return nil
 }
 
 func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {

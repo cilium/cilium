@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
@@ -121,6 +122,9 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 
 	ds.hive = hive.New(
 		cell.Provide(
+			func() (_ statedbReconciler.Reconciler[*reconciler.DesiredRoute]) {
+				return nil
+			},
 			func(log *slog.Logger) (k8sClient.Clientset, k8sClient.Config) {
 				cs, _ := k8sFakeClient.NewFakeClientset(log)
 				cs.Disable()

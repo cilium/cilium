@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
+	statedbReconciler "github.com/cilium/statedb/reconciler"
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd"
@@ -70,6 +71,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 
 		// Provide the mocked infrastructure and datapath components
 		cell.Provide(
+			func() (_ statedbReconciler.Reconciler[*reconciler.DesiredRoute]) { return nil },
 			func() k8sClient.Clientset { return clientset },
 			func() k8sClient.Config { return clientset.Config() },
 			func() *option.DaemonConfig { return option.Config },
