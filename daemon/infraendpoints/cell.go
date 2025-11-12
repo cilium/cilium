@@ -13,4 +13,5 @@ var Cell = cell.Module(
 	"Cilium Agent infrastructure endpoints",
 
 	cell.Provide(newInfraIPAllocator),
+	cell.Invoke(registerIngressEndpoint),
 )

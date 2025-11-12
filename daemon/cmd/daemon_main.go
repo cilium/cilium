@@ -1365,23 +1365,6 @@ func startDaemon(ctx context.Context, params daemonParams) error {
 		}
 	}
 
-	if params.DaemonConfig.EnableEnvoyConfig {
-		if !params.EndpointManager.IngressEndpointExists() {
-			// Creating Ingress Endpoint depends on the Ingress IPs having been
-			// allocated first. This happens earlier in the agent bootstrap.
-			if (params.DaemonConfig.EnableIPv4 && len(node.GetIngressIPv4(params.Logger)) == 0) ||
-				(option.Config.EnableIPv6 && len(node.GetIngressIPv6(params.Logger)) == 0) {
-				params.Logger.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
-			} else {
-				params.Logger.Info("Creating ingress endpoint")
-				err := params.EndpointCreator.AddIngressEndpoint(ctx)
-				if err != nil {
-					return fmt.Errorf("unable to create ingress endpoint: %w", err)
-				}
-			}
-		}
-	}
-
 	if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
 		params.Logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
 	}
