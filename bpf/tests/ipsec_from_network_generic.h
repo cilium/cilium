@@ -5,7 +5,7 @@
 #define ENCRYPT_KEY 3
 #define ENABLE_IPV4
 #define ENABLE_IPV6
-#define ENABLE_IPSEC
+#define ENABLE_IPSEC 1
 #define TUNNEL_MODE
 #define ENCAP_IFINDEX 4
 #define DEST_IFINDEX 5
