@@ -34,15 +34,19 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 	require.NoError(t, err)
 
 	obj := struct {
-		Program *ebpf.ProgramSpec  `ebpf:"entry"`
-		UseMapA *ebpf.VariableSpec `ebpf:"__config_use_map_a"`
-		UseMapB *ebpf.VariableSpec `ebpf:"__config_use_map_b"`
+		Program      *ebpf.ProgramSpec  `ebpf:"entry"`
+		UseMapA      *ebpf.VariableSpec `ebpf:"__config_use_map_a"`
+		UseMapB      *ebpf.VariableSpec `ebpf:"__config_use_map_b"`
+		UseMapStatic *ebpf.VariableSpec `ebpf:"__config_use_map_static"`
+		UseMapGlobal *ebpf.VariableSpec `ebpf:"__config_use_map_global"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
 
 	// Enable as many maps as possible.
 	require.NoError(t, obj.UseMapA.Set(true))
 	require.NoError(t, obj.UseMapB.Set(true))
+	require.NoError(t, obj.UseMapStatic.Set(true))
+	require.NoError(t, obj.UseMapGlobal.Set(true))
 
 	reach, err := computeReachability(spec)
 	require.NoError(t, err)
@@ -51,6 +55,8 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 
 	assert.NotNil(t, spec.Maps["map_a"])
 	assert.NotNil(t, spec.Maps["map_b"])
+	assert.NotNil(t, spec.Maps["map_static"])
+	assert.NotNil(t, spec.Maps["map_global"])
 	assert.False(t, slices.ContainsFunc(obj.Program.Instructions, func(ins asm.Instruction) bool {
 		return ins.Constant == poisonedMapLoad
 	}), "No instruction should have been poisoned")
@@ -61,6 +67,8 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 	// Disable as many maps as possible.
 	require.NoError(t, obj.UseMapA.Set(false))
 	require.NoError(t, obj.UseMapB.Set(false))
+	require.NoError(t, obj.UseMapStatic.Set(false))
+	require.NoError(t, obj.UseMapGlobal.Set(false))
 
 	reach, err = computeReachability(spec)
 	require.NoError(t, err)
@@ -69,6 +77,8 @@ func TestPrivilegedRemoveUnusedMaps(t *testing.T) {
 
 	assert.Nil(t, spec.Maps["map_a"])
 	assert.Nil(t, spec.Maps["map_b"])
+	assert.Nil(t, spec.Maps["map_static"])
+	assert.Nil(t, spec.Maps["map_global"])
 	assert.True(t, slices.ContainsFunc(obj.Program.Instructions, func(ins asm.Instruction) bool {
 		return ins.Constant == poisonedMapLoad
 	}), "At least one instruction should have been poisoned")
