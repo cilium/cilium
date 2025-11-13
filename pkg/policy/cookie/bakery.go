@@ -5,6 +5,7 @@ package cookie
 
 import (
 	"log/slog"
+	"sync"
 
 	"golang.org/x/exp/constraints"
 
@@ -31,6 +32,31 @@ type Bakery[C constraints.Unsigned, V comparable] interface {
 	Count() int
 }
 
+// PolicyBakery is an allocator for uint32 policy cookies.
+type PolicyBakery Bakery[uint32, *BakedCookie]
+
+var (
+	_                   PolicyBakery = (*bakery[uint32, *BakedCookie])(nil)
+	cookieOnce          sync.Once
+	defaultPolicyBakery PolicyBakery
+)
+
+// GetCookieBakery returns the bakery instance.
+func GetCookieBakery() PolicyBakery {
+	cookieOnce.Do(func() {
+		defaultPolicyBakery = NewBakery[uint32, *BakedCookie](slog.Default())
+	})
+
+	return defaultPolicyBakery
+}
+
+// ResetCookieBakeryForTests resets the default cookie bakery.
+// Testing only!
+func ResetCookieBakeryForTests(b PolicyBakery) {
+	GetCookieBakery()
+	defaultPolicyBakery = b
+}
+
 type bakery[C constraints.Unsigned, V comparable] struct {
 	logger *slog.Logger
 
@@ -40,8 +66,6 @@ type bakery[C constraints.Unsigned, V comparable] struct {
 	valueToCookie      map[V]C
 	lastSeenGeneration uint64
 }
-
-var _ Bakery[uint32, string] = (*bakery[uint32, string])(nil)
 
 type holder[T comparable] struct {
 	value T
@@ -85,9 +109,9 @@ func (b *bakery[C, V]) Allocate(value V) (cookie C, ok bool) {
 	cookie = C(next + 1)
 	b.cookieToValue[cookie] = holder[V]{value: value, since: b.lastSeenGeneration}
 	b.valueToCookie[value] = cookie
-	b.logger.Debug("Allocated policy log cookie",
-		logfields.PolicyLogCookie, cookie,
-		logfields.PolicyLogString, value,
+	b.logger.Debug("Allocated policy cookie",
+		logfields.PolicyCookie, cookie,
+		logfields.PolicyCookieValue, value,
 	)
 	return cookie, true
 }
@@ -126,9 +150,9 @@ func (b *bakery[C, V]) Sweep() {
 			delete(b.valueToCookie, val.value)
 			// Correct for offset added during allocation. See comment in Allocate.
 			b.cookieSet.Release(int(cookie - 1))
-			b.logger.Debug("Released policy log cookie",
-				logfields.PolicyLogCookie, cookie,
-				logfields.PolicyLogCookie, val.value,
+			b.logger.Debug("Released policy cookie",
+				logfields.PolicyCookie, cookie,
+				logfields.PolicyCookieValue, val.value,
 			)
 		}
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -426,16 +427,36 @@ func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 	}
 }
 
-func emptyMapState(logger *slog.Logger) mapState {
-	return newMapState(logger, 0)
-}
-
 func newMapState(logger *slog.Logger, size int) mapState {
 	return mapState{
 		logger:  logger,
 		entries: make(mapStateMap, size),
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
+}
+
+func (ms *mapState) generateCookie(derivedFrom ruleOrigin) uint32 {
+	bc := cookie.NewBakedCookie(
+		derivedFrom.LabelsString(),
+		derivedFrom.Logs(),
+	)
+	if bc.IsEmpty() {
+		return 0
+	}
+
+	ms.logger.Debug("Allocating policy log cookie",
+		logfields.PolicyCookieLogs, bc.Logs,
+		logfields.Labels, bc.Labels,
+	)
+	cookie, ok := cookie.GetCookieBakery().Allocate(bc)
+	if !ok {
+		ms.logger.Warn("Failed to allocate policy log cookie",
+			logfields.PolicyCookieLogs, bc.Logs,
+			logfields.Labels, bc.Labels,
+		)
+	}
+
+	return cookie
 }
 
 // Get the MapStateEntry that matches the Key.
@@ -579,6 +600,7 @@ func (e mapStateEntry) String() string {
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
 func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes ChangeState) bool {
 	var datapathEqual bool
+
 	oldEntry, exists := ms.get(key)
 	// Only merge if both old and new are allows or denies
 	if exists && oldEntry.IsDeny() == entry.IsDeny() {
@@ -596,6 +618,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 
 		oldEntry.MapStateEntry.Merge(entry.MapStateEntry)
 		oldEntry.derivedFromRules = oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
+		oldEntry.Cookie = ms.generateCookie(oldEntry.derivedFromRules)
 
 		ms.updateExisting(key, oldEntry)
 	} else if !exists || entry.IsDeny() {
@@ -608,6 +631,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 		}
 
 		// Callers already have cloned the containers, no need to do it again here
+		entry.Cookie = ms.generateCookie(entry.derivedFromRules)
 		ms.insert(key, entry)
 	} else {
 		// Do not record and incremental add if nothing was done

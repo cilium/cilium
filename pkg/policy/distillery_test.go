@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/cookie"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -398,6 +399,8 @@ type policyDistillery struct {
 }
 
 func newPolicyDistillery(t testing.TB, selectorCache *SelectorCache) *policyDistillery {
+	cookie.ResetCookieBakeryForTests(newFakeBakery())
+
 	ret := &policyDistillery{
 		Repository: NewPolicyRepository(hivetest.Logger(t), nil, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t), certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
 	}

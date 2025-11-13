@@ -29,14 +29,13 @@ import (
 
 // Parser is a parser for L3/L4 payloads
 type Parser struct {
-	log            *slog.Logger
-	endpointGetter getters.EndpointGetter
-	identityGetter getters.IdentityGetter
-	dnsGetter      getters.DNSGetter
-	ipGetter       getters.IPGetter
-	serviceGetter  getters.ServiceGetter
-	linkGetter     getters.LinkGetter
-
+	log                 *slog.Logger
+	endpointGetter      getters.EndpointGetter
+	identityGetter      getters.IdentityGetter
+	dnsGetter           getters.DNSGetter
+	ipGetter            getters.IPGetter
+	serviceGetter       getters.ServiceGetter
+	linkGetter          getters.LinkGetter
 	epResolver          *common.EndpointResolver
 	correlateL3L4Policy bool
 
@@ -166,6 +165,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
 	var authType pb.AuthType
+	var policyCookie uint32
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -199,6 +199,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		eventSubType = pvn.SubType
 		packetOffset = monitor.PolicyVerdictNotifyLen
 		authType = pb.AuthType(pvn.GetAuthType())
+		policyCookie = pvn.Cookie
 	case monitorAPI.MessageTypeCapture:
 		dbg = &monitor.DebugCapture{}
 		if err := dbg.Decode(data); err != nil {
@@ -287,10 +288,19 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.Summary = summary
 
 	if p.correlateL3L4Policy && p.endpointGetter != nil {
-		correlation.CorrelatePolicy(p.log, p.endpointGetter, decoded)
+		p.correlatePolicy(policyCookie, decoded)
 	}
 
 	return nil
+}
+
+func (p *Parser) correlatePolicy(policyCookie uint32, f *pb.Flow) {
+	// If we have a valid cookie use it to add log info and correlate the flow.
+	if policyCookie != 0 {
+		correlation.CorrelatePolicyFromCookie(p.log, policyCookie, p.endpointGetter, f)
+		return
+	}
+	correlation.CorrelatePolicy(p.log, p.endpointGetter, f)
 }
 
 func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
