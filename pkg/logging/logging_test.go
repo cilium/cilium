@@ -126,6 +126,14 @@ func TestSetupLogging(t *testing.T) {
 	err = SetupLogging([]string{}, logOpts, "", true)
 	assert.NoError(t, err)
 	require.Equal(t, slog.LevelDebug, GetSlogLevel(DefaultSlogLogger))
+
+	// Check if we can change logging live.
+	SetLogLevel(slog.LevelError)
+	require.Equal(t, slog.LevelError, GetSlogLevel(DefaultSlogLogger))
+
+	// Check if we can change logging live.
+	SetDefaultLogLevel()
+	require.Equal(t, DefaultLogLevel, GetSlogLevel(DefaultSlogLogger))
 }
 
 func TestSetupLogging3(t *testing.T) {
