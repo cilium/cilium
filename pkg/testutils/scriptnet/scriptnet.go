@@ -590,6 +590,24 @@ func addAddCmd(nsm *NetNSManager) script.Cmd {
 	)
 }
 
+func destinationString(via netlink.Destination) string {
+	switch d := via.(type) {
+	case *netlink.Via:
+		var family string
+		switch d.Family() {
+		case netlink.FAMILY_V4:
+			family = "inet"
+		case netlink.FAMILY_V6:
+			family = "inet6"
+		default:
+			family = fmt.Sprintf("unknown(%d)", d.Family())
+		}
+		return fmt.Sprintf("via %s %s", family, d.Addr.String())
+	default:
+		return "unknown"
+	}
+}
+
 func routeListCmd(nsm *NetNSManager) script.Cmd {
 	return script.Command(
 		script.CmdUsage{
@@ -641,32 +659,23 @@ func routeListCmd(nsm *NetNSManager) script.Cmd {
 				}
 
 				for _, route := range routes {
-					link, err := netlink.LinkByIndex(route.LinkIndex)
-					if err != nil {
-						return fmt.Errorf("Failed to find link for route %s: %w\n", route.Dst, err)
-					}
-
 					fmt.Fprintf(&sb, "%s", route.Dst.String())
 
 					if len(route.Gw) != 0 {
 						fmt.Fprintf(&sb, " via %s", route.Gw)
 					} else if route.Via != nil {
-						switch nh := route.Via.(type) {
-						case *netlink.Via:
-							var family string
-							switch nh.Family() {
-							case netlink.FAMILY_V4:
-								family = "inet"
-							case netlink.FAMILY_V6:
-								family = "inet6"
-							default:
-								family = fmt.Sprintf("unknown(%d)", nh.Family())
-							}
-							fmt.Fprintf(&sb, " via %s %s", family, nh.Addr.String())
-						}
+						fmt.Fprintf(&sb, " %s", destinationString(route.Via))
 					}
 
-					fmt.Fprintf(&sb, " dev %s scope %s", link.Attrs().Name, route.Scope)
+					if route.LinkIndex != 0 {
+						link, err := netlink.LinkByIndex(route.LinkIndex)
+						if err != nil {
+							return fmt.Errorf("Failed to find link for route %s: %w\n", route.Dst, err)
+						}
+						fmt.Fprintf(&sb, " dev %s", link.Attrs().Name)
+					}
+
+					fmt.Fprintf(&sb, " scope %s", route.Scope)
 
 					if route.Src != nil {
 						fmt.Fprintf(&sb, " src %s", route.Src)
@@ -689,6 +698,23 @@ func routeListCmd(nsm *NetNSManager) script.Cmd {
 
 					if route.Priority != 0 {
 						fmt.Fprintf(&sb, " priority %d", route.Priority)
+					}
+
+					for _, nh := range route.MultiPath {
+						parts := []string{}
+						if nh.Gw != nil {
+							parts = append(parts, fmt.Sprintf("via %s", nh.Gw.String()))
+						} else if nh.Via != nil {
+							parts = append(parts, destinationString(nh.Via))
+						}
+						if nh.LinkIndex != 0 {
+							nhLink, err := netlink.LinkByIndex(nh.LinkIndex)
+							if err != nil {
+								return fmt.Errorf("Failed to find link for nexthop in route %s: %w\n", route.Dst, err)
+							}
+							parts = append(parts, fmt.Sprintf("dev %s", nhLink.Attrs().Name))
+						}
+						fmt.Fprintf(&sb, "\n    nexthop %s", strings.Join(parts, " "))
 					}
 
 					fmt.Fprintf(&sb, "\n")

@@ -1,0 +1,54 @@
+netns/create otherns
+
+link/add veth0 veth --peername eth0 --peerns otherns
+link/add veth1 veth --peername eth1 --peerns otherns
+
+addr/add 192.168.1.1/24 veth0
+addr/add 192.168.1.0/24 --netns otherns eth0
+addr/add 192.168.2.1/24 veth1
+addr/add 192.168.2.0/24 --netns otherns eth1
+
+link/set lo up
+link/set veth0 up
+link/set eth0 --netns otherns up
+link/set veth1 up
+link/set eth1 --netns otherns up
+
+hive start
+db/initialized
+
+# Add owner
+add-owner owner1
+
+# Add multipath route
+add-route owner1 route1.yaml
+
+# Route should be in the desired-routes table
+db/cmp desired-routes desired-routes-both.table
+
+# Multipath route should be present in the kernel
+route/list --table=2000
+* cmp stdout route1.txt
+
+# Stop hive properly
+hive/stop
+
+-- route1.yaml --
+table: 2000
+prefix: "10.1.2.3/32"
+adminDistance: 100
+multiPath:
+- device: veth0
+- nexthop: 192.168.2.2
+  device: veth1
+- nexthop: fe80::1
+  device: veth1
+
+-- desired-routes-both.table --
+Owner    Table   Prefix        Priority   AD    Selected   Nexthop   Src    Device      MultiPath                                              MTU    Scope      Type  
+owner1   2000    10.1.2.3/32   none       100   true       none      none   none        [veth0 (2), 192.168.2.2 veth1 (3), fe80::1 veth1 (3)]  none   universe   unspec
+-- route1.txt --
+10.1.2.3/32 scope universe table 2000
+    nexthop dev veth0
+    nexthop via 192.168.2.2 dev veth1
+    nexthop via inet6 fe80::1 dev veth1
