@@ -448,5 +448,24 @@ func desiredRouteToNetlinkRoute(route *DesiredRoute) *netlink.Route {
 		nlRoute.Type = int(route.Type)
 	}
 
+	for _, p := range route.MultiPath {
+		nh := &netlink.NexthopInfo{}
+		if p.Device != nil {
+			nh.LinkIndex = int(p.Device.Index)
+		}
+		if p.Nexthop.IsValid() {
+			if route.Prefix.Addr().Is4() == p.Nexthop.Is4() {
+				// If the family of the nexthop matches the family of
+				// the route, use RTA_GATEWAY.
+				nh.Gw = p.Nexthop.AsSlice()
+			} else {
+				// If the family of the nexthop does not match the
+				// family of the route, use RTA_VIA.
+				nh.Via = addrToNetlinkVia(p.Nexthop)
+			}
+		}
+		nlRoute.MultiPath = append(nlRoute.MultiPath, nh)
+	}
+
 	return nlRoute
 }
