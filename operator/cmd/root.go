@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/networkpolicy"
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	"github.com/cilium/cilium/operator/pkg/ztunnel"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
@@ -316,6 +317,10 @@ var (
 
 			// GC of stale node entries in the KVStore
 			nodesgc.Cell,
+
+			// Provides the ztunnel daemonset controller if ztunnel encryption
+			// is specified.
+			ztunnel.Cell,
 		),
 	)
 
