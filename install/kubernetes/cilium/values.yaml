@@ -682,6 +682,14 @@ bpf:
   # @default -- `false`
   lbModeAnnotation: false
   # @schema
+  # type: [string]
+  # @schema
+  # -- (string) Configure how the datapath should handle unsupported protocols
+  # (forward, drop) for Load Balancer VIPs. This can also be configured on a per-
+  # service basis through the network.cilium.io/unsupported-protocol-action annotation.
+  # @default -- `"forward"`
+  lbUnsupportedProtocolAction: "forward"
+  # @schema
   # type: [null, boolean]
   # @schema
   # -- (bool) Enable native IP masquerade support in eBPF

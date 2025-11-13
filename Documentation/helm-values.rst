@@ -432,6 +432,10 @@
      - Enable loadBalancerSourceRanges CIDR filtering for all service types, not just LoadBalancer services. The corresponding NodePort and ClusterIP (if enabled for cluster-external traffic) will also apply the CIDR filter.
      - bool
      - ``false``
+   * - :spelling:ignore:`bpf.lbUnsupportedProtocolAction`
+     - Configure how the datapath should handle unsupported protocols (forward, drop) for Load Balancer VIPs. This can also be configured on a per- service basis through the network.cilium.io/unsupported-protocol-action annotation.
+     - string
+     - ``"forward"``
    * - :spelling:ignore:`bpf.mapDynamicSizeRatio`
      - Configure auto-sizing for all BPF maps based on available memory. ref: https://docs.cilium.io/en/stable/network/ebpf/maps/
      - float64
