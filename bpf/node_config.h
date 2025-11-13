@@ -14,7 +14,7 @@
  */
 #include <lib/static_data.h>
 
-#define CLUSTER_ID 0
+DECLARE_CONFIG(__u32, cluster_id, "Cluster ID")
 
 #define CILIUM_NET_IFINDEX 1
 #define CILIUM_HOST_IFINDEX 1

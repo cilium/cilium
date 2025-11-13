@@ -67,6 +67,7 @@ type ProbesMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ProbesVariableSpecs struct {
+	ConfigClusterId *ebpf.VariableSpec `ebpf:"__config_cluster_id"`
 }
 
 // ProbesObjects contains all objects after they have been loaded into the kernel.
@@ -99,6 +100,7 @@ func (m *ProbesMaps) Close() error {
 //
 // It can be passed to LoadProbesObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ProbesVariables struct {
+	ConfigClusterId *ebpf.Variable `ebpf:"__config_cluster_id"`
 }
 
 // ProbesPrograms contains all programs after they have been loaded into the kernel.

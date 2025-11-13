@@ -447,6 +447,7 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+	cfg.ClusterID = option.Config.ClusterID
 
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
@@ -541,6 +542,7 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+	cfg.ClusterID = option.Config.ClusterID
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
