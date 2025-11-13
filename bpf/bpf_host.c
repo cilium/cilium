@@ -263,6 +263,9 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	int ret __maybe_unused;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
+#ifdef TUNNEL_MODE
+	bool same_subnet_id = false;
+#endif
 
 	if (from_host && tc_index_from_ingress_proxy(ctx)) {
 		from_proxy = true;
@@ -329,6 +332,12 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	}
 #endif /* ENABLE_SRV6 */
 
+	dst = (union v6addr *)&ip6->daddr;
+	info = lookup_ip6_remote_endpoint(dst, 0);
+
+	if (info && info->flag_unroutable)
+		return DROP_UNROUTABLE;
+
 #ifndef ENABLE_HOST_ROUTING
 	/* See the equivalent v4 path for comments */
 	if (!from_host)
@@ -368,12 +377,8 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	if (!from_host)
 		return CTX_ACT_OK;
 
-	dst = (union v6addr *) &ip6->daddr;
-	info = lookup_ip6_remote_endpoint(dst, 0);
-
 #ifdef TUNNEL_MODE
 	/* Check if the source and destination IP has same subnet ID. */
-	bool same_subnet_id = false;
 
 	if (CONFIG(hybrid_routing_enabled)) {
 		__u32 src_subnet_id = lookup_ip6_subnet_id((union v6addr *)&ip6->saddr);
@@ -695,6 +700,9 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	int ret __maybe_unused;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
+#ifdef TUNNEL_MODE
+	bool same_subnet_id = false;
+#endif
 
 	if (from_host && tc_index_from_ingress_proxy(ctx)) {
 		from_proxy = true;
@@ -741,6 +749,11 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		}
 	}
 #endif /* ENABLE_HOST_FIREWALL */
+
+	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+
+	if (info && info->flag_unroutable)
+		return DROP_UNROUTABLE;
 
 #ifndef ENABLE_HOST_ROUTING
 	/* Without bpf_redirect_neigh() helper, we cannot redirect a
@@ -824,12 +837,10 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 skip_vtep:
 #endif
 
-	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-
 #ifdef TUNNEL_MODE
-	/* Check if the source and destination IP has same subnet ID. */
-	bool same_subnet_id = false;
-	/* Lookup the subnet IDs for the source and destination IPs in hybrid routing mode. */
+	/* Check if the source and destination IP has same subnet ID.
+	 * Lookup the subnet IDs for the source and destination IPs in hybrid routing mode.
+	 */
 	if (CONFIG(hybrid_routing_enabled)) {
 		__u32 src_subnet_id = lookup_ip4_subnet_id(ip4->saddr);
 		__u32 dst_subnet_id = lookup_ip4_subnet_id(ip4->daddr);
