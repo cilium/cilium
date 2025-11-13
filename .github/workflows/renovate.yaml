@@ -17,6 +17,8 @@ jobs:
   renovate:
     name: Run self-hosted Renovate
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     steps:
       # we need special permission to be able to operate renovate (view, list,
       # create issues, PR, etc.) and we use a GitHub application with fine
@@ -34,13 +36,13 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@2d941ef4e268e53affdc1f11365c69a73e544f50 # v43.0.14
+        uses: renovatebot/github-action@4ebebabcd582dddea1692b05c3d5279f8e372b53 # v44.0.0
         env:
           # default to DEBUG log level, this is always useful
           LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
         with:
           # renovate: datasource=github-releases depName=renovatebot/renovate
-          renovate-version: 41.146.0
+          renovate-version: 42.2.0
           docker-user: root
           docker-cmd-file: .github/actions/renovate/entrypoint.sh
           configurationFile: .github/renovate.json5

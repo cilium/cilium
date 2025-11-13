@@ -254,12 +254,6 @@ jobs:
             OWNER="${OWNER//[.\/]/-}"
           fi
 
-          # Check if ipsec is requested via extra-args
-          IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
-          if [[ "$IPSEC" == "true" ]]; then
-            echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
-          fi
-
           # We explicity set the cluster-pool Pod CIDR here to not clash with the AKS default Service CIDRs
           # which are 10.0.0.0/16 and fd12:3456:789a:1::/108
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
@@ -273,6 +267,14 @@ jobs:
             --helm-set=ipv6.enabled=true \
             --helm-set ipam.operator.clusterPoolIPv4PodCIDRList=192.168.0.0/16 \
             --helm-set ipam.operator.clusterPoolIPv6PodCIDRList=fd00::/104"
+
+          # Check if ipsec is requested via extra-args
+          IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
+          if [[ "$IPSEC" == "true" ]]; then
+            echo "::notice::IPsec enabled - setting ipsec=true for all matrix entries"
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true \
+              --helm-set encryption.type=ipsec"
+          fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
@@ -309,7 +311,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@024e340cca1465e2a6336521f12370c7ca58c59a # v0.18.7
+        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -329,6 +331,11 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
+      - name: Create custom IPsec secret
+        if: ${{ steps.vars.outputs.ipsec == 'true' }}
+        run: |
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+
       - name: Install Cilium
         id: install-cilium
         run: |
@@ -347,6 +354,7 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run sequential connectivity test (${{ join(matrix.*, ', ') }})
+        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --test "seq-.*" \
@@ -361,62 +369,13 @@ jobs:
           --junit-file "cilium-junits/${{ env.job_name }}-concurrent-clear (${{ join(matrix.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
-      - name: Features tested
-        uses: ./.github/actions/feature-status
-        with:
-          title: "Summary of all features tested"
-          json-filename: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 1"
-
-      - name: Clean up Cilium
-        if: ${{ steps.vars.outputs.ipsec == 'true' }}
-        run: |
-          cilium uninstall --wait
-
-      - name: Create custom IPsec secret
-        if: ${{ steps.vars.outputs.ipsec == 'true' }}
-        run: |
-          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
-
-      - name: Install Cilium with encryption
-        if: ${{ steps.vars.outputs.ipsec == 'true' }}
-        run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --helm-set encryption.enabled=true \
-            --helm-set encryption.type=ipsec
-
-      - name: Enable Relay
-        if: ${{ steps.vars.outputs.ipsec == 'true' }}
-        run: |
-          cilium hubble enable
-
-      - name: Wait for Cilium status to be ready
-        if: ${{ steps.vars.outputs.ipsec == 'true' }}
-        run: |
-          cilium status --wait --interactive=false --wait-duration=10m
-
-      - name: Run sequential connectivity test with IPSec (${{ join(matrix.*, ', ') }})
-        if: ${{ steps.vars.outputs.ipsec == 'true' }}
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-          --test "seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-sequential-ipsec (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
-
-      - name: Run concurrent connectivity test with IPSec (${{ join(matrix.*, ', ') }})
-        if: ${{ steps.vars.outputs.ipsec == 'true' }}
-        run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-          --test-concurrency=${{ env.test_concurrency }} \
-          --test "!seq-.*" \
-          --junit-file "cilium-junits/${{ env.job_name }}-concurrent-ipsec (${{ join(matrix.*, ', ') }}).xml" \
-          --junit-property github_job_step="Run connectivity test with IPSec (${{ join(matrix.*, ', ') }})"
-
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - 2"
+          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
           job_status: "${{ job.status }}"
+          capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
       - name: Clean up AKS
         if: ${{ always() }}
@@ -427,10 +386,24 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() && !inputs.is-workflow-call }}
-    needs: installation-and-connectivity
+    needs: [generate-matrix, installation-and-connectivity]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.installation-and-connectivity.result }}
+      # The generate-matrix can be legitimately empty on older branches, so we
+      # consider that as success. On older branches the generated matrix will
+      # get fewer entries since the k8s versions will reach EOL and get removed
+      # from the matrix.
+      success: >-
+        ${{
+          needs.generate-matrix.result == 'success' &&
+        (
+          needs.installation-and-connectivity.result == 'success'
+          ||
+          (
+            needs.generate-matrix.outputs.empty == 'true' &&
+            github.ref_name != github.event.repository.default_branch
+          )
+        ) }}

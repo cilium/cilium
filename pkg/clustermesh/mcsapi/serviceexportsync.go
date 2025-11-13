@@ -14,7 +14,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
-	"github.com/cilium/cilium/pkg/clustermesh/operator"
+	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -46,7 +46,7 @@ type ServiceExportSyncParameters struct {
 	cell.In
 
 	Logger      *slog.Logger
-	Config      operator.MCSAPIConfig
+	Config      mcsapitypes.MCSAPIConfig
 	ClusterInfo cmtypes.ClusterInfo
 
 	Clientset     client.Clientset
@@ -76,7 +76,7 @@ func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
 			func(ctx context.Context, _ cell.Health) error {
 				(&serviceExportSync{
 					logger:      cfg.Logger,
-					enabled:     cfg.Config.ClusterMeshEnableMCSAPI,
+					enabled:     cfg.Config.EnableMCSAPI,
 					clusterName: cfg.ClusterInfo.Name,
 
 					clientset:      cfg.Clientset,

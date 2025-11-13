@@ -26,7 +26,6 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 {
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	int l3_off = ETH_HLEN, hdrlen;
-	fraginfo_t fraginfo;
 
 	/* Further action is needed in two cases:
 	 * 1. Packets from host IPs: need to enforce host policies.
@@ -40,14 +39,16 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
-	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr,
+					   &ct_buffer->fraginfo);
 	if (hdrlen < 0) {
 		ct_buffer->ret = hdrlen;
 		return true;
 	}
 	ct_buffer->l4_off = l3_off + hdrlen;
-	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6, fraginfo,
-				    ct_buffer->l4_off, CT_EGRESS, SCOPE_BIDIR, NULL,
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,
+				    ct_buffer->fraginfo, ct_buffer->l4_off,
+				    CT_EGRESS, SCOPE_BIDIR, NULL,
 				    &ct_buffer->monitor);
 	return true;
 }
@@ -75,7 +76,7 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		return CTX_ACT_OK;
 
 	if (is_host_id) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 		__u32 tunnel_endpoint = 0;
 
 		/* Retrieve destination identity. */
@@ -158,9 +159,8 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				struct ct_buffer6 *ct_buffer)
 {
 	__u32 dst_sec_identity = WORLD_IPV6_ID;
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
-	fraginfo_t fraginfo;
 	int hdrlen;
 
 	/* Retrieve destination identity. */
@@ -178,14 +178,16 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* Lookup connection in conntrack map. */
 	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
-	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr, &fraginfo);
+	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr,
+					   &ct_buffer->fraginfo);
 	if (hdrlen < 0) {
 		ct_buffer->ret = hdrlen;
 		return true;
 	}
 	ct_buffer->l4_off = ETH_HLEN + hdrlen;
-	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6, fraginfo,
-				    ct_buffer->l4_off, CT_INGRESS, SCOPE_BIDIR, NULL,
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,
+				    ct_buffer->fraginfo, ct_buffer->l4_off,
+				    CT_INGRESS, SCOPE_BIDIR, NULL,
 				    &ct_buffer->monitor);
 
 	return true;
@@ -203,8 +205,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
-	struct remote_endpoint_info *info;
-	fraginfo_t fraginfo __maybe_unused;
+	const struct remote_endpoint_info *info;
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
@@ -229,10 +230,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-	is_untracked_fragment = ipfrag_is_fragment(fraginfo);
+	is_untracked_fragment = ipfrag_is_fragment(ct_buffer->fraginfo);
 #  endif
 
 	/* Perform policy lookup */
@@ -362,7 +360,7 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	 */
 
 	if (is_host_id) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 		__u32 tunnel_endpoint = 0;
 
 		/* Retrieve destination identity. */
@@ -444,7 +442,7 @@ ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 				struct ct_buffer4 *ct_buffer)
 {
 	__u32 dst_sec_identity = WORLD_IPV4_ID;
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	int l3_off = ETH_HLEN;
 
@@ -482,7 +480,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	fraginfo_t fraginfo __maybe_unused;
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;

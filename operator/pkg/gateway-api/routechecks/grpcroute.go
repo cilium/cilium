@@ -31,7 +31,8 @@ type GRPCRouteInput struct {
 	Grants    *gatewayv1beta1.ReferenceGrantList
 	GRPCRoute *gatewayv1.GRPCRoute
 
-	gateways map[gatewayv1.ParentReference]*gatewayv1.Gateway
+	gateways      map[gatewayv1.ParentReference]*gatewayv1.Gateway
+	gammaServices map[gatewayv1.ParentReference]*corev1.Service
 }
 
 // GRPCRouteRule is used to implement the GenericRule interface for GRPCRoute
@@ -114,7 +115,30 @@ func (g *GRPCRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv
 }
 
 func (g *GRPCRouteInput) GetParentGammaService(parent gatewayv1.ParentReference) (*corev1.Service, error) {
-	return nil, fmt.Errorf("GAMMA support is not implemented in this reconciler")
+	if g.gammaServices == nil {
+		g.gammaServices = make(map[gatewayv1.ParentReference]*corev1.Service)
+	}
+
+	if s, exists := g.gammaServices[parent]; exists {
+		return s, nil
+	}
+
+	ns := helpers.NamespaceDerefOr(parent.Namespace, g.GetNamespace())
+	s := &corev1.Service{}
+
+	if err := g.Client.Get(g.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, s); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			// if it is not just a not found error, we should return the error as something is bad
+			return nil, fmt.Errorf("error while getting gateway: %w", err)
+		}
+
+		// Gateway does not exist skip further checks
+		return nil, fmt.Errorf("service %q does not exist: %w", parent.Name, err)
+	}
+
+	g.gammaServices[parent] = s
+
+	return s, nil
 }
 
 func (g *GRPCRouteInput) GetHostnames() []gatewayv1beta1.Hostname {

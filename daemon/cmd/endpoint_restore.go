@@ -17,6 +17,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
@@ -66,6 +67,7 @@ type endpointRestorer struct {
 
 	restoreState                  *endpointRestoreState
 	endpointRestoreComplete       chan struct{}
+	endpointRegenerateComplete    chan struct{}
 	endpointInitialPolicyComplete chan struct{}
 }
 
@@ -83,6 +85,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 		ipamManager:         params.IPAMManager,
 
 		endpointRestoreComplete:       make(chan struct{}),
+		endpointRegenerateComplete:    make(chan struct{}),
 		endpointInitialPolicyComplete: make(chan struct{}),
 		restoreState: &endpointRestoreState{
 			possible: nil,
@@ -92,7 +95,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 	}
 }
 
-func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
+func (r *endpointRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
 	}
@@ -105,6 +108,19 @@ func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
 	return nil
 }
 
+func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
+	if !option.Config.RestoreState {
+		return nil
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.endpointRegenerateComplete:
+	}
+	return nil
+}
+
 func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
@@ -113,7 +129,7 @@ func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-r.endpointRestoreComplete:
+	case <-r.endpointRegenerateComplete:
 	case <-r.endpointInitialPolicyComplete:
 	}
 	return nil
@@ -129,6 +145,67 @@ type endpointRestoreState struct {
 func (r *endpointRestorer) checkLink(linkName string) error {
 	_, err := safenetlink.LinkByName(linkName)
 	return err
+}
+
+// validateDatapathModeCompatibility checks if endpoints being restored are compatible
+// with the current datapath mode. If the agent is configured with netkit/veth mode and
+// detects existing endpoints using veth/netkit, it will exit with a fatal error describing
+// the compatibility issue
+func (r *endpointRestorer) validateDatapathModeCompatibility(endpoints map[uint16]*endpoint.Endpoint) error {
+	var incompatibleEndpoints []string
+	var incompatibleType string
+
+	// Determine what type of endpoints are incompatible with current mode
+	currentDatapathMode := option.Config.DatapathMode
+	isNetkitMode := currentDatapathMode == datapathOption.DatapathModeNetkit || currentDatapathMode == datapathOption.DatapathModeNetkitL2
+	isVethMode := currentDatapathMode == datapathOption.DatapathModeVeth
+
+	for _, ep := range endpoints {
+		// Only check pod endpoints, skip host endpoint, health endpoint, and other special endpoints
+		if !ep.K8sNamespaceAndPodNameIsSet() {
+			continue
+		}
+
+		// Skip fake endpoints
+		if ep.IsProperty(endpoint.PropertyFakeEndpoint) {
+			continue
+		}
+
+		ifName := ep.HostInterface()
+		link, err := safenetlink.LinkByName(ifName)
+		if err != nil {
+			r.logger.Debug("Failed to check endpoint link type, skipping",
+				logfields.EndpointID, ep.ID,
+				logfields.Error, err,
+			)
+			continue
+		}
+
+		// Check for incompatibility
+		isIncompatible := false
+		if isNetkitMode && link.Type() == "veth" {
+			isIncompatible = true
+			incompatibleType = "veth"
+		} else if isVethMode && link.Type() == "netkit" {
+			isIncompatible = true
+			incompatibleType = "netkit"
+		}
+
+		if isIncompatible {
+			epName := fmt.Sprintf("%s/%s (endpoint-%d)", ep.K8sNamespace, ep.K8sPodName, ep.ID)
+			incompatibleEndpoints = append(incompatibleEndpoints, epName)
+		}
+	}
+
+	if len(incompatibleEndpoints) > 0 {
+		return fmt.Errorf(
+			"Cannot start cilium-agent with datapath-mode=%s: detected %d existing endpoint(s) using %s datapath mode. "+
+				"Endpoints using %s datapath mode: %v. "+
+				"Please delete these pods or change the datapath mode back to %s before starting the agent with %s mode",
+			currentDatapathMode, len(incompatibleEndpoints), incompatibleType, incompatibleType, incompatibleEndpoints, incompatibleType, currentDatapathMode)
+	}
+
+	return nil
 }
 
 // validateEndpoint attempts to determine that the restored endpoint is valid, ie it
@@ -252,7 +329,7 @@ func (r *endpointRestorer) GetState() *endpointRestoreState {
 // endpoints into the endpoints list. It needs to be followed by a call to
 // regenerateRestoredEndpoints() once the endpoint builder is ready.
 // Endpoints which cannot be associated with a container workload are deleted.
-func (r *endpointRestorer) RestoreOldEndpoints() {
+func (r *endpointRestorer) RestoreOldEndpoints() error {
 	failed := 0
 	defer func() {
 		r.restoreState.possible = nil
@@ -260,10 +337,15 @@ func (r *endpointRestorer) RestoreOldEndpoints() {
 
 	if !option.Config.RestoreState {
 		r.logger.Info("Endpoint restore is disabled, skipping restore step")
-		return
+		return nil
 	}
 
 	r.logger.Info("Restoring endpoints...")
+
+	// Validate that endpoints are compatible with the current datapath mode
+	if err := r.validateDatapathModeCompatibility(r.restoreState.possible); err != nil {
+		return err
+	}
 
 	var (
 		existingEndpoints map[string]lxcmap.EndpointInfo
@@ -329,6 +411,8 @@ func (r *endpointRestorer) RestoreOldEndpoints() {
 			}
 		}
 	}
+
+	return nil
 }
 
 func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreState) {
@@ -490,7 +574,7 @@ func (r *endpointRestorer) handleRestoredEndpointsRegeneration(endpoints []*endp
 		logfields.Failed, failed,
 		logfields.Total, total,
 	)
-	close(r.endpointRestoreComplete)
+	close(r.endpointRegenerateComplete)
 }
 
 func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
@@ -553,4 +637,6 @@ func (r *endpointRestorer) InitRestore() {
 	// received the full list of policies present at the time the daemon
 	// is bootstrapped.
 	r.regenerateRestoredEndpoints(r.restoreState)
+
+	close(r.endpointRestoreComplete)
 }

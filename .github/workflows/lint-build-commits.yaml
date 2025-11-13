@@ -85,7 +85,7 @@ jobs:
 
   build-commits-cilium:
     name: Check if cilium builds for every commit
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     needs: [compute-vars]
     timeout-minutes: 180
     steps:
@@ -114,7 +114,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.3
+          go-version: 1.25.4
 
       - name: Load Golang cache build from GitHub
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -171,7 +171,7 @@ jobs:
 
   build-commits-hubble-cli:
     name: Check if hubble-cli builds for every commit
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     needs: [compute-vars]
     timeout-minutes: 180
     steps:
@@ -200,7 +200,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.3
+          go-version: 1.25.4
 
       - name: Load hubble-cli Golang cache build from GitHub
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -263,7 +263,7 @@ jobs:
 
   build-commits-bpf:
     name: Check if bpf builds for every commit
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     needs: [compute-vars]
     # Runs only if code under bpf/ is changed.
     if: needs.compute-vars.outputs.build-bpf == 'true'
@@ -294,7 +294,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.3
+          go-version: 1.25.4
 
       - name: Load Golang cache build from GitHub
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -356,7 +356,7 @@ jobs:
 
   build-commits-test:
     name: Check if test builds for every commit
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     needs: [compute-vars]
     # Runs only if code under test/ is changed.
     if: needs.compute-vars.outputs.build-test == 'true'
@@ -387,7 +387,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.3
+          go-version: 1.25.4
 
       - name: Set clang directory
         id: set_clang_dir
@@ -399,7 +399,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends libtinfo6
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@a7a1a882e2d06ebe05d5bb97c3e1f8c984ae96fc # v2.0.7
+        uses: KyleMayes/install-llvm-action@98e68e10c96dffcb7bfed8b2144541a66b49aa02 # v2.0.8
         with:
           version: "19.1.7"
           directory: ${{ steps.set_clang_dir.outputs.clang_dir }}

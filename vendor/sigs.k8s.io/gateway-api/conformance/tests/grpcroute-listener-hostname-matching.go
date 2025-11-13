@@ -52,15 +52,15 @@ var GRPCRouteListenerHostnameMatching = suite.ConformanceTest{
 		gwNN := types.NamespacedName{Name: "grpcroute-listener-hostname-matching", Namespace: ns}
 
 		_ = kubernetes.GatewayAndRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName,
-			kubernetes.NewGatewayRef(gwNN, "listener-1"), &v1.GRPCRoute{},
+			kubernetes.NewGatewayRef(gwNN, "listener-1"), &v1.GRPCRoute{}, true,
 			types.NamespacedName{Namespace: ns, Name: "backend-v1"},
 		)
 		_ = kubernetes.GatewayAndRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName,
-			kubernetes.NewGatewayRef(gwNN, "listener-2"), &v1.GRPCRoute{},
+			kubernetes.NewGatewayRef(gwNN, "listener-2"), &v1.GRPCRoute{}, true,
 			types.NamespacedName{Namespace: ns, Name: "backend-v2"},
 		)
 		gwAddr := kubernetes.GatewayAndRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName,
-			kubernetes.NewGatewayRef(gwNN, "listener-3", "listener-4"), &v1.GRPCRoute{},
+			kubernetes.NewGatewayRef(gwNN, "listener-3", "listener-4"), &v1.GRPCRoute{}, true,
 			types.NamespacedName{Namespace: ns, Name: "backend-v3"},
 		)
 

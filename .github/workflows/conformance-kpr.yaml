@@ -136,10 +136,10 @@ jobs:
   merge-upload-and-status:
     name: Merge Upload and Status
     if: ${{ always() }}
-    needs: [conformance-eks-kpr]
+    needs: [conformance-eks-kpr, conformance-eks-kpr-ipsec, conformance-eks-kpr-wireguard]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      result: ${{ needs.conformance-eks-kpr.result == 'failure' && 'failure' || 'success' }}
+      success: ${{ (needs.conformance-eks-kpr.result == 'success' && needs.conformance-eks-kpr-ipsec.result == 'success' && needs.conformance-eks-kpr-wireguard.result == 'success') }}

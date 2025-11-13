@@ -20,9 +20,15 @@
 
 #define ENCRYPT_KEY			0xFF
 
+#ifdef ENCRYPTION_STRICT_MODE
+#define STRICT_IPV4_NET			IPV4(192, 168, 0, 0)
+#define STRICT_IPV4_NET_SIZE		16
+#endif
+
 #include "lib/bpf_host.h"
 
 #include "lib/ipcache.h"
+#include "lib/ipsec.h"
 #include "lib/node.h"
 
 static __always_inline
@@ -60,13 +66,7 @@ int encrypt_v4_1_missing_dst_setup(struct __ctx_buff *ctx)
 					    v4_pod_cidr_size);
 
 #ifdef ENABLE_IPSEC
-	__u32 encrypt_key = 0;
-	struct encrypt_config cfg = {
-		.encrypt_key = ENCRYPT_KEY,
-	};
-
-	map_update_elem(&cilium_encrypt_state, &encrypt_key, &cfg, BPF_ANY);
-
+	ipsec_set_encrypt_state(ENCRYPT_KEY);
 	node_v4_add_entry(DST_NODE_V4, 123, ENCRYPT_KEY);
 #endif
 
@@ -141,7 +141,7 @@ int encrypt_v4_2_src_mark_check(const struct __ctx_buff *ctx)
 }
 
 /* Now test *without* the identity in the mark. This should *not* trigger
- * encryption:
+ * encryption. Strict-Mode should capture the packet.
  */
 PKTGEN("tc", "encrypt_v4_3_no_src_mark")
 int encrypt_v4_3_no_src_mark_pktgen(struct __ctx_buff *ctx)
@@ -161,6 +161,8 @@ int encrypt_v4_3_no_src_mark_check(const struct __ctx_buff *ctx)
 	void *data;
 	void *data_end;
 	__u32 *status_code;
+	__u32 expected_result = is_defined(ENCRYPTION_STRICT_MODE) ? CTX_ACT_DROP :
+								     CTX_ACT_OK;
 
 	test_init();
 
@@ -171,7 +173,7 @@ int encrypt_v4_3_no_src_mark_check(const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_OK);
+	assert(*status_code == expected_result);
 
 	test_finish();
 }

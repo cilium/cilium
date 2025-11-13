@@ -13,6 +13,7 @@
 #include "l3.h"
 #include "lb.h"
 #include "common.h"
+#include "drop.h"
 #include "overloadable.h"
 #include "egress_gateway.h"
 #include "eps.h"
@@ -31,7 +32,6 @@ DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to (default: MTU set in node_config.h by agent)")
 ASSIGN_CONFIG(__u16, device_mtu, MTU)
-#define THIS_MTU CONFIG(device_mtu) /* Backwards compatibility */
 
 /* Evaluate the input values for detecting compilation errors.
  * Just blindly substituting this macro with the CTX_ACT_OK
@@ -181,7 +181,7 @@ static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused
 					   __u16 expanded_len __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
-	if (expanded_len > THIS_MTU)
+	if (expanded_len > CONFIG(device_mtu))
 		return true;
 #endif
 	return false;
@@ -203,7 +203,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 	case BPF_FIB_LKUP_RET_NO_NEIGH:
 		oif = fib_params->l.ifindex;
 
-		if (oif == THIS_INTERFACE_IFINDEX)
+		if (oif == CONFIG(interface_ifindex))
 			return CTX_ACT_OK;
 
 		return fib_do_redirect(ctx, true, fib_params, true, ret, oif, ext_err);
@@ -392,7 +392,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 __be16 svc_port,
 						 int *ifindex, int *ohead)
 {
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct geneve_dsr_opt6 gopt;
 	union v6addr *dst;
@@ -599,7 +599,7 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 	union macaddr smac, dmac;
 	struct icmp6hdr icmp __align_stack_8 = {
 		.icmp6_type	= ICMPV6_PKT_TOOBIG,
-		.icmp6_mtu	= bpf_htonl(THIS_MTU - ohead),
+		.icmp6_mtu	= bpf_htonl(CONFIG(device_mtu) - ohead),
 	};
 	__u64 payload_len = sizeof(*ip6) + sizeof(icmp) + orig_dgram;
 	struct ipv6hdr ip __align_stack_8 = {
@@ -809,7 +809,7 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline struct lb6_reverse_nat *
+static __always_inline const struct lb6_reverse_nat *
 nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 				struct ipv6_ct_tuple *tuple)
 {
@@ -912,7 +912,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 		},
 	};
 	int ret, l4_off;
-	struct remote_endpoint_info *info __maybe_unused;
+	const struct remote_endpoint_info *info __maybe_unused;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
@@ -1198,7 +1198,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	fraginfo_t fraginfo;
 	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	union v6addr *dst;
 #endif
 
@@ -1305,7 +1305,7 @@ drop_err:
 
 static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 					    struct ipv6_ct_tuple *tuple,
-					    struct lb6_service *svc,
+					    const struct lb6_service *svc,
 					    struct lb6_key *key,
 					    struct ipv6hdr *ip6,
 					    int l3_off,
@@ -1336,7 +1336,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs((__u16)svc->l7_lb_proxy_port),
-				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor,
+				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IPV6));
 
 #  if defined(ENABLE_TPROXY)
@@ -1459,7 +1459,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
-	struct lb6_service *svc;
+	const struct lb6_service *svc;
 	struct lb6_key key = {};
 
 	tuple.nexthdr = ip6->nexthdr;
@@ -1517,7 +1517,7 @@ skip_service_lookup:
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
-		(DSR_ENCAP_MODE != DSR_ENCAP_GENEVE && DSR_ENCAP_MODE != DSR_ENCAP_IPIP))
+     (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
 		if (is_svc_proto) {
 			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
 						      &key.address,
@@ -1727,7 +1727,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 						 struct iphdr *ip4, __be32 svc_addr,
 						 __be16 svc_port, int *ifindex, __be16 *ohead)
 {
-	struct remote_endpoint_info *info __maybe_unused;
+	const struct remote_endpoint_info *info __maybe_unused;
 	struct geneve_dsr_opt4 gopt __align_stack_8;
 	bool need_opt = true;
 	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
@@ -1984,7 +1984,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		.code		= ICMP_FRAG_NEEDED,
 		.un = {
 			.frag = {
-				.mtu = bpf_htons(THIS_MTU - ohead),
+				.mtu = bpf_htons(CONFIG(device_mtu) - ohead),
 			},
 		},
 	};
@@ -2190,7 +2190,7 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline struct lb4_reverse_nat *
+static __always_inline const struct lb4_reverse_nat *
 nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 				struct ipv4_ct_tuple *tuple)
 {
@@ -2240,7 +2240,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			.ifindex	= ctx_get_ifindex(ctx),
 		},
 	};
-	struct remote_endpoint_info *info __maybe_unused = NULL;
+	const struct remote_endpoint_info *info __maybe_unused = NULL;
 	int ifindex = 0, ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
@@ -2315,7 +2315,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 skip_revdnat:
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
-	(defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))
+    (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))
 	/* The gateway node needs to manually steer any reply traffic
 	 * for a remote pod into the tunnel (to avoid iptables potentially
 	 * dropping or accidentally SNATing the packets).
@@ -2351,8 +2351,8 @@ redirect:
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
-		(defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD))) ||	\
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&				\
+     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST))) ||			\
     defined(TUNNEL_MODE)
 	if (tunnel_endpoint) {
 		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
@@ -2466,8 +2466,8 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && \
-		(defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)))
+    (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&						\
+     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
@@ -2547,7 +2547,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 #ifdef TUNNEL_MODE
 	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u8 cluster_id __maybe_unused = (__u8)ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	__be32 tunnel_endpoint = 0;
 #endif
 
@@ -2650,7 +2650,7 @@ drop_err:
 
 static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    struct ipv4_ct_tuple *tuple,
-					    struct lb4_service *svc,
+					    const struct lb4_service *svc,
 					    struct lb4_key *key,
 					    struct iphdr *ip4,
 					    int l3_off,
@@ -2689,7 +2689,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 		send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, UNKNOWN_ID,
 				  bpf_ntohs(proxy_port),
-				  THIS_INTERFACE_IFINDEX, TRACE_REASON_POLICY, monitor,
+				  CONFIG(interface_ifindex), TRACE_REASON_POLICY, monitor,
 				  bpf_htons(ETH_P_IP));
 
 #  if defined(ENABLE_TPROXY)
@@ -2839,7 +2839,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	fraginfo_t fraginfo;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_svc_proto = true;
-	struct lb4_service *svc;
+	const struct lb4_service *svc;
 	struct lb4_key key = {};
 	int ret, l4_off;
 
@@ -2889,7 +2889,7 @@ skip_service_lookup:
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
-		(DSR_ENCAP_MODE != DSR_ENCAP_GENEVE && DSR_ENCAP_MODE != DSR_ENCAP_IPIP))
+     (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
 		if (is_svc_proto) {
 			/* Check if packet has embedded DSR info, or belongs to
 			 * an established DSR connection:

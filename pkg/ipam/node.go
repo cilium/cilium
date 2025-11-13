@@ -18,7 +18,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam/metrics"
@@ -132,6 +131,9 @@ type Node struct {
 
 	// logLimiter rate limits potentially repeating warning logs
 	logLimiter logging.Limiter
+
+	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
+	excessIPReleaseDelay time.Duration
 }
 
 // ipAllocAttrs represents IP-specific allocation attributes.
@@ -301,6 +303,10 @@ func (n *Node) getStaticIPTags() ipamTypes.Tags {
 // A negative number is returned to indicate release of addresses.
 func (n *Node) GetNeededAddresses() int {
 	stats := n.Stats()
+
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
 	if stats.IPv4.NeededIPs > 0 {
 		return stats.IPv4.NeededIPs
 	}
@@ -502,11 +508,27 @@ func (n *Node) recalculate(ctx context.Context) {
 }
 
 // allocationNeeded returns true if this node requires IPs to be allocated
-func (n *Node) allocationNeeded() (needed bool) {
+func (n *Node) allocationNeeded() bool {
 	n.mutex.RLock()
-	needed = !n.ipv4Alloc.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.NeededIPs > 0
-	n.mutex.RUnlock()
-	return
+	defer n.mutex.RUnlock()
+
+	if n.ipv4Alloc.waitingForPoolMaintenance {
+		return false
+	}
+
+	if !n.resyncNeeded.IsZero() {
+		return false
+	}
+
+	if n.stats.IPv4.NeededIPs > 0 {
+		return true
+	}
+
+	if len(n.getStaticIPTags()) > 0 && n.stats.IPv4.AssignedStaticIP == "" {
+		return true
+	}
+
+	return false
 }
 
 // releaseNeeded returns true if this node requires IPs to be released
@@ -777,9 +799,8 @@ func (n *Node) abortNoLongerExcessIPs(excessMap map[string]bool) {
 }
 
 // handleIPReleaseResponse handles IPs agent has already responded to
+// caller must hold mutex lock
 func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) bool {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
 	if n.resource.Status.IPAM.ReleaseIPs != nil {
 		if status, ok := n.resource.Status.IPAM.ReleaseIPs[markedIP]; ok {
 			switch status {
@@ -795,12 +816,6 @@ func (n *Node) handleIPReleaseResponse(markedIP string, ipsToRelease *[]string) 
 		}
 	}
 	return false
-}
-
-func (n *Node) deleteLocalReleaseStatus(ip string) {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-	delete(n.ipv4Alloc.ipReleaseStatus, ip)
 }
 
 // handleIPRelease implements IP release handshake needed for releasing excess IPs on the node.
@@ -819,6 +834,8 @@ func (n *Node) deleteLocalReleaseStatus(ip string) {
 func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (instanceMutated bool, err error) {
 	var ipsToMark []string
 	var ipsToRelease []string
+
+	n.mutex.Lock()
 
 	// Update timestamps for IPs from this iteration
 	releaseTS := time.Now()
@@ -843,11 +860,11 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			// can be freed up. If the selected interface changes or if this IP is not excess anymore, remove entry
 			// from local maps.
 			delete(n.ipv4Alloc.ipsMarkedForRelease, markedIP)
-			n.deleteLocalReleaseStatus(markedIP)
+			delete(n.ipv4Alloc.ipReleaseStatus, markedIP)
 			continue
 		}
 		// Check if the IP release waiting period elapsed
-		if ts.Add(time.Duration(operatorOption.Config.ExcessIPReleaseDelay) * time.Second).After(time.Now()) {
+		if ts.Add(n.excessIPReleaseDelay).After(time.Now()) {
 			continue
 		}
 		// Handling for IPs we've already heard back from agent.
@@ -858,7 +875,6 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 		ipsToMark = append(ipsToMark, markedIP)
 	}
 
-	n.mutex.Lock()
 	for _, ip := range ipsToMark {
 		n.logger.Load().Debug(
 			"Marking IP for release",
@@ -880,10 +896,13 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 
 	if len(ipsToRelease) > 0 {
 		a.release.IPsToRelease = ipsToRelease
+
+		nodeStats := n.Stats()
+
 		scopedLog := n.logger.Load().With(
-			logfields.Available, n.stats.IPv4.AvailableIPs,
-			logfields.Used, n.stats.IPv4.UsedIPs,
-			logfields.Excess, n.stats.IPv4.ExcessIPs,
+			logfields.Available, nodeStats.IPv4.AvailableIPs,
+			logfields.Used, nodeStats.IPv4.UsedIPs,
+			logfields.Excess, nodeStats.IPv4.ExcessIPs,
 			logfields.ExcessIPs, a.release.IPsToRelease,
 			logfields.Releasing, ipsToRelease,
 			logfields.SelectedInterface, a.release.InterfaceID,
@@ -974,12 +993,17 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 	}
 
 	if len(n.getStaticIPTags()) > 0 {
-		if n.stats.IPv4.AssignedStaticIP == "" {
+		nodeStats := n.Stats()
+
+		if nodeStats.IPv4.AssignedStaticIP == "" {
 			ip, err := n.ops.AllocateStaticIP(ctx, n.getStaticIPTags())
 			if err != nil {
 				return false, err
 			}
+
+			n.mutex.Lock()
 			n.stats.IPv4.AssignedStaticIP = ip
+			n.mutex.Unlock()
 		}
 	}
 

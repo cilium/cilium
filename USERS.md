@@ -309,6 +309,12 @@ Users (Alphabetically)
       L: https://www.equinix.nl/products/support-services/managed-services/netherlands
       Q: @jonkerj
 
+    * N: Eastern Switzerland University of Applied Sciences (OST)
+      D: OST is using Cilium in their production clusters (self-hosted, bare-metal, private cloud) and in their Cloud Native training courses.
+      U: CNI with Gateway API, Network Policies, L2 Announcements, Hubble Observability, Kube-proxy replacement
+      L: https://www.ost.ch
+      Q: @Jan Untersander
+
     * N: EvoCloud
       D: EvoCloud uses Cilium as a Kubernetes proxy replacement, CNI with Gateway API integration, Cluster mesh with BGP enabled, Network policy and Hubble Observability.
       U: L4/L7 Networking, L2 Announcement, Network Policies, Kube-proxy replacement, CNI with Gateway API, Hubble for tracing and observability, ClusterMesh and ServiceMesh
@@ -420,6 +426,12 @@ Users (Alphabetically)
       U: Networking, CiliumNetworkPolicy at L7, kube-proxy replacement, encryption
       L: https://www.cloud-migration.ch/
       Q: @fakod
+
+    * N: IONX Networks Limited
+      D: IONX's Infrastructure uses Cilium as CNI plugin
+      U: CNI, IPv4 and IPv6 Networking, SCTP, Service load balancing and Kubernetes services
+      L: https://ionxnetworks.com/
+      Q: @murali509
 
     * N: Intility AS
       D: Intility is a managed service provider for enterprises and we use Cilium, Tetragon and Hubble to deliver world class managed Kubernetes clusters to customers from our own private cloud
@@ -940,6 +952,12 @@ Users (Alphabetically)
       D: Veepee is using Cilium on their on-premise Kubernetes clusters, hosting majority of their applications.
       U. CNI, BGP, eBPF, Hubble, DirectRouting (via kube-router)
       Q: @nerzhul
+
+    * N: Vietnam Post Cloud
+      D: Vietnnam Post Cloud is using Cilium in their production, staging, and development clusters
+      U: Networking, NetworkPolicy, Services, IPVLAN
+      L: https://www.vietnampost.vn
+      Q: @chint-vnpost-vn
 
     * N: Virtuozzo
       D: Cilium CNI is the default network plugin for Kubernetes clusters within Virtuozzo Hybrid Infrastructure.

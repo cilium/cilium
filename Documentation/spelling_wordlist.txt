@@ -98,6 +98,7 @@ NewProto
 Nic
 O'Reilly
 PaaS
+Packetization
 Palantir
 Pepelnjak
 Perfdash
@@ -121,6 +122,7 @@ Stormtroopers
 Suchakra
 Suricata
 Synchronizer
+Tailroom
 Talos
 Telco
 Terraform
@@ -148,6 +150,7 @@ Zhou
 aarch
 addr
 agentNotReadyTaintKey
+aggregationInterval
 alibabacloud
 allocatable
 allocateLoadBalancerNodePorts
@@ -352,6 +355,7 @@ facto
 failover
 fcfs
 fec
+fieldAggregate
 filesystem
 filesystems
 firewalling
@@ -548,8 +552,8 @@ matchLabels
 matchPattern
 maxUnavailable
 mc
-mediabot
 mcsapi
+mediabot
 memcache
 memcached
 memcd
@@ -886,3 +890,4 @@ xt
 xwing
 yaml
 zsh
+ztunnel

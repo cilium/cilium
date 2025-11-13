@@ -404,13 +404,13 @@ struct metrics_value {
 
 struct egress_gw_policy_key {
 	struct bpf_lpm_trie_key lpm_key;
-	__u32 saddr;
-	__u32 daddr;
+	__be32 saddr;
+	__be32 daddr;
 };
 
 struct egress_gw_policy_entry {
-	__u32 egress_ip;
-	__u32 gateway_ip;
+	__be32 egress_ip;
+	__be32 gateway_ip;
 };
 
 struct egress_gw_policy_key6 {
@@ -421,7 +421,7 @@ struct egress_gw_policy_key6 {
 
 struct egress_gw_policy_entry6 {
 	union v6addr egress_ip;
-	__u32 gateway_ip;
+	__be32 gateway_ip;
 	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
 	__u32 egress_ifindex;
 	__u32 reserved2; /* for even more future extension */
@@ -526,6 +526,7 @@ enum {
 #define REASON_DECRYPTING			12
 #define REASON_ENCRYPTING			13
 #define REASON_LB_REVNAT_DELETE		14
+#define REASON_MTU_ERROR_MSG			15
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0
@@ -556,19 +557,20 @@ enum metric_dir {
  *  - the key index to use for encryption when multiple keys are in-flight.
  *    In the IPsec case this becomes the SPI on the wire.
  */
+/*						Packet mark content: */
 #define MARK_MAGIC_HOST_MASK		0x0F00
 #define MARK_MAGIC_SKIP_TPROXY		0x0800
-#define MARK_MAGIC_PROXY_EGRESS_EPID	0x0900 /* mark carries source endpoint ID */
-#define MARK_MAGIC_PROXY_INGRESS	0x0A00
-#define MARK_MAGIC_PROXY_EGRESS		0x0B00
+#define MARK_MAGIC_PROXY_EGRESS_EPID	0x0900 /* source endpoint ID */
+#define MARK_MAGIC_PROXY_INGRESS	0x0A00 /* source identity (upstream traffic only) */
+#define MARK_MAGIC_PROXY_EGRESS		0x0B00 /* source identity (upstream traffic only) */
 #define MARK_MAGIC_HOST			0x0C00
 #define MARK_MAGIC_DECRYPT		0x0D00
 #define MARK_MAGIC_ENCRYPT		0x0E00
-#define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
+#define MARK_MAGIC_IDENTITY		0x0F00 /* source identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
-#define MARK_MAGIC_OVERLAY		0x0400 /* mark carries identity */
-#define MARK_MAGIC_EGW_DONE		0x0500 /* mark carries identity */
+#define MARK_MAGIC_OVERLAY		0x0400 /* source identity */
+#define MARK_MAGIC_EGW_DONE		0x0500 /* source identity */
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
 

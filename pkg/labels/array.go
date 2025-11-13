@@ -163,10 +163,9 @@ func (ls LabelArray) Has(key string) bool {
 // ["k8s.foo=bar"].Get("any.foo") => "bar"
 // ["any.foo=bar"].Get("k8s.foo") => ""
 //
-// If the key is of source "cidr", this will also match
-// broader keys.
-// ["cidr:1.1.1.1/32"].Has("cidr.1.0.0.0/8") => true
-// ["cidr:1.0.0.0/8"].Has("cidr.1.1.1.1/32") => false
+// Note that Get is not useful for labels that have no values,
+// as then Get will return an empty string whether or not key
+// matches any label in the array.
 func (ls LabelArray) Get(key string) string {
 	keyLabel := parseSelectLabel(key, '.')
 	for _, l := range ls {

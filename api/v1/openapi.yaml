@@ -2525,6 +2525,9 @@ definitions:
       enableRouteMTUForCNIChaining:
         description: Enable route MTU for pod netns when CNI chaining is used
         type: boolean
+      enablePacketizationLayerPMTUD:
+        description: Enable PLPMTUD probing on the pod netns
+        type: boolean
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
       ipam-mode:
@@ -2565,6 +2568,12 @@ definitions:
         type: integer
       GROIPv4MaxSize:
         description: Maximum IPv4 GRO size on workload facing devices
+        type: integer
+      deviceHeadroom:
+        description: Headroom buffer margin on workload facing devices
+        type: integer
+      deviceTailroom:
+        description: Tailroom buffer margin on workload facing devices
         type: integer
       ipLocalReservedPorts:
         description: Comma-separated list of IP ports should be reserved in the workload network namespace

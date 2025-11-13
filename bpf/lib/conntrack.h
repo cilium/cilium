@@ -14,7 +14,6 @@
 #include "ipv6.h"
 #include "dbg.h"
 #include "l4.h"
-#include "signal.h"
 #include "ipfrag.h"
 
 /* Traffic is allowed/dropped based on user-defined policies. */
@@ -53,6 +52,7 @@ struct ct_buffer6 {
 	__u32 monitor;
 	int ret;
 	int l4_off;
+	fraginfo_t fraginfo;
 };
 
 static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
@@ -539,8 +539,11 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		tuple->dport = 0;
 
 		switch (type) {
-		case ICMPV6_DEST_UNREACH:
 		case ICMPV6_PKT_TOOBIG:
+			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir),
+				       REASON_MTU_ERROR_MSG);
+			fallthrough;
+		case ICMPV6_DEST_UNREACH:
 		case ICMPV6_TIME_EXCEED:
 		case ICMPV6_PARAMPROB:
 			tuple->flags |= TUPLE_F_RELATED;
@@ -774,7 +777,10 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP: {
 		__be16 identifier = 0;
-		__u8 type;
+		struct {
+			__u8 type;
+			__u8 code;
+		} hdr;
 
 		/* Fragmented ECHO packets are not supported currently. Drop all
 		 * fragments, because letting the first fragment pass would be
@@ -784,9 +790,9 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 
-		if (ctx_load_bytes(ctx, off, &type, 1) < 0)
+		if (ctx_load_bytes(ctx, off, &hdr, 2) < 0)
 			return DROP_CT_INVALID_HDR;
-		if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
+		if ((hdr.type == ICMP_ECHO || hdr.type == ICMP_ECHOREPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmphdr, un.echo.id),
 				   &identifier, 2) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -794,13 +800,17 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		tuple->sport = 0;
 		tuple->dport = 0;
 
-		switch (type) {
+		switch (hdr.type) {
 		case ICMP_DEST_UNREACH:
+			if (hdr.code == ICMP_FRAG_NEEDED)
+				update_metrics(ctx_full_len(ctx),
+					       ct_to_metrics_dir(dir),
+					       REASON_MTU_ERROR_MSG);
+			fallthrough;
 		case ICMP_TIME_EXCEEDED:
 		case ICMP_PARAMETERPROB:
 			tuple->flags |= TUPLE_F_RELATED;
 			break;
-
 		case ICMP_ECHOREPLY:
 			tuple->sport = identifier;
 			break;
@@ -1017,7 +1027,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto err_ct_fill_up;
+			goto drop_err;
 	}
 
 #ifdef CONNTRACK_ACCOUNTING
@@ -1027,15 +1037,13 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto err_ct_fill_up;
+		goto drop_err;
 
 	return 0;
 
-err_ct_fill_up:
+drop_err:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	if (err == -ENOMEM)
-		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
 	return DROP_CT_CREATE_FAILED;
 }
 
@@ -1074,7 +1082,7 @@ static __always_inline int ct_create4(const void *map_main,
 
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto err_ct_fill_up;
+			goto drop_err;
 	}
 
 #ifdef CONNTRACK_ACCOUNTING
@@ -1088,15 +1096,13 @@ static __always_inline int ct_create4(const void *map_main,
 	 */
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto err_ct_fill_up;
+		goto drop_err;
 
 	return 0;
 
-err_ct_fill_up:
+drop_err:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	if (err == -ENOMEM)
-		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
 	return DROP_CT_CREATE_FAILED;
 }
 

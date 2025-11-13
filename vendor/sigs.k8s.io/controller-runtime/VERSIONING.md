@@ -7,6 +7,16 @@ For the purposes of the aforementioned guidelines, controller-runtime
 counts as a "library project", but otherwise follows the guidelines
 exactly.
 
+We stick to a major version of zero and create a minor version for
+each Kubernetes minor version and we allow breaking changes in our
+minor versions. We create patch releases as needed and don't allow
+breaking changes in them.
+
+Publishing a non-zero major version is pointless for us, as the k8s.io/*
+libraries we heavily depend on do breaking changes but use the same
+versioning scheme as described above. Consequently, a project can only
+ever depend on one controller-runtime version.
+
 [guidelines]: https://sigs.k8s.io/kubebuilder-release-tools/VERSIONING.md
 
 ## Compatibility and Release Support

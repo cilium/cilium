@@ -46,7 +46,7 @@ func NewTranslator(cecTranslator translation.CECTranslator, cfg translation.Conf
 func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error) {
 	listeners := m.GetListeners()
 	if len(listeners) == 0 || len(listeners[0].GetSources()) == 0 {
-		return nil, nil, nil, fmt.Errorf("model source can't be empty")
+		return nil, nil, nil, fmt.Errorf("model source can't be empty, %d listeners", len(listeners))
 	}
 
 	// source is the main object that is the source of the model.Model
@@ -108,7 +108,8 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 }
 
 func (t *gatewayAPITranslator) desiredService(params *model.Service, owner *model.FullyQualifiedResource,
-	ports []uint32, labels, annotations map[string]string) *corev1.Service {
+	ports []uint32, labels, annotations map[string]string,
+) *corev1.Service {
 	if owner == nil {
 		return nil
 	}

@@ -48,6 +48,23 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 	if !r.kprCfg.KubeProxyReplacement {
 		option.Config.EnableHostLegacyRouting = true
 	}
+
+	if !option.Config.EnableHostLegacyRouting {
+		msg := ""
+		switch {
+		// Non-BPF masquerade requires netfilter and hence CT.
+		case option.Config.IptablesMasqueradingEnabled():
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		// KPR=true is needed or we might rely on netfilter.
+		case !r.kprCfg.KubeProxyReplacement:
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.KubeProxyReplacement)
+		}
+		if msg != "" {
+			option.Config.EnableHostLegacyRouting = true
+			r.logger.Info(fmt.Sprintf("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting))
+		}
+	}
+
 	r.logger.Info("kube-proxy replacement starting with the following config",
 		logfields.KPRConfiguration, r.kprCfg)
 
@@ -242,25 +259,6 @@ func (r *kprInitializer) FinishKubeProxyReplacementInit(devices []*tables.Device
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
 	if option.Config.EnableMKE && r.kprCfg.EnableSocketLB {
 		markHostExtension(r.logger)
-	}
-
-	if !option.Config.EnableHostLegacyRouting {
-		msg := ""
-		switch {
-		// Needs host stack for packet handling.
-		case r.ipsecAgent.Enabled():
-			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", datapath.EnableIPSec)
-		// Non-BPF masquerade requires netfilter and hence CT.
-		case option.Config.IptablesMasqueradingEnabled():
-			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
-		// KPR=true is needed or we might rely on netfilter.
-		case !r.kprCfg.KubeProxyReplacement:
-			msg = fmt.Sprintf("BPF host routing requires %s.", option.KubeProxyReplacement)
-		}
-		if msg != "" {
-			option.Config.EnableHostLegacyRouting = true
-			r.logger.Info(fmt.Sprintf("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting))
-		}
 	}
 
 	if option.Config.NodePortNat46X64 && r.lbConfig.LBMode != loadbalancer.LBModeSNAT {

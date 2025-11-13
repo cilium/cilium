@@ -15,10 +15,11 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
-#define ENABLE_L2_ANNOUNCEMENTS
 
 #include "lib/bpf_host.h"
 
+ASSIGN_CONFIG(__u64, l2_announcements_max_liveness, 3000000000ULL)
+ASSIGN_CONFIG(bool, enable_l2_announcements, true)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
 
 /* Setup for this test:

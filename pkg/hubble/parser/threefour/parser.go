@@ -718,13 +718,6 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 			isReply := tn.TraceReasonIsReply()
 
 			switch {
-			// Although technically the corresponding packet is ingressing the
-			// stack (TraceReasonEncryptOverlay traces are TraceToStack), it is
-			// ultimately originating from the local node and destinated to a
-			// remote node, so egress make more sense to expose at a high
-			// level.
-			case tn.TraceReason() == monitor.TraceReasonEncryptOverlay:
-				return pb.TrafficDirection_EGRESS
 			// isSourceEP != isReply ==
 			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)
 			case isSourceEP != isReply:

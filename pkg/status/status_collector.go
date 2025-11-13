@@ -678,6 +678,12 @@ func (d *statusCollector) getProbes() []Probe {
 					return backoff.CalculateDuration(5*time.Second, 2*time.Minute, 2.0, false, failures)
 				}
 
+				if !option.Config.EnableCiliumNodeCRD {
+					// When CiliumNode CRD is disabled, just use a constant base interval
+					// to validate connectivity.
+					return backoff.ClusterSizeDependantInterval(2*time.Minute, 0)
+				}
+
 				// The base interval is dependant on the
 				// cluster size. One status interval does not
 				// automatically translate to an apiserver

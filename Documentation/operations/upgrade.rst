@@ -316,9 +316,28 @@ communicating via the proxy must reconnect to re-establish connections.
   This flag currently masquerades traffic to node ``InternalIP`` addresses.
   This may change in future. See :gh-issue:`35823`
   and :gh-issue:`17177` for further discussion on this topic.
-* MCS-API CRDs need to be updated, see the MCS-API :ref:`clustermesh_mcsapi_prereqs` for updated CRD links.
+* If MCS-API support is enabled, Cilium now installs and manages MCS-API CRDs by default.
+  You can set ``clustermesh.mcsapi.installCRDs`` to ``false`` to opt-out.
 * Cilium will stop reporting its local cluster name and node name in metrics. Users relying on those
   should configure their metrics collection system to add similar labels instead.
+* The previously deprecated ``CiliumBGPPeeringPolicy`` CRD and its control plane (BGPv1) has been removed.
+  Please migrate to ``cilium.io/v2`` CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``,
+  ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) before upgrading.
+* If running Cilium with IPsec, Kube-Proxy Replacement, and BPF Masquerading enabled,
+  `eBPF_Host_Routing` will be automatically enabled. That was already the case when running without
+  IPsec. Running BPF Host Routing with IPsec however requires
+  `a kernel bugfix <`https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=c4327229948879814229b46aa26a750718888503>`_.
+  You can disable BPF Host Routing with ``--enable-host-legacy-routing=true``.
+* Certificate generation with the CronJob method for Hubble and ClusterMesh has
+  changed. The Job resource to generate certificates is now created like any other
+  resource and is no longer part of Helm post-install or post-upgrade hooks. This
+  makes it compatible by default with the Helm ``--wait`` option or through ArgoCD.
+  You are no longer expected to create a Job manually or as part of your own
+  automation when bootstrapping your clusters.
+* Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
+  (previously this was a RHEL8.6-compatible kernel).
+* The previously deprecated ``FromRequires`` and ``ToRequires`` fields of the `CiliumNetworkPolicy` and `CiliumClusterwideNetworkPolicy` CRDs have been removed.
+* This release introduces enabling packet layer path MTU discovery by default on CNI Pod endpoints, this is controlled via the ``enable-endpoint-packet-layer-pmtud`` flag.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -331,6 +350,8 @@ Removed Options
 * The previously deprecated ``--enable-node-port``, ``--enable-host-port``, and ``--enable-external-ips``
   flags have been removed. To enable the corresponding features, users must set ``--kube-proxy-replacement=true``.
 * The previously deprecated custom calls feature (``--enable-custom-calls``) has been removed.
+* The previously deprecated ``--enable-ipv4-egress-gateway`` flag has been removed. To enable the
+  corresponding features, users must set ``--enable-egress-gateway=true``.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -377,7 +398,7 @@ Changed Metrics
 The following metrics previously had instances (i.e. for some watcher K8s resource type labels) under ``workqueue_``.
 In this release any such metrics have been renamed and combined into the correct metric name prefixed with ``cilium_operator_``.
 
-As well, any remaining Operator k8s workqueue metrics that use the label ``queue_name`` have had it renamed to 
+As well, any remaining Operator k8s workqueue metrics that use the label ``queue_name`` have had it renamed to
 ``name`` to be consistent with agent k8s workqueue metrics.
 
 * The metric ``workqueue_adds_total`` has been renamed and combined into to ``cilium_operator_k8s_workqueue_adds_total``, the label ``queue_name`` has been renamed to ``name``.
@@ -389,6 +410,7 @@ As well, any remaining Operator k8s workqueue metrics that use the label ``queue
 * The metric ``workqueue_work_duration_seconds`` has been renamed and combined into ``cilium_operator_k8s_workqueue_work_duration_seconds``, the label ``queue_name`` has been renamed to ``name``.
 
 * ``k8s_client_rate_limiter_duration_seconds`` no longer has labels ``path`` and ``method``.
+* ``hubble_icmp_total`` has been fixed to correctly use ``family`` label value ``IPv6`` on ``ICMPv6`` flows instead of ``IPv4``.
 
 The following metrics:
 * ``cilium_agent_clustermesh_global_services``

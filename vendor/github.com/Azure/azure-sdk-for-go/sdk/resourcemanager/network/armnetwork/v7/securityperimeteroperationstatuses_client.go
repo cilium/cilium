@@ -44,7 +44,7 @@ func NewSecurityPerimeterOperationStatusesClient(subscriptionID string, credenti
 // Get - Gets the operation status for the given operation id.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2024-10-01
 //   - location - The location of network security perimeter.
 //   - operationID - The operation id of the async operation.
 //   - options - SecurityPerimeterOperationStatusesClientGetOptions contains the optional parameters for the SecurityPerimeterOperationStatusesClient.Get
@@ -91,7 +91,7 @@ func (client *SecurityPerimeterOperationStatusesClient) getCreateRequest(ctx con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2024-10-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

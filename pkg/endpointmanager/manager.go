@@ -414,6 +414,27 @@ func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*end
 	return eps
 }
 
+func (mgr *endpointManager) GetEndpointsByServiceAccount(namespace string, serviceAccount string) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		podSA := ""
+
+		if pod := ep.GetPod(); pod == nil {
+			continue
+		} else {
+			podSA = pod.Spec.ServiceAccountName
+		}
+
+		if ep.K8sNamespace == namespace && serviceAccount == podSA {
+			eps = append(eps, ep)
+		}
+	}
+	return eps
+}
+
 // unexpose removes the endpoint from the endpointmanager, so subsequent
 // lookups will no longer find the endpoint.
 func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
@@ -838,4 +859,23 @@ func (mgr *endpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIde
 	mgr.policyUpdateCallback(&sync.WaitGroup{}, idsToRegen, true)
 
 	wg.Wait()
+}
+
+func (mgr *endpointManager) stopEndpoints() {
+	mgr.logger.Info("Waiting for all endpoints' goroutines to be stopped.")
+	var wg sync.WaitGroup
+
+	eps := mgr.GetEndpoints()
+	wg.Add(len(eps))
+
+	for _, ep := range eps {
+		go func(ep *endpoint.Endpoint) {
+			ep.Stop()
+			wg.Done()
+		}(ep)
+	}
+
+	wg.Wait()
+
+	mgr.logger.Info("All endpoints' goroutines stopped.")
 }

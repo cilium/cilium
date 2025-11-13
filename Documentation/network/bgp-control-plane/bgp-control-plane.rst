@@ -59,16 +59,11 @@ IPv6 routes when Cilium Agent is configured to use only IPv4 address family.
 Configuring BGP Control Plane
 -----------------------------
 
-There are two ways to configure the BGP Control Plane. Using legacy ``CiliumBGPPeeringPolicy`` resource,
-or using newer BGP resources like ``CiliumBGPClusterConfig``. Currently, both configuration options are
-supported, however ``CiliumBGPPeeringPolicy`` will be deprecated in the future.
-
 .. toctree::
     :maxdepth: 2
     :glob:
 
-    bgp-control-plane-v2
-    bgp-control-plane-v1
+    bgp-control-plane-configuration
 
 Troubleshooting and Operation Guide
 -----------------------------------

@@ -82,6 +82,11 @@ func NewNodeDiscovery(
 	cniConfigManager cni.CNIConfigManager,
 	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
 ) *NodeDiscovery {
+	if !option.Config.EnableCiliumNodeCRD {
+		logger.Info("CiliumNode CRD is disabled; skipping CiliumNode resource management")
+		return &NodeDiscovery{}
+	}
+
 	return &NodeDiscovery{
 		logger:           logger,
 		Manager:          manager,
@@ -158,6 +163,10 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 // WaitForKVStoreSync blocks until kvstore synchronization of node information
 // completed. It returns immediately in CRD mode.
 func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
+	if !option.Config.EnableCiliumNodeCRD { // Do not block if CiliumNode CRD is disabled
+		return nil
+	}
+
 	select {
 	case <-n.Registered:
 		return nil
@@ -231,13 +240,11 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 			var err error
 			nodeResource, err = n.k8sGetters.GetCiliumNode(ctx, nodeTypes.GetName())
 			if err != nil {
-				if retryCount == maxRetryCount {
-					n.logger.Warn(
-						"Unable to get CiliumNode resource",
-						logfields.Error, err,
-						logfields.Retries, maxRetryCount,
-					)
-				}
+				n.logger.Info(
+					"Unable to get CiliumNode resource",
+					logfields.Error, err,
+					logfields.Retries, retryCount,
+				)
 				performUpdate = false
 				nodeResource = &ciliumv2.CiliumNode{
 					ObjectMeta: metav1.ObjectMeta{
@@ -253,7 +260,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 			n.logger.Warn(
 				"Unable to mutate nodeResource",
 				logfields.Error, err,
-				logfields.Retries, maxRetryCount,
+				logfields.Retries, retryCount,
 			)
 			continue
 		}
@@ -265,7 +272,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 		if performUpdate {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(ctx, nodeResource, metav1.UpdateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) {
-					n.logger.Warn("Unable to update CiliumNode resource, will retry", logfields.Error, err)
+					n.logger.Info("Unable to update CiliumNode resource, will retry", logfields.Error, err)
 					// Backoff before retrying
 					time.Sleep(backoffDuration)
 					continue
@@ -277,7 +284,7 @@ func (n *NodeDiscovery) updateCiliumNodeResource(ctx context.Context, ln *node.L
 		} else {
 			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(ctx, nodeResource, metav1.CreateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
-					n.logger.Warn("Unable to create CiliumNode resource, will retry", logfields.Error, err)
+					n.logger.Info("Unable to create CiliumNode resource, will retry", logfields.Error, err)
 					// Backoff before retrying
 					time.Sleep(backoffDuration)
 					continue

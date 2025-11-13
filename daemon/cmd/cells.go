@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/hive/shell"
 	"github.com/cilium/statedb"
 	"google.golang.org/grpc"
 
@@ -21,7 +22,7 @@ import (
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
-	"github.com/cilium/cilium/pkg/bgpv1"
+	"github.com/cilium/cilium/pkg/bgp"
 	cgroup "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -60,6 +61,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	ipmasqmaps "github.com/cilium/cilium/pkg/maps/ipmasq"
+	"github.com/cilium/cilium/pkg/maps/iptrace"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	natStats "github.com/cilium/cilium/pkg/maps/nat/stats"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
@@ -68,6 +70,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
+	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
@@ -75,11 +78,11 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
-	shell "github.com/cilium/cilium/pkg/shell/server"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
+	"github.com/cilium/cilium/pkg/ztunnel"
 )
 
 var (
@@ -131,6 +134,9 @@ var (
 		// Provides cilium_datapath_drop/forward Prometheus metrics.
 		metricsmap.Cell,
 
+		// Provides the IP trace map.
+		iptrace.Cell,
+
 		// Provides cilium_bpf_ratelimit_dropped_total Prometheus metric.
 		ratelimitmap.Cell,
 
@@ -155,7 +161,7 @@ var (
 		k8sSynced.CRDSyncCell,
 
 		// Shell for inspecting the agent. Listens on the 'shell.sock' UNIX socket.
-		shell.Cell,
+		shell.ServerCell(defaults.ShellSockPath),
 
 		// Cilium Agent Healthz endpoints (agent, kubeproxy, ...)
 		healthz.Cell,
@@ -172,12 +178,7 @@ var (
 		// LocalNodeStore holds onto the information about the local node and allows
 		// observing changes to it.
 		node.LocalNodeStoreCell,
-
-		// Provide a newLocalNodeSynchronizer that is invoked when LocalNodeStore is started.
-		// This fills in the initial state before it is accessed by other sub-systems.
-		// Then, it takes care of keeping selected fields (e.g., labels, annotations)
-		// synchronized with the corresponding kubernetes object.
-		cell.Provide(newLocalNodeSynchronizer),
+		nodesync.LocalNodeSyncCell,
 
 		// Controller provides flags and configuration related
 		// to Controller management, concurrent control loops
@@ -241,7 +242,7 @@ var (
 		restapi.Cell,
 
 		// The BGP Control Plane which enables various BGP related interop.
-		bgpv1.Cell,
+		bgp.Cell,
 
 		// Brokers datapath signals from signalmap
 		signal.Cell,
@@ -344,6 +345,9 @@ var (
 		debugapi.Cell,
 
 		svcrouteconfig.Cell,
+
+		// Instantiates an xDS server used for zTunnel integration.
+		ztunnel.Cell,
 	)
 )
 

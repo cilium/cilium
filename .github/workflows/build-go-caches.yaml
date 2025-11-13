@@ -25,7 +25,7 @@ concurrency:
 jobs:
   build_go_caches:
     name: Build Go Caches
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
     timeout-minutes: 20
     strategy:
       matrix:

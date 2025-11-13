@@ -9,8 +9,13 @@ import (
 )
 
 func CheckGammaServiceAllowedForNamespace(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
+	logger := input.Log()
+
+	logger.Debug("Checking GAMMA Service Allowed for namespace from routechecks")
+
 	svc, err := input.GetParentGammaService(parentRef)
 	if err != nil {
+		logger.Debug("Couldn't get the Parent GAMMA Service")
 		input.SetParentCondition(parentRef, metav1.Condition{
 			Type:    "Accepted",
 			Status:  metav1.ConditionFalse,
@@ -21,6 +26,7 @@ func CheckGammaServiceAllowedForNamespace(input Input, parentRef gatewayv1.Paren
 	}
 
 	if input.GetNamespace() != svc.GetNamespace() {
+		logger.Debug("Namespaces don't match")
 		input.SetParentCondition(parentRef, metav1.Condition{
 			Type:    "Accepted",
 			Status:  metav1.ConditionFalse,
@@ -29,5 +35,7 @@ func CheckGammaServiceAllowedForNamespace(input Input, parentRef gatewayv1.Paren
 		})
 		return false, nil
 	}
+
+	logger.Debug("Gamma Service parent check passed")
 	return true, nil
 }

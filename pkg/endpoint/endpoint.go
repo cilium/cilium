@@ -2673,8 +2673,8 @@ func (e *Endpoint) SetDefaultConfiguration() {
 func (e *Endpoint) setDefaultPolicyConfig() {
 	e.SetDefaultOpts(option.Config.Opts)
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
-	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
-	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled = alwaysEnforce
+	e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled = alwaysEnforce
 }
 
 // GetCreatedAt returns the endpoint creation time.
@@ -2682,14 +2682,14 @@ func (e *Endpoint) GetCreatedAt() time.Time {
 	return e.createdAt
 }
 
-// GetPropertyValue returns the metadata value for this key.
+// GetPropertyValue returns the endpoint property value for this key.
 func (e *Endpoint) GetPropertyValue(key string) any {
 	e.mutex.RWMutex.RLock()
 	defer e.mutex.RWMutex.RUnlock()
 	return e.properties[key]
 }
 
-// SetPropertyValue sets the metadata value for this key.
+// SetPropertyValue sets the endpoint property value for this key.
 func (e *Endpoint) SetPropertyValue(key string, value any) any {
 	e.mutex.RWMutex.Lock()
 	defer e.mutex.RWMutex.Unlock()

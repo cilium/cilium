@@ -482,8 +482,7 @@ l2podAnnouncements:
   interface: "eth0"
   # -- A regular expression matching interfaces used for sending Gratuitous ARP pod announcements
   # interfacePattern: ""
-# -- This feature set enables virtual BGP routers to be created via
-# CiliumBGPPeeringPolicy CRDs.
+# -- This feature set enables virtual BGP routers to be created via BGP CRDs.
 bgpControlPlane:
   # -- Enables the BGP control plane.
   enabled: false
@@ -493,9 +492,9 @@ bgpControlPlane:
     create: false
     # -- The name of the secret namespace to which Cilium agents are given read access
     name: kube-system
-  # -- Status reporting settings (BGPv2 only)
+  # -- Status reporting settings
   statusReport:
-    # -- Enable/Disable BGPv2 status reporting
+    # -- Enable/Disable BGP status reporting
     # It is recommended to enable status reporting in general, but if you have any issue
     # such as high API server load, you can disable it by setting this to false.
     enabled: true
@@ -505,7 +504,7 @@ bgpControlPlane:
     mode: "default"
     # -- IP pool to allocate the BGP router-id from when the mode is ip-pool.
     ipPool: ""
-  # -- Legacy BGP ORIGIN attribute settings (BGPv2 only)
+  # -- Legacy BGP ORIGIN attribute settings
   legacyOriginAttribute:
     # -- Enable/Disable advertising LoadBalancerIP routes with the legacy
     # BGP ORIGIN attribute value INCOMPLETE (2) instead of the default IGP (0).
@@ -515,6 +514,10 @@ pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
   enabled: false
+  # -- Enable kernel probing path MTU discovery for Pods which uses different message
+  # sizes to search for correct MTU value.
+  packetizationLayerPMTUD:
+    enabled: true
 bpf:
   autoMount:
     # -- Enable automatic mount of BPF filesystem
@@ -695,6 +698,15 @@ bpf:
   # [0] will allow all VLAN id's without any filtering.
   # @default -- `[]`
   vlanBypass: ~
+  # -- Configure the IP tracing option type.
+  # This option is used to specify the IP option type to use for tracing.
+  # The value must be an integer between 0 and 255.
+  # @schema
+  # type: [null, integer]
+  # minimum: 0
+  # maximum: 255
+  # @schema
+  monitorTraceIPOption: 0
   # -- (bool) Disable ExternalIP mitigation (CVE-2020-8554)
   # @default -- `false`
   disableExternalIPMitigation: false
@@ -859,6 +871,13 @@ daemon:
   #
   # By default, this functionality is enabled
   enableSourceIPVerification: true
+
+# -- Configure temporary volume for cilium-agent
+tmpVolume: {}
+  # emptyDir:
+  #   sizeLimit: "100Mi"
+  #   medium: "Memory"
+
 # -- Specify which network interfaces can run the eBPF datapath. This means
 # that a packet sent from a pod to a destination outside the cluster will be
 # masqueraded (to an output device IPv4 address), if the output device runs the
@@ -1062,16 +1081,16 @@ enableXTSocketFallback: true
 encryption:
   # -- Enable transparent network encryption.
   enabled: false
-  # -- Encryption method. Can be either ipsec or wireguard.
+  # -- Encryption method. Can be one of ipsec, wireguard or ztunnel.
   type: ipsec
   # -- Enable encryption for pure node to node traffic.
   # This option is only effective when encryption.type is set to "wireguard".
   nodeEncryption: false
-  # -- Configure the WireGuard Pod2Pod strict mode.
+  # -- Configure the Encryption Pod2Pod strict mode.
   strictMode:
-    # -- Enable WireGuard Pod2Pod strict mode.
+    # -- Enable Encryption Pod2Pod strict mode.
     enabled: false
-    # -- CIDR for the WireGuard Pod2Pod strict mode.
+    # -- CIDR for the Encryption Pod2Pod strict mode.
     cidr: ""
     # -- Allow dynamic lookup of remote node identities.
     # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
@@ -1191,8 +1210,11 @@ certgen:
     digest: "${CERTGEN_DIGEST}"
     useDigest: true
     pullPolicy: "${PULL_POLICY}"
+  # @schema
+  # type: [null, integer]
+  # @schema
   # -- Seconds after which the completed job pod will be deleted
-  ttlSecondsAfterFinished: 1800
+  ttlSecondsAfterFinished: null
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
   # -- Annotations to be added to the hubble-certgen initial Job and CronJob
@@ -1217,6 +1239,11 @@ certgen:
   extraVolumeMounts: []
   # -- Affinity for certgen
   affinity: {}
+  cronJob:
+    # -- The number of successful finished jobs to keep
+    successfulJobsHistoryLimit: 3
+    # -- The number of failed finished jobs to keep
+    failedJobsHistoryLimit: 1
 hubble:
   # -- Enable Hubble (true by default).
   enabled: true
@@ -1940,6 +1967,13 @@ hubble:
       #  - secretName: chart-example-tls
       #    hosts:
       #      - chart-example.local
+
+    # -- Configure temporary volume for hubble-ui
+    tmpVolume: {}
+      # emptyDir:
+      #   # sizeLimit: "100Mi"
+      #   # medium: "Memory"
+
   # -- Hubble flows export.
   export:
     # --- Static exporter configuration.
@@ -1952,6 +1986,14 @@ hubble:
       # - source
       # - destination
       # - verdict
+      fieldAggregate: []
+      # - time
+      # - source
+      # - destination
+      # - verdict
+      # --- Defines the interval at which to aggregate before exporting Hubble flows.
+      #     Aggregation feature is only enabled when fieldAggregate is specified and aggregationInterval > 0s.
+      aggregationInterval: "0s"
       allowList: []
       # - '{"verdict":["DROPPED","ERROR"]}'
       denyList: []
@@ -1977,6 +2019,8 @@ hubble:
         content:
           - name: all
             fieldMask: []
+            fieldAggregate: []
+            aggregationInterval: "0s"
             includeFilters: []
             excludeFilters: []
             filePath: "/var/run/cilium/hubble/events.log"
@@ -3074,6 +3118,17 @@ operator:
       # @schema
       # -- Metrics relabeling configs for the ServiceMonitor cilium-operator
       metricRelabelings: ~
+    # -- TLS configuration for Prometheus
+    tls:
+      enabled: false
+      server:
+        # -- Name of the Secret containing the certificate, key and CA files for the Prometheus server.
+        existingSecret: ""
+        mtls:
+          # When set to true enforces mutual TLS between Operator Prometheus server and its clients.
+          # False allow non-mutual TLS connections.
+          # This option has no effect when TLS is disabled.
+          enabled: false
   # -- Grafana dashboards for cilium-operator
   # grafana can import dashboards based on the label and value
   # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
@@ -3332,6 +3387,11 @@ clustermesh:
   # maximum allocatable cluster-local identities.
   # Supported values are 255 and 511.
   maxConnectedClusters: 255
+  # -- The time to live for the cache of a remote cluster after connectivity is
+  # lost. If the connection is not re-established within this duration, the
+  # cached data is revoked to prevent stale state. If not specified or set to
+  # 0s, the cache is never revoked (default).
+  cacheTTL: "0s"
   # -- Enable the synchronization of Kubernetes EndpointSlices corresponding to
   # the remote endpoints of appropriately-annotated global services through ClusterMesh
   enableEndpointSliceSynchronization: false
@@ -3401,6 +3461,8 @@ clustermesh:
   mcsapi:
     # -- Enable Multi-Cluster Services API support
     enabled: false
+    # -- Enabled MCS-API CRDs auto-installation
+    installCRDs: true
     corednsAutoConfigure:
       # -- Enable auto-configuration of CoreDNS for Multi-Cluster Services API.
       #    CoreDNS MUST be at least in version v1.12.2 to run this.

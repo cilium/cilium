@@ -70,8 +70,8 @@ export CILIUM_CLI ?= cilium
 export KUBECTL ?= kubectl
 
 # renovate: datasource=docker depName=quay.io/goswagger/swagger
-SWAGGER_VERSION = 0.32.3
-SWAGGER_IMAGE_SHA = sha256:9cfa5ae0f8e68753bf3f987c4d656d3ff0908d5f3324ffacba286271c9cc8a2d
+SWAGGER_VERSION = 0.33.1
+SWAGGER_IMAGE_SHA = sha256:03e351c87e7bf5de41b120aec97f0a2255f90a1cd802162ad1947f9e2de9e778
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(ROOT_DIR):$(ROOT_DIR) -w $(ROOT_DIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)@$(SWAGGER_IMAGE_SHA)
 
 # go build/test/clean flags
@@ -131,8 +131,8 @@ ifneq ($(GOTEST_FORMATTER),cat)
 endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
-GOLANGCILINT_WANT_VERSION = v2.5.0
-GOLANGCILINT_IMAGE_SHA = sha256:0c8e590120a98ada5d0d9423e65dd957067e70c87efd692e83d5a311ddfc3151
+GOLANGCILINT_WANT_VERSION = v2.6.1
+GOLANGCILINT_IMAGE_SHA = sha256:5f3233d598921b58acef310807332ae5e5ea98130c9ea4c97a9190837de75bca
 GOLANGCILINT_VERSION = $(shell golangci-lint version --short 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)

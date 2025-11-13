@@ -344,6 +344,45 @@ func TestAddProxyRulesv4(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	mockIp4tables.expectations = []expectation{
+		{
+			args: "-t mangle -S",
+			out: []byte(
+				`-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-P POSTROUTING ACCEPT
+-N OLD_CILIUM_POST_mangle
+-N OLD_CILIUM_PRE_mangle
+-N CILIUM_POST_mangle
+-N CILIUM_PRE_mangle
+-N KUBE-KUBELET-CANARY
+-N KUBE-PROXY-CANARY
+-A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j OLD_CILIUM_PRE_mangle
+-A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j OLD_CILIUM_POST_mangle
+-A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j CILIUM_PRE_mangle
+-A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j CILIUM_POST_mangle
+-A OLD_CILIUM_PRE_mangle -m socket --transparent -m comment --comment "cilium: any->pod redirect proxied traffic to host proxy" -j MARK --set-xmark 0x200/0xffffffff
+-A OLD_CILIUM_PRE_mangle -p tcp -m mark --mark 0x3920200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 37379 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
+-A OLD_CILIUM_PRE_mangle -p udp -m mark --mark 0x3920200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 37379 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
+-A CILIUM_PRE_mangle -p tcp -m mark --mark 0x3920200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 37379 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
+-A CILIUM_PRE_mangle -p udp -m mark --mark 0x3920200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 37379 --on-ip 127.0.0.1 --tproxy-mark 0x200/0xffffffff
+`),
+		}, {
+			args: "-t mangle -A CILIUM_PRE_mangle -p tcp -m mark --mark 0x4920200 -m comment --comment cilium: TPROXY to host cilium-dns proxy -j TPROXY --tproxy-mark 0x200 --on-ip 127.0.0.1 --on-port 37380",
+		}, {
+			args: "-t mangle -A CILIUM_PRE_mangle -p udp -m mark --mark 0x4920200 -m comment --comment cilium: TPROXY to host cilium-dns proxy -j TPROXY --tproxy-mark 0x200 --on-ip 127.0.0.1 --on-port 37380",
+		},
+	}
+
+	// Adds new proxy rules for different service, whose name is a prefix of an existing one
+	mockManager.addProxyRules(mockIp4tables, "127.0.0.1", 37380, "cilium-dns")
+	err = mockIp4tables.checkExpectations()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestGetProxyPorts(t *testing.T) {
@@ -510,6 +549,45 @@ func TestAddProxyRulesv6(t *testing.T) {
 
 	// New port number, adds new ones, deletes stale rules. Does not touch OLD_ chains
 	mockManager.addProxyRules(mockIp6tables, "::1", 43479, "cilium-dns-egress")
+	err = mockIp6tables.checkExpectations()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mockIp6tables.expectations = []expectation{
+		{
+			args: "-t mangle -S",
+			out: []byte(
+				`-P PREROUTING ACCEPT
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+-P POSTROUTING ACCEPT
+-N OLD_CILIUM_POST_mangle
+-N OLD_CILIUM_PRE_mangle
+-N CILIUM_POST_mangle
+-N CILIUM_PRE_mangle
+-N KUBE-KUBELET-CANARY
+-N KUBE-PROXY-CANARY
+-A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j OLD_CILIUM_PRE_mangle
+-A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j OLD_CILIUM_POST_mangle
+-A PREROUTING -m comment --comment "cilium-feeder: CILIUM_PRE_mangle" -j CILIUM_PRE_mangle
+-A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST_mangle" -j CILIUM_POST_mangle
+-A OLD_CILIUM_PRE_mangle -m socket --transparent -m comment --comment "cilium: any->pod redirect proxied traffic to host proxy" -j MARK --set-xmark 0x200/0xffffffff
+-A OLD_CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
+-A OLD_CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
+-A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
+-A CILIUM_PRE_mangle -p udp -m mark --mark 0xd5a90200 -m comment --comment "cilium: TPROXY to host cilium-dns-egress proxy" -j TPROXY --on-port 43477 --on-ip ::1 --tproxy-mark 0x200/0xffffffff
+`),
+		}, {
+			args: "-t mangle -A CILIUM_PRE_mangle -p tcp -m mark --mark 0xd8a90200 -m comment --comment cilium: TPROXY to host cilium-dns proxy -j TPROXY --tproxy-mark 0x200 --on-ip ::1 --on-port 43480",
+		}, {
+			args: "-t mangle -A CILIUM_PRE_mangle -p udp -m mark --mark 0xd8a90200 -m comment --comment cilium: TPROXY to host cilium-dns proxy -j TPROXY --tproxy-mark 0x200 --on-ip ::1 --on-port 43480",
+		},
+	}
+
+	// Adds new proxy rules for different service, whose name is a prefix of an existing one
+	mockManager.addProxyRules(mockIp6tables, "::1", 43480, "cilium-dns")
 	err = mockIp6tables.checkExpectations()
 	if err != nil {
 		t.Fatal(err)
@@ -792,74 +870,6 @@ func TestAllEgressMasqueradeCmds(t *testing.T) {
 			tt.iptablesRandomFull)
 
 		assert.Equal(t, tt.expected, actual)
-	}
-}
-
-func testTunnelNoTrackRulesTunnelingEnabled(t *testing.T, port uint16) {
-	mockManager := &Manager{
-		sharedCfg: SharedConfig{
-			EnableIPv4:       true,
-			EnableIPv6:       true,
-			TunnelingEnabled: true,
-			TunnelPort:       port,
-		},
-	}
-
-	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
-	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
-
-	expected := "-t raw -A %s -p udp --dport %d -m comment --comment cilium: NOTRACK for tunnel traffic -j CT --notrack"
-
-	mockIp4tables.expectations = []expectation{
-		{args: fmt.Sprintf(expected, "CILIUM_PRE_raw", port)},
-		{args: fmt.Sprintf(expected, "CILIUM_OUTPUT_raw", port)},
-	}
-	mockIp6tables.expectations = mockIp4tables.expectations
-
-	if err := mockManager.installTunnelNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
-		t.Error(err)
-	}
-
-	if err := mockIp4tables.checkExpectations(); err != nil {
-		t.Error(err)
-	}
-	if err := mockIp6tables.checkExpectations(); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestTunnelVxlanNoTrackRulesTunnelingEnabled(t *testing.T) {
-	testTunnelNoTrackRulesTunnelingEnabled(t, 8472)
-}
-
-func TestTunnelGeneveNoTrackRulesTunnelingEnabled(t *testing.T) {
-	testTunnelNoTrackRulesTunnelingEnabled(t, 6081)
-}
-
-func TestTunnelNoTrackRulesTunnelingDisabled(t *testing.T) {
-	mockManager := &Manager{
-		sharedCfg: SharedConfig{
-			EnableIPv4:       true,
-			EnableIPv6:       true,
-			TunnelingEnabled: false,
-		},
-	}
-
-	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
-	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
-
-	// With tunneling disabled, we don't expect any `iptables` or `ip6tables`
-	// rules to be added, so leave `mockIp6tables.expectations` empty.
-
-	if err := mockManager.installTunnelNoTrackRules(mockIp4tables, mockIp6tables); err != nil {
-		t.Error(err)
-	}
-
-	if err := mockIp4tables.checkExpectations(); err != nil {
-		t.Error(err)
-	}
-	if err := mockIp6tables.checkExpectations(); err != nil {
-		t.Error(err)
 	}
 }
 

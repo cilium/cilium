@@ -150,12 +150,18 @@ func (cm *clusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		remoteClientFactory: cm.conf.RemoteClientFactory,
 		clusterLockFactory:  newClusterLock,
 
-		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(name),
-		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(name),
-		metricTotalFailures:        cm.conf.Metrics.TotalFailures.WithLabelValues(name),
+		metricLastFailureTimestamp:  cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(name),
+		metricReadinessStatus:       cm.conf.Metrics.ReadinessStatus.WithLabelValues(name),
+		metricTotalFailures:         cm.conf.Metrics.TotalFailures.WithLabelValues(name),
+		metricTotalCacheRevocations: cm.conf.Metrics.TotalCacheRevocations.WithLabelValues(name),
 	}
 
 	rc.RemoteCluster = cm.conf.NewRemoteCluster(name, rc.status)
+	onExpiration := func(ctx context.Context) {
+		rc.metricTotalCacheRevocations.Inc()
+		rc.RevokeCache(ctx)
+	}
+	rc.ttlChecker = newTTLChecker(rc.logger, cm.conf.ClusterMeshCacheTTL, onExpiration)
 	return rc
 }
 

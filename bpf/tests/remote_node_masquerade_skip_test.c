@@ -20,21 +20,12 @@
 #define IS_BPF_HOST 1
 /* For this test, ensure TUNNEL_MODE is also not defined to hit NAT_PUNT_TO_STACK */
 /* #undef TUNNEL_MODE (implicitly undefined) */
-#include <lib/eps.h>
-/* Mock for lookup_ip4_remote_endpoint */
-static struct remote_endpoint_info *mocked_remote_endpoint;
-#undef lookup_ip4_remote_endpoint
-#define lookup_ip4_remote_endpoint(addr, cluster_id) \
-    (mocked_remote_endpoint)
-/* Mock for __lookup_ip4_endpoint to ensure source is not a local endpoint */
-#undef __lookup_ip4_endpoint
-#define __lookup_ip4_endpoint(addr) \
-    (NULL)
 
 #include <lib/dbg.h>
 #include <lib/time.h>
 #include "bpf_nat_tuples.h"
 #define IPV4_MASQUERADE bpf_htonl(0x0A000001) /* 10.0.0.1 */
+#define IPV4_DST	bpf_htonl(0x02020202) /* 2.2.2.2 - remote node */
 
 /* Include conntrack headers for extend protocols declaration */
 #include <lib/conntrack.h>
@@ -48,11 +39,12 @@ ASSIGN_CONFIG(bool, enable_remote_node_masquerade, false)
 ASSIGN_CONFIG(__u32, trace_payload_len, 128UL)
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, false)
 
+#include "lib/ipcache.h"
+
 CHECK("tc", "nat4_remote_node_masquerade_skipped_test")
 int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *ctx)
 {
     struct ipv4_ct_tuple tuple = {};
-    struct remote_endpoint_info remote_info = {};
     struct iphdr ip4 = {
     .protocol = IPPROTO_TCP,
     };
@@ -62,8 +54,10 @@ int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *c
 
     test_init();
 
+    ipcache_v4_add_entry(IPV4_DST, 0, REMOTE_NODE_ID, 0, 0);
+
     /* Set up the tuple as if the packet is going to a remote node */
-    tuple.daddr = bpf_htonl(0x02020202); /* 2.2.2.2 - remote node */
+    tuple.daddr = IPV4_DST;
     tuple.saddr = bpf_htonl(0xDEADBEEF); /* Unlikely to be a local endpoint */
     tuple.nexthdr = IPPROTO_TCP;
     tuple.sport = bpf_htons(12345);
@@ -82,12 +76,6 @@ int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *c
     .ifindex             = 0,
     };
 
-    /* Setup remote endpoint mock data */
-    remote_info.sec_identity = REMOTE_NODE_ID; /* Mark as remote node */
-
-    /* Point the global mock to our data */
-    mocked_remote_endpoint = &remote_info;
-
     /*
      * Test: With enable_remote_node_masquerade configured as false via ASSIGN_CONFIG.
      * and TUNNEL_MODE undefined.
@@ -96,9 +84,6 @@ int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *c
     ret = snat_v4_needs_masquerade(ctx, &tuple, &ip4, fraginfo, l4_off, &target);
     assert(ret == NAT_PUNT_TO_STACK);
     assert(target.addr == 0); /* Masquerade address should NOT be set */
-
-    /* Clean up */
-    mocked_remote_endpoint = NULL;
 
     test_finish();
     return 0;

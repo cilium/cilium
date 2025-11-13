@@ -46,6 +46,18 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 )
 
+// Hive options
+const (
+	// HiveStartTimeout is the maximum time to wait for startup hooks to complete before timing out
+	HiveStartTimeout = "hive-start-timeout"
+
+	// HiveStopTimeout is the maximum time to wait for stop hooks to complete before timing out
+	HiveStopTimeout = "hive-stop-timeout"
+
+	// HiveLogThreshold is the time limit after which a slow hook is logged at Info level
+	HiveLogThreshold = "hive-log-threshold"
+)
+
 const (
 	// AgentHealthPort is the TCP port for agent health status API
 	AgentHealthPort = "agent-health-port"
@@ -301,9 +313,6 @@ const (
 	// EnableIPMasqAgent enables BPF ip-masq-agent
 	EnableIPMasqAgent = "enable-ip-masq-agent"
 
-	// EnableIPv4EgressGateway enables the IPv4 egress gateway
-	EnableIPv4EgressGateway = "enable-ipv4-egress-gateway"
-
 	// EnableEgressGateway enables the egress gateway
 	EnableEgressGateway = "enable-egress-gateway"
 
@@ -413,9 +422,6 @@ const (
 	// DNSProxyInsecureSkipTransparentModeCheck is a hidden flag that allows users
 	// to disable transparent mode even if IPSec is enabled
 	DNSProxyInsecureSkipTransparentModeCheck = "dnsproxy-insecure-skip-transparent-mode-check"
-
-	// MTUName is the name of the MTU option
-	MTUName = "mtu"
 
 	// RouteMetric is the name of the route-metric option
 	RouteMetric = "route-metric"
@@ -732,9 +738,6 @@ const (
 	// EnableEndpointHealthChecking is the name of the EnableEndpointHealthChecking option
 	EnableEndpointHealthChecking = "enable-endpoint-health-checking"
 
-	// EnableHealthCheckLoadBalancerIP is the name of the EnableHealthCheckLoadBalancerIP option
-	EnableHealthCheckLoadBalancerIP = "enable-health-check-loadbalancer-ip"
-
 	// HealthCheckICMPFailureThreshold is the name of the HealthCheckICMPFailureThreshold option
 	HealthCheckICMPFailureThreshold = "health-check-icmp-failure-threshold"
 
@@ -996,6 +999,12 @@ const (
 
 	// IPTracingOptionType specifies what IPv4 option type should be used to extract trace information from a packet
 	IPTracingOptionType = "ip-tracing-option-type"
+
+	// EnableCiliumNodeCRD is the name of the option to enable use of the CiliumNode CRD
+	EnableCiliumNodeCRDName = "enable-ciliumnode-crd"
+
+	// EnablePacketizationLayerPMTUD enables kernel plpmtud discovery on Pod netns.
+	EnablePacketizationLayerPMTUD = "enable-packetization-layer-pmtud"
 )
 
 // Default string arguments
@@ -1138,6 +1147,24 @@ func LogRegisteredSlogOptions(vp *viper.Viper, entry *slog.Logger) {
 	}
 }
 
+type HiveConfig struct {
+	// StartTimeout is the maximum time to wait for startup hooks to complete before timing out
+	StartTimeout time.Duration
+
+	// StopTimeout is the maximum time to wait for stop hooks to complete before timing out
+	StopTimeout time.Duration
+
+	// LogThreshold is the time limit after which a slow hook is logged at Info level
+	LogThreshold time.Duration
+}
+
+// Populate sets all hive options from the value from viper.
+func (c *HiveConfig) Populate(vp *viper.Viper) {
+	c.StartTimeout = vp.GetDuration(HiveStartTimeout)
+	c.StopTimeout = vp.GetDuration(HiveStopTimeout)
+	c.LogThreshold = vp.GetDuration(HiveLogThreshold)
+}
+
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
 	// Private sum of the config written to file. Used to check that the config is not changed
@@ -1180,6 +1207,9 @@ type DaemonConfig struct {
 
 	// Monitor contains the configuration for the node monitor.
 	Monitor *models.MonitorStatus
+
+	// HiveConfig contains the configuration for daemon hive.
+	HiveConfig HiveConfig
 
 	// AgentHealthPort is the TCP port for agent health status API
 	AgentHealthPort int
@@ -1510,10 +1540,6 @@ type DaemonConfig struct {
 	// EnableEndpointHealthChecking enables health checking between virtual
 	// health endpoints
 	EnableEndpointHealthChecking bool
-
-	// EnableHealthCheckLoadBalancerIP enables health checking of LoadBalancerIP
-	// by cilium
-	EnableHealthCheckLoadBalancerIP bool
 
 	// HealthCheckICMPFailureThreshold is the number of ICMP packets sent for each health
 	// checking run. If at least an ICMP response is received, the node or endpoint
@@ -1879,6 +1905,12 @@ type DaemonConfig struct {
 
 	// IPTracingOptionType determines whether to enable IP tracing, and if enabled what option type to use.
 	IPTracingOptionType uint
+
+	// EnableCiliumNodeCRD enables the use of CiliumNode CRD
+	EnableCiliumNodeCRD bool
+
+	// EnablePacketizationLayerPMTUD enables kernel packetization layer path mtu discovery on Pod netns.
+	EnablePacketizationLayerPMTUD bool
 }
 
 var (
@@ -1892,7 +1924,6 @@ var (
 		IPAMDefaultIPPool:               defaults.IPAMDefaultIPPool,
 		EnableHealthChecking:            defaults.EnableHealthChecking,
 		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
-		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
 		HealthCheckICMPFailureThreshold: defaults.HealthCheckICMPFailureThreshold,
 		EnableIPv4:                      defaults.EnableIPv4,
 		EnableIPv6:                      defaults.EnableIPv6,
@@ -1939,6 +1970,8 @@ var (
 		ConnectivityProbeFrequencyRatio: defaults.ConnectivityProbeFrequencyRatio,
 
 		IPTracingOptionType: defaults.IPTracingOptionType,
+
+		EnableCiliumNodeCRD: defaults.EnableCiliumNodeCRD,
 	}
 )
 
@@ -2435,6 +2468,8 @@ func (c *DaemonConfig) SetupLogging(vp *viper.Viper, tag string) {
 func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	var err error
 
+	c.HiveConfig.Populate(vp)
+
 	c.AgentHealthPort = vp.GetInt(AgentHealthPort)
 	c.ClusterHealthPort = vp.GetInt(ClusterHealthPort)
 	c.ClusterMeshHealthPort = vp.GetInt(ClusterMeshHealthPort)
@@ -2473,7 +2508,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableEndpointRoutes = vp.GetBool(EnableEndpointRoutes)
 	c.EnableHealthChecking = vp.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = vp.GetBool(EnableEndpointHealthChecking)
-	c.EnableHealthCheckLoadBalancerIP = vp.GetBool(EnableHealthCheckLoadBalancerIP)
 	c.HealthCheckICMPFailureThreshold = vp.GetInt(HealthCheckICMPFailureThreshold)
 	c.EnableLocalNodeRoute = vp.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(vp.GetString(EnablePolicy))
@@ -2519,13 +2553,12 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.LocalRouterIPv6 = vp.GetString(LocalRouterIPv6)
 	c.EnableBPFClockProbe = vp.GetBool(EnableBPFClockProbe)
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
-	c.EnableEgressGateway = vp.GetBool(EnableEgressGateway) || vp.GetBool(EnableIPv4EgressGateway)
+	c.EnableEgressGateway = vp.GetBool(EnableEgressGateway)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
 	c.AgentHealthRequireK8sConnectivity = vp.GetBool(AgentHealthRequireK8sConnectivity)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
-	c.MTU = vp.GetInt(MTUName)
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.ProcFs = vp.GetString(ProcFs)
 	c.RestoreState = vp.GetBool(Restore)
@@ -2572,7 +2605,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BootIDFile = vp.GetString(BootIDFilename)
 	c.EnableExtendedIPProtocols = vp.GetBool(EnableExtendedIPProtocols)
 	c.IPTracingOptionType = vp.GetUint(IPTracingOptionType)
-
+	c.EnablePacketizationLayerPMTUD = vp.GetBool(EnablePacketizationLayerPMTUD)
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
 	case ServiceNoBackendResponseReject, ServiceNoBackendResponseDrop:
@@ -2632,7 +2665,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	encryptionStrictModeEnabled := vp.GetBool(EnableEncryptionStrictMode)
 	if encryptionStrictModeEnabled {
 		if c.EnableIPv6 {
-			logger.Info("WireGuard encryption strict mode only supports IPv4. IPv6 traffic is not protected and can be leaked.")
+			logger.Info("Encryption strict mode only supports IPv4. IPv6 traffic is not protected and can be leaked.")
 		}
 
 		strictCIDR := vp.GetString(EncryptionStrictModeCIDR)
@@ -2909,6 +2942,31 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 			logfields.Ratio, connectivityFreqRatio,
 		)
 		c.ConnectivityProbeFrequencyRatio = defaults.ConnectivityProbeFrequencyRatio
+	}
+}
+
+func (c *DaemonConfig) PopulateEnableCiliumNodeCRD(logger *slog.Logger, vp *viper.Viper) {
+	c.EnableCiliumNodeCRD = vp.GetBool(EnableCiliumNodeCRDName)
+	if !c.EnableCiliumNodeCRD && c.IPAMMode() != ipamOption.IPAMDelegatedPlugin {
+		logger.Warn(
+			fmt.Sprintf("Running Cilium with %s=%t requires using delegated plugin IPAM. Changing %s to %t.",
+				EnableCiliumNodeCRDName, c.EnableCiliumNodeCRD, EnableCiliumNodeCRDName, true),
+		)
+		c.EnableCiliumNodeCRD = true
+	}
+	if !c.EnableCiliumNodeCRD && c.IdentityAllocationMode != IdentityAllocationModeCRD {
+		logger.Warn(
+			fmt.Sprintf("Running Cilium with %s=%t requires identity allocation via CRDs. Changing %s to %t.",
+				EnableCiliumNodeCRDName, c.EnableCiliumNodeCRD, EnableCiliumNodeCRDName, true),
+		)
+		c.EnableCiliumNodeCRD = true
+	}
+	if !c.EnableCiliumNodeCRD && c.HealthCheckingEnabled() {
+		logger.Warn(
+			fmt.Sprintf("Running Cilium with %s=%t requires health checking to be disabled. Changing %s to %t.",
+				EnableCiliumNodeCRDName, c.EnableCiliumNodeCRD, EnableHealthChecking, false),
+		)
+		c.EnableHealthChecking = false
 	}
 }
 
@@ -3285,6 +3343,7 @@ func (c *DaemonConfig) diffFromFile() error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	fi, err := f.Stat()
 	if err != nil {

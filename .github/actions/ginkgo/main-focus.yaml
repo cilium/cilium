@@ -89,7 +89,6 @@ include:
     cliFocus: "K8sAgentPolicyTest Basic|K8sPolicyTestExtended"
 
   ###
-  # K8sDatapathConfig Host firewall Check connectivity with IPv6 disabled
   # K8sDatapathConfig Host firewall With native routing
   # K8sDatapathConfig Host firewall With native routing and endpoint routes
   # K8sDatapathConfig Host firewall With VXLAN
@@ -146,7 +145,6 @@ include:
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests GH#10983
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests NodePort with sessionAffinity from outside
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests security id propagation in N/S LB requests fwd-ed over tunnel
-  # K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct routing and DSR
   - focus: "f12-datapath-service-ns-misc"
     cliFocus: "K8sDatapathServicesTest Checks N/S loadbalancing Tests externalIPs|K8sDatapathServicesTest Checks N/S loadbalancing Tests GH|K8sDatapathServicesTest Checks N/S loadbalancing Tests NodePort|K8sDatapathServicesTest Checks N/S loadbalancing Tests security|K8sDatapathServicesTest Checks N/S loadbalancing Tests with direct|K8sDatapathServicesTest Checks N/S loadbalancing with"
 
@@ -161,8 +159,6 @@ include:
 
   ###
   # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, SNAT and Maglev
-  # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, direct routing, SNAT and Random
-  # K8sDatapathServicesTest Checks N/S loadbalancing Tests with XDP, vxlan tunnel, SNAT and Random
   # K8sDatapathServicesTest Checks N/S loadbalancing With ClusterIP external access ClusterIP can be accessed when external access is enabled
   # K8sDatapathServicesTest Checks N/S loadbalancing With host policy Tests NodePort
   - focus: "f14-datapath-service-ns-xdp-2"
@@ -173,16 +169,16 @@ include:
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks in-cluster KPR Tests HealthCheckNodePort
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks in-cluster KPR Tests that binding to NodePort port fails
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks in-cluster KPR with L7 policy Tests NodePort with L7 Policy
-  # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks service accessing itself (hairpin flow)
   - focus: "f15-datapath-service-ew-1"
-    cliFocus: 'K8sDatapathServicesTest Checks device|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) Checks'
+    cliFocus: 'K8sDatapathServicesTest Checks device|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) Checks in-cluster KPR'
 
   ###
+  # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Checks service accessing itself (hairpin flow)
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) TFTP with DNS Proxy port collision Tests TFTP from DNS Proxy Port
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) with L4 policy Tests NodePort with L4 Policy
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) with L7 policy Tests NodePort with L7 Policy
   - focus: "f16-datapath-service-ew-2"
-    cliFocus: 'K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) TFTP|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) with'
+    cliFocus: 'K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) Checks service|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) TFTP|K8sDatapathServicesTest Checks E/W loadbalancing \\(ClusterIP, NodePort from inside cluster, etc\\) with'
 
   ###
   # K8sDatapathServicesTest Checks E/W loadbalancing (ClusterIP, NodePort from inside cluster, etc) Tests NodePort inside cluster (kube-proxy) vanilla
@@ -225,6 +221,11 @@ exclude:
   - k8s-version: "1.33"
     focus: "f05-agent-policy-multi-node-2"
 
+  # These tests require an external node which is only available on
+  # "net-next". So there's no point on running them.
+  - k8s-version: "1.33"
+    focus: "f09-datapath-misc-2"
+
   # These tests require kernel net-next so there's no point on running them
   - k8s-version: "1.33"
     focus: "f11-datapath-service-ns-tc"
@@ -237,12 +238,20 @@ exclude:
 
   - k8s-version: "1.33"
     focus: "f14-datapath-service-ns-xdp-2"
+
+  - k8s-version: "1.33"
+    focus: "f15-datapath-service-ew-1"
 
   # These tests require an external node which is only available on 1.32
   # / net-next so there's no point on running them
   - k8s-version: "1.32"
     focus: "f05-agent-policy-multi-node-2"
 
+  # These tests require an external node which is only available on
+  # "net-next". So there's no point on running them.
+  - k8s-version: "1.32"
+    focus: "f09-datapath-misc-2"
+
   # These tests require kernel net-next so there's no point on running them
   - k8s-version: "1.32"
     focus: "f11-datapath-service-ns-tc"
@@ -255,6 +264,9 @@ exclude:
 
   - k8s-version: "1.32"
     focus: "f14-datapath-service-ns-xdp-2"
+
+  - k8s-version: "1.32"
+    focus: "f15-datapath-service-ew-1"
 
   # These tests require are not intended to run on kernel 5.4, thus we can ignore them
   - k8s-version: "1.31"
@@ -268,6 +280,11 @@ exclude:
 
   - k8s-version: "1.31"
     focus: "f05-agent-policy-multi-node-2"
+
+  # These tests require an external node which is only available on
+  # "net-next". So there's no point on running them.
+  - k8s-version: "1.31"
+    focus: "f09-datapath-misc-2"
 
   - k8s-version: "1.31"
     focus: "f11-datapath-service-ns-tc"

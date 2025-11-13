@@ -22,6 +22,7 @@ var Cell = cell.Module(
 	"operator-metrics",
 	"Operator Metrics",
 
+	certloaderGroup,
 	cell.Config(defaultConfig),
 	// RegistryConfig implements the config type for the agent Cell,
 	// however the operator has a different flag name for this the
@@ -31,9 +32,8 @@ var Cell = cell.Module(
 			PrometheusServeAddr: conf.OperatorPrometheusServeAddr,
 		}
 	}),
-	// Note: [metrics.OperatorCell] provides a bare-bones registry that
-	// has not been initialized yet.
-	metrics.OperatorCell,
+	// Metrics cell provides a bare-bones registry that has not been initialized yet.
+	metrics.NewCell("operator"),
 	cell.Invoke(initializeMetrics),
 )
 

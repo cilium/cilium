@@ -847,6 +847,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	isRoutable := !svcKey.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
 
+	checkSourceRange := svc.GetSourceRangesEnabled(svcType, ops.cfg.LBSourceRangeAllTypes)
+
 	forwardingMode := loadbalancer.ToSVCForwardingMode(ops.cfg.LBMode)
 	if ops.cfg.LBModeAnnotation && svc.ForwardingMode != loadbalancer.SVCForwardingModeUndef {
 		forwardingMode = svc.ForwardingMode
@@ -860,8 +862,8 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		SvcIntLocal:      svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal,
 		SessionAffinity:  svc.SessionAffinity,
 		IsRoutable:       isRoutable,
-		SourceRangeDeny:  svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
-		CheckSourceRange: len(svc.SourceRanges) > 0,
+		CheckSourceRange: checkSourceRange,
+		SourceRangeDeny:  checkSourceRange && svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
 		L7LoadBalancer:   svc.ProxyRedirect.Redirects(fe.ServicePort),
 		LoopbackHostport: svc.LoopbackHostPort || proxyDelegation != loadbalancer.SVCProxyDelegationNone,
 		Quarantined:      false,
@@ -891,9 +893,9 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	}
 
 	activeCount, terminatingCount, inactiveCount := 0, 0, 0
-	backendCount := len(orderedBackends)
 
 	// Update backends that are new or changed.
+	slotID := 1
 	for i, be := range orderedBackends {
 		var beID loadbalancer.BackendID
 		if s, ok := ops.backendStates[be.Address]; ok && s.id != 0 {
@@ -925,6 +927,11 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			ops.updateBackendRevision(beID, be.Address, be.Revision)
 		}
 
+		if be.State == loadbalancer.BackendStateMaintenance {
+			// Backends that are in maintenance are not included in the services map.
+			continue
+		}
+
 		// Update the service slot for the backend. We do this regardless
 		// if the backend entry is up-to-date since the backend slot order might've
 		// changed.
@@ -932,7 +939,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		// the slot ids here are sequential.
 		ops.log.Debug("Update service slot",
 			logfields.ID, beID,
-			logfields.Slot, i+1,
+			logfields.Slot, slotID,
 			logfields.BackendID, beID)
 
 		svcVal.SetBackendID(beID)
@@ -981,7 +988,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		default:
 			inactiveCount++
 		}
+
+		slotID++
 	}
+	backendCount := slotID - 1
 
 	if activeCount == 0 {
 		// If there are no active backends we can use the terminating backends.

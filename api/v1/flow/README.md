@@ -6,6 +6,7 @@
 - [flow/flow.proto](#flow_flow-proto)
     - [AgentEvent](#flow-AgentEvent)
     - [AgentEventUnknown](#flow-AgentEventUnknown)
+    - [Aggregate](#flow-Aggregate)
     - [CiliumEventType](#flow-CiliumEventType)
     - [DNS](#flow-DNS)
     - [DebugEvent](#flow-DebugEvent)
@@ -110,6 +111,23 @@
 | ----- | ---- | ----- | ----------- |
 | type | [string](#string) |  |  |
 | notification | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="flow-Aggregate"></a>
+
+### Aggregate
+Aggregate contains flow aggregation counters
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| ingress_flow_count | [uint32](#uint32) |  | ingress_flow_count is the count of flows in the ingress direction |
+| egress_flow_count | [uint32](#uint32) |  | egress_flow_count is the count of flows in the egress direction |
+| unknown_direction_flow_count | [uint32](#uint32) |  | unknown_direction_flow_count is the count of flows with unknown traffic direction |
 
 
 
@@ -350,6 +368,7 @@ EventTypeFilter is a filter describing a particular event type.
 | egress_denied_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies denying the egress of the flow. |
 | ingress_denied_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies denying the ingress of the flow. |
 | policy_log | [string](#string) | repeated | The set of Log values for policies that matched this flow. If no matched policies have an explicit log value configured, this list is empty. Duplicate values are elided; each entry is unique. |
+| aggregate | [Aggregate](#flow-Aggregate) |  | Aggregate contains flow aggregation counters when flow aggregation is enabled. This field is only populated for aggregated flows. |
 
 
 

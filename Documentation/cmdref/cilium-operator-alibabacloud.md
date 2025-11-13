@@ -24,12 +24,14 @@ cilium-operator-alibabacloud [flags]
       --cluster-pool-ipv4-mask-size int                      Mask size for each IPv4 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv4=true' (default 24)
       --cluster-pool-ipv6-cidr strings                       IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool' and 'enable-ipv6=true'
       --cluster-pool-ipv6-mask-size int                      Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool' and 'enable-ipv6=true' (default 112)
+      --clustermesh-cache-ttl duration                       The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked.
       --clustermesh-concurrent-service-endpoint-syncs int    The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)
       --clustermesh-config string                            Path to the ClusterMesh configuration directory
       --clustermesh-enable-endpoint-sync                     Whether or not the endpoint slice cluster mesh synchronization is enabled.
-      --clustermesh-enable-mcs-api                           Whether or not the MCS API support is enabled.
+      --clustermesh-enable-mcs-api                           Enable Cluster Mesh MCS-API support
       --clustermesh-endpoint-updates-batch-period duration   The length of endpoint slice updates batching period for remote cluster services. Processing of pod changes will be delayed by this duration to join them with potential upcoming updates and reduce the overall number of endpoints updates. Larger number = higher endpoint programming latency, but lower number of endpoints revision generated. (default 500ms)
       --clustermesh-endpoints-per-slice int                  The maximum number of endpoints that will be added to a remote cluster's EndpointSlice . More endpoints per slice will result in less endpoint slices, but larger resources. (default 100)
+      --clustermesh-mcs-api-install-crds                     Install and manage the MCS API CRDs. Only applicable if MCS API support is enabled. (default true)
       --clustermesh-sync-timeout duration                    Timeout waiting for the initial synchronization of information from remote clusters (default 1m0s)
       --config string                                        Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                                    Configuration directory that contains a file for each option
@@ -122,7 +124,11 @@ cilium-operator-alibabacloud [flags]
       --operator-pprof-block-profile-rate int                Enable goroutine blocking profiling and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
       --operator-pprof-mutex-profile-fraction int            Enable mutex contention profiling and set the fraction of sampled events (set to 1 to sample all events)
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
+      --operator-prometheus-enable-tls                       Enable TLS for prometheus server
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
+      --operator-prometheus-tls-cert-file string             Path to TLS certificate file for prometheus server. The file must contain PEM encoded data
+      --operator-prometheus-tls-client-ca-files strings      Path to one or more TLS client CA certificates files to use for TLS with mutual authentication (mTLS) for prometheus server. The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
+      --operator-prometheus-tls-key-file string              Path to TLS private key file for prometheus server. The file must contain PEM encoded data.
       --parallel-alloc-workers int                           Maximum number of parallel IPAM workers (default 50)
       --pod-restart-selector string                          cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
       --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
@@ -147,7 +153,7 @@ cilium-operator-alibabacloud [flags]
 * [cilium-operator-alibabacloud completion](cilium-operator-alibabacloud_completion.md)	 - Generate the autocompletion script for the specified shell
 * [cilium-operator-alibabacloud hive](cilium-operator-alibabacloud_hive.md)	 - Inspect the hive
 * [cilium-operator-alibabacloud metrics](cilium-operator-alibabacloud_metrics.md)	 - Access metric status of the operator
-* [cilium-operator-alibabacloud shell](cilium-operator-alibabacloud_shell.md)	 - Connect to the Cilium shell
+* [cilium-operator-alibabacloud shell](cilium-operator-alibabacloud_shell.md)	 - Connect to the shell
 * [cilium-operator-alibabacloud status](cilium-operator-alibabacloud_status.md)	 - Display status of operator
 * [cilium-operator-alibabacloud troubleshoot](cilium-operator-alibabacloud_troubleshoot.md)	 - Run troubleshooting utilities to check control-plane connectivity
 

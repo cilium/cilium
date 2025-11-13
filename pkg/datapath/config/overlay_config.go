@@ -14,6 +14,8 @@ type BPFOverlay struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Use netkit devices for pods.
+	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Masquerade traffic to remote nodes.
@@ -28,13 +30,15 @@ type BPFOverlay struct {
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// Pull security context from IP cache.
 	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
+	// VXLAN tunnel endpoint network mask.
+	VtepMask uint32 `config:"vtep_mask"`
 
 	Node
 }
 
 func NewBPFOverlay(node Node) *BPFOverlay {
-	return &BPFOverlay{0x5dc, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFOverlay{0x5dc, false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, node}
+		false, 0x0, node}
 }

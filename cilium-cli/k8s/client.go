@@ -451,11 +451,6 @@ func (c *Client) KVStoreMeshStatus(ctx context.Context, namespace, pod string) (
 	stdout, stderr, err := c.ExecInPodWithStderr(ctx, namespace, pod, defaults.ClusterMeshKVStoreMeshContainerName,
 		[]string{defaults.ClusterMeshBinaryName, "kvstoremesh-dbg", "status", "-o", "json"})
 	if err != nil {
-		// Cilium v1.14 has a separate kvstoremesh container, with a separate binary
-		if strings.Contains(err.Error(), "stat /usr/bin/clustermesh-apiserver: no such file or directory") {
-			return nil, ErrKVStoreMeshStatusNotImplemented
-		}
-
 		// Try to figure out if the status command is not yet supported in this version
 		stderrStr := stderr.String()
 		if strings.Contains(stderrStr, "Usage:") || strings.Contains(stderrStr, "unknown command") {
@@ -744,10 +739,6 @@ func (c *Client) GetCiliumLocalRedirectPolicy(ctx context.Context, namespace, na
 
 func (c *Client) DeleteCiliumLocalRedirectPolicy(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
 	return c.CiliumClientset.CiliumV2().CiliumLocalRedirectPolicies(namespace).Delete(ctx, name, opts)
-}
-
-func (c *Client) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
-	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies().List(ctx, opts)
 }
 
 func (c *Client) ListCiliumBGPClusterConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPClusterConfigList, error) {

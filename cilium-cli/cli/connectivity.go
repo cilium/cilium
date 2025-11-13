@@ -54,13 +54,13 @@ var tests []string
 
 func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		params.CiliumNamespace = namespace
-		params.ImpersonateAs = impersonateAs
-		params.ImpersonateGroups = impersonateGroups
+		params.CiliumNamespace = RootParams.Namespace
+		params.ImpersonateAs = RootParams.ImpersonateAs
+		params.ImpersonateGroups = RootParams.ImpersonateGroups
 
 		for _, test := range tests {
-			if strings.HasPrefix(test, "!") {
-				rgx, err := regexp.Compile(strings.TrimPrefix(test, "!"))
+			if after, ok := strings.CutPrefix(test, "!"); ok {
+				rgx, err := regexp.Compile(after)
 				if err != nil {
 					return fmt.Errorf("test filter: %w", err)
 				}
@@ -166,8 +166,6 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().StringSliceVar(&params.NodeCIDRs, "node-cidr", nil, "one or more CIDRs that cover all nodes in the cluster")
 	cmd.Flags().StringVar(&params.JunitFile, "junit-file", "", "Generate junit report and write to file")
 	cmd.Flags().Var(option.NewMapOptions(&params.JunitProperties), "junit-property", "Add key=value properties to the generated junit file")
-	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
-	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().BoolVar(&params.IncludeUnsafeTests, "include-unsafe-tests", false, "Include tests which can modify cluster nodes state")
 	cmd.Flags().MarkHidden("include-unsafe-tests")
 	cmd.Flags().BoolVar(&params.K8sLocalHostTest, "k8s-localhost-test", false, "Include tests which test for policy enforcement for the k8s entity on its own host")
@@ -330,7 +328,7 @@ func newConnectivityTests(
 		}
 		params.ExternalDeploymentPort += i
 		params.EchoServerHostPort += i
-		cc, err := check.NewConnectivityTest(k8sClient, params, hooks, logger, owners)
+		cc, err := check.NewConnectivityTest(RootK8sClient, params, hooks, logger, owners)
 		if err != nil {
 			return nil, err
 		}

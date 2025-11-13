@@ -166,13 +166,13 @@ static __always_inline int sock4_delete_revnat(const struct bpf_sock *ctx,
 }
 
 static __always_inline bool
-sock4_skip_xlate(struct lb4_service *svc, __be32 address)
+sock4_skip_xlate(const struct lb4_service *svc, __be32 address)
 {
 	if (lb4_to_lb6_service(svc))
 		return true;
 	if ((lb4_svc_is_external_ip(svc) && !is_defined(DISABLE_EXTERNAL_IP_MITIGATION)) ||
 	    (lb4_svc_is_hostport(svc) && !is_v4_loopback(address))) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip4_remote_endpoint(address, 0);
 		if (!info || info->sec_identity != HOST_ID)
@@ -183,13 +183,13 @@ sock4_skip_xlate(struct lb4_service *svc, __be32 address)
 }
 
 #ifdef ENABLE_NODEPORT
-static __always_inline struct lb4_service *
+static __always_inline const struct lb4_service *
 sock4_wildcard_lookup(struct lb4_key *key __maybe_unused,
 		      const bool include_remote_hosts __maybe_unused,
 		      const bool inv_match __maybe_unused,
 		      const bool in_hostns __maybe_unused)
 {
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
@@ -217,7 +217,7 @@ wildcard_lookup:
 }
 #endif /* ENABLE_NODEPORT */
 
-static __always_inline struct lb4_service *
+static __always_inline const struct lb4_service *
 sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 			   const bool in_hostns __maybe_unused)
 {
@@ -225,7 +225,7 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 	/* Save the original address, as the sock4_wildcard_lookup zeroes it */
 	bool loopback = is_v4_loopback(key->address);
 	__u32 orig_addr = key->address;
-	struct lb4_service *svc;
+	const struct lb4_service *svc;
 
 	svc = sock4_wildcard_lookup(key, true, false, in_hostns);
 	if (svc && lb4_svc_is_nodeport(svc))
@@ -253,8 +253,8 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 {
 	union lb4_affinity_client_id id;
 	const bool in_hostns = ctx_in_hostns(ctx_full, &id.client_cookie);
-	struct lb4_backend *backend;
-	struct lb4_service *svc;
+	const struct lb4_backend *backend;
+	const struct lb4_service *svc;
 	__u16 dst_port = ctx_dst_port(ctx);
 	__u8 protocol = ctx_protocol(ctx);
 	__u32 dst_ip = ctx->user_ip4;
@@ -263,7 +263,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		.dport		= dst_port,
 		.proto		= protocol,
 	}, orig_key = key;
-	struct lb4_service *backend_slot;
+	const struct lb4_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
 #ifdef ENABLE_L7_LB
@@ -439,7 +439,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 					     struct bpf_sock *ctx_full)
 {
 	__u8 protocol = ctx_protocol(ctx);
-	struct lb4_service *svc;
+	const struct lb4_service *svc;
 	struct lb4_key key = {
 		.address	= ctx->src_ip4,
 		.dport		= ctx_src_port(ctx),
@@ -554,7 +554,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 				bpf_ntohs(dst_port), false);
 	val = map_lookup_elem(&cilium_lb4_reverse_sk, &key);
 	if (val) {
-		struct lb4_service *svc;
+		const struct lb4_service *svc;
 		struct lb4_key svc_key = {
 			.address	= val->address,
 			.dport		= val->port,
@@ -711,13 +711,13 @@ static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 }
 
 static __always_inline __maybe_unused bool
-sock6_skip_xlate(struct lb6_service *svc, const union v6addr *address)
+sock6_skip_xlate(const struct lb6_service *svc, const union v6addr *address)
 {
 	if (lb6_to_lb4_service(svc))
 		return true;
 	if ((lb6_svc_is_external_ip(svc) && !is_defined(DISABLE_EXTERNAL_IP_MITIGATION)) ||
 	    (lb6_svc_is_hostport(svc) && !is_v6_loopback(address))) {
-		struct remote_endpoint_info *info;
+		const struct remote_endpoint_info *info;
 
 		info = lookup_ip6_remote_endpoint(address, 0);
 		if (!info || info->sec_identity != HOST_ID)
@@ -728,13 +728,13 @@ sock6_skip_xlate(struct lb6_service *svc, const union v6addr *address)
 }
 
 #ifdef ENABLE_NODEPORT
-static __always_inline __maybe_unused struct lb6_service *
+static __always_inline __maybe_unused const struct lb6_service *
 sock6_wildcard_lookup(struct lb6_key *key __maybe_unused,
 		      const bool include_remote_hosts __maybe_unused,
 		      const bool inv_match __maybe_unused,
 		      const bool in_hostns __maybe_unused)
 {
-	struct remote_endpoint_info *info;
+	const struct remote_endpoint_info *info;
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
@@ -762,7 +762,7 @@ wildcard_lookup:
 }
 #endif /* ENABLE_NODEPORT */
 
-static __always_inline __maybe_unused struct lb6_service *
+static __always_inline __maybe_unused const struct lb6_service *
 sock6_wildcard_lookup_full(struct lb6_key *key __maybe_unused,
 			   const bool in_hostns __maybe_unused)
 {
@@ -770,7 +770,7 @@ sock6_wildcard_lookup_full(struct lb6_key *key __maybe_unused,
 	/* Save the original address, as the sock6_wildcard_lookup zeroes it */
 	bool loopback = is_v6_loopback(&key->address);
 	union v6addr orig_address;
-	struct lb6_service *svc;
+	const struct lb6_service *svc;
 
 	memcpy(&orig_address, &key->address, sizeof(orig_address));
 	svc = sock6_wildcard_lookup(key, true, false, in_hostns);
@@ -844,7 +844,7 @@ sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 {
 	__u8 protocol = ctx_protocol(ctx);
-	struct lb6_service *svc;
+	const struct lb6_service *svc;
 	struct lb6_key key = {
 		.dport		= ctx_src_port(ctx),
 		.proto		= protocol,
@@ -972,15 +972,15 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 #ifdef ENABLE_IPV6
 	union lb6_affinity_client_id id;
 	const bool in_hostns = ctx_in_hostns(ctx, &id.client_cookie);
-	struct lb6_backend *backend;
-	struct lb6_service *svc;
+	const struct lb6_backend *backend;
+	const struct lb6_service *svc;
 	__u16 dst_port = ctx_dst_port(ctx);
 	__u8 protocol = ctx_protocol(ctx);
 	struct lb6_key key = {
 		.dport		= dst_port,
 		.proto		= protocol,
 	}, orig_key;
-	struct lb6_service *backend_slot;
+	const struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
 #ifdef ENABLE_L7_LB
@@ -1163,7 +1163,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 
 	val = map_lookup_elem(&cilium_lb6_reverse_sk, &key);
 	if (val) {
-		struct lb6_service *svc;
+		const struct lb6_service *svc;
 		struct lb6_key svc_key = {
 			.address	= val->address,
 			.dport		= val->port,

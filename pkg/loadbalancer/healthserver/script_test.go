@@ -93,9 +93,8 @@ func TestScript(t *testing.T) {
 					source.NewSources,
 					func(cfg loadbalancer.TestConfig) *option.DaemonConfig {
 						return &option.DaemonConfig{
-							EnableIPv4:                      true,
-							EnableIPv6:                      true,
-							EnableHealthCheckLoadBalancerIP: true,
+							EnableIPv4: true,
+							EnableIPv6: true,
 						}
 					},
 					func() kpr.KPRConfig {
@@ -113,6 +112,7 @@ func TestScript(t *testing.T) {
 			flags.Set("lb-retry-backoff-min", "10ms") // as we're doing fault injection we want
 			flags.Set("lb-retry-backoff-max", "10ms") // tiny backoffs
 			flags.Set("bpf-lb-maglev-table-size", "1021")
+			flags.Set("enable-health-check-loadbalancer-ip", "true")
 
 			// Parse the shebang arguments in the script.
 			require.NoError(t, flags.Parse(args), "flags.Parse")

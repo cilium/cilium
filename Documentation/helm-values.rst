@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:d82f458899c9696cb26a7c02d5568f81c8c8223f8661bb2a7988b269c8b9051e","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:e3652a00a2fabd16ce889f0aa32c38eec347b997e73bd09e69c962ec7f8732ee","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -273,7 +273,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane`
-     - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
+     - This feature set enables virtual BGP routers to be created via BGP CRDs.
      - object
      - ``{"enabled":false,"legacyOriginAttribute":{"enabled":false},"routerIDAllocation":{"ipPool":"","mode":"default"},"secretsNamespace":{"create":false,"name":"kube-system"},"statusReport":{"enabled":true}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
@@ -281,7 +281,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute`
-     - Legacy BGP ORIGIN attribute settings (BGPv2 only)
+     - Legacy BGP ORIGIN attribute settings
      - object
      - ``{"enabled":false}``
    * - :spelling:ignore:`bgpControlPlane.legacyOriginAttribute.enabled`
@@ -313,11 +313,11 @@
      - string
      - ``"kube-system"``
    * - :spelling:ignore:`bgpControlPlane.statusReport`
-     - Status reporting settings (BGPv2 only)
+     - Status reporting settings
      - object
      - ``{"enabled":true}``
    * - :spelling:ignore:`bgpControlPlane.statusReport.enabled`
-     - Enable/Disable BGPv2 status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
+     - Enable/Disable BGP status reporting It is recommended to enable status reporting in general, but if you have any issue such as high API server load, you can disable it by setting this to false.
      - bool
      - ``true``
    * - :spelling:ignore:`bpf.authMapMax`
@@ -432,6 +432,10 @@
      - Configure the typical time between monitor notifications for active connections.
      - string
      - ``"5s"``
+   * - :spelling:ignore:`bpf.monitorTraceIPOption`
+     - Configure the IP tracing option type. This option is used to specify the IP option type to use for tracing. The value must be an integer between 0 and 255. @schema type: [null, integer] minimum: 0 maximum: 255 @schema
+     - int
+     - ``0``
    * - :spelling:ignore:`bpf.natMax`
      - Configure the maximum number of entries for the NAT table.
      - int
@@ -479,7 +483,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:de7b97b1d19a34b674d0c4bc1da4db999f04ae355923a9a994ac3a81e1a1b5ff","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.2.4","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:c6f836b5352adc16a241c5c24ba5576341c23a81b73c9fab4daba07b92d811a8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.3.0","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}``
    * - :spelling:ignore:`certgen.affinity`
      - Affinity for certgen
      - object
@@ -488,6 +492,14 @@
      - Annotations to be added to the hubble-certgen initial Job and CronJob
      - object
      - ``{"cronJob":{},"job":{}}``
+   * - :spelling:ignore:`certgen.cronJob.failedJobsHistoryLimit`
+     - The number of failed finished jobs to keep
+     - int
+     - ``1``
+   * - :spelling:ignore:`certgen.cronJob.successfulJobsHistoryLimit`
+     - The number of successful finished jobs to keep
+     - int
+     - ``3``
    * - :spelling:ignore:`certgen.extraVolumeMounts`
      - Additional certgen volumeMounts.
      - list
@@ -522,8 +534,8 @@
      - ``[]``
    * - :spelling:ignore:`certgen.ttlSecondsAfterFinished`
      - Seconds after which the completed job pod will be deleted
-     - int
-     - ``1800``
+     - string
+     - ``nil``
    * - :spelling:ignore:`cgroup`
      - Configure cgroup related configuration
      - object
@@ -916,6 +928,10 @@
      - clustermesh-apiserver update strategy
      - object
      - ``{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}``
+   * - :spelling:ignore:`clustermesh.cacheTTL`
+     - The time to live for the cache of a remote cluster after connectivity is lost. If the connection is not re-established within this duration, the cached data is revoked to prevent stale state. If not specified or set to 0s, the cache is never revoked (default).
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`clustermesh.config`
      - Clustermesh explicit configuration.
      - object
@@ -1020,6 +1036,10 @@
      - Enable Multi-Cluster Services API support
      - bool
      - ``false``
+   * - :spelling:ignore:`clustermesh.mcsapi.installCRDs`
+     - Enabled MCS-API CRDs auto-installation
+     - bool
+     - ``true``
    * - :spelling:ignore:`clustermesh.policyDefaultLocalCluster`
      - Control whether policy rules assume by default the local cluster if not explicitly selected
      - bool
@@ -1297,7 +1317,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode`
-     - Configure the WireGuard Pod2Pod strict mode.
+     - Configure the Encryption Pod2Pod strict mode.
      - object
      - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false}``
    * - :spelling:ignore:`encryption.strictMode.allowRemoteNodeIdentities`
@@ -1305,15 +1325,15 @@
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode.cidr`
-     - CIDR for the WireGuard Pod2Pod strict mode.
+     - CIDR for the Encryption Pod2Pod strict mode.
      - string
      - ``""``
    * - :spelling:ignore:`encryption.strictMode.enabled`
-     - Enable WireGuard Pod2Pod strict mode.
+     - Enable Encryption Pod2Pod strict mode.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.type`
-     - Encryption method. Can be either ipsec or wireguard.
+     - Encryption method. Can be one of ipsec, wireguard or ztunnel.
      - string
      - ``"ipsec"``
    * - :spelling:ignore:`encryption.wireguard.persistentKeepalive`
@@ -1455,7 +1475,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}``
+     - ``{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -1811,11 +1831,11 @@
    * - :spelling:ignore:`hubble.export`
      - Hubble flows export.
      - object
-     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}}``
+     - ``{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregationInterval":"0s","excludeFilters":[],"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"aggregationInterval":"0s","allowList":[],"denyList":[],"enabled":false,"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}}``
    * - :spelling:ignore:`hubble.export.dynamic`
      - - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts.
      - object
-     - ``{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}``
+     - ``{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregationInterval":"0s","excludeFilters":[],"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}``
    * - :spelling:ignore:`hubble.export.dynamic.config.configMapName`
      - -- Name of configmap with configuration that may be altered to reconfigure exporters within a running agents.
      - string
@@ -1823,7 +1843,7 @@
    * - :spelling:ignore:`hubble.export.dynamic.config.content`
      - -- Exporters configuration in YAML format.
      - list
-     - ``[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]``
+     - ``[{"aggregationInterval":"0s","excludeFilters":[],"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]``
    * - :spelling:ignore:`hubble.export.dynamic.config.createConfigMap`
      - -- True if helm installer should create config map. Switch to false if you want to self maintain the file content.
      - bool
@@ -1831,7 +1851,11 @@
    * - :spelling:ignore:`hubble.export.static`
      - - Static exporter configuration. Static exporter is bound to agent lifecycle.
      - object
-     - ``{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}``
+     - ``{"aggregationInterval":"0s","allowList":[],"denyList":[],"enabled":false,"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}``
+   * - :spelling:ignore:`hubble.export.static.aggregationInterval`
+     - - Defines the interval at which to aggregate before exporting Hubble flows.     Aggregation feature is only enabled when fieldAggregate is specified and aggregationInterval > 0s.
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`hubble.export.static.fileCompress`
      - - Enable compression of rotated files.
      - bool
@@ -2452,6 +2476,10 @@
      - base64 encoded PEM values for the Hubble UI client key (deprecated). Use existingSecret instead.
      - string
      - ``""``
+   * - :spelling:ignore:`hubble.ui.tmpVolume`
+     - Configure temporary volume for hubble-ui
+     - object
+     - ``{}``
    * - :spelling:ignore:`hubble.ui.tolerations`
      - Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
@@ -3123,7 +3151,7 @@
    * - :spelling:ignore:`operator.prometheus`
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null}}``
+     - ``{"enabled":true,"metricsService":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","jobLabel":"","labels":{},"metricRelabelings":null,"relabelings":null,"scrapeTimeout":null},"tls":{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}}``
    * - :spelling:ignore:`operator.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-operator
      - object
@@ -3156,6 +3184,14 @@
      - Timeout after which scrape is considered to be failed.
      - string
      - ``nil``
+   * - :spelling:ignore:`operator.prometheus.tls`
+     - TLS configuration for Prometheus
+     - object
+     - ``{"enabled":false,"server":{"existingSecret":"","mtls":{"enabled":false}}}``
+   * - :spelling:ignore:`operator.prometheus.tls.server.existingSecret`
+     - Name of the Secret containing the certificate, key and CA files for the Prometheus server.
+     - string
+     - ``""``
    * - :spelling:ignore:`operator.removeNodeTaints`
      - Remove Cilium node taint from Kubernetes nodes that have a healthy Cilium pod running.
      - bool
@@ -3216,6 +3252,10 @@
      - Enable path MTU discovery to send ICMP fragmentation-needed replies to the client.
      - bool
      - ``false``
+   * - :spelling:ignore:`pmtuDiscovery.packetizationLayerPMTUD`
+     - Enable kernel probing path MTU discovery for Pods which uses different message sizes to search for correct MTU value.
+     - object
+     - ``{"enabled":true}``
    * - :spelling:ignore:`podAnnotations`
      - Annotations to be added to agent pods
      - object
@@ -3279,7 +3319,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:946dcd9e525b644f13a7158c3bafca7d9e901209ceb2833934e73311fab84c76","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1759553787-f16dc8e69dee56f4e376afef9676c7b9d659ac37","useDigest":true}``
+     - ``{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
@@ -3624,6 +3664,10 @@
      - Name of TLS Interception secret namespace.
      - string
      - ``"cilium-secrets"``
+   * - :spelling:ignore:`tmpVolume`
+     - Configure temporary volume for cilium-agent
+     - object
+     - ``{}``
    * - :spelling:ignore:`tolerations`
      - Node tolerations for agent scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list

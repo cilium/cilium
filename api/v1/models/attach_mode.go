@@ -41,7 +41,7 @@ const (
 )
 
 // for schema
-var attachModeEnum []interface{}
+var attachModeEnum []any
 
 func init() {
 	var res []AttachMode

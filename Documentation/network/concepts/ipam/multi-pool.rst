@@ -6,10 +6,8 @@
 
 .. _ipam_crd_multi_pool:
 
-Multi-Pool (Beta)
-#################
-
-.. include:: ../../../beta.rst
+Multi-Pool
+##########
 
 The Multi-Pool IPAM mode supports allocating PodCIDRs from multiple different IPAM pools, depending
 on workload annotations and node labels defined by the user.
@@ -84,8 +82,10 @@ PodCIDRs are allocated:
       maskSize: 120
 
 New pools can be added at run-time. The list of CIDRs in each pool can also be
-extended at run-time. In-use CIDRs may not be removed from an existing pool, and
-existing pools may not be deleted if they are still in use by a Cilium node.
+extended at run-time. In-use CIDRs must not be removed, and existing pools must not
+be deleted if they are still in use by a Cilium node. In case updating an in-use pool
+is needed, please follow this :ref:`procedure <update_existing_ciliumpodippools>` in order to
+minimize disruption during the update.
 The mask size of a pool is immutable and the same for all nodes. Neither restriction
 is enforced until :gh-issue:`26966` is resolved. The first and last address of a
 ``CiliumPodIPPool`` are reserved and cannot be allocated. Pools with less than 3
@@ -123,28 +123,142 @@ described above.
   For a practical tutorial on how to enable this mode in Cilium, see
   :ref:`gsg_ipam_crd_multi_pool`.
 
+.. _update_existing_ciliumpodippools:
+
 Updating existing CiliumPodIPPools
 ----------------------------------
 
-Once you configure the ``CiliumPodIPPools``, you cannot update the existing pool. For example, 
-you can't change the default pool to a different CIDR or add an IPv6 CIDR to the default pool. 
+Updating an existing ``CiliumPodIPPools``, is subject to some limitations.
+It is possible to extend the pool adding new IPv4 or IPv6 CIDRs, but it is not possible to
+delete or update the CIDRs already in use.
 This restriction prevents pods from receiving IPs from a new range while some pods still use 
-the old IP pool on the same nodes. If you need to update the existing CiliumPodIPPools, Please
-use these steps as the references.
+the old IP pool on the same nodes. However, if you don't have other choices than updating in-use CIDRs of an
+existing ``CiliumPodIPPools``, use the following steps as a reference.
 
 Let's assume you have a Kubernetes cluster and are using the ``multi-pool`` as the IPAM mode. 
-You would like to change the existing default pool CIDR to something else and pods will take the IP address from the new CIDR. 
-You hope the change will cause the least disruption to your clusters while updating the default pool to another CIDR.
+The objective is to change the existing default pool CIDR to something else and have pods take the IP addresses from the new CIDR.
+To change the CIDR of a pool, you need to re-assign the IPs of existing workloads. To achieve this, you can split the cluster
+into two node groups, which allows you to migrate the workloads from nodes using the old CIDR over to nodes using the new CIDR.
 
-We will pick some of your nodes where you would like to update the CIDR first and call them Node Group 1. 
+In order to clarify the steps below, let's consider an example kind-based cluster with just two nodes,
+``kind-worker`` and ``kind-control-plane``. In this cluster we have a deployment with two replicas (one per node)
+running nginx and a single ``CiliumPodIPPool`` resource that describes the ``default`` pool:
+
+.. code-block:: yaml
+
+  apiVersion: cilium.io/v2alpha1
+  kind: CiliumPodIPPool
+  metadata:
+    name: default
+  spec:
+    ipv4:
+      cidrs:
+      - 10.10.0.0/16
+      maskSize: 24
+
+
+To split the cluster, start with picking a subset of the nodes where you would like to update the CIDR first and call them Node Group 1.
 The other nodes, which will update the CIDR later than Node Group 1, will be called Node Group 2.
+In this example Node Group 1 is composed only of ``kind-worker``, while Node Group 2 includes only the ``kind-control-plane`` node:
 
-1. Update your existing pool through ``autoCreateCiliumPodIPPools`` in helm values.
-2. Delete the existing ``CiliumPodIPPools`` from CR and restart the Cilium operator to create new ``CiliumPodIPPools``.
-3. Cordon the Node Group 1 and evict pods to the Node Group 2.
-4. Delete ``CiliumNodes`` for Node Group 1, restart the Cilium agents and uncordon for Node Group 1.
-5. Cordon Node Group 2, and evict pods to Node Group 1 so they can get IPs from the new CIDR from the pool.
-6. Delete ``CiliumNodes`` for Node Group 2, restart the Cilium agents and uncordon for Node Group 2.
+.. code-block:: shell-session
+
+  $ kubectl get pods -o wide
+  NAME                     READY   STATUS    RESTARTS   AGE   IP            NODE                 NOMINATED NODE   READINESS GATES
+  nginx-66686b6766-9t4cp   1/1     Running   0          34s   10.10.1.191   kind-worker          <none>           <none>
+  nginx-66686b6766-jnvrx   1/1     Running   0          34s   10.10.0.77    kind-control-plane   <none>           <none>
+
+1. Update your existing pool to use a ``10.20.0.0/16`` CIDR instead of the previous ``10.10.0.0/16``.
+
+   .. code-block:: shell-session
+   
+     cat <<EOF | kubectl apply -f -
+     apiVersion: cilium.io/v2alpha1
+     kind: CiliumPodIPPool
+     metadata:
+       name: default
+     spec:
+       ipv4:
+         cidrs:
+         - 10.20.0.0/16
+         maskSize: 24
+     EOF
+   
+   Note how the Cilium operator reports a warning for each CIDR block still in use by node but removed from the pool:
+
+   .. code-block:: shell-session
+   
+     $ kubectl -n kube-system logs deploy/cilium-operator | grep "CIDR from pool still in use by node"
+     ...
+     time=2025-11-01T11:24:13.076246842Z level=warn msg="CIDR from pool still in use by node" module=operator.operator-controlplane.leader-lifecycle.legacy-cell cidr=10.10.0.0/24 poolName=default node=kind-control-plane
+     time=2025-11-01T11:24:13.076274725Z level=warn msg="CIDR from pool still in use by node" module=operator.operator-controlplane.leader-lifecycle.legacy-cell cidr=10.10.1.0/24 poolName=default node=kind-worker
+     ...
+
+2. Restart the Cilium operator.
+
+   .. code-block:: shell-session
+   
+     kubectl -n kube-system rollout restart deploy/cilium-operator
+   
+   Alternatively, it is possible to update your existing pool through ``autoCreateCiliumPodIPPools`` in helm values, then delete
+   the existing ``CiliumPodIPPools`` and restart the Cilium operator to automatically create the new ``CiliumPodIPPools``.
+
+3. Cordon the Node Group 1 and evict pods from the Node Group 1.
+
+   .. code-block:: shell-session
+   
+     kubectl cordon kind-worker
+   
+     kubectl drain kind-worker --ignore-daemonsets
+   
+   The nginx pod running on kind-worker is rescheduled on kind-control-plane with an IP address from the updated pool:
+   
+   .. code-block:: shell-session
+   
+     $ kubectl get pods -o wide
+     NAME                     READY   STATUS    RESTARTS   AGE     IP             NODE                 NOMINATED NODE   READINESS GATES
+     nginx-66686b6766-2svdm   1/1     Running   0          3m49s   10.20.11.182   kind-control-plane   <none>           <none>
+     nginx-66686b6766-jnvrx   1/1     Running   0          20m     10.10.0.77     kind-control-plane   <none>           <none>
+
+4. Delete ``CiliumNodes`` for Node Group 1, restart the Cilium agents running on Node Group 1 and uncordon Node Group 1.
+
+   .. code-block:: shell-session
+   
+     kubectl delete cn kind-worker
+   
+     kubectl -n kube-system delete pod --field-selector spec.nodeName=kind-worker --selector="app.kubernetes.io/name=cilium-agent"
+   
+     kubectl uncordon kind-worker
+
+5. Cordon the Node Group 2 and evict pods from the Node Group 2.
+
+   .. code-block:: shell-session
+   
+     kubectl cordon kind-control-plane
+   
+     kubectl drain kind-control-plane --ignore-daemonsets
+   
+   Both nginx pods running on kind-control-plane are rescheduled on kind-worker with an IP address from the updated pool:
+   
+   .. code-block:: shell-session
+   
+     $ kubectl get pods -o wide
+     NAME                     READY   STATUS    RESTARTS   AGE     IP             NODE                 NOMINATED NODE   READINESS GATES
+     nginx-66686b6766-2svdm   1/1     Running   0          3m49s   10.20.11.182   kind-control-plane   <none>           <none>
+     nginx-66686b6766-jnvrx   1/1     Running   0          20m     10.10.0.77     kind-control-plane   <none>           <none>
+
+6. Delete ``CiliumNodes`` for Node Group 2, restart the Cilium agents running on Node Group 2 and uncordon Node Group 2.
+
+   .. code-block:: shell-session
+   
+     kubectl delete cn kind-control-plane
+   
+     kubectl -n kube-system delete pod --field-selector spec.nodeName=kind-control-plane --selector="app.kubernetes.io/name=cilium-agent"
+   
+     kubectl uncordon kind-control-plane
+   
+   All the running pods now have IP addresses from the updated pool and new workloads will have IP address from the updated pool as well.
+
 7. (Optional) Reschedule pods to ensure workload is evenly distributed across nodes in cluster.
 
 Per-Node Default Pool
@@ -242,7 +356,7 @@ Routing to Allocated PodCIDRs
 -----------------------------
 
 PodCIDRs allocated from ``CiliumPodIPPools`` can be announced to the network by the
-:ref:`bgp_control_plane` (:ref:`bgp_control_plane_multipool_ipam`). Alternatively,
+:ref:`bgp_control_plane` (:ref:`bgp-adverts-multipool`). Alternatively,
 the ``autoDirectNodeRoutes`` Helm option can be used to enable automatic routing
 between nodes on a L2 network.
 
@@ -251,8 +365,7 @@ between nodes on a L2 network.
 Limitations
 ***********
 
-Multi-Pool IPAM is a preview feature. The following limitations apply to Cilium running in
-Multi-Pool IPAM mode:
+The following limitations apply to Cilium running in Multi-Pool IPAM mode:
 
 .. warning::
    - IPAM pools with overlapping CIDRs are not supported. Each pod IP must be

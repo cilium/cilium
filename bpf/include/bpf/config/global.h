@@ -11,9 +11,7 @@
 #include <lib/static_data.h>
 
 DECLARE_CONFIG(union macaddr, interface_mac, "MAC address of the interface the bpf program is attached to")
-#define THIS_INTERFACE_MAC CONFIG(interface_mac) /* Backwards compatibility */
 
 DECLARE_CONFIG(__u32, interface_ifindex, "ifindex of the interface the bpf program is attached to")
-#define THIS_INTERFACE_IFINDEX CONFIG(interface_ifindex) /* Backwards compatibility */
 
 DECLARE_CONFIG(bool, secctx_from_ipcache, "Pull security context from IP cache")

@@ -153,13 +153,6 @@ func parseToCiliumIngressCommonRule(clusterName, namespace string, es api.Endpoi
 		copy(retRule.FromCIDRSet, ing.FromCIDRSet)
 	}
 
-	if ing.FromRequires != nil {
-		retRule.FromRequires = make([]api.EndpointSelector, len(ing.FromRequires))
-		for j, ep := range ing.FromRequires {
-			retRule.FromRequires[j] = getEndpointSelector(clusterName, namespace, ep.LabelSelector, false, matchesInit)
-		}
-	}
-
 	if ing.FromEntities != nil {
 		retRule.FromEntities = make([]api.Entity, len(ing.FromEntities))
 		copy(retRule.FromEntities, ing.FromEntities)
@@ -234,13 +227,6 @@ func parseToCiliumEgressCommonRule(clusterName, namespace string, es api.Endpoin
 	if egr.ToCIDRSet != nil {
 		retRule.ToCIDRSet = make(api.CIDRRuleSlice, len(egr.ToCIDRSet))
 		copy(retRule.ToCIDRSet, egr.ToCIDRSet)
-	}
-
-	if egr.ToRequires != nil {
-		retRule.ToRequires = make([]api.EndpointSelector, len(egr.ToRequires))
-		for j, ep := range egr.ToRequires {
-			retRule.ToRequires[j] = getEndpointSelector(clusterName, namespace, ep.LabelSelector, false, matchesInit)
-		}
 	}
 
 	if egr.ToServices != nil {
@@ -395,5 +381,17 @@ func ParseToCiliumLabels(namespace, name string, uid types.UID, ruleLbs labels.L
 	}
 
 	policyLbls := GetPolicyLabels(namespace, name, uid, resourceType)
-	return append(policyLbls, ruleLbs...).Sort()
+
+	// Ensure user-defined labels have consistent source
+	userLbls := make(labels.LabelArray, len(ruleLbs))
+	for i, lbl := range ruleLbs {
+		if lbl.Source == "" {
+			// If source is empty, set it to unspec
+			userLbls[i] = labels.NewLabel(lbl.Key, lbl.Value, labels.LabelSourceUnspec)
+		} else {
+			userLbls[i] = lbl
+		}
+	}
+
+	return append(policyLbls, userLbls...).Sort()
 }

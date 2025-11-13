@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -137,11 +138,6 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	mode := ""
 	if st.CniChaining != nil {
 		mode = st.CniChaining.Mode
-	} else {
-		// Cilium versions prior to v1.12 do not expose the CNI chaining mode in
-		// cilium status, it's only available in the ConfigMap, which we
-		// inherit here
-		mode = result[features.CNIChaining].Mode
 	}
 
 	result[features.CNIChaining] = features.Status{
@@ -370,10 +366,7 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 
 	for _, ciliumPod := range ct.ciliumPods {
 		// Start with cluster-wide features
-		features := make(features.Set)
-		for k, v := range clusterFeatures {
-			features[k] = v
-		}
+		features := maps.Clone(clusterFeatures)
 
 		// Extract pod-specific features
 		err = ct.extractFeaturesFromRuntimeConfig(ctx, ciliumPod, features)

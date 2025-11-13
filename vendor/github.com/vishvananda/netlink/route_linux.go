@@ -25,6 +25,12 @@ const (
 	SCOPE_NOWHERE  Scope = unix.RT_SCOPE_NOWHERE
 )
 
+const (
+	// This is a workaround for missing constant in golang.org/x/sys/unix.
+	// Once it is added there, this should be removed.
+	RTA_NH_ID = 30
+)
+
 func (s Scope) String() string {
 	switch s {
 	case SCOPE_UNIVERSE:
@@ -1089,6 +1095,11 @@ func (h *Handle) prepareRouteReq(route *Route, req *nl.NetlinkRequest, msg *nl.R
 		native.PutUint32(b, uint32(route.Expires))
 		rtAttrs = append(rtAttrs, nl.NewRtAttr(unix.RTA_EXPIRES, b))
 	}
+	if route.NHID > 0 {
+		b := make([]byte, 4)
+		native.PutUint32(b, uint32(route.NHID))
+		rtAttrs = append(rtAttrs, nl.NewRtAttr(RTA_NH_ID, b))
+	}
 
 	var metrics []*nl.RtAttr
 	if route.MTU > 0 {
@@ -1530,6 +1541,8 @@ func deserializeRoute(m []byte) (Route, error) {
 					route.FastOpenNoCookie = int(native.Uint32(metric.Value[0:4]))
 				}
 			}
+		case RTA_NH_ID:
+			route.NHID = native.Uint32(attr.Value[0:4])
 		}
 	}
 

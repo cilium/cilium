@@ -13,7 +13,6 @@
 
 #include "bpf/compiler.h"
 #include "common.h"
-#include "drop.h"
 #include "signal.h"
 #include "conntrack.h"
 #include "conntrack_map.h"
@@ -608,8 +607,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 int l4_off __maybe_unused,
 			 struct ipv4_nat_target *target __maybe_unused)
 {
-	struct endpoint_info *local_ep __maybe_unused;
-	struct remote_endpoint_info *remote_ep __maybe_unused;
+	const struct endpoint_info *local_ep __maybe_unused;
+	const struct remote_endpoint_info *remote_ep __maybe_unused;
 	int ret;
 
 	ret = snat_v4_needs_masquerade_hook(ctx, target);
@@ -963,6 +962,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 			break;
 		case ICMP_ECHOREPLY:
+		case ICMP_REDIRECT:
 			return NAT_PUNT_TO_STACK;
 		case ICMP_DEST_UNREACH:
 			if (icmphdr.code > NR_ICMP_UNREACH)
@@ -1668,8 +1668,8 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 struct ipv6_nat_target *target __maybe_unused)
 {
 	union v6addr masq_addr __maybe_unused = CONFIG(nat_ipv6_masquerade);
-	struct remote_endpoint_info *remote_ep __maybe_unused;
-	struct endpoint_info *local_ep __maybe_unused;
+	const struct remote_endpoint_info *remote_ep __maybe_unused;
+	const struct endpoint_info *local_ep __maybe_unused;
 
 	/* See comments in snat_v4_needs_masquerade(). */
 #if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
@@ -1783,7 +1783,6 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	__u32 inner_l3_off = (__u32)(off + sizeof(struct icmp6hdr));
 	struct ipv6_ct_tuple tuple = {};
 	struct ipv6hdr ip6;
-	fraginfo_t fraginfo;
 	__u16 port_off;
 	__u32 icmpoff;
 	int hdrlen;
@@ -1805,7 +1804,7 @@ snat_v6_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6.saddr);
 	tuple.flags = NAT_DIR_EGRESS;
 
-	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, &fraginfo);
+	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -1941,6 +1940,7 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 		switch (icmp6hdr.icmp6_type) {
 		case ICMPV6_ECHO_REPLY:
+		case ICMPV6_REDIRECT:
 		case ICMP6_NS_MSG_TYPE:
 		case ICMP6_NA_MSG_TYPE:
 			return NAT_PUNT_TO_STACK;
@@ -1995,7 +1995,6 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 {
 	struct ipv6_ct_tuple tuple = {};
 	struct ipv6hdr iphdr;
-	fraginfo_t fraginfo;
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
@@ -2026,7 +2025,7 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx,
 	 */
 	asm volatile ("" ::"r"(&tuple));
 
-	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, &fraginfo);
+	hdrlen = ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, NULL);
 	if (hdrlen < 0)
 		return hdrlen;
 

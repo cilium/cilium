@@ -712,7 +712,7 @@ func objectMatchesFieldSelector(obj runtime.Object, sel fields.Selector) bool {
 	return true
 }
 
-func getFieldPathValue(obj interface{}, fieldPath string) (string, error) {
+func getFieldPathValue(obj any, fieldPath string) (string, error) {
 	p := jsonpath.New("").AllowMissingKeys(false)
 	if err := p.Parse("{$." + fieldPath + "}"); err != nil {
 		return "", err
