@@ -103,7 +103,6 @@ rules:
   resources:
   # to perform the translation of a CNP that contains `ToGroup` to its endpoints
   - services
-  - endpoints
   verbs:
   - get
   - list
