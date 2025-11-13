@@ -203,6 +203,9 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.DSRDispatch != other.DSRDispatch {
 		return false
 	}
+	if in.LBUnsupportedProtoAction != other.LBUnsupportedProtoAction {
+		return false
+	}
 	if in.ExternalClusterIP != other.ExternalClusterIP {
 		return false
 	}
