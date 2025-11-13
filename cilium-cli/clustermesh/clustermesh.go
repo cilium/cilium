@@ -51,7 +51,6 @@ const (
 	configNameClusterID   = "cluster-id"
 	configNameClusterName = "cluster-name"
 
-	configNameTunnelLegacy         = "tunnel"
 	configNameTunnelProtocol       = "tunnel-protocol"
 	configNameRoutingMode          = "routing-mode"
 	configNameMaxConnectedClusters = "max-connected-clusters"
