@@ -51,6 +51,17 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 	tableInitialized := false
 	_, tableInitWatch := r.config.Table.Initialized(txn)
 
+	incremental := incremental[Obj]{
+		moduleID:       r.ModuleID,
+		metrics:        r.config.Metrics,
+		config:         &r.config,
+		retries:        r.retries,
+		primaryIndexer: r.primaryIndexer,
+		db:             r.DB,
+		table:          r.config.Table,
+		results:        make(map[Obj]opResult),
+	}
+
 	for {
 		// Throttle a bit before reconciliation to allow for a bigger batch to arrive and
 		// for objects to settle.
@@ -89,7 +100,7 @@ func (r *reconciler[Obj]) reconcileLoop(ctx context.Context, health cell.Health)
 
 		// Perform incremental reconciliation and retries of previously failed
 		// objects.
-		errs := r.incremental(ctx, txn, changes)
+		errs := incremental.run(ctx, txn, changes)
 
 		if tableInitialized && (prune || externalPrune) {
 			if err := r.prune(ctx, txn); err != nil {
