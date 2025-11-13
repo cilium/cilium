@@ -117,11 +117,11 @@ func addClusterFilterByDefault(es *api.EndpointSelector, clusterName string) {
 // this is when translating selectors for CiliumClusterwideNetworkPolicy.
 // If a clusterName is provided then is is assumed that the selector is scoped to the local
 // cluster by default in a ClusterMesh environment.
-func getEndpointSelector(clusterName, namespace string, labelSelector *slim_metav1.LabelSelector, addK8sPrefix, matchesInit bool) api.EndpointSelector {
+func getEndpointSelector(clusterName, namespace string, labelSelector *slim_metav1.LabelSelector, matchesInit bool) api.EndpointSelector {
 	es := api.NewESFromK8sLabelSelector("", labelSelector)
 
 	// The k8s prefix must not be added to reserved labels.
-	if addK8sPrefix && es.HasKeyPrefix(labels.LabelSourceReservedKeyPrefix) {
+	if es.HasKeyPrefix(labels.LabelSourceReservedKeyPrefix) {
 		return es
 	}
 
@@ -163,7 +163,7 @@ func parseToCiliumIngressCommonRule(clusterName, namespace string, es api.Endpoi
 	if ing.FromEndpoints != nil {
 		retRule.FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
 		for j, ep := range ing.FromEndpoints {
-			retRule.FromEndpoints[j] = getEndpointSelector(clusterName, namespace, ep.LabelSelector, true, matchesInit)
+			retRule.FromEndpoints[j] = getEndpointSelector(clusterName, namespace, ep.LabelSelector, matchesInit)
 		}
 	}
 
@@ -247,7 +247,7 @@ func parseToCiliumEgressCommonRule(clusterName, namespace string, es api.Endpoin
 	if egr.ToEndpoints != nil {
 		retRule.ToEndpoints = make([]api.EndpointSelector, len(egr.ToEndpoints))
 		for j, ep := range egr.ToEndpoints {
-			endpointSelector := getEndpointSelector(clusterName, namespace, ep.LabelSelector, true, matchesInit)
+			endpointSelector := getEndpointSelector(clusterName, namespace, ep.LabelSelector, matchesInit)
 			endpointSelector.Generated = ep.Generated
 			retRule.ToEndpoints[j] = endpointSelector
 		}
