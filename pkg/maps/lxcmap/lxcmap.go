@@ -6,7 +6,6 @@ package lxcmap
 import (
 	"fmt"
 	"log/slog"
-	"net"
 	"net/netip"
 	"sync"
 
@@ -77,11 +76,11 @@ type EndpointFrontend interface {
 func GetBPFKeys(e EndpointFrontend) []*EndpointKey {
 	keys := []*EndpointKey{}
 	if e.IPv6Address().IsValid() {
-		keys = append(keys, NewEndpointKey(e.IPv6Address().AsSlice()))
+		keys = append(keys, NewEndpointKey(e.IPv6Address()))
 	}
 
 	if e.IPv4Address().IsValid() {
-		keys = append(keys, NewEndpointKey(e.IPv4Address().AsSlice()))
+		keys = append(keys, NewEndpointKey(e.IPv4Address()))
 	}
 
 	return keys
@@ -146,9 +145,9 @@ type EndpointKey struct {
 
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected
-func NewEndpointKey(ip net.IP) *EndpointKey {
+func NewEndpointKey(addr netip.Addr) *EndpointKey {
 	return &EndpointKey{
-		EndpointKey: bpf.NewEndpointKey(ip, 0),
+		EndpointKey: bpf.NewEndpointKey(addr, 0),
 	}
 }
 
@@ -203,19 +202,19 @@ func WriteEndpoint(f EndpointFrontend) error {
 }
 
 // AddHostEntry adds a special endpoint which represents the local host
-func AddHostEntry(ip net.IP) error {
-	key := NewEndpointKey(ip)
+func AddHostEntry(addr netip.Addr) error {
+	key := NewEndpointKey(addr)
 	ep := &EndpointInfo{Flags: EndpointFlagHost}
 	return LXCMap(nil).Update(key, ep)
 }
 
 // SyncHostEntry checks if a host entry exists in the lxcmap and adds one if needed.
 // Returns boolean indicating if a new entry was added and an error.
-func SyncHostEntry(ip net.IP) (bool, error) {
-	key := NewEndpointKey(ip)
+func SyncHostEntry(addr netip.Addr) (bool, error) {
+	key := NewEndpointKey(addr)
 	value, err := LXCMap(nil).Lookup(key)
 	if err != nil || value.(*EndpointInfo).Flags&EndpointFlagHost == 0 {
-		err = AddHostEntry(ip)
+		err = AddHostEntry(addr)
 		if err == nil {
 			return true, nil
 		}
@@ -224,8 +223,8 @@ func SyncHostEntry(ip net.IP) (bool, error) {
 }
 
 // DeleteEntry deletes a single map entry
-func DeleteEntry(ip net.IP) error {
-	return LXCMap(nil).Delete(NewEndpointKey(ip))
+func DeleteEntry(addr netip.Addr) error {
+	return LXCMap(nil).Delete(NewEndpointKey(addr))
 }
 
 // DeleteElement deletes the endpoint using all keys which represent the
@@ -242,12 +241,12 @@ func DeleteElement(logger *slog.Logger, f EndpointFrontend) []error {
 }
 
 // DumpToMap dumps the contents of the lxcmap into a map and returns it
-func DumpToMap() (map[string]EndpointInfo, error) {
-	m := map[string]EndpointInfo{}
+func DumpToMap() (map[netip.Addr]EndpointInfo, error) {
+	m := map[netip.Addr]EndpointInfo{}
 	callback := func(key bpf.MapKey, value bpf.MapValue) {
 		if info, ok := value.(*EndpointInfo); ok {
 			if endpointKey, ok := key.(*EndpointKey); ok {
-				m[endpointKey.ToIP().String()] = *info
+				m[endpointKey.ToAddr()] = *info
 			}
 		}
 	}

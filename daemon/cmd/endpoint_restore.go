@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
+	"net/netip"
 	"os"
 	"slices"
 	"sync"
@@ -398,7 +398,7 @@ func (r *endpointRestorer) RestoreOldEndpoints() error {
 	}
 
 	var (
-		existingEndpoints map[string]lxcmap.EndpointInfo
+		existingEndpoints map[netip.Addr]lxcmap.EndpointInfo
 		err               error
 	)
 
@@ -438,8 +438,8 @@ func (r *endpointRestorer) RestoreOldEndpoints() error {
 		r.restoreState.restored = append(r.restoreState.restored, ep)
 
 		if existingEndpoints != nil {
-			delete(existingEndpoints, ep.GetIPv4Address())
-			delete(existingEndpoints, ep.GetIPv6Address())
+			delete(existingEndpoints, ep.IPv4Address())
+			delete(existingEndpoints, ep.IPv6Address())
 		}
 	}
 
@@ -449,10 +449,13 @@ func (r *endpointRestorer) RestoreOldEndpoints() error {
 		logfields.Failed, failed,
 	)
 
-	for epIP, info := range existingEndpoints {
-		if ip := net.ParseIP(epIP); !info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
-				r.logger.Warn("Unable to delete obsolete endpoint from BPF map", logfields.Error, err)
+	for addr, info := range existingEndpoints {
+		if addr.IsValid() && !info.IsHost() {
+			if err := lxcmap.DeleteEntry(addr); err != nil {
+				r.logger.Warn("Unable to delete obsolete endpoint from BPF map",
+					logfields.IPAddr, addr,
+					logfields.Error, err,
+				)
 			} else {
 				r.logger.Debug(
 					"Removed outdated endpoint from endpoint map",
