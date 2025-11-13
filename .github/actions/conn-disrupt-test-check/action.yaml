@@ -34,7 +34,7 @@ runs:
         if [[ -n "${{ inputs.tests }}" ]]; then
           TEST_ARG="${{ inputs.tests }}"
         else
-          TEST_ARG="no-interrupted-connections"
+          TEST_ARG="no-interrupted-connections,no-ipsec-xfrm-error"
           EXTRA_ARG="--include-conn-disrupt-test --include-conn-disrupt-test-ns-traffic --include-conn-disrupt-test-egw"
         fi
         if [[ "${{ inputs.full-test }}" == "true" ]]; then
