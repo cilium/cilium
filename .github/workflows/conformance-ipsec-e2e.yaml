@@ -392,7 +392,9 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: ${{ env.job_name }}-${{ matrix.name }}-post-rotate
-          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          # Opt-out from `no-ipsec-xfrm-error`, seeing XfrmOutPolBlock errors.
+          tests: 'no-interrupted-connections'
+          extra-connectivity-test-flags: "${{ steps.vars-conn.outputs.connectivity_test_defaults }} --include-conn-disrupt-test"
 
       - name: Start unencrypted packets check for tests
         uses: ./.github/actions/bpftrace/start
