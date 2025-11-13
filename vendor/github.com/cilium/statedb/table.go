@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
+	"time"
 
 	"github.com/cilium/statedb/internal"
 	"github.com/cilium/statedb/part"
@@ -81,7 +81,7 @@ func NewTableAny[Obj any](
 		return nil, err
 	}
 
-	toAnyIndexer := func(idx Indexer[Obj]) anyIndexer {
+	toAnyIndexer := func(idx Indexer[Obj], pos int) anyIndexer {
 		return anyIndexer{
 			name: idx.indexName(),
 			fromObject: func(iobj object) index.KeySet {
@@ -89,35 +89,35 @@ func NewTableAny[Obj any](
 			},
 			fromString: idx.fromString,
 			unique:     idx.isUnique(),
+			pos:        pos,
 		}
 	}
 
 	table := &genTable[Obj]{
 		table:                tableName,
 		smu:                  internal.NewSortableMutex(),
-		primaryAnyIndexer:    toAnyIndexer(primaryIndexer),
+		primaryAnyIndexer:    toAnyIndexer(primaryIndexer, PrimaryIndexPos),
 		primaryIndexer:       primaryIndexer,
 		secondaryAnyIndexers: make(map[string]anyIndexer, len(secondaryIndexers)),
-		indexPositions:       make(map[string]int),
+		indexPositions:       make([]string, SecondaryIndexStartPos+len(secondaryIndexers)),
 		pos:                  -1,
 		tableHeaderFunc:      tableHeader,
 		tableRowFunc:         tableRow,
 	}
 
-	table.indexPositions[primaryIndexer.indexName()] = PrimaryIndexPos
-
 	// Internal indexes
-	table.indexPositions[RevisionIndex] = RevisionIndexPos
-	table.indexPositions[GraveyardIndex] = GraveyardIndexPos
-	table.indexPositions[GraveyardRevisionIndex] = GraveyardRevisionIndexPos
+	table.indexPositions[RevisionIndexPos] = RevisionIndex
+	table.indexPositions[GraveyardIndexPos] = GraveyardIndex
+	table.indexPositions[GraveyardRevisionIndexPos] = GraveyardRevisionIndex
+
+	table.indexPositions[PrimaryIndexPos] = primaryIndexer.indexName()
 
 	indexPos := SecondaryIndexStartPos
 	for _, indexer := range secondaryIndexers {
 		name := indexer.indexName()
-		anyIndexer := toAnyIndexer(indexer)
-		anyIndexer.pos = indexPos
+		anyIndexer := toAnyIndexer(indexer, indexPos)
 		table.secondaryAnyIndexers[name] = anyIndexer
-		table.indexPositions[name] = indexPos
+		table.indexPositions[indexPos] = name
 		indexPos++
 	}
 
@@ -176,18 +176,65 @@ type genTable[Obj any] struct {
 	primaryIndexer       Indexer[Obj]
 	primaryAnyIndexer    anyIndexer
 	secondaryAnyIndexers map[string]anyIndexer
-	indexPositions       map[string]int
-	lastWriteTxn         atomic.Pointer[writeTxn]
+	indexPositions       []string
 	tableHeaderFunc      func() []string
 	tableRowFunc         func(Obj) []string
+	lastWriteTxn         acquiredInfo
 }
 
-func (t *genTable[Obj]) acquired(txn *writeTxn) {
-	t.lastWriteTxn.Store(txn)
+type acquiredInfo struct {
+	mu         sync.Mutex
+	handle     string
+	acquiredAt time.Time
+	duration   time.Duration
+}
+
+func (t *genTable[Obj]) acquired(txn *writeTxnState) {
+	t.lastWriteTxn.mu.Lock()
+	t.lastWriteTxn.handle = txn.handle
+	t.lastWriteTxn.acquiredAt = txn.acquiredAt
+	t.lastWriteTxn.mu.Unlock()
+}
+
+func (t *genTable[Obj]) released() {
+	t.lastWriteTxn.mu.Lock()
+	t.lastWriteTxn.duration = time.Since(t.lastWriteTxn.acquiredAt)
+	t.lastWriteTxn.mu.Unlock()
+}
+
+func (t *genTable[Obj]) indexPos(name string) int {
+	// By default don't consider the internal indexes.
+	start := PrimaryIndexPos
+
+	if name[0] == '_' {
+		// Might be one of the internal indexes
+		start = 0
+	}
+
+	for i, n := range t.indexPositions[start:] {
+		if n == name {
+			return start + i
+		}
+	}
+	panic(fmt.Sprintf("BUG: index position not found for %s", name))
+
 }
 
 func (t *genTable[Obj]) getAcquiredInfo() string {
-	return t.lastWriteTxn.Load().acquiredInfo()
+	t.lastWriteTxn.mu.Lock()
+	defer t.lastWriteTxn.mu.Unlock()
+	info := &t.lastWriteTxn
+	if info.handle == "" {
+		return ""
+	}
+
+	since := internal.PrettySince(info.acquiredAt)
+	if info.duration == 0 {
+		// Still locked
+		return fmt.Sprintf("%s (locked for %s)", info.handle, since)
+	}
+	dur := time.Duration(info.duration)
+	return fmt.Sprintf("%s (%s ago, locked for %s)", info.handle, since, internal.PrettyDuration(dur))
 }
 
 func (t *genTable[Obj]) tableEntry() tableEntry {
@@ -201,15 +248,18 @@ func (t *genTable[Obj]) tableEntry() tableEntry {
 	close(entry.initWatchChan)
 
 	entry.indexes = make([]indexEntry, len(t.indexPositions))
-	entry.indexes[t.indexPositions[t.primaryIndexer.indexName()]] = indexEntry{part.New[object](), nil, nil, true}
+
+	// For revision indexes we only need to watch the root.
+	entry.indexes[RevisionIndexPos] = indexEntry{part.New[object](part.RootOnlyWatch), nil, nil, true}
+	entry.indexes[GraveyardRevisionIndexPos] = indexEntry{part.New[object](part.RootOnlyWatch), nil, nil, true}
+	entry.indexes[GraveyardIndexPos] = indexEntry{part.New[object](), nil, nil, true}
+
+	entry.indexes[t.indexPos(t.primaryIndexer.indexName())] =
+		indexEntry{part.New[object](), nil, nil, true}
 
 	for index, indexer := range t.secondaryAnyIndexers {
-		entry.indexes[t.indexPositions[index]] = indexEntry{part.New[object](), nil, nil, indexer.unique}
+		entry.indexes[t.indexPos(index)] = indexEntry{part.New[object](), nil, nil, indexer.unique}
 	}
-	// For revision indexes we only need to watch the root.
-	entry.indexes[t.indexPositions[RevisionIndex]] = indexEntry{part.New[object](part.RootOnlyWatch), nil, nil, true}
-	entry.indexes[t.indexPositions[GraveyardRevisionIndex]] = indexEntry{part.New[object](part.RootOnlyWatch), nil, nil, true}
-	entry.indexes[t.indexPositions[GraveyardIndex]] = indexEntry{part.New[object](), nil, nil, true}
 
 	return entry
 }
@@ -224,13 +274,6 @@ func (t *genTable[Obj]) tablePos() int {
 
 func (t *genTable[Obj]) tableKey() []byte {
 	return []byte(t.table)
-}
-
-func (t *genTable[Obj]) indexPos(name string) int {
-	if t.primaryAnyIndexer.name == name {
-		return PrimaryIndexPos
-	}
-	return t.indexPositions[name]
 }
 
 func (t *genTable[Obj]) getIndexer(name string) *anyIndexer {
