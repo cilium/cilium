@@ -85,7 +85,8 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 
 		// Dead objects found, do a write transaction against all tables with dead objects in them.
 		tablesToModify := slices.Collect(maps.Keys(toBeDeleted))
-		txn := db.WriteTxn(tablesToModify[0], tablesToModify[1:]...).getTxn()
+		wtxn := db.WriteTxn(tablesToModify...)
+		txn := wtxn.getTxn()
 		for meta, deadObjs := range toBeDeleted {
 			tableName := meta.Name()
 			start := time.Now()
@@ -100,7 +101,7 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 			}
 			cleaningTimes[tableName] = time.Since(start)
 		}
-		txn.Commit()
+		wtxn.Commit()
 
 		for tableName, stat := range cleaningTimes {
 			db.metrics.GraveyardCleaningDuration(

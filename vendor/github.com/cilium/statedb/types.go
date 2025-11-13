@@ -252,7 +252,8 @@ type tableInternal interface {
 	typeName() string                       // Returns the 'Obj' type as string
 	unmarshalYAML(data []byte) (any, error) // Unmarshal the data into 'Obj'
 	numDeletedObjects(txn ReadTxn) int      // Number of objects in graveyard
-	acquired(*writeTxn)
+	acquired(*writeTxnState)
+	released()
 	getAcquiredInfo() string
 	tableHeader() []string
 	tableRowAny(any) []string
@@ -269,7 +270,7 @@ type ReadTxn interface {
 }
 
 type WriteTxn interface {
-	getTxn() *writeTxn
+	getTxn() *writeTxnState
 
 	// WriteTxn is always also a ReadTxn
 	ReadTxn
@@ -425,16 +426,15 @@ type TableWritable interface {
 //
 
 const (
-	PrimaryIndexPos = 0
-
 	reservedIndexPrefix       = "__"
 	RevisionIndex             = "__revision__"
-	RevisionIndexPos          = 1
+	RevisionIndexPos          = 0
 	GraveyardIndex            = "__graveyard__"
-	GraveyardIndexPos         = 2
+	GraveyardIndexPos         = 1
 	GraveyardRevisionIndex    = "__graveyard_revision__"
-	GraveyardRevisionIndexPos = 3
+	GraveyardRevisionIndexPos = 2
 
+	PrimaryIndexPos        = 3
 	SecondaryIndexStartPos = 4
 )
 
@@ -487,8 +487,7 @@ type indexEntry struct {
 func (ie *indexEntry) getClone() part.Ops[object] {
 	if ie.clone == nil {
 		if ie.txn == nil {
-			treeCopy := *ie.tree
-			ie.clone = &treeCopy
+			ie.clone = ie.tree
 		} else {
 			ie.clone = ie.txn.Clone()
 		}
@@ -507,7 +506,7 @@ type tableEntry struct {
 }
 
 func (t *tableEntry) numObjects() int {
-	indexEntry := t.indexes[t.meta.indexPos(RevisionIndex)]
+	indexEntry := t.indexes[RevisionIndexPos]
 	if indexEntry.txn != nil {
 		return indexEntry.txn.Len()
 	}
@@ -515,7 +514,7 @@ func (t *tableEntry) numObjects() int {
 }
 
 func (t *tableEntry) numDeletedObjects() int {
-	indexEntry := t.indexes[t.meta.indexPos(GraveyardIndex)]
+	indexEntry := t.indexes[GraveyardIndexPos]
 	if indexEntry.txn != nil {
 		return indexEntry.txn.Len()
 	}

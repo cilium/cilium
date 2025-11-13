@@ -18,7 +18,14 @@ import (
 	"github.com/cilium/statedb/part"
 )
 
-type writeTxn struct {
+var writeTxnCounter atomic.Int64
+
+type writeTxnHandle struct {
+	*writeTxnState
+}
+
+type writeTxnState struct {
+	id     int64
 	db     *DB
 	dbRoot dbRoot
 
@@ -27,6 +34,7 @@ type writeTxn struct {
 	duration   atomic.Uint64 // the transaction duration after it finished
 
 	modifiedTables []*tableEntry            // table entries being modified
+	numTxns        int                      // number of index transactions opened
 	smus           internal.SortableMutexes // the (sorted) table locks
 	tableNames     []string
 }
@@ -41,41 +49,25 @@ type indexTxn struct {
 	unique bool
 }
 
-func (txn *writeTxn) getTxn() *writeTxn {
+func (txn *writeTxnState) getTxn() *writeTxnState {
 	return txn
 }
 
-func (txn *writeTxn) root() dbRoot {
+func (txn *writeTxnState) root() dbRoot {
 	return txn.dbRoot
-}
-
-// acquiredInfo returns the information for the "Last WriteTxn" column
-// in "db tables" command. The correctness of this relies on the following assumptions:
-// - txn.handle and txn.acquiredAt are not modified
-// - txn.duration is atomically updated on Commit or Abort
-func (txn *writeTxn) acquiredInfo() string {
-	if txn == nil {
-		return ""
-	}
-	since := internal.PrettySince(txn.acquiredAt)
-	dur := time.Duration(txn.duration.Load())
-	if txn.duration.Load() == 0 {
-		// Still locked
-		return fmt.Sprintf("%s (locked for %s)", txn.handle, since)
-	}
-	return fmt.Sprintf("%s (%s ago, locked for %s)", txn.handle, since, internal.PrettyDuration(dur))
 }
 
 // txnFinalizer is called when the GC frees *txn. It checks that a WriteTxn
 // has been Aborted or Committed. This is a safeguard against forgetting to
 // Abort/Commit which would cause the table to be locked forever.
-func txnFinalizer(txn *writeTxn) {
-	if txn.modifiedTables != nil {
+func txnFinalizer(handle *writeTxnHandle) {
+	if handle.writeTxnState != nil && handle.writeTxnState.dbRoot != nil {
+		txn := handle.writeTxnState
 		panic(fmt.Sprintf("WriteTxn from handle %s against tables %v was never Abort()'d or Commit()'d", txn.handle, txn.tableNames))
 	}
 }
 
-func (txn *writeTxn) getTableEntry(meta TableMeta) *tableEntry {
+func (txn *writeTxnState) getTableEntry(meta TableMeta) *tableEntry {
 	if txn.modifiedTables != nil {
 		entry := txn.modifiedTables[meta.tablePos()]
 		if entry != nil {
@@ -87,7 +79,7 @@ func (txn *writeTxn) getTableEntry(meta TableMeta) *tableEntry {
 
 // indexReadTxn returns a transaction to read from the specific index.
 // If the table or index is not found this returns nil & error.
-func (txn *writeTxn) indexReadTxn(meta TableMeta, indexPos int) (indexReadTxn, error) {
+func (txn *writeTxnState) indexReadTxn(meta TableMeta, indexPos int) (indexReadTxn, error) {
 	if meta.tablePos() < 0 {
 		return indexReadTxn{}, tableError(meta.Name(), ErrTableNotRegistered)
 	}
@@ -106,7 +98,7 @@ func (txn *writeTxn) indexReadTxn(meta TableMeta, indexPos int) (indexReadTxn, e
 
 // indexWriteTxn returns a transaction to read/write to a specific index.
 // The created transaction is memoized and used for subsequent reads and/or writes.
-func (txn *writeTxn) indexWriteTxn(meta TableMeta, indexPos int) (indexTxn, error) {
+func (txn *writeTxnState) indexWriteTxn(meta TableMeta, indexPos int) (indexTxn, error) {
 	table := txn.modifiedTables[meta.tablePos()]
 	if table == nil {
 		return indexTxn{}, tableError(meta.Name(), ErrTableNotLockedForWriting)
@@ -114,6 +106,7 @@ func (txn *writeTxn) indexWriteTxn(meta TableMeta, indexPos int) (indexTxn, erro
 	indexEntry := &table.indexes[indexPos]
 	if indexEntry.txn == nil {
 		indexEntry.txn = indexEntry.tree.Txn()
+		txn.numTxns++
 	}
 	indexEntry.clone = nil
 	return indexTxn{indexEntry.txn, indexEntry.unique}, nil
@@ -121,7 +114,7 @@ func (txn *writeTxn) indexWriteTxn(meta TableMeta, indexPos int) (indexTxn, erro
 
 // mustIndexReadTxn returns a transaction to read from the specific index.
 // Panics if table or index are not found.
-func (txn *writeTxn) mustIndexReadTxn(meta TableMeta, indexPos int) indexReadTxn {
+func (txn *writeTxnState) mustIndexReadTxn(meta TableMeta, indexPos int) indexReadTxn {
 	indexTxn, err := txn.indexReadTxn(meta, indexPos)
 	if err != nil {
 		panic(err)
@@ -131,7 +124,7 @@ func (txn *writeTxn) mustIndexReadTxn(meta TableMeta, indexPos int) indexReadTxn
 
 // mustIndexReadTxn returns a transaction to read or write from the specific index.
 // Panics if table or index not found.
-func (txn *writeTxn) mustIndexWriteTxn(meta TableMeta, indexPos int) indexTxn {
+func (txn *writeTxnState) mustIndexWriteTxn(meta TableMeta, indexPos int) indexTxn {
 	indexTxn, err := txn.indexWriteTxn(meta, indexPos)
 	if err != nil {
 		panic(err)
@@ -139,12 +132,12 @@ func (txn *writeTxn) mustIndexWriteTxn(meta TableMeta, indexPos int) indexTxn {
 	return indexTxn
 }
 
-func (txn *writeTxn) insert(meta TableMeta, guardRevision Revision, data any) (object, bool, <-chan struct{}, error) {
+func (txn *writeTxnState) insert(meta TableMeta, guardRevision Revision, data any) (object, bool, <-chan struct{}, error) {
 	return txn.modify(meta, guardRevision, data, func(_ any) any { return data })
 }
 
-func (txn *writeTxn) modify(meta TableMeta, guardRevision Revision, newData any, merge func(any) any) (object, bool, <-chan struct{}, error) {
-	if txn.modifiedTables == nil {
+func (txn *writeTxnState) modify(meta TableMeta, guardRevision Revision, newData any, merge func(any) any) (object, bool, <-chan struct{}, error) {
+	if txn == nil {
 		return object{}, false, nil, ErrTransactionClosed
 	}
 
@@ -263,7 +256,7 @@ func (txn *writeTxn) modify(meta TableMeta, guardRevision Revision, newData any,
 	return oldObj, oldExists, watch, nil
 }
 
-func (txn *writeTxn) hasDeleteTrackers(meta TableMeta) bool {
+func (txn *writeTxnState) hasDeleteTrackers(meta TableMeta) bool {
 	table := txn.modifiedTables[meta.tablePos()]
 	if table != nil {
 		return table.deleteTrackers.Len() > 0
@@ -271,8 +264,8 @@ func (txn *writeTxn) hasDeleteTrackers(meta TableMeta) bool {
 	return txn.dbRoot[meta.tablePos()].deleteTrackers.Len() > 0
 }
 
-func (txn *writeTxn) addDeleteTracker(meta TableMeta, trackerName string, dt anyDeleteTracker) error {
-	if txn.modifiedTables == nil {
+func (txn *writeTxnState) addDeleteTracker(meta TableMeta, trackerName string, dt anyDeleteTracker) error {
+	if txn == nil {
 		return ErrTransactionClosed
 	}
 	table := txn.modifiedTables[meta.tablePos()]
@@ -286,8 +279,8 @@ func (txn *writeTxn) addDeleteTracker(meta TableMeta, trackerName string, dt any
 	return nil
 }
 
-func (txn *writeTxn) delete(meta TableMeta, guardRevision Revision, data any) (object, bool, error) {
-	if txn.modifiedTables == nil {
+func (txn *writeTxnState) delete(meta TableMeta, guardRevision Revision, data any) (object, bool, error) {
+	if txn == nil {
 		return object{}, false, ErrTransactionClosed
 	}
 
@@ -326,7 +319,6 @@ func (txn *writeTxn) delete(meta TableMeta, guardRevision Revision, data any) (o
 	var revKey [8]byte // To avoid heap allocation
 	binary.BigEndian.PutUint64(revKey[:], obj.revision)
 	if _, ok := indexTree.Delete(revKey[:]); !ok {
-		txn.Abort()
 		panic("BUG: Object to be deleted not found from revision index")
 	}
 
@@ -345,7 +337,6 @@ func (txn *writeTxn) delete(meta TableMeta, guardRevision Revision, data any) (o
 		graveyardIndex := txn.mustIndexWriteTxn(meta, GraveyardIndexPos)
 		obj.revision = revision
 		if _, existed := graveyardIndex.Insert(idKey, obj); existed {
-			txn.Abort()
 			panic("BUG: Double deletion! Deleted object already existed in graveyard")
 		}
 		txn.mustIndexWriteTxn(meta, GraveyardRevisionIndexPos).Insert(index.Uint64(revision), obj)
@@ -354,13 +345,21 @@ func (txn *writeTxn) delete(meta TableMeta, guardRevision Revision, data any) (o
 	return obj, true, nil
 }
 
-// reset clears all fields of [writeTxn], except the ones used for statistics.
-func (txn *writeTxn) reset() {
-	txn.db = nil
+// returnToPool clears all fields of [writeTxnState], except the ones used for statistics
+// and returns it to the pool.
+func (handle *writeTxnHandle) returnToPool() {
+	txn := handle.writeTxnState
 	txn.dbRoot = nil
-	txn.modifiedTables = nil
-	txn.smus = nil
-	txn.tableNames = nil
+	txn.numTxns = 0
+	clear(txn.modifiedTables)
+	txn.modifiedTables = txn.modifiedTables[:0]
+	clear(txn.smus)
+	txn.smus = txn.smus[:0]
+	clear(txn.tableNames)
+	txn.tableNames = txn.tableNames[:0]
+	txn.db.writeTxnPool.Put(txn)
+	handle.writeTxnState = nil
+	runtime.SetFinalizer(handle, nil)
 }
 
 const (
@@ -456,10 +455,8 @@ func (k nonUniqueKey) encodedSecondary() []byte {
 	return k[:k.secondaryLen()]
 }
 
-func (txn *writeTxn) Abort() {
-	runtime.SetFinalizer(txn, nil)
-
-	// If modifiedTables is nil, this transaction has already been committed or aborted, and
+func (handle *writeTxnHandle) Abort() {
+	// If state is nil, this transaction has already been committed or aborted, and
 	// thus there is nothing to do. We allow this without failure to allow for defer
 	// pattern:
 	//
@@ -474,8 +471,16 @@ func (txn *writeTxn) Abort() {
 	//
 	//  txn.Commit()
 	//
-	if txn.modifiedTables == nil {
+	if handle.writeTxnState == nil {
+		// Already Abort()'d or Commit()'d
 		return
+	}
+
+	txn := handle.writeTxnState
+	for _, table := range txn.modifiedTables {
+		if table != nil {
+			table.meta.released()
+		}
 	}
 
 	txn.duration.Store(uint64(time.Since(txn.acquiredAt)))
@@ -485,15 +490,12 @@ func (txn *writeTxn) Abort() {
 		txn.handle,
 		txn.tableNames,
 		time.Since(txn.acquiredAt))
-
-	txn.reset()
+	handle.returnToPool()
 }
 
 // Commit the transaction. Returns a ReadTxn that is the snapshot of the database at the
 // point of commit.
-func (txn *writeTxn) Commit() ReadTxn {
-	runtime.SetFinalizer(txn, nil)
-
+func (handle *writeTxnHandle) Commit() ReadTxn {
 	// We operate here under the following properties:
 	//
 	// - Each table that we're modifying has its SortableMutex locked and held by
@@ -512,11 +514,10 @@ func (txn *writeTxn) Commit() ReadTxn {
 	//   a reader can acquire an immutable snapshot of all data in the database with a
 	//   simpler atomic pointer load.
 
-	// If db is nil, this transaction has already been committed or aborted, and
-	// thus there is nothing to do.
-	if txn.db == nil {
+	if handle.writeTxnState == nil {
 		return nil
 	}
+	txn := handle.writeTxnState
 
 	txn.duration.Store(uint64(time.Since(txn.acquiredAt)))
 
@@ -525,7 +526,7 @@ func (txn *writeTxn) Commit() ReadTxn {
 	// Commit each individual changed index to each table.
 	// We don't notify yet (CommitOnly) as the root needs to be updated
 	// first as otherwise readers would wake up too early.
-	txnToNotify := []*part.Txn[object]{}
+	txnToNotify := make([]*part.Txn[object], 0, txn.numTxns)
 	for _, table := range txn.modifiedTables {
 		if table == nil {
 			continue
@@ -533,7 +534,7 @@ func (txn *writeTxn) Commit() ReadTxn {
 		for i := range table.indexes {
 			txn := table.indexes[i].txn
 			if txn != nil {
-				table.indexes[i].tree = txn.CommitOnly()
+				table.indexes[i].tree = txn.Commit()
 				table.indexes[i].txn = nil
 				txnToNotify = append(txnToNotify, txn)
 			}
@@ -569,6 +570,7 @@ func (txn *writeTxn) Commit() ReadTxn {
 				initChansToClose = append(initChansToClose, table.initWatchChan)
 				table.initialized = true
 			}
+			table.meta.released()
 			root[pos] = *table
 		}
 	}
@@ -598,12 +600,13 @@ func (txn *writeTxn) Commit() ReadTxn {
 		txn.tableNames,
 		time.Since(txn.acquiredAt))
 
-	txn.reset()
+	handle.returnToPool()
+
 	return readTxn(root)
 }
 
 // WriteJSON marshals out the database as JSON into the given writer.
 // If tables are given then only these tables are written.
-func (txn *writeTxn) WriteJSON(w io.Writer, tables ...string) error {
+func (txn *writeTxnState) WriteJSON(w io.Writer, tables ...string) error {
 	return readTxn(txn.dbRoot).WriteJSON(w, tables...)
 }

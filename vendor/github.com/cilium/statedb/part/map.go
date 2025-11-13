@@ -51,7 +51,7 @@ func FromMap[K comparable, V any](m Map[K, V], hm map[K]V) Map[K, V] {
 		txn.Insert(m.keyToBytes(m.singleton.Key), *m.singleton)
 		m.singleton = nil
 	}
-	m.tree = txn.CommitOnly()
+	m.tree = txn.Commit()
 	return m
 }
 
@@ -93,7 +93,7 @@ func (m Map[K, V]) Set(key K, value V) Map[K, V] {
 		txn.Insert(m.keyToBytes(m.singleton.Key), *m.singleton)
 		m.singleton = nil
 	}
-	m.tree = txn.CommitOnly()
+	m.tree = txn.Commit()
 	return m
 }
 
@@ -124,7 +124,7 @@ func (m Map[K, V]) Delete(key K) Map[K, V] {
 			m.singleton = &kv
 			m.tree = nil
 		default:
-			m.tree = txn.CommitOnly()
+			m.tree = txn.Commit()
 		}
 	}
 	return m
@@ -341,7 +341,7 @@ func (m *Map[K, V]) UnmarshalJSON(data []byte) error {
 	if d, ok := t.(json.Delim); !ok || d != ']' {
 		return fmt.Errorf("%T.UnmarshalJSON: expected ']' got %v", m, t)
 	}
-	m.tree = txn.CommitOnly()
+	m.tree = txn.Commit()
 	return nil
 }
 
@@ -380,7 +380,7 @@ func (m *Map[K, V]) UnmarshalYAML(value *yaml.Node) error {
 		}
 		txn.Insert(m.keyToBytes(kv.Key), mapKVPair[K, V]{kv.Key, kv.Value})
 	}
-	m.tree = txn.CommitOnly()
+	m.tree = txn.Commit()
 	return nil
 }
 
@@ -407,6 +407,8 @@ type MapTxn[K, V any] struct {
 	txn              *Txn[mapKVPair[K, V]]
 }
 
+// Commit the transaction returning a new map.
+// The transaction can be used again for further modifications.
 func (txn MapTxn[K, V]) Commit() (m Map[K, V]) {
 	m.bytesFromKeyFunc = txn.bytesFromKeyFunc
 	switch txn.txn.Len() {
@@ -415,7 +417,7 @@ func (txn MapTxn[K, V]) Commit() (m Map[K, V]) {
 		_, kv, _ := txn.txn.Iterator().Next()
 		m.singleton = &kv
 	default:
-		m.tree = txn.txn.CommitOnly()
+		m.tree = txn.txn.Commit()
 	}
 	return
 }

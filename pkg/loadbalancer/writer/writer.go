@@ -199,8 +199,11 @@ type WriteTxn struct {
 // tables to be used with the methods of [Writer]. The returned transaction MUST be
 // Abort()'ed or Commit()'ed.
 func (w *Writer) WriteTxn(extraTables ...statedb.TableMeta) WriteTxn {
+	if len(extraTables) == 0 {
+		return WriteTxn{w.db.WriteTxn(w.svcs, w.bes, w.fes)}
+	}
 	return WriteTxn{
-		w.db.WriteTxn(w.svcs, append(extraTables, w.bes, w.fes)...),
+		w.db.WriteTxn(append(extraTables, w.svcs, w.bes, w.fes)...),
 	}
 }
 
