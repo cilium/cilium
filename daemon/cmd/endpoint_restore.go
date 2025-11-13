@@ -14,8 +14,10 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -24,6 +26,7 @@ import (
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -38,11 +41,38 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// endpointRestore cell provides the logic to restore the endpoints at agent startup.
+var endpointRestoreCell = cell.Module(
+	"endpoint-restore",
+	"Initial endpoint restoration at agent startup",
+
+	cell.Provide(promise.New[endpointstate.Restorer]),
+	cell.Provide(newEndpointRestorer),
+	cell.Invoke(registerEndpointRestoreFinishJob),
+)
+
+// registerEndpointRestoreFinishJob registers a hive job that asynchronously performs the last step of the endpoint restoration
+// (expose the restored endpoints via endpointmanager & trigger regeneration).
+//
+// The first two steps of the endpoint restoration are still explicitly initiated by the legacy startup logic (configureDaemon) -
+// therefore this cell needs to depend on legacy.DaemonInitialization.
+// For the same reason, the job can't be registered by newEndpointRestorer cell (would result in circular dependencies)
+func registerEndpointRestoreFinishJob(jobGroup job.Group, endpointRestorer *endpointRestorer, _ legacy.DaemonInitialization) {
+	if option.Config.DryMode {
+		return
+	}
+
+	jobGroup.Add(job.OneShot("finish-endpoint-restore", endpointRestorer.InitRestore, job.WithShutdown()))
+}
+
 type endpointRestorerParams struct {
 	cell.In
+
+	Resolver promise.Resolver[endpointstate.Restorer]
 
 	Logger              *slog.Logger
 	K8sWatcher          *watchers.K8sWatcher
@@ -82,7 +112,7 @@ type endpointRestorer struct {
 }
 
 func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
-	return &endpointRestorer{
+	restorer := &endpointRestorer{
 		logger:              params.Logger,
 		k8sWatcher:          params.K8sWatcher,
 		clientset:           params.Clientset,
@@ -107,6 +137,12 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 			toClean:  []*endpoint.Endpoint{},
 		},
 	}
+
+	// Restorer promise is still required to avoid circular dependencies -
+	// but we can immediately resolve it.
+	params.Resolver.Resolve(restorer)
+
+	return restorer
 }
 
 func (r *endpointRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
@@ -638,12 +674,14 @@ func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) 
 	return nil
 }
 
-func (r *endpointRestorer) InitRestore(ctx context.Context) error {
+func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) error {
 	if !option.Config.RestoreState {
+		health.OK("Skipped - state restore is disabled")
 		r.logger.Info("State restore is disabled. Existing endpoints on node are ignored")
 		return nil
 	}
 
+	health.OK("Waiting for K8s initialization")
 	// Wait only for certain caches, but not all!
 	// (Check K8sWatcher.InitK8sSubsystem() for more info)
 	select {
@@ -653,10 +691,12 @@ func (r *endpointRestorer) InitRestore(ctx context.Context) error {
 	}
 
 	// wait for directory watcher to ingest policy from files
+	health.OK("Waiting for directory watcher to ingest policies from files")
 	r.dirReadStatus.Wait()
 
 	// After K8s caches have been synced, IPCache can start label injection.
 	// Ensure that the initial labels are injected before we regenerate endpoints
+	health.OK("Waiting for initial IPCache revision")
 	r.logger.Debug("Waiting for initial IPCache revision")
 	if err := r.ipCache.WaitForRevision(ctx, 1); err != nil {
 		return fmt.Errorf("failed to wait for initial IPCache revision: %w", err)
@@ -665,6 +705,7 @@ func (r *endpointRestorer) InitRestore(ctx context.Context) error {
 	// When we regenerate restored endpoints, it is guaranteed that we have
 	// received the full list of policies present at the time the daemon
 	// is bootstrapped.
+	health.OK("Regenerating restored endpoints")
 	r.regenerateRestoredEndpoints(r.restoreState)
 
 	close(r.endpointRestoreComplete)

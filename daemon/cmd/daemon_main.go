@@ -35,7 +35,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
@@ -1194,13 +1193,11 @@ var daemonCell = cell.Module(
 	cell.Provide(
 		daemonConfigInitialization,
 		daemonLegacyInitialization,
-		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
-		newEndpointRestorer,
 	),
-	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force instantiation.
+	endpointRestoreCell,
 )
 
 type daemonConfigParams struct {
@@ -1229,7 +1226,6 @@ type daemonParams struct {
 
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
-	JobGroup  job.Group
 
 	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
@@ -1337,19 +1333,7 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 		},
 	})
 
-	if !option.Config.DryMode {
-		params.JobGroup.Add(job.OneShot("finish-endpoint-restore", func(ctx context.Context, _ cell.Health) error {
-			return params.EndpointRestorer.InitRestore(ctx)
-		}, job.WithShutdown()))
-	}
-
 	return legacy.DaemonInitialization{}
-}
-
-func registerEndpointStateResolver(endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
-	// Restorer promise is still required to avoid circular dependencies -
-	// but we can immediately resolve it.
-	resolver.Resolve(endpointRestorer)
 }
 
 func initClockSourceOption(logger *slog.Logger) {
