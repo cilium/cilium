@@ -45,12 +45,14 @@ var DefaultSlogLogger = slog.New(defaultMultiSlogHandler)
 // Approximates the logrus output via slog for job groups during the transition
 // phase.
 func initializeSlog(logOpts LogOptions, loggers []string) {
+	// Create new instance of opts to avoid handing global slogHandlerOpts
+	// over to new logger.
+	// Note: The single leveler is shared, and can safely be changed concurrently.
 	opts := *slogHandlerOpts
-	opts.Level = logOpts.GetLogLevel()
+	SetLogLevel(logOpts.GetLogLevel())
 	if opts.Level == slog.LevelDebug {
 		opts.AddSource = true
 	}
-
 	writer := os.Stderr
 	switch logOpts[WriterOpt] {
 	case StdErrOpt:
