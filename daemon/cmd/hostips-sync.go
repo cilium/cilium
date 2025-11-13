@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
@@ -18,7 +17,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/identity"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -176,7 +174,7 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 	for _, ipIDLblsPair := range specialIdentities {
 		isHost := ipIDLblsPair.ID == identity.ReservedIdentityHost
 		if isHost {
-			added, err := lxcmap.SyncHostEntry(ipIDLblsPair.IP.AsSlice())
+			added, err := lxcmap.SyncHostEntry(ipIDLblsPair.IP)
 			if err != nil {
 				return fmt.Errorf("Unable to add host entry to endpoint map: %w", err)
 			}
@@ -188,7 +186,7 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 			}
 		}
 
-		delete(existingEndpoints, ipIDLblsPair.IP.String())
+		delete(existingEndpoints, ipIDLblsPair.IP)
 
 		lbls := ipIDLblsPair.Labels
 		if ipIDLblsPair.ID.IsWorld() {
@@ -202,17 +200,17 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 
 	// existingEndpoints is a map from endpoint IP to endpoint info. Referring
 	// to the key as host IP here because we only care about the host endpoint.
-	for hostIP, info := range existingEndpoints {
-		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
+	for addr, info := range existingEndpoints {
+		if addr.IsValid() && info.IsHost() {
+			if err := lxcmap.DeleteEntry(addr); err != nil {
 				return fmt.Errorf("unable to delete obsolete host IP: %w", err)
 			} else {
 				s.params.Logger.Debug(
 					"Removed outdated host IP from endpoint map",
-					logfields.IPAddr, hostIP,
+					logfields.IPAddr, addr,
 				)
 			}
-			p := cmtypes.NewLocalPrefixCluster(ippkg.IPToNetPrefix(ip))
+			p := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(addr, addr.BitLen()))
 			s.params.IPCache.RemoveMetadata(p, daemonResourceID, labels.LabelHost)
 		}
 	}
