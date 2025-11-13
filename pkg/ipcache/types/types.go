@@ -35,6 +35,7 @@ var (
 	ResourceKindFile      = ResourceKind("file")
 	ResourceKindNetpol    = ResourceKind("netpol")
 	ResourceKindNode      = ResourceKind("node")
+	ResourceKindService   = ResourceKind("svc")
 )
 
 // NewResourceID returns a ResourceID populated with the standard fields for
