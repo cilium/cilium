@@ -66,6 +66,36 @@ func isHeadless(svc *slim_corev1.Service) bool {
 	return headless
 }
 
+func newServiceFrontendParams(
+	s *loadbalancer.Service,
+	sType loadbalancer.SVCType,
+	addr cmtypes.AddrCluster,
+	port *slim_corev1.ServicePort,
+	scope uint8,
+) loadbalancer.FrontendParams {
+	fe := loadbalancer.FrontendParams{
+		Type:        sType,
+		PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
+		ServiceName: s.Name,
+		ServicePort: uint16(port.Port),
+	}
+
+	var portNum uint16
+	if sType == loadbalancer.SVCTypeNodePort {
+		portNum = uint16(port.NodePort)
+	} else {
+		portNum = uint16(port.Port)
+	}
+	fe.Address = loadbalancer.NewL3n4Addr(
+		loadbalancer.L4Type(port.Protocol),
+		addr,
+		portNum,
+		scope,
+	)
+
+	return fe
+}
+
 func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig, rawlog *slog.Logger, localNode *node.LocalNode, svc *slim_corev1.Service, source source.Source) (s *loadbalancer.Service, fes []loadbalancer.FrontendParams) {
 	// Lazily construct the augmented logger as we very rarely log here. This improves throughput by 20% and avoids an allocation.
 	log := sync.OnceValue(func() *slog.Logger {
@@ -214,16 +244,11 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 			}
 
 			for _, port := range svc.Spec.Ports {
-				fe := loadbalancer.FrontendParams{
-					Type:        loadbalancer.SVCTypeClusterIP,
-					PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-					ServiceName: name,
-					ServicePort: uint16(port.Port),
-				}
-				fe.Address = loadbalancer.NewL3n4Addr(
-					loadbalancer.L4Type(port.Protocol),
+				fe := newServiceFrontendParams(
+					s,
+					loadbalancer.SVCTypeClusterIP,
 					addr,
-					uint16(port.Port),
+					&port,
 					loadbalancer.ScopeExternal,
 				)
 				fes = append(fes, fe)
@@ -256,32 +281,24 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 							continue
 						}
 
-						fe := loadbalancer.FrontendParams{
-							Type:        loadbalancer.SVCTypeNodePort,
-							PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-							ServiceName: name,
-							ServicePort: uint16(port.Port),
-						}
+						var zeroAddr cmtypes.AddrCluster
 
 						switch family {
 						case slim_corev1.IPv4Protocol:
-							fe.Address = loadbalancer.NewL3n4Addr(
-								loadbalancer.L4Type(port.Protocol),
-								zeroV4,
-								uint16(port.NodePort),
-								scope,
-							)
+							zeroAddr = zeroV4
 						case slim_corev1.IPv6Protocol:
-							fe.Address = loadbalancer.NewL3n4Addr(
-								loadbalancer.L4Type(port.Protocol),
-								zeroV6,
-								uint16(port.NodePort),
-								scope,
-							)
+							zeroAddr = zeroV6
 						default:
 							continue
 						}
 
+						fe := newServiceFrontendParams(
+							s,
+							loadbalancer.SVCTypeNodePort,
+							zeroAddr,
+							&port,
+							scope,
+						)
 						fes = append(fes, fe)
 					}
 				}
@@ -312,17 +329,11 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 
 				for _, scope := range scopes {
 					for _, port := range svc.Spec.Ports {
-						fe := loadbalancer.FrontendParams{
-							Type:        loadbalancer.SVCTypeLoadBalancer,
-							PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-							ServiceName: name,
-							ServicePort: uint16(port.Port),
-						}
-
-						fe.Address = loadbalancer.NewL3n4Addr(
-							loadbalancer.L4Type(port.Protocol),
+						fe := newServiceFrontendParams(
+							s,
+							loadbalancer.SVCTypeLoadBalancer,
 							addr,
-							uint16(port.Port),
+							&port,
 							scope,
 						)
 						fes = append(fes, fe)
@@ -349,16 +360,11 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 			}
 
 			for _, port := range svc.Spec.Ports {
-				fe := loadbalancer.FrontendParams{
-					Type:        loadbalancer.SVCTypeExternalIPs,
-					PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-					ServiceName: name,
-					ServicePort: uint16(port.Port),
-				}
-				fe.Address = loadbalancer.NewL3n4Addr(
-					loadbalancer.L4Type(port.Protocol),
+				fe := newServiceFrontendParams(
+					s,
+					loadbalancer.SVCTypeExternalIPs,
 					addr,
-					uint16(port.Port),
+					&port,
 					loadbalancer.ScopeExternal,
 				)
 				fes = append(fes, fe)
