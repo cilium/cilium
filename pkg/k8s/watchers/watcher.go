@@ -102,7 +102,6 @@ type K8sWatcher struct {
 	k8sEventReporter          *K8sEventReporter
 	k8sPodWatcher             *K8sPodWatcher
 	k8sCiliumNodeWatcher      *K8sCiliumNodeWatcher
-	k8sEndpointsWatcher       *K8sEndpointsWatcher
 	k8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher
 
 	// k8sResourceSynced maps a resource name to a channel. Once the given
@@ -126,7 +125,6 @@ func newWatcher(
 	clientset client.Clientset,
 	k8sPodWatcher *K8sPodWatcher,
 	k8sCiliumNodeWatcher *K8sCiliumNodeWatcher,
-	k8sEndpointsWatcher *K8sEndpointsWatcher,
 	k8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher,
 	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
@@ -141,7 +139,6 @@ func newWatcher(
 		k8sEventReporter:          k8sEventReporter,
 		k8sPodWatcher:             k8sPodWatcher,
 		k8sCiliumNodeWatcher:      k8sCiliumNodeWatcher,
-		k8sEndpointsWatcher:       k8sEndpointsWatcher,
 		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
 		k8sResourceSynced:         k8sResourceSynced,
 		k8sAPIGroups:              k8sAPIGroups,
@@ -274,8 +271,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			if !k.kcfg.IsEnabled() {
 				k.k8sCiliumNodeWatcher.ciliumNodeInit(ctx)
 			}
-		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
-			k.k8sEndpointsWatcher.endpointsInit()
 		case k8sAPIGroupCiliumEndpointV2:
 			if !k.kcfg.IsEnabled() {
 				k.k8sCiliumEndpointsWatcher.initCiliumEndpointOrSlices(ctx)
@@ -289,10 +284,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			)
 		}
 	}
-}
-
-func (k *K8sWatcher) StopWatcher() {
-	k.k8sEndpointsWatcher.stopWatcher()
 }
 
 // K8sEventProcessed is called to do metrics accounting for each processed

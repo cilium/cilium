@@ -29,8 +29,11 @@ db/cmp frontends frontends.table
 lb/maps-dump lbmaps.actual
 * cmp lbmaps.actual maps.expected
 
-# Remove service and endpoints. Only the backends for pseudo-service should be present.
+# Remove service and endpoints.
 k8s/delete service.yaml endpointslice.yaml
+
+# Check that only backends for the pseudo-service are present.
+* db/empty frontends
 db/cmp services services-no-echo.table
 db/cmp backends backends-only-redirects.table
 

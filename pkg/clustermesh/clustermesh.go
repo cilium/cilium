@@ -59,7 +59,7 @@ type Configuration struct {
 	ClusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
 
 	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
-	ServiceResolver *dial.ServiceResolver
+	ServiceResolver dial.Resolver
 
 	// ServiceBackendResolver, if not nil, is used to perform service to backend resolution.
 	ServiceBackendResolver *dial.ServiceBackendResolver
