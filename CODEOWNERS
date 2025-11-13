@@ -622,7 +622,7 @@ Makefile* @cilium/build
 /pkg/option @cilium/sig-agent @cilium/cli
 /pkg/pidfile @cilium/sig-agent
 /pkg/policy @cilium/sig-policy
-/pkg/policy/api/ @cilium/api
+/pkg/policy/api/ @cilium/api @cilium/sig-policy
 /pkg/policy/groups/aws/ @cilium/sig-policy @cilium/aws
 /pkg/policy/k8s @cilium/sig-policy
 /pkg/pprof @cilium/sig-foundations
