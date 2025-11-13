@@ -344,25 +344,6 @@ func (n *EndpointSelector) IsWildcard() bool {
 		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
 }
 
-// ConvertToLabelSelectorRequirementSlice converts the MatchLabels and
-// MatchExpressions within the specified EndpointSelector into a list of
-// LabelSelectorRequirements.
-func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []slim_metav1.LabelSelectorRequirement {
-	requirements := make([]slim_metav1.LabelSelectorRequirement, 0, len(n.MatchExpressions)+len(n.MatchLabels))
-	// Append already existing match expressions.
-	requirements = append(requirements, n.MatchExpressions...)
-	// Convert each MatchLables to LabelSelectorRequirement.
-	for key, value := range n.MatchLabels {
-		requirementFromMatchLabels := slim_metav1.LabelSelectorRequirement{
-			Key:      key,
-			Operator: slim_metav1.LabelSelectorOpIn,
-			Values:   []string{value},
-		}
-		requirements = append(requirements, requirementFromMatchLabels)
-	}
-	return requirements
-}
-
 // Sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
 // It also muatates all label selector keys into Cilium's internal representation.
 // Check documentation of `EndpointSelector.sanitized` for more details.
