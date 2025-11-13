@@ -576,6 +576,9 @@ const (
 	// Resource is a resource
 	Resource = "resource"
 
+	// ReourceID is an IPCache ResourceID
+	ResourceID = "resourceID"
+
 	// ConflictingResource is a resource that conflicts with 'Resource'
 	ConflictingResource = "conflictingResource"
 
