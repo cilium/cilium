@@ -651,6 +651,9 @@
         "lbSourceRangeAllTypes": {
           "type": "boolean"
         },
+        "lbUnsupportedProtocolAction": {
+          "type": "string"
+        },
         "mapDynamicSizeRatio": {
           "type": [
             "null",
