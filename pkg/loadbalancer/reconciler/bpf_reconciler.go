@@ -1465,6 +1465,10 @@ func (ops *BPFOps) syncIPCache(fe *loadbalancer.Frontend, svcAction annotation.U
 	case annotation.UnsupportedProtoActionDrop:
 		ipCacheFlags.SetUnroutable(true)
 	default:
+		// Unspecified annotation, use LB configuration
+		if ops.cfg.LBUnsupportedProtoAction == loadbalancer.LBUnsupportedProtoActionDrop {
+			ipCacheFlags.SetUnroutable(true)
+		}
 	}
 
 	ops.log.Debug("Synchronise IPCache entry",
