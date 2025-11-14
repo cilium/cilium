@@ -203,7 +203,7 @@ func TestReconcile(t *testing.T) {
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Service{})
 		require.True(t, k8sApiErrors.IsNotFound(err), "Service should not be created")
 
-		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Endpoints{})
+		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &discoveryv1.EndpointSlice{})
 		require.True(t, k8sApiErrors.IsNotFound(err), "Endpoints should not be created")
 
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &ciliumv2.CiliumEnvoyConfig{})
@@ -253,8 +253,8 @@ func TestReconcile(t *testing.T) {
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &svc)
 		require.True(t, k8sApiErrors.IsNotFound(err), "Dedicated loadbalancer service should not exist for shared Ingress")
 
-		ep := corev1.Endpoints{}
-		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &ep)
+		eps := discoveryv1.EndpointSlice{}
+		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &eps)
 		require.True(t, k8sApiErrors.IsNotFound(err), "Dedicated loadbalancer endpoints should not exist for shared Ingress")
 
 		cec := ciliumv2.CiliumEnvoyConfig{}
@@ -285,7 +285,7 @@ func TestReconcile(t *testing.T) {
 						Name:      "cilium-ingress-test",
 					},
 				},
-				&corev1.Endpoints{
+				&discoveryv1.EndpointSlice{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "test",
 						Name:      "cilium-ingress-test",
@@ -323,8 +323,8 @@ func TestReconcile(t *testing.T) {
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &svc)
 		require.True(t, k8sApiErrors.IsNotFound(err), "Dedicated loadbalancer service should not exist for shared Ingress")
 
-		ep := corev1.Endpoints{}
-		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &ep)
+		eps := discoveryv1.EndpointSlice{}
+		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &eps)
 		require.True(t, k8sApiErrors.IsNotFound(err), "Dedicated loadbalancer endpoints should not exist for shared Ingress")
 
 		cec := ciliumv2.CiliumEnvoyConfig{}
@@ -473,7 +473,7 @@ func TestReconcile(t *testing.T) {
 						Name:      "cilium-ingress-test",
 					},
 				},
-				&corev1.Endpoints{
+				&discoveryv1.EndpointSlice{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "test",
 						Name:      "cilium-ingress-test",
@@ -521,8 +521,8 @@ func TestReconcile(t *testing.T) {
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &svc)
 		require.True(t, k8sApiErrors.IsNotFound(err), "Dedicated loadbalancer service should be cleaned up")
 
-		ep := corev1.Endpoints{}
-		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &ep)
+		eps := discoveryv1.EndpointSlice{}
+		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &eps)
 		require.True(t, k8sApiErrors.IsNotFound(err), "Dedicated loadbalancer endpoints should be cleaned up")
 
 		cec := ciliumv2.CiliumEnvoyConfig{}
@@ -856,7 +856,7 @@ func TestReconcile(t *testing.T) {
 						},
 					},
 				},
-				&corev1.Endpoints{
+				&discoveryv1.EndpointSlice{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "test",
 						Name:      "cilium-ingress-test",
@@ -907,12 +907,12 @@ func TestReconcile(t *testing.T) {
 		require.Contains(t, svc.Labels, "additional.label/test-label", "Existing labels should not be deleted")
 		require.Contains(t, svc.Annotations, "additional.annotation/test-annotation", "Existing annotations should not be deleted")
 
-		ep := corev1.Endpoints{}
-		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &ep)
+		eps := discoveryv1.EndpointSlice{}
+		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &eps)
 		require.NoError(t, err)
 
-		require.Contains(t, ep.Labels, "additional.label/test-label", "Existing labels should not be deleted")
-		require.Contains(t, ep.Annotations, "additional.annotation/test-annotation", "Existing annotations should not be deleted")
+		require.Contains(t, eps.Labels, "additional.label/test-label", "Existing labels should not be deleted")
+		require.Contains(t, eps.Annotations, "additional.annotation/test-annotation", "Existing annotations should not be deleted")
 
 		cec := ciliumv2.CiliumEnvoyConfig{}
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &cec)
@@ -1007,7 +1007,7 @@ func TestReconcile(t *testing.T) {
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Service{})
 		require.True(t, k8sApiErrors.IsNotFound(err), "Service should not be created")
 
-		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Endpoints{})
+		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &discoveryv1.EndpointSlice{})
 		require.True(t, k8sApiErrors.IsNotFound(err), "Endpoints should not be created")
 
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &ciliumv2.CiliumEnvoyConfig{})
@@ -1065,7 +1065,7 @@ func TestReconcile(t *testing.T) {
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Service{})
 		require.True(t, k8sApiErrors.IsNotFound(err), "Service should not be created")
 
-		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &corev1.Endpoints{})
+		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test"}, &discoveryv1.EndpointSlice{})
 		require.True(t, k8sApiErrors.IsNotFound(err), "Endpoints should not be created")
 
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &ciliumv2.CiliumEnvoyConfig{})
