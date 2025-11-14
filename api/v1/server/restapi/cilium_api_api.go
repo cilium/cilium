@@ -77,12 +77,6 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 			return middleware.NotImplemented("operation ipam.DeleteIpamIP has not yet been implemented")
 		}),
 
-		PolicyDeletePolicyHandler: policy.DeletePolicyHandlerFunc(func(params policy.DeletePolicyParams) middleware.Responder {
-			_ = params
-
-			return middleware.NotImplemented("operation policy.DeletePolicy has not yet been implemented")
-		}),
-
 		PrefilterDeletePrefilterHandler: prefilter.DeletePrefilterHandlerFunc(func(params prefilter.DeletePrefilterParams) middleware.Responder {
 			_ = params
 
@@ -316,12 +310,6 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 
 			return middleware.NotImplemented("operation endpoint.PutEndpointID has not yet been implemented")
 		}),
-
-		PolicyPutPolicyHandler: policy.PutPolicyHandlerFunc(func(params policy.PutPolicyParams) middleware.Responder {
-			_ = params
-
-			return middleware.NotImplemented("operation policy.PutPolicy has not yet been implemented")
-		}),
 	}
 }
 
@@ -366,8 +354,6 @@ type CiliumAPIAPI struct {
 	PolicyDeleteFqdnCacheHandler policy.DeleteFqdnCacheHandler
 	// IpamDeleteIpamIPHandler sets the operation handler for the delete ipam IP operation
 	IpamDeleteIpamIPHandler ipam.DeleteIpamIPHandler
-	// PolicyDeletePolicyHandler sets the operation handler for the delete policy operation
-	PolicyDeletePolicyHandler policy.DeletePolicyHandler
 	// PrefilterDeletePrefilterHandler sets the operation handler for the delete prefilter operation
 	PrefilterDeletePrefilterHandler prefilter.DeletePrefilterHandler
 	// BgpGetBgpPeersHandler sets the operation handler for the get bgp peers operation
@@ -446,8 +432,6 @@ type CiliumAPIAPI struct {
 	IpamPostIpamIPHandler ipam.PostIpamIPHandler
 	// EndpointPutEndpointIDHandler sets the operation handler for the put endpoint ID operation
 	EndpointPutEndpointIDHandler endpoint.PutEndpointIDHandler
-	// PolicyPutPolicyHandler sets the operation handler for the put policy operation
-	PolicyPutPolicyHandler policy.PutPolicyHandler
 
 	// ServeError is called when an error is received, there is a default handler
 	// but you can set your own with this
@@ -536,9 +520,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.IpamDeleteIpamIPHandler == nil {
 		unregistered = append(unregistered, "ipam.DeleteIpamIPHandler")
-	}
-	if o.PolicyDeletePolicyHandler == nil {
-		unregistered = append(unregistered, "policy.DeletePolicyHandler")
 	}
 	if o.PrefilterDeletePrefilterHandler == nil {
 		unregistered = append(unregistered, "prefilter.DeletePrefilterHandler")
@@ -657,9 +638,6 @@ func (o *CiliumAPIAPI) Validate() error {
 	if o.EndpointPutEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.PutEndpointIDHandler")
 	}
-	if o.PolicyPutPolicyHandler == nil {
-		unregistered = append(unregistered, "policy.PutPolicyHandler")
-	}
 
 	if len(unregistered) > 0 {
 		return fmt.Errorf("missing registration: %s", strings.Join(unregistered, ", "))
@@ -766,10 +744,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/ipam/{ip}"] = ipam.NewDeleteIpamIP(o.context, o.IpamDeleteIpamIPHandler)
-	if o.handlers["DELETE"] == nil {
-		o.handlers["DELETE"] = make(map[string]http.Handler)
-	}
-	o.handlers["DELETE"]["/policy"] = policy.NewDeletePolicy(o.context, o.PolicyDeletePolicyHandler)
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
@@ -926,10 +900,6 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["PUT"] = make(map[string]http.Handler)
 	}
 	o.handlers["PUT"]["/endpoint/{id}"] = endpoint.NewPutEndpointID(o.context, o.EndpointPutEndpointIDHandler)
-	if o.handlers["PUT"] == nil {
-		o.handlers["PUT"] = make(map[string]http.Handler)
-	}
-	o.handlers["PUT"]["/policy"] = policy.NewPutPolicy(o.context, o.PolicyPutPolicyHandler)
 }
 
 // Serve creates a http handler to serve the API over HTTP

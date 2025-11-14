@@ -96,11 +96,6 @@ func newPolicyImporter(cfg policyImporterParams) PolicyImporter {
 	return i
 }
 
-// ResourceIDAnonymous is the anonymous ipcache resource used as a placeholder
-// for policies that allocate CIDRs but do not have an owning resource.
-// (This is only used for policies created by the local API).
-const ResourceIDAnonymous = "policy/anonymous"
-
 func (i *policyImporter) UpdatePolicy(u *policytypes.PolicyUpdate) {
 	i.q <- u
 }
@@ -135,24 +130,8 @@ func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policyty
 	// by resource and de-allocate unused prefixes after policy is applied.
 	for _, upd := range updates {
 		prefixes := policy.GetCIDRPrefixes(upd.Rules)
-		if upd.Resource == "" {
-			// edge-case: no owning resource.
-			// Allocate prefixes with a placeholder.
-			if len(prefixes) == 0 {
-				continue
-			}
-			// since anonymous prefixes may come from multiple sources,
-			// we append to the list
-			toAllocate[ResourceIDAnonymous] = append(toAllocate[ResourceIDAnonymous], prefixes...)
-			prefixSource[ResourceIDAnonymous] = upd.Source // This could overwrite if there are multiple sources, but in practice there aren't
-
-		} else {
-			// Standard case: there is an owning resource.
-			// Track the complete set of per-prefix resources.
-			// We want empty sets here!
-			toAllocate[upd.Resource] = prefixes
-			prefixSource[upd.Resource] = upd.Source
-		}
+		toAllocate[upd.Resource] = prefixes
+		prefixSource[upd.Resource] = upd.Source
 	}
 
 	// Now that we know the exact set of prefixes for each resource, determine ipcache update.
@@ -162,21 +141,6 @@ func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policyty
 	// We elide updates when the prefix already has an entry for the given resource.
 	var ipcUpdates []ipcache.MU
 	for resource, newPrefixes := range toAllocate {
-		// For anonymous prefixes, just allocate, don't bookkeep
-		if resource == ResourceIDAnonymous {
-			for _, prefix := range newPrefixes {
-				ipcUpdates = append(ipcUpdates, ipcache.MU{
-					Prefix:   cmtypes.NewLocalPrefixCluster(prefix),
-					Source:   prefixSource[resource],
-					Resource: resource,
-					Metadata: []ipcache.IPMetadata{labels.GetCIDRLabels(prefix)},
-					IsCIDR:   true,
-				})
-			}
-			continue
-		}
-
-		// otherwise, update bookkeeping and determine diff
 		oldPrefixes := i.prefixesByResource[resource]
 
 		// No prefixes for this resource: clear entry, prune all old prefixes.
@@ -291,42 +255,15 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 	idsToRegen := &set.Set[identity.NumericIdentity]{}
 	startRevision := i.repo.GetRevision()
 	endRevision := startRevision
-	var oldRuleCnt int
 	for _, upd := range updates {
-		var regen *set.Set[identity.NumericIdentity]
-
-		// The standard case: we have an owning resource, either a k8s object
-		// or a file on disk.
-		if upd.Resource != "" {
-			regen, endRevision, oldRuleCnt = i.repo.ReplaceByResource(upd.Rules, upd.Resource)
-		} else {
-			// otherwise, this is a local API call, and we are replacing by labels.
-			// Compute the set of sets of labels to replace.
-			var replaceLabels []labels.LabelArray
-			if upd.ReplaceByLabels {
-				for _, rule := range upd.Rules {
-					replaceLabels = append(replaceLabels, rule.Labels)
-				}
-			}
-			if len(upd.ReplaceWithLabels) > 0 {
-				replaceLabels = append(replaceLabels, upd.ReplaceWithLabels)
-			}
-
-			if len(upd.Rules) == 0 && len(replaceLabels) == 0 {
-				// No rules, no resource, no labels. This means we should clear all policies.
-				// Add an empty label selector
-				i.log.Info("Policy replace request with no labels, deleting all policies!")
-				replaceLabels = append(replaceLabels, labels.LabelArray{})
-			}
-
-			if len(replaceLabels) >= 0 {
-				i.log.Info("Replacing policy by labels",
-					logfields.Labels, replaceLabels,
-					logfields.Count, len(upd.Rules),
-				)
-			}
-			regen, endRevision, oldRuleCnt = i.repo.ReplaceByLabels(upd.Rules, replaceLabels)
+		if upd.Resource == "" {
+			i.log.Error("BUG: Policy supplied with empty resource!")
+			continue
 		}
+
+		regen, er, oldRuleCnt := i.repo.ReplaceByResource(upd.Rules, upd.Resource)
+		endRevision = er
+		idsToRegen.Merge(*regen)
 
 		if len(upd.Rules) == 0 {
 			i.log.Info("Deleted policy from repository",
@@ -343,8 +280,6 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 
 		}
 
-		idsToRegen.Merge(*regen)
-
 		// Report that the policy has been inserted in to the repository.
 		if upd.DoneChan != nil {
 			upd.DoneChan <- endRevision
@@ -360,17 +295,10 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 				}
 				msg = monitorapi.PolicyUpdateMessage(len(upd.Rules), lbls, endRevision)
 			} else {
-				var lbls []string
-				if upd.Resource != "" {
-					// We are deleting by resource, not by label. So, synthesize a placeholder
-					// "label" for the notification to indicate which resource was the key
-					// for deletion.
-					lbls = []string{
-						"cilium.io/resource=" + string(upd.Resource),
-					}
-				} else {
-					lbls = append(lbls, upd.ReplaceWithLabels.GetModel()...)
-				}
+				// We are deleting by resource, not by label. So, synthesize a placeholder
+				// "label" for the notification to indicate which resource was the key
+				// for deletion.
+				lbls := []string{"cilium.io/resource=" + string(upd.Resource)}
 				msg = monitorapi.PolicyDeleteMessage(oldRuleCnt, lbls, endRevision)
 			}
 

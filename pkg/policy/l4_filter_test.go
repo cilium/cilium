@@ -268,7 +268,7 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
+	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 
 	// Resolve the Selector policy for test identity
 	td.repo.mutex.RLock()
@@ -307,7 +307,7 @@ func (td *testData) policyInvalid(t *testing.T, errStr string, rules ...*api.Rul
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
+	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.Error(t, err)
@@ -324,7 +324,7 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 		}
 		require.NoError(t, r.Sanitize())
 	}
-	td.repo.ReplaceByLabels(utils.RulesToPolicyEntries(rules), []labels.LabelArray{{}})
+	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 
 	_, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)

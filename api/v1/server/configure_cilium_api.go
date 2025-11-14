@@ -72,11 +72,6 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 			return middleware.NotImplemented("operation ipam.DeleteIpamIP has not yet been implemented")
 		})
 	}
-	if api.PolicyDeletePolicyHandler == nil {
-		api.PolicyDeletePolicyHandler = policy.DeletePolicyHandlerFunc(func(params policy.DeletePolicyParams) middleware.Responder {
-			return middleware.NotImplemented("operation policy.DeletePolicy has not yet been implemented")
-		})
-	}
 	if api.PrefilterDeletePrefilterHandler == nil {
 		api.PrefilterDeletePrefilterHandler = prefilter.DeletePrefilterHandlerFunc(func(params prefilter.DeletePrefilterParams) middleware.Responder {
 			return middleware.NotImplemented("operation prefilter.DeletePrefilter has not yet been implemented")
@@ -270,11 +265,6 @@ func configureAPI(logger *slog.Logger, api *restapi.CiliumAPIAPI) http.Handler {
 	if api.EndpointPutEndpointIDHandler == nil {
 		api.EndpointPutEndpointIDHandler = endpoint.PutEndpointIDHandlerFunc(func(params endpoint.PutEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation endpoint.PutEndpointID has not yet been implemented")
-		})
-	}
-	if api.PolicyPutPolicyHandler == nil {
-		api.PolicyPutPolicyHandler = policy.PutPolicyHandlerFunc(func(params policy.PutPolicyParams) middleware.Responder {
-			return middleware.NotImplemented("operation policy.PutPolicy has not yet been implemented")
 		})
 	}
 

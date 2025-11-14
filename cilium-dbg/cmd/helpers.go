@@ -66,16 +66,6 @@ func requireEndpointID(cmd *cobra.Command, args []string) {
 	}
 }
 
-func requirePath(cmd *cobra.Command, args []string) {
-	if len(args) < 1 {
-		Usagef(cmd, "Missing path argument")
-	}
-
-	if args[0] == "" {
-		Usagef(cmd, "Empty path argument")
-	}
-}
-
 // TablePrinter prints the map[string][]string, which is an usual representation
 // of dumped BPF map, using tabwriter.
 func TablePrinter(firstTitle, secondTitle string, data map[string][]string) {

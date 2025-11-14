@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium/pkg/identity"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -38,15 +39,15 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	fooEgressDenyRule1Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule1", labels.LabelSourceAny)
 	fooEgressDenyRule2Label := labels.NewLabel(k8sConst.PolicyLabelName, "fooEgressRule2", labels.LabelSourceAny)
 	combinedLabel := labels.NewLabel(k8sConst.PolicyLabelName, "combined", labels.LabelSourceAny)
+	fooIngressDenyRule1Resource := ipcachetypes.ResourceID("fooIngressDenyRule1Resource")
+	fooIngressDenyRule2Resource := ipcachetypes.ResourceID("fooIngressDenyRule2Resource")
+	fooEgressDenyRule1Resource := ipcachetypes.ResourceID("fooEgressDenyRule1Resource")
+	fooEgressDenyRule2Resource := ipcachetypes.ResourceID("fooEgressDenyRule2Resource")
+	combinedResource := ipcachetypes.ResourceID("combinedResource")
 	initIdentity := identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 	td.addIdentity(fooIdentity)
 
-	// lal takes a single label and returns a []labels.LabelArray containing only that label
-	lal := func(lbl labels.Label) []labels.LabelArray {
-		return []labels.LabelArray{{lbl}}
-	}
-
-	fooIngressDenyRule1 := types.PolicyEntry{
+	fooIngressDenyRule1 := &types.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
 		Deny:        true,
@@ -59,7 +60,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		},
 	}
 
-	fooIngressDenyRule2 := types.PolicyEntry{
+	fooIngressDenyRule2 := &types.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
 		Deny:        true,
@@ -72,7 +73,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		},
 	}
 
-	fooEgressDenyRule1 := types.PolicyEntry{
+	fooEgressDenyRule1 := &types.PolicyEntry{
 		Ingress:     false,
 		DefaultDeny: true,
 		Deny:        true,
@@ -85,7 +86,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		},
 	}
 
-	fooEgressDenyRule2 := types.PolicyEntry{
+	fooEgressDenyRule2 := &types.PolicyEntry{
 		Ingress:     false,
 		DefaultDeny: true,
 		Deny:        true,
@@ -145,64 +146,58 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	require.False(t, egr, genCommentf(false, false))
 	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
-	_, _, err := repo.mustAddPolicyEntry(fooIngressDenyRule1)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	repo.ReplaceByResource([]*types.PolicyEntry{fooIngressDenyRule1}, fooIngressDenyRule1Resource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.False(t, egr, genCommentf(false, false))
-	require.Equal(t, fooIngressDenyRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooIngressDenyRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 
-	_, _, err = repo.mustAddPolicyEntry(fooIngressDenyRule2)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	repo.ReplaceByResource([]*types.PolicyEntry{fooIngressDenyRule2}, fooIngressDenyRule2Resource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.False(t, egr, genCommentf(false, false))
-	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), types.PolicyEntries{&fooIngressDenyRule1, &fooIngressDenyRule2}, "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), types.PolicyEntries{fooIngressDenyRule1, fooIngressDenyRule2}, "returned matching rules did not match")
 
-	_, _, numDeleted := repo.ReplaceByLabels(nil, lal(fooIngressDenyRule1Label))
+	_, _, numDeleted := repo.ReplaceByResource(nil, fooIngressDenyRule1Resource)
 	require.Equal(t, 1, numDeleted)
-	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.False(t, egr, genCommentf(false, false))
-	require.Equal(t, fooIngressDenyRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooIngressDenyRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooIngressDenyRule2Label))
+	_, _, numDeleted = repo.ReplaceByResource(nil, fooIngressDenyRule2Resource)
 	require.Equal(t, 1, numDeleted)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.False(t, egr, genCommentf(false, false))
 	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
 
-	_, _, err = repo.mustAddPolicyEntry(fooEgressDenyRule1)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	repo.ReplaceByResource([]*types.PolicyEntry{fooEgressDenyRule1}, fooEgressDenyRule1Resource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.True(t, egr, genCommentf(false, true))
-	require.Equal(t, fooEgressDenyRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
-	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressDenyRule1Label))
+	require.Equal(t, *fooEgressDenyRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	_, _, numDeleted = repo.ReplaceByResource(nil, fooEgressDenyRule1Resource)
 	require.Equal(t, 1, numDeleted)
 
-	_, _, err = repo.mustAddPolicyEntry(fooEgressDenyRule2)
-	require.NoError(t, err, "unable to add rule to policy repository")
+	repo.ReplaceByResource([]*types.PolicyEntry{fooEgressDenyRule2}, fooEgressDenyRule2Resource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, genCommentf(true, false))
 	require.True(t, egr, genCommentf(false, true))
-	require.Equal(t, fooEgressDenyRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooEgressDenyRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
 
-	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(fooEgressDenyRule2Label))
+	_, _, numDeleted = repo.ReplaceByResource(nil, fooEgressDenyRule2Resource)
 	require.Equal(t, 1, numDeleted)
 
-	_, _ = repo.MustAddPolicyEntries(combinedRule)
+	repo.ReplaceByResource(combinedRule, combinedResource)
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.True(t, egr, genCommentf(false, true))
 	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), combinedRule, "returned matching rules did not match")
-	_, _, numDeleted = repo.ReplaceByLabels(nil, lal(combinedLabel))
+	_, _, numDeleted = repo.ReplaceByResource(nil, combinedResource)
 	require.Equal(t, 2, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
-	require.NoError(t, err, "unable to add rule to policy repository")
 	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, genCommentf(true, true))
 	require.True(t, egr, genCommentf(false, true))
