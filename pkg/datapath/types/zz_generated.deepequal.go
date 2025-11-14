@@ -307,5 +307,39 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		return false
 	}
 
+	if ((in.IPv4MasqueradeSrcExclusionCIDRs != nil) && (other.IPv4MasqueradeSrcExclusionCIDRs != nil)) || ((in.IPv4MasqueradeSrcExclusionCIDRs == nil) != (other.IPv4MasqueradeSrcExclusionCIDRs == nil)) {
+		in, other := &in.IPv4MasqueradeSrcExclusionCIDRs, &other.IPv4MasqueradeSrcExclusionCIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual((*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.IPv6MasqueradeSrcExclusionCIDRs != nil) && (other.IPv6MasqueradeSrcExclusionCIDRs != nil)) || ((in.IPv6MasqueradeSrcExclusionCIDRs == nil) != (other.IPv6MasqueradeSrcExclusionCIDRs == nil)) {
+		in, other := &in.IPv6MasqueradeSrcExclusionCIDRs, &other.IPv6MasqueradeSrcExclusionCIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual((*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	return true
 }

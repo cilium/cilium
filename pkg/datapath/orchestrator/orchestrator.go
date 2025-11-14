@@ -217,6 +217,8 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.MTU,
 			o.params.WgAgent,
 			o.params.IPsecConfig,
+			o.params.IPTablesManager.IPv4MasqueradeSrcExclusionCIDRs(),
+			o.params.IPTablesManager.IPv6MasqueradeSrcExclusionCIDRs(),
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)
