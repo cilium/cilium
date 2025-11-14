@@ -9,7 +9,6 @@
 package api
 
 import (
-	labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	kafka "github.com/cilium/proxy/pkg/policy/api/kafka"
 	intstr "k8s.io/apimachinery/pkg/util/intstr"
@@ -294,17 +293,6 @@ func (in *EndpointSelector) DeepCopyInto(out *EndpointSelector) {
 		in, out := &in.LabelSelector, &out.LabelSelector
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
-	}
-	if in.requirements != nil {
-		in, out := &in.requirements, &out.requirements
-		*out = new(labels.Requirements)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]labels.Requirement, len(*in))
-			for i := range *in {
-				(*in)[i].DeepCopyInto(&(*out)[i])
-			}
-		}
 	}
 	return
 }
@@ -1149,17 +1137,6 @@ func (in *ServiceSelector) DeepCopyInto(out *ServiceSelector) {
 		in, out := &in.LabelSelector, &out.LabelSelector
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
-	}
-	if in.requirements != nil {
-		in, out := &in.requirements, &out.requirements
-		*out = new(labels.Requirements)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]labels.Requirement, len(*in))
-			for i := range *in {
-				(*in)[i].DeepCopyInto(&(*out)[i])
-			}
-		}
 	}
 	return
 }

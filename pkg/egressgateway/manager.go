@@ -424,7 +424,7 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 		)
 	}
 
-	config.updateMatchedEndpointIDs(manager.epDataStore, manager.nodesAddresses2Labels)
+	config.updateMatchedEndpointIDs(manager.logger, manager.epDataStore, manager.nodesAddresses2Labels)
 
 	manager.policyConfigs[config.id] = config
 
@@ -586,7 +586,7 @@ func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.Cili
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 	for _, policy := range manager.policyConfigs {
-		policy.updateMatchedEndpointIDs(manager.epDataStore, manager.nodesAddresses2Labels)
+		policy.updateMatchedEndpointIDs(manager.logger, manager.epDataStore, manager.nodesAddresses2Labels)
 	}
 }
 

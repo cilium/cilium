@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
@@ -67,10 +68,8 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	fooIngressRule1 := policytypes.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: policytypes.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooIngressRule1Label,
 		},
@@ -79,10 +78,8 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	fooIngressRule2 := policytypes.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: policytypes.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooIngressRule2Label,
 		},
@@ -91,10 +88,8 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	fooEgressRule1 := policytypes.PolicyEntry{
 		Ingress:     false,
 		DefaultDeny: true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: policytypes.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooEgressRule1Label,
 		},
@@ -103,10 +98,8 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	fooEgressRule2 := policytypes.PolicyEntry{
 		Ingress:     false,
 		DefaultDeny: true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: policytypes.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooEgressRule2Label,
 		},
@@ -116,20 +109,16 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 		&policytypes.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: policytypes.PeerSelectorSlice{
-				api.NewESFromLabels(fooSelectLabel),
-			},
+			Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+			L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 			Labels: labels.LabelArray{
 				combinedLabel,
 			},
 		}, &policytypes.PolicyEntry{
 			Ingress:     false,
 			DefaultDeny: true,
-			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: policytypes.PeerSelectorSlice{
-				api.NewESFromLabels(fooSelectLabel),
-			},
+			Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+			L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 			Labels: labels.LabelArray{
 				combinedLabel,
 			},
@@ -252,7 +241,7 @@ func BenchmarkParseLabel(b *testing.B) {
 		for j := range 100 {
 			J := fmt.Sprintf("%d", j)
 			_, _, err = repo.mustAddPolicyEntry(policytypes.PolicyEntry{
-				Subject: api.NewESFromLabels(labels.NewLabel("foo", J, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)),
+				Subject: types.NewLabelSelectorFromLabels(labels.NewLabel("foo", J, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)),
 				Labels: labels.LabelArray{
 					labels.ParseLabel("k8s:tag1"),
 					labels.NewLabel("namespace", "default", labels.LabelSourceK8s),
@@ -908,14 +897,9 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
-	cidrSlice := api.CIDRSlice{"192.0.0.0/3"}
-	cidrSelectors := cidrSlice.GetAsEndpointSelectors()
-	var cachedSelectors CachedSelectorSlice
-	for i := range cidrSelectors {
-		c, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, cidrSelectors[i])
-		cachedSelectors = append(cachedSelectors, c)
-		defer td.sc.RemoveSelector(c, dummySelectorCacheUser)
-	}
+	cachedSelectors, _ := td.sc.AddSelectors(dummySelectorCacheUser, EmptyStringLabels,
+		types.ToSelector(api.CIDR("192.0.0.0/3")))
+	defer td.sc.RemoveSelectors(cachedSelectors, dummySelectorCacheUser)
 
 	l480Get := api.Rule{
 		Egress: []api.EgressRule{
@@ -1318,7 +1302,7 @@ func TestIterate(t *testing.T) {
 	lbls := make([]labels.Label, 10)
 	for i := range numRules {
 		it := fmt.Sprintf("baz%d", i)
-		epSelector := api.NewESFromLabels(
+		epSelector := types.NewLabelSelectorFromLabels(
 			labels.NewLabel(
 				"foo",
 				it,
@@ -1329,9 +1313,7 @@ func TestIterate(t *testing.T) {
 		_, _, err := repo.mustAddPolicyEntry(policytypes.PolicyEntry{
 			Subject: epSelector,
 			Labels:  labels.LabelArray{lbls[i]},
-			L3: policytypes.PeerSelectorSlice{
-				epSelector,
-			},
+			L3:      types.Selectors{epSelector},
 		})
 		require.NoError(t, err)
 	}
@@ -1382,10 +1364,10 @@ func TestDefaultAllow(t *testing.T) {
 	genRule := func(ingress, defaultDeny bool) *policytypes.PolicyEntry {
 		name := fmt.Sprintf("%v_%v", ingress, defaultDeny)
 		r := policytypes.PolicyEntry{
-			Subject:     api.NewESFromLabels(fooSelectLabel),
+			Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
 			Labels:      labels.LabelArray{labels.NewLabel(k8sConst.PolicyLabelName, name, labels.LabelSourceAny)},
 			Ingress:     ingress,
-			L3:          policytypes.PeerSelectorSlice{api.NewESFromLabels(fooSelectLabel)},
+			L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 			DefaultDeny: defaultDeny,
 		}
 		return &r
@@ -1512,7 +1494,7 @@ func TestReplaceByResource(t *testing.T) {
 			Key:    "subject-pod",
 			Value:  it,
 		}}
-		epSelector := api.NewESFromLabels(
+		epSelector := types.NewLabelSelectorFromLabels(
 			labels.NewLabel(
 				"subject-pod",
 				it,
@@ -1523,9 +1505,7 @@ func TestReplaceByResource(t *testing.T) {
 		rule := &policytypes.PolicyEntry{
 			Subject: epSelector,
 			Labels:  labels.LabelArray{lbl},
-			L3: policytypes.PeerSelectorSlice{
-				destSelector,
-			},
+			L3:      types.ToSelectors(destSelector),
 		}
 		rules = append(rules, rule)
 	}
@@ -1654,7 +1634,7 @@ func TestReplaceByLabels(t *testing.T) {
 			Key:    "subject-pod",
 			Value:  it,
 		}}
-		epSelector := api.NewESFromLabels(
+		epSelector := types.NewLabelSelectorFromLabels(
 			labels.NewLabel(
 				"subject-pod",
 				it,
@@ -1665,9 +1645,7 @@ func TestReplaceByLabels(t *testing.T) {
 		rule := &policytypes.PolicyEntry{
 			Subject: epSelector,
 			Labels:  labels.LabelArray{lbl},
-			L3: policytypes.PeerSelectorSlice{
-				destSelector,
-			},
+			L3:      types.ToSelectors(destSelector),
 		}
 		rules = append(rules, rule)
 		ruleLabels = append(ruleLabels, rule.Labels)

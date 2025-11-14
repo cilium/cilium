@@ -180,6 +180,15 @@ type Label struct {
 	cidr *netip.Prefix `json:"-"`
 }
 
+// GetCIDRPrefix returns the cidr of of the Label, or nil if none.
+func (l *Label) GetCIDRPrefix() *netip.Prefix {
+	return l.cidr
+}
+
+func (in *Label) DeepCopyInto(out *Label) {
+	*out = *in
+}
+
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]Label
 
