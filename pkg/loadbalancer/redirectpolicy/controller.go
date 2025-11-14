@@ -130,7 +130,12 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 			existing.Insert(lrp.ID)
 			orphans.Delete(lrp.ID)
 
-			if ws, found := watchSets[lrp.ID]; found {
+			var (
+				ws      *statedb.WatchSet
+				found   bool
+				cleanup func(writer.WriteTxn)
+			)
+			if ws, found = watchSets[lrp.ID]; found {
 				// None of the inputs to this LRP have changed, skip.
 				if !ws.HasAny(closedWatches) {
 					allWatches.Merge(ws)
@@ -139,7 +144,7 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 			}
 			// (re)compute the frontend redirects and SkipLB entries for this
 			// policy.
-			if ws, cleanup := c.processRedirectPolicy(wtxn, lrp.ID); ws != nil {
+			if ws, cleanup = c.processRedirectPolicy(wtxn, lrp.ID, ws); ws != nil {
 				allWatches.Merge(ws)
 				watchSets[lrp.ID] = ws
 				cleanupFuncs[lrp.ID] = cleanup
@@ -192,7 +197,7 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.ServiceName) (*statedb.WatchSet, func(writer.WriteTxn)) {
+func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.ServiceName, ws *statedb.WatchSet) (*statedb.WatchSet, func(writer.WriteTxn)) {
 	lrp, _, watch, found := c.p.LRPs.GetWatch(wtxn, lrpIDIndex.Query(lrpID))
 	if !found {
 		return nil, nil
@@ -209,7 +214,9 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 
 	// Construct a watch set from all the queries made during processing of this policy.
 	// We reprocess this policy when any of its inputs change (watch channel closes).
-	ws := statedb.NewWatchSet()
+	if ws == nil {
+		ws = statedb.NewWatchSet()
+	}
 	ws.Add(watch)
 
 	cleanup := func(wtxn writer.WriteTxn) {
