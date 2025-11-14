@@ -4,10 +4,10 @@
 package utils
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetENIIndexFromTags(t *testing.T) {
@@ -61,9 +61,8 @@ func TestFillTagWithENIIndex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := FillTagWithENIIndex(tt.args.tags, tt.args.index); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("FillTagWithENIIndex() = %v, want %v", got, tt.want)
-			}
+			got := FillTagWithENIIndex(tt.args.tags, tt.args.index)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
