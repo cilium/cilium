@@ -1861,4 +1861,6 @@ const (
 	ReloadCAError = "reloadCAError"
 
 	ExtendedMessage = "extendedMessage"
+
+	BackendTLSPolicyName = "backendTLSPolicyName"
 )

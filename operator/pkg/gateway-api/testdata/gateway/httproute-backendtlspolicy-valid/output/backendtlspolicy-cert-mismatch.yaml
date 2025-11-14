@@ -1,0 +1,39 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: cert-mismatch
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-cert-mismatch-test"
+      sectionName: "btls"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        # This ConfigMap is generated dynamically by the test suite.
+        # It contains a random, unused CA certificate to force validation to fail.
+        name: "mismatch-ca-certificate"
+    hostname: "abc.example.com"
+status:
+  ancestors:
+    - controllerName: io.cilium/gateway-controller
+      ancestorRef:
+        group: "gateway.networking.k8s.io"
+        kind: "Gateway"
+        namespace: gateway-conformance-infra
+        name: same-namespace
+      conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Accepted BackendTLSPolicy
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: All references are valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs

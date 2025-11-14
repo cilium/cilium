@@ -1,19 +1,22 @@
 metadata:
-  creationTimestamp: null
   annotations:
     cec.cilium.io/use-original-source-address: "false"
   labels:
     gateway.networking.k8s.io/gateway-name: same-namespace
   name: cilium-gateway-same-namespace
   namespace: gateway-conformance-infra
+  resourceVersion: 1
   ownerReferences:
     - apiVersion: gateway.networking.k8s.io/v1
       controller: true
       kind: Gateway
       name: same-namespace
-      uid: ""
-  resourceVersion: "1"
 spec:
+  backendServices:
+    - name: backendtlspolicy-invalid-kind-test
+      namespace: gateway-conformance-infra
+      number:
+        - "443"
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       filterChains:
@@ -69,6 +72,32 @@ spec:
           name: "6"
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: listener-insecure
+      virtualHosts:
+        - domains:
+            - "abc.example.com"
+            - "abc.example.com:*"
+          name: "abc.example.com"
+          routes:
+            - match:
+                path: /backendtlspolicy-invalid-kind
+              route:
+                cluster: gateway-conformance-infra:backendtlspolicy-invalid-kind-test:443
+                maxStreamDuration:
+                  maxStreamDuration: 0s
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      edsClusterConfig:
+        serviceName: gateway-conformance-infra/backendtlspolicy-invalid-kind-test:443
+      name: gateway-conformance-infra:backendtlspolicy-invalid-kind-test:443
+      outlierDetection:
+        splitExternalLocalOriginErrors: true
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            idleTimeout: 60s
+          useDownstreamProtocolConfig:
+            http2ProtocolOptions: {}
   services:
     - listener: ""
       name: cilium-gateway-same-namespace

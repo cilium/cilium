@@ -1,0 +1,56 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: normative-test
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-test"
+      sectionName: "btls"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        # This ConfigMap is generated dynamically by the test suite.
+        # It contains the CA certificate used to sign the tls-backend serving certificate.
+        name: "tls-checks-ca-certificate"
+    hostname: "abc.example.com"
+status:
+  ancestors:
+    - controllerName: io.cilium/gateway-controller
+      ancestorRef:
+        group: "gateway.networking.k8s.io"
+        kind: "Gateway"
+        namespace: gateway-conformance-infra
+        name: same-namespace
+      conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Accepted BackendTLSPolicy
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: All references are valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+    - controllerName: io.cilium/gateway-controller
+      ancestorRef:
+        group: "gateway.networking.k8s.io"
+        kind: "Gateway"
+        namespace: gateway-conformance-infra
+        name: same-namespace-with-https-listener
+      conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Accepted BackendTLSPolicy
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: All references are valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
