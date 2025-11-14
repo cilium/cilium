@@ -23,7 +23,7 @@ runs:
     - name: Perform Conn Disrupt Test
       shell: bash
       run: |
-        TEST_ARG="no-interrupted-connections"
+        TEST_ARG="no-interrupted-connections,no-ipsec-xfrm-error"
         if [[ "${{ inputs.full-test }}" == "true" ]]; then
           TEST_ARG=""
         fi
