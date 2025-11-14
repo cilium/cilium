@@ -5,15 +5,22 @@ package namemanager
 
 import (
 	"context"
+	"fmt"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	"log/slog"
 	"net/netip"
 	"regexp"
+	"sync"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -21,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -219,6 +227,132 @@ func TestNameManagerIPCacheUpdates(t *testing.T) {
 	require.Equal(t, labels.FromSlice([]labels.Label{githubSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
 }
 
+// Test TestNameManagerGCConsistency test edge-cases around ordering of cache upserts,
+// as well as endpoints coming online. It helps catch correctness issues involving IPs
+// race between the global and the local dns caches where some operations are not in sync
+func TestNameManagerGCConsistency(t *testing.T) {
+	logger := hivetest.Logger(t)
+	lookupTime := time.Now()
+	prefixOne := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("1.1.1.1/32"))
+	prefixTwo := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("2.1.1.1/32"))
+	prefixThree := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("3.1.1.1/32"))
+	prefixFour := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("4.1.1.1/32"))
+
+	epMgr := mgrMock{
+		logger: logger,
+		eps:    make(sets.Set[*endpoint.Endpoint]),
+	}
+	ep := &endpoint.Endpoint{ID: uint16(1), IPv4: netip.MustParseAddr("10.96.0.1"), SecurityIdentity: &identity.Identity{
+		ID: identity.NumericIdentity(int(identity.GetMaximumAllocationIdentity(option.Config.ClusterID))),
+	},
+		DNSZombies: fqdn.NewDNSZombieMappings(logger, 10000, 10000),
+		DNSHistory: fqdn.NewDNSCache(1),
+	}
+	ep.UpdateLogger(nil)
+	ipc := newMockIPCache()
+	nameManager := New(ManagerParams{
+		Logger: logger,
+		Config: NameManagerConfig{
+			MinTTL:            1,
+			DNSProxyLockCount: defaults.DNSProxyLockCount,
+			StateDir:          option.Config.StateDir,
+		},
+		EPMgr:   &epMgr,
+		IPCache: ipc,
+	})
+	// Manually configure bootstrap to be done to fully test manager end-to-end
+	nameManager.bootstrapCompleted = true
+	nameManager.RegisterFQDNSelector(ciliumIOSel)
+
+	// Add initial IP to local cache before adding endpoint to manager
+	// We do this to mimic the GC starting and dumping endpoints before the endpoint is added to the manager
+	ep.DNSHistory.Update(lookupTime, dns.FQDN("cilium.io"), []netip.Addr{prefixOne.AsPrefix().Addr()}, 10)
+
+	// Run GC to ensure the IP<>name mapping is not added to the global cache
+	require.NoError(t, nameManager.doGC(t.Context()))
+	require.Empty(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()))
+	require.Empty(t, ipc.labelsForPrefix(prefixOne))
+
+	// Upsert to global cache and ensure its present
+	nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixOne.AsPrefix().Addr()}}, ep.DNSHistory)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixOne))
+
+	// Run GC and ensure it's still present
+	// This is again assuming the GC started before the endpoint was created, so the manager still does not know about the endpoint
+	require.NoError(t, nameManager.doGC(t.Context()))
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixOne))
+
+	// Add endpoint to the manager
+	epMgr.UpsertEndpoint(ep)
+
+	// After endpoint is added, ensure it's still in the cache
+	require.NoError(t, nameManager.doGC(t.Context()))
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixOne))
+
+	// Insert old prefix that will end up as zombie
+	ep.DNSHistory.Update(lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), []netip.Addr{prefixTwo.AsPrefix().Addr()}, 10)
+	nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixTwo.AsPrefix().Addr()}}, ep.DNSHistory)
+
+	// Run GC and check that the prefix is upserted to the ipcache
+	require.NoError(t, nameManager.doGC(t.Context()))
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixTwo))
+
+	// Add another prefix to local cache
+	ep.DNSHistory.Update(lookupTime, dns.FQDN("cilium.io"), []netip.Addr{prefixThree.AsPrefix().Addr()}, 10)
+
+	// Run GC to ensure the IP<>name mapping is not added to the global cache yet
+	require.NoError(t, nameManager.doGC(t.Context()))
+	require.Empty(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()))
+	require.Empty(t, ipc.labelsForPrefix(prefixThree))
+
+	// Upsert to global cache and ensure its present
+	nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixThree.AsPrefix().Addr()}}, ep.DNSHistory)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixThree))
+
+	// Run GC and ensure it's still present
+	require.NoError(t, nameManager.doGC(t.Context()))
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixThree))
+
+	// Lock endpoint manager to freeze GC in time
+	epMgr.mu.Lock()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		require.NoError(t, nameManager.doGC(t.Context()))
+	}()
+
+	// Sleep for a short while to be sure GC is blocked by epMgr lock
+	time.Sleep(100 * time.Millisecond)
+
+	// Insert a "back in time" lookup to both local and global cache. This to ensure its immediately put in zombies
+	ep.DNSHistory.Update(lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), []netip.Addr{prefixFour.AsPrefix().Addr()}, 10)
+	nameManager.UpdateGenerateDNS(t.Context(), lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixFour.AsPrefix().Addr()}}, ep.DNSHistory)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixFour))
+
+	// Explicitly GC the local cache to ensure the IP goes fully unused by any endpoint - except for the zombie.
+	// However, since the endpoint is deleted by the time of the next endpointManager GC, it won't be seen by the
+	// endpoint. This can effectively not happen, but it's a good test to ensure that GC won't delete an IP<>name mapping
+	// without cleaning it up from the ipcache.
+	ep.DNSHistory.GC(time.Now(), ep.DNSZombies)
+
+	epMgr.RemoveEndpointLocked(ep)
+	epMgr.mu.Unlock()
+
+	wg.Wait()
+	// Run GC again twice to ensure all pending lookups have been processed.
+	require.NoError(t, nameManager.doGC(t.Context()))
+	require.NoError(t, nameManager.doGC(t.Context()))
+
+	// Ensure all IPs are gone
+	require.Empty(t, ipc.labelsForPrefix(prefixOne))
+	require.Empty(t, ipc.labelsForPrefix(prefixTwo))
+	require.Empty(t, ipc.labelsForPrefix(prefixThree))
+	require.Empty(t, ipc.labelsForPrefix(prefixFour))
+	require.Empty(t, nameManager.cache.Dump())
+
+}
+
 func Test_deriveLabelsForNames(t *testing.T) {
 	logger := hivetest.Logger(t)
 	re.InitRegexCompileLRU(logger, defaults.FQDNRegexCompileLRUSize)
@@ -283,4 +417,94 @@ func (*dummyIdentityUpdater) UpdateIdentities(added, deleted identity.IdentityMa
 	c := make(chan struct{})
 	close(c)
 	return c
+}
+
+type mgrMock struct {
+	logger *slog.Logger
+	eps    sets.Set[*endpoint.Endpoint]
+	mu     lock.Mutex
+}
+
+func (mgr *mgrMock) Lookup(id string) (*endpoint.Endpoint, error) {
+	return nil, fmt.Errorf("Lookup not implemented")
+}
+
+func (mgr *mgrMock) UpsertEndpoint(ep *endpoint.Endpoint) {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+	mgr.eps.Insert(ep)
+}
+func (mgr *mgrMock) RemoveEndpoint(ep *endpoint.Endpoint) {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+	mgr.eps.Delete(ep)
+}
+
+func (mgr *mgrMock) RemoveEndpointLocked(ep *endpoint.Endpoint) {
+	mgr.eps.Delete(ep)
+}
+
+func (mgr *mgrMock) GetEndpoints() []*endpoint.Endpoint {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+	return mgr.eps.UnsortedList()
+}
+
+type mockIPCache struct {
+	metadata map[cmtypes.PrefixCluster]map[ipcacheTypes.ResourceID]labels.Labels
+}
+
+func newMockIPCache() *mockIPCache {
+	return &mockIPCache{
+		metadata: make(map[cmtypes.PrefixCluster]map[ipcacheTypes.ResourceID]labels.Labels),
+	}
+}
+
+func (m *mockIPCache) labelsForPrefix(prefix cmtypes.PrefixCluster) labels.Labels {
+	lbls := labels.Labels{}
+	for _, l := range m.metadata[prefix] {
+		lbls.MergeLabels(l)
+	}
+	return lbls
+}
+
+func (m *mockIPCache) UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64) {
+	for _, mu := range updates {
+		prefixMetadata, ok := m.metadata[mu.Prefix]
+		if !ok {
+			prefixMetadata = make(map[ipcacheTypes.ResourceID]labels.Labels)
+		}
+
+		for _, aux := range mu.Metadata {
+			if lbls, ok := aux.(labels.Labels); ok {
+				prefixMetadata[mu.Resource] = lbls
+				break
+			}
+		}
+
+		m.metadata[mu.Prefix] = prefixMetadata
+	}
+
+	return 0
+}
+
+func (m *mockIPCache) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64) {
+	for _, mu := range updates {
+		for _, aux := range mu.Metadata {
+			if _, ok := aux.(labels.Labels); ok {
+				delete(m.metadata[mu.Prefix], mu.Resource)
+				break
+			}
+		}
+
+		if len(m.metadata[mu.Prefix]) == 0 {
+			delete(m.metadata, mu.Prefix)
+		}
+	}
+
+	return 0
+}
+
+func (m *mockIPCache) WaitForRevision(ctx context.Context, rev uint64) error {
+	return nil
 }
