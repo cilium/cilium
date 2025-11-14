@@ -200,31 +200,6 @@ struct auth_info {
 	__u64       expiration;
 };
 
-struct egress_gw_policy_key {
-	struct bpf_lpm_trie_key lpm_key;
-	__be32 saddr;
-	__be32 daddr;
-};
-
-struct egress_gw_policy_entry {
-	__be32 egress_ip;
-	__be32 gateway_ip;
-};
-
-struct egress_gw_policy_key6 {
-	struct bpf_lpm_trie_key lpm_key;
-	union v6addr saddr;
-	union v6addr daddr;
-};
-
-struct egress_gw_policy_entry6 {
-	union v6addr egress_ip;
-	__be32 gateway_ip;
-	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
-	__u32 egress_ifindex;
-	__u32 reserved2; /* for even more future extension */
-};
-
 struct srv6_vrf_key4 {
 	struct bpf_lpm_trie_key lpm;
 	__u32 src_ip;
@@ -345,30 +320,6 @@ enum metric_dir {
  */
 #define MARK_MAGIC_CLUSTER_ID		MARK_MAGIC_TO_PROXY
 
-/* IPv4 option used to carry service addr and port for DSR.
- *
- * Copy = 1 (option is copied to each fragment)
- * Class = 0 (control option)
- * Number = 26 (not used according to [1])
- * Len = 8 (option type (1) + option len (1) + addr (4) + port (2))
- *
- * [1]: https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
- */
-#define DSR_IPV4_OPT_TYPE	(IPOPT_COPY | 0x1a)
-
-/* IPv6 option type of Destination Option used to carry service IPv6 addr and
- * port for DSR.
- *
- * 0b00		- "skip over this option and continue processing the header"
- *     0	- "Option Data does not change en-route"
- *      11011   - Unassigned [1]
- *
- * [1]:  https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#ipv6-parameters-2
- */
-#define DSR_IPV6_OPT_TYPE	0x1B
-#define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
-#define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
-
 /*
  * ctx->tc_index uses
  *
@@ -447,12 +398,6 @@ enum ct_dir {
 	CT_SERVICE,
 } __packed;
 
-#ifdef ENABLE_NODEPORT
-#define NAT_MIN_EGRESS		NODEPORT_PORT_MIN_NAT
-#else
-#define NAT_MIN_EGRESS		EPHEMERAL_MIN
-#endif
-
 enum ct_status {
 	CT_NEW,
 	CT_ESTABLISHED,
@@ -490,173 +435,15 @@ struct ipv4_ct_tuple {
 	__u8		flags;
 } __packed;
 
-struct lb6_key {
-	union v6addr address;	/* Service virtual IPv6 address */
-	__be16 dport;		/* L4 port filter, if unset, all ports apply */
-	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
-	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
-	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
-	__u8 pad[2];
-};
-
-/* See lb4_service comments for all fields. */
-struct lb6_service {
-	union {
-		__u32 backend_id;
-		/* See lb4_service for storage internals. */
-		__u32 affinity_timeout;
-		__u32 l7_lb_proxy_port;
-	};
-	__u16 count;
-	__u16 rev_nat_index;
-	__u8 flags;
-	__u8 flags2;
-	__u16 qcount;
-};
-
-/* See lb4_backend comments */
-struct lb6_backend {
-	union v6addr address;
-	__be16 port;
-	__u8 proto;
-	__u8 flags;
-	__u16 cluster_id;	/* With this field, we can distinguish two
-				 * backends that have the same IP address,
-				 * but belong to the different cluster.
-				 */
-	__u8 zone;
-	__u8 pad;
-};
-
-struct lb6_health {
-	struct lb6_backend peer;
-};
-
 struct lb6_reverse_nat {
 	union v6addr address;
 	__be16 port;
 } __packed;
 
-struct lb4_key {
-	__be32 address;		/* Service virtual IPv4 address */
-	__be16 dport;		/* L4 port filter, if unset, all ports apply */
-	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
-	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
-	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
-	__u8 pad[2];
-};
-
-struct lb4_service {
-	union {
-		/* Non-master entry: backend ID in lb4_backends */
-		__u32 backend_id;
-		/* For master entry:
-		 * - Upper  8 bits: load balancer algorithm,
-		 *                  values:
-		 *                     1 - random
-		 *                     2 - maglev
-		 * - Lower 24 bits: timeout in seconds
-		 * Note: We don't use bitfield here given storage is
-		 * compiler implementation dependent and the map needs
-		 * to be populated from Go.
-		 */
-		__u32 affinity_timeout;
-		/* For master entry: proxy port in host byte order,
-		 * only when flags2 & SVC_FLAG_L7_LOADBALANCER is set.
-		 */
-		__u32 l7_lb_proxy_port;
-	};
-	/* For the service frontend, count denotes number of service backend
-	 * slots (otherwise zero).
-	 */
-	__u16 count;
-	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
-	__u8 flags;
-	__u8 flags2;
-	/* For the service frontend, qcount denotes number of service backend
-	 * slots under quarantine (otherwise zero).
-	 */
-	__u16 qcount;
-};
-
-struct lb4_backend {
-	__be32 address;		/* Service endpoint IPv4 address */
-	__be16 port;		/* L4 port filter */
-	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
-	__u8 flags;
-	__u16 cluster_id;	/* With this field, we can distinguish two
-				 * backends that have the same IP address,
-				 * but belong to the different cluster.
-				 */
-	__u8 zone;
-	__u8 pad;
-};
-
-struct lb4_health {
-	struct lb4_backend peer;
-};
-
 struct lb4_reverse_nat {
 	__be32 address;
 	__be16 port;
 } __packed;
-
-union lb4_affinity_client_id {
-	__u32 client_ip;
-	__net_cookie client_cookie;
-} __packed;
-
-struct lb4_affinity_key {
-	union lb4_affinity_client_id client_id;
-	__u16 rev_nat_id;
-	__u8 netns_cookie:1,
-	     reserved:7;
-	__u8 pad1;
-	__u32 pad2;
-} __packed;
-
-union lb6_affinity_client_id {
-	union v6addr client_ip;
-	__net_cookie client_cookie;
-} __packed;
-
-struct lb6_affinity_key {
-	union lb6_affinity_client_id client_id;
-	__u16 rev_nat_id;
-	__u8 netns_cookie:1,
-	     reserved:7;
-	__u8 pad1;
-	__u32 pad2;
-} __packed;
-
-struct lb_affinity_val {
-	__u64 last_used;
-	__u32 backend_id;
-	__u32 pad;
-} __packed;
-
-struct lb_affinity_match {
-	__u32 backend_id;
-	__u16 rev_nat_id;
-	__u16 pad;
-} __packed;
-
-#define SRC_RANGE_STATIC_PREFIX(STRUCT)		\
-	(8 * (sizeof(STRUCT) - sizeof(struct bpf_lpm_trie_key)))
-
-struct lb4_src_range_key {
-	struct bpf_lpm_trie_key lpm_key;
-	__u16 rev_nat_id;
-	__u16 pad;
-	__u32 addr;
-};
-
-struct lb6_src_range_key {
-	struct bpf_lpm_trie_key lpm_key;
-	__u16 rev_nat_id;
-	__u16 pad;
-	union v6addr addr;
-};
 
 static __always_inline __u64 ctx_adjust_hroom_flags(void)
 {
@@ -676,21 +463,6 @@ struct lpm_v6_key {
 struct lpm_val {
 	/* Just dummy for now. */
 	__u8 flags;
-};
-
-struct skip_lb4_key {
-	__u64 netns_cookie;     /* Source pod netns cookie */
-	__u32 address;          /* Destination service virtual IPv4 address */
-	__u16 port;             /* Destination service virtual layer4 port */
-	__u16 pad;
-};
-
-struct skip_lb6_key {
-	__u64 netns_cookie;     /* Source pod netns cookie */
-	union v6addr address;   /* Destination service virtual IPv6 address */
-	__u32 pad;
-	__u16 port;             /* Destination service virtual layer4 port */
-	__u16 pad2;
 };
 
 /* Older kernels don't support the larger tunnel key structure and we don't

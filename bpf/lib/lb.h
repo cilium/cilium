@@ -8,6 +8,7 @@
 #include "conntrack.h"
 #include "ipv4.h"
 #include "hash.h"
+#include "lrp.h"
 #include "eps.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
@@ -19,14 +20,163 @@
 #endif
 #endif
 
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct skip_lb6_key);
-	__type(value, __u8);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_skip_lb6 __section_maps_btf;
+struct lb6_key {
+	union v6addr address;	/* Service virtual IPv6 address */
+	__be16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
+	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
+	__u8 pad[2];
+};
+
+/* See lb4_service comments for all fields. */
+struct lb6_service {
+	union {
+		__u32 backend_id;
+		/* See lb4_service for storage internals. */
+		__u32 affinity_timeout;
+		__u32 l7_lb_proxy_port;
+	};
+	__u16 count;
+	__u16 rev_nat_index;
+	__u8 flags;
+	__u8 flags2;
+	__u16 qcount;
+};
+
+/* See lb4_backend comments */
+struct lb6_backend {
+	union v6addr address;
+	__be16 port;
+	__u8 proto;
+	__u8 flags;
+	__u16 cluster_id;	/* With this field, we can distinguish two
+				 * backends that have the same IP address,
+				 * but belong to the different cluster.
+				 */
+	__u8 zone;
+	__u8 pad;
+};
+
+struct lb6_health {
+	struct lb6_backend peer;
+};
+
+struct lb4_key {
+	__be32 address;		/* Service virtual IPv4 address */
+	__be16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
+	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
+	__u8 pad[2];
+};
+
+struct lb4_service {
+	union {
+		/* Non-master entry: backend ID in lb4_backends */
+		__u32 backend_id;
+		/* For master entry:
+		 * - Upper  8 bits: load balancer algorithm,
+		 *                  values:
+		 *                     1 - random
+		 *                     2 - maglev
+		 * - Lower 24 bits: timeout in seconds
+		 * Note: We don't use bitfield here given storage is
+		 * compiler implementation dependent and the map needs
+		 * to be populated from Go.
+		 */
+		__u32 affinity_timeout;
+		/* For master entry: proxy port in host byte order,
+		 * only when flags2 & SVC_FLAG_L7_LOADBALANCER is set.
+		 */
+		__u32 l7_lb_proxy_port;
+	};
+	/* For the service frontend, count denotes number of service backend
+	 * slots (otherwise zero).
+	 */
+	__u16 count;
+	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
+	__u8 flags;
+	__u8 flags2;
+	/* For the service frontend, qcount denotes number of service backend
+	 * slots under quarantine (otherwise zero).
+	 */
+	__u16 qcount;
+};
+
+struct lb4_backend {
+	__be32 address;		/* Service endpoint IPv4 address */
+	__be16 port;		/* L4 port filter */
+	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
+	__u8 flags;
+	__u16 cluster_id;	/* With this field, we can distinguish two
+				 * backends that have the same IP address,
+				 * but belong to the different cluster.
+				 */
+	__u8 zone;
+	__u8 pad;
+};
+
+struct lb4_health {
+	struct lb4_backend peer;
+};
+
+union lb4_affinity_client_id {
+	__u32 client_ip;
+	__net_cookie client_cookie;
+} __packed;
+
+struct lb4_affinity_key {
+	union lb4_affinity_client_id client_id;
+	__u16 rev_nat_id;
+	__u8 netns_cookie:1,
+	     reserved:7;
+	__u8 pad1;
+	__u32 pad2;
+} __packed;
+
+union lb6_affinity_client_id {
+	union v6addr client_ip;
+	__net_cookie client_cookie;
+} __packed;
+
+struct lb6_affinity_key {
+	union lb6_affinity_client_id client_id;
+	__u16 rev_nat_id;
+	__u8 netns_cookie:1,
+	     reserved:7;
+	__u8 pad1;
+	__u32 pad2;
+} __packed;
+
+struct lb_affinity_val {
+	__u64 last_used;
+	__u32 backend_id;
+	__u32 pad;
+} __packed;
+
+struct lb_affinity_match {
+	__u32 backend_id;
+	__u16 rev_nat_id;
+	__u16 pad;
+} __packed;
+
+#define SRC_RANGE_STATIC_PREFIX(STRUCT)		\
+	(8 * (sizeof(STRUCT) - sizeof(struct bpf_lpm_trie_key)))
+
+struct lb4_src_range_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u16 rev_nat_id;
+	__u16 pad;
+	__u32 addr;
+};
+
+struct lb6_src_range_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u16 rev_nat_id;
+	__u16 pad;
+	union v6addr addr;
+};
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -99,15 +249,6 @@ struct {
 	});
 } cilium_lb6_maglev __section_maps_btf;
 #endif /* OVERWRITE_MAGLEV_MAP_FROM_TEST */
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct skip_lb4_key);
-	__type(value, __u8);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
-} cilium_skip_lb4 __section_maps_btf;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
@@ -1126,25 +1267,6 @@ lb6_to_lb4(struct __ctx_buff *ctx __maybe_unused,
 #endif
 }
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
-static __always_inline bool
-lb6_skip_xlate_from_ctx_to_svc(__net_cookie cookie,
-			       union v6addr addr __maybe_unused, __be16 port __maybe_unused)
-{
-	struct skip_lb6_key key;
-	__u8 *val = NULL;
-
-	memset(&key, 0, sizeof(key));
-	key.netns_cookie = cookie;
-	key.address = addr;
-	key.port = port;
-	val = map_lookup_elem(&cilium_skip_lb6, &key);
-	if (val)
-		return true;
-	return false;
-}
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
-
 static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     int l3_off, fraginfo_t fraginfo, int l4_off,
 				     struct lb6_key *key,
@@ -1260,15 +1382,15 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (ipv6_addr_equals(&saddr, &backend->address)) {
 	#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
 		if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
-		    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+		    lrp_v6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
 			return CTX_ACT_OK;
 	#endif
 
 	#ifdef USE_LOOPBACK_LB
-			union v6addr loopback_addr = CONFIG(service_loopback_ipv6);
+		union v6addr loopback_addr = CONFIG(service_loopback_ipv6);
 
-			ipv6_addr_copy(&new_saddr, &loopback_addr);
-			state->loopback = 1;
+		ipv6_addr_copy(&new_saddr, &loopback_addr);
+		state->loopback = 1;
 	#endif
 	}
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
@@ -1908,42 +2030,6 @@ lb4_to_lb6(struct __ctx_buff *ctx __maybe_unused,
 #endif
 }
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
-/* Service translation logic for a local-redirect service can cause packets to
- * be looped back to a service node-local backend after translation. This can
- * happen when the node-local backend itself tries to connect to the service
- * frontend for which it acts as a backend. There are cases where this can break
- * traffic flow if the backend needs to forward the redirected traffic to the
- * actual service frontend. Hence, allow service translation for pod traffic
- * getting redirected to backend (across network namespaces), but skip service
- * translation for backend to itself or another service backend within the same
- * namespace. Currently only v4 and v4-in-v6, but no plain v6 is supported.
- *
- * For example, in EKS cluster, a local-redirect service exists with the AWS
- * metadata IP, port as the frontend <169.254.169.254, 80> and the proxy as a
- * backend Pod. When traffic destined to the frontend originates from the
- * Pod in namespace ns1 (host ns when the proxy Pod is deployed in
- * hostNetwork mode or regular Pod ns) and the Pod is selected as a backend, the
- * traffic would get looped back to the proxy Pod.
- */
-static __always_inline bool
-lb4_skip_xlate_from_ctx_to_svc(__net_cookie cookie,
-			       __be32 address __maybe_unused, __be16 port __maybe_unused)
-{
-	struct skip_lb4_key key;
-	__u8 *val = NULL;
-
-	memset(&key, 0, sizeof(key));
-	key.netns_cookie = cookie;
-	key.address = address;
-	key.port = port;
-	val = map_lookup_elem(&cilium_skip_lb4, &key);
-	if (val)
-		return true;
-	return false;
-}
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
-
 static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     int l3_off, fraginfo_t fraginfo, int l4_off,
 				     struct lb4_key *key,
@@ -2064,7 +2150,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (saddr == backend->address) {
 	#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
 		if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
-		    lb4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
+		    lrp_v4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
 			return CTX_ACT_OK;
 	#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
