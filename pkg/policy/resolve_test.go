@@ -378,7 +378,7 @@ func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
 	require.Contains(t, mdl.Policy, "0.0.0.0")
 
 	// make sure wildcard CIDR has the world selector
-	require.Equal(t, td.cachedSelectorWorldV4, td.cachedSelectorsCIDR0[1])
+	require.Equal(t, td.cachedSelectorWorldV4, td.cachedSelectorCIDR0)
 
 	expectedPolicy := &selectorPolicy{
 		Revision:      repo.GetRevision(),
@@ -392,10 +392,9 @@ func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
 					U8Proto:  0x6,
 					Ingress:  false,
 					PerSelectorPolicies: L7DataMap{
-						td.cachedSelectorsCIDR0[0]: nil,
-						td.cachedSelectorWorldV4:   nil,
+						td.cachedSelectorWorldV4: nil,
 					},
-					RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorsCIDR0[0]: {nil}, td.cachedSelectorWorldV4: {nil}}),
+					RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorWorldV4: {nil}}),
 				},
 			})},
 			Ingress: newL4DirectionPolicy(),
@@ -421,7 +420,6 @@ func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
 }
 
 func TestL7WithIngressWildcard(t *testing.T) {
-
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
 	repo := td.repo

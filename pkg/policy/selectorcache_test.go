@@ -289,8 +289,8 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 		1234: labels.Labels{"app": labels.NewLabel("app", "test", labels.LabelSourceK8s)}.LabelArray(),
 		2345: labels.Labels{"app": labels.NewLabel("app", "test2", labels.LabelSourceK8s)}.LabelArray(),
 
-		li1: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.1/32")).LabelArray(),
-		li2: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.0/8")).LabelArray(),
+		li1: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.1/32")),
+		li2: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.0/8")),
 	}, nil, wg)
 	wg.Wait()
 
@@ -500,8 +500,8 @@ func TestTransactionalUpdate(t *testing.T) {
 	li1 := identity.IdentityScopeLocal
 	li2 := li1 + 1
 	sc.UpdateIdentities(identity.IdentityMap{
-		li1: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.1/32")).LabelArray(),
-		li2: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.0/8")).LabelArray(),
+		li1: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.1/32")),
+		li2: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.0/8")),
 	}, nil, wg)
 	wg.Wait()
 
@@ -530,8 +530,8 @@ func TestTransactionalUpdate(t *testing.T) {
 	li4 := li3 + 1
 	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(identity.IdentityMap{
-		li3: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.0/31")).LabelArray(),
-		li4: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.0/7")).LabelArray(),
+		li3: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.0/31")),
+		li4: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.0/7")),
 	}, nil, wg)
 	wg.Wait()
 
@@ -553,7 +553,7 @@ func TestTransactionalUpdate(t *testing.T) {
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
 	sc.UpdateIdentities(nil, identity.IdentityMap{
-		li1: labels.GetCIDRLabels(netip.MustParsePrefix("10.0.0.1/32")).LabelArray(),
+		li1: labels.GetCIDRLabelArray(netip.MustParsePrefix("10.0.0.1/32")),
 	}, wg)
 	wg.Wait()
 
