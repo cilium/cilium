@@ -19,6 +19,9 @@ extraVolumes:
   hostPath:
     path: /cilium-binaries/cilium-bugtool
     type: File
+envoy:
+  image:
+    useDigest: false
 extraVolumeMounts:
 - name: cilium-dbg-binary
   mountPath: /usr/bin/cilium-dbg
