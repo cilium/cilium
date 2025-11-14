@@ -4,7 +4,7 @@
 package bpf
 
 import (
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,17 +12,16 @@ import (
 
 func TestEndpointKeyToString(t *testing.T) {
 	tests := []struct {
-		ip string
+		addr netip.Addr
 	}{
-		{"0.0.0.0"},
-		{"192.0.2.3"},
-		{"::"},
-		{"fdff::ff"},
+		{netip.IPv4Unspecified()},
+		{netip.MustParseAddr("192.0.2.3")},
+		{netip.IPv6Unspecified()},
+		{netip.MustParseAddr("fdff::ff")},
 	}
 
 	for _, tt := range tests {
-		ip := net.ParseIP(tt.ip)
-		k := NewEndpointKey(ip, 0)
-		require.Equal(t, tt.ip, k.ToIP().String())
+		k := NewEndpointKey(tt.addr, 0)
+		require.Equal(t, tt.addr.String(), k.ToAddr().String())
 	}
 }

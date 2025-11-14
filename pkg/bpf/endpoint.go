@@ -5,9 +5,7 @@ package bpf
 
 import (
 	"fmt"
-	"net"
-
-	"go4.org/netipx"
+	"net/netip"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/types"
@@ -32,38 +30,37 @@ type EndpointKey struct {
 
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected.
-func NewEndpointKey(ip net.IP, clusterID uint16) EndpointKey {
+func NewEndpointKey(addr netip.Addr, clusterID uint16) EndpointKey {
 	result := EndpointKey{}
 
-	if ip4 := ip.To4(); ip4 != nil {
+	if addr.Is4() {
 		result.Family = EndpointKeyIPv4
-		copy(result.IP[:], ip4)
-	} else {
+	} else if addr.Is6() {
 		result.Family = EndpointKeyIPv6
-		copy(result.IP[:], ip)
 	}
+	copy(result.IP[:], addr.AsSlice())
 	result.Key = 0
 	result.ClusterID = clusterID
 
 	return result
 }
 
-// ToIP converts the EndpointKey into a net.IP structure.
-func (k EndpointKey) ToIP() net.IP {
+// ToIP converts the EndpointKey into a netip.Addr.
+func (k EndpointKey) ToAddr() netip.Addr {
 	switch k.Family {
 	case EndpointKeyIPv4:
-		return k.IP[:4]
+		return netip.AddrFrom4([4]byte(k.IP[:4]))
 	case EndpointKeyIPv6:
-		return k.IP[:]
+		return netip.AddrFrom16([16]byte(k.IP[:]))
 	}
-	return nil
+	return netip.Addr{}
 }
 
 // String provides a string representation of the EndpointKey.
 func (k EndpointKey) String() string {
-	if ip := k.ToIP(); ip != nil {
+	if addr := k.ToAddr(); addr.IsValid() {
 		addrCluster := cmtypes.AddrClusterFrom(
-			netipx.MustFromStdIP(ip),
+			addr,
 			uint32(k.ClusterID),
 		)
 		return addrCluster.String() + ":" + fmt.Sprintf("%d", k.Key)
