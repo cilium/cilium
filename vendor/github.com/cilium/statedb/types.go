@@ -487,8 +487,7 @@ type indexEntry struct {
 func (ie *indexEntry) getClone() part.Ops[object] {
 	if ie.clone == nil {
 		if ie.txn == nil {
-			treeCopy := *ie.tree
-			ie.clone = &treeCopy
+			ie.clone = ie.tree
 		} else {
 			ie.clone = ie.txn.Clone()
 		}

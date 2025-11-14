@@ -64,9 +64,13 @@ func newIterator[T any](start *header[T]) *Iterator[T] {
 	return &Iterator[T]{[][]*header[T]{{start}}}
 }
 
-func prefixSearch[T any](root *header[T], prefix []byte) (*Iterator[T], <-chan struct{}) {
+func prefixSearch[T any](root *header[T], rootWatch <-chan struct{}, prefix []byte) (*Iterator[T], <-chan struct{}) {
+	if root == nil {
+		return newIterator[T](nil), rootWatch
+	}
+
 	this := root
-	watch := root.watch
+	watch := rootWatch
 	for {
 		// Does the node have part of the prefix we're looking for?
 		commonPrefix := this.prefix()[:min(len(prefix), int(this.prefixLen))]
@@ -118,6 +122,10 @@ func traverseToMin[T any](n *header[T], edges [][]*header[T]) [][]*header[T] {
 }
 
 func lowerbound[T any](start *header[T], key []byte) *Iterator[T] {
+	if start == nil {
+		return &Iterator[T]{nil}
+	}
+
 	// The starting edges to explore. This contains all larger nodes encountered
 	// on the path to the node larger or equal to the key.
 	edges := [][]*header[T]{}
