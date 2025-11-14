@@ -53,6 +53,7 @@ on:
         description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
         required: false
         default: 1
+        type: number
       context-ref:
         description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
         required: true
@@ -318,6 +319,13 @@ jobs:
           fi
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
+
+          # Check if additional connectivity test filters are requested via extra-args
+          EXTRA_FILTER=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["connectivity-test-extra-filter"] // ""')
+          if [[ -n "$EXTRA_FILTER" ]]; then
+            echo "::notice::Adding extra connectivity test filter: $EXTRA_FILTER"
+            CONNECTIVITY_TEST_DEFAULTS+=" --test=${EXTRA_FILTER}"
+          fi
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT

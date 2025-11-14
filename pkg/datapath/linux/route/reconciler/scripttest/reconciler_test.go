@@ -10,6 +10,7 @@ import (
 	"os"
 	"testing"
 
+	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"go.yaml.in/yaml/v3"
 
 	"github.com/cilium/hive/cell"
@@ -72,6 +73,9 @@ func TestPrivilegedScript(t *testing.T) {
 			cells := []cell.Cell{
 				reconciler.Cell,
 				linux.DevicesControllerCell,
+				cell.Provide(func() (_ statedbReconciler.Reconciler[*reconciler.DesiredRoute]) {
+					return nil
+				}),
 				cell.Provide(func() *option.DaemonConfig {
 					return &option.DaemonConfig{
 						StateDir: stateDir,

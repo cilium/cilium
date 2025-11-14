@@ -1,51 +1,12 @@
-name: Conformance IPsec (ci-ipsec)
+name: Cilium Tests With Extra Args (ci-extra-args)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  workflow_call:
-    inputs:
-      PR-number:
-        description: "Pull request number."
-        required: false
-        type: string
-      UID:
-        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
-        required: false
-        default: 1
-        type: number
-      context-ref:
-        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
-        required: false
-        type: string
-      SHA:
-        description: "SHA under test (head of the PR branch)."
-        required: false
-        type: string
-      base-SHA:
-        description: "SHA of the base branch (target branch of the PR)."
-        required: false
-        type: string
-      extra-args:
-        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
-        required: false
-        type: string
-        default: '{}'
-      is-workflow-call:
-        description: "Distinguish if it's a workflow_call event."
-        required: false
-        type: boolean
-        default: true
-
   workflow_dispatch:
     inputs:
       PR-number:
         description: "Pull request number."
         required: true
-      UID:
-        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
-        required: false
-        default: 1
-        type: number
       context-ref:
         description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
         required: true
@@ -61,7 +22,7 @@ on:
         default: '{}'
   # Run every 12 hours
   schedule:
-    - cron:  '0 4/12 * * *'
+    - cron:  '0 6/12 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -81,29 +42,22 @@ concurrency:
   # Structure:
   # - Parent concurrency group name to avoid deadlock with child workflows
   # - Workflow name
-  #   For workflow_call events, this is the name of the *parent* workflow.
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
-  #   - workflow_dispatch: PR number.
-  # The 'conformance-ipsec' suffix added to both schedule and workflow_dispatch
-  # ensures that for workflow_call events it doesn't conflict with other
-  # potential parallel workflow_call done to other workflows from the same parent
-  # workflow. As otherwise the group name would be identical.
+  #   - workflow_dispatch: PR number
   #
   # This structure ensures a unique concurrency group name is generated for each
   # type of testing, such that re-runs will cancel the previous run.
   group: |
-    parent
+    grandparent
     ${{ github.workflow }}
-    conformance-ipsec
     ${{ github.event_name }}
     ${{
       (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
-    ${{ inputs.UID }}
   cancel-in-progress: true
 
 jobs:
@@ -140,68 +94,63 @@ jobs:
         uses: ./.github/actions/wait-for-images
         with:
           SHA: ${{ inputs.SHA || github.sha }}
-          images: cilium-ci operator-generic-ci hubble-relay-ci
 
-  prepare-extra-args:
-    name: Prepare Extra Args
-    runs-on: ubuntu-24.04
-    outputs:
-      extra-args: ${{ steps.merge-args.outputs.extra-args }}
-    steps:
-      - name: Merge extra-args with ipsec configuration
-        id: merge-args
-        run: |
-          # Merge incoming extra-args with ipsec=true
-          INCOMING_ARGS='${{ inputs.extra-args }}'
-          # Use jq to merge JSON objects, with ipsec: true taking precedence
-          # Use -c flag to output compact JSON (single line)
-          MERGED_ARGS=$(jq -nc --argjson incoming "$INCOMING_ARGS" '$incoming + {"ipsec": true}')
-          echo "extra-args=${MERGED_ARGS}" >> $GITHUB_OUTPUT
-          echo "Merged extra-args: ${MERGED_ARGS}"
-
-  conformance-aks-ipsec:
-    name: Conformance AKS with IPsec
-    needs: [wait-for-images, prepare-extra-args]
-    uses: ./.github/workflows/conformance-aks.yaml
+  e2e-upgrade-no-l7:
+    name: E2E Upgrade without L7 Tests
+    needs: wait-for-images
+    uses: ./.github/workflows/tests-e2e-upgrade.yaml
     secrets: inherit
     with:
       PR-number: ${{ inputs.PR-number || github.ref_name }}
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: ${{ needs.prepare-extra-args.outputs.extra-args }}
-      UID: ${{ inputs.UID }}
+      extra-args: '{"connectivity-test-extra-filter": "!dns-only,!fqdn,!l7,!policy-local-cluster-egress,!client-egress-tls-sni"}'
+      UID: 1
 
-  conformance-eks-ipsec:
-    name: Conformance EKS with IPsec
-    needs: [wait-for-images, prepare-extra-args]
-    uses: ./.github/workflows/conformance-eks.yaml
+  conformance-ipsec-no-l7:
+    name: Conformance IPsec without L7 Tests
+    needs: wait-for-images
+    uses: ./.github/workflows/conformance-ipsec.yaml
     secrets: inherit
     with:
       PR-number: ${{ inputs.PR-number || github.ref_name }}
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: ${{ needs.prepare-extra-args.outputs.extra-args }}
-      UID: ${{ inputs.UID }}
+      extra-args: '{"connectivity-test-extra-filter": "!dns-only,!fqdn,!l7,!policy-local-cluster-egress,!client-egress-tls-sni"}'
+      UID: 1
 
-  conformance-gke-ipsec:
-    name: Conformance GKE with IPsec
-    needs: [wait-for-images, prepare-extra-args]
-    uses: ./.github/workflows/conformance-gke.yaml
+  e2e-upgrade-only-l7:
+    name: E2E Upgrade only L7 Tests
+    needs: wait-for-images
+    uses: ./.github/workflows/tests-e2e-upgrade.yaml
     secrets: inherit
     with:
       PR-number: ${{ inputs.PR-number || github.ref_name }}
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: ${{ needs.prepare-extra-args.outputs.extra-args }}
-      UID: ${{ inputs.UID }}
+      extra-args: '{"connectivity-test-extra-filter": "no-unexpected-packet-drops,check-log-errors,dns-only,fqdn,l7,policy-local-cluster-egress,client-egress-tls-sni"}'
+      UID: 2
+
+  conformance-ipsec-only-l7:
+    name: Conformance IPsec only L7 Tests
+    needs: wait-for-images
+    uses: ./.github/workflows/conformance-ipsec.yaml
+    secrets: inherit
+    with:
+      PR-number: ${{ inputs.PR-number || github.ref_name }}
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      SHA: ${{ inputs.SHA || github.sha }}
+      extra-args: '{"connectivity-test-extra-filter": "no-unexpected-packet-drops,check-log-errors,dns-only,fqdn,l7,policy-local-cluster-egress,client-egress-tls-sni"}'
+      UID: 2
 
   merge-upload-and-status:
     name: Merge Upload and Status
-    if: ${{ always() && !inputs.is-workflow-call }}
-    needs: [conformance-aks-ipsec, conformance-eks-ipsec, conformance-gke-ipsec]
+    if: ${{ always() }}
+    needs: [e2e-upgrade-no-l7, conformance-ipsec-no-l7, e2e-upgrade-only-l7, conformance-ipsec-only-l7]
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
       context-ref: ${{ inputs.context-ref || github.sha }}
       sha: ${{ inputs.SHA || github.sha }}
-      success: ${{ (needs.conformance-aks-ipsec.result == 'success' && needs.conformance-eks-ipsec.result == 'success' && needs.conformance-gke-ipsec.result == 'success') }}
+      success: ${{ (needs.e2e-upgrade-no-l7.result == 'success' && needs.conformance-ipsec-no-l7.result == 'success' && needs.e2e-upgrade-only-l7.result == 'success' && needs.conformance-ipsec-only-l7.result == 'success') }}
+

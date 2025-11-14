@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
+	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -28,6 +29,9 @@ func proxyForTest(t *testing.T) *Proxy {
 	var drm *reconciler.DesiredRouteManager
 	hive.New(
 		reconciler.TableCell,
+		cell.Provide(func() (_ statedbReconciler.Reconciler[*reconciler.DesiredRoute]) {
+			return nil
+		}),
 		cell.Invoke(func(m *reconciler.DesiredRouteManager) {
 			drm = m
 		}),
