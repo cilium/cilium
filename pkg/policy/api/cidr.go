@@ -9,7 +9,6 @@ import (
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // CIDR specifies a block of IP addresses.
@@ -19,15 +18,6 @@ import (
 type CIDR string
 
 func (s CIDR) IsPeerSelector() {}
-
-var (
-	ipv4All = CIDR("0.0.0.0/0")
-	ipv6All = CIDR("::/0")
-
-	worldLabelNonDualStack = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorld}
-	worldLabelV4           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv4}
-	worldLabelV6           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv6}
-)
 
 // CIDRRule is a rule that specifies a CIDR prefix to/from which outside
 // communication  is allowed, along with an optional list of subnets within that
@@ -86,18 +76,8 @@ type CIDRSlice []CIDR
 // GetAsEndpointSelectors returns the provided CIDR slice as a slice of
 // endpoint selectors
 func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
-	// If multiple CIDRs representing reserved:world are in this CIDRSlice,
-	// we only have to add the EndpointSelector representing reserved:world
-	// once.
-	var hasIPv4AllBeenAdded, hasIPv6AllBeenAdded bool
 	slice := EndpointSelectorSlice{}
 	for _, cidr := range s {
-		if cidr == ipv4All {
-			hasIPv4AllBeenAdded = true
-		}
-		if cidr == ipv6All {
-			hasIPv6AllBeenAdded = true
-		}
 		lbl, err := labels.IPStringToLabel(string(cidr))
 		if err == nil {
 			slice = append(slice, NewESFromLabels(lbl))
@@ -105,23 +85,6 @@ func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 		// TODO: Log the error?
 	}
 
-	if option.Config.IsDualStack() {
-		// If Cilium is in dual-stack mode then world-ipv4 and
-		// world-ipv6 need to be distinguished from one another.
-		if hasIPv4AllBeenAdded && hasIPv6AllBeenAdded {
-			slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorld])
-		}
-		if hasIPv4AllBeenAdded {
-			slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorldIPv4])
-		}
-		if hasIPv6AllBeenAdded {
-			slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorldIPv6])
-		}
-	} else if option.Config.EnableIPv4 && hasIPv4AllBeenAdded {
-		slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorld])
-	} else if option.Config.EnableIPv6 && hasIPv6AllBeenAdded {
-		slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorld])
-	}
 	return slice
 }
 
@@ -170,28 +133,9 @@ func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 			MatchExpressions: make([]slim_metav1.LabelSelectorRequirement, 0, 1+len(r.ExceptCIDRs)),
 		}
 
-		// If we see the zero-prefix label, then
-		// we need to "duplicate" the generated selector, selecting also
-		// the `reserved:world` label.
-		var addWorldLabel labels.Label
-
-		// add the "main" label:
+		// add the "main" requirement:
 		// either a CIDR, CIDRGroupRef, or CIDRGroupSelector
 		if r.Cidr != "" {
-			// Check to see if this is a zero-length prefix.
-			// If so, determine the extra label to add
-			if strings.HasSuffix(string(r.Cidr), "/0") {
-				switch {
-				case !option.Config.IsDualStack():
-					addWorldLabel = worldLabelNonDualStack
-				case strings.Contains(string(r.Cidr), ":"):
-					addWorldLabel = worldLabelV6
-				default:
-					addWorldLabel = worldLabelV4
-				}
-
-			}
-
 			lbl, err := labels.IPStringToLabel(string(r.Cidr))
 			if err != nil {
 				// should not happen, IP already parsed.
@@ -226,17 +170,6 @@ func (s CIDRRuleSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 		}
 
 		ces = append(ces, NewESFromK8sLabelSelector("", &ls))
-
-		// Duplicate ls with world label
-		if addWorldLabel.Key != "" {
-			worldLS := ls.DeepCopy()
-			worldLS.MatchExpressions[0] = slim_metav1.LabelSelectorRequirement{
-				Key:      addWorldLabel.GetExtendedKey(),
-				Operator: slim_metav1.LabelSelectorOpExists,
-			}
-
-			ces = append(ces, NewESFromK8sLabelSelector("", worldLS))
-		}
 	}
 
 	return ces
