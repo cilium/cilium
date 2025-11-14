@@ -175,7 +175,7 @@ func (r *ingressReconciler) createOrUpdateSharedResources(ctx context.Context) e
 func (r *ingressReconciler) tryCleanupDedicatedResources(ctx context.Context, ingressNamespacedName types.NamespacedName) error {
 	resources := map[client.Object]types.NamespacedName{
 		&corev1.Service{}:             {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name)},
-		&corev1.Endpoints{}:           {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name)},
+		&discoveryv1.EndpointSlice{}:  {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s", ciliumIngressPrefix, ingressNamespacedName.Name)},
 		&ciliumv2.CiliumEnvoyConfig{}: {Namespace: ingressNamespacedName.Namespace, Name: fmt.Sprintf("%s-%s-%s", ciliumIngressPrefix, ingressNamespacedName.Namespace, ingressNamespacedName.Name)},
 	}
 
