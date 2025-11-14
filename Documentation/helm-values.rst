@@ -3508,6 +3508,10 @@
      - Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
      - bool
      - ``false``
+   * - :spelling:ignore:`secretSync.resyncInterval`
+     - Resync interval for synchronized Secrets. The 0 value disables periodic resync.
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`secretsNamespaceAnnotations`
      - Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
      - object

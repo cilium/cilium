@@ -108,6 +108,7 @@ Polytechnique
 Portworx
 QCon
 QLogic
+Resynchronization
 RuleParser
 SRv
 Sharma
@@ -708,6 +709,7 @@ reqid
 requireIPv
 resizable
 resync
+resynchronization
 retpoline
 retransmission
 retransmissions

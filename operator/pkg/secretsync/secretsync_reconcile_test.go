@@ -5,6 +5,7 @@ package secretsync_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
@@ -214,7 +215,9 @@ func Test_SecretSync_Reconcile(t *testing.T) {
 			RefObjectCheckFunc:   ingress.IsReferencedByCiliumIngress,
 			SecretsNamespace:     secretsNamespace + "-2",
 		},
-	})
+	},
+		time.Duration(0),
+	)
 
 	t.Run("delete synced secret if source secret doesn't exist", func(t *testing.T) {
 		result, err := r.Reconcile(t.Context(), ctrl.Request{
@@ -370,7 +373,9 @@ func Test_SecretSync_Reconcile_WithDefaultSecret(t *testing.T) {
 				Name:      "unsynced-secret-no-reference",
 			},
 		},
-	})
+	},
+		time.Duration(0),
+	)
 
 	t.Run("create synced secret for source secret that is the default secret and therefore doesn't need to be referenced by any Cilium Gateway resource", func(t *testing.T) {
 		result, err := r.Reconcile(t.Context(), ctrl.Request{
