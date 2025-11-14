@@ -1,0 +1,64 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: backendtlspolicy-conflict-resolution
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  hostnames:
+    - abc.example.com
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: backendtlspolicy-conflicted-without-section-name-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy-conflicted-without-section-name
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: backendtlspolicy-conflicted-with-section-name-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy-conflicted-with-section-name
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: backendtlspolicy-not-conflicted-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy-not-conflicted-with-section-name
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: backendtlspolicy-not-conflicted-test
+          port: 8443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy-not-conflicted-without-section-name
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: same-namespace
