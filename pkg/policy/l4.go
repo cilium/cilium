@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
@@ -748,19 +747,19 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 			continue
 		}
 
-		idents := cs.GetSelections(p.VersionHandle)
+		idents := cs.GetSelectionsAt(p.readTxn)
 		if option.Config.Debug {
 			if entry.IsDeny() {
 				scopedLog.Debug(
 					"ToMapState: Denied remote IDs",
-					logfields.Version, p.VersionHandle,
+					logfields.Version, p.readTxn,
 					logfields.EndpointSelector, cs,
 					logfields.PolicyID, idents,
 				)
 			} else {
 				scopedLog.Debug(
 					"ToMapState: Allowed remote IDs",
-					logfields.Version, p.VersionHandle,
+					logfields.Version, p.readTxn,
 					logfields.EndpointSelector, cs,
 					logfields.PolicyID, idents,
 				)
@@ -814,7 +813,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(logger *slog.Logger, cs types.Cache
 	}
 }
 
-func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn *versioned.Tx) {
+func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn SelectorReadTxn) {
 	logger.Debug(
 		"identity selection updates done",
 		logfields.NewVersion, txn,
@@ -828,40 +827,6 @@ func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn *versioned.
 	if l4Policy != nil {
 		l4Policy.SyncMapChanges(l4, txn)
 	}
-}
-
-func (l4 *L4Filter) IsPeerSelector() bool {
-	return true
-}
-
-func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls stringLabels, selectorCache *SelectorCache) CachedSelector {
-	cs, added := selectorCache.AddIdentitySelector(l4, lbls, sel)
-	if added {
-		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
-	}
-	return cs
-}
-
-func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, meta ruleOrigin, selectorCache *SelectorCache) {
-	lbls := meta.stringLabels()
-	for _, sel := range selectors {
-		l4.cacheIdentitySelector(sel, lbls, selectorCache)
-	}
-}
-
-func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, meta ruleOrigin, selectorCache *SelectorCache) {
-	lbls := meta.stringLabels()
-	for _, fqdnSel := range selectors {
-		l4.cacheFQDNSelector(fqdnSel, lbls, selectorCache)
-	}
-}
-
-func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls stringLabels, selectorCache *SelectorCache) types.CachedSelector {
-	cs, added := selectorCache.AddFQDNSelector(l4, lbls, sel)
-	if added {
-		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
-	}
-	return cs
 }
 
 // add L7 rules for all endpoints in the L7DataMap
@@ -943,7 +908,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol) (*L4Filter, error) {
+func createL4Filter(policyCtx PolicyContext, peerEndpoints types.Selectors, auth *api.Authentication, rule api.Ports, port api.PortProtocol) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 	logger := policyCtx.GetLogger()
 	origin := policyCtx.Origin()
@@ -973,13 +938,12 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 		Ingress:             ingress,
 	}
 
-	es := peerEndpoints.GetAsEndpointSelectors()
-	if es.SelectsAllEndpoints() {
-		l4.wildcard = l4.cacheIdentitySelector(api.WildcardEndpointSelector, origin.stringLabels(), selectorCache)
-	} else {
-		l4.cacheIdentitySelectors(es, origin, selectorCache)
-		fqdns := types.FromPeerSelectorSlice[api.FQDNSelector](peerEndpoints)
-		l4.cacheFQDNSelectors(fqdns, origin, selectorCache)
+	css := selectorCache.AddSelectorsTxn(origin.stringLabels(), peerEndpoints...)
+	for _, cs := range css {
+		if cs.IsWildcard() {
+			l4.wildcard = cs
+		}
+		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
 	}
 
 	var l7Parser L7ParserType
@@ -1096,20 +1060,12 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 	return l4, nil
 }
 
-func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
-	selectors := make(types.CachedSelectorSlice, 0, len(l4.PerSelectorPolicies))
-	for cs := range l4.PerSelectorPolicies {
-		selectors = append(selectors, cs)
-	}
-	selectorCache.RemoveSelectors(selectors, l4)
-}
-
 // detach releases the references held in the L4Filter and must be called before
 // the filter is left to be garbage collected.
 // L4Filter may still be accessed concurrently after it has been detached.
 func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
-	l4.removeSelectors(selectorCache)
 	l4.policy.Store(nil)
+	RemoveSelectorUser(selectorCache, l4, l4.PerSelectorPolicies)
 }
 
 // attach signifies that the L4Filter is ready and reacheable for updates
@@ -1119,7 +1075,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 	var redirectTypes redirectTypes
 	var features policyFeatures
 
-	allowLocalhost := ctx.AllowLocalhost()
+	allowHostSelector := ctx.AllowHostSelector()
 
 	// Daemon options may induce L3 ingress allows for host. If a filter would apply
 	// proxy redirection for the Host, when we should accept everything from host, then
@@ -1128,16 +1084,15 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 	for cs, sp := range l4.PerSelectorPolicies {
 		if sp != nil {
 			// Allow localhost if requested and this is a redirect that selects the host
-			//
-			// Identities with a reserved:host label are never changed incrementally, so
-			// it is correct to use the latest version here. In case the host identity
-			// is mutated, the whole policy is recomputed.
-			if allowLocalhost && sp.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
-				host := api.ReservedEndpointSelectors[labels.IDNameHost]
-				// Add the cached host selector to the PerSelectorPolicies, if not
-				// already there. Use empty string labels due to this selector being
-				// added due to agent config rather than any specific rule.
-				l4.cacheIdentitySelector(host, EmptyStringLabels, ctx.GetSelectorCache())
+			if allowHostSelector != nil && sp.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
+				// Only add the plain allow policy if no policy for the host
+				// selector already exists. Some day we may support L7 policies for
+				// the host so the selector could already be there with an explicit
+				// (non-nil) policy.
+				if _, exists := l4.PerSelectorPolicies[allowHostSelector]; !exists {
+					// nil is a plain allow policy.
+					l4.PerSelectorPolicies[allowHostSelector] = nil
+				}
 			}
 
 			// collect redirect types (if any)
@@ -1174,6 +1129,8 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 			}
 		}
 	}
+
+	AddSelectorUser(ctx.GetSelectorCache(), l4, l4.PerSelectorPolicies)
 
 	l4.policy.Store(l4Policy)
 	return features, redirectTypes
@@ -1644,7 +1601,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 }
 
 // SyncMapChanges marks earlier updates as completed
-func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn *versioned.Tx) {
+func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn SelectorReadTxn) {
 	// SelectorCache may not be called into while holding this lock!
 	l4Policy.mutex.RLock()
 

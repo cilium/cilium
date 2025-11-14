@@ -698,10 +698,9 @@ func (c *CIDRRule) sanitize() error {
 	if len(c.Cidr) > 0 {
 		cnt++
 	}
-	if c.CIDRGroupSelector != nil {
+	if c.CIDRGroupSelector.LabelSelector != nil {
 		cnt++
-		es := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector)
-		if err := es.Sanitize(); err != nil {
+		if err := c.CIDRGroupSelector.SanitizeWithKeyExtender(labels.GetSourcePrefixKeyExtender(labels.LabelSourceCIDRGroupKeyPrefix)); err != nil {
 			return fmt.Errorf("failed to parse cidrGroupSelector %v: %w", c.CIDRGroupSelector.String(), err)
 		}
 	}
@@ -712,7 +711,7 @@ func (c *CIDRRule) sanitize() error {
 		return fmt.Errorf("more than one of cidr, cidrGroupRef, or cidrGroupSelector may not be set")
 	}
 
-	if len(c.CIDRGroupRef) > 0 || c.CIDRGroupSelector != nil {
+	if len(c.CIDRGroupRef) > 0 || c.CIDRGroupSelector.LabelSelector != nil {
 		return nil // these are selectors;
 	}
 

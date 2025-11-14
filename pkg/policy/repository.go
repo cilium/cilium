@@ -218,15 +218,13 @@ func (p *Repository) newRule(policyEntry types.PolicyEntry, key ruleKey) *rule {
 		PolicyEntry: policyEntry,
 		key:         key,
 	}
-	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), r.Subject)
+	css := p.selectorCache.AddSelectors(makeStringLabels(r.Labels), r.Subject)
+	r.subjectSelector = css[0]
 	return r
 }
 
 // releaseRule releases the cached selector for a given rul
 func (p *Repository) releaseRule(r *rule) {
-	if r.subjectSelector != nil {
-		p.selectorCache.RemoveSelector(r.subjectSelector, r)
-	}
 }
 
 // MustAddList inserts a rule into the policy repository. It is used for
@@ -309,9 +307,11 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		hasIngressDefaultDeny, hasEgressDefaultDeny,
 		matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
+	sc := p.GetSelectorCache()
+
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
-		SelectorCache:        p.GetSelectorCache(),
+		SelectorCache:        sc,
 		L4Policy:             NewL4Policy(p.GetRevision()),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
@@ -326,22 +326,40 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		logger:             p.logger.With(logfields.Identity, securityIdentity.ID),
 	}
 
-	if ingressEnabled {
-		policyCtx.SetIngress(true)
-		newL4IngressPolicy, err := matchingRules.resolveL4Policy(&policyCtx)
+	if ingressEnabled || egressEnabled {
+		// function to be able to use defer
+		err := func() error {
+			defer sc.Commit()
+
+			if ingressEnabled {
+				policyCtx.SetIngress(true)
+				newL4IngressPolicy, err := matchingRules.resolveL4Policy(&policyCtx)
+				if err != nil {
+					return err
+				}
+				calculatedPolicy.L4Policy.Ingress.PortRules = newL4IngressPolicy
+			}
+
+			if egressEnabled {
+				policyCtx.SetIngress(false)
+				newL4EgressPolicy, err := matchingRules.resolveL4Policy(&policyCtx)
+				if err != nil {
+					return err
+				}
+				calculatedPolicy.L4Policy.Egress.PortRules = newL4EgressPolicy
+			}
+			return nil
+		}()
 		if err != nil {
 			return nil, err
 		}
-		calculatedPolicy.L4Policy.Ingress.PortRules = newL4IngressPolicy
 	}
 
-	if egressEnabled {
-		policyCtx.SetIngress(false)
-		newL4EgressPolicy, err := matchingRules.resolveL4Policy(&policyCtx)
-		if err != nil {
-			return nil, err
-		}
-		calculatedPolicy.L4Policy.Egress.PortRules = newL4EgressPolicy
+	// Make sure host selector is in the selector cache if needed
+	if ingressEnabled && option.Config.AlwaysAllowLocalhost() {
+		host := types.ToSelector(api.ReservedEndpointSelectors[labels.IDNameHost])
+		css := sc.AddSelectors(EmptyStringLabels, host)
+		policyCtx.allowHostSelector = css[0]
 	}
 
 	// Make the calculated policy ready for incremental updates
@@ -378,16 +396,16 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// Match cluster-wide rules
 	for rKey := range p.rulesByNamespace[""] {
 		r := p.rules[rKey]
-		if r.matchesSubject(securityIdentity) {
+		if r.matchesSubject(p.logger, securityIdentity) {
 			matchingRules = append(matchingRules, r)
 		}
 	}
 	// Match namespace-specific rules
-	namespace := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel)
+	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
 	if namespace != "" {
 		for rKey := range p.rulesByNamespace[namespace] {
 			r := p.rules[rKey]
-			if r.matchesSubject(securityIdentity) {
+			if r.matchesSubject(p.logger, securityIdentity) {
 				matchingRules = append(matchingRules, r)
 			}
 		}
@@ -454,8 +472,8 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 	return &rule{
 		PolicyEntry: types.PolicyEntry{
 			Ingress: ingress,
-			Subject: api.NewESFromLabels(lbls...),
-			L3:      types.PeerSelectorSlice{api.WildcardEndpointSelector},
+			Subject: types.NewLabelSelectorFromLabels(lbls...),
+			L3:      types.WildcardSelectors,
 		},
 	}
 }

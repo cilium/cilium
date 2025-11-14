@@ -6,6 +6,7 @@ package policy
 import (
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"sync"
 	"testing"
 
@@ -264,11 +265,7 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 
 	td.bootstrapRepo(nil, 1, t)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -335,19 +332,98 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
 
-func TestL7WithIngressWildcard(t *testing.T) {
+func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(logger).withIDs(ruleTestIDs, identity.ListReservedIdentities())
+	repo := td.repo
 
+	td.bootstrapRepo(nil, 1, t)
+
+	idFooLabels := labels.ParseLabelArray("id=foo").Labels()
+	fooIdentity := identity.NewIdentity(12345, idFooLabels)
+	td.addIdentity(fooIdentity)
+
+	cidr1111Labels := labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32"))
+	cidr1111Identity := identity.NewIdentity(identity.IdentityScopeLocal, cidr1111Labels)
+	td.addIdentity(cidr1111Identity)
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	rule1 := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDR: []api.CIDR{"0.0.0.0/0"},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	rule1.Sanitize()
+	_, _, err := repo.mustAdd(rule1)
+	require.NoError(t, err)
+
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	require.NoError(t, err)
+	require.Equal(t, redirectTypeNone, selPolicy.L4Policy.redirectTypes)
+
+	mdl := repo.GetRulesList()
+	require.Contains(t, mdl.Policy, "0.0.0.0")
+
+	expectedPolicy := &selectorPolicy{
+		Revision:      repo.GetRevision(),
+		SelectorCache: repo.GetSelectorCache(),
+		L4Policy: L4Policy{
+			Revision: repo.GetRevision(),
+			Egress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
+				"80/TCP": {
+					Port:     80,
+					Protocol: api.ProtoTCP,
+					U8Proto:  0x6,
+					Ingress:  false,
+					PerSelectorPolicies: L7DataMap{
+						td.cachedSelectorCIDR0: nil,
+					},
+					RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorCIDR0: {nil}}),
+				},
+			})},
+			Ingress: newL4DirectionPolicy(),
+		},
+		IngressPolicyEnabled: false,
+		EgressPolicyEnabled:  true,
+	}
+
+	require.EqualExportedValues(t, expectedPolicy, selPolicy)
+
+	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy.Ready()
+
+	// test that policy matches world-ipv4 due to the wildcard CIDR
+	entry, found := policy.policyMapState.Get(HttpEgressKey(identity.ReservedIdentityWorldIPv4))
+	require.True(t, found)
+	require.False(t, entry.IsDeny())
+
+	// test that policy matches CIDR 1.1.1.1 due to the wildcard CIDR
+	entry, found = policy.policyMapState.Get(HttpEgressKey(cidr1111Identity.ID))
+	require.True(t, found)
+	require.False(t, entry.IsDeny())
+}
+
+func TestL7WithIngressWildcard(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
 	repo := td.repo
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -427,12 +503,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
-
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -473,7 +544,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
-	cachedSelectorHost := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
+	cachedSelectorHost := td.sc.findCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	require.NotNil(t, cachedSelectorHost)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -525,11 +596,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 	}
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -622,11 +689,7 @@ func TestMapStateWithIngress(t *testing.T) {
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 	}
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -698,16 +761,16 @@ func TestMapStateWithIngress(t *testing.T) {
 	wg.Wait()
 	require.Len(t, policy.policyMapChanges.synced, 4)
 
-	cachedSelectorWorld := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])
+	cachedSelectorWorld := td.sc.findCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorld])
 	require.NotNil(t, cachedSelectorWorld)
 
-	cachedSelectorWorldV4 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
+	cachedSelectorWorldV4 := td.sc.findCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv4])
 	require.NotNil(t, cachedSelectorWorldV4)
 
-	cachedSelectorWorldV6 := td.sc.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
+	cachedSelectorWorldV6 := td.sc.findCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
 	require.NotNil(t, cachedSelectorWorldV6)
 
-	cachedSelectorTest := td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
+	cachedSelectorTest := td.sc.findCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.NotNil(t, cachedSelectorTest)
 
 	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel)
@@ -760,11 +823,10 @@ func TestMapStateWithIngress(t *testing.T) {
 		}),
 	}
 
-	// Verify that cached selector is not found after Detach().
+	// Verify that cached selector has no users after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
 	policy.SelectorPolicy.detach(true, 0)
-	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
-	require.Nil(t, cachedSelectorTest)
+	require.Zero(t, td.sc.userCount(cachedSelectorTest))
 
 	closer, changes := policy.ConsumeMapChanges()
 	closer()

@@ -50,10 +50,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		Ingress:     true,
 		DefaultDeny: true,
 		Deny:        true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooIngressDenyRule1Label,
 		},
@@ -63,10 +61,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		Ingress:     true,
 		DefaultDeny: true,
 		Deny:        true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooIngressDenyRule2Label,
 		},
@@ -76,10 +72,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		Ingress:     false,
 		DefaultDeny: true,
 		Deny:        true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooEgressDenyRule1Label,
 		},
@@ -89,10 +83,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		Ingress:     false,
 		DefaultDeny: true,
 		Deny:        true,
-		Subject:     api.NewESFromLabels(fooSelectLabel),
-		L3: types.PeerSelectorSlice{
-			api.NewESFromLabels(fooSelectLabel),
-		},
+		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
 			fooEgressDenyRule2Label,
 		},
@@ -103,10 +95,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 			Ingress:     true,
 			DefaultDeny: true,
 			Deny:        true,
-			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: types.PeerSelectorSlice{
-				api.NewESFromLabels(fooSelectLabel),
-			},
+			Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+			L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 			Labels: labels.LabelArray{
 				combinedLabel,
 			},
@@ -114,10 +104,8 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 			Ingress:     false,
 			DefaultDeny: true,
 			Deny:        true,
-			Subject:     api.NewESFromLabels(fooSelectLabel),
-			L3: types.PeerSelectorSlice{
-				api.NewESFromLabels(fooSelectLabel),
-			},
+			Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
+			L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 			Labels: labels.LabelArray{
 				combinedLabel,
 			},
@@ -562,14 +550,8 @@ func TestWildcardCIDRRulesEgressDeny(t *testing.T) {
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
-	cidrSlice := api.CIDRSlice{"192.0.0.0/3"}
-	cidrSelectors := cidrSlice.GetAsEndpointSelectors()
-	var cachedSelectors CachedSelectorSlice
-	for i := range cidrSelectors {
-		c, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, cidrSelectors[i])
-		cachedSelectors = append(cachedSelectors, c)
-		defer td.sc.RemoveSelector(c, dummySelectorCacheUser)
-	}
+	cachedSelectors := td.sc.AddSelectors(EmptyStringLabels,
+		types.ToSelectors(api.CIDR("192.0.0.0/3"))...)
 
 	l480Get := api.Rule{
 		EgressDeny: []api.EgressDenyRule{

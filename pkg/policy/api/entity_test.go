@@ -10,17 +10,35 @@ import (
 	"github.com/stretchr/testify/require"
 
 	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
 // matches returns true if the entity matches the labels
-func (e Entity) matches(ctx labels.LabelArray) bool {
-	return EntitySlice{e}.matches(ctx)
+func (e Entity) matches(lbls labels.LabelArray) bool {
+	return EntitySlice{e}.matches(lbls)
 }
 
 // matches returns true if any of the entities in the slice match the labels
-func (s EntitySlice) matches(ctx labels.LabelArray) bool {
-	return s.GetAsEndpointSelectors().Matches(ctx)
+func (s EntitySlice) matches(lbls labels.LabelArray) bool {
+	return s.GetAsEndpointSelectors().matches(lbls)
+}
+
+// matches returns true if the endpoint selector matches the `ls`.
+// In test code to avoid using upstream k8s matching in production code.
+// See pkg/policy/selector/ for internal production code.
+func (es EndpointSelector) matches(lbls labels.LabelArray) bool {
+	selector, err := slim_metav1.LabelSelectorAsSelector(es.LabelSelector)
+	return err == nil && selector.Matches(lbls)
+}
+
+func (s EndpointSelectorSlice) matches(lbls labels.LabelArray) bool {
+	for i := range s {
+		if s[i].matches(lbls) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestEntityMatches(t *testing.T) {

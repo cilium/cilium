@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -161,8 +160,8 @@ func TestCreateL4Filter(t *testing.T) {
 		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 	}
 
-	for _, selector := range selectors {
-		eps := types.PeerSelectorSlice{selector}
+	for _, es := range selectors {
+		eps := types.ToSelectors(es)
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
@@ -212,8 +211,8 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 	}
 
 	auth := &api.Authentication{Mode: api.AuthenticationModeDisabled}
-	for _, selector := range selectors {
-		eps := types.PeerSelectorSlice{selector}
+	for _, es := range selectors {
+		eps := types.ToSelectors(es)
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
@@ -264,8 +263,8 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 	}
 
-	for _, selector := range selectors {
-		eps := types.PeerSelectorSlice{selector}
+	for _, es := range selectors {
+		eps := types.ToSelectors(es)
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
@@ -638,7 +637,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 					}
 
 					l4Policy.AccumulateMapChanges(logger, filter, cs, testSel.selections, nil)
-					l4Policy.SyncMapChanges(filter, versioned.LatestTx)
+					l4Policy.SyncMapChanges(filter, types.MockSelectorReadTxn())
 
 					closer, _ := epPolicy.ConsumeMapChanges()
 					closer()

@@ -36,7 +36,7 @@ func NewSet[T any](values ...T) Set[T] {
 	for _, v := range values {
 		txn.Insert(s.toBytes(v), v)
 	}
-	s.tree = txn.CommitOnly()
+	s.tree = txn.Commit()
 	return s
 }
 
@@ -52,7 +52,7 @@ func (s Set[T]) Set(v T) Set[T] {
 	s.ensureTree()
 	txn := s.tree.Txn()
 	txn.Insert(s.toBytes(v), v)
-	s.tree = txn.CommitOnly() // As Set is passed by value we can just modify it.
+	s.tree = txn.Commit() // As Set is passed by value we can just modify it.
 	return s
 }
 
@@ -64,7 +64,7 @@ func (s Set[T]) Delete(v T) Set[T] {
 	}
 	txn := s.tree.Txn()
 	txn.Delete(s.toBytes(v))
-	s.tree = txn.CommitOnly()
+	s.tree = txn.Commit()
 	if s.tree.Len() == 0 {
 		s.tree = nil
 	}
@@ -102,7 +102,7 @@ func (s Set[T]) Union(s2 Set[T]) Set[T] {
 	for k, v, ok := iter.Next(); ok; k, v, ok = iter.Next() {
 		txn.Insert(k, v)
 	}
-	s.tree = txn.CommitOnly()
+	s.tree = txn.Commit()
 	return s
 }
 
@@ -118,7 +118,7 @@ func (s Set[T]) Difference(s2 Set[T]) Set[T] {
 	for k, _, ok := iter.Next(); ok; k, _, ok = iter.Next() {
 		txn.Delete(k)
 	}
-	s.tree = txn.CommitOnly()
+	s.tree = txn.Commit()
 	return s
 }
 
@@ -207,7 +207,7 @@ func (s *Set[T]) UnmarshalJSON(data []byte) error {
 		}
 		txn.Insert(s.toBytes(x), x)
 	}
-	s.tree = txn.CommitOnly()
+	s.tree = txn.Commit()
 	if s.tree.Len() == 0 {
 		s.tree = nil
 	}
@@ -243,7 +243,7 @@ func (s *Set[T]) UnmarshalYAML(value *yaml.Node) error {
 		}
 		txn.Insert(s.toBytes(v), v)
 	}
-	s.tree = txn.CommitOnly()
+	s.tree = txn.Commit()
 	return nil
 }
 
