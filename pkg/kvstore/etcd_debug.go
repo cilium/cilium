@@ -285,6 +285,7 @@ func etcdDbgCerts(cfgfile string, cfg *client.Config, iw *indentedWriter) {
 			opts := x509.VerifyOptions{
 				Roots:         cfg.TLS.RootCAs,
 				Intermediates: intermediates,
+				KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 			}
 
 			_, err = leaf.Verify(opts)
