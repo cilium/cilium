@@ -224,3 +224,46 @@ Policies <troubleshooting_host_policies>` subsection to understand how to debug
 issues with Host Policies, or to the section on :ref:`Host Policies known
 issues <host_policies_known_issues>` to understand the current limitations of
 the feature.
+
+Emergency Recovery
+==================
+
+As host policies control access to the node, they may make nodes unreachable or unmanageable.
+In particular, if the Cilium agent loses access to the apiserver, it will not learn of any
+policy updates or deletes. This makes recovery complicated.
+
+If you have out-of-band access to the node(s), then it is possible to force-disable host policy
+enforcement and recover control of the cluster:
+
+Cilium Agent access
+^^^^^^^^^^^^^^^^^^^
+
+You will need to access the Cilium agent container. If ``kubelet`` still has network access, use ``kubectl exec``:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec -ti $(CILIUM_PODNAME) -- bash
+
+If this is unavailable, you will need ssh or terminal access (e.g. via IPMI). Then, use ``crictl exec``:
+
+.. code-block:: shell-session
+
+    $ CONTAINERID=$(crictl ps -q --label io.kubernetes.container.name=cilium-agent --label io.kubernetes.pod.namespace=kube-system)
+    $ crictl exec -ti $CONTAINERID bash
+
+Disabling Host Policy enforcement
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+    This only disables host policy enforcement temporarily. Once ``cilium-agent`` is restarted, it will once again
+    enforce host policies.
+
+Once you have access to the Cilium container, temporarily disable host policy enforcement:
+
+.. code-block:: shell-session
+
+    $ cilium-dbg endpoint config $(cilium-dbg endpoint get -l reserved:host -o 'jsonpath={$[0].id}') PolicyAuditMode=Enabled
+
+
+At this point, the nodes should have network access. You can now remove the offending host policy.
