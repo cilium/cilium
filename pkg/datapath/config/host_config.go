@@ -24,6 +24,8 @@ type BPFHost struct {
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+	// Enable XDP acceleration for Service LB.
+	EnableNodeportAcceleration bool `config:"enable_nodeport_acceleration"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
@@ -56,9 +58,9 @@ type BPFHost struct {
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{false, 0x5dc, false, false, false, false, false, false, 0xe, 0x0,
-		0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0,
-		[4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{false, 0x5dc, false, false, false, false, false, false, false,
+		0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		false, 0x0, 0x0, 0x0, 0x0, node}
 }

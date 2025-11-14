@@ -6,7 +6,6 @@
 
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#define ENABLE_NODEPORT_ACCELERATION
 
 #define fib_lookup mock_fib_lookup
 
@@ -25,6 +24,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/nodeport.h"
 
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
+ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 
 #include "lib/lb.h"
 

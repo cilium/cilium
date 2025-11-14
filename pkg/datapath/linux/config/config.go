@@ -396,9 +396,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 		}
 
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
-		}
 		if !option.Config.EnableHostLegacyRouting {
 			cDefinesMap["ENABLE_HOST_ROUTING"] = "1"
 		}
