@@ -104,7 +104,6 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	// the feature does not influence the decision which BPF maps should be
 	// created.
 	if err := params.KPRInitializer.InitKubeProxyReplacementOptions(); err != nil {
-		params.Logger.Error("unable to initialize kube-proxy replacement options", logfields.Error, err)
 		return fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
@@ -129,18 +128,14 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 				option.MasqueradeInterfaces, option.Devices)
 		}
 		if err != nil {
-			params.Logger.Error("unable to initialize BPF masquerade support", logfields.Error, err)
 			return fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
 		}
 		if params.DaemonConfig.EnableMasqueradeRouteSource {
-			params.Logger.Error("BPF masquerading does not yet support masquerading to source IP from routing layer")
 			return fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
 		}
 	} else if params.DaemonConfig.EnableIPMasqAgent {
-		params.Logger.Error(fmt.Sprintf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade))
 		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 	} else if !params.DaemonConfig.MasqueradingEnabled() && params.DaemonConfig.EnableBPFMasquerade {
-		params.Logger.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
 		return fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
 	}
 
@@ -176,7 +171,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	err = initMaps(params)
 	bootstrapStats.mapsInit.EndError(err)
 	if err != nil {
-		params.Logger.Error("error while opening/creating BPF maps", logfields.Error, err)
 		return fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 
@@ -215,7 +209,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		}
 
 		if err := agentK8s.WaitForNodeInformation(ctx, params.Logger, params.Resources.LocalNode, params.Resources.LocalCiliumNode); err != nil {
-			params.Logger.Error("unable to connect to get node spec from apiserver", logfields.Error, err)
 			return fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
 		}
 
@@ -244,18 +237,10 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	nativeDevices, _ := datapathTables.SelectedDevices(params.Devices, rxn)
 	if err := params.KPRInitializer.FinishKubeProxyReplacementInit(nativeDevices, drdName); err != nil {
-		params.Logger.Error("failed to finalise LB initialization", logfields.Error, err)
 		return fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
-	if len(nativeDevices) == 0 {
-		if params.DaemonConfig.EnableHostFirewall {
-			const msg = "Host firewall's external facing device could not be determined. Use --%s to specify."
-			params.Logger.Error(
-				fmt.Sprintf(msg, option.Devices),
-				logfields.Error, err,
-			)
-			return fmt.Errorf(msg, option.Devices)
-		}
+	if len(nativeDevices) == 0 && params.DaemonConfig.EnableHostFirewall {
+		return fmt.Errorf("failed to determine host firewall's external facing device (use --%s to specify)", option.Devices)
 	}
 
 	// Some of the k8s watchers rely on option flags set above (specifically
