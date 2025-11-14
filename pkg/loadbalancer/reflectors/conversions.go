@@ -431,9 +431,32 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 					}
 				}
 
-				state := loadbalancer.BackendStateActive
-				if be.Terminating {
+				var state loadbalancer.BackendState
+				switch {
+				case be.Conditions.IsReady():
+					// A backend that is ready (regardless of serving and terminating) is considered
+					// active. We may see backends that are ready+terminating if 'PublishNotReadyAddresses'
+					// is true. While it would be more logical to set this as terminating, we're following
+					// kube-proxy here and considering it as an active backend and not ignoring it even when
+					// other active backends are available.
+					//
+					// See also kube-proxy implementation at:
+					// https://github.com/kubernetes/kubernetes/blob/790393ae92e97262827d4f1fba24e8ae65bbada0/pkg/proxy/topology.go#L61
+					state = loadbalancer.BackendStateActive
+				case be.Conditions.IsTerminating() && !be.Conditions.IsServing():
+					// A backend that is terminating and not serving should not be used for load-balancing
+					// even if it's the only backend. A terminating backend is kept in the BPF maps until
+					// fully removed to avoid disrupting connections.
+					state = loadbalancer.BackendStateTerminatingNotServing
+				case be.Conditions.IsTerminating():
+					// A backend that is terminating and serving can still be used for new connections
+					// when no active backends are available. A terminating backend is kept in the BPF maps until
+					// fully removed to avoid disrupting connections.
 					state = loadbalancer.BackendStateTerminating
+				default:
+					// In all other cases we mark the backend to be in maintenance. This avoids disruptions
+					// to existing connections when a backend readiness is flapping.
+					state = loadbalancer.BackendStateMaintenance
 				}
 				be := loadbalancer.BackendParams{
 					Address:   l3n4Addr,

@@ -98,7 +98,58 @@ func (in *Endpoints) DeepCopy() *Endpoints {
 	return out
 }
 
-// Backend contains all ports, terminating state, and the node name of a given backend
+// BackendCondition is a flag mirroring the endpoint Conditions.
+type BackendCondition uint8
+
+const (
+	// BackendConditionReady indicates that this endpoint is prepared to receive traffic,
+	// according to whatever system is managing the endpoint.
+	// More info: vendor/k8s.io/api/discovery/v1/types.go
+	// See also https://github.com/kubernetes/kubernetes/issues/108523
+	BackendConditionReady = 1 << iota
+
+	// BackendConditionServing indicates that this endpoint can serve new connections.
+	// It is meaningful to Cilium when the backend is terminating. If this condition is false
+	// then a terminating backend will not be used for new connections even as fallback
+	// when no active backends exist.
+	// More info: vendor/k8s.io/api/discovery/v1/types.go
+	// See also https://github.com/kubernetes/kubernetes/issues/108523 and
+	// https://github.com/kubernetes/kubernetes/blob/790393ae92e97262827d4f1fba24e8ae65bbada0/pkg/proxy/topology.go#L76
+	BackendConditionServing
+
+	// Terminating indicates that the endpoint is getting terminated.
+	// It will not be used for new conditions unless 1) no active backends exist
+	// and 2) this backend is serving.
+	//
+	// If [publishNotReadyAddresses] is set on a service then a backend may be
+	// both terminating and ready in which case the terminating state is ignored.
+	//
+	// More info: vendor/k8s.io/api/discovery/v1/types.go
+	// See also https://github.com/kubernetes/kubernetes/issues/108523
+	BackendConditionTerminating
+)
+
+var backendConditions = [...]string{
+	BackendConditionReady:       "ready",
+	BackendConditionServing:     "serving",
+	BackendConditionTerminating: "terminating",
+}
+
+func (bc BackendCondition) String() string {
+	var flags []string
+	for mask, str := range backendConditions {
+		if str != "" && bc&BackendCondition(mask) != 0 {
+			flags = append(flags, str)
+		}
+	}
+	return strings.Join(flags, "+")
+}
+
+func (bc BackendCondition) IsReady() bool       { return bc&BackendConditionReady != 0 }
+func (bc BackendCondition) IsServing() bool     { return bc&BackendConditionServing != 0 }
+func (bc BackendCondition) IsTerminating() bool { return bc&BackendConditionTerminating != 0 }
+
+// Backend contains all ports, conditions, and the node name of a given backend
 //
 // +k8s:deepcopy-gen=true
 // +deepequal-gen=false
@@ -106,7 +157,7 @@ type Backend struct {
 	Ports         map[loadbalancer.L4Addr][]string
 	NodeName      string
 	Hostname      string
-	Terminating   bool
+	Conditions    BackendCondition
 	HintsForZones []string
 	Preferred     bool
 	Zone          string
@@ -116,7 +167,7 @@ func (b *Backend) DeepEqual(other *Backend) bool {
 	return maps.EqualFunc(b.Ports, other.Ports, slices.Equal) &&
 		b.NodeName == other.NodeName &&
 		b.Hostname == other.Hostname &&
-		b.Terminating == other.Terminating &&
+		b.Conditions == other.Conditions &&
 		slices.Equal(b.HintsForZones, other.HintsForZones) &&
 		b.Preferred == other.Preferred &&
 		b.Zone == other.Zone
@@ -240,6 +291,19 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 	}
 }
 
+func ParseEndpointConditionsV1Beta1(conditions slim_discovery_v1beta1.EndpointConditions) (bc BackendCondition) {
+	if conditions.Ready == nil || *conditions.Ready {
+		bc |= BackendConditionReady
+	}
+	if conditions.Serving == nil || conditions.Serving != nil && *conditions.Serving {
+		bc |= BackendConditionServing
+	}
+	if conditions.Terminating != nil && *conditions.Terminating {
+		bc |= BackendConditionTerminating
+	}
+	return
+}
+
 // ParseEndpointSliceV1Beta1 parses a Kubernetes EndpointsSlice v1beta1 resource
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
@@ -260,35 +324,18 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 	}
 
 	for _, sub := range ep.Endpoints {
-		skipEndpoint := false
-		// ready indicates that this endpoint is prepared to receive traffic,
-		// according to whatever system is managing the endpoint. A nil value
-		// indicates an unknown state. In most cases consumers should interpret this
-		// unknown state as ready.
-		// More info: vendor/k8s.io/api/discovery/v1beta1/types.go
-		if sub.Conditions.Ready != nil && !*sub.Conditions.Ready {
-			skipEndpoint = true
-			// Terminating indicates that the endpoint is getting terminated. A
-			// nil values indicates an unknown state. Ready is never true when
-			// an endpoint is terminating. Propagate the terminating endpoint
-			// state so that we can gracefully remove those endpoints.
-			// More details : vendor/k8s.io/api/discovery/v1/types.go
-			if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-				skipEndpoint = false
-			}
-		}
-		if skipEndpoint {
-			continue
-		}
+		conditions := ParseEndpointConditionsV1Beta1(sub.Conditions)
 		for _, addr := range sub.Addresses {
 			addrCluster, err := cmtypes.ParseAddrCluster(addr)
 			if err != nil {
 				continue
 			}
-
 			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
-				backend = &Backend{Ports: map[loadbalancer.L4Addr][]string{}}
+				backend = &Backend{
+					Ports:      map[loadbalancer.L4Addr][]string{},
+					Conditions: conditions,
+				}
 				endpoints.Backends[addrCluster] = backend
 				if nodeName, ok := sub.Topology[corev1.LabelHostname]; ok {
 					backend.NodeName = nodeName
@@ -296,8 +343,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoi
 				if sub.Hostname != nil {
 					backend.Hostname = *sub.Hostname
 				}
-				if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
-					backend.Terminating = true
+				if conditions.IsTerminating() {
 					metrics.TerminatingEndpointsEvents.Inc()
 				}
 				if zoneName, ok := sub.Topology[corev1.LabelTopologyZone]; ok {
@@ -343,6 +389,19 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (name st
 
 const logfieldTerminating = "terminating"
 
+func ParseEndpointConditionsV1(conditions slim_discovery_v1.EndpointConditions) (bc BackendCondition) {
+	if conditions.Ready == nil || *conditions.Ready {
+		bc |= BackendConditionReady
+	}
+	if conditions.Serving == nil || conditions.Serving != nil && *conditions.Serving {
+		bc |= BackendConditionServing
+	}
+	if conditions.Terminating != nil && *conditions.Terminating {
+		bc |= BackendConditionTerminating
+	}
+	return
+}
+
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
@@ -376,41 +435,10 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 	}
 
 	for i, sub := range ep.Endpoints {
-		// ready indicates that this endpoint is prepared to receive traffic,
-		// according to whatever system is managing the endpoint. A nil value
-		// indicates an unknown state. In most cases consumers should interpret this
-		// unknown state as ready.
-		// More info: vendor/k8s.io/api/discovery/v1/types.go
-		isReady := sub.Conditions.Ready == nil || *sub.Conditions.Ready
-		// serving is identical to ready except that it is set regardless of the
-		// terminating state of endpoints. This condition should be set to true for
-		// a ready endpoint that is terminating. If nil, consumers should defer to
-		// the ready condition.
-		// More info: vendor/k8s.io/api/discovery/v1/types.go
-		isServing := (sub.Conditions.Serving == nil && isReady) || (sub.Conditions.Serving != nil && *sub.Conditions.Serving)
-		// Terminating indicates that the endpoint is getting terminated. A
-		// nil values indicates an unknown state. Ready is never true when
-		// an endpoint is terminating. Propagate the terminating endpoint
-		// state so that we can gracefully remove those endpoints.
-		// More info: vendor/k8s.io/api/discovery/v1/types.go
-		isTerminating := sub.Conditions.Terminating != nil && *sub.Conditions.Terminating
-
-		// if is not Ready allow endpoints that are Serving and Terminating
-		if !isReady {
-			// filter not Serving endpoints since those can not receive traffic
-			if !isServing {
-				logger.Debug(
-					"discarding Endpoint on EndpointSlice: not Serving",
-					logfields.Name, ep.Name,
-				)
-				continue
-			}
-		}
-
 		// Construct the backend configuration shared by all the addresses in this slice.
 		backend := &Backend{
-			Ports:       ports,
-			Terminating: !isReady && isServing && isTerminating,
+			Conditions: ParseEndpointConditionsV1(sub.Conditions),
+			Ports:      ports,
 		}
 
 		if sub.NodeName != nil {
@@ -453,7 +481,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 			endpoints.Backends[addrCluster] = backend
 		}
 
-		if backend.Terminating {
+		if backend.Conditions.IsTerminating() {
 			metrics.TerminatingEndpointsEvents.Inc()
 		}
 
@@ -462,7 +490,7 @@ func ParseEndpointSliceV1(logger *slog.Logger, ep *slim_discovery_v1.EndpointSli
 			logfields.Name, ep.Name,
 			logfields.Addresses, sub.Addresses,
 			logfields.Backend, backend,
-			logfieldTerminating, backend.Terminating,
+			logfieldTerminating, backend.Conditions.IsTerminating(),
 		)
 	}
 

@@ -191,6 +191,12 @@ type bpfOpsParams struct {
 	NodeAddresses  statedb.Table[tables.NodeAddress]
 }
 
+const (
+	logfieldActiveCount      = "active-count"
+	logfieldTerminatingCount = "terminating-count"
+	logfieldInactiveCount    = "inactive-count"
+)
+
 func newBPFOps(p bpfOpsParams) *BPFOps {
 	ops := &BPFOps{
 		cfg:       p.Config,
@@ -858,9 +864,9 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	}
 
 	activeCount, terminatingCount, inactiveCount := 0, 0, 0
-	backendCount := len(orderedBackends)
 
 	// Update backends that are new or changed.
+	slotID := 1
 	for i, be := range orderedBackends {
 		var beID loadbalancer.BackendID
 		if s, ok := ops.backendStates[be.Address]; ok && s.id != 0 {
@@ -881,7 +887,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 		if ops.needsUpdate(be.Address, be.Revision) {
 			ops.log.Debug("Update backend",
-				logfields.Backend, be,
+				logfields.Backend, be.BackendParams,
 				logfields.ID, beID,
 				logfields.Address, be.Address,
 			)
@@ -892,6 +898,11 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			ops.updateBackendRevision(beID, be.Address, be.Revision)
 		}
 
+		if be.State == loadbalancer.BackendStateMaintenance {
+			// Backends that are in maintenance are not included in the services map.
+			continue
+		}
+
 		// Update the service slot for the backend. We do this regardless
 		// if the backend entry is up-to-date since the backend slot order might've
 		// changed.
@@ -899,7 +910,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		// the slot ids here are sequential.
 		ops.log.Debug("Update service slot",
 			logfields.ID, beID,
-			logfields.Slot, i+1,
+			logfields.Slot, slotID,
 			logfields.BackendID, beID)
 
 		svcVal.SetBackendID(beID)
@@ -950,7 +961,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		default:
 			inactiveCount++
 		}
+
+		slotID++
 	}
+	backendCount := slotID - 1
 
 	if activeCount == 0 {
 		// If there are no active backends we can use the terminating backends.
@@ -1024,7 +1038,10 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		logfields.Type, fe.Type,
 		logfields.ProxyRedirect, fe.Service.ProxyRedirect,
 		logfields.Address, fe.Address,
-		logfields.Count, backendCount)
+		logfields.Count, backendCount,
+		logfieldActiveCount, activeCount,
+		logfieldTerminatingCount, terminatingCount,
+		logfieldInactiveCount, inactiveCount)
 	if err := ops.upsertMaster(svcKey, svcVal, fe, activeCount, inactiveCount); err != nil {
 		return fmt.Errorf("upsert service master: %w", err)
 	}

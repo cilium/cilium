@@ -663,12 +663,12 @@ var (
 		},
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("10.0.0.1"): {
-				NodeName:    "node1",
-				Terminating: true,
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionTerminating,
 			},
 			cmtypes.MustParseAddrCluster("2001:db8:1000::1"): {
-				NodeName:    "node1",
-				Terminating: true,
+				NodeName:   "node1",
+				Conditions: k8s.BackendConditionTerminating,
 			},
 		},
 	}
