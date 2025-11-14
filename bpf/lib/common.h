@@ -200,31 +200,6 @@ struct auth_info {
 	__u64       expiration;
 };
 
-struct egress_gw_policy_key {
-	struct bpf_lpm_trie_key lpm_key;
-	__be32 saddr;
-	__be32 daddr;
-};
-
-struct egress_gw_policy_entry {
-	__be32 egress_ip;
-	__be32 gateway_ip;
-};
-
-struct egress_gw_policy_key6 {
-	struct bpf_lpm_trie_key lpm_key;
-	union v6addr saddr;
-	union v6addr daddr;
-};
-
-struct egress_gw_policy_entry6 {
-	union v6addr egress_ip;
-	__be32 gateway_ip;
-	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
-	__u32 egress_ifindex;
-	__u32 reserved2; /* for even more future extension */
-};
-
 struct srv6_vrf_key4 {
 	struct bpf_lpm_trie_key lpm;
 	__u32 src_ip;

@@ -11,7 +11,6 @@
 #include "lib/policy_log.h"
 #include "lib/trace_sock.h"
 #include "lib/mcast.h"
-#include "lib/vtep.h"
 
 /*
  * The __COUNTER__ macro expands to an integer value which is increasing every
@@ -82,12 +81,16 @@ add_type(union macaddr);
 add_type(struct edt_id);
 add_type(struct edt_info);
 
+#include "lib/egress_gateway.h"
 add_type(struct egress_gw_policy_key);
 add_type(struct egress_gw_policy_entry);
 add_type(struct egress_gw_policy_key6);
 add_type(struct egress_gw_policy_entry6);
+
+#include "lib/vtep.h"
 add_type(struct vtep_key);
 add_type(struct vtep_value);
+
 add_type(struct srv6_vrf_key4);
 add_type(struct srv6_vrf_key6);
 add_type(struct srv6_policy_key4);
