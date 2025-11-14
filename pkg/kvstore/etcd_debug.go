@@ -297,7 +297,7 @@ func etcdDbgCerts(cfgfile string, cfg *client.Config, iw *indentedWriter) {
 
 			_, err = leaf.Verify(opts)
 			if err != nil {
-				iiw.Println("⚠️ Cannot verify certificate with the configured root CAs")
+				iiw.Println("⚠️ Cannot verify certificate with the configured root CAs: %s", err)
 			}
 		}
 	}
