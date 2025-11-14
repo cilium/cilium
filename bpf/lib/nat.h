@@ -28,6 +28,12 @@ DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 t
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
 
+#ifdef ENABLE_NODEPORT
+#define NAT_MIN_EGRESS		NODEPORT_PORT_MIN_NAT
+#else
+#define NAT_MIN_EGRESS		EPHEMERAL_MIN
+#endif
+
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
 	NAT_DIR_INGRESS = TUPLE_F_IN,
