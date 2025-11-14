@@ -10,6 +10,31 @@
 #include "encap.h"
 #include "eps.h"
 
+struct egress_gw_policy_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__be32 saddr;
+	__be32 daddr;
+};
+
+struct egress_gw_policy_entry {
+	__be32 egress_ip;
+	__be32 gateway_ip;
+};
+
+struct egress_gw_policy_key6 {
+	struct bpf_lpm_trie_key lpm_key;
+	union v6addr saddr;
+	union v6addr daddr;
+};
+
+struct egress_gw_policy_entry6 {
+	union v6addr egress_ip;
+	__be32 gateway_ip;
+	__u32 reserved[3]; /* reserved for future extension, e.g. v6 gateway_ip */
+	__u32 egress_ifindex;
+	__u32 reserved2; /* for even more future extension */
+};
+
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct egress_gw_policy_key);
