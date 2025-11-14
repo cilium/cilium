@@ -50,6 +50,15 @@ type cacheEntry struct {
 	IPs []netip.Addr `json:"ips,omitempty"`
 }
 
+// UpdateStatus contains data about the change of a DNS cache.
+type UpdateStatus struct {
+	// Update is true if one or more of the elements in the cache was updated. This can be a new IP<>name mapping or
+	// just the update of a similar lookup with a new and longer expiry time.
+	Updated bool
+	// Upserted is true if one or more IP<>name entry was added to the cache.
+	Upserted bool
+}
+
 // isExpiredBy returns true if entry is no longer valid at pointInTime
 func (entry *cacheEntry) isExpiredBy(pointInTime time.Time) bool {
 	return pointInTime.After(entry.ExpirationTime)
@@ -139,6 +148,10 @@ type DNSCache struct {
 	// sent in the Update is lower, the TTL will be overwritten to this value.
 	// Due is only read-only is not protected by the mutex.
 	minTTL int
+
+	// updated is a set tracking the other DNSCaches that have contributed to the given DNSCache
+	// since last GC round. This is used during GC to ensure no per-endpoint changes are lost.
+	updated sets.Set[*DNSCache]
 }
 
 // NewDNSCache returns an initialized DNSCache
@@ -151,6 +164,7 @@ func NewDNSCache(minTTL int) *DNSCache {
 		overLimit:    map[string]bool{},
 		perHostLimit: 0,
 		minTTL:       minTTL,
+		updated:      sets.New[*DNSCache](),
 	}
 	return c
 }
@@ -178,7 +192,7 @@ func (c *DNSCache) DisableCleanupTrack() {
 // name is used as is and may be an unqualified name (e.g. myservice.namespace).
 // ips may be an IPv4 or IPv6 IP. Duplicates will be removed.
 // ttl is the DNS TTL for ips and is a seconds value.
-func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, ttl int) bool {
+func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, ttl int, updates ...*DNSCache) UpdateStatus {
 	if c.minTTL > ttl {
 		ttl = c.minTTL
 	}
@@ -193,29 +207,31 @@ func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, t
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	for _, cache := range updates {
+		c.updated.Insert(cache)
+	}
 	return c.updateWithEntry(entry)
 }
 
 // updateWithEntry implements the insertion of a cacheEntry. It is used by
 // DNSCache.Update and DNSCache.UpdateWithEntry.
-// This needs a write lock
-func (c *DNSCache) updateWithEntry(entry *cacheEntry) bool {
-	changed := false
+// This needs a write lock. Returns true if one or more IPs added to the cache
+// were new.
+// It returns two booleans that indicate if the dns cache was updated, and if one
+// or more IPs were new and therefore upserted
+func (c *DNSCache) updateWithEntry(entry *cacheEntry) UpdateStatus {
 	entries, exists := c.forward[entry.Name]
 	if !exists {
-		changed = true
 		entries = make(map[netip.Addr]*cacheEntry)
 		c.forward[entry.Name] = entries
 	}
 
-	if c.updateWithEntryIPs(entries, entry) {
-		changed = true
-	}
+	res := c.updateWithEntryIPs(entries, entry)
 
 	if c.perHostLimit > 0 && len(entries) > c.perHostLimit {
 		c.overLimit[entry.Name] = true
 	}
-	return changed
+	return res
 }
 
 // AddNameToCleanup adds the IP with the given TTL to the cleanup map to
@@ -360,53 +376,89 @@ func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames 
 // instance with all the internal entries of another. Latest-Expiration still
 // applies, thus the merged outcome is consistent with adding the entries
 // individually.
-// When namesToUpdate has non-zero length only those names are updated from
-// update, otherwise all DNS names in update are used.
-func (c *DNSCache) UpdateFromCache(update *DNSCache, namesToUpdate []string) {
+func (c *DNSCache) UpdateFromCache(update *DNSCache) {
 	if update == nil {
 		return
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.updateFromCache(update, namesToUpdate)
-}
 
-func (c *DNSCache) updateFromCache(update *DNSCache, namesToUpdate []string) {
 	update.mu.RLock()
 	defer update.mu.RUnlock()
 
-	if len(namesToUpdate) == 0 {
-		for name := range update.forward {
-			namesToUpdate = append(namesToUpdate, name)
-		}
-	}
-	for _, name := range namesToUpdate {
-		newEntries, exists := update.forward[name]
-		if !exists {
-			continue
-		}
+	for _, newEntries := range update.forward {
 		for _, newEntry := range newEntries {
 			c.updateWithEntry(newEntry)
 		}
 	}
 }
 
+// partialRestoreFromCache is a utility function that upserts the entries of one DNSCache into another.
+// It takes a set of existing entries to ensure that it will only upsert IPs and IP->name mappings that is
+// part of that mapping.
+func (c *DNSCache) partialRestoreFromCache(update *DNSCache, namesToUpdate []string, oldEntries map[netip.Addr][]string) {
+	update.mu.RLock()
+	defer update.mu.RUnlock()
+
+	for _, name := range namesToUpdate {
+		newEntries, exists := update.forward[name]
+		if !exists {
+			continue
+		}
+		for _, newEntry := range newEntries {
+			newIps := make([]netip.Addr, 0, len(newEntry.IPs))
+			for _, ip := range newEntry.IPs {
+				if names, found := oldEntries[ip]; found && slices.Contains(names, newEntry.Name) {
+					newIps = append(newIps, ip)
+				}
+			}
+			if len(newIps) > 0 {
+				c.updateWithEntry(&cacheEntry{
+					Name:           newEntry.Name,
+					ExpirationTime: newEntry.ExpirationTime,
+					LookupTime:     newEntry.LookupTime,
+					IPs:            newIps,
+					TTL:            newEntry.TTL,
+				})
+			}
+		}
+	}
+}
+
 // ReplaceFromCacheByNames operates as an atomic combination of ForceExpire and
-// multiple UpdateFromCache invocations. The result is to collect all entries
-// for DNS names in namesToUpdate from each DNSCache in updates, replacing the
-// current entries for each of those names.
-func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*DNSCache) {
+// multiple partialRestoreFromCache invocations. The result is the union of the existing
+// DNSCache and the updates. We do this to ensure that this process does not upsert new
+// entries to the global DNSCache that has not been seen yet. We do this to ensure the
+// dns code path is the one doing the ipcache upsert correctly so the lookups can correctly
+// wait for ipcache propagation of new IPs. We also do this to ensure IPs are correctly upserted,
+// since they will not be upserted during the GC cycle.
+func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*DNSCache) map[netip.Addr][]string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	// merge the set of DNSCaches from the endpoints present during the start of the GC with
+	// the ones used to update the global DNSCache since last GC. This ensures that new endpoints
+	// created after the start of the GC iteration are also accounted for when updating the
+	// global cache.
+	for _, update := range updates {
+		c.updated.Insert(update)
+	}
+
+	// Dump the existing IP->[names...] mapping that can be used to decide
+	// what information should be restored from the local caches.
+	oldEntries := c.getIPsLocked()
 
 	// Remove any DNS name in namesToUpdate with a lookup before "now". This
 	// effectively deletes all lookups because we're holding the lock.
 	c.forceExpireByNames(time.Now(), namesToUpdate)
 
-	for _, update := range updates {
-		c.updateFromCache(update, namesToUpdate)
+	for update := range c.updated {
+		c.partialRestoreFromCache(update, namesToUpdate, oldEntries)
 	}
+
+	c.updated.Clear()
+	return oldEntries
 }
 
 // Lookup returns a set of unique IPs that are currently unexpired for name, if
@@ -416,6 +468,13 @@ func (c *DNSCache) Lookup(name string) (ips []netip.Addr) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
+	return c.lookupLocked(name)
+}
+
+// LookupLocked returns a set of unique IPs that are currently unexpired for name, if
+// any exist. An empty list indicates no valid records exist. The IPs are
+// returned unsorted.
+func (c *DNSCache) lookupLocked(name string) (ips []netip.Addr) {
 	return c.lookupByTime(c.lastCleanup, name)
 }
 
@@ -507,18 +566,25 @@ func (c *DNSCache) RemoveKnown(mappings map[netip.Addr][]string) {
 // (which maps IP -> cacheEntry). It will replace existing IP->old mappings in
 // `entries` if the current entry expires sooner (or has already expired).
 // This needs a write lock
-func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) bool {
-	added := false
+func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) UpdateStatus {
+	updated := false
+	upserted := false
 	for _, ip := range entry.IPs {
 		old, exists := entries[ip]
 		if old == nil || !exists || old.isExpiredBy(entry.ExpirationTime) {
 			entries[ip] = entry
 			c.upsertReverse(ip, entry)
 			c.addNameToCleanup(entry)
-			added = true
+			updated = true
+		}
+		if !exists {
+			upserted = true
 		}
 	}
-	return added
+	return UpdateStatus{
+		Upserted: upserted,
+		Updated:  updated,
+	}
 
 }
 
@@ -599,6 +665,11 @@ func (c *DNSCache) GetIPs() map[netip.Addr][]string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
+	return c.getIPsLocked()
+}
+
+// getIPsLocked takes a snapshot of all IPs in the reverse cache.
+func (c *DNSCache) getIPsLocked() map[netip.Addr][]string {
 	out := make(map[netip.Addr][]string, len(c.reverse))
 
 	for ip, names := range c.reverse {
@@ -691,6 +762,16 @@ func (c *DNSCache) Dump() (lookups []*cacheEntry) {
 	}
 
 	return deduped
+}
+
+func (c *DNSCache) DumpNames() sets.Set[string] {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	names := make(sets.Set[string])
+	for name := range c.forward {
+		names.Insert(name)
+	}
+	return names
 }
 
 // Count returns two values, the count of still-valid FQDNs inside the DNS
