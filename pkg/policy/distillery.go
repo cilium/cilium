@@ -4,6 +4,7 @@
 package policy
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
@@ -36,17 +37,18 @@ func newPolicyCache(repo *Repository, idmgr identitymanager.IDManager) *policyCa
 	return cache
 }
 
-// lookupOrCreate adds the specified Identity to the policy cache, with a reference
-// from the specified Endpoint, then returns the threadsafe copy of the policy.
-func (cache *policyCache) lookupOrCreate(identity *identityPkg.Identity) *cachedSelectorPolicy {
+// lookup returns the selector policy for the given identity. This will return an error
+// if the identity is not in use by any endpoint on the node. That can happen
+// in cases where an endpoint changed its identity during policy regeneration, where the regeneration
+// is still referring to the old identity.
+func (cache *policyCache) lookup(identity *identityPkg.Identity) (*cachedSelectorPolicy, error) {
 	cache.Lock()
 	defer cache.Unlock()
 	cip, ok := cache.policies[identity.ID]
 	if !ok {
-		cip = newCachedSelectorPolicy(identity)
-		cache.policies[identity.ID] = cip
+		return nil, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
 	}
-	return cip
+	return cip, nil
 }
 
 // GetPolicySnapshot returns a snapshot of the current policy cache.
@@ -62,6 +64,18 @@ func (cache *policyCache) GetPolicySnapshot() map[identityPkg.NumericIdentity]Se
 		}
 	}
 	return snapshot
+}
+
+// insert adds the specified Identity to the policy cache
+func (cache *policyCache) insert(identity *identityPkg.Identity) *cachedSelectorPolicy {
+	cache.Lock()
+	defer cache.Unlock()
+	cip, ok := cache.policies[identity.ID]
+	if !ok {
+		cip = newCachedSelectorPolicy(identity)
+		cache.policies[identity.ID] = cip
+	}
+	return cip
 }
 
 // delete forgets about any cached SelectorPolicy that this endpoint uses.
@@ -93,7 +107,10 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 //
 // Must be called with repo.Mutex held for reading.
 func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, bool, error) {
-	cip := cache.lookupOrCreate(identity)
+	cip, err := cache.lookup(identity)
+	if err != nil {
+		return nil, false, err
+	}
 
 	// As long as UpdatePolicy() is triggered from endpoint
 	// regeneration, it's possible for two endpoints with the
@@ -123,9 +140,10 @@ func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, e
 	return selPolicy, true, nil
 }
 
-// LocalEndpointIdentityAdded is not needed; we only care about local endpoint
-// deletion
+// LocalEndpointIdentityAdded creates a SelectorPolicy cache entry for the
+// specified Identity, without calculating any policy for it.
 func (cache *policyCache) LocalEndpointIdentityAdded(identity *identityPkg.Identity) {
+	cache.insert(identity)
 }
 
 // LocalEndpointIdentityRemoved deletes the cached SelectorPolicy for the
