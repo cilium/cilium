@@ -36,12 +36,19 @@ add_type(struct endpoint_info);
 add_type(struct ipcache_key);
 add_type(struct remote_endpoint_info);
 
+#include "lib/lb.h"
 add_type(struct lb4_key);
 add_type(struct lb4_service);
 add_type(struct lb4_backend);
 add_type(struct lb6_key);
 add_type(struct lb6_service);
 add_type(struct lb6_backend);
+add_type(struct lb4_affinity_key);
+add_type(struct lb6_affinity_key);
+add_type(struct lb_affinity_val);
+add_type(struct lb_affinity_match);
+add_type(struct lb4_src_range_key);
+add_type(struct lb6_src_range_key);
 
 #include "lib/metrics.h"
 add_type(struct metrics_key);
@@ -70,12 +77,6 @@ add_type(struct ipv4_frag_l4ports);
 add_type(struct ipv6_frag_id);
 add_type(struct ipv6_frag_l4ports);
 add_type(union macaddr);
-add_type(struct lb4_affinity_key);
-add_type(struct lb6_affinity_key);
-add_type(struct lb_affinity_val);
-add_type(struct lb_affinity_match);
-add_type(struct lb4_src_range_key);
-add_type(struct lb6_src_range_key);
 
 #include "lib/edt.h"
 add_type(struct edt_id);
