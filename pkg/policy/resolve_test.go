@@ -201,8 +201,7 @@ func BenchmarkResolveCIDRPolicyRules(b *testing.B) {
 
 	b.ReportAllocs()
 	for b.Loop() {
-		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		ip.detach(true, 0)
+		td.repo.resolvePolicyLocked(fooIdentity)
 	}
 }
 
@@ -218,7 +217,6 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 		owner.mapStateSize = epPolicy.policyMapState.Len()
 		epPolicy.Ready()
 	}
-	ip.detach(true, 0)
 	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
 }
 
@@ -228,8 +226,7 @@ func BenchmarkResolveL3IngressPolicyRules(b *testing.B) {
 
 	b.ReportAllocs()
 	for b.Loop() {
-		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		ip.detach(true, 0)
+		td.repo.resolvePolicyLocked(fooIdentity)
 	}
 }
 
@@ -241,7 +238,6 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
 		policy.Ready()
-		ip.detach(true, 0)
 	}
 }
 
@@ -253,7 +249,6 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
 		policy.Ready()
-		ip.detach(true, 0)
 	}
 }
 
@@ -762,7 +757,7 @@ func TestMapStateWithIngress(t *testing.T) {
 
 	// Verify that cached selector is not found after Detach().
 	// Note that this depends on the other tests NOT using the same selector concurrently!
-	policy.SelectorPolicy.detach(true, 0)
+	policy.Detach(logger)
 	cachedSelectorTest = td.sc.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	require.Nil(t, cachedSelectorTest)
 

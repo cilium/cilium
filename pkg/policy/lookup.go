@@ -77,7 +77,7 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, ds
 	dstEP.remoteEndpoint = srcEP
 
 	// Resolve and look up the flow as egress from the source
-	selPolSrc, _, err := repo.GetSelectorPolicy(flow.From, 0, &dummyPolicyStats{}, srcEP.ID)
+	selPolSrc, _, err := repo.GetSelectorPolicy(flow.From, 0, &dummyPolicyStats{})
 	if err != nil {
 		return api.Undecided, ingress, egress, fmt.Errorf("GetSelectorPolicy(from) failed: %w", err)
 	}
@@ -92,7 +92,7 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, flow Flow, srcEP, ds
 	}
 
 	// Resolve ingress policy for destination
-	selPolDst, _, err := repo.GetSelectorPolicy(flow.To, 0, &dummyPolicyStats{}, dstEP.ID)
+	selPolDst, _, err := repo.GetSelectorPolicy(flow.To, 0, &dummyPolicyStats{})
 	if err != nil {
 		return api.Undecided, ingress, egress, fmt.Errorf("GetSelectorPolicy(to) failed: %w", err)
 	}
