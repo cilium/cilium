@@ -835,29 +835,7 @@ func (l4 *L4Filter) IsPeerSelector() bool {
 }
 
 func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls stringLabels, selectorCache *SelectorCache) CachedSelector {
-	cs, added := selectorCache.AddIdentitySelector(l4, lbls, sel)
-	if added {
-		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
-	}
-	return cs
-}
-
-func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, meta ruleOrigin, selectorCache *SelectorCache) {
-	lbls := meta.stringLabels()
-	for _, sel := range selectors {
-		l4.cacheIdentitySelector(sel, lbls, selectorCache)
-	}
-}
-
-func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, meta ruleOrigin, selectorCache *SelectorCache) {
-	lbls := meta.stringLabels()
-	for _, fqdnSel := range selectors {
-		l4.cacheFQDNSelector(fqdnSel, lbls, selectorCache)
-	}
-}
-
-func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls stringLabels, selectorCache *SelectorCache) types.CachedSelector {
-	cs, added := selectorCache.AddFQDNSelector(l4, lbls, sel)
+	cs, added := selectorCache.AddIdentitySelectorForTest(l4, lbls, sel)
 	if added {
 		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
 	}
@@ -943,7 +921,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol) (*L4Filter, error) {
+func createL4Filter(policyCtx PolicyContext, peerEndpoints types.Selectors, auth *api.Authentication, rule api.Ports, port api.PortProtocol) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 	logger := policyCtx.GetLogger()
 	origin := policyCtx.Origin()
@@ -973,13 +951,12 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 		Ingress:             ingress,
 	}
 
-	es := peerEndpoints.GetAsEndpointSelectors()
-	if es.SelectsAllEndpoints() {
-		l4.wildcard = l4.cacheIdentitySelector(api.WildcardEndpointSelector, origin.stringLabels(), selectorCache)
-	} else {
-		l4.cacheIdentitySelectors(es, origin, selectorCache)
-		fqdns := types.FromPeerSelectorSlice[api.FQDNSelector](peerEndpoints)
-		l4.cacheFQDNSelectors(fqdns, origin, selectorCache)
+	css, _ := selectorCache.AddSelectors(l4, origin.stringLabels(), peerEndpoints...)
+	for _, cs := range css {
+		if cs.IsWildcard() {
+			l4.wildcard = cs
+		}
+		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
 	}
 
 	var l7Parser L7ParserType

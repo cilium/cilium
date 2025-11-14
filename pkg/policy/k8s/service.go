@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -352,37 +352,32 @@ func serviceSelectorMatches(sel *api.K8sServiceSelectorNamespace, svc serviceDet
 	if !(sel.Namespace == svc.getNamespace() || sel.Namespace == "") {
 		return false
 	}
-
-	es := api.EndpointSelector(sel.Selector)
-	es.SyncRequirementsWithLabelSelector()
-
-	r := es.Matches(labelsMatcher(svc.getLabels()))
+	ls := policytypes.NewLabelSelector(api.EndpointSelector(sel.Selector))
+	r := policytypes.Matches(ls, labelsMatcher(svc.getLabels()))
 	return r
 }
 
 type labelsMatcher labels.Labels
 
-// Get implements k8sLabels.Labels.
-func (l labelsMatcher) Get(label string) (value string) {
-	v, ok := labels.Labels(l)[label]
-	if ok {
-		value = v.Value
-	}
-	return
+// Get implements labels.LabelMatcher; label source is ignored
+func (l labelsMatcher) GetLabel(label *labels.Label) (value string) {
+	v := l[label.Key]
+	return v.Value
 }
 
-// Has implements k8sLabels.Labels.
-func (l labelsMatcher) Has(label string) (exists bool) {
-	return labels.Labels(l).HasLabelWithKey(label)
+// Has implements labels.LabelMatcher.
+func (l labelsMatcher) HasLabel(label *labels.Label) (exists bool) {
+	_, ok := l[label.Key]
+	return ok
 }
 
-// Lookup implements k8sLabels.Labels.
-func (l labelsMatcher) Lookup(label string) (value string, exists bool) {
-	v, ok := labels.Labels(l)[label]
+// Lookup implements labels.LabelMatcher
+func (l labelsMatcher) LookupLabel(label *labels.Label) (value string, exists bool) {
+	v, ok := l[label.Key]
 	return v.Value, ok
 }
 
-var _ k8sLabels.Labels = labelsMatcher{}
+var _ labels.LabelMatcher = labelsMatcher{}
 
 // serviceRefMatches returns true if the ToServices k8sService reference
 // matches the name/namespace of the provided service svc

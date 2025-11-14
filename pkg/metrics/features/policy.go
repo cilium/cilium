@@ -4,7 +4,6 @@
 package features
 
 import (
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -154,19 +153,8 @@ func ruleType(r types.PolicyEntry) RuleFeatures {
 	rf.Deny = r.Deny
 	rf.MutualAuth = r.Authentication != nil
 	rf.NonDefaultDeny = r.DefaultDeny
-	rf.ToFQDNs = len(types.FromPeerSelectorSlice[api.FQDNSelector](r.L3)) > 0
+	rf.ToFQDNs, rf.Host, rf.IngressCIDRGroup = r.L3.GetRuleTypes()
 	rf.L3 = len(r.L3) > 0 && !rf.ToFQDNs
-	for _, l3 := range types.FromPeerSelectorSlice[api.EndpointSelector](r.L3) {
-		if l3.LabelSelector == nil {
-			continue
-		}
-		if !rf.Host && l3.HasKeyPrefix(labels.LabelSourceNode) {
-			rf.Host = true
-		}
-		if !rf.IngressCIDRGroup && l3.HasKeyPrefix(labels.LabelSourceCIDRGroup) {
-			rf.IngressCIDRGroup = true
-		}
-	}
 	ruleTypePortRules(&rf, r.L4)
 
 	return rf
