@@ -49,20 +49,16 @@ func newFixture(t testing.TB) *fixture {
 	var (
 		tbl    statedb.RWTable[*tables.L2AnnounceEntry]
 		db     *statedb.DB
-		jr     job.Registry
 		jg     job.Group
-		h      cell.Health
 		logger = hivetest.Logger(t)
 	)
 
 	hive.New(
 		cell.Provide(tables.NewL2AnnounceTable),
-		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], h_ cell.Health, j job.Registry, jg_ job.Group) {
+		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], jg_ job.Group) {
 			db = d
 			tbl = t
-			jr = j
 			jg = jg_
-			h = h_
 		}),
 	).Populate(logger)
 
@@ -86,13 +82,10 @@ func newFixture(t testing.TB) *fixture {
 		JobGroup:        jg,
 	}
 
-	lc := hivetest.Lifecycle(t)
-
 	// Setting stores normally happens in .run which we bypass for testing purposes
 	announcer := NewL2Announcer(params)
 	announcer.policyStore = fakePolicyStore
 	announcer.svcStore = fakeSvcStore
-	announcer.params.JobGroup = jr.NewGroup(h, lc)
 	announcer.scopedGroup = announcer.params.JobGroup.Scoped("leader-election")
 
 	return &fixture{
