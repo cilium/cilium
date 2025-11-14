@@ -19,6 +19,164 @@
 #endif
 #endif
 
+struct lb6_key {
+	union v6addr address;	/* Service virtual IPv6 address */
+	__be16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
+	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
+	__u8 pad[2];
+};
+
+/* See lb4_service comments for all fields. */
+struct lb6_service {
+	union {
+		__u32 backend_id;
+		/* See lb4_service for storage internals. */
+		__u32 affinity_timeout;
+		__u32 l7_lb_proxy_port;
+	};
+	__u16 count;
+	__u16 rev_nat_index;
+	__u8 flags;
+	__u8 flags2;
+	__u16 qcount;
+};
+
+/* See lb4_backend comments */
+struct lb6_backend {
+	union v6addr address;
+	__be16 port;
+	__u8 proto;
+	__u8 flags;
+	__u16 cluster_id;	/* With this field, we can distinguish two
+				 * backends that have the same IP address,
+				 * but belong to the different cluster.
+				 */
+	__u8 zone;
+	__u8 pad;
+};
+
+struct lb6_health {
+	struct lb6_backend peer;
+};
+
+struct lb4_key {
+	__be32 address;		/* Service virtual IPv4 address */
+	__be16 dport;		/* L4 port filter, if unset, all ports apply */
+	__u16 backend_slot;	/* Backend iterator, 0 indicates the svc frontend */
+	__u8 proto;		/* L4 protocol, or IPPROTO_ANY */
+	__u8 scope;		/* LB_LOOKUP_SCOPE_* for externalTrafficPolicy=Local */
+	__u8 pad[2];
+};
+
+struct lb4_service {
+	union {
+		/* Non-master entry: backend ID in lb4_backends */
+		__u32 backend_id;
+		/* For master entry:
+		 * - Upper  8 bits: load balancer algorithm,
+		 *                  values:
+		 *                     1 - random
+		 *                     2 - maglev
+		 * - Lower 24 bits: timeout in seconds
+		 * Note: We don't use bitfield here given storage is
+		 * compiler implementation dependent and the map needs
+		 * to be populated from Go.
+		 */
+		__u32 affinity_timeout;
+		/* For master entry: proxy port in host byte order,
+		 * only when flags2 & SVC_FLAG_L7_LOADBALANCER is set.
+		 */
+		__u32 l7_lb_proxy_port;
+	};
+	/* For the service frontend, count denotes number of service backend
+	 * slots (otherwise zero).
+	 */
+	__u16 count;
+	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
+	__u8 flags;
+	__u8 flags2;
+	/* For the service frontend, qcount denotes number of service backend
+	 * slots under quarantine (otherwise zero).
+	 */
+	__u16 qcount;
+};
+
+struct lb4_backend {
+	__be32 address;		/* Service endpoint IPv4 address */
+	__be16 port;		/* L4 port filter */
+	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
+	__u8 flags;
+	__u16 cluster_id;	/* With this field, we can distinguish two
+				 * backends that have the same IP address,
+				 * but belong to the different cluster.
+				 */
+	__u8 zone;
+	__u8 pad;
+};
+
+struct lb4_health {
+	struct lb4_backend peer;
+};
+
+union lb4_affinity_client_id {
+	__u32 client_ip;
+	__net_cookie client_cookie;
+} __packed;
+
+struct lb4_affinity_key {
+	union lb4_affinity_client_id client_id;
+	__u16 rev_nat_id;
+	__u8 netns_cookie:1,
+	     reserved:7;
+	__u8 pad1;
+	__u32 pad2;
+} __packed;
+
+union lb6_affinity_client_id {
+	union v6addr client_ip;
+	__net_cookie client_cookie;
+} __packed;
+
+struct lb6_affinity_key {
+	union lb6_affinity_client_id client_id;
+	__u16 rev_nat_id;
+	__u8 netns_cookie:1,
+	     reserved:7;
+	__u8 pad1;
+	__u32 pad2;
+} __packed;
+
+struct lb_affinity_val {
+	__u64 last_used;
+	__u32 backend_id;
+	__u32 pad;
+} __packed;
+
+struct lb_affinity_match {
+	__u32 backend_id;
+	__u16 rev_nat_id;
+	__u16 pad;
+} __packed;
+
+#define SRC_RANGE_STATIC_PREFIX(STRUCT)		\
+	(8 * (sizeof(STRUCT) - sizeof(struct bpf_lpm_trie_key)))
+
+struct lb4_src_range_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u16 rev_nat_id;
+	__u16 pad;
+	__u32 addr;
+};
+
+struct lb6_src_range_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u16 rev_nat_id;
+	__u16 pad;
+	union v6addr addr;
+};
+
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__type(key, struct skip_lb6_key);
