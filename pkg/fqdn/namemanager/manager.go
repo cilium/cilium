@@ -216,8 +216,8 @@ func (n *manager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, n
 	defer n.RWMutex.Unlock()
 
 	// Update IPs in n
-	updated, ipcacheRevision := n.updateDNSIPs(lookupTime, name, record, caches...)
-	if updated {
+	res, ipcacheRevision := n.updateDNSIPs(lookupTime, name, record, caches...)
+	if res.Upserted {
 		n.logger.Debug(
 			"Updated FQDN with new IPs",
 			logfields.MatchName, name,
@@ -254,11 +254,11 @@ func (n *manager) waitForEndpointRestore(ctx context.Context) error {
 
 // updateDNSIPs updates the IPs for a DNS name. It returns whether the name's IPs
 // changed and ipcacheRevision, a revision number to pass to WaitForRevision()
-func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *fqdn.DNSIPRecords, caches ...*fqdn.DNSCache) (updated bool, ipcacheRevision uint64) {
-	updated = n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL, caches...)
+func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *fqdn.DNSIPRecords, caches ...*fqdn.DNSCache) (res fqdn.UpdateStatus, ipcacheRevision uint64) {
+	res = n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL, caches...)
 
 	// The IPs didn't change. No more to be done for this dnsName
-	if !updated && n.bootstrapCompleted {
+	if !res.Upserted && n.bootstrapCompleted {
 		n.logger.Debug(
 			"FQDN: IPs didn't change for DNS name",
 			logfields.DNSName, dnsName,
@@ -296,15 +296,14 @@ func (n *manager) updateDNSIPs(lookupTime time.Time, dnsName string, lookupIPs *
 	// If new IPs were detected, and these IPs are selected by selectors,
 	// then ensure they have an identity allocated to them via the ipcache.
 	ipcacheRevision = n.updateMetadata(updates)
-	return updated, ipcacheRevision
+	return res, ipcacheRevision
 }
 
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
 // newIPs.
 // upserted is true when the new IPs differ from the old IPs
-func (n *manager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int, caches ...*fqdn.DNSCache) (upserted bool) {
-	_, upserted = n.cache.Update(lookupTime, dnsName, newIPs, ttl, caches...)
-	return upserted
+func (n *manager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int, caches ...*fqdn.DNSCache) fqdn.UpdateStatus {
+	return n.cache.Update(lookupTime, dnsName, newIPs, ttl, caches...)
 }
 
 func ipcacheResource(dnsName string) ipcacheTypes.ResourceID {

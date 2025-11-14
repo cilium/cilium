@@ -303,8 +303,8 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 	// consistent if a regeneration happens between the two steps. If an update
 	// doesn't happen in the case, we play it safe and don't purge the zombie
 	// in case of races.
-	if updated, upserted := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
-		if upserted {
+	if res := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); res.Updated {
+		if res.Upserted {
 			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
 		}
 		ep.SyncEndpointHeaderFile()
