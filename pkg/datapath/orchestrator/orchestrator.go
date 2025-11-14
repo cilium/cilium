@@ -102,8 +102,7 @@ type orchestratorParams struct {
 	DirectRoutingDevice tables.DirectRoutingDevice
 	LocalNodeStore      *node.LocalNodeStore
 	NodeDiscovery       *nodediscovery.NodeDiscovery
-	JobRegistry         job.Registry
-	Health              cell.Health
+	JobGroup            job.Group
 	Lifecycle           cell.Lifecycle
 	EndpointManager     endpointmanager.EndpointManager
 	ConfigPromise       promise.Promise[*option.DaemonConfig]
@@ -148,8 +147,7 @@ func newOrchestrator(params orchestratorParams) *orchestrator {
 		},
 	})
 
-	group := params.JobRegistry.NewGroup(params.Health, params.Lifecycle)
-	group.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
+	params.JobGroup.Add(job.OneShot("reinitialize", o.reconciler, job.WithShutdown()))
 
 	return o
 }
