@@ -6,6 +6,7 @@ package policy
 import (
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"sync"
 	"testing"
 
@@ -264,11 +265,7 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 
 	td.bootstrapRepo(nil, 1, t)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -335,6 +332,94 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 	require.EqualExportedValues(t, &expectedEndpointPolicy, policy)
 }
 
+func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
+	logger := hivetest.Logger(t)
+	td := newTestData(logger).withIDs(ruleTestIDs, identity.ListReservedIdentities())
+	repo := td.repo
+
+	td.bootstrapRepo(nil, 1, t)
+
+	idFooLabels := labels.ParseLabelArray("id=foo").Labels()
+	fooIdentity := identity.NewIdentity(12345, idFooLabels)
+	td.addIdentity(fooIdentity)
+
+	cidr1111Labels := labels.GetCIDRLabels(netip.MustParsePrefix("1.1.1.1/32"))
+	cidr1111Identity := identity.NewIdentity(identity.IdentityScopeLocal, cidr1111Labels)
+	td.addIdentity(cidr1111Identity)
+
+	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
+	rule1 := api.Rule{
+		EndpointSelector: selFoo,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToCIDR: []api.CIDR{"0.0.0.0/0"},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	rule1.Sanitize()
+	_, _, err := repo.mustAdd(rule1)
+	require.NoError(t, err)
+
+	repo.mutex.RLock()
+	defer repo.mutex.RUnlock()
+	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
+	require.NoError(t, err)
+	require.Equal(t, redirectTypeNone, selPolicy.L4Policy.redirectTypes)
+
+	mdl := repo.GetRulesList()
+	require.Contains(t, mdl.Policy, "0.0.0.0")
+
+	// make sure wildcard CIDR has the world selector
+	require.Equal(t, td.cachedSelectorWorldV4, td.cachedSelectorsCIDR0[1])
+
+	expectedPolicy := &selectorPolicy{
+		Revision:      repo.GetRevision(),
+		SelectorCache: repo.GetSelectorCache(),
+		L4Policy: L4Policy{
+			Revision: repo.GetRevision(),
+			Egress: L4DirectionPolicy{PortRules: NewL4PolicyMapWithValues(map[string]*L4Filter{
+				"80/TCP": {
+					Port:     80,
+					Protocol: api.ProtoTCP,
+					U8Proto:  0x6,
+					Ingress:  false,
+					PerSelectorPolicies: L7DataMap{
+						td.cachedSelectorsCIDR0[0]: nil,
+						td.cachedSelectorWorldV4:   nil,
+					},
+					RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.cachedSelectorsCIDR0[0]: {nil}, td.cachedSelectorWorldV4: {nil}}),
+				},
+			})},
+			Ingress: newL4DirectionPolicy(),
+		},
+		IngressPolicyEnabled: false,
+		EgressPolicyEnabled:  true,
+	}
+
+	require.EqualExportedValues(t, expectedPolicy, selPolicy)
+
+	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy.Ready()
+
+	// test that policy matches world-ipv4 due to the wildcard CIDR
+	entry, found := policy.policyMapState.Get(HttpEgressKey(identity.ReservedIdentityWorldIPv4))
+	require.True(t, found)
+	require.False(t, entry.IsDeny())
+
+	// test that policy matches CIDR 1.1.1.1 due to the wildcard CIDR
+	entry, found = policy.policyMapState.Get(HttpEgressKey(cidr1111Identity.ID))
+	require.True(t, found)
+	require.False(t, entry.IsDeny())
+}
+
 func TestL7WithIngressWildcard(t *testing.T) {
 
 	logger := hivetest.Logger(t)
@@ -343,11 +428,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -427,12 +508,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
-
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -525,11 +601,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 	}
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
@@ -622,11 +694,7 @@ func TestMapStateWithIngress(t *testing.T) {
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 	}
 
-	idFooSelectLabelArray := labels.ParseSelectLabelArray("id=foo")
-	idFooSelectLabels := labels.Labels{}
-	for _, lbl := range idFooSelectLabelArray {
-		idFooSelectLabels[lbl.Key] = lbl
-	}
+	idFooSelectLabels := labels.ParseSelectLabelArray("id=foo").Labels()
 	fooIdentity := identity.NewIdentity(12345, idFooSelectLabels)
 	td.addIdentity(fooIdentity)
 
