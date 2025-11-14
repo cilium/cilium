@@ -79,10 +79,6 @@ func (n *manager) doGC(ctx context.Context) error {
 	namesToClean := make(sets.Set[string])
 	initialNames := n.cache.DumpNames()
 
-	// Take a snapshot of the *entire* reverse cache, so we can compute the set of
-	// IPs that have been completely removed and safely delete their metadata.
-	maybeStaleIPs := n.cache.GetIPs()
-
 	allEndpointNames := make(sets.Set[string])
 
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
@@ -159,7 +155,9 @@ func (n *manager) doGC(ctx context.Context) error {
 
 	namesToCleanSlice := namesToClean.UnsortedList()
 
-	n.cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
+	// Take a snapshot of the *entire* reverse cache, so we can compute the set of
+	// IPs that have been completely removed and safely delete their metadata.
+	maybeStaleIPs := n.cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
 
 	metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToCleanSlice)))
 	namesCount := len(namesToCleanSlice)
