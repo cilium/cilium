@@ -424,7 +424,7 @@ func (c *DNSCache) partialRestoreFromCache(update *DNSCache, namesToUpdate []str
 // dns code path is the one doing the ipcache upsert correctly so the lookups can correctly
 // wait for ipcache propagation of new IPs. We also do this to ensure IPs are correctly upserted,
 // since they will not be upserted during the GC cycle.
-func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*DNSCache) {
+func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*DNSCache) map[netip.Addr][]string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -449,6 +449,7 @@ func (c *DNSCache) ReplaceFromCacheByNames(namesToUpdate []string, updates ...*D
 	}
 
 	c.updated.Clear()
+	return oldEntries
 }
 
 // Lookup returns a set of unique IPs that are currently unexpired for name, if
