@@ -1131,3 +1131,265 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 		}
 	}
 }
+
+// TestPrivilegedMapCloseWithActiveOperations tests that Close() waits for active
+// operations to complete before actually closing the map. This addresses GH issue
+// https://github.com/cilium/cilium/issues/39287.
+func TestPrivilegedMapCloseWithActiveOperations(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	CheckOrMountFS(hivetest.Logger(t), "")
+
+	err := rlimit.RemoveMemlock()
+	require.NoError(t, err)
+
+	maxEntries := uint32(100)
+	m := NewMap("cilium_close_test",
+		ebpf.Hash,
+		&TestKey{},
+		&TestValue{},
+		int(maxEntries),
+		unix.BPF_F_NO_PREALLOC).WithCache()
+	err = m.OpenOrCreate()
+	require.NoError(t, err)
+	defer func() {
+		path, _ := m.Path()
+		os.Remove(path)
+	}()
+
+	// Prepopulate the map
+	for i := uint32(0); i < maxEntries; i++ {
+		err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 100})
+		require.NoError(t, err)
+	}
+
+	// Channel to signal when the dump starts
+	dumpStarted := make(chan struct{})
+	// Channel to signal when Close() is called
+	closeCalled := make(chan struct{})
+	// Channel to signal when Close() completes
+	closeCompleted := make(chan struct{})
+	// Channel to signal when dump completes
+	dumpCompleted := make(chan struct{})
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Goroutine 1: Start a DumpReliablyWithCallback that will take some time
+	go func() {
+		defer wg.Done()
+		stats := NewDumpStats(m)
+		close(dumpStarted)
+		err := m.DumpReliablyWithCallback(func(key MapKey, value MapValue) {
+			// Signal that Close has been called (if it has)
+			select {
+			case <-closeCalled:
+				// Good, Close was called while we're iterating
+			default:
+			}
+			// Slow down the iteration to ensure Close() has time to be called
+			time.Sleep(10 * time.Millisecond)
+		}, stats)
+		require.NoError(t, err)
+		close(dumpCompleted)
+	}()
+
+	// Goroutine 2: Try to close the map while the dump is in progress
+	go func() {
+		defer wg.Done()
+		<-dumpStarted
+		// Give the dump time to acquire the reference
+		time.Sleep(50 * time.Millisecond)
+		close(closeCalled)
+		// This should block until the dump completes
+		err := m.Close()
+		require.NoError(t, err)
+		close(closeCompleted)
+	}()
+
+	// Wait for both operations to complete
+	wg.Wait()
+
+	// Verify that the dump completed before the close
+	select {
+	case <-dumpCompleted:
+		// Good, dump completed
+	default:
+		t.Fatal("Dump should have completed")
+	}
+
+	select {
+	case <-closeCompleted:
+		// Good, close completed
+	default:
+		t.Fatal("Close should have completed")
+	}
+}
+
+// TestPrivilegedMapCloseWithConcurrentDumps tests that Close() properly waits
+// for multiple concurrent dump operations.
+func TestPrivilegedMapCloseWithConcurrentDumps(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	CheckOrMountFS(hivetest.Logger(t), "")
+
+	err := rlimit.RemoveMemlock()
+	require.NoError(t, err)
+
+	maxEntries := uint32(50)
+	m := NewMap("cilium_close_concurrent_test",
+		ebpf.Hash,
+		&TestKey{},
+		&TestValue{},
+		int(maxEntries),
+		unix.BPF_F_NO_PREALLOC).WithCache()
+	err = m.OpenOrCreate()
+	require.NoError(t, err)
+	defer func() {
+		path, _ := m.Path()
+		os.Remove(path)
+	}()
+
+	// Prepopulate the map
+	for i := uint32(0); i < maxEntries; i++ {
+		err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 100})
+		require.NoError(t, err)
+	}
+
+	var wg sync.WaitGroup
+	numDumpers := 5
+	dumpsStarted := make(chan struct{}, numDumpers)
+	dumpsCompleted := sync.WaitGroup{}
+	dumpsCompleted.Add(numDumpers)
+
+	// Start multiple concurrent dump operations
+	for i := 0; i < numDumpers; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			dumpsStarted <- struct{}{}
+			err := m.DumpWithCallback(func(key MapKey, value MapValue) {
+				// Slow down to ensure we have overlapping operations
+				time.Sleep(5 * time.Millisecond)
+			})
+			require.NoError(t, err)
+			dumpsCompleted.Done()
+		}(i)
+	}
+
+	// Wait for all dumps to start
+	for i := 0; i < numDumpers; i++ {
+		<-dumpsStarted
+	}
+
+	// Give dumps time to acquire references
+	time.Sleep(50 * time.Millisecond)
+
+	// Start close operation (should wait for all dumps to complete)
+	closeStarted := make(chan struct{})
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		close(closeStarted)
+		err := m.Close()
+		require.NoError(t, err)
+	}()
+
+	<-closeStarted
+	// Verify that dumps are still running
+	time.Sleep(50 * time.Millisecond)
+	require.Positive(t, m.refCount, "Reference count should be positive while dumps are active")
+
+	// Wait for all operations to complete
+	wg.Wait()
+
+	// Verify all dumps completed successfully
+	dumpsCompleted.Wait()
+
+	// Verify the map is now closed
+	require.Nil(t, m.m, "Map should be closed")
+	require.Equal(t, 0, m.refCount, "Reference count should be zero after close")
+}
+
+// TestPrivilegedMapDraining tests that the draining mechanism prevents new
+// operations from starting once Close() is called, ensuring Close() completes
+// in a timely manner.
+func TestPrivilegedMapDraining(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	CheckOrMountFS(hivetest.Logger(t), "")
+
+	err := rlimit.RemoveMemlock()
+	require.NoError(t, err)
+
+	maxEntries := uint32(50)
+	m := NewMap("cilium_drain_test",
+		ebpf.Hash,
+		&TestKey{},
+		&TestValue{},
+		int(maxEntries),
+		unix.BPF_F_NO_PREALLOC).WithCache()
+	err = m.OpenOrCreate()
+	require.NoError(t, err)
+	defer func() {
+		path, _ := m.Path()
+		os.Remove(path)
+	}()
+
+	// Prepopulate the map
+	for i := uint32(0); i < maxEntries; i++ {
+		err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 100})
+		require.NoError(t, err)
+	}
+
+	// Start a long-running operation
+	operationStarted := make(chan struct{})
+	operationCompleted := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		close(operationStarted)
+		err := m.DumpWithCallback(func(key MapKey, value MapValue) {
+			time.Sleep(20 * time.Millisecond)
+		})
+		require.NoError(t, err)
+		close(operationCompleted)
+	}()
+
+	// Wait for operation to start
+	<-operationStarted
+	time.Sleep(50 * time.Millisecond)
+
+	// Start closing the map
+	closeStarted := make(chan struct{})
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		close(closeStarted)
+		err := m.Close()
+		require.NoError(t, err)
+	}()
+
+	// Wait for close to start (which sets draining=true)
+	<-closeStarted
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify draining is set
+	require.True(t, m.draining, "Map should be in draining state")
+
+	// Try to start a new operation - it should fail because draining=true
+	err = m.DumpWithCallback(func(key MapKey, value MapValue) {
+		t.Fatal("This callback should never be called - map is draining")
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "map is closed")
+
+	// Wait for everything to complete
+	wg.Wait()
+
+	// Verify the map is now closed
+	require.Nil(t, m.m, "Map should be closed")
+	require.Equal(t, 0, m.refCount, "Reference count should be zero after close")
+}
