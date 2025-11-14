@@ -80,6 +80,10 @@ func readInput(t *testing.T, file string) []client.Object {
 			obj := &corev1.Service{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
+		case "ConfigMap":
+			obj := &corev1.ConfigMap{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
 		case "Secret":
 			obj := &corev1.Secret{}
 			fromYaml(t, o, obj)
@@ -110,6 +114,10 @@ func readInput(t *testing.T, file string) []client.Object {
 			res = append(res, obj)
 		case "ServiceImport":
 			obj := &mcsapiv1alpha1.ServiceImport{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
+		case "BackendTLSPolicy":
+			obj := &gatewayv1.BackendTLSPolicy{}
 			fromYaml(t, o, obj)
 			res = append(res, obj)
 		}

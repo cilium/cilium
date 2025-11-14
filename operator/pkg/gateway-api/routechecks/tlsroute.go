@@ -64,7 +64,7 @@ func (t *TLSRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentRe
 		}
 	}
 	if index != -1 {
-		t.TLSRoute.Status.RouteStatus.Parents[index].Conditions = merge(t.TLSRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
+		t.TLSRoute.Status.RouteStatus.Parents[index].Conditions = helpers.MergeConditions(t.TLSRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
 		return
 	}
 	t.TLSRoute.Status.RouteStatus.Parents = append(t.TLSRoute.Status.RouteStatus.Parents, gatewayv1alpha2.RouteParentStatus{
