@@ -687,6 +687,7 @@ ct_recreate6:
 	 * enabled, jump to the bpf_host program to enforce ingress host policies.
 	 */
 	if (*dst_sec_identity == HOST_ID) {
+		ctx_store_meta(ctx, CB_SRC_LABEL, SECLABEL_IPV6);
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
 		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
 
@@ -1168,6 +1169,7 @@ ct_recreate4:
 	 * program may not yet be present at this time.
 	 */
 	if (*dst_sec_identity == HOST_ID) {
+		ctx_store_meta(ctx, CB_SRC_LABEL, SECLABEL_IPV4);
 		ctx_store_meta(ctx, CB_FROM_HOST, 0);
 		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
 
