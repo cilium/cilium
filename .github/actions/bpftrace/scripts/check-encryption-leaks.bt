@@ -289,8 +289,8 @@ kprobe:br_forward
         }
 
         if ($ip6h->nexthdr == PROTO_ICMP_IPV6 || $ip6h->nexthdr == PROTO_FRAGMENT_IPV6) {
-          $frag_id = 0;
-          $frag_off_res_m = 0;
+          $frag_id = (uint32)0;
+          $frag_off_res_m = (uint16)0;
 
           if ($ip6h->nexthdr == PROTO_FRAGMENT_IPV6) {
             $frag_hdr = (struct frag_hdr *)($ip6h + 1);
