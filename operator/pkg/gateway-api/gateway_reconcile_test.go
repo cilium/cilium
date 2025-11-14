@@ -23,6 +23,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
@@ -47,6 +48,10 @@ var (
 	tlsRouteTypeMeta = metav1.TypeMeta{
 		Kind:       "TLSRoute",
 		APIVersion: gatewayv1alpha2APIVersion,
+	}
+	backendTLSPolicyTypeMeta = metav1.TypeMeta{
+		Kind:       "BackendTLSPolicy",
+		APIVersion: gatewayv1APIVersion,
 	}
 )
 
@@ -183,7 +188,13 @@ func Test_Conformance(t *testing.T) {
 		},
 		{name: "httproute-exact-path-matching", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-header-matching", gateway: []gwDetails{gatewaySameNamespace}},
-		{name: "httproute-hostname-intersection", gateway: []gwDetails{gatewaySameNamespace}},
+		{
+			name: "httproute-hostname-intersection",
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "httproute-hostname-intersection", Namespace: "gateway-conformance-infra"}},
+				{FullName: types.NamespacedName{Name: "httproute-hostname-intersection-all", Namespace: "gateway-conformance-infra"}},
+			},
+		},
 		{name: "httproute-https-listener", gateway: []gwDetails{gatewaySameNamespaceWithHTTPS}},
 		{name: "httproute-invalid-backendref-unknown-kind", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-invalid-backendref-missing-service-port", gateway: []gwDetails{gatewaySameNamespace}},
@@ -195,8 +206,14 @@ func Test_Conformance(t *testing.T) {
 		{name: "httproute-invalid-parentref-not-matching-section-name", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-invalid-parentref-section-name-not-matching-port", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-invalid-reference-grant", gateway: []gwDetails{gatewaySameNamespace}},
-		{name: "httproute-listener-hostname-matching", gateway: []gwDetails{gatewaySameNamespace}},
-		{name: "httproute-listener-port-matching", gateway: []gwDetails{gatewaySameNamespace}},
+		{
+			name:    "httproute-listener-hostname-matching",
+			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "httproute-listener-hostname-matching", Namespace: "gateway-conformance-infra"}}},
+		},
+		{
+			name:    "httproute-listener-port-matching",
+			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "httproute-listener-port-matching", Namespace: "gateway-conformance-infra"}}},
+		},
 		{name: "httproute-matching", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-matching-across-routes", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-method-matching", gateway: []gwDetails{gatewaySameNamespace}},
@@ -227,125 +244,142 @@ func Test_Conformance(t *testing.T) {
 			name: "httproute-invalid-serviceimport-no-crd", gateway: []gwDetails{gatewaySameNamespace},
 			disableServiceImport: true,
 		},
+		{name: "httproute-backendtlspolicy-valid", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-backendtlspolicy-reencrypt", gateway: []gwDetails{gatewaySameNamespaceWithHTTPS}},
+		{name: "httproute-backendtlspolicy-multiparent", gateway: []gwDetails{gatewaySameNamespace, gatewaySameNamespaceWithHTTPS}},
+		{name: "httproute-backendtlspolicy-conflict-resolution", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-backendtlspolicy-invalid-ca-cert", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-backendtlspolicy-invalid-kind", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "tlsroute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute-referencegrant", Namespace: "gateway-conformance-infra"}}}},
 		{name: "tlsroute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute", Namespace: "gateway-conformance-infra"}}}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			base := readInputDir(t, "testdata/gateway/base")
+			input := readInputDir(t, fmt.Sprintf("testdata/gateway/%s/input", tt.name))
+
+			clientBuilder := fake.NewClientBuilder().
+				WithObjects(append(base, input...)...).
+				WithStatusSubresource(&corev1.Service{}).
+				WithStatusSubresource(&gatewayv1.GRPCRoute{}).
+				WithStatusSubresource(&gatewayv1.HTTPRoute{}).
+				WithStatusSubresource(&gatewayv1alpha2.TLSRoute{}).
+				WithStatusSubresource(&gatewayv1.Gateway{}).
+				WithStatusSubresource(&gatewayv1.GatewayClass{}).
+				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{})
+
+			switch tt.disableServiceImport {
+			case true:
+				clientBuilder.WithScheme(testSchemeNoServiceImport())
+			case false:
+				clientBuilder.WithScheme(testScheme())
+			}
+
+			// Add any required indexes here
+			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, gatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, backendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
+			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, gatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, gatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
+
+			c := clientBuilder.Build()
+
+			r := &gatewayReconciler{
+				Client:     c,
+				translator: gatewayAPITranslator,
+				logger:     logger,
+			}
+
+			// Reconcile all related HTTPRoute objects
+			hrList := &gatewayv1.HTTPRouteList{}
+			err := c.List(t.Context(), hrList)
+			require.NoError(t, err)
+
+			// Reconcile all related TLSRoute objects
+			tlsrList := &gatewayv1alpha2.TLSRouteList{}
+			err = c.List(t.Context(), tlsrList)
+			require.NoError(t, err)
+
+			// Reconcile all related GRPCRoute objects
+			grpcrList := &gatewayv1.GRPCRouteList{}
+			err = c.List(t.Context(), grpcrList)
+			require.NoError(t, err)
+
+			// Reconcile all BackendTLSPolicy objects
+			btlspList := &gatewayv1.BackendTLSPolicyList{}
+			err = c.List(t.Context(), btlspList)
+			require.NoError(t, err)
+
 			for _, gwDetail := range tt.gateway {
-				t.Run(gwDetail.FullName.Name, func(t *testing.T) {
-					base := readInputDir(t, "testdata/gateway/base")
-					input := readInputDir(t, fmt.Sprintf("testdata/gateway/%s/input", tt.name))
+				// Reconcile the gateway under test
+				result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwDetail.FullName})
+				require.Equal(t, gwDetail.wantErr, err != nil, "Got an unexpected reconciliation error")
+				require.Equal(t, ctrl.Result{}, result)
 
-					clientBuilder := fake.NewClientBuilder().
-						WithObjects(append(base, input...)...).
-						WithStatusSubresource(&corev1.Service{}).
-						WithStatusSubresource(&gatewayv1.GRPCRoute{}).
-						WithStatusSubresource(&gatewayv1.HTTPRoute{}).
-						WithStatusSubresource(&gatewayv1alpha2.TLSRoute{}).
-						WithStatusSubresource(&gatewayv1.Gateway{}).
-						WithStatusSubresource(&gatewayv1.GatewayClass{})
+				// Checking the output for Gateway
+				actualGateway := &gatewayv1.Gateway{}
+				err = c.Get(t.Context(), gwDetail.FullName, actualGateway)
+				// TODO(youngnick): controller-runtime has broken something with the fake client
+				// Bypass for now
+				actualGateway.TypeMeta = gatewayTypeMeta
+				require.NoError(t, err)
+				expectedGateway := &gatewayv1.Gateway{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
+				require.Empty(t, cmp.Diff(expectedGateway, actualGateway, cmpIgnoreFields...))
+				if !gwDetail.wantErr {
+					// Checking the output for CiliumEnvoyConfig
+					actualCEC := &ciliumv2.CiliumEnvoyConfig{}
+					err = c.Get(t.Context(), client.ObjectKey{Namespace: gwDetail.FullName.Namespace, Name: "cilium-gateway-" + gwDetail.FullName.Name}, actualCEC)
+					require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
+					expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
+					readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", tt.name, gwDetail.FullName.Name), expectedCEC)
 
-					switch tt.disableServiceImport {
-					case true:
-						clientBuilder.WithScheme(testSchemeNoServiceImport())
-					case false:
-						clientBuilder.WithScheme(testScheme())
-					}
-
-					// Add any required indexes here
-					clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, gatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
-					clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, gatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
-					clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, gatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
-
-					c := clientBuilder.Build()
-
-					r := &gatewayReconciler{
-						Client:     c,
-						translator: gatewayAPITranslator,
-						logger:     logger,
-					}
-
-					// Reconcile all related HTTPRoute objects
-					hrList := &gatewayv1.HTTPRouteList{}
-					err := c.List(t.Context(), hrList)
 					require.NoError(t, err)
-					filterList := filterHTTPRoute(hrList, gwDetail.FullName.Name, gwDetail.FullName.Namespace)
+					require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
+				}
 
-					// Reconcile all related TLSRoute objects
-					tlsrList := &gatewayv1alpha2.TLSRouteList{}
-					err = c.List(t.Context(), tlsrList)
-					require.NoError(t, err)
-					filterTLSRouteList := filterTLSRoute(tlsrList, gwDetail.FullName.Name, gwDetail.FullName.Namespace)
+			}
+			// Checking the output for related HTTPRoute objects
+			for _, hr := range hrList.Items {
+				actualHR := &gatewayv1.HTTPRoute{}
+				err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
+				// TODO(youngnick): controller-runtime has broken something with the fake client
+				// Bypass for now
+				actualHR.TypeMeta = httpRouteTypeMeta
+				require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
+				expectedHR := &gatewayv1.HTTPRoute{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
+				require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
+			}
 
-					// Reconcile all related GRPCRoute objects
-					grpcrList := &gatewayv1.GRPCRouteList{}
-					err = c.List(t.Context(), grpcrList)
-					require.NoError(t, err)
-					filterGRPCRouteList := filterGRPCRoute(grpcrList, gwDetail.FullName.Name, gwDetail.FullName.Namespace)
+			for _, tlsr := range tlsrList.Items {
+				actualTLSR := &gatewayv1alpha2.TLSRoute{}
+				err = c.Get(t.Context(), client.ObjectKeyFromObject(&tlsr), actualTLSR)
+				actualTLSR.TypeMeta = tlsRouteTypeMeta
+				require.NoError(t, err, "error getting TLSRoute %s/%s: %v", tlsr.Namespace, tlsr.Name, err)
+				expectedTLSR := &gatewayv1alpha2.TLSRoute{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", tt.name, tlsr.Name), expectedTLSR)
+				require.Empty(t, cmp.Diff(expectedTLSR, actualTLSR, cmpIgnoreFields...))
+			}
 
-					// Reconcile the gateway under test
-					result, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: gwDetail.FullName})
-					require.Equal(t, gwDetail.wantErr, err != nil, "Got an unexpected reconciliation error")
-					require.Equal(t, ctrl.Result{}, result)
+			for _, grpcr := range grpcrList.Items {
+				actualGRPCR := &gatewayv1.GRPCRoute{}
+				err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
+				actualGRPCR.TypeMeta = grpcRouteTypeMeta
+				require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
+				expectedGRPCR := &gatewayv1.GRPCRoute{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
+				require.Empty(t, cmp.Diff(expectedGRPCR, actualGRPCR, cmpIgnoreFields...))
+			}
 
-					// Checking the output for Gateway
-					actualGateway := &gatewayv1.Gateway{}
-					err = c.Get(t.Context(), gwDetail.FullName, actualGateway)
-					// TODO(youngnick): controller-runtime has broken something with the fake client
-					// Bypass for now
-					actualGateway.TypeMeta = gatewayTypeMeta
-					require.NoError(t, err)
-					expectedGateway := &gatewayv1.Gateway{}
-					readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/%s.yaml", tt.name, gwDetail.FullName.Name), expectedGateway)
-					require.Empty(t, cmp.Diff(expectedGateway, actualGateway, cmpIgnoreFields...))
-
-					// Checking the output for related HTTPRoute objects
-					for _, hr := range filterList {
-						actualHR := &gatewayv1.HTTPRoute{}
-						err = c.Get(t.Context(), client.ObjectKeyFromObject(&hr), actualHR)
-						// TODO(youngnick): controller-runtime has broken something with the fake client
-						// Bypass for now
-						actualHR.TypeMeta = httpRouteTypeMeta
-						require.NoError(t, err, "error getting HTTPRoute %s/%s: %v", hr.Namespace, hr.Name, err)
-						expectedHR := &gatewayv1.HTTPRoute{}
-						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/httproute-%s.yaml", tt.name, hr.Name), expectedHR)
-						require.Empty(t, cmp.Diff(expectedHR, actualHR, cmpIgnoreFields...))
-					}
-
-					for _, tlsr := range filterTLSRouteList {
-						actualTLSR := &gatewayv1alpha2.TLSRoute{}
-						err = c.Get(t.Context(), client.ObjectKeyFromObject(&tlsr), actualTLSR)
-						actualTLSR.TypeMeta = tlsRouteTypeMeta
-						require.NoError(t, err, "error getting TLSRoute %s/%s: %v", tlsr.Namespace, tlsr.Name, err)
-						expectedTLSR := &gatewayv1alpha2.TLSRoute{}
-						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/tlsroute-%s.yaml", tt.name, tlsr.Name), expectedTLSR)
-						require.Empty(t, cmp.Diff(expectedTLSR, actualTLSR, cmpIgnoreFields...))
-					}
-
-					for _, grpcr := range filterGRPCRouteList {
-						actualGRPCR := &gatewayv1.GRPCRoute{}
-						err = c.Get(t.Context(), client.ObjectKeyFromObject(&grpcr), actualGRPCR)
-						actualGRPCR.TypeMeta = grpcRouteTypeMeta
-						require.NoError(t, err, "error getting GRPCRoute %s/%s: %v", grpcr.Namespace, grpcr.Name, err)
-						expectedGRPCR := &gatewayv1.GRPCRoute{}
-						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/grpcroute-%s.yaml", tt.name, grpcr.Name), expectedGRPCR)
-						require.Empty(t, cmp.Diff(expectedGRPCR, actualGRPCR, cmpIgnoreFields...))
-					}
-
-					if !gwDetail.wantErr {
-						// Checking the output for CiliumEnvoyConfig
-						actualCEC := &ciliumv2.CiliumEnvoyConfig{}
-						err = c.Get(t.Context(), client.ObjectKey{Namespace: gwDetail.FullName.Namespace, Name: "cilium-gateway-" + gwDetail.FullName.Name}, actualCEC)
-						require.NoError(t, err, "Could not get CiliumEnvoyConfig and wasn't expecting a reconciliation error")
-						expectedCEC := &ciliumv2.CiliumEnvoyConfig{}
-						readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/cec-%s.yaml", tt.name, gwDetail.FullName.Name), expectedCEC)
-
-						require.NoError(t, err)
-						require.Empty(t, cmp.Diff(expectedCEC, actualCEC, protocmp.Transform()))
-					}
-				})
+			for _, btlsp := range btlspList.Items {
+				actualBTLSP := &gatewayv1.BackendTLSPolicy{}
+				err = c.Get(t.Context(), client.ObjectKeyFromObject(&btlsp), actualBTLSP)
+				actualBTLSP.TypeMeta = backendTLSPolicyTypeMeta
+				require.NoError(t, err, "error getting BackendTLSPolicy %s/%s: %v", btlsp.Namespace, btlsp.Name, err)
+				expectedBTLSP := &gatewayv1.BackendTLSPolicy{}
+				readOutput(t, fmt.Sprintf("testdata/gateway/%s/output/backendtlspolicy-%s.yaml", tt.name, btlsp.Name), expectedBTLSP)
+				require.Empty(t, cmp.Diff(expectedBTLSP, actualBTLSP, cmpIgnoreFields...))
 			}
 		})
 	}
@@ -359,22 +393,6 @@ func filterHTTPRoute(hrList *gatewayv1.HTTPRouteList, gatewayName string, namesp
 				if string(parentRef.Name) == gatewayName &&
 					((parentRef.Namespace == nil && hr.Namespace == namespace) || string(*parentRef.Namespace) == namespace) {
 					filterList = append(filterList, hr)
-					break
-				}
-			}
-		}
-	}
-	return filterList
-}
-
-func filterTLSRoute(tlsrList *gatewayv1alpha2.TLSRouteList, gatewayName string, namespace string) []gatewayv1alpha2.TLSRoute {
-	var filterList []gatewayv1alpha2.TLSRoute
-	for _, tlsr := range tlsrList.Items {
-		if len(tlsr.Spec.CommonRouteSpec.ParentRefs) > 0 {
-			for _, parentRef := range tlsr.Spec.CommonRouteSpec.ParentRefs {
-				if string(parentRef.Name) == gatewayName &&
-					((parentRef.Namespace == nil && tlsr.Namespace == namespace) || string(*parentRef.Namespace) == namespace) {
-					filterList = append(filterList, tlsr)
 					break
 				}
 			}
@@ -664,4 +682,34 @@ func Test_sectionNameMatched(t *testing.T) {
 			assert.Equalf(t, tt.want, parentRefMatched(gw, tt.args.listener, "default", tt.args.refs), "parentRefMatched(%v, %v, %v, %v)", gw, tt.args.listener, tt.args.routeNamespace, tt.args.refs)
 		})
 	}
+}
+
+// fakeIndexHTTPRouteByBackendService is a client.IndexerFunc that takes a single HTTPRoute and
+// returns all referenced backend service full names (`namespace/name`) to add to the relevant index.
+//
+// The actual indexer does some dereferencing lookups in order to handle some ServiceImport
+// behaviors correctly. This one is what that indexer used to look like before we added ServiceImport
+// support.
+func fakeIndexHTTPRouteByBackendService(rawObj client.Object) []string {
+	route, ok := rawObj.(*gatewayv1.HTTPRoute)
+	if !ok {
+		return nil
+	}
+	var backendServices []string
+
+	for _, rule := range route.Spec.Rules {
+		for _, backend := range rule.BackendRefs {
+			if !helpers.IsService(backend.BackendObjectReference) {
+				continue
+			}
+			namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
+			backendServices = append(backendServices,
+				types.NamespacedName{
+					Namespace: namespace,
+					Name:      string(backend.Name),
+				}.String(),
+			)
+		}
+	}
+	return backendServices
 }

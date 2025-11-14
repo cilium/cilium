@@ -86,6 +86,10 @@ func IsSecret(secret gatewayv1.SecretObjectReference) bool {
 	return (secret.Kind == nil || *secret.Kind == kindSecret) && (secret.Group == nil || *secret.Group == corev1.GroupName)
 }
 
+func IsServiceTargetRef(tr gatewayv1.LocalPolicyTargetReferenceWithSectionName) bool {
+	return tr.Kind == kindService && tr.Group == corev1.GroupName
+}
+
 // getConcreteObject returns an instance of a concrete object type based on the
 // given GroupVersionKind.
 func GetConcreteObject(schemaType schema.GroupVersionKind) runtime.Object {
