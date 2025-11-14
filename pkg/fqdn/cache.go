@@ -50,6 +50,15 @@ type cacheEntry struct {
 	IPs []netip.Addr `json:"ips,omitempty"`
 }
 
+// UpdateStatus contains data about the change of a DNS cache.
+type UpdateStatus struct {
+	// Update is true if one or more of the elements in the cache was updated. This can be a new IP<>name mapping or
+	// just the update of a similar lookup with a new and longer expiry time.
+	Updated bool
+	// Upserted is true if one or more IP<>name entry was added to the cache.
+	Upserted bool
+}
+
 // isExpiredBy returns true if entry is no longer valid at pointInTime
 func (entry *cacheEntry) isExpiredBy(pointInTime time.Time) bool {
 	return pointInTime.After(entry.ExpirationTime)
@@ -183,7 +192,7 @@ func (c *DNSCache) DisableCleanupTrack() {
 // name is used as is and may be an unqualified name (e.g. myservice.namespace).
 // ips may be an IPv4 or IPv6 IP. Duplicates will be removed.
 // ttl is the DNS TTL for ips and is a seconds value.
-func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, ttl int, updates ...*DNSCache) (bool, bool) {
+func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, ttl int, updates ...*DNSCache) UpdateStatus {
 	if c.minTTL > ttl {
 		ttl = c.minTTL
 	}
@@ -210,19 +219,19 @@ func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, t
 // were new.
 // It returns two booleans that indicate if the dns cache was updated, and if one
 // or more IPs were new and therefore upserted
-func (c *DNSCache) updateWithEntry(entry *cacheEntry) (bool, bool) {
+func (c *DNSCache) updateWithEntry(entry *cacheEntry) UpdateStatus {
 	entries, exists := c.forward[entry.Name]
 	if !exists {
 		entries = make(map[netip.Addr]*cacheEntry)
 		c.forward[entry.Name] = entries
 	}
 
-	updated, upserted := c.updateWithEntryIPs(entries, entry)
+	res := c.updateWithEntryIPs(entries, entry)
 
 	if c.perHostLimit > 0 && len(entries) > c.perHostLimit {
 		c.overLimit[entry.Name] = true
 	}
-	return updated, upserted
+	return res
 }
 
 // AddNameToCleanup adds the IP with the given TTL to the cleanup map to
@@ -557,7 +566,7 @@ func (c *DNSCache) RemoveKnown(mappings map[netip.Addr][]string) {
 // (which maps IP -> cacheEntry). It will replace existing IP->old mappings in
 // `entries` if the current entry expires sooner (or has already expired).
 // This needs a write lock
-func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) (bool, bool) {
+func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) UpdateStatus {
 	updated := false
 	upserted := false
 	for _, ip := range entry.IPs {
@@ -572,7 +581,10 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) (boo
 			upserted = true
 		}
 	}
-	return updated, upserted
+	return UpdateStatus{
+		Upserted: upserted,
+		Updated:  updated,
+	}
 
 }
 
