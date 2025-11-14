@@ -419,6 +419,7 @@ hugepages
 hv
 iBGP
 icmp
+icmpv6
 ie
 ifindex
 igb
