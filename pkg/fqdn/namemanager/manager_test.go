@@ -270,15 +270,18 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	require.NoError(t, nameManager.doGC(t.Context()))
 	require.Empty(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()))
 	require.Empty(t, ipc.labelsForPrefix(prefixOne))
+	require.NotContains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Upsert to global cache and ensure its present
 	nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixOne.AsPrefix().Addr()}}, ep.DNSHistory)
 	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixOne))
+	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Run GC and ensure it's still present
 	// This is again assuming the GC started before the endpoint was created, so the manager still does not know about the endpoint
 	require.NoError(t, nameManager.doGC(t.Context()))
 	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixOne))
+	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Add endpoint to the manager
 	epMgr.UpsertEndpoint(ep)
@@ -286,6 +289,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	// After endpoint is added, ensure it's still in the cache
 	require.NoError(t, nameManager.doGC(t.Context()))
 	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixOne))
+	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Insert old prefix that will end up as zombie
 	ep.DNSHistory.Update(lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), []netip.Addr{prefixTwo.AsPrefix().Addr()}, 10)
@@ -294,6 +298,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	// Run GC and check that the prefix is upserted to the ipcache
 	require.NoError(t, nameManager.doGC(t.Context()))
 	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixTwo))
+	require.Contains(t, nameManager.cache.LookupIP(prefixTwo.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Add another prefix to local cache
 	ep.DNSHistory.Update(lookupTime, dns.FQDN("cilium.io"), []netip.Addr{prefixThree.AsPrefix().Addr()}, 10)
@@ -302,10 +307,12 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	require.NoError(t, nameManager.doGC(t.Context()))
 	require.Empty(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()))
 	require.Empty(t, ipc.labelsForPrefix(prefixThree))
+	require.NotContains(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Upsert to global cache and ensure its present
 	nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixThree.AsPrefix().Addr()}}, ep.DNSHistory)
 	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixThree))
+	require.Contains(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Run GC and ensure it's still present
 	require.NoError(t, nameManager.doGC(t.Context()))
@@ -325,6 +332,7 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	ep.DNSHistory.Update(lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), []netip.Addr{prefixFour.AsPrefix().Addr()}, 10)
 	nameManager.UpdateGenerateDNS(t.Context(), lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixFour.AsPrefix().Addr()}}, ep.DNSHistory)
 	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixFour))
+	require.Contains(t, nameManager.cache.LookupIP(prefixFour.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Explicitly GC the local cache to ensure the IP goes fully unused by any endpoint - except for the zombie.
 	// However, since the endpoint is deleted by the time of the next endpointManager GC, it won't be seen by the
