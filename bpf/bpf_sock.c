@@ -14,6 +14,7 @@
 
 #include "lib/common.h"
 #include "lib/lb.h"
+#include "lib/lrp.h"
 #include "lib/endian.h"
 #include "lib/eps.h"
 #include "lib/identity.h"
@@ -317,8 +318,8 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 #ifdef ENABLE_LOCAL_REDIRECT_POLICY
 	if (lb4_svc_is_localredirect(svc) &&
-	    lb4_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx_full),
-					   orig_key.address, orig_key.dport))
+	    lrp_v4_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx_full),
+					      orig_key.address, orig_key.dport))
 		return -ENXIO;
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
@@ -1022,7 +1023,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 #if defined(ENABLE_LOCAL_REDIRECT_POLICY)
 	if (lb6_svc_is_localredirect(svc) &&
-	    lb6_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx), orig_key.address, orig_key.dport))
+	    lrp_v6_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx),
+					      orig_key.address, orig_key.dport))
 		return -ENXIO;
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
