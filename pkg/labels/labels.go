@@ -742,12 +742,25 @@ func (l Labels) IsReserved() bool {
 
 // Has returns true if l contains the given label.
 func (l Labels) Has(label Label) bool {
+	_, exists := l.LookupLabel(&label)
+	return exists
+}
+
+func (l Labels) LookupLabel(label *Label) (value string, exists bool) {
+	if label.Source != LabelSourceCIDR {
+		lbl, ok := l[label.Key]
+		if ok && lbl.Has(label) {
+			return lbl.Value, true
+		}
+		return "", false
+	}
+
 	for _, lbl := range l {
-		if lbl.Has(&label) {
-			return true
+		if lbl.Has(label) {
+			return lbl.Value, true
 		}
 	}
-	return false
+	return "", false
 }
 
 // HasSource returns true if l contains the given label source.
@@ -851,6 +864,12 @@ func parseLabel(str string, delim byte) (lbl Label) {
 // LabelSourceAny
 func ParseSelectLabel(str string) Label {
 	return parseSelectLabel(str, ':')
+}
+
+// ParseSelectDotLabel returns a selecting label representation of the given
+// string. Unlike ParseSelectLabel it expects the source separator to be '.'.
+func ParseSelectDotLabel(str string) Label {
+	return parseSelectLabel(str, '.')
 }
 
 // parseSelectLabel returns a selecting label representation of the given
