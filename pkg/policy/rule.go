@@ -47,7 +47,7 @@ func (r *rule) IsPeerSelector() bool {
 }
 
 func (r *rule) String() string {
-	return r.Subject.String()
+	return r.Subject.Key()
 }
 
 func (r *rule) origin() ruleOrigin {
@@ -324,8 +324,7 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, endpoints types.PeerSelectorSlice, auth *api.Authentication,
-	r api.Ports, p api.PortProtocol) (int, error) {
+func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, endpoints types.Selectors, auth *api.Authentication, r api.Ports, p api.PortProtocol) (int, error) {
 	// Create a new L4Filter
 	filterToMerge, err := createL4Filter(policyCtx, endpoints, auth, r, p)
 	if err != nil {
@@ -370,7 +369,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
 		if len(peerEndpoints) == 0 {
-			peerEndpoints = types.PeerSelectorSlice{api.WildcardEndpointSelector}
+			peerEndpoints = types.WildcardSelectors
 		}
 		if !policyCtx.IsDeny() {
 			policyCtx.PolicyTrace("      Allows port %v\n", ports.GetPortProtocols())
