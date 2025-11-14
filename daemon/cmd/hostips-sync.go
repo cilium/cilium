@@ -36,8 +36,7 @@ type syncHostIPsParams struct {
 	cell.In
 
 	Logger        *slog.Logger
-	Jobs          job.Registry
-	Health        cell.Health
+	JobGroup      job.Group
 	DB            *statedb.DB
 	Config        *option.DaemonConfig
 	NodeAddresses statedb.Table[tables.NodeAddress]
@@ -60,7 +59,7 @@ func (s *syncHostIPs) StartAndWaitFirst(ctx context.Context) error {
 	}
 }
 
-func newSyncHostIPs(lc cell.Lifecycle, p syncHostIPsParams) *syncHostIPs {
+func newSyncHostIPs(p syncHostIPsParams) *syncHostIPs {
 	s := &syncHostIPs{
 		params:     p,
 		start:      make(chan struct{}),
@@ -72,8 +71,7 @@ func newSyncHostIPs(lc cell.Lifecycle, p syncHostIPsParams) *syncHostIPs {
 		return s
 	}
 
-	g := p.Jobs.NewGroup(p.Health, lc)
-	g.Add(job.OneShot("sync-hostips", s.loop))
+	p.JobGroup.Add(job.OneShot("sync-hostips", s.loop))
 
 	return s
 }

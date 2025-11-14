@@ -18,6 +18,12 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/connector"
@@ -30,20 +36,12 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/time"
-
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
-	"github.com/cilium/statedb"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 type endpointUpdaterParams struct {
 	cell.In
 
-	Lifecycle   cell.Lifecycle
-	Health      cell.Health
-	JobRegistry job.Registry
+	JobGroup    job.Group
 	DB          *statedb.DB
 	MTUTable    statedb.Table[RouteMTU]
 	DeviceTable statedb.Table[*tables.Device]
@@ -84,8 +82,7 @@ func newEndpointUpdater(p endpointUpdaterParams) EndpointMTUUpdater {
 
 	// If we are not in chaining mode, or if we are in chaining mode and the CNI config requests us to manage route MTU
 	// Start the endpoint updater
-	jobGroup := p.JobRegistry.NewGroup(p.Health, p.Lifecycle)
-	jobGroup.Add(job.OneShot("endpoint-mtu-updater", endpointUpdater.Updater))
+	p.JobGroup.Add(job.OneShot("endpoint-mtu-updater", endpointUpdater.Updater))
 
 	return &endpointUpdater
 }
