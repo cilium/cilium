@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/daemon/healthz"
+	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
@@ -174,6 +175,9 @@ var (
 	ControlPlane = cell.Module(
 		"controlplane",
 		"Control Plane",
+
+		// IP allocation and creation of agents infrastructure endpoints (host, health & ingress)
+		infraendpoints.Cell,
 
 		// LocalNodeStore holds onto the information about the local node and allows
 		// observing changes to it.

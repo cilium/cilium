@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
+	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
@@ -33,15 +34,11 @@ import (
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
-	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/namemanager"
-	"github.com/cilium/cilium/pkg/health"
-	"github.com/cilium/cilium/pkg/healthconfig"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -72,7 +69,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
-	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/version"
@@ -1197,14 +1193,11 @@ var daemonCell = cell.Module(
 	cell.Provide(
 		daemonConfigInitialization,
 		daemonLegacyInitialization,
-		promise.New[endpointstate.Restorer],
 		promise.New[*option.DaemonConfig],
 		newSyncHostIPs,
-		newEndpointRestorer,
-		newInfraIPAllocator,
 	),
-	cell.Invoke(registerEndpointStateResolver),
 	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force instantiation.
+	endpointRestoreCell,
 )
 
 type daemonConfigParams struct {
@@ -1233,7 +1226,6 @@ type daemonParams struct {
 
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
-	JobGroup  job.Group
 
 	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
@@ -1242,17 +1234,12 @@ type daemonParams struct {
 	LocalNodeStore      *node.LocalNodeStore
 	Resources           agentK8s.Resources
 	K8sWatcher          *watchers.K8sWatcher
-	CacheStatus         k8sSynced.CacheStatus
 	NodeHandler         datapath.NodeHandler
-	EndpointCreator     endpointcreator.EndpointCreator
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointRestorer    *endpointRestorer
 	IdentityAllocator   identitycell.CachingIdentityAllocator
 	IdentityRestorer    *identityrestoration.LocalIdentityRestorer
 	Policy              policy.PolicyRepository
-	IPCache             *ipcache.IPCache
-	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
-	CiliumHealth        health.CiliumHealthManager
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
 	Devices             statedb.Table[*datapathTables.Device]
@@ -1268,8 +1255,7 @@ type daemonParams struct {
 	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
-	HealthConfig        healthconfig.CiliumHealthConfig
-	InfraIPAllocator    *infraIPAllocator
+	InfraIPAllocator    infraendpoints.InfraIPAllocator
 }
 
 func daemonConfigInitialization(params daemonConfigParams) legacy.DaemonConfigInitialization {
@@ -1331,6 +1317,12 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 				return fmt.Errorf("daemon configuration failed: %w", err)
 			}
 
+			params.Logger.Info("Daemon initialization completed", logfields.BootstrapTime, time.Since(bootstrapTimestamp))
+
+			if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
+				params.Logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
+			}
+
 			return nil
 		},
 		OnStop: func(cell.HookContext) error {
@@ -1341,103 +1333,7 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 		},
 	})
 
-	if !option.Config.DryMode {
-		// Register job that starts the legacy daemon functionality.
-		// This job itself isn't long-running - it only initializes and kicks off other components.
-		params.JobGroup.Add(job.OneShot("legacy-start", func(ctx context.Context, _ cell.Health) error {
-			if err := startDaemon(ctx, params); err != nil {
-				params.Logger.Error("Daemon start failed", logfields.Error, err)
-				return err
-			}
-			return nil
-		}, job.WithShutdown()))
-	}
-
 	return legacy.DaemonInitialization{}
-}
-
-// startDaemon starts the old unmodular part of the cilium-agent.
-// option.Config has already been exposed via *option.DaemonConfig promise,
-// so it may not be modified here
-func startDaemon(ctx context.Context, params daemonParams) error {
-	bootstrapStats.k8sInit.Start()
-	if params.Clientset.IsEnabled() {
-		// Wait only for certain caches, but not all!
-		// (Check Daemon.InitK8sSubsystem() for more info)
-		select {
-		case <-params.CacheStatus:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-
-	// wait for directory watcher to ingest policy from files
-	params.DirReadStatus.Wait()
-
-	bootstrapStats.k8sInit.End(true)
-
-	// After K8s caches have been synced, IPCache can start label injection.
-	// Ensure that the initial labels are injected before we regenerate endpoints
-	params.Logger.Debug("Waiting for initial IPCache revision")
-	if err := params.IPCache.WaitForRevision(ctx, 1); err != nil {
-		params.Logger.Error("Failed to wait for initial IPCache revision", logfields.Error, err)
-	}
-
-	params.EndpointRestorer.InitRestore()
-
-	if params.EndpointManager.HostEndpointExists() {
-		params.EndpointManager.InitHostEndpointLabels(ctx)
-	} else {
-		params.Logger.Info("Creating host endpoint")
-		if err := params.EndpointCreator.AddHostEndpoint(ctx); err != nil {
-			return fmt.Errorf("unable to create host endpoint: %w", err)
-		}
-	}
-
-	if params.DaemonConfig.EnableEnvoyConfig {
-		if !params.EndpointManager.IngressEndpointExists() {
-			// Creating Ingress Endpoint depends on the Ingress IPs having been
-			// allocated first. This happens earlier in the agent bootstrap.
-			if (params.DaemonConfig.EnableIPv4 && len(node.GetIngressIPv4(params.Logger)) == 0) ||
-				(option.Config.EnableIPv6 && len(node.GetIngressIPv6(params.Logger)) == 0) {
-				params.Logger.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
-			} else {
-				params.Logger.Info("Creating ingress endpoint")
-				err := params.EndpointCreator.AddIngressEndpoint(ctx)
-				if err != nil {
-					return fmt.Errorf("unable to create ingress endpoint: %w", err)
-				}
-			}
-		}
-	}
-
-	bootstrapStats.healthCheck.Start()
-	if params.HealthConfig.IsHealthCheckingEnabled() {
-		if err := params.CiliumHealth.Init(ctx, params.InfraIPAllocator.GetHealthEndpointRouting()); err != nil {
-			return fmt.Errorf("failed to initialize cilium health: %w", err)
-		}
-	}
-	bootstrapStats.healthCheck.End(true)
-
-	if err := params.MonitorAgent.SendEvent(monitorAPI.MessageTypeAgent, monitorAPI.StartMessage(time.Now())); err != nil {
-		params.Logger.Warn("Failed to send agent start monitor message", logfields.Error, err)
-	}
-
-	params.Logger.Info(
-		"Daemon initialization completed",
-		logfields.BootstrapTime, time.Since(bootstrapTimestamp),
-	)
-
-	bootstrapStats.overall.End(true)
-	bootstrapStats.updateMetrics()
-
-	return nil
-}
-
-func registerEndpointStateResolver(endpointRestorer *endpointRestorer, resolver promise.Resolver[endpointstate.Restorer]) {
-	// Restorer promise is still required to avoid circular dependencies -
-	// but we can immediately resolve it.
-	resolver.Resolve(endpointRestorer)
 }
 
 func initClockSourceOption(logger *slog.Logger) {

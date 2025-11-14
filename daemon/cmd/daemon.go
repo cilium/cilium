@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -258,19 +259,14 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		}
 	}
 
+	// Launch the K8s watchers in parallel as we continue to process other
+	// daemon options.
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
-	if params.Clientset.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-
-		// Launch the K8s watchers in parallel as we continue to process other
-		// daemon options.
-		params.K8sWatcher.InitK8sSubsystem(ctx, params.CacheStatus)
-		bootstrapStats.k8sInit.End(true)
-	} else {
-		close(params.CacheStatus)
-	}
+	bootstrapStats.k8sInit.Start()
+	params.K8sWatcher.InitK8sSubsystem(ctx)
+	bootstrapStats.k8sInit.End(true)
 
 	bootstrapStats.cleanup.Start()
 	err = clearCiliumVeths(params.Logger)
@@ -283,7 +279,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	// the Kubernetes or CiliumNode resource in the K8s subsystem from call
 	// k8s.WaitForNodeInformation(). These will be used later after starting
 	// IPAM initialization to finish off the `cilium_host` IP restoration.
-	var restoredRouterIPs restoredIPs
+	var restoredRouterIPs infraendpoints.RestoredIPs
 	restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv6FromK8s = node.GetInternalIPv4Router(params.Logger), node.GetIPv6Router(params.Logger)
 	// Fetch the router IPs from the filesystem in case they were set a priori
 	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS(params.Logger)
@@ -403,6 +399,9 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 			return fmt.Errorf("postinit failed: %w", err)
 		}
 	}
+
+	bootstrapStats.overall.End(true)
+	bootstrapStats.updateMetrics()
 
 	return nil
 }

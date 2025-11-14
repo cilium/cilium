@@ -110,6 +110,8 @@ type K8sWatcher struct {
 	// resource name maps to is closed.
 	k8sResourceSynced *synced.Resources
 
+	k8sCacheStatus synced.CacheStatus
+
 	// k8sAPIGroups is a set of k8s API in use. They are setup in watchers,
 	// and may be disabled while the agent runs.
 	k8sAPIGroups *synced.APIGroups
@@ -130,6 +132,7 @@ func newWatcher(
 	k8sCiliumEndpointsWatcher *K8sCiliumEndpointsWatcher,
 	k8sEventReporter *K8sEventReporter,
 	k8sResourceSynced *synced.Resources,
+	k8sCacheStatus synced.CacheStatus,
 	k8sAPIGroups *synced.APIGroups,
 	cfg WatcherConfiguration,
 	kcfg interface{ IsEnabled() bool },
@@ -144,6 +147,7 @@ func newWatcher(
 		k8sEndpointsWatcher:       k8sEndpointsWatcher,
 		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
 		k8sResourceSynced:         k8sResourceSynced,
+		k8sCacheStatus:            k8sCacheStatus,
 		k8sAPIGroups:              k8sAPIGroups,
 		cfg:                       cfg,
 		kcfg:                      kcfg,
@@ -235,7 +239,12 @@ func GetGroupsForCiliumResources(logger *slog.Logger, ciliumResources []string) 
 // The cachesSynced channel is closed when all caches are synchronized.
 // To be called after WaitForCRDsToRegister() so that all needed CRDs have
 // already been registered.
-func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan struct{}) {
+func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) {
+	if !k.clientset.IsEnabled() {
+		close(k.k8sCacheStatus)
+		return
+	}
+
 	resources, cachesOnly := k.resourceGroupsFn(k.logger, k.cfg)
 
 	k.logger.Info("Enabling k8s event listener")
@@ -248,7 +257,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 		if err := k.k8sResourceSynced.WaitForCacheSyncWithTimeout(ctx, option.Config.K8sSyncTimeout, allResources...); err != nil {
 			logging.Fatal(k.logger, "Timed out waiting for pre-existing resources to be received; exiting", logfields.Error, err)
 		}
-		close(cachesSynced)
+		close(k.k8sCacheStatus)
 	}()
 }
 
