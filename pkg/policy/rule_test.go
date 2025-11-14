@@ -1290,7 +1290,7 @@ func TestL3RuleLabels(t *testing.T) {
 						for sel := range filter.PerSelectorPolicies {
 							cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
 							t.Logf("Testing %+v", cidrLabels)
-							if matches = sel.(*identitySelector).source.(*labelIdentitySelector).matches(logger, cidrLabels); matches {
+							if matches = sel.(*identitySelector).source.(*types.CIDRSelector).Matches(cidrLabels); matches {
 								break
 							}
 						}
@@ -1499,6 +1499,7 @@ var (
 	}
 	idA               = identity.NewIdentity(1001, labelsA.Labels())
 	endpointSelectorA = api.NewESFromLabels(labels.ParseSelectLabel("id=a"))
+	labelSelectorA    = types.NewLabelSelector(endpointSelectorA)
 
 	labelsB = labels.LabelArray{
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
@@ -1514,6 +1515,7 @@ var (
 	}
 	idC               = identity.NewIdentity(1003, labelsC.Labels())
 	endpointSelectorC = api.NewESFromLabels(labels.ParseSelectLabel("id=t"))
+	labelSelectorC    = types.NewLabelSelector(endpointSelectorC)
 
 	flowAToB   = Flow{From: idA, To: idB, Proto: u8proto.TCP, Dport: 80}
 	flowAToC   = Flow{From: idA, To: idC, Proto: u8proto.TCP, Dport: 80}
@@ -1529,7 +1531,7 @@ var (
 	}
 
 	defaultDenyIngress = &types.PolicyEntry{
-		Subject:     api.WildcardEndpointSelector,
+		Subject:     types.WildcardSelector,
 		Ingress:     true,
 		DefaultDeny: true,
 	}
@@ -1565,11 +1567,9 @@ func TestIngressAllowAll(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
-				api.WildcardEndpointSelector,
-			},
+			L3: types.ToSelectors(api.WildcardEndpointSelector),
 		}})
 
 	checkFlow(t, repo, td.identityManager, flowAToB, api.Denied)
@@ -1587,15 +1587,13 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
-				api.WildcardEndpointSelector,
-			},
+			L3: types.ToSelectors(api.WildcardEndpointSelector),
 		}, &types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
 			// port 80 only
@@ -1619,11 +1617,9 @@ func TestIngressAllowAllNamedPort(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
-				api.WildcardEndpointSelector,
-			},
+			L3: types.ToSelectors(api.WildcardEndpointSelector),
 			L4: []api.PortRule{{
 				Ports: []api.PortProtocol{
 					{Port: "port-80", Protocol: api.ProtoTCP},
@@ -1645,15 +1641,13 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
-				api.WildcardEndpointSelector,
-			},
+			L3: types.ToSelectors(api.WildcardEndpointSelector),
 		}, &types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
 			// port 80 only
@@ -1676,8 +1670,8 @@ func TestIngressL4AllowAll(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
-			L3:          types.PeerSelectorSlice{},
+			Subject:     labelSelectorC,
+			L3:          types.Selectors{},
 			L4: []api.PortRule{{
 				Ports: []api.PortProtocol{
 					{Port: "80", Protocol: api.ProtoTCP},
@@ -2317,18 +2311,18 @@ func TestMatches(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorA,
-			L3:          types.PeerSelectorSlice{endpointSelectorC},
+			Subject:     labelSelectorA,
+			L3:          types.Selectors{labelSelectorC},
 		},
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject: api.NewESFromLabels(
+			Subject: types.NewLabelSelectorFromLabels(
 				labels.ParseSelectLabel("id=a"),
 				labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 			),
 			Node: true,
-			L3:   types.PeerSelectorSlice{endpointSelectorC},
+			L3:   types.Selectors{labelSelectorC},
 		},
 	})
 

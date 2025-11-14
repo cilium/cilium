@@ -48,7 +48,7 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: true,
-					L3:      types.PeerSelectorSlice{api.EndpointSelector{}},
+					L3:      types.ToSelectors(api.NewESFromLabels()),
 				},
 			},
 			want: wanted{
@@ -65,9 +65,9 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: true,
-					L3: types.ToPeerSelectorSlice(api.CIDRRuleSlice{
-						{CIDRGroupRef: "some-group-ref"},
-					}.GetAsEndpointSelectors()),
+					L3: types.ToSelectors(api.CIDRRule{
+						CIDRGroupRef: "some-group-ref",
+					}),
 				},
 			},
 			want: wanted{
@@ -87,9 +87,9 @@ func Test_ruleType(t *testing.T) {
 				r: policytypes.PolicyEntry{
 					Ingress: true,
 					Deny:    true,
-					L3: types.ToPeerSelectorSlice(api.CIDRRuleSlice{
-						{CIDRGroupRef: "some-group-ref"},
-					}.GetAsEndpointSelectors()),
+					L3: types.ToSelectors(api.CIDRRule{
+						CIDRGroupRef: "some-group-ref",
+					}),
 				},
 			},
 			want: wanted{
@@ -110,9 +110,8 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: true,
-					L3: types.PeerSelectorSlice{
-						api.NewESFromLabels(labels.NewLabel("testnode", "", labels.LabelSourceNode)),
-					},
+					L3: types.ToSelectors(api.NewESFromLabels(
+						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
 					Authentication: &api.Authentication{
 						Mode: api.AuthenticationModeRequired,
 					},
@@ -136,9 +135,8 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: false,
-					L3: types.PeerSelectorSlice{
-						api.NewESFromLabels(labels.NewLabel("testnode", "", labels.LabelSourceNode)),
-					},
+					L3: types.ToSelectors(api.NewESFromLabels(
+						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
 				},
 			},
 			want: wanted{
@@ -164,9 +162,8 @@ func Test_ruleType(t *testing.T) {
 				r: policytypes.PolicyEntry{
 					Ingress: true,
 					Deny:    true,
-					L3: types.PeerSelectorSlice{
-						api.NewESFromLabels(labels.NewLabel("testnode", "", labels.LabelSourceNode)),
-					},
+					L3: types.ToSelectors(api.NewESFromLabels(
+						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
 				},
 			},
 			want: wanted{
@@ -188,7 +185,7 @@ func Test_ruleType(t *testing.T) {
 				r: policytypes.PolicyEntry{
 					Ingress: true,
 					Deny:    true,
-					L3:      types.ToPeerSelectorSlice(api.CIDRSlice{"192.168.0.0/24"}.GetAsEndpointSelectors()),
+					L3:      types.ToSelectors(api.CIDR("192.168.0.0/24")),
 				},
 			},
 			want: wanted{
@@ -208,7 +205,7 @@ func Test_ruleType(t *testing.T) {
 				r: policytypes.PolicyEntry{
 					Ingress: false,
 					Deny:    true,
-					L3:      types.ToPeerSelectorSlice(api.CIDRSlice{"192.168.0.0/24"}.GetAsEndpointSelectors()),
+					L3:      types.ToSelectors(api.CIDR("192.168.0.0/24")),
 				},
 			},
 			want: wanted{
@@ -228,9 +225,8 @@ func Test_ruleType(t *testing.T) {
 				r: policytypes.PolicyEntry{
 					Ingress: false,
 					Deny:    true,
-					L3: types.PeerSelectorSlice{
-						api.NewESFromLabels(labels.NewLabel("testnode", "", labels.LabelSourceNode)),
-					},
+					L3: types.ToSelectors(api.NewESFromLabels(
+						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
 				},
 			},
 			want: wanted{
@@ -252,9 +248,8 @@ func Test_ruleType(t *testing.T) {
 				r: policytypes.PolicyEntry{
 					Ingress: false,
 					Deny:    true,
-					L3: types.PeerSelectorSlice{
-						api.NewESFromLabels(labels.NewLabel("testnode", "", labels.LabelSourceNode)),
-					},
+					L3: types.ToSelectors(api.NewESFromLabels(
+						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
 				},
 			},
 			want: wanted{
@@ -275,9 +270,8 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: false,
-					L3: types.PeerSelectorSlice{
-						api.NewESFromLabels(labels.NewLabel("testnode", "", labels.LabelSourceNode)),
-					},
+					L3: types.ToSelectors(api.NewESFromLabels(
+						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
 				},
 			},
 			want: wanted{
@@ -329,11 +323,9 @@ func Test_ruleType(t *testing.T) {
 				r: policytypes.PolicyEntry{
 					Ingress:     false,
 					DefaultDeny: true,
-					L3: types.ToPeerSelectorSlice(api.FQDNSelectorSlice{
-						{
-							MatchName:    "cilium.io",
-							MatchPattern: "",
-						},
+					L3: types.ToSelectors(api.FQDNSelector{
+						MatchName:    "cilium.io",
+						MatchPattern: "",
 					}),
 				},
 			},
@@ -492,6 +484,7 @@ func Test_ruleType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Log(tt.name)
 			rt := ruleType(tt.args.r)
 			assert.Equalf(t, tt.want.wantRF, rt, "ruleType(%v)", tt.args.r)
 

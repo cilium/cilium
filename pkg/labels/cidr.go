@@ -112,6 +112,14 @@ var (
 	ErrLabelNotCIDR = errors.New("Label is not a CIDR label")
 )
 
+// CIDRLabelToIPString reverses IPStringToLabel for testing purposes, mainly.
+func (l Label) ToCIDRString() (string, error) {
+	if l.cidr == nil || l.Source != LabelSourceCIDR || l.Value != "" {
+		return "", ErrLabelNotCIDR
+	}
+	return l.cidr.String(), nil
+}
+
 // GetCIDRLabels turns a CIDR in to a specially formatted label, and returns
 // a Labels including the CIDR-specific label and the appropriate world label.
 // e.g. "10.0.0.0/8" => ["cidr:10.0.0.0/8", "reserved:world-ipv4"]

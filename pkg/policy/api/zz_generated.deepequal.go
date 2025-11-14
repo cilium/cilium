@@ -383,14 +383,6 @@ func (in *EndpointSelector) DeepEqual(other *EndpointSelector) bool {
 		}
 	}
 
-	if (in.requirements == nil) != (other.requirements == nil) {
-		return false
-	} else if in.requirements != nil {
-		if !in.requirements.DeepEqual(other.requirements) {
-			return false
-		}
-	}
-
 	if in.cachedLabelSelectorString != other.cachedLabelSelectorString {
 		return false
 	}
@@ -1392,14 +1384,6 @@ func (in *ServiceSelector) DeepEqual(other *ServiceSelector) bool {
 		return false
 	} else if in.LabelSelector != nil {
 		if !in.LabelSelector.DeepEqual(other.LabelSelector) {
-			return false
-		}
-	}
-
-	if (in.requirements == nil) != (other.requirements == nil) {
-		return false
-	} else if in.requirements != nil {
-		if !in.requirements.DeepEqual(other.requirements) {
 			return false
 		}
 	}

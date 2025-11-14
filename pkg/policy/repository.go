@@ -216,7 +216,9 @@ func (p *Repository) newRule(policyEntry types.PolicyEntry, key ruleKey) *rule {
 		PolicyEntry: policyEntry,
 		key:         key,
 	}
-	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), r.Subject)
+	css, _ := p.selectorCache.AddSelectors(r, makeStringLabels(r.Labels), r.Subject)
+	r.subjectSelector = css[0]
+
 	return r
 }
 
@@ -463,8 +465,8 @@ func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 	return &rule{
 		PolicyEntry: types.PolicyEntry{
 			Ingress: ingress,
-			Subject: api.NewESFromLabels(lbls...),
-			L3:      types.PeerSelectorSlice{api.WildcardEndpointSelector},
+			Subject: types.NewLabelSelectorFromLabels(lbls...),
+			L3:      types.WildcardSelectors,
 		},
 	}
 }
