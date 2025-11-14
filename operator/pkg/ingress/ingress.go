@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -96,8 +97,8 @@ func (r *ingressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&networkingv1.Ingress{}, r.forCiliumManagedIngress()).
 		// (LoadBalancer) Service resource with OwnerReference to the Ingress with dedicated loadbalancing mode
 		Owns(&corev1.Service{}).
-		// Endpoints resource with OwnerReference to the Ingress with dedicated loadbalancing mode
-		Owns(&corev1.Endpoints{}).
+		// EndpointSlice resource with OwnerReference to the Ingress with dedicated loadbalancing mode
+		Owns(&discoveryv1.EndpointSlice{}).
 		// CiliumEnvoyConfig resource with OwnerReference to the Ingress with dedicated loadbalancing mode
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
 		// Watching shared loadbalancer Service and reconcile all shared Cilium Ingresses.
