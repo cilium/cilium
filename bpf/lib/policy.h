@@ -70,9 +70,7 @@ struct policy_entry {
 			lpm_prefix_length:5; /* map key protocol and dport prefix length */
 	__u8		auth_type:7,
 			has_explicit_auth_type:1;
-	__u8		proxy_port_priority;
-	__u8		pad1;
-	__u16		pad2;
+	__u32		precedence;
 	__u32		cookie;
 };
 
@@ -82,6 +80,9 @@ struct policy_entry {
  */
 #define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
 #define LPM_FULL_PREFIX_BITS (LPM_PROTO_PREFIX_BITS + 16)   /* protocol and dport specified */
+
+/* Highest possible precedence */
+#define MAX_PRECEDENCE (~0U)
 
 /*
  * policy_stats_key has the same layout as policy_key, apart from the first four bytes.
@@ -165,6 +166,12 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_policy_v2 __section_maps_btf;
 
+/* Return a verdict for the chosen 'policy', possibly propagating the auth type from 'policy2', if
+ * non-NULL and of the same precedence.
+ *
+ * Always called with non-NULL 'policy', while 'policy2' may be NULL.
+ * If 'policy2' is non-null, it never has a higher precedence than 'policy'.
+ */
 static __always_inline int
 __policy_check(const struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
 	       __u16 *proxy_port, __u32 *cookie)
@@ -180,25 +187,19 @@ __policy_check(const struct policy_entry *policy, const struct policy_entry *pol
 	if (unlikely(policy->deny))
 		return DROP_POLICY_DENY;
 
-	/* The chosen 'policy' has higher proxy port priority or if on the same it has more
+	/* The chosen 'policy' has higher precedence or if on the same precedence it has more
 	 * specific L4 match, or if also the L4 are equally specific, then the chosen policy has
 	 * an L3 match, which is considered to be more specific.
-	 * If proxy port priority is the same, then by definition either both have a proxy
+	 * If precedence is the same, then by definition either both have a proxy
 	 * redirect or neither has one, so we do not need to check if the other policy has a proxy
 	 * redirect or not.
 	 */
 	*proxy_port = policy->proxy_port;
 
 	auth_type = policy->auth_type;
-	if (unlikely(policy2 && policy2->auth_type > auth_type &&
-		     !policy->has_explicit_auth_type)) {
-		/* Both L4-only and L3/4 policy matched, the chosen more specific one does not have
-		 * an explicit auth type: Propagate the auth type from the more general policy if
-		 * its (explicit or propagated) auth_type is greater than the propagated auth_type
-		 * of the chosen policy (policy entry may have an auth_type propagated from another
-		 * entry with en explicit auth type. Numerically greater value has precedence in
-		 * that case).
-		 */
+	/* Propagate the auth type from the same precedence, more general policy2 if needed. */
+	if (unlikely(policy2 && policy2->precedence == policy->precedence &&
+		     !policy->has_explicit_auth_type && policy2->auth_type > auth_type)) {
 		auth_type = policy2->auth_type;
 	}
 
@@ -270,12 +271,12 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	}
 
 	/* Policy match precedence when both L3 and L4-only lookups find a matching policy:
-
-	 * 1. Deny policy, if any, is selected.
-	 * 2. Policy with higher proxy port pririty is selected. This includes giving precedence
-	 *    to proxy redirect over non-proxy redirect, and proxy port priority.
-	 * 3. The entry with longer prefix length is selected out of the two allow entries.
-	 * 4. Otherwise the allow entry with non-wildcard L3 is chosen.
+	 *
+	 * 1. Policy with the higher precedence value is selected. This includes giving precedence
+	 *    to deny over allow, proxy redirect over non-proxy redirect, and proxy port priority.
+	 * 2. The entry with longer prefix length is selected out of the two entries with the same
+	 *    precedence.
+	 * 3. Otherwise the allow entry with non-wildcard L3 is chosen.
 	 */
 
 	/* Note: Untracked fragments always have zero ports in the tuple so they can
@@ -285,8 +286,10 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	/* L3 lookup: an exact match on L3 identity and LPM match on L4 proto and port. */
 	policy = map_lookup_elem(map, &key);
 
-	/* L3 policy can be chosen without the 2nd lookup if it is a deny. */
-	if (likely(policy && policy->deny)) {
+	/* L3 policy can be chosen without the 2nd lookup if it has the highest possible precedence
+	 * value (which implies that it is a deny).
+	 */
+	if (likely(policy && policy->precedence == MAX_PRECEDENCE)) {
 		l4policy = NULL;
 		goto check_policy;
 	}
@@ -297,14 +300,14 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 
 	/* The found l4policy is chosen if:
 	 * - only l4 policy was found, or if both policies are found, and:
-	 * 1. It is a deny policy, or
-	 * 2. proxy port priority is equal and L4-only policy has longer LPM prefix length
-	 *    than the L3 policy
+	 * 1. It has higher precedence value, or
+	 * 2. Precedence is equal (which implies both are denys or both are allows) and
+	 *    L4-only policy has longer LPM prefix length than the L3 policy
 	 */
 	if (l4policy &&
-	    (l4policy->deny || !policy ||
-	     l4policy->proxy_port_priority > policy->proxy_port_priority ||
-	     (l4policy->proxy_port_priority == policy->proxy_port_priority &&
+	    (!policy ||
+	     l4policy->precedence > policy->precedence ||
+	     (l4policy->precedence == policy->precedence &&
 	      l4policy->lpm_prefix_length > policy->lpm_prefix_length)))
 		goto check_l4_policy;
 
