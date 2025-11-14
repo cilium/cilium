@@ -49,8 +49,8 @@ spec:
   externalTrafficPolicy: {{ .Values.ingressController.service.externalTrafficPolicy }}
   {{- end }}
 ---
-apiVersion: v1
-kind: Endpoints
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
 metadata:
   name: {{ .Values.ingressController.service.name }}
   namespace: {{ include "cilium.namespace" . }}
@@ -65,9 +65,10 @@ metadata:
   annotations:
     {{- toYaml .Values.ingressController.service.annotations | nindent 4 }}
   {{- end }}
-subsets:
+addressType: IPv4
+endpoints:
 - addresses:
-  - ip: "192.192.192.192"
-  ports:
-  - port: 9999
+  - "192.192.192.192"
+ports:
+- port: 9999
 {{- end }}
