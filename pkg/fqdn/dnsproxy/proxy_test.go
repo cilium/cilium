@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	fqdndns "github.com/cilium/cilium/pkg/fqdn/dns"
@@ -45,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -789,11 +789,11 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR("::")),
 		},
 	}
-	restored1, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
+	restored1, _ := s.proxy.GetRules(uint16(epID1))
 	assertRulesEqual(t, expected1, restored1)
 
 	expected2 := restore.DNSRules{}
-	restored2, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID2))
+	restored2, _ := s.proxy.GetRules(uint16(epID2))
 	assertRulesEqual(t, expected2, restored2)
 
 	expected3 := restore.DNSRules{
@@ -806,7 +806,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID3][tcpProtoPort53][cachedDstID3Selector], makeMapOfRuleIPOrCIDR()),
 		},
 	}
-	restored3, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID3))
+	restored3, _ := s.proxy.GetRules(uint16(epID3))
 	assertRulesEqual(t, expected3, restored3)
 
 	// Test with limited set of allowed IPs
@@ -825,7 +825,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR()),
 		},
 	}
-	restored1b, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
+	restored1b, _ := s.proxy.GetRules(uint16(epID1))
 	assertRulesEqual(t, expected1b, restored1b)
 
 	// unlimited again
@@ -1122,7 +1122,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	}
 
 	// Get restored rules
-	restored, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
+	restored, _ := s.proxy.GetRules(uint16(epID1))
 
 	// remove rules
 	_, err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
@@ -1421,7 +1421,11 @@ type selectorMock struct {
 	key string
 }
 
-func (t selectorMock) GetSelections(*versioned.VersionHandle) identity.NumericIdentitySlice {
+func (t selectorMock) GetSelections() identity.NumericIdentitySlice {
+	panic("implement me")
+}
+
+func (t selectorMock) GetSelectionsAt(types.SelectorReadTxn) identity.NumericIdentitySlice {
 	panic("implement me")
 }
 
@@ -1429,7 +1433,7 @@ func (t selectorMock) GetMetadataLabels() labels.LabelArray {
 	panic("implement me")
 }
 
-func (t selectorMock) Selects(*versioned.VersionHandle, identity.NumericIdentity) bool {
+func (t selectorMock) Selects(identity.NumericIdentity) bool {
 	panic("implement me")
 }
 

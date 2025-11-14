@@ -920,7 +920,7 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 	if !e.IsProxyDisabled() {
 		e.getLogger().Debug(
 			"Regenerate: Initial Envoy NetworkPolicy",
-			logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
+			logfields.SelectorCacheVersion, e.GetPolicyReadTxn(),
 		)
 
 		stats.proxyPolicyCalculation.Start()
