@@ -76,6 +76,12 @@ impact of host policies before enforcing them.
    When Policy Audit Mode is enabled, no network policy is enforced so this
    setting is not recommended for production deployment.
 
+
+.. note::
+
+    Audit mode does not persist across ``cilium-agent`` restarts. Once the agent
+    is restarted, it will immediately **enforce** any existing host policies.
+
 Enable and check status for the Policy Audit Mode on the host endpoint for a
 given node with the following commands:
 
@@ -224,3 +230,53 @@ Policies <troubleshooting_host_policies>` subsection to understand how to debug
 issues with Host Policies, or to the section on :ref:`Host Policies known
 issues <host_policies_known_issues>` to understand the current limitations of
 the feature.
+
+Emergency Recovery
+==================
+
+As host policies control access to the node, it is possible to create a policy that drops
+all access to nodes. In particular, if the Cilium agent loses access to the apiserver, 
+it will not learn of any policy updates or deletes. This makes recovery complicated.
+
+If you have out-of-band access to the node(s), then it is possible to force-disable host policy
+enforcement and recover control. Start by deleting the offending host-firewall
+policy. Then, disable host policy enforcement manually on a node-by-node basis.
+
+Cilium Agent access
+^^^^^^^^^^^^^^^^^^^
+
+You will need to access the Cilium agent container. If ``kubelet`` still has network access, use ``kubectl exec``:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec -ti $(CILIUM_PODNAME) -- bash
+
+If this is unavailable, you will need ssh or console access to the node (e.g. via IPMI). Then, use ``crictl exec``:
+
+.. code-block:: shell-session
+
+    $ CONTAINERID=$(crictl ps -q --label io.kubernetes.container.name=cilium-agent --label io.kubernetes.pod.namespace=kube-system)
+    $ crictl exec -ti $CONTAINERID bash
+
+Disabling Host Policy enforcement
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. note::
+
+    This only disables host policy enforcement temporarily. Once ``cilium-agent`` is restarted, it will once again
+    enforce host policies.
+
+Once you have access to the Cilium container, you can temporary disable host policy enforcement by enabling
+audit mode for the internal host endpoint. Audit mode converts policy drops in to a warning.
+
+.. code-block:: shell-session
+
+    $ cilium-dbg endpoint config $(cilium-dbg endpoint get -l reserved:host -o 'jsonpath={$[0].id}') PolicyAuditMode=Enabled
+
+At this point, ``cilium-agent`` on the node will re-connect to the apiserver and synchronize policies.
+To re-enable host policy enforcement, either re-start the Cilium daemonset via ``kubectl rollout restart`` or manually:
+
+.. code-block:: shell-session
+
+    $ cilium-dbg endpoint config $(cilium-dbg endpoint get -l reserved:host -o 'jsonpath={$[0].id}') PolicyAuditMode=Disabled
+
