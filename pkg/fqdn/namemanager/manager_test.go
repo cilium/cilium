@@ -6,7 +6,6 @@ package namemanager
 import (
 	"context"
 	"fmt"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"log/slog"
 	"net/netip"
 	"regexp"
@@ -249,7 +248,14 @@ func TestNameManagerGCConsistency(t *testing.T) {
 		DNSHistory: fqdn.NewDNSCache(1),
 	}
 	ep.UpdateLogger(nil)
-	ipc := newMockIPCache()
+	ipc := ipcache.NewIPCache(&ipcache.Configuration{
+		Context:           t.Context(),
+		Logger:            logger,
+		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+		IdentityUpdater:   &dummyIdentityUpdater{},
+	})
+	ipc.TriggerLabelInjection()
+	defer ipc.Shutdown()
 	nameManager := New(ManagerParams{
 		Logger: logger,
 		Config: NameManagerConfig{
@@ -262,7 +268,8 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	})
 	// Manually configure bootstrap to be done to fully test manager end-to-end
 	nameManager.bootstrapCompleted = true
-	nameManager.RegisterFQDNSelector(ciliumIOSel)
+	err := ipc.WaitForRevision(t.Context(), nameManager.RegisterFQDNSelector(ciliumIOSel))
+	require.NoError(t, err)
 
 	// Add initial IP to local cache before adding endpoint to manager
 	// We do this to mimic the GC starting and dumping endpoints before the endpoint is added to the manager
@@ -270,48 +277,108 @@ func TestNameManagerGCConsistency(t *testing.T) {
 
 	// Run GC to ensure the IP<>name mapping is not added to the global cache
 	require.NoError(t, nameManager.doGC(t.Context()))
+
+	// Ensure all IPcache operations done by GC have been processed
+	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
+	require.NoError(t, err)
+
 	require.Empty(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()))
-	require.Empty(t, ipc.labelsForPrefix(prefixOne))
+	_, found := ipc.LookupByPrefix(prefixOne.String())
+	require.False(t, found)
+	require.NotContains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Upsert to global cache and ensure its present
-	nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixOne.AsPrefix().Addr()}}, ep.DNSHistory)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixOne))
+	<-nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixOne.AsPrefix().Addr()}}, ep.DNSHistory)
+
+	id, found := ipc.LookupByPrefix(prefixOne.String())
+	require.True(t, found)
+	ident := ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Run GC and ensure it's still present
 	// This is again assuming the GC started before the endpoint was created, so the manager still does not know about the endpoint
 	require.NoError(t, nameManager.doGC(t.Context()))
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixOne))
+
+	// Ensure all IPcache operations done by GC have been processed
+	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
+	require.NoError(t, err)
+
+	id, found = ipc.LookupByPrefix(prefixOne.String())
+	require.True(t, found)
+	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Add endpoint to the manager
 	epMgr.UpsertEndpoint(ep)
 
 	// After endpoint is added, ensure it's still in the cache
 	require.NoError(t, nameManager.doGC(t.Context()))
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixOne))
+
+	// Ensure all IPcache operations done by GC have been processed
+	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
+	require.NoError(t, err)
+
+	id, found = ipc.LookupByPrefix(prefixOne.String())
+	require.True(t, found)
+	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Contains(t, nameManager.cache.LookupIP(prefixOne.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Insert old prefix that will end up as zombie
 	ep.DNSHistory.Update(lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), []netip.Addr{prefixTwo.AsPrefix().Addr()}, 10)
-	nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixTwo.AsPrefix().Addr()}}, ep.DNSHistory)
+	<-nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixTwo.AsPrefix().Addr()}}, ep.DNSHistory)
 
 	// Run GC and check that the prefix is upserted to the ipcache
 	require.NoError(t, nameManager.doGC(t.Context()))
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixTwo))
+
+	// Ensure all IPcache operations done by GC have been processed
+	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
+	require.NoError(t, err)
+
+	id, found = ipc.LookupByPrefix(prefixTwo.String())
+	require.True(t, found)
+	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Contains(t, nameManager.cache.LookupIP(prefixTwo.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Add another prefix to local cache
 	ep.DNSHistory.Update(lookupTime, dns.FQDN("cilium.io"), []netip.Addr{prefixThree.AsPrefix().Addr()}, 10)
 
 	// Run GC to ensure the IP<>name mapping is not added to the global cache yet
 	require.NoError(t, nameManager.doGC(t.Context()))
+
+	// Ensure all IPcache operations done by GC have been processed
+	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
+	require.NoError(t, err)
+
 	require.Empty(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()))
-	require.Empty(t, ipc.labelsForPrefix(prefixThree))
+
+	_, found = ipc.LookupByPrefix(prefixThree.String())
+	require.False(t, found)
+	require.NotContains(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Upsert to global cache and ensure its present
-	nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixThree.AsPrefix().Addr()}}, ep.DNSHistory)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixThree))
+	<-nameManager.UpdateGenerateDNS(t.Context(), lookupTime, dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixThree.AsPrefix().Addr()}}, ep.DNSHistory)
+
+	id, found = ipc.LookupByPrefix(prefixThree.String())
+	require.True(t, found)
+	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Contains(t, nameManager.cache.LookupIP(prefixThree.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Run GC and ensure it's still present
 	require.NoError(t, nameManager.doGC(t.Context()))
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixThree))
+
+	// Ensure all IPcache operations done by GC have been processed
+	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
+	require.NoError(t, err)
+
+	id, found = ipc.LookupByPrefix(prefixThree.String())
+	require.True(t, found)
+	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
 
 	// Lock endpoint manager to freeze GC in time
 	epMgr.mu.Lock()
@@ -320,6 +387,10 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		require.NoError(t, nameManager.doGC(t.Context()))
+
+		// Ensure all IPcache operations done by GC have been processed
+		err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
+		require.NoError(t, err)
 	}()
 
 	// Sleep for a short while to be sure GC is blocked by epMgr lock
@@ -327,8 +398,12 @@ func TestNameManagerGCConsistency(t *testing.T) {
 
 	// Insert a "back in time" lookup to both local and global cache. This to ensure its immediately put in zombies
 	ep.DNSHistory.Update(lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), []netip.Addr{prefixFour.AsPrefix().Addr()}, 10)
-	nameManager.UpdateGenerateDNS(t.Context(), lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixFour.AsPrefix().Addr()}}, ep.DNSHistory)
-	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel()}), ipc.labelsForPrefix(prefixFour))
+	<-nameManager.UpdateGenerateDNS(t.Context(), lookupTime.Add(-time.Hour), dns.FQDN("cilium.io"), &fqdn.DNSIPRecords{TTL: 10, IPs: []netip.Addr{prefixFour.AsPrefix().Addr()}}, ep.DNSHistory)
+	id, found = ipc.LookupByPrefix(prefixFour.String())
+	require.True(t, found)
+	ident = ipc.IdentityAllocator.LookupIdentityByID(t.Context(), id.ID)
+	require.Equal(t, labels.FromSlice([]labels.Label{ciliumIOSel.IdentityLabel(), labels.ParseLabel("reserved:world-ipv4")}), ident.Labels)
+	require.Contains(t, nameManager.cache.LookupIP(prefixFour.AsPrefix().Addr()), dns.FQDN("cilium.io"))
 
 	// Explicitly GC the local cache to ensure the IP goes fully unused by any endpoint - except for the zombie.
 	// However, since the endpoint is deleted by the time of the next endpointManager GC, it won't be seen by the
@@ -344,13 +419,17 @@ func TestNameManagerGCConsistency(t *testing.T) {
 	require.NoError(t, nameManager.doGC(t.Context()))
 	require.NoError(t, nameManager.doGC(t.Context()))
 
-	// Ensure all IPs are gone
-	require.Empty(t, ipc.labelsForPrefix(prefixOne))
-	require.Empty(t, ipc.labelsForPrefix(prefixTwo))
-	require.Empty(t, ipc.labelsForPrefix(prefixThree))
-	require.Empty(t, ipc.labelsForPrefix(prefixFour))
+	// Ensure all IPcache operations done by GC have been processed
+	err = ipc.WaitForRevision(t.Context(), ipc.UpsertMetadataBatch())
+	require.NoError(t, err)
+
 	require.Empty(t, nameManager.cache.Dump())
 
+	// Ensure all IPs are gone, even if selector is still registered
+	for _, p := range []cmtypes.PrefixCluster{prefixOne, prefixTwo, prefixThree, prefixFour} {
+		id, found = ipc.LookupByPrefix(p.String())
+		require.False(t, found)
+	}
 }
 
 func Test_deriveLabelsForNames(t *testing.T) {
@@ -448,63 +527,4 @@ func (mgr *mgrMock) GetEndpoints() []*endpoint.Endpoint {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	return mgr.eps.UnsortedList()
-}
-
-type mockIPCache struct {
-	metadata map[cmtypes.PrefixCluster]map[ipcacheTypes.ResourceID]labels.Labels
-}
-
-func newMockIPCache() *mockIPCache {
-	return &mockIPCache{
-		metadata: make(map[cmtypes.PrefixCluster]map[ipcacheTypes.ResourceID]labels.Labels),
-	}
-}
-
-func (m *mockIPCache) labelsForPrefix(prefix cmtypes.PrefixCluster) labels.Labels {
-	lbls := labels.Labels{}
-	for _, l := range m.metadata[prefix] {
-		lbls.MergeLabels(l)
-	}
-	return lbls
-}
-
-func (m *mockIPCache) UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64) {
-	for _, mu := range updates {
-		prefixMetadata, ok := m.metadata[mu.Prefix]
-		if !ok {
-			prefixMetadata = make(map[ipcacheTypes.ResourceID]labels.Labels)
-		}
-
-		for _, aux := range mu.Metadata {
-			if lbls, ok := aux.(labels.Labels); ok {
-				prefixMetadata[mu.Resource] = lbls
-				break
-			}
-		}
-
-		m.metadata[mu.Prefix] = prefixMetadata
-	}
-
-	return 0
-}
-
-func (m *mockIPCache) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64) {
-	for _, mu := range updates {
-		for _, aux := range mu.Metadata {
-			if _, ok := aux.(labels.Labels); ok {
-				delete(m.metadata[mu.Prefix], mu.Resource)
-				break
-			}
-		}
-
-		if len(m.metadata[mu.Prefix]) == 0 {
-			delete(m.metadata, mu.Prefix)
-		}
-	}
-
-	return 0
-}
-
-func (m *mockIPCache) WaitForRevision(ctx context.Context, rev uint64) error {
-	return nil
 }
