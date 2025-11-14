@@ -59,6 +59,7 @@ type testData struct {
 	cachedSelectorHost     CachedSelector
 	wildcardCachedSelector CachedSelector
 	cachedSelectorCIDR     CachedSelector
+	cachedSelectorsCIDR0   CachedSelectorSlice
 
 	cachedFooSelector CachedSelector
 	cachedBazSelector CachedSelector
@@ -91,10 +92,19 @@ func newTestData(logger *slog.Logger) *testData {
 		return cs
 	}(api.CIDR("10.1.1.1"))
 
-	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA, idA.ID)
-	td.cachedSelectorB = td.getCachedSelectorForTest(endpointSelectorB, idB.ID)
-	td.cachedSelectorC = td.getCachedSelectorForTest(endpointSelectorC, idC.ID)
-	td.cachedSelectorHost = td.getCachedSelectorForTest(hostSelector, identity.ReservedIdentityHost)
+	td.cachedSelectorsCIDR0 = func(cidr api.CIDR) (css CachedSelectorSlice) {
+		ess := api.CIDRSlice{cidr}.GetAsEndpointSelectors()
+		for _, es := range ess {
+			cs, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, es)
+			css = append(css, cs)
+		}
+		return css
+	}(api.CIDR("0.0.0.0/0"))
+
+	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA)
+	td.cachedSelectorB = td.getCachedSelectorForTest(endpointSelectorB)
+	td.cachedSelectorC = td.getCachedSelectorForTest(endpointSelectorC)
+	td.cachedSelectorHost = td.getCachedSelectorForTest(hostSelector)
 
 	td.cachedFooSelector = td.getCachedSelectorForTest(fooSelector)
 	td.cachedBazSelector = td.getCachedSelectorForTest(bazSelector)
@@ -102,9 +112,9 @@ func newTestData(logger *slog.Logger) *testData {
 	td.cachedSelectorBar1 = td.getCachedSelectorForTest(selBar1)
 	td.cachedSelectorBar2 = td.getCachedSelectorForTest(selBar2)
 
-	td.cachedSelectorWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][0], identity.ReservedIdentityWorld)
-	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv4][0], identity.ReservedIdentityWorldIPv4)
-	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv6][0], identity.ReservedIdentityWorldIPv6)
+	td.cachedSelectorWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][0])
+	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv4][0])
+	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv6][0])
 
 	td.repo.policyCache.insert(idA)
 	td.repo.policyCache.insert(idB)
@@ -113,19 +123,9 @@ func newTestData(logger *slog.Logger) *testData {
 	return td
 }
 
-func (td *testData) getCachedSelectorForTest(es api.EndpointSelector, selections ...identity.NumericIdentity) CachedSelector {
-	idSel := &identitySelector{
-		logger:           td.sc.logger,
-		key:              es.CachedString(),
-		users:            make(map[CachedSelectionUser]struct{}),
-		cachedSelections: make(map[identity.NumericIdentity]struct{}),
-	}
-
-	for _, sel := range selections {
-		idSel.cachedSelections[sel] = struct{}{}
-	}
-
-	return idSel
+func (td *testData) getCachedSelectorForTest(es api.EndpointSelector) CachedSelector {
+	cs, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, es)
+	return cs
 }
 
 // withIDs loads the set of IDs in to the SelectorCache. Returns
