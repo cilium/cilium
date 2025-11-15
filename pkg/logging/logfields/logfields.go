@@ -307,6 +307,9 @@ const (
 	// NetNSName is a name of a network namespace
 	NetNSName = "netNSName"
 
+	// NetNSName is the unique netns cookie identifier of a network namespace.
+	NetNSCookie = "netNSCookie"
+
 	// HardwareAddr is L2 addr of a network iface
 	HardwareAddr = "hardwareAddr"
 

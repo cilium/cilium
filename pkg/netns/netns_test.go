@@ -4,12 +4,16 @@
 package netns
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -113,6 +117,65 @@ func TestPrivilegedNetNSDo(t *testing.T) {
 	after := get(t)
 	defer after.Close()
 	assert.True(t, equal(orig, after))
+}
+
+func TestPrivilegedNetNSPinned(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	lock(t)
+
+	pin := path.Join(defaults.NetNsPath, "zap")
+	cleanup := func() error {
+		return errors.Join(unix.Unmount(pin, 0), os.Remove(pin))
+	}
+	cleanup()
+	os.MkdirAll(defaults.NetNsPath, 0755)
+
+	origTID := unix.Gettid()
+	orig := get(t)
+	defer orig.Close()
+
+	ns, err := NewPinned(pin)
+	assert.NoError(t, err)
+	t.Cleanup(func() {
+		ns.Close()
+		assert.NoError(t, cleanup())
+	})
+
+	assert.NoError(t,
+		ns.Do(func() error {
+			innerTID := unix.Gettid()
+			if innerTID == origTID {
+				return fmt.Errorf("original TID %d should not match inner TID %d", origTID, innerTID)
+			}
+
+			inner := get(t)
+			if !equal(inner, ns) {
+				return fmt.Errorf("inner netns fd doesn't match fd in ns handle")
+			}
+
+			return nil
+		}))
+
+	after := get(t)
+	defer after.Close()
+	assert.True(t, equal(orig, after))
+
+	ns, err = OpenPinned(pin)
+	assert.NoError(t, err)
+	assert.NoError(t,
+		ns.Do(func() error {
+			innerTID := unix.Gettid()
+			if innerTID == origTID {
+				return fmt.Errorf("original TID %d should not match inner TID %d", origTID, innerTID)
+			}
+
+			inner := get(t)
+			if !equal(inner, ns) {
+				return fmt.Errorf("inner netns fd doesn't match fd in ns handle")
+			}
+
+			return nil
+		}))
 }
 
 func equal(some *NetNS, other *NetNS) bool {
