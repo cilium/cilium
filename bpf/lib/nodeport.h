@@ -1476,8 +1476,11 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 			goto skip_service_lookup;
 		}
 		if (ret == DROP_UNKNOWN_L4) {
-			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
-			return CTX_ACT_OK;
+			lb6_fill_key(&key, &tuple);
+			if (!lb6_lookup_wildcard(&key)) {
+				ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+				return CTX_ACT_OK;
+			}
 		}
 		return ret;
 	}
@@ -2853,8 +2856,11 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			goto skip_service_lookup;
 		}
 		if (ret == DROP_UNKNOWN_L4) {
-			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
-			return CTX_ACT_OK;
+			lb4_fill_key(&key, &tuple);
+			if (!lb4_lookup_wildcard(&key)) {
+				ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+				return CTX_ACT_OK;
+			}
 		}
 		return ret;
 	}
