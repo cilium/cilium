@@ -17,7 +17,7 @@
 #define ENABLE_ROUTING
 #define ENABLE_IPV4
 #define ENABLE_IPV6
-#define ENABLE_IPSEC
+#define ENABLE_IPSEC 1
 
 bool hook_reached;
 

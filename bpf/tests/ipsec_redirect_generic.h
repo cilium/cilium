@@ -22,7 +22,7 @@ int mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 #define ENABLE_IPV4
 #define ENABLE_IPV6
-#define ENABLE_IPSEC
+#define ENABLE_IPSEC 1
 
 /*
  * Test constants. Make sure to have a valid src/dst identity by
