@@ -49,6 +49,8 @@ func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string], reach re
 		}
 	}
 
+	keepAlways := keep.Clone()
+
 	for name := range spec.Programs {
 		r, ok := reach[name]
 		if !ok {
@@ -88,7 +90,7 @@ func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string], reach re
 		}
 	}
 
-	return keep, nil
+	return &keepAlways, nil
 }
 
 // verifyUnusedMaps makes sure that all Maps appearing in the Collection are
