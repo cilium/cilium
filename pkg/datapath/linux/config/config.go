@@ -356,10 +356,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if option.Config.EnablePMTUDiscovery {
 				cDefinesMap["ENABLE_DSR_ICMP_ERRORS"] = "1"
 			}
-			if cfg.LBConfig.LBMode == loadbalancer.LBModeHybrid {
-				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
-			} else if cfg.LBConfig.LBModeAnnotation {
-				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+			if cfg.LBConfig.LBMode == loadbalancer.LBModeHybrid || cfg.LBConfig.LBModeAnnotation {
 				cDefinesMap["ENABLE_DSR_BYUSER"] = "1"
 			}
 			if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchOption {
