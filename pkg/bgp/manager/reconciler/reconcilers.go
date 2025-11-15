@@ -84,7 +84,7 @@ func GetActiveReconcilers(logger *slog.Logger, reconcilers []ConfigReconciler) [
 		if existing, exists := recMap[r.Name()]; exists {
 			if existing.Priority() == r.Priority() {
 				logger.Warn(
-					"Skipping duplicate BGP v2 reconciler with the same priority",
+					"Skipping duplicate BGP reconciler with the same priority",
 					types.ReconcilerLogField, existing.Name(),
 					types.ExistingPriorityLogField, existing.Priority(),
 				)
@@ -92,7 +92,7 @@ func GetActiveReconcilers(logger *slog.Logger, reconcilers []ConfigReconciler) [
 			}
 			if existing.Priority() < r.Priority() {
 				logger.Debug(
-					"Skipping BGP v2 reconciler as it has lower priority than the existing one",
+					"Skipping BGP reconciler as it has lower priority than the existing one",
 					types.ReconcilerLogField, r.Name(),
 					types.PriorityLogField, r.Priority(),
 					types.ExistingPriorityLogField, existing.Priority(),
@@ -100,7 +100,7 @@ func GetActiveReconcilers(logger *slog.Logger, reconcilers []ConfigReconciler) [
 				continue
 			}
 			logger.Debug(
-				"Overriding existing BGP v2 reconciler with a higher priority one",
+				"Overriding existing BGP reconciler with a higher priority one",
 				types.ReconcilerLogField, existing.Name(),
 				types.ExistingPriorityLogField, existing.Priority(),
 				types.PriorityLogField, r.Priority(),
@@ -111,7 +111,7 @@ func GetActiveReconcilers(logger *slog.Logger, reconcilers []ConfigReconciler) [
 
 	var activeReconcilers []ConfigReconciler
 	for _, r := range recMap {
-		logger.Debug("Adding BGP v2 reconciler",
+		logger.Debug("Adding BGP reconciler",
 			types.ReconcilerLogField, r.Name(),
 			types.PriorityLogField, r.Priority(),
 		)

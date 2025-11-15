@@ -73,7 +73,7 @@ func GetActiveStateReconcilers(logger *slog.Logger, reconcilers []StateReconcile
 
 	var activeReconcilers []StateReconciler
 	for _, r := range recMap {
-		logger.Debug("Adding BGP v2 reconciler",
+		logger.Debug("Adding BGP reconciler",
 			types.ReconcilerLogField, r.Name(),
 			types.PriorityLogField, r.Priority(),
 		)
