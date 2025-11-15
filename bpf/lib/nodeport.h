@@ -84,14 +84,8 @@ static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused,
 					      __u8 nexthdr __maybe_unused)
 {
 #ifdef ENABLE_DSR
-# ifdef ENABLE_DSR_HYBRID
-#  ifdef ENABLE_DSR_BYUSER
+# ifdef ENABLE_DSR_BYUSER
 	return flip;
-#  else
-	if (nexthdr == IPPROTO_TCP)
-		return true;
-	return false;
-#  endif
 # else
 	return true;
 # endif
@@ -1135,7 +1129,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
+#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
     (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
@@ -2465,7 +2459,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Otherwise, we would have tail-called back to
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
+#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
     (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&						\
      (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
