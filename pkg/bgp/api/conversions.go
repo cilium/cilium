@@ -281,12 +281,8 @@ func ToAPIRoutePolicyStatement(s *types.RoutePolicyStatement) *models.BgpRoutePo
 	if s.Actions.SetLocalPreference != nil {
 		localPref = *s.Actions.SetLocalPreference
 	}
-	neighbors := []string{}
-	for _, neighbor := range s.Conditions.MatchNeighbors {
-		neighbors = append(neighbors, neighbor.String())
-	}
 	ret := &models.BgpRoutePolicyStatement{
-		MatchNeighbors:      neighbors,
+		MatchNeighbors:      ToApiMatchNeighbors(s.Conditions.MatchNeighbors),
 		MatchFamilies:       ToAPIFamilies(s.Conditions.MatchFamilies),
 		MatchPrefixes:       ToApiMatchPrefixes(s.Conditions.MatchPrefixes),
 		RouteAction:         ToApiRoutePolicyAction(s.Actions.RouteAction),
@@ -308,11 +304,30 @@ func toApiRoutePolicyActionNextHop(a *types.RoutePolicyActionNextHop) *models.Bg
 	}
 }
 
-func ToApiMatchPrefixes(prefixes []*types.RoutePolicyPrefixMatch) []*models.BgpRoutePolicyPrefixMatch {
-	ret := make([]*models.BgpRoutePolicyPrefixMatch, 0, len(prefixes))
+func ToApiMatchNeighbors(match *types.RoutePolicyNeighborMatch) *models.BgpRoutePolicyNeighborMatch {
+	if match == nil || len(match.Neighbors) == 0 {
+		return nil
+	}
+	ret := &models.BgpRoutePolicyNeighborMatch{
+		Type:      ToApiRoutePolicyMatchType(match.Type),
+		Neighbors: make([]string, 0, len(match.Neighbors)),
+	}
+	for _, neighbor := range match.Neighbors {
+		ret.Neighbors = append(ret.Neighbors, neighbor.String())
+	}
+	return ret
+}
 
-	for _, p := range prefixes {
-		ret = append(ret, &models.BgpRoutePolicyPrefixMatch{
+func ToApiMatchPrefixes(match *types.RoutePolicyPrefixMatch) *models.BgpRoutePolicyPrefixMatch {
+	if match == nil || len(match.Prefixes) == 0 {
+		return nil
+	}
+	ret := &models.BgpRoutePolicyPrefixMatch{
+		Type:     ToApiRoutePolicyMatchType(match.Type),
+		Prefixes: make([]*models.BgpRoutePolicyPrefix, 0, len(match.Prefixes)),
+	}
+	for _, p := range match.Prefixes {
+		ret.Prefixes = append(ret.Prefixes, &models.BgpRoutePolicyPrefix{
 			Cidr:         p.CIDR.String(),
 			PrefixLenMin: int64(p.PrefixLenMin),
 			PrefixLenMax: int64(p.PrefixLenMax),
@@ -326,6 +341,18 @@ func ToApiRoutePolicyType(t types.RoutePolicyType) string {
 		return routePolicyTypeExport
 	}
 	return routePolicyTypeImport
+}
+
+func ToApiRoutePolicyMatchType(t types.RoutePolicyMatchType) models.BgpRoutePolicyMatchType {
+	switch t {
+	case types.RoutePolicyMatchAny:
+		return models.BgpRoutePolicyMatchTypeAny
+	case types.RoutePolicyMatchAll:
+		return models.BgpRoutePolicyMatchTypeAll
+	case types.RoutePolicyMatchInvert:
+		return models.BgpRoutePolicyMatchTypeInvert
+	}
+	return models.BgpRoutePolicyMatchTypeAny
 }
 
 func ToApiRoutePolicyAction(a types.RoutePolicyAction) string {

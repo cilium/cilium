@@ -148,14 +148,14 @@ func (r *InterfaceReconciler) getDesiredRoutePolicies(desiredPeerAdverts PeerAdv
 		for family, familyAdverts := range peerFamilyAdverts {
 			agentFamily := types.ToAgentFamily(family)
 			for _, advert := range familyAdverts {
-				var v4Prefixes, v6Prefixes types.PolicyPrefixMatchList
+				var v4Prefixes, v6Prefixes types.PolicyPrefixList
 				for _, prefix := range r.getInterfacePrefixes(advert, agentFamily, txn) {
-					match := &types.RoutePolicyPrefixMatch{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()}
+					rpPrefix := types.RoutePolicyPrefix{CIDR: prefix, PrefixLenMin: prefix.Bits(), PrefixLenMax: prefix.Bits()}
 					if agentFamily.Afi == types.AfiIPv4 {
-						v4Prefixes = append(v4Prefixes, match)
+						v4Prefixes = append(v4Prefixes, rpPrefix)
 					}
 					if agentFamily.Afi == types.AfiIPv6 {
-						v6Prefixes = append(v6Prefixes, match)
+						v6Prefixes = append(v6Prefixes, rpPrefix)
 					}
 				}
 				if len(v6Prefixes) > 0 || len(v4Prefixes) > 0 {
