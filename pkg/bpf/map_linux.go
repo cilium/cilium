@@ -17,6 +17,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"golang.org/x/sys/unix"
@@ -121,6 +122,17 @@ type Map struct {
 	// group is the metric group name for this map, it classifies maps of the same
 	// type that share the same metric group.
 	group string
+
+	// refCount tracks the number of active operations using this map.
+	// When refCount > 0, the map cannot be closed.
+	refCount int
+
+	// closeCond is used to signal when refCount reaches 0.
+	closeCond *sync.Cond
+
+	// draining is set to true when Close() is called, preventing new operations
+	// from acquiring references.
+	draining bool
 }
 
 func (m *Map) Type() ebpf.MapType {
@@ -626,6 +638,8 @@ func (m *Map) openOrCreate(pin bool) error {
 
 	// Retain the Map.
 	m.m = em
+	// Clear draining flag when map is successfully opened/created
+	m.draining = false
 
 	return nil
 }
@@ -660,8 +674,31 @@ func (m *Map) open() error {
 	registerMap(m.Logger, m.path, m)
 
 	m.m = em
+	// Clear draining flag when map is successfully reopened
+	m.draining = false
 
 	return nil
+}
+
+// acquireRef increments the reference count for this map.
+// It must be called with m.lock held (either RLock or Lock).
+// Returns false if the map is already closed (m.m == nil) or if the map
+// is draining (Close() has been called).
+func (m *Map) acquireRef() bool {
+	if m.m == nil || m.draining {
+		return false
+	}
+	m.refCount++
+	return true
+}
+
+// releaseRef decrements the reference count and signals waiters if it reaches 0.
+// It must be called with m.lock held (either RLock or Lock).
+func (m *Map) releaseRef() {
+	m.refCount--
+	if m.refCount == 0 && m.closeCond != nil {
+		m.closeCond.Broadcast()
+	}
 }
 
 func (m *Map) Close() error {
@@ -673,6 +710,20 @@ func (m *Map) Close() error {
 	}
 
 	if m.m != nil {
+		// Set draining to prevent new operations from acquiring references.
+		// This ensures Close() will eventually succeed even if operations
+		// are continuously attempted on the map.
+		m.draining = true
+
+		// Wait for all active references to be released before closing.
+		// Initialize closeCond if not already done.
+		if m.closeCond == nil {
+			m.closeCond = sync.NewCond(&m.lock)
+		}
+		for m.refCount > 0 {
+			m.closeCond.Wait()
+		}
+
 		m.m.Close()
 		m.m = nil
 	}
@@ -715,6 +766,12 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 
 	m.lock.RLock()
 	defer m.lock.RUnlock()
+
+	// Acquire a reference to prevent the map from being closed during iteration.
+	if !m.acquireRef() {
+		return errors.New("map is closed")
+	}
+	defer m.releaseRef()
 
 	// Don't need deep copies here, only fresh pointers.
 	mk := m.key.New()
@@ -759,6 +816,12 @@ func (m *Map) DumpPerCPUWithCallback(cb DumpPerCPUCallback) error {
 
 	m.lock.RLock()
 	defer m.lock.RUnlock()
+
+	// Acquire a reference to prevent the map from being closed during iteration.
+	if !m.acquireRef() {
+		return errors.New("map is closed")
+	}
+	defer m.releaseRef()
 
 	// Don't need deep copies here, only fresh pointers.
 	mk := m.key.New()
@@ -830,11 +893,13 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 	// See PR for more details. - https://github.com/cilium/cilium/pull/38590.
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	if m.m == nil {
-		// We currently don't prevent open maps from being closed.
-		// See GH issue - https://github.com/cilium/cilium/issues/39287.
+
+	// Acquire a reference to prevent the map from being closed during iteration.
+	// This addresses GH issue - https://github.com/cilium/cilium/issues/39287.
+	if !m.acquireRef() {
 		return errors.New("map is closed")
 	}
+	defer m.releaseRef()
 
 	// Get the first map key.
 	if err := m.NextKey(nil, currentKey); err != nil {
@@ -1160,6 +1225,14 @@ func (m *Map) Dump(hash map[string][]string) error {
 // BatchLookup returns the count of elements in the map by dumping the map
 // using batch lookup.
 func (m *Map) BatchLookup(cursor *ebpf.MapBatchCursor, keysOut, valuesOut any, opts *ebpf.BatchOptions) (int, error) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	if !m.acquireRef() {
+		return 0, errors.New("map is closed")
+	}
+	defer m.releaseRef()
+
 	return m.m.BatchLookup(cursor, keysOut, valuesOut, opts)
 }
 
@@ -1406,6 +1479,12 @@ func (m *Map) DeleteAll() error {
 		return err
 	}
 
+	// Acquire a reference to prevent the map from being closed during iteration.
+	if !m.acquireRef() {
+		return errors.New("map is closed")
+	}
+	defer m.releaseRef()
+
 	mk := m.key.New()
 	mv := make([]byte, m.ValueSize())
 
@@ -1446,6 +1525,12 @@ func (m *Map) ClearAll() error {
 	if err := m.open(); err != nil {
 		return err
 	}
+
+	// Acquire a reference to prevent the map from being closed during iteration.
+	if !m.acquireRef() {
+		return errors.New("map is closed")
+	}
+	defer m.releaseRef()
 
 	mk := m.key.New()
 	var mv any
