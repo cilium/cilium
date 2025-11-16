@@ -45,7 +45,7 @@ func NewSecurityPerimeterLoggingConfigurationsClient(subscriptionID string, cred
 // CreateOrUpdate - Creates or updates NSP logging configuration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - loggingConfigurationName - The name of the NSP logging configuration. Accepts 'instance' as name.
@@ -98,7 +98,7 @@ func (client *SecurityPerimeterLoggingConfigurationsClient) createOrUpdateCreate
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -119,7 +119,7 @@ func (client *SecurityPerimeterLoggingConfigurationsClient) createOrUpdateHandle
 // Delete - Deletes an NSP Logging configuration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - loggingConfigurationName - The name of the NSP logging configuration. Accepts 'instance' as name.
@@ -170,7 +170,7 @@ func (client *SecurityPerimeterLoggingConfigurationsClient) deleteCreateRequest(
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -179,7 +179,7 @@ func (client *SecurityPerimeterLoggingConfigurationsClient) deleteCreateRequest(
 // Get - Gets the NSP logging configuration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - loggingConfigurationName - The name of the NSP logging configuration. Accepts 'instance' as name.
@@ -231,7 +231,7 @@ func (client *SecurityPerimeterLoggingConfigurationsClient) getCreateRequest(ctx
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -248,7 +248,7 @@ func (client *SecurityPerimeterLoggingConfigurationsClient) getHandleResponse(re
 
 // NewListPager - Lists the NSP logging configuration.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - options - SecurityPerimeterLoggingConfigurationsClientListOptions contains the optional parameters for the SecurityPerimeterLoggingConfigurationsClient.NewListPager
@@ -296,7 +296,7 @@ func (client *SecurityPerimeterLoggingConfigurationsClient) listCreateRequest(ct
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

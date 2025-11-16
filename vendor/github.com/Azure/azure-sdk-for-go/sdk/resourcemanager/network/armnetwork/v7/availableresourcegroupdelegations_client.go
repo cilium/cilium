@@ -43,7 +43,7 @@ func NewAvailableResourceGroupDelegationsClient(subscriptionID string, credentia
 
 // NewListPager - Gets all of the available subnet delegations for this resource group in this region.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - location - The location of the domain name.
 //   - resourceGroupName - The name of the resource group.
 //   - options - AvailableResourceGroupDelegationsClientListOptions contains the optional parameters for the AvailableResourceGroupDelegationsClient.NewListPager
@@ -91,7 +91,7 @@ func (client *AvailableResourceGroupDelegationsClient) listCreateRequest(ctx con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
