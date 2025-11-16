@@ -525,6 +525,7 @@
         "api_op_GetFlowLogsIntegrationTemplate.go",
         "api_op_GetGroupsForCapacityReservation.go",
         "api_op_GetHostReservationPurchasePreview.go",
+        "api_op_GetImageAncestry.go",
         "api_op_GetImageBlockPublicAccessState.go",
         "api_op_GetInstanceMetadataDefaults.go",
         "api_op_GetInstanceTpmEkPub.go",

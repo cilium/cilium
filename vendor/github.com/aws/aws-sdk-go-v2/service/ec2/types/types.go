@@ -4749,6 +4749,9 @@ type Ec2InstanceConnectEndpoint struct {
 	// The Availability Zone of the EC2 Instance Connect Endpoint.
 	AvailabilityZone *string
 
+	// The ID of the Availability Zone of the EC2 Instance Connect Endpoint.
+	AvailabilityZoneId *string
+
 	// The date and time that the EC2 Instance Connect Endpoint was created.
 	CreatedAt *time.Time
 
@@ -7322,6 +7325,29 @@ type Image struct {
 	noSmithyDocumentSerde
 }
 
+// Information about a single AMI in the ancestry chain and its source (parent)
+// AMI.
+type ImageAncestryEntry struct {
+
+	// The date and time when this AMI was created.
+	CreationDate *time.Time
+
+	// The ID of this AMI.
+	ImageId *string
+
+	// The owner alias ( amazon | aws-backup-vault | aws-marketplace ) of this AMI, if
+	// one is assigned. Otherwise, the value is null .
+	ImageOwnerAlias *string
+
+	// The ID of the parent AMI.
+	SourceImageId *string
+
+	// The Amazon Web Services Region of the parent AMI.
+	SourceImageRegion *string
+
+	noSmithyDocumentSerde
+}
+
 // The criteria that are evaluated to determine which AMIs are discoverable and
 // usable in your account for the specified Amazon Web Services Region.
 //
@@ -9233,17 +9259,34 @@ type InstanceRequirements struct {
 	//   - For instance types with Amazon Web Services Inferentia chips, specify
 	//   inferentia .
 	//
+	//   - For instance types with Amazon Web Services Inferentia2 chips, specify
+	//   inferentia2 .
+	//
+	//   - For instance types with Habana Gaudi HL-205 GPUs, specify gaudi-hl-205 .
+	//
 	//   - For instance types with NVIDIA GRID K520 GPUs, specify k520 .
 	//
 	//   - For instance types with NVIDIA K80 GPUs, specify k80 .
+	//
+	//   - For instance types with NVIDIA L4 GPUs, specify l4 .
+	//
+	//   - For instance types with NVIDIA L40S GPUs, specify l40s .
 	//
 	//   - For instance types with NVIDIA M60 GPUs, specify m60 .
 	//
 	//   - For instance types with AMD Radeon Pro V520 GPUs, specify radeon-pro-v520 .
 	//
+	//   - For instance types with Amazon Web Services Trainium chips, specify trainium
+	//   .
+	//
+	//   - For instance types with Amazon Web Services Trainium2 chips, specify
+	//   trainium2 .
+	//
 	//   - For instance types with NVIDIA T4 GPUs, specify t4 .
 	//
 	//   - For instance types with NVIDIA T4G GPUs, specify t4g .
+	//
+	//   - For instance types with Xilinx U30 cards, specify u30 .
 	//
 	//   - For instance types with Xilinx VU9P FPGAs, specify vu9p .
 	//
@@ -9264,6 +9307,8 @@ type InstanceRequirements struct {
 	//   - For instance types with GPU accelerators, specify gpu .
 	//
 	//   - For instance types with Inference accelerators, specify inference .
+	//
+	//   - For instance types with Media accelerators, specify media .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -9469,6 +9514,15 @@ type InstanceRequirements struct {
 	// [GetInstanceTypesFromInstanceRequirements]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements.html
 	OnDemandMaxPricePercentageOverLowestPrice *int32
 
+	// Specifies whether instance types must support encrypting in-transit traffic
+	// between instances. For more information, including the supported instance types,
+	// see [Encryption in transit]in the Amazon EC2 User Guide.
+	//
+	// Default: false
+	//
+	// [Encryption in transit]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/data-protection.html#encryption-transit
+	RequireEncryptionInTransit *bool
+
 	// Indicates whether instance types must support hibernation for On-Demand
 	// Instances.
 	//
@@ -9604,17 +9658,34 @@ type InstanceRequirementsRequest struct {
 	//   - For instance types with Amazon Web Services Inferentia chips, specify
 	//   inferentia .
 	//
+	//   - For instance types with Amazon Web Services Inferentia2 chips, specify
+	//   inferentia2 .
+	//
+	//   - For instance types with Habana Gaudi HL-205 GPUs, specify gaudi-hl-205 .
+	//
 	//   - For instance types with NVIDIA GRID K520 GPUs, specify k520 .
 	//
 	//   - For instance types with NVIDIA K80 GPUs, specify k80 .
+	//
+	//   - For instance types with NVIDIA L4 GPUs, specify l4 .
+	//
+	//   - For instance types with NVIDIA L40S GPUs, specify l40s .
 	//
 	//   - For instance types with NVIDIA M60 GPUs, specify m60 .
 	//
 	//   - For instance types with AMD Radeon Pro V520 GPUs, specify radeon-pro-v520 .
 	//
+	//   - For instance types with Amazon Web Services Trainium chips, specify trainium
+	//   .
+	//
+	//   - For instance types with Amazon Web Services Trainium2 chips, specify
+	//   trainium2 .
+	//
 	//   - For instance types with NVIDIA T4 GPUs, specify t4 .
 	//
 	//   - For instance types with NVIDIA T4G GPUs, specify t4g .
+	//
+	//   - For instance types with Xilinx U30 cards, specify u30 .
 	//
 	//   - For instance types with Xilinx VU9P FPGAs, specify vu9p .
 	//
@@ -9635,6 +9706,8 @@ type InstanceRequirementsRequest struct {
 	//   - For instance types with GPU accelerators, specify gpu .
 	//
 	//   - For instance types with Inference accelerators, specify inference .
+	//
+	//   - For instance types with Media accelerators, specify media .
 	//
 	// Default: Any accelerator type
 	AcceleratorTypes []AcceleratorType
@@ -9838,6 +9911,15 @@ type InstanceRequirementsRequest struct {
 	// [GetSpotPlacementScores]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetSpotPlacementScores.html
 	// [GetInstanceTypesFromInstanceRequirements]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceTypesFromInstanceRequirements.html
 	OnDemandMaxPricePercentageOverLowestPrice *int32
+
+	// Specifies whether instance types must support encrypting in-transit traffic
+	// between instances. For more information, including the supported instance types,
+	// see [Encryption in transit]in the Amazon EC2 User Guide.
+	//
+	// Default: false
+	//
+	// [Encryption in transit]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/data-protection.html#encryption-transit
+	RequireEncryptionInTransit *bool
 
 	// Indicates whether instance types must support hibernation for On-Demand
 	// Instances.
@@ -24448,6 +24530,13 @@ type VpnConnectionOptions struct {
 	// The transit gateway attachment ID in use for the VPN tunnel.
 	TransportTransitGatewayAttachmentId *string
 
+	//  The configured bandwidth for the VPN tunnel. Represents the current throughput
+	// capacity setting for the tunnel connection. standard tunnel bandwidth supports
+	// up to 1.25 Gbps per tunnel while large supports up to 5 Gbps per tunnel. If no
+	// tunnel bandwidth was specified for the connection, standard is used as the
+	// default value.
+	TunnelBandwidth VpnTunnelBandwidth
+
 	// Indicates whether the VPN tunnels process IPv4 or IPv6 traffic.
 	TunnelInsideIpVersion TunnelInsideIpVersion
 
@@ -24504,6 +24593,13 @@ type VpnConnectionOptionsSpecification struct {
 	//
 	// Required if OutsideIpAddressType is set to PrivateIpv4 .
 	TransportTransitGatewayAttachmentId *string
+
+	//  The desired bandwidth specification for the VPN tunnel, used when creating or
+	// modifying VPN connection options to set the tunnel's throughput capacity.
+	// standard supports up to 1.25 Gbps per tunnel, while large supports up to 5 Gbps
+	// per tunnel. The default value is standard . Existing VPN connections without a
+	// bandwidth setting will automatically default to standard .
+	TunnelBandwidth VpnTunnelBandwidth
 
 	// Indicate whether the VPN tunnels process IPv4 or IPv6 traffic.
 	//
