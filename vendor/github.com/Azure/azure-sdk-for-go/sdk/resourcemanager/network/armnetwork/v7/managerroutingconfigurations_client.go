@@ -45,7 +45,7 @@ func NewManagerRoutingConfigurationsClient(subscriptionID string, credential azc
 // CreateOrUpdate - Creates or updates a network manager routing configuration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - networkManagerName - The name of the network manager.
 //   - configurationName - The name of the network manager Routing Configuration.
@@ -98,7 +98,7 @@ func (client *ManagerRoutingConfigurationsClient) createOrUpdateCreateRequest(ct
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, routingConfiguration); err != nil {
@@ -119,7 +119,7 @@ func (client *ManagerRoutingConfigurationsClient) createOrUpdateHandleResponse(r
 // BeginDelete - Deletes a network manager routing configuration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - networkManagerName - The name of the network manager.
 //   - configurationName - The name of the network manager Routing Configuration.
@@ -146,7 +146,7 @@ func (client *ManagerRoutingConfigurationsClient) BeginDelete(ctx context.Contex
 // Delete - Deletes a network manager routing configuration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 func (client *ManagerRoutingConfigurationsClient) deleteOperation(ctx context.Context, resourceGroupName string, networkManagerName string, configurationName string, options *ManagerRoutingConfigurationsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ManagerRoutingConfigurationsClient.BeginDelete"
@@ -192,7 +192,7 @@ func (client *ManagerRoutingConfigurationsClient) deleteCreateRequest(ctx contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	if options != nil && options.Force != nil {
 		reqQP.Set("force", strconv.FormatBool(*options.Force))
 	}
@@ -204,7 +204,7 @@ func (client *ManagerRoutingConfigurationsClient) deleteCreateRequest(ctx contex
 // Get - Retrieves a network manager routing configuration.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - networkManagerName - The name of the network manager.
 //   - configurationName - The name of the network manager Routing Configuration.
@@ -256,7 +256,7 @@ func (client *ManagerRoutingConfigurationsClient) getCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -273,7 +273,7 @@ func (client *ManagerRoutingConfigurationsClient) getHandleResponse(resp *http.R
 
 // NewListPager - Lists all the network manager routing configurations in a network manager, in a paginated format.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - networkManagerName - The name of the network manager.
 //   - options - ManagerRoutingConfigurationsClientListOptions contains the optional parameters for the ManagerRoutingConfigurationsClient.NewListPager
@@ -327,7 +327,7 @@ func (client *ManagerRoutingConfigurationsClient) listCreateRequest(ctx context.
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
