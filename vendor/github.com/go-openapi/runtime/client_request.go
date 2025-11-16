@@ -1,16 +1,5 @@
-// Copyright 2015 go-swagger maintainers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
 
 package runtime
 
@@ -53,7 +42,7 @@ type ClientRequest interface { //nolint:interfacebloat // a swagger-capable requ
 
 	SetFileParam(string, ...NamedReadCloser) error
 
-	SetBodyParam(interface{}) error
+	SetBodyParam(any) error
 
 	SetTimeout(time.Duration) error
 
@@ -63,7 +52,7 @@ type ClientRequest interface { //nolint:interfacebloat // a swagger-capable requ
 
 	GetBody() []byte
 
-	GetBodyParam() interface{}
+	GetBodyParam() any
 
 	GetFileParam() map[string][]NamedReadCloser
 }
@@ -103,7 +92,7 @@ func (n *namedReadCloser) Name() string {
 
 type TestClientRequest struct {
 	Headers http.Header
-	Body    interface{}
+	Body    any
 }
 
 func (t *TestClientRequest) SetHeaderParam(name string, values ...string) error {
@@ -122,7 +111,7 @@ func (t *TestClientRequest) SetPathParam(_ string, _ string) error { return nil 
 
 func (t *TestClientRequest) SetFileParam(_ string, _ ...NamedReadCloser) error { return nil }
 
-func (t *TestClientRequest) SetBodyParam(body interface{}) error {
+func (t *TestClientRequest) SetBodyParam(body any) error {
 	t.Body = body
 	return nil
 }
@@ -139,7 +128,7 @@ func (t *TestClientRequest) GetPath() string { return "" }
 
 func (t *TestClientRequest) GetBody() []byte { return nil }
 
-func (t *TestClientRequest) GetBodyParam() interface{} {
+func (t *TestClientRequest) GetBodyParam() any {
 	return t.Body
 }
 

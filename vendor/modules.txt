@@ -815,7 +815,7 @@ github.com/go-logr/stdr
 # github.com/go-logr/zapr v1.3.0
 ## explicit; go 1.18
 github.com/go-logr/zapr
-# github.com/go-openapi/analysis v0.24.0
+# github.com/go-openapi/analysis v0.24.1
 ## explicit; go 1.24.0
 github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal/debug
@@ -837,7 +837,7 @@ github.com/go-openapi/jsonreference/internal
 # github.com/go-openapi/loads v0.23.2
 ## explicit; go 1.24.0
 github.com/go-openapi/loads
-# github.com/go-openapi/runtime v0.29.0
+# github.com/go-openapi/runtime v0.29.2
 ## explicit; go 1.24.0
 github.com/go-openapi/runtime
 github.com/go-openapi/runtime/client
@@ -893,7 +893,7 @@ github.com/go-openapi/swag/typeutils
 # github.com/go-openapi/swag/yamlutils v0.25.1
 ## explicit; go 1.24.0
 github.com/go-openapi/swag/yamlutils
-# github.com/go-openapi/validate v0.25.0
+# github.com/go-openapi/validate v0.25.1
 ## explicit; go 1.24.0
 github.com/go-openapi/validate
 # github.com/go-viper/mapstructure/v2 v2.4.0

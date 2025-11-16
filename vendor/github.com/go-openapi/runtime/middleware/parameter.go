@@ -1,16 +1,5 @@
-// Copyright 2015 go-swagger maintainers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
 
 package middleware
 
@@ -192,34 +181,34 @@ func (p *untypedParamBinder) Bind(request *http.Request, routeParams RouteParams
 func (p *untypedParamBinder) typeForSchema(tpe, format string, items *spec.Items) reflect.Type {
 	switch tpe {
 	case "boolean":
-		return reflect.TypeOf(true)
+		return reflect.TypeFor[bool]()
 
 	case typeString:
 		if tt, ok := p.formats.GetType(format); ok {
 			return tt
 		}
-		return reflect.TypeOf("")
+		return reflect.TypeFor[string]()
 
 	case "integer":
 		switch format {
 		case "int8":
-			return reflect.TypeOf(int8(0))
+			return reflect.TypeFor[int8]()
 		case "int16":
-			return reflect.TypeOf(int16(0))
+			return reflect.TypeFor[int16]()
 		case "int32":
-			return reflect.TypeOf(int32(0))
+			return reflect.TypeFor[int32]()
 		case "int64":
-			return reflect.TypeOf(int64(0))
+			return reflect.TypeFor[int64]()
 		default:
-			return reflect.TypeOf(int64(0))
+			return reflect.TypeFor[int64]()
 		}
 
 	case "number":
 		switch format {
 		case "float":
-			return reflect.TypeOf(float32(0))
+			return reflect.TypeFor[float32]()
 		case "double":
-			return reflect.TypeOf(float64(0))
+			return reflect.TypeFor[float64]()
 		}
 
 	case typeArray:
@@ -233,10 +222,10 @@ func (p *untypedParamBinder) typeForSchema(tpe, format string, items *spec.Items
 		return reflect.MakeSlice(reflect.SliceOf(itemsType), 0, 0).Type()
 
 	case "file":
-		return reflect.TypeOf(&runtime.File{}).Elem()
+		return reflect.TypeFor[runtime.File]()
 
 	case "object":
-		return reflect.TypeOf(map[string]interface{}{})
+		return reflect.TypeFor[map[string]any]()
 	}
 	return nil
 }
@@ -279,7 +268,7 @@ func (p *untypedParamBinder) bindValue(data []string, hasKey bool, target reflec
 	return p.setFieldValue(target, p.parameter.Default, d, hasKey)
 }
 
-func (p *untypedParamBinder) setFieldValue(target reflect.Value, defaultValue interface{}, data string, hasKey bool) error { //nolint:gocyclo
+func (p *untypedParamBinder) setFieldValue(target reflect.Value, defaultValue any, data string, hasKey bool) error { //nolint:gocyclo
 	tpe := p.parameter.Type
 	if p.parameter.Format != "" {
 		tpe = p.parameter.Format
@@ -341,7 +330,7 @@ func (p *untypedParamBinder) setFieldValue(target reflect.Value, defaultValue in
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		if data == "" {
 			if target.CanSet() {
-				rd := defVal.Convert(reflect.TypeOf(int64(0)))
+				rd := defVal.Convert(reflect.TypeFor[int64]())
 				target.SetInt(rd.Int())
 			}
 			return nil
@@ -360,7 +349,7 @@ func (p *untypedParamBinder) setFieldValue(target reflect.Value, defaultValue in
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if data == "" {
 			if target.CanSet() {
-				rd := defVal.Convert(reflect.TypeOf(uint64(0)))
+				rd := defVal.Convert(reflect.TypeFor[uint64]())
 				target.SetUint(rd.Uint())
 			}
 			return nil
@@ -379,7 +368,7 @@ func (p *untypedParamBinder) setFieldValue(target reflect.Value, defaultValue in
 	case reflect.Float32, reflect.Float64:
 		if data == "" {
 			if target.CanSet() {
-				rd := defVal.Convert(reflect.TypeOf(float64(0)))
+				rd := defVal.Convert(reflect.TypeFor[float64]())
 				target.SetFloat(rd.Float())
 			}
 			return nil
@@ -426,7 +415,7 @@ func (p *untypedParamBinder) setFieldValue(target reflect.Value, defaultValue in
 	return nil
 }
 
-func (p *untypedParamBinder) tryUnmarshaler(target reflect.Value, defaultValue interface{}, data string) (bool, error) {
+func (p *untypedParamBinder) tryUnmarshaler(target reflect.Value, defaultValue any, data string) (bool, error) {
 	if !target.CanSet() {
 		return false, nil
 	}
@@ -458,7 +447,7 @@ func (p *untypedParamBinder) readFormattedSliceFieldValue(data string, target re
 	return stringutils.SplitByFormat(data, p.parameter.CollectionFormat), false, nil
 }
 
-func (p *untypedParamBinder) setSliceFieldValue(target reflect.Value, defaultValue interface{}, data []string, hasKey bool) error {
+func (p *untypedParamBinder) setSliceFieldValue(target reflect.Value, defaultValue any, data []string, hasKey bool) error {
 	sz := len(data)
 	if (!hasKey || (!p.parameter.AllowEmptyValue && (sz == 0 || (sz == 1 && data[0] == "")))) && p.parameter.Required && defaultValue == nil {
 		return errors.Required(p.Name, p.parameter.In, data)

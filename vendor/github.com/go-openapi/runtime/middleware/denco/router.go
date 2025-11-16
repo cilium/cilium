@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
+
 // Package denco provides fast URL router.
 package denco
 
@@ -36,14 +39,14 @@ type Router struct {
 	// By default, SizeHint will be determined from given records to Build.
 	SizeHint int
 
-	static map[string]interface{}
+	static map[string]any
 }
 
 // New returns a new Router.
 func New() *Router {
 	return &Router{
 		SizeHint: -1,
-		static:   make(map[string]interface{}),
+		static:   make(map[string]any),
 		param:    newDoubleArray(),
 	}
 }
@@ -51,7 +54,7 @@ func New() *Router {
 // Lookup returns data and path parameters that associated with path.
 // params is a slice of the Param that arranged in the order in which parameters appeared.
 // e.g. when built routing path is "/path/to/:id/:name" and given path is "/path/to/1/alice". params order is [{"id": "1"}, {"name": "alice"}], not [{"name": "alice"}, {"id": "1"}].
-func (rt *Router) Lookup(path string) (data interface{}, params Params, found bool) {
+func (rt *Router) Lookup(path string) (data any, params Params, found bool) {
 	if data, found = rt.static[path]; found {
 		return data, nil, true
 	}
@@ -348,7 +351,7 @@ func (da *doubleArray) arrange(records []*record, idx, depth int, usedBase map[i
 
 // node represents a node of Double-Array.
 type node struct {
-	data interface{}
+	data any
 
 	// Names of path parameters.
 	paramNames []string
@@ -422,11 +425,11 @@ type Record struct {
 	Key string
 
 	// Result value for Key.
-	Value interface{}
+	Value any
 }
 
 // NewRecord returns a new Record.
-func NewRecord(key string, value interface{}) Record {
+func NewRecord(key string, value any) Record {
 	return Record{
 		Key:   key,
 		Value: value,
