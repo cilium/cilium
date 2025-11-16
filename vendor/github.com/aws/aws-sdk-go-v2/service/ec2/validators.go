@@ -6330,6 +6330,26 @@ func (m *validateOpGetHostReservationPurchasePreview) HandleInitialize(ctx conte
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpGetImageAncestry struct {
+}
+
+func (*validateOpGetImageAncestry) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetImageAncestry) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetImageAncestryInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetImageAncestryInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpGetInstanceTpmEkPub struct {
 }
 
@@ -11272,6 +11292,10 @@ func addOpGetGroupsForCapacityReservationValidationMiddleware(stack *middleware.
 
 func addOpGetHostReservationPurchasePreviewValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetHostReservationPurchasePreview{}, middleware.After)
+}
+
+func addOpGetImageAncestryValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetImageAncestry{}, middleware.After)
 }
 
 func addOpGetInstanceTpmEkPubValidationMiddleware(stack *middleware.Stack) error {
@@ -18279,6 +18303,21 @@ func validateOpGetHostReservationPurchasePreviewInput(v *GetHostReservationPurch
 	}
 	if v.OfferingId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("OfferingId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetImageAncestryInput(v *GetImageAncestryInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetImageAncestryInput"}
+	if v.ImageId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
