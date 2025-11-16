@@ -45,7 +45,7 @@ func NewSecurityPerimeterLinkReferencesClient(subscriptionID string, credential 
 // BeginDelete - Deletes an NSP LinkReference resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - linkReferenceName - The name of the NSP linkReference.
@@ -72,7 +72,7 @@ func (client *SecurityPerimeterLinkReferencesClient) BeginDelete(ctx context.Con
 // Delete - Deletes an NSP LinkReference resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 func (client *SecurityPerimeterLinkReferencesClient) deleteOperation(ctx context.Context, resourceGroupName string, networkSecurityPerimeterName string, linkReferenceName string, options *SecurityPerimeterLinkReferencesClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "SecurityPerimeterLinkReferencesClient.BeginDelete"
@@ -118,7 +118,7 @@ func (client *SecurityPerimeterLinkReferencesClient) deleteCreateRequest(ctx con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -127,7 +127,7 @@ func (client *SecurityPerimeterLinkReferencesClient) deleteCreateRequest(ctx con
 // Get - Gets the specified NSP linkReference resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - linkReferenceName - The name of the NSP linkReference.
@@ -179,7 +179,7 @@ func (client *SecurityPerimeterLinkReferencesClient) getCreateRequest(ctx contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -196,7 +196,7 @@ func (client *SecurityPerimeterLinkReferencesClient) getHandleResponse(resp *htt
 
 // NewListPager - Lists the NSP LinkReference resources in the specified network security perimeter.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - options - SecurityPerimeterLinkReferencesClientListOptions contains the optional parameters for the SecurityPerimeterLinkReferencesClient.NewListPager
@@ -250,7 +250,7 @@ func (client *SecurityPerimeterLinkReferencesClient) listCreateRequest(ctx conte
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

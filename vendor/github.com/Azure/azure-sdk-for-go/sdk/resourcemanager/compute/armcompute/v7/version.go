@@ -6,5 +6,5 @@ package armcompute
 
 const (
 	moduleName    = "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
-	moduleVersion = "v7.1.0"
+	moduleVersion = "v7.2.0"
 )

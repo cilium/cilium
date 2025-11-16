@@ -1,5 +1,14 @@
 # Release History
 
+## 7.2.0 (2025-11-21)
+### Features Added
+
+- New field `EnableFips1403Encryption` in struct `AdditionalCapabilities`
+- New field `SnapshotAccessState` in struct `DiskRestorePointInstanceView`
+- New field `InstantAccess` in struct `RestorePointCollectionProperties`
+- New field `InstantAccessDurationMinutes` in struct `RestorePointProperties`
+
+
 ## 7.1.0 (2025-10-09)
 ### Features Added
 

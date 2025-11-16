@@ -662,6 +662,9 @@ type ApplicationGatewayBackendSettings struct {
 
 // ApplicationGatewayBackendSettingsPropertiesFormat - Properties of Backend address pool settings of an application gateway.
 type ApplicationGatewayBackendSettingsPropertiesFormat struct {
+	// Whether to send Proxy Protocol header to backend servers over TCP or TLS protocols. Default value is false.
+	EnableL4ClientIPPreservation *bool
+
 	// Server name indication to be sent to the backend servers for Tls protocol.
 	HostName *string
 
@@ -1121,6 +1124,9 @@ type ApplicationGatewayOnDemandProbe struct {
 	// Reference to backend http setting of application gateway to be used for test probe.
 	BackendHTTPSettings *SubResource
 
+	// Whether to send Proxy Protocol header along with the Health Probe over TCP or TLS protocol. Default value is false.
+	EnableProbeProxyProtocolHeader *bool
+
 	// Host name to send the probe to.
 	Host *string
 
@@ -1361,6 +1367,9 @@ type ApplicationGatewayProbeHealthResponseMatch struct {
 
 // ApplicationGatewayProbePropertiesFormat - Properties of probe of an application gateway.
 type ApplicationGatewayProbePropertiesFormat struct {
+	// Whether to send Proxy Protocol header along with the Health Probe over TCP or TLS protocol. Default value is false.
+	EnableProbeProxyProtocolHeader *bool
+
 	// Host name to send the probe to.
 	Host *string
 
@@ -3302,6 +3311,18 @@ type BreakOutCategoryPolicies struct {
 
 	// Flag to control breakout of o365 optimize category.
 	Optimize *bool
+}
+
+// CertificateAuthentication - Certificate Authentication information for a certificate based authentication connection.
+type CertificateAuthentication struct {
+	// Inbound authentication certificate public keys.
+	InboundAuthCertificateChain []*string
+
+	// Inbound authentication certificate subject name.
+	InboundAuthCertificateSubjectName *string
+
+	// Keyvault secret ID for outbound authentication certificate.
+	OutboundAuthCertificate *string
 }
 
 // CheckPrivateLinkServiceVisibilityRequest - Request body of the CheckPrivateLinkServiceVisibility API service call.
@@ -8601,6 +8622,9 @@ type LoadBalancerPropertiesFormat struct {
 	// Collection of probe objects used in the load balancer.
 	Probes []*Probe
 
+	// Indicates the scope of the load balancer: external (Public) or internal (Private).
+	Scope *LoadBalancerScope
+
 	// READ-ONLY; The provisioning state of the load balancer resource.
 	ProvisioningState *ProvisioningState
 
@@ -9080,6 +9104,10 @@ type ManagerRoutingConfigurationListResult struct {
 type ManagerRoutingConfigurationPropertiesFormat struct {
 	// A description of the routing configuration.
 	Description *string
+
+	// Route table usage mode defines which route table will be used by the configuration. If not defined, this will default to
+	// 'ManagedOnly'.
+	RouteTableUsageMode *RouteTableUsageMode
 
 	// READ-ONLY; The provisioning state of the resource.
 	ProvisioningState *ProvisioningState
@@ -10814,6 +10842,9 @@ type PrivateLinkServiceListResult struct {
 
 // PrivateLinkServiceProperties - Properties of the private link service.
 type PrivateLinkServiceProperties struct {
+	// The access mode of the private link service.
+	AccessMode *AccessMode
+
 	// The auto-approval list of the private link service.
 	AutoApproval *PrivateLinkServicePropertiesAutoApproval
 
@@ -13097,9 +13128,7 @@ type SubnetPropertiesFormat struct {
 	// Application gateway IP configurations of virtual network resource.
 	ApplicationGatewayIPConfigurations []*ApplicationGatewayIPConfiguration
 
-	// Set this property to false to disable default outbound connectivity for all VMs in the subnet. This property can only be
-	// set at the time of subnet creation and cannot be updated for an existing
-	// subnet.
+	// Set this property to false to disable default outbound connectivity for all VMs in the subnet.
 	DefaultOutboundAccess *bool
 
 	// An array of references to the delegations on the subnet.
@@ -15171,8 +15200,14 @@ type VirtualNetworkGatewayConnectionPropertiesFormat struct {
 	// REQUIRED; The reference to virtual network gateway resource.
 	VirtualNetworkGateway1 *VirtualNetworkGateway
 
+	// Gateway connection authentication type.
+	AuthenticationType *ConnectionAuthenticationType
+
 	// The authorizationKey.
 	AuthorizationKey *string
+
+	// Certificate Authentication information for a certificate based authentication connection.
+	CertificateAuthentication *CertificateAuthentication
 
 	// The connection mode for this connection.
 	ConnectionMode *VirtualNetworkGatewayConnectionMode

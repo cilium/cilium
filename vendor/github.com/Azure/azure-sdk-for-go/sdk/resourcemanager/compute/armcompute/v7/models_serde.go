@@ -334,6 +334,7 @@ func (a *AccessURI) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements the json.Marshaller interface for type AdditionalCapabilities.
 func (a AdditionalCapabilities) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]any)
+	populate(objectMap, "enableFips1403Encryption", a.EnableFips1403Encryption)
 	populate(objectMap, "hibernationEnabled", a.HibernationEnabled)
 	populate(objectMap, "ultraSSDEnabled", a.UltraSSDEnabled)
 	return json.Marshal(objectMap)
@@ -348,6 +349,9 @@ func (a *AdditionalCapabilities) UnmarshalJSON(data []byte) error {
 	for key, val := range rawMsg {
 		var err error
 		switch key {
+		case "enableFips1403Encryption":
+			err = unpopulate(val, "EnableFips1403Encryption", &a.EnableFips1403Encryption)
+			delete(rawMsg, key)
 		case "hibernationEnabled":
 			err = unpopulate(val, "HibernationEnabled", &a.HibernationEnabled)
 			delete(rawMsg, key)
@@ -4544,6 +4548,7 @@ func (d DiskRestorePointInstanceView) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]any)
 	populate(objectMap, "id", d.ID)
 	populate(objectMap, "replicationStatus", d.ReplicationStatus)
+	populate(objectMap, "snapshotAccessState", d.SnapshotAccessState)
 	return json.Marshal(objectMap)
 }
 
@@ -4561,6 +4566,9 @@ func (d *DiskRestorePointInstanceView) UnmarshalJSON(data []byte) error {
 			delete(rawMsg, key)
 		case "replicationStatus":
 			err = unpopulate(val, "ReplicationStatus", &d.ReplicationStatus)
+			delete(rawMsg, key)
+		case "snapshotAccessState":
+			err = unpopulate(val, "SnapshotAccessState", &d.SnapshotAccessState)
 			delete(rawMsg, key)
 		}
 		if err != nil {
@@ -11502,6 +11510,7 @@ func (r *RestorePointCollectionListResult) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements the json.Marshaller interface for type RestorePointCollectionProperties.
 func (r RestorePointCollectionProperties) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]any)
+	populate(objectMap, "instantAccess", r.InstantAccess)
 	populate(objectMap, "provisioningState", r.ProvisioningState)
 	populate(objectMap, "restorePointCollectionId", r.RestorePointCollectionID)
 	populate(objectMap, "restorePoints", r.RestorePoints)
@@ -11518,6 +11527,9 @@ func (r *RestorePointCollectionProperties) UnmarshalJSON(data []byte) error {
 	for key, val := range rawMsg {
 		var err error
 		switch key {
+		case "instantAccess":
+			err = unpopulate(val, "InstantAccess", &r.InstantAccess)
+			delete(rawMsg, key)
 		case "provisioningState":
 			err = unpopulate(val, "ProvisioningState", &r.ProvisioningState)
 			delete(rawMsg, key)
@@ -11668,6 +11680,7 @@ func (r RestorePointProperties) MarshalJSON() ([]byte, error) {
 	populate(objectMap, "consistencyMode", r.ConsistencyMode)
 	populate(objectMap, "excludeDisks", r.ExcludeDisks)
 	populate(objectMap, "instanceView", r.InstanceView)
+	populate(objectMap, "instantAccessDurationMinutes", r.InstantAccessDurationMinutes)
 	populate(objectMap, "provisioningState", r.ProvisioningState)
 	populate(objectMap, "sourceMetadata", r.SourceMetadata)
 	populate(objectMap, "sourceRestorePoint", r.SourceRestorePoint)
@@ -11692,6 +11705,9 @@ func (r *RestorePointProperties) UnmarshalJSON(data []byte) error {
 			delete(rawMsg, key)
 		case "instanceView":
 			err = unpopulate(val, "InstanceView", &r.InstanceView)
+			delete(rawMsg, key)
+		case "instantAccessDurationMinutes":
+			err = unpopulate(val, "InstantAccessDurationMinutes", &r.InstantAccessDurationMinutes)
 			delete(rawMsg, key)
 		case "provisioningState":
 			err = unpopulate(val, "ProvisioningState", &r.ProvisioningState)

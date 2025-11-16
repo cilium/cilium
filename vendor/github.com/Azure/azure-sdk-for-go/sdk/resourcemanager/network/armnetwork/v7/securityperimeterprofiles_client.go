@@ -45,7 +45,7 @@ func NewSecurityPerimeterProfilesClient(subscriptionID string, credential azcore
 // CreateOrUpdate - Creates or updates a network profile.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - profileName - The name of the NSP profile.
@@ -98,7 +98,7 @@ func (client *SecurityPerimeterProfilesClient) createOrUpdateCreateRequest(ctx c
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -119,7 +119,7 @@ func (client *SecurityPerimeterProfilesClient) createOrUpdateHandleResponse(resp
 // Delete - Deletes an NSP profile.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - profileName - The name of the NSP profile.
@@ -170,7 +170,7 @@ func (client *SecurityPerimeterProfilesClient) deleteCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -179,7 +179,7 @@ func (client *SecurityPerimeterProfilesClient) deleteCreateRequest(ctx context.C
 // Get - Gets the specified NSP profile.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - profileName - The name of the NSP profile.
@@ -231,7 +231,7 @@ func (client *SecurityPerimeterProfilesClient) getCreateRequest(ctx context.Cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -248,7 +248,7 @@ func (client *SecurityPerimeterProfilesClient) getHandleResponse(resp *http.Resp
 
 // NewListPager - Lists the NSP profiles in the specified network security perimeter.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - options - SecurityPerimeterProfilesClientListOptions contains the optional parameters for the SecurityPerimeterProfilesClient.NewListPager
@@ -302,7 +302,7 @@ func (client *SecurityPerimeterProfilesClient) listCreateRequest(ctx context.Con
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

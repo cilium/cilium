@@ -21,6 +21,24 @@ func PossibleAccessValues() []Access {
 	}
 }
 
+// AccessMode - The access mode of the private link service.
+type AccessMode string
+
+const (
+	// AccessModeDefault - Allows unrestricted access to the private link service.
+	AccessModeDefault AccessMode = "Default"
+	// AccessModeRestricted - Limits access to subscriptions which are inside visibility list only.
+	AccessModeRestricted AccessMode = "Restricted"
+)
+
+// PossibleAccessModeValues returns the possible values for the AccessMode const type.
+func PossibleAccessModeValues() []AccessMode {
+	return []AccessMode{
+		AccessModeDefault,
+		AccessModeRestricted,
+	}
+}
+
 // AccessRuleDirection - Direction that specifies whether the access rules is inbound/outbound.
 type AccessRuleDirection string
 
@@ -1135,6 +1153,24 @@ func PossibleConnectedGroupPrivateEndpointsScaleValues() []ConnectedGroupPrivate
 	}
 }
 
+// ConnectionAuthenticationType - Gateway connection authentication type.
+type ConnectionAuthenticationType string
+
+const (
+	// ConnectionAuthenticationTypeCertificate - Certificate-based authentication method for VPN gateway connections.
+	ConnectionAuthenticationTypeCertificate ConnectionAuthenticationType = "Certificate"
+	// ConnectionAuthenticationTypePSK - Pre-shared key authentication method for VPN gateway connections.
+	ConnectionAuthenticationTypePSK ConnectionAuthenticationType = "PSK"
+)
+
+// PossibleConnectionAuthenticationTypeValues returns the possible values for the ConnectionAuthenticationType const type.
+func PossibleConnectionAuthenticationTypeValues() []ConnectionAuthenticationType {
+	return []ConnectionAuthenticationType{
+		ConnectionAuthenticationTypeCertificate,
+		ConnectionAuthenticationTypePSK,
+	}
+}
+
 // ConnectionMonitorEndpointFilterItemType - The type of item included in the filter. Currently only 'AgentAddress' is supported.
 type ConnectionMonitorEndpointFilterItemType string
 
@@ -1465,8 +1501,10 @@ func PossibleDirectionValues() []Direction {
 type DisableBgpRoutePropagation string
 
 const (
+	// DisableBgpRoutePropagationFalse - BGP route propagation is enabled.
 	DisableBgpRoutePropagationFalse DisableBgpRoutePropagation = "False"
-	DisableBgpRoutePropagationTrue  DisableBgpRoutePropagation = "True"
+	// DisableBgpRoutePropagationTrue - BGP route propagation is disabled.
+	DisableBgpRoutePropagationTrue DisableBgpRoutePropagation = "True"
 )
 
 // PossibleDisableBgpRoutePropagationValues returns the possible values for the DisableBgpRoutePropagation const type.
@@ -2790,6 +2828,22 @@ func PossibleLoadBalancerSKUTierValues() []LoadBalancerSKUTier {
 	}
 }
 
+// LoadBalancerScope - Indicates the scope of the load balancer: external (Public) or internal (Private).
+type LoadBalancerScope string
+
+const (
+	LoadBalancerScopePrivate LoadBalancerScope = "Private"
+	LoadBalancerScopePublic  LoadBalancerScope = "Public"
+)
+
+// PossibleLoadBalancerScopeValues returns the possible values for the LoadBalancerScope const type.
+func PossibleLoadBalancerScopeValues() []LoadBalancerScope {
+	return []LoadBalancerScope{
+		LoadBalancerScopePrivate,
+		LoadBalancerScopePublic,
+	}
+}
+
 // LoadDistribution - The load distribution policy for this rule.
 type LoadDistribution string
 
@@ -3789,12 +3843,33 @@ func PossibleRouteNextHopTypeValues() []RouteNextHopType {
 	}
 }
 
+// RouteTableUsageMode - Route table usage mode defines which route table will be used by the configuration. If not defined,
+// this will default to 'ManagedOnly'.
+type RouteTableUsageMode string
+
+const (
+	// RouteTableUsageModeManagedOnly - Only route tables managed by the routing configuration will be used.
+	RouteTableUsageModeManagedOnly RouteTableUsageMode = "ManagedOnly"
+	// RouteTableUsageModeUseExisting - Use existing user-defined route tables already associated with resources.
+	RouteTableUsageModeUseExisting RouteTableUsageMode = "UseExisting"
+)
+
+// PossibleRouteTableUsageModeValues returns the possible values for the RouteTableUsageMode const type.
+func PossibleRouteTableUsageModeValues() []RouteTableUsageMode {
+	return []RouteTableUsageMode{
+		RouteTableUsageModeManagedOnly,
+		RouteTableUsageModeUseExisting,
+	}
+}
+
 // RoutingRuleDestinationType - Routing rule destination type.
 type RoutingRuleDestinationType string
 
 const (
+	// RoutingRuleDestinationTypeAddressPrefix - Destination specified as an IP address prefix (CIDR).
 	RoutingRuleDestinationTypeAddressPrefix RoutingRuleDestinationType = "AddressPrefix"
-	RoutingRuleDestinationTypeServiceTag    RoutingRuleDestinationType = "ServiceTag"
+	// RoutingRuleDestinationTypeServiceTag - Destination specified as an Azure service tag.
+	RoutingRuleDestinationTypeServiceTag RoutingRuleDestinationType = "ServiceTag"
 )
 
 // PossibleRoutingRuleDestinationTypeValues returns the possible values for the RoutingRuleDestinationType const type.
@@ -3809,11 +3884,16 @@ func PossibleRoutingRuleDestinationTypeValues() []RoutingRuleDestinationType {
 type RoutingRuleNextHopType string
 
 const (
-	RoutingRuleNextHopTypeInternet              RoutingRuleNextHopType = "Internet"
-	RoutingRuleNextHopTypeNoNextHop             RoutingRuleNextHopType = "NoNextHop"
-	RoutingRuleNextHopTypeVirtualAppliance      RoutingRuleNextHopType = "VirtualAppliance"
+	// RoutingRuleNextHopTypeInternet - Forward traffic to the Internet.
+	RoutingRuleNextHopTypeInternet RoutingRuleNextHopType = "Internet"
+	// RoutingRuleNextHopTypeNoNextHop - No next hop will be used.
+	RoutingRuleNextHopTypeNoNextHop RoutingRuleNextHopType = "NoNextHop"
+	// RoutingRuleNextHopTypeVirtualAppliance - Forward traffic to a specified virtual appliance IP address.
+	RoutingRuleNextHopTypeVirtualAppliance RoutingRuleNextHopType = "VirtualAppliance"
+	// RoutingRuleNextHopTypeVirtualNetworkGateway - Forward traffic to the virtual network gateway.
 	RoutingRuleNextHopTypeVirtualNetworkGateway RoutingRuleNextHopType = "VirtualNetworkGateway"
-	RoutingRuleNextHopTypeVnetLocal             RoutingRuleNextHopType = "VnetLocal"
+	// RoutingRuleNextHopTypeVnetLocal - Keep traffic within the local virtual network
+	RoutingRuleNextHopTypeVnetLocal RoutingRuleNextHopType = "VnetLocal"
 )
 
 // PossibleRoutingRuleNextHopTypeValues returns the possible values for the RoutingRuleNextHopType const type.

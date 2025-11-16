@@ -44,7 +44,7 @@ func NewSecurityPerimeterServiceTagsClient(subscriptionID string, credential azc
 // NewListPager - Gets the list of service tags supported by NSP. These service tags can be used to create access rules in
 // NSP.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - location - The location of network security perimeter.
 //   - options - SecurityPerimeterServiceTagsClientListOptions contains the optional parameters for the SecurityPerimeterServiceTagsClient.NewListPager
 //     method.
@@ -87,7 +87,7 @@ func (client *SecurityPerimeterServiceTagsClient) listCreateRequest(ctx context.
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

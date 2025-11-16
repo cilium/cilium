@@ -120,6 +120,10 @@ type AccessURI struct {
 
 // AdditionalCapabilities - Enables or disables a capability on the virtual machine or virtual machine scale set.
 type AdditionalCapabilities struct {
+	// The flag enables the usage of FIPS 140-3 compliant cryptography on the protectedSettings of an extension. Learn more at:
+	// https://aka.ms/linuxagentfipssupport.
+	EnableFips1403Encryption *bool
+
 	// The flag that enables or disables hibernation capability on the VM.
 	HibernationEnabled *bool
 
@@ -1242,6 +1246,12 @@ type DataDisk struct {
 	// force-detach a data disk update toBeDetached to 'true' along with setting detachOption: 'ForceDetach'.
 	DetachOption *DiskDetachOptionTypes
 
+	// Specifies the Read-Write IOPS for the managed disk when StorageAccountType is UltraSSD_LRS.
+	DiskIOPSReadWrite *int64
+
+	// Specifies the bandwidth in MB per second for the managed disk when StorageAccountType is UltraSSD_LRS.
+	DiskMBpsReadWrite *int64
+
 	// Specifies the size of an empty data disk in gigabytes. This element can be used to overwrite the size of the disk in a
 	// virtual machine image. The property 'diskSizeGB' is the number of bytes x 1024^3
 	// for the disk and the value cannot be larger than 1023.
@@ -1269,16 +1279,6 @@ type DataDisk struct {
 
 	// Specifies whether writeAccelerator should be enabled or disabled on the disk.
 	WriteAcceleratorEnabled *bool
-
-	// READ-ONLY; Specifies the Read-Write IOPS for the managed disk when StorageAccountType is UltraSSD_LRS. Returned only for
-	// VirtualMachine ScaleSet VM disks. Can be updated only via updates to the VirtualMachine
-	// Scale Set.
-	DiskIOPSReadWrite *int64
-
-	// READ-ONLY; Specifies the bandwidth in MB per second for the managed disk when StorageAccountType is UltraSSD_LRS. Returned
-	// only for VirtualMachine ScaleSet VM disks. Can be updated only via updates to the
-	// VirtualMachine Scale Set.
-	DiskMBpsReadWrite *int64
 }
 
 // DataDiskImage - Contains the data disk images information.
@@ -1984,6 +1984,9 @@ type DiskRestorePointInstanceView struct {
 
 	// The disk restore point replication status information.
 	ReplicationStatus *DiskRestorePointReplicationStatus
+
+	// The state of snapshot which determines the access availability of the snapshot.
+	SnapshotAccessState *SnapshotAccessState
 }
 
 // DiskRestorePointList - The List Disk Restore Points operation response.
@@ -4887,6 +4890,11 @@ type RestorePointCollectionListResult struct {
 
 // RestorePointCollectionProperties - The restore point collection properties.
 type RestorePointCollectionProperties struct {
+	// This property determines whether instant access snapshot is enabled for restore points created under this restore point
+	// collection for Premium SSD v2 or Ultra disk. Instant access snapshot for Premium
+	// SSD v2 or Ultra disk is instantaneously available for restoring disk with fast restore performance.
+	InstantAccess *bool
+
 	// The properties of the source resource that this restore point collection is created from.
 	Source *RestorePointCollectionSourceProperties
 
@@ -4950,6 +4958,10 @@ type RestorePointProperties struct {
 	// List of disk resource ids that the customer wishes to exclude from the restore point. If no disks are specified, all disks
 	// will be included.
 	ExcludeDisks []*APIEntityReference
+
+	// This property determines the time in minutes the snapshot is retained as instant access for restoring Premium SSD v2 or
+	// Ultra disk with fast restore performance in this restore point.
+	InstantAccessDurationMinutes *int32
 
 	// Gets the details of the VM captured at the time of the restore point creation.
 	SourceMetadata *RestorePointSourceMetadata
