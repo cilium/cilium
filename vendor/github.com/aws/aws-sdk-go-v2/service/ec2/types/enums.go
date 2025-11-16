@@ -43,6 +43,13 @@ const (
 	AcceleratorNameA10g          AcceleratorName = "a10g"
 	AcceleratorNameH100          AcceleratorName = "h100"
 	AcceleratorNameT4g           AcceleratorName = "t4g"
+	AcceleratorNameL40s          AcceleratorName = "l40s"
+	AcceleratorNameL4            AcceleratorName = "l4"
+	AcceleratorNameGaudiHl205    AcceleratorName = "gaudi-hl-205"
+	AcceleratorNameInferentia2   AcceleratorName = "inferentia2"
+	AcceleratorNameTrainium      AcceleratorName = "trainium"
+	AcceleratorNameTrainium2     AcceleratorName = "trainium2"
+	AcceleratorNameU30           AcceleratorName = "u30"
 )
 
 // Values returns all known values for AcceleratorName. Note that this can be
@@ -63,6 +70,13 @@ func (AcceleratorName) Values() []AcceleratorName {
 		"a10g",
 		"h100",
 		"t4g",
+		"l40s",
+		"l4",
+		"gaudi-hl-205",
+		"inferentia2",
+		"trainium",
+		"trainium2",
+		"u30",
 	}
 }
 
@@ -73,6 +87,7 @@ const (
 	AcceleratorTypeGpu       AcceleratorType = "gpu"
 	AcceleratorTypeFpga      AcceleratorType = "fpga"
 	AcceleratorTypeInference AcceleratorType = "inference"
+	AcceleratorTypeMedia     AcceleratorType = "media"
 )
 
 // Values returns all known values for AcceleratorType. Note that this can be
@@ -84,6 +99,7 @@ func (AcceleratorType) Values() []AcceleratorType {
 		"gpu",
 		"fpga",
 		"inference",
+		"media",
 	}
 }
 
@@ -11654,6 +11670,25 @@ const (
 func (VpnStaticRouteSource) Values() []VpnStaticRouteSource {
 	return []VpnStaticRouteSource{
 		"Static",
+	}
+}
+
+type VpnTunnelBandwidth string
+
+// Enum values for VpnTunnelBandwidth
+const (
+	VpnTunnelBandwidthStandard VpnTunnelBandwidth = "standard"
+	VpnTunnelBandwidthLarge    VpnTunnelBandwidth = "large"
+)
+
+// Values returns all known values for VpnTunnelBandwidth. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (VpnTunnelBandwidth) Values() []VpnTunnelBandwidth {
+	return []VpnTunnelBandwidth{
+		"standard",
+		"large",
 	}
 }
 
