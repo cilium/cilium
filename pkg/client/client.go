@@ -539,16 +539,16 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 					status = "BPF"
 				}
 				if sr.KubeProxyReplacement != nil {
-					devStr := ""
+					var devStr strings.Builder
 					for i, dev := range sr.KubeProxyReplacement.DeviceList {
-						devStr += dev.Name
+						devStr.WriteString(dev.Name)
 						if i+1 != len(sr.KubeProxyReplacement.DeviceList) {
-							devStr += ", "
+							devStr.WriteString(", ")
 						}
 					}
 					status += fmt.Sprintf(
 						"\t[%s]\t%s %s",
-						devStr,
+						devStr.String(),
 						sr.Masquerading.SnatExclusionCidrV4,
 						sr.Masquerading.SnatExclusionCidrV6,
 					)
