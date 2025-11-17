@@ -1156,10 +1156,6 @@
      - Configure timeout in which Cilium will exit if CRDs are not available
      - string
      - ``"5m"``
-   * - :spelling:ignore:`crds.installMethod`
-     - Method for installing CRDs. Supported values are: "operator", "helm" and "none". The "operator" method allows for fine-grained control over which CRDs are installed and by default doesn't perform CRD downgrades. These can be configured in operator section. The "helm" method always installs all CRDs for the chart version.
-     - string
-     - ``"operator"``
    * - :spelling:ignore:`daemon.allowedConfigOverrides`
      - allowedConfigOverrides is a list of config-map keys that can be overridden. That is to say, if this value is set, config sources (excepting the first one) can only override keys in this list.  This takes precedence over blockedConfigOverrides.  By default, all keys may be overridden. To disable overrides, set this to "none" or change the configSources variable.
      - string

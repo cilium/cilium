@@ -1,6 +1,0 @@
-{{- if eq .Values.crds.installMethod "helm" }}
-{{- range $path, $_ := .Files.Glob "crds-yaml/*.yaml" }}
----
-{{ $.Files.Get $path }}
-{{- end }}
-{{- end }}
