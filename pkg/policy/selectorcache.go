@@ -313,7 +313,7 @@ type identityNotifier interface {
 	// RegisterFQDNSelector exposes this FQDNSelector so that the identity labels
 	// of IPs contained in a DNS response that matches said selector can be
 	// associated with that selector.
-	RegisterFQDNSelector(selector api.FQDNSelector)
+	RegisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64)
 
 	// UnregisterFQDNSelector removes this FQDNSelector from the set of
 	// IPs which are being tracked by the identityNotifier. The result
@@ -321,7 +321,7 @@ type identityNotifier interface {
 	// selected by any other FQDN selector.
 	// This occurs when there are no more users of a given FQDNSelector for the
 	// SelectorCache.
-	UnregisterFQDNSelector(selector api.FQDNSelector)
+	UnregisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64)
 }
 
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
