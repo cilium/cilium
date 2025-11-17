@@ -514,8 +514,9 @@ func peerAddressesFromPolicy(p *types.RoutePolicy) ([]netip.Addr, bool) {
 	for _, s := range p.Statements {
 		if s.Conditions.MatchNeighbors == nil || len(s.Conditions.MatchNeighbors.Neighbors) == 0 {
 			allPeers = true
+		} else {
+			addrs = append(addrs, s.Conditions.MatchNeighbors.Neighbors...)
 		}
-		addrs = append(addrs, s.Conditions.MatchNeighbors.Neighbors...)
 	}
 	return addrs, allPeers
 }
