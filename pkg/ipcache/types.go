@@ -302,13 +302,6 @@ func (r *resourceInfo) IdentityOverride() bool {
 // In the event of a conflict, entries with a higher precedence source
 // will win.
 func (s *prefixInfo) flatten(scopedLog *slog.Logger) *resourceInfo {
-	// shortcut: with exactly one resource, we just return it
-	if len(s.byResource) == 1 {
-		for _, r := range s.byResource {
-			return r
-		}
-	}
-
 	out := &resourceInfo{}
 
 	var (
