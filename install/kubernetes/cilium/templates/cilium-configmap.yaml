@@ -264,9 +264,7 @@ data:
   {{- end }}
 {{- end }}
 
-{{- if eq .Values.crds.installMethod "operator" }}
-  skip-crd-creation: {{ .Values.operator.skipCRDCreation | quote }}
-{{- else }}
+{{- if .Values.operator.skipCRDCreation }}
   skip-crd-creation: "true"
 {{- end }}
 
