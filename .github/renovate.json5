@@ -275,9 +275,7 @@
         // Stop updating envoy control plane packages until they pushed the
         // tag to stop go mod from erroring. See https://github.com/cilium/cilium/issues/41574
         "github.com/envoyproxy/go-control-plane/contrib",
-        "github.com/envoyproxy/go-control-plane/envoy",
-        // We can't update to helm v4 until https://github.com/helm/helm/issues/31525 is fixed
-        "helm.sh/helm/v4"
+        "github.com/envoyproxy/go-control-plane/envoy"
       ],
       "matchPackagePatterns": [
         // We can't update these libraries until github.com/shoenig/go-m1cpu
@@ -289,7 +287,9 @@
         // Once we decide to spend cycles on ginkgo v2 we should update the
         // dependency manually.
         "github.com/onsi/ginkgo",
-        "github.com/onsi/gomega/*"
+        "github.com/onsi/gomega/*",
+        // We can't update to helm v4 until https://github.com/helm/helm/issues/31525 is fixed
+        "helm.sh/helm/*"
       ]
     },
     {
