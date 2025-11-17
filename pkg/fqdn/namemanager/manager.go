@@ -139,7 +139,7 @@ func New(params ManagerParams) *manager {
 // associated with that selector.
 // This function also evaluates if any DNS names in the cache are matched by
 // this new selector and updates the labels for those DNS names accordingly.
-func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) {
+func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64) {
 	n.Lock()
 	defer n.Unlock()
 
@@ -181,14 +181,14 @@ func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) {
 	// that is the case, we want to update the IPCache metadata for all
 	// associated IPs
 	selectedNamesAndIPs := n.mapSelectorsToNamesLocked(selector)
-	n.updateMetadata(deriveLabelsForNames(selectedNamesAndIPs, n.allSelectors))
+	return n.updateMetadata(deriveLabelsForNames(selectedNamesAndIPs, n.allSelectors))
 }
 
 // UnregisterFQDNSelector removes this FQDNSelector from the set of
 // IPs which are being tracked by the identityNotifier. The result
 // of this is that an IP may be evicted from IPCache if it is no longer
 // selected by any other FQDN selector.
-func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) {
+func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64) {
 	n.Lock()
 	defer n.Unlock()
 
@@ -208,7 +208,7 @@ func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) {
 
 	// Re-compute labels for affected names and IPs
 	selectedNamesAndIPs := n.mapSelectorsToNamesLocked(selector)
-	n.updateMetadata(deriveLabelsForNames(selectedNamesAndIPs, n.allSelectors))
+	return n.updateMetadata(deriveLabelsForNames(selectedNamesAndIPs, n.allSelectors))
 }
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
