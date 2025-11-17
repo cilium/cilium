@@ -43,6 +43,9 @@ endef
 
 COMMON_LABELS_EXCLUSIONS := --exclude validate.yaml --exclude crds.yaml
 
+CRDS_ROOT_DIR := ../../pkg/k8s/apis/
+CRDS_TO_COPY := cilium.io
+
 all: update-versions check-values-yaml docs lint copy-crds-yaml
 
 # Add the ability to override variables and add more targets.
@@ -98,9 +101,6 @@ docs:
 
 check-docker-images: # Check whether docker images are available for the current version.
 	$(QUIET)$(ROOT_DIR)/contrib/release/check-docker-images.sh "$(CILIUM_VERSION)"
-
-CRDS_ROOT_DIR := ../../pkg/k8s/apis/
-CRDS_TO_COPY := cilium.io
 
 copy-crds-yaml:
 	$(QUIET)mkdir -p $(CILIUM_CHARTS)/crds-yaml/;
