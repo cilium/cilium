@@ -1201,7 +1201,11 @@ func (sp *PerSelectorPolicy) redirectType() redirectTypes {
 func (l4 *L4Filter) Marshal() string {
 	b, err := json.Marshal(l4)
 	if err != nil {
-		b = []byte("\"L4Filter error: " + err.Error() + "\"")
+		jsonErr, err2 := json.Marshal(err.Error())
+		if err2 != nil {
+			jsonErr = []byte("unable to marshall error")
+		}
+		return "L4Filter error: " + string(jsonErr)
 	}
 	return string(b)
 }
