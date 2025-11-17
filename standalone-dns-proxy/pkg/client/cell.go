@@ -9,15 +9,15 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"github.com/cilium/stream"
 
 	"github.com/cilium/cilium/pkg/fqdn/service"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 const (
-	sdpCiliumAgentConnectionJob = "sdp-cilium-agent-connection"
-	sdpRulesStreamJob           = "sdp-rules-stream"
+	sdpRulesStreamJob = "sdp-rules-stream"
 )
 
 // Cell provides the gRPC connection handler client for standalone DNS proxy.
@@ -52,13 +52,14 @@ type clientParams struct {
 func newGRPCClient(params clientParams) ConnectionHandler {
 	c := createGRPCClient(params)
 
-	// The connectToAgent job attempts to connect to the Cilium agent every 10 seconds
-	// until a connection is established.
-	params.JobGroup.Add(job.Timer(sdpCiliumAgentConnectionJob, c.ConnectToAgent, 10*time.Second))
+	// The InitClient job initializes the gRPC client for communication with the Cilium agent.
+	err := c.InitClient()
+	if err != nil {
+		logging.Fatal(c.logger, "Failed to initialize gRPC client", logfields.Error, err)
+	}
 
 	// The EnsurePolicyStream job ensure that the policy stream is active when connected.
-	// It observes the connection events and starts the policy stream when connected.
-	params.JobGroup.Add(job.Observer(sdpRulesStreamJob, c.handleConnEvent, stream.FromChannel(c.connManager.Events())))
+	params.JobGroup.Add(job.Timer(sdpRulesStreamJob, c.createPolicyStream, 10*time.Second))
 
 	return c
 }
