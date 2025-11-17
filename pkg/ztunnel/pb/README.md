@@ -3,13 +3,13 @@
 
 ## Table of Contents
 
-- [ca.proto](#ca-proto)
+- [ca_ztunnel.proto](#ca_ztunnel-proto)
     - [IstioCertificateRequest](#istio-v1-auth-IstioCertificateRequest)
     - [IstioCertificateResponse](#istio-v1-auth-IstioCertificateResponse)
   
     - [IstioCertificateService](#istio-v1-auth-IstioCertificateService)
   
-- [workload.proto](#workload-proto)
+- [workload_ztunnel.proto](#workload_ztunnel-proto)
     - [Address](#istio-workload-Address)
     - [ApplicationTunnel](#istio-workload-ApplicationTunnel)
     - [Extension](#istio-workload-Extension)
@@ -38,10 +38,10 @@
 
 
 
-<a name="ca-proto"></a>
+<a name="ca_ztunnel-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
-## ca.proto
+## ca_ztunnel.proto
 
 
 
@@ -101,10 +101,10 @@ Service for managing certificates issued by the CA.
 
 
 
-<a name="workload-proto"></a>
+<a name="workload_ztunnel-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
-## workload.proto
+## workload_ztunnel.proto
 
 
 
