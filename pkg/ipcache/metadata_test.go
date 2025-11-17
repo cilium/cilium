@@ -936,6 +936,66 @@ func TestUpsertMetadataInheritedCIDRPrefix(t *testing.T) {
 	assert.Nil(t, ident)
 }
 
+func TestUpsertMetadataUpdatedFQDNLabels(t *testing.T) {
+	setupIPCacheTestSuite(t)
+
+	ctx := t.Context()
+
+	// Simulate first FQDN lookup
+	fqdnLabels := labels.NewLabelsFromSortedList("fqdn:cilium.io")
+	child := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.10.0.1/32"))
+	prefixes := IPIdentityCache.metadata.upsertLocked(child, source.Generated, "fqdn-lookup", fqdnLabels)
+	remaining, err := IPIdentityCache.doInjectLabels(ctx, prefixes)
+	require.NoError(t, err)
+	require.Empty(t, remaining)
+
+	id, ok := IPIdentityCache.LookupByPrefix(child.String())
+	ident := IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, id.ID)
+	require.True(t, ok)
+	require.NotNil(t, ident)
+	require.Equal(t, "fqdn:cilium.io,reserved:world-ipv4", ident.Labels.String())
+
+	// Simulate new FQDN selector matching the same fqdn+IPs
+	fqdnLabels = labels.NewLabelsFromSortedList("fqdn:*.io;fqdn:cilium.io")
+	child = cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.10.0.1/32"))
+	prefixes = IPIdentityCache.metadata.upsertLocked(child, source.Generated, "fqdn-lookup", fqdnLabels)
+	remaining, err = IPIdentityCache.doInjectLabels(ctx, prefixes)
+	require.NoError(t, err)
+	require.Empty(t, remaining)
+
+	id, ok = IPIdentityCache.LookupByPrefix(child.String())
+	ident = IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, id.ID)
+	require.True(t, ok)
+	require.NotNil(t, ident)
+	require.Equal(t, "fqdn:*.io,fqdn:cilium.io,reserved:world-ipv4", ident.Labels.String())
+
+	// Simulate first that *.io selector is removed
+	fqdnLabels = labels.NewLabelsFromSortedList("fqdn:cilium.io")
+	child = cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.10.0.1/32"))
+	prefixes = IPIdentityCache.metadata.upsertLocked(child, source.Generated, "fqdn-lookup", fqdnLabels)
+	remaining, err = IPIdentityCache.doInjectLabels(ctx, prefixes)
+	require.NoError(t, err)
+	require.Empty(t, remaining)
+
+	id, ok = IPIdentityCache.LookupByPrefix(child.String())
+	ident = IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, id.ID)
+	require.True(t, ok)
+	require.NotNil(t, ident)
+	require.Equal(t, "fqdn:cilium.io,reserved:world-ipv4", ident.Labels.String())
+
+	// Simulate that all FQDN selectors are removed
+	child = cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.10.0.1/32"))
+	prefixes = IPIdentityCache.metadata.remove(child, "fqdn-lookup", labels.Labels{})
+	remaining, err = IPIdentityCache.doInjectLabels(ctx, prefixes)
+	require.NoError(t, err)
+	require.Empty(t, remaining)
+
+	id, ok = IPIdentityCache.LookupByPrefix(child.String())
+	ident = IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, id.ID)
+	require.False(t, ok)
+	require.Nil(t, ident)
+}
+
 func TestResolveIdentity(t *testing.T) {
 	type sm map[string]string
 
