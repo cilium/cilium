@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -80,18 +81,18 @@ func runLengthEncodeIDs(ids []loadbalancer.BackendID) string {
 	}
 	count := 1
 	current := ids[0]
-	var runs string
+	var runs strings.Builder
 	for _, id := range ids[1:] {
 		if id == current {
 			count++
 		} else {
-			runs += fmt.Sprintf("%d(%d),", current, count)
+			fmt.Fprintf(&runs, "%d(%d),", current, count)
 			count = 1
 			current = id
 		}
 	}
-	runs += fmt.Sprintf("%d(%d)", current, count)
-	return runs
+	fmt.Fprintf(&runs, "%d(%d)", current, count)
+	return runs.String()
 }
 
 func TestReproducible(t *testing.T) {

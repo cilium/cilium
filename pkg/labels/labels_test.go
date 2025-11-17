@@ -73,11 +73,11 @@ func TestSortMap(t *testing.T) {
 func TestLabelArraySorted(t *testing.T) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
-	str := ""
+	var str strings.Builder
 	for _, l := range lbls.LabelArray() {
-		str += fmt.Sprintf(`%s:%s=%s;`, l.Source, l.Key, l.Value)
+		fmt.Fprintf(&str, `%s:%s=%s;`, l.Source, l.Key, l.Value)
 	}
-	require.Equal(t, lblsString, str)
+	require.Equal(t, lblsString, str.String())
 }
 
 func TestMap2Labels(t *testing.T) {

@@ -179,18 +179,20 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 	toBeRemoved := []string{}
 
 	if len(c.tcFilters) > 0 {
-		section := "tc filters\n"
+		var section strings.Builder
+		section.WriteString("tc filters\n")
 		for linkName, f := range c.tcFilters {
-			section += fmt.Sprintf("%s %v\n", linkName, f)
+			fmt.Fprintf(&section, "%s %v\n", linkName, f)
 		}
-		toBeRemoved = append(toBeRemoved, section)
+		toBeRemoved = append(toBeRemoved, section.String())
 	}
 	if len(c.xdpLinks) > 0 {
-		section := "xdp programs\n"
+		var section strings.Builder
+		section.WriteString("xdp programs\n")
 		for _, l := range c.xdpLinks {
-			section += fmt.Sprintf("%s: xdp/prog id %v\n", l.Attrs().Name, l.Attrs().Xdp.ProgId)
+			fmt.Fprintf(&section, "%s: xdp/prog id %v\n", l.Attrs().Name, l.Attrs().Xdp.ProgId)
 		}
-		toBeRemoved = append(toBeRemoved, section)
+		toBeRemoved = append(toBeRemoved, section.String())
 	}
 
 	if c.bpfOnly {
@@ -198,27 +200,30 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 	}
 
 	if len(c.routes) > 0 {
-		section := "routes\n"
+		var section strings.Builder
+		section.WriteString("routes\n")
 		for _, v := range c.routes {
-			section += fmt.Sprintf("%v\n", v)
+			fmt.Fprintf(&section, "%v\n", v)
 		}
-		toBeRemoved = append(toBeRemoved, section)
+		toBeRemoved = append(toBeRemoved, section.String())
 	}
 
 	if len(c.links) > 0 {
-		section := "links\n"
+		var section strings.Builder
+		section.WriteString("links\n")
 		for _, v := range c.links {
-			section += fmt.Sprintf("%v\n", v)
+			fmt.Fprintf(&section, "%v\n", v)
 		}
-		toBeRemoved = append(toBeRemoved, section)
+		toBeRemoved = append(toBeRemoved, section.String())
 	}
 
 	if len(c.netNSs) > 0 {
-		section := "network namespaces\n"
+		var section strings.Builder
+		section.WriteString("network namespaces\n")
 		for _, n := range c.netNSs {
-			section += fmt.Sprintf("%s\n", n)
+			fmt.Fprintf(&section, "%s\n", n)
 		}
-		toBeRemoved = append(toBeRemoved, section)
+		toBeRemoved = append(toBeRemoved, section.String())
 	}
 	toBeRemoved = append(toBeRemoved, fmt.Sprintf("socketlb bpf programs at %s",
 		defaults.DefaultCgroupRoot))
@@ -324,12 +329,13 @@ func showWhatWillBeRemoved(cleanups []cleanup) {
 		toBeRemoved = append(toBeRemoved, cleanup.whatWillBeRemoved()...)
 	}
 
-	warning := "Warning: Destructive operation. You are about to remove:\n"
+	var warning strings.Builder
+	warning.WriteString("Warning: Destructive operation. You are about to remove:\n")
 	for _, warn := range toBeRemoved {
-		warning += fmt.Sprintf("- %s\n", warn)
+		fmt.Fprintf(&warning, "- %s\n", warn)
 	}
 
-	fmt.Print(warning)
+	fmt.Print(warning.String())
 }
 
 func confirmCleanup() bool {

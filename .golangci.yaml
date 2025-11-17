@@ -120,7 +120,6 @@ linters:
       disable: # TODO: remove each disabled rule and fix it
         - omitzero
         - rangeint
-        - stringsbuilder
         - waitgroup
     govet:
       enable:

@@ -185,11 +185,11 @@ func formatStringArray(arr []string) string {
 	if len(arr) == 1 {
 		return arr[0]
 	}
-	res := ""
+	var res strings.Builder
 	for _, str := range arr {
-		res += "{" + str + "} "
+		res.WriteString("{" + str + "} ")
 	}
-	return strings.TrimSpace(res)
+	return strings.TrimSpace(res.String())
 }
 
 func formatFamilies(families []*models.BgpFamily) []string {
@@ -443,15 +443,15 @@ func parseGracefulRestartCap(g *bgppacket.CapGracefulRestart) string {
 }
 
 func parseLongLivedGracefulRestartCap(g *bgppacket.CapLongLivedGracefulRestart) string {
-	llgrStr := ""
+	var llgrStr strings.Builder
 	for _, t := range g.Tuples {
-		llgrStr += fmt.Sprintf("\t\t\t%s, restart time %d sec", bgppacket.AfiSafiToRouteFamily(t.AFI, t.SAFI), t.RestartTime)
+		fmt.Fprintf(&llgrStr, "\t\t\t%s, restart time %d sec", bgppacket.AfiSafiToRouteFamily(t.AFI, t.SAFI), t.RestartTime)
 		if t.Flags == 0x80 {
-			llgrStr += ", forward flag set"
+			llgrStr.WriteString(", forward flag set")
 		}
-		llgrStr += "\n"
+		llgrStr.WriteString("\n")
 	}
-	return llgrStr
+	return llgrStr.String()
 }
 
 func parseExtendedNexthopCap(e *bgppacket.CapExtendedNexthop) string {

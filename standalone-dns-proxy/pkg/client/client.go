@@ -105,17 +105,17 @@ func (p DNSRules) TableHeader() []string {
 
 // TableRow implements statedb.TableWritable.
 func (p DNSRules) TableRow() []string {
-	var dnsRules string
+	var dnsRules strings.Builder
 	for _, sel := range p.DNSRule {
 		if sel != nil && sel.L7Rules.DNS != nil {
-			dnsRules += fmt.Sprintf("%v|", sel.L7Rules.DNS)
+			fmt.Fprintf(&dnsRules, "%v|", sel.L7Rules.DNS)
 		}
 
 	}
 	return []string{
 		fmt.Sprintf("%d", p.EndpointID),
 		p.PortProto.String(),
-		dnsRules,
+		dnsRules.String(),
 	}
 }
 

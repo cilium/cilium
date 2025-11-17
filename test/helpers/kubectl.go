@@ -2575,19 +2575,19 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
 		defer cancel()
 
-		var errorMessage string
+		var errorMessage strings.Builder
 		for _, pod := range ciliumPods {
 			var endpoints []models.Endpoint
 			cmdRes := kub.CiliumEndpointsList(ctx, pod)
 			if !cmdRes.WasSuccessful() {
-				errorMessage += fmt.Sprintf(
+				fmt.Fprintf(&errorMessage,
 					"\tCilium Pod: %s \terror: unable to get endpoint list: %s",
 					pod, cmdRes.err)
 				continue
 			}
 			err := cmdRes.Unmarshal(&endpoints)
 			if err != nil {
-				errorMessage += fmt.Sprintf(
+				fmt.Fprintf(&errorMessage,
 					"\tCilium Pod: %s \terror: unable to parse endpoint list: %s",
 					pod, err)
 				continue
@@ -2597,12 +2597,12 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 				if ep.Status.State != nil {
 					state = string(*ep.Status.State)
 				}
-				errorMessage += fmt.Sprintf(
+				fmt.Fprintf(&errorMessage,
 					"\tCilium Pod: %s \tEndpoint: %d \tIdentity: %d\t State: %s\n",
 					pod, ep.ID, ep.Status.Identity.ID, state)
 			}
 		}
-		return errorMessage
+		return errorMessage.String()
 	}
 	return NewSSHMetaError(err.Error(), callback)
 }
@@ -3770,22 +3770,22 @@ func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds m
 // from the cluster. For this the caller has to make sure that there are no leftover cilium
 // components in the cluster.
 func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options map[string]string) *CmdRes {
-	optionsString := ""
+	var optionsString strings.Builder
 
 	for k, v := range options {
 		switch {
 		case v == "true" || v == "false":
-			optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+			fmt.Fprintf(&optionsString, " --set %s=%s ", k, v)
 		case v == "'true'" || v == "'false'":
-			optionsString += fmt.Sprintf(" --set-string %s=%s ", k, v)
+			fmt.Fprintf(&optionsString, " --set-string %s=%s ", k, v)
 		default:
-			optionsString += fmt.Sprintf(" --set '%s=%s' ", k, v)
+			fmt.Fprintf(&optionsString, " --set '%s=%s' ", k, v)
 		}
 	}
 
 	return kub.ExecMiddle("helm template --validate " +
 		chartDir + " " +
-		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))
+		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString.String(), filename))
 }
 
 // HubbleObserve runs `hubble observe --output=jsonpb <args>` on 'ns/pod' and
