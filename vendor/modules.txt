@@ -1009,13 +1009,13 @@ github.com/google/go-cmp/cmp/internal/value
 # github.com/google/go-github/v74 v74.0.0
 ## explicit; go 1.23.0
 github.com/google/go-github/v74/github
-# github.com/google/go-licenses v1.6.1-0.20230903011517-706b9c60edd4
-## explicit; go 1.19
-github.com/google/go-licenses/internal/third_party/pkgsite/derrors
-github.com/google/go-licenses/internal/third_party/pkgsite/source
-github.com/google/go-licenses/internal/third_party/pkgsite/stdlib
-github.com/google/go-licenses/internal/third_party/pkgsite/version
-github.com/google/go-licenses/licenses
+# github.com/google/go-licenses/v2 v2.0.1
+## explicit; go 1.23.0
+github.com/google/go-licenses/v2/internal/third_party/pkgsite/derrors
+github.com/google/go-licenses/v2/internal/third_party/pkgsite/source
+github.com/google/go-licenses/v2/internal/third_party/pkgsite/stdlib
+github.com/google/go-licenses/v2/internal/third_party/pkgsite/version
+github.com/google/go-licenses/v2/licenses
 # github.com/google/go-querystring v1.1.0
 ## explicit; go 1.10
 github.com/google/go-querystring/query

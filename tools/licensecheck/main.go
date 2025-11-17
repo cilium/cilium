@@ -9,7 +9,7 @@ import (
 	"os"
 	"slices"
 
-	"github.com/google/go-licenses/licenses"
+	"github.com/google/go-licenses/v2/licenses"
 )
 
 var includeTests bool
