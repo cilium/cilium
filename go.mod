@@ -333,7 +333,7 @@ replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16
 
 // Using private fork of gobgp. See commit msg for more context as to why we
 // are using a private fork.
-replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20250717193620-26a4abb75464
+replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20251113221723-3540251c0674
 
 tool (
 	github.com/AdamKorcz/go-118-fuzz-build/testing
