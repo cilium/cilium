@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
-	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -69,7 +68,7 @@ var (
 	// Keepalive parameters for gRPC connections
 	kap = keepalive.ClientParameters{
 		Time:                10 * time.Second,
-		Timeout:             3 * time.Second,
+		Timeout:             1 * time.Second,
 		PermitWithoutStream: true,
 	}
 )
@@ -213,9 +212,6 @@ type GRPCClient struct {
 	ipToEndpointTable     statedb.RWTable[IPtoEndpointInfo]
 	prefixToIdentityTable statedb.RWTable[PrefixToIdentity]
 
-	// connectionManager is responsible for managing the gRPC connection to the Cilium agent
-	connManager *connectionManager
-
 	// port is the port on which the Cilium agent is listening for gRPC connections
 	port    uint16
 	address string
@@ -225,6 +221,9 @@ type GRPCClient struct {
 
 	// connected indicates whether a gRPC connection has been established
 	connected atomic.Bool
+
+	// grpc client connection to the Cilium agent
+	client *grpc.ClientConn
 }
 
 // createGRPCClient creates a new gRPC connection handler client for standalone DNS proxy
@@ -234,7 +233,6 @@ func createGRPCClient(params clientParams) *GRPCClient {
 		port:                  uint16(params.FQDNConfig.StandaloneDNSProxyServerPort),
 		dialClient:            params.DialClient,
 		address:               fmt.Sprintf("localhost:%d", uint16(params.FQDNConfig.StandaloneDNSProxyServerPort)),
-		connManager:           newConnectionManager(params.Logger),
 		db:                    params.DB,
 		dnsRulesTable:         params.DNSRulesTable,
 		ipToEndpointTable:     params.IPtoEndpointTable,
@@ -242,16 +240,8 @@ func createGRPCClient(params clientParams) *GRPCClient {
 	}
 }
 
-// ConnectToAgent creates a new gRPC client
-// This method runs periodically
-// 1. If already a client exist, return immediately
-// 3. Create a connection with the Cilium agent
-// 4. If it fails, log the error and return
-func (c *GRPCClient) ConnectToAgent(ctx context.Context) error {
-	if c.connManager.isConnected() {
-		return nil
-	}
-
+// InitClient creates a new gRPC client
+func (c *GRPCClient) InitClient() error {
 	conn, err := c.dialClient.CreateClient(
 		c.address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -262,52 +252,43 @@ func (c *GRPCClient) ConnectToAgent(ctx context.Context) error {
 		return err
 	}
 
-	c.connManager.updateConnection(conn)
+	c.client = conn
 	c.logger.Info("gRPC client created")
 	return nil
 }
 
-// handleConnEvent handles connection events emitted by the connection manager
-// It starts the policy stream if a connection is established
-func (c *GRPCClient) handleConnEvent(ctx context.Context, ev connEvent) error {
-	if ev.Connected {
-		// Use observer-provided context so that shutdown cancels the stream.
-		go c.handlePolicyStream(ctx)
+// createPolicyStream starts the policy stream to receive DNS policy updates from the Cilium agent
+// if the policy stream is not already established.
+func (c *GRPCClient) createPolicyStream(ctx context.Context) error {
+	if !c.IsConnected() {
+		go c.handlePolicyStream()
+	} else {
+		c.logger.Debug("Already connected, skipping policy stream start")
 	}
 	return nil
 }
 
 // handlePolicyStream runs the policy stream to receive DNS policy updates from the Cilium agent
-func (c *GRPCClient) handlePolicyStream(ctx context.Context) {
+func (c *GRPCClient) handlePolicyStream() {
 	defer func() {
 		c.connected.Store(false)
 		c.logger.Debug("Policy stream goroutine exiting")
 	}()
 
-	client, rev, err := c.connManager.getFqdnClientWithRev()
-	if err != nil {
-		c.logger.Error("Cannot start policy stream: no active client", logfields.Error, err)
-		return
-	}
-
-	stream, err := client.StreamPolicyState(ctx)
+	fqdnClient := pb.NewFQDNDataClient(c.client)
+	stream, err := fqdnClient.StreamPolicyState(context.Background())
 	if err != nil {
 		c.logger.Error("Failed to open policy stream", logfields.Error, err)
-		if isConnectionError(err) {
-			c.connManager.removeConnection(rev)
-		}
 		return
 	}
+	defer stream.CloseSend()
+
 	c.logger.Info("Policy state stream established")
-	c.connected.Store(true)
 
 	for {
 		state, err := stream.Recv()
 		if err != nil {
 			c.logger.Error("Policy stream recv failed", logfields.Error, err)
-			if isConnectionError(err) {
-				c.connManager.removeConnection(rev)
-			}
 			return
 		}
 		response := &pb.PolicyStateResponse{
@@ -321,11 +302,9 @@ func (c *GRPCClient) handlePolicyStream(ctx context.Context) {
 		}
 		if sendErr := stream.Send(response); sendErr != nil {
 			c.logger.Error("Policy stream ACK send failed", logfields.Error, sendErr)
-			if isConnectionError(sendErr) {
-				c.connManager.removeConnection(rev)
-			}
 			return
 		}
+		c.connected.Store(true)
 	}
 }
 
@@ -336,34 +315,26 @@ func (c *GRPCClient) IsConnected() bool {
 
 func (c *GRPCClient) StopConnection() {
 	// Close the connection if it exists
-	err := c.connManager.Close()
-	if err != nil {
-		c.logger.Error("Failed to close connection", logfields.Error, err)
+	if c.client != nil {
+		err := c.client.Close()
+		if err != nil {
+			c.logger.Error("Failed to close connection", logfields.Error, err)
+		}
 	}
 
 	c.connected.Store(false)
-	// Update connection manager state
-	c.connManager.updateConnection(nil)
 	c.logger.Info("Stopped gRPC connection")
 }
 
 // NotifyOnMsg is called by the DNS proxy when it receives a DNS message.
 func (c *GRPCClient) NotifyOnMsg(msg *pb.FQDNMapping) error {
-	if !c.connManager.isConnected() {
-		return fmt.Errorf("not connected to agent")
-	}
+	client := pb.NewFQDNDataClient(c.client)
 
-	client, rev, err := c.connManager.getFqdnClientWithRev()
-	if err != nil {
-		return err
-	}
-
-	// Placeholder: real implementation will build a pb.FQDNMapping from the DNS message
-	_, err = client.UpdateMappingRequest(context.Background(), msg)
+	_, err := client.UpdateMappingRequest(context.Background(), msg)
 	if err != nil && isConnectionError(err) {
 		c.logger.Error("Connection error during UpdateMappingRequest", logfields.Error, err)
-		c.connManager.removeConnection(rev)
-		return dnsproxy.ErrDNSProxyConnection
+		// Return nil as standalone dns proxy can still continue to handle the DNS requests
+		return nil
 	}
 	return err
 }
