@@ -20,3 +20,6 @@ DECLARE_CONFIG(__u32, security_label, "The endpoint's security label")
 #define SECLABEL_IPV6 SECLABEL
 
 DECLARE_CONFIG(__u16, host_ep_id, "The host endpoint's security ID")
+
+DECLARE_CONFIG(bool, enable_arp_passthrough, "Enable ARP passthrough")
+DECLARE_CONFIG(bool, enable_arp_responder, "Enable ARP responder")
