@@ -5,7 +5,9 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"sync"
@@ -65,10 +67,13 @@ func (m *mockFqdnDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicySt
 		case <-streamCtx.Done():
 			return streamCtx.Err()
 		default:
-			stream.Send(&pb.PolicyState{
-				RequestId: fmt.Sprintf("%d", counter),
-			})
-
+			if counter < 5 {
+				stream.Send(&pb.PolicyState{
+					RequestId: fmt.Sprintf("%d", counter),
+				})
+			} else {
+				return errors.New("simulated stream failure")
+			}
 			_, err := stream.Recv()
 			if err != nil {
 				m.failure.Add(1)
@@ -86,6 +91,12 @@ func (m *mockFqdnDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicySt
 
 // Implement the missing UpdateMappingRequest method to satisfy the interface.
 func (m *mockFqdnDataServer) UpdateMappingRequest(ctx context.Context, req *pb.FQDNMapping) (*pb.UpdateMappingResponse, error) {
+	// based on the success or failure of processed request, send appropriate response
+	if m.success.Load() > m.failure.Load() {
+		m.failure.Add(1)
+		return nil, io.EOF
+	}
+	m.success.Add(1)
 	return &pb.UpdateMappingResponse{}, nil
 }
 
@@ -171,12 +182,9 @@ func TestNotifyOnMsg(t *testing.T) {
 
 	var success atomic.Int32
 	var failure atomic.Int32
-	totalCalls := 5000
-	stopAfter := totalCalls / 2 // remove connection after ~50% of calls started
-	var started atomic.Int32
+	totalCalls := 100
 
 	done := make(chan struct{})
-	gc := connHandler.(*GRPCClient)
 
 	go func() {
 		defer close(done)
@@ -186,16 +194,6 @@ func TestNotifyOnMsg(t *testing.T) {
 		for range totalCalls {
 			go func() {
 				defer wg.Done()
-				cur := started.Add(1)
-
-				if cur == int32(stopAfter) {
-					client, rev, err := gc.connManager.getFqdnClientWithRev()
-					require.NoError(t, err)
-					require.NotNil(t, client)
-					removed := gc.connManager.removeConnection(rev)
-					require.True(t, removed)
-				}
-
 				errCall := connHandler.NotifyOnMsg(&pb.FQDNMapping{})
 				if errCall != nil {
 					failure.Add(1)
@@ -210,9 +208,11 @@ func TestNotifyOnMsg(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(30 * time.Second):
-		t.Fatal("Concurrent NotifyOnMsg calls blocked during agent restart")
+		t.Fatal("Concurrent NotifyOnMsg calls didn't complete in time")
 	}
 	require.Equal(t, int32(totalCalls), success.Load()+failure.Load())
+	// There should be no failures for NotifyOnMsg calls as in case of agent not available, standalone DNS proxy should handle the requests
+	require.Equal(t, int32(0), failure.Load(), "There should be no failures due to simulated connection errors")
 }
 
 func TestPolicyStream(t *testing.T) {
@@ -221,33 +221,17 @@ func TestPolicyStream(t *testing.T) {
 	defer cleanup()
 
 	// Wait for initial connect & stream.
-	gc := connHandler.(*GRPCClient)
 	err := testutils.WaitUntilWithSleep(func() bool { return connHandler.IsConnected() }, 30*time.Second, 5*time.Second)
 	require.NoError(t, err, "Connection should be established within timeout")
-	// err = testutils.WaitUntilWithSleep(func() bool { return gc.policyStreamJobActive.Load() }, 30*time.Second, 5*time.Second)
-	// require.NoError(t, err, "Policy stream should be active within timeout")
 	err = testutils.WaitUntilWithSleep(func() bool { return server.success.Load() > 0 }, 10*time.Second, 2*time.Second)
 	require.NoError(t, err, "Should have at least one successful policy exchange within timeout")
 	require.Equal(t, int32(0), server.failure.Load(), "Should not have any failures")
 
-	// Simulate connection drop.
-	client, rev, err := gc.connManager.getFqdnClientWithRev()
-	require.NoError(t, err)
-	require.NotNil(t, client)
-
-	removed := gc.connManager.removeConnection(rev)
-	require.True(t, removed)
-
 	err = testutils.WaitUntilWithSleep(func() bool { return !connHandler.IsConnected() }, 15*time.Second, 500*time.Millisecond)
 	require.NoError(t, err, "Connection should be lost within timeout")
-	// err = testutils.WaitUntilWithSleep(func() bool { return !gc.policyStreamJobActive.Load() }, 15*time.Second, 500*time.Millisecond)
-	// require.NoError(t, err, "Policy stream should be inactive within timeout")
-
 	// Due to the job based reconnect, the connection should be re-established
 	err = testutils.WaitUntilWithSleep(func() bool { return connHandler.IsConnected() }, 15*time.Second, 500*time.Millisecond)
-	require.NoError(t, err, "Connection should be lost within timeout")
-	// err = testutils.WaitUntilWithSleep(func() bool { return gc.policyStreamJobActive.Load() }, 30*time.Second, 5*time.Second)
-	// require.NoError(t, err, "Policy stream should be active within timeout")
+	require.NoError(t, err, "Connection should be established within timeout")
 }
 
 func assertDNSRules(t *testing.T, c *GRPCClient, epID uint32, pp restore.PortProto, expServerIDs []uint32, expPatterns []string) {

@@ -43,7 +43,13 @@ func TestStandaloneDNSProxy(t *testing.T) {
 
 	// Enable L7 proxy for the standalone DNS proxy
 	option.Config.EnableL7Proxy = true
-	h := hive.New(StandaloneDNSProxyCell)
+	var connHandler client.ConnectionHandler
+	h := hive.New(
+		StandaloneDNSProxyCell,
+		cell.Invoke(func(ch client.ConnectionHandler) {
+			connHandler = ch
+		}),
+	)
 
 	hive.AddConfigOverride(
 		h,
@@ -53,6 +59,7 @@ func TestStandaloneDNSProxy(t *testing.T) {
 
 	err := h.Populate(hivetest.Logger(t))
 	assert.NoError(t, err, "Populate()")
+	connHandler.StopConnection()
 }
 
 func setupTestEnv(t *testing.T) *StandaloneDNSProxy {
