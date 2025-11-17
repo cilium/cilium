@@ -31,9 +31,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-licenses/internal/third_party/pkgsite/derrors"
-	"github.com/google/go-licenses/internal/third_party/pkgsite/stdlib"
-	"github.com/google/go-licenses/internal/third_party/pkgsite/version"
+	"github.com/google/go-licenses/v2/internal/third_party/pkgsite/derrors"
+	"github.com/google/go-licenses/v2/internal/third_party/pkgsite/stdlib"
+	"github.com/google/go-licenses/v2/internal/third_party/pkgsite/version"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"golang.org/x/net/context/ctxhttp"
