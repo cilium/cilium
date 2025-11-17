@@ -818,10 +818,10 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, cfg *datapath.LocalN
 
 	writeIncludes(w)
 
-	return h.writeTemplateConfig(fw, deviceNames, cfg.HostEndpointID, e, cfg.DirectRoutingDevice)
+	return h.writeTemplateConfig(fw, deviceNames, e, cfg.DirectRoutingDevice)
 }
 
-func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []string, hostEndpointID uint64, e datapath.EndpointConfiguration, drd *tables.Device) error {
+func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []string, e datapath.EndpointConfiguration, drd *tables.Device) error {
 	if e.RequireEgressProg() {
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
@@ -860,7 +860,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 // WriteTemplateConfig writes the BPF configuration for the template to a writer.
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
-	return h.writeTemplateConfig(fw, cfg.DeviceNames(), cfg.HostEndpointID, e, cfg.DirectRoutingDevice)
+	return h.writeTemplateConfig(fw, cfg.DeviceNames(), e, cfg.DirectRoutingDevice)
 }
 
 func preferredIPv6Address(deviceAddresses []tables.DeviceAddress) netip.Addr {
