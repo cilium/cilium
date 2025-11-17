@@ -1101,8 +1101,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
 				     const bool skip_xlate,
-				     __s8 *ext_err,
-				     __net_cookie netns_cookie __maybe_unused)
+				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	union v6addr saddr = tuple->saddr;
@@ -1112,6 +1111,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	union v6addr new_saddr = {};
 	int ret;
 	union lb6_affinity_client_id client_id;
+	__maybe_unused __net_cookie netns_cookie = 0;
 
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
 
@@ -1208,6 +1208,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 #if defined(USE_LOOPBACK_LB) || defined(ENABLE_LOCAL_REDIRECT_POLICY)
 	if (ipv6_addr_equals(&saddr, &backend->address)) {
 	#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
+		#ifdef IS_BPF_LXC
+		netns_cookie = CONFIG(endpoint_netns_cookie);
+		#endif
 		if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
 		    lb6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
 			return CTX_ACT_OK;
@@ -1901,8 +1904,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct ct_state *state,
 				     const bool skip_xlate,
 				     __u32 *cluster_id __maybe_unused,
-				     __s8 *ext_err,
-				     __net_cookie netns_cookie __maybe_unused)
+				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 saddr = tuple->saddr;
@@ -1914,6 +1916,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	union lb4_affinity_client_id client_id = {
 		.client_ip = saddr,
 	};
+	__maybe_unused __net_cookie netns_cookie = 0;
 
 	state->rev_nat_index = svc->rev_nat_index;
 
@@ -2012,6 +2015,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #if defined(USE_LOOPBACK_LB) || defined(ENABLE_LOCAL_REDIRECT_POLICY)
 	if (saddr == backend->address) {
 	#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
+		#ifdef IS_BPF_LXC
+		netns_cookie = CONFIG(endpoint_netns_cookie);
+		#endif
 		if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
 		    lb4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple->daddr, tuple->sport))
 			return CTX_ACT_OK;

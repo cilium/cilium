@@ -1354,7 +1354,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 #endif
 	ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, fraginfo, l4_off,
 			key, tuple, svc, &ct_state_svc,
-			nodeport_xlate6(svc, tuple), ext_err, 0);
+			nodeport_xlate6(svc, tuple), ext_err);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE) {
 			if (!CONFIG(enable_no_service_endpoints_routable))
@@ -2715,7 +2715,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	} else {
 		ret = lb4_local(get_ct_map4(tuple), ctx, l3_off, fraginfo, l4_off,
 				key, tuple, svc, &ct_state_svc,
-				nodeport_xlate4(svc, tuple), &cluster_id, ext_err, 0);
+				nodeport_xlate4(svc, tuple), &cluster_id, ext_err);
 	}
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE) {

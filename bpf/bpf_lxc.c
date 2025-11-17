@@ -126,7 +126,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				false, &cluster_id, ext_err, CONFIG(endpoint_netns_cookie));
+				false, &cluster_id, ext_err);
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
@@ -202,7 +202,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
 		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				false, ext_err, CONFIG(endpoint_netns_cookie));
+				false, ext_err);
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
