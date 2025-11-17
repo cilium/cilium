@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/sysdump"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
+	"github.com/cilium/cilium/pkg/crypto/certloader"
 )
 
 type logMatcher interface {
@@ -53,9 +54,6 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
 		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService}
-	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
-		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR, klogLeaderElectionFail)
-	}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
@@ -70,7 +68,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning, ciliumNodeConfigDeprecation,
 		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
-		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn}
+		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn}
 
 	if ciliumVersion.LT(semver.MustParse("1.18.0")) {
 		errorLogExceptions = append(errorLogExceptions, linkNotFound)
@@ -405,27 +403,31 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Acti
 }
 
 const (
-	// Logs messages that should not be in the cilium logs
-	panicMessage                         = "panic:"
-	deadLockHeader                       = "POTENTIAL DEADLOCK:"                                  // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	RunInitFailed                        = "JoinEP: "                                             // from https://github.com/cilium/cilium/pull/5052
-	emptyBPFInitArg                      = "empty argument passed to bpf/init.sh"                 // from https://github.com/cilium/cilium/issues/10228
-	RemovingMapMsg                       = "Removing map to allow for property upgrade"           // from https://github.com/cilium/cilium/pull/10626
-	symbolSubstitution                   = "Skipping symbol substitution"                         //
-	uninitializedRegen                   = "Uninitialized regeneration level"                     // from https://github.com/cilium/cilium/pull/10949
-	unstableStat                         = "BUG: stat() has unstable behavior"                    // from https://github.com/cilium/cilium/pull/11028
-	removeInexistentID     stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
-	missingIptablesWait                  = "Missing iptables wait arg (-w):"
-	localIDRestoreFail                   = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
-	routerIPMismatch                     = "Mismatch of router IPs found during restoration"
-	emptyIPNodeIDAlloc                   = "Attempt to allocate a node ID for an empty node IP address"
-	failedToListCRDs       stringMatcher = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
-	failedToUpdateLock     stringMatcher = "Failed to update lock:"
-	failedToReleaseLock    stringMatcher = "Failed to release lock:"
-	previouslyUsedCIDR     stringMatcher = "Unable to find identity of previously used CIDR"                           // from https://github.com/cilium/cilium/issues/26881
-	klogLeaderElectionFail stringMatcher = "error retrieving resource lock kube-system/cilium-operator-resource-lock:" // from: https://github.com/cilium/cilium/issues/31050
-	nilDetailsForService   stringMatcher = "retrieved nil details for Service"                                         // from: https://github.com/cilium/cilium/issues/35595
+	// Logs messages that should not be in the cilium logs.
+	//
+	// Note: when adding a new exception, please also add a comment indicating
+	// the reason why this exception is needed.
 
+	// errors
+	panicMessage                       = "panic:"
+	deadLockHeader                     = "POTENTIAL DEADLOCK:"                                  // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	RunInitFailed                      = "JoinEP: "                                             // from https://github.com/cilium/cilium/pull/5052
+	emptyBPFInitArg                    = "empty argument passed to bpf/init.sh"                 // from https://github.com/cilium/cilium/issues/10228
+	RemovingMapMsg                     = "Removing map to allow for property upgrade"           // from https://github.com/cilium/cilium/pull/10626
+	symbolSubstitution                 = "Skipping symbol substitution"                         //
+	uninitializedRegen                 = "Uninitialized regeneration level"                     // from https://github.com/cilium/cilium/pull/10949
+	unstableStat                       = "BUG: stat() has unstable behavior"                    // from https://github.com/cilium/cilium/pull/11028
+	removeInexistentID   stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
+	missingIptablesWait                = "Missing iptables wait arg (-w):"
+	localIDRestoreFail                 = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
+	routerIPMismatch                   = "Mismatch of router IPs found during restoration"
+	emptyIPNodeIDAlloc                 = "Attempt to allocate a node ID for an empty node IP address"
+	failedToListCRDs     stringMatcher = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
+	failedToUpdateLock   stringMatcher = "Failed to update lock:"
+	failedToReleaseLock  stringMatcher = "Failed to release lock:"
+	nilDetailsForService stringMatcher = "retrieved nil details for Service" // from: https://github.com/cilium/cilium/issues/35595
+
+	// warnings
 	cantEnableJIT               stringMatcher = "bpf_jit_enable: no such file or directory"                              // Because we run tests in Kind.
 	delMissingService           stringMatcher = "Deleting no longer present service"                                     // cf. https://github.com/cilium/cilium/issues/29679
 	podCIDRUnavailable          stringMatcher = " PodCIDR not available"                                                 // cf. https://github.com/cilium/cilium/issues/29680
@@ -464,6 +466,8 @@ const (
 
 	k8sEndpointDeprecatedWarn stringMatcher = "v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice" // cf. https://github.com/cilium/cilium/issues/39105
 	proxylibDeprecatedWarn    stringMatcher = "The support for Envoy Go Extensions (proxylib) has been deprecated"          // cf. https://github.com/cilium/cilium/issues/38224
+
+	certloaderInitialLoadWarn stringMatcher = certloader.InitialLoadWarn // Expected when certificates are not yet mounted.
 
 	// Logs messages that should not be in the cilium-envoy DS logs
 	envoyErrorMessage    = "[error]"

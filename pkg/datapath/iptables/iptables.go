@@ -978,7 +978,7 @@ func (m *Manager) addProxyRules(prog runnable, ip string, proxyPort uint16, name
 	scanner := bufio.NewScanner(strings.NewReader(rules))
 	for scanner.Scan() {
 		rule := scanner.Text()
-		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || !strings.Contains(rule, "cilium: TPROXY to host "+name) || strings.Contains(rule, portAndIPMatch) {
+		if !strings.Contains(rule, "-A CILIUM_PRE_mangle ") || !strings.Contains(rule, "cilium: TPROXY to host "+name+" proxy") || strings.Contains(rule, portAndIPMatch) {
 			continue
 		}
 
@@ -1694,6 +1694,10 @@ func (m *Manager) installRules(state desiredState) error {
 		return fmt.Errorf("cannot install encryption rules: %w", err)
 	}
 
+	if err := m.addCiliumAcceptTunnelRules(); err != nil {
+		return fmt.Errorf("cannot install accept tunnel rules: %w", err)
+	}
+
 	localDeliveryInterface := m.getDeliveryInterface(defaults.HostDevice)
 
 	if err := m.installForwardChainRules(defaults.HostDevice, localDeliveryInterface, ciliumForwardChain); err != nil {
@@ -1884,6 +1888,37 @@ func (m *Manager) addCiliumNoTrackEncryptionRules() (err error) {
 	if m.sharedCfg.EnableIPv6 {
 		return m.ciliumNoTrackEncryptionRules(m.ip6tables, "-I")
 	}
+	return nil
+}
+
+func (m *Manager) addCiliumAcceptTunnelRules() (err error) {
+	port := m.sharedCfg.TunnelPort
+
+	if !m.sharedCfg.TunnelingEnabled || port == 0 {
+		return nil
+	}
+
+	cmd := []string{
+		"-t", "filter",
+		"-A", ciliumOutputChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(port)),
+		"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
+		"-j", "ACCEPT",
+	}
+
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.ip4tables.runProg(cmd); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.ip6tables.runProg(cmd); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

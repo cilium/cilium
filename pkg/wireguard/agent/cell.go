@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
@@ -21,9 +22,23 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(buildConfigFrom),
 )
 
-// newWireguardAgent returns the [*Agent] as an interface [types.WireguardAgent].
-func newWireguardAgent(p params) types.WireguardAgent {
-	return newAgent(p)
+// newWireguardAgent returns the [*Agent] as an interface [types.WireguardAgent]
+// and the map of macros [defines.NodeOut] for datapath compilation.
+func newWireguardAgent(p params) (out struct {
+	cell.Out
+	types.WireguardAgent
+	defines.NodeOut
+}) {
+	out.WireguardAgent = newAgent(p)
+	if out.WireguardAgent.Enabled() {
+		out.NodeDefines = map[string]string{
+			"ENABLE_WIREGUARD": "1",
+		}
+		if p.Config.EncryptNode {
+			out.NodeDefines["ENABLE_NODE_ENCRYPTION"] = "1"
+		}
+	}
+	return
 }
 
 // newWireguardConfig returns the [Config] as an interface [types.WireguardConfig].

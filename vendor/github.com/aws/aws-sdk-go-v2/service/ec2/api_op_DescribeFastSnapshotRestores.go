@@ -37,7 +37,11 @@ type DescribeFastSnapshotRestoresInput struct {
 
 	// The filters. The possible values are:
 	//
-	//   - availability-zone : The Availability Zone of the snapshot.
+	//   - availability-zone : The Availability Zone of the snapshot. For example,
+	//   us-east-2a .
+	//
+	//   - availability-zone-id : The ID of the Availability Zone of the snapshot. For
+	//   example, use2-az1 .
 	//
 	//   - owner-id : The ID of the Amazon Web Services account that enabled fast
 	//   snapshot restore on the snapshot.
@@ -168,40 +172,7 @@ func (c *Client) addOperationDescribeFastSnapshotRestoresMiddlewares(stack *midd
 	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addInterceptExecution(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSerialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterSigning(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptTransmit(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptBeforeDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addInterceptAfterDeserialization(stack, options); err != nil {
-		return err
-	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

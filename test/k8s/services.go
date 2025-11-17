@@ -117,7 +117,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 				testFailBind(kubectl, ni)
 			})
 
-			SkipContextIf(helpers.RunsOnAKS, "with L7 policy", func() {
+			Context("with L7 policy", func() {
 				AfterAll(func() {
 					kubectl.Delete(demoPolicyL7)
 					// Remove CT entries to avoid packet drops which could happen
@@ -187,7 +187,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			})
 		})
 
-		SkipContextIf(func() bool { return helpers.RunsWithKubeProxyReplacement() || helpers.RunsOnAKS() }, "TFTP with DNS Proxy port collision", func() {
+		SkipContextIf(func() bool { return helpers.RunsWithKubeProxyReplacement() }, "TFTP with DNS Proxy port collision", func() {
 			var (
 				demoPolicy    string
 				ciliumPodK8s1 string
@@ -281,7 +281,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 		})
 
 		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement() || helpers.RunsOnAKS()
+			return helpers.RunsWithKubeProxyReplacement()
 		}, "with L7 policy", func() {
 			var demoPolicyL7 string
 
@@ -335,7 +335,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 		})
 
 		It("Tests NodePort with sessionAffinity from outside", func() {
-			testSessionAffinity(kubectl, ni, true, true)
+			testSessionAffinity(kubectl, ni)
 		})
 
 		It("Tests externalIPs", func() {
@@ -415,45 +415,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			for _, addr := range svcAddrs {
 				testCurlFailFromOutside(kubectl, ni, addr, 1)
 			}
-		})
-
-		It("Tests with direct routing and DSR", func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"loadBalancer.mode":    "dsr",
-				"routingMode":          "native",
-				"autoDirectNodeRoutes": "true",
-			})
-
-			testDSR(kubectl, ni, ni.K8s1IP, "service test-nodeport-k8s2", 64000)
-			if helpers.DualStackSupported() {
-				testDSR(kubectl, ni, ni.PrimaryK8s1IPv6, "service test-nodeport-k8s2-ipv6", 64001)
-			}
-			testNodePortExternal(kubectl, ni, false, true, true)
-		})
-
-		It("Tests with XDP, direct routing, SNAT and Random", func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"loadBalancer.acceleration": "testing-only",
-				"loadBalancer.mode":         "snat",
-				"loadBalancer.algorithm":    "random",
-				"l2NeighDiscovery.enabled":  "true",
-				"routingMode":               "native",
-				"autoDirectNodeRoutes":      "true",
-				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
-			})
-			testNodePortExternal(kubectl, ni, false, false, false)
-		})
-
-		It("Tests with XDP, vxlan tunnel, SNAT and Random", func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"loadBalancer.acceleration": "testing-only",
-				"loadBalancer.mode":         "snat",
-				"loadBalancer.algorithm":    "random",
-				"l2NeighDiscovery.enabled":  "true",
-				"tunnelProtocol":            "vxlan",
-				"devices":                   fmt.Sprintf(`'{%s}'`, ni.PrivateIface),
-			})
-			testNodePortExternal(kubectl, ni, false, false, false)
 		})
 
 		It("Tests with XDP, direct routing, SNAT and Maglev", func() {
@@ -622,12 +583,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 
 		It("Supports IPv4 fragments", func() {
 			options := map[string]string{}
-			// On GKE we need to disable endpoint routes as fragment tracking
-			// isn't compatible with that options. See #15958.
-			if helpers.RunsOnGKE() {
-				options["gke.enabled"] = "false"
-				options["routingMode"] = "native"
-			}
 
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
@@ -637,7 +592,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			testIPv4FragmentSupport(kubectl, ni)
 		})
 
-		SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
+		Context("With host policy", func() {
 			hostPolicyFilename := "ccnp-host-policy-nodeport-tests.yaml"
 			var ccnpHostPolicy string
 

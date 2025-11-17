@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -76,6 +77,7 @@ type configModifyApiHandlerParams struct {
 	TunnelConfig    tunnel.Config
 	BandwidthConfig datapath.BandwidthConfig
 	WgConfig        wgTypes.WireguardConfig
+	ConnectorConfig types.ConnectorConfig
 
 	EventHandler *ConfigModifyEventHandler
 }
@@ -101,6 +103,7 @@ func newConfigModifyApiHandler(params configModifyApiHandlerParams) configModify
 			tunnelConfig:    params.TunnelConfig,
 			bandwidthConfig: params.BandwidthConfig,
 			wgConfig:        params.WgConfig,
+			connectorConfig: params.ConnectorConfig,
 		},
 		PatchConfigHandler: &patchConfigHandler{
 			logger:       params.Logger,
@@ -346,6 +349,7 @@ type getConfigHandler struct {
 	tunnelConfig    tunnel.Config
 	bandwidthConfig datapath.BandwidthConfig
 	wgConfig        wgTypes.WireguardConfig
+	connectorConfig types.ConnectorConfig
 }
 
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
@@ -398,7 +402,6 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 			IPV4: option.Config.EnableIPv4Masquerade,
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
-		EgressMultiHomeIPRuleCompat:         option.Config.EgressMultiHomeIPRuleCompat,
 		InstallUplinkRoutesForDelegatedIPAM: option.Config.InstallUplinkRoutesForDelegatedIPAM,
 		GROMaxSize:                          int64(h.bigTCPConfig.GetGROIPv6MaxSize()),
 		GSOMaxSize:                          int64(h.bigTCPConfig.GetGSOIPv6MaxSize()),
@@ -406,6 +409,9 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		GSOIPV4MaxSize:                      int64(h.bigTCPConfig.GetGSOIPv4MaxSize()),
 		IPLocalReservedPorts:                h.getIPLocalReservedPorts(),
 		EnableBBRHostNamespaceOnly:          h.bandwidthConfig.EnableBBRHostnsOnly,
+		DeviceHeadroom:                      int64(h.connectorConfig.GetPodDeviceHeadroom()),
+		DeviceTailroom:                      int64(h.connectorConfig.GetPodDeviceTailroom()),
+		EnablePacketizationLayerPMTUD:       h.mtuConfig.IsEnablePacketizationLayerPMTUD(),
 	}
 
 	cfg := &models.DaemonConfiguration{

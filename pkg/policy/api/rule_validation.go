@@ -229,12 +229,6 @@ func (i *IngressCommonRule) sanitize() error {
 		}
 	}
 
-	for n := range i.FromRequires {
-		if err := i.FromRequires[n].Sanitize(); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
 	for n := range i.FromNodes {
 		if err := i.FromNodes[n].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
@@ -434,12 +428,6 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 
 	for i := range e.ToEndpoints {
 		if err := e.ToEndpoints[i].Sanitize(); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
-	for i := range e.ToRequires {
-		if err := e.ToRequires[i].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}

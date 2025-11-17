@@ -44,7 +44,7 @@ func NewExpressRouteLinksClient(subscriptionID string, credential azcore.TokenCr
 // Get - Retrieves the specified ExpressRouteLink resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - expressRoutePortName - The name of the ExpressRoutePort resource.
 //   - linkName - The name of the ExpressRouteLink resource.
@@ -95,7 +95,7 @@ func (client *ExpressRouteLinksClient) getCreateRequest(ctx context.Context, res
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -112,7 +112,7 @@ func (client *ExpressRouteLinksClient) getHandleResponse(resp *http.Response) (E
 
 // NewListPager - Retrieve the ExpressRouteLink sub-resources of the specified ExpressRoutePort resource.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - expressRoutePortName - The name of the ExpressRoutePort resource.
 //   - options - ExpressRouteLinksClientListOptions contains the optional parameters for the ExpressRouteLinksClient.NewListPager
@@ -160,7 +160,7 @@ func (client *ExpressRouteLinksClient) listCreateRequest(ctx context.Context, re
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

@@ -157,9 +157,6 @@ type CiliumBGPFamilyWithAdverts struct {
 	//
 	// If not specified, no advertisements are sent for this family.
 	//
-	// This field is ignored in CiliumBGPNeighbor which is used in CiliumBGPPeeringPolicy.
-	// Use CiliumBGPPeeringPolicy advertisement options instead.
-	//
 	// +kubebuilder:validation:Optional
 	Advertisements *slimv1.LabelSelector `json:"advertisements,omitempty"`
 }
@@ -175,6 +172,16 @@ type CiliumBGPTransport struct {
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=179
 	PeerPort *int32 `json:"peerPort,omitempty"`
+
+	// SourceInterface is the name of a local interface, which IP address will be used
+	// as the source IP address for the BGP session. The interface must not have more than one
+	// non-loopback, non-multicast and non-link-local-IPv6 address per address family.
+	//
+	// If not specified, or if the provided interface is not found or missing a usable IP address,
+	// the source IP address will be auto-detected based on the egress interface.
+	//
+	// +kubebuilder:validation:Optional
+	SourceInterface *string `json:"sourceInterface,omitempty"`
 }
 
 func (t *CiliumBGPTransport) SetDefaults() {

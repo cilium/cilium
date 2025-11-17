@@ -7,6 +7,18 @@ import (
 	"time"
 )
 
+// Hive options
+const (
+	// HiveStartTimeout is the default value for option.HiveStartTimeout
+	HiveStartTimeout = 5 * time.Minute
+
+	// HiveStopTimeout is the default value for option.HiveStopTimeout
+	HiveStopTimeout = time.Minute
+
+	// HiveLogThreshold is the default value for option.HiveLogThreshold
+	HiveLogThreshold = 100 * time.Millisecond
+)
+
 const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
 	AgentHealthPort = 9879
@@ -248,10 +260,6 @@ const (
 	// EnableEndpointHealthChecking is the default value for
 	// EnableEndpointHealthChecking
 	EnableEndpointHealthChecking = true
-
-	// EnableHealthCheckLoadBalancerIP is the default value for
-	// EnableHealthCheckLoadBalancerIP
-	EnableHealthCheckLoadBalancerIP = false
 
 	// HealthCheckICMPFailureThreshold is the default value for HealthCheckICMPFailureThreshold
 	HealthCheckICMPFailureThreshold = 3
@@ -543,6 +551,9 @@ const (
 
 	// IPTracingOptionType is the default value for option.IPTracingOptionType
 	IPTracingOptionType = 0
+
+	// EnableCiliumNodeCRD is the default value for option.EnableCiliumNodeCRD
+	EnableCiliumNodeCRD = true
 )
 
 var (

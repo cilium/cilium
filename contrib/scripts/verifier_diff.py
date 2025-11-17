@@ -85,7 +85,7 @@ def plot_comparison(file1: str, file2: str, outdir: str):
         ))
 
         if not programs:
-            logging.info(
+            logging.debug(
                 f"No programs found for collection {collection}, "
                 f"build {build}, load {load}, skipping.")
             continue
@@ -98,7 +98,7 @@ def plot_comparison(file1: str, file2: str, outdir: str):
             v1 = data1.get((collection, build, load, prog), 0)
             v2 = data2.get((collection, build, load, prog), 0)
             if v1 == v2:
-                logging.info(
+                logging.debug(
                     f"Program {prog} unchanged ({v1}) for "
                     f"collection {collection}, build {build}, "
                     f"load {load}, skipping.")
@@ -115,13 +115,16 @@ def plot_comparison(file1: str, file2: str, outdir: str):
 
         # Plot
         y_pos = np.arange(len(filtered_programs))
-        height = 0.35  # thickness of bars
+        bar_height = 0.35
+        fig_width = 10
+        fig_height = min(fig_width, max(fig_width//2,
+                                        bar_height * len(filtered_programs)))
 
-        plt.figure(figsize=(12, len(filtered_programs) * 0.5))
-        bars_before = plt.barh(y_pos + height/2, before_vals,
-                               height, label="Before", alpha=0.7)
-        bars_after = plt.barh(y_pos - height/2, after_vals,
-                              height, label="After", alpha=0.7)
+        plt.figure(figsize=(fig_width, fig_height))
+        bars_before = plt.barh(y_pos + bar_height/2, before_vals,
+                               bar_height, label="Before", alpha=0.7)
+        bars_after = plt.barh(y_pos - bar_height/2, after_vals,
+                              bar_height, label="After", alpha=0.7)
 
         plt.yticks(y_pos, filtered_programs)
         plt.xlabel("insns_processed")
@@ -185,10 +188,14 @@ def main():
         "from eBPF verifier logs.")
     parser.add_argument("file_before", help="Path to the log before patch")
     parser.add_argument("file_after", help="Path to the log after patch")
+    parser.add_argument('-v', '--verbose', action='store_true', help="Print debug logs.")
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO,
+    log_level = logging.INFO
+    if args.verbose:
+        log_level = logging.DEBUG
+    logging.basicConfig(level=log_level,
                         format="%(asctime)s [%(levelname)s] %(message)s")
 
     output_dir = setup_output_dir(args.file_after, args.file_before)

@@ -817,7 +817,7 @@ func newTestEndpointModel(id int, state State) *models.EndpointChangeRequest {
 	return &models.EndpointChangeRequest{
 		ID:    int64(id),
 		State: ptr.To(models.EndpointState(state)),
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			PropertyFakeEndpoint: true,
 		},
 	}

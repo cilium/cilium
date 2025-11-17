@@ -24,7 +24,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 	// replacement, as the trace events depend on it. We thus run the tests
 	// on GKE and our 4.19 pipeline.
 	SkipContextIf(func() bool {
-		return helpers.RunsOnNetNextKernel() || helpers.RunsOnAKS()
+		return helpers.RunsOnNetNextKernel()
 	}, "Hubble Observe", func() {
 		var (
 			kubectl        *helpers.Kubectl

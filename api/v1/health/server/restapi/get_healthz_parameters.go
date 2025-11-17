@@ -28,7 +28,6 @@ func NewGetHealthzParams() GetHealthzParams {
 //
 // swagger:parameters GetHealthz
 type GetHealthzParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 }

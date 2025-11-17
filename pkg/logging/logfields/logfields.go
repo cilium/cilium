@@ -241,6 +241,9 @@ const (
 	// Port is a L4 port
 	Port = "port"
 
+	// EndPort is the last L4 port in a range of ports
+	EndPort = "endPort"
+
 	// Ports is a list of L4 ports
 	Ports = "ports"
 
@@ -488,6 +491,12 @@ const (
 	// Device is the device name
 	Device = "device"
 
+	// DeviceHeadroom is the head buffer margin of a network device
+	DeviceHeadroom = "deviceHeadroom"
+
+	// DeviceHeadroom is the tail buffer margin of a network device
+	DeviceTailroom = "deviceTailroom"
+
 	// Devices is the devices name
 	Devices = "devices"
 
@@ -659,6 +668,9 @@ const (
 
 	// K8sUID is the UID of a K8s object
 	K8sUID = "k8sUID"
+
+	// K8sServiceAccount is the name of a K8s ServiceAccount
+	K8sServiceAccount = "k8sServiceAccount"
 
 	// Attempt is the attempt number if an operation is attempted multiple times
 	Attempt = "attempt"
@@ -1480,6 +1492,8 @@ const (
 
 	CRDs = "CRDs"
 
+	CRDName = "crdName"
+
 	PodCIDRs = "podCIDRs"
 
 	LenIPs = "lenIPs"
@@ -1828,4 +1842,10 @@ const (
 
 	// CompiledPools is a map of pools that use podSelectors
 	CompiledPools = "compiledPools"
+
+	ReloadKeypairError = "reloadKeypairError"
+
+	ReloadCAError = "reloadCAError"
+
+	ExtendedMessage = "extendedMessage"
 )

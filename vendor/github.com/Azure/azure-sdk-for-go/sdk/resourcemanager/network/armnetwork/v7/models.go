@@ -548,6 +548,9 @@ type ApplicationGatewayBackendHTTPSettingsPropertiesFormat struct {
 	// Cookie based affinity.
 	CookieBasedAffinity *ApplicationGatewayCookieBasedAffinity
 
+	// Enable or disable dedicated connection per backend server. Default is set to false.
+	DedicatedBackendConnection *bool
+
 	// Host header to be sent to the backend servers.
 	HostName *string
 
@@ -573,8 +576,19 @@ type ApplicationGatewayBackendHTTPSettingsPropertiesFormat struct {
 	// Acceptable values are from 1 second to 86400 seconds.
 	RequestTimeout *int32
 
+	// Specify an SNI value to match the common name of the certificate on the backend. By default, the application gateway uses
+	// the incoming request’s host header as the SNI. Default value is null.
+	SniName *string
+
 	// Array of references to application gateway trusted root certificates.
 	TrustedRootCertificates []*SubResource
+
+	// Verify or skip both chain and expiry validations of the certificate on the backend server. Default is set to true.
+	ValidateCertChainAndExpiry *bool
+
+	// When enabled, verifies if the Common Name of the certificate provided by the backend server matches the Server Name Indication
+	// (SNI) value. Default value is true.
+	ValidateSNI *bool
 
 	// READ-ONLY; The provisioning state of the backend HTTP settings resource.
 	ProvisioningState *ProvisioningState
@@ -648,6 +662,9 @@ type ApplicationGatewayBackendSettings struct {
 
 // ApplicationGatewayBackendSettingsPropertiesFormat - Properties of Backend address pool settings of an application gateway.
 type ApplicationGatewayBackendSettingsPropertiesFormat struct {
+	// Whether to send Proxy Protocol header to backend servers over TCP or TLS protocols. Default value is false.
+	EnableL4ClientIPPreservation *bool
+
 	// Server name indication to be sent to the backend servers for Tls protocol.
 	HostName *string
 
@@ -1107,6 +1124,9 @@ type ApplicationGatewayOnDemandProbe struct {
 	// Reference to backend http setting of application gateway to be used for test probe.
 	BackendHTTPSettings *SubResource
 
+	// Whether to send Proxy Protocol header along with the Health Probe over TCP or TLS protocol. Default value is false.
+	EnableProbeProxyProtocolHeader *bool
+
 	// Host name to send the probe to.
 	Host *string
 
@@ -1347,6 +1367,9 @@ type ApplicationGatewayProbeHealthResponseMatch struct {
 
 // ApplicationGatewayProbePropertiesFormat - Properties of probe of an application gateway.
 type ApplicationGatewayProbePropertiesFormat struct {
+	// Whether to send Proxy Protocol header along with the Health Probe over TCP or TLS protocol. Default value is false.
+	EnableProbeProxyProtocolHeader *bool
+
 	// Host name to send the probe to.
 	Host *string
 
@@ -2313,6 +2336,9 @@ type AzureAsyncOperationResult struct {
 
 // AzureFirewall - Azure Firewall resource.
 type AzureFirewall struct {
+	// The extended location of type local virtual network gateway.
+	ExtendedLocation *ExtendedLocation
+
 	// Resource ID.
 	ID *string
 
@@ -2636,6 +2662,15 @@ type AzureFirewallNetworkRuleCollectionPropertiesFormat struct {
 type AzureFirewallPacketCaptureFlags struct {
 	// Flags to capture
 	Type *AzureFirewallPacketCaptureFlagsType
+}
+
+// AzureFirewallPacketCaptureResponse - Response of an Azure Firewall Packet Capture Operation.
+type AzureFirewallPacketCaptureResponse struct {
+	// Localized Message String of The Result Of The Azure Firewall Packet Capture Operation
+	Message *string
+
+	// The response code of the performed packet capture operation
+	StatusCode *AzureFirewallPacketCaptureResponseCode
 }
 
 // AzureFirewallPacketCaptureRule - Group of src/dest ips and ports to be captured.
@@ -3276,6 +3311,18 @@ type BreakOutCategoryPolicies struct {
 
 	// Flag to control breakout of o365 optimize category.
 	Optimize *bool
+}
+
+// CertificateAuthentication - Certificate Authentication information for a certificate based authentication connection.
+type CertificateAuthentication struct {
+	// Inbound authentication certificate public keys.
+	InboundAuthCertificateChain []*string
+
+	// Inbound authentication certificate subject name.
+	InboundAuthCertificateSubjectName *string
+
+	// Keyvault secret ID for outbound authentication certificate.
+	OutboundAuthCertificate *string
 }
 
 // CheckPrivateLinkServiceVisibilityRequest - Request body of the CheckPrivateLinkServiceVisibility API service call.
@@ -6189,7 +6236,7 @@ type FilterItems struct {
 
 // FirewallPacketCaptureParameters - Azure Firewall Packet Capture Parameters.
 type FirewallPacketCaptureParameters struct {
-	// Duration of packet capture in seconds.
+	// Duration of packet capture in seconds. If the field is not provided, the default value is 60.
 	DurationInSeconds *int32
 
 	// Name of file to be uploaded to sasURL
@@ -6201,8 +6248,11 @@ type FirewallPacketCaptureParameters struct {
 	// The tcp-flag type to be captured. Used with protocol TCP
 	Flags []*AzureFirewallPacketCaptureFlags
 
-	// Number of packets to be captured.
+	// Number of packets to be captured. If the field is not provided, the default value is 1000.
 	NumberOfPacketsToCapture *int32
+
+	// The Azure Firewall packet capture operation to perform
+	Operation *AzureFirewallPacketCaptureOperationType
 
 	// The protocol of packets to capture
 	Protocol *AzureFirewallNetworkRuleProtocol
@@ -8572,6 +8622,9 @@ type LoadBalancerPropertiesFormat struct {
 	// Collection of probe objects used in the load balancer.
 	Probes []*Probe
 
+	// Indicates the scope of the load balancer: external (Public) or internal (Private).
+	Scope *LoadBalancerScope
+
 	// READ-ONLY; The provisioning state of the load balancer resource.
 	ProvisioningState *ProvisioningState
 
@@ -9051,6 +9104,10 @@ type ManagerRoutingConfigurationListResult struct {
 type ManagerRoutingConfigurationPropertiesFormat struct {
 	// A description of the routing configuration.
 	Description *string
+
+	// Route table usage mode defines which route table will be used by the configuration. If not defined, this will default to
+	// 'ManagedOnly'.
+	RouteTableUsageMode *RouteTableUsageMode
 
 	// READ-ONLY; The provisioning state of the resource.
 	ProvisioningState *ProvisioningState
@@ -9640,6 +9697,41 @@ type NspProfileProperties struct {
 	DiagnosticSettingsVersion *string
 }
 
+// NspServiceTagsListResult - Result of the request to list NSP service tags.
+type NspServiceTagsListResult struct {
+	// Gets the URL to get the next page of results.
+	NextLink *string
+
+	// Gets paged list of NSP service tags.
+	Value []*NspServiceTagsResource
+}
+
+// NspServiceTagsResource - Resource containing list of NSP service tags.
+type NspServiceTagsResource struct {
+	// NSP service tags.
+	ServiceTags []*string
+}
+
+// NvaInVnetSubnetReferenceProperties - The resource URI of the subnets where the NVA NICS will be deployed
+type NvaInVnetSubnetReferenceProperties struct {
+	// Resource Uri of Subnet
+	ID *string
+}
+
+// NvaInterfaceConfigurationsProperties - Specifies input parameters required NVA in VNet interface configuration.
+type NvaInterfaceConfigurationsProperties struct {
+	// Specifies the name of the interface. Maximum length is 70 characters.
+	Name *string
+
+	// A subnet resource id where the NIC will be deployed. Each subnet resource uri should be unique.
+	Subnet *NvaInVnetSubnetReferenceProperties
+
+	// Specifies the NIC types for the NVA interface configuration. Allowed values: PrivateNic, PublicNic, AdditionalPrivateNic,
+	// AdditionalPublicNic. Only the combination of PrivateNic and PublicNic is
+	// currently supported.
+	Type []*NvaNicType
+}
+
 // O365BreakOutCategoryPolicies - Office365 breakout categories.
 type O365BreakOutCategoryPolicies struct {
 	// Flag to control allow category.
@@ -10134,7 +10226,7 @@ type Parameter struct {
 	RoutePrefix []*string
 }
 
-// PartnerManagedResourceProperties - Properties of the partner managed resource.
+// PartnerManagedResourceProperties - Properties of the partner managed resource. Only appliable for SaaS NVA.
 type PartnerManagedResourceProperties struct {
 	// READ-ONLY; The partner managed resource id.
 	ID *string
@@ -10750,6 +10842,9 @@ type PrivateLinkServiceListResult struct {
 
 // PrivateLinkServiceProperties - Properties of the private link service.
 type PrivateLinkServiceProperties struct {
+	// The access mode of the private link service.
+	AccessMode *AccessMode
+
 	// The auto-approval list of the private link service.
 	AutoApproval *PrivateLinkServicePropertiesAutoApproval
 
@@ -11233,6 +11328,24 @@ type QueryTroubleshootingParameters struct {
 	TargetResourceID *string
 }
 
+// RadiusAuthServer - Gateway or VpnServerConfiguration Radius server with radius secret details
+type RadiusAuthServer struct {
+	// Radius server IPAddress
+	RadiusServerAddress *string
+
+	// Radius server secret
+	RadiusServerSecret *string
+}
+
+// RadiusAuthServerListResult - List of Radius servers with respective radius secrets.
+type RadiusAuthServerListResult struct {
+	// URL to get the next set of operation list results if there are any.
+	NextLink *string
+
+	// List of Radius servers with respective radius secrets.
+	Value []*RadiusAuthServer
+}
+
 // RadiusServer - Radius Server Settings.
 type RadiusServer struct {
 	// REQUIRED; The address of this radius server.
@@ -11241,7 +11354,9 @@ type RadiusServer struct {
 	// The initial score assigned to this radius server.
 	RadiusServerScore *int64
 
-	// The secret used for this radius server.
+	// The secret used for this radius server. We will no longer return radiusServerSecret in VirtualNetworkGateway Create/Update/Get/List/UpdateTags
+	// APIs response. Please use VirtualNetworkGateway
+	// ListRadiusSecrets API to fetch radius server secrets.
 	RadiusServerSecret *string
 }
 
@@ -13013,9 +13128,7 @@ type SubnetPropertiesFormat struct {
 	// Application gateway IP configurations of virtual network resource.
 	ApplicationGatewayIPConfigurations []*ApplicationGatewayIPConfiguration
 
-	// Set this property to false to disable default outbound connectivity for all VMs in the subnet. This property can only be
-	// set at the time of subnet creation and cannot be updated for an existing
-	// subnet.
+	// Set this property to false to disable default outbound connectivity for all VMs in the subnet.
 	DefaultOutboundAccess *bool
 
 	// An array of references to the delegations on the subnet.
@@ -13410,7 +13523,9 @@ type VPNClientConfiguration struct {
 	// The radius server address property of the VirtualNetworkGateway resource for vpn client connection.
 	RadiusServerAddress *string
 
-	// The radius secret property of the VirtualNetworkGateway resource for vpn client connection.
+	// The radius secret property of the VirtualNetworkGateway resource for vpn client connection. We will no longer return radiusServerSecret
+	// in VirtualNetworkGateway Create/Update/Get/List/UpdateTags APIs
+	// response. Please use VirtualNetworkGateway ListRadiusSecrets API to fetch radius server secrets.
 	RadiusServerSecret *string
 
 	// The radiusServers property for multiple radius server configuration.
@@ -13655,7 +13770,7 @@ type VPNConnectionProperties struct {
 	// Routing weight for vpn connection.
 	RoutingWeight *int32
 
-	// SharedKey for the vpn connection.
+	// Deprecated: SharedKey for the vpn connection. This is no more used.
 	SharedKey *string
 
 	// The Traffic Selector Policies to be considered by this connection.
@@ -13994,7 +14109,10 @@ type VPNServerConfigurationProperties struct {
 	// Radius Server root certificate of VpnServerConfiguration.
 	RadiusServerRootCertificates []*VPNServerConfigRadiusServerRootCertificate
 
-	// The radius secret property of the VpnServerConfiguration resource for point to site client connection.
+	// The radius secret property of the VpnServerConfiguration resource for point to site client connection. We will no longer
+	// return radiusServerSecret in VpnServerConfiguration
+	// Create/Update/Get/List/UpdateTags APIs response. Please use VpnServerConfiguration ListRadiusSecrets API to fetch radius
+	// server secrets.
 	RadiusServerSecret *string
 
 	// Multiple Radius Server configuration for VpnServerConfiguration.
@@ -14124,7 +14242,9 @@ type VPNSiteLinkConnectionProperties struct {
 	// Routing weight for vpn connection.
 	RoutingWeight *int32
 
-	// SharedKey for the vpn connection.
+	// SharedKey for the vpn link connection. We will no longer return sharedKey in any Create/Update/Get/List/UpdateTags VpnGateway/VpnConnection/VpnLinkConnection
+	// APIs response. Please use 'Vpn Link
+	// Connections - List Default Shared Key' API to fetch Vpn link connection sharedKey.
 	SharedKey *string
 
 	// Use local azure ip to initiate connection.
@@ -14402,7 +14522,9 @@ type VirtualApplianceConnectionProperties struct {
 
 // VirtualApplianceIPConfiguration - Represents a single IP configuration.
 type VirtualApplianceIPConfiguration struct {
-	// Name of the IP configuration.
+	// For hub NVAs, primary IP configs must be named 'privatenicipconfig' and 'publicnicipconfig', with non-primary configs using
+	// these prefixes; no naming restrictions apply for NVAs in VNets. Maximum 80
+	// character are allowed.
 	Name *string
 
 	// Represents a single IP configuration properties.
@@ -14459,7 +14581,8 @@ type VirtualApplianceNicProperties struct {
 	// READ-ONLY; NIC name.
 	Name *string
 
-	// READ-ONLY; NIC type - PublicNic, PrivateNic, or AdditionalNic.
+	// READ-ONLY; NIC type - PublicNic, PrivateNic, or AdditionalNic; AdditionalPrivateNic and AdditionalPublicNic are only supported
+	// for NVAs deployed in VNets.
 	NicType *NicTypeInResponse
 
 	// READ-ONLY; Private IP address.
@@ -14471,7 +14594,7 @@ type VirtualApplianceNicProperties struct {
 
 // VirtualAppliancePropertiesFormat - Network Virtual Appliance definition.
 type VirtualAppliancePropertiesFormat struct {
-	// Details required for Additional Network Interface.
+	// Details required for Additional Network Interface. This property is not compatible with the NVA deployed in VNets.
 	AdditionalNics []*VirtualApplianceAdditionalNicProperties
 
 	// BootStrapConfigurationBlobs storage URLs.
@@ -14483,7 +14606,7 @@ type VirtualAppliancePropertiesFormat struct {
 	// CloudInitConfigurationBlob storage URLs.
 	CloudInitConfigurationBlobs []*string
 
-	// The delegation for the Virtual Appliance
+	// The delegation for the Virtual Appliance. Only appliable for SaaS NVA.
 	Delegation *DelegationProperties
 
 	// List of Resource Uri of Public IPs for Internet Ingress Scenario.
@@ -14491,6 +14614,9 @@ type VirtualAppliancePropertiesFormat struct {
 
 	// Network Profile containing configurations for Public and Private NIC.
 	NetworkProfile *VirtualAppliancePropertiesFormatNetworkProfile
+
+	// The NVA in VNet interface configurations
+	NvaInterfaceConfigurations []*NvaInterfaceConfigurationsProperties
 
 	// Network Virtual Appliance SKU.
 	NvaSKU *VirtualApplianceSKUProperties
@@ -14515,6 +14641,10 @@ type VirtualAppliancePropertiesFormat struct {
 
 	// READ-ONLY; List of references to InboundSecurityRules.
 	InboundSecurityRules []*SubResource
+
+	// READ-ONLY; A Internal Load Balancer's HA port frontend IP address. Can be used to set routes & UDR to load balance traffic
+	// between NVA instances
+	PrivateIPAddress *string
 
 	// READ-ONLY; The provisioning state of the resource.
 	ProvisioningState *ProvisioningState
@@ -15020,7 +15150,9 @@ type VirtualNetworkGatewayConnectionListEntityPropertiesFormat struct {
 	// The routing weight.
 	RoutingWeight *int32
 
-	// The IPSec shared key.
+	// The IPSec shared key. We will no longer return sharedKey in VirtualNetworkGatewayConnection Create/Update/Get/List/UpdateTags
+	// APIs response. Please use VirtualNetworkGatewayConnection GetSharedKey API
+	// to fetch connection sharedKey.
 	SharedKey *string
 
 	// The Traffic Selector Policies to be considered by this connection.
@@ -15068,8 +15200,14 @@ type VirtualNetworkGatewayConnectionPropertiesFormat struct {
 	// REQUIRED; The reference to virtual network gateway resource.
 	VirtualNetworkGateway1 *VirtualNetworkGateway
 
+	// Gateway connection authentication type.
+	AuthenticationType *ConnectionAuthenticationType
+
 	// The authorizationKey.
 	AuthorizationKey *string
+
+	// Certificate Authentication information for a certificate based authentication connection.
+	CertificateAuthentication *CertificateAuthentication
 
 	// The connection mode for this connection.
 	ConnectionMode *VirtualNetworkGatewayConnectionMode

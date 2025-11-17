@@ -70,10 +70,6 @@
 #define HASH_INIT4_SEED 0xcafe
 #define HASH_INIT6_SEED 0xeb9f
 
-#ifndef L2_ANNOUNCEMENTS_MAX_LIVENESS
-# define L2_ANNOUNCEMENTS_MAX_LIVENESS 3000000000ULL
-#endif
-
 #ifdef ENABLE_IPV4
 #define IPV4_GATEWAY 0xfffff50a
 #define IPV4_ENCRYPT_IFACE 0xfffff50a
@@ -190,15 +186,13 @@
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
-#ifdef ENABLE_WIREGUARD
-# ifdef ENCRYPTION_STRICT_MODE
-#  define STRICT_IPV4_NET	0
-#  define STRICT_IPV4_NET_SIZE	8
-# endif
-#endif
-
-#ifdef ENABLE_VTEP
-# define VTEP_MASK 0xffffff
+#ifdef ENCRYPTION_STRICT_MODE
+#  ifndef STRICT_IPV4_NET
+#   define STRICT_IPV4_NET	0
+#  endif
+#  ifndef STRICT_IPV4_NET_SIZE
+#   define STRICT_IPV4_NET_SIZE	8
+#  endif
 #endif
 
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \

@@ -119,7 +119,6 @@ var (
 		ExtendedFeatures: sets.New[features.FeatureName]().
 			Insert(features.SetsToNamesSet(
 				features.MeshExtendedFeatures,
-				features.HTTPRouteExtendedFeatures,
 			).UnsortedList()...),
 	}
 

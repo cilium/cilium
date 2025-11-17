@@ -125,6 +125,7 @@ type policyGenerateResult struct {
 	policyRevision   uint64
 	endpointPolicy   *policy.EndpointPolicy
 	identityRevision int
+	identity         identityPkg.NumericIdentity
 }
 
 // Release resources held for the new policy
@@ -205,6 +206,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	result := &policyGenerateResult{
 		endpointPolicy:   e.desiredPolicy,
+		identity:         e.getIdentity(),
 		identityRevision: e.identityRevision,
 	}
 	e.unlock()
@@ -299,14 +301,25 @@ func (e *Endpoint) setDesiredPolicy(datapathRegenCtxt *datapathRegenerationConte
 
 		return nil
 	}
+
 	// if the security identity changed, reject the policy computation
-	if e.identityRevision != res.identityRevision {
+	if e.getIdentity() != res.identity {
 		// Detach the rejected endpoint policy.
 		// This is needed to release resources held for the EndpointPolicy
 		res.release(e.getLogger())
 
 		e.getLogger().Info("Endpoint SecurityIdentity changed during policy regeneration")
 		return fmt.Errorf("endpoint %d SecurityIdentity changed during policy regeneration", e.ID)
+	}
+
+	// if the security identity revision changed, reject the policy computation
+	if e.identityRevision != res.identityRevision {
+		// Detach the rejected endpoint policy.
+		// This is needed to release resources held for the EndpointPolicy
+		res.release(e.getLogger())
+
+		e.getLogger().Info("Endpoint SecurityIdentity revision changed during policy regeneration")
+		return fmt.Errorf("endpoint %d SecurityIdentity revision changed during policy regeneration", e.ID)
 	}
 
 	oldNextPolicyRevision := e.nextPolicyRevision
@@ -912,7 +925,7 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 
 		stats.proxyPolicyCalculation.Start()
 		// Initial NetworkPolicy is not reverted
-		err, _ = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, nil)
+		err, _ = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.SelectorPolicy.L4Policy, e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled, e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled, nil)
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {
 			e.getLogger().Warn(

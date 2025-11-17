@@ -233,26 +233,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_SCTP"] = "1"
 	}
 
-	if cfg.EnableIPSec {
-		cDefinesMap["ENABLE_IPSEC"] = "1"
-	}
-
-	if cfg.EnableWireguard {
-		cDefinesMap["ENABLE_WIREGUARD"] = "1"
-
-		if option.Config.EncryptNode {
-			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
-		}
-	}
-
 	if option.Config.ServiceNoBackendResponse == option.ServiceNoBackendResponseReject {
 		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
-	}
-
-	if option.Config.EnableL2Announcements {
-		cDefinesMap["ENABLE_L2_ANNOUNCEMENTS"] = "1"
-		// If the agent is down for longer than the lease duration, stop responding
-		cDefinesMap["L2_ANNOUNCEMENTS_MAX_LIVENESS"] = fmt.Sprintf("%dULL", option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
 	if option.Config.EnableEncryptionStrictMode {
@@ -558,10 +540,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	ctmap.WriteBPFMacros(fw)
 
-	if option.Config.AllowICMPFragNeeded {
-		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
-	}
-
 	if option.Config.ClockSource == option.ClockSourceJiffies {
 		cDefinesMap["ENABLE_JIFFIES"] = "1"
 	}
@@ -572,7 +550,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableVTEP {
 		cDefinesMap["ENABLE_VTEP"] = "1"
-		cDefinesMap["VTEP_MASK"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask)))
 	}
 
 	cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
@@ -585,10 +562,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.DisableExternalIPMitigation {
 		cDefinesMap["DISABLE_EXTERNAL_IP_MITIGATION"] = "1"
-	}
-
-	if option.Config.EnableICMPRules {
-		cDefinesMap["ENABLE_ICMP_RULE"] = "1"
 	}
 
 	cDefinesMap["CIDR_IDENTITY_RANGE_START"] = fmt.Sprintf("%d", identity.MinLocalIdentity)
@@ -662,7 +635,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	fmt.Fprint(fw, assignConfig("identity_length", identity.GetClusterIDShift()))
 
 	fmt.Fprint(fw, declareConfig("interface_ifindex", uint32(0), "ifindex of the interface the bpf program is attached to"))
-	cDefinesMap["THIS_INTERFACE_IFINDEX"] = "CONFIG(interface_ifindex)"
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 

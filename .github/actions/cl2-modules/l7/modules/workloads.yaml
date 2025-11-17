@@ -1,0 +1,56 @@
+{{$actionName := printf "%s objects" .actionName}}
+
+{{$namespaces := .namespaces}}
+{{$tuningSet := .tuningSet}}
+
+{{$operationTimeout := .operationTimeout}}
+
+{{$deploymentsPerNamespace := .deploymentsPerNamespace}}
+{{$replicasPerDeployment := .replicasPerDeployment}}
+
+steps:
+- name: Starting measurement for creating workloads
+  measurements:
+  - method: WaitForControlledPodsRunning
+    instances:
+    - identifier: WaitForRunningDeployments
+      params:
+        apiVersion: apps/v1
+        kind: Deployment
+    params:
+      action: start
+      checkIfPodsAreUpdated: true
+      labelSelector: app.kubernetes.io/name=http-server
+      operationTimeout: {{$operationTimeout}}
+
+- name: Creating workloads
+  phases:
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$deploymentsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: http-server
+      objectTemplatePath: ./manifests/deployment.yaml
+      templateFillMap:
+        replicas: {{$replicasPerDeployment}}
+        group: l7-server
+  - namespaceRange:
+      min: 1
+      max: {{$namespaces}}
+    replicasPerNamespace: {{$deploymentsPerNamespace}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: http-server
+      objectTemplatePath: ./manifests/service.yaml
+      templateFillMap:
+        group: l7-server
+
+- name: Waiting for workload pods to be running
+  measurements:
+  - method: WaitForControlledPodsRunning
+    instances:
+    - identifier: WaitForRunningDeployments
+    params:
+      action: gather

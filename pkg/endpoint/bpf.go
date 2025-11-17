@@ -583,8 +583,8 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 
 	if datapathRegenCtxt.regenerationLevel > regeneration.RegenerateWithoutDatapath {
 		if e.Options.IsEnabled(option.Debug) {
-			debugFunc := func(format string, args ...interface{}) {
-				e.getLogger().Debug(fmt.Sprintf(format, args))
+			debugFunc := func(format string, args ...any) {
+				e.getLogger().Debug(fmt.Sprintf(format, args...))
 			}
 			ctx, cancel := context.WithCancel(regenContext.parentContext)
 			defer cancel()
@@ -1139,7 +1139,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		return ErrComingOutOfLockdown
 	}
 
-	hasEnvoyRedirect := e.desiredPolicy.L4Policy.HasEnvoyRedirect()
+	hasEnvoyRedirect := e.desiredPolicy.SelectorPolicy.L4Policy.HasEnvoyRedirect()
 	if !changes.Empty() {
 		// updateEnvoy if there were any mapChanges, but only if the endpoint has Envoy
 		// redirects, or is an Ingress endpoint, which needs to enforce also the full L3/4
@@ -1188,7 +1188,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			)
 			stats.proxyPolicyCalculation.Start()
 			var rf revert.RevertFunc
-			err, rf = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
+			err, rf = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.SelectorPolicy.L4Policy, e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled, e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled, proxyWaitGroup)
 			stats.proxyPolicyCalculation.End(err == nil)
 			if err == nil {
 				datapathRegenCtxt.revertStack.Push(rf)
@@ -1199,7 +1199,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 				"applyPolicyMapChanges: Using current Networkpolicy",
 				logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
 			)
-			e.proxy.UseCurrentNetworkPolicy(e, &e.desiredPolicy.L4Policy, proxyWaitGroup)
+			e.proxy.UseCurrentNetworkPolicy(e, &e.desiredPolicy.SelectorPolicy.L4Policy, proxyWaitGroup)
 		}
 	}
 
@@ -1613,10 +1613,10 @@ func (e *Endpoint) RequireEndpointRoute() bool {
 // consistent with how it is used in policy_verdict_filter_allow() in bpf/lib/policy_log.h
 func (e *Endpoint) GetPolicyVerdictLogFilter() uint32 {
 	var filter uint32 = 0
-	if e.desiredPolicy.IngressPolicyEnabled {
+	if e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled {
 		filter = (filter | 0x1)
 	}
-	if e.desiredPolicy.EgressPolicyEnabled {
+	if e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled {
 		filter = (filter | 0x2)
 	}
 	return filter

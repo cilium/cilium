@@ -27,6 +27,7 @@ import (
 
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
+	"sigs.k8s.io/gateway-api/conformance/utils/tlog"
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
@@ -53,15 +54,15 @@ var UDPRouteTest = suite.ConformanceTest{
 
 			msg := new(dns.Msg)
 			msg.SetQuestion(domain, dns.TypeA)
-
-			if err := wait.PollUntilContextTimeout(context.TODO(), time.Second, time.Minute, true,
+			tlog.Logf(t, "performing DNS query %s on %s", domain, gwAddr)
+			if err := wait.PollUntilContextTimeout(context.TODO(), time.Second, suite.TimeoutConfig.DefaultTestTimeout, true,
 				func(_ context.Context) (done bool, err error) {
-					t.Logf("performing DNS query %s on %s", domain, gwAddr)
-					_, err = dns.Exchange(msg, gwAddr)
+					r, err := dns.Exchange(msg, gwAddr)
 					if err != nil {
-						t.Logf("failed to perform a UDP query: %v", err)
+						tlog.Logf(t, "failed to perform a UDP query: %v", err)
 						return false, nil
 					}
+					tlog.Logf(t, "got DNS response: %s", r.String())
 					return true, nil
 				}); err != nil {
 				t.Errorf("failed to perform DNS query: %v", err)

@@ -68,7 +68,7 @@ const (
 	AllReqID = 0
 
 	// DefaultReqID is the default reqid used for all IPSec rules.
-	DefaultReqID = 1
+	DefaultReqID = ipsec.DefaultReqID
 )
 
 type dir string
@@ -660,12 +660,14 @@ func getNodeIDAsHexFromXfrmMark(mark *netlink.XfrmMark) string {
 }
 
 func getDirFromXfrmMark(mark *netlink.XfrmMark) dir {
-	switch {
-	case mark == nil:
+	if mark == nil {
 		return dirUnspec
-	case mark.Value&linux_defaults.RouteMarkDecrypt != 0:
+	}
+	bitwiseResult := mark.Value & linux_defaults.RouteMarkMask
+	switch bitwiseResult {
+	case linux_defaults.RouteMarkDecrypt:
 		return dirIngress
-	case mark.Value&linux_defaults.RouteMarkEncrypt != 0:
+	case linux_defaults.RouteMarkEncrypt:
 		return dirEgress
 	}
 	return dirUnspec

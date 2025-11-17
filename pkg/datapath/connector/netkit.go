@@ -28,8 +28,8 @@ func SetupNetkit(defaultLogger *slog.Logger, id string, cfg LinkConfig, l2Mode b
 	lxcIfName := Endpoint2IfName(id)
 	tmpIfName := Endpoint2TempIfName(id)
 
-	netkit, link, err := SetupNetkitWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, l2Mode, sysctl)
-	return netkit, link, tmpIfName, err
+	netkit, peer, err := SetupNetkitWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, l2Mode, sysctl)
+	return netkit, peer, tmpIfName, err
 }
 
 // SetupNetkitWithNames sets up the net interface, the peer interface and fills up some
@@ -55,11 +55,11 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 		// from changing the addrs.
 		epHostMAC, err = mac.GenerateRandMAC()
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %w", err)
+			return nil, nil, fmt.Errorf("unable to generate host mac addr: %w", err)
 		}
 		epLXCMAC, err = mac.GenerateRandMAC()
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %w", err)
+			return nil, nil, fmt.Errorf("unable to generate peer mac addr: %w", err)
 		}
 	}
 	netkit := &netlink.Netkit{
@@ -77,6 +77,11 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 		// Ensure that packets leaving the pod's networking namespace are
 		// scrubbed.
 		PeerScrub: netlink.NETKIT_SCRUB_DEFAULT,
+		// Configure the headroom and tailroom, which should be calculated to
+		// appropriate values by the agent, taking into account things like
+		// tunneling and encryption.
+		DesiredHeadroom: uint16(cfg.DeviceHeadroom),
+		DesiredTailroom: uint16(cfg.DeviceTailroom),
 	}
 	peerAttr := &netlink.LinkAttrs{
 		Name:         peerIfName,
@@ -101,6 +106,8 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 
 	logger.Debug("Created netkit pair",
 		logfields.NetkitPair, []string{peerIfName, lxcIfName},
+		logfields.DeviceHeadroom, netkit.DesiredHeadroom,
+		logfields.DeviceTailroom, netkit.DesiredTailroom,
 	)
 
 	// Disable reverse path filter on the host side netkit peer to allow
@@ -111,19 +118,9 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 		return nil, nil, err
 	}
 
-	peer, err := safenetlink.LinkByName(peerIfName)
+	peer, err := validateNetkitPair(logger, lxcIfName, peerIfName, cfg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to lookup netkit peer just created: %w", err)
-	}
-
-	if nk, ok := peer.(*netlink.Netkit); !ok {
-		logger.Debug("peer does not appear to be a Netkit device",
-			logfields.NetkitPair, []string{peerIfName, lxcIfName},
-		)
-	} else if !nk.SupportsScrub() {
-		logger.Warn("kernel does not support IFLA_NETKIT_SCRUB, some features may not work with netkit",
-			logfields.Netkit, netkit.Name,
-		)
+		return nil, nil, fmt.Errorf("netkit validation failed: %w", err)
 	}
 
 	err = configurePair(netkit, peer, cfg)
@@ -132,4 +129,54 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 	}
 
 	return netkit, peer, nil
+}
+
+// validateNetkitPair queries the kernel for a copy of the underlying device attributes
+// for both the lxc host interface and the peer interface.
+func validateNetkitPair(logger *slog.Logger, lxcIfName string, peerIfName string, cfg LinkConfig) (netlink.Link, error) {
+	// Query the kernel for the host link attributes, so we can verify the kernel
+	// has applied the configuration we expected.
+	hostLink, err := safenetlink.LinkByName(lxcIfName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to lookup netkit host link: %w", err)
+	}
+
+	hostDevice, ok := hostLink.(*netlink.Netkit)
+	if !ok {
+		return nil, fmt.Errorf("host link does not appear to be a Netkit device")
+	}
+
+	peerLink, err := safenetlink.LinkByName(peerIfName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to lookup netkit peer link: %w", err)
+	}
+
+	peerDevice, ok := peerLink.(*netlink.Netkit)
+	if !ok {
+		return nil, fmt.Errorf("peer link does not appear to be a Netkit device")
+	}
+
+	// Validate the kernel supports Scrub functionality.
+	if !hostDevice.SupportsScrub() || !peerDevice.SupportsScrub() {
+		logger.Warn("kernel does not support IFLA_NETKIT_SCRUB, some features may not work with netkit",
+			logfields.NetkitPair, []string{hostDevice.Name, peerDevice.Name})
+	}
+
+	// Verify we have the correct buffer margins configured. We accept a margin that
+	// is greater than what we requested, just in case it's ever rounded or aligned
+	// within the kernel.
+	if hostDevice.Headroom < cfg.DeviceHeadroom || hostDevice.Tailroom < cfg.DeviceTailroom {
+		logger.Warn("unexpected buffer margins on host link",
+			logfields.Device, lxcIfName,
+			logfields.DeviceHeadroom, hostDevice.Headroom,
+			logfields.DeviceTailroom, hostDevice.Tailroom)
+	}
+	if peerDevice.Headroom != hostDevice.Headroom || peerDevice.Tailroom != hostDevice.Tailroom {
+		return nil, fmt.Errorf("mismatched buffer margins on peer link %s (%s:%d %s:%d)",
+			peerIfName,
+			logfields.DeviceHeadroom, peerDevice.Headroom,
+			logfields.DeviceTailroom, peerDevice.Tailroom)
+	}
+
+	return peerLink, nil
 }

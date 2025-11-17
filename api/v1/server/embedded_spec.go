@@ -2450,16 +2450,24 @@ func init() {
         "datapathMode": {
           "$ref": "#/definitions/DatapathMode"
         },
+        "deviceHeadroom": {
+          "description": "Headroom buffer margin on workload facing devices",
+          "type": "integer"
+        },
         "deviceMTU": {
           "description": "MTU on workload facing devices",
           "type": "integer"
         },
-        "egress-multi-home-ip-rule-compat": {
-          "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
-          "type": "boolean"
+        "deviceTailroom": {
+          "description": "Tailroom buffer margin on workload facing devices",
+          "type": "integer"
         },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",
+          "type": "boolean"
+        },
+        "enablePacketizationLayerPMTUD": {
+          "description": "Enable PLPMTUD probing on the pod netns",
           "type": "boolean"
         },
         "enableRouteMTUForCNIChaining": {
@@ -7867,16 +7875,24 @@ func init() {
         "datapathMode": {
           "$ref": "#/definitions/DatapathMode"
         },
+        "deviceHeadroom": {
+          "description": "Headroom buffer margin on workload facing devices",
+          "type": "integer"
+        },
         "deviceMTU": {
           "description": "MTU on workload facing devices",
           "type": "integer"
         },
-        "egress-multi-home-ip-rule-compat": {
-          "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
-          "type": "boolean"
+        "deviceTailroom": {
+          "description": "Tailroom buffer margin on workload facing devices",
+          "type": "integer"
         },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",
+          "type": "boolean"
+        },
+        "enablePacketizationLayerPMTUD": {
+          "description": "Enable PLPMTUD probing on the pod netns",
           "type": "boolean"
         },
         "enableRouteMTUForCNIChaining": {

@@ -64,6 +64,8 @@ v6_svc_one    = "fd10::1"
 # External IPv6 addrs
 v6_ext_node_one = "2001::1"
 
+v6_all = "::"
+
 # Source port to be used by a client
 tcp_src_one   = 22330
 tcp_src_two   = 33440

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -24,6 +25,14 @@ import (
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
+	// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
+	IsIngress() bool
+	SetIngress(bool)
+
+	// AllowLocalhost returns true if policy should allow ingress from local host.
+	// Always returns false for egress.
+	AllowLocalhost() bool
+
 	// return the namespace in which the policy rule is being resolved
 	GetNamespace() string
 
@@ -69,6 +78,8 @@ type PolicyContext interface {
 type policyContext struct {
 	repo *Repository
 	ns   string
+	// isIngress is set to true for ingress rule processing, false for egress
+	isIngress bool
 	// isDeny this field is set to true if the given policy computation should
 	// be done for the policy deny.
 	isDeny             bool
@@ -82,6 +93,19 @@ type policyContext struct {
 }
 
 var _ PolicyContext = &policyContext{}
+
+// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
+func (p *policyContext) IsIngress() bool {
+	return p.isIngress
+}
+
+func (p *policyContext) SetIngress(ingress bool) {
+	p.isIngress = ingress
+}
+
+func (p *policyContext) AllowLocalhost() bool {
+	return p.isIngress && option.Config.AlwaysAllowLocalhost()
+}
 
 // GetNamespace() returns the namespace for the policy rule being resolved
 func (p *policyContext) GetNamespace() string {
@@ -195,7 +219,7 @@ func (p *selectorPolicy) Attach(ctx PolicyContext) {
 type EndpointPolicy struct {
 	// Note that all Endpoints sharing the same identity will be
 	// referring to a shared selectorPolicy!
-	*selectorPolicy
+	SelectorPolicy *selectorPolicy
 
 	// VersionHandle represents the version of the SelectorCache 'policyMapState' was generated
 	// from.
@@ -321,7 +345,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	//   ConsumeMapChanges().
 	p.SelectorCache.GetVersionHandleFunc(func(version *versioned.VersionHandle) {
 		calculatedPolicy = &EndpointPolicy{
-			selectorPolicy: p,
+			SelectorPolicy: p,
 			VersionHandle:  version,
 			policyMapState: newMapState(logger, policyOwner.MapStateSize()),
 			policyMapChanges: MapChanges{
@@ -365,7 +389,7 @@ func (p *EndpointPolicy) Ready() (err error) {
 // to allow the EndpointPolicy to be GC'd.
 // PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) Detach(logger *slog.Logger) {
-	p.selectorPolicy.removeUser(p)
+	p.SelectorPolicy.removeUser(p)
 	// in case the call was missed previouly
 	if p.Ready() == nil {
 		// succeeded, so it was missed previously
@@ -499,8 +523,8 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
 func (p *EndpointPolicy) toMapState(logger *slog.Logger) {
-	p.L4Policy.Ingress.toMapState(logger, p)
-	p.L4Policy.Egress.toMapState(logger, p)
+	p.SelectorPolicy.L4Policy.Ingress.toMapState(logger, p)
+	p.SelectorPolicy.L4Policy.Egress.toMapState(logger, p)
 }
 
 // toMapState transforms the L4DirectionPolicy into
@@ -547,7 +571,7 @@ func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, Pe
 // Caller is responsible for calling the returned 'closer' to release resources held for the new version!
 // 'closer' may not be called while selector cache is locked!
 func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState) {
-	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
+	features := p.SelectorPolicy.L4Policy.Ingress.features | p.SelectorPolicy.L4Policy.Egress.features
 	version, changes := p.policyMapChanges.consumeMapChanges(p, features)
 
 	closer = func() {}
@@ -579,7 +603,7 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
-		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
+		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
 		policyMapState: emptyMapState(logger),
 	}
 }

@@ -20,15 +20,6 @@ import (
 	k8syaml "sigs.k8s.io/yaml"
 )
 
-func fromYamlFile(t *testing.T, file string, obj any) {
-	t.Helper()
-
-	yamlText, err := os.ReadFile(file)
-	require.NoError(t, err)
-
-	fromYaml(t, string(yamlText), obj)
-}
-
 func fromYaml(t *testing.T, yamlText string, obj any) {
 	t.Helper()
 
@@ -77,8 +68,7 @@ func readInput(t *testing.T, file string) []client.Object {
 	require.NoError(t, err)
 
 	var res []client.Object
-	objects := strings.Split(string(inputYaml), "---")
-	for _, o := range objects {
+	for o := range strings.SplitSeq(string(inputYaml), "---") {
 		o = strings.TrimSpace(o)
 		if o == "" {
 			continue

@@ -8,8 +8,9 @@
 #include <netdev_config.h>
 
 #include "lib/common.h"
+#include "lib/drop.h"
 #include "lib/trace.h"
-#include "lib/encrypt.h"
+#include "lib/ipsec.h"
 
 __section_entry
 int cil_from_network(struct __ctx_buff *ctx)
@@ -46,6 +47,8 @@ int cil_from_network(struct __ctx_buff *ctx)
 		goto out;
 
 	ret = do_decrypt(ctx, proto);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_INGRESS);
 #endif
 
 /* We need to handle following possible packets come to this program

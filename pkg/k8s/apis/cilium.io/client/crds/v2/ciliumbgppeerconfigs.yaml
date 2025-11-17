@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.17.3
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: ciliumbgppeerconfigs.cilium.io
 spec:
   group: cilium.io
@@ -82,9 +82,6 @@ spec:
                         Advertisements selects group of BGP Advertisement(s) to advertise for this family.
 
                         If not specified, no advertisements are sent for this family.
-
-                        This field is ignored in CiliumBGPNeighbor which is used in CiliumBGPPeeringPolicy.
-                        Use CiliumBGPPeeringPolicy advertisement options instead.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector
@@ -255,6 +252,15 @@ spec:
                     maximum: 65535
                     minimum: 1
                     type: integer
+                  sourceInterface:
+                    description: |-
+                      SourceInterface is the name of a local interface, which IP address will be used
+                      as the source IP address for the BGP session. The interface must not have more than one
+                      non-loopback, non-multicast and non-link-local-IPv6 address per address family.
+
+                      If not specified, or if the provided interface is not found or missing a usable IP address,
+                      the source IP address will be auto-detected based on the egress interface.
+                    type: string
                 type: object
             type: object
           status:
@@ -393,9 +399,6 @@ spec:
                         Advertisements selects group of BGP Advertisement(s) to advertise for this family.
 
                         If not specified, no advertisements are sent for this family.
-
-                        This field is ignored in CiliumBGPNeighbor which is used in CiliumBGPPeeringPolicy.
-                        Use CiliumBGPPeeringPolicy advertisement options instead.
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector

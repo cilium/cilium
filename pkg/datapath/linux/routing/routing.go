@@ -28,19 +28,22 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+// useCompatEgressPriority determines whether to use the new or old style egress rule.
+// Old style rules are only used in Azure IPAM mode.
+func (info *RoutingInfo) useCompatEgressPriority() bool {
+	return info.IpamMode == ipamOption.IPAMAzure
+}
+
 // Configure sets up the rules and routes needed when running in ENI or
 // Azure IPAM mode.
 // These rules and routes direct egress traffic out of the interface and
-// ingress traffic back to the endpoint (`ip`). The compat flag controls which
-// egress priority to consider when deleting the egress rules (see
-// option.Config.EgressMultiHomeIPRuleCompat).
+// ingress traffic back to the endpoint (`ip`).
 //
 // ip: The endpoint IP address to direct traffic out / from interface.
 // info: The interface routing info used to create rules and routes.
 // mtu: The interface MTU.
-// compat: Whether to use the compat egress priority or not.
 // host: Whether the IP is a host IP and needs to be routed via the 'local' table
-func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) error {
+func (info *RoutingInfo) Configure(ip net.IP, mtu int, host bool) error {
 	if ip == nil || (ip.To4() == nil && ip.To16() == nil) {
 		info.logger.Warn(
 			"Unable to configure rules and routes because IP is not a valid IP address",
@@ -88,17 +91,17 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 	}
 
 	var egressPriority, ifaceNum, tableID int
-	if compat {
+	if info.useCompatEgressPriority() {
 		egressPriority = linux_defaults.RulePriorityEgress
 		ifaceNum = ifindex
 	} else {
 		egressPriority = linux_defaults.RulePriorityEgressv2
 		ifaceNum = info.InterfaceNumber
 	}
-	tableID = computeTableIDFromIfaceNumber(compat, ifaceNum)
+	tableID = computeTableIDFromIfaceNumber(info.useCompatEgressPriority(), ifaceNum)
 
 	// The condition here should mirror the condition in Delete.
-	if info.Masquerade && info.IpamMode == ipamOption.IPAMENI {
+	if info.Masquerade && (info.IpamMode == ipamOption.IPAMENI || info.IpamMode == ipamOption.IPAMAzure) {
 		// Lookup a VPC specific table for all traffic from an endpoint to the
 		// CIDR configured for the VPC on which the endpoint has the IP on.
 		// ReplaceRule function doesn't handle all zeros cidr and return `file exists` error,
@@ -129,7 +132,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool, host bool) e
 	return info.installRoutes(ifindex, tableID)
 }
 
-func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, compat bool, rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {
+func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, rx statedb.ReadTxn, routes statedb.Table[*tables.Route]) (*statedb.WatchSet, error) {
 	set := statedb.NewWatchSet()
 
 	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
@@ -138,12 +141,12 @@ func (info *RoutingInfo) ReconcileGatewayRoutes(mtu int, compat bool, rx statedb
 	}
 
 	var ifaceNum, tableID int
-	if compat {
+	if info.useCompatEgressPriority() {
 		ifaceNum = ifindex
 	} else {
 		ifaceNum = info.InterfaceNumber
 	}
-	tableID = computeTableIDFromIfaceNumber(compat, ifaceNum)
+	tableID = computeTableIDFromIfaceNumber(info.useCompatEgressPriority(), ifaceNum)
 
 	// Get the desired routes.
 	gwRoutes := info.gatewayRoutes(ifindex, tableID)
@@ -242,9 +245,7 @@ func (info *RoutingInfo) installRoutes(ifindex, tableID int) error {
 
 // Delete removes the ingress and egress rules that control traffic for
 // endpoints. Note that the routes referenced by the rules are not deleted as
-// they can be reused when another endpoint is created on the same node. The
-// compat flag controls which egress priority to consider when deleting the
-// egress rules (see option.Config.EgressMultiHomeIPRuleCompat).
+// they can be reused when another endpoint is created on the same node.
 //
 // Note that one or more IPs may share the same route table, as identified by
 // the interface number of the corresponding device. This function only removes
@@ -261,7 +262,7 @@ func (info *RoutingInfo) installRoutes(ifindex, tableID int) error {
 // one egress rule. Deletion of any rule only proceeds if the rule matches
 // the IP & priority. In order to avoid leaving stale rules behind, all the
 // matching rules are removed.
-func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
+func Delete(logger *slog.Logger, ip netip.Addr) error {
 	if !ip.Is4() && !ip.Is6() && !ip.IsValid() {
 		logger.Warn(
 			"Unable to delete rules because IP is not a valid IP address",
@@ -300,6 +301,7 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 		logfields.IPAddr, ipWithMask,
 	)
 
+	compat := option.Config.IPAM == ipamOption.IPAMAzure
 	priority := linux_defaults.RulePriorityEgressv2
 	if compat {
 		priority = linux_defaults.RulePriorityEgress
@@ -313,7 +315,7 @@ func Delete(logger *slog.Logger, ip netip.Addr, compat bool) error {
 
 	// The condition here should mirror the conditions in Configure.
 	info := node.GetRouterInfo()
-	if info != nil && option.Config.EnableIPv4Masquerade && option.Config.IPAM == ipamOption.IPAMENI {
+	if info != nil && option.Config.EnableIPv4Masquerade && (option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) {
 		ipCIDRs := info.GetCIDRs()
 		cidrs := make([]*net.IPNet, 0, len(ipCIDRs))
 		for i := range ipCIDRs {

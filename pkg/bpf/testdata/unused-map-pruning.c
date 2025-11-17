@@ -17,24 +17,20 @@ struct {
 	__uint(max_entries, 10);
 } map_b __section_maps_btf;
 
-DECLARE_CONFIG(__u32, some_other_config, "Just here to offset the second config")
-DECLARE_CONFIG(bool, use_map_b, "Use map_b instead of map_a")
+DECLARE_CONFIG(__u32, some_other_config, "Just here to offset the other configs")
+DECLARE_CONFIG(bool, use_map_a, "Use map_a")
+DECLARE_CONFIG(bool, use_map_b, "Use map_b")
 
 __section("tc")
-static int other_prog() {
-        return CONFIG(some_other_config) ? 0 : -1;
-}
-
-__section("tc")
-static int sample_program() {
+static int entry() {
         __u32 key = 0;
-        __u64 *value;
+        __u64 *value = NULL;
 
-        if (CONFIG(use_map_b)) {
-                value = map_lookup_elem(&map_b, &key);
-        } else {
+        if (CONFIG(use_map_a))
                 value = map_lookup_elem(&map_a, &key);
-        }
+
+        if (CONFIG(use_map_b))
+                value = map_lookup_elem(&map_b, &key);
 
         if (!value) {
                 return -1;

@@ -127,7 +127,7 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			return DROP_WRITE_ERROR;
 	} else {
 		union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(oif);
-		union macaddr *dmac = NULL;
+		const union macaddr *dmac = NULL;
 
 		if (allow_neigh_map) {
 			/* The neigh_record_ip{4,6} locations are mainly from

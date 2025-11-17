@@ -56,11 +56,11 @@ type MapSweeper struct {
 	kprCfg    kpr.KPRConfig
 }
 
-// NewMapSweeper creates an object that walks map paths and garbage-collects
+// newMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func NewMapSweeper(defaultLogger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
+func newMapSweeper(logger *slog.Logger, g endpointManager, bwm dptypes.BandwidthManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
 	return &MapSweeper{
-		logger:          defaultLogger.With(logfields.LogSubsys, "datapath-maps"),
+		logger:          logger,
 		endpointManager: g,
 		bwManager:       bwm,
 		lbConfig:        lbConfig,
@@ -104,10 +104,8 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	}
 
 	for _, m := range mapPrefix {
-		if strings.HasPrefix(filename, m) {
-			if endpointID := strings.TrimPrefix(filename, m); endpointID != filename {
-				ms.deleteMapIfStale(path, filename, endpointID)
-			}
+		if endpointID, found := strings.CutPrefix(filename, m); found {
+			ms.deleteMapIfStale(path, filename, endpointID)
 		}
 	}
 

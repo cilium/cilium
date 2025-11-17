@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -604,131 +603,6 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 	})
 
 	td.policyMapEquals(t, expected, nil, &l49092Rule, &kafkaRule, &l480Rule, &httpRule)
-}
-
-func TestL3DependentL4IngressFromRequires(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
-
-	l480Rule := api.Rule{
-		Ingress: []api.IngressRule{
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromEndpoints: []api.EndpointSelector{
-						selBar1,
-					},
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: api.ProtoTCP},
-					},
-				}},
-			},
-			{
-				IngressCommonRule: api.IngressCommonRule{
-					FromRequires: []api.EndpointSelector{selBar2},
-				},
-			},
-		},
-	}
-
-	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
-		{
-			Key:      "any.id",
-			Operator: slim_metav1.LabelSelectorOpIn,
-			Values:   []string{"bar2"},
-		},
-	})
-	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector)
-
-	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
-		"80/TCP": {
-			Port:     80,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			PerSelectorPolicies: L7DataMap{
-				expectedCachedSelector: nil,
-			},
-			Ingress: true,
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
-				expectedCachedSelector: {nil},
-			}),
-		},
-	})
-
-	td.policyMapEquals(t, expected, nil, &l480Rule)
-}
-
-func TestL3DependentL4EgressToRequires(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
-
-	l480Rule := api.Rule{
-		Egress: []api.EgressRule{
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToEndpoints: []api.EndpointSelector{
-						selBar1,
-					},
-				},
-				ToPorts: []api.PortRule{{
-					Ports: []api.PortProtocol{
-						{Port: "80", Protocol: api.ProtoTCP},
-					},
-				}},
-			},
-			{
-				EgressCommonRule: api.EgressCommonRule{
-					ToEndpoints: []api.EndpointSelector{
-						api.WildcardEndpointSelector,
-					},
-					ToRequires: []api.EndpointSelector{selBar2},
-				},
-			},
-		},
-	}
-
-	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
-		{
-			Key:      "any.id",
-			Operator: slim_metav1.LabelSelectorOpIn,
-			Values:   []string{"bar2"},
-		},
-	})
-	expectedSelector2 := api.NewESFromMatchRequirements(map[string]string{}, []slim_metav1.LabelSelectorRequirement{
-		{
-			Key:      "any.id",
-			Operator: slim_metav1.LabelSelectorOpIn,
-			Values:   []string{"bar2"},
-		},
-	})
-	expectedCachedSelector, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector)
-	expectedCachedSelector2, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, expectedSelector2)
-
-	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{
-		"0/ANY": {
-			Port:     0,
-			Protocol: "ANY",
-			U8Proto:  0x0,
-			PerSelectorPolicies: L7DataMap{
-				expectedCachedSelector2: nil,
-			},
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
-				expectedCachedSelector2: {nil},
-			}),
-		},
-		"80/TCP": {
-			Port:     80,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			PerSelectorPolicies: L7DataMap{
-				expectedCachedSelector: nil,
-			},
-			RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
-				expectedCachedSelector: {nil},
-			}),
-		},
-	})
-
-	td.policyMapEquals(t, nil, expected, &l480Rule)
 }
 
 func TestWildcardL3RulesEgress(t *testing.T) {

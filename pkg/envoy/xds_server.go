@@ -246,15 +246,8 @@ func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpoints
 	return xdsServer
 }
 
-func (s *xdsServer) start() error {
-	socketListener, err := s.newSocketListener()
-	if err != nil {
-		return fmt.Errorf("failed to create socket listener: %w", err)
-	}
-
-	s.stopFunc = s.startXDSGRPCServer(socketListener, s.resourceConfig)
-
-	return nil
+func (s *xdsServer) start(ctx context.Context) error {
+	return s.startXDSGRPCServer(ctx, s.resourceConfig)
 }
 
 func (s *xdsServer) initializeXdsConfigs() {
@@ -1367,9 +1360,9 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, versio
 		if len(l7Rules.HTTP) > 0 {
 			// Use L7 rules computed earlier?
 			var httpRules *cilium.HttpNetworkPolicyRules
-			if l7Rules.EnvoyHTTPRules != nil {
-				httpRules = l7Rules.EnvoyHTTPRules
-				canShortCircuit = l7Rules.CanShortCircuit
+			if l7Rules.EnvoyHTTPRules() != nil {
+				httpRules = l7Rules.EnvoyHTTPRules()
+				canShortCircuit = l7Rules.CanShortCircuit()
 			} else {
 				httpRules, canShortCircuit = s.l7RulesTranslator.GetEnvoyHTTPRules(&l7Rules.L7Rules, "")
 			}
@@ -1678,7 +1671,6 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			})
 			return true
 		})
-
 	}
 	if len(PerPortPolicies) == 0 || len(PerPortPolicies) == 0 && wildcardAllowAll {
 		return nil

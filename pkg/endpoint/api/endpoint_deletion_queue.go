@@ -35,9 +35,15 @@ type DeletionQueue struct {
 }
 
 func (dq *DeletionQueue) process(ctx context.Context, health cell.Health) error {
-	if _, err := dq.endpointRestorePromise.Await(ctx); err != nil {
-		dq.logger.Error("deletionQueue: restorer promise failed", logfields.Error, err)
-		return fmt.Errorf("restorer promise failed: %w", err)
+	restorer, err := dq.endpointRestorePromise.Await(ctx)
+	if err != nil {
+		dq.logger.Error("deletionQueue: failed to wait for restorer promise", logfields.Error, err)
+		return fmt.Errorf("failed to wait for restorer promise: %w", err)
+	}
+
+	if err := restorer.WaitForEndpointRestoreWithoutRegeneration(ctx); err != nil {
+		dq.logger.Error("deletionQueue: failed to wait for endpoint restoration", logfields.Error, err)
+		return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
 	}
 
 	if err := dq.lock(ctx); err != nil {
@@ -91,7 +97,7 @@ func (dq *DeletionQueue) Wait(ctx context.Context) error {
 }
 
 func (dq *DeletionQueue) lock(ctx context.Context) error {
-	if err := os.MkdirAll(defaults.DeleteQueueDir, 0755); err != nil {
+	if err := os.MkdirAll(defaults.DeleteQueueDir, 0o755); err != nil {
 		dq.logger.Error("Failed to ensure CNI deletion queue directory exists",
 			logfields.Path, defaults.DeleteQueueDir,
 			logfields.Error, err,

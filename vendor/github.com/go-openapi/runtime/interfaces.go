@@ -1,16 +1,5 @@
-// Copyright 2015 go-swagger maintainers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
 
 package runtime
 
@@ -23,23 +12,23 @@ import (
 )
 
 // OperationHandlerFunc an adapter for a function to the OperationHandler interface
-type OperationHandlerFunc func(interface{}) (interface{}, error)
+type OperationHandlerFunc func(any) (any, error)
 
 // Handle implements the operation handler interface
-func (s OperationHandlerFunc) Handle(data interface{}) (interface{}, error) {
+func (s OperationHandlerFunc) Handle(data any) (any, error) {
 	return s(data)
 }
 
 // OperationHandler a handler for a swagger operation
 type OperationHandler interface {
-	Handle(interface{}) (interface{}, error)
+	Handle(any) (any, error)
 }
 
 // ConsumerFunc represents a function that can be used as a consumer
-type ConsumerFunc func(io.Reader, interface{}) error
+type ConsumerFunc func(io.Reader, any) error
 
 // Consume consumes the reader into the data parameter
-func (fn ConsumerFunc) Consume(reader io.Reader, data interface{}) error {
+func (fn ConsumerFunc) Consume(reader io.Reader, data any) error {
 	return fn(reader, data)
 }
 
@@ -47,14 +36,14 @@ func (fn ConsumerFunc) Consume(reader io.Reader, data interface{}) error {
 // data provided by the request body
 type Consumer interface {
 	// Consume performs the binding of request values
-	Consume(io.Reader, interface{}) error
+	Consume(io.Reader, any) error
 }
 
 // ProducerFunc represents a function that can be used as a producer
-type ProducerFunc func(io.Writer, interface{}) error
+type ProducerFunc func(io.Writer, any) error
 
 // Produce produces the response for the provided data
-func (f ProducerFunc) Produce(writer io.Writer, data interface{}) error {
+func (f ProducerFunc) Produce(writer io.Writer, data any) error {
 	return f(writer, data)
 }
 
@@ -62,14 +51,14 @@ func (f ProducerFunc) Produce(writer io.Writer, data interface{}) error {
 // HTTP response
 type Producer interface {
 	// Produce writes to the http response
-	Produce(io.Writer, interface{}) error
+	Produce(io.Writer, any) error
 }
 
 // AuthenticatorFunc turns a function into an authenticator
-type AuthenticatorFunc func(interface{}) (bool, interface{}, error)
+type AuthenticatorFunc func(any) (bool, any, error)
 
 // Authenticate authenticates the request with the provided data
-func (f AuthenticatorFunc) Authenticate(params interface{}) (bool, interface{}, error) {
+func (f AuthenticatorFunc) Authenticate(params any) (bool, any, error) {
 	return f(params)
 }
 
@@ -77,14 +66,14 @@ func (f AuthenticatorFunc) Authenticate(params interface{}) (bool, interface{}, 
 // implementations of Authenticator know how to authenticate the
 // request data and translate that into a valid principal object or an error
 type Authenticator interface {
-	Authenticate(interface{}) (bool, interface{}, error)
+	Authenticate(any) (bool, any, error)
 }
 
 // AuthorizerFunc turns a function into an authorizer
-type AuthorizerFunc func(*http.Request, interface{}) error
+type AuthorizerFunc func(*http.Request, any) error
 
 // Authorize authorizes the processing of the request for the principal
-func (f AuthorizerFunc) Authorize(r *http.Request, principal interface{}) error {
+func (f AuthorizerFunc) Authorize(r *http.Request, principal any) error {
 	return f(r, principal)
 }
 
@@ -92,7 +81,7 @@ func (f AuthorizerFunc) Authorize(r *http.Request, principal interface{}) error 
 // implementations of Authorizer know how to authorize the principal object
 // using the request data and returns error if unauthorized
 type Authorizer interface {
-	Authorize(*http.Request, interface{}) error
+	Authorize(*http.Request, any) error
 }
 
 // Validatable types implementing this interface allow customizing their validation

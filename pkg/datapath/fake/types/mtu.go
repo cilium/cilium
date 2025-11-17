@@ -23,3 +23,7 @@ func (*MTU) GetRoutePostEncryptMTU() int {
 func (*MTU) IsEnableRouteMTUForCNIChaining() bool {
 	return false
 }
+
+func (*MTU) IsEnablePacketizationLayerPMTUD() bool {
+	return false
+}

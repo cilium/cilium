@@ -19,9 +19,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
-type CachedSelector types.CachedSelector
-type CachedSelectorSlice types.CachedSelectorSlice
-type CachedSelectionUser types.CachedSelectionUser
+type CachedSelector = types.CachedSelector
+type CachedSelectorSlice = types.CachedSelectorSlice
+type CachedSelectionUser = types.CachedSelectionUser
 
 // identitySelector is the internal type for all selectors in the
 // selector cache.
@@ -79,7 +79,7 @@ func (i *identitySelector) MaySelectPeers() bool {
 }
 
 // identitySelector implements CachedSelector
-var _ types.CachedSelector = (*identitySelector)(nil)
+var _ CachedSelector = (*identitySelector)(nil)
 
 type selectorSource interface {
 	matches(scIdentity) bool
@@ -109,7 +109,7 @@ func (f *fqdnSelector) matches(identity scIdentity) bool {
 }
 
 func (f *fqdnSelector) metricsClass() string {
-	return LabelValueSCFQDN
+	return types.LabelValueSCFQDN
 }
 
 type labelIdentitySelector struct {
@@ -146,16 +146,16 @@ func (l *labelIdentitySelector) remove(_ identityNotifier) {
 }
 
 func (l *labelIdentitySelector) metricsClass() string {
-	if l.selector.DeepEqual(&api.EntitySelectorMapping[api.EntityCluster][0]) {
-		return LabelValueSCCluster
+	if l.selector.CachedString() == api.EntitySelectorMapping[api.EntityCluster][0].CachedString() {
+		return types.LabelValueSCCluster
 	}
 	for _, entity := range api.EntitySelectorMapping[api.EntityWorld] {
-		if l.selector.DeepEqual(&entity) {
-			return LabelValueSCWorld
+		if l.selector.CachedString() == entity.CachedString() {
+			return types.LabelValueSCWorld
 		}
 	}
 
-	return LabelValueSCOther
+	return types.LabelValueSCOther
 }
 
 // lock must be held

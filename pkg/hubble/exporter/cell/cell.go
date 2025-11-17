@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble"
 	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var Cell = cell.Module(
@@ -49,17 +50,23 @@ type Config struct {
 	ExportDenylist string `mapstructure:"hubble-export-denylist"`
 	// ExportFieldmask specifies list of fields to log in exporter.
 	ExportFieldmask []string `mapstructure:"hubble-export-fieldmask"`
+	// ExportFieldAggregate specifies list of fields to use for aggregation in exporter.
+	ExportFieldAggregate []string `mapstructure:"hubble-export-fieldaggregate"`
+	// ExportAggregationInterval specifies the interval at which to aggregate before exporting Hubble flows. 0s disables aggregation.
+	ExportAggregationInterval time.Duration `mapstructure:"hubble-export-aggregation-interval"`
 }
 
 var DefaultConfig = Config{
-	FlowlogsConfigFilePath: "",
-	ExportFilePath:         "",
-	ExportFileMaxSizeMB:    exporter.DefaultFileMaxSizeMB,
-	ExportFileMaxBackups:   exporter.DefaultFileMaxBackups,
-	ExportFileCompress:     false,
-	ExportAllowlist:        "",
-	ExportDenylist:         "",
-	ExportFieldmask:        []string{},
+	FlowlogsConfigFilePath:    "",
+	ExportFilePath:            "",
+	ExportFileMaxSizeMB:       exporter.DefaultFileMaxSizeMB,
+	ExportFileMaxBackups:      exporter.DefaultFileMaxBackups,
+	ExportFileCompress:        false,
+	ExportAllowlist:           "",
+	ExportDenylist:            "",
+	ExportFieldmask:           []string{},
+	ExportFieldAggregate:      []string{},
+	ExportAggregationInterval: 0,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -71,6 +78,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String("hubble-export-allowlist", "", "Specify allowlist as JSON encoded FlowFilters to Hubble exporter.")
 	flags.String("hubble-export-denylist", "", "Specify denylist as JSON encoded FlowFilters to Hubble exporter.")
 	flags.StringSlice("hubble-export-fieldmask", def.ExportFieldmask, "Specify list of fields to use for field mask in Hubble exporter.")
+	flags.StringSlice("hubble-export-fieldaggregate", def.ExportFieldAggregate, "Specify list of fields to use for aggregation in Hubble exporter. Empty list disables aggregation.")
+	flags.Duration("hubble-export-aggregation-interval", def.ExportAggregationInterval, "Interval at which to aggregate before exporting Hubble flows. 0s disables aggregation.")
 }
 
 func (cfg Config) Validate() error {
@@ -133,6 +142,8 @@ func newHubbleStaticExporter(params hubbleExportersParams) (hubbleExportersOut, 
 				exporter.WithAllowList(params.Logger, allowList),
 				exporter.WithDenyList(params.Logger, denyList),
 				exporter.WithFieldMask(params.Config.ExportFieldmask),
+				exporter.WithFieldAggregate(params.Config.ExportFieldAggregate),
+				exporter.WithAggregationInterval(params.Config.ExportAggregationInterval),
 			}
 			if params.Config.ExportFilePath != "stdout" {
 				exporterOpts = append(exporterOpts, exporter.WithNewWriterFunc(exporter.FileWriter(exporter.FileWriterConfig{

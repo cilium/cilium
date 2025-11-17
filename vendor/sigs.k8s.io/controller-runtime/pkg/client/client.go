@@ -151,8 +151,7 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 		mapper:     options.Mapper,
 		codecs:     serializer.NewCodecFactory(options.Scheme),
 
-		structuredResourceByType:   make(map[schema.GroupVersionKind]*resourceMeta),
-		unstructuredResourceByType: make(map[schema.GroupVersionKind]*resourceMeta),
+		resourceByType: make(map[cacheKey]*resourceMeta),
 	}
 
 	rawMetaClient, err := metadata.NewForConfigAndClient(metadata.ConfigFor(config), options.HTTPClient)
@@ -326,6 +325,16 @@ func (c *client) Patch(ctx context.Context, obj Object, patch Patch, opts ...Pat
 		return c.metadataClient.Patch(ctx, obj, patch, opts...)
 	default:
 		return c.typedClient.Patch(ctx, obj, patch, opts...)
+	}
+}
+
+func (c *client) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...ApplyOption) error {
+	switch obj := obj.(type) {
+	case *unstructuredApplyConfiguration:
+		defer c.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+		return c.unstructuredClient.Apply(ctx, obj, opts...)
+	default:
+		return c.typedClient.Apply(ctx, obj, opts...)
 	}
 }
 

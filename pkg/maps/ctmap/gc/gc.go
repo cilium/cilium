@@ -4,12 +4,15 @@
 package gc
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"net/netip"
 	"os"
 	stdtime "time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 
@@ -17,10 +20,12 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -39,15 +44,17 @@ type PerClusterCTMapsRetriever func() []*ctmap.Map
 type parameters struct {
 	cell.In
 
-	Lifecycle       cell.Lifecycle
-	Logger          *slog.Logger
-	MetricsRegistry *metrics.Registry
-	DB              *statedb.DB
-	NodeAddrs       statedb.Table[tables.NodeAddress]
-	DaemonConfig    *option.DaemonConfig
-	EndpointManager EndpointManager
-	NodeAddressing  types.NodeAddressing
-	SignalManager   SignalHandler
+	Lifecycle               cell.Lifecycle
+	JobGroup                job.Group
+	Logger                  *slog.Logger
+	MetricsRegistry         *metrics.Registry
+	DB                      *statedb.DB
+	NodeAddrs               statedb.Table[tables.NodeAddress]
+	DaemonConfig            *option.DaemonConfig
+	EndpointRestorerPromise promise.Promise[endpointstate.Restorer]
+	EndpointManager         EndpointManager
+	NodeAddressing          types.NodeAddressing
+	SignalManager           SignalHandler
 
 	PerClusterCTMapsRetriever PerClusterCTMapsRetriever `optional:"true"`
 }
@@ -107,6 +114,29 @@ func New(params parameters) *GC {
 			return nil
 		},
 	})
+
+	enableGCFunc := func(ctx context.Context, _ cell.Health) error {
+		params.Logger.Info("Starting connection tracking garbage collector")
+
+		restorer, err := params.EndpointRestorerPromise.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for endpoint restorer: %w", err)
+		}
+
+		if err := restorer.WaitForEndpointRestore(ctx); err != nil {
+			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
+		}
+
+		gc.Enable()
+
+		return nil
+	}
+
+	params.JobGroup.Add(
+		job.Observer("nat-map-next4", func(ctx context.Context, event ctmap.GCEvent) error { ctmap.NatMapNext4(event); return nil }, gc.Observe4()),
+		job.Observer("nat-map-next6", func(ctx context.Context, event ctmap.GCEvent) error { ctmap.NatMapNext6(event); return nil }, gc.Observe6()),
+		job.OneShot("enable-gc", enableGCFunc))
+
 	return gc
 }
 
@@ -118,7 +148,7 @@ func (gc *GC) isFullGC(ipv4, ipv6 bool) bool {
 	return ipv4 == gc.ipv4 && ipv6 == gc.ipv6
 }
 
-// Enable enables the connection tracking garbage collection.
+// Enable enables the periodic execution of the connection tracking garbage collection.
 func (gc *GC) Enable() {
 	gc.enable(gc.runGC, true)
 }
@@ -176,7 +206,8 @@ func (gc *GC) enable(
 
 				gcFilter = ctmap.GCFilter{
 					RemoveExpired: true,
-					EmitCTEntryCB: emitEntryCB}
+					EmitCTEntryCB: emitEntryCB,
+				}
 
 				success = false
 			)

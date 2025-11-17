@@ -17,6 +17,7 @@ import (
 	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -90,6 +91,16 @@ func (k *K8sCiliumEndpointsWatcher) initCiliumEndpointOrSlices(ctx context.Conte
 	} else {
 		k.ciliumEndpointsInit(ctx)
 	}
+}
+
+// GetCiliumEndpointResource returns Resource[T] slim CEP object
+func (k *K8sCiliumEndpointsWatcher) GetCiliumEndpointResource() resource.Resource[*types.CiliumEndpoint] {
+	return k.resources.CiliumSlimEndpoint
+}
+
+// GetCiliumEndpointSliceResource returns Resource[T] slim CEP object
+func (k *K8sCiliumEndpointsWatcher) GetCiliumEndpointSliceResource() resource.Resource[*cilium_api_v2a1.CiliumEndpointSlice] {
+	return k.resources.CiliumEndpointSlice
 }
 
 func (k *K8sCiliumEndpointsWatcher) ciliumEndpointsInit(ctx context.Context) {

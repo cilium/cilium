@@ -2,7 +2,7 @@
 
 ## cilium-operator-alibabacloud shell
 
-Connect to the Cilium shell
+Connect to the shell
 
 ```
 cilium-operator-alibabacloud shell [command] [args]... [flags]

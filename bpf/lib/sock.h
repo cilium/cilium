@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include "ipv6_core.h"
+#include "map_defs.h"
+
 static __always_inline __maybe_unused
 __sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
 {
@@ -16,6 +19,19 @@ __sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
 #endif
 }
 
+struct ipv4_revnat_tuple {
+	__sock_cookie cookie;
+	__be32 address;
+	__be16 port;
+	__u16 pad;
+};
+
+struct ipv4_revnat_entry {
+	__be32 address;
+	__be16 port;
+	__u16 rev_nat_index;
+};
+
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_revnat_tuple);
@@ -24,6 +40,19 @@ struct {
 	__uint(max_entries, LB4_REVERSE_NAT_SK_MAP_SIZE);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_lb4_reverse_sk __section_maps_btf;
+
+struct ipv6_revnat_tuple {
+	__sock_cookie cookie;
+	union v6addr address;
+	__be16 port;
+	__u16 pad;
+};
+
+struct ipv6_revnat_entry {
+	union v6addr address;
+	__be16 port;
+	__u16 rev_nat_index;
+};
 
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);

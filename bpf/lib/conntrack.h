@@ -14,7 +14,6 @@
 #include "ipv6.h"
 #include "dbg.h"
 #include "l4.h"
-#include "signal.h"
 #include "ipfrag.h"
 
 /* Traffic is allowed/dropped based on user-defined policies. */
@@ -39,6 +38,35 @@ enum ct_entry_type {
 	CT_ENTRY_SVC		= (1 << 2),
 };
 
+struct ct_state {
+	__u16 rev_nat_index;
+#ifdef USE_LOOPBACK_LB
+	__u16 loopback:1,
+#else
+	__u16 loopback_disabled:1,
+#endif
+	      node_port:1,
+	      dsr_internal:1,   /* DSR is k8s service related, cluster internal */
+	      syn:1,
+	      proxy_redirect:1,	/* Connection is redirected to a proxy */
+	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
+	      reserved1:1,	/* Was auth_required, not used in production anywhere */
+	      from_tunnel:1,	/* Connection is from tunnel */
+		  closing:1,
+	      reserved:7;
+	__u32 src_sec_id;
+	__u32 backend_id;	/* Backend ID in lb4_backends */
+};
+
+static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_state __maybe_unused)
+{
+#ifdef ENABLE_L7_LB
+	return ct_state->from_l7lb;
+#else
+	return false;
+#endif
+}
+
 struct ct_buffer4 {
 	struct ipv4_ct_tuple tuple;
 	struct ct_state ct_state;
@@ -54,6 +82,42 @@ struct ct_buffer6 {
 	int ret;
 	int l4_off;
 	fraginfo_t fraginfo;
+};
+
+struct ct_entry {
+	__u64 reserved0;	/* unused since v1.16 */
+	__u64 backend_id;
+	__u64 packets;
+	__u64 bytes;
+	__u32 lifetime;
+	__u16 rx_closing:1,
+	      tx_closing:1,
+	      reserved1:1,	/* unused since v1.12 */
+	      lb_loopback:1,
+	      seen_non_syn:1,
+	      node_port:1,
+	      proxy_redirect:1,	/* Connection is redirected to a proxy */
+	      dsr_internal:1,	/* DSR is k8s service related, cluster internal */
+	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
+	      reserved2:1,	/* unused since v1.14 */
+	      from_tunnel:1,	/* Connection is over tunnel */
+	      reserved3:5;
+	__u16 rev_nat_index;
+	__u16 reserved4;	/* unused since v1.18 */
+
+	/* *x_flags_seen represents the OR of all TCP flags seen for the
+	 * transmit/receive direction of this entry.
+	 */
+	__u8  tx_flags_seen;
+	__u8  rx_flags_seen;
+
+	__u32 src_sec_id; /* Used from userspace proxies, do not change offset! */
+
+	/* last_*x_report is a timestamp of the last time a monitor
+	 * notification was sent for the transmit/receive direction.
+	 */
+	__u32 last_tx_report;
+	__u32 last_rx_report;
 };
 
 static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
@@ -540,8 +604,11 @@ ct_extract_ports6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, fraginfo_t fragin
 		tuple->dport = 0;
 
 		switch (type) {
-		case ICMPV6_DEST_UNREACH:
 		case ICMPV6_PKT_TOOBIG:
+			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir),
+				       REASON_MTU_ERROR_MSG);
+			fallthrough;
+		case ICMPV6_DEST_UNREACH:
 		case ICMPV6_TIME_EXCEED:
 		case ICMPV6_PARAMPROB:
 			tuple->flags |= TUPLE_F_RELATED;
@@ -775,7 +842,10 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMP: {
 		__be16 identifier = 0;
-		__u8 type;
+		struct {
+			__u8 type;
+			__u8 code;
+		} hdr;
 
 		/* Fragmented ECHO packets are not supported currently. Drop all
 		 * fragments, because letting the first fragment pass would be
@@ -785,9 +855,9 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 
-		if (ctx_load_bytes(ctx, off, &type, 1) < 0)
+		if (ctx_load_bytes(ctx, off, &hdr, 2) < 0)
 			return DROP_CT_INVALID_HDR;
-		if ((type == ICMP_ECHO || type == ICMP_ECHOREPLY) &&
+		if ((hdr.type == ICMP_ECHO || hdr.type == ICMP_ECHOREPLY) &&
 		    ctx_load_bytes(ctx, off + offsetof(struct icmphdr, un.echo.id),
 				   &identifier, 2) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -795,13 +865,17 @@ ct_extract_ports4(struct __ctx_buff *ctx, struct iphdr *ip4, fraginfo_t fraginfo
 		tuple->sport = 0;
 		tuple->dport = 0;
 
-		switch (type) {
+		switch (hdr.type) {
 		case ICMP_DEST_UNREACH:
+			if (hdr.code == ICMP_FRAG_NEEDED)
+				update_metrics(ctx_full_len(ctx),
+					       ct_to_metrics_dir(dir),
+					       REASON_MTU_ERROR_MSG);
+			fallthrough;
 		case ICMP_TIME_EXCEEDED:
 		case ICMP_PARAMETERPROB:
 			tuple->flags |= TUPLE_F_RELATED;
 			break;
-
 		case ICMP_ECHOREPLY:
 			tuple->sport = identifier;
 			break;
@@ -1018,7 +1092,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto err_ct_fill_up;
+			goto drop_err;
 	}
 
 #ifdef CONNTRACK_ACCOUNTING
@@ -1028,15 +1102,13 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto err_ct_fill_up;
+		goto drop_err;
 
 	return 0;
 
-err_ct_fill_up:
+drop_err:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	if (err == -ENOMEM)
-		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
 	return DROP_CT_CREATE_FAILED;
 }
 
@@ -1075,7 +1147,7 @@ static __always_inline int ct_create4(const void *map_main,
 
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto err_ct_fill_up;
+			goto drop_err;
 	}
 
 #ifdef CONNTRACK_ACCOUNTING
@@ -1089,15 +1161,13 @@ static __always_inline int ct_create4(const void *map_main,
 	 */
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto err_ct_fill_up;
+		goto drop_err;
 
 	return 0;
 
-err_ct_fill_up:
+drop_err:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	if (err == -ENOMEM)
-		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
 	return DROP_CT_CREATE_FAILED;
 }
 

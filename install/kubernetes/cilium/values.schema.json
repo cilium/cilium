@@ -644,6 +644,14 @@
         "monitorInterval": {
           "type": "string"
         },
+        "monitorTraceIPOption": {
+          "minimum": 0,
+          "maximum": 255,
+          "type": [
+            "null",
+            "integer"
+          ]
+        },
         "natMax": {
           "type": [
             "null",
@@ -720,6 +728,17 @@
           },
           "type": "object"
         },
+        "cronJob": {
+          "properties": {
+            "failedJobsHistoryLimit": {
+              "type": "integer"
+            },
+            "successfulJobsHistoryLimit": {
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
         "extraVolumeMounts": {
           "items": {},
           "type": "array"
@@ -774,7 +793,10 @@
           "type": "array"
         },
         "ttlSecondsAfterFinished": {
-          "type": "integer"
+          "type": [
+            "null",
+            "integer"
+          ]
         }
       },
       "type": "object"
@@ -1305,6 +1327,9 @@
                     "Cluster"
                   ]
                 },
+                "externallyCreated": {
+                  "type": "boolean"
+                },
                 "internalTrafficPolicy": {
                   "enum": [
                     "Local",
@@ -1370,17 +1395,6 @@
                       "type": "boolean"
                     },
                     "method": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                },
-                "client": {
-                  "properties": {
-                    "cert": {
-                      "type": "string"
-                    },
-                    "key": {
                       "type": "string"
                     }
                   },
@@ -1457,6 +1471,9 @@
             }
           },
           "type": "object"
+        },
+        "cacheTTL": {
+          "type": "string"
         },
         "config": {
           "properties": {
@@ -1556,6 +1573,9 @@
               "type": "object"
             },
             "enabled": {
+              "type": "boolean"
+            },
+            "installCRDs": {
               "type": "boolean"
             }
           },
@@ -2698,7 +2718,14 @@
                         "anyOf": [
                           {
                             "properties": {
+                              "aggregationInterval": {
+                                "type": "string"
+                              },
                               "excludeFilters": {
+                                "items": {},
+                                "type": "array"
+                              },
+                              "fieldAggregate": {
                                 "items": {},
                                 "type": "array"
                               },
@@ -2745,6 +2772,9 @@
             },
             "static": {
               "properties": {
+                "aggregationInterval": {
+                  "type": "string"
+                },
                 "allowList": {
                   "items": {},
                   "type": "array"
@@ -2755,6 +2785,10 @@
                 },
                 "enabled": {
                   "type": "boolean"
+                },
+                "fieldAggregate": {
+                  "items": {},
+                  "type": "array"
                 },
                 "fieldMask": {
                   "items": {},
@@ -3768,6 +3802,9 @@
                   "type": "object"
                 }
               },
+              "type": "object"
+            },
+            "tmpVolume": {
               "type": "object"
             },
             "tolerations": {
@@ -4847,6 +4884,30 @@
                 }
               },
               "type": "object"
+            },
+            "tls": {
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "server": {
+                  "properties": {
+                    "existingSecret": {
+                      "type": "string"
+                    },
+                    "mtls": {
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
             }
           },
           "type": "object"
@@ -5001,6 +5062,14 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "packetizationLayerPMTUD": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"
@@ -5894,6 +5963,9 @@
           "type": "object"
         }
       },
+      "type": "object"
+    },
+    "tmpVolume": {
       "type": "object"
     },
     "tolerations": {

@@ -56,6 +56,7 @@ type testData struct {
 	cachedSelectorC        CachedSelector
 	cachedSelectorHost     CachedSelector
 	wildcardCachedSelector CachedSelector
+	cachedSelectorCIDR     CachedSelector
 
 	cachedFooSelector CachedSelector
 	cachedBazSelector CachedSelector
@@ -80,6 +81,11 @@ func newTestData(logger *slog.Logger) *testData {
 	td.repo.selectorCache = td.sc
 
 	td.wildcardCachedSelector, _ = td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, api.WildcardEndpointSelector)
+	td.cachedSelectorCIDR = func(cidr api.CIDR) CachedSelector {
+		ess := api.CIDRSlice{cidr}.GetAsEndpointSelectors()
+		cs, _ := td.sc.AddIdentitySelector(dummySelectorCacheUser, EmptyStringLabels, ess[0])
+		return cs
+	}(api.CIDR("10.1.1.1"))
 
 	td.cachedSelectorA = td.getCachedSelectorForTest(endpointSelectorA, idA.ID)
 	td.cachedSelectorB = td.getCachedSelectorForTest(endpointSelectorB, idB.ID)
@@ -326,6 +332,7 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
+	isIngress          bool
 	isDeny             bool
 	ns                 string
 	sc                 *SelectorCache
@@ -333,6 +340,19 @@ type testPolicyContextType struct {
 	defaultDenyIngress bool
 	defaultDenyEgress  bool
 	logger             *slog.Logger
+}
+
+// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
+func (p *testPolicyContextType) IsIngress() bool {
+	return p.isIngress
+}
+
+func (p *testPolicyContextType) AllowLocalhost() bool {
+	return p.isIngress && option.Config.AlwaysAllowLocalhost()
+}
+
+func (p *testPolicyContextType) SetIngress(ingress bool) {
+	p.isIngress = ingress
 }
 
 func (p *testPolicyContextType) GetNamespace() string {
@@ -2614,7 +2634,7 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 
 			toEndpoints := policytypes.PeerSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("foo"))}
 
-			l4Filter, err := createL4EgressFilter(ctx, toEndpoints, nil, egressRule, portProto, tc.proto)
+			l4Filter, err := createL4Filter(ctx, toEndpoints, nil, egressRule, portProto)
 
 			require.NoError(t, err)
 			require.NotNil(t, l4Filter)

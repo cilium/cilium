@@ -6,6 +6,7 @@
 #include <linux/bpf.h>
 #include <bpf/section.h>
 #include <bpf/loader.h>
+#include <lib/static_data.h>
 
 struct vtep_key {
 	__u32 vtep_ip;
@@ -26,3 +27,5 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 } cilium_vtep_map __section_maps_btf;
 #endif /* ENABLE_VTEP */
+
+DECLARE_CONFIG(__u32, vtep_mask, "VXLAN tunnel endpoint network mask")

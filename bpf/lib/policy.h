@@ -5,13 +5,102 @@
 
 #include <linux/icmp.h>
 
-#include "drop.h"
+#include "common.h"
 #include "dbg.h"
-#include "eps.h"
+
+DECLARE_CONFIG(bool, allow_icmp_frag_needed,
+	       "Allow ICMP_FRAG_NEEDED messages when applying Network Policy")
+DECLARE_CONFIG(bool, enable_icmp_rule, "Apply Network Policy for ICMP packets")
 
 #ifndef EFFECTIVE_EP_ID
 #define EFFECTIVE_EP_ID 0
 #endif
+
+enum {
+	POLICY_INGRESS = 1,
+	POLICY_EGRESS = 2,
+};
+
+enum {
+	POLICY_MATCH_NONE = 0,
+	POLICY_MATCH_L3_ONLY = 1,
+	POLICY_MATCH_L3_L4 = 2,
+	POLICY_MATCH_L4_ONLY = 3,
+	POLICY_MATCH_ALL = 4,
+	POLICY_MATCH_L3_PROTO = 5,
+	POLICY_MATCH_PROTO_ONLY = 6,
+};
+
+/*
+ * Longest-prefix match map lookup only matches the number of bits from the
+ * beginning of the key stored in the map indicated by the 'lpm_key' field in
+ * the same stored map key, not including the 'lpm_key' field itself. Note that
+ * the 'lpm_key' value passed in the lookup function argument needs to be a
+ * "full prefix" (POLICY_FULL_PREFIX defined below).
+ *
+ * Since we need to be able to wildcard 'sec_label' independently on 'protocol'
+ * and 'dport' fields, we'll need to do that explicitly with a separate lookup
+ * where 'sec_label' is zero. For the 'protocol' and 'port' we can use the
+ * longest-prefix match by placing them at the end ot the key in this specific
+ * order, as we want to be able to wildcard those fields in a specific pattern:
+ * 'protocol' can only be wildcarded if dport is also fully wildcarded.
+ * 'protocol' is never partially wildcarded, so it is either fully wildcarded or
+ * not wildcarded at all. 'dport' can be partially wildcarded, but only when
+ * 'protocol' is fully specified. This follows the logic that the destination
+ * port is a property of a transport protocol and can not be specified without
+ * also specifying the protocol.
+ */
+struct policy_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u32		sec_label;
+	__u8		egress:1,
+			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
+};
+
+/* POLICY_FULL_PREFIX gets full prefix length of policy_key */
+#define POLICY_FULL_PREFIX						\
+  (8 * (sizeof(struct policy_key) - sizeof(struct bpf_lpm_trie_key)))
+
+struct policy_entry {
+	__be16		proxy_port;
+	__u8		deny:1,
+			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
+			lpm_prefix_length:5; /* map key protocol and dport prefix length */
+	__u8		auth_type:7,
+			has_explicit_auth_type:1;
+	__u8		proxy_port_priority;
+	__u8		pad1;
+	__u16		pad2;
+	__u32		cookie;
+};
+
+/*
+ * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_length' when none of the protocol or
+ * dport bits in the key are wildcarded.
+ */
+#define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
+#define LPM_FULL_PREFIX_BITS (LPM_PROTO_PREFIX_BITS + 16)   /* protocol and dport specified */
+
+/*
+ * policy_stats_key has the same layout as policy_key, apart from the first four bytes.
+ */
+struct policy_stats_key {
+	__u16		endpoint_id;
+	__u8		pad1;
+	__u8		prefix_len;
+	__u32		sec_label;
+	__u8		egress:1,
+			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
+};
+
+struct policy_stats_value {
+	__u64		packets;
+	__u64		bytes;
+};
 
 /* Global policy stats map */
 struct {
@@ -77,7 +166,7 @@ struct {
 } cilium_policy_v2 __section_maps_btf;
 
 static __always_inline int
-__policy_check(struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
+__policy_check(const struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
 	       __u16 *proxy_port, __u32 *cookie)
 {
 	/* auth_type is derived from the matched policy entry, except if both L3/L4 and L4-only
@@ -124,13 +213,13 @@ __policy_check(struct policy_entry *policy, const struct policy_entry *policy2, 
 /* Allow experimental access to the @map parameter. */
 static __always_inline int
 __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
-		    __u32 remote_id, __u16 ethertype __maybe_unused, __be16 dport,
+		    __u32 remote_id, __u16 ethertype, __be16 dport,
 		    __u8 proto, int off __maybe_unused, int dir,
 		    bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		    __u16 *proxy_port, __u32 *cookie)
 {
-	struct policy_entry *policy;
-	struct policy_entry *l4policy;
+	const struct policy_entry *policy;
+	const struct policy_entry *l4policy;
 	struct policy_key key = {
 		.lpm_key = { POLICY_FULL_PREFIX, {} }, /* always look up with unwildcarded data */
 		.sec_label = remote_id,
@@ -141,44 +230,44 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	};
 	__u8 p_len;
 
-#if defined(ALLOW_ICMP_FRAG_NEEDED) || defined(ENABLE_ICMP_RULE)
-	switch (ethertype) {
-	case ETH_P_IP:
-		if (proto == IPPROTO_ICMP) {
-			struct icmphdr icmphdr __align_stack_8;
+	if (CONFIG(allow_icmp_frag_needed) || CONFIG(enable_icmp_rule)) {
+		switch (ethertype) {
+		case ETH_P_IP:
+			if (proto == IPPROTO_ICMP) {
+				struct icmphdr icmphdr __align_stack_8;
 
-			if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
-				return DROP_INVALID;
+				if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
+					return DROP_INVALID;
 
-# if defined(ALLOW_ICMP_FRAG_NEEDED)
-			if (icmphdr.type == ICMP_DEST_UNREACH &&
-			    icmphdr.code == ICMP_FRAG_NEEDED) {
-				*proxy_port = 0;
-				return CTX_ACT_OK;
+				if (CONFIG(allow_icmp_frag_needed)) {
+					if (icmphdr.type == ICMP_DEST_UNREACH &&
+					    icmphdr.code == ICMP_FRAG_NEEDED) {
+						*proxy_port = 0;
+						return CTX_ACT_OK;
+					}
+				}
+
+				if (CONFIG(enable_icmp_rule))
+					key.dport = bpf_u8_to_be16(icmphdr.type);
 			}
-# endif
+			break;
+		case ETH_P_IPV6:
+			if (CONFIG(enable_icmp_rule)) {
+				if (proto == IPPROTO_ICMPV6) {
+					__u8 icmp_type;
 
-# if defined(ENABLE_ICMP_RULE)
-			key.dport = bpf_u8_to_be16(icmphdr.type);
-# endif
+					if (ctx_load_bytes(ctx, off, &icmp_type,
+							   sizeof(icmp_type)) < 0)
+						return DROP_INVALID;
+
+					key.dport = bpf_u8_to_be16(icmp_type);
+				}
+			}
+			break;
+		default:
+			break;
 		}
-		break;
-	case ETH_P_IPV6:
-# if defined(ENABLE_ICMP_RULE)
-		if (proto == IPPROTO_ICMPV6) {
-			__u8 icmp_type;
-
-			if (ctx_load_bytes(ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
-				return DROP_INVALID;
-
-			key.dport = bpf_u8_to_be16(icmp_type);
-		}
-# endif
-		break;
-	default:
-		break;
 	}
-#endif /* ALLOW_ICMP_FRAG_NEEDED || ENABLE_ICMP_RULE */
 
 	/* Policy match precedence when both L3 and L4-only lookups find a matching policy:
 

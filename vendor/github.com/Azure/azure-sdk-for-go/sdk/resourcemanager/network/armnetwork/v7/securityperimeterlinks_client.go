@@ -45,7 +45,7 @@ func NewSecurityPerimeterLinksClient(subscriptionID string, credential azcore.To
 // CreateOrUpdate - Creates or updates NSP link resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - linkName - The name of the NSP link.
@@ -98,7 +98,7 @@ func (client *SecurityPerimeterLinksClient) createOrUpdateCreateRequest(ctx cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -119,7 +119,7 @@ func (client *SecurityPerimeterLinksClient) createOrUpdateHandleResponse(resp *h
 // BeginDelete - Deletes an NSP Link resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - linkName - The name of the NSP link.
@@ -146,7 +146,7 @@ func (client *SecurityPerimeterLinksClient) BeginDelete(ctx context.Context, res
 // Delete - Deletes an NSP Link resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 func (client *SecurityPerimeterLinksClient) deleteOperation(ctx context.Context, resourceGroupName string, networkSecurityPerimeterName string, linkName string, options *SecurityPerimeterLinksClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "SecurityPerimeterLinksClient.BeginDelete"
@@ -192,7 +192,7 @@ func (client *SecurityPerimeterLinksClient) deleteCreateRequest(ctx context.Cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -201,7 +201,7 @@ func (client *SecurityPerimeterLinksClient) deleteCreateRequest(ctx context.Cont
 // Get - Gets the specified NSP link resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - linkName - The name of the NSP link.
@@ -253,7 +253,7 @@ func (client *SecurityPerimeterLinksClient) getCreateRequest(ctx context.Context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -270,7 +270,7 @@ func (client *SecurityPerimeterLinksClient) getHandleResponse(resp *http.Respons
 
 // NewListPager - Lists the NSP Link resources in the specified network security perimeter.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - options - SecurityPerimeterLinksClientListOptions contains the optional parameters for the SecurityPerimeterLinksClient.NewListPager
@@ -324,7 +324,7 @@ func (client *SecurityPerimeterLinksClient) listCreateRequest(ctx context.Contex
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

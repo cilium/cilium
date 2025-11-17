@@ -448,7 +448,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	var realizedL4Policy *policy.L4Policy
 	if e.realizedPolicy != nil {
-		realizedL4Policy = &e.realizedPolicy.L4Policy
+		realizedL4Policy = &e.realizedPolicy.SelectorPolicy.L4Policy
 	}
 
 	mdl := &models.EndpointPolicy{
@@ -466,7 +466,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	var desiredL4Policy *policy.L4Policy
 	if e.desiredPolicy != nil {
-		desiredL4Policy = &e.desiredPolicy.L4Policy
+		desiredL4Policy = &e.desiredPolicy.SelectorPolicy.L4Policy
 	}
 
 	desiredMdl := &models.EndpointPolicy{
@@ -497,11 +497,11 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
-	case e.realizedPolicy.IngressPolicyEnabled && e.realizedPolicy.EgressPolicyEnabled:
+	case e.realizedPolicy.SelectorPolicy.IngressPolicyEnabled && e.realizedPolicy.SelectorPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledBoth
-	case e.realizedPolicy.IngressPolicyEnabled:
+	case e.realizedPolicy.SelectorPolicy.IngressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledIngress
-	case e.realizedPolicy.EgressPolicyEnabled:
+	case e.realizedPolicy.SelectorPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledEgress
 	}
 
@@ -646,4 +646,20 @@ func (e *Endpoint) ApplyUserLabelChanges(lbls labels.Labels) (add, del labels.La
 // GetStatusModel returns the model of the status of this endpoint.
 func (e *Endpoint) GetStatusModel() []*models.EndpointStatusChange {
 	return e.status.GetModel()
+}
+
+// GetRealizedL4PolicyRuleOriginModel returns the realized L4 policy of the endpoint.
+func (e *Endpoint) GetRealizedL4PolicyRuleOriginModel() (policy *models.L4Policy, policyRevision uint64, err error) {
+	if e == nil {
+		return
+	}
+	err = e.lockAlive()
+	if err != nil {
+		return
+	}
+	defer e.unlock()
+	if e.realizedPolicy == nil {
+		return
+	}
+	return e.realizedPolicy.SelectorPolicy.L4Policy.GetRuleOriginModel(), e.policyRevision, nil
 }

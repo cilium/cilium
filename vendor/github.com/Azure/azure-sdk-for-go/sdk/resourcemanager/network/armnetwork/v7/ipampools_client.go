@@ -45,7 +45,7 @@ func NewIpamPoolsClient(subscriptionID string, credential azcore.TokenCredential
 // BeginCreate - Creates/Updates the Pool resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - poolName - IP Address Manager Pool resource name.
@@ -72,7 +72,7 @@ func (client *IpamPoolsClient) BeginCreate(ctx context.Context, resourceGroupNam
 // Create - Creates/Updates the Pool resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 func (client *IpamPoolsClient) create(ctx context.Context, resourceGroupName string, networkManagerName string, poolName string, body IpamPool, options *IpamPoolsClientBeginCreateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "IpamPoolsClient.BeginCreate"
@@ -118,7 +118,7 @@ func (client *IpamPoolsClient) createCreateRequest(ctx context.Context, resource
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if options != nil && options.IfMatch != nil {
@@ -133,7 +133,7 @@ func (client *IpamPoolsClient) createCreateRequest(ctx context.Context, resource
 // BeginDelete - Delete the Pool resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - poolName - Pool resource name.
@@ -159,7 +159,7 @@ func (client *IpamPoolsClient) BeginDelete(ctx context.Context, resourceGroupNam
 // Delete - Delete the Pool resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 func (client *IpamPoolsClient) deleteOperation(ctx context.Context, resourceGroupName string, networkManagerName string, poolName string, options *IpamPoolsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "IpamPoolsClient.BeginDelete"
@@ -205,7 +205,7 @@ func (client *IpamPoolsClient) deleteCreateRequest(ctx context.Context, resource
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if options != nil && options.IfMatch != nil {
@@ -217,7 +217,7 @@ func (client *IpamPoolsClient) deleteCreateRequest(ctx context.Context, resource
 // Get - Gets the specific Pool resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - poolName - Pool resource name.
@@ -268,7 +268,7 @@ func (client *IpamPoolsClient) getCreateRequest(ctx context.Context, resourceGro
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -286,7 +286,7 @@ func (client *IpamPoolsClient) getHandleResponse(resp *http.Response) (IpamPools
 // GetPoolUsage - Get the Pool Usage.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - poolName - Pool resource name.
@@ -337,7 +337,7 @@ func (client *IpamPoolsClient) getPoolUsageCreateRequest(ctx context.Context, re
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -354,7 +354,7 @@ func (client *IpamPoolsClient) getPoolUsageHandleResponse(resp *http.Response) (
 
 // NewListPager - Gets list of Pool resources at Network Manager level.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - options - IpamPoolsClientListOptions contains the optional parameters for the IpamPoolsClient.NewListPager method.
@@ -401,7 +401,7 @@ func (client *IpamPoolsClient) listCreateRequest(ctx context.Context, resourceGr
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	if options != nil && options.Skip != nil {
 		reqQP.Set("skip", strconv.FormatInt(int64(*options.Skip), 10))
 	}
@@ -433,7 +433,7 @@ func (client *IpamPoolsClient) listHandleResponse(resp *http.Response) (IpamPool
 
 // NewListAssociatedResourcesPager - List Associated Resource in the Pool.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - poolName - Pool resource name.
@@ -486,7 +486,7 @@ func (client *IpamPoolsClient) listAssociatedResourcesCreateRequest(ctx context.
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -504,7 +504,7 @@ func (client *IpamPoolsClient) listAssociatedResourcesHandleResponse(resp *http.
 // Update - Updates the specific Pool resource.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-07-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - poolName - IP Address Manager Pool resource name.
@@ -555,7 +555,7 @@ func (client *IpamPoolsClient) updateCreateRequest(ctx context.Context, resource
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-07-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if options != nil && options.IfMatch != nil {

@@ -9,6 +9,7 @@ package policy
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	stderrors "errors"
 	"io"
 	"net/http"
 
@@ -32,7 +33,6 @@ func NewPutPolicyParams() PutPolicyParams {
 //
 // swagger:parameters PutPolicy
 type PutPolicyParams struct {
-
 	// HTTP Request Object
 	HTTPRequest *http.Request `json:"-"`
 
@@ -41,10 +41,12 @@ type PutPolicyParams struct {
 	  In: body
 	*/
 	Policy string
+
 	/*If true, indicates that existing rules with identical labels should be replaced.
 	  In: query
 	*/
 	Replace *bool
+
 	/*If present, indicates that existing rules with the given labels should be deleted.
 	  In: query
 	*/
@@ -59,14 +61,15 @@ func (o *PutPolicyParams) BindRequest(r *http.Request, route *middleware.Matched
 	var res []error
 
 	o.HTTPRequest = r
-
 	qs := runtime.Values(r.URL.Query())
 
 	if runtime.HasBody(r) {
-		defer r.Body.Close()
+		defer func() {
+			_ = r.Body.Close()
+		}()
 		var body string
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
-			if err == io.EOF {
+			if stderrors.Is(err, io.EOF) {
 				res = append(res, errors.Required("policy", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("policy", "body", "", err))

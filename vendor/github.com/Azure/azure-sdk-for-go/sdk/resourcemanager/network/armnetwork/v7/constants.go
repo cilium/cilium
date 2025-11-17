@@ -5,11 +5,6 @@
 
 package armnetwork
 
-const (
-	moduleName    = "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
-	moduleVersion = "v7.0.0"
-)
-
 // Access - Access to be allowed or denied.
 type Access string
 
@@ -23,6 +18,24 @@ func PossibleAccessValues() []Access {
 	return []Access{
 		AccessAllow,
 		AccessDeny,
+	}
+}
+
+// AccessMode - The access mode of the private link service.
+type AccessMode string
+
+const (
+	// AccessModeDefault - Allows unrestricted access to the private link service.
+	AccessModeDefault AccessMode = "Default"
+	// AccessModeRestricted - Limits access to subscriptions which are inside visibility list only.
+	AccessModeRestricted AccessMode = "Restricted"
+)
+
+// PossibleAccessModeValues returns the possible values for the AccessMode const type.
+func PossibleAccessModeValues() []AccessMode {
+	return []AccessMode{
+		AccessModeDefault,
+		AccessModeRestricted,
 	}
 }
 
@@ -853,6 +866,60 @@ func PossibleAzureFirewallPacketCaptureFlagsTypeValues() []AzureFirewallPacketCa
 	}
 }
 
+// AzureFirewallPacketCaptureOperationType - The packet capture operation to perform. If the Start operation is selected,
+// please provide all the fields in the firewallPacketCaptureParameters to successfully initiate the packet capture. If the
+// Status or Stop operation is selected, only the operation field is required; all other fields in the firewallPacketCaptureParameters
+// can be omitted to successfully retrieve the capture status or stop
+// the capture.
+type AzureFirewallPacketCaptureOperationType string
+
+const (
+	AzureFirewallPacketCaptureOperationTypeStart  AzureFirewallPacketCaptureOperationType = "Start"
+	AzureFirewallPacketCaptureOperationTypeStatus AzureFirewallPacketCaptureOperationType = "Status"
+	AzureFirewallPacketCaptureOperationTypeStop   AzureFirewallPacketCaptureOperationType = "Stop"
+)
+
+// PossibleAzureFirewallPacketCaptureOperationTypeValues returns the possible values for the AzureFirewallPacketCaptureOperationType const type.
+func PossibleAzureFirewallPacketCaptureOperationTypeValues() []AzureFirewallPacketCaptureOperationType {
+	return []AzureFirewallPacketCaptureOperationType{
+		AzureFirewallPacketCaptureOperationTypeStart,
+		AzureFirewallPacketCaptureOperationTypeStatus,
+		AzureFirewallPacketCaptureOperationTypeStop,
+	}
+}
+
+// AzureFirewallPacketCaptureResponseCode - The packet capture operation response codes.
+type AzureFirewallPacketCaptureResponseCode string
+
+const (
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureCompleted           AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureCompleted"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureFailed              AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureFailed"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureInProgress          AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureInProgress"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureNotInProgress       AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureNotInProgress"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailed         AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStartFailed"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailedToUpload AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStartFailedToUpload"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailure        AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStartFailure"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartSucceeded      AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStartSucceeded"
+	AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStopSucceeded       AzureFirewallPacketCaptureResponseCode = "AzureFirewallPacketCaptureStopSucceeded"
+	AzureFirewallPacketCaptureResponseCodeNotImplemented                                AzureFirewallPacketCaptureResponseCode = "NotImplemented"
+)
+
+// PossibleAzureFirewallPacketCaptureResponseCodeValues returns the possible values for the AzureFirewallPacketCaptureResponseCode const type.
+func PossibleAzureFirewallPacketCaptureResponseCodeValues() []AzureFirewallPacketCaptureResponseCode {
+	return []AzureFirewallPacketCaptureResponseCode{
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureCompleted,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureFailed,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureInProgress,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureNotInProgress,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailed,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailedToUpload,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartFailure,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStartSucceeded,
+		AzureFirewallPacketCaptureResponseCodeAzureFirewallPacketCaptureStopSucceeded,
+		AzureFirewallPacketCaptureResponseCodeNotImplemented,
+	}
+}
+
 // AzureFirewallRCActionType - The action type of a rule collection.
 type AzureFirewallRCActionType string
 
@@ -1083,6 +1150,24 @@ func PossibleConnectedGroupPrivateEndpointsScaleValues() []ConnectedGroupPrivate
 	return []ConnectedGroupPrivateEndpointsScale{
 		ConnectedGroupPrivateEndpointsScaleHighScale,
 		ConnectedGroupPrivateEndpointsScaleStandard,
+	}
+}
+
+// ConnectionAuthenticationType - Gateway connection authentication type.
+type ConnectionAuthenticationType string
+
+const (
+	// ConnectionAuthenticationTypeCertificate - Certificate-based authentication method for VPN gateway connections.
+	ConnectionAuthenticationTypeCertificate ConnectionAuthenticationType = "Certificate"
+	// ConnectionAuthenticationTypePSK - Pre-shared key authentication method for VPN gateway connections.
+	ConnectionAuthenticationTypePSK ConnectionAuthenticationType = "PSK"
+)
+
+// PossibleConnectionAuthenticationTypeValues returns the possible values for the ConnectionAuthenticationType const type.
+func PossibleConnectionAuthenticationTypeValues() []ConnectionAuthenticationType {
+	return []ConnectionAuthenticationType{
+		ConnectionAuthenticationTypeCertificate,
+		ConnectionAuthenticationTypePSK,
 	}
 }
 
@@ -1416,8 +1501,10 @@ func PossibleDirectionValues() []Direction {
 type DisableBgpRoutePropagation string
 
 const (
+	// DisableBgpRoutePropagationFalse - BGP route propagation is enabled.
 	DisableBgpRoutePropagationFalse DisableBgpRoutePropagation = "False"
-	DisableBgpRoutePropagationTrue  DisableBgpRoutePropagation = "True"
+	// DisableBgpRoutePropagationTrue - BGP route propagation is disabled.
+	DisableBgpRoutePropagationTrue DisableBgpRoutePropagation = "True"
 )
 
 // PossibleDisableBgpRoutePropagationValues returns the possible values for the DisableBgpRoutePropagation const type.
@@ -2741,6 +2828,22 @@ func PossibleLoadBalancerSKUTierValues() []LoadBalancerSKUTier {
 	}
 }
 
+// LoadBalancerScope - Indicates the scope of the load balancer: external (Public) or internal (Private).
+type LoadBalancerScope string
+
+const (
+	LoadBalancerScopePrivate LoadBalancerScope = "Private"
+	LoadBalancerScopePublic  LoadBalancerScope = "Public"
+)
+
+// PossibleLoadBalancerScopeValues returns the possible values for the LoadBalancerScope const type.
+func PossibleLoadBalancerScopeValues() []LoadBalancerScope {
+	return []LoadBalancerScope{
+		LoadBalancerScopePrivate,
+		LoadBalancerScopePublic,
+	}
+}
+
 // LoadDistribution - The load distribution policy for this rule.
 type LoadDistribution string
 
@@ -2985,7 +3088,8 @@ func PossibleNicTypeInRequestValues() []NicTypeInRequest {
 	}
 }
 
-// NicTypeInResponse - NIC type - PublicNic, PrivateNic, or AdditionalNic.
+// NicTypeInResponse - NIC type - PublicNic, PrivateNic, or AdditionalNic; AdditionalPrivateNic and AdditionalPublicNic are
+// only supported for NVAs deployed in VNets.
 type NicTypeInResponse string
 
 const (
@@ -3070,6 +3174,29 @@ func PossibleNspProvisioningStateValues() []NspProvisioningState {
 		NspProvisioningStateFailed,
 		NspProvisioningStateSucceeded,
 		NspProvisioningStateUpdating,
+	}
+}
+
+type NvaNicType string
+
+const (
+	// NvaNicTypeAdditionalPrivateNic - An additional private NIC type
+	NvaNicTypeAdditionalPrivateNic NvaNicType = "AdditionalPrivateNic"
+	// NvaNicTypeAdditionalPublicNic - An additional public NIC type
+	NvaNicTypeAdditionalPublicNic NvaNicType = "AdditionalPublicNic"
+	// NvaNicTypePrivateNic - The private NIC type
+	NvaNicTypePrivateNic NvaNicType = "PrivateNic"
+	// NvaNicTypePublicNic - The public NIC type
+	NvaNicTypePublicNic NvaNicType = "PublicNic"
+)
+
+// PossibleNvaNicTypeValues returns the possible values for the NvaNicType const type.
+func PossibleNvaNicTypeValues() []NvaNicType {
+	return []NvaNicType{
+		NvaNicTypeAdditionalPrivateNic,
+		NvaNicTypeAdditionalPublicNic,
+		NvaNicTypePrivateNic,
+		NvaNicTypePublicNic,
 	}
 }
 
@@ -3716,12 +3843,33 @@ func PossibleRouteNextHopTypeValues() []RouteNextHopType {
 	}
 }
 
+// RouteTableUsageMode - Route table usage mode defines which route table will be used by the configuration. If not defined,
+// this will default to 'ManagedOnly'.
+type RouteTableUsageMode string
+
+const (
+	// RouteTableUsageModeManagedOnly - Only route tables managed by the routing configuration will be used.
+	RouteTableUsageModeManagedOnly RouteTableUsageMode = "ManagedOnly"
+	// RouteTableUsageModeUseExisting - Use existing user-defined route tables already associated with resources.
+	RouteTableUsageModeUseExisting RouteTableUsageMode = "UseExisting"
+)
+
+// PossibleRouteTableUsageModeValues returns the possible values for the RouteTableUsageMode const type.
+func PossibleRouteTableUsageModeValues() []RouteTableUsageMode {
+	return []RouteTableUsageMode{
+		RouteTableUsageModeManagedOnly,
+		RouteTableUsageModeUseExisting,
+	}
+}
+
 // RoutingRuleDestinationType - Routing rule destination type.
 type RoutingRuleDestinationType string
 
 const (
+	// RoutingRuleDestinationTypeAddressPrefix - Destination specified as an IP address prefix (CIDR).
 	RoutingRuleDestinationTypeAddressPrefix RoutingRuleDestinationType = "AddressPrefix"
-	RoutingRuleDestinationTypeServiceTag    RoutingRuleDestinationType = "ServiceTag"
+	// RoutingRuleDestinationTypeServiceTag - Destination specified as an Azure service tag.
+	RoutingRuleDestinationTypeServiceTag RoutingRuleDestinationType = "ServiceTag"
 )
 
 // PossibleRoutingRuleDestinationTypeValues returns the possible values for the RoutingRuleDestinationType const type.
@@ -3736,11 +3884,16 @@ func PossibleRoutingRuleDestinationTypeValues() []RoutingRuleDestinationType {
 type RoutingRuleNextHopType string
 
 const (
-	RoutingRuleNextHopTypeInternet              RoutingRuleNextHopType = "Internet"
-	RoutingRuleNextHopTypeNoNextHop             RoutingRuleNextHopType = "NoNextHop"
-	RoutingRuleNextHopTypeVirtualAppliance      RoutingRuleNextHopType = "VirtualAppliance"
+	// RoutingRuleNextHopTypeInternet - Forward traffic to the Internet.
+	RoutingRuleNextHopTypeInternet RoutingRuleNextHopType = "Internet"
+	// RoutingRuleNextHopTypeNoNextHop - No next hop will be used.
+	RoutingRuleNextHopTypeNoNextHop RoutingRuleNextHopType = "NoNextHop"
+	// RoutingRuleNextHopTypeVirtualAppliance - Forward traffic to a specified virtual appliance IP address.
+	RoutingRuleNextHopTypeVirtualAppliance RoutingRuleNextHopType = "VirtualAppliance"
+	// RoutingRuleNextHopTypeVirtualNetworkGateway - Forward traffic to the virtual network gateway.
 	RoutingRuleNextHopTypeVirtualNetworkGateway RoutingRuleNextHopType = "VirtualNetworkGateway"
-	RoutingRuleNextHopTypeVnetLocal             RoutingRuleNextHopType = "VnetLocal"
+	// RoutingRuleNextHopTypeVnetLocal - Keep traffic within the local virtual network
+	RoutingRuleNextHopTypeVnetLocal RoutingRuleNextHopType = "VnetLocal"
 )
 
 // PossibleRoutingRuleNextHopTypeValues returns the possible values for the RoutingRuleNextHopType const type.
@@ -4130,15 +4283,17 @@ func PossibleSyncRemoteAddressSpaceValues() []SyncRemoteAddressSpace {
 type TransportProtocol string
 
 const (
-	TransportProtocolAll TransportProtocol = "All"
-	TransportProtocolTCP TransportProtocol = "Tcp"
-	TransportProtocolUDP TransportProtocol = "Udp"
+	TransportProtocolAll  TransportProtocol = "All"
+	TransportProtocolQuic TransportProtocol = "Quic"
+	TransportProtocolTCP  TransportProtocol = "Tcp"
+	TransportProtocolUDP  TransportProtocol = "Udp"
 )
 
 // PossibleTransportProtocolValues returns the possible values for the TransportProtocol const type.
 func PossibleTransportProtocolValues() []TransportProtocol {
 	return []TransportProtocol{
 		TransportProtocolAll,
+		TransportProtocolQuic,
 		TransportProtocolTCP,
 		TransportProtocolUDP,
 	}

@@ -35,10 +35,6 @@ func (c *FakeCiliumV2alpha1) CiliumBGPPeerConfigs() v2alpha1.CiliumBGPPeerConfig
 	return newFakeCiliumBGPPeerConfigs(c)
 }
 
-func (c *FakeCiliumV2alpha1) CiliumBGPPeeringPolicies() v2alpha1.CiliumBGPPeeringPolicyInterface {
-	return newFakeCiliumBGPPeeringPolicies(c)
-}
-
 func (c *FakeCiliumV2alpha1) CiliumCIDRGroups() v2alpha1.CiliumCIDRGroupInterface {
 	return newFakeCiliumCIDRGroups(c)
 }

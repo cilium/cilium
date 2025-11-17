@@ -42,7 +42,7 @@ static __always_inline int icmp6_load_type(struct __ctx_buff *ctx, int l4_off, _
 static __always_inline
 int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off, union v6addr new_sip)
 {
-	union macaddr smac, dmac = THIS_INTERFACE_MAC;
+	union macaddr smac, dmac = CONFIG(interface_mac);
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	union v6addr sip, dip;
 	__be32 sum;
@@ -346,8 +346,8 @@ static __always_inline int icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 {
 	union v6addr target, router = CONFIG(router_ipv6);
-	struct endpoint_info *ep;
-	union macaddr router_mac = THIS_INTERFACE_MAC;
+	const struct endpoint_info *ep;
+	union macaddr router_mac = CONFIG(interface_mac);
 
 	if (ctx_load_bytes(ctx, nh_off + ICMP6_ND_TARGET_OFFSET, target.addr,
 			   sizeof(((struct ipv6hdr *)NULL)->saddr)) < 0)
@@ -358,6 +358,18 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 	if (ipv6_addr_equals(&target, &router)) {
 		return icmp6_send_ndisc_adv(ctx, nh_off, &router_mac, true);
 	}
+
+#ifdef USE_LOOPBACK_LB
+	union v6addr service_loopback = CONFIG(service_loopback_ipv6);
+
+	if (ipv6_addr_equals(&target, &service_loopback)) {
+		union macaddr source_mac;
+
+		if (ctx_load_bytes(ctx, ETH_ALEN, source_mac.addr, ETH_ALEN) < 0)
+			return DROP_INVALID;
+		return icmp6_send_ndisc_adv(ctx, nh_off, &source_mac, false);
+	}
+#endif
 
 	ep = __lookup_ip6_endpoint(&target);
 	if (ep) {

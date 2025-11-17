@@ -102,6 +102,7 @@ struct icmp6hdr {
 #define ICMPV6_MGM_REDUCTION    	132
 
 #define ICMPV6_NA_MSG			136
+#define ICMPV6_REDIRECT			137
 
 #define ICMPV6_NI_QUERY			139
 #define ICMPV6_NI_REPLY			140
