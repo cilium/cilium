@@ -85,6 +85,9 @@ type remoteCluster struct {
 	// config contains the information about the cluster config for status reporting
 	config *models.RemoteClusterConfig
 
+	// versionCompatibility represents the version compatibility with the remote cluster
+	versionCompatibility types.VersionCompatibility
+
 	// etcdClusterID contains the information about the etcd cluster ID for status
 	// reporting. It is used to distinguish which instance of the clustermesh-apiserver
 	// we are connected to when running in HA mode.
@@ -121,6 +124,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 	backend := rc.backend
 	rc.backend = nil
 	rc.config = nil
+	rc.versionCompatibility = types.VersionCompatibilityUnknown
 	rc.etcdClusterID = ""
 	rc.mutex.Unlock()
 
@@ -297,6 +301,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 
 	rc.mutex.Lock()
 	rc.config = &models.RemoteClusterConfig{Required: true}
+	rc.versionCompatibility = types.VersionCompatibilityUnknown
 	rc.mutex.Unlock()
 
 	cfgch := make(chan types.CiliumClusterConfig, 1)
@@ -333,9 +338,11 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 		rc.mutex.Lock()
 		rc.config.Retrieved = true
 		rc.config.ClusterID = int64(config.ID)
+		rc.config.Version = config.Version.String()
 		rc.config.Kvstoremesh = config.Capabilities.Cached
 		rc.config.SyncCanaries = config.Capabilities.SyncedCanaries
 		rc.config.ServiceExportsEnabled = config.Capabilities.ServiceExportsEnabled
+		rc.versionCompatibility, _ = types.CheckVersionCompatibility(config.Version)
 		rc.mutex.Unlock()
 
 		return config, nil
@@ -415,13 +422,14 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 	}
 
 	status := &models.RemoteCluster{
-		Name:        rc.name,
-		Ready:       rc.isReadyLocked(),
-		Connected:   rc.backend != nil,
-		Status:      backendStatus,
-		Config:      rc.config,
-		NumFailures: int64(rc.failures),
-		LastFailure: strfmt.DateTime(rc.lastFailure),
+		Name:                 rc.name,
+		Ready:                rc.isReadyLocked(),
+		Connected:            rc.backend != nil,
+		Status:               backendStatus,
+		Config:               rc.config,
+		VersionCompatibility: string(rc.versionCompatibility),
+		NumFailures:          int64(rc.failures),
+		LastFailure:          strfmt.DateTime(rc.lastFailure),
 	}
 
 	return status

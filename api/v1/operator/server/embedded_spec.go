@@ -280,6 +280,10 @@ func init() {
             },
             "synced": {
               "$ref": "#/definitions/remoteClusterSynced"
+            },
+            "version-compatibility": {
+              "description": "Version compatibility with the remote cluster",
+              "type": "string"
             }
           }
         }
@@ -340,6 +344,10 @@ func init() {
         "sync-canaries": {
           "description": "Whether the remote cluster supports per-prefix \"synced\" canaries",
           "type": "boolean"
+        },
+        "version": {
+          "description": "The Cilium version advertised by the remote cluster",
+          "type": "string"
         }
       }
     },
