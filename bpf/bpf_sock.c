@@ -974,10 +974,10 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	const struct lb6_service *svc;
 	__u16 dst_port = ctx_dst_port(ctx);
 	__u8 protocol = ctx_protocol(ctx);
-	struct lb6_key key = {
+	struct lb6_key key __align_stack_8 = {
 		.dport		= dst_port,
 		.proto		= protocol,
-	}, orig_key;
+	}, orig_key __align_stack_8;
 	const struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
