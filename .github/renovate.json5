@@ -773,6 +773,21 @@
       "matchBaseBranches": [
         "!main",
       ]
+    },
+    {
+      // Temporarily disable all etcd updates on v1.16 and v1.17, because newer
+      // versions are compiled with go 1.24.8 or later, which includes a breaking
+      // change in IP addresses parsing affecting the clustermesh-apiserver usage.
+      // See cilium/cilium#42818 for more details and the fix, which is intended
+      // to be backported once we built up sufficient confidence.
+      "enabled": false,
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "matchBaseBranches": [
+        "v1.16",
+        "v1.17",
+      ]
     }
   ],
   "kubernetes": {
