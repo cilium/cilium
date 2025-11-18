@@ -124,7 +124,7 @@ type pad2uint32 [2]uint32
 
 // EndpointInfo represents the value of the endpoints BPF map.
 //
-// Must be in sync with struct endpoint_info in <bpf/lib/common.h>
+// Must be in sync with struct endpoint_info in <bpf/lib/eps.h>
 type EndpointInfo struct {
 	IfIndex uint32 `align:"ifindex"`
 	Unused  uint16 `align:"unused"`
