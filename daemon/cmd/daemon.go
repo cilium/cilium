@@ -167,13 +167,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		return fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 
-	bootstrapStats.restore.Start()
-	// fetch old endpoints before k8s is configured.
-	if err := params.EndpointRestorer.FetchOldEndpoints(ctx, params.DaemonConfig.StateDir); err != nil {
-		params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
-	}
-	bootstrapStats.restore.End(true)
-
 	// Load cached information from restored endpoints in to FQDN NameManager and DNS proxies
 	bootstrapStats.fqdn.Start()
 	params.DNSNameManager.RestoreCache(params.EndpointRestorer.GetState().possible)
