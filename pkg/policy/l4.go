@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
@@ -540,8 +539,8 @@ type L4Filter struct {
 	// L3/L4 filter.
 	RuleOrigin map[CachedSelector]ruleOrigin `json:"-"`
 
-	// This reference is circular, but it is cleaned up at Detach()
-	policy atomic.Pointer[L4Policy]
+	// policy is the L4Policy that owns this filter
+	policy *L4Policy
 }
 
 // SelectsAllEndpoints returns whether the L4Filter selects all
@@ -805,12 +804,8 @@ func (l4 *L4Filter) IdentitySelectionUpdated(logger *slog.Logger, cs types.Cache
 	}
 
 	// Push endpoint policy changes.
-	//
-	// `l4.policy` is nil when the filter is detached so
-	// that we could not push updates on an unstable policy.
-	l4Policy := l4.policy.Load()
-	if l4Policy != nil {
-		l4Policy.AccumulateMapChanges(logger, l4, cs, added, deleted)
+	if l4.policy != nil {
+		l4.policy.AccumulateMapChanges(logger, l4, cs, added, deleted)
 	}
 }
 
@@ -821,12 +816,8 @@ func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn *versioned.
 	)
 
 	// Push endpoint policy incremental sync.
-	//
-	// `l4.policy` is nil when the filter is detached so
-	// that we could not push updates on an unstable policy.
-	l4Policy := l4.policy.Load()
-	if l4Policy != nil {
-		l4Policy.SyncMapChanges(l4, txn)
+	if l4.policy != nil {
+		l4.policy.SyncMapChanges(l4, txn)
 	}
 }
 
@@ -971,6 +962,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 		PerSelectorPolicies: make(L7DataMap),
 		RuleOrigin:          make(map[CachedSelector]ruleOrigin), // Filled in below.
 		Ingress:             ingress,
+		policy:              policyCtx.GetL4Policy(),
 	}
 
 	es := peerEndpoints.GetAsEndpointSelectors()
@@ -1109,13 +1101,11 @@ func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
 // L4Filter may still be accessed concurrently after it has been detached.
 func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 	l4.removeSelectors(selectorCache)
-	l4.policy.Store(nil)
 }
 
-// attach signifies that the L4Filter is ready and reacheable for updates
-// from SelectorCache. L4Filter (and L4Policy) is read-only after this is called,
-// multiple goroutines will be reading the fields from that point on.
-func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeatures, redirectTypes) {
+// finalize performs some final allocations and adjustments once the L4Filter has been
+// completely calculated.
+func (l4 *L4Filter) finalize(ctx PolicyContext) (policyFeatures, redirectTypes) {
 	var redirectTypes redirectTypes
 	var features policyFeatures
 
@@ -1156,15 +1146,15 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 				features.setFeature(authRules)
 
 				if authType != types.AuthTypeDisabled {
-					if l4Policy.authMap == nil {
-						l4Policy.authMap = make(authMap, 1)
+					if l4.policy.authMap == nil {
+						l4.policy.authMap = make(authMap, 1)
 					}
-					authTypes := l4Policy.authMap[cs]
+					authTypes := l4.policy.authMap[cs]
 					if authTypes == nil {
 						authTypes = make(AuthTypes, 1)
 					}
 					authTypes[authType] = struct{}{}
-					l4Policy.authMap[cs] = authTypes
+					l4.policy.authMap[cs] = authTypes
 				}
 			}
 
@@ -1175,7 +1165,6 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 		}
 	}
 
-	l4.policy.Store(l4Policy)
 	return features, redirectTypes
 }
 
@@ -1450,10 +1439,10 @@ func newL4DirectionPolicy() L4DirectionPolicy {
 	}
 }
 
-// Detach removes the cached selectors held by L4PolicyMap from the
+// detach removes the cached selectors held by L4PolicyMap from the
 // selectorCache, allowing the map to be garbage collected when there
 // are no more references to it.
-func (l4 L4DirectionPolicy) Detach(selectorCache *SelectorCache) {
+func (l4 L4DirectionPolicy) detach(selectorCache *SelectorCache) {
 	l4.PortRules.Detach(selectorCache)
 }
 
@@ -1465,15 +1454,15 @@ func (l4M *l4PolicyMap) Detach(selectorCache *SelectorCache) {
 	})
 }
 
-// Attach makes all the L4Filters to point back to the L4Policy that contains them.
-// This is done before the L4PolicyMap is exposed to concurrent access.
+// finalize performs some final allocations and adjustments once the L4Filter has been
+// completely calculated.
 // Returns the bitmask of all redirect types for this policymap.
-func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redirectTypes {
+func (l4 *L4DirectionPolicy) finalize(ctx PolicyContext) redirectTypes {
 	var redirectTypes redirectTypes
 	var features policyFeatures
 
 	l4.PortRules.ForEach(func(f *L4Filter) bool {
-		feat, redir := f.attach(ctx, l4Policy)
+		feat, redir := f.finalize(ctx)
 		features |= feat
 		redirectTypes |= redir
 		return true
@@ -1497,11 +1486,13 @@ type L4Policy struct {
 	redirectTypes redirectTypes
 
 	// Endpoint policies using this L4Policy
-	// These are circular references, cleaned up in Detach()
-	// This mutex is taken while Endpoint mutex is held, so Endpoint lock
-	// MUST always be taken before this mutex.
 	mutex lock.RWMutex
 	users map[*EndpointPolicy]struct{}
+
+	// The number of other references to this L4Policy;
+	// we cannot detatch from the SelectorCache until there
+	// are no users and no references
+	references uint
 }
 
 // NewL4Policy creates a new L4Policy
@@ -1517,21 +1508,23 @@ func NewL4Policy(revision uint64) L4Policy {
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be forwarded to the users of it.
 // May not call into SelectorCache, as SelectorCache is locked during this call.
-func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
+func (l4 *L4Policy) insertUser(logger *slog.Logger, user *EndpointPolicy) {
 	l4.mutex.Lock()
 
 	// 'users' is set to nil when the policy is detached. This
 	// happens to the old policy when it is being replaced with a
 	// new one, or when the last endpoint using this policy is
 	// removed.
-	// In the case of an policy update it is possible that an
-	// endpoint has started regeneration before the policy was
-	// updated, and that the policy was updated before the said
-	// endpoint reached this point. In this case the endpoint's
-	// policy is going to be recomputed soon after and we do
-	// nothing here.
+	// This should never happen; it indicates a serious bug; the only solution
+	// is to regenerate the endpoint.
 	if l4.users != nil {
 		l4.users[user] = struct{}{}
+	} else {
+		logger.Error("BUG: attempt to insert user to a detached policy. Scheduling regeneration")
+		go user.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+			Reason:            "selector policy was inadvertently detached",
+			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+		})
 	}
 
 	l4.mutex.Unlock()
@@ -1539,16 +1532,30 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 
 // removeUser removes a user that no longer needs incremental updates
 // from the L4Policy.
-func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
+func (l4 *L4Policy) removeUser(user *EndpointPolicy, selectorCache *SelectorCache) {
 	// 'users' is set to nil when the policy is detached. This
 	// happens to the old policy when it is being replaced with a
 	// new one, or when the last endpoint using this policy is
 	// removed.
 	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
 	if l4.users != nil {
 		delete(l4.users, user)
 	}
-	l4.mutex.Unlock()
+	l4.maybeDetachLocked(selectorCache)
+}
+
+func (l4 *L4Policy) acquire() {
+	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
+	l4.references++
+}
+
+func (l4 *L4Policy) release(selectorCache *SelectorCache) {
+	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
+	l4.references--
+	l4.maybeDetachLocked(selectorCache)
 }
 
 // AccumulateMapChanges distributes the given changes to the registered users.
@@ -1654,39 +1661,24 @@ func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn *versioned.Tx) {
 	l4Policy.mutex.RUnlock()
 }
 
-// detach makes the L4Policy ready for garbage collection, removing
-// circular pointer references.
-// The endpointID argument is only necessary if isDelete is false.
-// It ensures that detach does not call a regeneration trigger on
-// the same endpoint that initiated a selector policy update.
-// Note that the L4Policy itself is not modified in any way, so that it may still
-// be used concurrently.
-func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpointID uint64) {
-	l4.Ingress.Detach(selectorCache)
-	l4.Egress.Detach(selectorCache)
-
-	l4.mutex.Lock()
-	defer l4.mutex.Unlock()
-	// If this detach is a delete there is no reason to initiate
-	// a regenerate.
-	if !isDelete {
-		for ePolicy := range l4.users {
-			if endpointID != ePolicy.PolicyOwner.GetID() {
-				go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-					Reason:            "selector policy has changed because of another endpoint with the same identity",
-					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-				})
-			}
-		}
+// maybeDetach deallocates all resources held by this policy, but only
+// if there are no more users and references.
+// mutex must be held!
+func (l4 *L4Policy) maybeDetachLocked(selectorCache *SelectorCache) {
+	// Did we already detch, or is this policy still in use?
+	if l4.users == nil || l4.references > 0 || len(l4.users) > 0 {
+		return
 	}
+
+	l4.Ingress.detach(selectorCache)
+	l4.Egress.detach(selectorCache)
 	l4.users = nil
 }
 
-// Attach makes all the L4Filters to point back to the L4Policy that contains them.
-// This is done before the L4Policy is exposed to concurrent access.
-func (l4 *L4Policy) Attach(ctx PolicyContext) {
-	ingressRedirects := l4.Ingress.attach(ctx, l4)
-	egressRedirects := l4.Egress.attach(ctx, l4)
+// Finalize allocates certain resources once a policy calculation has been completed
+func (l4 *L4Policy) Finalize(ctx PolicyContext) {
+	ingressRedirects := l4.Ingress.finalize(ctx)
+	egressRedirects := l4.Egress.finalize(ctx)
 	l4.redirectTypes = ingressRedirects | egressRedirects
 }
 

@@ -219,7 +219,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 
 	var selectorPolicy policy.SelectorPolicy
-	selectorPolicy, result.policyRevision, err = e.policyRepo.GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats, e.GetID())
+	selectorPolicy, result.policyRevision, err = e.policyRepo.GetSelectorPolicy(securityIdentity, skipPolicyRevision, stats)
 	if err != nil {
 		e.getLogger().Warn("Failed to calculate SelectorPolicy", logfields.Error, err)
 		return err
@@ -236,6 +236,9 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		datapathRegenCtxt.policyResult = result
 		return nil
 	}
+
+	// Release our claim on the SelectorPolicy
+	defer selectorPolicy.Done()
 
 	// Add new redirects before Consume() so that all required proxy ports are available for it.
 	var desiredRedirects map[string]uint16

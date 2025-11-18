@@ -68,10 +68,10 @@ func TestCacheManagement(t *testing.T) {
 	require.True(t, removed)
 
 	// Insert identity twice. Should be the same policy.
-	policy1, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
+	policy1, updated, err := cache.updateSelectorPolicy(identity)
 	require.NoError(t, err)
 	require.True(t, updated)
-	policy2, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
+	policy2, updated, err := cache.updateSelectorPolicy(identity)
 	require.NoError(t, err)
 	require.False(t, updated)
 	// must be same pointer
@@ -90,13 +90,13 @@ func TestCacheManagement(t *testing.T) {
 	ep3.SetIdentity(1234, true)
 	identity3 := ep3.GetSecurityIdentity()
 	require.NotEqual(t, identity, identity3)
-	policy1, _, _ = cache.updateSelectorPolicy(identity, ep1.Id)
+	policy1, _, _ = cache.updateSelectorPolicy(identity)
 	require.NotNil(t, policy1)
-	policy3, _, _ := cache.updateSelectorPolicy(identity3, ep3.Id)
+	policy3, _, _ := cache.updateSelectorPolicy(identity3)
 	require.NotNil(t, policy3)
 	require.NotSame(t, policy3, policy1)
 	_ = cache.delete(identity)
-	_, updated, _ = cache.updateSelectorPolicy(identity3, ep3.Id)
+	_, updated, _ = cache.updateSelectorPolicy(identity3)
 	require.False(t, updated)
 }
 
@@ -109,32 +109,132 @@ func TestCachePopulation(t *testing.T) {
 	require.Equal(t, identity1, ep2.GetSecurityIdentity())
 
 	// Calculate the policy and observe that it's cached
-	policy1, updated, err := cache.updateSelectorPolicy(identity1, ep1.Id)
+	policy1, updated, err := cache.updateSelectorPolicy(identity1)
 	require.NoError(t, err)
 	require.True(t, updated)
-	_, updated, err = cache.updateSelectorPolicy(identity1, ep1.Id)
+	_, updated, err = cache.updateSelectorPolicy(identity1)
 	require.NoError(t, err)
 	require.False(t, updated)
-	policy2, _, _ := cache.updateSelectorPolicy(identity1, ep1.Id)
+	policy2, _, _ := cache.updateSelectorPolicy(identity1)
 	require.NotNil(t, policy2)
 	require.Same(t, policy1, policy2)
 
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	require.True(t, cacheCleared)
-	_, updated, _ = cache.updateSelectorPolicy(identity1, ep1.Id)
+	_, updated, _ = cache.updateSelectorPolicy(identity1)
 	require.True(t, updated)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint(t)
 	ep3.SetIdentity(1234, true)
-	policy3, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
+	policy3, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity())
 	require.NoError(t, err)
 	require.True(t, updated)
 
 	// policy3 must be different from ep1, ep2
 	require.NoError(t, err)
 	require.NotEqual(t, policy1, policy3)
+}
+
+// Test that policies are only detached when no endpoints reference them
+func TestPolicyLifecycle(t *testing.T) {
+	// Test that policies are cleaned up exactly when they are no longer
+	// refered by any EndpointPolicies and no longer in the cache
+
+	logger := hivetest.Logger(t)
+	identityCache := identity.IdentityMap{
+		identityFoo: labelsFoo,
+		identityBar: labelsBar,
+	}
+	idFoo := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+	idBar := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityBar), labelsBar)
+	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	repo := newPolicyDistillery(t, selectorCache)
+	rule := api.NewRule().WithIngressRules([]api.IngressRule{{
+		IngressCommonRule: api.IngressCommonRule{
+			FromCIDR: api.CIDRSlice{worldIPCIDR},
+		},
+	}}).WithEndpointSelector(api.WildcardEndpointSelector)
+	repo.MustAddList(api.Rules{rule}) // add some rule to allocate a selector
+	owner := DummyOwner{logger: hivetest.Logger(t)}
+	ipSelString := "&LabelSelector{MatchLabels:map[string]string{cidr.192.0.2.3/32: ,},MatchExpressions:[]LabelSelectorRequirement{},}"
+
+	// One selector, the subject selector
+	require.Len(t, repo.selectorCache.selectors, 1)
+
+	regen := func(id *identity.Identity) (*selectorPolicy, *EndpointPolicy) {
+		spi, _, err := repo.GetSelectorPolicy(id, 0, &dummyPolicyStats{})
+		require.NoError(t, err)
+		sp := spi.(*selectorPolicy)
+
+		// Ensure there are 2 outstanding references, since we have yet to distill
+		require.EqualValues(t, 2, sp.L4Policy.references)
+
+		epp := sp.DistillPolicy(logger, owner, testRedirects)
+
+		spi.Done()
+		epp.Ready()
+		require.EqualValues(t, 1, sp.L4Policy.references)
+
+		return sp, epp
+	}
+
+	// Calculate selector policy for two endpoints with the same id
+	sp1, epp1 := regen(idFoo)
+	require.Len(t, sp1.L4Policy.users, 1)
+	sp1b, epp1b := regen(idFoo)
+
+	require.Len(t, sp1.L4Policy.users, 2)
+	require.Same(t, sp1, sp1b)
+
+	// The selectorcache should have one user (the shared SelectorPolicy)
+	require.Len(t, repo.selectorCache.selectors[ipSelString].users, 1)
+
+	// Compute a new policy
+	repo.BumpRevision()
+	sp2, epp2 := regen(idFoo)
+
+	// validate that the old selector policy is still attached
+	require.EqualValues(t, 0, sp1.L4Policy.references)
+	require.Len(t, sp1.L4Policy.users, 2)
+	require.Len(t, repo.selectorCache.selectors[ipSelString].users, 2)
+
+	// release the old policy, ensure removed from selectorcache but new one is present.
+	epp1.Detach(logger)
+	epp1b.Detach(logger)
+	require.Len(t, repo.selectorCache.selectors[ipSelString].users, 1)
+	require.Nil(t, sp1.L4Policy.users)
+
+	// Check that the new policy is still attached
+	require.Len(t, sp2.L4Policy.users, 1)
+
+	// The endpoint's identity is being changed; ensure that this does not disconnect the policy until
+	// it has gone away.
+	repo.policyCache.delete(idFoo)
+	require.EqualValues(t, sp2.L4Policy.references, 0)
+	require.Len(t, sp2.L4Policy.users, 1)
+	require.Len(t, repo.selectorCache.selectors[ipSelString].users, 1)
+
+	// Even after regen, old policy must be present
+	sp3, epp3 := regen(idBar)
+	require.EqualValues(t, sp2.L4Policy.references, 0)
+	require.Len(t, sp2.L4Policy.users, 1)
+	require.Len(t, repo.selectorCache.selectors[ipSelString].users, 2)
+
+	// detach old policy, should be cleaned up
+	require.Len(t, sp3.L4Policy.users, 1)
+	epp2.Detach(logger)
+
+	require.EqualValues(t, sp2.L4Policy.references, 0)
+	require.Nil(t, sp2.L4Policy.users)
+	require.Len(t, repo.selectorCache.selectors[ipSelString].users, 1)
+
+	// clean up newest policy, should be gone
+	epp3.Detach(logger)
+	require.Len(t, repo.selectorCache.selectors[ipSelString].users, 1)
+	repo.policyCache.delete(idBar)
+	require.NotContains(t, repo.selectorCache.selectors, ipSelString)
 }
 
 // Distillery integration tests
@@ -415,7 +515,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // distillEndpointPolicy distills the policy repository into an EndpointPolicy
 // Caller is responsible for Ready() & Detach() when done with the policy
 func (d *policyDistillery) distillEndpointPolicy(logger *slog.Logger, owner PolicyOwner, identity *identity.Identity) (*EndpointPolicy, error) {
-	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{}, owner.GetID())
+	sp, _, err := d.Repository.GetSelectorPolicy(identity, 0, &dummyPolicyStats{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate policy: %w", err)
 	}

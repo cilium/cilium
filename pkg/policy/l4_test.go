@@ -355,7 +355,7 @@ func TestJSONMarshal(t *testing.T) {
 		})},
 	}
 
-	policy.Attach(td.testPolicyContext)
+	policy.Finalize(td.testPolicyContext)
 	model = policy.GetModel()
 	require.NotNil(t, model)
 

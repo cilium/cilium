@@ -276,7 +276,6 @@ func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4Poli
 
 	selPolicy, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
-	defer selPolicy.detach(true, 0)
 
 	// Distill Selector policy to Endpoint Policy
 	epPolicy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
@@ -409,6 +408,10 @@ func (p *testPolicyContextType) SetOrigin(ruleOrigin) {
 
 func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
 	p.logger.Info(fmt.Sprintf(format, a...))
+}
+
+func (p *testPolicyContextType) GetL4Policy() *L4Policy {
+	return nil
 }
 
 // Tests in this file:
