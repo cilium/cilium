@@ -113,6 +113,7 @@ jobs:
           # do a git diff
           filters: |
             src:
+              - '.github/workflows/lint-build-commits.yaml'
               - 'bpf/**'
 
       # Runs only if code under bpf/ is changed.
@@ -156,6 +157,7 @@ jobs:
           # do a git diff
           filters: |
             src:
+              - '.github/workflows/lint-build-commits.yaml'
               - 'pkg/**'
               - 'test/**'
 
