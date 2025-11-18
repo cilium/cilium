@@ -249,10 +249,23 @@ func findDereference(bt *Backtracker, dst asm.Register) (*asm.Instruction, bool)
 		// Deal with left shifts and right shifts, which are emitted after
 		// dereferencing signed integers to extend them to 64 bits.
 		//
-		// Example:
+		// Example of a signed 16-bit dereference on ISAv1+:
 		// 	29: LdXMemW dst: r1 src: r1 off: 0 imm: 0
 		// 	30: LShImm dst: r1 imm: 48
 		// 	31: ArShImm dst: r1 imm: 48
+		// 	32: JSGTImm dst: r1 off: 1 imm: -1
+		//
+		// Example of a signed 8-bit dereference on ISAv3+:
+		// 	29: LdXMemB dst: r1 src: r1 off: 0 imm: 0
+		// 	30: LShImm32 dst: r1 imm: 24
+		// 	31: ArShImm32 dst: r1 imm: 24
+		// 	32: JSGT32Imm dst: r1 off: 1 imm: -1
+		//
+		// We need to extract a signal that sign-extension is needed, so we only
+		// check if the second shift is arithmetic and whether their values match.
+		// The branch resolver operates on int64 values, so extend to 64 bits
+		// regardless of the original deref size. ALU32 presence is handled in the
+		// resolver.
 		if ins.OpCode.ALUOp() == asm.ArSh {
 			shift := ins.Constant
 			if !bt.Previous() {
@@ -399,7 +412,7 @@ var errUnpredictable = errors.New("unpredictable branch")
 // instruction.
 //
 // If the branch cannot be predicted, it returns [errUnpredictable]. If the
-// returned bool it true, the branch is always taken. If false, the branch is
+// returned bool is true, the branch is always taken. If false, the branch is
 // never taken.
 func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]VariableSpec) (bool, error) {
 	switch branch.OpCode.Source() {
@@ -421,7 +434,7 @@ func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]
 			return false, fmt.Errorf("resolving dst register %s: %w", branch.Dst, err)
 		}
 
-		jump, err := evalJumpOp(branch.OpCode.JumpOp(), dst, branch.Constant)
+		jump, err := evalJumpOp(branch.OpCode, dst, branch.Constant)
 		if err != nil {
 			return false, fmt.Errorf("evaluating branch: %w", err)
 		}
@@ -457,7 +470,7 @@ func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]
 			return false, fmt.Errorf("resolving src register %s: %w", branch.Src, err)
 		}
 
-		jump, err := evalJumpOp(branch.OpCode.JumpOp(), dst, src)
+		jump, err := evalJumpOp(branch.OpCode, dst, src)
 		if err != nil {
 			return false, fmt.Errorf("evaluating branch: %w", err)
 		}
@@ -577,11 +590,35 @@ func loadVariable(vs VariableSpec, deref *asm.Instruction, extend bool) (int64, 
 	return 0, fmt.Errorf("unsupported size %d for variable load", size)
 }
 
+// s32Jump returns true if the given jump operation performs a signed 32-bit
+// comparison.
+func s32Jump(op asm.OpCode) bool {
+	if op.Class() != asm.Jump32Class {
+		return false
+	}
+
+	switch op.JumpOp() {
+	case asm.JSGT, asm.JSGE, asm.JSLT, asm.JSLE:
+		return true
+	}
+
+	return false
+}
+
 // evalJumpOp evaluates the jump operation op with the given dst and src
 // operands. It returns true if the jump is taken, false otherwise.
-func evalJumpOp(op asm.JumpOp, dst, src int64) (bool, error) {
+func evalJumpOp(op asm.OpCode, dst, src int64) (bool, error) {
+	// Sign-extend 32-bit comparisons in jumps to 64 bits. These instructions will
+	// appear on machines supporting ISAv3 or later, where left-shift/right-shift
+	// sequences are no longer used to sign-extend 32-bit operands, only for s16
+	// and smaller. Apply the same treatment to both dst and src for consistency.
+	if s32Jump(op) {
+		dst = int64(int32(dst))
+		src = int64(int32(src))
+	}
+
 	var jump bool
-	switch op {
+	switch op.JumpOp() {
 	case asm.JEq:
 		jump = dst == src
 
