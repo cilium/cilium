@@ -26,7 +26,6 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -1258,7 +1257,6 @@ type daemonParams struct {
 	Devices             statedb.Table[*datapathTables.Device]
 	DirectRoutingDevice datapathTables.DirectRoutingDevice
 	IPIdentityWatcher   *ipcache.LocalIPIdentityWatcher
-	ClusterInfo         cmtypes.ClusterInfo
 	IPsecAgent          datapath.IPsecAgent
 	SyncHostIPs         *syncHostIPs
 	NodeDiscovery       *nodediscovery.NodeDiscovery
