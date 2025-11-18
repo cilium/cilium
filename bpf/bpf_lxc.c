@@ -58,6 +58,25 @@
 #include "lib/vtep.h"
 #include "lib/subnet.h"
 
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+static __always_inline int
+lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
+{
+	int ret __maybe_unused;
+
+	ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+
+	/* Note that bpf_lxc can be loaded before bpf_host, so bpf_host's policy
+	 * program may not yet be present at this time.
+	 */
+	ret = tail_call_policy(ctx, CONFIG(host_ep_id));
+
+	/* report fine-grained error: */
+	return DROP_HOST_NOT_READY;
+}
+#endif
+
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 static __always_inline int
 lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
@@ -696,16 +715,10 @@ ct_recreate6:
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, jump to the bpf_host program to enforce ingress host policies.
+	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (*dst_sec_identity == HOST_ID) {
-		ctx_store_meta(ctx, CB_SRC_LABEL, SECLABEL_IPV6);
-		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
-
-		/* return fine-grained error: */
-		return DROP_HOST_NOT_READY;
-	}
+	if (*dst_sec_identity == HOST_ID)
+		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 #ifdef ENABLE_IDENTITY_MARK
@@ -1166,18 +1179,10 @@ ct_recreate4:
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, jump to the bpf_host program to enforce ingress host policies.
-	 * Note that bpf_lxc can be loaded before bpf_host, so bpf_host's policy
-	 * program may not yet be present at this time.
+	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (*dst_sec_identity == HOST_ID) {
-		ctx_store_meta(ctx, CB_SRC_LABEL, SECLABEL_IPV4);
-		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
-
-		/* report fine-grained error: */
-		return DROP_HOST_NOT_READY;
-	}
+	if (*dst_sec_identity == HOST_ID)
+		return lxc_deliver_to_host(ctx, SECLABEL_IPV4);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 #ifdef ENABLE_IDENTITY_MARK
