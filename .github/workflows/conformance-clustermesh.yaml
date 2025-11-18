@@ -572,6 +572,44 @@ jobs:
           kubectl --context ${{ env.contextName1 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
           kubectl --context ${{ env.contextName2 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
 
+      - name: Setup remote users config
+        if: matrix.mode != 'external'
+        run: |
+          cat << EOF > remote-users1.yaml
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: clustermesh-remote-users
+            namespace: kube-system
+          data:
+            users.yaml: |
+              users:
+              - name: remote-${{ env.ciliumClusterName1 }}
+                role: remote
+          EOF
+
+          cat << EOF > remote-users1.yaml
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: clustermesh-remote-users
+            namespace: kube-system
+          data:
+            users.yaml: |
+              users:
+              - name: remote-${{ env.ciliumClusterName2 }}
+                role: remote
+          EOF
+            helm --kube-context $ctx install \
+              cert-manager jetstack/cert-manager \
+              --namespace cert-manager \
+              --create-namespace \
+              --version ${{ env.CERT_MANAGER_VERSION }}
+          done
+
+          kubectl --context ${{ env.contextName1 }} create -f remote-users1.yaml
+          kubectl --context ${{ env.contextName2 }} create -f remote-users2.yaml
+
       - name: Install Cilium in cluster1
         id: install-cilium-cluster1
         env:
