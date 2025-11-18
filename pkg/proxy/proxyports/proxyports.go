@@ -267,7 +267,6 @@ func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (err error) {
 // Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
 // Each allocated port must be eventually freed with ReleaseProxyPort().
 func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
-	// Accessing pp.proxyPort requires the lock
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -298,6 +297,42 @@ func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 	pp.configured = true
 
 	p.logger.Debug("AllocateProxyPort: allocated proxy port",
+		fieldProxyRedirectID, name,
+		logfields.ProxyPort, pp.ProxyPort,
+	)
+
+	return pp.ProxyPort, nil
+}
+
+// ReallocateCRDProxyPort() reallocates a new port for listener 'name'.
+// This will force reallocation of a new port even if one was already allocated.
+func (p *ProxyPorts) ReallocateCRDProxyPort(name string) (uint16, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	pp := p.proxyPorts[name]
+	if pp == nil || pp.Ingress {
+		pp = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false}
+	}
+
+	if pp.ProxyPort != 0 {
+		p.reset(pp)
+		pp.rulesPort = 0
+	}
+
+	// Allocate a new port
+	var err error
+	pp.ProxyPort, err = p.allocatePort(0, p.rangeMin, p.rangeMax)
+	if err != nil {
+		return 0, err
+	}
+	p.proxyPorts[name] = pp
+	// marks port as reserved
+	p.allocatedPorts[pp.ProxyPort] = true
+	// mark proxy port as configured
+	pp.configured = true
+
+	p.logger.Debug("ReallocateProxyPort: reallocated proxy port",
 		fieldProxyRedirectID, name,
 		logfields.ProxyPort, pp.ProxyPort,
 	)
