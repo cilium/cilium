@@ -18,7 +18,9 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
@@ -137,6 +139,11 @@ func newIdentityAllocator(params identityAllocatorParams) identityAllocatorOut {
 			idAlloc.Close()
 			return nil
 		},
+	})
+
+	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
+		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
+		metrics.IdentityLabelSources.WithLabelValues(labels.LabelSourceReserved).Inc()
 	})
 
 	return identityAllocatorOut{
