@@ -76,6 +76,7 @@ type endpointRestorerParams struct {
 	Resolver promise.Resolver[endpointstate.Restorer]
 
 	Lifecycle           cell.Lifecycle
+	DaemonConfig        *option.DaemonConfig
 	Logger              *slog.Logger
 	K8sWatcher          *watchers.K8sWatcher
 	Clientset           k8sClient.Clientset
@@ -94,6 +95,7 @@ type endpointRestorerParams struct {
 
 type endpointRestorer struct {
 	logger              *slog.Logger
+	stateDir            string
 	k8sWatcher          *watchers.K8sWatcher
 	clientset           k8sClient.Clientset
 	endpointCreator     endpointcreator.EndpointCreator
@@ -118,6 +120,7 @@ type endpointRestorer struct {
 func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 	restorer := &endpointRestorer{
 		logger:              params.Logger,
+		stateDir:            params.DaemonConfig.StateDir,
 		k8sWatcher:          params.K8sWatcher,
 		clientset:           params.Clientset,
 		endpointCreator:     params.EndpointCreator,
@@ -148,10 +151,15 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 	params.Resolver.Resolve(restorer)
 
 	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
+		OnStart: func(ctx cell.HookContext) error {
 			if err := restorer.clearStaleCiliumEndpointVeths(); err != nil {
 				// log and continue
 				params.Logger.Warn("Unable to clean stale endpoint interfaces", logfields.Error, err)
+			}
+
+			// read old endpoints from disk before k8s is configured
+			if err := restorer.readOldEndpointsFromDisk(ctx); err != nil {
+				params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
 			}
 			return nil
 		},
@@ -348,13 +356,13 @@ func (r *endpointRestorer) getPodForEndpoint(ep *endpoint.Endpoint) error {
 	return nil
 }
 
-// fetchOldEndpoints reads the list of existing endpoints previously managed by Cilium when it was
+// readOldEndpointsFromDisk reads the list of existing endpoints previously managed by Cilium when it was
 // last run and associated it with container workloads. This function performs the first step in
 // restoring the endpoint structure.  It needs to be followed by a call to restoreOldEndpoints()
 // once k8s has been initialized and regenerateRestoredEndpoints() once the endpoint builder is
 // ready. In summary:
 //
-// 1. fetchOldEndpoints(): Unmarshal old endpoints
+// 1. readOldEndpointFromDisk(): read old endpoints from disk
 //   - used to start DNS proxy with restored DNS history and rules
 //
 // 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
@@ -363,7 +371,7 @@ func (r *endpointRestorer) getPodForEndpoint(ep *endpoint.Endpoint) error {
 //
 // 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
 //   - recreate endpoint's policy, as well as bpf programs and maps
-func (r *endpointRestorer) FetchOldEndpoints(ctx context.Context, dir string) error {
+func (r *endpointRestorer) readOldEndpointsFromDisk(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		r.logger.Info("Endpoint restore is disabled, skipping restore step")
 		return nil
@@ -371,13 +379,13 @@ func (r *endpointRestorer) FetchOldEndpoints(ctx context.Context, dir string) er
 
 	r.logger.Info("Reading old endpoints...")
 
-	dirFiles, err := os.ReadDir(dir)
+	dirFiles, err := os.ReadDir(r.stateDir)
 	if err != nil {
 		return err
 	}
 	eptsID := endpoint.FilterEPDir(dirFiles)
 
-	r.restoreState.possible = endpoint.ReadEPsFromDirNames(ctx, r.logger, r.endpointCreator, dir, eptsID)
+	r.restoreState.possible = endpoint.ReadEPsFromDirNames(ctx, r.logger, r.endpointCreator, r.stateDir, eptsID)
 
 	if len(r.restoreState.possible) == 0 {
 		r.logger.Info("No old endpoints found.")
