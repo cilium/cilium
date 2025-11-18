@@ -236,13 +236,43 @@ func findBranch(bt *Backtracker) *asm.Instruction {
 // findDereference backtracks instructions until it finds a memory load
 // (dereference) into the given dst register.
 //
+// The returned int64 is the accumulated mask from any AND operations applied
+// to the register after dereference. Mask value 0 means no mask was applied.
+// Mask is currently limited to 32 bits.
+//
 // The bool return value indicates whether the dereferenced value needs to be
 // sign-extended before being given to the branch resolver.
-func findDereference(bt *Backtracker, dst asm.Register) (*asm.Instruction, bool) {
+func findDereference(bt *Backtracker, dst asm.Register) (*asm.Instruction, int64, bool) {
 	var extend bool
+	var mask int64
+
 	for bt.Previous() {
 		ins := bt.Instruction()
 		if ins.Dst != dst {
+			continue
+		}
+
+		// Accumulate AND masks occurring after the dereference.
+		//
+		// ALU32 example:
+		// 	54: LdXMemW dst: r1 src: r1 off: 0 imm: 0
+		// 	55: AndImm32 dst: r1 imm: 1
+		// 	56: JEq32Imm dst: r1 off: 1 imm: 0
+		//
+		// Ignore ALU32 vs ALU differences since:
+		// - bitwise ops are signedness-agnostic
+		// - mask value doesn't get sign-extended
+		// - resulting value can never have more bits set than the original
+		//
+		// Limit mask value to 32 bits (imm) since 64-bit support would require more
+		// backtracking to resolve the src register.
+		if ins.OpCode.ALUOp() == asm.And {
+			if ins.OpCode.Mode() == asm.MemMode {
+				// Reg-reg AND not supported yet.
+				break
+			}
+
+			mask |= ins.Constant
 			continue
 		}
 
@@ -287,14 +317,14 @@ func findDereference(bt *Backtracker, dst asm.Register) (*asm.Instruction, bool)
 
 		op := ins.OpCode
 		if op.Class().IsLoad() && op.Mode() == asm.MemMode {
-			return ins, extend
+			return ins, mask, extend
 		}
 
 		// Register got clobbered, stop looking.
 		break
 	}
 
-	return nil, false
+	return nil, 0, false
 }
 
 // findMapLoad backtracks instructions until it finds a map load instruction
@@ -494,7 +524,7 @@ func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]
 func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]VariableSpec) (int64, error) {
 	// First, check if there's a dereference into the register.
 	derefIter := bt.Clone()
-	deref, extend := findDereference(derefIter, reg)
+	deref, mask, extend := findDereference(derefIter, reg)
 
 	if deref != nil {
 		// Found a dereference, continue looking for the map load.
@@ -511,6 +541,20 @@ func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]Varia
 		v, err := loadVariable(vs, deref, extend)
 		if err != nil {
 			return 0, fmt.Errorf("loading variable value: %w", err)
+		}
+
+		// Bitwise operations on signed types are implementation-dependent in C due
+		// to differences in signedness representations. [findDereference] only
+		// recognizes AND operations occurring after lsh/arsh sequences, so apply
+		// the mask after performing sign extension to respect the bytecode's order
+		// of operations.
+		//
+		// For negative mask values, the correctness of the result will depend
+		// completely on the width of the mask, so the programmer should take care
+		// to size the mask appropriately. Note that mask values are currently
+		// limited to 32 bits.
+		if mask != 0 {
+			v &= mask
 		}
 
 		return v, nil
