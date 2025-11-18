@@ -341,6 +341,13 @@ communicating via the proxy must reconnect to re-establish connections.
   (previously this was a RHEL8.6-compatible kernel).
 * The previously deprecated ``FromRequires`` and ``ToRequires`` fields of the `CiliumNetworkPolicy` and `CiliumClusterwideNetworkPolicy` CRDs have been removed.
 * This release introduces enabling packet layer path MTU discovery by default on CNI Pod endpoints, this is controlled via the ``enable-endpoint-packet-layer-pmtud`` flag.
+* The ``clustermesh.apiserver.tls.authMode`` option is set by default to ``migration`` as
+  a first step to transition to ``cluster`` in a future release. If you are using
+  ``clustermesh.useAPIServer=true``  and ``clustermesh.config.enabled=false``
+  you should either create the ``clustermesh-remote-users`` ConfigMap in addition
+  to the existing ClusterMesh secrets or set ``clustermesh.apiserver.tls.authMode=legacy``.
+  If you have a different configuration, you are not expected to take any action and the
+  transition to ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
 
 Removed Options
 ~~~~~~~~~~~~~~~
