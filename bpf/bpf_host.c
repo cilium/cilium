@@ -1888,8 +1888,7 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 		src_sec_identity = HOST_ID;
 		dir = METRIC_EGRESS;
 	} else {
-		/* TODO: in a future release, use CB_SRC_LABEL here */
-		src_sec_identity = UNKNOWN_ID;
+		src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 		dir = METRIC_INGRESS;
 	}
 
