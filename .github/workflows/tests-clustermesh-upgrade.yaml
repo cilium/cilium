@@ -149,6 +149,9 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
       - name: Set up newest settings
         id: newest-vars
         uses: ./.github/actions/helm-default
