@@ -999,6 +999,9 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 	helmVals := map[string]any{
 		"clustermesh": map[string]any{
 			"useAPIServer": true,
+			"config": map[string]any{
+				"enabled": true,
+			},
 		},
 	}
 
