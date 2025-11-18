@@ -753,6 +753,14 @@
       ]
     },
     {
+      // Separate patch version updates, so that renovate can update the patch
+      // versions on stable branches.
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "separateMinorPatch": true
+    },
+    {
       // Do not allow any major and minor etcd updates into stable branches.
       "enabled": false,
       "matchDepNames": [
