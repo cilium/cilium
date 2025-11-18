@@ -68,6 +68,7 @@ jobs:
           # build-commits-bpf: Check if datapath build works for every commit
           filters: |
             src:
+              - '.github/workflows/lint-build-commits.yaml'
               - 'bpf/**'
               - '!**/*.md'
 
@@ -79,6 +80,7 @@ jobs:
           # build-commits-test: Check if ginkgo test suite build works for every commit
           filters: |
             src:
+              - '.github/workflows/lint-build-commits.yaml'
               - 'pkg/**'
               - 'test/**'
               - '!**/*.md'
