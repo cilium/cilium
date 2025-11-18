@@ -167,8 +167,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		return fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 
-	policyAPI.InitEntities(params.ClusterInfo.Name)
-
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
 	if err := params.EndpointRestorer.FetchOldEndpoints(ctx, params.DaemonConfig.StateDir); err != nil {

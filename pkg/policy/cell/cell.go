@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -75,6 +76,8 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 			}
 		})
 	}
+
+	policyapi.InitEntities(params.ClusterInfo.Name)
 
 	// policy repository: maintains list of active Rules and their subject
 	// security identities. Also constructs the SelectorCache, a precomputed
