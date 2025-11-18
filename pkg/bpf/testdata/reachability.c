@@ -16,6 +16,8 @@ DECLARE_CONFIG(__s16, sym_g, "Make sym_g reachable if value is negative, testing
 DECLARE_CONFIG(__s32, sym_h, "Make sym_h reachable if value is negative, testing sign extension")
 DECLARE_CONFIG(bool, sym_i, "Make sym_i reachable")
 DECLARE_CONFIG(bool, sym_j, "Make sym_j reachable")
+DECLARE_CONFIG(__s16, sym_k, "Make sym_k reachable if bit 1 is set")
+DECLARE_CONFIG(__u32, sym_l, "Make sym_l reachable if bit 1 is set")
 
 __noinline
 void func_i() {
@@ -59,6 +61,12 @@ static int entry() {
                 func_i();
 
         func_j();
+
+        if (CONFIG(sym_k) & 1)
+                SYMBOL(sym_k);
+
+        if (CONFIG(sym_l) & 1)
+                SYMBOL(sym_l);
 
         return 0;
 }
