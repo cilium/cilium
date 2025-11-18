@@ -91,6 +91,8 @@ func TestReachabilitySimple(t *testing.T) {
 		SymH    *ebpf.VariableSpec `ebpf:"__config_sym_h"`
 		SymI    *ebpf.VariableSpec `ebpf:"__config_sym_i"`
 		SymJ    *ebpf.VariableSpec `ebpf:"__config_sym_j"`
+		SymK    *ebpf.VariableSpec `ebpf:"__config_sym_k"`
+		SymL    *ebpf.VariableSpec `ebpf:"__config_sym_l"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
 	insns := obj.Program.Instructions
@@ -124,6 +126,8 @@ func TestReachabilitySimple(t *testing.T) {
 	require.NoError(t, obj.SymH.Set(int32(-1)))
 	require.NoError(t, obj.SymI.Set(true))
 	require.NoError(t, obj.SymJ.Set(true))
+	require.NoError(t, obj.SymK.Set(int16(1)))
+	require.NoError(t, obj.SymL.Set(uint32(1)))
 
 	rr, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
