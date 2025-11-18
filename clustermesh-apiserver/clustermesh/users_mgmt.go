@@ -161,7 +161,7 @@ func (us *usersManager) sync(ctx context.Context) error {
 			logfields.Error, err,
 			logfields.Path, us.ClusterUsersConfigPath,
 		)
-		return err
+		return nil
 	}
 
 	var users usersConfigFile
@@ -171,7 +171,7 @@ func (us *usersManager) sync(ctx context.Context) error {
 			logfields.Error, err,
 			logfields.Path, us.ClusterUsersConfigPath,
 		)
-		return err
+		return nil
 	}
 
 	// Mark all users as stale
