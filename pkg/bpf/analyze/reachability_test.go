@@ -18,16 +18,60 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func findLiveReference(r *Reachable, ref string) bool {
+// symbols extracts all unique symbol references from insns, ignoring func and
+// map references.
+func symbols(insns asm.Instructions) map[string]struct{} {
+	syms := make(map[string]struct{})
+
+	for _, ins := range insns {
+		if ins.IsFunctionReference() || ins.IsLoadFromMap() {
+			continue
+		}
+		if ref := ins.Reference(); ref != "" {
+			syms[ref] = struct{}{}
+		}
+	}
+
+	return syms
+}
+
+// eachLiveRef calls fn for each live symbol reference appearing in r.
+func eachLiveRef(r *Reachable, fn func(ref string)) {
 	for iter, live := range r.Iterate() {
 		if !live {
 			continue
 		}
-		if iter.Instruction().Reference() == ref {
-			return true
+		ins := iter.Instruction()
+		if ins.IsFunctionReference() || ins.IsLoadFromMap() {
+			continue
+		}
+		if ref := ins.Reference(); ref != "" {
+			fn(ref)
 		}
 	}
-	return false
+}
+
+// allUnreachable asserts that all symbols appearing in insns are marked
+// unreachable in r.
+func allUnreachable(t *testing.T, insns asm.Instructions, r *Reachable) {
+	t.Helper()
+
+	syms := symbols(insns)
+	eachLiveRef(r, func(ref string) {
+		assert.Nil(t, syms[ref], "symbol %q should be unreachable", ref)
+	})
+}
+
+// allReachable asserts that all symbols appearing in insns are marked live in
+// r.
+func allReachable(t *testing.T, insns asm.Instructions, r *Reachable) {
+	t.Helper()
+
+	syms := symbols(insns)
+	eachLiveRef(r, func(ref string) {
+		delete(syms, ref)
+	})
+	assert.Empty(t, syms, "not all symbols are marked live")
 }
 
 func TestReachabilitySimple(t *testing.T) {
@@ -45,21 +89,15 @@ func TestReachabilitySimple(t *testing.T) {
 		SymH    *ebpf.VariableSpec `ebpf:"__config_sym_h"`
 	}{}
 	require.NoError(t, spec.Assign(&obj))
+	insns := obj.Program.Instructions
 
-	blocks, err := MakeBlocks(obj.Program.Instructions)
+	blocks, err := MakeBlocks(insns)
 	require.NoError(t, err)
 
-	noElim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
+	ur, err := Reachability(blocks, insns, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
 
-	assert.False(t, findLiveReference(noElim, "sym_a"))
-	assert.False(t, findLiveReference(noElim, "sym_b"))
-	assert.False(t, findLiveReference(noElim, "sym_c"))
-	assert.False(t, findLiveReference(noElim, "sym_d"))
-	assert.False(t, findLiveReference(noElim, "sym_e"))
-	assert.False(t, findLiveReference(noElim, "sym_f"))
-	assert.False(t, findLiveReference(noElim, "sym_g"))
-	assert.False(t, findLiveReference(noElim, "sym_h"))
+	allUnreachable(t, insns, ur)
 
 	type ts struct {
 		_ structs.HostLayout
@@ -81,17 +119,10 @@ func TestReachabilitySimple(t *testing.T) {
 	require.NoError(t, obj.SymG.Set(int16(-1)))
 	require.NoError(t, obj.SymH.Set(int32(-1)))
 
-	elim, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
+	rr, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
 	require.NoError(t, err)
 
-	assert.True(t, findLiveReference(elim, "sym_a"))
-	assert.True(t, findLiveReference(elim, "sym_b"))
-	assert.True(t, findLiveReference(elim, "sym_c"))
-	assert.True(t, findLiveReference(elim, "sym_d"))
-	assert.True(t, findLiveReference(elim, "sym_e"))
-	assert.True(t, findLiveReference(elim, "sym_f"))
-	assert.True(t, findLiveReference(elim, "sym_g"))
-	assert.True(t, findLiveReference(elim, "sym_h"))
+	allReachable(t, insns, rr)
 }
 
 var _ VariableSpec = (*mockVarSpec)(nil)
