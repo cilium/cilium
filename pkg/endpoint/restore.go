@@ -385,8 +385,22 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	}
 	// The identity of a freshly restored endpoint is incomplete due to some
 	// parts of the identity not being marshaled to JSON. Hence we must set
-	// the identity even if has not changed.
-	e.SetIdentity(id, true)
+	// the identity even if has not changed. This will also upsert the identity
+	// so that other parts of the system can correctly keep track of the identity.
+	identityToRelease := e.SetIdentity(id)
+
+	// If a separate goroutine has already set the identity we need to clear a reference
+	// to avoid leaking a ref.
+	if identityToRelease != nil {
+		_, err := e.allocator.Release(context.Background(), identityToRelease, false)
+		if err != nil {
+			e.getLogger().Warn(
+				"Unable to release old endpoint identity",
+				logfields.Error, err,
+				logfields.Identity, identityToRelease.ID,
+			)
+		}
+	}
 	e.unlock()
 
 	return nil

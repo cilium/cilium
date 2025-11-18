@@ -2275,10 +2275,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	elog.WithFields(logrus.Fields{logfields.Identity: allocatedIdentity.StringID()}).
 		Debug("Assigned new identity to endpoint")
 
-	e.SetIdentity(allocatedIdentity, false)
+	identityToRelease := e.SetIdentity(allocatedIdentity)
 
-	if oldIdentity != nil {
-		_, err := e.allocator.Release(releaseCtx, oldIdentity, false)
+	if identityToRelease != nil {
+		_, err := e.allocator.Release(releaseCtx, identityToRelease, false)
 		if err != nil {
 			elog.WithFields(logrus.Fields{logfields.Identity: oldIdentity.ID}).
 				WithError(err).Warn("Unable to release old endpoint identity")
