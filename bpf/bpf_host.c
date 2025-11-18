@@ -309,13 +309,16 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			/* The map value is zeroed so the map update didn't happen somehow. */
 			return DROP_INVALID_TC_BUFFER;
 
+		trace.monitor = ct_buffer->monitor;
+		trace.reason = (enum trace_reason)ct_buffer->ret;
+
 		if (from_host) {
 			bool is_host_id = from_host_raw & FROM_HOST_FLAG_HOST_ID;
 
 			ret = __ipv6_host_policy_egress(ctx, is_host_id, ip6, ct_buffer, &trace,
 							ext_err);
 		} else {
-			ret = __ipv6_host_policy_ingress(ctx, ip6, ct_buffer, &remote_id, &trace,
+			ret = __ipv6_host_policy_ingress(ctx, ip6, ct_buffer, &remote_id,
 							 ext_err);
 		}
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
@@ -756,14 +759,16 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			/* The map value is zeroed so the map update didn't happen somehow. */
 			return DROP_INVALID_TC_BUFFER;
 
+		trace.monitor = ct_buffer->monitor;
+		trace.reason = (enum trace_reason)ct_buffer->ret;
+
 		if (from_host) {
 			bool is_host_id = from_host_raw & FROM_HOST_FLAG_HOST_ID;
 
 			ret = __ipv4_host_policy_egress(ctx, is_host_id, ip4, ct_buffer, &trace,
 							ext_err);
 		} else {
-			ret = __ipv4_host_policy_ingress(ctx, ip4, ct_buffer, &remote_id, &trace,
-							 ext_err);
+			ret = __ipv4_host_policy_ingress(ctx, ip4, ct_buffer, &remote_id, ext_err);
 		}
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;

@@ -68,9 +68,6 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
 
-	trace->monitor = ct_buffer->monitor;
-	trace->reason = (enum trace_reason)ret;
-
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret == CT_REPLY || ret == CT_RELATED)
 		return CTX_ACT_OK;
@@ -150,6 +147,9 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	if (ct_buffer.ret < 0)
 		return ct_buffer.ret;
 
+	trace->monitor = ct_buffer.monitor;
+	trace->reason = (enum trace_reason)ct_buffer.ret;
+
 	return __ipv6_host_policy_egress(ctx, src_id == HOST_ID,
 					ip6, &ct_buffer, trace, ext_err);
 }
@@ -180,7 +180,7 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 static __always_inline int
 __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			   struct ct_buffer6 *ct_buffer, __u32 *src_sec_identity,
-			   struct trace_ctx *trace, __s8 *ext_err)
+			   __s8 *ext_err)
 {
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	__u32 tunnel_endpoint = 0;
@@ -193,9 +193,6 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
-
-	trace->monitor = ct_buffer->monitor;
-	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve source identity. */
 	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
@@ -296,7 +293,10 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 	if (ct_buffer.ret < 0)
 		return ct_buffer.ret;
 
-	return __ipv6_host_policy_ingress(ctx, ip6, &ct_buffer, src_sec_identity, trace, ext_err);
+	trace->monitor = ct_buffer.monitor;
+	trace->reason = (enum trace_reason)ct_buffer.ret;
+
+	return __ipv6_host_policy_ingress(ctx, ip6, &ct_buffer, src_sec_identity, ext_err);
 }
 # endif /* ENABLE_IPV6 */
 
@@ -341,9 +341,6 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 	__u32 dst_sec_identity = 0;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
-
-	trace->monitor = ct_buffer->monitor;
-	trace->reason = (enum trace_reason)ret;
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret == CT_REPLY || ret == CT_RELATED)
@@ -437,6 +434,9 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	if (ct_buffer.ret < 0)
 		return ct_buffer.ret;
 
+	trace->monitor = ct_buffer.monitor;
+	trace->reason = (enum trace_reason)ct_buffer.ret;
+
 	return __ipv4_host_policy_egress(ctx, src_id == HOST_ID, ip4, &ct_buffer, trace, ext_err);
 }
 
@@ -459,7 +459,7 @@ ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 static __always_inline int
 __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 			   struct ct_buffer4 *ct_buffer, __u32 *src_sec_identity,
-			   struct trace_ctx *trace, __s8 *ext_err)
+			   __s8 *ext_err)
 {
 	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	__u32 tunnel_endpoint = 0;
@@ -473,9 +473,6 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 	bool is_untracked_fragment = false;
 	__u16 proxy_port = 0;
 	__u32 cookie = 0;
-
-	trace->monitor = ct_buffer->monitor;
-	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve source identity. */
 	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
@@ -574,7 +571,10 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 	if (ct_buffer.ret < 0)
 		return ct_buffer.ret;
 
-	return __ipv4_host_policy_ingress(ctx, ip4, &ct_buffer, src_sec_identity, trace, ext_err);
+	trace->monitor = ct_buffer.monitor;
+	trace->reason = (enum trace_reason)ct_buffer.ret;
+
+	return __ipv4_host_policy_ingress(ctx, ip4, &ct_buffer, src_sec_identity, ext_err);
 }
 #  endif /* ENABLE_IPV4 */
 # endif /* ENABLE_HOST_FIREWALL */
