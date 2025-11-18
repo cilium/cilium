@@ -100,8 +100,9 @@ func (pe *PolicyEntry) String() string {
 
 func (pe *PolicyEntry) New() bpf.MapValue { return &PolicyEntry{} }
 
-// PolicyKey represents a key in the BPF policy map for an endpoint. It must
-// match the layout of policy_key in bpf/lib/common.h.
+// PolicyKey represents a key in the BPF policy map for an endpoint.
+//
+// Must be in sync with struct policy_key in <bpf/lib/policy.h>
 type PolicyKey struct {
 	Prefixlen        uint32 `align:"lpm_key"`
 	Identity         uint32 `align:"sec_label"`
@@ -147,8 +148,9 @@ const (
 	StaticPrefixBits = uint32(sizeofPolicyKey-sizeofPrefixlen)*8 - uint32(FullPrefixBits)
 )
 
-// PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
-// match the layout of policy_entry in bpf/lib/common.h.
+// PolicyEntry represents an entry in the BPF policy map for an endpoint.
+//
+// Must be in sync with struct policy_entry in <bpf/lib/policy.h>
 type PolicyEntry struct {
 	ProxyPortNetwork  uint16                        `align:"proxy_port"` // In network byte-order
 	Flags             policyEntryFlags              `align:"deny"`

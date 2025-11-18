@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/types"
 )
 
-// Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>
+// Must be in sync with ENDPOINT_KEY_* in <bpf/lib/eps.h>
 const (
 	EndpointKeyIPv4 uint8 = 1
 	EndpointKeyIPv6 uint8 = 2
@@ -21,7 +21,7 @@ const (
 
 // EndpointKey represents the key value of the endpoints BPF map
 //
-// Must be in sync with struct endpoint_key in <bpf/lib/common.h>
+// Must be in sync with struct endpoint_key in <bpf/lib/eps.h>
 type EndpointKey struct {
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
 	IP        types.IPv6 `align:"$union0"`
