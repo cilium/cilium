@@ -267,7 +267,12 @@ func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (err error) {
 // Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
 // Each allocated port must be eventually freed with ReleaseProxyPort().
 func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
-	// Accessing pp.proxyPort requires the lock
+	return p.AllocateCRDProxyPortWithReallocate(name, false)
+}
+
+// AllocateCRDProxyPortWithReallocate() allocates a new port for listener 'name'.
+// If forceReallocate is true, it will force reallocation of a new port even if one was already allocated.
+func (p *ProxyPorts) AllocateCRDProxyPortWithReallocate(name string, forceReallocate bool) (uint16, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -276,16 +281,20 @@ func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 		pp = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false}
 	}
 
+	if forceReallocate && pp.ProxyPort != 0 {
+		p.reset(pp)
+		pp.rulesPort = 0
+	}
+
 	// Allocate a new port only if a port was never allocated before.
 	// This is required since Envoy may already be listening on the
 	// previously allocated port for this proxy listener.
 	if pp.ProxyPort == 0 {
 		var err error
-		// Try to allocate the same port that was previously used on the datapath
-		if pp.rulesPort != 0 && !p.allocatedPorts[pp.rulesPort] {
+		if !forceReallocate && pp.rulesPort != 0 && !p.allocatedPorts[pp.rulesPort] {
 			pp.ProxyPort = pp.rulesPort
 		} else {
-			pp.ProxyPort, err = p.allocatePort(pp.rulesPort, p.rangeMin, p.rangeMax)
+			pp.ProxyPort, err = p.allocatePort(0, p.rangeMin, p.rangeMax)
 			if err != nil {
 				return 0, err
 			}
