@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -63,6 +64,7 @@ type socketTerminationParams struct {
 	Config    lb.Config
 	ExtConfig lb.ExternalConfig
 	LBMaps    maps.LBMaps
+	Health    cell.Health
 
 	MakeSocketDestroyer socketDestroyerFactory
 	NetNSOps            netnsOps
@@ -105,6 +107,20 @@ func registerSocketTermination(p socketTerminationParams) error {
 		return nil
 	}
 
+	if err := sockets.InetDiagDestroyEnabled(p.Log, p.Config.LBSockTerminateAllProtos, true); err != nil {
+		if errors.Is(err, probes.ErrNotSupported) {
+			// The kernel doesn't support socket termination.
+			p.Log.Error("Forcefully terminating sockets connected to deleted service backends "+
+				"not supported by underlying kernel", logfields.Error, err)
+			p.Health.Degraded("service LV socket termination not supported by kernel", err)
+			return nil
+		}
+		p.Log.Error("Unexpected error while probing kernel socket termination support."+
+			"Will proceed with starting socket destroyer job but functionality may be degraded",
+			logfields.Error, err)
+		p.Health.Degraded("Unexpected error while probing kernel socket termination support",
+			err)
+	}
 	p.JobGroup.Add(
 		job.OneShot(
 			"socket-termination",
