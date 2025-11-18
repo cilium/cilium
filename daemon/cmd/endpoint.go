@@ -545,7 +545,6 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	if !regenTriggered {
 		regenMetadata := &regeneration.ExternalRegenerationMetadata{
 			Reason:            "Initial build on endpoint creation",
-			ParentContext:     ctx,
 			RegenerationLevel: regeneration.RegenerateWithDatapath,
 		}
 		build, err := ep.SetRegenerateStateIfAlive(regenMetadata)
