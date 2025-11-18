@@ -35,7 +35,7 @@ const (
 
 // Key implements the bpf.MapKey interface.
 //
-// Must be in sync with struct ipcache_key in bpf/...
+// Must be in sync with struct ipcache_key in <bpf/lib/eps.h>
 type Key struct {
 	Prefixlen uint32 `align:"lpm_key"`
 	ClusterID uint16 `align:"cluster_id"`

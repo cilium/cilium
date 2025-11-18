@@ -37,7 +37,7 @@ type Map interface {
 
 // Key implements the bpf.MapKey interface.
 //
-// Must be in sync with struct vtep_key in <bpf/lib/common.h>
+// Must be in sync with struct vtep_key in <bpf/lib/vtep.h>
 type Key struct {
 	IP types.IPv4 `align:"vtep_ip"`
 }
