@@ -2312,15 +2312,15 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 		logfields.IdentityNew, allocatedIdentity.StringID(),
 	)
 
-	e.SetIdentity(allocatedIdentity, false)
+	identityToRelease := e.SetIdentity(allocatedIdentity)
 
-	if oldIdentity != nil {
-		_, err := e.allocator.Release(context.Background(), oldIdentity, false)
+	if identityToRelease != nil {
+		_, err := e.allocator.Release(context.Background(), identityToRelease, false)
 		if err != nil {
 			scopedLog.Warn(
 				"Unable to release old endpoint identity",
 				logfields.Error, err,
-				logfields.IdentityOld, oldIdentity.ID,
+				logfields.IdentityOld, identityToRelease.ID,
 			)
 		}
 	}

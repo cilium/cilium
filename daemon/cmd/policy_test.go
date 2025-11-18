@@ -222,7 +222,7 @@ func (ds *DaemonSuite) prepareEndpoint(t *testing.T, identity *identity.Identity
 		e.IPv6 = ProdIPv6Addr
 		e.IPv4 = ProdIPv4Addr
 	}
-	e.SetIdentity(identity, true)
+	e.SetIdentity(identity)
 
 	ready := e.SetState(endpoint.StateWaitingToRegenerate, "test")
 	require.True(t, ready)
