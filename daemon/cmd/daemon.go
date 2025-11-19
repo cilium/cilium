@@ -147,16 +147,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	ctmap.InitMapInfo(params.MetricsRegistry, params.DaemonConfig.EnableIPv4, params.DaemonConfig.EnableIPv6, params.KPRConfig.KubeProxyReplacement || params.DaemonConfig.EnableBPFMasquerade)
 
-	// Collect CIDR identities from the "old" bpf ipcache and restore them
-	// in to the metadata layer.
-	if params.DaemonConfig.RestoreState && !params.DaemonConfig.DryMode {
-		// this *must* be called before initMaps(), which will "hide"
-		// the "old" ipcache.
-		if err := params.IdentityRestorer.RestoreLocalIdentities(); err != nil {
-			params.Logger.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", logfields.Error, err)
-		}
-	}
-
 	bootstrapStats.daemonInit.End(true)
 
 	// Open or create BPF maps.

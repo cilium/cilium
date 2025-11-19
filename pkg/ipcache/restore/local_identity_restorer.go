@@ -4,19 +4,15 @@
 package restoration
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -26,10 +22,7 @@ import (
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell provides the LocalIdentityRestorer that is responsible to restore the local identities from
@@ -50,19 +43,14 @@ var (
 type localIdentityRestorerParams struct {
 	cell.In
 
-	Logger      *slog.Logger
-	JobGroup    job.Group
-	AgentConfig *option.DaemonConfig
+	Logger *slog.Logger
 
 	// The global identity allocator is not yet initialized here at injection time
 	// That happens in the daemon init via InitIdentityAllocator(). Only the local identity
 	// allocator is initialized here.
 	IdentityAllocator identitycell.CachingIdentityAllocator
-	IPCache           *ipcache.IPCache
 	NodeLocalStore    *node.LocalNodeStore
 	MetricsRegistry   *metrics.Registry
-
-	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
 }
 
 type LocalIdentityRestorer struct {
@@ -73,31 +61,10 @@ type LocalIdentityRestorer struct {
 }
 
 func newLocalIdentityRestorer(params localIdentityRestorerParams) *LocalIdentityRestorer {
-	restorer := &LocalIdentityRestorer{
+	return &LocalIdentityRestorer{
 		params:        params,
 		restoredCIDRs: nil, // will be initialized during restoration
 	}
-
-	params.JobGroup.Add(job.OneShot("release-local-identities", func(ctx context.Context, _ cell.Health) error {
-		r, err := params.EndpointRestorePromise.Await(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to wait for endpoint restorer promise: %w", err)
-		}
-
-		if err := r.WaitForEndpointRestore(ctx); err != nil {
-			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
-		}
-
-		// Sleep for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
-		// the normal allocation processes to finish, before releasing restored resources.
-		time.Sleep(params.AgentConfig.IdentityRestoreGracePeriod)
-
-		restorer.releaseRestoredIdentities()
-
-		return nil
-	}))
-
-	return restorer
 }
 
 // RestoreLocalIdentities restores the local identity state in the
@@ -121,7 +88,7 @@ func newLocalIdentityRestorer(params localIdentityRestorerParams) *LocalIdentity
 // are present in ipcache & the identity allocator.
 //
 // This *must* be called before initMaps(), which will hide the "old" ipcache.
-func (d *LocalIdentityRestorer) RestoreLocalIdentities() error {
+func (d *LocalIdentityRestorer) RestoreLocalIdentities(ipCache *ipcache.IPCache) error {
 	// Restore the local identity allocator from its checkpoint.
 	// This returns the set of identities created. We will use this set
 	// to regenerate the set of labels for prefixes in the ipcache.
@@ -138,7 +105,7 @@ func (d *LocalIdentityRestorer) RestoreLocalIdentities() error {
 	// create placeholder CIDR labels in the ipcache.
 	// This only adds an ipcache metadata entry for prefixes with a `cidr:`
 	// label and ingress IPs. All other entries will have to be created anew.
-	d.restoreIPCache(localPrefixes, restoredIdentities)
+	d.restoreIPCache(ipCache, localPrefixes, restoredIdentities)
 	return err
 }
 
@@ -219,7 +186,7 @@ func (d *LocalIdentityRestorer) dumpOldIPCacheV1() (map[netip.Prefix]identity.Nu
 //
 // For ingress IPs, it will add those to the ipcache and configure the local node
 // accordingly.
-func (d *LocalIdentityRestorer) restoreIPCache(localPrefixes map[netip.Prefix]identity.NumericIdentity, restoredIdentities map[identity.NumericIdentity]*identity.Identity) {
+func (d *LocalIdentityRestorer) restoreIPCache(ipCache *ipcache.IPCache, localPrefixes map[netip.Prefix]identity.NumericIdentity, restoredIdentities map[identity.NumericIdentity]*identity.Identity) {
 	if len(localPrefixes) == 0 {
 		return
 	}
@@ -322,8 +289,8 @@ func (d *LocalIdentityRestorer) restoreIPCache(localPrefixes map[netip.Prefix]id
 	// Even though the ipcache map hasn't been initialized yet, this is
 	// safe to do so, because the ipcache's apply controller is currently
 	// paused.
-	d.params.IPCache.IdentityAllocator.WithholdLocalIdentities(nidsToWithhold)
-	d.params.IPCache.UpsertMetadataBatch(metaUpdates...)
+	ipCache.IdentityAllocator.WithholdLocalIdentities(nidsToWithhold)
+	ipCache.UpsertMetadataBatch(metaUpdates...)
 
 	d.params.Logger.Info("restored prefixes in the ipcache",
 		logfields.Count, len(d.restoredCIDRs),
@@ -331,7 +298,7 @@ func (d *LocalIdentityRestorer) restoreIPCache(localPrefixes map[netip.Prefix]id
 	)
 }
 
-// releaseRestoredIdentities removes the placeholder state that was inserted
+// ReleaseRestoredIdentities removes the placeholder state that was inserted
 // in to the ipcache and local identity allocators on restoration
 //
 // Any identities and prefixes actually in use will still exist after this.
@@ -347,7 +314,7 @@ func (d *LocalIdentityRestorer) restoreIPCache(localPrefixes map[netip.Prefix]id
 // of metadata in the ipcache, and thus will remain. CIDRs for which
 // restoration was the only source of metadata will be deallocated. Identities
 // with no references after restoration will be deallocated.
-func (d *LocalIdentityRestorer) releaseRestoredIdentities() {
+func (d *LocalIdentityRestorer) ReleaseRestoredIdentities(ipCache *ipcache.IPCache) {
 	defer func() {
 		// release the memory held by restored CIDRs
 		d.restoredCIDRs = nil
@@ -375,6 +342,6 @@ func (d *LocalIdentityRestorer) releaseRestoredIdentities() {
 		})
 	}
 
-	d.params.IPCache.RemoveMetadataBatch(updates...)
-	d.params.IPCache.IdentityAllocator.UnwithholdLocalIdentities(nids)
+	ipCache.RemoveMetadataBatch(updates...)
+	ipCache.IdentityAllocator.UnwithholdLocalIdentities(nids)
 }
