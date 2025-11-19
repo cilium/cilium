@@ -29,8 +29,21 @@ authenticated using mutual TLS before being sent to the destination.
 Generating secrets for authentication
 =====================================
 
-TODO(ldelossa)
+Cilium's ztunnel integration requires a set a set of private keys and
+accompanying to certificates be present via Kubernetes secrets. This follows the
+same pattern as IPsec key injections.
 
+These keys can be generated with the following bash script prior to deploying
+Cilium.
+
+.. literalinclude:: ../../../examples/kubernetes-ztunnel/generate-secrets.sh
+   :language: bash
+
+The 'bootstrap' keys are used to secure the connection between ztunnel and
+Cilium's xDS and certificate server implementation.
+
+The 'ca' keys are used as the root certificate for creating in-memory and
+ephemeral client certificates on ztunnel's request.
 
 Enable ztunnel in Cilium
 ========================
