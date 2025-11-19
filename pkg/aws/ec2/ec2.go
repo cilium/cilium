@@ -19,12 +19,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/aws/types"
-	"github.com/cilium/cilium/pkg/defaults"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
@@ -42,6 +41,9 @@ const (
 	// InvalidParameterValueStr sort of catch-all error code from AWS to indicate request params are invalid. Often,
 	// requires looking at the error message to get the actual reason. See SubnetFullErrMsgStr for example.
 	InvalidParameterValueStr = "InvalidParameterValue"
+
+	// OperationNotPermittedStr indicates the request returned too many results without sufficient filtering or pagination
+	OperationNotPermittedStr = "OperationNotPermitted"
 
 	AssignPrivateIpAddresses        = "AssignPrivateIpAddresses"
 	AssociateAddress                = "AssociateAddress"
@@ -74,6 +76,7 @@ type Client struct {
 	instancesFilters    []ec2_types.Filter
 	eniTagSpecification ec2_types.TagSpecification
 	usePrimary          bool
+	maxResultsPerCall   int32 // Maximum results per API call; 0 means let AWS decide
 }
 
 // MetricsAPI represents the metrics maintained by the AWS API client
@@ -83,7 +86,7 @@ type MetricsAPI interface {
 }
 
 // NewClient returns a new EC2 client
-func NewClient(logger *slog.Logger, ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters, instancesFilters []ec2_types.Filter, eniTags map[string]string, usePrimary bool) *Client {
+func NewClient(logger *slog.Logger, ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, burst int, subnetsFilters, instancesFilters []ec2_types.Filter, eniTags map[string]string, usePrimary bool, maxResultsPerCall int32) *Client {
 	eniTagSpecification := ec2_types.TagSpecification{
 		ResourceType: ec2_types.ResourceTypeNetworkInterface,
 		Tags:         createAWSTagSlice(eniTags),
@@ -98,7 +101,49 @@ func NewClient(logger *slog.Logger, ec2Client *ec2.Client, metrics MetricsAPI, r
 		instancesFilters:    instancesFilters,
 		eniTagSpecification: eniTagSpecification,
 		usePrimary:          usePrimary,
+		maxResultsPerCall:   maxResultsPerCall,
 	}
+}
+
+// getMaxResults returns the current maxResultsPerCall value.
+// Returns nil if 0 (let AWS decide), otherwise returns pointer to the value.
+func (c *Client) getMaxResults() *int32 {
+	if c.maxResultsPerCall == 0 {
+		return nil
+	}
+	return aws.Int32(c.maxResultsPerCall)
+}
+
+// isOperationNotPermitted checks if an error is an AWS OperationNotPermitted error,
+// which indicates the request returned too many results without sufficient filtering or pagination.
+func isOperationNotPermitted(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == OperationNotPermittedStr
+	}
+	return false
+}
+
+// switchToPagination checks if an error requires switching to paginated requests.
+// If OperationNotPermitted is detected and we're currently unpaginated (maxResultsPerCall=0),
+// it logs a warning and switches to paginated requests (maxResultsPerCall=1000).
+// Returns true if a switch was made and the request should be retried.
+func (c *Client) switchToPagination(err error) bool {
+	if !isOperationNotPermitted(err) {
+		return false
+	}
+
+	// If already using pagination, no switch needed
+	if c.maxResultsPerCall > 0 {
+		return false
+	}
+
+	// Switch to pagination
+	c.maxResultsPerCall = 1000
+	c.logger.Warn("AWS API returned OperationNotPermitted, the operator will automatically switch to paginated requests. "+
+		"To disable this warning, set --aws-max-results-per-call=1000",
+		logfields.MaxResults, c.maxResultsPerCall)
+	return true
 }
 
 // NewConfig returns a new aws.Config configured with the correct region
@@ -213,81 +258,98 @@ func DetectEKSClusterName(ctx context.Context, cfg aws.Config) (string, error) {
 }
 
 func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
-	result := make([]string, 0, int(maxResults))
-	input := &ec2.DescribeNetworkInterfacesInput{
-		Filters: NewTagsFilter(tags),
-	}
-	for _, subnetFilter := range c.subnetsFilters {
-		if aws.ToString(subnetFilter.Name) == "subnet-id" {
-			input.Filters = append(input.Filters, subnetFilter)
+retry:
+	for {
+		result := make([]string, 0, int(maxResults))
+		input := &ec2.DescribeNetworkInterfacesInput{
+			Filters: NewTagsFilter(tags),
 		}
-	}
-	if operatorOption.Config.AWSPaginationEnabled {
-		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
-	}
-
-	input.Filters = append(input.Filters, ec2_types.Filter{
-		Name:   aws.String("status"),
-		Values: []string{"available"},
-	})
-
-	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
-	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
-		sinceStart := spanstat.Start()
-		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
-		if err != nil {
-			return nil, err
-		}
-		for _, eni := range output.NetworkInterfaces {
-			if len(result) >= int(maxResults) {
-				return result, nil
+		for _, subnetFilter := range c.subnetsFilters {
+			if aws.ToString(subnetFilter.Name) == "subnet-id" {
+				input.Filters = append(input.Filters, subnetFilter)
 			}
-			result = append(result, aws.ToString(eni.NetworkInterfaceId))
 		}
+
+		input.Filters = append(input.Filters, ec2_types.Filter{
+			Name:   aws.String("status"),
+			Values: []string{"available"},
+		})
+
+		// Set MaxResults based on current configuration (nil means let AWS decide)
+		input.MaxResults = c.getMaxResults()
+
+		paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+		for paginator.HasMorePages() {
+			c.limiter.Limit(ctx, DescribeNetworkInterfaces)
+			sinceStart := spanstat.Start()
+			output, err := paginator.NextPage(ctx)
+			c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
+			if err != nil {
+				// If OperationNotPermitted and we switch to pagination, retry the entire request
+				if c.switchToPagination(err) {
+					continue retry
+				}
+				return nil, err
+			}
+			for _, eni := range output.NetworkInterfaces {
+				if len(result) >= int(maxResults) {
+					return result, nil
+				}
+				result = append(result, aws.ToString(eni.NetworkInterfaceId))
+			}
+		}
+
+		return result, nil
 	}
-	return result, nil
 }
 
 // describeNetworkInterfaces lists all ENIs
 func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamTypes.SubnetMap) ([]ec2_types.NetworkInterface, error) {
-	var result []ec2_types.NetworkInterface
-	input := &ec2.DescribeNetworkInterfacesInput{
-		// Filters out ipv6-only ENIs. For now we require that every interface
-		// has a primary IPv4 address.
-		Filters: []ec2_types.Filter{
-			{
-				Name:   aws.String("private-ip-address"),
-				Values: []string{"*"},
+retry:
+	for {
+		var result []ec2_types.NetworkInterface
+		input := &ec2.DescribeNetworkInterfacesInput{
+			// Filters out ipv6-only ENIs. For now we require that every interface
+			// has a primary IPv4 address.
+			Filters: []ec2_types.Filter{
+				{
+					Name:   aws.String("private-ip-address"),
+					Values: []string{"*"},
+				},
 			},
-		},
-	}
-	if operatorOption.Config.AWSPaginationEnabled {
-		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
-	}
-	if len(c.subnetsFilters) > 0 {
-		subnetsIDs := make([]string, 0, len(subnets))
-		for id := range subnets {
-			subnetsIDs = append(subnetsIDs, id)
 		}
-		input.Filters = append(input.Filters, ec2_types.Filter{
-			Name:   aws.String("subnet-id"),
-			Values: subnetsIDs,
-		})
-	}
-	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
-	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
-		sinceStart := spanstat.Start()
-		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
-		if err != nil {
-			return nil, err
+		if len(c.subnetsFilters) > 0 {
+			subnetsIDs := make([]string, 0, len(subnets))
+			for id := range subnets {
+				subnetsIDs = append(subnetsIDs, id)
+			}
+			input.Filters = append(input.Filters, ec2_types.Filter{
+				Name:   aws.String("subnet-id"),
+				Values: subnetsIDs,
+			})
 		}
-		result = append(result, output.NetworkInterfaces...)
+
+		// Set MaxResults based on current configuration (nil means let AWS decide)
+		input.MaxResults = c.getMaxResults()
+
+		paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+		for paginator.HasMorePages() {
+			c.limiter.Limit(ctx, DescribeNetworkInterfaces)
+			sinceStart := spanstat.Start()
+			output, err := paginator.NextPage(ctx)
+			c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
+			if err != nil {
+				// If OperationNotPermitted and we switch to pagination, retry the entire request
+				if c.switchToPagination(err) {
+					continue retry
+				}
+				return nil, err
+			}
+			result = append(result, output.NetworkInterfaces...)
+		}
+
+		return result, nil
 	}
-	return result, nil
 }
 
 // describeNetworkInterfacesByInstance gets ENIs on the given instance
@@ -350,37 +412,47 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 		enisListFromInstances = append(enisListFromInstances, k)
 	}
 
-	ENIAttrs := &ec2.DescribeNetworkInterfacesInput{
-		// Filters out ipv6-only ENIs. For now we require that every interface
-		// has a primary IPv4 address.
-		Filters: []ec2_types.Filter{
-			{
-				Name:   aws.String("private-ip-address"),
-				Values: []string{"*"},
+retry:
+	for {
+		var result []ec2_types.NetworkInterface
+
+		ENIAttrs := &ec2.DescribeNetworkInterfacesInput{
+			// Filters out ipv6-only ENIs. For now we require that every interface
+			// has a primary IPv4 address.
+			Filters: []ec2_types.Filter{
+				{
+					Name:   aws.String("private-ip-address"),
+					Values: []string{"*"},
+				},
 			},
-		},
-	}
-	if len(enisListFromInstances) > 0 {
-		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
-	} else if operatorOption.Config.AWSPaginationEnabled {
-		// MaxResults is incompatible with NetworkInterfaceIds
-		ENIAttrs.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
-	}
-
-	var result []ec2_types.NetworkInterface
-
-	ENIPaginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, ENIAttrs)
-	for ENIPaginator.HasMorePages() {
-		c.limiter.Limit(ctx, DescribeNetworkInterfaces)
-		sinceStart := spanstat.Start()
-		output, err := ENIPaginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
-		if err != nil {
-			return nil, err
 		}
-		result = append(result, output.NetworkInterfaces...)
+		if len(enisListFromInstances) > 0 {
+			// MaxResults is incompatible with NetworkInterfaceIds, so we can only use specific IDs here
+			ENIAttrs.NetworkInterfaceIds = enisListFromInstances
+		} else {
+			// Set MaxResults based on current configuration (nil means let AWS decide)
+			ENIAttrs.MaxResults = c.getMaxResults()
+		}
+
+		ENIPaginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, ENIAttrs)
+		for ENIPaginator.HasMorePages() {
+			c.limiter.Limit(ctx, DescribeNetworkInterfaces)
+			sinceStart := spanstat.Start()
+			output, err := ENIPaginator.NextPage(ctx)
+			c.metricsAPI.ObserveAPICall(DescribeNetworkInterfaces, deriveStatus(err), sinceStart.Seconds())
+			if err != nil {
+				// If OperationNotPermitted and we switch to pagination, retry the entire request
+				// But only if not using NetworkInterfaceIds (which is incompatible with MaxResults)
+				if len(enisListFromInstances) == 0 && c.switchToPagination(err) {
+					continue retry
+				}
+				return nil, err
+			}
+			result = append(result, output.NetworkInterfaces...)
+		}
+
+		return result, nil
 	}
-	return result, nil
 }
 
 // parseENI parses a ec2.NetworkInterface as returned by the EC2 service API,
@@ -942,25 +1014,34 @@ func createAWSTagSlice(tags map[string]string) []ec2_types.Tag {
 
 // describeSecurityGroups lists the security groups in the vpcID, or all security groups if the vpcID is empty.
 func (c *Client) describeSecurityGroups(ctx context.Context, vpcID string) ([]ec2_types.SecurityGroup, error) {
-	var result []ec2_types.SecurityGroup
-	input := &ec2.DescribeSecurityGroupsInput{}
-	if operatorOption.Config.AWSPaginationEnabled {
-		input.MaxResults = aws.Int32(defaults.AWSResultsPerApiCall)
-	}
-	filters := addVPCFilterIfPresent([]ec2_types.Filter{}, vpcID)
-	input.Filters = filters
-	paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, input)
-	for paginator.HasMorePages() {
-		c.limiter.Limit(ctx, DescribeSecurityGroups)
-		sinceStart := spanstat.Start()
-		output, err := paginator.NextPage(ctx)
-		c.metricsAPI.ObserveAPICall(DescribeSecurityGroups, deriveStatus(err), sinceStart.Seconds())
-		if err != nil {
-			return nil, err
+retry:
+	for {
+		var result []ec2_types.SecurityGroup
+		input := &ec2.DescribeSecurityGroupsInput{}
+		filters := addVPCFilterIfPresent([]ec2_types.Filter{}, vpcID)
+		input.Filters = filters
+
+		// Set MaxResults based on current configuration (nil means let AWS decide)
+		input.MaxResults = c.getMaxResults()
+
+		paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, input)
+		for paginator.HasMorePages() {
+			c.limiter.Limit(ctx, DescribeSecurityGroups)
+			sinceStart := spanstat.Start()
+			output, err := paginator.NextPage(ctx)
+			c.metricsAPI.ObserveAPICall(DescribeSecurityGroups, deriveStatus(err), sinceStart.Seconds())
+			if err != nil {
+				// If OperationNotPermitted and we switch to pagination, retry the entire request
+				if c.switchToPagination(err) {
+					continue retry
+				}
+				return nil, err
+			}
+			result = append(result, output.SecurityGroups...)
 		}
-		result = append(result, output.SecurityGroups...)
+
+		return result, nil
 	}
-	return result, nil
 }
 
 // GetSecurityGroups returns the security groups in the vpcID, or all security groups if the vpcID is empty.

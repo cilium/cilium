@@ -1288,6 +1288,8 @@ const (
 
 	PrefixCount = "prefixCount"
 
+	MaxResults = "maxResults"
+
 	LenEIPS = "lenEIPS"
 
 	EIP = "eip"
