@@ -1139,7 +1139,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
     (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
-	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+	ret = ipv6_host_policy_ingress(ctx, &src_id, true, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2470,7 +2470,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
      (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
-	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+	ret = ipv4_host_policy_ingress(ctx, &src_id, true, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 

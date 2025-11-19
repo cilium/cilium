@@ -1593,7 +1593,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	int ret;
 
-	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+	ret = ipv6_host_policy_ingress(ctx, &src_id, false, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  METRIC_INGRESS);
@@ -1621,7 +1621,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	int ret;
 
-	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+	ret = ipv4_host_policy_ingress(ctx, &src_id, false, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  METRIC_INGRESS);
@@ -1637,8 +1637,8 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 
 static __always_inline
 int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
-			__u32 src_sec_identity, bool traced, bool use_tailcall,
-			__s8 *ext_err)
+			__u32 src_sec_identity, bool check_dst_identity,
+			bool traced, bool use_tailcall, __s8 *ext_err)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1654,13 +1654,39 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (check_dst_identity) {
+			const struct remote_endpoint_info *info;
+			__u32 dst_sec_identity = WORLD_IPV6_ID;
+			void *data, *data_end;
+			struct ipv6hdr *ip6;
+			union v6addr *daddr;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
+
+			daddr = (union v6addr *)&ip6->daddr;
+
+			/* Retrieve destination identity. */
+			info = lookup_ip6_remote_endpoint(daddr, 0);
+			if (info)
+				dst_sec_identity = info->sec_identity;
+			cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+				   daddr->p4, dst_sec_identity);
+
+			/* Only enforce host policies for packets to host IPs. */
+			if (dst_sec_identity != HOST_ID) {
+				ret = CTX_ACT_OK;
+				break;
+			}
+		}
+
 		if (use_tailcall) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 			ctx_store_meta(ctx, CB_TRACED, traced);
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
 						 ext_err);
 		} else {
-			ret = ipv6_host_policy_ingress(ctx, &src_sec_identity,
+			ret = ipv6_host_policy_ingress(ctx, &src_sec_identity, false,
 						       &trace, ext_err);
 		}
 
@@ -1668,13 +1694,36 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (check_dst_identity) {
+			const struct remote_endpoint_info *info;
+			__u32 dst_sec_identity = WORLD_IPV4_ID;
+			void *data, *data_end;
+			struct iphdr *ip4;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
+
+			/* Retrieve destination identity. */
+			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+			if (info)
+				dst_sec_identity = info->sec_identity;
+			cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+				   ip4->daddr, dst_sec_identity);
+
+			/* Only enforce host policies for packets to host IPs. */
+			if (dst_sec_identity != HOST_ID) {
+				ret = CTX_ACT_OK;
+				break;
+			}
+		}
+
 		if (use_tailcall) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 			ctx_store_meta(ctx, CB_TRACED, traced);
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
 						 ext_err);
 		} else {
-			ret = ipv4_host_policy_ingress(ctx, &src_sec_identity,
+			ret = ipv4_host_policy_ingress(ctx, &src_sec_identity, false,
 						       &trace, ext_err);
 		}
 
@@ -1814,7 +1863,7 @@ skip_ipsec_nodeport_revdnat:
 		goto out;
 	}
 
-	ret = host_ingress_policy(ctx, proto, src_id, traced, true, &ext_err);
+	ret = host_ingress_policy(ctx, proto, src_id, true, traced, true, &ext_err);
 #else
 	ret = CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
@@ -1940,8 +1989,9 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 		bool use_tailcall = (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) ||
 				    is_defined(DEBUG);
 
+		/* Caller has already checked the dst identity: */
 		ret = host_ingress_policy(ctx, proto, src_sec_identity,
-					  true, use_tailcall, &ext_err);
+					  false, true, use_tailcall, &ext_err);
 	}
 
 drop_err:
