@@ -22,6 +22,8 @@ import (
 	restoration "github.com/cilium/cilium/pkg/ipcache/restore"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	"github.com/cilium/cilium/pkg/promise"
@@ -60,6 +62,7 @@ type ipCacheParams struct {
 	Lifecycle              cell.Lifecycle
 	JobGroup               job.Group
 	DaemonConfig           *option.DaemonConfig
+	MetricsRegistry        *metrics.Registry
 	IdentityRestorer       *restoration.LocalIdentityRestorer
 	CacheIdentityAllocator cache.IdentityAllocator
 	IdentityUpdater        policycell.IdentityUpdater
@@ -91,11 +94,25 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 			if params.DaemonConfig.RestoreState {
 				// Collect CIDR identities from the "old" bpf ipcache and restore them
 				// in to the metadata layer.
-				// This *must* be called before initMaps() in daemon.go, which will "hide"
+				// This must be called before re-creating the ipcache map, which will "hide"
 				// the "old" ipcache.
 				if err := params.IdentityRestorer.RestoreLocalIdentities(ipc); err != nil {
 					params.Logger.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", logfields.Error, err)
 				}
+			}
+
+			// The ipcache is shared between endpoints. Unpin the old ipcache map created
+			// by any previous instances of the agent to prevent new endpoints from
+			// picking up the old map pin. The old ipcache will continue to be used by
+			// loaded bpf programs, it will just no longer be updated by the agent.
+			//
+			// This is to allow existing endpoints that have not been regenerated yet to
+			// continue using the existing ipcache until the endpoint is regenerated for
+			// the first time and its bpf programs have been replaced. Existing endpoints
+			// are using a policy map which is potentially out of sync as local identities
+			// are re-allocated on startup.
+			if err := ipcachemap.IPCacheMap(params.MetricsRegistry).Recreate(); err != nil {
+				return fmt.Errorf("initializing ipcache map: %w", err)
 			}
 
 			return nil
