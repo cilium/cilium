@@ -73,7 +73,8 @@ func registerEndpointRestoreFinishJob(jobGroup job.Group, endpointRestorer *endp
 type endpointRestorerParams struct {
 	cell.In
 
-	Resolver promise.Resolver[endpointstate.Restorer]
+	Resolver             promise.Resolver[endpointstate.Restorer]
+	RestorationNotifiers []endpointstate.RestorationNotifier `group:"endpointRestorationNotifiers"`
 
 	Lifecycle           cell.Lifecycle
 	DaemonConfig        *option.DaemonConfig
@@ -161,6 +162,14 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 			if err := restorer.readOldEndpointsFromDisk(ctx); err != nil {
 				params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
 			}
+
+			params.Logger.Debug("Notify endpoint restoration notifiers about restored endpoints", logfields.Registrations, len(params.RestorationNotifiers))
+			for _, r := range params.RestorationNotifiers {
+				if r != nil {
+					r.RestorationNotify(restorer.restoreState.possible)
+				}
+			}
+
 			return nil
 		},
 	})
@@ -391,10 +400,6 @@ func (r *endpointRestorer) readOldEndpointsFromDisk(ctx context.Context) error {
 		r.logger.Info("No old endpoints found.")
 	}
 	return nil
-}
-
-func (r *endpointRestorer) GetState() *endpointRestoreState {
-	return r.restoreState
 }
 
 // restoreOldEndpoints performs the second step in restoring the endpoint structure,
