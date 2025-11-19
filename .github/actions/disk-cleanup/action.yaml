@@ -39,7 +39,6 @@ runs:
         }
 
         # Run ALL deletions in parallel - maximum parallelization
-        fast_delete "/opt/hostedtoolcache" &
         fast_delete "/usr/local/lib/android" &
         fast_delete "/usr/share/dotnet" &
         fast_delete "/opt/google/chrome" &
