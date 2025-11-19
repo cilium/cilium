@@ -465,16 +465,21 @@ func (bt *Backtracker) Instruction() *asm.Instruction {
 // Previous moves to the previous instruction within the block.
 // Returns false when reaching the start of the block.
 func (bt *Backtracker) Previous() bool {
-	if bt.index <= bt.stop {
+	// First call to Previous, point to the current instruction.
+	if bt.ins == nil {
+		bt.ins = &bt.insns[bt.index]
+		return true
+	}
+
+	// Make sure index doesn't underrun the start of the block.
+	prev := bt.index - 1
+	if prev < bt.stop {
 		return false
 	}
 
-	// Only decrement if Previous was called before.
-	if bt.ins != nil {
-		bt.index--
-	}
-
-	bt.ins = &bt.insns[bt.index]
+	// Update index and sync in lockstep to avoid subtle bugs.
+	bt.index = prev
+	bt.ins = &bt.insns[prev]
 
 	return true
 }
