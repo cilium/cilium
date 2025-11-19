@@ -41,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
-	identityrestoration "github.com/cilium/cilium/pkg/identity/restoration"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -1237,7 +1236,6 @@ type daemonParams struct {
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointRestorer    *endpointRestorer
 	IdentityAllocator   identitycell.CachingIdentityAllocator
-	IdentityRestorer    *identityrestoration.LocalIdentityRestorer
 	Policy              policy.PolicyRepository
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
