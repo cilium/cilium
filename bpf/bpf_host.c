@@ -219,14 +219,30 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			is_host_id = secctx == HOST_ID;
 		}
 	} else if (!ctx_skip_host_fw(ctx)) {
+		const struct remote_endpoint_info *info;
+		__u32 dst_sec_identity = WORLD_IPV6_ID;
+		union v6addr *daddr;
+
 		/* Verifier workaround: R5 invalid mem access 'scalar'. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		if (ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
-				return ct_buffer.ret;
-			need_hostfw = true;
+		daddr = (union v6addr *)&ip6->daddr;
+
+		/* Retrieve destination identity. */
+		info = lookup_ip6_remote_endpoint(daddr, 0);
+		if (info)
+			dst_sec_identity = info->sec_identity;
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+			   daddr->p4, dst_sec_identity);
+
+		/* Only enforce host policies for packets to host IPs. */
+		if (dst_sec_identity == HOST_ID) {
+			if (ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer)) {
+				if (unlikely(ct_buffer.ret < 0))
+					return ct_buffer.ret;
+				need_hostfw = true;
+			}
 		}
 	}
 	if (need_hostfw) {
@@ -657,15 +673,28 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			is_host_id = secctx == HOST_ID;
 		}
 	} else if (!ctx_skip_host_fw(ctx)) {
+		const struct remote_endpoint_info *info;
+		__u32 dst_sec_identity = WORLD_IPV4_ID;
+
 		/* Verifier workaround: R5 invalid mem access 'scalar'. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		/* We're on the ingress path of the native device. */
-		if (ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer)) {
-			if (unlikely(ct_buffer.ret < 0))
-				return ct_buffer.ret;
-			need_hostfw = true;
+		/* Retrieve destination identity. */
+		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		if (info)
+			dst_sec_identity = info->sec_identity;
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+			   ip4->daddr, dst_sec_identity);
+
+		/* Only enforce host policies for packets to host IPs. */
+		if (dst_sec_identity == HOST_ID) {
+			/* We're on the ingress path of the native device. */
+			if (ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer)) {
+				if (unlikely(ct_buffer.ret < 0))
+					return ct_buffer.ret;
+				need_hostfw = true;
+			}
 		}
 	}
 	if (need_hostfw) {

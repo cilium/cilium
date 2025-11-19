@@ -158,25 +158,12 @@ static __always_inline bool
 ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				struct ct_buffer6 *ct_buffer)
 {
-	__u32 dst_sec_identity = WORLD_IPV6_ID;
-	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	int hdrlen;
 
-	/* Retrieve destination identity. */
-	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
-	info = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
-	if (info)
-		dst_sec_identity = info->sec_identity;
-	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-		   tuple->daddr.p4, dst_sec_identity);
-
-	/* Only enforce host policies for packets to host IPs. */
-	if (dst_sec_identity != HOST_ID)
-		return false;
-
 	/* Lookup connection in conntrack map. */
 	tuple->nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr,
 					   &ct_buffer->fraginfo);
@@ -281,12 +268,28 @@ static __always_inline int
 ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
 {
+	const struct remote_endpoint_info *info;
+	__u32 dst_sec_identity = WORLD_IPV6_ID;
 	struct ct_buffer6 ct_buffer = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	union v6addr *daddr;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+	daddr = (union v6addr *)&ip6->daddr;
+
+	/* Retrieve destination identity. */
+	info = lookup_ip6_remote_endpoint(daddr, 0);
+	if (info)
+		dst_sec_identity = info->sec_identity;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   daddr->p4, dst_sec_identity);
+
+	/* Only enforce host policies for packets to host IPs. */
+	if (dst_sec_identity != HOST_ID)
+		return CTX_ACT_OK;
 
 	if (!ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer))
 		return CTX_ACT_OK;
@@ -441,21 +444,8 @@ static __always_inline bool
 ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 				struct ct_buffer4 *ct_buffer)
 {
-	__u32 dst_sec_identity = WORLD_IPV4_ID;
-	const struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	int l3_off = ETH_HLEN;
-
-	/* Retrieve destination identity. */
-	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-	if (info)
-		dst_sec_identity = info->sec_identity;
-	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-		   ip4->daddr, dst_sec_identity);
-
-	/* Only enforce host policies for packets to host IPs. */
-	if (dst_sec_identity != HOST_ID)
-		return false;
 
 	/* Lookup connection in conntrack map. */
 	tuple->nexthdr = ip4->protocol;
@@ -558,12 +548,25 @@ static __always_inline int
 ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			 struct trace_ctx *trace, __s8 *ext_err)
 {
+	const struct remote_endpoint_info *info;
+	__u32 dst_sec_identity = WORLD_IPV4_ID;
 	struct ct_buffer4 ct_buffer = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	/* Retrieve destination identity. */
+	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+	if (info)
+		dst_sec_identity = info->sec_identity;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->daddr, dst_sec_identity);
+
+	/* Only enforce host policies for packets to host IPs. */
+	if (dst_sec_identity != HOST_ID)
+		return CTX_ACT_OK;
 
 	if (!ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer))
 		return CTX_ACT_OK;
