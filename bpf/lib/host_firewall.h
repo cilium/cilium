@@ -154,7 +154,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 					ip6, &ct_buffer, trace, ext_err);
 }
 
-static __always_inline bool
+static __always_inline int
 ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				struct ct_buffer6 *ct_buffer)
 {
@@ -167,17 +167,14 @@ ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 	hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &tuple->nexthdr,
 					   &ct_buffer->fraginfo);
-	if (hdrlen < 0) {
-		ct_buffer->ret = hdrlen;
-		return true;
-	}
-	ct_buffer->l4_off = ETH_HLEN + hdrlen;
-	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,
-				    ct_buffer->fraginfo, ct_buffer->l4_off,
-				    CT_INGRESS, SCOPE_BIDIR, NULL,
-				    &ct_buffer->monitor);
+	if (hdrlen < 0)
+		return hdrlen;
 
-	return true;
+	ct_buffer->l4_off = ETH_HLEN + hdrlen;
+	return ct_lookup6(get_ct_map6(tuple), tuple, ctx, ip6,
+			  ct_buffer->fraginfo, ct_buffer->l4_off,
+			  CT_INGRESS, SCOPE_BIDIR, NULL,
+			  &ct_buffer->monitor);
 }
 
 static __always_inline int
@@ -295,8 +292,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			return CTX_ACT_OK;
 	}
 
-	if (!ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer))
-		return CTX_ACT_OK;
+	ct_buffer.ret = ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer);
 	if (ct_buffer.ret < 0)
 		return ct_buffer.ret;
 
@@ -444,7 +440,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	return __ipv4_host_policy_egress(ctx, src_id == HOST_ID, ip4, &ct_buffer, trace, ext_err);
 }
 
-static __always_inline bool
+static __always_inline int
 ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 				struct ct_buffer4 *ct_buffer)
 {
@@ -456,10 +452,8 @@ ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 	ct_buffer->l4_off = l3_off + ipv4_hdrlen(ip4);
-	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
-				    CT_INGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
-
-	return true;
+	return ct_lookup4(get_ct_map4(tuple), tuple, ctx, ip4, ct_buffer->l4_off,
+			  CT_INGRESS, SCOPE_BIDIR, NULL, &ct_buffer->monitor);
 }
 
 static __always_inline int
@@ -576,8 +570,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 			return CTX_ACT_OK;
 	}
 
-	if (!ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer))
-		return CTX_ACT_OK;
+	ct_buffer.ret = ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer);
 	if (ct_buffer.ret < 0)
 		return ct_buffer.ret;
 

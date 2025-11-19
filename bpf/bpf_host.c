@@ -238,11 +238,11 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 		/* Only enforce host policies for packets to host IPs. */
 		if (dst_sec_identity == HOST_ID) {
-			if (ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer)) {
-				if (unlikely(ct_buffer.ret < 0))
-					return ct_buffer.ret;
-				need_hostfw = true;
-			}
+			ct_buffer.ret = ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer);
+			if (unlikely(ct_buffer.ret < 0))
+				return ct_buffer.ret;
+
+			need_hostfw = true;
 		}
 	}
 	if (need_hostfw) {
@@ -690,11 +690,11 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 		/* Only enforce host policies for packets to host IPs. */
 		if (dst_sec_identity == HOST_ID) {
 			/* We're on the ingress path of the native device. */
-			if (ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer)) {
-				if (unlikely(ct_buffer.ret < 0))
-					return ct_buffer.ret;
-				need_hostfw = true;
-			}
+			ct_buffer.ret = ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer);
+			if (unlikely(ct_buffer.ret < 0))
+				return ct_buffer.ret;
+
+			need_hostfw = true;
 		}
 	}
 	if (need_hostfw) {
