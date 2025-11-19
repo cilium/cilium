@@ -223,6 +223,28 @@ func TestBlocksIterateOffset(t *testing.T) {
 	assert.False(t, iter.Next())
 }
 
+func TestBacktracker(t *testing.T) {
+	insns := asm.Instructions{
+		asm.Ja.Label("prog").WithSymbol("prog"),
+	}
+
+	b, err := MakeBlocks(insns)
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, b)
+
+	bt := b.first().backtrack(insns)
+
+	// Make sure single-instruction blocks work as expected.
+	// First call: true, 0.
+	require.True(t, bt.Previous())
+	assert.Equal(t, 0, bt.index)
+
+	// Second call: false, 0.
+	require.False(t, bt.Previous())
+	assert.Equal(t, 0, bt.index)
+}
+
 func TestBlocksDump(t *testing.T) {
 	insns := branchingProg(t, 100)
 
