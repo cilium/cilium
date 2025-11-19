@@ -5,19 +5,27 @@ package ipcachecell
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	policyapi "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipcache/api"
+	restoration "github.com/cilium/cilium/pkg/ipcache/restore"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
+	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell provides the IPCache that manages the IP to identity mappings.
@@ -31,6 +39,9 @@ var Cell = cell.Module(
 		ipcache.NewIPIdentitySynchronizer,
 		newIPCacheAPIHandler,
 	),
+
+	// LocalIdentityRestorer restores the identities at startup
+	restoration.Cell,
 
 	cell.Invoke(
 		// Register the watcher to the fence to ensure that we wait for ipcache
@@ -47,9 +58,13 @@ type ipCacheParams struct {
 
 	Logger                 *slog.Logger
 	Lifecycle              cell.Lifecycle
+	JobGroup               job.Group
+	DaemonConfig           *option.DaemonConfig
+	IdentityRestorer       *restoration.LocalIdentityRestorer
 	CacheIdentityAllocator cache.IdentityAllocator
 	IdentityUpdater        policycell.IdentityUpdater
 	EndpointManager        endpointmanager.EndpointManager
+	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
 	CacheStatus            synced.CacheStatus
 }
 
@@ -68,12 +83,47 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 	})
 
 	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			if params.DaemonConfig.DryMode {
+				return nil
+			}
+
+			if params.DaemonConfig.RestoreState {
+				// Collect CIDR identities from the "old" bpf ipcache and restore them
+				// in to the metadata layer.
+				// This *must* be called before initMaps() in daemon.go, which will "hide"
+				// the "old" ipcache.
+				if err := params.IdentityRestorer.RestoreLocalIdentities(ipc); err != nil {
+					params.Logger.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", logfields.Error, err)
+				}
+			}
+
+			return nil
+		},
 		OnStop: func(hc cell.HookContext) error {
 			cancel()
-
 			return ipc.Shutdown()
 		},
 	})
+
+	params.JobGroup.Add(job.OneShot("release-local-identities", func(ctx context.Context, _ cell.Health) error {
+		r, err := params.EndpointRestorePromise.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for endpoint restorer promise: %w", err)
+		}
+
+		if err := r.WaitForEndpointRestore(ctx); err != nil {
+			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
+		}
+
+		// Sleep for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
+		// the normal allocation processes to finish, before releasing restored resources.
+		time.Sleep(params.DaemonConfig.IdentityRestoreGracePeriod)
+
+		params.IdentityRestorer.ReleaseRestoredIdentities(ipc)
+
+		return nil
+	}))
 
 	return ipc
 }

@@ -574,7 +574,6 @@ Makefile* @cilium/build
 /pkg/hubble/metrics @cilium/hubble-metrics
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
-/pkg/identity/restoration @cilium/sig-policy @cilium/ipcache
 /pkg/idpool/ @cilium/sig-policy
 /pkg/ip/ @cilium/sig-agent
 /pkg/ipalloc/ @cilium/sig-ipam
@@ -584,6 +583,7 @@ Makefile* @cilium/build
 /pkg/ipam/allocator/azure/ @cilium/sig-ipam @cilium/azure
 /pkg/ipam/allocator/clusterpool/ @cilium/sig-ipam @cilium/operator
 /pkg/ipcache/ @cilium/ipcache
+/pkg/ipcache/restore @cilium/sig-policy @cilium/ipcache
 /pkg/ipmasq @cilium/sig-agent
 /pkg/k8s/ @cilium/sig-k8s
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
