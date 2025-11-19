@@ -20,6 +20,24 @@ const (
 	// LabelValueSCOther is used for security identities allocated locally
 	// on the current node.
 	LabelValueSCOther = "other"
+
+	// LabelValueSCTypePeer is used for the normal selector cache
+	LabelValueSCTypePeer = "peer"
+
+	// LabelValueSCOperationAddSelector is used for the operation that adds a new selector
+	LabelValueSCOperationAddSelector = "add_selector"
+
+	// LabelValueSCOperationRemoveSelector is used for the operation that removes a selector
+	LabelValueSCOperationRemoveSelector = "remove_selector"
+
+	// LabelValueSCOperationIdentityUpdates is used for the operation that updates one or more identities in the cache
+	LabelValueSCOperationIdentityUpdates = "identity_updates"
+
+	// LabelValueSCOperation is used for the actual Selector Cache Operation duration
+	LabelValueSCOperation = "operation"
+
+	// LabelValueSCOperationLock is used for the actual lock time during the Selector Cache Operation duration
+	LabelValueSCOperationLock = "lock"
 )
 
 type PolicyMetrics interface {
