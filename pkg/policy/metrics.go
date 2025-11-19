@@ -17,10 +17,34 @@ var (
 		[]string{types.LabelSelectorClass},
 		nil,
 	)
+
+	selectorCacheSelectorCount = prometheus.NewDesc(
+		prometheus.BuildFQName(metrics.CiliumAgentNamespace, "policy_selector_cache", "selectors"),
+		"The number of selectors in the selector cache",
+		[]string{metrics.LabelType},
+		nil,
+	)
+
+	selectorCacheIdentityCount = prometheus.NewDesc(
+		prometheus.BuildFQName(metrics.CiliumAgentNamespace, "policy_selector_cache", "identities"),
+		"The number of identities in the selector cache",
+		[]string{metrics.LabelType},
+		nil,
+	)
+
+	selectorCacheOperationDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: metrics.CiliumAgentNamespace,
+		Subsystem: "policy_selector_cache",
+		Name:      "operation_duration_seconds",
+		Help:      "The latency of selector cache operations",
+		Buckets:   []float64{0.0005, 0.001, 0.005, 0.025, 0.05, 0.1, 0.2, 0.4},
+	}, []string{metrics.LabelOperation, metrics.LabelScope, metrics.LabelType})
 )
 
 type selectorStats struct {
 	maxCardinalityByClass map[string]int
+	selectors             int
+	identities            int
 }
 
 func newSelectorStats() selectorStats {
@@ -44,11 +68,15 @@ type selectorCacheMetrics struct {
 }
 
 func newSelectorCacheMetrics(sc selectorStatsCollector) prometheus.Collector {
-	return &selectorCacheMetrics{selectorStatsCollector: sc}
+	return &selectorCacheMetrics{
+		selectorStatsCollector: sc,
+	}
 }
 
 func (scm *selectorCacheMetrics) Describe(ch chan<- *prometheus.Desc) {
 	ch <- selectorCacheMetricsDesc
+	ch <- selectorCacheSelectorCount
+	ch <- selectorCacheIdentityCount
 }
 
 func (scm *selectorCacheMetrics) Collect(ch chan<- prometheus.Metric) {
@@ -59,4 +87,9 @@ func (scm *selectorCacheMetrics) Collect(ch chan<- prometheus.Metric) {
 			selectorCacheMetricsDesc, prometheus.GaugeValue, float64(stat), class,
 		)
 	}
+
+	ch <- prometheus.MustNewConstMetric(
+		selectorCacheSelectorCount, prometheus.GaugeValue, float64(stats.selectors), types.LabelValueSCTypePeer)
+	ch <- prometheus.MustNewConstMetric(
+		selectorCacheIdentityCount, prometheus.GaugeValue, float64(stats.identities), types.LabelValueSCTypePeer)
 }
