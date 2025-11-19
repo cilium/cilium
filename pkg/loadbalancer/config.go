@@ -519,7 +519,7 @@ var DefaultUserConfig = UserConfig{
 
 	DSRDispatch: DSRDispatchOption,
 
-	LBUnsupportedProtoAction: LBUnsupportedProtoActionForward,
+	LBUnsupportedProtoAction: LBUnsupportedProtoActionDrop,
 
 	// Defaults to false to retain prior behaviour to not route external packets
 	// to ClusterIP services.

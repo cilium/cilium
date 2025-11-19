@@ -1171,7 +1171,8 @@ func (ops *BPFOps) useIPCache(fe *loadbalancer.Frontend) bool {
 	}
 
 	switch fe.Type {
-	case loadbalancer.SVCTypeLoadBalancer, loadbalancer.SVCTypeClusterIP:
+	// case loadbalancer.SVCTypeLoadBalancer,loadbalancer.SVCTypeClusterIP:
+	default:
 		return fe.Address.Scope() == loadbalancer.ScopeExternal
 	}
 
