@@ -36,8 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
-	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
@@ -1249,8 +1247,6 @@ type daemonParams struct {
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	DNSProxy            bootstrap.FQDNProxyBootstrapper
-	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
 	InfraIPAllocator    infraendpoints.InfraIPAllocator

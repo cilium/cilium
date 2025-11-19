@@ -45,6 +45,7 @@ var Cell = cell.Module(
 	}),
 	cell.ProvidePrivate(adaptors),
 	cell.Provide(newForCell),
+	cell.Provide(registerEndpointRestorable),
 
 	cell.ProvidePrivate(New), // for the API handlers, exposes *manager.
 	cell.Provide(handlers),
@@ -113,6 +114,13 @@ func newForCell(m *manager) NameManager {
 	return m
 }
 
+func registerEndpointRestorable(m *manager) endpointstate.RestorableOut {
+	return endpointstate.RestorableOut{
+		Out:        cell.Out{},
+		Restorable: m,
+	}
+}
+
 // The NameManager maintains DNS mappings which need to be tracked, due to
 // FQDNSelectors. It is the main structure which relates the FQDN subsystem to
 // the policy subsystem for plumbing the relation between a DNS name and the
@@ -139,11 +147,6 @@ type NameManager interface {
 	LockName(name string)
 	// UnlockName releases a lock previously acquired by LockName()
 	UnlockName(name string)
-
-	// RestoreCache loads cache state from the restored system:
-	// - adds any pre-cached DNS entries
-	// - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-	RestoreCache(eps map[uint16]*endpoint.Endpoint)
 }
 
 // Provides the API handlers for Cilium API.

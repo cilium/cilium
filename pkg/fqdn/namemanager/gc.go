@@ -159,10 +159,14 @@ func (n *manager) doGC(ctx context.Context) error {
 	return nil
 }
 
-// RestoreCache loads cache state from the restored system:
+func (n *manager) EndpointsReadFromDisk(possible map[uint16]*endpoint.Endpoint) {
+	n.restoreCache(possible)
+}
+
+// restoreCache loads cache state from the restored system:
 // - adds any pre-cached DNS entries
 // - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
+func (n *manager) restoreCache(eps map[uint16]*endpoint.Endpoint) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
 	// TODO: remove this; it was neeeded for the v1.3-v1.4 upgrade
 	preCachePath := option.Config.ToFQDNsPreCache
