@@ -36,12 +36,14 @@ func TestConfig(t *testing.T) {
 		shouldAdaptMTU bool
 	}{
 		{
-			name:      "invalid protocol",
+			name:      "tunnel enabled, invalid protocol",
+			enablers:  []any{enabler(false), enabler(true)},
 			ucfg:      userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: "invalid", TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
 			shallFail: true,
 		},
 		{
-			name:      "invalid underlay",
+			name:      "tunnel enabled, invalid underlay",
+			enablers:  []any{enabler(true), enabler(false)},
 			ucfg:      userCfg{UnderlayProtocol: "invalid", TunnelProtocol: string(VXLAN), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
 			shallFail: true,
 		},

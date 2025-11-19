@@ -81,18 +81,6 @@ var (
 )
 
 func newConfig(in newConfigIn) (Config, error) {
-	switch EncapProtocol(in.Cfg.TunnelProtocol) {
-	case VXLAN, Geneve:
-	default:
-		return configDisabled, fmt.Errorf("invalid tunnel protocol %q", in.Cfg.TunnelProtocol)
-	}
-
-	switch UnderlayProtocol(in.Cfg.UnderlayProtocol) {
-	case IPv4, IPv6:
-	default:
-		return configDisabled, fmt.Errorf("invalid IP family for underlay %q", in.Cfg.UnderlayProtocol)
-	}
-
 	cfg := Config{
 		underlay:       UnderlayProtocol(in.Cfg.UnderlayProtocol),
 		protocol:       EncapProtocol(in.Cfg.TunnelProtocol),
@@ -101,10 +89,6 @@ func newConfig(in newConfigIn) (Config, error) {
 		srcPortHigh:    0,
 		deviceName:     "",
 		shouldAdaptMTU: false,
-	}
-
-	if _, err := fmt.Sscanf(in.Cfg.TunnelSourcePortRange, "%d-%d", &cfg.srcPortLow, &cfg.srcPortHigh); err != nil {
-		return configDisabled, fmt.Errorf("invalid tunnel source port range %q", in.Cfg.TunnelSourcePortRange)
 	}
 
 	var enabled bool
@@ -136,6 +120,18 @@ func newConfig(in newConfigIn) (Config, error) {
 		if cfg.port == 0 {
 			cfg.port = defaults.TunnelPortGeneve
 		}
+	default:
+		return configDisabled, fmt.Errorf("invalid tunnel protocol %q", cfg.protocol)
+	}
+
+	switch cfg.underlay {
+	case IPv4, IPv6:
+	default:
+		return configDisabled, fmt.Errorf("invalid IP family for underlay %q", cfg.underlay)
+	}
+
+	if _, err := fmt.Sscanf(in.Cfg.TunnelSourcePortRange, "%d-%d", &cfg.srcPortLow, &cfg.srcPortHigh); err != nil {
+		return configDisabled, fmt.Errorf("invalid tunnel source port range %q", in.Cfg.TunnelSourcePortRange)
 	}
 
 	return cfg, nil
