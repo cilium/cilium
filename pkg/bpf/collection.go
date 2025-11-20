@@ -222,7 +222,7 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	}
 
 	fixed := fixedResources(spec, opts.Keep)
-	if err := removeUnusedMaps(spec, fixed, reach); err != nil {
+	if err := removeUnusedMaps(spec, fixed, reach, logger); err != nil {
 		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
 	}
 
