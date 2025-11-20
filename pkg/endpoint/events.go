@@ -376,4 +376,9 @@ func (e *Endpoint) Stop() {
 	// if anything is blocking on it. If a delete request has already been
 	// enqueued for this endpoint, this is a no-op.
 	e.closeBPFProgramChannel()
+
+	// Wait for all controllers to fully terminate. This ensures controller
+	// goroutines are cleaned up and prevents race conditions where controllers
+	// might access resources (like LocalNodeStore) that are being shut down.
+	e.controllers.RemoveAllAndWait()
 }
