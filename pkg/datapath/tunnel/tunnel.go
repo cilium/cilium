@@ -13,6 +13,7 @@ import (
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // EncapProtocol represents the valid types of encapsulation protocols.
@@ -64,8 +65,9 @@ type Config struct {
 type newConfigIn struct {
 	cell.In
 
-	Cfg      userCfg
-	Enablers []enabler `group:"request-enable-tunneling"`
+	Cfg       userCfg
+	DaemonCfg *option.DaemonConfig
+	Enablers  []enabler `group:"request-enable-tunneling"`
 }
 
 var (
@@ -125,7 +127,14 @@ func newConfig(in newConfigIn) (Config, error) {
 	}
 
 	switch cfg.underlay {
-	case IPv4, IPv6:
+	case IPv4:
+		if !in.DaemonCfg.EnableIPv4 {
+			return configDisabled, fmt.Errorf("invalid disabled IP family for underlay %q (missing %q agent flag)", cfg.underlay, option.EnableIPv4Name)
+		}
+	case IPv6:
+		if !in.DaemonCfg.EnableIPv6 {
+			return configDisabled, fmt.Errorf("invalid disabled IP family for underlay %q (missing %q agent flag)", cfg.underlay, option.EnableIPv6Name)
+		}
 	default:
 		return configDisabled, fmt.Errorf("invalid IP family for underlay %q", cfg.underlay)
 	}
