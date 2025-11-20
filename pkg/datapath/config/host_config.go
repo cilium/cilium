@@ -29,7 +29,7 @@ type BPFHost struct {
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
 	// devices. (default __ETH_HLEN).
 	EthHeaderLength uint8 `config:"eth_header_length"`
-	// The host endpoint's security ID.
+	// The host endpoint ID.
 	HostEpID uint16 `config:"host_ep_id"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
