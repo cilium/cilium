@@ -213,7 +213,7 @@ func (b *Block) leader(insns asm.Instructions) *leader {
 	return getLeaderMeta(&insns[b.start])
 }
 
-func (b *Block) edge(insns asm.Instructions) *edge {
+func (b *Block) last(insns asm.Instructions) *asm.Instruction {
 	if len(insns) == 0 {
 		return nil
 	}
@@ -222,7 +222,16 @@ func (b *Block) edge(insns asm.Instructions) *edge {
 		return nil
 	}
 
-	return getEdgeMeta(&insns[b.end])
+	return &insns[b.end]
+}
+
+func (b *Block) edge(insns asm.Instructions) *edge {
+	last := b.last(insns)
+	if last == nil {
+		return nil
+	}
+
+	return getEdgeMeta(last)
 }
 
 func (b *Block) iterateLocal(insns asm.Instructions) *BlockIterator {
@@ -258,11 +267,7 @@ func (b *Block) iterateGlobal(blocks Blocks, insns asm.Instructions) *BlockItera
 // After the next call to [Backtracker.Previous], the backtracker will point to
 // the last instruction in the block.
 func (b *Block) backtrack(insns asm.Instructions) *Backtracker {
-	return &Backtracker{
-		insns: insns,
-		stop:  b.start,
-		index: b.end,
-	}
+	return newBacktracker(b, insns)
 }
 
 func (b *Block) String() string {
@@ -436,12 +441,7 @@ func (i *BlockIterator) Next() bool {
 // [Backtracker.Previous] will return the instruction preceding the current one,
 // if any.
 func (i *BlockIterator) Backtrack() *Backtracker {
-	return &Backtracker{
-		insns: i.insns,
-		stop:  i.block.start,
-		index: i.index,
-		ins:   &i.insns[i.index],
-	}
+	return newBacktracker(i.block, i.insns).Seek(i.index)
 }
 
 // Backtracker is an iterator that walks backwards through a Block's
@@ -455,6 +455,18 @@ type Backtracker struct {
 
 	index int
 	ins   *asm.Instruction
+}
+
+// newBacktracker creates a new Backtracker starting at the end of the given
+// block.
+func newBacktracker(block *Block, insns asm.Instructions) *Backtracker {
+	bt := &Backtracker{
+		insns: insns,
+		block: block,
+		index: block.end,
+	}
+
+	return bt
 }
 
 // Instruction returns the current instruction.
@@ -474,6 +486,21 @@ func (bt *Backtracker) Previous() bool {
 	// Make sure index doesn't underrun the start of the block.
 	prev := bt.index - 1
 	if prev < bt.stop {
+
+// Seek moves the Backtracker to the given instruction index within the block
+// and pulls the instruction.
+//
+// Panics if the index is out of bounds of the block.
+func (bt *Backtracker) Seek(index int) *Backtracker {
+	if index < bt.block.start || index > bt.block.end {
+		panic(fmt.Sprintf("seek index %d out of bounds for block [%d, %d]", index, bt.block.start, bt.block.end))
+	}
+
+	bt.index = index
+	bt.ins = &bt.insns[index]
+
+	return bt
+}
 		return false
 	}
 
