@@ -1294,6 +1294,8 @@ const (
 
 	AssociationID = "associationID"
 
+	NumDevices = "numDevices"
+
 	NumInterfaces = "numInterfaces"
 
 	NumSubnets = "numSubnets"
@@ -1848,4 +1850,6 @@ const (
 	ReloadCAError = "reloadCAError"
 
 	ExtendedMessage = "extendedMessage"
+
+	Attributes = "attributes"
 )
