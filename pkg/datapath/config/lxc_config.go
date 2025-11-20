@@ -32,7 +32,7 @@ type BPFLXC struct {
 	EndpointIPv6 [16]byte `config:"endpoint_ipv6"`
 	// The endpoint's network namespace cookie.
 	EndpointNetNSCookie uint64 `config:"endpoint_netns_cookie"`
-	// The host endpoint's security ID.
+	// The host endpoint ID.
 	HostEpID uint16 `config:"host_ep_id"`
 	// Ifindex of the interface the bpf program is attached to.
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
