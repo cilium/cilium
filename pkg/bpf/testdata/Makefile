@@ -11,7 +11,8 @@ TARGETS := \
 	reachability \
 	unreachable-tailcall \
 	upgrade-map \
-	unused-map-pruning
+	unused-map-pruning \
+	unused-map-false-negative
 
 .PHONY: docker build clean
 

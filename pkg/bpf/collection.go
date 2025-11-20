@@ -221,8 +221,8 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("resolving tail calls: %w", err)
 	}
 
-	keep, err := removeUnusedMaps(spec, opts.Keep, reach)
-	if err != nil {
+	fixed := fixedResources(spec, opts.Keep)
+	if err := removeUnusedMaps(spec, fixed, reach); err != nil {
 		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
 	}
 
@@ -251,14 +251,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, err
 	}
 
-	if logger.Enabled(context.Background(), slog.LevelDebug) {
-		if err := verifyUnusedMaps(coll, keep); err != nil {
-			if !errors.Is(err, ebpf.ErrRestrictedKernel) {
-				return nil, nil, fmt.Errorf("verifying unused maps: %w", err)
-			}
-		} else {
-			logger.Debug("Verified no unused maps after loading Collection")
-		}
+	// In debug mode, check that no maps were freed by the kernel after loading
+	// the Collection.
+	if err := mustNoFreedMaps(logger, coll, fixed); err != nil {
+		return nil, nil, err
 	}
 
 	// Collect Maps that need their bpffs pins replaced. Pull out Map objects
@@ -319,6 +315,33 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 			return fmt.Errorf("setting Variable %s: %w", name, err)
 		}
 	}
+
+	return nil
+}
+
+// mustNoFreedMaps checks that no maps were freed by the kernel after loading
+// the given Collection.
+//
+// Only runs in debug mode due to its runtime cost.
+func mustNoFreedMaps(logger *slog.Logger, coll *ebpf.Collection, fixed *set.Set[string]) error {
+	if !logger.Enabled(context.TODO(), slog.LevelDebug) {
+		return nil
+	}
+
+	freed, err := freedMaps(coll, fixed)
+	if errors.Is(err, ebpf.ErrRestrictedKernel) {
+		logger.Debug("Cannot detect freed maps due to restricted kernel")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("detecting freed maps: %w", err)
+	}
+
+	if len(freed) > 0 {
+		return fmt.Errorf("maps freed by the kernel after dead code elimination: %s", freed)
+	}
+
+	logger.Debug("No freed maps found after loading Collection")
 
 	return nil
 }
