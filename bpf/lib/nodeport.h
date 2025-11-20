@@ -1108,7 +1108,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_CT_REPLY,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	__u32 src_id = 0;
+	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__s8 ext_err = 0;
 	int ret;
 
@@ -2434,7 +2434,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	__u32 src_id = 0;
+	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__s8 ext_err = 0;
 	int ret;
 
