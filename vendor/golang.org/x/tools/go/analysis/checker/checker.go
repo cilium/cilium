@@ -34,7 +34,9 @@ import (
 	"fmt"
 	"go/types"
 	"io"
+	"iter"
 	"log"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -55,9 +57,10 @@ type Options struct {
 	SanityCheck bool      // check fact encoding is ok and deterministic
 	FactLog     io.Writer // if non-nil, log each exported fact to it
 
-	// TODO(adonovan): add ReadFile so that an Overlay specified
+	// TODO(adonovan): expose ReadFile so that an Overlay specified
 	// in the [packages.Config] can be communicated via
 	// Pass.ReadFile to each Analyzer.
+	readFile analysisinternal.ReadFileFunc
 }
 
 // Graph holds the results of a round of analysis, including the graph
@@ -92,21 +95,14 @@ type Graph struct {
 //	for act := range graph.All() {
 //		...
 //	}
-//
-// Clients using go1.22 should iterate using the code below and may
-// not assume anything else about the result:
-//
-//	graph.All()(func (act *Action) bool {
-//		...
-//	})
-func (g *Graph) All() actionSeq {
+func (g *Graph) All() iter.Seq[*Action] {
 	return func(yield func(*Action) bool) {
 		forEach(g.Roots, func(act *Action) error {
 			if !yield(act) {
 				return io.EOF // any error will do
 			}
 			return nil
-		})
+		}) // ignore error
 	}
 }
 
@@ -132,7 +128,6 @@ type Action struct {
 	pass         *analysis.Pass
 	objectFacts  map[objectFactKey]analysis.Fact
 	packageFacts map[packageFactKey]analysis.Fact
-	inputs       map[*analysis.Analyzer]any
 }
 
 func (act *Action) String() string {
@@ -229,8 +224,9 @@ func Analyze(analyzers []*analysis.Analyzer, pkgs []*packages.Package, opts *Opt
 
 func init() {
 	// Allow analysistest to access Action.pass,
-	// for its legacy Result data type.
-	internal.Pass = func(x any) *analysis.Pass { return x.(*Action).pass }
+	// for the legacy analysistest.Result data type,
+	// and for internal/checker.ApplyFixes to access pass.ReadFile.
+	internal.ActionPass = func(x any) *analysis.Pass { return x.(*Action).pass }
 }
 
 type objectFactKey struct {
@@ -298,7 +294,6 @@ func (act *Action) execOnce() {
 			// in-memory outputs of prerequisite analyzers
 			// become inputs to this analysis pass.
 			inputs[dep.Analyzer] = dep.Result
-
 		} else if dep.Analyzer == act.Analyzer { // (always true)
 			// Same analysis, different package (vertical edge):
 			// serialized facts produced by prerequisite analysis
@@ -335,8 +330,14 @@ func (act *Action) execOnce() {
 		TypeErrors:   act.Package.TypeErrors,
 		Module:       module,
 
-		ResultOf:          inputs,
-		Report:            func(d analysis.Diagnostic) { act.Diagnostics = append(act.Diagnostics, d) },
+		ResultOf: inputs,
+		Report: func(d analysis.Diagnostic) {
+			// Assert that SuggestedFixes are well formed.
+			if err := analysisinternal.ValidateFixes(act.Package.Fset, act.Analyzer, d.SuggestedFixes); err != nil {
+				panic(err)
+			}
+			act.Diagnostics = append(act.Diagnostics, d)
+		},
 		ImportObjectFact:  act.ObjectFact,
 		ExportObjectFact:  act.exportObjectFact,
 		ImportPackageFact: act.PackageFact,
@@ -344,7 +345,11 @@ func (act *Action) execOnce() {
 		AllObjectFacts:    act.AllObjectFacts,
 		AllPackageFacts:   act.AllPackageFacts,
 	}
-	pass.ReadFile = analysisinternal.MakeReadFile(pass)
+	readFile := os.ReadFile
+	if act.opts.readFile != nil {
+		readFile = act.opts.readFile
+	}
+	pass.ReadFile = analysisinternal.CheckedReadFile(pass, readFile)
 	act.pass = pass
 
 	act.Result, act.Err = func() (any, error) {
@@ -582,7 +587,7 @@ func (act *Action) exportPackageFact(fact analysis.Fact) {
 
 func factType(fact analysis.Fact) reflect.Type {
 	t := reflect.TypeOf(fact)
-	if t.Kind() != reflect.Ptr {
+	if t.Kind() != reflect.Pointer {
 		log.Fatalf("invalid Fact type: got %T, want pointer", fact)
 	}
 	return t
