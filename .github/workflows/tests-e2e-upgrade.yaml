@@ -146,7 +146,6 @@ jobs:
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
-        if: runner.name == 'ubuntu-latest'
         uses: ./.github/actions/disk-cleanup
 
       - name: Set Environment Variables
