@@ -34,6 +34,7 @@ import (
 	debugapi "github.com/cilium/cilium/pkg/debug/api"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
+	"github.com/cilium/cilium/pkg/dra"
 	"github.com/cilium/cilium/pkg/driftchecker"
 	"github.com/cilium/cilium/pkg/dynamicconfig"
 	"github.com/cilium/cilium/pkg/dynamiclifecycle"
@@ -370,6 +371,9 @@ var (
 
 		// Subnet topology watcher and management.
 		subnet.Cell,
+
+		// Cilium Network DRA Driver
+		dra.Cell,
 	)
 )
 

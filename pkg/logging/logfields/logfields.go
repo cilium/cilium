@@ -1307,6 +1307,8 @@ const (
 
 	AssociationID = "associationID"
 
+	NumDevices = "numDevices"
+
 	NumInterfaces = "numInterfaces"
 
 	NumSubnets = "numSubnets"
@@ -1872,5 +1874,6 @@ const (
 
 	AttachType = "attachType"
 
-	WithFrags = "withFrags"
+	WithFrags  = "withFrags"
+	Attributes = "attributes"
 )
