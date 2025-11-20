@@ -1301,6 +1301,8 @@ const (
 
 	AssociationID = "associationID"
 
+	NumDevices = "numDevices"
+
 	NumInterfaces = "numInterfaces"
 
 	NumSubnets = "numSubnets"
@@ -1867,4 +1869,6 @@ const (
 	BackendTLSPolicyName = "backendTLSPolicyName"
 
 	ConfigMapName = "configMapName"
+
+	Attributes = "attributes"
 )
