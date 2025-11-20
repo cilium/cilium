@@ -215,22 +215,20 @@ func (r *Reachable) Dump(insns asm.Instructions) string {
 	return sb.String()
 }
 
-// findBranch backtracks exactly one instruction and checks if it's a branch
-// instruction comparing a register against an immediate value or another
-// register. Returns the instruction if it met the criteria, nil otherwise.
-func findBranch(bt *Backtracker) *asm.Instruction {
-	// Only the last instruction of a block can be a branch instruction.
-	if !bt.Previous() {
-		return nil
+// isBranch checks if ins is a branch instruction comparing a register against
+// an immediate value or another register. Returns the instruction if it met the
+// criteria, nil otherwise.
+func isBranch(branch *asm.Instruction) bool {
+	if branch == nil {
+		return false
 	}
-	branch := bt.Instruction()
 
 	switch branch.OpCode.JumpOp() {
 	case asm.Exit, asm.Call, asm.Ja, asm.InvalidJumpOp:
-		return nil
+		return false
 	}
 
-	return branch
+	return true
 }
 
 // findDereference backtracks instructions until it finds a memory load
@@ -411,13 +409,17 @@ func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error 
 		}
 	}
 
-	bt := b.backtrack(r.insns)
-
-	branch := findBranch(bt)
-	if branch == nil {
+	// Check if the last instruction is a branch we can predict. Don't allocate a
+	// backtracker if the last instruction is not a branch.
+	branch := b.last(r.insns)
+	if !isBranch(branch) {
 		return r.unpredictableBlock(b, vars)
 	}
 
+	// Start backtracking from the end of the block. Explicitly seek to the end of
+	// the block so the next call to Previous() will yield the next-to-last insn
+	// of the block.
+	bt := b.backtrack(r.insns).Seek(b.end)
 	jump, err := predictBranch(branch, bt, vars)
 	if errors.Is(err, errUnpredictable) {
 		return r.unpredictableBlock(b, vars)
