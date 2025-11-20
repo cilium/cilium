@@ -189,6 +189,57 @@ func (mvs *mockVarSpec) Constant() bool {
 	return true
 }
 
+// Load a map value pointer in one block and dereference in another. This is
+// common in real-world programs even if the config variable is only used once.
+//
+// The compiler is free to even insert a jump between the load and dereference
+// if the other branch value is already in a register or if the other branch
+// condition is deemed more likely.
+func TestReachabilityBacktrackBlock(t *testing.T) {
+	insns := asm.Instructions{
+		// Load the pointer to the config variable into a register.
+		asm.LoadMapValue(asm.R0, 0, 0).WithReference("map").WithSymbol("prog"),
+		// Make a branch, ending the block.
+		asm.JEq.Imm(asm.R1, 0, "exit"),
+
+		// Dereference the map pointer.
+		asm.LoadMem(asm.R1, asm.R0, 0, asm.Word),
+		// Random instruction.
+		asm.Mov.Reg(asm.R2, asm.R3),
+		// Branch on the dereferenced value.
+		asm.JEq.Imm(asm.R1, 1, "enabled"),
+
+		// This branch is eliminated if `enable_a` == 1
+		asm.Mov.Imm(asm.R0, 0),
+		asm.Ja.Label("exit"),
+
+		// Separate block since it's a branch target.
+		asm.Mov.Imm(asm.R0, 1).WithSymbol("enabled"),
+
+		// Exit block.
+		asm.Return().WithSymbol("exit"),
+	}
+
+	// Marshal instructions to fix up references.
+	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
+
+	b, err := computeBlocks(insns)
+	require.NoError(t, err)
+
+	r, err := Reachability(b, insns, map[string]VariableSpec{
+		"enable_a": &mockVarSpec{"map", 0, uint64(asm.Word.Sizeof()), 1},
+	})
+	require.NoError(t, err)
+
+	assert.EqualValues(t, 5, r.countAll())
+	assert.NotEqual(t, r.countAll(), r.countLive())
+	assert.True(t, r.isLive(0))
+	assert.True(t, r.isLive(1))
+	assert.False(t, r.isLive(2))
+	assert.True(t, r.isLive(3))
+	assert.True(t, r.isLive(4))
+}
+
 // This tests asserts that we do basic block analysis and dead code elimination
 // correctly when "long jumps" are used. These are jumps with 32 bit offsets
 // instead of 16 bit offsets. Something the compiler can emit when programs
