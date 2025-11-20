@@ -50,7 +50,8 @@
     "on sunday"
   ],
   postUpdateOptions: [
-    "gomodTidy"
+    // update source import paths on major updates
+    "gomodUpdateImportPaths"
   ],
   // This ignorePaths configuration option overrides the config:base preset and
   // should not be removed.
@@ -206,11 +207,7 @@
         "go.mod",
         "go.sum"
       ],
-      "postUpdateOptions": [
-        // update source import paths on major updates
-        "gomodUpdateImportPaths"
-      ],
-      matchBaseBranches: [
+      "matchBaseBranches": [
         "main"
       ]
     },
@@ -399,16 +396,6 @@
         "v1.17",
         "v1.16",
       ]
-    },
-    {
-      // Disable major updates for go-github as those require updating import paths
-      "enabled": false,
-      "matchPackageNames": [
-        "github.com/google/go-github/v*",
-      ],
-      "matchUpdateTypes": [
-        "major",
-      ],
     },
     {
       // Avoid updating patch version for statedb as it might contain breaking changes
