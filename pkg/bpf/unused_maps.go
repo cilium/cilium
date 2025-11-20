@@ -75,7 +75,8 @@ func removeUnusedMaps(spec *ebpf.CollectionSpec, keep *set.Set[string], reach re
 				// If, for whatever reason, we caused a false positive and the program
 				// attempts to use this value as map pointer, it should be clear from
 				// the verifier log.
-				*ins = asm.LoadImm(ins.Dst, poisonedMapLoad, asm.DWord)
+				comm := asm.Comment(fmt.Sprintf("%s (bug: poisoned map load in live block)", ins.Source()))
+				*ins = asm.LoadImm(ins.Dst, poisonedMapLoad, asm.DWord).WithSource(comm)
 			}
 		}
 	}
