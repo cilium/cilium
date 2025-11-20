@@ -1326,6 +1326,8 @@ const (
 
 	AssociationID = "associationID"
 
+	NumDevices = "numDevices"
+
 	NumInterfaces = "numInterfaces"
 
 	NumSubnets = "numSubnets"
@@ -1900,4 +1902,6 @@ const (
 	CiliumDatapathPluginAttachmentPolicy = "datapathPluginAttachmentPolicy"
 
 	CiliumDatapathPluginVersion = "datapathPluginVersion"
+
+	Attributes = "attributes"
 )
