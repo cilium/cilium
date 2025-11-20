@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // symbols extracts all unique symbol references from insns, ignoring func and
@@ -283,4 +285,26 @@ func BenchmarkReachability(b *testing.B) {
 		_, err = Reachability(blocks, insns, nil)
 		require.NoError(b, err)
 	}
+}
+
+func BenchmarkReachabilityBPF(b *testing.B) {
+	testutils.BenchmarkFiles(b, testutils.Glob(b, "../../../bpf/*.o"), func(b *testing.B, file string) {
+		b.ReportAllocs()
+
+		spec, err := ebpf.LoadCollectionSpec(file)
+		require.NoError(b, err)
+
+		blocks := make(map[string]Blocks)
+		for name, prog := range spec.Programs {
+			blocks[name], err = computeBlocks(prog.Instructions)
+			require.NoError(b, err)
+		}
+
+		for b.Loop() {
+			for name, prog := range spec.Programs {
+				_, err = Reachability(blocks[name], prog.Instructions, nil)
+				require.NoError(b, err)
+			}
+		}
+	})
 }
