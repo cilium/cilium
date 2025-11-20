@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"slices"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -68,10 +69,11 @@ type ServiceView struct {
 	SharingKey            string
 	SharingCrossNamespace []string
 	// These required to determine if a service conflicts with another for sharing an ip
-	ExternalTrafficPolicy slim_core_v1.ServiceExternalTrafficPolicy
-	Ports                 []slim_core_v1.ServicePort
-	Namespace             string
-	Selector              map[string]string
+	ExternalTrafficPolicy     slim_core_v1.ServiceExternalTrafficPolicy
+	Ports                     []slim_core_v1.ServicePort
+	Namespace                 string
+	Selector                  map[string]string
+	UnsupportedProtocolAction annotation.UnsupportedProtoAction
 
 	// The specific IPs requested by the service
 	RequestedIPs []netip.Addr
@@ -134,6 +136,14 @@ func (sv *ServiceView) isCompatible(osv *ServiceView) (bool, string) {
 		if !maps.Equal(sv.Selector, osv.Selector) {
 			return false, "compatible ExternalTrafficPolicy local but selecting different set of pods"
 		}
+	}
+
+	// Compatible Services must have the same unsupported protocol action, otherwise
+	// Action=Drop on ServiceA would result in the same for ServiceB, even if ServiceB
+	// was configured with Action=Forward. This is because they would be sharing the
+	// same underlying IPCache entry.
+	if sv.UnsupportedProtocolAction != osv.UnsupportedProtocolAction {
+		return false, "different unsupported protocol actions"
 	}
 
 	// If we can't find any reason to disqualify the services, then they are compatible.
