@@ -70,7 +70,7 @@ env:
   gcp_zone: us-east5-a
   k8s_version: 1.28
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 545.0.0
+  gcloud_version: 548.0.0
 
 jobs:
   echo-inputs:
@@ -179,7 +179,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -368,7 +368,7 @@ jobs:
     needs: installation-and-perf
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
