@@ -533,6 +533,7 @@ func (ipam *LBIPAM) serviceViewFromService(key resource.Key, svc *slim_core_v1.S
 	sv.Ports = make([]slim_core_v1.ServicePort, len(svc.Spec.Ports))
 	copy(sv.Ports, svc.Spec.Ports)
 	sv.Namespace = svc.Namespace
+	sv.UnsupportedProtocolAction, _ = annotation.GetAnnotationUnsupportedProtoAction(svc)
 	sv.Selector = make(map[string]string)
 	maps.Copy(sv.Selector, svc.Spec.Selector)
 	sv.Status = svc.Status.DeepCopy()
