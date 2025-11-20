@@ -567,7 +567,8 @@
           "make -C Documentation update-cmdref"
         ],
         "fileFilters": [
-          "Documentation/cmdref/cilium_connectivity_test.md"
+          "Documentation/cmdref/cilium_connectivity_test.md",
+          "Documentation/cmdref/cilium_connectivity_perf.md"
         ],
         "executionMode": "update"
       }
