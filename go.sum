@@ -161,6 +161,10 @@ github.com/containerd/errdefs/pkg v0.3.0 h1:9IKJ06FvyNlexW690DXuQNx2KA2cUJXx151X
 github.com/containerd/errdefs/pkg v0.3.0/go.mod h1:NJw6s9HwNuRhnjJhM7pylWwMyAkmCQvQ4GpJHEqRLVk=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
 github.com/containerd/log v0.1.0/go.mod h1:VRRf09a7mHDIRezVKTRCrOq78v577GXq3bSa3EhrzVo=
+github.com/containerd/nri v0.10.0 h1:bt2NzfvlY6OJE0i+fB5WVeGQEycxY7iFVQpEbh7J3Go=
+github.com/containerd/nri v0.10.0/go.mod h1:5VyvLa/4uL8FjyO8nis1UjbCutXDpngil17KvBSL6BU=
+github.com/containerd/ttrpc v1.2.7 h1:qIrroQvuOL9HQ1X6KHe2ohc7p+HP/0VE6XPU7elJRqQ=
+github.com/containerd/ttrpc v1.2.7/go.mod h1:YCXHsb32f+Sq5/72xHubdiJRQY9inL4a4ZQrAbN1q9o=
 github.com/containernetworking/cni v1.3.0 h1:v6EpN8RznAZj9765HhXQrtXgX+ECGebEYEmnuFjskwo=
 github.com/containernetworking/cni v1.3.0/go.mod h1:Bs8glZjjFfGPHMw6hQu82RUgEPNGEaBb9KS5KtNMnJ4=
 github.com/coreos/go-iptables v0.8.0 h1:MPc2P89IhuVpLI7ETL/2tx3XZ61VeICZjYqDEgNsPRc=
@@ -476,6 +480,8 @@ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.18.0 h1:c/Cqfb0r+Yi+JtIEq73FWXVkRonBlf0CRNYc8Zttxdo=
 github.com/klauspost/compress v1.18.0/go.mod h1:2Pp+KzxcywXVXMr50+X0Q/Lsb43OQHYWRCY2AiWywWQ=
+github.com/knqyf263/go-plugin v0.9.0 h1:CQs2+lOPIlkZVtcb835ZYDEoyyWJWLbSTWeCs0EwTwI=
+github.com/knqyf263/go-plugin v0.9.0/go.mod h1:2z5lCO1/pez6qGo8CvCxSlBFSEat4MEp1DrnA+f7w8Q=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
@@ -594,6 +600,8 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
+github.com/opencontainers/runtime-spec v1.1.0 h1:HHUyrt9mwHUjtasSbXSMvs4cyFxh+Bll4AjJ9odEGpg=
+github.com/opencontainers/runtime-spec v1.1.0/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
 github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b h1:FfH+VrHHk6Lxt9HdVS0PXzSXFyS2NbZKXv33FYPol0A=
 github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b/go.mod h1:AC62GU6hc0BrNm+9RK9VSiwa/EUe1bkIeFORAMcHvJU=
 github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwpVEaDAr341tbn15RS4fCAsIst0qp7i8ex1o=
@@ -1043,6 +1051,8 @@ k8s.io/code-generator v0.35.3 h1:NDGCLkEm6Ho65wTdSe2EgErmmtsrezOPwwOchlNc6FQ=
 k8s.io/code-generator v0.35.3/go.mod h1:LAVriRGXQusHQ0Ns64SE1ublSswm1KrK7cXn0GuQETg=
 k8s.io/component-base v0.35.3 h1:mbKbzoIMy7JDWS/wqZobYW1JDVRn/RKRaoMQHP9c4P0=
 k8s.io/component-base v0.35.3/go.mod h1:IZ8LEG30kPN4Et5NeC7vjNv5aU73ku5MS15iZyvyMYk=
+k8s.io/dynamic-resource-allocation v0.34.2 h1:SjlRGSWl6CZXoJwQNL+Y0wRfdH8PkJ4mHRNK6MMj0bY=
+k8s.io/dynamic-resource-allocation v0.34.2/go.mod h1:ul6I+gfrCmC+OCuVdN0/iykyB2sPrIqh2WyKQ3RQPCU=
 k8s.io/endpointslice v0.35.3 h1:O5oBs7AotMNqWVOegTuND2SUQpNwAGa/mZ5RlxqL9Eg=
 k8s.io/endpointslice v0.35.3/go.mod h1:wFJUsyjtmcJgd3+M4HZBw/SmOLxJl7HK2kN4bK81TP8=
 k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b h1:gMplByicHV/TJBizHd9aVEsTYoJBnnUAT5MHlTkbjhQ=
@@ -1053,6 +1063,8 @@ k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 h1:Y3gxNAuB0OBLImH611+UDZ
 k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912/go.mod h1:kdmbQkyfwUagLfXIad1y2TdrjPFWp2Q89B3qkRwf/pQ=
 k8s.io/kubectl v0.35.3 h1:1KqSYXk/sodU7VeDvK6atX2kAGUZd2QTeR5K7Hb9r9w=
 k8s.io/kubectl v0.35.3/go.mod h1:GPHxZqRe+u/i3gTBoVQHeIyq2NilfNPj9hDWeuN3x5s=
+k8s.io/kubelet v0.34.2 h1:Dl+1uh7xwJr70r+SHKyIpvu6XvzuoPu0uDIC4cqgJUs=
+k8s.io/kubelet v0.34.2/go.mod h1:RfwR03iuKeVV7Z1qD9XKH98c3tlPImJpQ3qHIW40htM=
 k8s.io/metrics v0.35.3 h1:WonA18pEwrtb7a6XfhFg1ZY1Le0RFkcEw7CFApMTZos=
 k8s.io/metrics v0.35.3/go.mod h1:/O8UBb5QVyAekR2QvL/WWxskpdV1wVSEl4MSLAy4Ql4=
 k8s.io/utils v0.0.0-20260319190234-28399d86e0b5 h1:kBawHLSnx/mYHmRnNUf9d4CpjREbeZuxoSGOX/J+aYM=
