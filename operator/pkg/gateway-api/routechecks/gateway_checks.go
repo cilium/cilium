@@ -99,7 +99,6 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 
 		return false, nil
 	}
-
 	for _, listener := range gw.Spec.Listeners {
 		if listener.AllowedRoutes == nil || len(listener.AllowedRoutes.Kinds) == 0 {
 			continue
@@ -114,7 +113,6 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 				break
 			}
 		}
-
 		if !allowed {
 			input.SetParentCondition(parentRef, metav1.Condition{
 				Type:    string(gatewayv1.RouteConditionAccepted),
@@ -123,7 +121,14 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 				Message: routeGVK.Kind + " is not allowed to attach to this Gateway due to route kind restrictions",
 			})
 
-			return false, nil
+		} else {
+			input.SetParentCondition(parentRef, metav1.Condition{
+				Type:    string(gatewayv1.RouteConditionAccepted),
+				Status:  metav1.ConditionTrue,
+				Reason:  string(gatewayv1.RouteReasonAccepted),
+				Message: "Accepted " + routeGVK.Kind,
+			})
+			return true, nil
 		}
 	}
 
