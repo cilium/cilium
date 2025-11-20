@@ -90,15 +90,15 @@ bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 }
 
 #ifdef ENABLE_IPV4
-#ifdef ENABLE_NODEPORT_ACCELERATION
 __declare_tail(CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
-	bool punt_to_stack = false;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
 
+#ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
+		bool punt_to_stack = false;
 		int l3_off = ETH_HLEN;
 		void *data, *data_end;
 		struct iphdr *ip4;
@@ -188,8 +188,9 @@ no_encap:
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
 						 &ext_err);
 	}
+#endif /* ENABLE_NODEPORT */
 
-out:
+out: __maybe_unused
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
 						  METRIC_INGRESS);
@@ -202,15 +203,12 @@ static __always_inline int check_v4_lb(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	int ret;
 
+	if (!CONFIG(enable_nodeport_acceleration))
+		return CTX_ACT_OK;
+
 	ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
 }
-#else
-static __always_inline int check_v4_lb(struct __ctx_buff *ctx __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_NODEPORT_ACCELERATION */
 
 #ifdef ENABLE_PREFILTER
 static __always_inline int check_v4(struct __ctx_buff *ctx)
@@ -246,15 +244,15 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-#ifdef ENABLE_NODEPORT_ACCELERATION
 __declare_tail(CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
-	bool punt_to_stack = false;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
 
+#ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
+		bool punt_to_stack = false;
 		void *data, *data_end;
 		struct ipv6hdr *ip6;
 		bool is_dsr = false;
@@ -268,10 +266,11 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 		if (IS_ERR(ret))
 			goto drop_err;
 	}
+#endif /* ENABLE_NODEPORT */
 
 	return bpf_xdp_exit(ctx, ret);
 
-drop_err:
+drop_err: __maybe_unused
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
 }
 
@@ -280,15 +279,12 @@ static __always_inline int check_v6_lb(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	int ret;
 
+	if (!CONFIG(enable_nodeport_acceleration))
+		return CTX_ACT_OK;
+
 	ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV, &ext_err);
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
 }
-#else
-static __always_inline int check_v6_lb(struct __ctx_buff *ctx __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_NODEPORT_ACCELERATION */
 
 #ifdef ENABLE_PREFILTER
 static __always_inline int check_v6(struct __ctx_buff *ctx)

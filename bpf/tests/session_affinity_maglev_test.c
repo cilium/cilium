@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#define ENABLE_NODEPORT_ACCELERATION
 #define TEST_LB_MAGLEV_MAP_MAX_ENTRIES 65536
 #define TEST_CONDITIONAL_PREALLOC      0
 #define TEST_REVNAT		       1
@@ -122,6 +121,9 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 }
 
 #include "lib/bpf_xdp.h"
+
+ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
+
 #include "lib/lb.h"
 
 static __always_inline int

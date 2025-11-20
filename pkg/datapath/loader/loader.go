@@ -287,6 +287,10 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 
+	if lnc.KPRConfig.KubeProxyReplacement {
+		cfg.EnableNodeportAcceleration = option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled
+	}
+
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),

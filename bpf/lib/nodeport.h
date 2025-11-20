@@ -30,6 +30,8 @@
 
 DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
+DECLARE_CONFIG(bool, enable_nodeport_acceleration,
+	       "Enable XDP acceleration for Service LB")
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to (default: MTU set in node_config.h by agent)")
 ASSIGN_CONFIG(__u16, device_mtu, MTU)
 

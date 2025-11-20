@@ -28,7 +28,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(6) {
+		for permutation := range permute(7) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
@@ -41,6 +41,7 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 			cfg.EnableL2Announcements = permutation[3]
 			cfg.AllowIcmpFragNeeded = permutation[4]
 			cfg.EnableIcmpRule = permutation[5]
+			cfg.EnableNodeportAcceleration = permutation[6]
 
 			if !yield(cfg) {
 				return
@@ -96,10 +97,12 @@ func wireguardLoadPermutations() iter.Seq[*config.BPFWireguard] {
 
 func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 	return func(yield func(*config.BPFXDP) bool) {
-		for permutation := range permute(1) {
+		for permutation := range permute(2) {
 			cfg := config.NewBPFXDP(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.SecctxFromIPCache = permutation[0]
+			cfg.EnableNodeportAcceleration = permutation[1]
+
 			if !yield(cfg) {
 				return
 			}
