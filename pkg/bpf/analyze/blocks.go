@@ -451,7 +451,9 @@ func (i *BlockIterator) Backtrack() *Backtracker {
 // before it is read, by following the control flow backwards.
 type Backtracker struct {
 	insns asm.Instructions
-	stop  int
+
+	block   *Block
+	visited []*Block
 
 	index int
 	ins   *asm.Instruction
@@ -485,7 +487,17 @@ func (bt *Backtracker) Previous() bool {
 
 	// Make sure index doesn't underrun the start of the block.
 	prev := bt.index - 1
-	if prev < bt.stop {
+	if prev < bt.block.start {
+		// Roll over to the Block's only predecessor, if any.
+		return bt.previousBlock()
+	}
+
+	// Update index and ins in lockstep to avoid subtle bugs.
+	bt.index = prev
+	bt.ins = &bt.insns[prev]
+
+	return true
+}
 
 // Seek moves the Backtracker to the given instruction index within the block
 // and pulls the instruction.
@@ -501,12 +513,43 @@ func (bt *Backtracker) Seek(index int) *Backtracker {
 
 	return bt
 }
+
+// previousBlock rolls over the Backtracker to the first and only predecessor of
+// the current block, if any. Returns false if there is no predecessor or if
+// there are multiple predecessors.
+func (bt *Backtracker) previousBlock() bool {
+	if len(bt.block.predecessors) != 1 {
 		return false
 	}
 
-	// Update index and sync in lockstep to avoid subtle bugs.
-	bt.index = prev
-	bt.ins = &bt.insns[prev]
+	pred := bt.block.predecessors[0]
+
+	// Prevent infinite loops when backtracking.
+	//
+	// In the vast majority of cases, backtracking terminates in the first
+	// predecessor, either because of a positive match, the register got
+	// clobbered, or because of multiple grandparents.
+	//
+	// Maintaining a visited list tends to dominate the CPU and memory profiles of
+	// the backtracking process, so avoid it whenever possible.
+	if pred == bt.block {
+		// Never roll over to self.
+		return false
+	}
+	if len(bt.visited) == 0 {
+		// First rollover, initialize visited list in a single allocation.
+		bt.visited = []*Block{bt.block, pred}
+	} else {
+		// Subsequent rollovers, check visited list and append if needed.
+		if slices.Contains(bt.visited, pred) {
+			return false
+		}
+		bt.visited = append(bt.visited, pred)
+	}
+
+	bt.block = pred
+	bt.index = pred.end
+	bt.ins = &bt.insns[pred.end]
 
 	return true
 }
@@ -514,6 +557,8 @@ func (bt *Backtracker) Seek(index int) *Backtracker {
 // Clone creates a copy of the Backtracker at its current position.
 func (bt *Backtracker) Clone() *Backtracker {
 	cpy := *bt
+	cpy.visited = slices.Clone(cpy.visited)
+
 	return &cpy
 }
 

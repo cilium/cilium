@@ -80,6 +80,48 @@ func TestMakeBlocksSimple(t *testing.T) {
 	assert.Equal(t, b, b2)
 }
 
+func TestBlocksMultiplePredecessors(t *testing.T) {
+	// A program with multiple predecessors to the last block.
+	insns := asm.Instructions{
+		asm.Mov.Imm32(asm.R0, 1).WithSymbol("prog"),
+		asm.JEq.Imm(asm.R0, 0, "target"),
+		asm.Mov.Imm32(asm.R1, 1),
+		asm.JEq.Imm(asm.R1, 0, "target"),
+		asm.Mov.Imm32(asm.R0, 0).WithSymbol("target"),
+		asm.Return(),
+	}
+
+	// Marshal instructions to fix up references.
+	require.NoError(t, insns.Marshal(io.Discard, binary.LittleEndian))
+
+	blocks, err := MakeBlocks(insns)
+	require.NoError(t, err)
+
+	require.EqualValues(t, 3, blocks.count())
+
+	last := blocks[2]
+	assert.EqualValues(t, 2, last.id)
+	assert.Len(t, last.predecessors, 2)
+	assert.Contains(t, last.predecessors, blocks[0])
+	assert.Contains(t, last.predecessors, blocks[1])
+	assert.Equal(t, 4, last.start)
+	assert.Equal(t, 5, last.end)
+	assert.Nil(t, last.branch)
+	assert.Nil(t, last.fthrough)
+
+	// Pull instructions from the last block and make sure it doesn't continue
+	// past the start of the block since it has multiple predecessors.
+	bt := last.backtrack(insns)
+
+	require.True(t, bt.Previous())
+	assert.Equal(t, bt.Instruction(), &insns[5])
+
+	require.True(t, bt.Previous())
+	assert.Equal(t, bt.Instruction(), &insns[4])
+
+	require.False(t, bt.Previous())
+}
+
 func TestMakeBlocksManyBranches(t *testing.T) {
 	insns := branchingProg(t, 1000)
 
