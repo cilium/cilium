@@ -1534,7 +1534,11 @@ const (
 
 	Cmd = "cmd"
 
+	Maps = "maps"
+
 	Prog = "prog"
+
+	Programs = "programs"
 
 	Table = "table"
 

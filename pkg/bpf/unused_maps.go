@@ -5,11 +5,13 @@ package bpf
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 
 	"github.com/cilium/cilium/pkg/container/set"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // poisonedMapLoad is a special value that is used to replace map load
@@ -57,7 +59,7 @@ func fixedResources(spec *ebpf.CollectionSpec, opts ...*set.Set[string]) *set.Se
 // removeUnusedMaps analyzes the given spec to detect which parts of the code
 // will be unreachable given the VariableSpecs. It then removes any MapSpecs
 // that are not used by any Program.
-func removeUnusedMaps(spec *ebpf.CollectionSpec, fixed *set.Set[string], reach reachables) error {
+func removeUnusedMaps(spec *ebpf.CollectionSpec, fixed *set.Set[string], reach reachables, logger *slog.Logger) error {
 	if reach == nil {
 		return fmt.Errorf("reachability information is required")
 	}
@@ -102,10 +104,15 @@ func removeUnusedMaps(spec *ebpf.CollectionSpec, fixed *set.Set[string], reach r
 
 	// Delete unused MapSpecs so ebpf-go doesn't create them when using
 	// LoadCollection.
+	var deleted []string
 	for name := range spec.Maps {
 		if !keep.Has(name) {
 			delete(spec.Maps, name)
+			deleted = append(deleted, name)
 		}
+	}
+	if logger != nil && len(deleted) > 0 {
+		logger.Debug("Removed unused maps from CollectionSpec", logfields.Maps, deleted)
 	}
 
 	return nil
