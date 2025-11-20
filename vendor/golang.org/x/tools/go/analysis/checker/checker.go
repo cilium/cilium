@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"go/types"
 	"io"
+	"iter"
 	"log"
 	"os"
 	"reflect"
@@ -94,21 +95,14 @@ type Graph struct {
 //	for act := range graph.All() {
 //		...
 //	}
-//
-// Clients using go1.22 should iterate using the code below and may
-// not assume anything else about the result:
-//
-//	graph.All()(func (act *Action) bool {
-//		...
-//	})
-func (g *Graph) All() actionSeq {
+func (g *Graph) All() iter.Seq[*Action] {
 	return func(yield func(*Action) bool) {
 		forEach(g.Roots, func(act *Action) error {
 			if !yield(act) {
 				return io.EOF // any error will do
 			}
 			return nil
-		})
+		}) // ignore error
 	}
 }
 
@@ -134,7 +128,6 @@ type Action struct {
 	pass         *analysis.Pass
 	objectFacts  map[objectFactKey]analysis.Fact
 	packageFacts map[packageFactKey]analysis.Fact
-	inputs       map[*analysis.Analyzer]any
 }
 
 func (act *Action) String() string {
@@ -231,8 +224,9 @@ func Analyze(analyzers []*analysis.Analyzer, pkgs []*packages.Package, opts *Opt
 
 func init() {
 	// Allow analysistest to access Action.pass,
-	// for its legacy Result data type.
-	internal.Pass = func(x any) *analysis.Pass { return x.(*Action).pass }
+	// for the legacy analysistest.Result data type,
+	// and for internal/checker.ApplyFixes to access pass.ReadFile.
+	internal.ActionPass = func(x any) *analysis.Pass { return x.(*Action).pass }
 }
 
 type objectFactKey struct {
@@ -300,7 +294,6 @@ func (act *Action) execOnce() {
 			// in-memory outputs of prerequisite analyzers
 			// become inputs to this analysis pass.
 			inputs[dep.Analyzer] = dep.Result
-
 		} else if dep.Analyzer == act.Analyzer { // (always true)
 			// Same analysis, different package (vertical edge):
 			// serialized facts produced by prerequisite analysis
