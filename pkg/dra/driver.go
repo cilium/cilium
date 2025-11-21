@@ -71,13 +71,7 @@ func registerDRA(lc cell.Lifecycle, logger *slog.Logger, cs k8sClient.Clientset,
 	}
 
 	// TODO: customize this based on driver config
-	driver.listDevices = func(
-		ctx context.Context,
-		logger *slog.Logger,
-		toQualifiedName func(string) resourceapi.QualifiedName,
-	) ([]resourceapi.Device, error) {
-		return nil, nil
-	}
+	driver.listDevices = listDummyDevices
 
 	lc.Append(driver)
 }
