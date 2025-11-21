@@ -1061,21 +1061,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		logging.Fatal(logger, "Unable to parse Label prefix configuration", logfields.Error, err)
 	}
 
-	switch option.Config.DatapathMode {
-	case datapathOption.DatapathModeVeth:
-	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
-		// For netkit we enable also tcx for all non-netkit devices.
-		// The underlying kernel does support it given tcx got merged
-		// before netkit and supporting legacy tc in this context does
-		// not make any sense whatsoever.
-		option.Config.EnableTCX = true
-		if err := probes.HaveNetkit(); err != nil {
-			logging.Fatal(logger, "netkit devices need kernel 6.7.0 or newer and CONFIG_NETKIT")
-		}
-	default:
-		logging.Fatal(logger, "Invalid datapath mode", logfields.DatapathMode, option.Config.DatapathMode)
-	}
-
 	if option.Config.EnableL7Proxy && !option.Config.InstallIptRules {
 		logging.Fatal(logger, "L7 proxy requires iptables rules (--install-iptables-rules=\"true\")")
 	}
