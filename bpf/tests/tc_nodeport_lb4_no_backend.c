@@ -21,8 +21,7 @@
 #define BACKEND_PORT		__bpf_htons(8080)
 
 static volatile const __u8 *client_mac = mac_one;
-/* this matches the default node_config.h: */
-static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
+static volatile const __u8 *lb_mac = mac_host;
 
 #include <bpf_host.c>
 
@@ -116,8 +115,8 @@ validate_icmp_reply(const struct __ctx_buff *ctx, __u32 retval)
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
 		test_fatal("l2 header out of bounds");
 
-	assert(memcmp(l2->h_dest, (__u8 *)client_mac, sizeof(lb_mac)) == 0);
-	assert(memcmp(l2->h_source, (__u8 *)lb_mac, sizeof(lb_mac)) == 0);
+	assert(memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) == 0);
+	assert(memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) == 0);
 	assert(l2->h_proto == __bpf_htons(ETH_P_IP));
 
 	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
