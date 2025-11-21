@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -95,8 +96,15 @@ type connectorParams struct {
 // newConnectorConfig initialises a new ConnectorConfig object with default parameters.
 func newConfig(p connectorParams) (*ConnectorConfig, error) {
 	configuredMode := types.GetConnectorModeByName(p.DaemonConfig.DatapathMode)
-	if configuredMode == types.ConnectorModeUnspec {
+	switch configuredMode {
+	case types.ConnectorModeUnspec:
 		return nil, fmt.Errorf("invalid datapath mode: %s", p.DaemonConfig.DatapathMode)
+
+	case types.ConnectorModeNetkit, types.ConnectorModeNetkitL2:
+		// Netkit requires a reasonably modern kernel
+		if err := probes.HaveNetkit(); err != nil {
+			return nil, fmt.Errorf("netkit connector needs kernel 6.7.0+ and CONFIG_NETKIT")
+		}
 	}
 
 	cc := &ConnectorConfig{
@@ -105,6 +113,14 @@ func newConfig(p connectorParams) (*ConnectorConfig, error) {
 		tunnelConfig:    p.TunnelConfig,
 		configuredMode:  configuredMode,
 		operationalMode: configuredMode,
+	}
+
+	// For netkit we enable also tcx for all non-netkit devices.
+	// The underlying kernel does support it given tcx got merged
+	// before netkit and supporting legacy tc in this context does
+	// not make any sense whatsoever.
+	if cc.operationalMode.IsNetkit() {
+		p.DaemonConfig.EnableTCX = true
 	}
 
 	return cc, nil
