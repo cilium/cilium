@@ -112,7 +112,7 @@ concurrency:
 
 env:
   test_concurrency: ${{ inputs.test-concurrency || 3 }}
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
+  clusterNamePrefix: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.217.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
@@ -300,8 +300,17 @@ jobs:
             OWNER="${OWNER//[.\/]/-}"
           fi
 
+          # Create unique cluster name including version to avoid conflicts
+          # when multiple versions use same region
+          VERSION_SANITIZED="${{ matrix.version }}"
+          VERSION_SANITIZED="${VERSION_SANITIZED//[.]/-}"
+
+          CLUSTER_NAME="${{ env.clusterNamePrefix }}-${VERSION_SANITIZED}"
+          CLUSTER_NAME_HASH=$(echo -n "${CLUSTER_NAME}" | sha256sum | cut -c1-10)
+          HELM_CLUSTER_NAME="cilium-${CLUSTER_NAME_HASH}-${VERSION_SANITIZED}"
+
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --helm-set=cluster.name=${{ env.clusterName }} \
+            --helm-set=cluster.name=${HELM_CLUSTER_NAME} \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=loadBalancer.l7.backend=envoy \
             --wait=false"
@@ -330,6 +339,7 @@ jobs:
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
+          echo cluster_name=${CLUSTER_NAME} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
@@ -360,7 +370,7 @@ jobs:
         id: setup-cluster
         uses: ./.github/actions/setup-eks-cluster
         with:
-          cluster_name: ${{ env.clusterName }}
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
           region: ${{ matrix.region }}
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
