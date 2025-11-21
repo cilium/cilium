@@ -64,40 +64,51 @@ int ctx_is_wireguard_check(struct __ctx_buff *ctx, bool is_ipv4)
 	struct iphdr *ip4 = NULL;
 	struct ipv6hdr *ip6 = NULL;
 	struct udphdr *udp = NULL;
-	int hdrlen = 0;
-	__u8 protocol = 0;
+	__be16 proto = is_ipv4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6);
 
-	if (is_ipv4) {
-		assert(revalidate_data(ctx, &data, &data_end, &ip4));
-		protocol = ip4->protocol;
-		hdrlen = ipv4_hdrlen(ip4);
-		udp = (void *)ip4 + hdrlen;
-	} else {
-		assert(revalidate_data(ctx, &data, &data_end, &ip6));
-		protocol = ip6->nexthdr;
-		hdrlen = ipv6_hdrlen(ctx, &protocol);
-		assert(hdrlen > 0);
-		udp = (void *)ip6 + hdrlen;
-	}
+	TEST("wg-encrypted-valid", {
+		wg_do_decrypt(ctx, proto, CLUSTER_IDENTITY);
+		assert(ctx_is_decrypt(ctx));
+	})
 
-	assert((void *)udp + sizeof(struct udphdr) <= data_end)
+	/* Restore mark for subsequent tests. */
+	ctx->mark = 0;
 
-	/* Valid Wireguard packet. */
-	assert(ctx_is_wireguard(ctx, ETH_LEN + hdrlen, protocol, CLUSTER_IDENTITY));
+	TEST("wg-encrypted-invalid-identity", {
+		wg_do_decrypt(ctx, proto, CIDR_IDENTITY_RANGE_START);
+		assert(!ctx_is_decrypt(ctx));
+	})
 
-	/* Invalid identity within CIDR. */
-	assert(!ctx_is_wireguard(ctx, ETH_LEN + hdrlen, protocol, CIDR_IDENTITY_RANGE_START));
+	TEST("wg-encrypted-invalid-proto", {
+		if (is_ipv4) {
+			assert(revalidate_data(ctx, &data, &data_end, &ip4));
+			ip4->protocol = IPPROTO_TCP;
+		} else {
+			assert(revalidate_data(ctx, &data, &data_end, &ip6));
+			ip6->nexthdr = IPPROTO_TCP;
+		}
+		wg_do_decrypt(ctx, proto, CLUSTER_IDENTITY);
+		assert(!ctx_is_decrypt(ctx));
+		/* Restore protocol for subsequent tests. */
+		if (is_ipv4)
+			ip4->protocol = IPPROTO_UDP;
+		else
+			ip6->nexthdr = IPPROTO_UDP;
+	})
 
-	/* Invalid protocol TCP. */
-	assert(!ctx_is_wireguard(ctx, ETH_LEN + hdrlen, IPPROTO_TCP, CLUSTER_IDENTITY));
-
-	/* Invalid L4 offset. */
-	assert(!ctx_is_wireguard(ctx, ETH_LEN + hdrlen + 2, protocol, CLUSTER_IDENTITY));
-
-	udp->source += 1;
-
-	/* Invalid L4 ports mismatching. */
-	assert(!ctx_is_wireguard(ctx, ETH_LEN + hdrlen, protocol, CLUSTER_IDENTITY));
+	TEST("wg-encrypted-invalid-ports", {
+		if (is_ipv4) {
+			assert(revalidate_data(ctx, &data, &data_end, &ip4));
+			udp = (void *)ip4 + sizeof(struct iphdr);
+		} else {
+			assert(revalidate_data(ctx, &data, &data_end, &ip6));
+			udp = (void *)ip6 + sizeof(struct ipv6hdr);
+		}
+		assert((void *)udp + sizeof(struct udphdr) <= data_end)
+		udp->source += 1;
+		wg_do_decrypt(ctx, proto, CLUSTER_IDENTITY);
+		assert(!ctx_is_decrypt(ctx));
+	})
 
 	test_finish();
 }
