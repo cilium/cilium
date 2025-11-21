@@ -6,9 +6,9 @@
 #include "pktgen.h"
 
 #define ETH_HLEN 0
-#define ENABLE_HOST_ROUTING
-#define ENABLE_IPV4
-#define ENABLE_IPV6
+#define ENABLE_HOST_ROUTING 1
+#define ENABLE_IPV4 1
+#define ENABLE_IPV6 1
 
 #define TEST_IP_LOCAL		v4_pod_one
 #define TEST_IP_REMOTE		v4_pod_two
@@ -19,13 +19,7 @@
 static volatile const __u8 *ep_mac = mac_one;
 static volatile const __u8 *node_mac = mac_two;
 
-#if defined(IS_BPF_WIREGUARD)
-# undef IS_BPF_WIREGUARD
-# include "bpf_wireguard.c"
-# include "lib/endpoint.h"
-#elif defined(IS_BPF_HOST)
-# undef IS_BPF_HOST
-
+#if defined(IS_BPF_WIREGUARD) || defined(IS_BPF_HOST)
 /* We wanted to tail call handle_policy from bpf_lxc, but at present it's
  * impossible to #include both bpf_host.c and bpf_lxc.c at the same time.
  * Therefore, we created a stud, mock_hanle_policy, to simply check if the
@@ -55,11 +49,20 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 {
 	tail_call(ctx, &mock_policy_call_map, slot);
 }
+# else
+# error "this file supports inclusion only from files with IS_BPF_HOST or IS_BPF_WIREGUARD defined"
+#endif
 
+#if defined(IS_BPF_WIREGUARD)
+# undef IS_BPF_WIREGUARD
+# include "bpf_wireguard.c"
+# include "lib/endpoint.h"
+#endif
+
+#if defined(IS_BPF_HOST)
+# undef IS_BPF_HOST
 # include "bpf_host.c"
 # include "lib/endpoint.h"
-#else
-# error "this file supports inclusion only from files with IS_BPF_HOST or IS_BPF_WIREGUARD defined"
 #endif
 
 struct {
@@ -72,7 +75,8 @@ struct {
 #if defined(IS_BPF_WIREGUARD)
 		[0] = &cil_from_wireguard,
 		[1] = &cil_to_wireguard,
-#else
+#endif
+#if defined(IS_BPF_HOST)
 		[0] = &cil_from_netdev,
 		[1] = &cil_to_netdev,
 #endif
@@ -144,7 +148,8 @@ l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx, bool is_ingress, bool is_ip
 	struct metrics_key key = {
 #if defined(IS_BPF_HOST)
 		.reason = is_ingress ? REASON_PLAINTEXT : REASON_FORWARDED,
-#elif defined(IS_BPF_WIREGUARD)
+#endif
+#if defined(IS_BPF_WIREGUARD)
 		.reason = is_ingress ? REASON_DECRYPTING : REASON_ENCRYPTING,
 #endif
 		.dir = is_ingress ? METRIC_INGRESS : METRIC_EGRESS,
@@ -187,7 +192,8 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 	struct metrics_key key = {
 #if defined(IS_BPF_HOST)
 		.reason = REASON_PLAINTEXT,
-#elif defined(IS_BPF_WIREGUARD)
+#endif
+#if defined(IS_BPF_WIREGUARD)
 		.reason = REASON_DECRYPTING,
 #endif
 		.dir = METRIC_INGRESS,
@@ -203,11 +209,7 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 
 	status_code = data;
 
-#if defined(IS_BPF_HOST)
 	assert(*status_code == TC_ACT_REDIRECT);
-#elif defined(IS_BPF_WIREGUARD)
-	assert(*status_code == TC_ACT_SHOT);
-#endif
 
 	l2 = data + sizeof(__u32);
 
@@ -307,7 +309,8 @@ egress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx,
 	struct metrics_key key = {
 #if defined(IS_BPF_HOST)
 		.reason = REASON_FORWARDED,
-#elif defined(IS_BPF_WIREGUARD)
+#endif
+#if defined(IS_BPF_WIREGUARD)
 		.reason = REASON_ENCRYPTING,
 #endif
 		.dir = METRIC_EGRESS,
