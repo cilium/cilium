@@ -133,37 +133,6 @@ func destroyFakeLink(fakeAttr *fakeLinkAttributes) error {
 	return nil
 }
 
-func TestUseTunedBufferMargins(t *testing.T) {
-	tests := []struct {
-		name           string
-		datapathMode   string
-		expectedResult bool
-	}{
-		{
-			name:           "datapath-veth",
-			datapathMode:   datapathOption.DatapathModeVeth,
-			expectedResult: false,
-		},
-		{
-			name:           "datapath-netkit",
-			datapathMode:   datapathOption.DatapathModeNetkit,
-			expectedResult: true,
-		},
-		{
-			name:           "datapath-netkit-l2",
-			datapathMode:   datapathOption.DatapathModeNetkitL2,
-			expectedResult: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := useTunedBufferMargins(tt.datapathMode)
-			assert.Equal(t, tt.expectedResult, result)
-		})
-	}
-}
-
 func TestNewConfig(t *testing.T) {
 	logger := hivetest.Logger(t)
 
@@ -206,7 +175,6 @@ func TestNewConfig(t *testing.T) {
 			p := connectorParams{
 				Lifecycle:    &cell.DefaultLifecycle{},
 				Log:          logger,
-				Orchestrator: &fakeTypes.FakeOrchestrator{},
 				DaemonConfig: tt.daemonConfig,
 				WgAgent:      tt.wgAgent,
 				TunnelConfig: tt.tunnelConfig,
@@ -220,13 +188,55 @@ func TestNewConfig(t *testing.T) {
 			case false:
 				assert.NoError(t, err)
 				assert.NotNil(t, connector)
-				assert.Equal(t, tt.expectedConfig, connector)
+				assert.Equal(t, tt.expectedConfig.podDeviceHeadroom, connector.podDeviceHeadroom)
+				assert.Equal(t, tt.expectedConfig.podDeviceTailroom, connector.podDeviceTailroom)
+				assert.Equal(t, tt.expectedConfig.configuredMode, connector.configuredMode)
+				assert.Equal(t, tt.expectedConfig.operationalMode, connector.operationalMode)
 			}
 		})
 	}
 }
 
-func TestPrivilegedGenerateConfig(t *testing.T) {
+func TestUseTunedBufferMargins(t *testing.T) {
+	tests := []struct {
+		name           string
+		daemonConfig   *option.DaemonConfig
+		expectedResult bool
+	}{
+		{
+			name:           "datapath-veth",
+			daemonConfig:   &daemonConfigVeth,
+			expectedResult: false,
+		},
+		{
+			name:           "datapath-netkit",
+			daemonConfig:   &daemonConfigNetkit,
+			expectedResult: true,
+		},
+		{
+			name:           "datapath-netkit-l2",
+			daemonConfig:   &daemonConfigNetkitL2,
+			expectedResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := connectorParams{
+				Lifecycle:    &cell.DefaultLifecycle{},
+				DaemonConfig: tt.daemonConfig,
+			}
+			connector, err := newConfig(p)
+			assert.NoError(t, err)
+			assert.NotNil(t, connector)
+
+			result := connector.useTunedBufferMargins()
+			assert.Equal(t, tt.expectedResult, result)
+		})
+	}
+}
+
+func TestPrivilegedCalculateTunedBufferMargins(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	logger := hivetest.Logger(t)
 
@@ -442,15 +452,16 @@ func TestPrivilegedGenerateConfig(t *testing.T) {
 			p := connectorParams{
 				Lifecycle:    &cell.DefaultLifecycle{},
 				Log:          logger,
-				Orchestrator: &fakeTypes.FakeOrchestrator{},
 				DaemonConfig: tt.daemonConfig,
 				WgAgent:      tt.wgAgent,
 				TunnelConfig: tt.tunnelConfig,
 			}
 			uninitialisedConnector := &ConnectorConfig{}
-			connector := &ConnectorConfig{}
+			connector, err := newConfig(p)
+			assert.NoError(t, err)
+			assert.NotNil(t, connector)
 
-			err := generateConfig(p, connector)
+			err = connector.calculateTunedBufferMargins()
 
 			switch tt.shouldError {
 			case true:
