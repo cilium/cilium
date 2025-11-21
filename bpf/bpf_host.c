@@ -1237,8 +1237,12 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	if (ctx_is_decrypt(ctx))
+	if (ctx_is_decrypt(ctx)) {
+		send_trace_notify(ctx, TRACE_FROM_NETWORK, UNKNOWN_ID, UNKNOWN_ID,
+				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
+				  TRACE_REASON_ENCRYPTED, TRACE_PAYLOAD_LEN, proto);
 		return CTX_ACT_OK;
+	}
 #endif
 	ret = tcx_early_hook(ctx, proto);
 	if (ret != CTX_ACT_OK)
