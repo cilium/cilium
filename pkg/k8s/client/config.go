@@ -96,7 +96,7 @@ func NewClientConfig(cfg SharedConfig, params ClientParams) Config {
 	}
 }
 
-func (cfg Config) isEnabled() bool {
+func (cfg Config) IsEnabled() bool {
 	if !cfg.EnableK8s {
 		return false
 	}
