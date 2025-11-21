@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -36,6 +35,10 @@ type LinkConfig struct {
 // until the Hive has started. This is necessary to allow other dependencies to
 // setup their interfaces etc.
 type ConnectorConfig struct {
+	log          *slog.Logger
+	wgAgent      wgTypes.WireguardAgent
+	tunnelConfig tunnel.Config
+
 	// podDeviceHeadroom tracks the desired headroom buffer margin for the
 	// network device pair facing a workload.
 	podDeviceHeadroom uint16
@@ -51,6 +54,10 @@ type ConnectorConfig struct {
 	// operationalMode tracks the operational datapath mode of Cilium,
 	// which may differ from the configured datapath mode.
 	operationalMode types.ConnectorMode
+}
+
+func (cc *ConnectorConfig) Reinitialize() error {
+	return cc.calculateTunedBufferMargins()
 }
 
 func (cc *ConnectorConfig) GetPodDeviceHeadroom() uint16 {
@@ -69,79 +76,53 @@ func (cc *ConnectorConfig) GetOperationalMode() types.ConnectorMode {
 	return cc.operationalMode
 }
 
+// Returns true if we should actively try and align the connector's netdev buffer
+// margins with that of the host's egress interfaces (e.g. tunnel, wireguard).
+func (cc *ConnectorConfig) useTunedBufferMargins() bool {
+	return cc.operationalMode.IsNetkit()
+}
+
 type connectorParams struct {
 	cell.In
 
 	Lifecycle    cell.Lifecycle
 	Log          *slog.Logger
 	DaemonConfig *option.DaemonConfig
-	Orchestrator types.Orchestrator
 	WgAgent      wgTypes.WireguardAgent
 	TunnelConfig tunnel.Config
-}
-
-// Returns true if we should actively try and align the connector's netdev buffer
-// margins with that of the host's egress interfaces (e.g. tunnel, wireguard).
-func useTunedBufferMargins(datapathMode string) bool {
-	switch datapathMode {
-	case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
-		return true
-	}
-	return false
 }
 
 // newConnectorConfig initialises a new ConnectorConfig object with default parameters.
 func newConfig(p connectorParams) (*ConnectorConfig, error) {
 	configuredMode := types.GetConnectorModeByName(p.DaemonConfig.DatapathMode)
 	if configuredMode == types.ConnectorModeUnspec {
-		return nil, fmt.Errorf("invalid datapath mode")
+		return nil, fmt.Errorf("invalid datapath mode: %s", p.DaemonConfig.DatapathMode)
 	}
 
 	cc := &ConnectorConfig{
+		log:             p.Log,
+		wgAgent:         p.WgAgent,
+		tunnelConfig:    p.TunnelConfig,
 		configuredMode:  configuredMode,
 		operationalMode: configuredMode,
-	}
-
-	if useTunedBufferMargins(p.DaemonConfig.DatapathMode) {
-		// TODO: We need a way of validating that we can rely on the kernel
-		// to report buffer margins via netlink generic attributes. If we can't
-		// rely on the kernel here, we should probably error out in future.
-		//
-		// In an ideal world we'd have something like nk.SupportsScrub() in
-		// the upstream netlink library, but that would need to be done at
-		// a generic level and probably isn't acceptable to the maintainer.
-		//
-		// A better approach might be to just try create a dummy netkit
-		// interface with some magic headroom value, and check we can read
-		// it back.
-		p.Lifecycle.Append(cell.Hook{
-			OnStart: func(cell.HookContext) error {
-				return generateConfig(p, cc)
-			},
-		})
 	}
 
 	return cc, nil
 }
 
-// generateConfig aims to calculate necessary tuning parameters for pod/workload-facing
+// calculateTunedBufferMargins aims to calculate necessary tuning parameters for pod/workload-facing
 // network device pairs.
-func generateConfig(p connectorParams, cc *ConnectorConfig) error {
-	if !useTunedBufferMargins(p.DaemonConfig.DatapathMode) {
+func (cc *ConnectorConfig) calculateTunedBufferMargins() error {
+	if !cc.useTunedBufferMargins() {
 		return nil
 	}
 
-	// We must wait for the Orchestrator to signal that the datapath is initialised,
-	// so that it has chance to create any tunneling devices. Otherwise, we'll fail
-	// to query a device below and error out by accident.
-	<-p.Orchestrator.DatapathInitialized()
-
-	wgHeadroom, wgTailroom, err := p.WgAgent.IfaceBufferMargins()
+	wgHeadroom, wgTailroom, err := cc.wgAgent.IfaceBufferMargins()
 	if err != nil {
 		return err
 	}
 
-	tunnelHeadroom, tunnelTailroom, err := p.TunnelConfig.DeviceBufferMargins()
+	tunnelHeadroom, tunnelTailroom, err := cc.tunnelConfig.DeviceBufferMargins()
 	if err != nil {
 		return err
 	}
@@ -151,14 +132,14 @@ func generateConfig(p connectorParams, cc *ConnectorConfig) error {
 	// may overflow a U16.
 	var totalHeadroom = uint32(wgHeadroom) + uint32(tunnelHeadroom)
 	if totalHeadroom > math.MaxUint16 {
-		p.Log.Warn("Total calculated headroom would exceed maximum value, using default",
+		cc.log.Warn("Total calculated headroom would exceed maximum value, using default",
 			logfields.DeviceHeadroom, totalHeadroom)
 	} else {
 		cc.podDeviceHeadroom = uint16(totalHeadroom)
 	}
 	var totalTailroom = uint32(wgTailroom) + uint32(tunnelTailroom)
 	if totalTailroom > math.MaxUint16 {
-		p.Log.Warn("Total calculated tailroom would exceed maximum value, using default",
+		cc.log.Warn("Total calculated tailroom would exceed maximum value, using default",
 			logfields.DeviceTailroom, totalTailroom)
 	} else {
 		cc.podDeviceTailroom = uint16(totalTailroom)
