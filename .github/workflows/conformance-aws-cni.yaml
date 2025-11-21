@@ -216,6 +216,16 @@ jobs:
           hubble: false
           test-concurrency: 3
 
+      - name: Get PR base branch
+        id: get-base-branch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BASE_BRANCH=$(gh pr view ${{ inputs.PR-number }} --json baseRefName -q .baseRefName)
+          echo "base-branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+          echo "Base branch for PR #${{ inputs.PR-number }}: $BASE_BRANCH"
+
       - name: Set up job variables
         id: vars
         run: |
@@ -382,12 +392,21 @@ jobs:
           CLUSTER_NAME="${{ steps.setup-cluster.outputs.cluster_name }}"
           REGION="${{ matrix.region }}"
 
+          # Use base branch from PR if available, otherwise fall back to
+          # context-ref or current branch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REF="${{ steps.get-base-branch.outputs.base-branch }}"
+          else
+            REF="${{ github.ref_name }}"
+          fi
+
           echo "Triggering delete-eks-clusters workflow with:"
           echo "  Cluster: $CLUSTER_NAME"
           echo "  Region: $REGION"
+          echo "  Ref: $REF"
 
           gh workflow run eks-cluster-delete.yaml \
-            --ref ${{ github.ref_name }} \
+            --ref "$REF" \
             --field cluster_name="$CLUSTER_NAME" \
             --field region="$REGION"
         env:
