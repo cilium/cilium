@@ -183,7 +183,6 @@ jobs:
       max-parallel: 3
       matrix:
         focus:
-          - "agent"
           - "datapath"
           - "privileged"
 
@@ -351,7 +350,7 @@ jobs:
             service docker restart
 
       - name: Runtime tests
-        if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
+        if: ${{ matrix.focus == 'datapath' }}
         timeout-minutes: 20
         shell: bash
         run: |
@@ -444,7 +443,7 @@ jobs:
           ls -lah "${GOMODCACHE}" || true
 
       - name: Copy tested features
-        if: ${{ matrix.focus == 'agent' || matrix.focus == 'datapath' }}
+        if: ${{ matrix.focus == 'datapath' }}
         uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
         with:
           provision: 'false'
@@ -456,8 +455,8 @@ jobs:
 
       - name: Debug failure on VM
         # Only debug the failure on the LVH that have Cilium running as a service,
-        # which is 'agent' and 'datapath' focus.
-        if:  ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
+        # which is 'datapath' focus.
+        if:  ${{ !success() && matrix.focus == 'datapath' }}
         timeout-minutes: 10
         uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
         with:
@@ -467,7 +466,7 @@ jobs:
             systemctl status cilium.service
 
       - name: Fetch artifacts
-        if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
+        if: ${{ !success() && matrix.focus == 'datapath' }}
         shell: bash
         run: |
           if [ -e ./test/test_results ];then
@@ -477,7 +476,7 @@ jobs:
           fi
 
       - name: Upload artifacts
-        if: ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
+        if: ${{ !success() && matrix.focus == 'datapath' }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: cilium-sysdumps-${{ matrix.focus }}
@@ -505,7 +504,7 @@ jobs:
           path: cilium-junits/*.xml
 
       - name: Upload features tested
-        if: ${{ always() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
+        if: ${{ always() && matrix.focus == 'datapath' }}
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: features-tested-${{ matrix.focus }}
