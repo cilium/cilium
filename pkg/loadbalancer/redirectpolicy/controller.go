@@ -316,7 +316,7 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 		// In address-based mode there is no existing service/frontend to match against and
 		// instead the frontend is created here.
 		for _, feM := range lrp.FrontendMappings {
-			if len(pods) == 0 {
+			if len(pods) == 0 && !lrp.ForceRedirectOrDrop {
 				// No pods exist to redirect the traffic to. Remove the frontend to let the traffic
 				// be handled normally.
 				c.p.Writer.DeleteFrontend(wtxn, feM.feAddr)
@@ -459,7 +459,7 @@ func (c *lrpController) updateRedirectBackends(wtxn writer.WriteTxn, lrp *LocalR
 
 func shouldRedirectFrontend(log *slog.Logger, lrp *LocalRedirectPolicy, fe *lb.Frontend, pods []podInfo) bool {
 	// 0. Don't redirect if we have no matching target pods.
-	if len(pods) == 0 {
+	if len(pods) == 0 && !lrp.ForceRedirectOrDrop {
 		return false
 	}
 
