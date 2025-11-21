@@ -1880,6 +1880,7 @@ var (
 		AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
 		AllocatorListTimeout:            defaults.AllocatorListTimeout,
 		EnableICMPRules:                 defaults.EnableICMPRules,
+		DatapathMode:                    defaults.DatapathMode,
 
 		EnableVTEP:                           defaults.EnableVTEP,
 		EnableBGPControlPlane:                defaults.EnableBGPControlPlane,

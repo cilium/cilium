@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -70,7 +71,18 @@ var (
 	tunnelConfigGeneve = tunnel.NewTestConfig(tunnel.Geneve)
 
 	// ConnectorConfigs
-	ccTuningZero = ConnectorConfig{}
+	connectorConfigVeth = ConnectorConfig{
+		configuredMode:  types.ConnectorModeVeth,
+		operationalMode: types.ConnectorModeVeth,
+	}
+	connectorConfigNetkit = ConnectorConfig{
+		configuredMode:  types.ConnectorModeNetkit,
+		operationalMode: types.ConnectorModeNetkit,
+	}
+	connectorConfigNetkitL2 = ConnectorConfig{
+		configuredMode:  types.ConnectorModeNetkitL2,
+		operationalMode: types.ConnectorModeNetkitL2,
+	}
 )
 
 type fakeLinkAttributes struct {
@@ -161,27 +173,31 @@ func TestNewConfig(t *testing.T) {
 		wgAgent        *fakeTypes.WireguardAgent
 		tunnelConfig   tunnel.Config
 		expectedConfig *ConnectorConfig
+		shouldError    bool
 	}{
 		{
 			name:           "datapath-veth",
 			daemonConfig:   &daemonConfigVeth,
 			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
 			tunnelConfig:   tunnelConfigNative,
-			expectedConfig: &ccTuningZero,
+			expectedConfig: &connectorConfigVeth,
+			shouldError:    false,
 		},
 		{
 			name:           "datapath-netkit",
 			daemonConfig:   &daemonConfigNetkit,
 			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
 			tunnelConfig:   tunnelConfigNative,
-			expectedConfig: &ccTuningZero,
+			expectedConfig: &connectorConfigNetkit,
+			shouldError:    false,
 		},
 		{
 			name:           "datapath-netkit-l2",
 			daemonConfig:   &daemonConfigNetkitL2,
 			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
 			tunnelConfig:   tunnelConfigNative,
-			expectedConfig: &ccTuningZero,
+			expectedConfig: &connectorConfigNetkitL2,
+			shouldError:    false,
 		},
 	}
 
@@ -195,10 +211,17 @@ func TestNewConfig(t *testing.T) {
 				WgAgent:      tt.wgAgent,
 				TunnelConfig: tt.tunnelConfig,
 			}
-			connector := newConfig(p)
+			connector, err := newConfig(p)
 
-			assert.NotNil(t, connector)
-			assert.Equal(t, tt.expectedConfig, connector)
+			switch tt.shouldError {
+			case true:
+				assert.Error(t, err)
+				assert.Nil(t, connector)
+			case false:
+				assert.NoError(t, err)
+				assert.NotNil(t, connector)
+				assert.Equal(t, tt.expectedConfig, connector)
+			}
 		})
 	}
 }

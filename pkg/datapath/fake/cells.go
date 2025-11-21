@@ -81,6 +81,7 @@ var Cell = cell.Module(
 		func() types.BigTCPConfig { return &fakeTypes.BigTCPUserConfig{} },
 
 		func() gneigh.L2PodAnnouncementConfig { return &fakeTypes.GNeighConfig{} },
+		func() types.ConnectorConfig { return fakeTypes.NewFakeConnectorVeth() },
 	),
 
 	tables.NodeAddressCell,
