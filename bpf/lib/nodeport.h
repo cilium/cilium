@@ -1493,45 +1493,44 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	lb6_fill_key(&key, &tuple);
 
 	svc = lb6_lookup_service(&key, false);
-	if (svc) {
+	if (svc)
 		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
-	} else {
+
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
-		if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->daddr)) {
-			ret = neigh_record_ip6(ctx);
-			if (ret < 0)
-				return ret;
-			if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->saddr))
-				return tail_call_internal(ctx, CILIUM_CALL_IPV64_RFC6052,
-							  ext_err);
-			ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_XLATE);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS,
+	if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->daddr)) {
+		ret = neigh_record_ip6(ctx);
+		if (ret < 0)
+			return ret;
+		if (is_v4_in_v6_rfc6052((union v6addr *)&ip6->saddr))
+			return tail_call_internal(ctx, CILIUM_CALL_IPV64_RFC6052,
 						  ext_err);
-		}
+		ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_XLATE);
+		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS,
+					  ext_err);
+	}
 #endif
-		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
-		if (is_svc_proto) {
-			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
-						      &key.address,
-						      &key.dport, dsr);
-			if (IS_ERR(ret))
-				return ret;
-			if (*dsr)
-				return nodeport_dsr_ingress_ipv6(ctx, &tuple, fraginfo, l4_off,
-								 &key.address, key.dport,
-								 ext_err);
-		}
+	if (is_svc_proto) {
+		ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
+					      &key.address,
+					      &key.dport, dsr);
+		if (IS_ERR(ret))
+			return ret;
+		if (*dsr)
+			return nodeport_dsr_ingress_ipv6(ctx, &tuple, fraginfo, l4_off,
+							 &key.address, key.dport,
+							 ext_err);
+	}
 #endif
 #endif /* ENABLE_DSR */
-	}
 
 	if (is_defined(ENABLE_MASQUERADE_IPV6) || is_svc_proto) {
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
@@ -2869,66 +2868,65 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	lb4_fill_key(&key, &tuple);
 
 	svc = lb4_lookup_service(&key, false);
-	if (svc) {
+	if (svc)
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
-	} else {
+
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
-		if (ip4->daddr != IPV4_DIRECT_ROUTING)
-			return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC6052, ext_err);
+	if (ip4->daddr != IPV4_DIRECT_ROUTING)
+		return tail_call_internal(ctx, CILIUM_CALL_IPV46_RFC6052, ext_err);
 #endif
-		/* The packet is not destined to a service but it can be a reply
-		 * packet from a remote backend, in which case we need to perform
-		 * the reverse NAT.
-		 */
-		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+	/* The packet is not destined to a service but it can be a reply
+	 * packet from a remote backend, in which case we need to perform
+	 * the reverse NAT.
+	 */
+	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
-		if (is_svc_proto) {
-			/* Check if packet has embedded DSR info, or belongs to
-			 * an established DSR connection:
-			 */
-			ret = nodeport_extract_dsr_v4(ctx, ip4, &tuple,
-						      l4_off, &key.address,
-						      &key.dport, dsr);
-			if (IS_ERR(ret))
-				return ret;
-			if (*dsr)
-				/* Packet continues on its way to local backend: */
-				return nodeport_dsr_ingress_ipv4(ctx, &tuple, fraginfo, l4_off,
-								 key.address, key.dport,
-								 ext_err);
-		}
+	if (is_svc_proto) {
+		/* Check if packet has embedded DSR info, or belongs to
+		 * an established DSR connection:
+		 */
+		ret = nodeport_extract_dsr_v4(ctx, ip4, &tuple,
+					      l4_off, &key.address,
+					      &key.dport, dsr);
+		if (IS_ERR(ret))
+			return ret;
+		if (*dsr)
+			/* Packet continues on its way to local backend: */
+			return nodeport_dsr_ingress_ipv4(ctx, &tuple, fraginfo, l4_off,
+							 key.address, key.dport,
+							 ext_err);
+	}
 #endif
 #endif /* ENABLE_DSR */
 
-		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
-		/* For NAT64 we might see an IPv4 reply from the backend to
-		 * the LB entering this path. Thus, transform back to IPv6.
-		 */
-		if (is_svc_proto && snat_v6_has_v4_match(&tuple)) {
-			ret = lb4_to_lb6(ctx, ip4, l3_off);
-			if (ret)
-				return ret;
-			ctx_store_meta(ctx, CB_NAT_46X64, 0);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS,
-						  ext_err);
+	ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+	/* For NAT64 we might see an IPv4 reply from the backend to
+	 * the LB entering this path. Thus, transform back to IPv6.
+	 */
+	if (is_svc_proto && snat_v6_has_v4_match(&tuple)) {
+		ret = lb4_to_lb6(ctx, ip4, l3_off);
+		if (ret)
+			return ret;
+		ctx_store_meta(ctx, CB_NAT_46X64, 0);
+		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS,
+					  ext_err);
 #ifdef ENABLE_NAT_46X64_GATEWAY
-		} else if (is_svc_proto &&
-			   snat_v6_has_v4_match_rfc6052(&tuple)) {
-			ret = snat_remap_rfc6052(ctx, ip4, l3_off);
-			if (ret)
-				return ret;
-			ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_ROUTE);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS,
-						  ext_err);
+	} else if (is_svc_proto &&
+		   snat_v6_has_v4_match_rfc6052(&tuple)) {
+		ret = snat_remap_rfc6052(ctx, ip4, l3_off);
+		if (ret)
+			return ret;
+		ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_ROUTE);
+		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS,
+					  ext_err);
 #endif
-		}
 	}
 
 	/* Check for RevSNAT. When BPF-Masquerading is off, we only need to
