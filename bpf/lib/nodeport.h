@@ -1344,6 +1344,14 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	__u32 monitor = 0;
 	int ret;
 
+	/* Check if the identified service is a wildcard entry. This
+	 * means we have no protocol-level service entry, meaning we
+	 * should drop the traffic to avoid it being punted back to
+	 * the network and re-delivered to us in a loop.
+	 */
+	if (lb6_key_is_wildcard(key))
+		return DROP_NO_SERVICE;
+
 	if (!lb6_src_range_ok(svc, (union v6addr *)&ip6->saddr))
 		return DROP_NOT_IN_SRC_RANGE;
 
@@ -1510,14 +1518,6 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	svc = lb6_lookup_service(&key, false);
 	if (svc) {
-		/* Check if the identified service is a wildcard entry. This
-		 * means we have no protocol-level service entry, meaning we
-		 * should drop the traffic to avoid it being punted back to
-		 * the network and re-delivered to us in a loop.
-		 */
-		if (lb6_key_is_wildcard(&key))
-			return DROP_NO_SERVICE;
-
 		return nodeport_svc_lb6(ctx, &tuple, svc, &key, ip6, l3_off,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
@@ -2690,6 +2690,14 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	__u32 monitor = 0;
 	int ret;
 
+	/* Check if the identified service is a wildcard entry. This
+	 * means we have no protocol-level service entry, meaning we
+	 * should drop the traffic to avoid it being punted back to
+	 * the network and re-delivered to us in a loop.
+	 */
+	if (lb4_key_is_wildcard(key))
+		return DROP_NO_SERVICE;
+
 	if (!lb4_src_range_ok(svc, ip4->saddr))
 		return DROP_NOT_IN_SRC_RANGE;
 
@@ -2887,14 +2895,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	svc = lb4_lookup_service(&key, false);
 	if (svc) {
-		/* Check if the identified service is a wildcard entry. This
-		 * means we have no protocol-level service entry, meaning we
-		 * should drop the traffic to avoid it being punted back to
-		 * the network and re-delivered to us in a loop.
-		 */
-		if (lb4_key_is_wildcard(&key))
-			return DROP_NO_SERVICE;
-
 		return nodeport_svc_lb4(ctx, &tuple, svc, &key, ip4, l3_off,
 					fraginfo, l4_off, src_sec_identity,
 					punt_to_stack, ext_err);
