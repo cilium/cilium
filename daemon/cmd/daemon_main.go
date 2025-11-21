@@ -1209,7 +1209,7 @@ type daemonConfigParams struct {
 	Lifecycle cell.Lifecycle
 	JobGroup  job.Group
 
-	Clientset       k8sClient.Clientset
+	K8sClientConfig k8sClient.Config
 	KPRConfig       kpr.KPRConfig
 	KPRInitializer  kprinitializer.KPRInitializer
 	IPSecConfig     datapath.IPsecConfig
