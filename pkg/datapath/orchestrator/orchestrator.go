@@ -219,6 +219,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			o.params.MTU,
 			o.params.WgAgent,
 			o.params.IPsecConfig,
+			o.params.ConnectorConfig,
 		)
 		if err != nil {
 			health.Degraded("failed to get local node configuration", err)

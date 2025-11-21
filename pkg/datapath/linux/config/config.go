@@ -26,7 +26,6 @@ import (
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -774,7 +773,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, cfg *datapath.L
 		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
 	}
 
-	if option.Config.IPv4Enabled() && (e.IsHost() || option.Config.DatapathMode != datapathOption.DatapathModeNetkit) {
+	if option.Config.IPv4Enabled() && (e.IsHost() || cfg.DatapathIsLayer2) {
 		if e.RequireARPPassthrough() {
 			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
 		} else {
