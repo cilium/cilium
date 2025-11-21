@@ -4,6 +4,7 @@
 package connector
 
 import (
+	"fmt"
 	"log/slog"
 	"math"
 
@@ -42,6 +43,14 @@ type ConnectorConfig struct {
 	// podDeviceTailroom tracks the desired tailroom buffer margin for the
 	// network device pairs facing a workload.
 	podDeviceTailroom uint16
+
+	// configuredMode tracks the configured datapath mode of Cilium,
+	// as specified by runtime configuration.
+	configuredMode types.ConnectorMode
+
+	// operationalMode tracks the operational datapath mode of Cilium,
+	// which may differ from the configured datapath mode.
+	operationalMode types.ConnectorMode
 }
 
 func (cc *ConnectorConfig) GetPodDeviceHeadroom() uint16 {
@@ -50,6 +59,14 @@ func (cc *ConnectorConfig) GetPodDeviceHeadroom() uint16 {
 
 func (cc *ConnectorConfig) GetPodDeviceTailroom() uint16 {
 	return cc.podDeviceTailroom
+}
+
+func (cc *ConnectorConfig) GetConfiguredMode() types.ConnectorMode {
+	return cc.configuredMode
+}
+
+func (cc *ConnectorConfig) GetOperationalMode() types.ConnectorMode {
+	return cc.operationalMode
 }
 
 type connectorParams struct {
@@ -74,8 +91,16 @@ func useTunedBufferMargins(datapathMode string) bool {
 }
 
 // newConnectorConfig initialises a new ConnectorConfig object with default parameters.
-func newConfig(p connectorParams) *ConnectorConfig {
-	cc := &ConnectorConfig{}
+func newConfig(p connectorParams) (*ConnectorConfig, error) {
+	configuredMode := types.GetConnectorModeByName(p.DaemonConfig.DatapathMode)
+	if configuredMode == types.ConnectorModeUnspec {
+		return nil, fmt.Errorf("invalid datapath mode")
+	}
+
+	cc := &ConnectorConfig{
+		configuredMode:  configuredMode,
+		operationalMode: configuredMode,
+	}
 
 	if useTunedBufferMargins(p.DaemonConfig.DatapathMode) {
 		// TODO: We need a way of validating that we can rely on the kernel
@@ -96,7 +121,7 @@ func newConfig(p connectorParams) *ConnectorConfig {
 		})
 	}
 
-	return cc
+	return cc, nil
 }
 
 // generateConfig aims to calculate necessary tuning parameters for pod/workload-facing
