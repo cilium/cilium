@@ -58,7 +58,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  clusterNamePrefix: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.217.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
@@ -226,11 +226,20 @@ jobs:
             OWNER="${OWNER//[.\/]/-}"
           fi
 
+          # Create unique cluster name including version to avoid conflicts
+          # when multiple versions use same region
+          VERSION_SANITIZED="${{ matrix.version }}"
+          VERSION_SANITIZED="${VERSION_SANITIZED//[.]/-}"
+
+          CLUSTER_NAME="${{ env.clusterNamePrefix }}-${VERSION_SANITIZED}"
+          CLUSTER_NAME_HASH=$(echo -n "${CLUSTER_NAME}" | sha256sum | cut -c1-10)
+          HELM_CLUSTER_NAME="cilium-${CLUSTER_NAME_HASH}-${VERSION_SANITIZED}"
+
           # Set ipam.mode=cluster-pool to overwrite the ipam value set by the
           # cilium-cli which is setting it to 'eni' because it auto-detects
           # the cluster as being EKS.
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --helm-set=cluster.name=${{ env.clusterName }} \
+            --helm-set=cluster.name=${HELM_CLUSTER_NAME} \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=enableIPv4Masquerade=false \
             --helm-set=cni.chainingMode=aws-cni \
@@ -250,6 +259,8 @@ jobs:
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
+          # shellcheck disable=SC2046
+          echo cluster_name=${CLUSTER_NAME} >> $GITHUB_OUTPUT
           # shellcheck disable=SC2046
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           # shellcheck disable=SC2046
@@ -282,7 +293,7 @@ jobs:
         id: setup-cluster
         uses: ./.github/actions/setup-eks-cluster
         with:
-          cluster_name: ${{ env.clusterName }}
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
           region: ${{ matrix.region }}
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
