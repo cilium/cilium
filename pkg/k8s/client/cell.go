@@ -95,10 +95,6 @@ type Clientset interface {
 	// clientset can be used.
 	IsEnabled() bool
 
-	// Disable disables the client. Panics if called after the clientset has been
-	// started.
-	Disable()
-
 	// Config returns the configuration used to create this client.
 	Config() Config
 
@@ -108,9 +104,6 @@ type Clientset interface {
 
 // compositeClientset implements the Clientset using real clients.
 type compositeClientset struct {
-	started  bool
-	disabled bool
-
 	*MCSAPIClientset
 	*KubernetesClientset
 	*APIExtClientset
@@ -146,8 +139,8 @@ func newClientset(params compositeClientsetParams) (Clientset, *restConfigManage
 }
 
 func newClientsetForUserAgent(params compositeClientsetParams, name string) (Clientset, *restConfigManager, error) {
-	if !params.Config.isEnabled() {
-		return &compositeClientset{disabled: true}, nil, nil
+	if !params.Config.IsEnabled() {
+		return &compositeClientset{config: params.Config}, nil, nil
 	}
 
 	client := compositeClientset{
@@ -229,14 +222,7 @@ func (c *compositeClientset) Discovery() discovery.DiscoveryInterface {
 }
 
 func (c *compositeClientset) IsEnabled() bool {
-	return c != nil && c.config.isEnabled() && !c.disabled
-}
-
-func (c *compositeClientset) Disable() {
-	if c.started {
-		panic("Clientset.Disable() called after it had been started")
-	}
-	c.disabled = true
+	return c != nil && c.config.IsEnabled()
 }
 
 func (c *compositeClientset) Config() Config {
@@ -267,8 +253,6 @@ func (c *compositeClientset) onStart(startCtx cell.HookContext) error {
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
-	c.started = true
-
 	return nil
 }
 
@@ -277,7 +261,6 @@ func (c *compositeClientset) onStop(stopCtx cell.HookContext) error {
 		c.controller.RemoveAllAndWait()
 		c.closeAllConns()
 	}
-	c.started = false
 	return nil
 }
 
