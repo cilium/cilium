@@ -15,6 +15,7 @@ mac_five  = "15:21:39:45:4D:5D"
 mac_six   = "08:14:1C:32:52:7E"
 mac_zero  = "00:00:00:00:00:00"
 mac_bcast = "FF:FF:FF:FF:FF:FF"
+host_mac_addr = "CE:72:A7:03:88:56"
 
 # IPv4 addresses for hosts, external to the cluster
 v4_ext_one   = "110.0.11.1"
