@@ -52,6 +52,12 @@ type PolicyContext interface {
 	// such rules being evaluated.
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
 
+	// SetPriority sets the priority level for the first rule being processed.
+	SetPriority(level uint32)
+
+	// Priority returns the priority level for the current rule.
+	Priority() uint32
+
 	// IsDeny returns true if the policy computation should be done for the
 	// policy deny case. This function returns different values depending on the
 	// code path as it can be changed during the policy calculation.
@@ -78,6 +84,10 @@ type PolicyContext interface {
 type policyContext struct {
 	repo *Repository
 	ns   string
+
+	// level is the precedence level for the rule being processed.
+	level uint32
+
 	// isIngress is set to true for ingress rule processing, false for egress
 	isIngress bool
 	// isDeny this field is set to true if the given policy computation should
@@ -127,6 +137,16 @@ func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private 
 
 func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
 	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns)
+}
+
+// SetPriority sets the precedence level for the first rule being processed.
+func (p *policyContext) SetPriority(level uint32) {
+	p.level = level
+}
+
+// Priority returns the precedence level for the current rule.
+func (p *policyContext) Priority() uint32 {
+	return p.level
 }
 
 // IsDeny returns true if the policy computation should be done for the
@@ -512,7 +532,6 @@ func (p *EndpointPolicy) MissingMap(realized MapStateMap) iter.Seq2[Key, MapStat
 }
 
 func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
 	p.policyMapState.revertChanges(changes)
 }
 
@@ -534,8 +553,19 @@ func (p *EndpointPolicy) toMapState(logger *slog.Logger) {
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
 func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy) {
+	features := l4policy.features
+	if features.contains(passRules) {
+		// separate pass to handle rules with pass verdicts properly
+		l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
+			l4.toMapState(logger, p, features, ChangeState{})
+			return true
+		})
+		// 2nd pass below without PASS entries present and without the passRules feature set
+		p.policyMapState.prunePassEntries(ChangeState{})
+		features &= ^passRules
+	}
 	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		l4.toMapState(logger, p, l4policy.features, ChangeState{})
+		l4.toMapState(logger, p, features, ChangeState{})
 		return true
 	})
 }
@@ -601,6 +631,7 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
+// The returned stub is not modified.
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
