@@ -16,9 +16,7 @@
 #define BACKEND_PORT		tcp_svc_two
 
 static volatile const __u8 *client_mac = mac_one;
-
-/* this matches the default node_config.h: */
-static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
+static volatile const __u8 *lb_mac = mac_host;
 
 #include "lib/bpf_host.h"
 
