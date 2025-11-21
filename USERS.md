@@ -342,12 +342,6 @@ Users (Alphabetically)
       U: CNI, CiliumclusterWideNetworkPolicy, CiliumNetworkPolicy, Kube-Proxy Replacement, Hubble, Direct Routing, Egress Gateway, Service Load Balancing, L2 Announcement, BGP Advertisement
       Q: @minhng99
 
-    * N: FRSCA - Factory for Repeatable Secure Creation of Artifacts
-      D: FRSCA is utilizing tetragon integrated with Tekton to create runtime attestation to attest artifact and builder attributes
-      U: Runtime observability
-      L: https://github.com/buildsec/frsca
-      Q: @Parth Patel
-
     * N: F5 Inc
       D: F5 helps customers with Cilium VXLAN tunnel integration with BIG-IP
       U: Networking
@@ -410,7 +404,7 @@ Users (Alphabetically)
       Q: @austince, @dmvk
 
     * N: Incentive.me
-      D: Incentive.me use Cilium, Tetragon and Hubble for enterprise networking, observability, and security of all environments.
+      D: Incentive.me use Cilium, Tetragon, and Hubble for enterprise networking, observability, and security of all environments.
       U: Networking, network policy, observability, cluster mesh, kube-proxy replacement, security, egress gateway, service load balancing, CNI
       L: https://incentive.me
       Q: @lucasfcnunes
@@ -434,7 +428,7 @@ Users (Alphabetically)
       Q: @murali509
 
     * N: Intility AS
-      D: Intility is a managed service provider for enterprises and we use Cilium, Tetragon and Hubble to deliver world class managed Kubernetes clusters to customers from our own private cloud
+      D: Intility is a managed service provider for enterprises and we use Cilium, Tetragon, and Hubble to deliver world class managed Kubernetes clusters to customers from our own private cloud
       U: Networking, CiliumNetworkPolicy, CiliumCIDRGroup, security, CNI
       L: https://intility.com/container-platform/
       Q: @jonasks, @daniwk, @stianfro
@@ -450,7 +444,6 @@ Users (Alphabetically)
        U: Networking, network policy, observability, cluster mesh, kube-proxy replacement, security, egress gateway, service load balancing, CNI
        L: https://myjar.app/blog/engineering/
        Q: @rohan-changejar @rohangrge
-       
 
     * N: JUMO
       D: JUMO is using Cilium as their CNI plugin for all of their AWS-hosted EKS clusters
@@ -647,12 +640,6 @@ Users (Alphabetically)
       U: CNI, Networking, Network policy, Security, Hubble UI
       L: https://blog.palark.com/why-cilium-for-kubernetes-networking/
       Q: @shurup
-
-    * N: Parseable
-      D: Parseable uses Tertragon for collecting and ingesting eBPF logs for Kubernetes clusters.
-      U: Security, eBPF, Tetragon
-      L: https://www.parseable.io/blog/ebpf-log-analytics
-      Q: @nitisht
 
     * N: Pionative
       D: Pionative supplies all its clients across cloud providers with
@@ -864,12 +851,6 @@ Users (Alphabetically)
       D: Sproutfi uses Cilium as the CNI on its GKE based clusters
       U: Service Load Balancing, Hubble, Datadog Integration for Prometheus metrics
       Q: @edude03
-
-    * N: Stream Security
-      D: Stream Security uses Tetragon for Network, Process, and File observability and protection in Kubernetes clusters
-      U: Tetragon Network Policies, Process Policies, File Policies
-      L: https://www.stream.security/
-      Q: @vitali-streamsec
 
     * N: SuperOrbital
       D: As a Kubernetes-focused consulting firm, we have implemented Cilium on customer engagements
