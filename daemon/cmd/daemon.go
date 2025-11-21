@@ -105,7 +105,7 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		return fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	if params.Clientset.IsEnabled() {
+	if params.K8sClientConfig.IsEnabled() {
 		// Kubernetes demands that the localhost can always reach local
 		// pods. Therefore unless the AllowLocalhost policy is set to a
 		// specific mode, always allow localhost to reach local

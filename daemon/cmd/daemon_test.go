@@ -121,10 +121,10 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 
 	ds.hive = hive.New(
 		cell.Provide(
-			func(log *slog.Logger) k8sClient.Clientset {
+			func(log *slog.Logger) (k8sClient.Clientset, k8sClient.Config) {
 				cs, _ := k8sFakeClient.NewFakeClientset(log)
 				cs.Disable()
-				return cs
+				return cs, cs.Config()
 			},
 			func() kvstore.Config { return kvstore.Config{KVStore: kvstore.EtcdBackendName} },
 			func() kvstore.Client { return client },
