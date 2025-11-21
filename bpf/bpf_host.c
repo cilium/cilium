@@ -1247,9 +1247,9 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	 * etc. on an encrypted packet.
 	 * In all other cases (packet doesn't need decryption or already
 	 * decrypted), we want to run all subsequent logic here. We therefore
-	 * ignore the return value from do_decrypt.
+	 * ignore the return value from ipsec_do_decrypt.
 	 */
-	ret = do_decrypt(ctx, proto);
+	ret = ipsec_do_decrypt(ctx, proto);
 	if (IS_ERR(ret))
 		goto drop_err;
 

@@ -48,7 +48,7 @@ int cil_from_network(struct __ctx_buff *ctx)
 	if (!validate_ethertype(ctx, &proto))
 		goto out;
 
-	ret = do_decrypt(ctx, proto);
+	ret = ipsec_do_decrypt(ctx, proto);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_INGRESS);
 #endif
@@ -61,13 +61,13 @@ int cil_from_network(struct __ctx_buff *ctx)
  *    and marked with MARK_MAGIC_DECRYPT, IPSec mode only)
  *
  * 1. will be traced with TRACE_REASON_ENCRYPTED, because
- * do_decrypt marks them with MARK_MAGIC_DECRYPT.
+ * ipsec_do_decrypt marks them with MARK_MAGIC_DECRYPT.
  *
  * 2. will be traced without TRACE_REASON_ENCRYPTED, because
- * do_decrypt does't touch to mark.
+ * ipsec_do_decrypt does't touch to mark.
  *
  * 3. will be traced without TRACE_REASON_ENCRYPTED, because
- * do_decrypt clears the mark.
+ * ipsec_do_decrypt clears the mark.
  *
  * Note that 1. contains the ESP packets someone else generated.
  * In that case, we trace it as "encrypted", but it doesn't mean
@@ -80,7 +80,7 @@ int cil_from_network(struct __ctx_buff *ctx)
 	if (ctx_is_decrypt(ctx))
 		trace.reason = TRACE_REASON_ENCRYPTED;
 
-	/* Only possible redirect in here is the one in the do_decrypt
+	/* Only possible redirect in here is the one in the ipsec_do_decrypt
 	 * which redirects to cilium_host.
 	 */
 	if (ret == CTX_ACT_REDIRECT)
