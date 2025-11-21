@@ -95,6 +95,17 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   install-and-perftest:
+    permissions:
+      # To be able to trigger eks-cluster-pool-manager.yaml workflow
+      actions: write
+      # To be able to access the repository with actions/checkout
+      contents: read
+      # To be able to request the JWT from GitHub's OIDC provider
+      id-token: write
+      # To allow retrieving information from the PR API
+      pull-requests: read
+      # To be able to set commit status
+      statuses: write
     runs-on: ubuntu-24.04
     name: Install and Perf Test
     timeout-minutes: 60
