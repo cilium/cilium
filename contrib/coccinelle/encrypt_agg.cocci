@@ -14,7 +14,8 @@ cnt = 0
 
 
 @pass_monitor exists@
-expression e1, e2, e3, e4, e5, e6, e7;
+expression e1, e3, e4, e5, e6, e7;
+identifier e2 =~ "TRACE_TO_.*";
 identifier f;
 expression m != 0;
 position p;
