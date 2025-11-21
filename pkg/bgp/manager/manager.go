@@ -48,6 +48,7 @@ type bgpRouterManagerParams struct {
 	Metrics             *BGPManagerMetrics
 	DB                  *statedb.DB
 	ReconcileErrorTable statedb.RWTable[*tables.BGPReconcileError]
+	RouterProvider      types.RouterProvider
 	Reconcilers         []reconciler.ConfigReconciler `group:"bgp-config-reconciler"`
 	StateReconcilers    []reconciler.StateReconciler  `group:"bgp-state-reconciler"`
 }
@@ -109,6 +110,9 @@ type BGPRouterManager struct {
 
 	lock.RWMutex
 
+	// BGP router provider
+	routerProvider types.RouterProvider
+
 	// BGP instances and reconcilers
 	BGPInstances      LocalInstanceMap
 	ConfigReconcilers []reconciler.ConfigReconciler
@@ -131,9 +135,7 @@ type BGPRouterManager struct {
 	metrics *BGPManagerMetrics
 }
 
-// NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
-//
-// See BGPRouterManager for details.
+// NewBGPRouterManager constructs a new BGPRouterManager.
 func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 	if !params.DaemonConfig.BGPControlPlaneEnabled() {
 		return &BGPRouterManager{}
@@ -142,8 +144,9 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 	activeReconcilers := reconciler.GetActiveReconcilers(params.Logger, params.Reconcilers)
 
 	m := &BGPRouterManager{
-		logger:  params.Logger,
-		running: true, // start with running state set
+		logger:         params.Logger,
+		routerProvider: params.RouterProvider,
+		running:        true, // start with running state set
 
 		BGPInstances:      make(LocalInstanceMap),
 		ConfigReconcilers: activeReconcilers,
@@ -498,7 +501,7 @@ func (m *BGPRouterManager) registerBGPInstance(ctx context.Context,
 		StateNotification: make(types.StateNotificationCh, 1),
 	}
 
-	i, err := instance.NewBGPInstance(ctx, l, c.Name, globalConfig)
+	i, err := instance.NewBGPInstance(ctx, m.routerProvider, l, c.Name, globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to start BGP instance: %w", err)
 	}

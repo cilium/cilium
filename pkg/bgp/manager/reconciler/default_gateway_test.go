@@ -18,6 +18,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
+	"github.com/cilium/cilium/pkg/bgp/gobgp"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -519,7 +520,7 @@ func setupBGPInstance(logger *slog.Logger) (*instance.BGPInstance, error) {
 		},
 	}
 
-	testInstance, err := instance.NewBGPInstance(context.Background(), logger, "test-instance", srvParams)
+	testInstance, err := instance.NewBGPInstance(context.Background(), gobgp.NewRouterProvider(), logger, "test-instance", srvParams)
 	return testInstance, err
 }
 

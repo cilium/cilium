@@ -16,6 +16,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
+	"github.com/cilium/cilium/pkg/bgp/gobgp"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/tables"
@@ -165,7 +166,7 @@ func TestGetRoutes(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testInstance, err := instance.NewBGPInstance(context.Background(), hivetest.Logger(t), "test-instance", srvParams)
+			testInstance, err := instance.NewBGPInstance(context.Background(), gobgp.NewRouterProvider(), hivetest.Logger(t), "test-instance", srvParams)
 			require.NoError(t, err)
 
 			testInstance.Config = &v2.CiliumBGPNodeInstance{
