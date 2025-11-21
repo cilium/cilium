@@ -1531,17 +1531,16 @@ skip_service_lookup:
 		}
 #endif
 #endif /* ENABLE_DSR */
+	}
 
-#ifndef ENABLE_MASQUERADE_IPV6
-		if (!is_svc_proto)
-			return CTX_ACT_OK;
-#endif /* ENABLE_MASQUERADE_IPV6 */
-
+	if (is_defined(ENABLE_MASQUERADE_IPV6) || is_svc_proto) {
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS,
 					  ext_err);
 	}
+
+	return CTX_ACT_OK;
 }
 #endif /* ENABLE_IPV6 */
 
@@ -2908,14 +2907,6 @@ skip_service_lookup:
 #endif
 #endif /* ENABLE_DSR */
 
-#ifndef ENABLE_MASQUERADE_IPV4
-		/* When BPF-Masquerading is off, we can skip the revSNAT path via
-		 * CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS if the packet is ICMP.
-		 */
-		if (!is_svc_proto)
-			return CTX_ACT_OK;
-#endif /* ENABLE_MASQUERADE_IPV4 */
-
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		/* For NAT64 we might see an IPv4 reply from the backend to
 		 * the LB entering this path. Thus, transform back to IPv6.
@@ -2938,9 +2929,15 @@ skip_service_lookup:
 						  ext_err);
 #endif
 		}
-
-		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS, ext_err);
 	}
+
+	/* Check for RevSNAT. When BPF-Masquerading is off, we only need to
+	 * handle SVC replies:
+	 */
+	if (is_defined(ENABLE_MASQUERADE_IPV4) || is_svc_proto)
+		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS, ext_err);
+
+	return CTX_ACT_OK;
 }
 #endif /* ENABLE_IPV4 */
 
