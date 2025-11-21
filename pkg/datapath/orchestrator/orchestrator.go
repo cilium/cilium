@@ -113,6 +113,7 @@ type orchestratorParams struct {
 	MaglevConfig        maglev.Config
 	WgAgent             wgTypes.WireguardAgent
 	IPsecConfig         datapath.IPsecConfig
+	ConnectorConfig     datapath.ConnectorConfig
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -297,6 +298,10 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 	if !o.initDone {
 		close(o.dpInitialized)
 		o.initDone = true
+	}
+
+	if err := o.params.ConnectorConfig.Reinitialize(); err != nil {
+		errs = append(errs, err)
 	}
 
 	// Issue a regeneration for all endpoints, including the host endpoint.

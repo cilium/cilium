@@ -63,6 +63,7 @@ func GetConnectorModeByName(mode string) ConnectorMode {
 }
 
 type ConnectorConfig interface {
+	Reinitialize() error
 	GetPodDeviceHeadroom() uint16
 	GetPodDeviceTailroom() uint16
 	GetConfiguredMode() ConnectorMode
