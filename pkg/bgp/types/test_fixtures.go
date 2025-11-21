@@ -96,7 +96,7 @@ var (
 					{
 						Conditions: RoutePolicyConditions{
 							MatchNeighbors: &RoutePolicyNeighborMatch{
-								Type:      RoutePolicyMatchAny,
+								Type:      RoutePolicyMatchInvert,
 								Neighbors: []netip.Addr{netip.MustParseAddr("172.16.0.1"), netip.MustParseAddr("10.10.10.10")},
 							},
 							MatchPrefixes: &RoutePolicyPrefixMatch{
@@ -137,7 +137,7 @@ var (
 								Neighbors: []netip.Addr{netip.MustParseAddr("fe80::210:5aff:feaa:20a2")},
 							},
 							MatchPrefixes: &RoutePolicyPrefixMatch{
-								Type: RoutePolicyMatchAny,
+								Type: RoutePolicyMatchInvert,
 								Prefixes: []RoutePolicyPrefix{
 									{
 										CIDR:         netip.MustParsePrefix("2001:0DB8::/64"),

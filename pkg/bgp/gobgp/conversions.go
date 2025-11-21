@@ -242,7 +242,7 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 			ds.Prefixes = append(ds.Prefixes, p)
 		}
 		s.Conditions.PrefixSet = &gobgp.MatchSet{
-			Type: toGoBGPPolicyMatchType(apiStatement.Conditions.MatchNeighbors.Type),
+			Type: toGoBGPPolicyMatchType(apiStatement.Conditions.MatchPrefixes.Type),
 			Name: ds.Name,
 		}
 		definedSets = append(definedSets, ds)
