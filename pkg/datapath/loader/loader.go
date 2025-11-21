@@ -28,8 +28,6 @@ import (
 )
 
 const (
-	subsystem = "datapath-loader"
-
 	symbolFromNetwork = "cil_from_network"
 
 	dirIngress = "ingress"
