@@ -1558,6 +1558,13 @@ func (in *CiliumLocalRedirectPolicySpec) DeepEqual(other *CiliumLocalRedirectPol
 	if in.Description != other.Description {
 		return false
 	}
+	if (in.NodeSelector == nil) != (other.NodeSelector == nil) {
+		return false
+	} else if in.NodeSelector != nil {
+		if !in.NodeSelector.DeepEqual(other.NodeSelector) {
+			return false
+		}
+	}
 
 	return true
 }

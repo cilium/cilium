@@ -195,6 +195,12 @@ type CiliumLocalRedirectPolicySpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	Description string `json:"description,omitempty"`
+
+	// NodeSelector selects a group of nodes where this policy is applicable.
+	// If empty, the policy applies to all nodes.
+	//
+	// +kubebuilder:validation:Optional
+	NodeSelector *slim_metav1.LabelSelector `json:"nodeSelector,omitempty"`
 }
 
 // CiliumLocalRedirectPolicyStatus is the status of a Local Redirect Policy.
