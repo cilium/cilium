@@ -26,6 +26,10 @@ func NewFakeConnectorNetkitL2() types.ConnectorConfig {
 	return NewFakeConnectorConfig(types.ConnectorModeNetkitL2, types.ConnectorModeNetkitL2)
 }
 
+func (fcc fakeConnectorConfig) Reinitialize() error {
+	return nil
+}
+
 func (fcc fakeConnectorConfig) GetPodDeviceHeadroom() uint16 {
 	return 0
 }

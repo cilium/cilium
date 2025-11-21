@@ -116,6 +116,7 @@ type orchestratorParams struct {
 	WgAgent             wgTypes.WireguardAgent
 	IPsecConfig         datapath.IPsecConfig
 	BIGTCPConfig        *bigtcp.Configuration
+	ConnectorConfig     datapath.ConnectorConfig
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -289,6 +290,9 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		o.params.Proxy,
 		o.params.BIGTCPConfig,
 	)
+	if err == nil {
+		err = o.params.ConnectorConfig.Reinitialize()
+	}
 	if err != nil {
 		if req.errChan != nil {
 			select {
