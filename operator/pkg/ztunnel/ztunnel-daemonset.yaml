@@ -10,13 +10,13 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
-      app: ztunnel
+      app: ztunnel-cilium
   template:
     metadata:
       annotations:
         sidecar.istio.io/inject: "false"
       labels:
-        app: ztunnel
+        app: ztunnel-cilium
     spec:
       hostNetwork: true
       containers:
@@ -40,7 +40,7 @@ spec:
           valueFrom:
             fieldRef:
               apiVersion: v1
-              fieldPath: spec.nodeName
+              fieldPath: status.hostIP
         - name: INSTANCE_IP
           valueFrom:
             fieldRef:
@@ -85,8 +85,8 @@ spec:
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
-        - mountPath: /var/run/ztunnel
-          name: ztunnel-dir
+        - mountPath: /var/run/cilium
+          name: cilium-dir
           readOnly: false
         - mountPath: /etc/ztunnel
           name: cilium-ztunnel-secrets
@@ -112,7 +112,7 @@ spec:
       - hostPath:
           path: /var/run/cilium
           type: DirectoryOrCreate
-        name: ztunnel-dir
+        name: cilium-dir
       - name: cilium-ztunnel-secrets
         secret:
           secretName: cilium-ztunnel-secrets
