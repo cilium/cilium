@@ -12,7 +12,9 @@ on:
         required: true
         type: string
 
-permissions: {}
+permissions:
+  id-token: write
+  contents: read
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
