@@ -5,6 +5,7 @@ package types
 
 import (
 	"context"
+	"log/slog"
 	"net/netip"
 	"strings"
 
@@ -459,6 +460,11 @@ type StopRequest struct {
 	// FullDestroy should be set to true if full destroy of the router instance should be performed.
 	// Note that this causes sending a Cease notification to BGP peers, which terminates Graceful Restart progress.
 	FullDestroy bool
+}
+
+// RouterProvider provides instances of underlying BGP router implementation.
+type RouterProvider interface {
+	NewRouter(ctx context.Context, log *slog.Logger, params ServerParameters) (Router, error)
 }
 
 // Router is vendor-agnostic cilium bgp configuration layer. Parameters of this layer
