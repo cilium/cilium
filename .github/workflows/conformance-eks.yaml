@@ -236,6 +236,17 @@ jobs:
           echo "empty=$(jq '(.include | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
 
   installation-and-connectivity:
+    permissions:
+      # To be able to trigger eks-cluster-pool-manager.yaml workflow
+      actions: write
+      # To be able to access the repository with actions/checkout
+      contents: read
+      # To allow retrieving information from the PR API
+      pull-requests: read
+      # To be able to set commit status
+      statuses: write
+      # To be able to request the JWT from GitHub's OIDC provider
+      id-token: write
     name: Installation and Connectivity Test
     needs: [generate-matrix, wait-for-images]
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
