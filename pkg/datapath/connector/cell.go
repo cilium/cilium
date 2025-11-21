@@ -16,6 +16,6 @@ var Cell = cell.Module(
 	cell.Provide(newConnectorConfig),
 )
 
-func newConnectorConfig(p connectorParams) types.ConnectorConfig {
+func newConnectorConfig(p connectorParams) (types.ConnectorConfig, error) {
 	return newConfig(p)
 }
