@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -509,9 +508,12 @@ func runOperator(log *slog.Logger, lc *LeaderLifecycle, clientset k8sClient.Clie
 				}
 			},
 			OnStoppedLeading: func() {
-				log.Info("Leader election lost", logfields.OperatorID, operatorID)
-				// Cleanup everything here, and exit.
-				shutdowner.Shutdown(hive.ShutdownWithError(errors.New("Leader election lost")))
+				// It's imperative that we stop immediately here. Concurrent execution threads
+				// acting on shared state in k8s/kvstore do so under the assumption that this
+				// operator leads the deployment, which is no longer true once we hit this callback.
+				// If we linger longer than the grace period between the RenewDeadline and the
+				// LeaseDuration, we end up with two operators acting as leaders.
+				logging.Fatal(log, "Leader election lost, shutting down.", logfields.OperatorID, operatorID)
 			},
 			OnNewLeader: func(identity string) {
 				if identity == operatorID {
