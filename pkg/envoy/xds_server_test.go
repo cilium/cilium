@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/envoy/test"
 	"github.com/cilium/cilium/pkg/identity"
@@ -25,14 +24,13 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
 var (
 	IPv4Addr = "10.1.1.1"
 
-	ep endpoint.EndpointUpdater = &test.ProxyUpdaterMock{
+	ep = &test.ProxyUpdaterMock{
 		Id:   1000,
 		Ipv4: "10.0.0.1",
 		Ipv6: "f00d::1",
@@ -538,7 +536,6 @@ var PortRuleHeaderMatchSecretLogOnMismatch = &api.PortRuleHTTP{
 }
 
 func Test_getWildcardNetworkPolicyRules(t *testing.T) {
-	version := versioned.Latest()
 	perSelectorPoliciesWithWildcard := policy.L7DataMap{
 		cachedSelector1:           nil,
 		cachedRequiresV2Selector1: nil,
@@ -546,6 +543,9 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 	}
 
 	xds := testXdsServer(t)
+
+	version := testSelectorCache.GetReadTxn()
+	defer version.Close()
 
 	obtained := xds.getWildcardNetworkPolicyRules(version, perSelectorPoliciesWithWildcard)
 	require.Equal(t, []*cilium.PortNetworkPolicyRule{{}}, obtained)
@@ -569,7 +569,9 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 func TestGetPortNetworkPolicyRule(t *testing.T) {
 	xds := testXdsServer(t)
 
-	version := versioned.Latest()
+	version := testSelectorCache.GetReadTxn()
+	defer version.Close()
+
 	obtained, canShortCircuit := xds.getPortNetworkPolicyRule(ep, version, cachedSelector1, L7Rules12, false, false, "")
 	require.Equal(t, ExpectedPortNetworkPolicyRule12, obtained)
 	require.True(t, canShortCircuit)
@@ -1590,6 +1592,7 @@ func TestGetNetworkPolicyTLSInterception(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			xds := testXdsServer(t)
+			ep.UpdateReadTxn(testSelectorCache.GetReadTxn())
 			obtained := xds.getNetworkPolicy(ep, []string{IPv4Addr}, tt.args.inputPolicy, true, true, tt.args.useFullTLSContext, tt.args.useSDS, tt.args.policySecretsNamespace)
 			expected := &cilium.NetworkPolicy{
 				EndpointIps:            []string{IPv4Addr},
@@ -1753,6 +1756,7 @@ func Test_getLocalListenerAddresses(t *testing.T) {
 
 func testXdsServer(t *testing.T) *xdsServer {
 	logger := hivetest.Logger(t)
+	ep.UpdateReadTxn(testSelectorCache.GetReadTxn())
 	return &xdsServer{
 		logger:            logger,
 		l7RulesTranslator: envoypolicy.NewEnvoyL7RulesTranslator(logger, nil),

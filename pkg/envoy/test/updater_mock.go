@@ -4,8 +4,8 @@
 package test
 
 import (
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -14,6 +14,11 @@ type ProxyUpdaterMock struct {
 	Id   uint64
 	Ipv4 string
 	Ipv6 string
+	Txn  types.SelectorReadTxn
+}
+
+func (m *ProxyUpdaterMock) UpdateReadTxn(txn types.SelectorReadTxn) {
+	m.Txn = txn
 }
 
 func (m *ProxyUpdaterMock) GetPolicyNames() []string {
@@ -44,8 +49,8 @@ func (m *ProxyUpdaterMock) UpdateProxyStatistics(proxyType, l4Protocol string, p
 
 func (m *ProxyUpdaterMock) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {}
 
-func (m *ProxyUpdaterMock) GetPolicyVersionHandle() *versioned.VersionHandle {
-	return versioned.Latest()
+func (m *ProxyUpdaterMock) GetPolicyReadTxn() types.SelectorReadTxn {
+	return m.Txn
 }
 
 func (m *ProxyUpdaterMock) GetListenerProxyPort(listener string) uint16 {
