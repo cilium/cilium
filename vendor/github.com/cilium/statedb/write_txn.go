@@ -533,7 +533,7 @@ func (txn *writeTxn) Commit() ReadTxn {
 		for i := range table.indexes {
 			txn := table.indexes[i].txn
 			if txn != nil {
-				table.indexes[i].tree = txn.CommitOnly()
+				table.indexes[i].tree = txn.Commit()
 				table.indexes[i].txn = nil
 				txnToNotify = append(txnToNotify, txn)
 			}
