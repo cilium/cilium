@@ -5,6 +5,7 @@ package envoy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -39,7 +40,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
@@ -113,11 +113,11 @@ type XDSServer interface {
 	// Only used for testing
 	GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error)
 	// UseCurrentNetworkPolicy waits for any pending update on NetworkPolicy to be acked.
-	UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup)
+	UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup)
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
 	// When the proxy acknowledges the network policy update, it will result in
 	// a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
-	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error)
+	UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error)
 	// RemoveNetworkPolicy removes network policies relevant to the specified
 	// endpoint from the set published to L7 proxies, and stops listening for
 	// acks for policies on this endpoint.
@@ -1287,7 +1287,7 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 	return fmt.Sprintf("%s/%s-%s", policySecretsNamespace, namespacedName.Namespace, namespacedName.Name)
 }
 
-func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, version *versioned.VersionHandle, sel policy.CachedSelector, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
+func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{
 		Deny: l7Rules.GetDeny(),
 	}
@@ -1297,7 +1297,7 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, versio
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
-		selections := sel.GetSelectionsAt(version)
+		selections := sel.GetSelectionsAt(selectors)
 
 		// No remote policies would match this rule. Discard it.
 		if len(selections) == 0 {
@@ -1400,7 +1400,7 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, versio
 
 // getWildcardNetworkPolicyRules returns the rules for port 0, which
 // will be considered after port-specific rules.
-func (s *xdsServer) getWildcardNetworkPolicyRules(version *versioned.VersionHandle, selectors policy.L7DataMap) (rules []*cilium.PortNetworkPolicyRule) {
+func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapshot, selectors policy.L7DataMap) (rules []*cilium.PortNetworkPolicyRule) {
 	// selections are pre-sorted, so sorting is only needed if merging selections from multiple selectors
 	if len(selectors) == 1 {
 		for sel, l7 := range selectors {
@@ -1409,7 +1409,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(version *versioned.VersionHand
 					Deny: l7.GetDeny(),
 				})
 			}
-			selections := sel.GetSelectionsAt(version)
+			selections := sel.GetSelectionsAt(snapshot)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
@@ -1444,7 +1444,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(version *versioned.VersionHand
 			s.logger.Warn("L3-only rule for selector surprisingly requires proxy redirection!", logfields.Selector, sel)
 		}
 
-		selections := sel.GetSelectionsAt(version)
+		selections := sel.GetSelectionsAt(snapshot)
 		if len(selections) == 0 {
 			continue
 		}
@@ -1496,7 +1496,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(version *versioned.VersionHand
 	return rules
 }
 
-func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
+func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		// Always allow all ports
@@ -1506,8 +1506,6 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 	if l4Policy == nil || l4Policy.Len() == 0 {
 		return nil
 	}
-
-	version := ep.GetPolicyVersionHandle()
 
 	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, l4Policy.Len())
 	wildcardAllowAll := false
@@ -1519,12 +1517,12 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			return
 		}
 
-		wildcardRules := s.getWildcardNetworkPolicyRules(version, l4.PerSelectorPolicies)
+		wildcardRules := s.getWildcardNetworkPolicyRules(selectors, l4.PerSelectorPolicies)
 
 		for _, rule := range wildcardRules {
 			s.logger.Debug("Wildcard PortNetworkPolicyRule matching remote IDs",
 				logfields.EndpointID, ep.GetID(),
-				logfields.Version, version,
+				logfields.Version, selectors,
 				logfields.TrafficDirection, dir,
 				logfields.Port, "0",
 				logfields.IsDeny, rule.Deny,
@@ -1597,7 +1595,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			var denyAllRule *cilium.PortNetworkPolicyRule
 
 			for sel, l7 := range l4.PerSelectorPolicies {
-				rule, cs := s.getPortNetworkPolicyRule(ep, version, sel, l7, useFullTLSContext, useSDS, policySecretsNamespace)
+				rule, cs := s.getPortNetworkPolicyRule(ep, selectors, sel, l7, useFullTLSContext, useSDS, policySecretsNamespace)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false
@@ -1605,7 +1603,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 
 					s.logger.Debug("PortNetworkPolicyRule matching remote IDs",
 						logfields.EndpointID, ep.GetID(),
-						logfields.Version, version,
+						logfields.Version, selectors,
 						logfields.TrafficDirection, dir,
 						logfields.Port, port,
 						logfields.ProxyPort, rule.ProxyId,
@@ -1680,7 +1678,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, names []string, l4Policy *policy.L4Policy,
+func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced, useFullTLSContext, useSDS bool, policySecretsNamespace string,
 ) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
@@ -1695,8 +1693,8 @@ func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, names []string
 		ingressMap = l4Policy.Ingress.PortRules
 		egressMap = l4Policy.Egress.PortRules
 	}
-	p.IngressPerPortPolicies = s.getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, useFullTLSContext, useSDS, "ingress", policySecretsNamespace)
-	p.EgressPerPortPolicies = s.getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, useFullTLSContext, useSDS, "egress", policySecretsNamespace)
+	p.IngressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, ingressMap, ingressPolicyEnforced, useFullTLSContext, useSDS, "ingress", policySecretsNamespace)
+	p.EgressPerPortPolicies = s.getDirectionNetworkPolicy(ep, selectors, egressMap, egressPolicyEnforced, useFullTLSContext, useSDS, "egress", policySecretsNamespace)
 
 	return p
 }
@@ -1717,7 +1715,7 @@ func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 	return nodeIDs
 }
 
-func (s *xdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+func (s *xdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1728,17 +1726,34 @@ func (s *xdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy 
 		wg = nil
 	}
 
-	nodeIDs := getNodeIDs(ep, policy)
+	nodeIDs := getNodeIDs(ep, &policy.SelectorPolicy.L4Policy)
 
 	// only wait for the most current policy to be acked when no (new) policy is given
 	s.NetworkPolicyMutator.UseCurrent(NetworkPolicyTypeURL, nodeIDs, wg)
 }
 
-func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup,
+// ErrNotImplemented is the error returned by gRPC methods that are not
+// implemented by Cilium.
+var ErrNilPolicy = errors.New("nil EndpointPolicy")
+
+func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup,
 ) (error, func() error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	if epp == nil {
+		return ErrNilPolicy, nil
+	}
+
+	l4policy := &epp.SelectorPolicy.L4Policy
+	ingressPolicyEnforced := epp.SelectorPolicy.IngressPolicyEnabled
+	egressPolicyEnforced := epp.SelectorPolicy.EgressPolicyEnabled
+	selectors := epp.GetPolicySelectors()
+
+	// Error out if the selectors are no longer valid
+	if !selectors.IsValid() {
+		return policy.ErrStaleSelectors, nil
+	}
 
 	ips := ep.GetPolicyNames()
 	if len(ips) == 0 {
@@ -1755,7 +1770,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 		return nil, func() error { return nil }
 	}
 
-	networkPolicy := s.getNetworkPolicy(ep, ips, policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS, s.secretManager.GetSecretSyncNamespace())
+	networkPolicy := s.getNetworkPolicy(ep, selectors, ips, l4policy, ingressPolicyEnforced, egressPolicyEnforced, s.config.useFullTLSContext, s.config.useSDS, s.secretManager.GetSecretSyncNamespace())
 
 	// First, validate the policy
 	err := networkPolicy.Validate()
@@ -1772,16 +1787,15 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *pol
 
 	// When successful, push policy into the cache.
 	var callback func(error)
-	if policy != nil {
-		policyRevision := policy.Revision
-		callback = func(err error) {
-			if err == nil {
-				go ep.OnProxyPolicyUpdate(policyRevision)
-			}
+	policyRevision := l4policy.Revision
+	callback = func(err error) {
+		if err == nil {
+			go ep.OnProxyPolicyUpdate(policyRevision)
 		}
 	}
+
 	epID := ep.GetID()
-	nodeIDs := getNodeIDs(ep, policy)
+	nodeIDs := getNodeIDs(ep, l4policy)
 	resourceName := strconv.FormatUint(epID, 10)
 	revertFunc := s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 	revertUpdatedNetworkPolicyEndpoints := make(map[string]endpoint.EndpointUpdater, len(ips))

@@ -5,14 +5,17 @@ package types
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
+	"github.com/cilium/statedb/part"
+
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -524,6 +527,66 @@ func (p *CIDRSelector) MetricsClass() string {
 	return LabelValueSCWorld
 }
 
+type SelectorId uint64
+type SelectorRevision uint64
+
+func init() {
+	part.RegisterKeyType(func(x SelectorId) []byte {
+		return binary.BigEndian.AppendUint64(nil, uint64(x))
+	})
+}
+
+type SelectionsMap = part.Map[SelectorId, identity.NumericIdentitySlice]
+type SelectorWriteTxn = part.MapTxn[SelectorId, identity.NumericIdentitySlice]
+
+// SelectorSnapshot contains state needed to observe a coherent set of selectors
+type SelectorSnapshot struct {
+	Revision   SelectorRevision
+	selections SelectionsMap
+	valid      bool
+}
+
+func GetSelectorSnapshot(selections SelectionsMap, rev SelectorRevision) SelectorSnapshot {
+	return SelectorSnapshot{selections: selections, Revision: rev, valid: true}
+}
+
+// used for testing only
+func MockSelectorSnapshot() SelectorSnapshot {
+	return SelectorSnapshot{Revision: 1, valid: true}
+}
+
+func (s *SelectorSnapshot) Get(id SelectorId) identity.NumericIdentitySlice {
+	v, _ := s.selections.Get(id)
+	if len(v) == 0 {
+		return nil
+	}
+	return v
+}
+
+// Invalidate should be called on any SelectorReadTxn values that are stored in the heap.
+// This allows GC to reclaim the memory held for old versions of the selections map.
+// Invalidating local variables going out-of-scope does nothing useful.
+func (s *SelectorSnapshot) Invalidate() {
+	s.selections = SelectionsMap{}
+	s.valid = false
+}
+
+func (s *SelectorSnapshot) After(rev SelectorRevision) bool {
+	return s.Revision > rev
+}
+
+func (s *SelectorSnapshot) IsValid() bool {
+	return s.valid
+}
+
+func (s *SelectorSnapshot) String() string {
+	str := " (invalid)"
+	if s.IsValid() {
+		str = " (valid)"
+	}
+	return strconv.FormatUint(uint64(s.Revision), 10) + str
+}
+
 // CachedSelector represents an identity selector owned by the selector cache
 type CachedSelector interface {
 	// GetSelections returns the cached set of numeric identities
@@ -535,7 +598,7 @@ type CachedSelector interface {
 	// GetSelectionsAt returns the cached set of numeric identities
 	// selected by the CachedSelector.  The retuned slice must NOT
 	// be modified, as it is shared among multiple users.
-	GetSelectionsAt(*versioned.VersionHandle) identity.NumericIdentitySlice
+	GetSelectionsAt(SelectorSnapshot) identity.NumericIdentitySlice
 
 	// GetMetadataLabels returns metadata labels for additional context
 	// surrounding the selector. These are typically the labels associated with
@@ -611,7 +674,7 @@ type CachedSelectionUser interface {
 
 	// IdentitySelectionCommit tells the user that all IdentitySelectionUpdated calls relating
 	// to a specific added or removed identity have been made.
-	IdentitySelectionCommit(logger *slog.Logger, txn *versioned.Tx)
+	IdentitySelectionCommit(*slog.Logger, SelectorSnapshot)
 
 	// IsPeerSelector returns true if the selector is used by the policy
 	// engine for selecting traffic for remote peers. False if used for

@@ -15,13 +15,13 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
@@ -425,7 +425,7 @@ func (d *DNSServerIdentity) GetSelections() identity.NumericIdentitySlice {
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetSelectionsAt(_ *versioned.VersionHandle) identity.NumericIdentitySlice {
+func (d *DNSServerIdentity) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
 	return d.Identities
 }
 
