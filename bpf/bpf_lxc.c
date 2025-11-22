@@ -449,7 +449,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_state *ct_state, ct_state_new = {};
 	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
-#ifdef ENABLE_ROUTING
+#if defined(ENABLE_ROUTING) && defined(ENABLE_ARP_PASSTHROUGH)
 	union macaddr router_mac = CONFIG(interface_mac);
 #endif
 	struct ct_buffer6 *ct_buffer;
@@ -788,7 +788,12 @@ to_host:
 #endif
 
 pass_to_stack:
-#ifdef ENABLE_ROUTING
+	/* rewrite the destination mac if we aren't responding to arp
+	 * (ENABLE_ARP_PASSTHROUGH) and the
+	 * host routing layer is not configured to handle ARP for us
+	 * (ENABLE_ROUTING).
+	 */
+#if defined(ENABLE_ROUTING) && defined(ENABLE_ARP_PASSTHROUGH)
 	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
@@ -898,7 +903,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	const struct remote_endpoint_info *info;
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	struct ipv4_ct_tuple *tuple;
-#ifdef ENABLE_ROUTING
+#if defined(ENABLE_ROUTING) && defined(ENABLE_ARP_PASSTHROUGH)
 	union macaddr router_mac = CONFIG(interface_mac);
 #endif
 	void *data, *data_end;
@@ -1354,7 +1359,12 @@ to_host:
 #endif
 
 pass_to_stack:
-#ifdef ENABLE_ROUTING
+	/* rewrite the destination mac if we aren't responding to arp
+	 * (ENABLE_ARP_PASSTHROUGH) and the
+	 * host routing layer is not configured to handle ARP for us
+	 * (ENABLE_ROUTING).
+	 */
+#if defined(ENABLE_ROUTING) && defined(ENABLE_ARP_PASSTHROUGH)
 	ret = ipv4_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
