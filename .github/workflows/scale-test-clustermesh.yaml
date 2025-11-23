@@ -63,9 +63,9 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.25.4
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 547.0.0
+  gcloud_version: 548.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: 20b75310de0f5b0dc4016163187415afc79b1dcd
+  cmapisrv_mock_ref: 2d850099470fb20c0aea9403004a2ae398152e53
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -98,7 +98,7 @@ jobs:
       job_name: "Install and Cluster Mesh Scale Test"
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -121,7 +121,7 @@ jobs:
           images: cilium-ci operator-generic-ci clustermesh-apiserver-ci cilium-cli-ci
 
       - name: Install Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version: ${{ env.go_version }}
 
@@ -143,7 +143,7 @@ jobs:
           version: ${{ env.gcloud_version }}
 
       - name: Clone ClusterLoader2
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           repository: kubernetes/perf-tests
           # Avoid using renovate to update this dependency because: (1)
@@ -157,7 +157,7 @@ jobs:
           path: perf-tests
 
       - name: Clone the Cluster Mesh API Server Mock
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           repository: cilium/scaffolding
           ref: ${{ env.cmapisrv_mock_ref }}
@@ -208,7 +208,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           ref: ${{ inputs.SHA || github.sha }}
           persist-credentials: false
