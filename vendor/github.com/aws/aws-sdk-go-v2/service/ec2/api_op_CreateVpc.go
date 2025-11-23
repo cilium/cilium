@@ -124,6 +124,15 @@ type CreateVpcInput struct {
 	// The tags to assign to the VPC.
 	TagSpecifications []types.TagSpecification
 
+	// Specifies the encryption control configuration to apply to the VPC during
+	// creation. VPC Encryption Control enables you to enforce encryption for all data
+	// in transit within and between VPCs to meet compliance requirements.
+	//
+	// For more information, see [Enforce VPC encryption in transit] in the Amazon VPC User Guide.
+	//
+	// [Enforce VPC encryption in transit]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-encryption-controls.html
+	VpcEncryptionControl *types.VpcEncryptionControlConfiguration
+
 	noSmithyDocumentSerde
 }
 
@@ -203,6 +212,9 @@ func (c *Client) addOperationCreateVpcMiddlewares(stack *middleware.Stack, optio
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
+		return err
+	}
+	if err = addOpCreateVpcValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVpc(options.Region), middleware.Before); err != nil {

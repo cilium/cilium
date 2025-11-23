@@ -59,8 +59,8 @@ type DescribeIpamResourceDiscoveryAssociationsOutput struct {
 	// The resource discovery associations.
 	IpamResourceDiscoveryAssociations []types.IpamResourceDiscoveryAssociation
 
-	// Specify the pagination token from a previous request to retrieve the next page
-	// of results.
+	// The token to use to retrieve the next page of results. This value is null when
+	// there are no more results to return.
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.
