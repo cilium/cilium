@@ -46,8 +46,7 @@ type DescribeIpamResourceDiscoveriesInput struct {
 	// The maximum number of resource discoveries to return in one page of results.
 	MaxResults *int32
 
-	// Specify the pagination token from a previous request to retrieve the next page
-	// of results.
+	// The token for the next page of results.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -58,8 +57,8 @@ type DescribeIpamResourceDiscoveriesOutput struct {
 	// The resource discoveries.
 	IpamResourceDiscoveries []types.IpamResourceDiscovery
 
-	// Specify the pagination token from a previous request to retrieve the next page
-	// of results.
+	// The token to use to retrieve the next page of results. This value is null when
+	// there are no more results to return.
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.

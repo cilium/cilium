@@ -81,6 +81,9 @@ type CreateVpnConnectionInput struct {
 	// specify a virtual private gateway.
 	TransitGatewayId *string
 
+	// The ID of the VPN concentrator to associate with the VPN connection.
+	VpnConcentratorId *string
+
 	// The ID of the virtual private gateway. If you specify a virtual private
 	// gateway, you cannot specify a transit gateway.
 	VpnGatewayId *string

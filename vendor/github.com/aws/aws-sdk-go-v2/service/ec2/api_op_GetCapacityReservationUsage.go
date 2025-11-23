@@ -72,6 +72,18 @@ type GetCapacityReservationUsageOutput struct {
 	// Information about the Capacity Reservation usage.
 	InstanceUsages []types.InstanceUsage
 
+	//  Indicates whether the Capacity Reservation is interruptible, meaning instances
+	// may be terminated when the owner reclaims capacity.
+	Interruptible *bool
+
+	//  Information about the capacity allocated to the interruptible Capacity
+	// Reservation, including instance counts and allocation status.
+	InterruptibleCapacityAllocation *types.InterruptibleCapacityAllocation
+
+	//  Details about the interruption configuration and source reservation for
+	// interruptible Capacity Reservations.
+	InterruptionInfo *types.InterruptionInfo
+
 	// The token to use to retrieve the next page of results. This value is null when
 	// there are no more results to return.
 	NextToken *string

@@ -914,6 +914,46 @@ type AvailabilityZone struct {
 	noSmithyDocumentSerde
 }
 
+// For regional NAT gateways only: The configuration specifying which Elastic IP
+// address (EIP) to use for handling outbound NAT traffic from a specific
+// Availability Zone.
+//
+// A regional NAT gateway is a single NAT Gateway that works across multiple
+// availability zones (AZs) in your VPC, providing redundancy, scalability and
+// availability across all the AZs in a Region.
+//
+// For more information, see [Regional NAT gateways for automatic multi-AZ expansion] in the Amazon VPC User Guide.
+//
+// [Regional NAT gateways for automatic multi-AZ expansion]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html
+type AvailabilityZoneAddress struct {
+
+	// The allocation IDs of the Elastic IP addresses (EIPs) to be used for handling
+	// outbound NAT traffic in this specific Availability Zone.
+	AllocationIds []string
+
+	// For regional NAT gateways only: The Availability Zone where this specific NAT
+	// gateway configuration will be active. Each AZ in a regional NAT gateway has its
+	// own configuration to handle outbound NAT traffic from that AZ.
+	//
+	// A regional NAT gateway is a single NAT Gateway that works across multiple
+	// availability zones (AZs) in your VPC, providing redundancy, scalability and
+	// availability across all the AZs in a Region.
+	AvailabilityZone *string
+
+	// For regional NAT gateways only: The ID of the Availability Zone where this
+	// specific NAT gateway configuration will be active. Each AZ in a regional NAT
+	// gateway has its own configuration to handle outbound NAT traffic from that AZ.
+	// Use this instead of AvailabilityZone for consistent identification of AZs across
+	// Amazon Web Services Regions.
+	//
+	// A regional NAT gateway is a single NAT Gateway that works across multiple
+	// availability zones (AZs) in your VPC, providing redundancy, scalability and
+	// availability across all the AZs in a Region.
+	AvailabilityZoneId *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes a message about an Availability Zone, Local Zone, or Wavelength Zone.
 type AvailabilityZoneMessage struct {
 
@@ -1154,6 +1194,19 @@ type Byoasn struct {
 // Information about an address range that is provisioned for use with your Amazon
 // Web Services resources through bring your own IP addresses (BYOIP).
 type ByoipCidr struct {
+
+	// Specifies the advertisement method for the BYOIP CIDR. Valid values are:
+	//
+	//   - unicast : IP is advertised from a single location (regional services like
+	//   EC2)
+	//
+	//   - anycast : IP is advertised from multiple global locations simultaneously
+	//   (global services like CloudFront)
+	//
+	// For more information, see [Bring your own IP to CloudFront using IPAM] in the Amazon VPC IPAM User Guide.
+	//
+	// [Bring your own IP to CloudFront using IPAM]: https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoip-cloudfront.html
+	AdvertisementType *string
 
 	// The BYOIP CIDR associations with ASNs.
 	AsnAssociations []AsnAssociation
@@ -1756,6 +1809,19 @@ type CapacityReservation struct {
 
 	// The type of instance for which the Capacity Reservation reserves capacity.
 	InstanceType *string
+
+	//  Indicates whether this Capacity Reservation is interruptible, meaning
+	// instances may be terminated when the owner reclaims capacity.
+	Interruptible *bool
+
+	//  Contains allocation details for interruptible reservations, including current
+	// allocated instances and target instance counts within the
+	// interruptibleCapacityAllocation object.
+	InterruptibleCapacityAllocation *InterruptibleCapacityAllocation
+
+	//  Information about the interruption configuration and association with the
+	// source reservation for interruptible Capacity Reservations.
+	InterruptionInfo *InterruptionInfo
 
 	// The Amazon Resource Name (ARN) of the Outpost on which the Capacity Reservation
 	// was created.
@@ -2825,6 +2891,20 @@ type ClientVpnRouteStatus struct {
 // Options for sending VPN tunnel logs to CloudWatch.
 type CloudWatchLogOptions struct {
 
+	// Indicates whether Border Gateway Protocol (BGP) logging is enabled for the VPN
+	// connection. Default value is False .
+	//
+	// Valid values: True | False
+	BgpLogEnabled *bool
+
+	// The Amazon Resource Name (ARN) of the CloudWatch log group for BGP logs.
+	BgpLogGroupArn *string
+
+	// The output format for BGP logs sent to CloudWatch. Default format is json .
+	//
+	// Valid values: json | text
+	BgpLogOutputFormat *string
+
 	// Status of VPN tunnel logging feature. Default value is False .
 	//
 	// Valid values: True | False
@@ -2843,6 +2923,22 @@ type CloudWatchLogOptions struct {
 
 // Options for sending VPN tunnel logs to CloudWatch.
 type CloudWatchLogOptionsSpecification struct {
+
+	// Specifies whether to enable BGP logging for the VPN connection. Default value
+	// is False .
+	//
+	// Valid values: True | False
+	BgpLogEnabled *bool
+
+	// The Amazon Resource Name (ARN) of the CloudWatch log group where BGP logs will
+	// be sent.
+	BgpLogGroupArn *string
+
+	// The desired output format for BGP logs to be sent to CloudWatch. Default format
+	// is json .
+	//
+	// Valid values: json | text
+	BgpLogOutputFormat *string
 
 	// Enable or disable VPN tunnel logging feature. Default value is False .
 	//
@@ -5150,6 +5246,18 @@ type EnclaveOptionsRequest struct {
 	noSmithyDocumentSerde
 }
 
+// Describes the encryption support status for a transit gateway.
+type EncryptionSupport struct {
+
+	// The current encryption state of the resource.
+	EncryptionState EncryptionStateValue
+
+	// A message describing the encryption state.
+	StateMessage *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes an EC2 Fleet or Spot Fleet event.
 type EventInformation struct {
 
@@ -5560,7 +5668,7 @@ type ExportToS3TaskSpecification struct {
 // system. It specifies the type of external system and the external resource
 // identifier that identifies your account or instance in that system.
 //
-// For more information, see [Integrate VPC IPAM with Infoblox infrastructure] in the Amazon VPC IPAM User Guide..
+// For more information, see [Integrate VPC IPAM with Infoblox infrastructure] in the Amazon VPC IPAM User Guide.
 //
 // [Integrate VPC IPAM with Infoblox infrastructure]: https://docs.aws.amazon.com/vpc/latest/ipam/integrate-infoblox-ipam.html
 type ExternalAuthorityConfiguration struct {
@@ -10426,6 +10534,48 @@ type InternetGatewayAttachment struct {
 	noSmithyDocumentSerde
 }
 
+//	Represents the allocation of capacity from a source reservation to an
+//
+// interruptible reservation, tracking current and target instance counts for
+// allocation management.
+type InterruptibleCapacityAllocation struct {
+
+	//  The current number of instances allocated to the interruptible reservation.
+	InstanceCount *int32
+
+	//  The ID of the interruptible Capacity Reservation created from the allocation.
+	InterruptibleCapacityReservationId *string
+
+	//  The type of interruption policy applied to the interruptible reservation.
+	InterruptionType InterruptionType
+
+	//  The current status of the allocation (updating during reclamation, active when
+	// complete).
+	Status InterruptibleCapacityReservationAllocationStatus
+
+	//  After your modify request, the requested number of instances allocated to
+	// interruptible reservation.
+	TargetInstanceCount *int32
+
+	noSmithyDocumentSerde
+}
+
+//	Contains information about how and when instances in an interruptible
+//
+// reservation can be terminated when capacity is reclaimed.
+type InterruptionInfo struct {
+
+	//  The interruption type that determines how instances are terminated when
+	// capacity is reclaimed.
+	InterruptionType InterruptionType
+
+	//  The ID of the source Capacity Reservation from which the interruptible
+	// reservation was created.
+	SourceCapacityReservationId *string
+
+	noSmithyDocumentSerde
+}
+
 // IPAM is a VPC feature that you can use to automate your IP address management
 // workflows including assigning, tracking, troubleshooting, and auditing IP
 // addresses across Amazon Web Services Regions and accounts throughout your Amazon
@@ -10856,6 +11006,113 @@ type IpamOrganizationalUnitExclusion struct {
 	//
 	// [Understand the Amazon Web Services Organizations entity path]: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_last-accessed-view-data-orgs.html#access_policies_access-advisor-viewing-orgs-entity-path
 	OrganizationsEntityPath *string
+
+	noSmithyDocumentSerde
+}
+
+// Information about an IPAM policy.
+//
+// An IPAM policy is a set of rules that define how public IPv4 addresses from
+// IPAM pools are allocated to Amazon Web Services resources. Each rule maps an
+// Amazon Web Services service to IPAM pools that the service will use to get IP
+// addresses. A single policy can have multiple rules and be applied to multiple
+// Amazon Web Services Regions. If the IPAM pool run out of addresses then the
+// services fallback to Amazon-provided IP addresses. A policy can be applied to an
+// individual Amazon Web Services account or an entity within Amazon Web Services
+// Organizations.
+type IpamPolicy struct {
+
+	// The ID of the IPAM this policy belongs to.
+	IpamId *string
+
+	// The Amazon Resource Name (ARN) of the IPAM policy.
+	IpamPolicyArn *string
+
+	// The ID of the IPAM policy.
+	IpamPolicyId *string
+
+	// The Region of the IPAM policy.
+	IpamPolicyRegion *string
+
+	// The account ID that owns the IPAM policy.
+	OwnerId *string
+
+	// The state of the IPAM policy.
+	State IpamPolicyState
+
+	// A message about the state of the IPAM policy.
+	StateMessage *string
+
+	// The tags assigned to the IPAM policy.
+	Tags []Tag
+
+	noSmithyDocumentSerde
+}
+
+// Information about an IPAM policy allocation rule.
+//
+// Allocation rules are optional configurations within an IPAM policy that map
+// Amazon Web Services resource types to specific IPAM pools. If no rules are
+// defined, the resource types default to using Amazon-provided IP addresses.
+type IpamPolicyAllocationRule struct {
+
+	// The ID of the source IPAM pool for the allocation rule.
+	//
+	// An IPAM pool is a collection of IP addresses in IPAM that can be allocated to
+	// Amazon Web Services resources.
+	SourceIpamPoolId *string
+
+	noSmithyDocumentSerde
+}
+
+// Information about a requested IPAM policy allocation rule.
+//
+// Allocation rules are optional configurations within an IPAM policy that map
+// Amazon Web Services resource types to specific IPAM pools. If no rules are
+// defined, the resource types default to using Amazon-provided IP addresses.
+type IpamPolicyAllocationRuleRequest struct {
+
+	// The ID of the source IPAM pool for the requested allocation rule.
+	//
+	// An IPAM pool is a collection of IP addresses in IPAM that can be allocated to
+	// Amazon Web Services resources.
+	SourceIpamPoolId *string
+
+	noSmithyDocumentSerde
+}
+
+// Information about an IPAM policy.
+type IpamPolicyDocument struct {
+
+	// The allocation rules in the IPAM policy document.
+	//
+	// Allocation rules are optional configurations within an IPAM policy that map
+	// Amazon Web Services resource types to specific IPAM pools. If no rules are
+	// defined, the resource types default to using Amazon-provided IP addresses.
+	AllocationRules []IpamPolicyAllocationRule
+
+	// The ID of the IPAM policy.
+	IpamPolicyId *string
+
+	// The locale of the IPAM policy document.
+	Locale *string
+
+	// The resource type of the IPAM policy document.
+	//
+	// The Amazon Web Services service or resource type that can use IP addresses
+	// through IPAM policies. Supported services and resource types include:
+	//
+	//   - Elastic IP addresses
+	ResourceType IpamPolicyResourceType
+
+	noSmithyDocumentSerde
+}
+
+// The Amazon Web Services Organizations target for an IPAM policy.
+type IpamPolicyOrganizationTarget struct {
+
+	// The ID of a Amazon Web Services Organizations target for an IPAM policy.
+	OrganizationTargetId *string
 
 	noSmithyDocumentSerde
 }
@@ -14288,6 +14545,9 @@ type ModifyTransitGatewayOptions struct {
 	// Enable or disable DNS support.
 	DnsSupport DnsSupportValue
 
+	// Enable or disable encryption support for VPC Encryption Control.
+	EncryptionSupport EncryptionSupportOptionValue
+
 	// The ID of the default propagation route table.
 	PropagationDefaultRouteTableId *string
 
@@ -14663,6 +14923,46 @@ type MovingAddressStatus struct {
 // Describes a NAT gateway.
 type NatGateway struct {
 
+	// For regional NAT gateways only: Indicates whether Amazon Web Services
+	// automatically manages AZ coverage. When enabled, the NAT gateway associates EIPs
+	// in all AZs where your VPC has subnets to handle outbound NAT traffic, expands to
+	// new AZs when you create subnets there, and retracts from AZs where you've
+	// removed all subnets. When disabled, you must manually manage which AZs the NAT
+	// gateway supports and their corresponding EIPs.
+	//
+	// A regional NAT gateway is a single NAT Gateway that works across multiple
+	// availability zones (AZs) in your VPC, providing redundancy, scalability and
+	// availability across all the AZs in a Region.
+	//
+	// For more information, see [Regional NAT gateways for automatic multi-AZ expansion] in the Amazon VPC User Guide.
+	//
+	// [Regional NAT gateways for automatic multi-AZ expansion]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html
+	AutoProvisionZones AutoProvisionZonesState
+
+	// For regional NAT gateways only: Indicates whether Amazon Web Services
+	// automatically allocates additional Elastic IP addresses (EIPs) in an AZ when the
+	// NAT gateway needs more ports due to increased concurrent connections to a single
+	// destination from that AZ.
+	//
+	// For more information, see [Regional NAT gateways for automatic multi-AZ expansion] in the Amazon VPC User Guide.
+	//
+	// [Regional NAT gateways for automatic multi-AZ expansion]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html
+	AutoScalingIps AutoScalingIpsState
+
+	// Indicates whether this is a zonal (single-AZ) or regional (multi-AZ) NAT
+	// gateway.
+	//
+	// A zonal NAT gateway is a NAT Gateway that provides redundancy and scalability
+	// within a single availability zone. A regional NAT gateway is a single NAT
+	// Gateway that works across multiple availability zones (AZs) in your VPC,
+	// providing redundancy, scalability and availability across all the AZs in a
+	// Region.
+	//
+	// For more information, see [Regional NAT gateways for automatic multi-AZ expansion] in the Amazon VPC User Guide.
+	//
+	// [Regional NAT gateways for automatic multi-AZ expansion]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html
+	AvailabilityMode AvailabilityMode
+
 	// Indicates whether the NAT gateway supports public or private connectivity.
 	ConnectivityType ConnectivityType
 
@@ -14713,6 +15013,9 @@ type NatGateway struct {
 	// [documented limits]: https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html#vpc-limits-gateways
 	ProvisionedBandwidth *ProvisionedBandwidth
 
+	// For regional NAT gateways only, this is the ID of the NAT gateway.
+	RouteTableId *string
+
 	// The state of the NAT gateway.
 	//
 	//   - pending : The NAT gateway is being created and is not ready to process
@@ -14754,6 +15057,15 @@ type NatGatewayAddress struct {
 	// [Public NAT gateway only] The association ID of the Elastic IP address that's
 	// associated with the NAT gateway.
 	AssociationId *string
+
+	// The Availability Zone where this Elastic IP address (EIP) is being used to
+	// handle outbound NAT traffic.
+	AvailabilityZone *string
+
+	// The ID of the Availability Zone where this Elastic IP address (EIP) is being
+	// used to handle outbound NAT traffic. Use this instead of AvailabilityZone for
+	// consistent identification of AZs across Amazon Web Services Regions.
+	AvailabilityZoneId *string
 
 	// The address failure message.
 	FailureMessage *string
@@ -16908,6 +17220,60 @@ type RegionalSummary struct {
 
 	// The Amazon Web Services Region.
 	RegionName *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes an Amazon EC2 instance that is enabled for SQL Server High
+// Availability standby detection monitoring.
+type RegisteredInstance struct {
+
+	// The SQL Server High Availability status of the instance. Valid values are:
+	//
+	//   - processing - The SQL Server High Availability status for the SQL Server High
+	//   Availability instance is being updated.
+	//
+	//   - active - The SQL Server High Availability instance is an active node in an
+	//   SQL Server High Availability cluster.
+	//
+	//   - standby - The SQL Server High Availability instance is a standby failover
+	//   node in an SQL Server High Availability cluster.
+	//
+	//   - invalid - An error occurred due to misconfigured permissions, or unable to
+	//   dertemine SQL Server High Availability status for the SQL Server High
+	//   Availability instance.
+	HaStatus HaStatus
+
+	// The ID of the SQL Server High Availability instance.
+	InstanceId *string
+
+	// The date and time when the instance's SQL Server High Availability status was
+	// last updated, in the ISO 8601 format in the UTC time zone (
+	// YYYY-MM-DDThh:mm:ss.sssZ ).
+	LastUpdatedTime *time.Time
+
+	// A brief description of the SQL Server High Availability status. If the instance
+	// is in the invalid High Availability status, this parameter includes the error
+	// message.
+	ProcessingStatus *string
+
+	// The ARN of the Secrets Manager secret containing the SQL Server access
+	// credentials for the SQL Server High Availability instance. If not specified,
+	// deafult local user credentials will be used by the Amazon Web Services Systems
+	// Manager agent.
+	SqlServerCredentials *string
+
+	// The license type for the SQL Server license. Valid values include:
+	//
+	//   - full - The SQL Server High Availability instance is using a full SQL Server
+	//   license.
+	//
+	//   - waived - The SQL Server High Availability instance is waived from the SQL
+	//   Server license.
+	SqlServerLicenseUsage SqlServerLicenseUsage
+
+	// The tags assigned to the SQL Server High Availability instance.
+	Tags []Tag
 
 	noSmithyDocumentSerde
 }
@@ -21885,6 +22251,92 @@ type TransitGatewayConnectRequestBgpOptions struct {
 	noSmithyDocumentSerde
 }
 
+// Describes a transit gateway metering policy.
+type TransitGatewayMeteringPolicy struct {
+
+	// The IDs of the middlebox attachments associated with the metering policy.
+	MiddleboxAttachmentIds []string
+
+	// The state of the transit gateway metering policy.
+	State TransitGatewayMeteringPolicyState
+
+	// The tags assigned to the transit gateway metering policy.
+	Tags []Tag
+
+	// The ID of the transit gateway associated with the metering policy.
+	TransitGatewayId *string
+
+	// The ID of the transit gateway metering policy.
+	TransitGatewayMeteringPolicyId *string
+
+	// The date and time when the metering policy update becomes effective.
+	UpdateEffectiveAt *time.Time
+
+	noSmithyDocumentSerde
+}
+
+// Describes an entry in a transit gateway metering policy.
+type TransitGatewayMeteringPolicyEntry struct {
+
+	// The Amazon Web Services account ID to which the metered traffic is attributed.
+	MeteredAccount TransitGatewayMeteringPayerType
+
+	// The metering policy rule that defines traffic matching criteria.
+	MeteringPolicyRule *TransitGatewayMeteringPolicyRule
+
+	// The rule number of the metering policy entry.
+	PolicyRuleNumber *string
+
+	// The state of the metering policy entry.
+	State TransitGatewayMeteringPolicyEntryState
+
+	// The date and time when the metering policy entry update becomes effective.
+	UpdateEffectiveAt *time.Time
+
+	// The date and time when the metering policy entry was last updated.
+	UpdatedAt *time.Time
+
+	noSmithyDocumentSerde
+}
+
+// Describes the traffic matching criteria for a transit gateway metering policy
+// rule.
+type TransitGatewayMeteringPolicyRule struct {
+
+	// The destination CIDR block for the rule.
+	DestinationCidrBlock *string
+
+	// The destination port range for the rule.
+	DestinationPortRange *string
+
+	// The ID of the destination transit gateway attachment.
+	DestinationTransitGatewayAttachmentId *string
+
+	// The type of the destination transit gateway attachment. Note that the
+	// tgw-peering resource type has been deprecated. To configure metering policies
+	// for Connect, use the transport attachment type.
+	DestinationTransitGatewayAttachmentType TransitGatewayAttachmentResourceType
+
+	// The protocol for the rule (1, 6, 17, etc.).
+	Protocol *string
+
+	// The source CIDR block for the rule.
+	SourceCidrBlock *string
+
+	// The source port range for the rule.
+	SourcePortRange *string
+
+	// The ID of the source transit gateway attachment.
+	SourceTransitGatewayAttachmentId *string
+
+	// The type of the source transit gateway attachment. Note that the tgw-peering
+	// resource type has been deprecated. To configure metering policies for Connect,
+	// use the transport attachment type.
+	SourceTransitGatewayAttachmentType TransitGatewayAttachmentResourceType
+
+	noSmithyDocumentSerde
+}
+
 // Describes the deregistered transit gateway multicast group members.
 type TransitGatewayMulticastDeregisteredGroupMembers struct {
 
@@ -22110,6 +22562,9 @@ type TransitGatewayOptions struct {
 
 	// Indicates whether DNS support is enabled.
 	DnsSupport DnsSupportValue
+
+	// Defines if the Transit Gateway supports VPC Encryption Control.
+	EncryptionSupport *EncryptionSupport
 
 	// Indicates whether multicast is enabled on the transit gateway
 	MulticastSupport MulticastSupportValue
@@ -23750,6 +24205,61 @@ type VolumeModification struct {
 	noSmithyDocumentSerde
 }
 
+// Information about a volume that is currently in the Recycle Bin.
+type VolumeRecycleBinInfo struct {
+
+	// The Availability Zone for the volume.
+	AvailabilityZone *string
+
+	// The ID of the Availability Zone for the volume.
+	AvailabilityZoneId *string
+
+	// The time stamp when volume creation was initiated.
+	CreateTime *time.Time
+
+	// The number of I/O operations per second (IOPS) for the volume.
+	Iops *int32
+
+	// The service provider that manages the volume.
+	Operator *OperatorResponse
+
+	// The ARN of the Outpost on which the volume is stored. For more information, see [Amazon EBS volumes on Outposts]
+	// in the Amazon EBS User Guide.
+	//
+	// [Amazon EBS volumes on Outposts]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes-outposts.html
+	OutpostArn *string
+
+	// The date and time when the volume entered the Recycle Bin.
+	RecycleBinEnterTime *time.Time
+
+	// The date and time when the volume is to be permanently deleted from the Recycle
+	// Bin.
+	RecycleBinExitTime *time.Time
+
+	// The size of the volume, in GiB.
+	Size *int32
+
+	// The snapshot from which the volume was created, if applicable.
+	SnapshotId *string
+
+	// The ID of the source volume.
+	SourceVolumeId *string
+
+	// The state of the volume.
+	State VolumeState
+
+	// The throughput that the volume supports, in MiB/s.
+	Throughput *int32
+
+	// The ID of the volume.
+	VolumeId *string
+
+	// The volume type.
+	VolumeType VolumeType
+
+	noSmithyDocumentSerde
+}
+
 // Describes a volume status operation code.
 type VolumeStatusAction struct {
 
@@ -23895,6 +24405,11 @@ type Vpc struct {
 	// The ID of the set of DHCP options you've associated with the VPC.
 	DhcpOptionsId *string
 
+	// Describes the configuration and state of VPC encryption controls.
+	//
+	// For more information, see [Enforce VPC encryption in transit] in the Amazon VPC User Guide.
+	//
+	// [Enforce VPC encryption in transit]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-encryption-controls.html
 	EncryptionControl *VpcEncryptionControl
 
 	// The allowed tenancy of instances launched into the VPC.
@@ -24082,48 +24597,152 @@ type VpcClassicLink struct {
 	noSmithyDocumentSerde
 }
 
+// Describes the configuration and state of VPC encryption controls.
+//
+// For more information, see [Enforce VPC encryption in transit] in the Amazon VPC User Guide.
+//
+// [Enforce VPC encryption in transit]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-encryption-controls.html
 type VpcEncryptionControl struct {
+
+	// The encryption mode for the VPC Encryption Control configuration.
 	Mode VpcEncryptionControlMode
 
+	// Information about resource exclusions for the VPC Encryption Control
+	// configuration.
 	ResourceExclusions *VpcEncryptionControlExclusions
 
+	// The current state of the VPC Encryption Control configuration.
 	State VpcEncryptionControlState
 
+	// A message providing additional information about the encryption control state.
 	StateMessage *string
 
+	// The tags assigned to the VPC Encryption Control configuration.
 	Tags []Tag
 
+	// The ID of the VPC Encryption Control configuration.
 	VpcEncryptionControlId *string
 
+	// The ID of the VPC associated with the encryption control configuration.
 	VpcId *string
 
 	noSmithyDocumentSerde
 }
 
+// Describes the configuration settings for VPC Encryption Control.
+//
+// For more information, see [Enforce VPC encryption in transit] in the Amazon VPC User Guide.
+//
+// [Enforce VPC encryption in transit]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-encryption-controls.html
+type VpcEncryptionControlConfiguration struct {
+
+	// The encryption mode for the VPC Encryption Control configuration.
+	//
+	// This member is required.
+	Mode VpcEncryptionControlMode
+
+	// Specifies whether to exclude egress-only internet gateway traffic from
+	// encryption enforcement.
+	EgressOnlyInternetGatewayExclusion VpcEncryptionControlExclusionStateInput
+
+	// Specifies whether to exclude Elastic File System traffic from encryption
+	// enforcement.
+	ElasticFileSystemExclusion VpcEncryptionControlExclusionStateInput
+
+	// Specifies whether to exclude internet gateway traffic from encryption
+	// enforcement.
+	InternetGatewayExclusion VpcEncryptionControlExclusionStateInput
+
+	// Specifies whether to exclude Lambda function traffic from encryption
+	// enforcement.
+	LambdaExclusion VpcEncryptionControlExclusionStateInput
+
+	// Specifies whether to exclude NAT gateway traffic from encryption enforcement.
+	NatGatewayExclusion VpcEncryptionControlExclusionStateInput
+
+	// Specifies whether to exclude virtual private gateway traffic from encryption
+	// enforcement.
+	VirtualPrivateGatewayExclusion VpcEncryptionControlExclusionStateInput
+
+	// Specifies whether to exclude VPC Lattice traffic from encryption enforcement.
+	VpcLatticeExclusion VpcEncryptionControlExclusionStateInput
+
+	// Specifies whether to exclude VPC peering connection traffic from encryption
+	// enforcement.
+	VpcPeeringExclusion VpcEncryptionControlExclusionStateInput
+
+	noSmithyDocumentSerde
+}
+
+// Describes an exclusion configuration for VPC Encryption Control.
+//
+// For more information, see [Enforce VPC encryption in transit] in the Amazon VPC User Guide.
+//
+// [Enforce VPC encryption in transit]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-encryption-controls.html
 type VpcEncryptionControlExclusion struct {
+
+	// The current state of the exclusion configuration.
 	State VpcEncryptionControlExclusionState
 
+	// A message providing additional information about the exclusion state.
 	StateMessage *string
 
 	noSmithyDocumentSerde
 }
 
+// Describes the exclusion configurations for various resource types in VPC
+// Encryption Control.
+//
+// For more information, see [Enforce VPC encryption in transit] in the Amazon VPC User Guide.
+//
+// [Enforce VPC encryption in transit]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-encryption-controls.html
 type VpcEncryptionControlExclusions struct {
+
+	// The exclusion configuration for egress-only internet gateway traffic.
 	EgressOnlyInternetGateway *VpcEncryptionControlExclusion
 
+	// The exclusion configuration for Elastic File System traffic.
 	ElasticFileSystem *VpcEncryptionControlExclusion
 
+	// The exclusion configuration for internet gateway traffic.
 	InternetGateway *VpcEncryptionControlExclusion
 
+	// The exclusion configuration for Lambda function traffic.
 	Lambda *VpcEncryptionControlExclusion
 
+	// The exclusion configuration for NAT gateway traffic.
 	NatGateway *VpcEncryptionControlExclusion
 
+	// The exclusion configuration for virtual private gateway traffic.
 	VirtualPrivateGateway *VpcEncryptionControlExclusion
 
+	// The exclusion configuration for VPC Lattice traffic.
 	VpcLattice *VpcEncryptionControlExclusion
 
+	// The exclusion configuration for VPC peering connection traffic.
 	VpcPeering *VpcEncryptionControlExclusion
+
+	noSmithyDocumentSerde
+}
+
+// Describes a resource that is not compliant with VPC encryption requirements.
+//
+// For more information, see [Enforce VPC encryption in transit] in the Amazon VPC User Guide.
+//
+// [Enforce VPC encryption in transit]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-encryption-controls.html
+type VpcEncryptionNonCompliantResource struct {
+
+	// A description of the non-compliant resource.
+	Description *string
+
+	// The ID of the non-compliant resource.
+	Id *string
+
+	// Indicates whether the resource can be excluded from encryption enforcement.
+	IsExcludable *bool
+
+	// The type of the non-compliant resource.
+	Type *string
 
 	noSmithyDocumentSerde
 }
@@ -24413,6 +25032,30 @@ type VpcPeeringConnectionVpcInfo struct {
 	noSmithyDocumentSerde
 }
 
+// Describes a VPN concentrator.
+type VpnConcentrator struct {
+
+	// The current state of the VPN concentrator.
+	State *string
+
+	// Any tags assigned to the VPN concentrator.
+	Tags []Tag
+
+	// The ID of the transit gateway attachment for the VPN concentrator.
+	TransitGatewayAttachmentId *string
+
+	// The ID of the transit gateway associated with the VPN concentrator.
+	TransitGatewayId *string
+
+	// The type of VPN concentrator.
+	Type *string
+
+	// The ID of the VPN concentrator.
+	VpnConcentratorId *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes a VPN connection.
 type VpnConnection struct {
 
@@ -24463,6 +25106,9 @@ type VpnConnection struct {
 
 	// Information about the VPN tunnel.
 	VgwTelemetry []VgwTelemetry
+
+	// The ID of the VPN concentrator associated with the VPN connection.
+	VpnConcentratorId *string
 
 	// The ID of the VPN connection.
 	VpnConnectionId *string
