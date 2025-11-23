@@ -12,7 +12,8 @@ import (
 )
 
 // Describes the specified attribute of the specified instance. You can specify
-// only one attribute at a time.
+// only one attribute at a time. Available attributes include SQL license exemption
+// configuration for instances registered with the SQL LE service.
 func (c *Client) DescribeInstanceAttribute(ctx context.Context, params *DescribeInstanceAttributeInput, optFns ...func(*Options)) (*DescribeInstanceAttributeOutput, error) {
 	if params == nil {
 		params = &DescribeInstanceAttributeInput{}

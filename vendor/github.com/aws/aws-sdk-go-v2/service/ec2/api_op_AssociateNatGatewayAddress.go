@@ -57,6 +57,26 @@ type AssociateNatGatewayAddressInput struct {
 	// This member is required.
 	NatGatewayId *string
 
+	// For regional NAT gateways only: The Availability Zone where you want to
+	// associate an Elastic IP address (EIP). The regional NAT gateway uses a separate
+	// EIP in each AZ to handle outbound NAT traffic from that AZ.
+	//
+	// A regional NAT gateway is a single NAT Gateway that works across multiple
+	// availability zones (AZs) in your VPC, providing redundancy, scalability and
+	// availability across all the AZs in a Region.
+	AvailabilityZone *string
+
+	// For regional NAT gateways only: The ID of the Availability Zone where you want
+	// to associate an Elastic IP address (EIP). The regional NAT gateway uses a
+	// separate EIP in each AZ to handle outbound NAT traffic from that AZ. Use this
+	// instead of AvailabilityZone for consistent identification of AZs across Amazon
+	// Web Services Regions.
+	//
+	// A regional NAT gateway is a single NAT Gateway that works across multiple
+	// availability zones (AZs) in your VPC, providing redundancy, scalability and
+	// availability across all the AZs in a Region.
+	AvailabilityZoneId *string
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
