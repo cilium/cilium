@@ -16,7 +16,7 @@ permissions: {}
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.216.0
+  eksctl_version: v0.217.0
 
 jobs:
   delete-cluster:
