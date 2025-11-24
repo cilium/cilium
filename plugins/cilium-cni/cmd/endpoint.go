@@ -87,6 +87,7 @@ func (c *defaultEndpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse
 		K8sUID:                 string(c.CniArgs.K8S_POD_UID),
 		ContainerInterfaceName: c.Args.IfName,
 		DatapathConfiguration:  &models.EndpointDatapathConfiguration{},
+		Properties:             make(map[string]any),
 	}
 
 	if c.Conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
