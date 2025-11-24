@@ -261,51 +261,45 @@ func (c *GRPCClient) InitClient() error {
 // if the policy stream is not already established.
 func (c *GRPCClient) createPolicyStream(ctx context.Context) error {
 	if !c.IsConnected() {
-		go c.handlePolicyStream()
+		defer func() {
+			c.connected.Store(false)
+		}()
+
+		fqdnClient := pb.NewFQDNDataClient(c.client)
+		stream, err := fqdnClient.StreamPolicyState(context.Background())
+		if err != nil {
+			c.logger.Error("Failed to open policy stream", logfields.Error, err)
+			return err
+		}
+		defer stream.CloseSend()
+
+		c.logger.Info("Policy state stream established")
+
+		for {
+			state, err := stream.Recv()
+			if err != nil {
+				c.logger.Error("Policy stream recv failed", logfields.Error, err)
+				return err
+			}
+			response := &pb.PolicyStateResponse{
+				Response: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+			}
+			err = c.updatePolicyState(state)
+			if err != nil {
+				//Note: We need to update the response code based on the error type
+				// Will be implemented in future PRs with updatePolicyState implementation
+				c.logger.Error("Failed to update policy state", logfields.Error, err)
+			}
+			if sendErr := stream.Send(response); sendErr != nil {
+				c.logger.Error("Policy stream ACK send failed", logfields.Error, sendErr)
+				return sendErr
+			}
+			c.connected.Store(true)
+		}
 	} else {
 		c.logger.Debug("Already connected, skipping policy stream start")
 	}
 	return nil
-}
-
-// handlePolicyStream runs the policy stream to receive DNS policy updates from the Cilium agent
-func (c *GRPCClient) handlePolicyStream() {
-	defer func() {
-		c.connected.Store(false)
-		c.logger.Debug("Policy stream goroutine exiting")
-	}()
-
-	fqdnClient := pb.NewFQDNDataClient(c.client)
-	stream, err := fqdnClient.StreamPolicyState(context.Background())
-	if err != nil {
-		c.logger.Error("Failed to open policy stream", logfields.Error, err)
-		return
-	}
-	defer stream.CloseSend()
-
-	c.logger.Info("Policy state stream established")
-
-	for {
-		state, err := stream.Recv()
-		if err != nil {
-			c.logger.Error("Policy stream recv failed", logfields.Error, err)
-			return
-		}
-		response := &pb.PolicyStateResponse{
-			Response: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
-		}
-		err = c.updatePolicyState(state)
-		if err != nil {
-			//Note: We need to update the response code based on the error type
-			// Will be implemented in future PRs with updatePolicyState implementation
-			c.logger.Error("Failed to update policy state", logfields.Error, err)
-		}
-		if sendErr := stream.Send(response); sendErr != nil {
-			c.logger.Error("Policy stream ACK send failed", logfields.Error, sendErr)
-			return
-		}
-		c.connected.Store(true)
-	}
 }
 
 // IsConnected returns the current connection status

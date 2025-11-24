@@ -63,12 +63,6 @@ func (sdp *StandaloneDNSProxy) StartStandaloneDNSProxy() error {
 	// watch the connection state and start the DNS proxy once connected
 	sdp.jobGroup.Add(job.OneShot("sdp-connection-watcher", sdp.WatchConnection, job.WithShutdown()))
 
-	// Wait for the connection to be established and start the proxy, will be added in future PRs
-	// Note: This is a placeholder for the actual implementation.
-	// if err := sdp.dnsProxier.Listen(sdp.proxyPort); err != nil {
-	// 	return fmt.Errorf("error opening dns proxy socket(s): %w", err)
-	// }
-
 	sdp.jobGroup.Add(job.OneShot("sdp-watch-dns-rules", sdp.WatchDNSRulesTable,
 		job.WithRetry(3, &job.ExponentialBackoff{Min: 5 * time.Second, Max: 10 * time.Second}),
 		job.WithShutdown()))
