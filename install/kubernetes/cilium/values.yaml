@@ -3351,7 +3351,9 @@ enableCriticalPriorityClass: true
 # on AArch64 as the images do not currently ship a version of Envoy.
 #disableEnvoyVersionCheck: false
 clustermesh:
-  # -- Deploy clustermesh-apiserver for clustermesh
+  # -- Deploy clustermesh-apiserver for clustermesh. This option is typically
+  # used with ``clustermesh.config.enabled=true``. Refer to the 
+  # ``clustermesh.config.enabled=true``documentation for more information.
   useAPIServer: false
   # -- The maximum number of clusters to support in a ClusterMesh. This value
   # cannot be changed on running clusters, and all clusters in a ClusterMesh
