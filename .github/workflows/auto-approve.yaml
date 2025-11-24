@@ -14,8 +14,7 @@ jobs:
     if: ${{
          github.event.pull_request.user.login == 'cilium-renovate[bot]' &&
          (github.triggering_actor == 'cilium-renovate[bot]' ||
-          github.triggering_actor == 'auto-committer[bot]') &&
-         github.event.requested_reviewer.login == 'ciliumbot'
+          github.triggering_actor == 'auto-committer[bot]')
         }}
     steps:
     - name: Debug
@@ -45,8 +44,7 @@ jobs:
       if: ${{
            github.event.pull_request.user.login == 'cilium-renovate[bot]' &&
            (github.triggering_actor == 'cilium-renovate[bot]' ||
-            github.triggering_actor == 'auto-committer[bot]') &&
-           github.event.requested_reviewer.login == 'ciliumbot'
+            github.triggering_actor == 'auto-committer[bot]')
           }}
       env:
         TOKEN: ${{ secrets.AUTO_APPROVE_TOKEN }}
@@ -56,10 +54,19 @@ jobs:
         echo ${TOKEN} | gh auth login --with-token
         gh -R ${GITHUB_REPOSITORY} pr review ${PULL_REQUEST_NUMBER} --approve
 
-        echo "Remove other reviewers except ciliumbot to avoid noise"
-        reviewers=$(gh -R ${GITHUB_REPOSITORY} pr view ${PULL_REQUEST_NUMBER} --json reviewRequests --jq '.reviewRequests[] | select(."__typename"=="User") | .login')
-        for reviewer in $reviewers; do
-          if [ "$reviewer" != "ciliumbot" ]; then
-            gh -R ${GITHUB_REPOSITORY} pr edit ${PULL_REQUEST_NUMBER} --remove-reviewer "$reviewer"
-          fi
-        done
+        # Check if ciliumbot was requested by cilium-renovate[bot] from the events list
+        echo "Checking if ciliumbot was requested by cilium-renovate[bot]..."
+        ciliumbot_requested_by_renovate=$(gh api "/repos/${GITHUB_REPOSITORY}/issues/${PULL_REQUEST_NUMBER}/events" --paginate --jq '[.[] | select(.event == "review_requested" and .requested_reviewer.login == "ciliumbot" and .actor.login == "cilium-renovate[bot]")] | length > 0')
+
+        if [ "$ciliumbot_requested_by_renovate" == "true" ]; then
+          echo "ciliumbot was requested by cilium-renovate[bot], removing other reviewers to avoid noise"
+          reviewers=$(gh -R ${GITHUB_REPOSITORY} pr view ${PULL_REQUEST_NUMBER} --json reviewRequests --jq '.reviewRequests[] | select(."__typename"=="User") | .login')
+          for reviewer in $reviewers; do
+            if [ "$reviewer" != "ciliumbot" ]; then
+              echo "Removing reviewer $reviewer"
+              gh -R ${GITHUB_REPOSITORY} pr edit ${PULL_REQUEST_NUMBER} --remove-reviewer "$reviewer"
+            fi
+          done
+        else
+          echo "ciliumbot was not requested by cilium-renovate[bot], keeping all reviewers"
+        fi
