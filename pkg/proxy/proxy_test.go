@@ -11,20 +11,24 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/fake/types"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func proxyForTest(t *testing.T) *Proxy {
+func proxyForTest(t *testing.T, envoyIntegration *envoyProxyIntegration) *Proxy {
 	var drm *reconciler.DesiredRouteManager
 	hive.New(
 		reconciler.TableCell,
@@ -39,21 +43,23 @@ func proxyForTest(t *testing.T) *Proxy {
 		RestoredProxyPortsAgeLimit: 0,
 	}
 	pp := proxyports.NewProxyPorts(hivetest.Logger(t), ppConfig, fakeIPTablesManager)
-	p, err := createProxy(true, hivetest.Logger(t), nil, pp, nil, nil, nil, nil, drm)
+	p, err := createProxy(true, hivetest.Logger(t), nil, pp, envoyIntegration, nil, nil, nil, drm)
 	require.NoError(t, err)
 
 	p.proxyPorts.Trigger = job.NewTrigger(job.WithDebounce(10 * time.Second))
 	return p
 }
 
-type fakeProxyPolicy struct{}
+type fakeProxyPolicy struct {
+	parserType policy.L7ParserType
+}
 
 func (p *fakeProxyPolicy) GetPerSelectorPolicies() policy.L7DataMap {
 	return policy.L7DataMap{}
 }
 
 func (p *fakeProxyPolicy) GetL7Parser() policy.L7ParserType {
-	return policy.ParserTypeCRD
+	return p.parserType
 }
 
 func (p *fakeProxyPolicy) GetIngress() bool {
@@ -78,11 +84,11 @@ func TestCreateOrUpdateRedirectMissingListener(t *testing.T) {
 	err := os.MkdirAll(socketDir, 0o700)
 	require.NoError(t, err)
 
-	p := proxyForTest(t)
+	p := proxyForTest(t, nil)
 
-	l4 := &fakeProxyPolicy{}
+	l4 := &fakeProxyPolicy{policy.ParserTypeCRD}
 
-	ctx := context.TODO()
+	ctx := t.Context()
 	wg := completion.NewWaitGroup(ctx)
 
 	proxyPort, err, revertFunc := p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
@@ -90,3 +96,121 @@ func TestCreateOrUpdateRedirectMissingListener(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, revertFunc)
 }
+
+func TestCreateOrUpdateRedirectMissingListenerWithUseOriginalSourceAddrFlagEnabled(t *testing.T) {
+	testRunDir := t.TempDir()
+	socketDir := envoy.GetSocketDir(testRunDir)
+	err := os.MkdirAll(socketDir, 0o700)
+	require.NoError(t, err)
+	ipTablesManager := &iptables.Manager{}
+	xdsServer := &fakeXdsServer{}
+	envoyIntegrationConfig := EnvoyProxyIntegrationConfig{
+		ProxyUseOriginalSourceAddress: true,
+	}
+	envoyIntegrationParams := envoyProxyIntegrationParams{
+		IptablesManager: ipTablesManager,
+		XdsServer:       xdsServer,
+		Cfg:             envoyIntegrationConfig,
+	}
+	envoyIntegration := newEnvoyProxyIntegration(envoyIntegrationParams)
+	p := proxyForTest(t, envoyIntegration)
+
+	l4 := &fakeProxyPolicy{policy.ParserTypeHTTP}
+
+	ctx := t.Context()
+	wg := completion.NewWaitGroup(ctx)
+
+	p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
+	require.True(t, envoyIntegration.proxyUseOriginalSourceAddress)
+}
+
+func TestCreateOrUpdateRedirectMissingListenerWithUseOriginalSourceAddrFlagDisabled(t *testing.T) {
+	testRunDir := t.TempDir()
+	socketDir := envoy.GetSocketDir(testRunDir)
+	err := os.MkdirAll(socketDir, 0o700)
+	require.NoError(t, err)
+	ipTablesManager := &iptables.Manager{}
+	xdsServer := &fakeXdsServer{}
+	envoyIntegrationConfig := EnvoyProxyIntegrationConfig{
+		ProxyUseOriginalSourceAddress: false,
+	}
+	envoyIntegrationParams := envoyProxyIntegrationParams{
+		IptablesManager: ipTablesManager,
+		XdsServer:       xdsServer,
+		Cfg:             envoyIntegrationConfig,
+	}
+	envoyIntegration := newEnvoyProxyIntegration(envoyIntegrationParams)
+	p := proxyForTest(t, envoyIntegration)
+
+	l4 := &fakeProxyPolicy{policy.ParserTypeHTTP}
+
+	ctx := t.Context()
+	wg := completion.NewWaitGroup(ctx)
+
+	p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
+	require.False(t, envoyIntegration.proxyUseOriginalSourceAddress)
+	require.False(t, xdsServer.ObservedMayUseOriginalSourceAddr)
+}
+
+type fakeXdsServer struct {
+	ObservedMayUseOriginalSourceAddr bool
+}
+
+func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old envoy.Resources, new envoy.Resources) error {
+	panic("unimplemented")
+}
+
+func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources envoy.Resources) error {
+	panic("unimplemented")
+}
+
+func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources) error {
+	panic("unimplemented")
+}
+
+func (s *fakeXdsServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
+	s.ObservedMayUseOriginalSourceAddr = mayUseOriginalSourceAddr
+	return nil
+}
+
+func (*fakeXdsServer) AddAdminListener(port uint16, wg *completion.WaitGroup) {
+	panic("unimplemented")
+}
+
+func (*fakeXdsServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
+	panic("unimplemented")
+}
+
+func (*fakeXdsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
+	panic("unimplemented")
+}
+
+func (*fakeXdsServer) RemoveAllNetworkPolicies() {
+	panic("unimplemented")
+}
+
+func (*fakeXdsServer) RemoveListener(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
+	panic("unimplemented")
+}
+
+func (*fakeXdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
+	panic("unimplemented")
+}
+
+func (*fakeXdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+	panic("unimplemented")
+}
+
+func (*fakeXdsServer) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+	panic("unimplemented")
+}
+
+func (*fakeXdsServer) GetPolicySecretSyncNamespace() string {
+	panic("unimplemented")
+}
+
+func (*fakeXdsServer) SetPolicySecretSyncNamespace(string) {
+	panic("unimplemented")
+}
+
+var _ envoy.XDSServer = &fakeXdsServer{}

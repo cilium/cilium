@@ -2497,6 +2497,9 @@
           },
           "type": "object"
         },
+        "useOriginalSourceAddress": {
+          "type": "boolean"
+        },
         "xffNumTrustedHopsL7PolicyEgress": {
           "type": "integer"
         },

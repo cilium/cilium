@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -36,6 +37,7 @@ var Cell = cell.Module(
 
 	cell.Provide(newProxy),
 	cell.Provide(newEnvoyProxyIntegration),
+	cell.Config(defaultEnvoyProxyIntegrationConfig),
 	cell.Provide(newDNSProxyIntegration),
 	cell.ProvidePrivate(endpoint.NewEndpointInfoRegistry),
 	cell.Provide(proxyports.NewProxyPorts),
@@ -57,6 +59,18 @@ type proxyParams struct {
 	DB           *statedb.DB
 	Devices      statedb.Table[*tables.Device]
 	RouteManager *reconciler.DesiredRouteManager
+}
+
+type EnvoyProxyIntegrationConfig struct {
+	ProxyUseOriginalSourceAddress bool
+}
+
+var defaultEnvoyProxyIntegrationConfig = EnvoyProxyIntegrationConfig{
+	ProxyUseOriginalSourceAddress: true,
+}
+
+func (def EnvoyProxyIntegrationConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("proxy-use-original-source-address", def.ProxyUseOriginalSourceAddress, "Controls if Cilium's Envoy BPF metadata listener filter for L7 policy enforcement redirects should be configured to use original source address when extracting the metadata (doesn't affect Ingress/Gateway API).")
 }
 
 func newProxy(params proxyParams) (*Proxy, error) {
@@ -110,13 +124,15 @@ type envoyProxyIntegrationParams struct {
 	IptablesManager datapath.IptablesManager
 	XdsServer       envoy.XDSServer
 	AdminClient     *envoy.EnvoyAdminClient
+	Cfg             EnvoyProxyIntegrationConfig
 }
 
 func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyIntegration {
 	return &envoyProxyIntegration{
-		xdsServer:       params.XdsServer,
-		iptablesManager: params.IptablesManager,
-		adminClient:     params.AdminClient,
+		xdsServer:                     params.XdsServer,
+		iptablesManager:               params.IptablesManager,
+		adminClient:                   params.AdminClient,
+		proxyUseOriginalSourceAddress: params.Cfg.ProxyUseOriginalSourceAddress,
 	}
 }
 
