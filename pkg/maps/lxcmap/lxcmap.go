@@ -102,6 +102,12 @@ const (
 	// EndpointFlagAtHostNS indicates that this endpoint is located at the host networking
 	// namespace
 	EndpointFlagAtHostNS = 2
+
+	// EndpointFlagSkipMasqueradeV4 indicates that this endpoint should skip IPv4 masquerade for remote traffic
+	EndpointFlagSkipMasqueradeV4 = 4
+
+	// EndpointFlagSkipMasqueradeV6 indicates that this endpoint should skip IPv6 masquerade for remote traffic
+	EndpointFlagSkipMasqueradeV6 = 8
 )
 
 // EndpointFrontend is the interface to implement for an object to synchronize
@@ -116,6 +122,10 @@ type EndpointFrontend interface {
 	IPv6Address() netip.Addr
 	GetIdentity() identity.NumericIdentity
 	IsAtHostNS() bool
+	// SkipMasqueradeV4 indicates whether this endpoint should skip IPv4 masquerade for remote traffic
+	SkipMasqueradeV4() bool
+	// SkipMasqueradeV6 indicates whether this endpoint should skip IPv6 masquerade for remote traffic
+	SkipMasqueradeV6() bool
 }
 
 // getBPFKeys returns all keys which should represent this endpoint in the BPF
@@ -161,6 +171,12 @@ func (m *lxcMap) getBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 
 	if e.IsAtHostNS() {
 		info.Flags |= EndpointFlagAtHostNS
+	}
+	if e.SkipMasqueradeV4() {
+		info.Flags |= EndpointFlagSkipMasqueradeV4
+	}
+	if e.SkipMasqueradeV6() {
+		info.Flags |= EndpointFlagSkipMasqueradeV6
 	}
 
 	return info, nil
