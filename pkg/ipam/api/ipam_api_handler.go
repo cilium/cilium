@@ -64,6 +64,7 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 			Gateway:         ipv4Result.GatewayIP,
 			ExpirationUUID:  ipv4Result.ExpirationUUID,
 			InterfaceNumber: ipv4Result.InterfaceNumber,
+			SkipMasquerade:  ipv4Result.SkipMasquerade,
 		}
 	}
 
@@ -77,6 +78,7 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 			Gateway:         ipv6Result.GatewayIP,
 			ExpirationUUID:  ipv6Result.ExpirationUUID,
 			InterfaceNumber: ipv6Result.InterfaceNumber,
+			SkipMasquerade:  ipv6Result.SkipMasquerade,
 		}
 	}
 
