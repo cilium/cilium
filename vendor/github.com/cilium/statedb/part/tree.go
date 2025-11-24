@@ -69,6 +69,7 @@ func (t *Tree[T]) Txn() *Txn[T] {
 		txn = newTxn[T](t.opts)
 	}
 	txn.opts = t.opts
+	txn.oldRoot = t.root
 	txn.root = t.root
 	txn.size = t.size
 	return txn

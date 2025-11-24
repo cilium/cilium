@@ -5,14 +5,16 @@ package part
 
 import (
 	"bytes"
+	"fmt"
+	"os"
 )
 
 // Txn is a transaction against a tree. It allows doing efficient
 // modifications to a tree by caching and reusing cloned nodes.
 type Txn[T any] struct {
-	root *header[T]
-	opts options
-	size int // the number of objects in the tree
+	oldRoot, root *header[T]
+	opts          options
+	size          int // the number of objects in the tree
 
 	// mutated is the set of nodes mutated in this transaction
 	// that we can keep mutating without cloning them again.
@@ -174,6 +176,10 @@ func (txn *Txn[T]) Notify() {
 		close(ch)
 	}
 	clear(txn.watches)
+
+	if !txn.opts.rootOnlyWatch() {
+		validateRemovedWatches(txn.oldRoot, txn.root)
+	}
 }
 
 // PrintTree to the standard output. For debugging.
@@ -393,6 +399,7 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 		// Target is the root, clear it.
 		if root.isLeaf() || newRoot.size() == 0 {
 			// Replace leaf or empty root with a node4
+			txn.watches[root.watch] = struct{}{}
 			newRoot = newNode4[T]()
 		} else {
 			newRoot = txn.cloneNode(root)
@@ -420,6 +427,9 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 			children[target.index] = target.node
 		} else if target.node.size() == 0 && (target.node == this || target.node.getLeaf() == nil) {
 			// The node is empty, remove it from the parent.
+			if target.node.watch != nil {
+				txn.watches[target.node.watch] = struct{}{}
+			}
 			parent.node.remove(target.index)
 		} else {
 			// Update the target (as it may have been cloned)
@@ -472,4 +482,49 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 	}
 	newRoot = parents[0].node
 	return
+}
+
+var runValidation = os.Getenv("PART_VALIDATE") != ""
+
+func validateRemovedWatches[T any](oldRoot *header[T], newRoot *header[T]) {
+	if !runValidation {
+		return
+	}
+	var collectWatches func(depth int, watches map[<-chan struct{}]int, node *header[T])
+	collectWatches = func(depth int, watches map[<-chan struct{}]int, node *header[T]) {
+		if node == nil {
+			return
+		}
+		if node.watch == nil {
+			panic("nil watch channel")
+		}
+		watches[node.watch] = depth
+		if leaf := node.getLeaf(); leaf != nil && !node.isLeaf() {
+			watches[leaf.watch] = depth
+		}
+		for _, child := range node.children() {
+			if child != nil {
+				collectWatches(depth+1, watches, child)
+			}
+		}
+	}
+	oldWatches := map[<-chan struct{}]int{}
+	collectWatches(0, oldWatches, oldRoot)
+	newWatches := map[<-chan struct{}]int{}
+	collectWatches(0, newWatches, newRoot)
+
+	// Any nodes that are not part of the new tree must have their watch channels closed.
+	for watch := range newWatches {
+		delete(oldWatches, watch)
+	}
+	for watch, depth := range oldWatches {
+		select {
+		case <-watch:
+		default:
+			oldRoot.printTree(0)
+			fmt.Println("---")
+			newRoot.printTree(0)
+			panic(fmt.Sprintf("dropped watch channel %p at depth %d not closed", watch, depth))
+		}
+	}
 }
