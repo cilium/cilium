@@ -37,6 +37,7 @@ import (
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
@@ -742,6 +743,9 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			ep.Addressing.IPV6 = ipam.Address.IPV6
 			ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
 			ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
+			if ipam.IPV6.SkipMasquerade {
+				ep.Properties[endpoint.PropertySkipMasqueradeV6] = true
+			}
 
 			ipv6Config, routes, err = prepareIP(ep.Addressing.IPV6, state, int(conf.RouteMTU))
 			if err != nil {
@@ -757,6 +761,9 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			ep.Addressing.IPV4 = ipam.Address.IPV4
 			ep.Addressing.IPV4PoolName = ipam.Address.IPV4PoolName
 			ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
+			if ipam.IPV4.SkipMasquerade {
+				ep.Properties[endpoint.PropertySkipMasqueradeV4] = true
+			}
 
 			ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, state, int(conf.RouteMTU))
 			if err != nil {

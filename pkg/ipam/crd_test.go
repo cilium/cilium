@@ -105,7 +105,16 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	sharedNodeStore.ownNode = cn
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil)
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    conf,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: localNodeStore,
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+	})
 	ipam.ConfigureAllocator()
 	sharedNodeStore.updateLocalNodeResource(cn)
 
@@ -172,7 +181,17 @@ func TestIPMasq(t *testing.T) {
 	sharedNodeStore.ownNode = cn
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, ipMasqAgent)
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    conf,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: localNodeStore,
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+		IPMasqAgent:    ipMasqAgent,
+	})
 	ipam.ConfigureAllocator()
 
 	epipv4 := netip.MustParseAddr("10.1.1.226")
@@ -235,7 +254,17 @@ func TestAzureIPMasq(t *testing.T) {
 	sharedNodeStore.ownNode = cn
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, ipMasqAgent)
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    conf,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: localNodeStore,
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+		IPMasqAgent:    ipMasqAgent,
+	})
 	ipam.ConfigureAllocator()
 
 	epipv4 := netip.MustParseAddr("10.10.1.5")
