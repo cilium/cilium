@@ -21,6 +21,7 @@ var TablesCell = cell.Module(
 
 	PodTableCell,
 	NamespaceTableCell,
+	PodIPPoolTableCell,
 )
 
 // reflectorName to use in [k8s.ReflectorConfig]. This is the name that appears

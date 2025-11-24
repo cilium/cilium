@@ -11,6 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
@@ -169,6 +172,26 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 		// support IPAM pools and assign the default pool instead
 		if result.IPPoolName == "" {
 			result.IPPoolName = PoolDefault()
+		}
+
+		// If multi-pool IPAM is enabled, check whether the pool should skip masquerade
+		if ipam.config.IPAMMode() == option.IPAMMultiPool &&
+			result.IPPoolName != PoolDefault() {
+			// If the flag is set, skip masquerade for all non-default pools
+			if ipam.onlyMasqueradeDefaultPool {
+				result.SkipMasquerade = true
+			} else {
+				// Lookup the IP pool from stateDB and check if it has the explicit annotation
+				txn := ipam.db.ReadTxn()
+				podIPPool, _, found := ipam.podIPPools.Get(txn, k8s.PodIPPoolByName(string(result.IPPoolName)))
+				if !found {
+					err = fmt.Errorf("IP pool '%s' not found in stateDB table", string(result.IPPoolName))
+					return
+				}
+				if v, ok := podIPPool.Annotations[annotation.IPAMSkipMasquerade]; ok && v == "true" {
+					result.SkipMasquerade = true
+				}
+			}
 		}
 
 		if _, ok := ipam.isIPExcluded(result.IP, pool); !ok {

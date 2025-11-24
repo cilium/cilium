@@ -105,7 +105,7 @@ func TestMarkForReleaseNoAllocate(t *testing.T) {
 	sharedNodeStore.ownNode = cn
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil, nil, nil, false)
 	ipam.ConfigureAllocator()
 	sharedNodeStore.updateLocalNodeResource(cn)
 
@@ -172,7 +172,7 @@ func TestIPMasq(t *testing.T) {
 	sharedNodeStore.ownNode = cn
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, ipMasqAgent)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, ipMasqAgent, nil, nil, false)
 	ipam.ConfigureAllocator()
 
 	epipv4 := netip.MustParseAddr("10.1.1.226")
@@ -235,7 +235,7 @@ func TestAzureIPMasq(t *testing.T) {
 	sharedNodeStore.ownNode = cn
 
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, ipMasqAgent)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, conf, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, ipMasqAgent, nil, nil, false)
 	ipam.ConfigureAllocator()
 
 	epipv4 := netip.MustParseAddr("10.10.1.5")
