@@ -1357,7 +1357,7 @@ func Test_AllowAll(t *testing.T) {
 		rules    api.Rules
 		expected mapState
 	}{
-		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, testMapState(t, mapStateMap{mapKeyAllowAll__: mapEntryL7None_(lblsAllowAllIngress)})},
+		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, testMapState(t, mapStateMap{mapKeyAllowAll__: mapEntryL7None_(lblsAllowAllIngress).withLevel(0)})},
 		{1, api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, testMapState(t, mapStateMap{mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll)})},
 	}
 
@@ -1423,11 +1423,11 @@ var (
 	AllowEntry = types.AllowEntry().WithPriority(0)
 	DenyEntry  = types.DenyEntry().WithPriority(0)
 
-	mapEntryDeny  = NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
-	mapEntryAllow = NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
+	mapEntryDeny  = NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil}).withLevel(1000)
+	mapEntryAllow = NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil}).withLevel(1000)
 
 	worldLabelArrayList         = labels.LabelArrayList{labels.LabelWorld.LabelArray()}
-	mapEntryWorldDenyWithLabels = NewMapStateEntry(DenyEntry).withLabels(worldLabelArrayList)
+	mapEntryWorldDenyWithLabels = NewMapStateEntry(DenyEntry).withLabels(worldLabelArrayList).withLevel(1000)
 
 	worldIPIdentity = localIdentity(16324)
 	worldIPCIDR     = api.CIDR("192.0.2.3/32")
@@ -1878,7 +1878,7 @@ func Test_Allowception(t *testing.T) {
 	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 
 	computedMapStateForAllowCeption := emptyMapState(hivetest.Logger(t)).withState(mapStateMap{
-		ingressKey(0, 0, 0, 0):                             mapEntryL7None_(lblsAllowAllIngress),
+		ingressKey(0, 0, 0, 0):                             mapEntryL7None_(lblsAllowAllIngress).withLevel(0),
 		egressKey(identity.ReservedIdentityWorld, 0, 0, 0): mapEntryAllow,
 		egressKey(one3Z8Identity, 0, 0, 0):                 mapEntryDeny,
 		egressKey(one0Z32Identity, 0, 0, 0):                mapEntryAllow,
@@ -2056,12 +2056,12 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 		},
 		expected: MapStateMap{
 			mapKeyAllowAll__:     AllowEntry,
-			egressL3OnlyKey(id2): AllowEntry,
-			egressL3OnlyKey(id3): AllowEntry,
+			egressL3OnlyKey(id2): AllowEntry.WithPriority(1000),
+			egressL3OnlyKey(id3): AllowEntry.WithPriority(1000),
 		},
 		fqdnIds: maps.Clone(fqdnIdentities),
 		adds: MapStateMap{
-			egressL3OnlyKey(idExample): AllowEntry,
+			egressL3OnlyKey(idExample): AllowEntry.WithPriority(1000),
 		},
 	}}
 

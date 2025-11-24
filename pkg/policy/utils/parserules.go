@@ -32,6 +32,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
+				Tier:           types.Normal,
 				Subject:        subjectSelector,
 				Node:           node,
 				Labels:         rule.Labels,
@@ -62,6 +63,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
+				Tier:        types.Normal,
 				Subject:     subjectSelector,
 				Node:        node,
 				Labels:      rule.Labels,
@@ -91,6 +93,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
+				Tier:           types.Normal,
 				Subject:        subjectSelector,
 				Node:           node,
 				Labels:         rule.Labels,
@@ -121,6 +124,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
+				Tier:        types.Normal,
 				Subject:     subjectSelector,
 				Node:        node,
 				Labels:      rule.Labels,

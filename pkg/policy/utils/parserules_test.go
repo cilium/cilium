@@ -63,6 +63,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
+					Tier:        types.Normal,
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
@@ -106,6 +107,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
+					Tier:        types.Normal,
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
@@ -149,6 +151,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
+					Tier:        types.Normal,
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
@@ -192,6 +195,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
+					Tier:        types.Normal,
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
@@ -231,6 +235,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
+					Tier:        types.Normal,
 					Subject:     nodeSelector,
 					Node:        true,
 					Labels:      lbls,
@@ -264,6 +269,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
+					Tier:        types.Normal,
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
@@ -273,6 +279,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					L4:          api.PortRules{},
 				},
 				{
+					Tier:        types.Normal,
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
@@ -299,6 +306,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
+					Tier:        types.Normal,
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
@@ -308,6 +316,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					L4:          api.PortRules{},
 				},
 				{
+					Tier:        types.Normal,
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,

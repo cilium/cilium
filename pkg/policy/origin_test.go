@@ -98,10 +98,10 @@ func TestOriginMerge(t *testing.T) {
 
 	// Expected incorrectly has rule origin from both rules!
 	expected := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
-		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		Tier: 1, Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		Ingress: false,
 		PerSelectorPolicies: L7DataMap{
-			td.cachedSelectorB: nil,
+			td.cachedSelectorB: &PerSelectorPolicy{Priority: 1000},
 		},
 		RuleOrigin: OriginLogsForTest(map[CachedSelector]string{
 			td.cachedSelectorB: "rule2",
