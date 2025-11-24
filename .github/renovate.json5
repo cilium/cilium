@@ -656,6 +656,16 @@
       "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$",
     },
     {
+      // Avoid updating minor or major version for github.com/envoyproxy/go-control-plane/envoy
+      // as we need to update cilium-envoy accordingly.
+      "matchPackageNames": [
+        "github.com/envoyproxy/go-control-plane/envoy",
+      ],
+      "matchUpdateTypes": [
+        "patch",
+      ]
+    },
+    {
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
