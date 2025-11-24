@@ -3196,9 +3196,8 @@ func (c *DaemonConfig) normalizeLRUBackedMapSizes(logger *slog.Logger) {
 //
 // The kernel rounds max_entries in htab_map_alloc() when BPF_F_NO_COMMON_LRU is set:
 //
-//   if (percpu_lru)
-//       htab->map.max_entries = roundup(attr->max_entries, num_possible_cpus());
-//
+//	if (percpu_lru)
+//	    htab->map.max_entries = roundup(attr->max_entries, num_possible_cpus());
 func (c *DaemonConfig) AlignMapSizeForLRU(logger *slog.Logger, optionName string, value int) int {
 	if value <= 0 || !c.BPFDistributedLRU {
 		return value
@@ -3207,11 +3206,7 @@ func (c *DaemonConfig) AlignMapSizeForLRU(logger *slog.Logger, optionName string
 	possibleCPUs := getPossibleCPUs(logger)
 	aligned := alignDistributedLRUSize(value, possibleCPUs)
 	if aligned != value {
-		logger.Debug("Aligning distributed LRU map size to kernel expectations",
-			logfields.BPFMapName, optionName,
-			"oldValue", value,
-			"newValue", aligned,
-			"possibleCPUs", possibleCPUs)
+		logger.Debug(fmt.Sprintf("Aligning distributed LRU map %s: %d -> %d (CPUs: %d)", optionName, value, aligned, possibleCPUs))
 	}
 	return aligned
 }
