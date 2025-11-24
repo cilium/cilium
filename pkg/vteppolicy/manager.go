@@ -62,23 +62,16 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // vteppolicy bpf policy map accordingly.
 type Manager struct {
-	logger            *slog.Logger
-	reconcileInterval time.Duration
-	// reconciliationEventsCount keeps track of how many reconciliation
-	// events have occoured
+	logger            *slog.Logger  // TODO(informalict): rearrange.
+	reconcileInterval time.Duration // TODO(informalict): make remove.
+	// reconciliationEventsCount keeps track of how many reconciliation events have occurred.
 	reconciliationEventsCount atomic.Uint64
 
-	// policies allows reading policy CRD from k8s.
+	// policies allow reading policy CRD from k8s.
 	policies resource.Resource[*Policy]
 
-	// endpoints allows reading endpoint CRD from k8s.
+	// endpoints allow reading endpoint CRD from k8s.
 	endpoints resource.Resource[*k8sTypes.CiliumEndpoint]
-
-	// policyConfigs stores policy configs indexed by policyID
-	policyConfigs map[policyID]*PolicyConfig
-
-	// epDataStore stores endpointId to endpoint metadata mapping
-	epDataStore map[endpointID]*endpointMetadata
 
 	// identityAllocator is used to fetch identity labels for endpoint updates
 	identityAllocator identityCache.IdentityAllocator
@@ -99,6 +92,10 @@ type Manager struct {
 // It tries to reconcile the desired state by updating the vteppolicy bpf map entries.
 func (manager *Manager) reconcile(ctx context.Context) {
 	var policySync, endpointSync bool
+	// epDataStore stores desired endpointId to endpoint metadata mapping.
+	epDataStore := make(map[endpointID]*endpointMetadata)
+	// policyConfigs stores desired policy configs indexed by policyID.
+	policyConfigs := make(map[policyID]*PolicyConfig)
 
 	/*TODO(informalict):
 	- support for p.Config.VtepPolicyReconciliationTriggerInterval
@@ -111,13 +108,14 @@ func (manager *Manager) reconcile(ctx context.Context) {
 			return
 		case endpoint := <-manager.chEndpoint:
 			if endpoint.EventKind == resource.Sync {
+				// TODO(informalict): should it reconcile state?
 				endpointSync = true
 				continue
 			}
 			if endpoint.EventKind == resource.Upsert {
-				manager.epDataStore[endpoint.id] = endpoint
+				epDataStore[endpoint.id] = endpoint
 			} else {
-				delete(manager.epDataStore, endpoint.id)
+				delete(epDataStore, endpoint.id)
 			}
 		case policy := <-manager.chPolicy:
 			if policy.EventKind == resource.Sync {
@@ -126,11 +124,11 @@ func (manager *Manager) reconcile(ctx context.Context) {
 			}
 
 			if policy.EventKind == resource.Upsert {
-				policy.updateMatchedEndpointIDs(manager.epDataStore)
-				manager.policyConfigs[policy.id] = policy
+				policy.updateMatchedEndpointIDs(epDataStore) // TODO(informalict): it is launched in below in reconcileState.
+				policyConfigs[policy.id] = policy
 			} else {
-				if manager.policyConfigs[policy.id] != nil {
-					delete(manager.policyConfigs, policy.id)
+				if policyConfigs[policy.id] != nil {
+					delete(policyConfigs, policy.id)
 				} else {
 					manager.logger.Warn("Can't delete CiliumVtepPolicy: policy not found")
 				}
@@ -138,7 +136,18 @@ func (manager *Manager) reconcile(ctx context.Context) {
 		}
 
 		if policySync && endpointSync {
-			manager.reconcileState()
+			// Reconcile the actual state of the node (vtep policy map entries) with a current desired state with.
+
+			// TODO(informalict) The below loop could be avoided, if policyConfigs are inlined
+			// with epDataStore (so when epDataStore changes, or policy is updated).
+			for _, policy := range policyConfigs {
+				policy.updateMatchedEndpointIDs(epDataStore)
+			}
+
+			manager.updateVtepRules(policyConfigs)
+
+			// TODO(informalict) do we want to add error counter in case the above function fails?
+			manager.reconciliationEventsCount.Add(1)
 		}
 	}
 }
@@ -182,8 +191,6 @@ func NewVtepPolicyManager(p Params) (out struct {
 func newVtepPolicyManager(p Params) (*Manager, error) {
 	manager := &Manager{
 		logger:            p.Logger,
-		policyConfigs:     make(map[policyID]*PolicyConfig),
-		epDataStore:       make(map[endpointID]*endpointMetadata),
 		identityAllocator: p.IdentityAllocator,
 		policies:          p.Policies,
 		policyMap:         p.PolicyMap,
@@ -369,13 +376,10 @@ func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.Ciliu
 	event.Done(err)
 }
 
-func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
-	for _, policy := range manager.policyConfigs {
-		policy.updateMatchedEndpointIDs(manager.epDataStore)
-	}
-}
-
-func (manager *Manager) updateVtepRules() {
+// updateVtepRules updates the content of the BPF maps.
+// Whenever an error occurs, it will just log it and move to the next item,
+// in order to reconcile as many states as possible.
+func (manager *Manager) updateVtepRules(policyConfigs map[policyID]*PolicyConfig) {
 	if manager.policyMap == nil {
 		manager.logger.Error("policyMap is nil")
 		return
@@ -424,7 +428,7 @@ func (manager *Manager) updateVtepRules() {
 		}
 	}
 
-	for _, policyConfig := range manager.policyConfigs {
+	for _, policyConfig := range policyConfigs {
 		policyConfig.forEachEndpointAndCIDR(addVtepRule)
 	}
 
@@ -441,18 +445,4 @@ func (manager *Manager) updateVtepRules() {
 			logger.Debug("Vtep gateway policy removed")
 		}
 	}
-}
-
-// reconcileState is responsible for reconciling the state of the manager (i.e. the
-// desired state) with the actual state of the node (vtep policy map entries).
-//
-// Whenever it encounters an error, it will just log it and move to the next
-// item, in order to reconcile as many states as possible.
-func (manager *Manager) reconcileState() {
-	manager.updatePoliciesMatchedEndpointIDs()
-
-	// Update the content of the BPF maps.
-	manager.updateVtepRules()
-
-	manager.reconciliationEventsCount.Add(1)
 }
