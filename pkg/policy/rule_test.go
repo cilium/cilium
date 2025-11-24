@@ -62,6 +62,7 @@ func TestL4Policy(t *testing.T) {
 	require.Len(t, entries, 2)
 	for i := range entries {
 		entries[i].Priority = 0.5
+		entries[i].Tier = 0
 	}
 
 	l7rules := api.L7Rules{
@@ -1217,49 +1218,52 @@ func TestL3RuleLabels(t *testing.T) {
 		"rule2": labels.ParseLabelArray("name=apiRule2"),
 	}
 
-	rules := map[string]api.Rule{
-		"rule0": {
-			EndpointSelector: endpointSelectorA,
-			Labels:           ruleLabels["rule0"],
-			Ingress:          []api.IngressRule{{}},
-			Egress:           []api.EgressRule{{}},
-		},
-		"rule1": {
-			EndpointSelector: endpointSelectorA,
-			Labels:           ruleLabels["rule1"],
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromCIDR: []api.CIDR{"10.0.1.0/32"},
-					},
-				},
-			},
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToCIDR: []api.CIDR{"10.1.0.0/32"},
-					},
-				},
-			},
-		},
-		"rule2": {
-			EndpointSelector: endpointSelectorA,
-			Labels:           ruleLabels["rule2"],
-			Ingress: []api.IngressRule{
-				{
-					IngressCommonRule: api.IngressCommonRule{
-						FromCIDR: []api.CIDR{"10.0.2.0/32"},
-					},
-				},
-			},
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToCIDR: []api.CIDR{"10.2.0.0/32"},
-					},
-				},
-			},
-		},
+	rules := map[string]types.PolicyEntries{
+		"rule0": {{
+			Ingress:     true,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule0"],
+			L3:          types.Selectors{},
+		}, {
+			Ingress:     false,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule0"],
+			L3:          types.Selectors{},
+		}},
+		"rule1": {{
+			Ingress:     true,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule1"],
+			L3:          types.ToSelectors(api.CIDRSlice{"10.0.1.0/32"}...),
+		}, {
+			Ingress:     false,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule1"],
+			L3:          types.ToSelectors(api.CIDRSlice{"10.1.0.0/32"}...),
+		}},
+		"rule2": {{
+			Ingress:     true,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule2"],
+			L3:          types.ToSelectors(api.CIDRSlice{"10.0.2.0/32"}...),
+		}, {
+			Ingress:     false,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule2"],
+			L3:          types.ToSelectors(api.CIDRSlice{"10.2.0.0/32"}...),
+		}},
 	}
 
 	testCases := []struct {
@@ -1297,7 +1301,7 @@ func TestL3RuleLabels(t *testing.T) {
 			td := newTestData(t, logger).withIDs(ruleTestIDs)
 
 			for _, r := range test.rulesToApply {
-				td.repo.mustAdd(rules[r])
+				td.repo.MustAddPolicyEntries(rules[r])
 			}
 			finalPolicy, err := td.repo.resolvePolicyLocked(idA)
 			require.NoError(t, err)
@@ -1348,50 +1352,64 @@ func TestL4RuleLabels(t *testing.T) {
 		"rule2": labels.ParseLabelArray("name=apiRule2"),
 	}
 
-	rules := map[string]api.Rule{
-		"rule0": {
-			EndpointSelector: endpointSelectorA,
-			Labels:           ruleLabels["rule0"],
-			Ingress:          []api.IngressRule{{}},
-			Egress:           []api.EgressRule{{}},
-		},
-
-		"rule1": {
-			EndpointSelector: endpointSelectorA,
-			Labels:           ruleLabels["rule1"],
-			Ingress: []api.IngressRule{
-				{
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{{Port: "1010", Protocol: api.ProtoTCP}},
-					}},
-				},
-			},
-			Egress: []api.EgressRule{
-				{
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{{Port: "1100", Protocol: api.ProtoTCP}},
-					}},
-				},
-			},
-		},
-		"rule2": {
-			EndpointSelector: endpointSelectorA,
-			Labels:           ruleLabels["rule2"],
-			Ingress: []api.IngressRule{
-				{
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{{Port: "1020", Protocol: api.ProtoTCP}},
-					}},
-				},
-			},
-			Egress: []api.EgressRule{
-				{
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{{Port: "1200", Protocol: api.ProtoTCP}},
-					}},
-				},
-			},
-		},
+	rules := map[string]types.PolicyEntries{
+		"rule0": {{
+			Ingress:     true,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule0"],
+			L3:          types.Selectors{},
+		}, {
+			Ingress:     false,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule0"],
+			L3:          types.Selectors{},
+		}},
+		"rule1": {{
+			Ingress:     true,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule1"],
+			L3:          types.Selectors{},
+			L4: []api.PortRule{{
+				Ports: []api.PortProtocol{{Port: "1010", Protocol: api.ProtoTCP}},
+			}},
+		}, {
+			Ingress:     false,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule1"],
+			L3:          types.Selectors{},
+			L4: []api.PortRule{{
+				Ports: []api.PortProtocol{{Port: "1100", Protocol: api.ProtoTCP}},
+			}},
+		}},
+		"rule2": {{
+			Ingress:     true,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule2"],
+			L3:          types.Selectors{},
+			L4: []api.PortRule{{
+				Ports: []api.PortProtocol{{Port: "1020", Protocol: api.ProtoTCP}},
+			}},
+		}, {
+			Ingress:     false,
+			DefaultDeny: true,
+			Verdict:     types.Allow,
+			Subject:     labelSelectorA,
+			Labels:      ruleLabels["rule2"],
+			L3:          types.Selectors{},
+			L4: []api.PortRule{{
+				Ports: []api.PortProtocol{{Port: "1200", Protocol: api.ProtoTCP}},
+			}},
+		}},
 	}
 
 	testCases := []struct {
@@ -1429,7 +1447,7 @@ func TestL4RuleLabels(t *testing.T) {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			td := newTestData(t, hivetest.Logger(t)).withIDs(ruleTestIDs)
 			for _, r := range test.rulesToApply {
-				td.repo.mustAdd(rules[r])
+				td.repo.MustAddPolicyEntries(rules[r])
 			}
 
 			finalPolicy, err := td.repo.resolvePolicyLocked(idA)
@@ -1754,20 +1772,18 @@ func TestIngressL4AllowAll(t *testing.T) {
 func TestIngressL4AllowAllNamedPort(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
-	repo.MustAddList(api.Rules{
-		&api.Rule{
-			EndpointSelector: endpointSelectorC,
-			Ingress: []api.IngressRule{
-				{
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "port-80", Protocol: api.ProtoTCP},
-						},
-					}},
-				},
+	repo.MustAddPolicyEntries(types.PolicyEntries{{
+		Ingress:     true,
+		DefaultDeny: true,
+		Verdict:     types.Allow,
+		Subject:     labelSelectorC,
+		L3:          types.Selectors{},
+		L4: []api.PortRule{{
+			Ports: []api.PortProtocol{
+				{Port: "port-80", Protocol: api.ProtoTCP},
 			},
-		},
-	})
+		}},
+	}})
 
 	checkFlow(t, repo, td.identityManager, flowAToC, true)
 	checkFlow(t, repo, td.identityManager, flowAToC90, false)
@@ -1776,6 +1792,7 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 	require.NoError(t, err)
 	defer pol.detach(true, 0)
 
+	require.Len(t, pol.L4Policy.Ingress.PortRules, 1)
 	filter := pol.L4Policy.Ingress.PortRules[0].ExactLookup("port-80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(0), filter.Port)
@@ -1813,20 +1830,18 @@ func TestEgressAllowAll(t *testing.T) {
 func TestEgressL4AllowAll(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t)).withIDs(ruleTestIDs)
 	repo := td.repo
-	repo.MustAddList(api.Rules{
-		&api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Egress: []api.EgressRule{
-				{
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
-				},
+	repo.MustAddPolicyEntries(types.PolicyEntries{{
+		Ingress:     false,
+		DefaultDeny: true,
+		Verdict:     types.Allow,
+		Subject:     labelSelectorA,
+		L3:          types.Selectors{},
+		L4: []api.PortRule{{
+			Ports: []api.PortProtocol{
+				{Port: "80", Protocol: api.ProtoTCP},
 			},
-		},
-	})
+		}},
+	}})
 
 	checkFlow(t, repo, td.identityManager, flowAToB, true)
 	checkFlow(t, repo, td.identityManager, flowAToC, true)
@@ -1837,6 +1852,7 @@ func TestEgressL4AllowAll(t *testing.T) {
 	defer pol.detach(true, 0)
 
 	t.Log(pol.L4Policy.Egress.PortRules)
+	require.Len(t, pol.L4Policy.Egress.PortRules, 1)
 	filter := pol.L4Policy.Egress.PortRules[0].ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
@@ -1849,23 +1865,18 @@ func TestEgressL4AllowAll(t *testing.T) {
 func TestEgressL4AllowWorld(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t)).withIDs(ruleTestIDs, identity.ListReservedIdentities())
 	repo := td.repo
-	repo.MustAddList(api.Rules{
-		&api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEntities: []api.Entity{api.EntityWorld},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
-				},
+	repo.MustAddPolicyEntries(types.PolicyEntries{{
+		Ingress:     false,
+		DefaultDeny: true,
+		Verdict:     types.Allow,
+		Subject:     labelSelectorA,
+		L3:          types.ToSelectors(api.EntitySelectorMapping[api.EntityWorld]...),
+		L4: []api.PortRule{{
+			Ports: []api.PortProtocol{
+				{Port: "80", Protocol: api.ProtoTCP},
 			},
-		},
-	})
+		}},
+	}})
 
 	checkFlow(t, repo, td.identityManager, flowAToWorld80, true)
 	checkFlow(t, repo, td.identityManager, flowAToWorld90, false)
@@ -1878,6 +1889,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 	require.NoError(t, err)
 	defer pol.detach(true, 0)
 
+	require.Len(t, pol.L4Policy.Egress.PortRules, 1)
 	filter := pol.L4Policy.Egress.PortRules[0].ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)
@@ -1889,23 +1901,18 @@ func TestEgressL4AllowWorld(t *testing.T) {
 func TestEgressL4AllowAllEntity(t *testing.T) {
 	td := newTestData(t, hivetest.Logger(t)).withIDs(ruleTestIDs, identity.ListReservedIdentities())
 	repo := td.repo
-	repo.MustAddList(api.Rules{
-		&api.Rule{
-			EndpointSelector: endpointSelectorA,
-			Egress: []api.EgressRule{
-				{
-					EgressCommonRule: api.EgressCommonRule{
-						ToEntities: []api.Entity{api.EntityAll},
-					},
-					ToPorts: []api.PortRule{{
-						Ports: []api.PortProtocol{
-							{Port: "80", Protocol: api.ProtoTCP},
-						},
-					}},
-				},
+	repo.MustAddPolicyEntries(types.PolicyEntries{{
+		Ingress:     false,
+		DefaultDeny: true,
+		Verdict:     types.Allow,
+		Subject:     labelSelectorA,
+		L3:          types.ToSelectors(api.WildcardEndpointSelector),
+		L4: []api.PortRule{{
+			Ports: []api.PortProtocol{
+				{Port: "80", Protocol: api.ProtoTCP},
 			},
-		},
-	})
+		}},
+	}})
 
 	checkFlow(t, repo, td.identityManager, flowAToWorld80, true)
 	checkFlow(t, repo, td.identityManager, flowAToWorld90, false)
@@ -1918,6 +1925,7 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 	require.NoError(t, err)
 	defer pol.detach(true, 0)
 
+	require.Len(t, pol.L4Policy.Egress.PortRules, 1)
 	filter := pol.L4Policy.Egress.PortRules[0].ExactLookup("80", 0, "TCP")
 	require.NotNil(t, filter)
 	require.Equal(t, uint16(80), filter.Port)

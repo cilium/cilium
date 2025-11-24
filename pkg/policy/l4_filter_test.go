@@ -282,6 +282,9 @@ func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPoli
 func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMaps, rules ...*api.Rule) {
 	t.Helper()
 	entries := utils.RulesToPolicyEntries(rules)
+	for _, e := range entries {
+		e.Tier = 0
+	}
 	td.policyMapEqualsPolicyEntries(t, expectedIn, expectedOut, entries...)
 }
 
