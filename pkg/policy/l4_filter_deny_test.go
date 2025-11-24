@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
-var denyPerSelectorPolicy = &PerSelectorPolicy{Verdict: types.Deny}
+var denyPerSelectorPolicy = &PerSelectorPolicy{Verdict: types.Deny, Priority: 1000}
 
 // Tests in this file:
 //

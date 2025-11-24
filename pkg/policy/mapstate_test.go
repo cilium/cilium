@@ -1036,7 +1036,7 @@ func TestMapState_insertWithChanges(t *testing.T) {
 			return true
 		})
 
-		entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil})
+		entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil}).withLevel(1000)
 		ms.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), tt.args.key, entry, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
@@ -1083,7 +1083,7 @@ func TcpEgressKey(id identity.NumericIdentity) Key {
 }
 
 func allowEntry() mapStateEntry {
-	return NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(AllowEntry.WithPriority(1000)).withLabels(labels.LabelArrayList{nil})
 }
 
 func passEntry(priority, tierPriority, nextTierPriority types.Priority) mapStateEntry {
@@ -1091,19 +1091,19 @@ func passEntry(priority, tierPriority, nextTierPriority types.Priority) mapState
 }
 
 func proxyEntryHTTP(proxyPort uint16) mapStateEntry {
-	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityHTTP)).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(AllowEntry.WithPriority(1000).WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityHTTP)).withLabels(labels.LabelArrayList{nil})
 }
 
 func proxyEntryDNS(proxyPort uint16) mapStateEntry {
-	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityDNS)).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(AllowEntry.WithPriority(1000).WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityDNS)).withLabels(labels.LabelArrayList{nil})
 }
 
 func proxyEntryCRD(proxyPort uint16) mapStateEntry {
-	return NewMapStateEntry(AllowEntry.WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityCRD)).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(AllowEntry.WithPriority(1000).WithProxyPort(proxyPort).WithListenerPriority(ListenerPriorityCRD)).withLabels(labels.LabelArrayList{nil})
 }
 
 func denyEntry() mapStateEntry {
-	return NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
+	return NewMapStateEntry(DenyEntry.WithPriority(1000)).withLabels(labels.LabelArrayList{nil})
 }
 
 func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
@@ -1433,7 +1433,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			if x.deny {
 				verdict = types.Deny
 			}
-			value := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, NoAuthRequirement)
+			value := newMapStateEntry(1000, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, NoAuthRequirement)
 			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
@@ -1602,7 +1602,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 2, cs: nil, adds: []int{0}, deletes: []int{}, ingress: false, deny: true},
 		},
 		state: testMapState(t, mapStateMap{
-			AnyEgressKey():    denyEntry().withLevel(2),
+			AnyEgressKey():    denyEntry().withLevel(1002),
 			HttpEgressKey(44): proxyEntryHTTP(1),
 		}),
 		adds: Keys{
@@ -1616,8 +1616,8 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 1, cs: csFoo, adds: []int{44}, deletes: []int{}, port: 0, proto: 6, ingress: false, deny: true},
 		},
 		state: testMapState(t, mapStateMap{
-			AnyEgressKey():    denyEntry().withLevel(2),
-			TcpEgressKey(44):  denyEntry().withLevel(1),
+			AnyEgressKey():    denyEntry().withLevel(1002),
+			TcpEgressKey(44):  denyEntry().withLevel(1001),
 			HttpEgressKey(44): proxyEntryHTTP(1),
 		}),
 		adds: Keys{
@@ -1632,9 +1632,9 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 1, cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, deny: true},
 		},
 		state: testMapState(t, mapStateMap{
-			AnyEgressKey():    denyEntry().withLevel(2),
-			TcpEgressKey(44):  denyEntry().withLevel(1),
-			HttpEgressKey(43): denyEntry().withLevel(1),
+			AnyEgressKey():    denyEntry().withLevel(1002),
+			TcpEgressKey(44):  denyEntry().withLevel(1001),
+			HttpEgressKey(43): denyEntry().withLevel(1001),
 		}),
 		adds: Keys{
 			HttpEgressKey(43): {},
@@ -1649,9 +1649,9 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 0, cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: ListenerPriorityHTTP},
 		},
 		state: testMapState(t, mapStateMap{
-			AnyEgressKey():    denyEntry().withLevel(2),
-			TcpEgressKey(44):  denyEntry().withLevel(1),
-			HttpEgressKey(43): proxyEntryHTTP(1).withLevel(0),
+			AnyEgressKey():    denyEntry().withLevel(1002),
+			TcpEgressKey(44):  denyEntry().withLevel(1001),
+			HttpEgressKey(43): proxyEntryHTTP(1),
 		}),
 		adds: Keys{
 			HttpEgressKey(43): {},
@@ -1981,7 +1981,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.deny {
 				verdict = types.Deny
 			}
-			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
+			value := newMapStateEntry(1000+x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
 			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
@@ -2024,7 +2024,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.deny {
 				verdict = types.Deny
 			}
-			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
+			value := newMapStateEntry(1000+x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
 			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())

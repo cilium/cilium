@@ -164,7 +164,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 		fromRules := types.PolicyEntries{}
 		if len(iRule.From) > 0 {
 			for _, rule := range iRule.From {
-				ingress := &types.PolicyEntry{Ingress: true}
+				ingress := &types.PolicyEntry{Ingress: true, Tier: types.Normal}
 				endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
 
 				if endpointSelector != nil {
@@ -187,7 +187,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   From []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   sources (traffic not restricted by source).
-			ingress := &types.PolicyEntry{Ingress: true}
+			ingress := &types.PolicyEntry{Ingress: true, Tier: types.Normal}
 			ingress.L3 = append(ingress.L3, types.WildcardSelector)
 
 			fromRules = append(fromRules, ingress)
@@ -212,7 +212,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 
 		if len(eRule.To) > 0 {
 			for _, rule := range eRule.To {
-				egress := &types.PolicyEntry{Ingress: false}
+				egress := &types.PolicyEntry{Ingress: false, Tier: types.Normal}
 				if rule.NamespaceSelector != nil || rule.PodSelector != nil {
 					endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
 
@@ -236,7 +236,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   To []NetworkPolicyPeer
 			//   If this field is empty or missing, this rule matches all
 			//   destinations (traffic not restricted by destination)
-			egress := &types.PolicyEntry{Ingress: false}
+			egress := &types.PolicyEntry{Ingress: false, Tier: types.Normal}
 			egress.L3 = append(egress.L3, types.WildcardSelector)
 
 			toRules = append(toRules, egress)
@@ -266,7 +266,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 	if len(ingresses) == 0 &&
 		(hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeIngress) ||
 			!hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeEgress)) {
-		ingresses = types.PolicyEntries{{Ingress: true}}
+		ingresses = types.PolicyEntries{{Ingress: true, Tier: types.Normal}}
 	}
 
 	// Convert the k8s default-deny model to the Cilium default-deny model
@@ -275,7 +275,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 	//  policyTypes:
 	//	  - Egress
 	if len(egresses) == 0 && hasV1PolicyType(np.Spec.PolicyTypes, slim_networkingv1.PolicyTypeEgress) {
-		egresses = types.PolicyEntries{{Ingress: false}}
+		egresses = types.PolicyEntries{{Ingress: false, Tier: types.Normal}}
 	}
 
 	podSelector := parsePodSelector(&np.Spec.PodSelector, namespace)
