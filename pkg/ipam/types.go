@@ -9,10 +9,13 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
+	"github.com/cilium/statedb"
+
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
@@ -53,6 +56,9 @@ type AllocationResult struct {
 	// InterfaceNumber is a field for generically identifying an interface.
 	// This is only useful in ENI mode.
 	InterfaceNumber string
+
+	// SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP when the cluster is in tunneling mode.
+	SkipMasquerade bool
 }
 
 // Allocator is the interface for an IP allocator implementation
@@ -124,6 +130,11 @@ type IPAM struct {
 	nodeDiscovery  Owner
 	sysctl         sysctl.Sysctl
 	ipMasqAgent    *ipmasq.IPMasqAgent
+
+	db         *statedb.DB
+	podIPPools statedb.Table[podippool.LocalPodIPPool]
+
+	onlyMasqueradeDefaultPool bool
 }
 
 func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}

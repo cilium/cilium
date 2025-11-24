@@ -528,3 +528,246 @@ int host_bpf_masq_v6_4_icmp_echo_check(const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+/* NO_SNAT endpoints should not be masqueraded */
+PKTGEN("tc", "host_bpf_masq_v4_5_no_snat_ep_udp")
+int host_bpf_masq_v4_5_no_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct udphdr *udp;
+
+	pktgen__init(&builder, ctx);
+
+	/* generate packet from local endpoint to world */
+	udp = pktgen__push_ipv4_udp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   v4_pod_one, SERVER_IP,
+					   bpf_htons(12345), SERVER_PORT);
+	if (!udp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "host_bpf_masq_v4_5_no_snat_ep_udp")
+int host_bpf_masq_v4_5_no_snat_ep_udp_setup(struct __ctx_buff *ctx)
+{
+	/* mark the source IP as a local endpoint with NO_SNAT flag */
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, ENDPOINT_F_NO_SNAT_V4, 0, 0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "host_bpf_masq_v4_5_no_snat_ep_udp")
+int host_bpf_masq_v4_5_no_snat_ep_udp_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	/* traverse data to find the packet */
+	data += sizeof(__u32);
+	if (data + sizeof(struct ethhdr) > data_end)
+		test_fatal("ctx doesn't fit ethhdr");
+	data += sizeof(struct ethhdr);
+	if (data + sizeof(struct iphdr) > data_end)
+		test_fatal("ctx doesn't fit iphdr");
+	struct iphdr *ip4 = data;
+	/* source IP should stay the same */
+	assert(ip4->saddr == v4_pod_one);
+	test_finish();
+}
+
+PKTGEN("tc", "host_bpf_masq_v6_5_no_snat_ep_udp")
+int host_bpf_masq_v6_5_no_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct udphdr *udp;
+
+	pktgen__init(&builder, ctx);
+
+	/* generate packet from local endpoint to world */
+	udp = pktgen__push_ipv6_udp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   (__u8 *)v6_pod_one, (__u8 *)SERVER_IP_V6,
+					   bpf_htons(12345), SERVER_PORT);
+	if (!udp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "host_bpf_masq_v6_5_no_snat_ep_udp")
+int host_bpf_masq_v6_5_no_snat_ep_udp_setup(struct __ctx_buff *ctx)
+{
+	/* mark the source IP as a local endpoint with NO_SNAT flag */
+	endpoint_v6_add_entry((union v6addr *)v6_pod_one,
+			      0,
+			      0,
+			      ENDPOINT_F_NO_SNAT_V6,
+			      0,
+			      NULL,
+			      NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "host_bpf_masq_v6_5_no_snat_ep_udp")
+int host_bpf_masq_v6_5_no_snat_ep_udp_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	data += sizeof(__u32);
+	if (data + sizeof(struct ethhdr) > data_end)
+		test_fatal("ctx doesn't fit ethhdr");
+	data += sizeof(struct ethhdr);
+	if (data + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("ctx doesn't fit ipv6hdr");
+	/* source IP should stay the same */
+	struct ipv6hdr *ip6 = data;
+	{
+		const __u8 expected_v6_pod_one[16] = v6_pod_one_addr;
+
+		assert(!memcmp(&ip6->saddr, expected_v6_pod_one, 16));
+	}
+
+	test_finish();
+}
+
+/* Regular endpoints (without NO_SNAT) should be masqueraded */
+PKTGEN("tc", "host_bpf_masq_v4_6_snat_ep_udp")
+int host_bpf_masq_v4_6_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct udphdr *udp;
+
+	pktgen__init(&builder, ctx);
+
+	/* generate packet from local endpoint to world */
+	udp = pktgen__push_ipv4_udp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   v4_pod_one, SERVER_IP,
+					   bpf_htons(12345), SERVER_PORT);
+	if (!udp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "host_bpf_masq_v4_6_snat_ep_udp")
+int host_bpf_masq_v4_6_snat_ep_udp_setup(struct __ctx_buff *ctx)
+{
+	/* mark the source IP as a local endpoint without NO_SNAT flag */
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, 0, 0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "host_bpf_masq_v4_6_snat_ep_udp")
+int host_bpf_masq_v4_6_snat_ep_udp_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	data += sizeof(__u32);
+	if (data + sizeof(struct ethhdr) > data_end)
+		test_fatal("ctx doesn't fit ethhdr");
+	data += sizeof(struct ethhdr);
+	if (data + sizeof(struct iphdr) > data_end)
+		test_fatal("ctx doesn't fit iphdr");
+	struct iphdr *ip4 = data;
+	/* source IP should be masqueraded to NODE_IP */
+	assert(ip4->saddr == NODE_IP);
+	test_finish();
+}
+
+PKTGEN("tc", "host_bpf_masq_v6_6_snat_ep_udp")
+int host_bpf_masq_v6_6_snat_ep_udp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct udphdr *udp;
+
+	pktgen__init(&builder, ctx);
+
+	/* generate packet from local endpoint to world */
+	udp = pktgen__push_ipv6_udp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   (__u8 *)v6_pod_one, (__u8 *)SERVER_IP_V6,
+					   bpf_htons(12345), SERVER_PORT);
+	if (!udp)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("tc", "host_bpf_masq_v6_6_snat_ep_udp")
+int host_bpf_masq_v6_6_snat_ep_udp_setup(struct __ctx_buff *ctx)
+{
+	/* mark the source IP as a local endpoint without NO_SNAT flag */
+	endpoint_v6_add_entry((union v6addr *)v6_pod_one, 0, 0, 0, 0, NULL, NULL);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "host_bpf_masq_v6_6_snat_ep_udp")
+int host_bpf_masq_v6_6_snat_ep_udp_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+
+	data += sizeof(__u32);
+	if (data + sizeof(struct ethhdr) > data_end)
+		test_fatal("ctx doesn't fit ethhdr");
+	data += sizeof(struct ethhdr);
+	if (data + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("ctx doesn't fit ipv6hdr");
+	/* source IP should be masqueraded to NODE_IP_V6 */
+	struct ipv6hdr *ip6 = data;
+	{
+		const __u8 expected_node_ip_v6[16] = v6_node_one_addr;
+
+		assert(!memcmp(&ip6->saddr, expected_node_ip_v6, 16));
+	}
+
+	test_finish();
+}

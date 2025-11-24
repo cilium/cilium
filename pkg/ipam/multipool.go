@@ -14,10 +14,13 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/cilium/statedb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -228,6 +231,18 @@ type nodeUpdater interface {
 	UpdateStatus(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts metav1.UpdateOptions) (*ciliumv2.CiliumNode, error)
 }
 
+type MultiPoolManagerParams struct {
+	Logger                    *slog.Logger
+	Conf                      *option.DaemonConfig
+	Node                      agentK8s.LocalCiliumNodeResource
+	Owner                     Owner
+	LocalNodeStore            *node.LocalNodeStore
+	Clientset                 nodeUpdater
+	DB                        *statedb.DB
+	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
+	OnlyMasqueradeDefaultPool bool
+}
+
 type multiPoolManager struct {
 	mutex *lock.Mutex
 	conf  *option.DaemonConfig
@@ -251,48 +266,55 @@ type multiPoolManager struct {
 
 	finishedRestore map[Family]bool
 	logger          *slog.Logger
+
+	db                        *statedb.DB
+	podIPPools                statedb.Table[podippool.LocalPodIPPool]
+	onlyMasqueradeDefaultPool bool
 }
 
 var _ Allocator = (*multiPoolAllocator)(nil)
 
-func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node agentK8s.LocalCiliumNodeResource, owner Owner, localNodeStore *node.LocalNodeStore, clientset nodeUpdater) *multiPoolManager {
-	preallocMap, err := parseMultiPoolPreAllocMap(conf.IPAMMultiPoolPreAllocation)
+func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
+	preallocMap, err := parseMultiPoolPreAllocMap(p.Conf.IPAMMultiPoolPreAllocation)
 	if err != nil {
-		logging.Fatal(logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
+		logging.Fatal(p.Logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
 	}
 
 	k8sController := controller.NewManager()
 	k8sUpdater, err := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: conf.IPAMCiliumNodeUpdateRate,
+		MinInterval: p.Conf.IPAMCiliumNodeUpdateRate,
 		TriggerFunc: func(reasons []string) {
 			k8sController.TriggerController(multiPoolControllerName)
 		},
 		Name: multiPoolTriggerName,
 	})
 	if err != nil {
-		logging.Fatal(logger, "Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
+		logging.Fatal(p.Logger, "Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
 	}
 
 	localNodeSynced := make(chan struct{})
 	c := &multiPoolManager{
-		logger:                 logger,
+		logger:                 p.Logger,
 		mutex:                  &lock.Mutex{},
-		owner:                  owner,
-		conf:                   conf,
+		owner:                  p.Owner,
+		conf:                   p.Conf,
 		preallocatedIPsPerPool: preallocMap,
-		pendingIPsPerPool:      newPendingAllocationsPerPool(logger),
+		pendingIPsPerPool:      newPendingAllocationsPerPool(p.Logger),
 		pools:                  map[Pool]*poolPair{},
 		poolsUpdated:           make(chan struct{}, 1),
 		node:                   nil,
 		controller:             k8sController,
 		k8sUpdater:             k8sUpdater,
-		localNodeStore:         localNodeStore,
-		nodeUpdater:            clientset,
+		localNodeStore:         p.LocalNodeStore,
+		nodeUpdater:            p.Clientset,
 		finishedRestore:        map[Family]bool{},
 		localNodeSynced:        localNodeSynced,
 		localNodeSyncedFn: sync.OnceFunc(func() {
 			close(localNodeSynced)
 		}),
+		db:                        p.DB,
+		podIPPools:                p.PodIPPools,
+		onlyMasqueradeDefaultPool: p.OnlyMasqueradeDefaultPool,
 	}
 
 	// We don't have a context to use here (as a lot of IPAM doesn't really
@@ -302,9 +324,9 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 	// resource and it's processing if IPAM and other subsytems are being
 	// stopped, there appears to be no such signal available here. Also, don't
 	// retry events - the downstream code isn't setup to handle retries.
-	evs := node.Events(context.TODO(), resource.WithErrorHandler(resource.RetryUpTo(0)))
+	evs := p.Node.Events(context.TODO(), resource.WithErrorHandler(resource.RetryUpTo(0)))
 	go c.ciliumNodeEventLoop(evs)
-	owner.UpdateCiliumNodeResource()
+	p.Owner.UpdateCiliumNodeResource()
 
 	c.waitForAllPools()
 
@@ -314,7 +336,7 @@ func newMultiPoolManager(logger *slog.Logger, conf *option.DaemonConfig, node ag
 		case <-c.localNodeSynced:
 			return c
 		case <-time.After(5 * time.Second):
-			logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
+			p.Logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
 		}
 	}
 }
@@ -717,6 +739,22 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 		m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
 		return nil, &ErrPoolNotReadyYet{poolName: poolName, family: family}
 	}
+	skipMasq := false
+	// If the flag is set, skip masquerade for all non-default pools
+	if m.onlyMasqueradeDefaultPool && poolName != PoolDefault() {
+		skipMasq = true
+	} else {
+		// Lookup the IP pool from stateDB and check if it has the explicit annotations
+		txn := m.db.ReadTxn()
+		podIPPool, _, found := m.podIPPools.Get(txn, podippool.ByName(string(poolName)))
+		if !found {
+			m.pendingIPsPerPool.upsertPendingAllocation(poolName, owner, family)
+			return nil, fmt.Errorf("IP pool '%s' not found in stateDB table", string(poolName))
+		}
+		if v, ok := podIPPool.Annotations[annotation.IPAMSkipMasquerade]; ok && v == "true" {
+			skipMasq = true
+		}
+	}
 
 	ip, err := pool.allocateNext()
 	if err != nil {
@@ -725,7 +763,7 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 	}
 
 	m.pendingIPsPerPool.markAsAllocated(poolName, owner, family)
-	return &AllocationResult{IP: ip, IPPoolName: poolName}, nil
+	return &AllocationResult{IP: ip, IPPoolName: poolName, SkipMasquerade: skipMasq}, nil
 }
 
 func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, family Family, syncUpstream bool) (*AllocationResult, error) {
