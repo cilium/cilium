@@ -89,7 +89,7 @@ type Manager struct {
 // for each policy or endpoint change.
 // It reconciles the desired state by updating the internal cache for policies and endpoints.
 // It tries to reconcile the desired state by updating the vteppolicy bpf map entries.
-func (manager *Manager) reconcile(ctx context.Context) {
+func (manager *Manager) reconcile(ctx context.Context, minInterval time.Duration) {
 	var policySync, endpointSync bool
 	// epDataStore stores desired endpointId to endpoint metadata mapping.
 	epDataStore := make(map[endpointID]*endpointMetadata)
@@ -97,14 +97,16 @@ func (manager *Manager) reconcile(ctx context.Context) {
 	policyConfigs := make(map[policyID]*PolicyConfig)
 
 	/*TODO(informalict):
-	- support for p.Config.VtepPolicyReconciliationTriggerInterval
 	- logs for reconciliation events
 	*/
+	minDur := NewMinDuration(minInterval)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-minDur.GetChannel():
+			// For nil channel it will never be fired.
 		case endpointEvent := <-manager.chEndpoint:
 			if endpointEvent.EventKind == resource.Sync {
 				endpointSync = true
@@ -128,24 +130,37 @@ func (manager *Manager) reconcile(ctx context.Context) {
 			}
 		}
 
-		if policySync && endpointSync {
-			// Reconcile the actual state of the node (vtep policy map entries) with a current desired state with.
-
-			// TODO(informalict):
-			// - here we could launch the below logic in separate goroutines, if we copied policyConfigs and epDataStore.
-			//   Thanks to that the above `select` could apply new changes in the meantime, so event's listener will not hang.
-			// - support for p.Config.VtepPolicyReconciliationTriggerInterval.
-			// - The below loop could be avoided, if policyConfigs are inlined
-			// with epDataStore (so when epDataStore changes, or policy is updated).
-			for _, policy := range policyConfigs {
-				policy.updateMatchedEndpointIDs(epDataStore)
-			}
-
-			manager.updateVtepRules(policyConfigs)
-
-			// TODO(informalict) do we want to add error counter in case the above function fails?
-			manager.reconciliationEventsCount.Add(1)
+		if !policySync || !endpointSync {
+			// Wait until the required resources are synced.
+			continue
 		}
+
+		if !minDur.Check() {
+			// Go to the above loop and wait until the required duration has passed.
+			// When it waits for the required duration, it can be woken up by the policy or endpoint channel.
+			// Thanks to this approach, it is possible to collect more events (without blocking channels), or
+			// react on cancellation of the context.
+			continue
+		}
+
+		// From here on, reconciliation starts.
+
+		// TODO(informalict):
+		// - here we could launch the below logic in separate goroutines, if we copied policyConfigs and epDataStore.
+		//   Thanks to that the above `select` could apply new changes in the meantime, so event's listener will not hang.
+		// - The below loop could be avoided, if policyConfigs are inlined
+		// with epDataStore (so when epDataStore changes, or policy is updated).
+
+		// Apply endpoints to cached policies.
+		for _, policy := range policyConfigs {
+			policy.updateMatchedEndpointIDs(epDataStore)
+		}
+
+		manager.updateVtepRules(policyConfigs)
+
+		minDur.SetLastCheck()
+		// TODO(informalict) do we want to add error counter in case the above function fails?
+		manager.reconciliationEventsCount.Add(1)
 	}
 }
 
@@ -206,7 +221,7 @@ func newVtepPolicyManager(p Params) (*Manager, error) {
 			})
 
 			wg.Go(func() {
-				manager.reconcile(ctx)
+				manager.reconcile(ctx, p.Config.VtepPolicyReconciliationTriggerInterval)
 			})
 
 			return nil
@@ -280,8 +295,7 @@ func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
 
 // Event handlers
 
-// onAddVtepPolicy parses the given policy config, and updates internal state
-// with the config fields.
+// onAddVtepPolicy parses the given policy config and populates it to a policy channel.
 func (manager *Manager) onAddVtepPolicy(policy *Policy) error {
 	logger := manager.logger.With(logfields.CiliumVtepPolicyName, policy.Name)
 
@@ -297,8 +311,7 @@ func (manager *Manager) onAddVtepPolicy(policy *Policy) error {
 	return nil
 }
 
-// onDeleteVtepPolicy deletes the internal state associated with the given
-// policy, including vteppolicy eBPF map entries.
+// onDeleteVtepPolicy populates event to a policy channel.
 func (manager *Manager) onDeleteVtepPolicy(policy *Policy) {
 	configID := ParseCVPConfigID(policy)
 
