@@ -6,12 +6,13 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4
-#define ENABLE_IPV6
-#define ENABLE_NODEPORT
-#define ENABLE_EGRESS_GATEWAY
+#define ENABLE_IPV4			1
+#define ENABLE_IPV6			1
+#define ENABLE_NODEPORT			1
+#define ENABLE_EGRESS_GATEWAY		1
 #define ENABLE_MASQUERADE_IPV4		1
 #define ENABLE_MASQUERADE_IPV6		1
+#define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX 0
 
 #include "lib/bpf_host.h"
@@ -38,6 +39,7 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 	create_ct_entry(ctx, client_port(TEST_REDIRECT));
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP,
 				  EGRESS_IP);
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -74,6 +76,7 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 				  EGRESS_IP);
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR,
 				  EGRESS_IP);
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -230,6 +233,7 @@ int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 	create_ct_entry_v6(ctx, client_port(TEST_REDIRECT));
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
 				     &egress_ip, 0);
+	ipcache_v6_add_entry(&egress_ip, 0, HOST_ID, 0, 0);
 
 	return netdev_send_packet(ctx);
 }
@@ -273,6 +277,7 @@ int egressgw_skip_excluded_cidr_redirect_setup_v6(struct __ctx_buff *ctx)
 				     &egress_ip, 0);
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_EXCLUDED_CIDR,
 				     &egress_ip, 0);
+	ipcache_v6_add_entry(&egress_ip, 0, HOST_ID, 0, 0);
 
 	return netdev_send_packet(ctx);
 }
