@@ -85,7 +85,7 @@ __ipcache_v6_add_entry(const union v6addr *addr, __u8 cluster_id, __u32 sec_iden
 		       const union v6addr *tunnel_ep, __u8 spi, bool flag_skip_tunnel,
 		       bool ipv6_underlay)
 {
-	struct ipcache_key key = {
+	struct ipcache_key key __align_stack_8 = {
 		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V6_CACHE_KEY_LEN),
 		.cluster_id = cluster_id,
 		.family = ENDPOINT_KEY_IPV6,
