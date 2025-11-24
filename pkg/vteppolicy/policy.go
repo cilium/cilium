@@ -37,6 +37,10 @@ type PolicyConfig struct {
 
 	matchedEndpoints map[endpointID]*endpointMetadata
 	vtepConfig       vtepConfig
+}
+
+type policyConfigEvent struct {
+	*PolicyConfig
 	resource.EventKind
 }
 

@@ -25,6 +25,10 @@ type endpointMetadata struct {
 	ips []netip.Addr
 	// nodeIP is the IP of the node the endpoint is on
 	nodeIP string
+}
+
+type endpointMetadataEvent struct {
+	*endpointMetadata
 	resource.EventKind
 }
 

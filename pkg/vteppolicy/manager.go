@@ -62,8 +62,7 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // vteppolicy bpf policy map accordingly.
 type Manager struct {
-	logger            *slog.Logger  // TODO(informalict): rearrange.
-	reconcileInterval time.Duration // TODO(informalict): make remove.
+	logger *slog.Logger
 	// reconciliationEventsCount keeps track of how many reconciliation events have occurred.
 	reconciliationEventsCount atomic.Uint64
 
@@ -80,10 +79,10 @@ type Manager struct {
 	policyMap *vtep_policy.VtepPolicyMap
 
 	// chEndpoint is used to trigger reconciliation for endpoint changes.
-	chEndpoint chan *endpointMetadata
+	chEndpoint chan endpointMetadataEvent
 
 	// chPolicy is used to trigger reconciliation for policy changes.
-	chPolicy chan *PolicyConfig
+	chPolicy chan policyConfigEvent
 }
 
 // reconcile waits for the policy and endpoint resources to be synced, and then runs the reconciliation
@@ -106,29 +105,23 @@ func (manager *Manager) reconcile(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case endpoint := <-manager.chEndpoint:
-			if endpoint.EventKind == resource.Sync {
-				// TODO(informalict): should it reconcile state?
+		case endpointEvent := <-manager.chEndpoint:
+			if endpointEvent.EventKind == resource.Sync {
 				endpointSync = true
-				continue
-			}
-			if endpoint.EventKind == resource.Upsert {
-				epDataStore[endpoint.id] = endpoint
+			} else if endpointEvent.EventKind == resource.Upsert {
+				epDataStore[endpointEvent.id] = endpointEvent.endpointMetadata
 			} else {
-				delete(epDataStore, endpoint.id)
+				delete(epDataStore, endpointEvent.id)
 			}
-		case policy := <-manager.chPolicy:
-			if policy.EventKind == resource.Sync {
+		case policyEvent := <-manager.chPolicy:
+			if policyEvent.EventKind == resource.Sync {
 				policySync = true
-				continue
-			}
-
-			if policy.EventKind == resource.Upsert {
-				policy.updateMatchedEndpointIDs(epDataStore) // TODO(informalict): it is launched in below in reconcileState.
-				policyConfigs[policy.id] = policy
+			} else if policyEvent.EventKind == resource.Upsert {
+				policyEvent.PolicyConfig.updateMatchedEndpointIDs(epDataStore) // TODO(informalict): it is launched below for all policies.
+				policyConfigs[policyEvent.PolicyConfig.id] = policyEvent.PolicyConfig
 			} else {
-				if policyConfigs[policy.id] != nil {
-					delete(policyConfigs, policy.id)
+				if policyConfigs[policyEvent.PolicyConfig.id] != nil {
+					delete(policyConfigs, policyEvent.PolicyConfig.id)
 				} else {
 					manager.logger.Warn("Can't delete CiliumVtepPolicy: policy not found")
 				}
@@ -138,6 +131,7 @@ func (manager *Manager) reconcile(ctx context.Context) {
 		if policySync && endpointSync {
 			// Reconcile the actual state of the node (vtep policy map entries) with a current desired state with.
 
+			// TODO(informalict): support for p.Config.VtepPolicyReconciliationTriggerInterval.
 			// TODO(informalict) The below loop could be avoided, if policyConfigs are inlined
 			// with epDataStore (so when epDataStore changes, or policy is updated).
 			for _, policy := range policyConfigs {
@@ -195,8 +189,8 @@ func newVtepPolicyManager(p Params) (*Manager, error) {
 		policies:          p.Policies,
 		policyMap:         p.PolicyMap,
 		endpoints:         p.Endpoints,
-		chEndpoint:        make(chan *endpointMetadata),
-		chPolicy:          make(chan *PolicyConfig),
+		chEndpoint:        make(chan endpointMetadataEvent),
+		chPolicy:          make(chan policyConfigEvent),
 	}
 
 	var wg sync.WaitGroup
@@ -211,6 +205,7 @@ func newVtepPolicyManager(p Params) (*Manager, error) {
 			wg.Go(func() {
 				manager.reconcile(ctx)
 			})
+
 			return nil
 		},
 		OnStop: func(hc cell.HookContext) error {
@@ -257,7 +252,6 @@ func (manager *Manager) processEvents(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-
 		case event := <-policyEvents:
 			manager.handlePolicyEvent(event)
 		case event := <-endpointEvents:
@@ -271,7 +265,7 @@ func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
 
 	switch event.Kind {
 	case resource.Sync:
-		manager.chPolicy <- &PolicyConfig{EventKind: resource.Sync}
+		manager.chPolicy <- policyConfigEvent{EventKind: resource.Sync}
 	case resource.Upsert:
 		err = manager.onAddVtepPolicy(event.Object)
 	case resource.Delete:
@@ -294,7 +288,8 @@ func (manager *Manager) onAddVtepPolicy(policy *Policy) error {
 		return err
 	}
 
-	manager.chPolicy <- config
+	logger.Debug("CiliumVtepPolicy accepted for adding/updating")
+	manager.chPolicy <- policyConfigEvent{PolicyConfig: config, EventKind: resource.Upsert}
 
 	return nil
 }
@@ -305,10 +300,14 @@ func (manager *Manager) onDeleteVtepPolicy(policy *Policy) {
 	configID := ParseCVPConfigID(policy)
 
 	logger := manager.logger.With(logfields.CiliumVtepPolicyName, configID.Name)
+	logger.Debug("CiliumVtepPolicy accepted for deletion")
 
-	manager.chPolicy <- &PolicyConfig{id: configID, EventKind: resource.Delete}
-
-	logger.Debug("Deleted CiliumVtepPolicy")
+	manager.chPolicy <- policyConfigEvent{
+		PolicyConfig: &PolicyConfig{
+			id: configID,
+		},
+		EventKind: resource.Delete,
+	}
 }
 
 func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
@@ -337,10 +336,8 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 		return nil
 	}
 
-	epData.EventKind = resource.Upsert
-	manager.chEndpoint <- epData
-
 	logger.Debug("CiliumEndpoint accepted for adding/updating")
+	manager.chEndpoint <- endpointMetadataEvent{endpointMetadata: epData, EventKind: resource.Upsert}
 
 	return nil
 }
@@ -352,8 +349,10 @@ func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		logfields.K8sUID, endpoint.UID,
 	)
 
-	manager.chEndpoint <- &endpointMetadata{
-		id:        endpoint.UID,
+	manager.chEndpoint <- endpointMetadataEvent{
+		endpointMetadata: &endpointMetadata{
+			id: endpoint.UID,
+		},
 		EventKind: resource.Delete,
 	}
 
@@ -366,7 +365,7 @@ func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.Ciliu
 
 	switch event.Kind {
 	case resource.Sync:
-		manager.chEndpoint <- &endpointMetadata{EventKind: resource.Sync}
+		manager.chEndpoint <- endpointMetadataEvent{EventKind: resource.Sync}
 	case resource.Upsert:
 		err = manager.addEndpoint(endpoint)
 	default:
