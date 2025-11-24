@@ -175,9 +175,9 @@ var (
 		// renovate: datasource=docker
 		"ConnectivityTestConnDisruptImage": "quay.io/cilium/test-connection-disruption:v0.0.16@sha256:e8e3257b2c89543dc49a2d820f2d2d69c1fe60eaf1036fc1f1f7375bad8e6232",
 		// renovate: datasource=docker
-		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.4.1@sha256:97a281a1473cae1f762ceab87cbcc53a2e102053877421e8b4606422aae45442",
+		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.5.0@sha256:fc7f887ab4d8da06f481a4f8d59afded88b3c5823f03610a7e808f7eba45eeea",
 		// renovate: datasource=docker
-		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:9d26d06f4bfce84841f674c8bb150da4654037452dca6f8a76e79b7833bf6bb4",
+		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.0.3@sha256:8370cf9b250bfae9d67a5309750bfdf882ca8b7053b6c88c943d230eca92e762",
 	}
 
 	ConnectivityCheckOptionalImagesTest = map[string]string{
@@ -187,7 +187,7 @@ var (
 
 	ConnectivityCheckImagesPerf = map[string]string{
 		// renovate: datasource=docker
-		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:1758616553-aad452d@sha256:ee3fe9949649c09c986f0b0a49b65c14fd87a6288763ecbf76b744f3e6930ad8",
+		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:1762337009-58a912e@sha256:a63b50b3f3e8bd690c9966838e4d616c623419c85d5ef8e2b62324f443ec3f9a",
 	}
 
 	// The following variables are set at compile time via LDFLAGS.
