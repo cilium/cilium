@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -24,12 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/vtep_policy"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 )
 
 // Cell provides a [Manager] for consumption with hive.
@@ -65,22 +62,11 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // vteppolicy bpf policy map accordingly.
 type Manager struct {
-	logger *slog.Logger
-
+	logger            *slog.Logger
+	reconcileInterval time.Duration
 	// reconciliationEventsCount keeps track of how many reconciliation
 	// events have occoured
 	reconciliationEventsCount atomic.Uint64
-
-	// reconciliationTrigger is the trigger used to reconcile the state of
-	// the node with the desired vtep policy state.
-	// The trigger is used to batch multiple updates together
-	reconciliationTrigger *trigger.Trigger
-
-	mu lock.Mutex
-
-	// allCachesSynced is true when all k8s objects we depend on have had
-	// their initial state synced.
-	allCachesSynced bool
 
 	// policies allows reading policy CRD from k8s.
 	policies resource.Resource[*Policy]
@@ -99,6 +85,62 @@ type Manager struct {
 
 	// policyMap4 communicates the active IPv4 policies to the datapath.
 	policyMap *vtep_policy.VtepPolicyMap
+
+	// chEndpoint is used to trigger reconciliation for endpoint changes.
+	chEndpoint chan *endpointMetadata
+
+	// chPolicy is used to trigger reconciliation for policy changes.
+	chPolicy chan *PolicyConfig
+}
+
+// reconcile waits for the policy and endpoint resources to be synced, and then runs the reconciliation
+// for each policy or endpoint change.
+// It reconciles the desired state by updating the internal cache for policies and endpoints.
+// It tries to reconcile the desired state by updating the vteppolicy bpf map entries.
+func (manager *Manager) reconcile(ctx context.Context) {
+	var policySync, endpointSync bool
+
+	/*TODO(informalict):
+	- support for p.Config.VtepPolicyReconciliationTriggerInterval
+	- logs for reconciliation events
+	*/
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case endpoint := <-manager.chEndpoint:
+			if endpoint.EventKind == resource.Sync {
+				endpointSync = true
+				continue
+			}
+			if endpoint.EventKind == resource.Upsert {
+				manager.epDataStore[endpoint.id] = endpoint
+			} else {
+				delete(manager.epDataStore, endpoint.id)
+			}
+		case policy := <-manager.chPolicy:
+			if policy.EventKind == resource.Sync {
+				policySync = true
+				continue
+			}
+
+			if policy.EventKind == resource.Upsert {
+				policy.updateMatchedEndpointIDs(manager.epDataStore)
+				manager.policyConfigs[policy.id] = policy
+			} else {
+				if manager.policyConfigs[policy.id] != nil {
+					delete(manager.policyConfigs, policy.id)
+				} else {
+					manager.logger.Warn("Can't delete CiliumVtepPolicy: policy not found")
+				}
+			}
+		}
+
+		if policySync && endpointSync {
+			manager.reconcileState()
+		}
+	}
 }
 
 type Params struct {
@@ -146,26 +188,9 @@ func newVtepPolicyManager(p Params) (*Manager, error) {
 		policies:          p.Policies,
 		policyMap:         p.PolicyMap,
 		endpoints:         p.Endpoints,
+		chEndpoint:        make(chan *endpointMetadata),
+		chPolicy:          make(chan *PolicyConfig),
 	}
-
-	t, err := trigger.NewTrigger(trigger.Parameters{
-		Name:        "vtep_policy_reconciliation",
-		MinInterval: p.Config.VtepPolicyReconciliationTriggerInterval,
-		TriggerFunc: func(reasons []string) {
-			reason := strings.Join(reasons, ", ")
-			manager.logger.Debug("reconciliation triggered", logfields.Reason, reason)
-
-			manager.mu.Lock()
-			defer manager.mu.Unlock()
-
-			manager.reconcileLocked()
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	manager.reconciliationTrigger = t
 
 	var wg sync.WaitGroup
 
@@ -176,6 +201,9 @@ func newVtepPolicyManager(p Params) (*Manager, error) {
 				manager.processEvents(ctx)
 			})
 
+			wg.Go(func() {
+				manager.reconcile(ctx)
+			})
 			return nil
 		},
 		OnStop: func(hc cell.HookContext) error {
@@ -206,23 +234,6 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 // processEvents spawns a goroutine that waits for the agent to
 // sync with k8s and then runs the first reconciliation.
 func (manager *Manager) processEvents(ctx context.Context) {
-	var policySync, endpointSync bool
-	maybeTriggerReconcile := func() {
-		if !policySync || !endpointSync {
-			return
-		}
-
-		manager.mu.Lock()
-		defer manager.mu.Unlock()
-
-		if manager.allCachesSynced {
-			return
-		}
-
-		manager.allCachesSynced = true
-		manager.reconciliationTrigger.TriggerWithReason("k8s sync done")
-	}
-
 	// here we try to mimic the same exponential backoff retry logic used by
 	// the identity allocator, where the minimum retry timeout is set to 20
 	// milliseconds and the max number of attempts is 16 (so 20ms * 2^16 ==
@@ -241,35 +252,26 @@ func (manager *Manager) processEvents(ctx context.Context) {
 			return
 
 		case event := <-policyEvents:
-			if event.Kind == resource.Sync {
-				policySync = true
-				maybeTriggerReconcile()
-				event.Done(nil)
-			} else {
-				manager.handlePolicyEvent(event)
-			}
-
+			manager.handlePolicyEvent(event)
 		case event := <-endpointEvents:
-			if event.Kind == resource.Sync {
-				endpointSync = true
-				maybeTriggerReconcile()
-				event.Done(nil)
-			} else {
-				manager.handleEndpointEvent(event)
-			}
+			manager.handleEndpointEvent(event)
 		}
 	}
 }
 
 func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
+	var err error
+
 	switch event.Kind {
+	case resource.Sync:
+		manager.chPolicy <- &PolicyConfig{EventKind: resource.Sync}
 	case resource.Upsert:
-		err := manager.onAddVtepPolicy(event.Object)
-		event.Done(err)
+		err = manager.onAddVtepPolicy(event.Object)
 	case resource.Delete:
 		manager.onDeleteVtepPolicy(event.Object)
-		event.Done(nil)
 	}
+
+	event.Done(err)
 }
 
 // Event handlers
@@ -285,20 +287,8 @@ func (manager *Manager) onAddVtepPolicy(policy *Policy) error {
 		return err
 	}
 
-	manager.mu.Lock()
-	defer manager.mu.Unlock()
+	manager.chPolicy <- config
 
-	if _, ok := manager.policyConfigs[config.id]; !ok {
-		logger.Debug("Added CiliumVtepPolicy")
-	} else {
-		logger.Debug("Updated CiliumVtepPolicy")
-	}
-
-	config.updateMatchedEndpointIDs(manager.epDataStore)
-
-	manager.policyConfigs[config.id] = config
-
-	manager.reconciliationTrigger.TriggerWithReason("policy added")
 	return nil
 }
 
@@ -307,29 +297,17 @@ func (manager *Manager) onAddVtepPolicy(policy *Policy) error {
 func (manager *Manager) onDeleteVtepPolicy(policy *Policy) {
 	configID := ParseCVPConfigID(policy)
 
-	manager.mu.Lock()
-	defer manager.mu.Unlock()
-
 	logger := manager.logger.With(logfields.CiliumVtepPolicyName, configID.Name)
 
-	if manager.policyConfigs[configID] == nil {
-		manager.logger.Warn("Can't delete CiliumVtepPolicy: policy not found")
-	}
+	manager.chPolicy <- &PolicyConfig{id: configID, EventKind: resource.Delete}
 
 	logger.Debug("Deleted CiliumVtepPolicy")
-
-	delete(manager.policyConfigs, configID)
-
-	manager.reconciliationTrigger.TriggerWithReason("policy deleted")
 }
 
 func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	var epData *endpointMetadata
 	var err error
 	var identityLabels labels.Labels
-
-	manager.mu.Lock()
-	defer manager.mu.Unlock()
 
 	logger := manager.logger.With(
 		logfields.K8sEndpointName, endpoint.Name,
@@ -352,44 +330,43 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 		return nil
 	}
 
-	if _, ok := manager.epDataStore[epData.id]; ok {
-		logger.Debug("Updated CiliumEndpoint")
-	} else {
-		logger.Debug("Added CiliumEndpoint")
-	}
+	epData.EventKind = resource.Upsert
+	manager.chEndpoint <- epData
 
-	manager.epDataStore[epData.id] = epData
-
-	manager.reconciliationTrigger.TriggerWithReason("endpoint updated")
+	logger.Debug("CiliumEndpoint accepted for adding/updating")
 
 	return nil
 }
 
 func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
-	manager.mu.Lock()
-	defer manager.mu.Unlock()
-
 	logger := manager.logger.With(
 		logfields.K8sEndpointName, endpoint.Name,
 		logfields.K8sNamespace, endpoint.Namespace,
 		logfields.K8sUID, endpoint.UID,
 	)
 
-	logger.Debug("Deleted CiliumEndpoint")
-	delete(manager.epDataStore, endpoint.UID)
+	manager.chEndpoint <- &endpointMetadata{
+		id:        endpoint.UID,
+		EventKind: resource.Delete,
+	}
 
-	manager.reconciliationTrigger.TriggerWithReason("endpoint deleted")
+	logger.Debug("CiliumEndpoint accepted for deletion")
 }
 
 func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.CiliumEndpoint]) {
 	endpoint := event.Object
+	var err error
 
-	if event.Kind == resource.Upsert {
-		event.Done(manager.addEndpoint(endpoint))
-	} else {
+	switch event.Kind {
+	case resource.Sync:
+		manager.chEndpoint <- &endpointMetadata{EventKind: resource.Sync}
+	case resource.Upsert:
+		err = manager.addEndpoint(endpoint)
+	default:
 		manager.deleteEndpoint(endpoint)
-		event.Done(nil)
 	}
+
+	event.Done(err)
 }
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
@@ -466,16 +443,12 @@ func (manager *Manager) updateVtepRules() {
 	}
 }
 
-// reconcileLocked is responsible for reconciling the state of the manager (i.e. the
+// reconcileState is responsible for reconciling the state of the manager (i.e. the
 // desired state) with the actual state of the node (vtep policy map entries).
 //
 // Whenever it encounters an error, it will just log it and move to the next
 // item, in order to reconcile as many states as possible.
-func (manager *Manager) reconcileLocked() {
-	if !manager.allCachesSynced {
-		return
-	}
-
+func (manager *Manager) reconcileState() {
 	manager.updatePoliciesMatchedEndpointIDs()
 
 	// Update the content of the BPF maps.
