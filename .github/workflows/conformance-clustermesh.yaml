@@ -465,6 +465,9 @@ jobs:
             CRD_URL="https://github.com/cert-manager/cert-manager/releases/download/${{ env.CERT_MANAGER_VERSION }}/cert-manager.crds.yaml"
             kubectl --context $ctx apply -f $CRD_URL
 
+            # Wait for the CRDs to have been processed by the Kubernetes API Server.
+            kubectl --context $ctx wait --for condition=established --timeout=1m crds --all
+
             # Create the Cilium CA secret
             kubectl --context $ctx create -n kube-system secret tls cilium-root-ca \
               --key=cilium-ca-key.pem --cert=cilium-ca-crt.pem
