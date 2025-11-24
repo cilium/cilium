@@ -63,6 +63,24 @@ func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	return m.port, nil
 }
 
+func (m *MockPortAllocator) AllocateCRDProxyPortWithReallocate(name string, forceReallocate bool) (uint16, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if forceReallocate {
+		// Delete existing port allocation if any
+		delete(m.ports, name)
+	}
+
+	if mp, exists := m.ports[name]; exists {
+		return mp.port, nil
+	}
+	m.port++
+	m.ports[name] = &MockPort{port: m.port}
+
+	return m.port, nil
+}
+
 func (m *MockPortAllocator) AckProxyPortWithReference(ctx context.Context, name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
