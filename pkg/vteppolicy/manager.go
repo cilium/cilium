@@ -131,8 +131,11 @@ func (manager *Manager) reconcile(ctx context.Context) {
 		if policySync && endpointSync {
 			// Reconcile the actual state of the node (vtep policy map entries) with a current desired state with.
 
-			// TODO(informalict): support for p.Config.VtepPolicyReconciliationTriggerInterval.
-			// TODO(informalict) The below loop could be avoided, if policyConfigs are inlined
+			// TODO(informalict):
+			// - here we could launch the below logic in separate goroutines, if we copied policyConfigs and epDataStore.
+			//   Thanks to that the above `select` could apply new changes in the meantime, so event's listener will not hang.
+			// - support for p.Config.VtepPolicyReconciliationTriggerInterval.
+			// - The below loop could be avoided, if policyConfigs are inlined
 			// with epDataStore (so when epDataStore changes, or policy is updated).
 			for _, policy := range policyConfigs {
 				policy.updateMatchedEndpointIDs(epDataStore)
