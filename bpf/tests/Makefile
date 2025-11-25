@@ -54,7 +54,7 @@ $(SCAPY_HDR): $(SCAPY_HDR_TS)
 %.o: %.c $(LIB) $(SCAPY_HDR)
 	@$(ECHO_CC)
 	@# Remove the .o file to force recompilation, only rely on make's caching, not clangs
-	rm -f $@
+	@rm -f $@
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
 
 %.ll: %.c $(LIB)
