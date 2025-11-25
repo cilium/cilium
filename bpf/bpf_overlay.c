@@ -197,19 +197,16 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
-	if (1) {
-		union macaddr host_mac = CILIUM_HOST_MAC;
-		union macaddr router_mac = CONFIG(interface_mac);
-		int ret;
+	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
+	int ret;
 
-		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
-			      (__u8 *)&host_mac.addr, ip4);
-		if (ret != CTX_ACT_OK)
-			return ret;
+	ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, ip4);
+	if (ret != CTX_ACT_OK)
+		return ret;
 
-		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
-		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
-	}
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
+	return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
 }
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
