@@ -230,9 +230,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 		if (l2_hdr_required) {
 			/* l2 header is added */
 			l3_off += __ETH_HLEN;
-			if (!____revalidate_data_pull(ctx, &data, &data_end,
-						      (void **)&ip4, sizeof(*ip4),
-						      false, l3_off))
+			if (!__revalidate_data_pull(ctx, &data, &data_end,
+						    (void **)&ip4, l3_off,
+						    sizeof(*ip4), false))
 				return DROP_INVALID;
 		}
 #endif
