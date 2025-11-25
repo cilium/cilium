@@ -187,10 +187,8 @@ sock4_skip_xlate(const struct lb4_service *svc, __be32 address)
 
 #ifdef ENABLE_NODEPORT
 static __always_inline const struct lb4_service *
-sock4_wildcard_lookup(struct lb4_key *key __maybe_unused,
-		      const bool include_remote_hosts __maybe_unused,
-		      const bool inv_match __maybe_unused,
-		      const bool in_hostns __maybe_unused)
+sock4_wildcard_lookup(struct lb4_key *key, const bool include_remote_hosts,
+		      const bool inv_match, const bool in_hostns)
 {
 	const struct remote_endpoint_info *info;
 	__u16 service_port;
@@ -732,10 +730,8 @@ sock6_skip_xlate(const struct lb6_service *svc, const union v6addr *address)
 
 #ifdef ENABLE_NODEPORT
 static __always_inline __maybe_unused const struct lb6_service *
-sock6_wildcard_lookup(struct lb6_key *key __maybe_unused,
-		      const bool include_remote_hosts __maybe_unused,
-		      const bool inv_match __maybe_unused,
-		      const bool in_hostns __maybe_unused)
+sock6_wildcard_lookup(struct lb6_key *key, const bool include_remote_hosts,
+		      const bool inv_match, const bool in_hostns)
 {
 	const struct remote_endpoint_info *info;
 	__u16 service_port;
