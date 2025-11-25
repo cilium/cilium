@@ -2747,26 +2747,31 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		ret = lb4_local(get_ct_map4(tuple), ctx, l3_off, fraginfo, l4_off,
 				key, tuple, svc, &ct_state_svc,
 				nodeport_xlate4(svc, tuple), &cluster_id, ext_err, 0);
-	}
-	if (IS_ERR(ret)) {
-		if (ret == DROP_NO_SERVICE) {
-			if (!CONFIG(enable_no_service_endpoints_routable))
-				return handle_nonroutable_endpoints_v4(svc);
+		if (IS_ERR(ret)) {
+			if (ret == DROP_NO_SERVICE) {
+				if (!CONFIG(enable_no_service_endpoints_routable))
+					return handle_nonroutable_endpoints_v4(svc);
 
 #ifdef SERVICE_NO_BACKEND_RESPONSE
-			/* Packet is TX'ed back out, avoid EDT false-positives: */
-			edt_set_aggregate(ctx, 0);
-			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
-						 ext_err);
-			return ret;
+				/* Packet is TX'ed back out, avoid EDT false-positives: */
+				edt_set_aggregate(ctx, 0);
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
+							 ext_err);
+				return ret;
 #endif
+			}
+
+			if (ret == LB_PUNT_TO_STACK) {
+				*punt_to_stack = true;
+				return CTX_ACT_OK;
+			}
+
+			return ret;
 		}
-		if (ret == LB_PUNT_TO_STACK) {
-			*punt_to_stack = true;
-			return CTX_ACT_OK;
-		}
-		return ret;
 	}
+
+	if (IS_ERR(ret))
+		return ret;
 
 	backend_local = __lookup_ip4_endpoint(tuple->daddr);
 	if (!backend_local && lb4_svc_is_hostport(svc))
