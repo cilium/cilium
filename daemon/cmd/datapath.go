@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -89,19 +88,6 @@ func initMaps(params daemonParams) error {
 		option.Config.EnableIPv6) {
 		if err := m.Create(); err != nil {
 			return fmt.Errorf("initializing conntrack map %s: %w", m.Name(), err)
-		}
-	}
-
-	ipv4Nat, ipv6Nat := nat.GlobalMaps(params.MetricsRegistry, option.Config.EnableIPv4,
-		option.Config.EnableIPv6, params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
-	if ipv4Nat != nil {
-		if err := ipv4Nat.Create(); err != nil {
-			return fmt.Errorf("initializing ipv4nat map: %w", err)
-		}
-	}
-	if ipv6Nat != nil {
-		if err := ipv6Nat.Create(); err != nil {
-			return fmt.Errorf("initializing ipv6nat map: %w", err)
 		}
 	}
 
