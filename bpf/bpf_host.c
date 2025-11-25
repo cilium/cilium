@@ -145,12 +145,10 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err)
 {
-#ifdef ENABLE_HOST_FIREWALL
-	struct ct_buffer6 ct_buffer = {};
-	bool need_hostfw = false;
-	bool is_host_id = false;
-	bool skip_host_firewall = false;
-#endif /* ENABLE_HOST_FIREWALL */
+	struct ct_buffer6 __maybe_unused ct_buffer = {};
+	bool __maybe_unused need_hostfw = false;
+	bool __maybe_unused is_host_id = false;
+	bool __maybe_unused skip_host_firewall = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo __maybe_unused;
@@ -597,11 +595,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
-#ifdef ENABLE_HOST_FIREWALL
-	struct ct_buffer4 ct_buffer = {};
-	bool need_hostfw = false;
-	bool is_host_id = false;
-#endif /* ENABLE_HOST_FIREWALL */
+	struct ct_buffer4 __maybe_unused ct_buffer = {};
+	bool __maybe_unused need_hostfw = false;
+	bool __maybe_unused is_host_id = false;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo __maybe_unused;

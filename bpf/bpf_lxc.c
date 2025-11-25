@@ -480,9 +480,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_state *ct_state, ct_state_new = {};
 	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
-#ifdef ENABLE_ROUTING
-	union macaddr router_mac = CONFIG(interface_mac);
-#endif
+	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -913,9 +911,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	const struct remote_endpoint_info *info;
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	struct ipv4_ct_tuple *tuple;
-#ifdef ENABLE_ROUTING
-	union macaddr router_mac = CONFIG(interface_mac);
-#endif
+	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret, verdict, l4_off;
