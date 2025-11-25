@@ -284,6 +284,12 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
+	if ep.RequireARPPassthrough() {
+		cfg.EnableArpPassthrough = true
+	} else {
+		cfg.EnableArpResponder = true
+	}
+
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 
@@ -445,6 +451,12 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
+	if ep.RequireARPPassthrough() {
+		cfg.EnableArpPassthrough = true
+	} else {
+		cfg.EnableArpResponder = true
+	}
+
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 
@@ -533,6 +545,12 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	if lnc.EnableWireguard {
 		cfg.WgIfindex = lnc.WireguardIfIndex
 		cfg.WgPort = wgtypes.ListenPort
+	}
+
+	if ep.RequireARPPassthrough() {
+		cfg.EnableArpPassthrough = true
+	} else {
+		cfg.EnableArpResponder = true
 	}
 
 	if option.Config.EnableVTEP {
@@ -711,6 +729,14 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	if option.Config.EnableVTEP {
 		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+	}
+
+	if option.Config.DatapathMode != datapathOption.DatapathModeNetkit {
+		if ep.RequireARPPassthrough() {
+			cfg.EnableArpPassthrough = true
+		} else {
+			cfg.EnableArpResponder = true
+		}
 	}
 
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
