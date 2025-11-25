@@ -221,21 +221,18 @@ func (h *ciliumHealthManager) cleanupEndpoint() {
 	//
 	// Explicit removal is performed to ensure that everything referencing the network namespace
 	// the endpoint process is executed under is disposed, so that the network namespace itself is properly disposed.
-	switch option.Config.DatapathMode {
-	case datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
-		for _, iface := range []string{legacyHealthName, healthName} {
-			scopedLog := h.logger.With(logfields.Interface, iface)
-			if link, err := safenetlink.LinkByName(iface); err == nil {
-				err = netlink.LinkDel(link)
-				if err != nil {
-					scopedLog.Info("Couldn't delete cilium-health device",
-						logfields.DatapathMode, option.Config.DatapathMode,
-						logfields.Error, err,
-					)
-				}
-			} else {
-				scopedLog.Debug("Didn't find existing device", logfields.Error, err)
+	for _, iface := range []string{legacyHealthName, healthName} {
+		scopedLog := h.logger.With(logfields.Interface, iface)
+		if link, err := safenetlink.LinkByName(iface); err == nil {
+			err = netlink.LinkDel(link)
+			if err != nil {
+				scopedLog.Info("Couldn't delete cilium-health device",
+					logfields.DatapathMode, option.Config.DatapathMode,
+					logfields.Error, err,
+				)
 			}
+		} else {
+			scopedLog.Debug("Didn't find existing device", logfields.Error, err)
 		}
 	}
 }
