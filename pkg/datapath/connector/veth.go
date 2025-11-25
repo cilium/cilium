@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 )
@@ -20,7 +21,7 @@ import (
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the temporary link, the name of the temporary link and error if
 // something fails.
-func SetupVeth(defaultLogger *slog.Logger, id string, cfg LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, string, error) {
+func SetupVeth(defaultLogger *slog.Logger, id string, cfg types.LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
@@ -35,7 +36,7 @@ func SetupVeth(defaultLogger *slog.Logger, id string, cfg LinkConfig, sysctl sys
 // SetupVethWithNames sets up the net interface, the peer interface and fills up some endpoint
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the peer link and error if something fails.
-func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, error) {
+func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg types.LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, error) {
 	logger := defaultLogger.With(logfields.LogSubsys, "endpoint-connector")
 	// systemd 242+ tries to set a "persistent" MAC addr for any virtual device
 	// by default (controlled by MACAddressPolicy). As setting happens
@@ -103,7 +104,7 @@ func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string
 	return veth, peer, nil
 }
 
-func configurePair(hostSide, endpointSide netlink.Link, cfg LinkConfig) error {
+func configurePair(hostSide, endpointSide netlink.Link, cfg types.LinkConfig) error {
 	var err error
 	epIfName := endpointSide.Attrs().Name
 	hostIfName := hostSide.Attrs().Name
