@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/coverage"
 	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -313,8 +314,11 @@ func setupGlobalMiddleware(logger *slog.Logger, handler http.Handler) http.Handl
 		Histogram: ciliumMetrics.APIInteractions,
 	}
 
+	// Wrap with coverage middleware to flush coverage data on API calls
+	coverageHandler := coverage.NewCoverageMiddleware(eventsHelper)
+
 	return &api.APIPanicHandler{
 		Logger: logger,
-		Next:   eventsHelper,
+		Next:   coverageHandler,
 	}
 }
