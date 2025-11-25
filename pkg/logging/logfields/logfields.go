@@ -1088,6 +1088,8 @@ const (
 
 	Link = "link"
 
+	LinkConfig = "linkConfig"
+
 	Hook = "hook"
 
 	DNSRedirect = "dnsRedirect"

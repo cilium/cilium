@@ -3,7 +3,12 @@
 
 package types
 
-import "github.com/cilium/cilium/pkg/datapath/types"
+import (
+	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/types"
+)
 
 type fakeConnectorConfig struct {
 	configuredMode  types.ConnectorMode
@@ -44,4 +49,28 @@ func (fcc fakeConnectorConfig) GetConfiguredMode() types.ConnectorMode {
 
 func (fcc fakeConnectorConfig) GetOperationalMode() types.ConnectorMode {
 	return fcc.operationalMode
+}
+
+func (fcc fakeConnectorConfig) NewLinkPair(cfg types.LinkConfig, sysctl sysctl.Sysctl) (types.LinkPair, error) {
+	return &fakeLinkPair{mode: fcc.operationalMode}, nil
+}
+
+type fakeLinkPair struct {
+	mode types.ConnectorMode
+}
+
+func (flp fakeLinkPair) GetHostLink() netlink.Link {
+	return nil
+}
+
+func (flp fakeLinkPair) GetPeerLink() netlink.Link {
+	return nil
+}
+
+func (flp fakeLinkPair) GetMode() types.ConnectorMode {
+	return flp.mode
+}
+
+func (flp fakeLinkPair) Delete() error {
+	return nil
 }
