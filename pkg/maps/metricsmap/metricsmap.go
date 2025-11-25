@@ -33,6 +33,7 @@ type IterateCallback func(*Key, *Values)
 // mock maps for unit tests.
 type MetricsMap interface {
 	IterateWithCallback(IterateCallback) error
+	Delete(*Key) error
 }
 
 type metricsMap struct {
@@ -106,6 +107,11 @@ func (m metricsMap) IterateWithCallback(cb IterateCallback) error {
 		values := v.(*Values)
 		cb(key, values)
 	})
+}
+
+// Delete removes the provided key from the map
+func (m metricsMap) Delete(key *Key) error {
+	return m.Map.Delete(key)
 }
 
 // MetricDirection gets the direction in human readable string format
