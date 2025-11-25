@@ -7,7 +7,7 @@ import (
 	cniTypesV1 "github.com/containernetworking/cni/pkg/types/100"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/datapath/connector"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -28,7 +28,7 @@ type OnIPAMReady interface {
 // network links (i.e. veth or netkit pairs). It may be used to further modify the link
 // configuration.
 type OnLinkConfigReady interface {
-	OnLinkConfigReady(linkConfig *connector.LinkConfig) error
+	OnLinkConfigReady(linkConfig *datapath.LinkConfig) error
 }
 
 // OnInterfaceConfigReady is invoked right before the pod's network interface pair is configured and

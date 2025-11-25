@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -434,7 +435,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	switch driver.conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		linkConfig := connector.LinkConfig{
+		linkConfig := datapath.LinkConfig{
 			GROIPv6MaxSize: int(driver.conf.GROMaxSize),
 			GSOIPv6MaxSize: int(driver.conf.GSOMaxSize),
 			GROIPv4MaxSize: int(driver.conf.GROIPV4MaxSize),

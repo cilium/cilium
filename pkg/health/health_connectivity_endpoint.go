@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -287,7 +288,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		return nil, fmt.Errorf("create cilium-health netns: %w", err)
 	}
 
-	linkConfig := connector.LinkConfig{
+	linkConfig := datapath.LinkConfig{
 		GROIPv6MaxSize: bigTCPConfig.GetGROIPv6MaxSize(),
 		GSOIPv6MaxSize: bigTCPConfig.GetGSOIPv6MaxSize(),
 		GROIPv4MaxSize: bigTCPConfig.GetGROIPv4MaxSize(),
