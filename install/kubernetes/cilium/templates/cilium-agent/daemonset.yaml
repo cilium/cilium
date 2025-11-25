@@ -825,6 +825,37 @@ spec:
           - name: cni-path
             mountPath: /host/opt/cni/bin
       {{- end }} # .Values.cni.install
+      # FIXME: should depend on a Helm config option
+      - name: enable-containerd-plugins
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -o errexit
+          set -o pipefail
+          set -o nounset
+          set -x
+          if grep -q "io.containerd.nri.v1.nri" /etc/containerd/config.toml
+          then
+             echo "containerd config contains NRI reference already; taking no action"
+          else
+             echo "containerd config does not mention NRI, thus enabling it";
+             printf '%s\n' "[plugins.\"io.containerd.nri.v1.nri\"]" "  disable = false" "  disable_connections = false" "  plugin_config_path = \"/etc/nri/conf.d\"" "  plugin_path = \"/opt/nri/plugins\"" "  plugin_registration_timeout = \"5s\"" "  plugin_request_timeout = \"5s\"" "  socket_path = \"/var/run/nri/nri.sock\"" >> /etc/containerd/config.toml
+             echo "restarting containerd"
+             nsenter -t 1 -m -u -i -n -p -- systemctl restart containerd
+          fi
+        {{- with .Values.cni.resources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
+        securityContext:
+          privileged: true
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /etc/containerd
+          name: containerd
       {{- if .Values.extraInitContainers }}
       {{- toYaml .Values.extraInitContainers | nindent 6 }}
       {{- end }}
@@ -1056,6 +1087,10 @@ spec:
           path: /proc/sys/kernel
           type: Directory
       {{- end }}
+      - name: containerd
+        hostPath:
+          path: /etc/containerd
+          type: Directory
       {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
       - name: hubble-tls
         projected:
