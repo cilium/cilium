@@ -42,7 +42,7 @@ type policyWatcher struct {
 
 	serviceEvents stream.Observable[serviceEvent]
 
-	ipCache ipc
+	ipCache policycell.IPCacher
 
 	// Number of outstanding requests still pending in the PolicyImporter
 	// This is only used during initial sync; we will increment these
