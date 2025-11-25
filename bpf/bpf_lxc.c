@@ -843,7 +843,6 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo __maybe_unused;
-	int ret __maybe_unused;
 	bool from_l7lb = false;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
