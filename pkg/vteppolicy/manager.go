@@ -95,11 +95,8 @@ func (manager *Manager) reconcile(ctx context.Context, minInterval time.Duration
 	epDataStore := make(map[endpointID]*endpointMetadata)
 	// policyConfigs stores desired policy configs indexed by policyID.
 	policyConfigs := make(map[policyID]*PolicyConfig)
-
-	/*TODO(informalict):
-	- logs for reconciliation events
-	*/
 	minDur := NewMinDuration(minInterval)
+	reasons := make(map[string]uint32)
 
 	for {
 		select {
@@ -107,26 +104,14 @@ func (manager *Manager) reconcile(ctx context.Context, minInterval time.Duration
 			return
 		case <-minDur.GetChannel():
 			// For nil channel it will never be fired.
-		case endpointEvent := <-manager.chEndpoint:
-			if endpointEvent.EventKind == resource.Sync {
+			reasons["minimum interval"]++
+		case event := <-manager.chEndpoint:
+			if updateEndpointsCache(event, epDataStore, reasons) {
 				endpointSync = true
-			} else if endpointEvent.EventKind == resource.Upsert {
-				epDataStore[endpointEvent.id] = endpointEvent.endpointMetadata
-			} else {
-				delete(epDataStore, endpointEvent.id)
 			}
-		case policyEvent := <-manager.chPolicy:
-			if policyEvent.EventKind == resource.Sync {
+		case event := <-manager.chPolicy:
+			if updatePoliciesCache(event, policyConfigs, epDataStore, reasons) {
 				policySync = true
-			} else if policyEvent.EventKind == resource.Upsert {
-				policyEvent.PolicyConfig.updateMatchedEndpointIDs(epDataStore) // TODO(informalict): it is launched below for all policies.
-				policyConfigs[policyEvent.PolicyConfig.id] = policyEvent.PolicyConfig
-			} else {
-				if policyConfigs[policyEvent.PolicyConfig.id] != nil {
-					delete(policyConfigs, policyEvent.PolicyConfig.id)
-				} else {
-					manager.logger.Warn("Can't delete CiliumVtepPolicy: policy not found")
-				}
 			}
 		}
 
@@ -143,13 +128,14 @@ func (manager *Manager) reconcile(ctx context.Context, minInterval time.Duration
 			continue
 		}
 
-		// From here on, reconciliation starts.
+		manager.logger.Info("reconciliation starts", logfields.Reason, reasons)
+		reasons = make(map[string]uint32)
 
 		// TODO(informalict):
 		// - here we could launch the below logic in separate goroutines, if we copied policyConfigs and epDataStore.
 		//   Thanks to that the above `select` could apply new changes in the meantime, so event's listener will not hang.
-		// - The below loop could be avoided, if policyConfigs are inlined
-		// with epDataStore (so when epDataStore changes, or policy is updated).
+		// - The below loop could be avoided, if policyConfigs are inlined with `epDataStore`
+		//   (so when epDataStore changes, or policy is updated).
 
 		// Apply endpoints to cached policies.
 		for _, policy := range policyConfigs {
@@ -159,7 +145,6 @@ func (manager *Manager) reconcile(ctx context.Context, minInterval time.Duration
 		manager.updateVtepRules(policyConfigs)
 
 		minDur.SetLastCheck()
-		// TODO(informalict) do we want to add error counter in case the above function fails?
 		manager.reconciliationEventsCount.Add(1)
 	}
 }
@@ -365,14 +350,13 @@ func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		logfields.K8sUID, endpoint.UID,
 	)
 
+	logger.Debug("CiliumEndpoint accepted for deletion")
 	manager.chEndpoint <- endpointMetadataEvent{
 		endpointMetadata: &endpointMetadata{
 			id: endpoint.UID,
 		},
 		EventKind: resource.Delete,
 	}
-
-	logger.Debug("CiliumEndpoint accepted for deletion")
 }
 
 func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.CiliumEndpoint]) {
@@ -460,4 +444,63 @@ func (manager *Manager) updateVtepRules(policyConfigs map[policyID]*PolicyConfig
 			logger.Debug("Vtep gateway policy removed")
 		}
 	}
+}
+
+// updateEndpointsCache updates endpoints' cache and populates reasons map with the reason for the update.
+// It returns true if the endpoint sync event was handled.
+func updateEndpointsCache(evt endpointMetadataEvent, endpoints map[endpointID]*endpointMetadata,
+	reasons map[string]uint32) bool {
+	if evt.EventKind == resource.Sync {
+		reasons["endpoint sync"]++
+		return true
+	}
+
+	endpoint := evt.endpointMetadata
+	if evt.EventKind == resource.Upsert {
+		if _, ok := endpoints[endpoint.id]; ok {
+			reasons["endpoint updated"]++
+		} else {
+			reasons["endpoint added"]++
+		}
+		endpoints[endpoint.id] = endpoint
+	} else if evt.EventKind == resource.Delete {
+		delete(endpoints, endpoint.id)
+		reasons["endpoint deleted"]++
+	}
+
+	return false
+}
+
+// updatePoliciesCache updates policies' cache and populates reasons map with the reason for the update.
+// It returns true if the policy sync event was handled.
+func updatePoliciesCache(evt policyConfigEvent, policies map[policyID]*PolicyConfig,
+	endpoints map[endpointID]*endpointMetadata, reasons map[string]uint32) bool {
+	if evt.EventKind == resource.Sync {
+		reasons["policy sync"]++
+		return true
+	}
+
+	policy := evt.PolicyConfig
+	if evt.EventKind == resource.Upsert {
+		if _, ok := policies[policy.id]; ok {
+			reasons["cache policy updated"]++
+		} else {
+			reasons["cache policy added"]++
+		}
+
+		// TODO(informalict): The below function is launched in reconciliation loop, so it could be avoided here,
+		// unless the cache is used before it goes to reconciliation. For now it is not.
+		policy.updateMatchedEndpointIDs(endpoints)
+		policies[policy.id] = policy
+	} else if evt.EventKind == resource.Delete {
+		if policies[policy.id] != nil {
+			delete(policies, policy.id)
+			reasons["cache policy deleted"]++
+		}
+		//else {
+		//	manager.logger.Warn("Can't delete CiliumVtepPolicy: policy not found")
+		//}
+	}
+
+	return false
 }

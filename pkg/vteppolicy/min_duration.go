@@ -22,11 +22,13 @@ func NewMinDuration(minInterval time.Duration) *MinDuration {
 	}
 
 	if minInterval > 30*time.Second {
-		minInterval = 30 * time.Second // TODO(informalict) ?.
+		// It could be parametrized, but for now keep it simple.
+		minInterval = 30 * time.Second
 	}
 
 	return &MinDuration{
 		// Set it to -minInterval, so the first run should occur immediately.
+		// It could be parametrized, but for now keep it simple.
 		lastCheck:   time.Now().Add(-minInterval),
 		minInterval: minInterval,
 	}
