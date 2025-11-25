@@ -57,7 +57,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	const struct endpoint_info *ep;
-	bool __maybe_unused is_dsr = false;
+	bool is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
@@ -290,7 +290,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	void *data_end, *data;
 	struct iphdr *ip4;
 	const struct endpoint_info *ep;
-	bool __maybe_unused is_dsr = false;
+	bool is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 	int ret;
 

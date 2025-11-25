@@ -213,10 +213,10 @@ __policy_check(const struct policy_entry *policy, const struct policy_entry *pol
 /* Allow experimental access to the @map parameter. */
 static __always_inline int
 __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
-		    __u32 remote_id, __u16 ethertype, __be16 dport,
-		    __u8 proto, int off __maybe_unused, int dir,
-		    bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
-		    __u16 *proxy_port, __u32 *cookie)
+		    __u32 remote_id, __u16 ethertype, __be16 dport, __u8 proto,
+		    int off, int dir, bool is_untracked_fragment,
+		    __u8 *match_type, __s8 *ext_err, __u16 *proxy_port,
+		    __u32 *cookie)
 {
 	const struct policy_entry *policy;
 	const struct policy_entry *l4policy;
@@ -342,9 +342,8 @@ check_l4_policy:
 }
 
 static __always_inline int
-policy_can_access(struct __ctx_buff *ctx, __u32 local_id,
-		  __u32 remote_id, __u16 ethertype __maybe_unused, __be16 dport,
-		  __u8 proto, int off __maybe_unused, int dir,
+policy_can_access(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
+		  __u16 ethertype, __be16 dport, __u8 proto, int off, int dir,
 		  bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		  __u16 *proxy_port, __u32 *cookie)
 {
