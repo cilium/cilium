@@ -25,7 +25,7 @@ spec:
         - port: 53
           # protocol non specified corresponding to ANY in CNP
     # When node-local-dns is deployed with local IP,
-    # Cilium labels its ip as world.
+    # Cilium labels its ip as world (or host after #25298).
     # This change prevents failing the connectivity
     # test for such environments.
     - to:
