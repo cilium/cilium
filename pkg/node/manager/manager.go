@@ -688,7 +688,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		nodeIP, _ = netipx.FromStdIP(nIP)
 	}
 
-	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
+	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, n.Cluster, n.Name)
 	nodeLabels, nodeIdentityOverride := m.nodeIdentityLabels(n)
 
 	var ipsetEntries []netip.Prefix
@@ -1135,7 +1135,7 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 
 	if n.Source != source.Restored {
 		// The ipcache is recreated from scratch on startup, no need to prune restored stale nodes.
-		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
+		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, n.Cluster, n.Name)
 		m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil, nil)
 
 		// We only need to decrement for nodes we've accounted for.
