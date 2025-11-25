@@ -1176,7 +1176,7 @@ static __always_inline bool
 ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
 {
 	__u8 flags = tuple->flags;
-	struct ct_entry *entry;
+	const struct ct_entry *entry;
 
 	tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, tuple);
@@ -1189,7 +1189,7 @@ static __always_inline bool
 ct_has_loopback_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
 {
 	__u8 flags = tuple->flags;
-	struct ct_entry *entry;
+	const struct ct_entry *entry;
 
 	tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, tuple);
@@ -1227,7 +1227,7 @@ ct_has_nodeport_egress_entry4(const void *map,
 			      __u16 *rev_nat_index, bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
-	struct ct_entry *entry;
+	const struct ct_entry *entry;
 
 	ingress_tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, ingress_tuple);
@@ -1243,7 +1243,7 @@ static __always_inline bool
 ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 {
 	__u8 prev_flags = ingress_tuple->flags;
-	struct ct_entry *entry;
+	const struct ct_entry *entry;
 
 	ingress_tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, ingress_tuple);
@@ -1261,7 +1261,7 @@ ct_has_nodeport_egress_entry6(const void *map,
 			      __u16 *rev_nat_index, bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
-	struct ct_entry *entry;
+	const struct ct_entry *entry;
 
 	ingress_tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, ingress_tuple);
@@ -1277,7 +1277,7 @@ static __always_inline bool
 ct_has_dsr_egress_entry6(const void *map, struct ipv6_ct_tuple *ingress_tuple)
 {
 	__u8 prev_flags = ingress_tuple->flags;
-	struct ct_entry *entry;
+	const struct ct_entry *entry;
 
 	ingress_tuple->flags = TUPLE_F_OUT;
 	entry = map_lookup_elem(map, ingress_tuple);
