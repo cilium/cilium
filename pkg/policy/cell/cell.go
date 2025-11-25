@@ -31,6 +31,7 @@ var Cell = cell.Module(
 	cell.Provide(newPolicyUpdater),
 	cell.Provide(newPolicyImporter),
 	cell.Provide(newIdentityUpdater),
+	cell.Provide(newIPCacher),
 	cell.Config(defaultConfig),
 	metrics.Metric(newIdentityUpdaterMetrics),
 )

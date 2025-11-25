@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/ipcache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -45,11 +44,6 @@ var Cell = cell.Module(
 	cell.Invoke(startK8sPolicyWatcher),
 )
 
-type ipc interface {
-	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
-	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
-}
-
 type PolicyWatcherParams struct {
 	cell.In
 
@@ -67,7 +61,7 @@ type PolicyWatcherParams struct {
 	Services statedb.Table[*loadbalancer.Service]
 	Backends statedb.Table[*loadbalancer.Backend]
 
-	IPCache        *ipcache.IPCache
+	IPCache        policycell.IPCacher
 	PolicyImporter policycell.PolicyImporter
 
 	CiliumNetworkPolicies            resource.Resource[*cilium_v2.CiliumNetworkPolicy]
