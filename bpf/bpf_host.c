@@ -141,9 +141,9 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    __u32 ipcache_srcid __maybe_unused,
-	    const bool from_host __maybe_unused,
+	    const bool from_host,
 	    bool *punt_to_stack __maybe_unused,
-	    __s8 *ext_err __maybe_unused)
+	    __s8 *ext_err)
 {
 #ifdef ENABLE_HOST_FIREWALL
 	struct ct_buffer6 ct_buffer = {};
@@ -1020,7 +1020,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #endif /* ENABLE_IPV4 */
 
 static __always_inline int
-do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
+do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 identity,
 	  enum trace_point obs_point,  const bool __maybe_unused from_host)
 {
 	struct trace_ctx trace = {
@@ -1274,7 +1274,6 @@ int cil_from_host(struct __ctx_buff *ctx)
 {
 	enum trace_point obs_point = TRACE_FROM_HOST;
 	__u32 identity = UNKNOWN_ID;
-	int ret __maybe_unused;
 	__be16 proto = 0;
 	__u32 magic;
 
@@ -1307,6 +1306,7 @@ int cil_from_host(struct __ctx_buff *ctx)
 #if defined(ENABLE_L7_LB)
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		__u16 lxc_id = get_epid(ctx);
+		int ret;
 
 		ctx->mark = 0;
 		ret = tail_call_egress_policy(ctx, lxc_id);
