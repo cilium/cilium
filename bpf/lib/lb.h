@@ -1395,11 +1395,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	}
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
-#ifdef USE_LOOPBACK_LB
-	if (!state->loopback)
-#endif
-		ipv6_addr_copy(&tuple->daddr, &backend->address);
-
 	if (lb6_svc_is_l7_punt_proxy(svc) &&
 	    __lookup_ip6_endpoint(&backend->address)) {
 		ctx_skip_nodeport_set(ctx);
@@ -1407,6 +1402,11 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	}
 	if (skip_xlate)
 		return CTX_ACT_OK;
+
+#ifdef USE_LOOPBACK_LB
+	if (!state->loopback)
+#endif
+		ipv6_addr_copy(&tuple->daddr, &backend->address);
 
 	if (likely(backend->port))
 		tuple->sport = backend->port;
@@ -2168,11 +2168,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	}
 #endif
 
-#ifdef USE_LOOPBACK_LB
-	if (!state->loopback)
-#endif
-		tuple->daddr = backend->address;
-
 	if (lb4_svc_is_l7_punt_proxy(svc) &&
 	    __lookup_ip4_endpoint(backend->address)) {
 		ctx_skip_nodeport_set(ctx);
@@ -2180,6 +2175,11 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	}
 	if (skip_xlate)
 		return CTX_ACT_OK;
+
+#ifdef USE_LOOPBACK_LB
+	if (!state->loopback)
+#endif
+		tuple->daddr = backend->address;
 
 	/* CT tuple contains ports in reverse order: */
 	if (likely(backend->port))
