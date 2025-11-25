@@ -34,6 +34,7 @@
 #include "lib/l3.h"
 #include "lib/local_delivery.h"
 #include "lib/lxc.h"
+#include "lib/lrp.h"
 #include "lib/identity.h"
 #include "lib/policy.h"
 #include "lib/mcast.h"
@@ -134,6 +135,8 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 	if (svc) {
+		const struct lb4_backend *backend;
+
 #if defined(ENABLE_L7_LB)
 		if (lb4_svc_is_l7_loadbalancer(svc)) {
 			proxy_port = (__u16)svc->l7_lb_proxy_port;
@@ -156,9 +159,9 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		if (unlikely(lb4_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
-		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, fraginfo,
+		ret = lb4_local(get_ct_map4(&tuple), ctx, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				false, &cluster_id, ext_err, CONFIG(endpoint_netns_cookie));
+				&backend, &cluster_id, ext_err);
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
@@ -171,6 +174,32 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			}
 			return ret;
 		}
+
+		if (tuple.saddr == backend->address) {
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
+			__net_cookie netns_cookie = CONFIG(endpoint_netns_cookie);
+
+			if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
+			    lrp_v4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple.daddr,
+							      tuple.sport))
+				goto skip_service_lookup;
+#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
+
+			/* Special loopback case: The origin endpoint has transmitted to a
+			 * service which is being translated back to the source. This would
+			 * result in a packet with identical source and destination address.
+			 * Linux considers such packets as martian source and will drop unless
+			 * received on a loopback device. Perform NAT on the source address
+			 * to make it appear from an outside address.
+			 */
+			ct_state_new.loopback = 1;
+		}
+
+		ret = lb4_dnat_request(ctx, backend, ETH_HLEN, fraginfo,
+				       l4_off, &key, &tuple, &ct_state_new);
+		if (IS_ERR(ret))
+			return ret;
+
 	}
 skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */
@@ -218,6 +247,8 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	 */
 	svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 	if (svc) {
+		const struct lb6_backend *backend;
+
 #if defined(ENABLE_L7_LB)
 		if (lb6_svc_is_l7_loadbalancer(svc)) {
 			proxy_port = (__u16)svc->l7_lb_proxy_port;
@@ -232,9 +263,9 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		if (unlikely(lb6_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
-		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, fraginfo,
+		ret = lb6_local(get_ct_map6(&tuple), ctx, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				false, ext_err, CONFIG(endpoint_netns_cookie));
+				&backend, ext_err);
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
@@ -247,6 +278,23 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			}
 			return ret;
 		}
+
+		if (ipv6_addr_equals(&tuple.saddr, &backend->address)) {
+#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
+			__net_cookie netns_cookie = CONFIG(endpoint_netns_cookie);
+
+			if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
+			    lrp_v6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple.daddr,
+							      tuple.sport))
+				goto skip_service_lookup;
+#endif
+			ct_state_new.loopback = 1;
+		}
+
+		ret = lb6_dnat_request(ctx, backend, ETH_HLEN, fraginfo,
+				       l4_off, &key, &tuple, &ct_state_new);
+		if (IS_ERR(ret))
+			return ret;
 	}
 
 skip_service_lookup:
