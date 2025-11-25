@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -668,7 +669,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 
 		cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
-		linkConfig := connector.LinkConfig{
+		linkConfig := datapath.LinkConfig{
 			GROIPv6MaxSize: int(conf.GROMaxSize),
 			GSOIPv6MaxSize: int(conf.GSOMaxSize),
 			GROIPv4MaxSize: int(conf.GROIPV4MaxSize),

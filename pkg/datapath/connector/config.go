@@ -11,26 +11,13 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
-
-// LinkConfig contains the GRO/GSO, MTU values and buffer margins to be configured on both sides of
-// the created pair.
-type LinkConfig struct {
-	GROIPv6MaxSize int
-	GSOIPv6MaxSize int
-
-	GROIPv4MaxSize int
-	GSOIPv4MaxSize int
-
-	DeviceMTU      int
-	DeviceHeadroom uint16
-	DeviceTailroom uint16
-}
 
 // Connector configuration. As per BIGTCP, the values here will not be calculated
 // until the Hive has started. This is necessary to allow other dependencies to
@@ -75,6 +62,10 @@ func (cc *ConnectorConfig) GetConfiguredMode() types.ConnectorMode {
 
 func (cc *ConnectorConfig) GetOperationalMode() types.ConnectorMode {
 	return cc.operationalMode
+}
+
+func (cc *ConnectorConfig) NewLinkPair(cfg types.LinkConfig, sysctl sysctl.Sysctl) (types.LinkPair, error) {
+	return NewLinkPair(cc.log, cc.operationalMode, cfg, sysctl)
 }
 
 // Returns true if we should actively try and align the connector's netdev buffer
