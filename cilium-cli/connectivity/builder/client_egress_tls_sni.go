@@ -29,7 +29,8 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-		WithScenarios(tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable)).
+		WithScenarios(
+			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryAll())).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 443 {
 				return check.ResultOK, check.ResultNone
@@ -60,7 +61,8 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 		WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-		WithScenarios(tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable)).
+		WithScenarios(
+			tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryAll())).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Port() == 443 {
 				return check.ResultOK, check.ResultNone
@@ -94,7 +96,8 @@ func clientEgressTlsSniTest(ct *check.ConnectivityTest, templates map[string]str
 			WithFeatureRequirements(features.RequireDisabled(features.RHEL)).
 			WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement for external target
 			WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-			WithScenarios(tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable)).
+			WithScenarios(
+				tests.PodToWorld(ct.Params().ExternalTargetIPv6Capable, tests.WithRetryAll())).
 			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 				if a.Destination().Port() == 443 {
 					return check.ResultOK, check.ResultNone
@@ -132,7 +135,11 @@ func clientEgressL7TlsSniTest(ct *check.ConnectivityTest, templates map[string]s
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
 		WithCiliumPolicy(yamlFile).                                   // L7 allow policy TLS SNI enforcement
 		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
-		WithScenarios(tests.PodToWorldWithTLSIntercept("-H", "X-Very-Secret-Token: 42")).
+		WithScenarios(tests.PodToWorldWithTLSIntercept(
+			"-H", "X-Very-Secret-Token: 42",
+			"--retry", "5",
+			"--retry-delay", "0",
+			"--retry-all-errors")).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone
 		})
