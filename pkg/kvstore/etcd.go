@@ -893,8 +893,7 @@ func (e *etcdClient) paginatedList(ctx context.Context, log *slog.Logger, prefix
 	for {
 		res, err := e.client.Get(ctx, start, client.WithRange(end),
 			client.WithSort(client.SortByKey, client.SortAscend),
-			client.WithRev(revision), client.WithSerializable(),
-			client.WithLimit(int64(e.listBatchSize)),
+			client.WithRev(revision), client.WithLimit(int64(e.listBatchSize)),
 		)
 		if err != nil {
 			return nil, 0, err
