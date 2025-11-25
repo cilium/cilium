@@ -1395,6 +1395,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 			edt_set_aggregate(ctx, 0);
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
 									 ext_err);
+			return ret;
 #endif
 		}
 		if (ret == LB_PUNT_TO_STACK) {
@@ -2757,6 +2758,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			edt_set_aggregate(ctx, 0);
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
 						 ext_err);
+			return ret;
 #endif
 		}
 		if (ret == LB_PUNT_TO_STACK) {
