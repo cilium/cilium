@@ -44,7 +44,7 @@ type policyImporterParams struct {
 
 	Repo            policy.PolicyRepository
 	EndpointManager endpointmanager.EndpointManager
-	IPCache         *ipcache.IPCache
+	IPCache         IPCacher
 	MonitorAgent    agent.Agent
 }
 
@@ -52,7 +52,7 @@ type policyImporter struct {
 	log          *slog.Logger
 	repo         policy.PolicyRepository
 	epm          epmanager
-	ipc          ipcacher
+	ipc          IPCacher
 	monitorAgent agent.Agent
 
 	// prefixesByResources is the list of prefixes
@@ -63,10 +63,14 @@ type policyImporter struct {
 	q chan *policytypes.PolicyUpdate
 }
 
-type ipcacher interface {
+type IPCacher interface {
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	WaitForRevision(ctx context.Context, rev uint64) error
+}
+
+func newIPCacher(ipc *ipcache.IPCache) IPCacher {
+	return ipc
 }
 
 type epmanager interface {
