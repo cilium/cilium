@@ -32,6 +32,7 @@ import (
 	"golang.org/x/tools/go/analysis/internal"
 	"golang.org/x/tools/go/analysis/internal/analysisflags"
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/internal/analysis/driverutil"
 )
 
 var (
@@ -191,18 +192,20 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 	// Don't print the diagnostics,
 	// but apply all fixes from the root actions.
 	if analysisflags.Fix {
-		fixActions := make([]analysisflags.FixAction, len(graph.Roots))
+		fixActions := make([]driverutil.FixAction, len(graph.Roots))
 		for i, act := range graph.Roots {
 			if pass := internal.ActionPass(act); pass != nil {
-				fixActions[i] = analysisflags.FixAction{
+				fixActions[i] = driverutil.FixAction{
 					Name:         act.String(),
+					Pkg:          act.Package.Types,
+					Files:        act.Package.Syntax,
 					FileSet:      act.Package.Fset,
 					ReadFileFunc: pass.ReadFile,
 					Diagnostics:  act.Diagnostics,
 				}
 			}
 		}
-		if err := analysisflags.ApplyFixes(fixActions, dbg('v')); err != nil {
+		if err := driverutil.ApplyFixes(fixActions, analysisflags.Diff, dbg('v')); err != nil {
 			// Fail when applying fixes failed.
 			log.Print(err)
 			exitAtLeast(1)

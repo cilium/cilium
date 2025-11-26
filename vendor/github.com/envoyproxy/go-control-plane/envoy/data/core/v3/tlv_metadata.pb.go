@@ -29,8 +29,9 @@ type TlvsMetadata struct {
 	// Typed metadata for :ref:`Proxy protocol filter <envoy_v3_api_msg_extensions.filters.listener.proxy_protocol.v3.ProxyProtocol>`, that represents a map of TLVs.
 	// Each entry in the map consists of a key which corresponds to a configured
 	// :ref:`rule key <envoy_v3_api_field_extensions.filters.listener.proxy_protocol.v3.ProxyProtocol.KeyValuePair.key>` and a value (TLV value in bytes).
+	// When runtime flag “envoy.reloadable_features.use_typed_metadata_in_proxy_protocol_listener“ is enabled,
 	// :ref:`Proxy protocol filter <envoy_v3_api_msg_extensions.filters.listener.proxy_protocol.v3.ProxyProtocol>`
-	// populates both typed and untyped metadata.
+	// will populate typed metadata and regular metadata. By default filter will populate typed and untyped metadata.
 	TypedMetadata map[string][]byte `protobuf:"bytes,1,rep,name=typed_metadata,json=typedMetadata,proto3" json:"typed_metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
