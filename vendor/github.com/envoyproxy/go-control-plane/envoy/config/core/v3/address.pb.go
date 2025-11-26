@@ -255,6 +255,10 @@ type SocketAddress struct {
 	//
 	//	Setting this parameter requires Envoy to run with the ``CAP_NET_ADMIN`` capability.
 	//
+	// .. note::
+	//
+	//	Currently only used for Listener sockets.
+	//
 	// .. attention::
 	//
 	//	Network namespaces are only configurable on Linux. Otherwise, this field has no effect.

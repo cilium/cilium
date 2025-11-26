@@ -1,7 +1,6 @@
-//go:build go1.24
-
-/*-
- * Copyright 2014 Square Inc.
+/*
+ *
+ * Copyright 2025 gRPC authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +13,16 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package jose
+// Package internal contains code internal to the encoding package.
+package internal
 
-import (
-	"crypto/pbkdf2"
-	"hash"
-)
-
-func pbkdf2Key(h func() hash.Hash, password string, salt []byte, iter, keyLen int) ([]byte, error) {
-	return pbkdf2.Key(h, password, salt, iter, keyLen)
-}
+// RegisterCompressorForTesting registers a compressor in the global compressor
+// registry. It returns a cleanup function that should be called at the end
+// of the test to unregister the compressor.
+//
+// This prevents compressors registered in one test from appearing in the
+// encoding headers of subsequent tests.
+var RegisterCompressorForTesting any // func RegisterCompressor(c Compressor) func()

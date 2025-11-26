@@ -58,40 +58,6 @@ func (m *SinkConfig) validate(all bool) error {
 
 	var errors []error
 
-	for idx, item := range m.GetResourceDetectors() {
-		_, _ = idx, item
-
-		if all {
-			switch v := interface{}(item).(type) {
-			case interface{ ValidateAll() error }:
-				if err := v.ValidateAll(); err != nil {
-					errors = append(errors, SinkConfigValidationError{
-						field:  fmt.Sprintf("ResourceDetectors[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			case interface{ Validate() error }:
-				if err := v.Validate(); err != nil {
-					errors = append(errors, SinkConfigValidationError{
-						field:  fmt.Sprintf("ResourceDetectors[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			}
-		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return SinkConfigValidationError{
-					field:  fmt.Sprintf("ResourceDetectors[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
-	}
-
 	// no validation rules for ReportCountersAsDeltas
 
 	// no validation rules for ReportHistogramsAsDeltas
