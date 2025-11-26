@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/netip"
 	"slices"
@@ -1333,6 +1333,122 @@ func Test_metadata_mergeParentLabels(t *testing.T) {
 	}
 }
 
+// TestIPCacheCIDRResourceConsolidation tests for a leak in the ipcache
+// metadata layer regarding the CIDR resource consolidation.
+func TestIPCacheCIDRResourceConsolidation(t *testing.T) {
+	setupIPCacheTestSuite(t)
+
+	prefix := netip.MustParsePrefix("10.0.0.0/8")
+	lbls := labels.GetCIDRLabels(prefix)
+
+	//
+	// Test 1: Regression test of CIDR leak:
+	//
+
+	// CIDR 10.0.0.0/8 is added with resource owner policy-foo. Refcount for
+	// the CIDR is bumped to 1, which means this if statement is true and we
+	// upsert 10.0.0.0/8 with owner policy-foo.
+	assert.NoError(t, IPIdentityCache.WaitForRevision(
+		context.TODO(), IPIdentityCache.UpsertMetadataBatch(MU{
+			Prefix:   prefix,
+			Source:   source.Generated,
+			Resource: types.NewResourceID(types.ResourceKindCNP, "default", "policy-foo"),
+			Metadata: []IPMetadata{lbls},
+			IsCIDR:   true,
+		}),
+	))
+	// CIDR 10.0.0.0/8 is added with resource owner policy-bar. The above if
+	// statement is false, the CIDR is not forwarded to the metadata tracker
+	// (as it should).
+	assert.NoError(t, IPIdentityCache.WaitForRevision(
+		context.TODO(), IPIdentityCache.UpsertMetadataBatch(MU{
+			Prefix:   prefix,
+			Source:   source.Generated,
+			Resource: types.NewResourceID(types.ResourceKindCNP, "default", "policy-bar"),
+			Metadata: []IPMetadata{lbls},
+			IsCIDR:   true,
+		}),
+	))
+	// Policy policy-foo is deleted. This decreases refcount to 1, which means
+	// the deletion would not be forwarded to the metadata tracker (as it
+	// should).
+	assert.NoError(t, IPIdentityCache.WaitForRevision(
+		context.TODO(), IPIdentityCache.RemoveMetadataBatch(MU{
+			Prefix:   prefix,
+			Source:   source.Generated,
+			Resource: types.NewResourceID(types.ResourceKindCNP, "default", "policy-foo"),
+			Metadata: []IPMetadata{lbls},
+			IsCIDR:   true,
+		}),
+	))
+	// Policy policy-bar is deleted. This decreases the refcount to 0. This if
+	// statement is now true, but the deletion event is forwarded with resource
+	// owner policy-bar to the metadata tracker. The metadata tracker never
+	// heard about policy-bar (it still has -foo stored) and therefore ignores
+	// this deletion event. The CIDR is leaked.
+	assert.NoError(t, IPIdentityCache.WaitForRevision(
+		context.TODO(), IPIdentityCache.RemoveMetadataBatch(MU{
+			Prefix:   prefix,
+			Source:   source.Generated,
+			Resource: types.NewResourceID(types.ResourceKindCNP, "default", "policy-bar"),
+			Metadata: []IPMetadata{lbls},
+			IsCIDR:   true,
+		}),
+	))
+	assert.Nil(t, IPIdentityCache.metadata.getLocked(prefix))
+
+	//
+	// Test 2: Mix of CIDRs and FQDN
+	//
+	cidr := netip.MustParsePrefix("10.0.0.1/32")
+	cidrOverlapResource := types.NewResourceID(types.ResourceKindCNP, "default", "policy-fqdn-overlap")
+	fqdnNameManagerResource := types.NewResourceID(types.ResourceKindDaemon, "", "fqdn-name-manager")
+	assert.NoError(t, IPIdentityCache.WaitForRevision(
+		context.TODO(), IPIdentityCache.UpsertMetadataBatch(MU{
+			Prefix:   cidr,
+			Source:   source.Generated,
+			Resource: cidrOverlapResource,
+			Metadata: []IPMetadata{labels.GetCIDRLabels(cidr)},
+			IsCIDR:   true,
+		}),
+	))
+	assert.NoError(t, IPIdentityCache.WaitForRevision(
+		context.TODO(), IPIdentityCache.UpsertMetadataBatch(MU{
+			Prefix:   cidr,
+			Source:   source.Generated,
+			Resource: fqdnNameManagerResource,
+			Metadata: []IPMetadata{labels.NewLabelsFromSortedList("fqdn:foo.com")},
+			IsCIDR:   false,
+		}),
+	))
+	assert.Len(t, IPIdentityCache.metadata.m[cidr], 2)
+	// UpsertMetadataBatch() will change the resource by detecting that it is a
+	// CIDR.
+	assert.NotNil(t, IPIdentityCache.metadata.m[cidr][cidrResourceID])
+	assert.NotNil(t, IPIdentityCache.metadata.m[cidr][fqdnNameManagerResource])
+	assert.NoError(t, IPIdentityCache.WaitForRevision(
+		context.TODO(), IPIdentityCache.RemoveMetadataBatch(MU{
+			Prefix:   cidr,
+			Source:   source.Generated,
+			Resource: fqdnNameManagerResource,
+			Metadata: []IPMetadata{labels.NewLabelsFromSortedList("fqdn:foo.com")},
+			IsCIDR:   false,
+		}),
+	))
+	assert.Len(t, IPIdentityCache.metadata.m[cidr], 1)
+	assert.NotNil(t, IPIdentityCache.metadata.m[cidr][cidrResourceID])
+	assert.NoError(t, IPIdentityCache.WaitForRevision(
+		context.TODO(), IPIdentityCache.RemoveMetadataBatch(MU{
+			Prefix:   cidr,
+			Source:   source.Generated,
+			Resource: cidrOverlapResource,
+			Metadata: []IPMetadata{labels.GetCIDRLabels(cidr)},
+			IsCIDR:   true,
+		}),
+	))
+	assert.Nil(t, IPIdentityCache.metadata.getLocked(cidr))
+}
+
 func BenchmarkManyResources(b *testing.B) {
 	m := newMetadata()
 
@@ -1437,20 +1553,18 @@ func BenchmarkManyCIDREntries(b *testing.B) {
 
 // generateUniqueCIDRs generates a specified number of unique CIDRs.
 func generateUniqueCIDRs(n int) []netip.Prefix {
-	rand.Seed(time.Now().UnixNano())
-
 	unique := sets.New[netip.Prefix]()
 	for unique.Len() < n {
 		// Generate a random IP address
 		ip := net.IPv4(
-			byte(rand.Intn(256)),
-			byte(rand.Intn(256)),
-			byte(rand.Intn(256)),
-			byte(rand.Intn(256)),
+			byte(rand.IntN(256)),
+			byte(rand.IntN(256)),
+			byte(rand.IntN(256)),
+			byte(rand.IntN(256)),
 		)
 
 		// Generate a random subnet mask (between 16 and 31)
-		cidr := ip.String() + "/" + strconv.Itoa(rand.Intn(15)+17)
+		cidr := ip.String() + "/" + strconv.Itoa(rand.IntN(15)+17)
 		unique = unique.Insert(netip.MustParsePrefix(cidr))
 	}
 
