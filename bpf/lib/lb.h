@@ -1390,22 +1390,18 @@ static __always_inline int
 lb6_dnat_request(struct __ctx_buff *ctx, const struct lb6_backend *backend,
 		 int l3_off, fraginfo_t fraginfo, int l4_off,
 		 struct lb6_key *key, struct ipv6_ct_tuple *tuple,
-		 const struct ct_state *state __maybe_unused)
+		 bool loopback)
 {
 	union v6addr saddr = tuple->saddr;
 	union v6addr new_saddr = {};
 
-#ifdef USE_LOOPBACK_LB
-	if (state->loopback) {
+	if (loopback) {
 		union v6addr loopback_addr = CONFIG(service_loopback_ipv6);
 
 		ipv6_addr_copy(&new_saddr, &loopback_addr);
 	}
-#endif
 
-#ifdef USE_LOOPBACK_LB
-	if (!state->loopback)
-#endif
+	if (!loopback)
 		ipv6_addr_copy(&tuple->daddr, &backend->address);
 
 	if (likely(backend->port))
@@ -2111,19 +2107,15 @@ static __always_inline int
 lb4_dnat_request(struct __ctx_buff *ctx, const struct lb4_backend *backend,
 		 int l3_off, fraginfo_t fraginfo, int l4_off,
 		 struct lb4_key *key,  struct ipv4_ct_tuple *tuple,
-		 const struct ct_state *state __maybe_unused)
+		 bool loopback)
 {
 	__be32 saddr = tuple->saddr;
 	__be32 new_saddr = 0;
 
-#ifdef USE_LOOPBACK_LB
-	if (state->loopback)
+	if (loopback)
 		new_saddr = CONFIG(service_loopback_ipv4).be32;
-#endif
 
-#ifdef USE_LOOPBACK_LB
-	if (!state->loopback)
-#endif
+	if (!loopback)
 		tuple->daddr = backend->address;
 
 	/* CT tuple contains ports in reverse order: */
