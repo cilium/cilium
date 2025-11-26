@@ -216,14 +216,14 @@ func newVtepPolicyManager(p Params) (*Manager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			vtepApplier := make(chan *vtepDiffs)
+			ch := make(chan *vtepDiffs)
 
 			wg.Go(func() {
-				manager.processEvents(ctx, vtepApplier, p.Config.VtepPolicyReconciliationTriggerInterval)
+				manager.processEvents(ctx, ch, p.Config.VtepPolicyReconciliationTriggerInterval)
 			})
 
 			wg.Go(func() {
-				manager.reconcile(ctx, vtepApplier)
+				manager.reconcile(ctx, ch)
 			})
 
 			return nil
@@ -338,7 +338,7 @@ func (manager *Manager) onAddVtepPolicy(policy *Policy, diffs *vtepDiffs) error 
 	}
 
 	logger.Debug("CiliumVtepPolicy accepted for adding/updating")
-	diffs.policiesDiff[config.id] = config // TODO(informalict): Is 'config.id' correct?
+	diffs.policiesDiff[config.id] = config
 
 	return nil
 }
@@ -350,7 +350,7 @@ func (manager *Manager) onDeleteVtepPolicy(policy *Policy, diffs *vtepDiffs) {
 	logger := manager.logger.With(logfields.CiliumVtepPolicyName, configID.Name)
 	logger.Debug("CiliumVtepPolicy accepted for deletion")
 
-	diffs.policiesDiff[configID] = nil // TODO(informalict): Is 'config.id' correct?
+	diffs.policiesDiff[configID] = nil
 }
 
 func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint, diffs *vtepDiffs) error {
@@ -393,7 +393,7 @@ func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint, diffs 
 	)
 
 	logger.Debug("CiliumEndpoint accepted for deletion")
-	diffs.endpointsDiff[endpoint.UID] = nil // TODO(informalict): Is 'endpoint.UID' correct?
+	diffs.endpointsDiff[endpoint.UID] = nil
 }
 
 func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.CiliumEndpoint], diffs *vtepDiffs) {
