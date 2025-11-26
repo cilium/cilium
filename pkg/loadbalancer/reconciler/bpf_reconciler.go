@@ -818,7 +818,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	isRoutable := !svcKey.IsSurrogate() &&
 		(svcType != loadbalancer.SVCTypeClusterIP || ops.cfg.ExternalClusterIP)
 
-	forwardingMode := loadbalancer.ToSVCForwardingMode(ops.cfg.LBMode)
+	forwardingMode := loadbalancer.ToSVCForwardingMode(ops.cfg.LBMode, uint8(proto))
 	if ops.cfg.LBModeAnnotation && svc.ForwardingMode != loadbalancer.SVCForwardingModeUndef {
 		forwardingMode = svc.ForwardingMode
 	}
