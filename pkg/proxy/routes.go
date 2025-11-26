@@ -117,12 +117,25 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 	return nil
 }
 
+// requireFromProxyRoutes determines whether routes from the proxy are needed,
+// and selects the appropriate MTU to set on those routes.
+//
+// Conditions for proxy routes:
+//   - Native routing + Envoy: install only Ingress routes to handle reply packet of
+//     hair-pinning traffic in Ingress L7 proxy (i.e. backend is in the same node).
+//   - Native routing + IPSec: install Ingress+Egress routes for (a) the same reason
+//     as above, and also to account for XFRM overhead on proxy-to-proxy connections.
 func requireFromProxyRoutes(ipsecEnabled bool, mtuIn int) (fromIngressProxy, fromEgressProxy bool, mtu int) {
-	fromIngressProxy = (option.Config.EnableEnvoyConfig || ipsecEnabled) && !option.Config.TunnelingEnabled()
-	fromEgressProxy = ipsecEnabled && !option.Config.TunnelingEnabled()
-
-	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
-	if fromIngressProxy && fromEgressProxy {
+	if option.Config.TunnelingEnabled() {
+		return
+	}
+	if option.Config.EnableEnvoyConfig {
+		fromIngressProxy = true
+	}
+	switch {
+	case ipsecEnabled:
+		fromIngressProxy = true
+		fromEgressProxy = true
 		mtu = mtuIn
 	}
 	return
