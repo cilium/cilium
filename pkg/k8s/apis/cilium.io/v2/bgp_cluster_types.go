@@ -34,15 +34,18 @@ type CiliumBGPClusterConfig struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec defines the desired cluster configuration of the BGP control plane.
+	//
+	// +kubebuilder:validation:Required
 	Spec CiliumBGPClusterConfigSpec `json:"spec"`
 
 	// Status is a running status of the cluster configuration
 	//
 	// +kubebuilder:validation:Optional
-	Status CiliumBGPClusterConfigStatus `json:"status"`
+	Status CiliumBGPClusterConfigStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -155,7 +158,6 @@ type BGPAutoDiscovery struct {
 	// mode is the mode of the auto-discovery.
 	//
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=DefaultGateway
 	Mode BGPAutoDiscoveryMode `json:"mode"`
 
 	// defaultGateway is the configuration for auto-discovery of the default gateway.
@@ -169,6 +171,7 @@ type DefaultGateway struct {
 	// addressFamily is the address family of the default gateway.
 	//
 	// +kubebuilder:validation:Enum=ipv4;ipv6
+	// +kubebuilder:validation:Required
 	AddressFamily string `json:"addressFamily"`
 }
 
@@ -184,7 +187,7 @@ type PeerConfigReference struct {
 type CiliumBGPClusterConfigStatus struct {
 	// The current conditions of the CiliumBGPClusterConfig
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	// +listType=map
 	// +listMapKey=type
 	// +deepequal-gen=false
