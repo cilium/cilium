@@ -11,7 +11,6 @@ import (
 	"maps"
 	"net"
 	"net/http"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -22,15 +21,12 @@ import (
 	lnTypes "github.com/docker/libnetwork/types"
 	"github.com/gorilla/mux"
 	"github.com/spf13/afero"
-	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
@@ -420,41 +416,39 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	removeLinkOnErr := func(link netlink.Link) {
-		if err != nil && link != nil && !reflect.ValueOf(link).IsNil() {
-			if err := netlink.LinkDel(link); err != nil {
+	removeLinkOnErr := func(linkPair *connector.LinkPair) {
+		if err != nil && linkPair != nil {
+			if err := linkPair.Delete(); err != nil {
 				driver.logger.Warn(
 					"failed to clean up",
 					logfields.Error, err,
 					logfields.DatapathMode, driver.conf.DatapathMode,
-					logfields.Device, link.Attrs().Name,
 				)
 			}
 		}
 	}
 
-	switch driver.conf.DatapathMode {
-	case datapathOption.DatapathModeVeth:
-		linkConfig := datapath.LinkConfig{
-			GROIPv6MaxSize: int(driver.conf.GROMaxSize),
-			GSOIPv6MaxSize: int(driver.conf.GSOMaxSize),
-			GROIPv4MaxSize: int(driver.conf.GROIPV4MaxSize),
-			GSOIPv4MaxSize: int(driver.conf.GSOIPV4MaxSize),
-			DeviceMTU:      int(driver.conf.DeviceMTU),
-		}
-		var veth *netlink.Veth
-		var peer netlink.Link
-		veth, peer, _, err = connector.SetupVeth(driver.logger, create.EndpointID, linkConfig, sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"))
-		endpoint.Mac = peer.Attrs().HardwareAddr.String()
-		endpoint.HostMac = veth.Attrs().HardwareAddr.String()
-		endpoint.InterfaceIndex = int64(veth.Attrs().Index)
-		endpoint.InterfaceName = veth.Name
-		defer removeLinkOnErr(veth)
+	ctl := sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc")
+	linkConfig := datapath.LinkConfig{
+		EndpointID:     create.EndpointID,
+		GROIPv6MaxSize: int(driver.conf.GROMaxSize),
+		GSOIPv6MaxSize: int(driver.conf.GSOMaxSize),
+		GROIPv4MaxSize: int(driver.conf.GROIPV4MaxSize),
+		GSOIPv4MaxSize: int(driver.conf.GSOIPV4MaxSize),
+		DeviceMTU:      int(driver.conf.DeviceMTU),
 	}
+	linkMode := datapath.GetConnectorModeByName(string(driver.conf.DatapathMode))
+	linkPair, err := connector.NewLinkPair(driver.logger, linkMode, linkConfig, ctl)
 	if err != nil {
-		sendError(driver.logger, w, fmt.Sprintf("Error while setting up %s mode: %s", driver.conf.DatapathMode, err), http.StatusBadRequest)
-		return
+		sendError(driver.logger, w, fmt.Sprintf("Error setting up linkpair in %s mode: %s", driver.conf.DatapathMode, err), http.StatusBadRequest)
 	}
+
+	hostLinkAttrs := linkPair.GetHostLink().Attrs()
+	endpoint.Mac = linkPair.GetPeerLink().Attrs().HardwareAddr.String()
+	endpoint.HostMac = hostLinkAttrs.HardwareAddr.String()
+	endpoint.InterfaceIndex = int64(hostLinkAttrs.Index)
+	endpoint.InterfaceName = hostLinkAttrs.Name
+	defer removeLinkOnErr(linkPair)
 
 	// FIXME: Translate port mappings to RuleL4 policy elements
 
@@ -487,7 +481,6 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	var del api.DeleteEndpointRequest
-	var ifName string
 	if err := json.NewDecoder(r.Body).Decode(&del); err != nil {
 		sendError(driver.logger, w, "Could not decode JSON encode payload", http.StatusBadRequest)
 		return
@@ -497,12 +490,10 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 		logfields.Response, del,
 	)
 
-	switch driver.conf.DatapathMode {
-	case datapathOption.DatapathModeVeth:
-		ifName = connector.Endpoint2IfName(del.EndpointID)
+	linkConfig := datapath.LinkConfig{
+		EndpointID: del.EndpointID,
 	}
-
-	if err := link.DeleteByName(ifName); err != nil {
+	if err := connector.DeleteLinkPair(linkConfig); err != nil {
 		driver.logger.Warn("Error while deleting link", logfields.Error, err)
 	}
 
