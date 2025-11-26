@@ -1415,49 +1415,6 @@ lb6_dnat_request(struct __ctx_buff *ctx, const struct lb6_backend *backend,
 			 backend, ipfrag_has_l4_header(fraginfo));
 }
 
-/* lb6_ctx_store_state() stores per packet load balancing state to be picked
- * up on the continuation tail call.
- * Note that the IP headers are already xlated and the tuple is re-initialized
- * from the xlated headers before restoring state.
- * NOTE: if lb_skip_l4_dnat() this is not the case as xlate is skipped. We
- * lose the updated tuple daddr in that case.
- */
-static __always_inline void lb6_ctx_store_state(struct __ctx_buff *ctx,
-						const struct ct_state *state,
-					       __u16 proxy_port)
-{
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
-#ifdef USE_LOOPBACK_LB
-		state->loopback);
-#else
-		0);
-#endif /* USE_LOOPBACK_LB */
-}
-
-/* lb6_ctx_restore_state() restores per packet load balancing state from the
- * previous tail call.
- * tuple->flags does not need to be restored, as it will be reinitialized from
- * the packet.
- */
-static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
-						  struct ct_state *state,
-						 __u16 *proxy_port,
-						 bool clear)
-{
-	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
-				       ctx_load_meta(ctx, CB_CT_STATE);
-
-#ifdef USE_LOOPBACK_LB
-	if (meta & 1)
-		state->loopback = 1;
-#endif
-	state->rev_nat_index = meta >> 16;
-
-	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
-			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
-}
-
 #else
 
 /* Stubs for v4-in-v6 socket cgroup hook case when only v4 is enabled to avoid
@@ -2176,54 +2133,6 @@ lb4_dnat_request(struct __ctx_buff *ctx, const struct lb4_backend *backend,
 	return lb4_xlate(ctx, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, key,
 			 backend, ipfrag_has_l4_header(fraginfo));
-}
-
-/* lb4_ctx_store_state() stores per packet load balancing state to be picked
- * up on the continuation tail call.
- * Note that the IP headers are already xlated and the tuple is re-initialized
- * from the xlated headers before restoring state.
- * NOTE: if lb_skip_l4_dnat() this is not the case as xlate is skipped. We
- * lose the updated tuple daddr in that case.
- */
-static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
-						const struct ct_state *state,
-					       __u16 proxy_port, __u32 cluster_id)
-{
-	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
-#ifdef USE_LOOPBACK_LB
-		       state->loopback);
-#else
-		       0);
-#endif
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
-}
-
-/* lb4_ctx_restore_state() restores per packet load balancing state from the
- * previous tail call.
- * tuple->flags does not need to be restored, as it will be reinitialized from
- * the packet.
- */
-static __always_inline void
-lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
-		       __u16 *proxy_port, __u32 *cluster_id __maybe_unused,
-		       bool clear)
-{
-	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
-			     ctx_load_meta(ctx, CB_CT_STATE);
-#ifdef USE_LOOPBACK_LB
-	if (meta & 1)
-		state->loopback = 1;
-#endif
-	state->rev_nat_index = meta >> 16;
-
-	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
-			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
-
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	*cluster_id = clear ? ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS) :
-			      ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-#endif
 }
 
 /* Because we use tail calls and this file is included in bpf_sock.h */
