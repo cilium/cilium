@@ -1413,7 +1413,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 
 	ret = lb6_dnat_request(ctx, backend, l3_off, fraginfo, l4_off,
-			       key, tuple, &ct_state_svc);
+			       key, tuple, false);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -2789,7 +2789,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 
 		ret = lb4_dnat_request(ctx, backend, l3_off, fraginfo, l4_off,
-				       key, tuple, &ct_state_svc);
+				       key, tuple, false);
 	}
 
 	if (IS_ERR(ret))
