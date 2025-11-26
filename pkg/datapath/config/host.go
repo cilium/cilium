@@ -11,7 +11,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -33,8 +32,7 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	cfg.HostEPID = uint16(lnc.HostEndpointID)
-	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
-		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
 	if lnc.EnableWireguard {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
@@ -74,8 +72,7 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
-	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
-		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfIndex = uint32(ifindex)
@@ -135,8 +132,7 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.HostEPID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
-	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
-		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
 	if lnc.EnableWireguard {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
