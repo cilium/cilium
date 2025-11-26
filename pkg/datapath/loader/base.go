@@ -505,7 +505,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	// Reinstall proxy rules for any running proxies if needed
-	if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU, lnc.EnableIPSec); err != nil {
+	if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU, lnc.EnableIPSec, lnc.EnableWireguard); err != nil {
 		return err
 	}
 
