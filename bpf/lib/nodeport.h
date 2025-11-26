@@ -104,18 +104,11 @@ struct dsr_opt_v4 {
 #define DSR_IPV6_OPT_LEN	(sizeof(struct dsr_opt_v6) - 4)
 #define DSR_IPV6_EXT_LEN	((sizeof(struct dsr_opt_v6) - 8) / 8)
 
-static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused,
-					      __u8 nexthdr __maybe_unused)
+static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused)
 {
 #ifdef ENABLE_DSR
-# ifdef ENABLE_DSR_HYBRID
-#  ifdef ENABLE_DSR_BYUSER
+# ifdef ENABLE_DSR_BYUSER
 	return flip;
-#  else
-	if (nexthdr == IPPROTO_TCP)
-		return true;
-	return false;
-#  endif
 # else
 	return true;
 # endif
@@ -238,20 +231,17 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 }
 
 #ifdef ENABLE_IPV6
-static __always_inline bool nodeport_uses_dsr6(const struct lb6_service *svc,
-					       const struct ipv6_ct_tuple *tuple)
+static __always_inline bool nodeport_uses_dsr6(const struct lb6_service *svc)
 {
-	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_DSR,
-				 tuple->nexthdr);
+	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_DSR);
 }
 
-static __always_inline bool nodeport_xlate6(const struct lb6_service *svc,
-					    const struct ipv6_ct_tuple *tuple)
+static __always_inline bool nodeport_xlate6(const struct lb6_service *svc)
 {
 	bool skip_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 
 	if (skip_xlate)
-		skip_xlate = nodeport_uses_dsr6(svc, tuple);
+		skip_xlate = nodeport_uses_dsr6(svc);
 	return skip_xlate;
 }
 
@@ -1159,7 +1149,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
+#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
     (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
 # if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
@@ -1409,7 +1399,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		return CTX_ACT_OK;
 	}
 
-	if (nodeport_xlate6(svc, tuple))
+	if (nodeport_xlate6(svc))
 		return CTX_ACT_OK;
 
 	ret = lb6_dnat_request(ctx, backend, l3_off, fraginfo, l4_off,
@@ -1420,7 +1410,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	backend_local = __lookup_ip6_endpoint(&tuple->daddr);
 	if (!backend_local && lb6_svc_is_hostport(svc))
 		return DROP_INVALID;
-	if (backend_local || !nodeport_uses_dsr6(svc, tuple)) {
+	if (backend_local || !nodeport_uses_dsr6(svc)) {
 		struct ct_state ct_state = {};
 
 		/* lookup with SCOPE_FORWARD: */
@@ -1466,7 +1456,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 
 	/* TX request to remote backend: */
 	edt_set_aggregate(ctx, 0);
-	if (nodeport_uses_dsr6(svc, tuple)) {
+	if (nodeport_uses_dsr6(svc)) {
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 		ctx_store_meta(ctx, CB_HINT,
 			       ((__u32)tuple->sport << 16) | tuple->dport);
@@ -1581,20 +1571,17 @@ skip_service_lookup:
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline bool nodeport_uses_dsr4(const struct lb4_service *svc,
-					       const struct ipv4_ct_tuple *tuple)
+static __always_inline bool nodeport_uses_dsr4(const struct lb4_service *svc)
 {
-	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_DSR,
-				 tuple->nexthdr);
+	return nodeport_uses_dsr(svc->flags2 & SVC_FLAG_FWD_MODE_DSR);
 }
 
-static __always_inline bool nodeport_xlate4(const struct lb4_service *svc,
-					    const struct ipv4_ct_tuple *tuple)
+static __always_inline bool nodeport_xlate4(const struct lb4_service *svc)
 {
 	bool skip_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 
 	if (skip_xlate)
-		skip_xlate = nodeport_uses_dsr4(svc, tuple);
+		skip_xlate = nodeport_uses_dsr4(svc);
 	return skip_xlate;
 }
 
@@ -2500,7 +2487,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Otherwise, we would have tail-called back to
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
+#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
     (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&						\
      (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
 
@@ -2785,7 +2772,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 		}
 
-		if (nodeport_xlate4(svc, tuple))
+		if (nodeport_xlate4(svc))
 			return CTX_ACT_OK;
 
 		ret = lb4_dnat_request(ctx, backend, l3_off, fraginfo, l4_off,
@@ -2801,7 +2788,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	/* Reply from DSR packet is never seen on this node again
 	 * hence no need to track in here.
 	 */
-	if (backend_local || !nodeport_uses_dsr4(svc, tuple)) {
+	if (backend_local || !nodeport_uses_dsr4(svc)) {
 		struct ct_state ct_state = {};
 
 #if (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
@@ -2864,7 +2851,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 	/* TX request to remote backend: */
 	edt_set_aggregate(ctx, 0);
-	if (nodeport_uses_dsr4(svc, tuple)) {
+	if (nodeport_uses_dsr4(svc)) {
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 		ctx_store_meta(ctx, CB_HINT,
 			       ((__u32)tuple->sport << 16) | tuple->dport);
