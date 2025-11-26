@@ -47,12 +47,7 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 		return fmt.Errorf("failed to retrieve local node: %w", err)
 	}
 
-	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes(ipsecEnabled)
-
-	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
-	if !fromIngressProxy || !fromEgressProxy {
-		mtu = 0
-	}
+	fromIngressProxy, fromEgressProxy, mtu := requireFromProxyRoutes(ipsecEnabled, mtu)
 
 	rxn := p.db.ReadTxn()
 	hostDevice, _, hostDeviceFound := p.devices.Get(rxn, tables.DeviceNameIndex.Query(defaults.HostDevice))
@@ -122,9 +117,14 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 	return nil
 }
 
-func requireFromProxyRoutes(ipsecEnabled bool) (fromIngressProxy, fromEgressProxy bool) {
+func requireFromProxyRoutes(ipsecEnabled bool, mtuIn int) (fromIngressProxy, fromEgressProxy bool, mtu int) {
 	fromIngressProxy = (option.Config.EnableEnvoyConfig || ipsecEnabled) && !option.Config.TunnelingEnabled()
 	fromEgressProxy = ipsecEnabled && !option.Config.TunnelingEnabled()
+
+	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
+	if fromIngressProxy && fromEgressProxy {
+		mtu = mtuIn
+	}
 	return
 }
 
