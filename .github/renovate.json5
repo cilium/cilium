@@ -58,7 +58,8 @@
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
     "install/kubernetes/Makefile.values",
-    "test/k8s/manifests/netpol-cyclonus"
+    "test/k8s/manifests/netpol-cyclonus",
+    ".custom-gcl.yaml",
   ],
   "schedule": [
     "on sunday"
@@ -1002,6 +1003,14 @@
       "datasourceTemplate": "github-runners",
       "depNameTemplate": "ubuntu",
       "packageNameTemplate": "ubuntu"
-    }
+    },
+    {
+      "fileMatch": [
+        "^\\.custom-gcl\\.yaml$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+version:\\s+'?(?<currentValue>[^'\"\\s]+)'?"
+      ]
+    },
   ]
 }

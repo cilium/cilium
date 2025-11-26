@@ -238,6 +238,7 @@
 /CHANGELOG.md @cilium/release-managers
 /.authors.aux @cilium/contributing
 /.clomonitor.yml @cilium/contributing
+/.custom-gcl.yaml @cilium/ci-structure
 /.devcontainer @cilium/ci-structure
 /.gitattributes @cilium/contributing
 /.github/ @cilium/github-sec @cilium/ci-structure
