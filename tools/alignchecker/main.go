@@ -21,7 +21,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Cannot check alignment against %s: %s\n", bpfObjPath, err)
 		os.Exit(1)
 	}
-	datapathchecker.RegisterLbStructsToCheck(false)
 	if err := datapathchecker.CheckStructAlignments(bpfObjPath); err != nil {
 		fmt.Fprintf(os.Stderr, "C and Go structs alignment check in datapath failed: %s\n", err)
 		os.Exit(1)
