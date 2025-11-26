@@ -21,14 +21,17 @@ type CiliumBGPNodeConfig struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the specification of the desired behavior of the CiliumBGPNodeConfig.
+	//
+	// +kubebuilder:validation:Required
 	Spec CiliumBGPNodeSpec `json:"spec"`
 
 	// Status is the most recently observed status of the CiliumBGPNodeConfig.
 	// +kubebuilder:validation:Optional
-	Status CiliumBGPNodeStatus `json:"status"`
+	Status CiliumBGPNodeStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -149,7 +152,7 @@ type CiliumBGPNodeStatus struct {
 
 	// The current conditions of the CiliumBGPNodeConfig
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	// +listType=map
 	// +listMapKey=type
 	// +deepequal-gen=false

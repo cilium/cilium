@@ -27,6 +27,7 @@ type CiliumLoadBalancerIPPool struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is a human readable description for a BGP load balancer
@@ -43,7 +44,7 @@ type CiliumLoadBalancerIPPool struct {
 	//
 	// +deepequal-gen=false
 	// +kubebuilder:validation:Optional
-	Status CiliumLoadBalancerIPPoolStatus `json:"status"`
+	Status CiliumLoadBalancerIPPoolStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -68,7 +69,7 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	// ServiceSelector selects a set of services which are eligible to receive IPs from this
 	//
 	// +kubebuilder:validation:Optional
-	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector"`
+	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector,omitempty"`
 	// AllowFirstLastIPs, if set to `Yes` or undefined means that the first and last IPs of each CIDR will be allocatable.
 	// If `No`, these IPs will be reserved. This field is ignored for /{31,32} and /{127,128} CIDRs since
 	// reserving the first and last IPs would make the CIDRs unusable.
@@ -84,7 +85,7 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	Disabled bool `json:"disabled"`
+	Disabled bool `json:"disabled,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=Yes;No
@@ -97,9 +98,8 @@ const (
 
 // CiliumLoadBalancerIPPoolIPBlock describes a single IP block.
 type CiliumLoadBalancerIPPoolIPBlock struct {
-	// +kubebuilder:validation:Format=cidr
 	// +kubebuilder:validation:Optional
-	Cidr IPv4orIPv6CIDR `json:"cidr"`
+	Cidr IPv4orIPv6CIDR `json:"cidr,omitempty"`
 	// +kubebuilder:validation:Optional
 	Start string `json:"start,omitempty"`
 	// +kubebuilder:validation:Optional
@@ -111,7 +111,7 @@ type CiliumLoadBalancerIPPoolIPBlock struct {
 // CiliumLoadBalancerIPPoolStatus contains the status of a CiliumLoadBalancerIPPool.
 type CiliumLoadBalancerIPPoolStatus struct {
 	// Current service state
-	// +optional
+	// +kubebuilder:validation:Optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +listType=map
