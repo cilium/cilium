@@ -31,7 +31,7 @@ const (
 const TraceSockNotifyFlagIPv6 uint8 = 0x1
 
 const (
-	TraceSockNotifyLen = 38
+	TraceSockNotifyLen = 40
 )
 
 // TraceSockNotify is message format for socket trace notifications sent from datapath.
@@ -42,12 +42,13 @@ type TraceSockNotify struct {
 
 	Type       uint8
 	XlatePoint uint8
-	DstIP      types.IPv6
-	DstPort    uint16
-	SockCookie uint64
-	CgroupId   uint64
 	L4Proto    uint8
 	Flags      uint8
+	DstPort    uint16
+	_          uint16
+	SockCookie uint64
+	CgroupId   uint64
+	DstIP      types.IPv6
 }
 
 // Dump prints the message according to the verbosity level specified
@@ -68,12 +69,12 @@ func (t *TraceSockNotify) Decode(data []byte) error {
 
 	t.Type = data[0]
 	t.XlatePoint = data[1]
-	copy(t.DstIP[:], data[2:18])
-	t.DstPort = byteorder.Native.Uint16(data[18:20])
-	t.SockCookie = byteorder.Native.Uint64(data[20:28])
-	t.CgroupId = byteorder.Native.Uint64(data[28:36])
-	t.L4Proto = data[36]
-	t.Flags = data[37]
+	t.L4Proto = data[2]
+	t.Flags = data[3]
+	t.DstPort = byteorder.Native.Uint16(data[4:6])
+	t.SockCookie = byteorder.Native.Uint64(data[8:16])
+	t.CgroupId = byteorder.Native.Uint64(data[16:24])
+	copy(t.DstIP[:], data[24:40])
 
 	return nil
 }
