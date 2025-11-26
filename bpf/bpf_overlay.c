@@ -162,6 +162,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
+	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
 	if (1) {
 		union macaddr host_mac = CILIUM_HOST_MAC;
 		union macaddr router_mac = CONFIG(interface_mac);
