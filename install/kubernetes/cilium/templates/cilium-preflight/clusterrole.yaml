@@ -153,6 +153,30 @@ rules:
   - ciliumbgpnodeconfigs/status
   verbs:
   - patch
+- apiGroups:
+  - resource.k8s.io
+  resources:
+  - resourceslices
+  verbs:
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
+  - resource.k8s.io
+  resources:
+  - resourceclaims
+  - deviceclasses
+  verbs:
+  - get
+- apiGroups:
+  - resource.k8s.io
+  resources:
+  - resourceclaims/status
+  verbs:
+  - patch
+  - update
 {{- if .Values.k8sClusterNetworkPolicy.enabled }}
 - apiGroups:
   - policy.networking.k8s.io
