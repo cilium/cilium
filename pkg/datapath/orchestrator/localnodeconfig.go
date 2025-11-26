@@ -151,6 +151,7 @@ func newLocalNodeConfig(
 		SvcRouteConfig:               svcCfg,
 		MaglevConfig:                 maglevConfig,
 		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
+		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 	}, common.MergeChannels(watchChans...), nil
 }
 

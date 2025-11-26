@@ -7,7 +7,6 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -43,8 +42,7 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 	cfg.HostEPID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
-	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
-		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+	cfg.EnableNetkit = lnc.DatapathIsNetkit
 
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
