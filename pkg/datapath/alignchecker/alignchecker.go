@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/vtep"
+	"github.com/cilium/cilium/pkg/monitor"
 )
 
 var (
@@ -125,6 +126,12 @@ func init() {
 		"ratelimit_value":         {ratelimitmap.Value{}},
 		"ratelimit_metrics_key":   {ratelimitmap.MetricsKey{}},
 		"ratelimit_metrics_value": {ratelimitmap.MetricsValue{}},
+		"trace_notify":            {monitor.TraceNotify{}},
+		"drop_notify":             {monitor.DropNotify{}},
+		"debug_msg":               {monitor.DebugMsg{}},
+		"debug_capture_msg":       {monitor.DebugCapture{}},
+		"policy_verdict_notify":   {monitor.PolicyVerdictNotify{}},
+		"trace_sock_notify":       {monitor.TraceSockNotify{}},
 	})
 
 	registerToCheckSizes(map[string][]any{
