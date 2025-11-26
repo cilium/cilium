@@ -67,14 +67,15 @@ struct ip {
 struct trace_sock_notify {
 	__u8 type;
 	__u8 xlate_point;
-	struct ip dst_ip;
-	__u16 dst_port;
-	__u64 sock_cookie;
-	__u64 cgroup_id;
 	__u8 l4_proto;
 	__u8 ipv6 : 1;
 	__u8 pad : 7;
-} __packed;
+	__u16 dst_port;
+	__u16 pad2;
+	__u64 sock_cookie;
+	__u64 cgroup_id;
+	struct ip dst_ip;
+};
 
 #ifdef TRACE_SOCK_NOTIFY
 static __always_inline enum l4_protocol
