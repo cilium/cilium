@@ -172,6 +172,10 @@ type LocalNodeConfiguration struct {
 	// connector to Pods on this node operate at Layer 2.
 	DatapathIsLayer2 bool
 
+	// DatapathIsNetkit holds the configuration for whether the underlying
+	// connector to pods on this node is Netkit or not.
+	DatapathIsNetkit bool
+
 	// EnableWireguard is used to check if we need to attach to the native
 	// device and to cilium_wg0.
 	EnableWireguard bool
