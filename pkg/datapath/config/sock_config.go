@@ -13,10 +13,12 @@ type BPFSock struct {
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+	// The number of times jiffies is incremented in one second.
+	KernelHz uint32 `config:"kernel_hz"`
 
 	Node
 }
 
 func NewBPFSock(node Node) *BPFSock {
-	return &BPFSock{false, false, node}
+	return &BPFSock{false, false, 0xfa, node}
 }

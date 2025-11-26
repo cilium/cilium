@@ -5,6 +5,10 @@
 
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
+#include <lib/static_data.h>
+
+DECLARE_CONFIG(__u32, kernel_hz, "The number of times jiffies is incremented in one second.")
+ASSIGN_CONFIG(__u32, kernel_hz, 250)
 
 #define NSEC_PER_SEC	(1000ULL * 1000ULL * 1000UL)
 #define NSEC_PER_MSEC	(1000ULL * 1000ULL)
@@ -21,7 +25,14 @@
 	({ __u64 __x = ktime_get_ns(); __x; })
 
 /* Jiffies */
-#define bpf_jiffies_to_sec(j)	\
-	({ __u64 __x = (j) / KERNEL_HZ; __x; })
-#define bpf_sec_to_jiffies(s)	\
-	({ __u64 __x = (s) * KERNEL_HZ; __x; })
+static __always_inline __u64 bpf_jiffies_to_sec(__u64 j)
+{
+	__u64 __x = j / CONFIG(kernel_hz);
+	return __x;
+}
+
+static __always_inline __u64 bpf_sec_to_jiffies(__u64 s)
+{
+	__u64 __x = s * CONFIG(kernel_hz);
+	return __x;
+}

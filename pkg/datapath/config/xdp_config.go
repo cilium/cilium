@@ -22,6 +22,8 @@ type BPFXDP struct {
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
+	// The number of times jiffies is incremented in one second.
+	KernelHz uint32 `config:"kernel_hz"`
 	// Masquerade address for IPv4 traffic.
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
@@ -32,7 +34,7 @@ type BPFXDP struct {
 
 func NewBPFXDP(node Node) *BPFXDP {
 	return &BPFXDP{0x5dc, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		[4]byte{0x0, 0x0, 0x0, 0x0},
+		0xfa, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		node}
 }
