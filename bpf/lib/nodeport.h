@@ -2760,7 +2760,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 		ret = lb4_local(get_ct_map4(tuple), ctx, fraginfo, l4_off,
 				key, tuple, svc, &ct_state_svc, &backend,
-				&cluster_id, ext_err);
+				ext_err);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
 				if (!CONFIG(enable_no_service_endpoints_routable))
@@ -2787,6 +2787,10 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 
 		if (nodeport_xlate4(svc, tuple))
 			return CTX_ACT_OK;
+
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+		cluster_id = backend->cluster_id;
+#endif
 
 		ret = lb4_dnat_request(ctx, backend, l3_off, fraginfo, l4_off,
 				       key, tuple, false);
