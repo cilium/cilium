@@ -348,6 +348,7 @@ communicating via the proxy must reconnect to re-establish connections.
   to the existing ClusterMesh secrets or set ``clustermesh.apiserver.tls.authMode=legacy``.
   If you have a different configuration, you are not expected to take any action and the
   transition to ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
+* The Socket LB tracing message format has been updated, you might briefly see parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
 
 Removed Options
 ~~~~~~~~~~~~~~~
