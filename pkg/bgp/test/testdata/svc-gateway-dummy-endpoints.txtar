@@ -1,0 +1,152 @@
+#! --test-peering-ips=10.99.5.101,10.99.5.102
+
+# Tests Gateway API / Ingress services with dummy endpoints (no NodeName).
+# These services should be advertised via BGP even with externalTrafficPolicy: Local
+# because traffic is handled by Envoy, not the dummy endpoint.
+
+# Start the hive
+hive start
+
+# Configure gobgp server
+gobgp/add-server test 65010 10.99.5.101 1790
+
+# Configure peers on GoBGP
+gobgp/add-peer 10.99.5.102 65001
+
+# Add Gateway service (without endpoints yet)
+k8s/add service-gateway.yaml
+
+# Configure BGP on Cilium
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.5.102 ESTABLISHED
+
+# Add dummy endpoint (no NodeName) - this should NOT prevent advertisement
+k8s/add endpoints-dummy.yaml
+
+# Validate that LoadBalancer IP is advertised with eTP=Local and dummy endpoints
+# (because the service has Gateway API label, indicating Envoy-backed service)
+gobgp/routes -o routes.actual
+* cmp gobgp-routes-gateway.expected routes.actual
+
+#####
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.5.102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.1.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    name: tor-65001
+    peers:
+    - name: gobgp-peer-1
+      peerASN: 65010
+      peerAddress: 10.99.5.101
+      localAddress: 10.99.5.102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-only
+  labels:
+    advertise: bgp
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+        - LoadBalancerIP
+    selector:
+      matchExpressions:
+        - { key: io.cilium/gateway-api, operator: In, values: [ "true" ] }
+
+-- service-gateway.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: cilium-gateway-my-gateway
+  namespace: default
+  labels:
+    io.cilium/gateway-api: "true"
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  clusterIP: 10.96.100.1
+  clusterIPs:
+  - 10.96.100.1
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    io.cilium/gateway-owning-gateway: my-gateway
+  sessionAffinity: None
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.18.255.200
+
+-- endpoints-dummy.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: cilium-gateway-my-gateway
+  name: cilium-gateway-my-gateway-dummy
+  namespace: default
+addressType: IPv4
+endpoints:
+- addresses:
+  - 192.192.192.192
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+ports:
+- name: http
+  port: 9999
+  protocol: TCP
+
+-- gobgp-routes-gateway.expected --
+Prefix              NextHop       Attrs
+172.18.255.200/32   10.99.5.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.5.102}]
