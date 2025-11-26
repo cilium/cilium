@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -37,11 +36,6 @@ type PolicyConfig struct {
 
 	matchedEndpoints map[endpointID]*endpointMetadata
 	vtepConfig       vtepConfig
-}
-
-type policyConfigEvent struct {
-	*PolicyConfig
-	resource.EventKind
 }
 
 // PolicyID includes policy name and namespace

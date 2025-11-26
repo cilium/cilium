@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
@@ -25,11 +24,6 @@ type endpointMetadata struct {
 	ips []netip.Addr
 	// nodeIP is the IP of the node the endpoint is on
 	nodeIP string
-}
-
-type endpointMetadataEvent struct {
-	*endpointMetadata
-	resource.EventKind
 }
 
 // endpointID is based on endpoint's UID

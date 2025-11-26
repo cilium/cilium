@@ -77,75 +77,92 @@ type Manager struct {
 
 	// policyMap4 communicates the active IPv4 policies to the datapath.
 	policyMap *vtep_policy.VtepPolicyMap
-
-	// chEndpoint is used to trigger reconciliation for endpoint changes.
-	chEndpoint chan endpointMetadataEvent
-
-	// chPolicy is used to trigger reconciliation for policy changes.
-	chPolicy chan policyConfigEvent
 }
 
-// reconcile waits for the policy and endpoint resources to be synced, and then runs the reconciliation
-// for each policy or endpoint change.
+// vtepDiffs stores deduplicated events diff from events.
+type vtepDiffs struct {
+	// endpointsDiff stores deduplicated endpoints diff from events.
+	endpointsDiff map[endpointID]*endpointMetadata
+	// policiesDiff stores deduplicated policies diff from events.
+	policiesDiff map[policyID]*PolicyConfig
+	// policySync is set to true when policy sync event arrived.
+	policySync bool
+	// endpointSync is set to true when endpoint sync event arrived.
+	endpointSync bool
+}
+
+func newVtepDiffs() *vtepDiffs {
+	return &vtepDiffs{
+		endpointsDiff: make(map[endpointID]*endpointMetadata),
+		policiesDiff:  make(map[policyID]*PolicyConfig),
+	}
+}
+
+// reconcile waits for the policy and endpoint changes, and then runs the reconciliation for them.
 // It reconciles the desired state by updating the internal cache for policies and endpoints.
 // It tries to reconcile the desired state by updating the vteppolicy bpf map entries.
-func (manager *Manager) reconcile(ctx context.Context, minInterval time.Duration) {
-	var policySync, endpointSync bool
+func (manager *Manager) reconcile(ctx context.Context, ch <-chan *vtepDiffs) {
 	// epDataStore stores desired endpointId to endpoint metadata mapping.
 	epDataStore := make(map[endpointID]*endpointMetadata)
 	// policyConfigs stores desired policy configs indexed by policyID.
 	policyConfigs := make(map[policyID]*PolicyConfig)
-	minDur := NewMinDuration(minInterval)
 	reasons := make(map[string]uint32)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-minDur.GetChannel():
-			// For nil channel it will never be fired.
-			reasons["minimum interval"]++
-		case event := <-manager.chEndpoint:
-			if updateEndpointsCache(event, epDataStore, reasons) {
-				endpointSync = true
+		case d := <-ch:
+			// Apply endpoints' diff.
+			for id, endpoint := range d.endpointsDiff {
+				if endpoint == nil {
+					delete(epDataStore, id)
+					reasons["policy deleted"]++
+				} else {
+					if _, ok := epDataStore[endpoint.id]; ok {
+						reasons["endpoint updated"]++
+					} else {
+						reasons["endpoint added"]++
+					}
+					epDataStore[endpoint.id] = endpoint
+				}
 			}
-		case event := <-manager.chPolicy:
-			if updatePoliciesCache(event, policyConfigs, epDataStore, reasons) {
-				policySync = true
+
+			// Apply policies' diff.
+			for id, policy := range d.policiesDiff {
+				if policy == nil {
+					if _, ok := policyConfigs[policy.id]; ok {
+						delete(policyConfigs, id)
+						reasons["policy deleted"]++
+					} else {
+						manager.logger.Warn("Can't delete CiliumVtepPolicy: policy not found")
+					}
+				} else {
+					if _, ok := policyConfigs[policy.id]; ok {
+						reasons["policy updated"]++
+					} else {
+						reasons["policy added"]++
+					}
+					policyConfigs[policy.id] = policy
+				}
 			}
+
+			if !d.policySync || !d.endpointSync {
+				manager.logger.Debug("reconciliation skips, not in sync", logfields.Reason, reasons)
+				continue
+			}
+
+			manager.logger.Debug("reconciliation starts", logfields.Reason, reasons)
+			reasons = make(map[string]uint32)
+
+			for _, policy := range policyConfigs {
+				policy.updateMatchedEndpointIDs(epDataStore)
+			}
+
+			manager.updateVtepRules(policyConfigs)
+
+			manager.reconciliationEventsCount.Add(1)
 		}
-
-		if !policySync || !endpointSync {
-			// Wait until the required resources are synced.
-			continue
-		}
-
-		if !minDur.Check() {
-			// Go to the above loop and wait until the required duration has passed.
-			// When it waits for the required duration, it can be woken up by the policy or endpoint channel.
-			// Thanks to this approach, it is possible to collect more events (without blocking channels), or
-			// react on cancellation of the context.
-			continue
-		}
-
-		manager.logger.Info("reconciliation starts", logfields.Reason, reasons)
-		reasons = make(map[string]uint32)
-
-		// TODO(informalict):
-		// - here we could launch the below logic in separate goroutines, if we copied policyConfigs and epDataStore.
-		//   Thanks to that the above `select` could apply new changes in the meantime, so event's listener will not hang.
-		// - The below loop could be avoided, if policyConfigs are inlined with `epDataStore`
-		//   (so when epDataStore changes, or policy is updated).
-
-		// Apply endpoints to cached policies.
-		for _, policy := range policyConfigs {
-			policy.updateMatchedEndpointIDs(epDataStore)
-		}
-
-		manager.updateVtepRules(policyConfigs)
-
-		minDur.SetLastCheck()
-		manager.reconciliationEventsCount.Add(1)
 	}
 }
 
@@ -192,8 +209,6 @@ func newVtepPolicyManager(p Params) (*Manager, error) {
 		policies:          p.Policies,
 		policyMap:         p.PolicyMap,
 		endpoints:         p.Endpoints,
-		chEndpoint:        make(chan endpointMetadataEvent),
-		chPolicy:          make(chan policyConfigEvent),
 	}
 
 	var wg sync.WaitGroup
@@ -201,12 +216,14 @@ func newVtepPolicyManager(p Params) (*Manager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
+			vtepApplier := make(chan *vtepDiffs)
+
 			wg.Go(func() {
-				manager.processEvents(ctx)
+				manager.processEvents(ctx, vtepApplier, p.Config.VtepPolicyReconciliationTriggerInterval)
 			})
 
 			wg.Go(func() {
-				manager.reconcile(ctx, p.Config.VtepPolicyReconciliationTriggerInterval)
+				manager.reconcile(ctx, vtepApplier)
 			})
 
 			return nil
@@ -236,9 +253,9 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 	return identity.Labels, nil
 }
 
-// processEvents spawns a goroutine that waits for the agent to
-// sync with k8s and then runs the first reconciliation.
-func (manager *Manager) processEvents(ctx context.Context) {
+// processEvents collects policy and endpoint events from K8S and sends them to the reconciler periodically.
+// It also waits for the required duration between events to avoid excessive reconciliation.
+func (manager *Manager) processEvents(ctx context.Context, ch chan<- *vtepDiffs, minInterval time.Duration) {
 	// here we try to mimic the same exponential backoff retry logic used by
 	// the identity allocator, where the minimum retry timeout is set to 20
 	// milliseconds and the max number of attempts is 16 (so 20ms * 2^16 ==
@@ -251,28 +268,58 @@ func (manager *Manager) processEvents(ctx context.Context) {
 	policyEvents := manager.policies.Events(ctx)
 	endpointEvents := manager.endpoints.Events(ctx, resource.WithRateLimiter(endpointsRateLimit))
 
+	diffs := newVtepDiffs()
+	minDur := NewMinDuration(minInterval)
+	var r *retry
+
 	for {
 		select {
 		case <-ctx.Done():
+			r.Stop()
 			return
+		case <-r.GetChannel():
+		case <-minDur.GetChannel():
+			// For nil channel it will never be fired.
 		case event := <-policyEvents:
-			manager.handlePolicyEvent(event)
+			manager.handlePolicyEvent(event, diffs)
 		case event := <-endpointEvents:
-			manager.handleEndpointEvent(event)
+			manager.handleEndpointEvent(event, diffs)
+		}
+
+		r.Stop()
+		r = nil
+
+		if !minDur.Check() {
+			// Go to the above loop and wait until the required duration has passed.
+			// When it waits for the required duration, it can be woken up by the policy or endpoint channel.
+			// Thanks to this approach, it is possible to collect more events (without blocking channels), or
+			// react on cancellation of the context.
+			continue
+		}
+
+		select {
+		case ch <- diffs:
+			// It was sent successfully to the applier, so now collect next events.
+			diffs = newVtepDiffs()
+			minDur.SetLastCheck()
+		default:
+			// Reconciliation is in progress, so collect more events here and try to send them later.
+			// Try again in 1 second.
+			r = newRetry(time.Second)
 		}
 	}
 }
 
-func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
+func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy], diffs *vtepDiffs) {
 	var err error
 
 	switch event.Kind {
 	case resource.Sync:
-		manager.chPolicy <- policyConfigEvent{EventKind: resource.Sync}
+		diffs.policySync = true
 	case resource.Upsert:
-		err = manager.onAddVtepPolicy(event.Object)
+		err = manager.onAddVtepPolicy(event.Object, diffs)
 	case resource.Delete:
-		manager.onDeleteVtepPolicy(event.Object)
+		manager.onDeleteVtepPolicy(event.Object, diffs)
 	}
 
 	event.Done(err)
@@ -281,7 +328,7 @@ func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
 // Event handlers
 
 // onAddVtepPolicy parses the given policy config and populates it to a policy channel.
-func (manager *Manager) onAddVtepPolicy(policy *Policy) error {
+func (manager *Manager) onAddVtepPolicy(policy *Policy, diffs *vtepDiffs) error {
 	logger := manager.logger.With(logfields.CiliumVtepPolicyName, policy.Name)
 
 	config, err := ParseCVP(policy)
@@ -291,27 +338,22 @@ func (manager *Manager) onAddVtepPolicy(policy *Policy) error {
 	}
 
 	logger.Debug("CiliumVtepPolicy accepted for adding/updating")
-	manager.chPolicy <- policyConfigEvent{PolicyConfig: config, EventKind: resource.Upsert}
+	diffs.policiesDiff[config.id] = config // TODO(informalict): Is 'config.id' correct?
 
 	return nil
 }
 
 // onDeleteVtepPolicy populates event to a policy channel.
-func (manager *Manager) onDeleteVtepPolicy(policy *Policy) {
+func (manager *Manager) onDeleteVtepPolicy(policy *Policy, diffs *vtepDiffs) {
 	configID := ParseCVPConfigID(policy)
 
 	logger := manager.logger.With(logfields.CiliumVtepPolicyName, configID.Name)
 	logger.Debug("CiliumVtepPolicy accepted for deletion")
 
-	manager.chPolicy <- policyConfigEvent{
-		PolicyConfig: &PolicyConfig{
-			id: configID,
-		},
-		EventKind: resource.Delete,
-	}
+	diffs.policiesDiff[configID] = nil // TODO(informalict): Is 'config.id' correct?
 }
 
-func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
+func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint, diffs *vtepDiffs) error {
 	var epData *endpointMetadata
 	var err error
 	var identityLabels labels.Labels
@@ -338,12 +380,12 @@ func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	}
 
 	logger.Debug("CiliumEndpoint accepted for adding/updating")
-	manager.chEndpoint <- endpointMetadataEvent{endpointMetadata: epData, EventKind: resource.Upsert}
+	diffs.endpointsDiff[epData.id] = epData
 
 	return nil
 }
 
-func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
+func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint, diffs *vtepDiffs) {
 	logger := manager.logger.With(
 		logfields.K8sEndpointName, endpoint.Name,
 		logfields.K8sNamespace, endpoint.Namespace,
@@ -351,25 +393,20 @@ func (manager *Manager) deleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	)
 
 	logger.Debug("CiliumEndpoint accepted for deletion")
-	manager.chEndpoint <- endpointMetadataEvent{
-		endpointMetadata: &endpointMetadata{
-			id: endpoint.UID,
-		},
-		EventKind: resource.Delete,
-	}
+	diffs.endpointsDiff[endpoint.UID] = nil // TODO(informalict): Is 'endpoint.UID' correct?
 }
 
-func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.CiliumEndpoint]) {
+func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.CiliumEndpoint], diffs *vtepDiffs) {
 	endpoint := event.Object
 	var err error
 
 	switch event.Kind {
 	case resource.Sync:
-		manager.chEndpoint <- endpointMetadataEvent{EventKind: resource.Sync}
+		diffs.endpointSync = true
 	case resource.Upsert:
-		err = manager.addEndpoint(endpoint)
+		err = manager.addEndpoint(endpoint, diffs)
 	default:
-		manager.deleteEndpoint(endpoint)
+		manager.deleteEndpoint(endpoint, diffs)
 	}
 
 	event.Done(err)
@@ -444,63 +481,4 @@ func (manager *Manager) updateVtepRules(policyConfigs map[policyID]*PolicyConfig
 			logger.Debug("Vtep gateway policy removed")
 		}
 	}
-}
-
-// updateEndpointsCache updates endpoints' cache and populates reasons map with the reason for the update.
-// It returns true if the endpoint sync event was handled.
-func updateEndpointsCache(evt endpointMetadataEvent, endpoints map[endpointID]*endpointMetadata,
-	reasons map[string]uint32) bool {
-	if evt.EventKind == resource.Sync {
-		reasons["endpoint sync"]++
-		return true
-	}
-
-	endpoint := evt.endpointMetadata
-	if evt.EventKind == resource.Upsert {
-		if _, ok := endpoints[endpoint.id]; ok {
-			reasons["endpoint updated"]++
-		} else {
-			reasons["endpoint added"]++
-		}
-		endpoints[endpoint.id] = endpoint
-	} else if evt.EventKind == resource.Delete {
-		delete(endpoints, endpoint.id)
-		reasons["endpoint deleted"]++
-	}
-
-	return false
-}
-
-// updatePoliciesCache updates policies' cache and populates reasons map with the reason for the update.
-// It returns true if the policy sync event was handled.
-func updatePoliciesCache(evt policyConfigEvent, policies map[policyID]*PolicyConfig,
-	endpoints map[endpointID]*endpointMetadata, reasons map[string]uint32) bool {
-	if evt.EventKind == resource.Sync {
-		reasons["policy sync"]++
-		return true
-	}
-
-	policy := evt.PolicyConfig
-	if evt.EventKind == resource.Upsert {
-		if _, ok := policies[policy.id]; ok {
-			reasons["cache policy updated"]++
-		} else {
-			reasons["cache policy added"]++
-		}
-
-		// TODO(informalict): The below function is launched in reconciliation loop, so it could be avoided here,
-		// unless the cache is used before it goes to reconciliation. For now it is not.
-		policy.updateMatchedEndpointIDs(endpoints)
-		policies[policy.id] = policy
-	} else if evt.EventKind == resource.Delete {
-		if policies[policy.id] != nil {
-			delete(policies, policy.id)
-			reasons["cache policy deleted"]++
-		}
-		//else {
-		//	manager.logger.Warn("Can't delete CiliumVtepPolicy: policy not found")
-		//}
-	}
-
-	return false
 }

@@ -73,3 +73,37 @@ func (m *MinDuration) SetLastCheck() {
 		m.lastCheck = time.Now()
 	}
 }
+
+type retry struct {
+	timer *time.Timer
+}
+
+func newRetry(d time.Duration) *retry {
+	return &retry{
+		timer: time.NewTimer(d),
+	}
+}
+
+func (r *retry) GetChannel() <-chan time.Time {
+	if r == nil || r.timer == nil {
+		return nil
+	}
+
+	return r.timer.C
+}
+
+func (r *retry) Stop() {
+	if r == nil || r.timer == nil {
+		return
+	}
+
+	if !r.timer.Stop() {
+		// Drain channel if timer already fired
+		select {
+		case <-r.timer.C:
+		default:
+		}
+	}
+
+	r.timer = nil
+}
