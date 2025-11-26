@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -670,6 +669,9 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 		cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
 		linkConfig := datapath.LinkConfig{
+			EndpointID:     cniID,
+			PeerIfName:     epConf.IfName(),
+			PeerNamespace:  ns,
 			GROIPv6MaxSize: int(conf.GROMaxSize),
 			GSOIPv6MaxSize: int(conf.GSOMaxSize),
 			GROIPv4MaxSize: int(conf.GROIPV4MaxSize),
@@ -685,55 +687,41 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			}
 		}
 
-		var hostLink, epLink netlink.Link
-		var tmpIfName string
-		var l2Mode bool
-		switch conf.DatapathMode {
-		case datapathOption.DatapathModeVeth:
-			l2Mode = true
-			hostLink, epLink, tmpIfName, err = connector.SetupVeth(scopedLogger, cniID, linkConfig, sysctl)
-		case datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2:
-			l2Mode = conf.DatapathMode == datapathOption.DatapathModeNetkitL2
-			hostLink, epLink, tmpIfName, err = connector.SetupNetkit(scopedLogger, cniID, linkConfig, l2Mode, sysctl)
-		}
+		linkMode := datapath.GetConnectorModeByName(string(conf.DatapathMode))
+		linkPair, err := connector.NewLinkPair(scopedLogger, linkMode, linkConfig, sysctl)
 		if err != nil {
 			return fmt.Errorf("unable to set up link on host side: %w", err)
 		}
+
 		defer func() {
-			if err != nil {
-				if err2 := netlink.LinkDel(hostLink); err2 != nil {
+			if err != nil && linkPair != nil {
+				if err2 := linkPair.Delete(); err2 != nil {
 					scopedLogger.Warn(
-						"Failed to clean up and delete link",
+						"Failed to cleanup device",
 						logfields.Error, err2,
-						logfields.Veth, hostLink.Attrs().Name,
 					)
 				}
 			}
 		}()
 
+		isLayer2 := linkPair.GetMode().IsLayer2()
+		hostLinkAttrs := linkPair.GetHostLink().Attrs()
+		peerLinkAttrs := linkPair.GetPeerLink().Attrs()
+
 		iface := &cniTypesV1.Interface{
-			Name: hostLink.Attrs().Name,
+			Name: hostLinkAttrs.Name,
 		}
-		if l2Mode {
-			iface.Mac = hostLink.Attrs().HardwareAddr.String()
+		if isLayer2 {
+			iface.Mac = hostLinkAttrs.HardwareAddr.String()
 		}
 		res.Interfaces = append(res.Interfaces, iface)
 
-		if err := netlink.LinkSetNsFd(epLink, ns.FD()); err != nil {
-			return fmt.Errorf("unable to move netkit pair %q to netns %s: %w", epLink, args.Netns, err)
+		if isLayer2 {
+			ep.Mac = peerLinkAttrs.HardwareAddr.String()
+			ep.HostMac = hostLinkAttrs.HardwareAddr.String()
 		}
-		if err := ns.Do(func() error {
-			return link.Rename(tmpIfName, epConf.IfName())
-		}); err != nil {
-			return fmt.Errorf("failed to rename link from %q to %q: %w", tmpIfName, epConf.IfName(), err)
-		}
-
-		if l2Mode {
-			ep.Mac = epLink.Attrs().HardwareAddr.String()
-			ep.HostMac = hostLink.Attrs().HardwareAddr.String()
-		}
-		ep.InterfaceIndex = int64(hostLink.Attrs().Index)
-		ep.InterfaceName = hostLink.Attrs().Name
+		ep.InterfaceIndex = int64(hostLinkAttrs.Index)
+		ep.InterfaceName = hostLinkAttrs.Name
 
 		var (
 			ipConfig   *cniTypesV1.IPConfig
@@ -854,7 +842,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 		if newEp != nil && newEp.Status != nil && newEp.Status.Networking != nil && newEp.Status.Networking.Mac != "" {
 			// Set the MAC address on the interface in the container namespace
-			if conf.DatapathMode != datapathOption.DatapathModeNetkit {
+			if isLayer2 {
 				err = ns.Do(func() error {
 					return mac.ReplaceMacAddressWithLinkName(args.IfName, newEp.Status.Networking.Mac)
 				})
