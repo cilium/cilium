@@ -200,7 +200,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 #endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				&backend, &cluster_id, ext_err);
+				&backend, ext_err);
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
@@ -234,11 +234,14 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			ct_state_new.loopback = 1;
 		}
 
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+		cluster_id = backend->cluster_id;
+#endif
+
 		ret = lb4_dnat_request(ctx, backend, ETH_HLEN, fraginfo,
 				       l4_off, &key, &tuple, ct_state_new.loopback);
 		if (IS_ERR(ret))
 			return ret;
-
 	}
 skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */

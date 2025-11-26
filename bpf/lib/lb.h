@@ -1985,7 +1985,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb4_service *svc,
 				     struct ct_state *state,
 				     const struct lb4_backend **selected_backend,
-				     __u32 *cluster_id __maybe_unused,
 				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
@@ -2080,10 +2079,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		ret = DROP_UNKNOWN_CT;
 		goto drop_err;
 	}
-
-#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	*cluster_id = backend->cluster_id;
-#endif
 
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
