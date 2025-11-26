@@ -107,7 +107,7 @@ func (manager *Manager) reconcile(ctx context.Context, ch <-chan *vtepDiffs) {
 	// policyConfigs stores desired policy configs indexed by policyID.
 	policyConfigs := make(map[policyID]*PolicyConfig)
 	reasons := make(map[string]uint32)
-
+	var sync, policySync, endpointSync bool
 	for {
 		select {
 		case <-ctx.Done():
@@ -147,9 +147,19 @@ func (manager *Manager) reconcile(ctx context.Context, ch <-chan *vtepDiffs) {
 				}
 			}
 
-			if !d.policySync || !d.endpointSync {
-				manager.logger.Debug("reconciliation skips, not in sync", logfields.Reason, reasons)
-				continue
+			if !sync {
+				if d.policySync {
+					policySync = true
+				}
+				if d.endpointSync {
+					endpointSync = true
+				}
+
+				if sync = policySync && endpointSync; !sync {
+					manager.logger.Debug("reconciliation skips", logfields.Reason, reasons,
+						"policies sync", policySync, "endpoints sync", endpointSync)
+					continue
+				}
 			}
 
 			manager.logger.Debug("reconciliation starts", logfields.Reason, reasons)
