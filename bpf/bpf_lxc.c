@@ -104,9 +104,48 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
 # define ENABLE_PER_PACKET_LB 1
 #endif
 
-#ifdef ENABLE_PER_PACKET_LB
-
 #ifdef ENABLE_IPV4
+static __always_inline void
+lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
+		      __u16 *proxy_port, __u32 *cluster_id __maybe_unused,
+		      bool clear)
+{
+	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
+			     ctx_load_meta(ctx, CB_CT_STATE);
+
+	if (meta & 1)
+		state->loopback = 1;
+
+	state->rev_nat_index = meta >> 16;
+
+	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
+			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
+
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+	*cluster_id = clear ? ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS) :
+			      ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+#endif
+}
+
+#ifdef ENABLE_PER_PACKET_LB
+/* lb4_ctx_store_state() stores per packet load balancing state to be picked
+ * up on the continuation tail call.
+ */
+static __always_inline void
+lb4_ctx_store_state(struct __ctx_buff *ctx, const struct ct_state *state,
+		    __u16 proxy_port, __u32 cluster_id)
+{
+	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+		       state->loopback);
+	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
+}
+
+/* lb4_ctx_restore_state() restores per packet load balancing state from the
+ * previous tail call.
+ * tuple->flags does not need to be restored, as it will be reinitialized from
+ * the packet.
+ */
 static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4,
 						       __s8 *ext_err)
 {
@@ -206,9 +245,44 @@ skip_service_lookup:
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_EGRESS, ext_err);
 }
+#endif /* ENABLE_PER_PACKET_LB */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
+/* lb6_ctx_restore_state() restores per packet load balancing state from the
+ * previous tail call.
+ * tuple->flags does not need to be restored, as it will be reinitialized from
+ * the packet.
+ */
+static __always_inline void
+lb6_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
+		      __u16 *proxy_port,  bool clear)
+{
+	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
+				       ctx_load_meta(ctx, CB_CT_STATE);
+
+	if (meta & 1)
+		state->loopback = 1;
+
+	state->rev_nat_index = meta >> 16;
+
+	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
+			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
+}
+
+#ifdef ENABLE_PER_PACKET_LB
+/* lb6_ctx_store_state() stores per packet load balancing state to be picked
+ * up on the continuation tail call.
+ */
+static __always_inline void
+lb6_ctx_store_state(struct __ctx_buff *ctx, const struct ct_state *state,
+		    __u16 proxy_port)
+{
+	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+		       state->loopback);
+}
+
 static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6,
 						       __s8 *ext_err)
 {
@@ -302,9 +376,8 @@ skip_service_lookup:
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_EGRESS, ext_err);
 }
+#endif /* ENABLE_PER_PACKET_LB */
 #endif /* ENABLE_IPV6 */
-
-#endif
 
 #if defined(ENABLE_ARP_PASSTHROUGH) && defined(ENABLE_ARP_RESPONDER)
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
