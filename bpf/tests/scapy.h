@@ -6,6 +6,10 @@
 #include "common.h"
 #include "../lib/hexdump.h"
 
+#define __SCAPY_MAX_BUF (1518)
+#define __SCAPY_MAX_STR_LEN 128
+#define __SCAPY_MAX_ASSERTS 256
+
 /**
  * Get the reference to the buffer (byte array) with 'NAME'
  */
@@ -65,6 +69,14 @@ void scapy_memcpy(const void *dst, const void *src, const __u32 len)
 }
 
 static __always_inline
+void scapy_strncpy(char *dst, const char *src, const __u8 len)
+{
+	if (len > __SCAPY_MAX_STR_LEN)
+		return;
+	scapy_memcpy(dst, src, len);
+}
+
+static __always_inline
 void *scapy__push_data(struct pktgen *builder, void *data, int len)
 {
 	void *pkt_data = pktgen__push_data_room(builder, len);
@@ -90,6 +102,35 @@ void *scapy__push_data(struct pktgen *builder, void *data, int len)
 	} while (0)
 
 /**
+ * Assert structure to store in the map
+ */
+struct scapy_assert {
+	char name[__SCAPY_MAX_STR_LEN];		/* Assert names */
+	char file[__SCAPY_MAX_STR_LEN];		/* Filename */
+	char lnum[__SCAPY_MAX_STR_LEN];		/* Line number */
+	char first_layer[__SCAPY_MAX_STR_LEN];	/* Scapy  layer (e.g. Ether) */
+	__u16 len;				/* Buffer len (data compared) */
+	__u8 exp_buf[__SCAPY_MAX_BUF];		/* Expected buffer */
+	__u8 got_buf[__SCAPY_MAX_BUF];		/* Got buffer */
+	__u8 pad[2];
+};
+
+/**
+ * Map providing scapy assert storage
+ */
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, sizeof(struct scapy_assert));
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, __SCAPY_MAX_ASSERTS);
+} scapy_assert_map __section_maps_btf;
+static __u32 scapy_assert_map_cnt;
+
+/* Needs to be global (in map) to not blow up stack size */
+static struct scapy_assert __scapy_assert = {0};
+
+/**
  * Compare a packet (ctx) to a scapy buffer starting from ctx's OFF byte
  *
  * NAME: assertion quoted name (unique in the test): "test_a".
@@ -107,25 +148,43 @@ void *scapy__push_data(struct pktgen *builder, void *data, int len)
 		void *__DATA = (void *)(long)(CTX)->data;				\
 		void *__DATA_END = (void *)(long)(CTX)->data_end;			\
 		__DATA += OFF;								\
-		bool ok = true;								\
+		bool _ok = true;							\
 		__u16 _len = LEN;							\
 											\
 		if (__DATA + (LEN) > __DATA_END) {					\
-			ok = false;							\
+			_ok = false;							\
 			_len = (__u16)(__DATA_END - __DATA);				\
 			test_log("CTX len (%d) - offset (%d) < LEN (%d)",		\
 				 _len + OFF, OFF, LEN);					\
 		}									\
 		if ((_BUF_LEN) < (LEN)) {						\
-			ok = false;							\
+			_ok = false;							\
 			test_log("Buffer '" BUF_NAME "' of len (%d) < LEN  (%d)",	\
 				 _BUF_LEN, LEN);					\
 		}									\
-		if (ok && scapy_memcmp(__DATA, _BUF, LEN) != 0) {			\
-			ok = false;							\
+		if (_ok && scapy_memcmp(__DATA, _BUF, LEN) != 0) {			\
+			_ok = false;							\
 			test_log("CTX and buffer '" BUF_NAME "' content mismatch ");	\
 		}									\
-		if (!ok) {								\
+		if (!_ok) {								\
+			__scapy_assert.len = LEN;					\
+			scapy_memcpy(__scapy_assert.exp_buf, _BUF, LEN);		\
+			if (__DATA + (LEN) < __DATA_END) {				\
+				scapy_memcpy(__scapy_assert.got_buf, __DATA, LEN);	\
+			}								\
+			scapy_strncpy(__scapy_assert.name, NAME, sizeof(NAME));		\
+			scapy_strncpy(__scapy_assert.file, __FILE__,			\
+				      sizeof(__FILE__));				\
+			scapy_strncpy(__scapy_assert.lnum, LINE_STRING,			\
+				      sizeof(LINE_STRING));				\
+			scapy_strncpy(__scapy_assert.first_layer, FIRST_LAYER,		\
+				      sizeof(FIRST_LAYER));				\
+			if (map_update_elem(&scapy_assert_map, &scapy_assert_map_cnt,	\
+					    &__scapy_assert, BPF_ANY) != 0) {		\
+				test_log("ERROR: unable to push failed assert to map!");\
+				test_fail_now();					\
+			}								\
+			++scapy_assert_map_cnt;						\
 			hexdump_len_off(__FILE__ ":" LINE_STRING " assert '"		\
 					NAME "' FAILED! Got (ctx)",			\
 					FIRST_LAYER, CTX, _len, OFF);			\
