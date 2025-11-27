@@ -40,15 +40,15 @@ const (
 type TraceSockNotify struct {
 	api.DefaultSrcDstGetter
 
-	Type       uint8
-	XlatePoint uint8
-	L4Proto    uint8
-	Flags      uint8
-	DstPort    uint16
-	_          uint16
-	SockCookie uint64
-	CgroupId   uint64
-	DstIP      types.IPv6
+	Type       uint8      `align:"type"`
+	XlatePoint uint8      `align:"xlate_point"`
+	L4Proto    uint8      `align:"l4_proto"`
+	Flags      uint8      `align:"ipv6"`
+	DstPort    uint16     `align:"dst_port"`
+	_          uint16     `align:"pad2"`
+	SockCookie uint64     `align:"sock_cookie"`
+	CgroupId   uint64     `align:"cgroup_id"`
+	DstIP      types.IPv6 `align:"dst_ip"`
 }
 
 // Dump prints the message according to the verbosity level specified

@@ -48,22 +48,22 @@ const (
 
 // PolicyVerdictNotify is the message format of a policy verdict notification in the bpf ring buffer
 type PolicyVerdictNotify struct {
-	Type        uint8
-	SubType     uint8
-	Source      uint16
-	Hash        uint32
-	OrigLen     uint32
-	CapLen      uint16
-	Version     uint16
-	RemoteLabel identity.NumericIdentity
-	Verdict     int32
-	DstPort     uint16
-	Proto       uint8
-	Flags       uint8
-	AuthType    uint8
-	_           [3]uint8
-	Cookie      uint32
-	_           uint32
+	Type        uint8                    `align:"type"`
+	SubType     uint8                    `align:"subtype"`
+	Source      uint16                   `align:"source"`
+	Hash        uint32                   `align:"hash"`
+	OrigLen     uint32                   `align:"len_orig"`
+	CapLen      uint16                   `align:"len_cap"`
+	Version     uint16                   `align:"version"`
+	RemoteLabel identity.NumericIdentity `align:"remote_label"`
+	Verdict     int32                    `align:"verdict"`
+	DstPort     uint16                   `align:"dst_port"`
+	Proto       uint8                    `align:"proto"`
+	Flags       uint8                    `align:"dir"`
+	AuthType    uint8                    `align:"auth_type"`
+	_           [3]uint8                 `align:"pad1"`
+	Cookie      uint32                   `align:"cookie"`
+	_           uint32                   `align:"pad2"`
 	// data
 }
 
