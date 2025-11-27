@@ -22,3 +22,4 @@
 - CiliumNode
 - CiliumNodeConfig
 - CiliumPodIPPool
+- CiliumResourceIPPool
