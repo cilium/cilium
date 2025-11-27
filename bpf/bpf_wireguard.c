@@ -52,6 +52,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 	return srcid;
 }
 
+/* See the equivalent v4 path for comments */
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused)
 {
@@ -59,8 +60,6 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	struct ipv6hdr *ip6;
 	struct endpoint_info *ep;
 	fraginfo_t __maybe_unused fraginfo;
-
-	/* See the equivalent v4 path for comments */
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -91,7 +90,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 		return DROP_INVALID;
 
 #ifndef ENABLE_HOST_ROUTING
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 #endif
 
 	ep = lookup_ip6_endpoint(ip6);
@@ -118,7 +117,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 					   METRIC_INGRESS, false, false);
 	}
 
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_WIREGUARD)
@@ -166,10 +165,11 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+/* If IPv4 fragmentation is disabled
+ * AND a IPv4 fragmented packet is received,
+ * then drop the packet.
+ */
 #ifndef ENABLE_IPV4_FRAGMENTS
-	/* If IPv4 fragmentation is disabled and a IPv4 fragmented
-	 * packet is received, then drop the packet.
-	 */
 	fraginfo = ipfrag_encode_ipv4(ip4);
 	if (ipfrag_is_fragment(fraginfo))
 		return DROP_FRAG_NOSUPPORT;
@@ -209,7 +209,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	 * we bypass request and reply path in the host namespace and
 	 * do not run into this issue.
 	 */
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 #endif
 
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
@@ -241,7 +241,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	/* A packet entering the node from wireguard and not going to a local endpoint
 	 * has to be going to the stack (ex. vxlan, encrypted node-to-node).
 	 */
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 }
 
 __declare_tail(CILIUM_CALL_IPV4_FROM_WIREGUARD)
@@ -327,7 +327,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
 	/* Pass unknown traffic to the stack */
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 }
 
 /* to-wireguard is attached as a tc egress filter to the cilium_wg0 device. */
@@ -366,7 +366,7 @@ out:
 			  TRACE_EP_ID_UNKNOWN, THIS_INTERFACE_IFINDEX,
 			  trace.reason, trace.monitor, proto);
 
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 }
 
 BPF_LICENSE("Dual BSD/GPL");
