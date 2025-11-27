@@ -17,6 +17,20 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
+// LinkConfig contains the GRO/GSO, MTU values and buffer margins to be configured on both sides of
+// the created pair.
+type LinkConfig struct {
+	GROIPv6MaxSize int
+	GSOIPv6MaxSize int
+
+	GROIPv4MaxSize int
+	GSOIPv4MaxSize int
+
+	DeviceMTU      int
+	DeviceHeadroom uint16
+	DeviceTailroom uint16
+}
+
 // Connector configuration. As per BIGTCP, the values here will not be calculated
 // until the Hive has started. This is necessary to allow other dependencies to
 // setup their interfaces etc.
