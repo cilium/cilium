@@ -10,25 +10,11 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/netns"
 )
-
-// RenameLinkInRemoteNs renames the netdevice in the target namespace to the
-// provided dstIfName.
-func RenameLinkInRemoteNs(ns *netns.NetNS, srcIfName, dstIfName string) error {
-	return ns.Do(func() error {
-		err := link.Rename(srcIfName, dstIfName)
-		if err != nil {
-			return fmt.Errorf("failed to rename link from %q to %q: %w", srcIfName, dstIfName, err)
-		}
-		return nil
-	})
-}
 
 // SetupVeth sets up the net interface, the temporary interface and fills up some endpoint
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
