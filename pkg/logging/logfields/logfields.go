@@ -1876,4 +1876,8 @@ const (
 
 	WithFrags  = "withFrags"
 	Attributes = "attributes"
+
+	DriverName = "driverName"
+
+	VfCount = "vfCount"
 )
