@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/version"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/awscni"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/azure"
@@ -64,12 +65,20 @@ var (
 
 // Cmd provides methods for the CNI ADD, DEL and CHECK commands.
 type Cmd struct {
-	logger *slog.Logger
-	cfg    EndpointConfigurator
+	logger  *slog.Logger
+	version string
+	cfg     EndpointConfigurator
 }
 
 // Option allows the customization of the Cmd implementation
 type Option func(cmd *Cmd)
+
+// WithVersion overrides the version reported by the CNI plugin binary in its about string.
+func WithVersion(version string) Option {
+	return func(cmd *Cmd) {
+		cmd.version = version
+	}
+}
 
 // WithEPConfigurator is used to create a Cmd instance with a custom
 // endpoint configurator. The endpoint configurator can be used to customize
@@ -81,26 +90,29 @@ func WithEPConfigurator(cfg EndpointConfigurator) Option {
 	}
 }
 
-// NewCmd creates a new Cmd instance with Add, Del and Check methods
-func NewCmd(logger *slog.Logger, opts ...Option) *Cmd {
+// PluginMain is the main entry point for the Cilium CNI plugin.
+func PluginMain(opts ...Option) {
+	// slogloggercheck: the logger has been initialized with default settings
+	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-cni")
 	cmd := &Cmd{
-		logger: logger,
-		cfg:    &DefaultConfigurator{},
+		logger:  logger,
+		version: "Cilium CNI plugin " + version.Version,
+		cfg:     &DefaultConfigurator{},
 	}
 	for _, opt := range opts {
 		opt(cmd)
 	}
-	return cmd
-}
 
-// CNIFuncs returns the CNI functions supported by Cilium that can be passed to skel.PluginMainFuncs
-func (cmd *Cmd) CNIFuncs() skel.CNIFuncs {
-	return skel.CNIFuncs{
-		Add:    cmd.Add,
-		Del:    cmd.Del,
-		Check:  cmd.Check,
-		Status: cmd.Status,
-	}
+	skel.PluginMainFuncs(
+		skel.CNIFuncs{
+			Add:    cmd.Add,
+			Del:    cmd.Del,
+			Check:  cmd.Check,
+			Status: cmd.Status,
+		},
+		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0", "1.1.0"),
+		cmd.version,
+	)
 }
 
 type CmdState struct {
