@@ -16,6 +16,7 @@ pkg/k8s/client/clientset/** linguist-generated
 pkg/k8s/client/informers/** linguist-generated
 pkg/k8s/client/listers/** linguist-generated
 *.bt linguist-language=D
+pkg/datapath/config/*_config.go linguist-generated
 
 # Merge driver configuration for specific paths
 # To set up these merge drivers locally, run:
