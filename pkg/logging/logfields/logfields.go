@@ -1869,4 +1869,8 @@ const (
 	ConfigMapName = "configMapName"
 
 	Attributes = "attributes"
+
+	DriverName = "driverName"
+
+	VfCount = "vfCount"
 )
