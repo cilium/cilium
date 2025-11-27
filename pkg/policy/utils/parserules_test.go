@@ -502,6 +502,69 @@ func TestIcmpRules(t *testing.T) {
 	}
 }
 
+func TestMergeEndpointSelectorsWithEntityNamespace(t *testing.T) {
+	// Test that EntityNamespace is converted to EntityNamespaceMarker
+	// when processed through mergeEndpointSelectors
+
+	tests := []struct {
+		name                   string
+		entities               api.EntitySlice
+		hasEntityNamespaceMarker bool
+		expectedSelectorCount  int // selectors from non-EntityNamespace entities
+	}{
+		{
+			name:                   "only EntityNamespace",
+			entities:               api.EntitySlice{api.EntityNamespace},
+			hasEntityNamespaceMarker: true,
+			expectedSelectorCount:  0, // EntityNamespace doesn't produce static selectors
+		},
+		{
+			name:                   "EntityNamespace with other entities",
+			entities:               api.EntitySlice{api.EntityNamespace, api.EntityHost},
+			hasEntityNamespaceMarker: true,
+			expectedSelectorCount:  1, // EntityHost produces one selector
+		},
+		{
+			name:                   "only EntityHost (no namespace)",
+			entities:               api.EntitySlice{api.EntityHost},
+			hasEntityNamespaceMarker: false,
+			expectedSelectorCount:  1,
+		},
+		{
+			name:                   "multiple entities without namespace",
+			entities:               api.EntitySlice{api.EntityHost, api.EntityWorld},
+			hasEntityNamespaceMarker: false,
+			expectedSelectorCount:  4, // EntityHost=1, EntityWorld=3 (world, world-ipv4, world-ipv6)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := mergeEndpointSelectors(nil, nil, tt.entities, nil, nil, nil)
+
+			// Check if EntityNamespaceMarker is present
+			hasMarker := result.HasEntityNamespaceMarker()
+			assert.Equal(t, tt.hasEntityNamespaceMarker, hasMarker, "EntityNamespaceMarker presence mismatch")
+
+			// Count the endpoint selectors (excluding the marker)
+			selectors := result.GetAsEndpointSelectors()
+			assert.Equal(t, tt.expectedSelectorCount, len(selectors), "Selector count mismatch")
+
+			// Verify that the marker is included in the slice if expected
+			if tt.hasEntityNamespaceMarker {
+				foundMarker := false
+				for _, p := range result {
+					if _, ok := p.(types.EntityNamespaceMarker); ok {
+						foundMarker = true
+						break
+					}
+				}
+				assert.True(t, foundMarker, "Expected EntityNamespaceMarker in result")
+			}
+		})
+	}
+}
+
 func TestGetSelector(t *testing.T) {
 	endpointSelector := api.NewESFromLabels(labels.ParseSelectLabel("app=test"))
 	nodeSelector := api.NewESFromLabels(labels.ParseSelectLabel("node=test"))

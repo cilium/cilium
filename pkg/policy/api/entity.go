@@ -12,7 +12,7 @@ import (
 // individual identities.  Entities are used to describe "outside of cluster",
 // "host", etc.
 //
-// +kubebuilder:validation:Enum=all;world;cluster;host;init;ingress;unmanaged;remote-node;health;none;kube-apiserver
+// +kubebuilder:validation:Enum=all;world;cluster;host;init;ingress;unmanaged;remote-node;health;none;kube-apiserver;namespace
 type Entity string
 
 const (
@@ -60,6 +60,14 @@ const (
 
 	// EntityKubeAPIServer is an entity that represents the kube-apiserver.
 	EntityKubeAPIServer Entity = "kube-apiserver"
+
+	// EntityNamespace is an entity that represents all endpoints in the same
+	// namespace as the policy. This entity is only valid in namespaced
+	// CiliumNetworkPolicy resources, not in CiliumClusterwideNetworkPolicy.
+	// Using this entity allows creating a single policy that permits
+	// intra-namespace communication without having to specify the namespace
+	// explicitly.
+	EntityNamespace Entity = "namespace"
 )
 
 var (
@@ -112,6 +120,15 @@ var (
 		// initialized at runtime as it depends on user configuration
 		// such as the cluster name. See InitEntities() below.
 		EntityCluster: {},
+
+		// EntityNamespace is populated with an empty entry to allow
+		// basic rule validation. Unlike other entities, EntityNamespace
+		// is context-dependent and cannot be resolved to a static
+		// endpoint selector. It is expanded to a namespace-specific
+		// endpoint selector at policy parse time in
+		// pkg/k8s/apis/cilium.io/utils/utils.go when the policy's
+		// namespace context is known.
+		EntityNamespace: {},
 	}
 )
 

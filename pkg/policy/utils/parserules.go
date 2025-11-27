@@ -147,7 +147,25 @@ func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities
 	l3 := make(types.PeerSelectorSlice, 0, len(endpoints)+len(nodes)+len(entities)+len(cidrSlice)+len(cidrRuleSlice)+len(fqdns))
 	l3 = append(l3, types.ToPeerSelectorSlice(endpoints)...)
 	l3 = append(l3, types.ToPeerSelectorSlice(nodes)...)
-	l3 = append(l3, types.ToPeerSelectorSlice(entities.GetAsEndpointSelectors())...)
+
+	// Process entities, separating EntityNamespace which needs special handling.
+	// EntityNamespace cannot be resolved to a static EndpointSelector at parse time
+	// for CCNP; it must be resolved at policy computation time when the target
+	// endpoint's namespace is known.
+	hasEntityNamespace := false
+	var otherEntities api.EntitySlice
+	for _, entity := range entities {
+		if entity == api.EntityNamespace {
+			hasEntityNamespace = true
+		} else {
+			otherEntities = append(otherEntities, entity)
+		}
+	}
+	l3 = append(l3, types.ToPeerSelectorSlice(otherEntities.GetAsEndpointSelectors())...)
+	if hasEntityNamespace {
+		l3 = append(l3, types.EntityNamespaceMarker{})
+	}
+
 	l3 = append(l3, types.ToPeerSelectorSlice(cidrSlice)...)
 	l3 = append(l3, types.ToPeerSelectorSlice(cidrRuleSlice)...)
 	l3 = append(l3, types.ToPeerSelectorSlice(fqdns)...)
