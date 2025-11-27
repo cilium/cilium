@@ -7,8 +7,6 @@
 /* Enable debug output */
 #define DEBUG
 
-#define SECCTX_FROM_IPCACHE 1
-
 /* Set the LXC source address to be the address of pod one */
 #define LXC_IPV4 (__be32)v6_pod_one
 

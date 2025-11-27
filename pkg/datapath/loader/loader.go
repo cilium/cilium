@@ -516,10 +516,6 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	}
 	cfg.InterfaceMAC = em.As8()
 
-	if !option.Config.EnableHostLegacyRouting {
-		cfg.SecctxFromIPCache = true
-	}
-
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
@@ -880,10 +876,6 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 
 	cfg := config.NewBPFWireguard(config.NodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
-
-	if !option.Config.EnableHostLegacyRouting {
-		cfg.SecctxFromIPCache = true
-	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
