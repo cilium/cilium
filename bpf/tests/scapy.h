@@ -23,7 +23,7 @@
  *  #1: scapy object (layer)
  */
 #define BUF_DECL(NAME, ...) \
-	const __u8 BUF(NAME)[] = __SCAPY_BUF_BYTES(NAME)
+	const unsigned char BUF(NAME)[] = __SCAPY_BUF_BYTES(NAME)
 
 static __always_inline
 int scapy_memcmp(const void *a, const void *b, const __u16 len)
@@ -91,48 +91,66 @@ void *scapy__push_data(struct pktgen *builder, void *data, int len)
 
 /**
  * Compare a packet (ctx) to a scapy buffer starting from ctx's OFF byte
+ *
+ * NAME: assertion quoted name (unique in the test): "test_a".
+ * FIRST_LAYER: Scapy layer name (e.g. Ether, IP), quoted: "Ether".
+ * CTX: ctx ptr.
+ * OFF: start to compare against ctx->data + OFF.
+ * BUF_NAME: scapy buffer name (quoted literal)
+ * _BUF: pointer to the first byte of the scapy buffer BUF_DECL() / BUF().
+ * _BUF_LEN: length of the buffer.
+ * LEN: how many bytes to compare.
  */
-#define ASSERT_CTX_BUF_OFF(NAME, FIRST_LAYER, CTX, OFF, BUF_NAME, LEN)		\
-	do {									\
-		void *__DATA = (void *)(long)(CTX)->data;			\
-		void *__DATA_END = (void *)(long)(CTX)->data_end;		\
-		__DATA += OFF;							\
-		bool ok = true;							\
-		__u16 _len = LEN;						\
-										\
-		if (__DATA + (LEN) > __DATA_END) {				\
-			ok = false;						\
-			_len = (__u16)(__DATA_END - __DATA);			\
-			test_log("CTX len (%d) - offset (%d) < LEN (%d)",	\
-				 _len + OFF, OFF, LEN);				\
-		}								\
-		if (sizeof(BUF(BUF_NAME)) < (LEN)) {				\
-			ok = false;						\
-			test_log("Buffer '" #BUF_NAME "' of len (%d) < LEN"	\
-				 " (%d)", sizeof(BUF(BUF_NAME)), LEN);		\
-		}								\
-		if (ok && scapy_memcmp(__DATA, &BUF(BUF_NAME), LEN) != 0) {	\
-			ok = false;						\
-			test_log("CTX and buffer '" #BUF_NAME			\
-				 "' content mismatch ");			\
-		}								\
-		if (!ok) {							\
-			hexdump_len_off(__FILE__ ":" LINE_STRING " assert '"	\
-					NAME "' FAILED! Got (ctx)",		\
-					FIRST_LAYER, CTX, _len, OFF);		\
-			scapy_hexdump(__FILE__ ":" LINE_STRING " assert '"	\
-				      NAME "' FAILED! Expected (buf)",		\
-				      FIRST_LAYER, &BUF(BUF_NAME)[0],		\
-				      sizeof(BUF(BUF_NAME)));			\
-			test_fail_now();					\
-		}								\
+#define ASSERT_CTX_BUF_OFF2(NAME, FIRST_LAYER, CTX, OFF, BUF_NAME, _BUF,		\
+			    _BUF_LEN, LEN)						\
+	do {										\
+		void *__DATA = (void *)(long)(CTX)->data;				\
+		void *__DATA_END = (void *)(long)(CTX)->data_end;			\
+		__DATA += OFF;								\
+		bool ok = true;								\
+		__u16 _len = LEN;							\
+											\
+		if (__DATA + (LEN) > __DATA_END) {					\
+			ok = false;							\
+			_len = (__u16)(__DATA_END - __DATA);				\
+			test_log("CTX len (%d) - offset (%d) < LEN (%d)",		\
+				 _len + OFF, OFF, LEN);					\
+		}									\
+		if ((_BUF_LEN) < (LEN)) {						\
+			ok = false;							\
+			test_log("Buffer '" BUF_NAME "' of len (%d) < LEN  (%d)",	\
+				 _BUF_LEN, LEN);					\
+		}									\
+		if (ok && scapy_memcmp(__DATA, _BUF, LEN) != 0) {			\
+			ok = false;							\
+			test_log("CTX and buffer '" BUF_NAME "' content mismatch ");	\
+		}									\
+		if (!ok) {								\
+			hexdump_len_off(__FILE__ ":" LINE_STRING " assert '"		\
+					NAME "' FAILED! Got (ctx)",			\
+					FIRST_LAYER, CTX, _len, OFF);			\
+			scapy_hexdump(__FILE__ ":" LINE_STRING " assert '"		\
+				      NAME "' FAILED! Expected (buf)",			\
+				      FIRST_LAYER, _BUF, _BUF_LEN);			\
+			test_fail_now();						\
+		}									\
 	} while (0)
 
 /**
- * Compare a packet (ctx) to a scapy buffer.
+ * Compare a packet (ctx) to a scapy buffer starting from ctx's OFF byte
+ *
+ * NAME: assertion quoted name (unique in the test): "test_a".
+ * FIRST_LAYER: Scapy layer name (e.g. Ether, IP), quoted: "Ether".
+ * CTX: ctx ptr.
+ * BUF_NAME: scapy buffer name (string)
+ * LEN: how many bytes to compare.
  */
-#define ASSERT_CTX_BUF(CTX, BUF_NAME, LEN) \
-	ASSERT_CTX_BUF_OFF(CTX, 0, BUF_NAME, LEN)
+#define ASSERT_CTX_BUF_OFF(NAME, FIRST_LAYER, CTX, OFF, BUF_NAME, LEN)		\
+	{									\
+		ASSERT_CTX_BUF_OFF2(NAME, FIRST_LAYER, CTX, OFF,		\
+				    #BUF_NAME, BUF(BUF_NAME),			\
+				    sizeof(BUF(BUF_NAME)), LEN);		\
+	} do {} while (0)
 
 static __always_inline
 void scapy_hexdump(const char *msg, const char *first_layer,
