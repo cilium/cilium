@@ -157,10 +157,12 @@ rules:
   resources:
   - resourceslices
   verbs:
+  - get
   - list
   - watch
   - create
   - update
+  - patch
   - delete
 - apiGroups:
   - resource.k8s.io
