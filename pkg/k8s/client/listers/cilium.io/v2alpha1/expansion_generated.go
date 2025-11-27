@@ -68,3 +68,7 @@ type CiliumNodeConfigNamespaceListerExpansion interface{}
 // CiliumPodIPPoolListerExpansion allows custom methods to be added to
 // CiliumPodIPPoolLister.
 type CiliumPodIPPoolListerExpansion interface{}
+
+// CiliumResourceIPPoolListerExpansion allows custom methods to be added to
+// CiliumResourceIPPoolLister.
+type CiliumResourceIPPoolListerExpansion interface{}
