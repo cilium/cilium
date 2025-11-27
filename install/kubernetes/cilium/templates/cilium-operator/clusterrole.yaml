@@ -273,6 +273,7 @@ rules:
   - ciliumgatewayclassconfigs.cilium.io
   - ciliumnetworkdrivernodeconfigs.cilium.io
   - ciliumnetworkdriverclusterconfigs.cilium.io
+  - ciliumresourceippools.cilium.io
 {{- if and (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.mcsapi.installCRDs }}
   - serviceimports.multicluster.x-k8s.io
   - serviceexports.multicluster.x-k8s.io
@@ -286,6 +287,7 @@ rules:
   - ciliumbgpnodeconfigoverrides
   - ciliumbgppeerconfigs
   - ciliumnetworkdriverclusterconfigs
+  - ciliumresourceippools
   verbs:
   - get
   - list
