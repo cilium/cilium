@@ -342,6 +342,7 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 {
 	int ret = 0;
 	struct bpf_tunnel_key tun_key = {0};
+	__u32 ifindex;
 
 	if (!cb_ctx || !sub)
 		return 1;
@@ -378,9 +379,13 @@ static long __mcast_ep_delivery(__maybe_unused void *sub_map,
 			cb_ctx->ret = ret;
 			return 1;
 		}
+
+		ifindex = ENCAP_IFINDEX;
+	} else {
+		ifindex = sub->ifindex;
 	}
 
-	ret = clone_redirect(cb_ctx->ctx, sub->ifindex, 0);
+	ret = clone_redirect(cb_ctx->ctx, ifindex, 0);
 	if (ret != 0) {
 		cb_ctx->ret = ret;
 		return 1;
