@@ -131,7 +131,7 @@ func (manager *Manager) reconcile(ctx context.Context, ch <-chan *vtepDiffs) {
 			// Apply policies' diff.
 			for id, policy := range d.policiesDiff {
 				if policy == nil {
-					if _, ok := policyConfigs[policy.id]; ok {
+					if _, ok := policyConfigs[id]; ok {
 						delete(policyConfigs, id)
 						reasons["policy deleted"]++
 					} else {
@@ -214,7 +214,7 @@ func NewVtepPolicyManager(p Params) (out struct {
 
 func newVtepPolicyManager(p Params) (*Manager, error) {
 	manager := &Manager{
-		logger:            p.Logger,
+		logger:            p.Logger.With(slog.String("manager", "vteppolicy")),
 		identityAllocator: p.IdentityAllocator,
 		policies:          p.Policies,
 		policyMap:         p.PolicyMap,
