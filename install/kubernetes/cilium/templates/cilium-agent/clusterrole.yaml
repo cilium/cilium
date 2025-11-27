@@ -112,6 +112,7 @@ rules:
   - ciliumpodippools
   - ciliumdatapathplugins
   - ciliumnetworkdrivernodeconfigs
+  - ciliumresourceippools
   verbs:
   - list
   - watch

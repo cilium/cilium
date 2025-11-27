@@ -107,6 +107,11 @@ const (
 	CiliumNetworkDriverNodeConfigKindDefinition = "CiliumNetworkDriverNodeConfig"
 
 	CiliumNetworkDriverNodeConfigName = CiliumNetworkDriverNodeConfigPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumResourcePPool (CRIP)
+	CRIPPluralName     = "ciliumresourceippools"
+	CRIPKindDefinition = "CiliumResourceIPPool"
+	CRIPName           = CRIPPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -158,6 +163,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumL2AnnouncementPolicyList{},
 		&CiliumPodIPPool{},
 		&CiliumPodIPPoolList{},
+		&CiliumResourceIPPool{},
+		&CiliumResourceIPPoolList{},
+
 		// new BGP types
 		&CiliumBGPClusterConfig{},
 		&CiliumBGPClusterConfigList{},
