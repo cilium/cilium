@@ -181,3 +181,10 @@ annotations:
       displayName: Cilium Network Driver Cluster Config
       description: |
         CiliumNetworkDriverClusterConfig defines a configuration for the Cilium Network Driver module.
+        CiliumNetworkDriverConfig defines a configuration for the Cilium Network Driver module.
+    - kind: CiliumResourceIPPool
+      version: v2alpha1
+      name: ciliumresourceippools.cilium.io
+      displayName: Cilium Resource IP Pool
+      description: |
+        CiliumResourceIPPool defines an IP pool that can be used for pooled DRA resources IPAM (i.e. the multi-pool resource IPAM mode).

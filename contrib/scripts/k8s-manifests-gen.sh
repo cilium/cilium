@@ -41,7 +41,8 @@ CRDS_CILIUM_V2ALPHA1="ciliumendpointslices \
                       ciliumpodippools \
                       ciliumgatewayclassconfigs \
                       ciliumnetworkdriverclusterconfigs \
-                      ciliumnetworkdrivernodeconfigs"
+                      ciliumnetworkdrivernodeconfigs \
+                      ciliumresourceippools"
 
 TMPDIR=$(mktemp -d -t cilium.tmpXXXXXXXX)
 go tool sigs.k8s.io/controller-tools/cmd/controller-gen ${CRD_OPTIONS} paths="${CRD_PATHS}" output:crd:artifacts:config="${TMPDIR}"
