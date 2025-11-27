@@ -52,14 +52,37 @@ func TestForeachAddresses(t *testing.T) {
 }
 
 func TestExtractIDs(t *testing.T) {
-	vmssIntf := AzureInterface{}
-	vmssIntf.SetID("/subscriptions/xxx/resourceGroups/MC_aks-test_aks-test_westeurope/providers/Microsoft.Compute/virtualMachineScaleSets/aks-nodepool1-10706209-vmss/virtualMachines/3/networkInterfaces/aks-nodepool1-10706209-vmss")
+	tests := []struct {
+		name             string
+		resourceID       string
+		expectedRG       string
+		expectedVMID     string
+		expectedVMSSName string
+	}{
+		{
+			name:             "VMSS network interface",
+			resourceID:       "/subscriptions/xxx/resourceGroups/MC_aks-test_aks-test_westeurope/providers/Microsoft.Compute/virtualMachineScaleSets/aks-nodepool1-10706209-vmss/virtualMachines/3/networkInterfaces/aks-nodepool1-10706209-vmss",
+			expectedRG:       "MC_aks-test_aks-test_westeurope",
+			expectedVMID:     "3",
+			expectedVMSSName: "aks-nodepool1-10706209-vmss",
+		},
+		{
+			name:             "Standalone VM network interface",
+			resourceID:       "/subscriptions/xxx/resourceGroups/az-test-rg/providers/Microsoft.Network/networkInterfaces/pods-interface",
+			expectedRG:       "az-test-rg",
+			expectedVMID:     "",
+			expectedVMSSName: "",
+		},
+	}
 
-	vmIntf := AzureInterface{}
-	vmIntf.SetID("/subscriptions/xxx/resourceGroups/az-test-rg/providers/Microsoft.Network/networkInterfaces/pods-interface")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			intf := AzureInterface{}
+			intf.SetID(tt.resourceID)
 
-	require.Equal(t, "MC_aks-test_aks-test_westeurope", vmssIntf.GetResourceGroup())
-	require.Equal(t, "3", vmssIntf.GetVMID())
-	require.Equal(t, "aks-nodepool1-10706209-vmss", vmssIntf.GetVMScaleSetName())
-	require.Equal(t, "az-test-rg", vmIntf.GetResourceGroup())
+			require.Equal(t, tt.expectedRG, intf.GetResourceGroup())
+			require.Equal(t, tt.expectedVMID, intf.GetVMID())
+			require.Equal(t, tt.expectedVMSSName, intf.GetVMScaleSetName())
+		})
+	}
 }
