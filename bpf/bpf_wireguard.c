@@ -47,15 +47,13 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 	const struct remote_endpoint_info *info = NULL;
 	const union v6addr *src;
 
-	if (CONFIG(secctx_from_ipcache)) {
-		src = (union v6addr *)&ip6->saddr;
-		info = lookup_ip6_remote_endpoint(src, 0);
-		if (info)
-			srcid = info->sec_identity;
+	src = (union v6addr *)&ip6->saddr;
+	info = lookup_ip6_remote_endpoint(src, 0);
+	if (info)
+		srcid = info->sec_identity;
 
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *)src)[3], srcid);
-	}
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   ((__u32 *)src)[3], srcid);
 
 	return srcid;
 }
@@ -145,14 +143,12 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
 	__u32 srcid = WORLD_IPV4_ID;
 	const struct remote_endpoint_info *info = NULL;
 
-	if (CONFIG(secctx_from_ipcache)) {
-		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-		if (info)
-			srcid = info->sec_identity;
+	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+	if (info)
+		srcid = info->sec_identity;
 
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   ip4->saddr, srcid);
-	}
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->saddr, srcid);
 
 	return srcid;
 }
