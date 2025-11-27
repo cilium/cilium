@@ -1856,4 +1856,8 @@ const (
 	ExtendedMessage = "extendedMessage"
 
 	Attributes = "attributes"
+
+	DriverName = "driverName"
+
+	VfCount = "vfCount"
 )
