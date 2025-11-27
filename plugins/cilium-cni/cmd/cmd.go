@@ -25,8 +25,13 @@ import (
 	"github.com/vishvananda/netlink"
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -150,12 +155,142 @@ func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfiguratio
 	return configResult.Status, nil
 }
 
+// getPodAnnotations fetches pod annotations from Kubernetes API
+func getPodAnnotations(namespace, name string) (map[string]string, error) {
+	// CNI plugin runs on the host, not in a pod, so we need to use kubeconfig
+	// Try common kubeconfig locations on the host
+	kubeconfigPaths := []string{
+		"/etc/rancher/rke2/rke2.yaml", // RKE2 without /host prefix
+	}
+
+	var config *rest.Config
+	var err error
+
+	// Try each kubeconfig path
+	for _, kubeconfigPath := range kubeconfigPaths {
+		if _, statErr := os.Stat(kubeconfigPath); statErr == nil {
+			config, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+			if err == nil {
+				break // Found a working kubeconfig
+			}
+		}
+	}
+
+	if config == nil {
+		// If no kubeconfig found, try to use in-cluster config as last resort
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, fmt.Errorf("unable to create Kubernetes config from any source: %w", err)
+		}
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create Kubernetes client: %w", err)
+	}
+
+	pod, err := clientset.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to fetch pod %s/%s: %w", namespace, name, err)
+	}
+
+	return pod.Annotations, nil
+}
+
 func allocateIPsWithCiliumAgent(logger *slog.Logger, client *client.Client, cniArgs *types.ArgsSpec, ipamPoolName string) (*models.IPAMResponse, func(context.Context), error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
 
-	ipam, err := client.IPAMAllocate("", podName, ipamPoolName, true)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
+	// First, try to get pod annotations to check for specific IP requests
+	var ipv4Addr, ipv6Addr string
+
+	// Check CNI args first (these take precedence if set)
+	ipv4Addr = string(cniArgs.IPV4Address)
+	ipv6Addr = string(cniArgs.IPV6Address)
+
+	// If not in CNI args, try to fetch from pod annotations
+	if ipv4Addr == "" && ipv6Addr == "" {
+		annotations, err := getPodAnnotations(string(cniArgs.K8S_POD_NAMESPACE), string(cniArgs.K8S_POD_NAME))
+		if err != nil {
+			// Log the error but continue with automatic allocation
+			logger.Debug("Unable to fetch pod annotations, continuing with automatic allocation",
+				logfields.Error, err,
+				logfields.Owner, podName)
+		} else if annotations != nil {
+			// Check for specific IP annotations using the constants from annotation package
+			if val, ok := annotations[annotation.IPAMIPv4AddressKey]; ok && val != "" {
+				ipv4Addr = val
+				logger.Info("Found IPv4 address request in pod annotation",
+					logfields.IPv4, ipv4Addr,
+					logfields.Owner, podName)
+			}
+			if val, ok := annotations[annotation.IPAMIPv6AddressKey]; ok && val != "" {
+				ipv6Addr = val
+				logger.Info("Found IPv6 address request in pod annotation",
+					logfields.IPv6, ipv6Addr,
+					logfields.Owner, podName)
+			}
+		}
+	}
+
+	var ipam *models.IPAMResponse
+	var err error
+
+	// If specific IPs are requested, allocate them
+	if ipv4Addr != "" || ipv6Addr != "" {
+		logger.Info("Pod requesting specific IP(s)",
+			logfields.IPv4, ipv4Addr,
+			logfields.IPv6, ipv6Addr,
+			logfields.Owner, podName)
+
+		// Use default pool if not specified
+		if ipamPoolName == "" {
+			ipamPoolName = "default"
+		}
+
+		// Allocate IPv4 if requested
+		if ipv4Addr != "" {
+			ipam, err = client.IPAMAllocateSpecificIP(ipv4Addr, podName, ipamPoolName)
+			if err != nil {
+				logger.Error("Failed to allocate requested IPv4",
+					logfields.IPAddr, ipv4Addr,
+					logfields.Error, err)
+				return nil, nil, fmt.Errorf("unable to allocate requested IPv4 %s: %w", ipv4Addr, err)
+			}
+		}
+
+		// Allocate IPv6 if requested
+		if ipv6Addr != "" {
+			ipam6, err := client.IPAMAllocateSpecificIP(ipv6Addr, podName, ipamPoolName)
+			if err != nil {
+				// Rollback IPv4 if already allocated
+				if ipam != nil && ipam.Address != nil && ipam.Address.IPV4 != "" {
+					client.IPAMReleaseIP(ipam.Address.IPV4, ipam.Address.IPV4PoolName)
+				}
+				logger.Error("Failed to allocate requested IPv6",
+					logfields.IPAddr, ipv6Addr,
+					logfields.Error, err)
+				return nil, nil, fmt.Errorf("unable to allocate requested IPv6 %s: %w", ipv6Addr, err)
+			}
+
+			// Merge IPv6 into response
+			if ipam == nil {
+				ipam = ipam6
+			} else if ipam.Address != nil && ipam6.Address != nil {
+				ipam.Address.IPV6 = ipam6.Address.IPV6
+				ipam.Address.IPV6PoolName = ipam6.Address.IPV6PoolName
+			}
+		}
+
+		logger.Info("Successfully allocated specific IP(s)",
+			logfields.IPv4, ipam.Address.IPV4,
+			logfields.IPv6, ipam.Address.IPV6,
+			logfields.Owner, podName)
+	} else {
+		// Default automatic allocation
+		ipam, err = client.IPAMAllocate("", podName, ipamPoolName, true)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
+		}
 	}
 
 	if ipam.Address == nil {

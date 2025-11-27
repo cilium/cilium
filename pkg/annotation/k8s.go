@@ -207,6 +207,14 @@ const (
 	// which workloads should allocate their IP from
 	IPAMIPv6PoolKey = IPAMPrefix + "/ipv6-pool"
 
+	// IPAMIPv4AddressKey is the annotation name used to request a specific IPv4 address
+	// for a workload
+	IPAMIPv4AddressKey = IPAMPrefix + "/ipv4-address"
+
+	// IPAMIPv6AddressKey is the annotation name used to request a specific IPv6 address
+	// for a workload
+	IPAMIPv6AddressKey = IPAMPrefix + "/ipv6-address"
+
 	// IPAMIgnore is the annotation used to make the Cilium operator IPAM logic
 	// ignore the given CiliumNode object
 	IPAMIgnore = IPAMPrefix + "/ignore"

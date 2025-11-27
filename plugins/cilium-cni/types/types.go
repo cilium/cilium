@@ -101,6 +101,9 @@ type ArgsSpec struct {
 	K8S_POD_NAME      cniTypes.UnmarshallableString
 	K8S_POD_NAMESPACE cniTypes.UnmarshallableString
 	K8S_POD_UID       cniTypes.UnmarshallableString
+	// Fields for specific IP address requests
+	IPV4Address cniTypes.UnmarshallableString
+	IPV6Address cniTypes.UnmarshallableString
 }
 
 // Args contains arbitrary information a scheduler
