@@ -1916,4 +1916,8 @@ const (
 	CiliumDatapathPluginVersion = "datapathPluginVersion"
 
 	Attributes = "attributes"
+
+	DriverName = "driverName"
+
+	VfCount = "vfCount"
 )
