@@ -48,6 +48,8 @@ var defaultConfig = Config{
 	ProcFs: "/proc",
 }
 
+var reconcilerRefreshTime = 10 * time.Minute
+
 func newReconciler(
 	params reconciler.Params,
 	ops reconciler.Operations[*tables.Sysctl],
@@ -64,7 +66,7 @@ func newReconciler(
 
 		reconciler.WithoutPruning(),
 		reconciler.WithRefreshing(
-			10*time.Minute,
+			reconcilerRefreshTime,
 			nil,
 		),
 	)

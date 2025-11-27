@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/netns"
 )
 
 func newOps(log *slog.Logger, fs afero.Fs, cfg Config) reconciler.Operations[*tables.Sysctl] {
@@ -29,12 +30,7 @@ type ops struct {
 	procFs string
 }
 
-func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, s *tables.Sysctl) error {
-	log := ops.log.With(
-		logfields.SysParamName, strings.Join(s.Name, "."),
-		logfields.SysParamValue, s.Val,
-	)
-
+func (ops *ops) update(ctx context.Context, txn statedb.ReadTxn, s *tables.Sysctl, log *slog.Logger) error {
 	path, err := parameterPath(ops.procFs, s.Name)
 	if err != nil {
 		if s.IgnoreErr {
@@ -66,6 +62,29 @@ func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revis
 		return fmt.Errorf("failed to write sysctl setting %s: %w", path, err)
 	}
 	return nil
+}
+
+func (ops *ops) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, s *tables.Sysctl) error {
+	log := ops.log.With(
+		logfields.SysParamName, strings.Join(s.Name, "."),
+		logfields.SysParamValue, s.Val,
+	)
+
+	if s.NetNSCookie != 0 {
+		ns := netns.FindByNetNSCookie(log, s.NetNSCookie)
+		if ns == nil {
+			if s.IgnoreErr {
+				log.Warn("could not find valid netns", logfields.NetNSDir, s.NetNSCookie)
+				return nil
+			}
+			return fmt.Errorf("could not find valid netns for netnscookie=%d", s.NetNSCookie)
+		}
+		return ns.Do(func() error {
+			return ops.update(ctx, txn, s, log)
+		})
+	}
+
+	return ops.update(ctx, txn, s, log)
 }
 
 func (ops *ops) Delete(context.Context, statedb.ReadTxn, statedb.Revision, *tables.Sysctl) error {

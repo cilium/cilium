@@ -4,6 +4,7 @@
 package tables
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/cilium/statedb"
@@ -15,6 +16,11 @@ var (
 	SysctlNameIndex = statedb.Index[*Sysctl, string]{
 		Name: "name",
 		FromObject: func(s *Sysctl) index.KeySet {
+			n := strings.Join(s.Name, ".")
+			// If netns is set, ensure we make key unique by netns.
+			if s.NetNSCookie != 0 {
+				n += "." + strconv.Itoa(int(s.NetNSCookie))
+			}
 			return index.NewKeySet(index.String(strings.Join(s.Name, ".")))
 		},
 		FromKey:    index.String,
@@ -38,11 +44,15 @@ func NewSysctlTable(db *statedb.DB) (statedb.RWTable[*Sysctl], statedb.Index[*Sy
 }
 
 func (*Sysctl) TableHeader() []string {
-	return []string{"Name", "Value", "Status"}
+	return []string{"Name", "Value", "Status", "NetNS"}
 }
 
 func (s *Sysctl) TableRow() []string {
-	return []string{strings.Join(s.Name, "."), s.Val, s.Status.String()}
+	nsc := ""
+	if s.NetNSCookie != 0 {
+		nsc = strconv.Itoa(int(s.NetNSCookie))
+	}
+	return []string{strings.Join(s.Name, "."), s.Val, s.Status.String(), nsc}
 }
 
 // Sysctl is the representation of a kernel sysctl parameter.
@@ -55,6 +65,10 @@ type Sysctl struct {
 	Warn string
 
 	Status reconciler.Status
+
+	// NetNSCookie uniquely identifies a network namespace.
+	// Note: Not all netns settings are namespaced within a netns.
+	NetNSCookie uint64
 }
 
 func (s *Sysctl) Clone() *Sysctl {
