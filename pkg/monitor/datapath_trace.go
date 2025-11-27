@@ -48,21 +48,21 @@ const (
 
 // TraceNotify is the message format of a trace notification in the BPF ring buffer
 type TraceNotify struct {
-	Type      uint8
-	ObsPoint  uint8
-	Source    uint16
-	Hash      uint32
-	OrigLen   uint32
-	CapLen    uint16
-	Version   uint16
-	SrcLabel  identity.NumericIdentity
-	DstLabel  identity.NumericIdentity
-	DstID     uint16
-	Reason    uint8
-	Flags     uint8
-	Ifindex   uint32
-	OrigIP    types.IPv6
-	IPTraceID uint64
+	Type      uint8                    `align:"type"`
+	ObsPoint  uint8                    `align:"subtype"`
+	Source    uint16                   `align:"source"`
+	Hash      uint32                   `align:"hash"`
+	OrigLen   uint32                   `align:"len_orig"`
+	CapLen    uint16                   `align:"len_cap"`
+	Version   uint16                   `align:"version"`
+	SrcLabel  identity.NumericIdentity `align:"src_label"`
+	DstLabel  identity.NumericIdentity `align:"dst_label"`
+	DstID     uint16                   `align:"dst_id"`
+	Reason    uint8                    `align:"reason"`
+	Flags     uint8                    `align:"flags"`
+	Ifindex   uint32                   `align:"ifindex"`
+	OrigIP    types.IPv6               `align:"$union0"`
+	IPTraceID uint64                   `align:"ip_trace_id"`
 	// data
 }
 
