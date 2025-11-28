@@ -112,18 +112,26 @@ func ValidatingKeyCreator(validators ...nodeValidator) store.KeyCreator {
 // NodeObserver implements the store.Observer interface and delegates update
 // and deletion events to the node object itself.
 type NodeObserver struct {
-	manager NodeManager
-	source  source.Source
+	manager  NodeManager
+	source   source.Source
+	filterFn func(nodeTypes.Node) bool
 }
 
 // NewNodeObserver returns a new NodeObserver associated with the specified
 // node manager
 func NewNodeObserver(manager NodeManager, source source.Source) *NodeObserver {
-	return &NodeObserver{manager: manager, source: source}
+	return NewNodeObserverWithFilter(manager, source, nil)
+}
+
+// NewNodeObserverWithFilter returns a new NodeObserver associated with the specified
+// node manager. The given filtering function is used to determine whether to invoke
+// the manager's NodeUpdated() and NodeDeleted() methods.
+func NewNodeObserverWithFilter(manager NodeManager, source source.Source, filterFn func(nodeTypes.Node) bool) *NodeObserver {
+	return &NodeObserver{manager: manager, source: source, filterFn: filterFn}
 }
 
 func (o *NodeObserver) OnUpdate(k store.Key) {
-	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
+	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() && (o.filterFn == nil || o.filterFn(n.Node)) {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = o.source
 		o.manager.NodeUpdated(*nodeCopy)
@@ -131,7 +139,7 @@ func (o *NodeObserver) OnUpdate(k store.Key) {
 }
 
 func (o *NodeObserver) OnDelete(k store.NamedKey) {
-	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
+	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() && (o.filterFn == nil || o.filterFn(n.Node)) {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = o.source
 		o.manager.NodeDeleted(*nodeCopy)
