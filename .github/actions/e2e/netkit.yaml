@@ -8,6 +8,8 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit datapath mode - Ingress covered in other files, can skip
+  test-l7: 'false'
 - name: 'netkit-2'
   kernel: '6.12'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
@@ -18,6 +20,8 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit-L2 datapath mode - Ingress covered in other files, can skip
+  test-l7: 'false'
 - name: 'netkit-3'
   kernel: '6.12'
   misc: 'bpf.datapathMode=netkit'
@@ -28,6 +32,8 @@
   secondary-network: 'true'
   ingress-controller: 'true'
   kvstore: 'true'
+  # L7 testing: Netkit + VXLAN - basic tunnel, can skip
+  test-l7: 'false'
 - name: 'netkit-4'
   kernel: '6.12'
   misc: 'bpf.datapathMode=netkit-l2'
@@ -37,6 +43,8 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit-L2 + VXLAN - basic tunnel, can skip
+  test-l7: 'false'
 - name: 'netkit-5'
   kernel: '6.12'
   misc: 'bpf.datapathMode=netkit'
@@ -46,6 +54,8 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit + Geneve - basic tunnel, can skip
+  test-l7: 'false'
 - name: 'netkit-6'
   kernel: '6.12'
   misc: 'bpf.datapathMode=netkit-l2'
@@ -55,6 +65,8 @@
   devices: '{eth0,eth1}'
   secondary-network: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit-L2 + Geneve - basic tunnel, can skip
+  test-l7: 'false'
 - name: 'netkit-7'
   kernel: '6.12'
   misc: 'bpf.datapathMode=netkit'
@@ -66,6 +78,8 @@
   secondary-network: 'true'
   ingress-controller: 'true'
   host-fw: 'true'
+  # L7 testing: Netkit + host firewall - proxy traffic must traverse host firewall
+  test-l7: 'true'
 - name: 'netkit-8'
   kernel: '6.12'
   misc: 'bpf.datapathMode=netkit,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
@@ -78,6 +92,8 @@
   ciliumendpointslice: 'true'
   endpoint-routes: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit + CiliumEndpointSlice - can skip
+  test-l7: 'false'
 - name: 'netkit-9'
   kernel: '6.12'
   misc: 'bpf.datapathMode=netkit-l2,enableIPv4BIGTCP=true,enableIPv6BIGTCP=true'
@@ -90,3 +106,5 @@
   ciliumendpointslice: 'true'
   endpoint-routes: 'true'
   ingress-controller: 'true'
+  # L7 testing: Netkit-L2 + CiliumEndpointSlice - similar to netkit-8, can skip
+  test-l7: 'false'
