@@ -141,6 +141,11 @@ type IPAMSpec struct {
 	// +optional
 	Pools IPAMPoolSpec `json:"pools,omitempty"`
 
+	// ResourcePools contains the list of assigned DRA resources IPAM pools for this node.
+	//
+	// +optional
+	ResourcePools IPAMPoolSpec `json:"resourcepools,omitempty"`
+
 	// PodCIDRs is the list of CIDRs available to the node for allocation.
 	// When an IP is used, the IP will be added to Status.IPAM.Used
 	//
