@@ -152,6 +152,7 @@ func (in *IPAMSpec) DeepCopyInto(out *IPAMSpec) {
 		}
 	}
 	in.Pools.DeepCopyInto(&out.Pools)
+	in.ResourcePools.DeepCopyInto(&out.ResourcePools)
 	if in.PodCIDRs != nil {
 		in, out := &in.PodCIDRs, &out.PodCIDRs
 		*out = make([]ip.Prefix, len(*in))
