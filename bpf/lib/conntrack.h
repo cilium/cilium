@@ -39,6 +39,8 @@ enum ct_entry_type {
 };
 
 struct ct_state {
+	union v6addr nat_addr;
+	__be16 nat_port;
 	__u16 rev_nat_index;
 #ifdef USE_LOOPBACK_LB
 	__u16 loopback:1,
@@ -85,8 +87,15 @@ struct ct_buffer6 {
 };
 
 struct ct_entry {
-	__u64 reserved0;	/* unused since v1.16 */
-	__u64 backend_id;
+	union {
+		/* For CT_EGRESS entry: */
+		union v6addr nat_addr;
+		/* For CT_SERVICE entry: */
+		struct {
+			__u64 reserved0;	/* unused since v1.16 */
+			__u64 backend_id;
+		};
+	};
 	__u64 packets;
 	__u64 bytes;
 	__u32 lifetime;
@@ -103,7 +112,7 @@ struct ct_entry {
 	      from_tunnel:1,	/* Connection is over tunnel */
 	      reserved3:5;
 	__u16 rev_nat_index;
-	__u16 reserved4;	/* unused since v1.18 */
+	__be16 nat_port;	/* For CT_EGRESS entry. */
 
 	/* *x_flags_seen represents the OR of all TCP flags seen for the
 	 * transmit/receive direction of this entry.
@@ -1046,6 +1055,8 @@ ct_create_fill_entry(struct ct_entry *entry, const struct ct_state *state,
 #ifdef USE_LOOPBACK_LB
 		entry->lb_loopback = state->loopback;
 #endif
+		ipv6_addr_copy(&entry->nat_addr, &state->nat_addr);
+		entry->nat_port = state->nat_port;
 		entry->node_port = state->node_port;
 		entry->dsr_internal = state->dsr_internal;
 		entry->from_tunnel = state->from_tunnel;
