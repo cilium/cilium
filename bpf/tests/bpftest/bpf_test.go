@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"io/fs"
 	"maps"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
 	"slices"
@@ -264,9 +266,10 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 
 	// Get maps used for common mocking facilities
 	skbMdMap := coll.Maps[mockSkbMetaMap]
+	scapyAssertMap := coll.Maps[scapyAssertionsMap]
 
 	for _, name := range testNames {
-		t.Run(name, subTest(testNameToPrograms[name], coll.Maps[suiteResultMap], skbMdMap))
+		t.Run(name, subTest(testNameToPrograms[name], coll.Maps[suiteResultMap], scapyAssertMap, skbMdMap))
 	}
 
 	if globalLogReader != nil {
@@ -336,9 +339,81 @@ const (
 
 	suiteResultMap = "suite_result_map"
 	mockSkbMetaMap = "mock_skb_meta_map"
+
+	scapyTraceDiffCmd  = "../scapy/trace_diff_pkts.py"
+	scapyAssertionsMap = "scapy_assert_map"
+	scapyMaxStrLen     = 128
+	scapyMaxBuf        = 1518
 )
 
-func subTest(progSet programSet, resultMap *ebpf.Map, skbMdMap *ebpf.Map) func(t *testing.T) {
+type ScapyAssert struct {
+	Name       [scapyMaxStrLen]byte
+	File       [scapyMaxStrLen]byte
+	LNum       [scapyMaxStrLen]byte
+	FirstLayer [scapyMaxStrLen]byte
+	Len        uint16
+	ExpBuf     [scapyMaxBuf]byte
+	GotBuf     [scapyMaxBuf]byte
+	Pad        [2]byte
+}
+
+func assertToJSONMap(a ScapyAssert) map[string]any {
+	return map[string]any{
+		"name":        string(bytes.TrimRight(a.Name[:], "\x00")),
+		"file":        string(bytes.TrimRight(a.File[:], "\x00")),
+		"linenum":     string(bytes.TrimRight(a.LNum[:], "\x00")),
+		"first-layer": string(bytes.TrimRight(a.FirstLayer[:], "\x00")),
+		"len":         a.Len,
+		"exp-buf":     hex.EncodeToString(a.ExpBuf[:a.Len]),
+		"got-buf":     hex.EncodeToString(a.GotBuf[:a.Len]),
+	}
+}
+
+func scapyParseAsserts(t *testing.T, scapyAssertMap *ebpf.Map) {
+	if scapyAssertMap == nil {
+		return
+	}
+
+	info, err := scapyAssertMap.Info()
+	if err != nil {
+		t.Fatalf("error while getting the assert map capacity: %s", err)
+	}
+
+	count := 0
+	var aval ScapyAssert
+
+	asserts := []map[string]any{}
+
+	for i := uint32(0); i < info.MaxEntries; i++ {
+		err = scapyAssertMap.Lookup(&i, &aval)
+		if err != nil {
+			t.Fatalf("error while getting iterating over the assert map: %s", err)
+		}
+		if aval.Len == 0 {
+			break
+		}
+
+		asserts = append(asserts, assertToJSONMap(aval))
+		count++
+	}
+
+	if count != 0 {
+		jsonBytes, err := json.Marshal(asserts)
+		if err != nil {
+			t.Fatalf("error while JSON marshalling an asserts: %s", err)
+		}
+		t.Logf("  Scapy asserts failed: %d\n", count)
+		cmd := exec.Command(scapyTraceDiffCmd)
+		cmd.Stdin = bytes.NewBufferString(string(jsonBytes))
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Logf("error while tracing diff pkts: %s %s", err, output)
+		}
+		t.Logf("\n%s", string(output))
+	}
+}
+
+func subTest(progSet programSet, resultMap *ebpf.Map, scapyAssertMap *ebpf.Map, skbMdMap *ebpf.Map) func(t *testing.T) {
 	return func(t *testing.T) {
 		// create ctx with the max allowed size(4k - head room - tailroom)
 		data := make([]byte, 4096-256-320)
@@ -409,7 +484,10 @@ func subTest(progSet programSet, resultMap *ebpf.Map, skbMdMap *ebpf.Map) func(t
 			t.Log(spew.Sdump(data))
 			t.Log("ctx after check: ")
 			t.Log(spew.Sdump(ctx))
+
 		}
+
+		defer scapyParseAsserts(t, scapyAssertMap)
 
 		// Clear map value after each test
 		defer func() {
