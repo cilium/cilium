@@ -140,7 +140,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.ctAccounting | bool | `false` | Enable CT accounting for packets and bytes |
 | bpf.ctAnyMax | int | `262144` | Configure the maximum number of entries for the non-TCP connection tracking table. |
 | bpf.ctTcpMax | int | `524288` | Configure the maximum number of entries in the TCP connection tracking table. |
-| bpf.datapathMode | string | `veth` | Mode for Pod devices for the core datapath (veth, netkit, netkit-l2) |
+| bpf.datapathMode | string | `veth` | Mode for Pod devices for the core datapath (auto, veth, netkit, netkit-l2) |
 | bpf.disableExternalIPMitigation | bool | `false` | Disable ExternalIP mitigation (CVE-2020-8554) |
 | bpf.distributedLRU | object | `{"enabled":false}` | Control to use a distributed per-CPU backend memory for the core BPF LRU maps which Cilium uses. This improves performance significantly, but it is also recommended to increase BPF map sizing along with that. |
 | bpf.distributedLRU.enabled | bool | `false` | Enable distributed LRU backend memory. For compatibility with existing installations it is off by default. |

@@ -111,16 +111,30 @@ type connectorParams struct {
 
 // newConnectorConfig initialises a new ConnectorConfig object with default parameters.
 func newConfig(p connectorParams) (*ConnectorConfig, error) {
-	configuredMode := types.GetConnectorModeByName(p.DaemonConfig.DatapathMode)
+	var configuredMode, operationalMode types.ConnectorMode
+
+	configuredMode = types.GetConnectorModeByName(p.DaemonConfig.DatapathMode)
 	switch configuredMode {
 	case types.ConnectorModeUnspec:
 		return nil, fmt.Errorf("invalid datapath mode: %s", p.DaemonConfig.DatapathMode)
 
+	case types.ConnectorModeAuto:
+		if err := probes.HaveNetkit(); err != nil {
+			p.Log.Info("netkit probe failed, falling back to veth connector", logfields.Error, err)
+			operationalMode = types.ConnectorModeVeth
+		} else {
+			operationalMode = types.ConnectorModeNetkit
+		}
+
 	case types.ConnectorModeNetkit, types.ConnectorModeNetkitL2:
-		// Netkit requires a reasonably modern kernel
 		if err := probes.HaveNetkit(); err != nil {
 			return nil, fmt.Errorf("netkit connector needs kernel 6.7.0+ and CONFIG_NETKIT")
 		}
+
+		fallthrough
+
+	default:
+		operationalMode = configuredMode
 	}
 
 	cc := &ConnectorConfig{
@@ -128,7 +142,7 @@ func newConfig(p connectorParams) (*ConnectorConfig, error) {
 		wgAgent:         p.WgAgent,
 		tunnelConfig:    p.TunnelConfig,
 		configuredMode:  configuredMode,
-		operationalMode: configuredMode,
+		operationalMode: operationalMode,
 	}
 
 	// For netkit we enable also tcx for all non-netkit devices.
@@ -138,6 +152,8 @@ func newConfig(p connectorParams) (*ConnectorConfig, error) {
 	if cc.operationalMode.IsNetkit() {
 		p.DaemonConfig.EnableTCX = true
 	}
+
+	p.Log.Info("Datapath connector ready", logfields.DatapathMode, cc.operationalMode)
 
 	return cc, nil
 }

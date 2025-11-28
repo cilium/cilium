@@ -204,6 +204,8 @@ func TestNewConfig(t *testing.T) {
 }
 
 func TestUseTunedBufferMargins(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	tests := []struct {
 		name              string
 		daemonConfig      *option.DaemonConfig
@@ -233,6 +235,7 @@ func TestUseTunedBufferMargins(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := connectorParams{
+				Log:          logger,
 				Lifecycle:    &cell.DefaultLifecycle{},
 				DaemonConfig: tt.daemonConfig,
 			}

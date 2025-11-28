@@ -192,8 +192,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.DebugVerbose)
 
 	flags.String(option.DatapathMode, defaults.DatapathMode,
-		fmt.Sprintf("Datapath mode name (%s, %s, %s)",
-			datapathOption.DatapathModeVeth, datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2))
+		fmt.Sprintf("Datapath mode name (%s, %s, %s, %s)",
+			datapathOption.DatapathModeAuto, datapathOption.DatapathModeVeth,
+			datapathOption.DatapathModeNetkit, datapathOption.DatapathModeNetkitL2))
 	option.BindEnv(vp, option.DatapathMode)
 
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
