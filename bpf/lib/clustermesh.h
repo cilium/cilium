@@ -19,6 +19,12 @@ get_identity_len()
 	return identity_len;
 }
 
+static __always_inline __u32
+get_max_identity()
+{
+	return (__u32)((1 << IDENTITY_LEN) - 1);
+}
+
 #endif /* __CLUSTERMESH_HELPERS__ */
 
 
@@ -26,12 +32,6 @@ static __always_inline __u32
 extract_cluster_id_from_identity(__u32 identity)
 {
 	return (__u32)(identity >> IDENTITY_LEN);
-}
-
-static __always_inline __u32
-get_max_identity()
-{
-	return (__u32)((1 << IDENTITY_LEN) - 1);
 }
 
 static __always_inline __maybe_unused __u32
