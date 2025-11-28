@@ -182,6 +182,10 @@ func (in *IPAMSpec) DeepEqual(other *IPAMSpec) bool {
 		return false
 	}
 
+	if !in.ResourcePools.DeepEqual(&other.ResourcePools) {
+		return false
+	}
+
 	if ((in.PodCIDRs != nil) && (other.PodCIDRs != nil)) || ((in.PodCIDRs == nil) != (other.PodCIDRs == nil)) {
 		in, other := &in.PodCIDRs, &other.PodCIDRs
 		if other == nil {
