@@ -9,6 +9,8 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  # L7 testing: Ingress covered in lb.yaml, can skip
+  test-l7: 'false'
 - name: 'misc-2'
   kernel: '6.6'
   kube-proxy: 'none'
@@ -19,6 +21,8 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  # L7 testing: Ingress covered in lb.yaml, can skip
+  test-l7: 'false'
 - name: 'misc-3'
   kernel: '6.6'
   kube-proxy: 'none'
@@ -29,6 +33,8 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  # L7 testing: Ingress covered in lb.yaml, can skip
+  test-l7: 'false'
 - name: 'misc-4'
   kernel: '6.6'
   kube-proxy: 'none'
@@ -40,6 +46,8 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  # L7 testing: Endpoint routes + Ingress, can skip
+  test-l7: 'false'
 - name: 'misc-5'
   kernel: '6.12'
   kube-proxy: 'none'
@@ -50,6 +58,8 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  # L7 testing: Duplicate of misc-3, can skip
+  test-l7: 'false'
 - name: 'misc-6'
   kernel: '6.12'
   kube-proxy: 'none'
@@ -61,6 +71,8 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  # L7 testing: Duplicate of misc-4, can skip
+  test-l7: 'false'
 - name: 'misc-7'
   kernel: '5.15'
   kube-proxy: 'none'
@@ -72,3 +84,5 @@
   tunnel: 'vxlan'
   underlay: 'ipv6'
   skip-upgrade: 'true'
+  # L7 testing: Basic IPv6-only configuration, can skip
+  test-l7: 'false'
