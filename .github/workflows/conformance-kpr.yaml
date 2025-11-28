@@ -107,6 +107,7 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "advanced-features": true}'
+      test-concurrency: 2
 
   conformance-eks-kpr-ipsec:
     name: Conformance EKS with KPR + IPsec
@@ -132,6 +133,7 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "advanced-features": true, "wireguard": true}'
+      test-concurrency: 2
 
   merge-upload-and-status:
     name: Merge Upload and Status
