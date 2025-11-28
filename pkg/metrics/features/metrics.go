@@ -169,7 +169,14 @@ var (
 		option.IdentityAllocationModeDoubleWriteReadCRD,
 	}
 
-	defaultDeviceModes = []string{
+	defaultConfiguredDatapathMode  = datapathOption.DatapathModeVeth
+	defaultConfiguredDatapathModes = []string{
+		datapathOption.DatapathModeAuto,
+		datapathOption.DatapathModeVeth,
+		datapathOption.DatapathModeNetkit,
+		datapathOption.DatapathModeNetkitL2,
+	}
+	defaultOperationalDatapathModes = []string{
 		datapathOption.DatapathModeVeth,
 		datapathOption.DatapathModeNetkit,
 		datapathOption.DatapathModeNetkitL2,
@@ -338,12 +345,22 @@ func NewMetrics(withDefaults bool) Metrics {
 			Name:      "config",
 		}, metric.Labels{
 			{
-				Name: "mode", Values: func() metric.Values {
+				Name: "configured_mode", Values: func() metric.Values {
 					if !withDefaults {
 						return nil
 					}
 					return metric.NewValues(
-						defaultDeviceModes...,
+						defaultConfiguredDatapathModes...,
+					)
+				}(),
+			},
+			{
+				Name: "operational_mode", Values: func() metric.Values {
+					if !withDefaults {
+						return nil
+					}
+					return metric.NewValues(
+						defaultOperationalDatapathModes...,
 					)
 				}(),
 			},
@@ -1009,8 +1026,9 @@ func (m Metrics) update(params enabledFeatures, config *option.DaemonConfig, lbC
 		m.CPCiliumEndpointSlicesEnabled.Set(1)
 	}
 
-	deviceMode := config.DatapathMode
-	m.DPDeviceConfig.WithLabelValues(deviceMode).Set(1)
+	configuredDeviceMode := params.DatapathConfiguredMode()
+	operationalDeviceMode := params.DatapathOperationalMode()
+	m.DPDeviceConfig.WithLabelValues(configuredDeviceMode, operationalDeviceMode).Set(1)
 
 	if config.EnableEndpointRoutes {
 		m.DPEndpointRoutes.Set(1)
