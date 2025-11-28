@@ -256,12 +256,25 @@ func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeExtendedMan
 		return nil
 	}
 
+	var filterFn func(nodeTypes.Node) bool
+	if option.Config.EnableKVStoreClusterNameMismatchFilter {
+		filterFn = func(n nodeTypes.Node) bool {
+			// Filter out update/delete events of nodes, which cluster name does not match
+			// a local cluster name. This catches the events which happen after the local
+			// cluster name was changed. Such events are problematic, since they trigger
+			// a removal of valid entries in IPcache, ipset, routing tables, etc. Hence,
+			// filter them out. ClusterMesh remote node events are handled by a different
+			// NodeObserver with source.ClusterMesh.
+			return n.Cluster == option.Config.ClusterName
+		}
+	}
+
 	// Join the shared store holding node information of entire cluster
 	nodeStore, err := store.JoinSharedStore(store.Configuration{
 		Prefix:               NodeStorePrefix,
 		KeyCreator:           ValidatingKeyCreator(),
 		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
-		Observer:             NewNodeObserver(manager, source.KVStore),
+		Observer:             NewNodeObserverWithFilter(manager, source.KVStore, filterFn),
 	})
 	if err != nil {
 		return err

@@ -161,6 +161,8 @@ const (
 	// EncryptNode enables node IP encryption
 	EncryptNode = "encrypt-node"
 
+	EnableKVStoreClusterNameMismatchFilter = "enable-kvstore-cluster-name-mismatch-filter"
+
 	// GopsPort is the TCP port for the gops server.
 	GopsPort = "gops-port"
 
@@ -1417,6 +1419,8 @@ type DaemonConfig struct {
 	HostV6Addr          net.IP   // Host v6 address of the snooping device
 	EncryptInterface    []string // Set of network facing interface to encrypt over
 	EncryptNode         bool     // Set to true for encrypting node IP traffic
+
+	EnableKVStoreClusterNameMismatchFilter bool
 
 	// If set to true the daemon will detect new and deleted datapath devices
 	// at runtime and reconfigure the datapath to load programs onto the new
@@ -3066,6 +3070,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
 	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
+	c.EnableKVStoreClusterNameMismatchFilter = vp.GetBool(EnableKVStoreClusterNameMismatchFilter)
 	c.IdentityChangeGracePeriod = vp.GetDuration(IdentityChangeGracePeriod)
 	c.IdentityRestoreGracePeriod = vp.GetDuration(IdentityRestoreGracePeriod)
 	c.IPAM = vp.GetString(IPAM)

@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	"github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -1286,4 +1287,107 @@ func TestNodesStartupPruning(t *testing.T) {
 	}
 
 	checkNodeFileMatches(path, n1)
+}
+
+// Tests that after a cluster name change "stale" node's delete event (in real case triggered
+// by kvstore's TTL lease) is ignored, and thus does not remove IPcache valid entries.
+func TestClusterNameChange(t *testing.T) {
+	option.Config.ClusterName = "c1"
+	defer func() {
+		option.Config.ClusterName = "c1"
+	}()
+
+	ipcacheMock := newIPcacheMock()
+	dp := newSignalNodeHandler()
+	dp.EnableNodeAddEvent = true
+	dp.EnableNodeUpdateEvent = true
+	dp.EnableNodeDeleteEvent = true
+	h, _ := cell.NewSimpleHealth()
+	mngr, err := New(&option.DaemonConfig{
+		ConfigPatchMutex: new(lock.RWMutex),
+		LocalRouterIPv4:  "169.254.4.6",
+	}, ipcacheMock, newIPSetMock(), nil, NewNodeMetrics(), h)
+	require.NoError(t, err)
+	mngr.Subscribe(dp)
+	defer mngr.Stop(context.TODO())
+
+	// Use NodeObserver, as it has filtering capabilities
+	observer := store.NewNodeObserverWithFilter(mngr, source.KVStore,
+		func(n nodeTypes.Node) bool { return n.Cluster == option.Config.ClusterName })
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.128.0.40"),
+			},
+		},
+		Source: source.KVStore,
+	}
+
+	observer.OnUpdate(&store.ValidatingNode{Node: n1})
+
+	select {
+	case nodeEvent := <-dp.NodeAddEvent:
+		require.Equal(t, n1, nodeEvent)
+	case nodeEvent := <-dp.NodeUpdateEvent:
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+	case nodeEvent := <-dp.NodeDeleteEvent:
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+	case <-time.After(3 * time.Second):
+		t.Errorf("timeout while waiting for NodeAdd() event for node1")
+	}
+	select {
+	case event := <-ipcacheMock.events:
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.128.0.40"), 32)}, event)
+	case <-time.After(5 * time.Second):
+		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+	}
+
+	// Rename cluster and re-add node1
+
+	option.Config.ClusterName = "c1-renamed"
+	n2 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1-renamed",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.128.0.40"),
+			},
+		},
+		Source: source.KVStore,
+	}
+	observer.OnUpdate(&store.ValidatingNode{Node: n2})
+
+	select {
+	case nodeEvent := <-dp.NodeAddEvent:
+		require.Equal(t, n2, nodeEvent)
+	case nodeEvent := <-dp.NodeUpdateEvent:
+		t.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+	case nodeEvent := <-dp.NodeDeleteEvent:
+		t.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+	case <-time.After(3 * time.Second):
+		t.Errorf("timeout while waiting for NodeAdd() event for node1")
+	}
+	select {
+	case event := <-ipcacheMock.events:
+		require.Equal(t, nodeEvent{event: "upsert", prefix: netip.PrefixFrom(netip.MustParseAddr("10.128.0.40"), 32)}, event)
+	case <-time.After(5 * time.Second):
+		t.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+	}
+
+	// Manually delete stale c1/node1 entry
+
+	observer.OnDelete(&store.ValidatingNode{Node: n1})
+
+	// The removal should not trigger the corresponding IPcache entry removal
+
+	select {
+	case event := <-ipcacheMock.events:
+		t.Errorf("not expected to receive (delete) event: %#v", event)
+	case <-time.After(1 * time.Second):
+	}
 }

@@ -316,6 +316,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EncryptNode, defaults.EncryptNode, "Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)")
 	option.BindEnv(vp, option.EncryptNode)
 
+	flags.Bool(option.EnableKVStoreClusterNameMismatchFilter, false, "Enables kvstore observer filtering of update/delete events of nodes which do not match local cluster name ")
+	option.BindEnv(vp, option.EnableKVStoreClusterNameMismatchFilter)
+	flags.MarkHidden(option.EnableKVStoreClusterNameMismatchFilter)
+
 	flags.StringSlice(option.IPv4PodSubnets, []string{}, "List of IPv4 pod subnets to preconfigure for encryption")
 	option.BindEnv(vp, option.IPv4PodSubnets)
 
