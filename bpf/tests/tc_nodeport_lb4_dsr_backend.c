@@ -386,6 +386,41 @@ int nodeport_dsr_backend_reply_check(const struct __ctx_buff *ctx)
 	return check_reply(ctx);
 }
 
+/* Test that the backend node revDNATs a reply from the
+ * DSR backend, and sends the reply back to the client.
+ * Even without the NAT entry.
+ */
+PKTGEN("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
+int nodeport_dsr_backend_reply2_no_nat_entry_pktgen(struct __ctx_buff *ctx)
+{
+	return build_reply(ctx);
+}
+
+SETUP("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
+int nodeport_dsr_backend_reply2_no_nat_entry_setup(struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple tuple = {
+		.daddr = CLIENT_IP,
+		.saddr = BACKEND_IP,
+		.dport = CLIENT_PORT,
+		.sport = BACKEND_PORT,
+		.nexthdr = IPPROTO_TCP,
+		.flags = CT_EGRESS,
+	};
+
+	/* Delete the NAT entry, fall back to the NAT info in the CT entry. */
+	if (map_delete_elem(&cilium_snat_v4_external, &tuple))
+		return TEST_ERROR;
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
+int nodeport_dsr_backend_reply2_no_nat_entry_check(const struct __ctx_buff *ctx)
+{
+	return check_reply(ctx);
+}
+
 /* Same scenario as above, but for a different CLIENT_IP_2. Here replies
  * should leave via a non-default interface.
  */
