@@ -55,6 +55,10 @@ func (fcc fakeConnectorConfig) NewLinkPair(cfg types.LinkConfig, sysctl sysctl.S
 	return &fakeLinkPair{mode: fcc.operationalMode}, nil
 }
 
+func (fcc fakeConnectorConfig) GetLinkCompatibility(ifName string) (types.ConnectorMode, bool, error) {
+	return types.ConnectorModeUnspec, false, nil
+}
+
 type fakeLinkPair struct {
 	mode types.ConnectorMode
 }
