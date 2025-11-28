@@ -309,15 +309,15 @@ func (k *CtKey6Global) GetTupleKey() tuple.TupleKey {
 
 // CtEntry represents an entry in the connection tracking table.
 type CtEntry struct {
-	Reserved0 uint64 `align:"reserved0"`
-	BackendID uint64 `align:"backend_id"`
-	Packets   uint64 `align:"packets"`
-	Bytes     uint64 `align:"bytes"`
-	Lifetime  uint32 `align:"lifetime"`
-	Flags     uint16 `align:"rx_closing"`
+	Union0   [2]uint64 `align:"$union0"`
+	Packets  uint64    `align:"packets"`
+	Bytes    uint64    `align:"bytes"`
+	Lifetime uint32    `align:"lifetime"`
+	Flags    uint16    `align:"rx_closing"`
 	// RevNAT is in network byte order
-	RevNAT           uint16 `align:"rev_nat_index"`
-	Reserved4        uint16 `align:"reserved4"`
+	RevNAT uint16 `align:"rev_nat_index"`
+	// NatPort is in network byte order
+	NatPort          uint16 `align:"nat_port"`
 	TxFlagsSeen      uint8  `align:"tx_flags_seen"`
 	RxFlagsSeen      uint8  `align:"rx_flags_seen"`
 	SourceSecurityID uint32 `align:"src_sec_id"`
@@ -398,7 +398,7 @@ func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
 		timeDiff = ""
 	}
 
-	return fmt.Sprintf("expires=%d%s Packets=%d Bytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d BackendID=%d \n",
+	return fmt.Sprintf("expires=%d%s Packets=%d Bytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d BackendID=%d NatPort=%d \n",
 		c.Lifetime,
 		timeDiff,
 		c.Packets,
@@ -410,7 +410,9 @@ func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
 		c.flagsString(),
 		byteorder.NetworkToHost16(c.RevNAT),
 		c.SourceSecurityID,
-		c.BackendID)
+		c.Union0[1],
+		// TODO NatAddr, either IPv4 or IPv6
+		byteorder.NetworkToHost16(c.NatPort))
 }
 
 // String returns the readable format
