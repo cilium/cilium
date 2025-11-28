@@ -867,6 +867,14 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 		struct ipv6_nat_entry *dsr_entry;
 		struct ipv6_ct_tuple dsr_tuple;
 
+		if (entry->nat_port) {
+			ipv6_addr_copy(&nat_info->address,
+				       &entry->nat_addr);
+
+			nat_info->port = entry->nat_port;
+			return true;
+		}
+
 		dsr_tuple = *tuple;
 
 		dsr_tuple.flags = NAT_DIR_EGRESS;
@@ -2216,6 +2224,7 @@ create_ct:
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
 		if (!IS_ERR(ret))
+			/* TODO remove this in v1.20 */
 			ret = snat_v4_create_dsr(tuple, addr, port, ext_err);
 
 		if (IS_ERR(ret))
@@ -2271,6 +2280,12 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 	if (is_defined(ENABLE_DSR) && entry->dsr_internal) {
 		struct ipv4_nat_entry *dsr_entry;
 		struct ipv4_ct_tuple dsr_tuple;
+
+		if (entry->nat_port) {
+			nat_info->address = entry->nat_addr.p4;
+			nat_info->port = entry->nat_port;
+			return true;
+		}
 
 		dsr_tuple = *tuple;
 
