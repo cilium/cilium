@@ -75,6 +75,7 @@ type ConnectorConfig interface {
 	GetConfiguredMode() ConnectorMode
 	GetOperationalMode() ConnectorMode
 	NewLinkPair(cfg LinkConfig, sysctl sysctl.Sysctl) (LinkPair, error)
+	GetLinkCompatibility(ifName string) (ConnectorMode, bool, error)
 }
 
 // LinkConfig contains the GRO/GSO, MTU values and buffer margins to be configured on
