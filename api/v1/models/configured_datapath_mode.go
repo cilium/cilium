@@ -33,6 +33,9 @@ func (m ConfiguredDatapathMode) Pointer() *ConfiguredDatapathMode {
 
 const (
 
+	// ConfiguredDatapathModeAuto captures enum value "auto"
+	ConfiguredDatapathModeAuto ConfiguredDatapathMode = "auto"
+
 	// ConfiguredDatapathModeVeth captures enum value "veth"
 	ConfiguredDatapathModeVeth ConfiguredDatapathMode = "veth"
 
@@ -48,7 +51,7 @@ var configuredDatapathModeEnum []any
 
 func init() {
 	var res []ConfiguredDatapathMode
-	if err := json.Unmarshal([]byte(`["veth","netkit","netkit-l2"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["auto","veth","netkit","netkit-l2"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
