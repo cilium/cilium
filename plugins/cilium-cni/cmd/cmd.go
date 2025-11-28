@@ -68,6 +68,11 @@ type Cmd struct {
 	logger  *slog.Logger
 	version string
 	cfg     EndpointConfigurator
+
+	onConfigReady          []OnConfigReady
+	onIPAMReady            []OnIPAMReady
+	onLinkConfigReady      []OnLinkConfigReady
+	onInterfaceConfigReady []OnInterfaceConfigReady
 }
 
 // Option allows the customization of the Cmd implementation
@@ -560,6 +565,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		return err
 	}
 
+	for _, hook := range cmd.onConfigReady {
+		if err := hook.OnConfigReady(n, cniArgs, conf); err != nil {
+			return err
+		}
+	}
+
 	// If CNI ADD gives us a PrevResult, we're a chained plugin and *must* detect a
 	// valid chained mode. If no chained mode we understand is specified, error out.
 	// Otherwise, continue with normal plugin execution.
@@ -643,6 +654,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			return errors.New("IPAM did provide neither IPv4 nor IPv6 address")
 		}
 
+		for _, hook := range cmd.onIPAMReady {
+			if err := hook.OnIPAMReady(ipam); err != nil {
+				return err
+			}
+		}
+
 		state, ep, err := epConf.PrepareEndpoint(ipam)
 		if err != nil {
 			return fmt.Errorf("unable to prepare endpoint configuration: %w", err)
@@ -658,6 +675,13 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			DeviceHeadroom: uint16(conf.DeviceHeadroom),
 			DeviceTailroom: uint16(conf.DeviceTailroom),
 		}
+
+		for _, hook := range cmd.onLinkConfigReady {
+			if err := hook.OnLinkConfigReady(&linkConfig); err != nil {
+				return err
+			}
+		}
+
 		var hostLink, epLink netlink.Link
 		var tmpIfName string
 		var l2Mode bool
@@ -756,6 +780,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 				if err != nil {
 					return fmt.Errorf("unable to setup interface datapath: %w", err)
 				}
+			}
+		}
+
+		for _, hook := range cmd.onInterfaceConfigReady {
+			if err := hook.OnInterfaceConfigReady(state, ep, res); err != nil {
+				return err
 			}
 		}
 
