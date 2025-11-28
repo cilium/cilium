@@ -9,8 +9,10 @@ import (
 	"math"
 
 	"github.com/cilium/hive/cell"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -66,6 +68,29 @@ func (cc *ConnectorConfig) GetOperationalMode() types.ConnectorMode {
 
 func (cc *ConnectorConfig) NewLinkPair(cfg types.LinkConfig, sysctl sysctl.Sysctl) (types.LinkPair, error) {
 	return NewLinkPair(cc.log, cc.operationalMode, cfg, sysctl)
+}
+
+func (cc *ConnectorConfig) GetLinkCompatibility(ifName string) (types.ConnectorMode, bool, error) {
+	link, err := safenetlink.LinkByName(ifName)
+	if err != nil {
+		return types.ConnectorModeUnspec, false, err
+	}
+
+	linkMode := types.GetConnectorModeByName(link.Type())
+
+	// The netkit driver supports both L2 and L3 modes, which we can't identify
+	// by the link type. If the link is operating at L2 mode, the above getter
+	// will return the L3 type. Probe the netkit structure to fix this up.
+	if linkMode == types.ConnectorModeNetkit {
+		nk := link.(*netlink.Netkit)
+		if nk.Mode == netlink.NETKIT_MODE_L2 {
+			linkMode = types.ConnectorModeNetkitL2
+		}
+	}
+
+	linkCompatible := cc.operationalMode == linkMode
+
+	return linkMode, linkCompatible, nil
 }
 
 // Returns true if we should actively try and align the connector's netdev buffer
