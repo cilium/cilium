@@ -130,6 +130,63 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 
 }
 
+func Test_findSubnetInSameRouteTableWithNodeSubnet_UntrackedSubnets(t *testing.T) {
+	// This test ensures that the function handles the case where the route table
+	// references subnets that are not tracked by the manager because they were filtered
+	// out by the subnetsFilters parameter
+	routeTableMap := ipamTypes.RouteTableMap{
+		"rt-1": &ipamTypes.RouteTable{
+			ID:               "rt-1",
+			VirtualNetworkID: "vpc-1",
+			Subnets: map[string]struct{}{
+				"subnet-1": {}, // node subnet
+				"subnet-2": {}, // tracked subnet
+				"subnet-3": {}, // untracked subnet (not in manager.subnets)
+				"subnet-4": {}, // another tracked subnet
+			},
+		},
+	}
+
+	node := &Node{
+		k8sObj: &v2.CiliumNode{
+			Spec: v2.NodeSpec{
+				ENI: types.ENISpec{
+					VpcID:            "vpc-1",
+					NodeSubnetID:     "subnet-1",
+					AvailabilityZone: "us-east-1a",
+				},
+			},
+		},
+		manager: &InstancesManager{
+			subnets: map[string]*ipamTypes.Subnet{
+				"subnet-1": {
+					ID:                 "subnet-1",
+					AvailableAddresses: 10,
+					AvailabilityZone:   "us-east-1a",
+				},
+				"subnet-2": {
+					ID:                 "subnet-2",
+					AvailableAddresses: 20,
+					AvailabilityZone:   "us-east-1a",
+				},
+				// subnet-3 is intentionally missing to simulate an untracked subnet
+				"subnet-4": {
+					ID:                 "subnet-4",
+					AvailableAddresses: 30,
+					AvailabilityZone:   "us-east-1a",
+				},
+			},
+			routeTables: routeTableMap,
+		},
+	}
+
+	// This should not panic and should return subnet-4 (highest available addresses)
+	got := node.findSubnetInSameRouteTableWithNodeSubnet()
+	require.NotNil(t, got)
+	require.Equal(t, "subnet-4", got.ID)
+	require.Equal(t, 30, got.AvailableAddresses)
+}
+
 func Test_checkSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 	routeTableMap := ipamTypes.RouteTableMap{
 		"rt-1": &ipamTypes.RouteTable{

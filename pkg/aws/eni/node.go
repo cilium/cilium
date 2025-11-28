@@ -920,6 +920,9 @@ func (n *Node) findSubnetInSameRouteTableWithNodeSubnet() *ipamTypes.Subnet {
 					continue
 				}
 				subnet := n.manager.subnets[subnetID]
+				if subnet == nil {
+					continue
+				}
 				if (bestSubnet == nil || subnet.AvailableAddresses > bestSubnet.AvailableAddresses) && subnet.AvailabilityZone == n.k8sObj.Spec.ENI.AvailabilityZone {
 					bestSubnet = subnet
 				}
