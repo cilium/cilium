@@ -371,7 +371,7 @@ func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, natMap *nat.Map, next func
 	tupleType := t.GetFlags()
 
 	if tupleType == tuple.TUPLE_F_SERVICE && ACT != nil {
-		actCountFailed(entry.RevNAT, uint32(entry.BackendID))
+		actCountFailed(entry.RevNAT, uint32(entry.Union0[1]))
 	}
 
 	next(GCEvent{
