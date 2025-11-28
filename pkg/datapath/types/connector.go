@@ -15,6 +15,7 @@ type ConnectorMode string
 
 const (
 	ConnectorModeUnspec   = ConnectorMode("")
+	ConnectorModeAuto     = ConnectorMode(option.DatapathModeAuto)
 	ConnectorModeVeth     = ConnectorMode(option.DatapathModeVeth)
 	ConnectorModeNetkit   = ConnectorMode(option.DatapathModeNetkit)
 	ConnectorModeNetkitL2 = ConnectorMode(option.DatapathModeNetkitL2)
@@ -44,6 +45,8 @@ func (mode ConnectorMode) IsVeth() bool {
 
 func (mode ConnectorMode) String() string {
 	switch mode {
+	case ConnectorModeAuto:
+		return option.DatapathModeAuto
 	case ConnectorModeVeth:
 		return option.DatapathModeVeth
 	case ConnectorModeNetkit:
@@ -57,6 +60,8 @@ func (mode ConnectorMode) String() string {
 
 func GetConnectorModeByName(mode string) ConnectorMode {
 	switch mode {
+	case option.DatapathModeAuto:
+		return ConnectorModeAuto
 	case option.DatapathModeVeth:
 		return ConnectorModeVeth
 	case option.DatapathModeNetkit:

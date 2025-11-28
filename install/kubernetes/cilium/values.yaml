@@ -719,7 +719,7 @@ bpf:
   # supported kernels.
   # @default -- `true`
   enableTCX: true
-  # -- (string) Mode for Pod devices for the core datapath (veth, netkit, netkit-l2)
+  # -- (string) Mode for Pod devices for the core datapath (auto, veth, netkit, netkit-l2)
   # @default -- `veth`
   datapathMode: veth
 # -- Enable BPF clock source probing for more efficient tick retrieval.

@@ -267,6 +267,8 @@ func (d *statusCollector) getDatapathModeStatus() models.DatapathMode {
 func (d *statusCollector) getConfiguredDatapathModeStatus() models.ConfiguredDatapathMode {
 	mode := models.ConfiguredDatapathModeVeth
 	switch d.statusParams.ConnectorConfig.GetConfiguredMode().String() {
+	case datapathOption.DatapathModeAuto:
+		mode = models.ConfiguredDatapathModeAuto
 	case datapathOption.DatapathModeNetkit:
 		mode = models.ConfiguredDatapathModeNetkit
 	case datapathOption.DatapathModeNetkitL2:

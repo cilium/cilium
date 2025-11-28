@@ -5,6 +5,10 @@ package option
 
 // Available options for datapath mode.
 const (
+	// DatapathModeAuto specifies that Cilium should probe the underlying
+	// host kernel for supported features and select an appropriate mode.
+	DatapathModeAuto = "auto"
+
 	// DatapathModeVeth specifies veth datapath mode (i.e. containers are
 	// attached to a network via veth pairs).
 	DatapathModeVeth = "veth"

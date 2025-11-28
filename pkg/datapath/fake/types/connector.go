@@ -21,6 +21,12 @@ func NewFakeConnectorConfig(configuredMode types.ConnectorMode, operationalMode 
 		operationalMode: operationalMode,
 	}
 }
+func NewFakeConnectorAutoVeth(operationalMode types.ConnectorMode) types.ConnectorConfig {
+	return NewFakeConnectorConfig(types.ConnectorModeAuto, types.ConnectorModeVeth)
+}
+func NewFakeConnectorAutoNetkit(operationalMode types.ConnectorMode) types.ConnectorConfig {
+	return NewFakeConnectorConfig(types.ConnectorModeAuto, types.ConnectorModeNetkit)
+}
 func NewFakeConnectorVeth() types.ConnectorConfig {
 	return NewFakeConnectorConfig(types.ConnectorModeVeth, types.ConnectorModeVeth)
 }
