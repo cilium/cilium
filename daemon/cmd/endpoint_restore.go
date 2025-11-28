@@ -21,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointapi "github.com/cilium/cilium/pkg/endpoint/api"
@@ -95,6 +94,7 @@ type endpointRestorerParams struct {
 	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
 	IPCache             *ipcache.IPCache
 	LXCMap              lxcmap.Map
+	ConnectorConfig     datapath.ConnectorConfig
 }
 
 type endpointRestorer struct {
@@ -110,6 +110,7 @@ type endpointRestorer struct {
 	ipSecAgent          datapath.IPsecAgent
 	ipamManager         *ipam.IPAM
 	lxcMap              lxcmap.Map
+	connectorConfig     datapath.ConnectorConfig
 
 	cacheStatus   k8sSynced.CacheStatus
 	dirReadStatus policyDirectory.DirectoryWatcherReadStatus
@@ -136,6 +137,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 		ipSecAgent:          params.IPSecAgent,
 		ipamManager:         params.IPAMManager,
 		lxcMap:              params.LXCMap,
+		connectorConfig:     params.ConnectorConfig,
 
 		cacheStatus:   params.CacheStatus,
 		dirReadStatus: params.DirReadStatus,
@@ -240,12 +242,7 @@ func (r *endpointRestorer) checkLink(linkName string) error {
 // the compatibility issue
 func (r *endpointRestorer) validateDatapathModeCompatibility(endpoints map[uint16]*endpoint.Endpoint) error {
 	var incompatibleEndpoints []string
-	var incompatibleType string
-
-	// Determine what type of endpoints are incompatible with current mode
-	currentDatapathMode := option.Config.DatapathMode
-	isNetkitMode := currentDatapathMode == datapathOption.DatapathModeNetkit || currentDatapathMode == datapathOption.DatapathModeNetkitL2
-	isVethMode := currentDatapathMode == datapathOption.DatapathModeVeth
+	var incompatibleTypes []string
 
 	for _, ep := range endpoints {
 		// Only check pod endpoints, skip host endpoint, health endpoint, and other special endpoints
@@ -259,7 +256,7 @@ func (r *endpointRestorer) validateDatapathModeCompatibility(endpoints map[uint1
 		}
 
 		ifName := ep.HostInterface()
-		link, err := safenetlink.LinkByName(ifName)
+		linkMode, linkCompat, err := r.connectorConfig.GetLinkCompatibility(ifName)
 		if err != nil {
 			r.logger.Debug("Failed to check endpoint link type, skipping",
 				logfields.EndpointID, ep.ID,
@@ -267,29 +264,27 @@ func (r *endpointRestorer) validateDatapathModeCompatibility(endpoints map[uint1
 			)
 			continue
 		}
-
-		// Check for incompatibility
-		isIncompatible := false
-		if isNetkitMode && link.Type() == "veth" {
-			isIncompatible = true
-			incompatibleType = "veth"
-		} else if isVethMode && link.Type() == "netkit" {
-			isIncompatible = true
-			incompatibleType = "netkit"
-		}
-
-		if isIncompatible {
+		if !linkCompat {
 			epName := fmt.Sprintf("%s/%s (endpoint-%d)", ep.K8sNamespace, ep.K8sPodName, ep.ID)
 			incompatibleEndpoints = append(incompatibleEndpoints, epName)
+
+			linkModeName := linkMode.String()
+			if !slices.Contains(incompatibleTypes, linkModeName) {
+				incompatibleTypes = append(incompatibleTypes, linkModeName)
+			}
 		}
 	}
 
 	if len(incompatibleEndpoints) > 0 {
+		currentDatapathMode := r.connectorConfig.GetOperationalMode().String()
 		return fmt.Errorf(
-			"Cannot start cilium-agent with datapath-mode=%s: detected %d existing endpoint(s) using %s datapath mode. "+
-				"Endpoints using %s datapath mode: %v. "+
-				"Please delete these pods or change the datapath mode back to %s before starting the agent with %s mode",
-			currentDatapathMode, len(incompatibleEndpoints), incompatibleType, incompatibleType, incompatibleEndpoints, incompatibleType, currentDatapathMode)
+			"Cannot start cilium-agent with datapath-mode=%s: detected %d existing endpoint(s) using incompatible datapath-modes. "+
+				"Affected endpoints: %s. "+
+				"Detected incompatible datapath-modes: %s. "+
+				"Please delete these pods or correct the cilium-agent operational datapath-mode.",
+			currentDatapathMode, len(incompatibleEndpoints),
+			strings.Join(incompatibleEndpoints, ", "),
+			strings.Join(incompatibleTypes, ", "))
 	}
 
 	return nil
