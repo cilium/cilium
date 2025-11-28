@@ -10,6 +10,8 @@
   egress-gateway: 'true'
   host-fw: 'true'
   ingress-controller: 'true'
+  # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
+  test-l7: 'true'
 - name: 'lb-2'
   kernel: '6.1'
   kube-proxy: 'none'
@@ -23,6 +25,8 @@
   lb-acceleration: 'testing-only'
   ingress-controller: 'true'
   bgp-control-plane: 'true'
+  # L7 testing: SNAT load balancer mode + Ingress controller requires L7 proxy for HTTP routing
+  test-l7: 'true'
 - name: 'lb-3'
   kernel: '6.12'
   kube-proxy: 'none'
@@ -37,6 +41,8 @@
   local-redirect-policy: 'true'
   node-local-dns: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true'
+  # L7 testing: SNAT load balancer + Ingress controller + node local DNS requires DNS proxy
+  test-l7: 'true'
 - name: 'lb-4'
   # Switch to 5.15 until https://github.com/cilium/cilium/issues/27642
   # has been resolved. https://github.com/cilium/cilium/pull/30837#issuecomment-1960897445
@@ -52,6 +58,8 @@
   egress-gateway: 'true'
   lb-acceleration: 'testing-only'
   ingress-controller: 'true'
+  # L7 testing: SNAT load balancer mode + Ingress controller requires L7 proxy for HTTP routing
+  test-l7: 'true'
 - name: 'lb-5'
   kernel: '6.12'
   kube-proxy: 'none'
@@ -62,3 +70,5 @@
   lb-mode: 'dsr'
   ingress-controller: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
+  # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
+  test-l7: 'true'

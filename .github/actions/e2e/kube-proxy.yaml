@@ -5,6 +5,8 @@
   tunnel: 'vxlan'
   host-fw: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
+  # L7 testing: Basic VXLAN + host firewall - moderate interaction, test on schedule only
+  test-l7: 'false'
 - name: 'kube-proxy-2'
   kernel: '5.10'
   kube-proxy: 'iptables'
@@ -12,6 +14,8 @@
   tunnel: 'disabled'
   host-fw: 'true'
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.readSecretsOnlyFromSecretsNamespace=false,tls.secretSync.enabled=false'
+  # L7 testing: Disabled tunnel + host firewall - moderate interaction, test on schedule only
+  test-l7: 'false'
 - name: 'kube-proxy-3'
   kernel: '5.10'
   kube-proxy: 'iptables'
@@ -19,6 +23,8 @@
   tunnel: 'disabled'
   endpoint-routes: 'true'
   kvstore: 'true'
+  # L7 testing: Basic routing configuration without complex L7 dependencies - can skip
+  test-l7: 'false'
 - name: 'kube-proxy-4'
   kernel: '6.12'
   kube-proxy: 'iptables'
@@ -29,6 +35,8 @@
   local-redirect-policy: 'true'
   node-local-dns: 'true'
   skip-include-conn-disrupt-test-ns-traffic: 'true'
+  # L7 testing: Node local DNS requires DNS proxy testing
+  test-l7: 'true'
 - name: 'kube-proxy-5'
   kernel: '5.15'
   kube-proxy: 'iptables'
@@ -41,12 +49,16 @@
   local-redirect-policy: 'true'
   node-local-dns: 'true'
   kvstore: 'true'
+  # L7 testing: WireGuard encryption in kube-proxy mode - covered by wireguard.yaml, test on schedule only
+  test-l7: 'false'
 - name: 'kube-proxy-6'
   kernel: 'rhel8.10'
   kube-proxy: 'iptables'
   kpr: 'false'
   tunnel: 'vxlan'
   misc: 'policyCIDRMatchMode=nodes'
+  # L7 testing: Basic VXLAN configuration without complex L7 dependencies - can skip
+  test-l7: 'false'
 - name: 'kube-proxy-7'
   kernel: '6.12'
   kube-proxy: 'iptables'
@@ -57,3 +69,5 @@
   underlay: 'ipv6'
   encryption: 'wireguard'
   skip-upgrade: 'true'
+  # L7 testing: IPv6-only configuration - covered by other wireguard tests, can skip
+  test-l7: 'false'

@@ -12,6 +12,8 @@ triggers:
     - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
     - conformance-ingress.yaml
+    - conformance-l3-l4.yaml
+    - conformance-l7.yaml
     - conformance-kpr.yaml
     - conformance-multi-pool.yaml
     - conformance-race.yaml
@@ -19,7 +21,6 @@ triggers:
     - integration-test.yaml
     - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
-    - tests-e2e-upgrade.yaml
     - hubble-cli-integration-test.yaml
   /ci-aks:
     workflows:
@@ -37,9 +38,6 @@ triggers:
   /ci-delegated-ipam:
     workflows:
     - conformance-delegated-ipam.yaml
-  /ci-e2e-upgrade:
-    workflows:
-    - tests-e2e-upgrade.yaml
   /ci-ipsec-upgrade:
     workflows:
     - tests-ipsec-upgrade.yaml
@@ -73,6 +71,12 @@ triggers:
   /ci-kubespray:
     workflows:
     - conformance-kubespray.yaml
+  /ci-l3-l4:
+    workflows:
+      - conformance-l3-l4.yaml
+  /ci-l7:
+    workflows:
+      - conformance-l7.yaml
   /ci-multi-pool:
     workflows:
     - conformance-multi-pool.yaml
@@ -143,6 +147,10 @@ workflows:
   conformance-kpr.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-kubespray.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  conformance-l3-l4.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  conformance-l7.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-multi-pool.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
