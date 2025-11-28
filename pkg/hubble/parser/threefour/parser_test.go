@@ -1793,22 +1793,28 @@ func TestDecode_DropNotify(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), defaultEndpointGetter, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 
-	template := &flowpb.Flow{
-		EventType:   &flowpb.CiliumEventType{Type: 1},
-		Summary:     flowpb.IPVersion_IPv4.String(),
-		Type:        flowpb.FlowType_L3_L4,
-		Verdict:     flowpb.Verdict_DROPPED,
-		Source:      &flowpb.Endpoint{},
-		Destination: &flowpb.Endpoint{},
-		Ethernet: &flowpb.Ethernet{
-			Source:      srcMAC.String(),
-			Destination: dstMAC.String(),
-		},
-		IP: &flowpb.IP{
-			IpVersion:   flowpb.IPVersion_IPv4,
-			Source:      localIP.String(),
-			Destination: remoteIP.String(),
-		},
+	getTemplate := func(isL3Device bool) *flowpb.Flow {
+		template := &flowpb.Flow{
+			EventType:   &flowpb.CiliumEventType{Type: 1},
+			Summary:     flowpb.IPVersion_IPv4.String(),
+			Type:        flowpb.FlowType_L3_L4,
+			Verdict:     flowpb.Verdict_DROPPED,
+			Source:      &flowpb.Endpoint{},
+			Destination: &flowpb.Endpoint{},
+			Ethernet: &flowpb.Ethernet{
+				Source:      srcMAC.String(),
+				Destination: dstMAC.String(),
+			},
+			IP: &flowpb.IP{
+				IpVersion:   flowpb.IPVersion_IPv4,
+				Source:      localIP.String(),
+				Destination: remoteIP.String(),
+			},
+		}
+		if isL3Device {
+			template.Ethernet = nil
+		}
+		return template
 	}
 
 	testCases := []struct {
@@ -1878,20 +1884,51 @@ func TestDecode_DropNotify(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "drop_ingress_l3_device",
+			event: monitor.DropNotify{
+				Type:    byte(monitorAPI.MessageTypeDrop),
+				Source:  localEP,
+				File:    7,
+				Line:    44,
+				Version: monitor.DropNotifyVersion2,
+				Flags:   monitor.DropNotifyFlagIsL3Device,
+			},
+			ipTuple: ingressTuple,
+			want: &flowpb.Flow{
+				IP: &flowpb.IP{
+					Source:      remoteIP.String(),
+					Destination: localIP.String(),
+				},
+				Destination: &flowpb.Endpoint{
+					ID: uint32(localEP),
+				},
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+				File: &flowpb.FileInfo{
+					Name: "bpf_wireguard.c",
+					Line: 44,
+				},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			want := proto.Clone(template)
-			proto.Merge(want, tc.want)
+			isL3Device := tc.event.IsL3Device()
 
-			data, err := testutils.CreateL3L4Payload(tc.event,
-				&layers.Ethernet{
+			var l []gopacket.SerializableLayer
+			if !isL3Device {
+				l = append(l, &layers.Ethernet{
 					SrcMAC:       srcMAC,
 					DstMAC:       dstMAC,
 					EthernetType: layers.EthernetTypeIPv4,
-				},
-				&layers.IPv4{SrcIP: tc.ipTuple.src.AsSlice(), DstIP: tc.ipTuple.dst.AsSlice()},
-			)
+				})
+			}
+			l = append(l, &layers.IPv4{SrcIP: tc.ipTuple.src.AsSlice(), DstIP: tc.ipTuple.dst.AsSlice()})
+
+			want := proto.Clone(getTemplate(isL3Device))
+			proto.Merge(want, tc.want)
+
+			data, err := testutils.CreateL3L4Payload(tc.event, l...)
 			if err != nil {
 				t.Fatalf("Unexpected error from CreateL3L4Payload(%T, ...): %v", tc.event, err)
 			}
