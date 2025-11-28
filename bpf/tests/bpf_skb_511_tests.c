@@ -15,6 +15,7 @@
 #include <bpf/ctx/skb.h>
 #include <lib/overloadable.h>
 #include <lib/clustermesh.h>
+#include <lib/identity.h>
 #include "common.h"
 
 #define CLUSTER_LOCAL_IDENTITY 0x5555

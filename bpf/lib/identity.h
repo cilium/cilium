@@ -3,7 +3,42 @@
 
 #pragma once
 
+#include <bpf/config/node.h>
+
 #include "dbg.h"
+#include "clustermesh.h"
+/**
+ * get_identity - returns source identity from the mark field
+ *
+ * Identity stored in the mark is rearranged to place identity in the most
+ * significant bits and cluster_id in the least significant bits, separated by 8
+ * bits that are used for other options. When retrieving identity from the mark,
+ * we need to rearrange it back to the original format.
+ *
+ * Example mark containing identity, where I is a bit for identity, C is a bit
+ * for cluster_id, and X is a bit that should not be touched by this function:
+ * IIIIIIII IIIIIIII XXXXXXXX CCCCCCCC
+ *
+ * This function should return an identity that looks like the following:
+ * CCCCCCCC IIIIIIII IIIIIIII
+ *
+ * The agent flag 'max-connected-clusters' can effect the allocation of bits
+ * for identity and cluster_id in the mark (see comment in set_identity_mark).
+ */
+static __always_inline __maybe_unused int
+get_identity(const struct __ctx_buff *ctx __maybe_unused)
+{
+/* ctx->mark not available in XDP. */
+#if __ctx_is == __ctx_skb
+	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
+	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
+	__u32 identity = (ctx->mark >> 16) & IDENTITY_MAX;
+
+	return (cluster_id_lower | cluster_id_upper) << IDENTITY_LEN | identity;
+#else /* __ctx_is == __ctx_xdp */
+	return 0;
+#endif /* __ctx_is == __ctx_xdp */
+}
 
 static __always_inline bool identity_in_range(__u32 identity, __u32 range_start, __u32 range_end)
 {
