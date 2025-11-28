@@ -800,6 +800,8 @@ create_ct:
 		if (port == 0)
 			return DROP_INVALID;
 
+		ipv6_addr_copy(&ct_state_new.nat_addr, addr);
+		ct_state_new.nat_port = port;
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
 		ct_state_new.dsr_internal = 1;
 
@@ -2182,6 +2184,8 @@ create_ct:
 			 */
 			return DROP_INVALID;
 
+		ct_state_new.nat_addr.p4 = addr;
+		ct_state_new.nat_port = port;
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
 		ct_state_new.dsr_internal = 1;
 
@@ -2196,12 +2200,14 @@ create_ct:
 	case CT_ESTABLISHED:
 		/* For TCP we only expect DSR info on the SYN, so CT_ESTABLISHED
 		 * is unexpected and we need to refresh the CT entry.
-		 *
-		 * Otherwise we tolerate DSR info on an established connection.
-		 * TODO: how do we know if we need to refresh the SNAT entry?
 		 */
 		if (tuple->nexthdr == IPPROTO_TCP && port)
 			goto create_ct;
+
+		/* Otherwise we tolerate DSR info on an established connection.
+		 * TODO: obtain NAT info from CT lookup, and compare it against
+		 *	 DSR info. Re-create on mismatch.
+		 */
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
