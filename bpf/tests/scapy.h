@@ -185,12 +185,6 @@ static struct scapy_assert __scapy_assert = {0};
 				test_fail_now();					\
 			}								\
 			++scapy_assert_map_cnt;						\
-			hexdump_len_off(__FILE__ ":" LINE_STRING " assert '"		\
-					NAME "' FAILED! Got (ctx)",			\
-					FIRST_LAYER, CTX, _len, OFF);			\
-			scapy_hexdump(__FILE__ ":" LINE_STRING " assert '"		\
-				      NAME "' FAILED! Expected (buf)",			\
-				      FIRST_LAYER, _BUF, _BUF_LEN);			\
 			test_fail_now();						\
 		}									\
 	} while (0)
@@ -210,28 +204,5 @@ static struct scapy_assert __scapy_assert = {0};
 				    #BUF_NAME, BUF(BUF_NAME),			\
 				    sizeof(BUF(BUF_NAME)), LEN);		\
 	} do {} while (0)
-
-static __always_inline
-void scapy_hexdump(const char *msg, const char *first_layer,
-		   const unsigned char *scapy_buf, const __u16 len)
-{
-	int i;
-	char buf[HD_MAX_BYTES * 2 + 1] = {0};
-	char *b;
-
-	if (len > HD_MAX_BYTES) {
-		hex_printk("%s: pkt[%s]", msg, "ERROR: len too big!");
-		return;
-	}
-
-	for (i = 0; i < len; ++i) {
-		b = (char *)&scapy_buf[i];
-		buf[i * 2]     = __hexdump_nibble_to_char((*b & 0xF0) >> 4);
-		buf[i * 2 + 1] = __hexdump_nibble_to_char((*b & 0x0F));
-	}
-
-	buf[2 * i] = '\0';
-	hex_printk("%s: pkt_hex %s[%s]", msg, first_layer, buf);
-}
 
 #include "output/gen_pkts.h"

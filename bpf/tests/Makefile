@@ -105,15 +105,9 @@ ifdef BPF_TEST
 endif
 
 run: $(TEST_OBJECTS)
-	$(QUIET) $(SUDO) bash -c 'cat /sys/kernel/debug/tracing/trace_pipe > $(TRACE_PIPE_LOG) & \
-	echo $$! > $(TRACE_PIPE_PID)'; STATUS=0; \
 	$(GO) test ./bpftest \
 		-bpf-test-path $(ROOT_DIR)/bpf/tests \
 		$(BPF_TEST_FLAGS) \
-	| $(GOTEST_FORMATTER) || STATUS=$$?; \
-	$(SUDO) kill -9 $$(cat $(TRACE_PIPE_PID)) || true; \
-	rm -f $(TRACE_PIPE_PID) || true; \
-	$(ROOT_DIR)/bpf/tests/scapy/./trace_diff_pkts.py $(TRACE_PIPE_LOG) || true; \
-	exit $$STATUS
+	| $(GOTEST_FORMATTER);
 
 -include $(TEST_OBJECTS:.o=.d)
