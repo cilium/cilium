@@ -343,6 +343,12 @@ communicating via the proxy must reconnect to re-establish connections.
   This change introduces a difference in behavior for existing policies with ``**.`` wildcard prefix in match patterns.
   This pattern now selects all cascaded subdomains in prefix as opposed to just a single level. For example: ``**.cilium.io`` now selects both ``app.cilium.io`` and ``test.app.cilium.io`` as
   opposed to just ``app.cilium.io`` previously.
+* ``bpf.datapathMode=auto`` config option has been introduced. If set, Cilium will probe
+  the underlying host for netkit support and, if found, netkit mode will be selected at
+  runtime. Otherwise, Cilium will default back to the standard veth mode. This has the
+  side effect of splitting the datapath-mode into "configured mode" and "operational mode"
+  in status outputs, where they differ. The default remains ``bpf.datapathMode=veth``
+  but may change in future releases.
 
 Removed Options
 ~~~~~~~~~~~~~~~

@@ -517,6 +517,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 
 		configStatus := string(sr.ConfiguredDatapathMode)
 		switch sr.ConfiguredDatapathMode {
+		case models.ConfiguredDatapathModeAuto:
 		case models.ConfiguredDatapathModeVeth:
 		case models.ConfiguredDatapathModeNetkit:
 		case models.ConfiguredDatapathModeNetkitDashL2:

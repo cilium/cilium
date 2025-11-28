@@ -2206,6 +2206,7 @@ func init() {
       "description": "Configured datapath mode",
       "type": "string",
       "enum": [
+        "auto",
         "veth",
         "netkit",
         "netkit-l2"
@@ -7519,6 +7520,7 @@ func init() {
       "description": "Configured datapath mode",
       "type": "string",
       "enum": [
+        "auto",
         "veth",
         "netkit",
         "netkit-l2"

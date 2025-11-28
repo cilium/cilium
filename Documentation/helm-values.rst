@@ -361,7 +361,7 @@
      - int
      - ``524288``
    * - :spelling:ignore:`bpf.datapathMode`
-     - Mode for Pod devices for the core datapath (veth, netkit, netkit-l2)
+     - Mode for Pod devices for the core datapath (auto, veth, netkit, netkit-l2)
      - string
      - ``veth``
    * - :spelling:ignore:`bpf.disableExternalIPMitigation`
