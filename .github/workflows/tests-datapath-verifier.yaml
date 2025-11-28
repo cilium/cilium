@@ -105,20 +105,20 @@ jobs:
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
-      - name: Checkout merge branch
+      - name: Checkout base branch
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
-        if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
-          ref: ${{ inputs.base-SHA }}
+          ref: ${{ inputs.base-SHA || github.sha }}
           persist-credentials: false
-          path: ./merge
+          path: ./base
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
-          ref: ${{ inputs.SHA || github.sha }}
+          ref: ${{ inputs.SHA }}
           persist-credentials: false
           path: ./pull
 
@@ -159,7 +159,7 @@ jobs:
             for i in {1..5}; do curl "https://golang.org" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
 
             git config --global --add safe.directory /host/pull
-            git config --global --add safe.directory /host/merge
+            git config --global --add safe.directory /host/base
             uname -a
 
             # The LVH image might ship with an arbitrary Go toolchain version,
@@ -169,13 +169,12 @@ jobs:
 
             # The LVH image ships with LLVM taken from a release Cilium version.
             # Replace it with the one extracted from the cilium-builder image.
-            /host/merge/contrib/scripts/extract-llvm.sh /tmp/llvm
+            /host/base/contrib/scripts/extract-llvm.sh /tmp/llvm
             mv /tmp/llvm/usr/local/bin/{clang,llc} /bin/
             rm -r /tmp/llvm
 
       - name: Run verifier tests (on base branch)
         uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
-        if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           provision: 'false'
           cmd: |
@@ -184,10 +183,11 @@ jobs:
             mkdir -p /host/datapath-verifier
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=20m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/merge --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
-            mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-merge.json
+            mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-base.json
 
       - name: Run verifier tests (on PR branch)
         uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
           provision: 'false'
           cmd: |
@@ -195,6 +195,7 @@ jobs:
             mkdir -p /host/datapath-verifier
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=20m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/pull --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
+            mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-pull.json
 
       - name: Upload artifacts
         if: ${{ always() }}
@@ -221,15 +222,15 @@ jobs:
         path: ./artifacts
         pattern: datapath-verifier_*
 
-    - name: Merge verifier-complexity.json
+    - name: Merge verifier-complexity-base.json
       run: |
-        cat ./artifacts/*/verifier-complexity.json | jq -s 'add' > ./artifacts/verifier-complexity.json
+        cat ./artifacts/*/verifier-complexity-base.json | jq -s 'add' > ./artifacts/verifier-complexity-base.json
 
-    - name: Merge verifier-complexity-merge.json
+    - name: Merge verifier-complexity-pull.json
       if: ${{ github.event_name == 'workflow_dispatch' }}
       run: |
-        cat ./artifacts/*/verifier-complexity-merge.json | jq -s 'add' > ./artifacts/verifier-complexity-merge.json
-        go run ./tools/complexity-diff ./artifacts/verifier-complexity-merge.json ./artifacts/verifier-complexity.json ./artifacts/complexity-diff.json >> $GITHUB_STEP_SUMMARY
+        cat ./artifacts/*/verifier-complexity-pull.json | jq -s 'add' > ./artifacts/verifier-complexity-pull.json
+        go run ./tools/complexity-diff ./artifacts/verifier-complexity-base.json ./artifacts/verifier-complexity-pull.json ./artifacts/complexity-diff.json >> $GITHUB_STEP_SUMMARY
 
     - name: Remove per-kernel results from workspace
       run: |
