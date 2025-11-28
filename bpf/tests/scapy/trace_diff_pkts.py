@@ -4,47 +4,27 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import json
 import re
 import sys
 
 from scapy.all import *
 
-def parse_asserts(filename: str) -> List[Dict]:
-    """
-    Parses asserts in the log file.
-
-    Expected assert log format:
-       '... bpf_trace_printk: (file):(linenum) assert '(assert_name)' FAILED! (Got|Expected) ... : pkt_hex ((first_layer))[(bytes)]'
-    Example:
-       'bpftest.test-1515316 [001] b..11 102260.946507: bpf_trace_printk: tc_l2_announcement.c:164 assert 'arp_rep_only_ok' FAILED! Got (ctx): pkt_hex ARP[0001080006040002133713371337ac100a01deadbeefdeef6e000b01]'
-
-        file: tc_l2_announcement.c
-        linenum: 164
-        assert_name: arp_rep_only_ok
-        Got|Expected: Got
-        first_layer: Ether
-        bytes: 0001080006040002133713371337ac100a01deadbeefdeef6e000b01
-    """
-    pattern = re.compile(r"\s*.*bpf_trace_printk: (\S+):(\d+)\s+assert\s*'([^']+)'\s+FAILED!\s+(Got|Expected)[^:]*:\s*pkt_hex\s*(\w+)\[(.*?)\]")
-
-    asserts = {}
-    with open(filename, 'r') as f:
-        for line in f:
-            match = pattern.match(line)
-            if not match:
-                continue
-
-            name = match.group(3)
-            kind = match.group(4)
-
-            if name not in asserts:
-                asserts[name] = {}
-            asserts[name]["file"] = match.group(1)
-            asserts[name]["linenum"] = match.group(2)
-
-            s = f"{match.group(5)}({bytes.fromhex(match.group(6))})"
-            asserts[name][kind.lower().strip()] = eval(s)
+def parse_asserts():
+    try:
+        asserts = json.load(sys.stdin)
+    except Exception as e:
+        print(f"ERROR: unable to parse JSON serialized asserts {e}")
+        raise e
     return asserts
+
+def bytes_to_scapy_pkt(first_layer, hex_str):
+    try:
+        s = f"{first_layer}({bytes.fromhex(hex_str)})"
+        return eval(s)
+    except Exception as e:
+        print(f"ERROR: unable generate scapy Packet from '{hex_str}': {e}")
+        raise e
 
 def pkt_to_dict(pkt: Packet) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
@@ -94,26 +74,25 @@ def diff_pkts(expected: Packet, got: Packet) -> None:
             print(f"  + {key}: {str(add[key])}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Parse failed assertions from a trace_pipe log file.")
-    parser.add_argument('filename', help="Log file to parse")
+    asserts = parse_asserts()
 
-    args = parser.parse_args()
-    asserts = parse_asserts(args.filename)
+    for elem in asserts:
+        exp = bytes_to_scapy_pkt(elem["first-layer"], elem["exp-buf"])
+        got = bytes_to_scapy_pkt(elem["first-layer"], elem["got-buf"])
 
-    for name, data in asserts.items():
-        print(f"=== START {data['file']}:{data['linenum']} '{name}' ===")
-        print(f">>> Expected (len: {len(asserts[name]['expected'])} bytes) <<<")
-        asserts[name]["expected"].show()
-        print(f">>> Got (len: {len(asserts[name]['got'])} bytes) <<<")
-        asserts[name]["got"].show()
+        print(f"=== START {elem['file']}:{elem['linenum']} '{elem['name']}' ===")
+        print(f">>> Expected (len: {len(elem['exp-buf'])} bytes) <<<")
+        exp.show()
+        print(f">>> Got (len: {len(elem['got-buf'])} bytes) <<<")
+        got.show()
 
         # Show pseudo-diff
         print(f">>> Diff <<<")
         print(f"  --- a/pkt (Expected)")
         print(f"  +++ b/pkt (Got)\n")
+        diff_pkts(exp, got)
 
-        diff_pkts(asserts[name]["expected"], asserts[name]["got"])
-        print(f"\n=== END {data['file']}:{data['linenum']} '{name}' ===")
+        print(f"\n=== END {elem['file']}:{elem['linenum']} '{elem['name']}' ===")
 
 if __name__ == "__main__":
     main()
