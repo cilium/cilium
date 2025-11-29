@@ -65,6 +65,9 @@ func init() {
 	PreflightCmd.AddCommand(validateCNPCmd())
 
 	RootCmd.AddCommand(PreflightCmd)
+
+	PreflightCmd.AddCommand(checkConfigmapCmd())
+
 }
 
 // preflightPoller collects IP data in toCIDRSet rules that are siblings to
