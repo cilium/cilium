@@ -47,10 +47,9 @@ spec:
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/sh"]
           args:
-          - -ec
+          - -c
           - |
-            cilium-dbg preflight validate-cnp;
-            touch /tmp/ready-validate-cnp;
+            cilium-dbg preflight validate-cnp && touch /tmp/ready-validate-cnp;
             sleep 1h;
           readinessProbe:
             exec:
@@ -87,8 +86,43 @@ spec:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
           terminationMessagePolicy: FallbackToLogsOnError
-      {{- with .Values.preflight.extraVolumes }}
+        - name: configmap-validator
+          image: {{ include "cilium.image" .Values.preflight.image | quote }}
+          imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            cilium-dbg preflight validate-configmap --configmap-dir /tmp/cilium/config-map && touch /tmp/ready-validate-configmap;
+            sleep 1h;
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /tmp/ready-validate-configmap
+            initialDelaySeconds: {{ .Values.preflight.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.preflight.readinessProbe.periodSeconds }}
+          volumeMounts:
+          - name: cilium-config-path
+            mountPath: /tmp/cilium/config-map
+            readOnly: true
+          {{- with .Values.preflight.extraVolumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          env:
+          {{- with .Values.preflight.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+          {{- with .Values.preflight.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
       volumes:
+      - name: cilium-config-path
+        configMap:
+          name: cilium-config            
+      {{- with .Values.preflight.extraVolumes }}
       {{- toYaml . | trim | nindent 6 }}
       {{- end }}
       hostNetwork: true
