@@ -45,7 +45,8 @@ of the Cilium organization.
 Depending on the PR target branch, a specific set of jobs is marked as required,
 as per the `Cilium CI matrix`_. They will be automatically featured in PR checks
 directly on the PR page. The ``/test`` trigger phrase may be used to trigger
-them all at once.
+the full testsuite at once. Additional trigger phrases (such as ``/ci-e2e-upgrade``)
+can be used to run individual or optional jobs where supported.
 
 More triggers can be found in `ariane-config.yaml <https://github.com/cilium/cilium/blob/main/.github/ariane-config.yaml>`_
 
