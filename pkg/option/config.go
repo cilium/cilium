@@ -1875,6 +1875,8 @@ var (
 		IPTracingOptionType: defaults.IPTracingOptionType,
 
 		EnableCiliumNodeCRD: defaults.EnableCiliumNodeCRD,
+
+		PolicyAccounting: defaults.PolicyAccounting,
 	}
 )
 
