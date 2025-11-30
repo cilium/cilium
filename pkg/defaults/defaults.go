@@ -541,6 +541,9 @@ const (
 
 	// EnableCiliumNodeCRD is the default value for option.EnableCiliumNodeCRD
 	EnableCiliumNodeCRD = true
+
+	// PolicyAccouting is the default value for option.PolicyAccounting
+	PolicyAccounting = true
 )
 
 var (
