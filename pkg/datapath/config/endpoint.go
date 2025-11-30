@@ -56,5 +56,7 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
+
 	return cfg
 }

@@ -139,6 +139,7 @@ func newLocalNodeConfig(
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
 		EnableWireguard:              wgAgent.Enabled(),
+		EnablePolicyAccounting:       config.PolicyAccounting,
 		WireguardIfIndex:             wgIndex,
 		EnableIPSec:                  ipsecCfg.Enabled(),
 		EncryptNode:                  config.EncryptNode,
