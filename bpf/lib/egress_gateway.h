@@ -85,13 +85,9 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	__u32 oif;
 	int ret;
 
-	/* Immediate redirect to egress_ifindex requires L2 resolution.
-	 * Fall back to FIB lookup on older kernels.
-	 */
-	if (egress_ifindex && neigh_resolver_without_nh_available())
-		return redirect_neigh(egress_ifindex, NULL, 0, 0);
-
-	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr, 0);
+	ret = (__s8)fib_lookup_v4(ctx, &fib_params, egress_ip, daddr,
+				  egress_ifindex ?: ctx_get_ifindex(ctx),
+				  egress_ifindex ? BPF_FIB_LOOKUP_OUTPUT : 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
@@ -394,12 +390,11 @@ int egress_gw_fib_lookup_and_redirect_v6(struct __ctx_buff *ctx,
 	__u32 oif;
 	int ret;
 
-	if (egress_ifindex && neigh_resolver_without_nh_available())
-		return redirect_neigh(egress_ifindex, NULL, 0, 0);
-
 	ret = (__s8)fib_lookup_v6(ctx, &fib_params,
 				  (struct in6_addr *)egress_ip,
-				  (struct in6_addr *)daddr, 0);
+				  (struct in6_addr *)daddr,
+				  egress_ifindex ?: ctx_get_ifindex(ctx),
+				  egress_ifindex ? BPF_FIB_LOOKUP_OUTPUT : 0);
 
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
