@@ -55,6 +55,8 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
+
 	return cfg
 }
 
@@ -93,6 +95,8 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+
+	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
 	return cfg
 }
@@ -152,6 +156,8 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+
+	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
 	return cfg
 }
