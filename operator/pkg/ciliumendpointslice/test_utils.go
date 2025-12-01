@@ -32,3 +32,8 @@ func (c *CESCache) GetSelectedId(gid Labels) (CID, bool) {
 	}
 	return "", false
 }
+
+// Return the total number of CESs.
+func (c *CESCache) getCESCount() int {
+	return len(c.cesData)
+}
