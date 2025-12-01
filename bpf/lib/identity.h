@@ -40,6 +40,38 @@ get_identity(const struct __ctx_buff *ctx __maybe_unused)
 #endif /* __ctx_is == __ctx_xdp */
 }
 
+/**
+ * set_identity_mark - pushes 24 bit identity into ctx mark value.
+ *
+ * Identity in the mark looks like the following, where I is a bit for
+ * identity, C is a bit for cluster_id, and X is a bit that should not be
+ * touched by this function:
+ * IIIIIIII IIIIIIII XXXXXXXX CCCCCCCC
+ *
+ * With the agent flag 'max-connected-clusters', it is possible to extend the
+ * cluster_id range by sacrificing some bits of the identity. When this is set
+ * to a value other than the default 255, the most significant bits are taken
+ * from identity and used for the most significant bits of cluster_id.
+ *
+ * An agent with 'max-connected-clusters=512' would set identity in the mark
+ * like the following:
+ * CIIIIIII IIIIIIII XXXXXXXX CCCCCCCC
+ */
+static __always_inline __maybe_unused void
+set_identity_mark(struct __ctx_buff *ctx __maybe_unused, __u32 identity __maybe_unused,
+		  __u32 magic __maybe_unused)
+{
+#if __ctx_is == __ctx_skb
+	__u32 cluster_id = (identity >> IDENTITY_LEN) & CLUSTER_ID_MAX;
+	__u32 cluster_id_lower = cluster_id & 0xFF;
+	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
+
+	ctx->mark = (magic & MARK_MAGIC_KEY_MASK);
+	ctx->mark &= MARK_MAGIC_KEY_MASK;
+	ctx->mark |= (identity & IDENTITY_MAX) << 16 | cluster_id_lower | cluster_id_upper;
+#endif
+}
+
 static __always_inline bool identity_in_range(__u32 identity, __u32 range_start, __u32 range_end)
 {
 	return range_start <= identity && identity <= range_end;
