@@ -287,16 +287,24 @@
 /api/v1/relay/ @cilium/sig-hubble-api
 Makefile* @cilium/build
 /bpf/ @cilium/sig-datapath
+/bpf/bpf_sock* @cilium/sig-lb
 /bpf/bpf_wireguard.c @cilium/wireguard @cilium/sig-datapath
 /bpf/include/bpf/tailcall.h @cilium/loader
 /bpf/include/bpf/config @cilium/loader
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
+/bpf/lib/clustermesh.h @cilium/sig-datapath @cilium/sig-clustermesh
 /bpf/lib/drop_reasons.h @cilium/sig-hubble
 /bpf/lib/egress_gateway.h @cilium/egress-gateway
 /bpf/lib/encrypt.h @cilium/sig-encryption @cilium/ipsec @cilium/wireguard
+/bpf/lib/eps.h @cilium/sig-datapath @cilium/endpoint
 /bpf/lib/ipsec.h @cilium/ipsec
-/bpf/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
-/bpf/lib/proxy.h @cilium/proxy @cilium/sig-datapath
+/bpf/lib/lb.h @cilium/sig-lb
+/bpf/lib/lrp.h @cilium/sig-lb
+/bpf/lib/nodeport* @cilium/sig-datapath @cilium/sig-lb
+/bpf/lib/policy* @cilium/sig-datapath @cilium/sig-policy
+/bpf/lib/proxy* @cilium/proxy @cilium/sig-datapath
+/bpf/lib/sock* @cilium/sig-lb
+/bpf/lib/tailcall.h @cilium/sig-datapath @cilium/loader
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
 /bpf/Makefile* @cilium/loader
 /bpf/node_config.h @cilium/loader
@@ -554,7 +562,7 @@ Makefile* @cilium/build
 /pkg/dial @cilium/sig-agent
 /pkg/driftchecker @cilium/sig-foundations
 /pkg/dynamicconfig @cilium/sig-foundations
-/pkg/ebpf @cilium/sig-datapath
+/pkg/ebpf @cilium/sig-datapath @cilium/loader
 /pkg/egressgateway/ @cilium/egress-gateway
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointcleanup/ @cilium/endpoint
@@ -603,8 +611,12 @@ Makefile* @cilium/build
 /pkg/mac @cilium/sig-datapath
 /pkg/maglev @cilium/sig-lb
 /pkg/maps/ @cilium/sig-datapath
+/pkg/maps/authmap @cilium/sig-servicemesh
 /pkg/maps/egressmap @cilium/egress-gateway
 /pkg/maps/encrypt @cilium/ipsec
+/pkg/maps/ipcache @cilium/endpoint
+/pkg/maps/lxcmap @cilium/endpoint
+/pkg/maps/metricsmap @cilium/metrics
 /pkg/maps/policymap @cilium/sig-policy
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
