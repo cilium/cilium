@@ -5,6 +5,8 @@ package ciliumendpointslice
 
 import (
 	"cmp"
+	"maps"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -13,6 +15,11 @@ type NodeName string
 type EncryptionKey int
 type CID string
 type Labels string
+
+type CESCacher interface {
+	hasCESName(cesName CESName) bool
+	insertCES(cesName CESName, ns string)
+}
 
 // NodeData contains information about the node; the set of coreceps on
 // the node and the known encryption key associated with the node.
@@ -51,6 +58,11 @@ func NewSecIDs() *SecIDs {
 // The CESCache itself is not protected by a lock; the caller should hold a lock in order
 // to safely perform multi-step operations on the cache.
 type CESCache struct {
+	// cesData is used to map CiliumEndpointSlice name to all CiliumEndpoints names it contains
+	// and the namespace associated with it
+	cesData map[CESName]*CESData
+	// nsData is used to map namespaces to all CiliumEndpointSlices in them
+	nsData map[string]sets.Set[CESName]
 	// nodeData is used to map node name to all CiliumEndpoints on the node
 	// and the known encryption key associated with it
 	nodeData map[NodeName]*NodeData
@@ -64,6 +76,8 @@ type CESCache struct {
 // Creates and intializes the new CESCache
 func newCESCache() *CESCache {
 	return &CESCache{
+		cesData:                make(map[CESName]*CESData),
+		nsData:                 make(map[string]sets.Set[CESName]),
 		nodeData:               make(map[NodeName]*NodeData),
 		globalIdLabelsToCIDSet: make(map[Labels]*SecIDs),
 		cidToGidLabels:         make(map[CID]Labels),
@@ -162,6 +176,41 @@ func (c *CESCache) deleteCID(cid CID) []CESKey {
 	return nil
 }
 
+// Initializes mapping structure for CES
+func (c *CESCache) insertCES(cesName CESName, ns string) {
+	// Update CES namespace if it has changed
+	if cesData, ok := c.cesData[cesName]; ok {
+		if cesData.ns != ns {
+			c.nsData[cesData.ns].Delete(cesName)
+			if c.nsData[cesData.ns].Len() == 0 {
+				delete(c.nsData, cesData.ns)
+			}
+
+			cesData.ns = ns
+		}
+	} else {
+		c.cesData[cesName] = NewCESData(ns)
+	}
+
+	if _, ok := c.nsData[ns]; !ok {
+		c.nsData[ns] = sets.New[CESName]()
+	}
+	c.nsData[ns].Insert(cesName)
+}
+
+// Remove mapping structure for CES
+func (c *CESCache) deleteCES(cesName CESName) {
+	if cesData, ok := c.cesData[cesName]; ok {
+		if cesSet, ok := c.nsData[cesData.ns]; ok {
+			cesSet.Delete(cesName)
+			if cesSet.Len() == 0 {
+				delete(c.nsData, cesData.ns)
+			}
+		}
+	}
+	delete(c.cesData, cesName)
+}
+
 // Return CES keys for the given CEPs. Caller must hold the cache lock.
 func (c *CESCache) getCESForCEPs(ceps sets.Set[CEPName]) []CESKey {
 	// TODO: Implement when CEP/CES state is tracked in cache
@@ -175,6 +224,56 @@ func (c *CESCache) cleanLabelsMapIfNoState(gidLabels Labels) {
 			delete(c.globalIdLabelsToCIDSet, gidLabels)
 		}
 	}
+}
+
+// Return total number of CEPs mapped to the given CES
+func (c *CESCache) countCEPsInCES(ces CESName) int {
+	if cesData, ok := c.cesData[ces]; ok {
+		return cesData.ceps.Len()
+	}
+	return 0
+}
+
+// Return CEP Names mapped to the given CES
+func (c *CESCache) getCEPsInCES(ces CESName) []CEPName {
+	if cesData, ok := c.cesData[ces]; ok {
+		return cesData.ceps.UnsortedList()
+	}
+	return nil
+}
+
+// Return if the given CES is present in cache
+func (c *CESCache) hasCESName(cesName CESName) bool {
+	_, ok := c.cesData[cesName]
+	return ok
+}
+
+// Return names of all CESs.
+func (c *CESCache) getAllCESs() []CESName {
+	return slices.Collect(maps.Keys(c.cesData))
+}
+
+// Return the namespace of the given CES
+func (c *CESCache) getCESNamespace(name CESName) string {
+	if cesData, ok := c.cesData[name]; ok {
+		return cesData.ns
+	}
+	return ""
+}
+
+// Return all CESs in the given namespace
+func (c *CESCache) getCESInNs(ns string) []CESKey {
+	if cesSet, ok := c.nsData[ns]; ok {
+		seq := func(yield func(CESKey) bool) {
+			for cesName := range cesSet {
+				if !yield(NewCESKey(cesName.string(), ns)) {
+					return
+				}
+			}
+		}
+		return slices.Collect(seq)
+	}
+	return nil
 }
 
 // SetSelectedIDLocked will update the selectedID to the given CID if not set.
