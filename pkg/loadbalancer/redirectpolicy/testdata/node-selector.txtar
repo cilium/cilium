@@ -1,0 +1,99 @@
+#! --lrp-address-matcher-cidrs=169.254.169.0/24
+
+hive start
+
+# Add a pod
+k8s/add pod.yaml
+
+# Add LRP with NodeSelector (empty selector matches all nodes by default in absence of implementation)
+# But here we want to test SPECIFIC node selection.
+# The testnode does not have labels initially.
+
+# 1. Default state: Node has no labels.
+# Add policy selecting "kubernetes.io/hostname: testnode"
+k8s/add lrp.yaml
+
+# Since we haven't set the label on the node yet, it should NOT match (if our logic is correct).
+# But wait, our test runner's "testnode" doesn't automatically get the hostname label unless we set it?
+# Actually, let's set it explicitly to be sure.
+
+# Update local node to have the matching label
+localnode/update kubernetes.io/hostname=testnode
+
+# Wait for the frontend.
+db/show frontends
+* stdout '169.254.169.254:8080/TCP.*10.244.2.1:80/TCP.*Done'
+
+# Update local node to mismatch
+localnode/update kubernetes.io/hostname=othernode
+
+# Frontend should be gone (policy unapplied)
+db/show frontends
+* stdout 'Address.*Type.*ServiceName.*Backends.*RedirectTo.*Status'
+!* stdout '169.254.169.254'
+
+# Update local node to match again
+localnode/update kubernetes.io/hostname=testnode
+
+# Frontend should be back
+db/show frontends
+* stdout '169.254.169.254:8080/TCP.*10.244.2.1:80/TCP.*Done'
+
+# ---
+
+-- lrp.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-node-selector"
+  namespace: "test"
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: testnode
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "8080"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: tcp
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: '2019-07-08T09:41:59Z'
+    status: 'True'
+    type: Ready

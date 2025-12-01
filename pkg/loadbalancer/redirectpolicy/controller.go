@@ -25,6 +25,7 @@ import (
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -57,6 +58,7 @@ type lrpControllerParams struct {
 	Log                *slog.Logger
 	DB                 *statedb.DB
 	LRPs               statedb.Table[*LocalRedirectPolicy]
+	LocalNode          statedb.Table[*node.LocalNode]
 	Pods               statedb.Table[daemonk8s.LocalPod]
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
 	Writer             *writer.Writer
@@ -102,8 +104,11 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 	_, podsInitWatch := c.p.Pods.Initialized(txn)
 	_, lrpsInitWatch := c.p.LRPs.Initialized(txn)
 	_, fesInitWatch := c.p.Writer.Frontends().Initialized(txn)
+	_, nodeInitWatch := c.p.LocalNode.Initialized(txn)
 	initWatches := statedb.NewWatchSet()
-	initWatches.Add(podsInitWatch, lrpsInitWatch, fesInitWatch)
+	initWatches.Add(podsInitWatch, lrpsInitWatch, fesInitWatch, nodeInitWatch)
+
+	var nodeWatch <-chan struct{}
 
 	for {
 		t0 := time.Now()
@@ -123,6 +128,17 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 		lrps, watch := c.p.LRPs.AllWatch(wtxn)
 		allWatches.Add(watch)
 
+		// Check if the local node has changed.
+		nodeChanged := nodeWatch != nil && chanIsClosed(nodeWatch)
+
+		var localNode *node.LocalNode
+		localNode, _, nodeWatch, _ = c.p.LocalNode.GetWatch(wtxn, node.LocalNodeQuery)
+		allWatches.Add(nodeWatch)
+		var nodeLabels map[string]string
+		if localNode != nil {
+			nodeLabels = localNode.Labels
+		}
+
 		// Keep track of which LRPs now exist. This becomes the new [orphans] for the next round.
 		existing := sets.New[lb.ServiceName]()
 
@@ -136,14 +152,15 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 
 			if ws, found := watchSets[lrp.ID]; found {
 				// None of the inputs to this LRP have changed, skip.
-				if !ws.HasAny(closedWatches) {
+				// If the local node changed, we must re-evaluate because NodeSelector might match/mismatch now.
+				if !nodeChanged && !ws.HasAny(closedWatches) {
 					allWatches.Merge(ws)
 					continue
 				}
 			}
 			// (re)compute the frontend redirects and SkipLB entries for this
 			// policy.
-			if ws, cleanup := c.processRedirectPolicy(wtxn, lrp.ID); ws != nil {
+			if ws, cleanup := c.processRedirectPolicy(wtxn, lrp.ID, nodeLabels); ws != nil {
 				allWatches.Merge(ws)
 				watchSets[lrp.ID] = ws
 				cleanupFuncs[lrp.ID] = cleanup
@@ -164,7 +181,8 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 
 		if initWatches != nil {
 			if chanIsClosed(podsInitWatch) &&
-				chanIsClosed(lrpsInitWatch) {
+				chanIsClosed(lrpsInitWatch) &&
+				chanIsClosed(nodeInitWatch) {
 
 				// Mark load-balancing state initialized now that pods and LRPs have been
 				// processed. We can't wait for frontends to initialize since we're one
@@ -197,7 +215,7 @@ func (c *lrpController) run(ctx context.Context, health cell.Health) error {
 	}
 }
 
-func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.ServiceName) (*statedb.WatchSet, func(writer.WriteTxn)) {
+func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.ServiceName, nodeLabels map[string]string) (*statedb.WatchSet, func(writer.WriteTxn)) {
 	lrp, _, watch, found := c.p.LRPs.GetWatch(wtxn, lrpIDIndex.Query(lrpID))
 	if !found {
 		return nil, nil
@@ -240,6 +258,11 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 				c.p.DesiredSkipLB.Insert(wtxn, dsl)
 			}
 		}
+	}
+
+	if !lrp.NodeSelector.Matches(labels.Set(nodeLabels)) {
+		cleanup(wtxn)
+		return ws, func(writer.WriteTxn) {}
 	}
 
 	// Create a "pseudo-service" for the redirect policy to which the pods are associated as
