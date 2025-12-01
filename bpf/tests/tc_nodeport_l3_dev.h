@@ -254,15 +254,17 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 	status_code = data;
 
 	/* If the packet does not match a local endpoint but matches local host,
-	 * then we return to stack w/o adding L2 header.
+	 * then we return to stack w/o adding L2 header only if IS_BPF_HOST.
 	 */
+#if defined(IS_BPF_HOST)
 	if (is_host) {
 		assert(*status_code == TC_ACT_OK);
 		l2_size = 0;
 		goto l3_check;
-	} else {
-		assert(*status_code == TC_ACT_REDIRECT);
 	}
+#endif
+
+	assert(*status_code == TC_ACT_REDIRECT);
 
 	l2 = data + sizeof(__u32);
 
@@ -275,6 +277,14 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 	if (!is_ipv4 && l2->h_proto != bpf_htons(ETH_P_IPV6))
 		test_fatal("l2 proto hasn't been set to ETH_P_IPV6")
 
+#if defined(IS_BPF_WIREGUARD)
+	if (is_host) {
+		/* We added L2 header with NULL src mac. */
+		if (memcmp(l2->h_dest, (__u8 *)node_host_mac, ETH_ALEN) != 0)
+			test_fatal("dest mac hasn't been set to ep's mac");
+		goto l3_check;
+	}
+#endif
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
 		test_fatal("src mac hasn't been set to router's mac");
 
@@ -295,8 +305,15 @@ l3_check:
 				test_fatal("src IP was changed");
 			if (l3->daddr != TEST_IP_NODE_LOCAL)
 				test_fatal("dest IP was changed");
+#if defined(IS_BPF_HOST)
 			if (l3->check != bpf_htons(0x52ba))
 				test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+#endif
+#if defined(IS_BPF_WIREGUARD)
+			/* TTL changed due to routing to cilium_host. */
+			if (l3->check != bpf_htons(0x53ba))
+				test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
+#endif
 		} else {
 			if (l3->saddr != TEST_IP_REMOTE)
 				test_fatal("src IP was changed");
