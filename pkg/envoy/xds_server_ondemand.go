@@ -30,6 +30,8 @@ type onDemandXdsStarter struct {
 	maxConnectionDuration    time.Duration
 	idleTimeout              time.Duration
 	maxConcurrentRetries     uint32
+	maxConnections           uint32
+	maxRequests              uint32
 
 	envoyOnce sync.Once
 }
@@ -82,6 +84,8 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoy(wg *completion.WaitGroup) error 
 			maxConnectionDuration:    o.maxConnectionDuration,
 			idleTimeout:              o.idleTimeout,
 			maxConcurrentRetries:     o.maxConcurrentRetries,
+			maxConnections:           o.maxConnections,
+			maxRequests:              o.maxRequests,
 		})
 
 		// Add Prometheus listener if the port is (properly) configured

@@ -64,6 +64,8 @@ type CECResourceParser struct {
 	ingressIPv6 net.IP
 
 	defaultMaxConcurrentRetries uint32
+	defaultMaxConnections       uint32
+	defaultMaxRequests          uint32
 	httpLingerConfig            int
 }
 
@@ -86,6 +88,8 @@ func newCECResourceParser(params parserParams) *CECResourceParser {
 		logger:                      params.Logger,
 		portAllocator:               params.PortAllocator,
 		defaultMaxConcurrentRetries: params.EnvoyConfig.ProxyMaxConcurrentRetries,
+		defaultMaxConnections:       params.EnvoyConfig.ProxyClusterMaxConnections,
+		defaultMaxRequests:          params.EnvoyConfig.ProxyClusterMaxRequests,
 		httpLingerConfig:            params.EnvoyConfig.EnvoyHTTPUpstreamLingerTimeout,
 	}
 
@@ -333,7 +337,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 
 			fillInTransportSocketXDS(cecNamespace, cecName, cluster.TransportSocket)
 
-			fillInCircuitBreakers(cluster, r.defaultMaxConcurrentRetries)
+			fillInCircuitBreakers(cluster, r.defaultMaxConcurrentRetries, r.defaultMaxConnections, r.defaultMaxRequests)
 
 			// Fill in EDS config source if unset
 			if enum := cluster.GetType(); enum == envoy_config_cluster.Cluster_EDS {
@@ -956,11 +960,13 @@ func fillInTransportSocketXDS(cecNamespace string, cecName string, ts *envoy_con
 	}
 }
 
-func fillInCircuitBreakers(cluster *envoy_config_cluster.Cluster, defaultConcurrentRetries uint32) {
+func fillInCircuitBreakers(cluster *envoy_config_cluster.Cluster, defaultConcurrentRetries uint32, defaultMaxConnections uint32, defaultRequests uint32) {
 	if cluster.CircuitBreakers == nil {
 		cluster.CircuitBreakers = &envoy_config_cluster.CircuitBreakers{
 			Thresholds: []*envoy_config_cluster.CircuitBreakers_Thresholds{{
-				MaxRetries: &wrapperspb.UInt32Value{Value: defaultConcurrentRetries},
+				MaxRetries:     &wrapperspb.UInt32Value{Value: defaultConcurrentRetries},
+				MaxConnections: &wrapperspb.UInt32Value{Value: defaultMaxConnections},
+				MaxRequests:    &wrapperspb.UInt32Value{Value: defaultRequests},
 			}},
 		}
 	}

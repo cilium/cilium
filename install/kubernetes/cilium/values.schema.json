@@ -2111,6 +2111,12 @@
             "string"
           ]
         },
+        "clusterMaxConnections": {
+          "type": "integer"
+        },
+        "clusterMaxRequests": {
+          "type": "integer"
+        },
         "connectTimeoutSeconds": {
           "type": "integer"
         },

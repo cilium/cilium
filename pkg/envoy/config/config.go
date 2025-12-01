@@ -25,6 +25,8 @@ type ProxyConfig struct {
 	ProxyMaxConnectionDurationSeconds int
 	ProxyIdleTimeoutSeconds           int
 	ProxyMaxConcurrentRetries         uint32
+	ProxyClusterMaxConnections        uint32
+	ProxyClusterMaxRequests           uint32
 	HTTPNormalizePath                 bool
 	HTTPRequestTimeout                uint
 	HTTPIdleTimeout                   uint
@@ -55,6 +57,8 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int("proxy-max-connection-duration-seconds", 0, "Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)")
 	flags.Int("proxy-idle-timeout-seconds", 60, "Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s")
 	flags.Uint32("proxy-max-concurrent-retries", 128, "Maximum number of concurrent retries on Envoy clusters")
+	flags.Uint32("proxy-cluster-max-connections", 1024, "Maximum number of connections on Envoy clusters")
+	flags.Uint32("proxy-cluster-max-requests", 1024, "Maximum number of requests on Envoy clusters")
 	flags.Bool("http-normalize-path", true, "Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution.")
 	flags.Uint("http-request-timeout", 60*60, "Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited")
 	flags.Uint("http-idle-timeout", 0, "Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)")
