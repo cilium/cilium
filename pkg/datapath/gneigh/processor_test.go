@@ -151,7 +151,6 @@ func fixture(t *testing.T, c *Config) (
 	// Apply the config so that the GNeigh cell will initialise.s
 	hive.AddConfigOverride(h, func(cfg *Config) {
 		cfg.EnableL2PodAnnouncements = c.EnableL2PodAnnouncements
-		cfg.L2PodAnnouncementsInterface = c.L2PodAnnouncementsInterface
 		cfg.L2PodAnnouncementsInterfacePattern = c.L2PodAnnouncementsInterfacePattern
 	})
 
@@ -188,62 +187,9 @@ func collect(c chan fakeGarp) []fakeGarp {
 	}
 }
 
-func TestProcessorSingleInterface(t *testing.T) {
-	cfg := &Config{
-		EnableL2PodAnnouncements:           true,
-		L2PodAnnouncementsInterface:        "eth0",
-		L2PodAnnouncementsInterfacePattern: "",
-	}
-	garpSent, _, _, proc := fixture(t, cfg)
-
-	ep1 := &endpoint.Endpoint{ID: 1, IPv4: netip.MustParseAddr("1.2.3.4")}
-	ep2 := &endpoint.Endpoint{ID: 2, IPv4: netip.MustParseAddr("4.3.2.1")}
-
-	// On first event we expect a GARP to be sent.
-	proc.EndpointCreated(ep1)
-	garps := collect(garpSent)
-	require.Len(t, garps, 1)
-	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
-	require.Equal(t, garps[0].iface.Name(), cfg.L2PodAnnouncementsInterface)
-	require.Equal(t, garps[0].srcHW, net.HardwareAddr(fakeDevices[2].HardwareAddr))
-
-	// On second event we expect no GARP to be sent.
-	proc.EndpointCreated(ep1)
-	require.Empty(t, collect(garpSent))
-
-	// First event for second endpoint should trigger a GARP.
-	proc.EndpointCreated(ep2)
-	garps = collect(garpSent)
-	require.Len(t, garps, 1)
-	require.Equal(t, garps[0].addr.String(), ep2.IPv4.String())
-	require.Equal(t, garps[0].iface.Name(), cfg.L2PodAnnouncementsInterface)
-	require.Equal(t, garps[0].srcHW, net.HardwareAddr(fakeDevices[2].HardwareAddr))
-
-	// Second event for second endpoint should not trigger a GARP.
-	proc.EndpointCreated(ep2)
-	require.Empty(t, collect(garpSent))
-
-	// No GARP should be sent on deletion.
-	proc.EndpointDeleted(ep1, endpoint.DeleteConfig{})
-	require.Empty(t, collect(garpSent))
-
-	// When recreated after delete, a GARP should be sent.
-	proc.EndpointCreated(ep1)
-	garps = collect(garpSent)
-	require.Len(t, garps, 1)
-	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
-	require.Equal(t, garps[0].iface.Name(), cfg.L2PodAnnouncementsInterface)
-	require.Equal(t, garps[0].srcHW, net.HardwareAddr(fakeDevices[2].HardwareAddr))
-
-	// But GARP should still not be set for recreated ep2.
-	proc.EndpointCreated(ep2)
-	require.Empty(t, collect(garpSent))
-}
-
 func TestProcessorHappyPathMultipleInterface(t *testing.T) {
 	cfg := &Config{
 		EnableL2PodAnnouncements:           true,
-		L2PodAnnouncementsInterface:        "",
 		L2PodAnnouncementsInterfacePattern: "^(eth0|ens1)$",
 	}
 	garpSent, _, _, proc := fixture(t, cfg)
@@ -264,7 +210,6 @@ func TestProcessorHappyPathMultipleInterface(t *testing.T) {
 func TestProcessorOnlySelected(t *testing.T) {
 	cfg := &Config{
 		EnableL2PodAnnouncements:           true,
-		L2PodAnnouncementsInterface:        "",
 		L2PodAnnouncementsInterfacePattern: ".*",
 	}
 	garpSent, _, _, proc := fixture(t, cfg)
@@ -288,7 +233,6 @@ func TestProcessorOnlySelected(t *testing.T) {
 func TestProcessorDynamicUpdates(t *testing.T) {
 	cfg := &Config{
 		EnableL2PodAnnouncements:           true,
-		L2PodAnnouncementsInterface:        "",
 		L2PodAnnouncementsInterfacePattern: ".*",
 	}
 	garpSent, db, devices, proc := fixture(t, cfg)
