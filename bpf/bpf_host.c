@@ -1134,7 +1134,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		 */
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
-#endif /* ENABLE_IPV4 */
 	case bpf_htons(ETH_P_ARP):
 		if (is_defined(ENABLE_ARP_PASSTHROUGH) ||
 		    is_defined(ENABLE_ARP_RESPONDER) ||
@@ -1159,6 +1158,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
 		}
 
 		fallthrough;
+#endif /* ENABLE_IPV4 */
 	default:
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
