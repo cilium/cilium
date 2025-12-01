@@ -194,6 +194,8 @@ cilium-agent hive dot-graph [flags]
       --procfs string                                             Path to the host's proc filesystem mount (default "/proc")
       --prometheus-serve-addr string                              IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-admin-port int                                      Port to serve Envoy admin interface on.
+      --proxy-cluster-max-connections uint32                      Maximum number of connections on Envoy clusters (default 1024)
+      --proxy-cluster-max-requests uint32                         Maximum number of requests on Envoy clusters (default 1024)
       --proxy-connect-timeout uint                                Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
       --proxy-gid uint                                            Group ID for proxy control plane sockets. (default 1337)
       --proxy-idle-timeout-seconds int                            Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s (default 60)

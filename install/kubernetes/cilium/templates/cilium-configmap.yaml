@@ -1374,6 +1374,8 @@ data:
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
   proxy-max-concurrent-retries: {{ .Values.envoy.maxConcurrentRetries | quote }}
+  proxy-cluster-max-connections: {{ .Values.envoy.clusterMaxConnections | quote }}
+  proxy-cluster-max-requests: {{ .Values.envoy.clusterMaxRequests | quote }}
   http-retry-count: {{ .Values.envoy.httpRetryCount | quote }}
   http-stream-idle-timeout: {{ .Values.envoy.streamIdleTimeoutDurationSeconds | quote }}
 

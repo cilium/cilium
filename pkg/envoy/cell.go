@@ -141,6 +141,8 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			maxConnectionDuration:    time.Duration(params.EnvoyProxyConfig.ProxyMaxConnectionDurationSeconds) * time.Second,
 			idleTimeout:              time.Duration(params.EnvoyProxyConfig.ProxyIdleTimeoutSeconds) * time.Second,
 			maxConcurrentRetries:     params.EnvoyProxyConfig.ProxyMaxConcurrentRetries,
+			maxConnections:           params.EnvoyProxyConfig.ProxyClusterMaxConnections,
+			maxRequests:              params.EnvoyProxyConfig.ProxyClusterMaxRequests,
 		}, nil
 	}
 

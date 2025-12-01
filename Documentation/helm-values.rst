@@ -1316,6 +1316,14 @@
      - ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a ``bootstrap-config.json`` key. When specified, Envoy will use this ConfigMap instead of the default provided by the chart. WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to syntax error or semantically incorrect configuration). Before submitting an issue, please ensure you have disabled this feature, as support cannot be provided for custom Envoy bootstrap configs. @schema type: [null, string] @schema
      - string
      - ``nil``
+   * - :spelling:ignore:`envoy.clusterMaxConnections`
+     - Maximum number of connections on Envoy clusters
+     - int
+     - ``1024``
+   * - :spelling:ignore:`envoy.clusterMaxRequests`
+     - Maximum number of requests on Envoy clusters
+     - int
+     - ``1024``
    * - :spelling:ignore:`envoy.connectTimeoutSeconds`
      - Time in seconds after which a TCP connection attempt times out
      - int
