@@ -20,7 +20,7 @@ func randomName(n int) string {
 // Generates unique random name for the CiliumEndpointSlice, the format
 // of a CES name is similar to pod k8s naming convention "ces-123456789-abcde".
 // First 3 letters indicates ces resource, followed by random letters.
-func uniqueCESliceName(mapping *CESToCEPMapping) string {
+func uniqueCESliceName(mapping CESCacher) string {
 	var sb strings.Builder
 	for {
 		rn1, rn2 := randomName(9), randomName(5)
