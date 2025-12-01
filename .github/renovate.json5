@@ -316,10 +316,21 @@
       ],
     },
     {
-      // Do not allow any major and minor updates into stable branches.
-      "enabled": false,
       "groupName": "all external docker images dependencies",
       "groupSlug": "all-external-images-deps-stable",
+      "matchFiles": [
+        "install/kubernetes/Makefile.values"
+      ],
+      "matchBaseBranches": [
+        "!main",
+      ],
+      // This is required as otherwise patch version updates into stable branches
+      // are also skipped if a minor version update is available at the same time.
+      "separateMinorPatch": true
+    },
+    {
+      // Do not allow any major and minor updates into stable branches.
+      "enabled": false,
       "matchFiles": [
         "install/kubernetes/Makefile.values"
       ],
@@ -329,7 +340,7 @@
       ],
       matchBaseBranches: [
         "!main",
-      ]
+      ],
     },
     {
       "matchFiles": [
