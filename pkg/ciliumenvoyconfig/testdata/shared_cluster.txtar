@@ -229,6 +229,12 @@ clusters:test/listener-a/test:echo:80:
   }
   circuit_breakers: {
     thresholds: {
+      max_connections: {
+        value: 1024
+      }
+      max_requests: {
+        value: 1024
+      }
       max_retries: {
         value: 128
       }
@@ -269,6 +275,12 @@ clusters:test/listener-b/test:echo:80:
   }
   circuit_breakers: {
     thresholds: {
+      max_connections: {
+        value: 1024
+      }
+      max_requests: {
+        value: 1024
+      }
       max_retries: {
         value: 128
       }
@@ -360,6 +372,12 @@ clusters:test/listener-b/test:echo:80:
   }
   circuit_breakers: {
     thresholds: {
+      max_connections: {
+        value: 1024
+      }
+      max_requests: {
+        value: 1024
+      }
       max_retries: {
         value: 128
       }

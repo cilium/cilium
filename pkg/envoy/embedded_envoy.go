@@ -113,6 +113,8 @@ type embeddedEnvoyConfig struct {
 	maxConnectionDuration    time.Duration
 	idleTimeout              time.Duration
 	maxConcurrentRetries     uint32
+	maxConnections           uint32
+	maxRequests              uint32
 }
 
 // startEmbeddedEnvoyInternal starts an Envoy proxy instance.
@@ -146,6 +148,8 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConf
 		maxConnectionDuration:    config.maxConnectionDuration,
 		idleTimeout:              config.idleTimeout,
 		maxConcurrentRetries:     config.maxConcurrentRetries,
+		maxConnections:           config.maxConnections,
+		maxRequests:              config.maxRequests,
 	})
 
 	o.logger.Debug("Envoy: Starting embedded Envoy")
@@ -366,6 +370,8 @@ type bootstrapConfig struct {
 	maxConnectionDuration    time.Duration
 	idleTimeout              time.Duration
 	maxConcurrentRetries     uint32
+	maxConnections           uint32
+	maxRequests              uint32
 }
 
 func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
@@ -412,7 +418,9 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
 
 	clusterRetryLimits := &envoy_config_cluster.CircuitBreakers{
 		Thresholds: []*envoy_config_cluster.CircuitBreakers_Thresholds{{
-			MaxRetries: &wrapperspb.UInt32Value{Value: config.maxConcurrentRetries},
+			MaxRetries:     &wrapperspb.UInt32Value{Value: config.maxConcurrentRetries},
+			MaxConnections: &wrapperspb.UInt32Value{Value: config.maxConnections},
+			MaxRequests:    &wrapperspb.UInt32Value{Value: config.maxRequests},
 		}},
 	}
 
