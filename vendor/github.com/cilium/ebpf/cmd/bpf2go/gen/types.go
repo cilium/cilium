@@ -44,12 +44,7 @@ func collectMapTypes(types []btf.Type, maps map[string]*ebpf.MapSpec) []btf.Type
 // collectVariableTypes collects all types used by VariableSpecs.
 func collectVariableTypes(types []btf.Type, vars map[string]*ebpf.VariableSpec) []btf.Type {
 	for _, vs := range vars {
-		v := vs.Type()
-		if v == nil {
-			continue
-		}
-
-		types = addType(types, v.Type)
+		types = addType(types, vs.Type.Type)
 	}
 
 	return types

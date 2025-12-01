@@ -1,6 +1,7 @@
 package ebpf
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -10,6 +11,9 @@ import (
 )
 
 const structOpsValuePrefix = "bpf_struct_ops_"
+const structOpsLinkSec = ".struct_ops.link"
+const structOpsSec = ".struct_ops"
+const structOpsKeySize = 4
 
 // structOpsFindInnerType returns the "inner" struct inside a value struct_ops type.
 //
@@ -44,6 +48,9 @@ func structOpsFindTarget(userType *btf.Struct, cache *btf.Cache) (vType *btf.Str
 
 	target := btf.Type((*btf.Struct)(nil))
 	spec, module, err := findTargetInKernel(vTypeName, &target, cache)
+	if errors.Is(err, btf.ErrNotFound) {
+		return nil, 0, nil, fmt.Errorf("%q doesn't exist in kernel: %w", vTypeName, ErrNotSupported)
+	}
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("lookup value type %q: %w", vTypeName, err)
 	}
@@ -136,4 +143,33 @@ func structOpsIsMemZeroed(data []byte) bool {
 		}
 	}
 	return true
+}
+
+// structOpsSetAttachTo sets p.AttachTo in the expected "struct_name:memberName" format
+// based on the struct definition.
+//
+// this relies on the assumption that each member in the
+// `.struct_ops` section has a relocation at its starting byte offset.
+func structOpsSetAttachTo(
+	sec *elfSection,
+	baseOff uint32,
+	userSt *btf.Struct,
+	progs map[string]*ProgramSpec) error {
+	for _, m := range userSt.Members {
+		memberOff := m.Offset
+		sym, ok := sec.relocations[uint64(baseOff+memberOff.Bytes())]
+		if !ok {
+			continue
+		}
+		p, ok := progs[sym.Name]
+		if !ok || p == nil {
+			return fmt.Errorf("program %s not found", sym.Name)
+		}
+
+		if p.Type != StructOps {
+			return fmt.Errorf("program %s is not StructOps", sym.Name)
+		}
+		p.AttachTo = userSt.Name + ":" + m.Name
+	}
+	return nil
 }
