@@ -42,10 +42,6 @@
 /* Import map definitions and some default values */
 #include <bpf/config/node.h>
 
-/* Overwrite (local) CLUSTER_ID defined in node_config.h */
-#undef CLUSTER_ID
-#define CLUSTER_ID 1
-
 /* Need to undef EVENT_SOURCE here since it is defined in
  * both of common.h and bpf_lxc.c.
  */
@@ -56,6 +52,8 @@
 
 /* Set the LXC source address to be the address of the backend pod */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = BACKEND_IP})
+
+ASSIGN_CONFIG(__u32, cluster_id, 1)
 
 #include "lib/ipcache.h"
 #include "lib/policy.h"

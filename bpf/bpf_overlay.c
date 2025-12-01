@@ -7,6 +7,7 @@
 #include <bpf/config/node.h>
 #include <bpf/config/global.h>
 #include <netdev_config.h>
+#include <lib/static_data.h>
 
 #define IS_BPF_OVERLAY 1
 
@@ -360,7 +361,7 @@ skip_vtep:
 		 * logic in-line.
 		 */
 		if (cluster_id_from_identity != 0 &&
-		    cluster_id_from_identity != CLUSTER_ID &&
+		    cluster_id_from_identity != CONFIG(cluster_id) &&
 		    ip4->daddr == IPV4_INTER_CLUSTER_SNAT) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, *identity);
 			return tail_call_internal(ctx,

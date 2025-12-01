@@ -41,9 +41,7 @@
 #define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
 #define NODEPORT_PORT_MAX_NAT (NODEPORT_PORT_MIN_NAT)
 
-/* Overwrite (local) CLUSTER_ID defined in node_config.h */
-#undef CLUSTER_ID
-#define CLUSTER_ID 1
+ASSIGN_CONFIG(__u32, cluster_id, 1)
 
 /*
  * Test configurations
