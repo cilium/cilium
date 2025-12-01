@@ -220,7 +220,7 @@ func unmap(size int) func(*byte) {
 // The comparable constraint narrows down the set of eligible types to exclude
 // slices, maps and functions. These complex types cannot be mapped to memory
 // directly.
-func checkUnsafeMemory[T comparable](mm *Memory, off uint64) error {
+func checkUnsafeMemory[T comparable](mm *Memory, off uint32) error {
 	if mm.b == nil {
 		return fmt.Errorf("memory-mapped region is nil")
 	}
@@ -241,11 +241,11 @@ func checkUnsafeMemory[T comparable](mm *Memory, off uint64) error {
 		return fmt.Errorf("zero-sized type %s: %w", t, ErrInvalidType)
 	}
 
-	if off%uint64(t.Align()) != 0 {
+	if off%uint32(t.Align()) != 0 {
 		return fmt.Errorf("unaligned access of memory-mapped region: %d-byte aligned read at offset %d", t.Align(), off)
 	}
 
-	vs, bs := uint64(size), uint64(len(mm.b))
+	vs, bs := uint32(size), uint32(len(mm.b))
 	if off+vs > bs {
 		return fmt.Errorf("%d-byte value at offset %d exceeds mmap size of %d bytes", vs, off, bs)
 	}
@@ -335,7 +335,7 @@ func checkType(name string, t reflect.Type) error {
 // must be within bounds of the Memory.
 //
 // To access read-only memory, use [Memory.ReadAt].
-func memoryPointer[T comparable](mm *Memory, off uint64) (*T, error) {
+func memoryPointer[T comparable](mm *Memory, off uint32) (*T, error) {
 	if err := checkUnsafeMemory[T](mm, off); err != nil {
 		return nil, fmt.Errorf("memory pointer: %w", err)
 	}

@@ -11,8 +11,8 @@ import (
 )
 
 func loadCollectionFromNativeImage(file string) (_ *Collection, err error) {
-	mapFds := make([]efw.FD, 16)
-	programFds := make([]efw.FD, 16)
+	mapFds := make([]efw.FD, 32)
+	programFds := make([]efw.FD, 32)
 	var maps map[string]*Map
 	var programs map[string]*Program
 
