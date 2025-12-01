@@ -51,6 +51,16 @@ type PeerSelector interface {
 	IsPeerSelector()
 }
 
+// EntityNamespaceMarker is a marker type that represents the "namespace" entity.
+// Unlike other entities that can be resolved to static EndpointSelectors at parse time,
+// EntityNamespace must be resolved at policy computation time when the target endpoint's
+// namespace is known. This marker flows through the policy pipeline and is expanded to
+// a namespace-specific EndpointSelector when computing policy for a specific endpoint.
+type EntityNamespaceMarker struct{}
+
+// IsPeerSelector implements the PeerSelector interface.
+func (EntityNamespaceMarker) IsPeerSelector() {}
+
 // PeerSelectorSlice is a slice that can hold any of the supported selectors,
 // including EndpointSelector and FQDNSelector.
 type PeerSelectorSlice []PeerSelector
@@ -88,6 +98,10 @@ func (s *PeerSelectorSlice) DeepEqual(other *PeerSelectorSlice) bool {
 			if v2, ok := p2.(api.CIDRRule); !ok || !v1.DeepEqual(&v2) {
 				return false
 			}
+		case EntityNamespaceMarker:
+			if _, ok := p2.(EntityNamespaceMarker); !ok {
+				return false
+			}
 		default:
 			return false
 		}
@@ -109,6 +123,47 @@ func (s PeerSelectorSlice) GetAsEndpointSelectors() api.EndpointSelectorSlice {
 			res = append(res, api.CIDRRuleSlice{v}.GetAsEndpointSelectors()...)
 		case api.FQDNSelector:
 			// FQDN selector are excluded because they have to be handled separately
+		case EntityNamespaceMarker:
+			// EntityNamespaceMarker requires namespace context; use GetAsEndpointSelectorsWithNamespace instead
+		}
+	}
+	return res
+}
+
+// HasEntityNamespaceMarker returns true if the slice contains an EntityNamespaceMarker.
+func (s PeerSelectorSlice) HasEntityNamespaceMarker() bool {
+	for _, p := range s {
+		if _, ok := p.(EntityNamespaceMarker); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// GetAsEndpointSelectorsWithNamespace returns the slice of peer selectors as endpoint selectors,
+// expanding EntityNamespaceMarker to a selector matching the given namespace.
+// The namespaceLabel parameter should be the full label key (e.g., "k8s:io.kubernetes.pod.namespace").
+func (s PeerSelectorSlice) GetAsEndpointSelectorsWithNamespace(namespace, namespaceLabel string) api.EndpointSelectorSlice {
+	res := make(api.EndpointSelectorSlice, 0, len(s))
+	for idx := range s {
+		switch v := s[idx].(type) {
+		case api.EndpointSelector:
+			res = append(res, v)
+		case api.CIDR:
+			res = append(res, api.CIDRSlice{v}.GetAsEndpointSelectors()...)
+		case api.CIDRRule:
+			res = append(res, api.CIDRRuleSlice{v}.GetAsEndpointSelectors()...)
+		case api.FQDNSelector:
+			// FQDN selector are excluded because they have to be handled separately
+		case EntityNamespaceMarker:
+			// Expand EntityNamespaceMarker to a namespace-specific endpoint selector
+			if namespace != "" {
+				nsSelector := api.NewESFromMatchRequirements(
+					map[string]string{namespaceLabel: namespace},
+					nil,
+				)
+				res = append(res, nsSelector)
+			}
 		}
 	}
 	return res

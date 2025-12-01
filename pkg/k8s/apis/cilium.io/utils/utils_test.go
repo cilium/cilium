@@ -889,3 +889,156 @@ func TestGetPolicyFromLabels(t *testing.T) {
 		})
 	}
 }
+
+func TestParseToCiliumRuleWithEntityNamespace(t *testing.T) {
+	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
+	namespace := fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel)
+
+	tests := []struct {
+		name                        string
+		ruleNamespace               string // empty for CCNP
+		rule                        *api.Rule
+		expectNamespaceInEndpoints  bool // CNP: EntityNamespace expanded to endpoint selector
+		expectEntityNamespaceInRule bool // CCNP: EntityNamespace kept in entities
+	}{
+		{
+			name:          "CNP with EntityNamespace ingress - should expand to endpoint selector",
+			ruleNamespace: "my-namespace",
+			rule: &api.Rule{
+				EndpointSelector: api.NewESFromMatchRequirements(nil, nil),
+				Ingress: []api.IngressRule{
+					{
+						IngressCommonRule: api.IngressCommonRule{
+							FromEntities: api.EntitySlice{api.EntityNamespace},
+						},
+					},
+				},
+			},
+			expectNamespaceInEndpoints:  true,
+			expectEntityNamespaceInRule: false,
+		},
+		{
+			name:          "CNP with EntityNamespace egress - should expand to endpoint selector",
+			ruleNamespace: "my-namespace",
+			rule: &api.Rule{
+				EndpointSelector: api.NewESFromMatchRequirements(nil, nil),
+				Egress: []api.EgressRule{
+					{
+						EgressCommonRule: api.EgressCommonRule{
+							ToEntities: api.EntitySlice{api.EntityNamespace},
+						},
+					},
+				},
+			},
+			expectNamespaceInEndpoints:  true,
+			expectEntityNamespaceInRule: false,
+		},
+		{
+			name:          "CCNP with EntityNamespace ingress - should keep entity",
+			ruleNamespace: "", // empty namespace = CCNP
+			rule: &api.Rule{
+				EndpointSelector: api.NewESFromMatchRequirements(nil, nil),
+				Ingress: []api.IngressRule{
+					{
+						IngressCommonRule: api.IngressCommonRule{
+							FromEntities: api.EntitySlice{api.EntityNamespace},
+						},
+					},
+				},
+			},
+			expectNamespaceInEndpoints:  false,
+			expectEntityNamespaceInRule: true,
+		},
+		{
+			name:          "CCNP with EntityNamespace egress - should keep entity",
+			ruleNamespace: "", // empty namespace = CCNP
+			rule: &api.Rule{
+				EndpointSelector: api.NewESFromMatchRequirements(nil, nil),
+				Egress: []api.EgressRule{
+					{
+						EgressCommonRule: api.EgressCommonRule{
+							ToEntities: api.EntitySlice{api.EntityNamespace},
+						},
+					},
+				},
+			},
+			expectNamespaceInEndpoints:  false,
+			expectEntityNamespaceInRule: true,
+		},
+		{
+			name:          "CNP with mixed entities - EntityNamespace expanded, others kept",
+			ruleNamespace: "test-ns",
+			rule: &api.Rule{
+				EndpointSelector: api.NewESFromMatchRequirements(nil, nil),
+				Ingress: []api.IngressRule{
+					{
+						IngressCommonRule: api.IngressCommonRule{
+							FromEntities: api.EntitySlice{api.EntityNamespace, api.EntityHost},
+						},
+					},
+				},
+			},
+			expectNamespaceInEndpoints:  true,
+			expectEntityNamespaceInRule: false, // EntityNamespace is expanded, but EntityHost stays
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.rule.Sanitize()
+			got := ParseToCiliumRule(hivetest.Logger(t), "", tt.ruleNamespace, tt.name, uuid, tt.rule)
+
+			// Check ingress rules
+			for _, ir := range got.Ingress {
+				// Check if namespace is in FromEndpoints (CNP behavior)
+				hasNamespaceEndpoint := false
+				for _, ep := range ir.FromEndpoints {
+					if matchVal, ok := ep.GetMatch(namespace); ok {
+						if len(matchVal) == 1 && matchVal[0] == tt.ruleNamespace {
+							hasNamespaceEndpoint = true
+						}
+					}
+				}
+
+				// Check if EntityNamespace is in FromEntities (CCNP behavior)
+				hasEntityNamespace := false
+				for _, entity := range ir.FromEntities {
+					if entity == api.EntityNamespace {
+						hasEntityNamespace = true
+					}
+				}
+
+				require.Equal(t, tt.expectNamespaceInEndpoints, hasNamespaceEndpoint,
+					"FromEndpoints namespace selector mismatch")
+				require.Equal(t, tt.expectEntityNamespaceInRule, hasEntityNamespace,
+					"FromEntities EntityNamespace mismatch")
+			}
+
+			// Check egress rules
+			for _, er := range got.Egress {
+				// Check if namespace is in ToEndpoints (CNP behavior)
+				hasNamespaceEndpoint := false
+				for _, ep := range er.ToEndpoints {
+					if matchVal, ok := ep.GetMatch(namespace); ok {
+						if len(matchVal) == 1 && matchVal[0] == tt.ruleNamespace {
+							hasNamespaceEndpoint = true
+						}
+					}
+				}
+
+				// Check if EntityNamespace is in ToEntities (CCNP behavior)
+				hasEntityNamespace := false
+				for _, entity := range er.ToEntities {
+					if entity == api.EntityNamespace {
+						hasEntityNamespace = true
+					}
+				}
+
+				require.Equal(t, tt.expectNamespaceInEndpoints, hasNamespaceEndpoint,
+					"ToEndpoints namespace selector mismatch")
+				require.Equal(t, tt.expectEntityNamespaceInRule, hasEntityNamespace,
+					"ToEntities EntityNamespace mismatch")
+			}
+		})
+	}
+}

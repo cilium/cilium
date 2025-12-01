@@ -188,8 +188,28 @@ func parseToCiliumIngressCommonRule(clusterName, namespace string, es api.Endpoi
 	}
 
 	if ing.FromEntities != nil {
-		retRule.FromEntities = make([]api.Entity, len(ing.FromEntities))
-		copy(retRule.FromEntities, ing.FromEntities)
+		// Process entities, expanding EntityNamespace to a namespace-specific
+		// endpoint selector when the policy has a namespace context (CNP).
+		// For CCNP (namespace == ""), EntityNamespace is kept as-is and will
+		// be resolved at policy computation time via EntityNamespaceMarker.
+		for _, entity := range ing.FromEntities {
+			if entity == api.EntityNamespace {
+				if namespace != "" {
+					// CNP: expand to namespace-specific endpoint selector at parse time
+					nsSelector := api.NewESFromMatchRequirements(
+						map[string]string{podPrefixLbl: namespace},
+						nil,
+					)
+					addClusterFilterByDefault(&nsSelector, clusterName)
+					retRule.FromEndpoints = append(retRule.FromEndpoints, nsSelector)
+				} else {
+					// CCNP: keep EntityNamespace to be resolved at policy computation time
+					retRule.FromEntities = append(retRule.FromEntities, entity)
+				}
+			} else {
+				retRule.FromEntities = append(retRule.FromEntities, entity)
+			}
+		}
 	}
 
 	if ing.FromGroups != nil {
@@ -269,8 +289,28 @@ func parseToCiliumEgressCommonRule(clusterName, namespace string, es api.Endpoin
 	}
 
 	if egr.ToEntities != nil {
-		retRule.ToEntities = make([]api.Entity, len(egr.ToEntities))
-		copy(retRule.ToEntities, egr.ToEntities)
+		// Process entities, expanding EntityNamespace to a namespace-specific
+		// endpoint selector when the policy has a namespace context (CNP).
+		// For CCNP (namespace == ""), EntityNamespace is kept as-is and will
+		// be resolved at policy computation time via EntityNamespaceMarker.
+		for _, entity := range egr.ToEntities {
+			if entity == api.EntityNamespace {
+				if namespace != "" {
+					// CNP: expand to namespace-specific endpoint selector at parse time
+					nsSelector := api.NewESFromMatchRequirements(
+						map[string]string{podPrefixLbl: namespace},
+						nil,
+					)
+					addClusterFilterByDefault(&nsSelector, clusterName)
+					retRule.ToEndpoints = append(retRule.ToEndpoints, nsSelector)
+				} else {
+					// CCNP: keep EntityNamespace to be resolved at policy computation time
+					retRule.ToEntities = append(retRule.ToEntities, entity)
+				}
+			} else {
+				retRule.ToEntities = append(retRule.ToEntities, entity)
+			}
+		}
 	}
 
 	if egr.ToNodes != nil {

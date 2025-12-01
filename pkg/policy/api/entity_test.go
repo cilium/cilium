@@ -90,3 +90,32 @@ func TestEntitySliceMatches(t *testing.T) {
 	require.False(t, slice.matches(labels.ParseLabelArray("reserved:none")))
 	require.False(t, slice.matches(labels.ParseLabelArray("id=foo")))
 }
+
+func TestEntityNamespace(t *testing.T) {
+	// EntityNamespace is a special entity that cannot be resolved to a static
+	// EndpointSelector at policy parse time. It requires runtime expansion
+	// based on the endpoint's namespace context. As such, it has an empty
+	// entry in EntitySelectorMapping and doesn't match any labels via the
+	// normal GetAsEndpointSelectors() method.
+
+	// Verify EntityNamespace exists in EntitySelectorMapping
+	_, ok := EntitySelectorMapping[EntityNamespace]
+	require.True(t, ok, "EntityNamespace should exist in EntitySelectorMapping")
+
+	// Verify EntityNamespace.GetAsEndpointSelectors() returns empty
+	// (since it requires runtime expansion, not static resolution)
+	selectors := EntitySlice{EntityNamespace}.GetAsEndpointSelectors()
+	require.Empty(t, selectors, "EntityNamespace should return empty selectors")
+
+	// Verify EntityNamespace doesn't match any labels via normal method
+	// (it needs to be expanded at runtime based on namespace context)
+	require.False(t, EntityNamespace.matches(labels.ParseLabelArray("reserved:host")))
+	require.False(t, EntityNamespace.matches(labels.ParseLabelArray("reserved:world")))
+	require.False(t, EntityNamespace.matches(labels.ParseLabelArray("k8s:io.kubernetes.pod.namespace=default")))
+	require.False(t, EntityNamespace.matches(labels.ParseLabelArray("id=foo")))
+
+	// Verify EntityNamespace combined with other entities doesn't affect their matching
+	slice := EntitySlice{EntityNamespace, EntityHost}
+	require.True(t, slice.matches(labels.ParseLabelArray("reserved:host")))
+	require.False(t, slice.matches(labels.ParseLabelArray("reserved:world")))
+}

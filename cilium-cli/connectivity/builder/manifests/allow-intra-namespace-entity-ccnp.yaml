@@ -1,0 +1,14 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-intra-namespace-entity
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: ccnp
+  ingress:
+    - fromEntities:
+        - namespace
+  egress:
+    - toEntities:
+        - namespace

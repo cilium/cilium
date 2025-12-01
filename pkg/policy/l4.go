@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -973,7 +974,19 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 		Ingress:             ingress,
 	}
 
-	es := peerEndpoints.GetAsEndpointSelectors()
+	// Convert peer selectors to endpoint selectors, expanding EntityNamespaceMarker
+	// to a namespace-specific selector if present.
+	var es api.EndpointSelectorSlice
+	if peerEndpoints.HasEntityNamespaceMarker() {
+		// EntityNamespaceMarker requires namespace context from the endpoint
+		// being protected. Get the namespace from policyCtx and expand to
+		// a selector matching that namespace.
+		namespace := policyCtx.GetNamespace()
+		namespaceLabel := labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
+		es = peerEndpoints.GetAsEndpointSelectorsWithNamespace(namespace, namespaceLabel)
+	} else {
+		es = peerEndpoints.GetAsEndpointSelectors()
+	}
 	if es.SelectsAllEndpoints() {
 		l4.wildcard = l4.cacheIdentitySelector(api.WildcardEndpointSelector, origin.stringLabels(), selectorCache)
 	} else {

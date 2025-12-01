@@ -28,6 +28,9 @@ var (
 	//go:embed manifests/allow-cluster-entity.yaml
 	allowClusterEntityPolicyYAML string
 
+	//go:embed manifests/allow-intra-namespace-entity-ccnp.yaml
+	allowIntraNamespaceEntityPolicyYAML string
+
 	//go:embed manifests/client-egress-only-dns.yaml
 	clientEgressOnlyDNSPolicyYAML string
 
@@ -333,6 +336,7 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 		clientEgressL7TlsHeaders{},
 		egresstoSpecificNamespace{},
 		ingressfromSpecificNamespace{},
+		namespaceEntity{},
 	}
 	return injectTests(tests, ct)
 }
