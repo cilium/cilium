@@ -329,7 +329,7 @@
       "separateMinorPatch": true
     },
     {
-      // Do not allow any major and minor updates into stable branches.
+      // Do not allow any major and minor updates into stable branches by default.
       "enabled": false,
       "matchFiles": [
         "install/kubernetes/Makefile.values"
@@ -341,6 +341,10 @@
       matchBaseBranches: [
         "!main",
       ],
+      "matchDepNames": [
+        // Explicitly allow certgen updates.
+        "!quay.io/cilium/certgen",
+      ]
     },
     {
       "matchFiles": [
