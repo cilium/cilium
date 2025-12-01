@@ -108,12 +108,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			*identity = info->sec_identity;
 	}
 
-#ifdef ENABLE_IPSEC
-	if (ip6->nexthdr != IPPROTO_ESP)
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_PLAINTEXT);
-#endif
-
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
 		__u32 egress_ifindex = 0;
@@ -385,12 +379,6 @@ skip_vtep:
 		if (info)
 			*identity = info->sec_identity;
 	}
-
-#ifdef ENABLE_IPSEC
-	if (ip4->protocol != IPPROTO_ESP)
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_PLAINTEXT);
-#endif
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
