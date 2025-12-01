@@ -373,7 +373,8 @@ Removed Options
   mode and had this flag explicitly set to ``true``, please unset it and let Cilium v1.18 migrate your rules prior
   to the upgrade to Cilium v1.19. Azure IPAM users are unaffected by this change, as Cilium continues to use
   old-style IP rules with Azure IPAM.
-
+* The previously deprecated ``--l2-pod-announcements-interface`` flag has been removed. The
+  ``--l2-pod-announcements-interface-pattern`` flag should be used instead.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~

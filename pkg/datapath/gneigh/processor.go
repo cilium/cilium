@@ -41,31 +41,17 @@ func newGNeighProcessor(p processorParams) (*processor, error) {
 		return nil, nil
 	}
 
-	if p.Config.L2PodAnnouncementsInterface != "" && p.Config.L2PodAnnouncementsInterfacePattern != "" {
-		return nil, fmt.Errorf("only one of '--%s' and '--%s' can be set", L2PodAnnouncementsInterface, L2PodAnnouncementsInterfacePattern)
-	}
-
 	var (
 		devicesRegex *regexp.Regexp
 		err          error
 	)
-	if p.Config.L2PodAnnouncementsInterface != "" {
-		devicesRegex, err = regexp.Compile("^" + p.Config.L2PodAnnouncementsInterface + "$")
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile devices regex: %w", err)
-		}
-
-		// See https://github.com/cilium/cilium/issues/38229
-		p.Logger.Warn("The '--" + L2PodAnnouncementsInterface + "' flag is deprecated and will be removed in a future release. Please use '--" + L2PodAnnouncementsInterfacePattern + "' instead.")
-
-	} else if p.Config.L2PodAnnouncementsInterfacePattern != "" {
+	if p.Config.L2PodAnnouncementsInterfacePattern != "" {
 		devicesRegex, err = regexp.Compile(p.Config.L2PodAnnouncementsInterfacePattern)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile devices regex: %w", err)
 		}
-
 	} else {
-		return nil, fmt.Errorf("'--%s' or '--%s' must be set, when --%s=true", L2PodAnnouncementsInterface, L2PodAnnouncementsInterfacePattern, EnableL2PodAnnouncements)
+		return nil, fmt.Errorf("'--%s' must be set, when --%s=true", L2PodAnnouncementsInterfacePattern, EnableL2PodAnnouncements)
 	}
 
 	gp := &processor{
