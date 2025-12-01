@@ -5,7 +5,6 @@ package analyze
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"math"
 	"structs"
@@ -100,7 +99,7 @@ func TestReachabilitySimple(t *testing.T) {
 	blocks, err := MakeBlocks(insns)
 	require.NoError(t, err)
 
-	ur, err := Reachability(blocks, insns, VariableSpecs(spec.Variables))
+	ur, err := Reachability(blocks, insns, spec.Variables)
 	require.NoError(t, err)
 
 	allUnreachable(t, insns, ur)
@@ -129,64 +128,10 @@ func TestReachabilitySimple(t *testing.T) {
 	require.NoError(t, obj.SymK.Set(int16(1)))
 	require.NoError(t, obj.SymL.Set(uint32(1)))
 
-	rr, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
+	rr, err := Reachability(blocks, obj.Program.Instructions, spec.Variables)
 	require.NoError(t, err)
 
 	allReachable(t, insns, rr)
-}
-
-var _ VariableSpec = (*mockVarSpec)(nil)
-
-type mockVarSpec struct {
-	mapName string
-	offset  uint64
-	size    uint64
-	value   uint64
-}
-
-func (mvs *mockVarSpec) MapName() string {
-	return mvs.mapName
-}
-func (mvs *mockVarSpec) Offset() uint64 {
-	return mvs.offset
-}
-func (mvs *mockVarSpec) Size() uint64 {
-	return mvs.size
-}
-func (mvs *mockVarSpec) Get(out any) error {
-	switch out := out.(type) {
-	case *int64:
-		*out = int64(mvs.value)
-		return nil
-	case *int32:
-		*out = int32(mvs.value)
-		return nil
-	case *int16:
-		*out = int16(mvs.value)
-		return nil
-	case *int8:
-		*out = int8(mvs.value)
-	case []byte:
-		switch mvs.size {
-		case 1:
-			out[0] = byte(mvs.value)
-		case 2:
-			binary.NativeEndian.PutUint16(out, uint16(mvs.value))
-		case 4:
-			binary.NativeEndian.PutUint32(out, uint32(mvs.value))
-		case 8:
-			binary.NativeEndian.PutUint64(out, uint64(mvs.value))
-		default:
-			return fmt.Errorf("unsupported size %d for byte slice", mvs.size)
-		}
-	default:
-		panic(fmt.Sprintf("unsupported type %T", out))
-	}
-
-	return nil
-}
-func (mvs *mockVarSpec) Constant() bool {
-	return true
 }
 
 // Load a map value pointer in one block and dereference in another. This is
@@ -198,12 +143,12 @@ func (mvs *mockVarSpec) Constant() bool {
 func TestReachabilityBacktrackBlock(t *testing.T) {
 	insns := asm.Instructions{
 		// Load the pointer to the config variable into a register.
-		asm.LoadMapValue(asm.R0, 0, 0).WithReference("map").WithSymbol("prog"),
+		asm.LoadMapValue(asm.R0, 0, 0).WithReference(".rodata").WithSymbol("prog"),
 		// Make a branch, ending the block.
 		asm.JEq.Imm(asm.R1, 0, "exit"),
 
 		// Dereference the map pointer.
-		asm.LoadMem(asm.R1, asm.R0, 0, asm.Word),
+		asm.LoadMem(asm.R1, asm.R0, 0, asm.Byte),
 		// Random instruction.
 		asm.Mov.Reg(asm.R2, asm.R3),
 		// Branch on the dereferenced value.
@@ -226,8 +171,8 @@ func TestReachabilityBacktrackBlock(t *testing.T) {
 	b, err := computeBlocks(insns)
 	require.NoError(t, err)
 
-	r, err := Reachability(b, insns, map[string]VariableSpec{
-		"enable_a": &mockVarSpec{"map", 0, uint64(asm.Word.Sizeof()), 1},
+	r, err := Reachability(b, insns, map[string]*ebpf.VariableSpec{
+		"enable_a": {SectionName: ".rodata", Offset: 0, Value: []byte{1}},
 	})
 	require.NoError(t, err)
 
@@ -245,12 +190,11 @@ func TestReachabilityBacktrackBlock(t *testing.T) {
 // instead of 16 bit offsets. Something the compiler can emit when programs
 // get large and compilation happens with -mcpu=v4
 func TestReachabilityLongJump(t *testing.T) {
-	const offset = 0
 	insns := asm.Instructions{
 		// Load the pointer to the config variable into a register
-		asm.LoadMapValue(asm.R0, 0, offset).WithReference("map").WithSymbol("prog"),
+		asm.LoadMapValue(asm.R0, 0, 0).WithReference(".rodata").WithSymbol("prog"),
 		// Dereference the pointer, getting the actual config value
-		asm.LoadMem(asm.R1, asm.R0, 0, asm.Word),
+		asm.LoadMem(asm.R1, asm.R0, 0, asm.Byte),
 		// If `a_enabled` is 0, skip over the long jump
 		asm.JEq.Imm(asm.R1, 0, "no_long_jump"),
 
@@ -273,8 +217,8 @@ func TestReachabilityLongJump(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 4, blocks.count())
 
-	disabled, err := Reachability(blocks, insns, map[string]VariableSpec{
-		"enable_a": &mockVarSpec{"map", offset, uint64(asm.Word.Sizeof()), 0},
+	disabled, err := Reachability(blocks, insns, map[string]*ebpf.VariableSpec{
+		"enable_a": {SectionName: ".rodata", Offset: 0, Value: []byte{0}},
 	})
 	require.NoError(t, err)
 
@@ -289,8 +233,8 @@ func TestReachabilityLongJump(t *testing.T) {
 	assert.True(t, disabled.isLive(2))
 	assert.False(t, disabled.isLive(3))
 
-	enabled, err := Reachability(blocks, insns, map[string]VariableSpec{
-		"enable_a": &mockVarSpec{"map", offset, uint64(asm.Word.Sizeof()), 1},
+	enabled, err := Reachability(blocks, insns, map[string]*ebpf.VariableSpec{
+		"enable_a": {SectionName: ".rodata", Offset: 0, Value: []byte{1}},
 	})
 	require.NoError(t, err)
 
@@ -325,7 +269,7 @@ func TestReachabilityConcurrent(t *testing.T) {
 	var eg errgroup.Group
 	for range 2 {
 		eg.Go(func() error {
-			_, err := Reachability(blocks, obj.Program.Instructions, VariableSpecs(spec.Variables))
+			_, err := Reachability(blocks, obj.Program.Instructions, spec.Variables)
 			return err
 		})
 	}

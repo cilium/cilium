@@ -35,7 +35,7 @@ func fixedResources(spec *ebpf.CollectionSpec, opts ...*set.Set[string]) *set.Se
 	// VariableSpec's underlying maps always need to remain part of the
 	// CollectionSpec, even if the code doesn't reference them.
 	for _, v := range spec.Variables {
-		fixed.Insert(v.MapName())
+		fixed.Insert(v.SectionName)
 	}
 
 	// When populating a map-in-map with contents (other maps) defined at

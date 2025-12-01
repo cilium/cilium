@@ -14,11 +14,6 @@ import (
 	"github.com/cilium/ebpf/internal/unix"
 )
 
-// HaveProgType probes the running kernel for the availability of the specified program type.
-//
-// Deprecated: use HaveProgramType() instead.
-var HaveProgType = HaveProgramType
-
 // HaveProgramType probes the running kernel for the availability of the specified program type.
 //
 // See the package documentation for the meaning of the error return value.

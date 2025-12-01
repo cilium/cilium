@@ -71,30 +71,6 @@ import (
 // makes it straightforward to mark live and/or unreachable resources like maps
 // and tail calls referenced by the instructions in a single pass.
 
-// TODO(tb): This is kind of silly. Let's just put a NewVariableSpec in the lib
-// to make this kind of testing possible. They are accessors anyway, though
-// they're copied during CollectionSpec.Copy(), which will need some extra
-// attention. Bounds checks also need to be performed in NewVariableSpec.
-// Make a variable spec interface that is satisfied by the ebpf.VariableSpec
-// This makes testing easier since we can create a mock variable spec.
-var _ VariableSpec = (*ebpf.VariableSpec)(nil)
-
-type VariableSpec interface {
-	MapName() string
-	Offset() uint64
-	Size() uint64
-	Get(out any) error
-	Constant() bool
-}
-
-func VariableSpecs(variables map[string]*ebpf.VariableSpec) map[string]VariableSpec {
-	variablesMap := make(map[string]VariableSpec)
-	for name, varSpec := range variables {
-		variablesMap[name] = varSpec
-	}
-	return variablesMap
-}
-
 type Reachable struct {
 	blocks Blocks
 	insns  asm.Instructions
@@ -142,7 +118,7 @@ func (r *Reachable) countLive() uint64 {
 //	LoadMapValue dst: Rx, fd: 0 off: {offset of variable} <{name of global data map}>
 //	LdXMem{B,H,W,DW} dst: Ry src: Rx off: 0
 //	J{OP}IMM dst: Ry off:{relative jump offset} imm: {constant value}
-func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]VariableSpec) (*Reachable, error) {
+func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]*ebpf.VariableSpec) (*Reachable, error) {
 	if blocks == nil || blocks.count() == 0 {
 		return nil, errors.New("nil or empty blocks")
 	}
@@ -156,11 +132,11 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]Va
 	// lookup map. This notably includes references to non-constant variables,
 	// which will be rejected later in the branch evaluation logic. They are
 	// included here to ensure that the reachability analysis is conclusive.
-	vars := make(map[mapOffset]VariableSpec)
+	vars := make(map[mapOffset]*ebpf.VariableSpec)
 	for _, v := range variables {
 		vars[mapOffset{
-			mapName: unique.Make(v.MapName()),
-			offset:  v.Offset(),
+			mapName: unique.Make(v.SectionName),
+			offset:  v.Offset,
 		}] = v
 	}
 
@@ -372,12 +348,12 @@ func findImmLoad(bt *Backtracker, reg asm.Register) *asm.Instruction {
 
 type mapOffset struct {
 	mapName unique.Handle[string]
-	offset  uint64
+	offset  uint32
 }
 
 // unpredictableBlock is called when the branch cannot be predicted. It visits
 // both the branch and fallthrough blocks.
-func (r *Reachable) unpredictableBlock(b *Block, vars map[mapOffset]VariableSpec) error {
+func (r *Reachable) unpredictableBlock(b *Block, vars map[mapOffset]*ebpf.VariableSpec) error {
 	if err := r.visitBlock(b.branch, vars); err != nil {
 		return fmt.Errorf("visiting branch block %d: %w", b.branch.id, err)
 	}
@@ -389,7 +365,7 @@ func (r *Reachable) unpredictableBlock(b *Block, vars map[mapOffset]VariableSpec
 
 // visitBlock recursively visits a block and its successors to determine
 // reachability based on the branch instructions and the provided vars.
-func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error {
+func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]*ebpf.VariableSpec) error {
 	if b == nil {
 		return nil
 	}
@@ -446,7 +422,7 @@ var errUnpredictable = errors.New("unpredictable branch")
 // If the branch cannot be predicted, it returns [errUnpredictable]. If the
 // returned bool is true, the branch is always taken. If false, the branch is
 // never taken.
-func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]VariableSpec) (bool, error) {
+func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]*ebpf.VariableSpec) (bool, error) {
 	switch branch.OpCode.Source() {
 	// Immediate comparisons are limited to 32 bits since that's the size of the
 	// imm field in a (double-wide) branch insn. In an imm comparison, the dst
@@ -523,7 +499,7 @@ func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]
 // value directly.
 //
 // Returns errUnpredictable if the register value cannot be resolved.
-func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]VariableSpec) (int64, error) {
+func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]*ebpf.VariableSpec) (int64, error) {
 	// First, check if there's a dereference into the register.
 	derefIter := bt.Clone()
 	deref, mask, extend := findDereference(derefIter, reg)
@@ -572,7 +548,7 @@ func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]Varia
 }
 
 // derefSize returns the width in bytes of deref.
-func derefSize(deref *asm.Instruction) (uint64, error) {
+func derefSize(deref *asm.Instruction) (uint32, error) {
 	// Make sure it's a dereference instruction.
 	if !deref.OpCode.Class().IsLoad() || deref.OpCode.Mode() != asm.MemMode {
 		return 0, fmt.Errorf("not a dereference instruction: %v", deref)
@@ -594,16 +570,16 @@ func derefSize(deref *asm.Instruction) (uint64, error) {
 
 // loadVariable loads n=(deref width) bytes from variable vs and returns it as
 // an int64.
-func loadVariable(vs VariableSpec, deref *asm.Instruction, extend bool) (int64, error) {
+func loadVariable(vs *ebpf.VariableSpec, deref *asm.Instruction, extend bool) (int64, error) {
 	size, err := derefSize(deref)
 	if err != nil {
 		return 0, fmt.Errorf("determining deref size: %w", err)
 	}
 	// Offset within the variable to load from.
-	offset := uint64(deref.Offset)
+	offset := uint32(deref.Offset)
 
 	if vs.Size() < size+offset {
-		return 0, fmt.Errorf("dereference past end of variable (var=%d, off=%d, deref=%d)", vs.Size(), offset, size)
+		return 0, fmt.Errorf("dereference past end of variable (var=%d, off=%d, deref=%d)", len(vs.Value), offset, size)
 	}
 
 	b := make([]byte, vs.Size())
@@ -707,10 +683,10 @@ func evalJumpOp(op asm.OpCode, dst, src int64) (bool, error) {
 // program. ebpf-go only emits VariableSpecs for symbols with global visibility,
 // so function-scoped variables and many other symbols in .bss may not have an
 // associated VariableSpec.
-func lookupVariable(load *asm.Instruction, vars map[mapOffset]VariableSpec) VariableSpec {
+func lookupVariable(load *asm.Instruction, vars map[mapOffset]*ebpf.VariableSpec) *ebpf.VariableSpec {
 	mo := mapOffset{
 		mapName: unique.Make(load.Reference()),
-		offset:  uint64(load.Constant >> 32),
+		offset:  uint32(load.Constant >> 32),
 	}
 
 	vs, found := vars[mo]

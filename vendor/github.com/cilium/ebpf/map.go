@@ -29,7 +29,6 @@ var (
 	ErrKeyExist         = errors.New("key already exists")
 	ErrIterationAborted = errors.New("iteration aborted")
 	ErrMapIncompatible  = errors.New("map spec is incompatible with existing map")
-	errMapNoBTFValue    = errors.New("map spec does not contain a BTF Value")
 
 	// pre-allocating these errors here since they may get called in hot code paths
 	// and cause unnecessary memory allocations
@@ -187,28 +186,71 @@ func (spec *MapSpec) fixupMagicFields() (*MapSpec, error) {
 	return spec, nil
 }
 
-// dataSection returns the contents and BTF Datasec descriptor of the spec.
-func (ms *MapSpec) dataSection() ([]byte, *btf.Datasec, error) {
-	if ms.Value == nil {
-		return nil, nil, errMapNoBTFValue
-	}
-
-	ds, ok := ms.Value.(*btf.Datasec)
-	if !ok {
-		return nil, nil, fmt.Errorf("map value BTF is a %T, not a *btf.Datasec", ms.Value)
-	}
-
+// dataSection returns the contents of a datasec if the MapSpec represents one.
+func (ms *MapSpec) dataSection() ([]byte, error) {
 	if n := len(ms.Contents); n != 1 {
-		return nil, nil, fmt.Errorf("expected one key, found %d", n)
+		return nil, fmt.Errorf("expected one key, found %d", n)
 	}
 
 	kv := ms.Contents[0]
-	value, ok := kv.Value.([]byte)
-	if !ok {
-		return nil, nil, fmt.Errorf("value at first map key is %T, not []byte", kv.Value)
+	if key, ok := ms.Contents[0].Key.(uint32); !ok || key != 0 {
+		return nil, fmt.Errorf("expected contents to have key 0")
 	}
 
-	return value, ds, nil
+	value, ok := kv.Value.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("value at first map key is %T, not []byte", kv.Value)
+	}
+
+	return value, nil
+}
+
+// updateDataSection copies the values of variables into MapSpec.Contents[0].Value.
+//
+// Only variables declared in sectionName will be updated.
+func (ms *MapSpec) updateDataSection(vars map[string]*VariableSpec, sectionName string) error {
+	var specs []*VariableSpec
+	for _, vs := range vars {
+		if vs.SectionName != sectionName {
+			continue
+		}
+
+		specs = append(specs, vs)
+	}
+
+	if len(specs) == 0 {
+		return nil
+	}
+
+	data, err := ms.dataSection()
+	if err != nil {
+		return err
+	}
+
+	// Do not modify the original data slice, ms.Contents is a shallow copy.
+	data = slices.Clone(data)
+
+	slices.SortFunc(specs, func(a, b *VariableSpec) int {
+		return int(int64(a.Offset) - int64(b.Offset))
+	})
+
+	offset := uint32(0)
+	for _, v := range specs {
+		if v.Offset < offset {
+			return fmt.Errorf("variable %s (offset %d) overlaps with previous variable (offset %d)", v.Name, v.Offset, offset)
+		}
+
+		end := v.Offset + v.Size()
+		if int(end) > len(data) {
+			return fmt.Errorf("variable %s exceeds map size", v.Name)
+		}
+
+		copy(data[v.Offset:end], v.Value)
+		offset = end
+	}
+
+	ms.Contents = []MapKV{{Key: uint32(0), Value: data}}
+	return nil
 }
 
 func (ms *MapSpec) readOnly() bool {

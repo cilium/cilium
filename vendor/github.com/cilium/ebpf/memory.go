@@ -85,8 +85,8 @@ func (mm *Memory) close() {
 }
 
 // Size returns the size of the memory-mapped region in bytes.
-func (mm *Memory) Size() int {
-	return len(mm.b)
+func (mm *Memory) Size() uint32 {
+	return uint32(len(mm.b))
 }
 
 // ReadOnly returns true if the memory-mapped region is read-only.
@@ -95,11 +95,11 @@ func (mm *Memory) ReadOnly() bool {
 }
 
 // bounds returns true if an access at off of the given size is within bounds.
-func (mm *Memory) bounds(off uint64, size uint64) bool {
+func (mm *Memory) bounds(off, size uint32) bool {
 	if off+size < off {
 		return false
 	}
-	return off+size <= uint64(len(mm.b))
+	return off+size <= uint32(len(mm.b))
 }
 
 // ReadAt implements [io.ReaderAt]. Useful for creating a new [io.OffsetWriter].
