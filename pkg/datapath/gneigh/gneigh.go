@@ -72,6 +72,11 @@ func (i Interface) HardwareAddr() net.HardwareAddr {
 	return i.iface.HardwareAddr
 }
 
+// SetHardwareAddr sets the interface hardware address.
+func (i Interface) SetHardwareAddr(addr net.HardwareAddr) {
+	i.iface.HardwareAddr = addr
+}
+
 // InterfaceFromNetInterface constructs an Interface from the given *net.Interface.
 func InterfaceFromNetInterface(iface *net.Interface) Interface {
 	return Interface{iface: iface}
