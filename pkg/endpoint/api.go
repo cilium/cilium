@@ -438,7 +438,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	desiredIngressIdentities, desiredDenyIngressIdentities, desiredEgressIdentities, desiredDenyEgressIdentities := getIdentities(e.desiredPolicy)
 
-	policyEnabled := e.policyStatus()
+	policyEnabled := e.policyEnforcementStatus()
 
 	e.proxyStatisticsMutex.RLock()
 	proxyStats := make([]*models.ProxyStatistics, 0, len(e.proxyStatistics))
@@ -496,7 +496,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 // policyStatus returns the endpoint's policy status
 //
 // Must be called with e.mutex RLock()ed.
-func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
+func (e *Endpoint) policyEnforcementStatus() models.EndpointPolicyEnabled {
 	policyEnabled := models.EndpointPolicyEnabledNone
 	switch {
 	case e.realizedPolicy.SelectorPolicy.IngressPolicyEnabled && e.realizedPolicy.SelectorPolicy.EgressPolicyEnabled:
