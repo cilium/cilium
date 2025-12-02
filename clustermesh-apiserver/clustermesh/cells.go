@@ -32,6 +32,7 @@ var Cell = cell.Module(
 	"Cilium ClusterMesh",
 
 	cell.Config(mcsapitypes.DefaultMCSAPIConfig),
+	// cell.Config(cmnamespace.DefaultConfig),
 
 	pprof.Cell(pprofConfig),
 	gops.Cell(defaults.EnableGops, defaults.GopsPortApiserver),
@@ -63,6 +64,9 @@ var Cell = cell.Module(
 	Synchronization,
 
 	usersManagementCell,
+
+	// Provide the namespace manager.
+	cmnamespace.Cell,
 )
 
 var Synchronization = cell.Module(
