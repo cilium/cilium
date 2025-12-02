@@ -71,7 +71,7 @@ func (p *policyWatcher) onUpsert(
 		}
 	}
 
-	return p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID, dc)
+	return p.resolveCiliumNetworkPolicyRefsAndUpsert(cnp, key, initialRecvTime, resourceID, dc)
 }
 
 func (p *policyWatcher) onDelete(
@@ -99,7 +99,7 @@ func (p *policyWatcher) onDelete(
 // and then adds the translated CNP to the policy repository.
 // If the CNP was successfully imported, the raw (i.e. untranslated) CNP/CCNP
 // is also added to p.cnpCache.
-func (p *policyWatcher) resolveCiliumNetworkPolicyRefs(
+func (p *policyWatcher) resolveCiliumNetworkPolicyRefsAndUpsert(
 	cnp *types.SlimCNP,
 	key resource.Key,
 	initialRecvTime time.Time,
@@ -208,11 +208,11 @@ func (p *policyWatcher) registerResourceWithSyncFn(ctx context.Context, resource
 
 // reportCNPChangeMetrics generates metrics for changes (Add, Update, Delete) to
 // Cilium Network Policies depending on the operation's success.
-func reportCNPChangeMetrics(err error) {
+func reportCNPChangeMetrics(op string, err error) {
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(op, string(source.CustomResource), metrics.LabelValueOutcomeFail).Inc()
 	} else {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(op, string(source.CustomResource), metrics.LabelValueOutcomeSuccess).Inc()
 	}
 }
 

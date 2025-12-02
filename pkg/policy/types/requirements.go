@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 )
 
 // Version of k8sLbls.Requirement where the key is pre-parsed and values are stored as a Set optimal
@@ -71,17 +70,15 @@ func (rs Requirements) WriteString(sb *strings.Builder) {
 func LabelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) Requirements {
 	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 		logging.DefaultSlogLogger.Error(
-			"unable to construct selector in label selector",
+			"Unable to construct selector in label selector",
 			logfields.LogSubsys, "policy-api",
 			logfields.Error, err,
 			logfields.EndpointLabelSelector, labelSelector,
 		)
 		return nil
 	}
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 	k8sReqs, selectable := selector.Requirements()
 	if !selectable {

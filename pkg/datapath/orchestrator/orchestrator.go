@@ -309,7 +309,8 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 	// the devices and addresses. It's guaranteed that it will use a LoaderContext
 	// equal to or newer than what we saw here.
 	regenRequest := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "Configuration or devices changed",
+		Reason:            regeneration.ReasonDeviceConfigurationChanged,
+		Message:           "configuration or devices changed",
 		RegenerationLevel: regeneration.RegenerateWithDatapath,
 		ParentContext:     ctx,
 	}

@@ -1146,7 +1146,8 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 	// Note: This "retry" behaviour is better suited to a controller, and can be
 	// moved there once we have an endpoint regeneration controller.
 	regenCtx := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "endpoint was updated via API",
+		Reason:            regeneration.ReasonEndpointUpdate,
+		Message:           "endpoint was updated via API",
 		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 
@@ -1331,6 +1332,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	e.setState(StateDisconnected, "Endpoint removed")
 
 	endpointPolicyStatus.Remove(e.ID)
+	e.status.Clear()
 	e.getLogger().Info("Removed endpoint")
 
 	return errs
@@ -2345,7 +2347,8 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 
 	readyToRegenerate := false
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "updated security labels",
+		Reason:            regeneration.ReasonLabelsUpdate,
+		Message:           "updated security labels",
 		RegenerationLevel: regeneration.RegenerateWithDatapath,
 	}
 

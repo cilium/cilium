@@ -226,7 +226,7 @@ func (p *policyWatcher) updateToServicesPolicies(ev serviceEvent) error {
 
 		resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
 
-		errs = append(errs, p.resolveCiliumNetworkPolicyRefs(cnp, key, initialRecvTime, resourceID, nil))
+		errs = append(errs, p.resolveCiliumNetworkPolicyRefsAndUpsert(cnp, key, initialRecvTime, resourceID, nil))
 	}
 	return errors.Join(errs...)
 }
