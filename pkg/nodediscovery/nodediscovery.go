@@ -70,6 +70,7 @@ type NodeDiscovery struct {
 	clientset        client.Clientset
 	kvstoreClient    kvstore.Client
 	ctrlmgr          *controller.Manager
+	config           config
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
@@ -81,6 +82,7 @@ func NewNodeDiscovery(
 	lns *node.LocalNodeStore,
 	cniConfigManager cni.CNIConfigManager,
 	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
+	c config,
 ) *NodeDiscovery {
 	if !option.Config.EnableCiliumNodeCRD {
 		logger.Info("CiliumNode CRD is disabled; skipping CiliumNode resource management")
@@ -97,6 +99,7 @@ func NewNodeDiscovery(
 		kvstoreClient:    kvstoreClient,
 		ctrlmgr:          controller.NewManager(),
 		k8sGetters:       k8sNodeWatcher,
+		config:           c,
 	}
 }
 
@@ -409,9 +412,19 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// are not conflicting with each other, we must have similar logic to
 		// determine the appropriate value to place inside the resource.
 		nodeResource.Spec.ENI.VpcID = info.VPCID
-		nodeResource.Spec.ENI.FirstInterfaceIndex = aws.Int(defaults.ENIFirstInterfaceIndex)
-		nodeResource.Spec.ENI.UsePrimaryAddress = aws.Bool(defaults.UseENIPrimaryAddress)
-		nodeResource.Spec.ENI.DisablePrefixDelegation = aws.Bool(defaults.ENIDisableNodeLevelPD)
+		nodeResource.Spec.ENI.FirstInterfaceIndex = aws.Int(n.config.ENIFirstInterfaceIndex)
+		nodeResource.Spec.ENI.UsePrimaryAddress = aws.Bool(n.config.ENIUsePrimaryAddress)
+		nodeResource.Spec.ENI.DisablePrefixDelegation = aws.Bool(n.config.ENIDisablePrefixDelegation)
+		nodeResource.Spec.ENI.DeleteOnTermination = aws.Bool(n.config.ENIDeleteOnTermination)
+
+		nodeResource.Spec.ENI.SubnetIDs = n.config.ENISubnetIDs
+		nodeResource.Spec.ENI.SubnetTags = n.config.ENISubnetTags
+		nodeResource.Spec.ENI.SecurityGroups = n.config.ENISecurityGroups
+		nodeResource.Spec.ENI.SecurityGroupTags = n.config.ENISecurityGroupTags
+		nodeResource.Spec.ENI.ExcludeInterfaceTags = n.config.ENIExcludeInterfaceTags
+
+		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
+		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
 
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.IPAM.MinAllocate != 0 {

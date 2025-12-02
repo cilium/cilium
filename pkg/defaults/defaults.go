@@ -352,6 +352,10 @@ const (
 	// CiliumNode.Spec.ENI.DisablePrefixDelegation if no value is set.
 	ENIDisableNodeLevelPD = false
 
+	// ENIDeleteOnTermination is the default value for
+	// CiliumNode.Spec.ENI.DeleteOnTermination if no value is set.
+	ENIDeleteOnTermination = true
+
 	// ENIGarbageCollectionTagManagedName is part of the ENIGarbageCollectionTags default tag set
 	ENIGarbageCollectionTagManagedName = "io.cilium/cilium-managed"
 
