@@ -505,14 +505,32 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "Attach Mode:\t%s\n", status)
 	}
 
-	if sr.DatapathMode != "" {
-		status := "?"
-		if sr.DatapathMode == models.DatapathModeVeth {
-			status = "veth"
-		} else if sr.DatapathMode == models.DatapathModeNetkitDashL2 {
-			status = "netkit-l2"
-		} else if sr.DatapathMode == models.DatapathModeNetkit {
-			status = "netkit"
+	if sr.DatapathMode != "" || sr.ConfiguredDatapathMode != "" {
+		status := string(sr.DatapathMode)
+		switch sr.DatapathMode {
+		case models.DatapathModeVeth:
+		case models.DatapathModeNetkit:
+		case models.DatapathModeNetkitDashL2:
+		default:
+			status = "?"
+		}
+
+		configStatus := string(sr.ConfiguredDatapathMode)
+		switch sr.ConfiguredDatapathMode {
+		case models.ConfiguredDatapathModeVeth:
+		case models.ConfiguredDatapathModeNetkit:
+		case models.ConfiguredDatapathModeNetkitDashL2:
+		case "":
+			// If configStatus is unspecified, this may be a response from an
+			// older version of Cilium, which may not express a configured mode.
+			// By that definition, the operational mode _is_ the configured mode.
+			configStatus = status
+		default:
+			configStatus = "?"
+		}
+
+		if status != configStatus {
+			status = fmt.Sprintf("%s [Configured: %s]", status, configStatus)
 		}
 		fmt.Fprintf(w, "Device Mode:\t%s\n", status)
 	}
