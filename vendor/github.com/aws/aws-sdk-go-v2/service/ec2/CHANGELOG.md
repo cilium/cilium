@@ -1,3 +1,8 @@
+# v1.275.0 (2025-11-25)
+
+* **Feature**: This release adds support to view Network firewall proxy appliances attached to an existing NAT Gateway via DescribeNatGateways API NatGatewayAttachedAppliance structure.
+* **Bug Fix**: Add error check for endpoint param binding during auth scheme resolution to fix panic reported in #3234
+
 # v1.274.0 (2025-11-21)
 
 * **Feature**: This release adds a new capability to create and manage interruptible EC2 Capacity Reservations.
