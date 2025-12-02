@@ -406,7 +406,6 @@ jobs:
           echo "  Ref: $REF"
 
           gh workflow run eks-cluster-delete.yaml \
-            --ref "$REF" \
             --field cluster_name="$CLUSTER_NAME" \
             --field region="$REGION"
         env:

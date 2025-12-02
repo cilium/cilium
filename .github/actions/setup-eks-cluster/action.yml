@@ -186,4 +186,4 @@ runs:
       shell: bash
       run: |
         echo "Triggering pool manager workflow to replenish the pool..."
-        gh workflow run eks-cluster-pool-manager.yaml --ref ${{ github.ref_name }} || echo "Failed to trigger pool manager (may not have permissions or workflow doesn't exist)"
+        gh workflow run eks-cluster-pool-manager.yaml || echo "Failed to trigger pool manager (may not have permissions or workflow doesn't exist)"
