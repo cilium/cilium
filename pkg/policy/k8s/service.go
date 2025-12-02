@@ -240,7 +240,7 @@ func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) 
 		svcEndpoints := newServiceEndpoints(svc, txn, p.backends)
 
 		// This extracts the selected service endpoints from the rule
-		// and translates it to a ToCIDRSet
+		// and translates it to a ToCIDRSet/ToEndpoints
 		numMatches := svcEndpoints.processRule(cnp.Spec)
 		for _, spec := range cnp.Specs {
 			numMatches += svcEndpoints.processRule(spec)
@@ -433,8 +433,9 @@ func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]
 	*toEndpoints = append(*toEndpoints, endpointSelector)
 }
 
-// processRule parses the ToServices selectors in the provided rule and translates
-// it to ToCIDRSet entries
+// processRule parses the ToServices selectors in the provided rule and translates it to:
+// - ToCIDRSet entries for services without selector
+// - ToEndpoints entries for services with selector
 func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 	if rule == nil {
 		return
