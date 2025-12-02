@@ -117,6 +117,22 @@ static __always_inline bool nodeport_uses_dsr(bool flip __maybe_unused)
 #endif
 }
 
+#if defined(ENABLE_IPV4)
+static __always_inline struct ipv4_nat_entry *
+nodeport_dsr_lookup_v4_nat_entry(const struct ipv4_ct_tuple *nat_tuple)
+{
+	return snat_v4_lookup(nat_tuple);
+}
+#endif
+
+#if defined(ENABLE_IPV6)
+static __always_inline struct ipv6_nat_entry *
+nodeport_dsr_lookup_v6_nat_entry(const struct ipv6_ct_tuple *nat_tuple)
+{
+	return snat_v6_lookup(nat_tuple);
+}
+#endif
+
 #ifdef HAVE_ENCAP
 static __always_inline int
 nodeport_add_tunnel_encap(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
@@ -588,12 +604,6 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 	return 0;
 }
 
-static __always_inline struct ipv6_nat_entry *
-nodeport_dsr_lookup_v6_nat_entry(const struct ipv6_ct_tuple *nat_tuple)
-{
-	return snat_v6_lookup(nat_tuple);
-}
-
 static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 					   const struct ipv6hdr *ip6 __maybe_unused,
 					   const union v6addr *svc_addr __maybe_unused,
@@ -800,6 +810,8 @@ create_ct:
 		if (port == 0)
 			return DROP_INVALID;
 
+		ipv6_addr_copy(&ct_state_new.nat_addr, addr);
+		ct_state_new.nat_port = port;
 		ct_state_new.src_sec_id = WORLD_IPV6_ID;
 		ct_state_new.dsr_internal = 1;
 
@@ -823,34 +835,62 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline const struct lb6_reverse_nat *
+static __always_inline bool
 nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
-				struct ipv6_ct_tuple *tuple)
+				struct ipv6_ct_tuple *tuple,
+				struct lb6_reverse_nat *nat_info)
 {
-	struct ipv6_nat_entry *dsr_entry __maybe_unused;
-	struct ipv6_ct_tuple dsr_tuple __maybe_unused;
-	__u16 rev_nat_index = 0;
+	const struct ct_entry *entry;
 
-	if (!ct_has_nodeport_egress_entry6(get_ct_map6(tuple), tuple,
-					   &rev_nat_index, is_defined(ENABLE_DSR)))
-		return NULL;
+	entry = ct_get_nodeport_egress_entry6(get_ct_map6(tuple), tuple);
+	if (!entry)
+		return false;
 
-	if (rev_nat_index)
-		return lb6_lookup_rev_nat_entry(ctx, rev_nat_index);
+	if (entry->node_port) {
+		if (entry->rev_nat_index) {
+			__u16 rev_nat_index = entry->rev_nat_index;
+			const struct lb6_reverse_nat *tmp;
 
-#ifdef ENABLE_DSR
-	dsr_tuple = *tuple;
+			tmp = lb6_lookup_rev_nat_entry(ctx, rev_nat_index);
+			if (tmp) {
+				ipv6_addr_copy(&nat_info->address,
+					       &tmp->address);
+				nat_info->port = tmp->port;
+				return true;
+			}
+		}
 
-	dsr_tuple.flags = NAT_DIR_EGRESS;
-	dsr_tuple.sport = tuple->dport;
-	dsr_tuple.dport = tuple->sport;
+		return false;
+	}
 
-	dsr_entry = nodeport_dsr_lookup_v6_nat_entry(&dsr_tuple);
-	if (dsr_entry)
-		return &dsr_entry->nat_info;
-#endif
+	if (is_defined(ENABLE_DSR) && entry->dsr_internal) {
+		struct ipv6_nat_entry *dsr_entry;
+		struct ipv6_ct_tuple dsr_tuple;
 
-	return NULL;
+		if (entry->nat_port) {
+			ipv6_addr_copy(&nat_info->address,
+				       &entry->nat_addr);
+
+			nat_info->port = entry->nat_port;
+			return true;
+		}
+
+		dsr_tuple = *tuple;
+
+		dsr_tuple.flags = NAT_DIR_EGRESS;
+		dsr_tuple.sport = tuple->dport;
+		dsr_tuple.dport = tuple->sport;
+
+		dsr_entry = nodeport_dsr_lookup_v6_nat_entry(&dsr_tuple);
+		if (dsr_entry) {
+			ipv6_addr_copy(&nat_info->address,
+				       &dsr_entry->nat_info.address);
+			nat_info->port = dsr_entry->nat_info.port;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 #ifdef ENABLE_NAT_46X64_GATEWAY
@@ -1980,12 +2020,6 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 	return 0;
 }
 
-static __always_inline struct ipv4_nat_entry *
-nodeport_dsr_lookup_v4_nat_entry(const struct ipv4_ct_tuple *nat_tuple)
-{
-	return snat_v4_lookup(nat_tuple);
-}
-
 static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 					   struct iphdr *ip4 __maybe_unused,
 					   __be32 svc_addr __maybe_unused,
@@ -2183,12 +2217,15 @@ create_ct:
 			 */
 			return DROP_INVALID;
 
+		ct_state_new.nat_addr.p4 = addr;
+		ct_state_new.nat_port = port;
 		ct_state_new.src_sec_id = WORLD_IPV4_ID;
 		ct_state_new.dsr_internal = 1;
 
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
 		if (!IS_ERR(ret))
+			/* TODO remove this in v1.20 */
 			ret = snat_v4_create_dsr(tuple, addr, port, ext_err);
 
 		if (IS_ERR(ret))
@@ -2197,12 +2234,15 @@ create_ct:
 	case CT_ESTABLISHED:
 		/* For TCP we only expect DSR info on the SYN, so CT_ESTABLISHED
 		 * is unexpected and we need to refresh the CT entry.
-		 *
-		 * Otherwise we tolerate DSR info on an established connection.
-		 * TODO: how do we know if we need to refresh the SNAT entry?
 		 */
 		if (tuple->nexthdr == IPPROTO_TCP && port)
 			goto create_ct;
+
+		 /*
+		 * Otherwise we tolerate DSR info on an established connection.
+		 * TODO: obtain NAT info from CT lookup, and compare it against
+		 *	 DSR info. Re-create on mismatch.
+		 */
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
@@ -2212,34 +2252,58 @@ create_ct:
 }
 #endif /* ENABLE_DSR */
 
-static __always_inline const struct lb4_reverse_nat *
+static __always_inline bool
 nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
-				struct ipv4_ct_tuple *tuple)
+				struct ipv4_ct_tuple *tuple,
+				struct lb4_reverse_nat *nat_info)
 {
-	struct ipv4_nat_entry *dsr_entry __maybe_unused;
-	struct ipv4_ct_tuple dsr_tuple __maybe_unused;
-	__u16 rev_nat_index = 0;
+	const struct ct_entry *entry;
 
-	if (!ct_has_nodeport_egress_entry4(get_ct_map4(tuple), tuple,
-					   &rev_nat_index, is_defined(ENABLE_DSR)))
-		return NULL;
+	entry = ct_get_nodeport_egress_entry4(get_ct_map4(tuple), tuple);
+	if (!entry)
+		return false;
 
-	if (rev_nat_index)
-		return lb4_lookup_rev_nat_entry(ctx, rev_nat_index);
+	if (entry->node_port) {
+		if (entry->rev_nat_index) {
+			__u16 rev_nat_index = entry->rev_nat_index;
+			const struct lb4_reverse_nat *tmp;
 
-#ifdef ENABLE_DSR
-	dsr_tuple = *tuple;
+			tmp = lb4_lookup_rev_nat_entry(ctx, rev_nat_index);
+			if (tmp) {
+				nat_info->address = tmp->address;
+				nat_info->port = tmp->port;
+				return true;
+			}
+		}
 
-	dsr_tuple.flags = NAT_DIR_EGRESS;
-	dsr_tuple.sport = tuple->dport;
-	dsr_tuple.dport = tuple->sport;
+		return false;
+	}
 
-	dsr_entry = nodeport_dsr_lookup_v4_nat_entry(&dsr_tuple);
-	if (dsr_entry)
-		return &dsr_entry->nat_info;
-#endif
+	if (is_defined(ENABLE_DSR) && entry->dsr_internal) {
+		struct ipv4_nat_entry *dsr_entry;
+		struct ipv4_ct_tuple dsr_tuple;
 
-	return NULL;
+		if (entry->nat_port) {
+			nat_info->address = entry->nat_addr.p4;
+			nat_info->port = entry->nat_port;
+			return true;
+		}
+
+		dsr_tuple = *tuple;
+
+		dsr_tuple.flags = NAT_DIR_EGRESS;
+		dsr_tuple.sport = tuple->dport;
+		dsr_tuple.dport = tuple->sport;
+
+		dsr_entry = nodeport_dsr_lookup_v4_nat_entry(&dsr_tuple);
+		if (dsr_entry) {
+			nat_info->address = dsr_entry->nat_info.address;
+			nat_info->port = dsr_entry->nat_info.port;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /* Reverse NAT handling of node-port traffic for the case where the
