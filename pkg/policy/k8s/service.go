@@ -390,8 +390,6 @@ func serviceRefMatches(ref *api.K8sServiceNamespace, svcID loadbalancer.ServiceN
 type serviceEndpoints struct {
 	svc             *loadbalancer.Service
 	backendPrefixes func() backendPrefixes
-
-	enableHighScaleIPcache bool
 }
 
 func (s serviceEndpoints) getLabels() labels.Labels { return s.svc.Labels }
@@ -445,7 +443,7 @@ func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 		for _, toService := range egress.ToServices {
 			if sel := toService.K8sServiceSelector; sel != nil {
 				if serviceSelectorMatches(sel, s) {
-					if len(s.svc.Selector) == 0 || s.enableHighScaleIPcache {
+					if len(s.svc.Selector) == 0 {
 						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.backendPrefixes())
 					} else {
 						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace())
@@ -454,7 +452,7 @@ func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 				}
 			} else if ref := toService.K8sService; ref != nil {
 				if serviceRefMatches(ref, s.svc.Name) {
-					if len(s.svc.Selector) == 0 || s.enableHighScaleIPcache {
+					if len(s.svc.Selector) == 0 {
 						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.backendPrefixes())
 					} else {
 						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace())
