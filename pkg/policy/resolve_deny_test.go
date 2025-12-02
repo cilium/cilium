@@ -184,7 +184,8 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 	logger := hivetest.Logger(b)
 	td := newTestData(logger)
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, b)
-	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
+	ip, err := td.repo.resolvePolicyLocked(fooIdentity)
+	require.NoError(b, err)
 	owner := DummyOwner{logger: logger}
 	b.ReportAllocs()
 
@@ -194,19 +195,22 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 		epPolicy.Ready()
 	}
 	ip.detach(true, 0)
-	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
+	assert.Equal(b, 117515, owner.mapStateSize)
 }
 
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
-	td.bootstrapRepo(GenerateCIDRDenyRules, 10, t)
-	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-	epPolicy := ip.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
-	n := epPolicy.policyMapState.Len()
+	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
+	ip, err := td.repo.resolvePolicyLocked(fooIdentity)
+	require.NoError(t, err)
+	owner := DummyOwner{logger: logger}
+
+	epPolicy := ip.DistillPolicy(logger, owner, nil)
+	owner.mapStateSize = epPolicy.policyMapState.Len()
 	epPolicy.Ready()
 	ip.detach(true, 0)
-	assert.Positive(t, n)
+	assert.Equal(t, 117515, owner.mapStateSize)
 }
 
 func TestL3WithIngressDenyWildcard(t *testing.T) {
