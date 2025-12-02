@@ -677,6 +677,11 @@ message FlowFilter {
     // ip_trace_id filters flows by IPTraceID
     repeated uint64 ip_trace_id = 39;
 
+    // encrypted filters flows based on encryption status (WireGuard/IPsec).
+    // When set to true, only encrypted flows are returned.
+    // When set to false, only unencrypted flows are returned.
+    repeated bool encrypted = 40;
+
     // Experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.
     message Experimental {
