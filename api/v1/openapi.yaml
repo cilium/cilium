@@ -1862,8 +1862,11 @@ definitions:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
       datapath-mode:
-        description: Status of datapath mode
+        description: Status of operational datapath mode
         "$ref": "#/definitions/DatapathMode"
+      configured-datapath-mode:
+        description: Status of configured datapath mode
+        "$ref": "#/definitions/ConfiguredDatapathMode"
       attach-mode:
         description: Status of core datapath attachment mode
         "$ref": "#/definitions/AttachMode"
@@ -2469,6 +2472,8 @@ definitions:
         type: boolean
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
+      configuredDatapathMode:
+        "$ref": "#/definitions/ConfiguredDatapathMode"
       ipam-mode:
         description: Configured IPAM mode
         type: string
@@ -2518,7 +2523,14 @@ definitions:
         description: True if BBR is enabled only in the host network namespace
         type: boolean
   DatapathMode:
-    description: Datapath mode
+    description: Operational datapath mode
+    type: string
+    enum:
+      - veth
+      - netkit
+      - netkit-l2
+  ConfiguredDatapathMode:
+    description: Configured datapath mode
     type: string
     enum:
       - veth

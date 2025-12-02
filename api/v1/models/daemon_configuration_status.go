@@ -39,6 +39,9 @@ type DaemonConfigurationStatus struct {
 	// addressing
 	Addressing *NodeAddressing `json:"addressing,omitempty"`
 
+	// configured datapath mode
+	ConfiguredDatapathMode ConfiguredDatapathMode `json:"configuredDatapathMode,omitempty"`
+
 	// Config map which contains all the active daemon configurations
 	DaemonConfigurationMap map[string]any `json:"daemonConfigurationMap,omitempty"`
 
@@ -110,6 +113,10 @@ func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
+	if err := m.validateConfiguredDatapathMode(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateDatapathMode(formats); err != nil {
 		res = append(res, err)
 	}
@@ -158,6 +165,27 @@ func (m *DaemonConfigurationStatus) validateAddressing(formats strfmt.Registry) 
 
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) validateConfiguredDatapathMode(formats strfmt.Registry) error {
+	if swag.IsZero(m.ConfiguredDatapathMode) { // not required
+		return nil
+	}
+
+	if err := m.ConfiguredDatapathMode.Validate(formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("configuredDatapathMode")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("configuredDatapathMode")
+		}
+
+		return err
 	}
 
 	return nil
@@ -307,6 +335,10 @@ func (m *DaemonConfigurationStatus) ContextValidate(ctx context.Context, formats
 		res = append(res, err)
 	}
 
+	if err := m.contextValidateConfiguredDatapathMode(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateDatapathMode(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -357,6 +389,28 @@ func (m *DaemonConfigurationStatus) contextValidateAddressing(ctx context.Contex
 
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) contextValidateConfiguredDatapathMode(ctx context.Context, formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ConfiguredDatapathMode) { // not required
+		return nil
+	}
+
+	if err := m.ConfiguredDatapathMode.ContextValidate(ctx, formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("configuredDatapathMode")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("configuredDatapathMode")
+		}
+
+		return err
 	}
 
 	return nil
