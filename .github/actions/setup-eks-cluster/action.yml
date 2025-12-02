@@ -181,6 +181,8 @@ runs:
     - name: Trigger pool manager to replenish clusters
       continue-on-error: true
       if: ${{ inputs.create-cluster != 'true' }}
+      env:
+        GH_TOKEN: ${{ github.token }}
       shell: bash
       run: |
         echo "Triggering pool manager workflow to replenish the pool..."
