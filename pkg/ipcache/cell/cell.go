@@ -133,9 +133,13 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
 		}
 
-		// Sleep for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
+		// Wait for the --identity-restore-grace-period (default: 30 seconds k8s, 10 minutes kvstore), allowing
 		// the normal allocation processes to finish, before releasing restored resources.
-		time.Sleep(params.DaemonConfig.IdentityRestoreGracePeriod)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(params.DaemonConfig.IdentityRestoreGracePeriod):
+		}
 
 		params.IdentityRestorer.ReleaseRestoredIdentities(ipc)
 
