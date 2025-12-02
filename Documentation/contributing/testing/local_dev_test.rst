@@ -9,12 +9,12 @@
 Local development & testing
 ---------------------------
 
-This section privides an overview of how to set up a local development environment for
+This section provides an overview of how to set up a local development environment for
 running tests.
 
-Check Makefile targets such as `make help`, `make lint`, `make test` to discover repo-specific commands.
+Check Makefile targets such as ``make help``, ``make lint``, ``make test`` to discover repo-specific commands.
 
-#. Run linters and static checks.
+#. Run lint checks and static analysis.
 #. Run unit tests.
 #. Create a local kind cluster that matches the k8s version used in CI.
 #. Deploy the project (CLI, Helm, or manifests).
@@ -23,18 +23,18 @@ Check Makefile targets such as `make help`, `make lint`, `make test` to discover
 Tasks & commands
 ~~~~~~~~~~~~~~~~
 
-Running local linters
-^^^^^^^^^^^^^^^^^^^^^
-Most repositories provide a ``make`` target to run linters.
+Running local lint checks
+^^^^^^^^^^^^^^^^^^^^^^^^^
+Most repositories provide a ``make`` target to run lint checks.
 
 ::
 
   make lint
 
-  # or run golangci-lint directly (common Go linter)
+  # or run golangci-lint directly (common Go linting tool)
   golangci-lint run ./...
 
-Best practice: run linters before tests and fix linter violations in small commits.
+Best practice: run lint checks before tests and fix violations in small commits.
 
 Running unit tests
 ^^^^^^^^^^^^^^^^^^
@@ -110,7 +110,7 @@ Useful flags:
 Good practices
 ~~~~~~~~~~~~~~
 
-* Run linters and unit tests before opening a PR.
+* Run lint checks and unit tests before opening a PR.
 * Keep focused integration runs small and reproducible (single-node, stable images).
 * Mirror CI environment versions locally (k8s, image tags) to reduce surprises.
 * Capture logs and pod descriptions immediately when a test fails:
