@@ -5,16 +5,16 @@ package bpf
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
-	"sync"
-	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
+
+	"github.com/cilium/stream"
 )
 
 // Action describes an action for map buffer events.
@@ -86,27 +86,31 @@ func (e Event) GetDesiredAction() DesiredAction {
 	return e.cacheEntry.DesiredAction
 }
 
-func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
+func newEventsBuffer(logger *slog.Logger, name string, bufSize int, ttl time.Duration) *eventsBuffer {
 	b := &eventsBuffer{
-		logger:   m.Logger,
-		buffer:   container.NewRingBuffer(maxSize),
-		eventTTL: eventsTTL,
+		logger:   logger,
+		buffer:   container.NewRingBuffer(bufSize),
+		eventTTL: ttl,
 	}
+	b.observe, b.next, b.done = stream.Multicast[Event]()
+	b.observe.Observe(context.Background(), func(e Event) {
+		b.buffer.Add(e)
+	}, func(err error) {})
 	if b.eventTTL > 0 {
-		m.Logger.Debug("starting bpf map event buffer GC controller")
+		logger.Debug("starting bpf map event buffer GC controller")
 		mapControllers.UpdateController(
-			fmt.Sprintf("bpf-event-buffer-gc-%s", m.name),
+			fmt.Sprintf("bpf-event-buffer-gc-%s", name),
 			controller.ControllerParams{
 				Group: bpfEventBufferGCControllerGroup,
 				DoFunc: func(_ context.Context) error {
-					m.Logger.Debug(
+					logger.Debug(
 						"clearing bpf map events older than TTL",
 						logfields.TTL, b.eventTTL,
 					)
 					b.buffer.Compact(func(e any) bool {
 						event, ok := e.(*Event)
 						if !ok {
-							m.Logger.Error("Failed to compact the event buffer", logfields.Error, wrongObjTypeErr(e))
+							logger.Error("Failed to compact the event buffer", logfields.Error, wrongObjTypeErr(e))
 							return false
 						}
 						return time.Since(event.Timestamp) < b.eventTTL
@@ -117,118 +121,46 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 			},
 		)
 	}
-	m.events = b
+	return b
+}
+
+func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
+	m.events = newEventsBuffer(m.Logger, m.name, maxSize, eventsTTL)
 }
 
 // eventsBuffer stores a buffer of events for auditing and debugging
 // purposes.
 type eventsBuffer struct {
-	logger        *slog.Logger
-	buffer        *container.RingBuffer
-	eventTTL      time.Duration
-	subsLock      lock.RWMutex
-	subscriptions []*Handle
+	logger   *slog.Logger
+	buffer   *container.RingBuffer
+	eventTTL time.Duration
+
+	observe stream.Observable[Event]
+	next    func(Event)
+	done    func(error)
 }
 
-// Handle allows for handling event streams safely outside of this package.
-// The key design consideration for event streaming is that it is non-blocking.
-// The eventsBuffer takes care of closing handles when their consumer is not reading
-// off the buffer (or is not reading off it fast enough).
-type Handle struct {
-	c      chan *Event
-	closed atomic.Bool
-	closer *sync.Once
-	err    error
-}
-
-// Returns read only channel for Handle subscription events. Channel should be closed with
-// handle.Close() function.
-func (h *Handle) C() <-chan *Event {
-	return h.c // return read only channel to prevent closing outside of Close(...).
-}
-
-// Close allows for safaley closing of a handle.
-func (h *Handle) Close() {
-	h.close(nil)
-}
-
-func (h *Handle) close(err error) {
-	h.closer.Do(func() {
-		close(h.c)
-		h.err = err
-		h.closed.Store(true)
-	})
-}
-
-func (h *Handle) isClosed() bool {
-	return h.closed.Load()
-}
-
-func (h *Handle) isFull() bool {
-	return len(h.c) >= cap(h.c)
-}
-
-// This configures how big buffers are for channels used for streaming events from
-// eventsBuffer.
-//
-// To prevent blocking bpf.Map operations, subscribed events are buffered per client handle.
-// How fast subscribers will need to proceess events will depend on the event throughput.
-// In this case, our throughput will be expected to be not above 100 events a second.
-// Therefore the consumer will have 10ms to process each event. The channel is also
-// given a constant buffer size in the case where events arrive at once (i.e. all 100 events
-// arriving at the top of the second).
-//
-// NOTE: Although using timers/timed-contexts seems like an obvious choice for this use case,
-// the timer.After implementation actually uses a large amount of memory. To reduce memory spikes
-// in high throughput cases, we instead just use a sufficiently buffered channel.
-const (
-	eventSubChanBufferSize = 32
-	maxConcurrentEventSubs = 32
-)
-
-func (eb *eventsBuffer) hasSubCapacity() bool {
-	eb.subsLock.RLock()
-	defer eb.subsLock.RUnlock()
-	return len(eb.subscriptions) <= maxConcurrentEventSubs
-}
-
-func (eb *eventsBuffer) dumpAndSubscribe(callback EventCallbackFunc, follow bool) (*Handle, error) {
-	if follow && !eb.hasSubCapacity() {
-		return nil, fmt.Errorf("exceeded max number of concurrent map event subscriptions %d", maxConcurrentEventSubs)
+func (eb *eventsBuffer) dumpAndSubscribe(ctx context.Context, callback EventCallbackFunc, follow bool) {
+	eb.dumpWithCallback(callback)
+	if follow {
+		eb.observe.Observe(ctx, callback, func(err error) {
+			if errors.Is(err, context.Canceled) {
+				eb.logger.Debug("map event observable cancelled", logfields.Error, err)
+				return
+			}
+			eb.logger.Error("failed while observing map events", logfields.Error, err)
+		})
 	}
-
-	if callback != nil {
-		eb.dumpWithCallback(callback)
-	}
-
-	if !follow {
-		return nil, nil
-	}
-
-	h := &Handle{
-		c:      make(chan *Event, eventSubChanBufferSize),
-		closer: &sync.Once{},
-	}
-
-	eb.subsLock.Lock()
-	defer eb.subsLock.Unlock()
-	eb.subscriptions = append(eb.subscriptions, h)
-	return h, nil
 }
 
 // DumpAndSubscribe dumps existing buffer, if callback is not nil. Followed by creating a
 // subscription to the maps events buffer and returning the handle.
 // These actions are done together so as to prevent possible missed events between the handoff
 // of the callback and sub handle creation.
-func (m *Map) DumpAndSubscribe(callback EventCallbackFunc, follow bool) (*Handle, error) {
-	// note: we have to hold rlock for the duration of this to prevent missed events between dump and sub.
-	// dumpAndSubscribe maintains its own write-lock for updating subscribers.
+func (m *Map) DumpAndSubscribe(ctx context.Context, callback EventCallbackFunc, follow bool) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
-	if !m.eventsBufferEnabled {
-		return nil, fmt.Errorf("map events not enabled for map %q", m.name)
-	}
-	return m.events.dumpAndSubscribe(callback, follow)
+	m.events.dumpAndSubscribe(ctx, callback, follow)
 }
 
 func (m *Map) IsEventsEnabled() bool {
@@ -236,37 +168,7 @@ func (m *Map) IsEventsEnabled() bool {
 }
 
 func (eb *eventsBuffer) add(e *Event) {
-	eb.buffer.Add(e)
-	var activeSubs []*Handle
-	activeSubsLock := &lock.Mutex{}
-	wg := &sync.WaitGroup{}
-	for i, sub := range eb.subscriptions {
-		if sub.isClosed() { // sub will be removed.
-			continue
-		}
-		wg.Add(1)
-		go func(sub *Handle, i int) {
-			defer wg.Done()
-			if sub.isFull() {
-				err := fmt.Errorf("timed out waiting to send sub map event")
-				eb.logger.Warn(
-					"subscription channel buffer was full, closing subscription",
-					logfields.Error, err,
-					logfields.SubscriptionID, i,
-				)
-				sub.close(err)
-			} else {
-				sub.c <- e
-				activeSubsLock.Lock()
-				activeSubs = append(activeSubs, sub)
-				activeSubsLock.Unlock()
-			}
-		}(sub, i)
-	}
-	wg.Wait()
-	eb.subsLock.Lock()
-	defer eb.subsLock.Unlock()
-	eb.subscriptions = activeSubs
+	eb.next(*e)
 }
 
 func wrongObjTypeErr(i any) error {
@@ -274,7 +176,7 @@ func wrongObjTypeErr(i any) error {
 }
 
 func (eb *eventsBuffer) eventIsValid(e any) bool {
-	event, ok := e.(*Event)
+	event, ok := e.(Event)
 	if !ok {
 		eb.logger.Error("Could not dump contents of events buffer", logfields.Error, wrongObjTypeErr(e))
 		return false
@@ -283,11 +185,11 @@ func (eb *eventsBuffer) eventIsValid(e any) bool {
 }
 
 // EventCallbackFunc is used to dump events from a event buffer.
-type EventCallbackFunc func(*Event)
+type EventCallbackFunc func(Event)
 
 func (eb *eventsBuffer) dumpWithCallback(callback EventCallbackFunc) {
 	eb.buffer.IterateValid(eb.eventIsValid, func(e any) {
-		event, ok := e.(*Event)
+		event, ok := e.(Event)
 		if !ok {
 			eb.logger.Error("Could not dump contents of events buffer", logfields.Error, wrongObjTypeErr(e))
 			return
