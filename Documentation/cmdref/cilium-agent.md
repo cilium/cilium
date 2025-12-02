@@ -191,6 +191,15 @@ cilium-agent [flags]
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --endpoint-queue-size int                                   Size of EventQueue per-endpoint (default 25)
       --endpoint-regen-interval duration                          Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
+      --eni-delete-on-termination                                 Whether the ENI should be deleted when the associated instance is terminated at the node level (default true)
+      --eni-disable-prefix-delegation                             Whether ENI prefix delegation should be disabled on this node at the node level
+      --eni-exclude-interface-tags stringToString                 List of tags to use when excluding ENIs for Cilium IP allocation (default [])
+      --eni-first-interface-index int                             Index of the first ENI to use for IP allocation at the node level
+      --eni-security-group-tags stringToString                    List of tags to use when evaluating what AWS security groups to use for the ENI at the node level (default [])
+      --eni-security-groups strings                               List of security groups to attach to any ENI that is created and attached to the instance at the node level
+      --eni-subnet-ids strings                                    List of subnet ids to use when evaluating what AWS subnets to use for ENI and IP allocation at the node level
+      --eni-subnet-tags stringToString                            List of tags to use when evaluating what AWS subnets to use for ENI and IP allocation at the node level (default [])
+      --eni-use-primary-address                                   Whether an ENI's primary address should be available for allocations on the node at the node level
       --envoy-access-log-buffer-size uint                         Envoy access log buffer size in bytes (default 4096)
       --envoy-base-id uint                                        Envoy base ID
       --envoy-config-retry-interval duration                      Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated. (default 15s)
@@ -272,7 +281,9 @@ cilium-agent [flags]
       --ipam string                                               Backend to use for IPAM (default "cluster-pool")
       --ipam-cilium-node-update-rate duration                     Maximum rate at which the CiliumNode custom resource is updated (default 15s)
       --ipam-default-ip-pool string                               Name of the default IP Pool when using multi-pool (default "default")
+      --ipam-min-allocate int                                     Minimum number of IPs that must be allocated when the node is first bootstrapped at the node level
       --ipam-multi-pool-pre-allocation map                        Defines the minimum number of IPs a node should pre-allocate from each pool (default default=8)
+      --ipam-pre-allocate int                                     Number of IP addresses that must be available for allocation in the IPAMspec at the node level
       --ipsec-key-file string                                     Path to IPsec key file
       --ipsec-key-rotation-duration duration                      Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. (default 5m0s)
       --iptables-lock-timeout duration                            Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
