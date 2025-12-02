@@ -164,7 +164,7 @@ type BGPServiceOptions struct {
 
 // BGPInterfaceOptions defines the configuration for the Interface advertisement type.
 type BGPInterfaceOptions struct {
-	// Name is the name of the local interface which IP addresses should be advertised via BGP.
+	// Name of local interface of whose IP addresses will be advertised via BGP.
 	// Each IP address applied on the interface is advertised as a /32 prefix (for IPv4) or a /128 prefix (for IPv6).
 	//
 	// +kubebuilder:validation:Required
