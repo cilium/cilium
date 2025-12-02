@@ -150,6 +150,10 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 		Enabled: st.Proxy != nil,
 	}
 
+	result[features.ExternalEnvoyProxy] = features.Status{
+		Enabled: st.Proxy != nil && strings.ToLower(st.Proxy.EnvoyDeploymentMode) == "external",
+	}
+
 	// Host Firewall
 	status := false
 	if hf := st.HostFirewall; hf != nil {
