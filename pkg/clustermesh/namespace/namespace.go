@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type managerParams struct {
@@ -25,20 +26,23 @@ type managerParams struct {
 }
 
 type Manager interface {
+	IsGlobalNamespaceEnabledByDefault() bool
 	IsGlobalNamespaceByName(ns string) (bool, error)
 	IsGlobalNamespaceByObject(ns *slim_corev1.Namespace) bool
 }
 
 type manager struct {
-	logger *slog.Logger
-	cfg    Config
-	store  resource.Store[*slim_corev1.Namespace]
+	logger     *slog.Logger
+	cfg        Config
+	namespaces resource.Resource[*slim_corev1.Namespace]
+	store      resource.Store[*slim_corev1.Namespace]
 }
 
 func newManager(params managerParams) *manager {
 	m := &manager{
-		logger: params.Logger,
-		cfg:    params.Config,
+		logger:     params.Logger.With(logfields.LogSubsys, "clustermesh-namespace-manager"),
+		cfg:        params.Config,
+		namespaces: params.Namespaces,
 	}
 
 	params.Lifecycle.Append(cell.Hook{
@@ -55,6 +59,12 @@ func newManager(params managerParams) *manager {
 	return m
 }
 
+// IsGlobalNamespaceEnabledByDefault returns whether the default global namespace
+// setting is enabled in the configuration.
+func (m *manager) IsGlobalNamespaceEnabledByDefault() bool {
+	return m.cfg.EnableDefaultGlobalNamespace
+}
+
 // IsGlobalNamespaceByObject determines whether the given namespace should be treated as a global
 // namespace based on its annotations and the provided configuration.
 func (m *manager) IsGlobalNamespaceByObject(ns *slim_corev1.Namespace) bool {
@@ -68,12 +78,12 @@ func (m *manager) IsGlobalNamespaceByObject(ns *slim_corev1.Namespace) bool {
 		return strings.ToLower(value) == "true"
 	}
 	// If the annotation is not present, fall back to the default config.
-	return m.cfg.GlobalNamespacesByDefault
+	return m.cfg.EnableDefaultGlobalNamespace
 }
 
 // IsGlobalNamespaceByName determines whether the namespace with the given name should be treated
 // as a global namespace based on its annotations and the provided configuration.
-// It retrieves the namespace object from the named resource store embedded in manager ob.
+// It retrieves the namespace object from the provided resource store.
 func (m *manager) IsGlobalNamespaceByName(ns string) (bool, error) {
 	if m.store == nil {
 		return false, fmt.Errorf("namespace store not initialized")
