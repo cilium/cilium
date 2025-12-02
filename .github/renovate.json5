@@ -671,12 +671,20 @@
       // See each image for an example version tag
       "matchPackageNames": [
         "quay.io/cilium/cilium-bpftool",    // 7.4.0-1758805548-08727cd
-        "quay.io/cilium/cilium-checkpatch", // 5.12-1755701578-b97bd7a
         "quay.io/cilium/iptables",          // 1.8.8-1-1758805548-08727cd
         "quay.io/cilium/cilium-llvm",       // 19.1.7-1758805548-08727cd
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-\\d+)?-(?<build>\\d+)-[a-f0-9]{7}$",
+    },
+    {
+      // Images from the image-tools repository that have a semantic (major.minor only) + timestamp-based versioning scheme
+      // See https://github.com/cilium/image-tools/pull/413
+      // See each image for an example version tag
+      "matchPackageNames": [
+        "quay.io/cilium/cilium-checkpatch", // 5.12-1755701578-b97bd7a
         "quay.io/cilium/network-perf",      // 3.19-1758616553-aad452d
       ],
-      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+)|(?<patch>))(-\\d+)?-(?<build>\\d+)-[a-f0-9]{7}$",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)-[a-f0-9]{7}$",
     },
     {
       // Avoid updating minor or major version for github.com/envoyproxy/go-control-plane/envoy
