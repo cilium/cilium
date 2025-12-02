@@ -406,7 +406,8 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		DeviceMTU:                    int64(h.mtuConfig.GetDeviceMTU()),
 		RouteMTU:                     int64(h.mtuConfig.GetRouteMTU()),
 		EnableRouteMTUForCNIChaining: h.mtuConfig.IsEnableRouteMTUForCNIChaining(),
-		DatapathMode:                 models.DatapathMode(option.Config.DatapathMode),
+		DatapathMode:                 models.DatapathMode(h.connectorConfig.GetOperationalMode().String()),
+		ConfiguredDatapathMode:       models.ConfiguredDatapathMode(h.connectorConfig.GetConfiguredMode().String()),
 		IpamMode:                     option.Config.IPAM,
 		Masquerade:                   option.Config.MasqueradingEnabled(),
 		MasqueradeProtocols: &models.DaemonConfigurationStatusMasqueradeProtocols{
