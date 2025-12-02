@@ -762,7 +762,13 @@ func Exists(ipv4, ipv6 bool) bool {
 //   - expectedPrevInterval 	= Is the last computed interval, which we expected to
 //     wait *unless* a signal caused early pass. If this is set to zero then we use gc starting interval.
 func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
-	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
+	return GetIntervalWithConfig(logger, actualPrevInterval, expectedPrevInterval, maxDeleteRatio,
+		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval, GCIntervalRounding, MinGCInterval)
+}
+
+func GetIntervalWithConfig(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64,
+	conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval time.Duration) time.Duration {
+	if val := conntrackGCInterval; val != time.Duration(0) {
 		return val
 	}
 
@@ -773,8 +779,8 @@ func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval t
 		adjustedDeleteRatio *= float64(expectedPrevInterval) / float64(actualPrevInterval)
 	}
 
-	newInterval := calculateInterval(expectedPrevInterval, adjustedDeleteRatio)
-	if val := option.Config.ConntrackGCMaxInterval; val != time.Duration(0) && newInterval > val {
+	newInterval := calculateIntervalWithConfig(expectedPrevInterval, adjustedDeleteRatio, gcIntervalRounding, minGCInterval)
+	if val := conntrackGCMaxInterval; val != time.Duration(0) && newInterval > val {
 		newInterval = val
 	}
 
@@ -800,6 +806,10 @@ var (
 )
 
 func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
+	return calculateIntervalWithConfig(prevInterval, maxDeleteRatio, GCIntervalRounding, MinGCInterval)
+}
+
+func calculateIntervalWithConfig(prevInterval time.Duration, maxDeleteRatio float64, gcIntervalRounding, minGCInterval time.Duration) (interval time.Duration) {
 	interval = prevInterval
 
 	if maxDeleteRatio == 0.0 {
@@ -812,13 +822,13 @@ func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (inte
 			maxDeleteRatio = 0.9
 		}
 		// 25%..90% => 1.3x..10x shorter
-		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(GCIntervalRounding), MinGCInterval)
+		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(gcIntervalRounding), minGCInterval)
 	case maxDeleteRatio < 0.05:
 		// When less than 5% of entries were deleted, increase the
 		// interval. Use a simple 1.5x multiplier to start growing slowly
 		// as a new node may not be seeing workloads yet and thus the
 		// scan will return a low deletion ratio at first.
-		interval = min(time.Duration(float64(interval)*1.5).Round(GCIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
+		interval = min(time.Duration(float64(interval)*1.5).Round(gcIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
 	}
 
 	return

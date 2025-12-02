@@ -133,6 +133,16 @@ func (gc *GC) enable(
 	runGC func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool),
 	runMapPressureDaemon bool,
 ) {
+	gc.enableWithConfig(runGC, runMapPressureDaemon,
+		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval,
+		ctmap.GCIntervalRounding, ctmap.MinGCInterval)
+}
+
+func (gc *GC) enableWithConfig(
+	runGC func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool),
+	runMapPressureDaemon bool,
+	conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval time.Duration,
+) {
 	var (
 		initialScan         = true
 		initialScanComplete = make(chan struct{})
@@ -204,7 +214,8 @@ func (gc *GC) enable(
 				maxDeleteRatio, success = runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 
-			interval := ctmap.GetInterval(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio)
+			interval := ctmap.GetIntervalWithConfig(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio,
+				conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval)
 			if success && gc.isFullGC(ipv4, ipv6) {
 				// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
 				nextGCTime := time.Now().Add(interval)
