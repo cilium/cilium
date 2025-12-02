@@ -275,6 +275,8 @@ ct_lookup_fill_state(struct ct_state *state, const struct ct_entry *entry,
 #ifdef USE_LOOPBACK_LB
 		state->loopback = entry->lb_loopback;
 #endif
+		ipv6_addr_copy(&state->nat_addr, &entry->nat_addr);
+		state->nat_port = entry->nat_port;
 		state->node_port = entry->node_port;
 		state->dsr_internal = entry->dsr_internal;
 		state->proxy_redirect = entry->proxy_redirect;
