@@ -460,7 +460,7 @@ const (
 	// PolicyDenyResponse is the name of the option to pick how to handle ipv4 egress traffic denied by policy
 	PolicyDenyResponse = "policy-deny-response"
 
-	// PolicyDenyResponseIcmp is the name of the option to reject traffic denied by policy with an ICMP response
+	// PolicyDenyResponseIcmp is the name of the option to reject traffic denied by policy with an ICMP response (experimental)
 	PolicyDenyResponseIcmp = "icmp"
 
 	// PolicyDenyResponseNone is the name of the option to silently drop traffic denied by policy
