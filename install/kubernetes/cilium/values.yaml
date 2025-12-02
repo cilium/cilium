@@ -1151,6 +1151,32 @@ eni:
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
   instanceTagsFilter: []
+  # -- NodeSpec configuration for the ENI
+  nodeSpec:
+    # -- First interface index to use for IP allocation
+    # @schema
+    # type: [null, integer]
+    # @schema
+    firstInterfaceIndex: ~
+    # -- Subnet IDs to use for IP allocation
+    subnetIDs: []
+    # -- Subnet tags to use for IP allocation
+    subnetTags: []
+    # -- Security groups to use for IP allocation
+    securityGroups: []
+    # -- Security group tags to use for IP allocation
+    securityGroupTags: []
+    # -- Exclude interface tags to use for IP allocation
+    excludeInterfaceTags: []
+    # -- Use primary address for IP allocation
+    usePrimaryAddress: false
+    # -- Disable prefix delegation for IP allocation
+    disablePrefixDelegation: false
+    # -- Delete ENI on termination
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    deleteOnTermination: ~
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:
@@ -2086,6 +2112,18 @@ ipam:
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
     externalAPILimitQPS: ~
+  # -- NodeSpec configuration for the IPAM
+  nodeSpec:
+    # -- IPAM min allocate
+    # @schema
+    # type: [null, integer]
+    # @schema
+    ipamMinAllocate: ~
+    # -- IPAM pre allocate
+    # @schema
+    # type: [null, integer]
+    # @schema
+    ipamPreAllocate: ~
 # -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
 # no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
 # @schema

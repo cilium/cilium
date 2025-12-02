@@ -587,6 +587,35 @@ data:
 {{- end }}
   ec2-api-endpoint: {{ .Values.eni.ec2APIEndpoint | quote }}
   eni-tags: {{ .Values.eni.eniTags | toRawJson | quote }}
+{{- if .Values.eni.nodeSpec }}
+  {{- if ne .Values.eni.nodeSpec.firstInterfaceIndex nil }}
+  eni-first-interface-index: {{ .Values.eni.nodeSpec.firstInterfaceIndex | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.subnetIDs }}
+  eni-subnet-ids: {{ .Values.eni.nodeSpec.subnetIDs | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.subnetTags }}
+  eni-subnet-tags: {{ .Values.eni.nodeSpec.subnetTags | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.securityGroups }}
+  eni-security-groups: {{ .Values.eni.nodeSpec.securityGroups | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.securityGroupTags }}
+  eni-security-group-tags: {{ .Values.eni.nodeSpec.securityGroupTags | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.excludeInterfaceTags }}
+  eni-exclude-interface-tags: {{ .Values.eni.nodeSpec.excludeInterfaceTags | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.usePrimaryAddress }}
+  eni-use-primary-address: "true"
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.disablePrefixDelegation }}
+  eni-disable-prefix-delegation: "true"
+  {{- end }}
+  {{- if ne .Values.eni.nodeSpec.deleteOnTermination nil }}
+  eni-delete-on-termination: {{ .Values.eni.nodeSpec.deleteOnTermination | quote }}
+  {{- end }}
+{{- end }}
 {{- if .Values.eni.subnetIDsFilter }}
   subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}
 {{- end }}
@@ -1102,6 +1131,14 @@ data:
   {{- end }}
 {{- else }}
   ipam: {{ $ipam | quote }}
+{{- end }}
+{{- if .Values.ipam.nodeSpec }}
+  {{- if ne .Values.ipam.nodeSpec.ipamMinAllocate nil }}
+  ipam-min-allocate: {{ .Values.ipam.nodeSpec.ipamMinAllocate | quote }}
+  {{- end }}
+  {{- if ne .Values.ipam.nodeSpec.ipamPreAllocate nil }}
+  ipam-pre-allocate: {{ .Values.ipam.nodeSpec.ipamPreAllocate | quote }}
+  {{- end }}
 {{- end }}
 {{- if .Values.ipam.multiPoolPreAllocation }}
   ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation | quote }}
