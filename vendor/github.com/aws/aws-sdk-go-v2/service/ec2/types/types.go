@@ -14923,6 +14923,10 @@ type MovingAddressStatus struct {
 // Describes a NAT gateway.
 type NatGateway struct {
 
+	// The proxy appliances attached to the NAT Gateway for filtering and inspecting
+	// traffic to prevent data exfiltration.
+	AttachedAppliances []NatGatewayAttachedAppliance
+
 	// For regional NAT gateways only: Indicates whether Amazon Web Services
 	// automatically manages AZ coverage. When enabled, the NAT gateway associates EIPs
 	// in all AZs where your VPC has subnets to handle outbound NAT traffic, expands to
@@ -15085,6 +15089,38 @@ type NatGatewayAddress struct {
 
 	// The address status.
 	Status NatGatewayAddressStatus
+
+	noSmithyDocumentSerde
+}
+
+// Information about an appliance attached to a NAT Gateway, providing managed
+// security solutions for traffic filtering and inspection.
+type NatGatewayAttachedAppliance struct {
+
+	// The Amazon Resource Name (ARN) of the attached appliance, identifying the
+	// specific proxy or security appliance resource.
+	ApplianceArn *string
+
+	// The current attachment state of the appliance.
+	AttachmentState NatGatewayApplianceState
+
+	// The failure code if the appliance attachment or modification operation failed.
+	FailureCode *string
+
+	// A descriptive message explaining the failure if the appliance attachment or
+	// modification operation failed.
+	FailureMessage *string
+
+	// The current modification state of the appliance.
+	ModificationState NatGatewayApplianceModifyState
+
+	// The type of appliance attached to the NAT Gateway. For network firewall proxy
+	// functionality, this will be "network-firewall-proxy".
+	Type NatGatewayApplianceType
+
+	// The VPC endpoint ID used to route traffic from application VPCs to the proxy
+	// for inspection and filtering.
+	VpcEndpointId *string
 
 	noSmithyDocumentSerde
 }

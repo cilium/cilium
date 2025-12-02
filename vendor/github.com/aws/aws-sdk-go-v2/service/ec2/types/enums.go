@@ -8086,6 +8086,72 @@ func (NatGatewayAddressStatus) Values() []NatGatewayAddressStatus {
 	}
 }
 
+type NatGatewayApplianceModifyState string
+
+// Enum values for NatGatewayApplianceModifyState
+const (
+	NatGatewayApplianceModifyStateModifying NatGatewayApplianceModifyState = "modifying"
+	NatGatewayApplianceModifyStateCompleted NatGatewayApplianceModifyState = "completed"
+	NatGatewayApplianceModifyStateFailed    NatGatewayApplianceModifyState = "failed"
+)
+
+// Values returns all known values for NatGatewayApplianceModifyState. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (NatGatewayApplianceModifyState) Values() []NatGatewayApplianceModifyState {
+	return []NatGatewayApplianceModifyState{
+		"modifying",
+		"completed",
+		"failed",
+	}
+}
+
+type NatGatewayApplianceState string
+
+// Enum values for NatGatewayApplianceState
+const (
+	NatGatewayApplianceStateAttaching    NatGatewayApplianceState = "attaching"
+	NatGatewayApplianceStateAttached     NatGatewayApplianceState = "attached"
+	NatGatewayApplianceStateDetaching    NatGatewayApplianceState = "detaching"
+	NatGatewayApplianceStateDetached     NatGatewayApplianceState = "detached"
+	NatGatewayApplianceStateAttachFailed NatGatewayApplianceState = "attach-failed"
+	NatGatewayApplianceStateDetachFailed NatGatewayApplianceState = "detach-failed"
+)
+
+// Values returns all known values for NatGatewayApplianceState. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (NatGatewayApplianceState) Values() []NatGatewayApplianceState {
+	return []NatGatewayApplianceState{
+		"attaching",
+		"attached",
+		"detaching",
+		"detached",
+		"attach-failed",
+		"detach-failed",
+	}
+}
+
+type NatGatewayApplianceType string
+
+// Enum values for NatGatewayApplianceType
+const (
+	NatGatewayApplianceTypeNetworkFirewallProxy NatGatewayApplianceType = "network-firewall-proxy"
+)
+
+// Values returns all known values for NatGatewayApplianceType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (NatGatewayApplianceType) Values() []NatGatewayApplianceType {
+	return []NatGatewayApplianceType{
+		"network-firewall-proxy",
+	}
+}
+
 type NatGatewayState string
 
 // Enum values for NatGatewayState

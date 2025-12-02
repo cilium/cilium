@@ -126196,6 +126196,12 @@ func awsEc2query_deserializeDocumentNatGateway(v **types.NatGateway, decoder smi
 		originalDecoder := decoder
 		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
 		switch {
+		case strings.EqualFold("attachedApplianceSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentNatGatewayAttachedApplianceList(&sv.AttachedAppliances, nodeDecoder); err != nil {
+				return err
+			}
+
 		case strings.EqualFold("autoProvisionZones", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -126634,6 +126640,201 @@ func awsEc2query_deserializeDocumentNatGatewayAddressListUnwrapped(v *[]types.Na
 		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 		destAddr := &mv
 		if err := awsEc2query_deserializeDocumentNatGatewayAddress(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
+func awsEc2query_deserializeDocumentNatGatewayAttachedAppliance(v **types.NatGatewayAttachedAppliance, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.NatGatewayAttachedAppliance
+	if *v == nil {
+		sv = &types.NatGatewayAttachedAppliance{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("applianceArn", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ApplianceArn = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("attachmentState", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.AttachmentState = types.NatGatewayApplianceState(xtv)
+			}
+
+		case strings.EqualFold("failureCode", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.FailureCode = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("failureMessage", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.FailureMessage = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("modificationState", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.ModificationState = types.NatGatewayApplianceModifyState(xtv)
+			}
+
+		case strings.EqualFold("type", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.Type = types.NatGatewayApplianceType(xtv)
+			}
+
+		case strings.EqualFold("vpcEndpointId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.VpcEndpointId = ptr.String(xtv)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentNatGatewayAttachedApplianceList(v *[]types.NatGatewayAttachedAppliance, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.NatGatewayAttachedAppliance
+	if *v == nil {
+		sv = make([]types.NatGatewayAttachedAppliance, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.NatGatewayAttachedAppliance
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentNatGatewayAttachedAppliance(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentNatGatewayAttachedApplianceListUnwrapped(v *[]types.NatGatewayAttachedAppliance, decoder smithyxml.NodeDecoder) error {
+	var sv []types.NatGatewayAttachedAppliance
+	if *v == nil {
+		sv = make([]types.NatGatewayAttachedAppliance, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.NatGatewayAttachedAppliance
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentNatGatewayAttachedAppliance(&destAddr, nodeDecoder); err != nil {
 			return err
 		}
 		mv = *destAddr
