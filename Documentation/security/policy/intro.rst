@@ -116,12 +116,12 @@ This behavior can be configured with the ``--policy-deny-response`` option:
 **none** (default)
   Silently drop denied packets. Applications will experience connection timeouts when policy denies traffic.
 
-**icmp**
+**icmp** (experimental)
   Send an ICMP Destination Unreachable response back to the source pod when egress traffic is denied by policy.
   This provides immediate feedback to applications that the connection was rejected.
 
 .. note::
-   This feature only applies to ipv4 egress pod traffic denied by network policy.
+   This is an experimental feature and only applies to ipv4 egress pod traffic denied by network policy.
    Ingress traffic denial behavior and ipv6 are not supported currently. Check :gh-issue:`41859` for updates
 
 .. warning::
