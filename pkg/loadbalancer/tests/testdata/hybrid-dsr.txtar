@@ -3,8 +3,10 @@
 # Start the test application
 hive start
 
-# Add TCP and UDP services
+# Add TCP and UDP services. Add TCP first and wait for it to be
+# reconciled for consistent ID allocation order.
 k8s/add service-tcp.yaml endpointslice-tcp.yaml
+db/cmp frontends frontends-tcp.table
 k8s/add service-udp.yaml endpointslice-udp.yaml
 db/cmp frontends frontends.table
 db/cmp services services.table
@@ -19,6 +21,11 @@ lb/maps-dump maps.actual
 Name          Source   TrafficPolicy   Flags
 test/echo-tcp k8s      Cluster
 test/echo-udp k8s      Cluster
+
+-- frontends-tcp.table --
+Address               Type         ServiceName    PortName   Status  Backends
+0.0.0.0:30781/TCP     NodePort     test/echo-tcp  http       Done    10.244.1.1:80/TCP
+10.96.50.104:80/TCP   ClusterIP    test/echo-tcp  http       Done    10.244.1.1:80/TCP
 
 -- frontends.table --
 Address               Type         ServiceName    PortName   Status  Backends
