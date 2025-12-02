@@ -1412,6 +1412,46 @@
      - Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances are going to be used to create new ENIs
      - list
      - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec`
+     - NodeSpec configuration for the ENI
+     - object
+     - ``{"deleteOnTermination":null,"disablePrefixDelegation":false,"excludeInterfaceTags":[],"firstInterfaceIndex":null,"securityGroupTags":[],"securityGroups":[],"subnetIDs":[],"subnetTags":[],"usePrimaryAddress":false}``
+   * - :spelling:ignore:`eni.nodeSpec.deleteOnTermination`
+     - Delete ENI on termination @schema type: [null, boolean] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`eni.nodeSpec.disablePrefixDelegation`
+     - Disable prefix delegation for IP allocation
+     - bool
+     - ``false``
+   * - :spelling:ignore:`eni.nodeSpec.excludeInterfaceTags`
+     - Exclude interface tags to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.firstInterfaceIndex`
+     - First interface index to use for IP allocation @schema type: [null, integer] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`eni.nodeSpec.securityGroupTags`
+     - Security group tags to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.securityGroups`
+     - Security groups to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.subnetIDs`
+     - Subnet IDs to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.subnetTags`
+     - Subnet tags to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.usePrimaryAddress`
+     - Use primary address for IP allocation
+     - bool
+     - ``false``
    * - :spelling:ignore:`eni.subnetIDsFilter`
      - Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead.
      - list
@@ -2680,6 +2720,18 @@
      - Pre-allocation settings for IPAM in Multi-Pool mode
      - string
      - ``""``
+   * - :spelling:ignore:`ipam.nodeSpec`
+     - NodeSpec configuration for the IPAM
+     - object
+     - ``{"ipamMinAllocate":null,"ipamPreAllocate":null}``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamMinAllocate`
+     - IPAM min allocate @schema type: [null, integer] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamPreAllocate`
+     - IPAM pre allocate @schema type: [null, integer] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`ipam.operator.autoCreateCiliumPodIPPools`
      - IP pools to auto-create in multi-pool IPAM mode.
      - object
