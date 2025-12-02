@@ -104,6 +104,7 @@ type statusParams struct {
 	TunnelConfig     tunnel.Config
 	WireguardAgent   wgTypes.WireguardAgent
 	ZtunnelConfig    zconfig.Config
+	ConnectorConfig  datapath.ConnectorConfig
 }
 
 // Config is the collector configuration
