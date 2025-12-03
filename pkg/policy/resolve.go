@@ -25,10 +25,6 @@ import (
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
-	// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
-	IsIngress() bool
-	SetIngress(bool)
-
 	// AllowLocalhost returns true if policy should allow ingress from local host.
 	// Always returns false for egress.
 	AllowLocalhost() bool
@@ -58,15 +54,6 @@ type PolicyContext interface {
 	// Priority returns the priority level for the current rule.
 	Priority() uint32
 
-	// IsDeny returns true if the policy computation should be done for the
-	// policy deny case. This function returns different values depending on the
-	// code path as it can be changed during the policy calculation.
-	IsDeny() bool
-
-	// SetDeny sets the Deny field of the PolicyContext and returns the old
-	// value stored.
-	SetDeny(newValue bool) (oldValue bool)
-
 	// DefaultDenyIngress returns true if default deny is enabled for ingress
 	DefaultDenyIngress() bool
 
@@ -88,11 +75,6 @@ type policyContext struct {
 	// level is the precedence level for the rule being processed.
 	level uint32
 
-	// isIngress is set to true for ingress rule processing, false for egress
-	isIngress bool
-	// isDeny this field is set to true if the given policy computation should
-	// be done for the policy deny.
-	isDeny             bool
 	defaultDenyIngress bool
 	defaultDenyEgress  bool
 
@@ -104,17 +86,8 @@ type policyContext struct {
 
 var _ PolicyContext = &policyContext{}
 
-// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
-func (p *policyContext) IsIngress() bool {
-	return p.isIngress
-}
-
-func (p *policyContext) SetIngress(ingress bool) {
-	p.isIngress = ingress
-}
-
 func (p *policyContext) AllowLocalhost() bool {
-	return p.isIngress && option.Config.AlwaysAllowLocalhost()
+	return option.Config.AlwaysAllowLocalhost()
 }
 
 // GetNamespace() returns the namespace for the policy rule being resolved
@@ -147,21 +120,6 @@ func (p *policyContext) SetPriority(level uint32) {
 // Priority returns the precedence level for the current rule.
 func (p *policyContext) Priority() uint32 {
 	return p.level
-}
-
-// IsDeny returns true if the policy computation should be done for the
-// policy deny case. This function return different values depending on the
-// code path as it can be changed during the policy calculation.
-func (p *policyContext) IsDeny() bool {
-	return p.isDeny
-}
-
-// SetDeny sets the Deny field of the PolicyContext and returns the old
-// value stored.
-func (p *policyContext) SetDeny(deny bool) bool {
-	oldDeny := p.isDeny
-	p.isDeny = deny
-	return oldDeny
 }
 
 // DefaultDenyIngress returns true if default deny is enabled for ingress

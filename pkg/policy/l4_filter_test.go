@@ -342,8 +342,6 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
 	level              uint32
-	isIngress          bool
-	isDeny             bool
 	ns                 string
 	sc                 *SelectorCache
 	fromFile           bool
@@ -352,17 +350,8 @@ type testPolicyContextType struct {
 	logger             *slog.Logger
 }
 
-// IsIngress returns 'true' if processing ingress rules, 'false' for egress.
-func (p *testPolicyContextType) IsIngress() bool {
-	return p.isIngress
-}
-
 func (p *testPolicyContextType) AllowLocalhost() bool {
-	return p.isIngress && option.Config.AlwaysAllowLocalhost()
-}
-
-func (p *testPolicyContextType) SetIngress(ingress bool) {
-	p.isIngress = ingress
+	return option.Config.AlwaysAllowLocalhost()
 }
 
 func (p *testPolicyContextType) GetNamespace() string {
@@ -395,16 +384,6 @@ func (p *testPolicyContextType) SetPriority(level uint32) {
 // Priority returns the precedence level for the current rule.
 func (p *testPolicyContextType) Priority() uint32 {
 	return p.level
-}
-
-func (p *testPolicyContextType) SetDeny(isDeny bool) bool {
-	oldDeny := p.isDeny
-	p.isDeny = isDeny
-	return oldDeny
-}
-
-func (p *testPolicyContextType) IsDeny() bool {
-	return p.isDeny
 }
 
 func (p *testPolicyContextType) DefaultDenyIngress() bool {
@@ -2467,17 +2446,10 @@ func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 	td.policyMapEquals(t, nil, expected, &rule)
 }
 
-// Case 18: Test that deny rules in default-allow mode don't add wildcards
+// Case 18: Test that default-deny rules in default-allow mode don't add wildcards
 func TestDenyRuleNoWildcardInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
-
-	// Set policy as a deny rule
-	origIsDeny := td.testPolicyContext.isDeny
-	td.testPolicyContext.isDeny = true
-	defer func() {
-		td.testPolicyContext.isDeny = origIsDeny
-	}()
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2652,9 +2624,13 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 				Protocol: tc.proto,
 			}
 
-			toEndpoints := types.ToSelectors(api.NewESFromLabels(labels.ParseSelectLabel("foo")))
+			entry := &types.PolicyEntry{
+				L3:      types.ToSelectors(api.NewESFromLabels(labels.ParseSelectLabel("foo"))),
+				L4:      []api.PortRule{*egressRule},
+				Ingress: false,
+			}
 
-			l4Filter, err := createL4Filter(ctx, toEndpoints, nil, egressRule, portProto)
+			l4Filter, err := createL4Filter(ctx, entry, egressRule, portProto)
 
 			require.NoError(t, err)
 			require.NotNil(t, l4Filter)
