@@ -44,7 +44,7 @@ func NewCiliumGatewayClassConfigInformer(client versioned.Interface, namespace s
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCiliumGatewayClassConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -69,7 +69,7 @@ func NewFilteredCiliumGatewayClassConfigInformer(client versioned.Interface, nam
 				}
 				return client.CiliumV2alpha1().CiliumGatewayClassConfigs(namespace).Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisciliumiov2alpha1.CiliumGatewayClassConfig{},
 		resyncPeriod,
 		indexers,

@@ -43,7 +43,7 @@ func NewNamespaceInformer(client versioned.Interface, resyncPeriod time.Duration
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredNamespaceInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredNamespaceInformer(client versioned.Interface, resyncPeriod time.
 				}
 				return client.CoreV1().Namespaces().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apicorev1.Namespace{},
 		resyncPeriod,
 		indexers,
