@@ -19,13 +19,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
+	"github.com/cilium/cilium/pkg/envoy/test"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
-	"github.com/cilium/cilium/pkg/proxy/endpoint/test"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
