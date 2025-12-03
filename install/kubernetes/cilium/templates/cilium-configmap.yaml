@@ -649,6 +649,18 @@ data:
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
 {{- end }}
+{{- if .Values.alibabacloud.nodeSpec.vSwitches }}
+  alibabacloud-vswitches: {{ .Values.alibabacloud.nodeSpec.vSwitches | join "," | quote }}
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.vSwitchTags }}
+  alibabacloud-vswitch-tags: {{ .Values.alibabacloud.nodeSpec.vSwitchTags | join "," | quote }}
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.securityGroups }}
+  alibabacloud-security-groups: {{ .Values.alibabacloud.nodeSpec.securityGroups | join "," | quote }}
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.securityGroupTags }}
+  alibabacloud-security-group-tags: {{ .Values.alibabacloud.nodeSpec.securityGroupTags | join "," | quote }}
+{{- end }}
 
 {{- if hasKey .Values "l7Proxy" }}
   # Enables L7 proxy for L7 policy enforcement and visibility
