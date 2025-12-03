@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -38,7 +37,7 @@ func assertDNSRules(t *testing.T, c *GRPCClient, epID uint32, pp restore.PortPro
 	var gotIDs []uint32
 	var gotPatterns []string
 	for k, v := range row.DNSRule {
-		for _, id := range k.GetSelections(versioned.Latest()) {
+		for _, id := range k.GetSelections() {
 			gotIDs = append(gotIDs, id.Uint32())
 		}
 		if v != nil {

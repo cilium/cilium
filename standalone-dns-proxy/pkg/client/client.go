@@ -397,7 +397,7 @@ type DNSServerIdentity struct {
 	Identities identity.NumericIdentitySlice
 }
 
-func (d *DNSServerIdentity) Selects(_ *versioned.VersionHandle, identity identity.NumericIdentity) bool {
+func (d *DNSServerIdentity) Selects(identity identity.NumericIdentity) bool {
 	return slices.Contains(d.Identities, identity)
 }
 
@@ -420,7 +420,12 @@ func (d *DNSServerIdentity) IsNone() bool {
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetSelections(_ *versioned.VersionHandle) identity.NumericIdentitySlice {
+func (d *DNSServerIdentity) GetSelections() identity.NumericIdentitySlice {
+	return d.Identities
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) GetSelectionsAt(_ *versioned.VersionHandle) identity.NumericIdentitySlice {
 	return d.Identities
 }
 

@@ -45,9 +45,7 @@ func (r *dnsRulesService) GetDNSRules(epID uint16) restore.DNSRules {
 	if r.dnsProxy == nil { // L7 proxy may be disabled
 		return restore.DNSRules{}
 	}
-	version := r.policyRepo.GetSelectorCache().GetVersionHandle()
-	rules, err := r.dnsProxy.GetRules(version, epID)
-	version.Close()
+	rules, err := r.dnsProxy.GetRules(epID)
 
 	if err != nil {
 		r.logger.Error("Could not get DNS Rules",
