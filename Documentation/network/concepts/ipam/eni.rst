@@ -90,8 +90,33 @@ Configuration
 Custom ENI Configuration
 ========================
 
-Custom ENI configuration can be defined with a custom CNI configuration
-``ConfigMap``:
+Custom ENI configuration can be defined from Helm or with a custom CNI
+configuration ``ConfigMap``.
+
+Helm
+----
+
+The ENI configuration can be specified via Helm, using either the ``--set`` flag
+or a values file.
+
+The following example configures Cilium to:
+
+* Use subnets with the tag ``foo=bar`` to create ENIs.
+* Use index 1 as the first interface for pod IP allocation.
+* Set the minimum number of IPs to allocate to 10.
+
+.. parsed-literal::
+
+  helm upgrade cilium |CHART_RELEASE| \\
+    --namespace kube-system \\
+    --reuse-values \\
+    --set eni.enabled=true \\
+    --set eni.nodeSpec.subnetTags={foo=bar} \\
+    --set eni.nodeSpec.firstInterfaceIndex=1 \\
+    --set ipam.nodeSpec.ipamMinAllocate=10
+
+The full list of available options can be found in the :ref:`helm_reference`
+section in the ``eni.nodeSpec`` and ``ipam.nodeSpec`` sections.
 
 Create a CNI configuration
 --------------------------
