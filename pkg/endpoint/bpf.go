@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -462,7 +461,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		// ARP, and IPv6 ND are delivered to the host stack in all datapath configurations.
 		if e.isProperty(PropertyAtHostNS) {
 			stats.mapSync.Start()
-			err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
+			err = e.lxcMap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 			stats.mapSync.End(err == nil)
 			if err != nil {
 				return 0, fmt.Errorf("Exposing endpoint in endpoints BPF map failed: %w", err)
@@ -497,7 +496,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	if !datapathRegenCtxt.epInfoCache.IsHost() || option.Config.EnableHostFirewall {
 		// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 		stats.mapSync.Start()
-		err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
+		err = e.lxcMap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 		stats.mapSync.End(err == nil)
 		if err != nil {
 			return 0, fmt.Errorf("Exposing new BPF failed: %w", err)
@@ -603,7 +602,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 			return err
 		}
 
-		if err := os.WriteFile(filepath.Join(datapathRegenCtxt.nextDir, defaults.TemplateIDPath), []byte(templateHash+"\n"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(datapathRegenCtxt.nextDir, defaults.TemplateIDPath), []byte(templateHash+"\n"), 0o644); err != nil {
 			return fmt.Errorf("unable to write template id: %w", err)
 		}
 
@@ -887,7 +886,7 @@ func (e *Endpoint) deleteMaps() []error {
 	// Remove the endpoint from cilium_lxc. After this point, ip->epID lookups
 	// will fail, causing packets to/from the Pod to be dropped in many cases,
 	// stopping packet evaluation.
-	if err := lxcmap.DeleteElement(e.getLogger(), e); err != nil {
+	if err := e.lxcMap.DeleteElement(e.getLogger(), e); err != nil {
 		errors = append(errors, err...)
 	}
 

@@ -66,7 +66,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 	identity.Sanitize()
 
 	model := newTestEndpointModel(int(id), StateReady)
-	ep, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	ep, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -107,7 +107,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 		require.NotNil(t, ep)
 
 		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
-		err := os.MkdirAll(fullDirName, 0777)
+		err := os.MkdirAll(fullDirName, 0o777)
 		require.NoError(t, err)
 
 		// Add an unsupported option and see that it is removed on "restart"
@@ -179,14 +179,14 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
-	err = os.MkdirAll(fullDirName, 0777)
+	err = os.MkdirAll(fullDirName, 0o777)
 	require.NoError(t, err)
 
 	err = ep.writeHeaderfile(fullDirName)
 	require.NoError(t, err)
 
 	nextDir := filepath.Join(tmpDir, ep.NextDirectoryPath())
-	err = os.MkdirAll(nextDir, 0777)
+	err = os.MkdirAll(nextDir, 0o777)
 	require.NoError(t, err)
 
 	// Change endpoint a little bit so we know which endpoint is in
@@ -244,7 +244,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 		require.NotNil(b, ep)
 
 		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
-		err := os.MkdirAll(fullDirName, 0777)
+		err := os.MkdirAll(fullDirName, 0o777)
 		require.NoError(b, err)
 
 		err = ep.writeHeaderfile(fullDirName)
@@ -289,7 +289,7 @@ type fakeParser struct {
 }
 
 func (f *fakeParser) ParseEndpoint(epJSON []byte) (*Endpoint, error) {
-	return ParseEndpoint(f.logger, nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, nil, nil, nil, nil, epJSON, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{})
+	return ParseEndpoint(f.logger, nil, nil, nil, f.orchestrator, nil, nil, nil, nil, nil, nil, f.policyRepo, nil, nil, nil, nil, nil, epJSON, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
 }
 
 var _ EndpointParser = &fakeParser{}

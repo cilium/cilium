@@ -38,6 +38,7 @@ type syncHostIPsParams struct {
 	Config        *option.DaemonConfig
 	NodeAddresses statedb.Table[tables.NodeAddress]
 	IPCache       *ipcache.IPCache
+	LXCMap        lxcmap.Map
 }
 
 type syncHostIPs struct {
@@ -165,7 +166,7 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 		addIdentity(netip.IPv4Unspecified(), ipv4Ident, ipv4Label)
 	}
 
-	existingEndpoints, err := lxcmap.DumpToMap()
+	existingEndpoints, err := s.params.LXCMap.DumpToMap()
 	if err != nil {
 		return fmt.Errorf("dump lxcmap: %w", err)
 	}
@@ -174,9 +175,9 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 	for _, ipIDLblsPair := range specialIdentities {
 		isHost := ipIDLblsPair.ID == identity.ReservedIdentityHost
 		if isHost {
-			added, err := lxcmap.SyncHostEntry(ipIDLblsPair.IP)
+			added, err := s.params.LXCMap.SyncHostEntry(ipIDLblsPair.IP)
 			if err != nil {
-				return fmt.Errorf("Unable to add host entry to endpoint map: %w", err)
+				return fmt.Errorf("unable to add host entry to endpoint map: %w", err)
 			}
 			if added {
 				s.params.Logger.Debug(
@@ -202,7 +203,7 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 	// to the key as host IP here because we only care about the host endpoint.
 	for addr, info := range existingEndpoints {
 		if addr.IsValid() && info.IsHost() {
-			if err := lxcmap.DeleteEntry(addr); err != nil {
+			if err := s.params.LXCMap.DeleteEntry(addr); err != nil {
 				return fmt.Errorf("unable to delete obsolete host IP: %w", err)
 			} else {
 				s.params.Logger.Debug(
