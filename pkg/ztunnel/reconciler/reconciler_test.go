@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/api/v1/models"
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -26,11 +27,18 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
 	"github.com/cilium/cilium/pkg/ztunnel/table"
+	"github.com/cilium/cilium/pkg/ztunnel/xds"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MockEndpointManager is a mock implementation of endpointmanager.EndpointManager.
@@ -261,6 +269,121 @@ func (m *MockRestorer) WaitForInitialPolicy(ctx context.Context) error {
 
 var _ endpointstate.Restorer = &MockRestorer{}
 
+// MockCiliumEndpointResource is a mock implementation of resource.Resource[*types.CiliumEndpoint].
+type MockCiliumEndpointResource struct {
+	store *MockCiliumEndpointStore
+}
+
+func (m *MockCiliumEndpointResource) Store(ctx context.Context) (resource.Store[*types.CiliumEndpoint], error) {
+	return m.store, nil
+}
+
+func (m *MockCiliumEndpointResource) Observe(ctx context.Context, next func(resource.Event[*types.CiliumEndpoint]), complete func(error)) {
+	panic("MockCiliumEndpointResource.Observe not implemented")
+}
+
+func (m *MockCiliumEndpointResource) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[*types.CiliumEndpoint] {
+	panic("MockCiliumEndpointResource.Events not implemented")
+}
+
+// MockCiliumEndpointStore is a mock implementation of resource.Store[*types.CiliumEndpoint].
+type MockCiliumEndpointStore struct {
+	endpoints map[string]*types.CiliumEndpoint
+}
+
+func (m *MockCiliumEndpointStore) List() []*types.CiliumEndpoint {
+	panic("MockCiliumEndpointStore.List not implemented")
+}
+
+func (m *MockCiliumEndpointStore) Get(obj *types.CiliumEndpoint) (*types.CiliumEndpoint, bool, error) {
+	panic("MockCiliumEndpointStore.Get not implemented")
+}
+
+func (m *MockCiliumEndpointStore) GetByKey(key resource.Key) (*types.CiliumEndpoint, bool, error) {
+	panic("MockCiliumEndpointStore.GetByKey not implemented")
+}
+
+func (m *MockCiliumEndpointStore) ByIndex(index string, key string) ([]*types.CiliumEndpoint, error) {
+	var result []*types.CiliumEndpoint
+	for _, ep := range m.endpoints {
+		if ep.Namespace == key {
+			result = append(result, ep)
+		}
+	}
+	return result, nil
+}
+
+func (m *MockCiliumEndpointStore) IndexKeys(indexName, indexedValue string) ([]string, error) {
+	panic("MockCiliumEndpointStore.IndexKeys not implemented")
+}
+
+func (m *MockCiliumEndpointStore) IterKeys() resource.KeyIter {
+	panic("MockCiliumEndpointStore.IterKeys not implemented")
+}
+
+func (m *MockCiliumEndpointStore) CacheStore() cache.Store {
+	panic("MockCiliumEndpointStore.CacheStore not implemented")
+}
+
+// MockCiliumEndpointSliceResource is a mock implementation of resource.Resource[*v2alpha1.CiliumEndpointSlice].
+type MockCiliumEndpointSliceResource struct {
+	store *MockCiliumEndpointSliceStore
+}
+
+func (m *MockCiliumEndpointSliceResource) Store(ctx context.Context) (resource.Store[*v2alpha1.CiliumEndpointSlice], error) {
+	return m.store, nil
+}
+
+func (m *MockCiliumEndpointSliceResource) Observe(ctx context.Context, next func(resource.Event[*v2alpha1.CiliumEndpointSlice]), complete func(error)) {
+	panic("MockCiliumEndpointSliceResource.Observe not implemented")
+}
+
+func (m *MockCiliumEndpointSliceResource) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[*v2alpha1.CiliumEndpointSlice] {
+	panic("MockCiliumEndpointSliceResource.Events not implemented")
+}
+
+// MockCiliumEndpointSliceStore is a mock implementation of resource.Store[*v2alpha1.CiliumEndpointSlice].
+type MockCiliumEndpointSliceStore struct {
+	slices map[string]*v2alpha1.CiliumEndpointSlice
+}
+
+func (m *MockCiliumEndpointSliceStore) List() []*v2alpha1.CiliumEndpointSlice {
+	panic("MockCiliumEndpointSliceStore.List not implemented")
+}
+
+func (m *MockCiliumEndpointSliceStore) Get(key *v2alpha1.CiliumEndpointSlice) (*v2alpha1.CiliumEndpointSlice, bool, error) {
+	panic("MockCiliumEndpointSliceStore.Get not implemented")
+}
+
+func (m *MockCiliumEndpointSliceStore) GetByKey(key resource.Key) (*v2alpha1.CiliumEndpointSlice, bool, error) {
+	panic("MockCiliumEndpointStore.GetByKey not implemented")
+}
+
+func (m *MockCiliumEndpointSliceStore) ByIndex(index string, key string) ([]*v2alpha1.CiliumEndpointSlice, error) {
+	var result []*v2alpha1.CiliumEndpointSlice
+	for _, s := range m.slices {
+		if s.Namespace == key {
+			result = append(result, s)
+		}
+	}
+	return result, nil
+}
+
+func (m *MockCiliumEndpointSliceStore) IndexKeys(indexName, indexedValue string) ([]string, error) {
+	panic("MockCiliumEndpointStore.IndexKeys not implemented")
+}
+
+func (m *MockCiliumEndpointSliceStore) IterKeys() resource.KeyIter {
+	panic("MockCiliumEndpointStore.IterKeys not implemented")
+}
+
+func (m *MockCiliumEndpointSliceStore) CacheStore() cache.Store {
+	panic("MockCiliumEndpointSliceStore.CacheStore not implemented")
+}
+
+var _ resource.Store[*types.CiliumEndpoint] = &MockCiliumEndpointStore{}
+var _ resource.Store[*v2alpha1.CiliumEndpointSlice] = &MockCiliumEndpointSliceStore{}
+
 // createTestEndpoint creates a test endpoint with the given parameters.
 func createTestEndpoint(id uint16, namespace, podName, netnsPath string) *endpoint.Endpoint {
 	return createTestEndpointWithLabels(id, namespace, podName, netnsPath, nil)
@@ -282,7 +405,7 @@ func createTestEndpointWithLabels(id uint16, namespace, podName, netnsPath strin
 
 // setupTest creates a test environment with mock dependencies and returns
 // the database, table, mocks, and reconciler instance.
-func setupTest(t *testing.T) (*statedb.DB, statedb.RWTable[*table.EnrolledNamespace], *MockEndpointManager, *MockEndpointEnroller, *EnrollmentReconciler) {
+func setupTest(t *testing.T) (*statedb.DB, statedb.RWTable[*table.EnrolledNamespace], *MockEndpointManager, *MockEndpointEnroller, *EnrollmentReconciler, chan *xds.EndpointEvent) {
 	db := statedb.New()
 	tbl, err := table.NewEnrolledNamespacesTable(db)
 	require.NoError(t, err)
@@ -291,6 +414,19 @@ func setupTest(t *testing.T) (*statedb.DB, statedb.RWTable[*table.EnrolledNamesp
 
 	mockEpMgr := &MockEndpointManager{}
 	mockEnroller := NewMockEndpointEnroller()
+	endpointEventCh := make(chan *xds.EndpointEvent, 100)
+
+	mockCEPResource := &MockCiliumEndpointResource{
+		store: &MockCiliumEndpointStore{
+			endpoints: make(map[string]*types.CiliumEndpoint),
+		},
+	}
+
+	mockCESResource := &MockCiliumEndpointSliceResource{
+		store: &MockCiliumEndpointSliceStore{
+			slices: make(map[string]*v2alpha1.CiliumEndpointSlice),
+		},
+	}
 
 	// Create a promise that resolves immediately with a mock restorer.
 	restorer, restorerPromise := promise.New[endpointstate.Restorer]()
@@ -301,31 +437,38 @@ func setupTest(t *testing.T) (*statedb.DB, statedb.RWTable[*table.EnrolledNamesp
 	lc := hivetest.Lifecycle(t)
 
 	ops := NewEnrollmentReconciler(params{
-		Config:                 config.Config{EnableZTunnel: true},
-		DB:                     db,
-		EnrolledNamespaceTable: tbl,
-		Logger:                 logger,
-		Lifecycle:              lc,
-		EndpointManager:        mockEpMgr,
-		EndpointEnroller:       mockEnroller,
-		RestorerPromise:        restorerPromise,
+		Config:                      config.Config{EnableZTunnel: true},
+		DB:                          db,
+		EnrolledNamespaceTable:      tbl,
+		Logger:                      logger,
+		Lifecycle:                   lc,
+		EndpointManager:             mockEpMgr,
+		EndpointEnroller:            mockEnroller,
+		RestorerPromise:             restorerPromise,
+		EndpointEventChannel:        endpointEventCh,
+		CiliumEndpointResource:      mockCEPResource,
+		CiliumEndpointSliceResource: mockCESResource,
 	})
 
 	reconcilerOps := ops.(*EnrollmentReconciler)
 
-	return db, tbl, mockEpMgr, mockEnroller, reconcilerOps
+	return db, tbl, mockEpMgr, mockEnroller, reconcilerOps, endpointEventCh
 }
 
 // TestEnrollmentReconciler_Update tests the Update operation of the reconciler,
 // which enrolls all endpoints in a namespace when that namespace is enrolled.
 func TestEnrollmentReconciler_Update(t *testing.T) {
 	tests := []struct {
-		name             string
-		namespace        string
-		endpoints        []*endpoint.Endpoint
-		enrollErr        error
-		expectedEnrolled int
-		expectedError    bool
+		name                      string
+		namespace                 string
+		endpoints                 []*endpoint.Endpoint
+		enableCiliumEndpointSlice bool
+		ciliumEndpoints           map[string]*types.CiliumEndpoint
+		ciliumEndpointSlices      map[string]*v2alpha1.CiliumEndpointSlice
+		enrollErr                 error
+		expectedEnrolled          int
+		expectedEndpointEvents    int
+		expectedError             bool
 	}{
 		{
 			name:      "enroll endpoints in namespace",
@@ -334,8 +477,9 @@ func TestEnrollmentReconciler_Update(t *testing.T) {
 				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
 				createTestEndpoint(2, "test-ns", "pod-2", "/var/run/netns/test2"),
 			},
-			expectedEnrolled: 2,
-			expectedError:    false,
+			expectedEnrolled:       2,
+			expectedEndpointEvents: 0,
+			expectedError:          false,
 		},
 		{
 			name:      "skip endpoints without netns path",
@@ -344,8 +488,9 @@ func TestEnrollmentReconciler_Update(t *testing.T) {
 				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
 				createTestEndpoint(2, "test-ns", "pod-2", ""),
 			},
-			expectedEnrolled: 1,
-			expectedError:    false,
+			expectedEnrolled:       1,
+			expectedEndpointEvents: 0,
+			expectedError:          false,
 		},
 		{
 			name:      "skip ztunnel endpoints",
@@ -356,8 +501,9 @@ func TestEnrollmentReconciler_Update(t *testing.T) {
 					"k8s:app": labels.NewLabel("app", "ztunnel-cilium", labels.LabelSourceK8s),
 				}),
 			},
-			expectedEnrolled: 1,
-			expectedError:    false,
+			expectedEnrolled:       1,
+			expectedEndpointEvents: 0,
+			expectedError:          false,
 		},
 		{
 			name:      "enrollment error",
@@ -365,9 +511,10 @@ func TestEnrollmentReconciler_Update(t *testing.T) {
 			endpoints: []*endpoint.Endpoint{
 				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
 			},
-			enrollErr:        errors.New("enrollment failed"),
-			expectedEnrolled: 0,
-			expectedError:    true,
+			enrollErr:              errors.New("enrollment failed"),
+			expectedEnrolled:       0,
+			expectedEndpointEvents: 0,
+			expectedError:          true,
 		},
 		{
 			name:             "no endpoints in namespace",
@@ -376,11 +523,119 @@ func TestEnrollmentReconciler_Update(t *testing.T) {
 			expectedEnrolled: 0,
 			expectedError:    false,
 		},
+		{
+			name:                   "no endpoints in namespace",
+			namespace:              "empty-ns",
+			endpoints:              []*endpoint.Endpoint{},
+			expectedEnrolled:       0,
+			expectedEndpointEvents: 0,
+			expectedError:          false,
+		},
+		{
+			name:                      "enroll with CiliumEndpoint resources",
+			namespace:                 "test-ns",
+			enableCiliumEndpointSlice: false,
+			endpoints: []*endpoint.Endpoint{
+				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
+			},
+			ciliumEndpoints: map[string]*types.CiliumEndpoint{
+				"test-ns/cep-1": {
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name:      "cep-1",
+						Namespace: "test-ns",
+					},
+				},
+				"test-ns/cep-2": {
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name:      "cep-2",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			expectedEnrolled:       1,
+			expectedEndpointEvents: 2,
+			expectedError:          false,
+		},
+		{
+			name:                      "enroll with CiliumEndpointSlice resources",
+			namespace:                 "test-ns",
+			enableCiliumEndpointSlice: true,
+			endpoints: []*endpoint.Endpoint{
+				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
+			},
+			ciliumEndpointSlices: map[string]*v2alpha1.CiliumEndpointSlice{
+				"test-ns/ces-1": {
+					ObjectMeta: v1.ObjectMeta{
+						Name: "ces-1",
+					},
+					Namespace: "test-ns",
+					Endpoints: []v2alpha1.CoreCiliumEndpoint{
+						{
+							Name: "pod-1",
+						},
+						{
+							Name: "pod-2",
+						},
+					},
+				},
+			},
+			expectedEnrolled:       1,
+			expectedEndpointEvents: 2,
+			expectedError:          false,
+		},
+		{
+			name:                      "enroll with multiple CiliumEndpointSlices",
+			namespace:                 "test-ns",
+			enableCiliumEndpointSlice: true,
+			endpoints: []*endpoint.Endpoint{
+				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
+			},
+			ciliumEndpointSlices: map[string]*v2alpha1.CiliumEndpointSlice{
+				"test-ns/ces-1": {
+					ObjectMeta: v1.ObjectMeta{
+						Name: "ces-1",
+					},
+					Namespace: "test-ns",
+					Endpoints: []v2alpha1.CoreCiliumEndpoint{
+						{Name: "pod-1"},
+						{Name: "pod-2"},
+					},
+				},
+				"test-ns/ces-2": {
+					ObjectMeta: v1.ObjectMeta{
+						Name: "ces-2",
+					},
+					Namespace: "test-ns",
+					Endpoints: []v2alpha1.CoreCiliumEndpoint{
+						{Name: "pod-3"},
+					},
+				},
+			},
+			expectedEnrolled:       1,
+			expectedEndpointEvents: 3,
+			expectedError:          false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, _, mockEpMgr, mockEnroller, ops := setupTest(t)
+			// Save and restore the original option value
+			originalEnableCES := option.Config.EnableCiliumEndpointSlice
+			defer func() {
+				option.Config.EnableCiliumEndpointSlice = originalEnableCES
+			}()
+			option.Config.EnableCiliumEndpointSlice = tt.enableCiliumEndpointSlice
+			db, _, mockEpMgr, mockEnroller, ops, endpointEventCh := setupTest(t)
+
+			// Setup CiliumEndpoint or CiliumEndpointSlice resources
+			if tt.ciliumEndpoints != nil {
+				mockCEPStore := ops.ciliumEndpointResource.(*MockCiliumEndpointResource).store
+				mockCEPStore.endpoints = tt.ciliumEndpoints
+			}
+			if tt.ciliumEndpointSlices != nil {
+				mockCESStore := ops.ciliumEndpointSliceResource.(*MockCiliumEndpointSliceResource).store
+				mockCESStore.slices = tt.ciliumEndpointSlices
+			}
 
 			mockEpMgr.endpoints = tt.endpoints
 			mockEnroller.enrollErr = tt.enrollErr
@@ -398,6 +653,26 @@ func TestEnrollmentReconciler_Update(t *testing.T) {
 			}
 
 			assert.Len(t, mockEnroller.enrolledEndpoints, tt.expectedEnrolled)
+
+			// Verify endpoint events were sent
+			eventCount := 0
+			timeout := time.After(100 * time.Millisecond)
+		drainLoop:
+			for {
+				select {
+				case event := <-endpointEventCh:
+					eventCount++
+					assert.Equal(t, xds.CREATE, event.Type)
+				case <-timeout:
+					break drainLoop
+				default:
+					if eventCount >= tt.expectedEndpointEvents {
+						break drainLoop
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+			}
+			assert.Equal(t, tt.expectedEndpointEvents, eventCount, "unexpected number of endpoint events")
 		})
 	}
 }
@@ -406,12 +681,16 @@ func TestEnrollmentReconciler_Update(t *testing.T) {
 // which disenrolls all endpoints in a namespace when that namespace is unenrolled.
 func TestEnrollmentReconciler_Delete(t *testing.T) {
 	tests := []struct {
-		name                string
-		namespace           string
-		endpoints           []*endpoint.Endpoint
-		disenrollErr        error
-		expectedDisenrolled int
-		expectedError       bool
+		name                      string
+		namespace                 string
+		endpoints                 []*endpoint.Endpoint
+		enableCiliumEndpointSlice bool
+		ciliumEndpoints           map[string]*types.CiliumEndpoint
+		ciliumEndpointSlices      map[string]*v2alpha1.CiliumEndpointSlice
+		disenrollErr              error
+		expectedDisenrolled       int
+		expectedEndpointEvents    int
+		expectedError             bool
 	}{
 		{
 			name:      "disenroll endpoints in namespace",
@@ -420,8 +699,9 @@ func TestEnrollmentReconciler_Delete(t *testing.T) {
 				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
 				createTestEndpoint(2, "test-ns", "pod-2", "/var/run/netns/test2"),
 			},
-			expectedDisenrolled: 2,
-			expectedError:       false,
+			expectedDisenrolled:    2,
+			expectedEndpointEvents: 0,
+			expectedError:          false,
 		},
 		{
 			name:      "skip endpoints without netns path",
@@ -430,8 +710,9 @@ func TestEnrollmentReconciler_Delete(t *testing.T) {
 				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
 				createTestEndpoint(2, "test-ns", "pod-2", ""),
 			},
-			expectedDisenrolled: 1,
-			expectedError:       false,
+			expectedDisenrolled:    1,
+			expectedEndpointEvents: 0,
+			expectedError:          false,
 		},
 		{
 			name:      "skip ztunnel endpoints",
@@ -442,8 +723,9 @@ func TestEnrollmentReconciler_Delete(t *testing.T) {
 					"k8s:app": labels.NewLabel("app", "ztunnel-cilium", labels.LabelSourceK8s),
 				}),
 			},
-			expectedDisenrolled: 1,
-			expectedError:       false,
+			expectedDisenrolled:    1,
+			expectedEndpointEvents: 0,
+			expectedError:          false,
 		},
 		{
 			name:      "disenrollment error",
@@ -451,18 +733,77 @@ func TestEnrollmentReconciler_Delete(t *testing.T) {
 			endpoints: []*endpoint.Endpoint{
 				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
 			},
-			disenrollErr:        errors.New("disenrollment failed"),
-			expectedDisenrolled: 0,
-			expectedError:       true,
+			disenrollErr:           errors.New("disenrollment failed"),
+			expectedDisenrolled:    0,
+			expectedEndpointEvents: 0,
+			expectedError:          true,
+		},
+		{
+			name:                      "disenroll with CiliumEndpoint resources",
+			namespace:                 "test-ns",
+			enableCiliumEndpointSlice: false,
+			endpoints: []*endpoint.Endpoint{
+				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
+			},
+			ciliumEndpoints: map[string]*types.CiliumEndpoint{
+				"test-ns/cep-1": {
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name:      "cep-1",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			expectedDisenrolled:    1,
+			expectedEndpointEvents: 1,
+			expectedError:          false,
+		},
+		{
+			name:                      "disenroll with CiliumEndpointSlice resources",
+			namespace:                 "test-ns",
+			enableCiliumEndpointSlice: true,
+			endpoints: []*endpoint.Endpoint{
+				createTestEndpoint(1, "test-ns", "pod-1", "/var/run/netns/test1"),
+			},
+			ciliumEndpointSlices: map[string]*v2alpha1.CiliumEndpointSlice{
+				"test-ns/ces-1": {
+					ObjectMeta: v1.ObjectMeta{
+						Name: "ces-1",
+					},
+					Namespace: "test-ns",
+					Endpoints: []v2alpha1.CoreCiliumEndpoint{
+						{Name: "pod-1"},
+						{Name: "pod-2"},
+					},
+				},
+			},
+			expectedDisenrolled:    1,
+			expectedEndpointEvents: 2,
+			expectedError:          false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, _, mockEpMgr, mockEnroller, ops := setupTest(t)
+			// Save and restore the original option value
+			originalEnableCES := option.Config.EnableCiliumEndpointSlice
+			defer func() {
+				option.Config.EnableCiliumEndpointSlice = originalEnableCES
+			}()
+			option.Config.EnableCiliumEndpointSlice = tt.enableCiliumEndpointSlice
+			db, _, mockEpMgr, mockEnroller, ops, endpointEventCh := setupTest(t)
 
 			mockEpMgr.endpoints = tt.endpoints
 			mockEnroller.disenrollErr = tt.disenrollErr
+
+			// Setup CiliumEndpoint or CiliumEndpointSlice resources
+			if tt.ciliumEndpoints != nil {
+				mockCEPStore := ops.ciliumEndpointResource.(*MockCiliumEndpointResource).store
+				mockCEPStore.endpoints = tt.ciliumEndpoints
+			}
+			if tt.ciliumEndpointSlices != nil {
+				mockCESStore := ops.ciliumEndpointSliceResource.(*MockCiliumEndpointSliceResource).store
+				mockCESStore.slices = tt.ciliumEndpointSlices
+			}
 
 			ns := &table.EnrolledNamespace{
 				Name:   tt.namespace,
@@ -477,6 +818,26 @@ func TestEnrollmentReconciler_Delete(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Len(t, mockEnroller.disenrolledIDs, tt.expectedDisenrolled)
 			}
+
+			// Verify endpoint events were sent
+			eventCount := 0
+			timeout := time.After(100 * time.Millisecond)
+		drainLoop:
+			for {
+				select {
+				case event := <-endpointEventCh:
+					eventCount++
+					assert.Equal(t, xds.REMOVED, event.Type)
+				case <-timeout:
+					break drainLoop
+				default:
+					if eventCount >= tt.expectedEndpointEvents {
+						break drainLoop
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+			}
+			assert.Equal(t, tt.expectedEndpointEvents, eventCount, "unexpected number of endpoint events")
 		})
 	}
 }
@@ -527,7 +888,7 @@ func TestEnrollmentReconciler_EndpointCreated(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, tbl, _, mockEnroller, ops := setupTest(t)
+			db, tbl, _, mockEnroller, ops, _ := setupTest(t)
 
 			mockEnroller.enrollErr = tt.enrollErr
 
@@ -600,7 +961,7 @@ func TestEnrollmentReconciler_EndpointDeleted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, tbl, _, mockEnroller, ops := setupTest(t)
+			db, tbl, _, mockEnroller, ops, _ := setupTest(t)
 
 			// Initialize table and add enrolled namespaces.
 			txn := db.WriteTxn(tbl)
