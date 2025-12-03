@@ -1141,6 +1141,12 @@ data:
   {{- if ne .Values.ipam.nodeSpec.ipamPreAllocate nil }}
   ipam-pre-allocate: {{ .Values.ipam.nodeSpec.ipamPreAllocate | quote }}
   {{- end }}
+  {{- if ne .Values.ipam.nodeSpec.ipamMaxAllocate nil }}
+  ipam-max-allocate: {{ .Values.ipam.nodeSpec.ipamMaxAllocate | quote }}
+  {{- end }}
+  {{- if .Values.ipam.nodeSpec.ipamStaticIPTags }}
+  ipam-static-ip-tags: {{ .Values.ipam.nodeSpec.ipamStaticIPTags | join "," | quote }}
+  {{- end }}
 {{- end }}
 {{- if .Values.ipam.multiPoolPreAllocation }}
   ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation | quote }}

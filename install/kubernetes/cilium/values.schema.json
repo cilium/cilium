@@ -4102,6 +4102,12 @@
         },
         "nodeSpec": {
           "properties": {
+            "ipamMaxAllocate": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
             "ipamMinAllocate": {
               "type": [
                 "null",
@@ -4113,6 +4119,10 @@
                 "null",
                 "integer"
               ]
+            },
+            "ipamStaticIPTags": {
+              "items": {},
+              "type": "array"
             }
           },
           "type": "object"
