@@ -440,6 +440,14 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "nodeSpec": {
+          "properties": {
+            "azureInterfaceName": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"
