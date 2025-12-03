@@ -2,6 +2,9 @@
 
 hive/start
 
+# Add two namespaces
+k8s/add namespace-1.yaml namespace-2.yaml
+
 # Add two CiliumEndpoints
 k8s/add endpoint-1.yaml endpoint-2.yaml
 
@@ -39,6 +42,18 @@ kvstore/list -o json cilium/state/ip ips-1+3.actual
 * cmp ips-1+3.actual ips-1+3.expected
 
 # ---
+
+-- namespace-1.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: foo
+
+-- namespace-2.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bar
 
 -- endpoint-1.yaml --
 apiVersion: cilium.io/v2
