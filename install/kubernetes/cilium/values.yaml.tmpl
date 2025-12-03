@@ -2153,6 +2153,13 @@ ipam:
     # type: [null, integer]
     # @schema
     ipamPreAllocate: ~
+    # -- IPAM max allocate
+    # @schema
+    # type: [null, integer]
+    # @schema
+    ipamMaxAllocate: ~
+    # -- IPAM static IP tags (currently only works with AWS and Azure)
+    ipamStaticIPTags: []
 # -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
 # no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
 # @schema
