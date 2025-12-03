@@ -958,6 +958,7 @@ contributors across the globe, there is almost always someone available to help.
 | sctp | object | `{"enabled":false}` | SCTP Configuration Values |
 | sctp.enabled | bool | `false` | Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming. |
 | secretsNamespaceAnnotations | object | `{}` | Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace) |
+| secretsNamespaceLabels | object | `{}` | Labels to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace) |
 | securityContext.allowPrivilegeEscalation | bool | `false` | disable privilege escalation |
 | securityContext.capabilities.applySysctlOverwrites | list | `["SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]` | capabilities for the `apply-sysctl-overwrites` init container |
 | securityContext.capabilities.ciliumAgent | list | `["CHOWN","KILL","NET_ADMIN","NET_RAW","IPC_LOCK","SYS_MODULE","SYS_ADMIN","SYS_RESOURCE","DAC_OVERRIDE","FOWNER","SETGID","SETUID"]` | Capabilities for the `cilium-agent` container |

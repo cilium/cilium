@@ -3632,6 +3632,10 @@
      - Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
      - object
      - ``{}``
+   * - :spelling:ignore:`secretsNamespaceLabels`
+     - Labels to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
+     - object
+     - ``{}``
    * - :spelling:ignore:`securityContext.allowPrivilegeEscalation`
      - disable privilege escalation
      - bool
