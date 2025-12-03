@@ -43,7 +43,7 @@ func NewCiliumClusterwideEnvoyConfigInformer(client versioned.Interface, resyncP
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCiliumClusterwideEnvoyConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredCiliumClusterwideEnvoyConfigInformer(client versioned.Interface,
 				}
 				return client.CiliumV2().CiliumClusterwideEnvoyConfigs().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisciliumiov2.CiliumClusterwideEnvoyConfig{},
 		resyncPeriod,
 		indexers,

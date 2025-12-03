@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	clientfeatures "k8s.io/client-go/features"
 	"k8s.io/client-go/tools/pager"
+	"k8s.io/client-go/util/watchlist"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 	"k8s.io/utils/ptr"
@@ -49,11 +50,9 @@ import (
 
 const defaultExpectedTypeName = "<unspecified>"
 
-var (
-	// We try to spread the load on apiserver by setting timeouts for
-	// watch requests - it is random in [minWatchTimeout, 2*minWatchTimeout].
-	defaultMinWatchTimeout = 5 * time.Minute
-)
+// We try to spread the load on apiserver by setting timeouts for
+// watch requests - it is random in [minWatchTimeout, 2*minWatchTimeout].
+var defaultMinWatchTimeout = 5 * time.Minute
 
 // ReflectorStore is the subset of cache.Store that the reflector uses
 type ReflectorStore interface {
@@ -299,6 +298,16 @@ func NewReflectorWithOptions(lw ListerWatcher, expectedType interface{}, store R
 	}
 
 	r.useWatchList = clientfeatures.FeatureGates().Enabled(clientfeatures.WatchListClient)
+	if r.useWatchList && watchlist.DoesClientNotSupportWatchListSemantics(lw) {
+		// Using klog.TODO() here because switching to a caller-provided contextual logger
+		// would require an API change and updating all existing call sites.
+		klog.TODO().V(2).Info(
+			"The provided ListWatcher doesn't support WatchList semantics. The feature will be disabled. If you are using a custom client, check the documentation of watchlist.DoesClientNotSupportWatchListSemantics() method",
+			"listWatcherType", fmt.Sprintf("%T", lw),
+			"feature", clientfeatures.WatchListClient,
+		)
+		r.useWatchList = false
+	}
 
 	return r
 }
@@ -365,9 +374,6 @@ func (r *Reflector) RunWithContext(ctx context.Context) {
 }
 
 var (
-	// nothing will ever be sent down this channel
-	neverExitWatch <-chan time.Time = make(chan time.Time)
-
 	// Used to indicate that watching stopped because of a signal from the stop
 	// channel passed in from a client of the reflector.
 	errorStopRequested = errors.New("stop requested")
@@ -377,7 +383,8 @@ var (
 // required, and a cleanup function.
 func (r *Reflector) resyncChan() (<-chan time.Time, func() bool) {
 	if r.resyncPeriod == 0 {
-		return neverExitWatch, func() bool { return false }
+		// nothing will ever be sent down this channel
+		return nil, func() bool { return false }
 	}
 	// The cleanup function is required: imagine the scenario where watches
 	// always fail so we end up listing frequently. Then, if we don't
