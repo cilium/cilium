@@ -2723,7 +2723,11 @@
    * - :spelling:ignore:`ipam.nodeSpec`
      - NodeSpec configuration for the IPAM
      - object
-     - ``{"ipamMinAllocate":null,"ipamPreAllocate":null}``
+     - ``{"ipamMaxAllocate":null,"ipamMinAllocate":null,"ipamPreAllocate":null,"ipamStaticIPTags":[]}``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamMaxAllocate`
+     - IPAM max allocate @schema type: [null, integer] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`ipam.nodeSpec.ipamMinAllocate`
      - IPAM min allocate @schema type: [null, integer] @schema
      - string
@@ -2732,6 +2736,10 @@
      - IPAM pre allocate @schema type: [null, integer] @schema
      - string
      - ``nil``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamStaticIPTags`
+     - IPAM static IP tags (currently only works with AWS and Azure)
+     - list
+     - ``[]``
    * - :spelling:ignore:`ipam.operator.autoCreateCiliumPodIPPools`
      - IP pools to auto-create in multi-pool IPAM mode.
      - object
