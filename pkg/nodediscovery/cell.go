@@ -50,6 +50,11 @@ var defaultConfig = config{
 	ENIDeleteOnTermination:     defaults.ENIDeleteOnTermination,
 
 	AzureInterfaceName: "",
+
+	AlibabaCloudVSwitches:         []string{},
+	AlibabaCloudVSwitchTags:       map[string]string{},
+	AlibabaCloudSecurityGroups:    []string{},
+	AlibabaCloudSecurityGroupTags: map[string]string{},
 }
 
 type config struct {
@@ -69,6 +74,11 @@ type config struct {
 	ENIDeleteOnTermination     bool
 
 	AzureInterfaceName string
+
+	AlibabaCloudVSwitches         []string
+	AlibabaCloudVSwitchTags       map[string]string
+	AlibabaCloudSecurityGroups    []string
+	AlibabaCloudSecurityGroupTags map[string]string
 }
 
 func (c config) Flags(flags *pflag.FlagSet) {
@@ -88,4 +98,9 @@ func (c config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("eni-delete-on-termination", c.ENIDeleteOnTermination, "Whether the ENI should be deleted when the associated instance is terminated at the node level")
 
 	flags.String("azure-interface-name", c.AzureInterfaceName, "InterfaceName the cilium-operator will use to allocate all the IPs on at the node level")
+
+	flags.StringSlice("alibabacloud-vswitches", c.AlibabaCloudVSwitches, "List of VSwitches to use for ENI and IP allocation at the node level")
+	flags.StringToString("alibabacloud-vswitch-tags", c.AlibabaCloudVSwitchTags, "List of tags to use when evaluating what VSwitches to use for ENI and IP allocation at the node level")
+	flags.StringSlice("alibabacloud-security-groups", c.AlibabaCloudSecurityGroups, "List of security groups to attach to any ENI that is created and attached to the instance at the node level")
+	flags.StringToString("alibabacloud-security-group-tags", c.AlibabaCloudSecurityGroupTags, "List of tags to use when evaluating what security groups to use for the ENI at the node level")
 }

@@ -554,6 +554,15 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		nodeResource.Spec.AlibabaCloud.CIDRBlock = vpcCidrBlock
 		nodeResource.Spec.AlibabaCloud.AvailabilityZone = zoneID
 
+		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
+		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
+		nodeResource.Spec.IPAM.MaxAllocate = n.config.IPAMMaxAllocate
+		nodeResource.Spec.IPAM.StaticIPTags = n.config.IPAMStaticIPTags
+		nodeResource.Spec.AlibabaCloud.VSwitches = n.config.AlibabaCloudVSwitches
+		nodeResource.Spec.AlibabaCloud.VSwitchTags = n.config.AlibabaCloudVSwitchTags
+		nodeResource.Spec.AlibabaCloud.SecurityGroups = n.config.AlibabaCloudSecurityGroups
+		nodeResource.Spec.AlibabaCloud.SecurityGroupTags = n.config.AlibabaCloudSecurityGroupTags
+
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.AlibabaCloud.VPCID != "" {
 				nodeResource.Spec.AlibabaCloud.VPCID = c.AlibabaCloud.VPCID
