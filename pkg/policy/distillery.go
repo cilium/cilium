@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
@@ -185,7 +184,7 @@ func (cache *policyCache) getAuthTypes(localID, remoteID identityPkg.NumericIden
 		}
 		// Only check if 'cs' selects 'remoteID' if one of the authTypes is still missing
 		// from the result
-		if missing && cs.Selects(versioned.Latest(), remoteID) {
+		if missing && cs.Selects(remoteID) {
 			if resTypes == nil {
 				resTypes = make(AuthTypes, 1)
 			}
