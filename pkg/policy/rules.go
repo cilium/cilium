@@ -5,10 +5,15 @@ package policy
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 
 	"github.com/cilium/cilium/pkg/policy/types"
 )
+
+// ErrTooManyLevels is returned if an endpoint's policy results in more than
+// 2^24 distinct priorities for a given direction; the datapath cannot support more than that.
+var ErrTooManyLevels = fmt.Errorf("endpoint policy direction has more than 2^24 distinct priorities")
 
 // ruleSlice is a wrapper around a slice of *rule, which allows for functions
 // to be written with []*rule as a receiver.
@@ -18,7 +23,25 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMap, er
 	result := NewL4PolicyMap()
 
 	state := traceState{}
+	// rules are sorted by priority here
+	level := uint32(0)
+	lastPrio := float64(0)
+	if len(rules) > 0 {
+		lastPrio = rules[0].Priority
+	}
 	for _, r := range rules {
+		// This rule's priority is greater than that of the previous, so we bump level.
+		// This has the effect of "flattening" an arbitrary float ordering of rules in to a
+		// single integer sequence of levels.
+		if r.Priority != lastPrio {
+			if level == types.MaxLevel {
+				return nil, ErrTooManyLevels
+			}
+			level++
+		}
+		lastPrio = r.Priority
+		policyCtx.SetPriority(level)
+
 		err := result.resolveL4Policy(policyCtx, &state, r)
 		if err != nil {
 			return nil, err
@@ -38,6 +61,10 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMap, er
 // if the list of FQDNs is the same.
 func (rules ruleSlice) sort() {
 	slices.SortFunc(rules, func(a, b *rule) int {
+		// order first
+		if sign := cmp.Compare(a.Priority, b.Priority); sign != 0 {
+			return sign
+		}
 		if sign := cmp.Compare(a.key.resource, b.key.resource); sign != 0 {
 			return sign
 		}

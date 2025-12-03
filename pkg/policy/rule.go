@@ -430,7 +430,6 @@ func (result *l4PolicyMap) resolveL4Policy(
 
 	policyCtx.SetOrigin(r.origin())
 
-	policyCtx.SetPriority(r.Priority)
 	cnt, err := result.mergeL4Filter(policyCtx, r)
 	if err != nil {
 		return err
