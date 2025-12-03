@@ -527,9 +527,15 @@ func (p *CIDRSelector) MetricsClass() string {
 // CachedSelector represents an identity selector owned by the selector cache
 type CachedSelector interface {
 	// GetSelections returns the cached set of numeric identities
+	// selected by the CachedSelector for the latest revision of the
+	// selector cache.  The retuned slice must NOT be modified, as it
+	// is shared among multiple users.
+	GetSelections() identity.NumericIdentitySlice
+
+	// GetSelectionsAt returns the cached set of numeric identities
 	// selected by the CachedSelector.  The retuned slice must NOT
 	// be modified, as it is shared among multiple users.
-	GetSelections(*versioned.VersionHandle) identity.NumericIdentitySlice
+	GetSelectionsAt(*versioned.VersionHandle) identity.NumericIdentitySlice
 
 	// GetMetadataLabels returns metadata labels for additional context
 	// surrounding the selector. These are typically the labels associated with
@@ -537,8 +543,8 @@ type CachedSelector interface {
 	GetMetadataLabels() labels.LabelArray
 
 	// Selects return 'true' if the CachedSelector selects the given
-	// numeric identity.
-	Selects(*versioned.VersionHandle, identity.NumericIdentity) bool
+	// numeric identity on the latest version of the selector.
+	Selects(identity.NumericIdentity) bool
 
 	// IsWildcard returns true if the endpoint selector selects
 	// all endpoints.

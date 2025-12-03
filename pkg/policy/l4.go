@@ -761,7 +761,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 			continue
 		}
 
-		idents := cs.GetSelections(p.VersionHandle)
+		idents := cs.GetSelectionsAt(p.VersionHandle)
 		if option.Config.Debug {
 			if entry.IsDeny() {
 				scopedLog.Debug(
@@ -1124,7 +1124,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 			// Identities with a reserved:host label are never changed incrementally, so
 			// it is correct to use the latest version here. In case the host identity
 			// is mutated, the whole policy is recomputed.
-			if allowLocalhost && sp.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
+			if allowLocalhost && sp.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
 				host := api.ReservedEndpointSelectors[labels.IDNameHost]
 				// Add the cached host selector to the PerSelectorPolicies, if not
 				// already there. Use empty string labels due to this selector being

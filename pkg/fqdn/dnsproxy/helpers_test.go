@@ -199,7 +199,11 @@ type MockCachedSelector struct {
 	key string
 }
 
-func (m MockCachedSelector) GetSelections(*versioned.VersionHandle) identity.NumericIdentitySlice {
+func (m MockCachedSelector) GetSelections() identity.NumericIdentitySlice {
+	return nil
+}
+
+func (m MockCachedSelector) GetSelectionsAt(*versioned.VersionHandle) identity.NumericIdentitySlice {
 	return nil
 }
 
@@ -207,7 +211,7 @@ func (m MockCachedSelector) GetMetadataLabels() labels.LabelArray {
 	panic("implement me")
 }
 
-func (m MockCachedSelector) Selects(*versioned.VersionHandle, identity.NumericIdentity) bool {
+func (m MockCachedSelector) Selects(identity.NumericIdentity) bool {
 	return false
 }
 

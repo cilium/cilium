@@ -11,10 +11,9 @@ import (
 )
 
 type ProxyUpdaterMock struct {
-	Id            uint64
-	Ipv4          string
-	Ipv6          string
-	VersionHandle *versioned.VersionHandle
+	Id   uint64
+	Ipv4 string
+	Ipv6 string
 }
 
 func (m *ProxyUpdaterMock) GetPolicyNames() []string {
@@ -46,7 +45,7 @@ func (m *ProxyUpdaterMock) UpdateProxyStatistics(proxyType, l4Protocol string, p
 func (m *ProxyUpdaterMock) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {}
 
 func (m *ProxyUpdaterMock) GetPolicyVersionHandle() *versioned.VersionHandle {
-	return m.VersionHandle
+	return versioned.Latest()
 }
 
 func (m *ProxyUpdaterMock) GetListenerProxyPort(listener string) uint16 {

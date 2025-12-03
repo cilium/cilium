@@ -497,7 +497,7 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 		return r.Subject.Matches(securityIdentity.LabelArray)
 	}
 
-	return r.subjectSelector.Selects(versioned.Latest(), securityIdentity.ID)
+	return r.subjectSelector.Selects(securityIdentity.ID)
 }
 
 func (r *rule) getSubjects() []identity.NumericIdentity {
@@ -505,5 +505,5 @@ func (r *rule) getSubjects() []identity.NumericIdentity {
 		return []identity.NumericIdentity{identity.ReservedIdentityHost}
 	}
 
-	return r.subjectSelector.GetSelections(versioned.Latest())
+	return r.subjectSelector.GetSelections()
 }

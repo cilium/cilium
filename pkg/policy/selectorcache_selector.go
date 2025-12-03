@@ -105,12 +105,21 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 // No locking needed.
 //
 
-// GetSelections returns the set of numeric identities currently
+// GetSelectionsAt returns the set of numeric identities currently
 // selected.  The cached selections can be concurrently updated. In
-// that case GetSelections() will return either the old or new version
+// that case GetSelectionsAt() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (i *identitySelector) GetSelections(version *versioned.VersionHandle) identity.NumericIdentitySlice {
+func (i *identitySelector) GetSelections() identity.NumericIdentitySlice {
+	return i.selections.At(versioned.Latest())
+}
+
+// GetSelectionsAt returns the set of numeric identities currently
+// selected.  The cached selections can be concurrently updated. In
+// that case GetSelectionsAt() will return either the old or new version
+// of the selections. If the old version is returned, the user is
+// guaranteed to receive a notification including the update.
+func (i *identitySelector) GetSelectionsAt(version *versioned.VersionHandle) identity.NumericIdentitySlice {
 	if !version.IsValid() {
 		i.logger.Error(
 			"GetSelections: Invalid VersionHandle finds nothing",
@@ -128,11 +137,11 @@ func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
 
 // Selects return 'true' if the CachedSelector selects the given
 // numeric identity.
-func (i *identitySelector) Selects(version *versioned.VersionHandle, nid identity.NumericIdentity) bool {
+func (i *identitySelector) Selects(nid identity.NumericIdentity) bool {
 	if i.IsWildcard() {
 		return true
 	}
-	nids := i.GetSelections(version)
+	nids := i.GetSelections()
 	idx := sort.Search(len(nids), func(i int) bool { return nids[i] >= nid })
 	return idx < len(nids) && nids[idx] == nid
 }
