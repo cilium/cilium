@@ -700,7 +700,7 @@
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
-      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.34\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "v1.18",
@@ -712,7 +712,7 @@
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
-      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.35\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "main",
