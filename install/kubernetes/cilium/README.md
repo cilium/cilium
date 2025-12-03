@@ -730,9 +730,11 @@ contributors across the globe, there is almost always someone available to help.
 | ipam.installUplinkRoutesForDelegatedIPAM | bool | `false` | Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin. |
 | ipam.mode | string | `"cluster-pool"` | Configure IP Address Management mode. ref: https://docs.cilium.io/en/stable/network/concepts/ipam/ |
 | ipam.multiPoolPreAllocation | string | `""` | Pre-allocation settings for IPAM in Multi-Pool mode |
-| ipam.nodeSpec | object | `{"ipamMinAllocate":null,"ipamPreAllocate":null}` | NodeSpec configuration for the IPAM |
+| ipam.nodeSpec | object | `{"ipamMaxAllocate":null,"ipamMinAllocate":null,"ipamPreAllocate":null,"ipamStaticIPTags":[]}` | NodeSpec configuration for the IPAM |
+| ipam.nodeSpec.ipamMaxAllocate | string | `nil` | IPAM max allocate @schema type: [null, integer] @schema |
 | ipam.nodeSpec.ipamMinAllocate | string | `nil` | IPAM min allocate @schema type: [null, integer] @schema |
 | ipam.nodeSpec.ipamPreAllocate | string | `nil` | IPAM pre allocate @schema type: [null, integer] @schema |
+| ipam.nodeSpec.ipamStaticIPTags | list | `[]` | IPAM static IP tags (currently only works with AWS and Azure) |
 | ipam.operator.autoCreateCiliumPodIPPools | object | `{}` | IP pools to auto-create in multi-pool IPAM mode. |
 | ipam.operator.clusterPoolIPv4MaskSize | int | `24` | IPv4 CIDR mask size to delegate to individual nodes for IPAM. |
 | ipam.operator.clusterPoolIPv4PodCIDRList | list | `["10.0.0.0/8"]` | IPv4 CIDR list range to delegate to individual nodes for IPAM. |
