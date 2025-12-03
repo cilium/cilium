@@ -15,6 +15,10 @@ cilium-agent hive [flags]
       --agent-health-require-k8s-connectivity                     Require Kubernetes connectivity in agent health endpoint (default true)
       --agent-labels strings                                      Additional labels to identify this agent in monitor events
       --agent-liveness-update-interval duration                   Interval at which the agent updates liveness time for the datapath (default 1s)
+      --alibabacloud-security-group-tags stringToString           List of tags to use when evaluating what security groups to use for the ENI at the node level (default [])
+      --alibabacloud-security-groups strings                      List of security groups to attach to any ENI that is created and attached to the instance at the node level
+      --alibabacloud-vswitch-tags stringToString                  List of tags to use when evaluating what VSwitches to use for ENI and IP allocation at the node level (default [])
+      --alibabacloud-vswitches strings                            List of VSwitches to use for ENI and IP allocation at the node level
       --api-rate-limit string                                     API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)
       --azure-interface-name string                               InterfaceName the cilium-operator will use to allocate all the IPs on at the node level
       --bpf-lb-algorithm string                                   BPF load balancing algorithm ("random", "maglev") (default "random")
