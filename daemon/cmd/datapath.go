@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/option"
@@ -91,10 +90,6 @@ func initMaps(params daemonParams) error {
 
 	if err := lxcmap.LXCMap(params.MetricsRegistry).OpenOrCreate(); err != nil {
 		return fmt.Errorf("initializing lxc map: %w", err)
-	}
-
-	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
-		return fmt.Errorf("initializing metrics map: %w", err)
 	}
 
 	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
