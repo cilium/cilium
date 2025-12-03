@@ -36,6 +36,22 @@
      - Enable AlibabaCloud ENI integration
      - bool
      - ``false``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.securityGroupTags`
+     - 
+     - list
+     - ``[]``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.securityGroups`
+     - 
+     - list
+     - ``[]``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.vSwitchTags`
+     - 
+     - list
+     - ``[]``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.vSwitches`
+     - 
+     - list
+     - ``[]``
    * - :spelling:ignore:`annotateK8sNode`
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
