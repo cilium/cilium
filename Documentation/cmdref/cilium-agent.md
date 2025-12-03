@@ -16,6 +16,10 @@ cilium-agent [flags]
       --agent-labels strings                                      Additional labels to identify this agent in monitor events
       --agent-liveness-update-interval duration                   Interval at which the agent updates liveness time for the datapath (default 1s)
       --agent-not-ready-taint-key string                          Key of the taint indicating that Cilium is not ready on the node (default "node.cilium.io/agent-not-ready")
+      --alibabacloud-security-group-tags stringToString           List of tags to use when evaluating what security groups to use for the ENI at the node level (default [])
+      --alibabacloud-security-groups strings                      List of security groups to attach to any ENI that is created and attached to the instance at the node level
+      --alibabacloud-vswitch-tags stringToString                  List of tags to use when evaluating what VSwitches to use for ENI and IP allocation at the node level (default [])
+      --alibabacloud-vswitches strings                            List of VSwitches to use for ENI and IP allocation at the node level
       --allocator-list-timeout duration                           Timeout for listing allocator state before exiting (default 3m0s)
       --allow-icmp-frag-needed                                    Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU. (default true)
       --allow-localhost string                                    Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")
