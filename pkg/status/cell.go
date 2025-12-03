@@ -121,6 +121,7 @@ func (r Config) Flags(flags *pflag.FlagSet) {
 	flags.String("status-collector-stackdump-path", r.StatusCollectorStackdumpPath, "The path where probe stackdumps should be written to")
 }
 
+// Dummy change
 func newStatusCollector(params statusParams) StatusCollector {
 	collector := &statusCollector{
 		statusParams:    params,
