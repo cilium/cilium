@@ -499,6 +499,12 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 		// consistent results.
 		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(ln.Local.ProviderID, azureTypes.ProviderPrefix))
 
+		nodeResource.Spec.IPAM.MinAllocate = n.config.IPAMMinAllocate
+		nodeResource.Spec.IPAM.PreAllocate = n.config.IPAMPreAllocate
+		nodeResource.Spec.IPAM.MaxAllocate = n.config.IPAMMaxAllocate
+		nodeResource.Spec.IPAM.StaticIPTags = n.config.IPAMStaticIPTags
+		nodeResource.Spec.Azure.InterfaceName = n.config.AzureInterfaceName
+
 		if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
 			if c.IPAM.MinAllocate != 0 {
 				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate

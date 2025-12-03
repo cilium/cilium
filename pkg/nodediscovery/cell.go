@@ -48,6 +48,8 @@ var defaultConfig = config{
 	ENIUsePrimaryAddress:       defaults.UseENIPrimaryAddress,
 	ENIDisablePrefixDelegation: defaults.ENIDisableNodeLevelPD,
 	ENIDeleteOnTermination:     defaults.ENIDeleteOnTermination,
+
+	AzureInterfaceName: "",
 }
 
 type config struct {
@@ -65,6 +67,8 @@ type config struct {
 	ENIUsePrimaryAddress       bool
 	ENIDisablePrefixDelegation bool
 	ENIDeleteOnTermination     bool
+
+	AzureInterfaceName string
 }
 
 func (c config) Flags(flags *pflag.FlagSet) {
@@ -82,4 +86,6 @@ func (c config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("eni-use-primary-address", c.ENIUsePrimaryAddress, "Whether an ENI's primary address should be available for allocations on the node at the node level")
 	flags.Bool("eni-disable-prefix-delegation", c.ENIDisablePrefixDelegation, "Whether ENI prefix delegation should be disabled on this node at the node level")
 	flags.Bool("eni-delete-on-termination", c.ENIDeleteOnTermination, "Whether the ENI should be deleted when the associated instance is terminated at the node level")
+
+	flags.String("azure-interface-name", c.AzureInterfaceName, "InterfaceName the cilium-operator will use to allocate all the IPs on at the node level")
 }
