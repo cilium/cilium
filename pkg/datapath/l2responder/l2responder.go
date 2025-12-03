@@ -374,7 +374,7 @@ func garpOnNewEntry(arMap l2respondermap.Map, sender gneigh.Sender, ip netip.Add
 		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
 	}
 
-	err = sender.SendArp(iface, ip)
+	err = sender.SendArp(iface, ip, iface.HardwareAddr())
 	if err != nil {
 		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
 	}
@@ -393,7 +393,7 @@ func gneighOnNewEntry(ndMap l2v6respondermap.Map, sender gneigh.Sender, ip netip
 		return fmt.Errorf("gneigh adv %s@%d: %w", ip, ifIndex, err)
 	}
 
-	err = sender.SendNd(iface, ip)
+	err = sender.SendNd(iface, ip, iface.HardwareAddr())
 	if err != nil {
 		return fmt.Errorf("gneigh adv %s@%d: %w", ip, ifIndex, err)
 	}
