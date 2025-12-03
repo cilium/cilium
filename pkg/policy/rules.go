@@ -4,6 +4,9 @@
 package policy
 
 import (
+	"cmp"
+	"slices"
+
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -13,13 +16,6 @@ type ruleSlice []*rule
 
 func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMap, error) {
 	result := NewL4PolicyMap()
-
-	ingress := policyCtx.IsIngress()
-	msg := "Resolving egress policy"
-	if ingress {
-		msg = "Resolving ingress policy"
-	}
-	policyCtx.PolicyTrace(msg)
 
 	state := traceState{}
 	for _, r := range rules {
@@ -33,6 +29,20 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMap, er
 	state.trace(len(rules), policyCtx)
 
 	return result, nil
+}
+
+// Always sort matched rules to get a stable policy order.
+// It's not the order per se that is important, just that it's always in the same order when the
+// elements are the same. In most cases this should be a small list so the overhead should be pretty minimal.
+// This is very useful for subsystems like the dnsproxy that can reuse the same regex during recompilation
+// if the list of FQDNs is the same.
+func (rules ruleSlice) sort() {
+	slices.SortFunc(rules, func(a, b *rule) int {
+		if sign := cmp.Compare(a.key.resource, b.key.resource); sign != 0 {
+			return sign
+		}
+		return cmp.Compare(a.key.idx, b.key.idx)
+	})
 }
 
 // AsPolicyEntries return the internal PolicyEntry objects as a PolicyEntries object
