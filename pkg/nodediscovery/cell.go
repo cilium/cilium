@@ -32,7 +32,12 @@ var Cell = cell.Module(
 
 var defaultConfig = config{
 	IPAMMinAllocate: 0,
-	IPAMPreAllocate: 0,
+	// default pre-allocate value is 8 and will be set by operator.
+	// Using 0 here will not really set the value since kubernetes will
+	// treat zero as unset value.
+	IPAMPreAllocate:  0,
+	IPAMMaxAllocate:  0,
+	IPAMStaticIPTags: map[string]string{},
 
 	ENIFirstInterfaceIndex:     defaults.ENIFirstInterfaceIndex,
 	ENISubnetIDs:               []string{},
@@ -46,8 +51,10 @@ var defaultConfig = config{
 }
 
 type config struct {
-	IPAMMinAllocate int
-	IPAMPreAllocate int
+	IPAMMinAllocate  int
+	IPAMPreAllocate  int
+	IPAMMaxAllocate  int
+	IPAMStaticIPTags map[string]string
 
 	ENIFirstInterfaceIndex     int
 	ENISubnetIDs               []string
@@ -63,9 +70,11 @@ type config struct {
 func (c config) Flags(flags *pflag.FlagSet) {
 	flags.Int("ipam-min-allocate", c.IPAMMinAllocate, "Minimum number of IPs that must be allocated when the node is first bootstrapped at the node level")
 	flags.Int("ipam-pre-allocate", c.IPAMPreAllocate, "Number of IP addresses that must be available for allocation in the IPAMspec at the node level")
+	flags.Int("ipam-max-allocate", c.IPAMMaxAllocate, "Maximum number of IPs that can be allocated at the node level")
+	flags.StringToString("ipam-static-ip-tags", c.IPAMStaticIPTags, "List of tags to determine the pool of IPs from which to attribute a static IP to the node at the node level, this currently works with AWS and Azure")
 
 	flags.Int("eni-first-interface-index", c.ENIFirstInterfaceIndex, "Index of the first ENI to use for IP allocation at the node level")
-	flags.StringToString("eni-exclude-interface-tags", c.ENIExcludeInterfaceTags, "List of tags to use when excluding ENIs for Cilium IP allocation")
+	flags.StringToString("eni-exclude-interface-tags", c.ENIExcludeInterfaceTags, "List of tags to use when excluding ENIs for Cilium IP allocation at the node level")
 	flags.StringSlice("eni-subnet-ids", c.ENISubnetIDs, "List of subnet ids to use when evaluating what AWS subnets to use for ENI and IP allocation at the node level")
 	flags.StringToString("eni-subnet-tags", c.ENISubnetTags, "List of tags to use when evaluating what AWS subnets to use for ENI and IP allocation at the node level")
 	flags.StringSlice("eni-security-groups", c.ENISecurityGroups, "List of security groups to attach to any ENI that is created and attached to the instance at the node level")
