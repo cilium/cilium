@@ -172,12 +172,9 @@ The following parameters are available to control the IP allocation:
 
   If unspecified, this value defaults to 8.
 
-``spec.ipam.max-above-watermark``
-  The maximum number of addresses to allocate beyond the addresses needed to
-  reach the PreAllocate watermark.  Going above the watermark can help reduce
-  the number of API calls to allocate IPs.
+``spec.azure.interface-name``
+  The name of the interface to use for IP allocation.
 
-  If let unspecified, the value defaults to 0.
 
 *******************
 Operational Details
