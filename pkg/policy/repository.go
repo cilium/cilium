@@ -400,10 +400,6 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 		}
 	}
 
-	// Always sort matched rules to get a stable policy order.
-	rulesIngress.sort()
-	rulesEgress.sort()
-
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
 	// If the endpoint has the reserved:init label, i.e. if it has not yet

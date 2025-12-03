@@ -55,12 +55,12 @@ func TestL4Policy(t *testing.T) {
 		},
 	}
 
-	// Transform to PolicyEntries and set priority level to 1.
+	// Transform to PolicyEntries and set priority level to 0.5
 	require.NoError(t, rule1.Sanitize())
 	entries := utils.RulesToPolicyEntries(api.Rules{rule1})
 	require.Len(t, entries, 2)
 	for i := range entries {
-		entries[i].Priority = 1
+		entries[i].Priority = 0.5
 	}
 
 	l7rules := api.L7Rules{
@@ -71,13 +71,11 @@ func TestL4Policy(t *testing.T) {
 			L7Parser:         ParserTypeHTTP,
 			ListenerPriority: ListenerPriorityHTTP,
 			L7Rules:          l7rules,
-			Priority:         1,
+			Priority:         0, // will still be zero, since there is only one "tier" of entry priorities
 		},
 	}
 	l7mapLevelOnly := L7DataMap{
-		td.wildcardCachedSelector: &PerSelectorPolicy{
-			Priority: 1,
-		},
+		td.wildcardCachedSelector: nil, // allow priority zero is compressed to nil
 	}
 
 	expected := NewL4Policy(0)
