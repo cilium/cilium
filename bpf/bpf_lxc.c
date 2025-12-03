@@ -806,8 +806,8 @@ ct_recreate6:
 
 #ifdef ENABLE_SRV6
 	{
-		__u32 *vrf_id;
-		union v6addr *sid;
+		const __u32 *vrf_id;
+		const union v6addr *sid;
 
 		/* Determine if packet belongs to a VRF */
 		vrf_id = srv6_lookup_vrf6(&ip6->saddr, &ip6->daddr);
@@ -1270,8 +1270,8 @@ ct_recreate4:
 
 #ifdef ENABLE_SRV6
 	{
-		__u32 *vrf_id;
-		union v6addr *sid;
+		const __u32 *vrf_id;
+		const union v6addr *sid;
 
 		/* Determine if packet belongs to a VRF */
 		vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);
@@ -1382,7 +1382,7 @@ ct_recreate4:
 #if defined(ENABLE_VTEP)
 	{
 		struct vtep_key vkey = {};
-		struct vtep_value *vtep;
+		const struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
