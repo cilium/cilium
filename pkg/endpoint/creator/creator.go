@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
@@ -73,6 +74,7 @@ type endpointCreator struct {
 	wgConfig       wgTypes.WireguardConfig
 	ipsecConfig    datapath.IPsecConfig
 	policyLogger   func() *lumberjack.Logger
+	lxcMap         lxcmap.Map
 }
 
 var _ EndpointCreator = &endpointCreator{}
@@ -100,6 +102,7 @@ type endpointManagerParams struct {
 	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
 	WgConfig            wgTypes.WireguardConfig
 	IPSecConfig         datapath.IPsecConfig
+	LXCMap              lxcmap.Map
 }
 
 func newEndpointCreator(p endpointManagerParams) EndpointCreator {
@@ -125,6 +128,7 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		wgConfig:         p.WgConfig,
 		ipsecConfig:      p.IPSecConfig,
 		policyLogger:     sync.OnceValue(policyDebugLogger),
+		lxcMap:           p.LXCMap,
 	}
 }
 
@@ -175,6 +179,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.wgConfig,
 		c.ipsecConfig,
 		c.policyLogger(),
+		c.lxcMap,
 	)
 }
 
@@ -200,6 +205,7 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 		epJSON,
 		c.wgConfig,
 		c.ipsecConfig,
+		c.lxcMap,
 	)
 }
 
@@ -225,6 +231,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.wgConfig,
 		c.ipsecConfig,
 		c.policyLogger(),
+		c.lxcMap,
 	)
 	if err != nil {
 		return err
@@ -261,6 +268,7 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.wgConfig,
 		c.ipsecConfig,
 		c.policyLogger(),
+		c.lxcMap,
 	)
 	if err != nil {
 		return err

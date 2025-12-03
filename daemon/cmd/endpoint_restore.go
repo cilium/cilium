@@ -87,6 +87,7 @@ type endpointRestorerParams struct {
 	CacheStatus         k8sSynced.CacheStatus
 	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
 	IPCache             *ipcache.IPCache
+	LXCMap              lxcmap.Map
 }
 
 type endpointRestorer struct {
@@ -100,6 +101,7 @@ type endpointRestorer struct {
 	endpointAPIFence    endpointapi.Fence
 	ipSecAgent          datapath.IPsecAgent
 	ipamManager         *ipam.IPAM
+	lxcMap              lxcmap.Map
 
 	cacheStatus   k8sSynced.CacheStatus
 	dirReadStatus policyDirectory.DirectoryWatcherReadStatus
@@ -123,6 +125,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 		endpointAPIFence:    params.EndpointAPIFence,
 		ipSecAgent:          params.IPSecAgent,
 		ipamManager:         params.IPAMManager,
+		lxcMap:              params.LXCMap,
 
 		cacheStatus:   params.CacheStatus,
 		dirReadStatus: params.DirReadStatus,
@@ -403,7 +406,7 @@ func (r *endpointRestorer) RestoreOldEndpoints() error {
 	)
 
 	if !option.Config.DryMode {
-		existingEndpoints, err = lxcmap.DumpToMap()
+		existingEndpoints, err = r.lxcMap.DumpToMap()
 		if err != nil {
 			r.logger.Warn("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup", logfields.Error, err)
 		}
@@ -451,7 +454,7 @@ func (r *endpointRestorer) RestoreOldEndpoints() error {
 
 	for addr, info := range existingEndpoints {
 		if addr.IsValid() && !info.IsHost() {
-			if err := lxcmap.DeleteEntry(addr); err != nil {
+			if err := r.lxcMap.DeleteEntry(addr); err != nil {
 				r.logger.Warn("Unable to delete obsolete endpoint from BPF map",
 					logfields.IPAddr, addr,
 					logfields.Error, err,
