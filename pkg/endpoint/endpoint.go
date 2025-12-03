@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -159,6 +160,7 @@ type Endpoint struct {
 	monitorAgent     monitoragent.Agent
 	wgConfig         wgTypes.WireguardConfig
 	ipsecConfig      datapath.IPsecConfig
+	lxcMap           lxcmap.Map
 
 	epBuildQueue EndpointBuildQueue
 
@@ -615,7 +617,7 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 	return nil
 }
 
-func createEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, ID uint16, ifName string, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer) *Endpoint {
+func createEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, ID uint16, ifName string, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map) *Endpoint {
 	ep := &Endpoint{
 		dnsRulesAPI:        dnsRulesAPI,
 		epBuildQueue:       epBuildQueue,
@@ -628,6 +630,7 @@ func createEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue E
 		monitorAgent:       monitorAgent,
 		wgConfig:           wgCfg,
 		ipsecConfig:        ipsecCfg,
+		lxcMap:             lxcMap,
 		policyMapFactory:   policyMapFactory,
 		policyRepo:         policyRepo,
 		namedPortsGetter:   namedPortsGetter,
@@ -696,8 +699,8 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
-func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer) (*Endpoint, error) {
-	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, "", wgCfg, ipsecCfg, policyDebugLog)
+func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map) (*Endpoint, error) {
+	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, "", wgCfg, ipsecCfg, policyDebugLog, lxcMap)
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 
 	ep.isIngress = true
@@ -727,13 +730,13 @@ func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuild
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
-func CreateHostEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer) (*Endpoint, error) {
+func CreateHostEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map) (*Endpoint, error) {
 	iface, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
 	}
 
-	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, defaults.HostDevice, wgCfg, ipsecCfg, policyDebugLog)
+	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, defaults.HostDevice, wgCfg, ipsecCfg, policyDebugLog, lxcMap)
 	ep.isHost = true
 	ep.mac = mac.MAC(iface.Attrs().HardwareAddr)
 	ep.nodeMAC = mac.MAC(iface.Attrs().HardwareAddr)
@@ -949,7 +952,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 //
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func ParseEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, epJSON []byte, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig) (*Endpoint, error) {
+func ParseEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, epJSON []byte, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, lxcMap lxcmap.Map) (*Endpoint, error) {
 	ep := Endpoint{
 		dnsRulesAPI:      dnsRulesAPI,
 		epBuildQueue:     epBuildQueue,
@@ -962,6 +965,7 @@ func ParseEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue En
 		monitorAgent:     monitorAgent,
 		wgConfig:         wgCfg,
 		ipsecConfig:      ipsecCfg,
+		lxcMap:           lxcMap,
 		policyMapFactory: policyMapFactory,
 		namedPortsGetter: namedPortsGetter,
 		policyRepo:       policyRepo,

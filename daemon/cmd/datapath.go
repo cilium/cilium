@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -86,10 +85,6 @@ func initMaps(params daemonParams) error {
 		return nil
 	}
 
-	if err := lxcmap.LXCMap(params.MetricsRegistry).OpenOrCreate(); err != nil {
-		return fmt.Errorf("initializing lxc map: %w", err)
-	}
-
 	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
 		option.Config.EnableIPv6) {
 		if err := m.Create(); err != nil {
@@ -108,12 +103,6 @@ func initMaps(params daemonParams) error {
 		if err := ipv6Nat.Create(); err != nil {
 			return fmt.Errorf("initializing ipv6nat map: %w", err)
 		}
-	}
-
-	if !option.Config.RestoreState {
-		// If we are not restoring state, all endpoints can be
-		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap(params.MetricsRegistry).DeleteAll()
 	}
 
 	return nil
