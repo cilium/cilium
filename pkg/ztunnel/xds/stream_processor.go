@@ -11,6 +11,8 @@ import (
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -18,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/ztunnel/table"
 )
 
 type StreamProcessorParams struct {
@@ -32,6 +35,8 @@ type StreamProcessorParams struct {
 	// Reference to agent's CEP watcher and resource cache.
 	// This will be the source of truth for serving WDS API.
 	K8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
+	DB                        *statedb.DB
+	EnrolledNamespaceTable    statedb.RWTable[*table.EnrolledNamespace]
 	Log                       *slog.Logger
 }
 
@@ -40,12 +45,14 @@ type StreamProcessorParams struct {
 // promote decoupling and the handling multiple streams without a shared set of
 // channels being required on the Server object.
 type StreamProcessor struct {
-	stream         v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
-	streamRecv     chan *v3.DeltaDiscoveryRequest
-	endpointRecv   chan *EndpointEvent
-	expectedNonce  map[string]struct{}
-	log            *slog.Logger
-	endpointSource EndpointEventSource
+	stream                 v3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer
+	streamRecv             chan *v3.DeltaDiscoveryRequest
+	endpointRecv           chan *EndpointEvent
+	expectedNonce          map[string]struct{}
+	log                    *slog.Logger
+	endpointSource         EndpointEventSource
+	db                     *statedb.DB
+	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace]
 }
 
 // EndpointSource provides data for XDS server from different data sources in the agent.
@@ -70,11 +77,13 @@ type EndpointEventSource interface {
 
 func NewStreamProcessor(params *StreamProcessorParams) *StreamProcessor {
 	sp := &StreamProcessor{
-		stream:        params.Stream,
-		streamRecv:    params.StreamRecv,
-		endpointRecv:  params.EndpointEventRecv,
-		log:           params.Log,
-		expectedNonce: make(map[string]struct{}),
+		stream:                 params.Stream,
+		streamRecv:             params.StreamRecv,
+		endpointRecv:           params.EndpointEventRecv,
+		log:                    params.Log,
+		expectedNonce:          make(map[string]struct{}),
+		db:                     params.DB,
+		enrolledNamespaceTable: params.EnrolledNamespaceTable,
 	}
 	sp.endpointSource = NewEndpointSource(params.K8sCiliumEndpointsWatcher, sp)
 	return sp
@@ -128,6 +137,15 @@ func (es *EndpointSource) emitEndpointEvents(eventType EndpointEventType, endpoi
 
 // handleCESUpsert processes an upsert event for a CiliumEndpointSlice.
 func (es *EndpointSource) handleCESUpsert(ces *v2alpha1.CiliumEndpointSlice, cesCache map[resource.Key]map[string]*types.CiliumEndpoint, key resource.Key) {
+	txn := es.sp.db.ReadTxn()
+	_, _, found := es.sp.enrolledNamespaceTable.Get(txn, table.EnrolledNamespacesNameIndex.Query(ces.GetNamespace()))
+	if !found {
+		es.sp.log.Debug("Skipping processing of CiliumEndpointSlice in unenrolled namespace",
+			logfields.K8sNamespace, ces.GetNamespace(),
+			logfields.Name, ces.GetName(),
+		)
+		return
+	}
 	oldCEPs := cesCache[key]
 	if oldCEPs == nil {
 		oldCEPs = make(map[string]*types.CiliumEndpoint)
@@ -147,6 +165,15 @@ func (es *EndpointSource) handleCESUpsert(ces *v2alpha1.CiliumEndpointSlice, ces
 
 // handleCESDelete processes a delete event for a CiliumEndpointSlice.
 func (es *EndpointSource) handleCESDelete(ces *v2alpha1.CiliumEndpointSlice, cesCache map[resource.Key]map[string]*types.CiliumEndpoint, key resource.Key) {
+	txn := es.sp.db.ReadTxn()
+	_, _, found := es.sp.enrolledNamespaceTable.Get(txn, table.EnrolledNamespacesNameIndex.Query(ces.GetNamespace()))
+	if !found {
+		es.sp.log.Debug("Skipping processing of CiliumEndpointSlice in unenrolled namespace",
+			logfields.K8sNamespace, ces.GetNamespace(),
+			logfields.Name, ces.GetName(),
+		)
+		return
+	}
 	endpoints := convertCESToEndpointMap(ces)
 	endpointList := make([]*types.CiliumEndpoint, 0, len(endpoints))
 	for _, ep := range endpoints {
@@ -190,11 +217,29 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *syn
 	for e := range newEvents {
 		switch e.Kind {
 		case resource.Upsert:
+			txn := es.sp.db.ReadTxn()
+			_, _, found := es.sp.enrolledNamespaceTable.Get(txn, table.EnrolledNamespacesNameIndex.Query(e.Object.GetNamespace()))
+			if !found {
+				es.sp.log.Debug("Skipping processing of CiliumEndpoint in unenrolled namespace",
+					logfields.K8sNamespace, e.Object.GetNamespace(),
+					logfields.Name, e.Object.GetName(),
+				)
+				break
+			}
 			es.sp.endpointRecv <- &EndpointEvent{
 				Type:           CREATE,
 				CiliumEndpoint: e.Object,
 			}
 		case resource.Delete:
+			txn := es.sp.db.ReadTxn()
+			_, _, found := es.sp.enrolledNamespaceTable.Get(txn, table.EnrolledNamespacesNameIndex.Query(e.Object.GetNamespace()))
+			if !found {
+				es.sp.log.Debug("Skipping processing of CiliumEndpoint in unenrolled namespace",
+					logfields.K8sNamespace, e.Object.GetNamespace(),
+					logfields.Name, e.Object.GetName(),
+				)
+				break
+			}
 			es.sp.endpointRecv <- &EndpointEvent{
 				Type:           REMOVED,
 				CiliumEndpoint: e.Object,
@@ -208,12 +253,22 @@ func (es *EndpointSource) SubscribeToEndpointEvents(ctx context.Context, wg *syn
 
 func (es *EndpointSource) ListAllEndpoints(ctx context.Context) ([]*types.CiliumEndpoint, error) {
 	eps := []*types.CiliumEndpoint{}
+	// Get all enrolled namespaces
+	enrolledNamespaces := es.sp.enrolledNamespaceTable.All(es.sp.db.ReadTxn())
 	if option.Config.EnableCiliumEndpointSlice {
 		cesStore, err := es.k8sCiliumEndpointsWatcher.GetCiliumEndpointSliceResource().Store(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get CiliumEndpointSlice store from K8sCiliumEndpointsWatcher: %w", err)
 		}
-		slices := cesStore.List()
+		var slices []*v2alpha1.CiliumEndpointSlice
+		for ns := range enrolledNamespaces {
+			// Get CES in the enrolled namespace
+			slicesByNS, err := cesStore.ByIndex(k8s.NamespaceIndex, ns.Name)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get CiliumEndpointSlices by namespace index: %w", err)
+			}
+			slices = append(slices, slicesByNS...)
+		}
 
 		for _, s := range slices {
 			for _, ep := range s.Endpoints {
@@ -228,7 +283,14 @@ func (es *EndpointSource) ListAllEndpoints(ctx context.Context) ([]*types.Cilium
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CiliumEndpoint store from K8sCiliumEndpointsWatcher: %w", err)
 	}
-	eps = cepStore.List()
+	for ns := range enrolledNamespaces {
+		// Get CEP in the enrolled namespace
+		cepsByNS, err := cepStore.ByIndex(k8s.NamespaceIndex, ns.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get CiliumEndpoints by namespace index: %w", err)
+		}
+		eps = append(eps, cepsByNS...)
+	}
 	return eps, nil
 }
 
