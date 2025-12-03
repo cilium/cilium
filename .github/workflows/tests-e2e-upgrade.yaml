@@ -562,6 +562,33 @@ jobs:
             kubectl -n kube-system logs kvstore
           fi
 
+      - name: Collect coverage data
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          set -x
+          mkdir -p coverage-data
+
+          CILIUM_PODS=$(kubectl -n kube-system get pods -l k8s-app=cilium -o jsonpath='{.items[*].metadata.name}')
+
+          for pod in $CILIUM_PODS; do
+            echo "Collecting coverage from pod: $pod"
+            kubectl -n kube-system exec $pod -c cilium-agent -- sh -c 'ls -la /var/run/cilium || true'
+            kubectl -n kube-system cp $pod:/var/run/cilium coverage-data/$pod/ -c cilium-agent || echo "Failed to copy coverage from $pod"
+          done
+
+          echo "Coverage files collected:"
+          find coverage-data -type f || echo "No coverage files found"
+
+      - name: Upload coverage data
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: coverage-data-${{ matrix.name }}
+          path: coverage-data/
+          retention-days: 30
+          if-no-files-found: warn
+
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
@@ -569,6 +596,7 @@ jobs:
           artifacts_suffix: "${{ matrix.name }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
+          always_capture_sysdump: true
 
   merge-upload-and-status:
     if: ${{ always() }}
