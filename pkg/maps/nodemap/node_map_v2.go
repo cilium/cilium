@@ -61,7 +61,7 @@ func newMapV2(logger *slog.Logger, mapName string, conf Config) *nodeMapV2 {
 			KeySize:    uint32(unsafe.Sizeof(NodeKey{})),
 			ValueSize:  uint32(unsafe.Sizeof(NodeValueV2{})),
 			MaxEntries: conf.NodeMapMax,
-			Flags:      unix.BPF_F_NO_PREALLOC,
+			Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
 			Pinning:    ebpf.PinByName,
 		}),
 	}
