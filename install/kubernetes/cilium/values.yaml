@@ -443,6 +443,8 @@ azure:
   # clientID: 00000000-0000-0000-0000-000000000000
   # clientSecret: 00000000-0000-0000-0000-000000000000
   # userAssignedIdentityID: 00000000-0000-0000-0000-000000000000
+  nodeSpec:
+    azureInterfaceName: ""
 alibabacloud:
   # -- Enable AlibabaCloud ENI integration
   enabled: false

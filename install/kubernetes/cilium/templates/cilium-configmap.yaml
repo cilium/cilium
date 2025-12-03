@@ -641,6 +641,9 @@ data:
 {{- end }}
   azure-use-primary-address: {{ $azureUsePrimaryAddress | quote }}
 {{- end }}
+{{- if .Values.azure.nodeSpec.azureInterfaceName }}
+  azure-interface-name: {{ .Values.azure.nodeSpec.azureInterfaceName | quote }}
+{{- end }}
 
 {{- if .Values.alibabacloud.enabled }}
   enable-endpoint-routes: "true"
