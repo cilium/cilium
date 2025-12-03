@@ -329,9 +329,9 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, endpoints types.Selectors, auth *api.Authentication, r api.Ports, p api.PortProtocol) (int, error) {
+func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule api.Ports, p api.PortProtocol) (int, error) {
 	// Create a new L4Filter
-	filterToMerge, err := createL4Filter(policyCtx, endpoints, auth, r, p)
+	filterToMerge, err := createL4Filter(policyCtx, entry, portRule, p)
 	if err != nil {
 		return 0, err
 	}
@@ -346,11 +346,8 @@ func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, endpoints types.Se
 func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (int, error) {
 	found := 0
 
-	peerEndpoints := rule.L3
-	auth := rule.Authentication
-
 	// short-circuit if no endpoint is selected
-	if peerEndpoints == nil {
+	if rule.L3 == nil {
 		return found, nil
 	}
 
@@ -360,8 +357,8 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 	)
 
 	// L3-only rule (with requirements folded into peerEndpoints).
-	if rule.L4.Len() == 0 && len(peerEndpoints) > 0 {
-		cnt, err = resMap.addFilter(policyCtx, peerEndpoints, auth, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny})
+	if rule.L4.Len() == 0 && len(rule.L3) > 0 {
+		cnt, err = resMap.addFilter(policyCtx, &rule.PolicyEntry, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny})
 		if err != nil {
 			return found, err
 		}
@@ -370,13 +367,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 	found += cnt
 
 	err = rule.L4.Iterate(func(ports api.Ports) error {
-		// For L4 Policy, an empty slice of EndpointSelector indicates that the
-		// rule allows all at L3 - explicitly specify this by creating a slice
-		// with the WildcardEndpointSelector.
-		if len(peerEndpoints) == 0 {
-			peerEndpoints = types.WildcardSelectors
-		}
-		if !policyCtx.IsDeny() {
+		if !rule.Deny {
 			policyCtx.PolicyTrace("      Allows port %v\n", ports.GetPortProtocols())
 		} else {
 			policyCtx.PolicyTrace("      Denies port %v\n", ports.GetPortProtocols())
@@ -411,7 +402,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 			}
 			for _, protocol := range protocols {
 				p.Protocol = protocol
-				cnt, err := resMap.addFilter(policyCtx, peerEndpoints, auth, ports, p)
+				cnt, err := resMap.addFilter(policyCtx, &rule.PolicyEntry, ports, p)
 				if err != nil {
 					return err
 				}
@@ -439,36 +430,16 @@ func (result *l4PolicyMap) resolveL4Policy(
 
 	policyCtx.SetOrigin(r.origin())
 
-	if r.Ingress != policyCtx.IsIngress() {
-		msg := "    No egress rules\n"
-		if policyCtx.IsIngress() {
-			msg = "    No ingress rules\n"
-		}
-		policyCtx.PolicyTrace(msg)
-		return nil
+	policyCtx.SetPriority(r.Priority)
+	cnt, err := result.mergeL4Filter(policyCtx, r)
+	if err != nil {
+		return err
 	}
-
-	policyCtx.SetDeny(false)
-	if !r.Deny {
-		policyCtx.SetPriority(r.Priority)
-		cnt, err := result.mergeL4Filter(policyCtx, r)
-		if err != nil {
-			return err
-		}
-		if cnt > 0 {
-			found += cnt
-		}
-	}
-
-	policyCtx.SetDeny(true)
-	if r.Deny {
-		policyCtx.SetPriority(r.Priority)
-		cnt, err := result.mergeL4Filter(policyCtx, r)
-		if err != nil {
-			return err
-		}
-		if cnt > 0 {
+	if cnt > 0 {
+		if r.Deny {
 			foundDeny += cnt
+		} else {
+			found += cnt
 		}
 	}
 

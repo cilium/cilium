@@ -125,75 +125,94 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 		},
 	}
 
-	ing, egr, _, _, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE := repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, "ingress policy enforcement should not apply since no rules are in repository")
 	require.False(t, egr, "egress policy enforcement should not apply since no rules are in repository")
-	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	repo.ReplaceByResource([]*policytypes.PolicyEntry{fooIngressRule1}, fooIngressRule1Resource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
-	require.Equal(t, *fooIngressRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooIngressRule1, matchingRulesI[0].PolicyEntry, "returned matching rules did not match")
+	require.Len(t, matchingRulesI, 1, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	repo.ReplaceByResource([]*policytypes.PolicyEntry{fooIngressRule2}, fooIngressRule2Resource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
-	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), policytypes.PolicyEntries{fooIngressRule1, fooIngressRule2})
+	require.ElementsMatch(t, matchingRulesI.AsPolicyEntries(), policytypes.PolicyEntries{fooIngressRule1, fooIngressRule2})
+	require.Len(t, matchingRulesI, 2, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	_, _, numDeleted := repo.ReplaceByResource(nil, fooIngressRule1Resource)
 	require.Equal(t, 1, numDeleted)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.False(t, egr, "egress policy enforcement should not apply since no egress rules select")
-	require.Equal(t, *fooIngressRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooIngressRule2, matchingRulesI[0].PolicyEntry, "returned matching rules did not match")
+	require.Len(t, matchingRulesI, 1, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	_, _, numDeleted = repo.ReplaceByResource(nil, fooIngressRule2Resource)
 	require.Equal(t, 1, numDeleted)
 
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, "ingress policy enforcement should not apply since no rules are in repository")
 	require.False(t, egr, "egress policy enforcement should not apply since no rules are in repository")
-	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	repo.ReplaceByResource([]*policytypes.PolicyEntry{fooEgressRule1}, fooEgressRule1Resource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, "ingress policy enforcement should not apply since no ingress rules select")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
-	require.Equal(t, *fooEgressRule1, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooEgressRule1, matchingRulesE[0].PolicyEntry, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Len(t, matchingRulesE, 1, "returned matching rules did not match")
+
 	repo.ReplaceByResource(nil, fooEgressRule1Resource)
 	require.Equal(t, 1, numDeleted)
 
 	repo.ReplaceByResource([]*policytypes.PolicyEntry{fooEgressRule2}, fooEgressRule2Resource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, "ingress policy enforcement should not apply since no ingress rules select")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules select")
-	require.Equal(t, *fooEgressRule2, matchingRules[0].PolicyEntry, "returned matching rules did not match")
+	require.Equal(t, *fooEgressRule2, matchingRulesE[0].PolicyEntry, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Len(t, matchingRulesE, 1, "returned matching rules did not match")
 
 	_, _, numDeleted = repo.ReplaceByResource(nil, fooEgressRule2Resource)
 	require.Equal(t, 1, numDeleted)
 
 	repo.ReplaceByResource(combinedRule, combinedResource)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules selects")
-	require.ElementsMatch(t, matchingRules.AsPolicyEntries(), combinedRule, "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRulesI.AsPolicyEntries(), combinedRule[0:1], "returned matching rules did not match")
+	require.ElementsMatch(t, matchingRulesE.AsPolicyEntries(), combinedRule[1:2], "returned matching rules did not match")
+	require.Len(t, matchingRulesI, 1, "returned matching rules did not match")
+	require.Len(t, matchingRulesE, 1, "returned matching rules did not match")
+
 	_, _, numDeleted = repo.ReplaceByResource(nil, combinedResource)
 	require.Equal(t, 2, numDeleted)
 
 	SetPolicyEnabled(option.AlwaysEnforce)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.True(t, ing, "ingress policy enforcement should apply since ingress rule selects")
 	require.True(t, egr, "egress policy enforcement should apply since egress rules selects")
-	require.Equal(t, ruleSlice{}, matchingRules, "returned matching rules did not match")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	SetPolicyEnabled(option.NeverEnforce)
 	_, _ = repo.MustAddPolicyEntries(combinedRule)
-	ing, egr, _, _, matchingRules = repo.computePolicyEnforcementAndRules(fooIdentity)
+	ing, egr, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(fooIdentity)
 	require.False(t, ing, "ingress policy enforcement should not apply since policy enforcement is disabled ")
 	require.False(t, egr, "egress policy enforcement should not apply since policy enforcement is disabled")
-	require.Nil(t, matchingRules, "no rules should be returned since policy enforcement is disabled")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	// Test init identity.
 
@@ -201,21 +220,25 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	// If the mode is "default", check that the policy is always enforced for
 	// endpoints with the reserved:init label. If no policy rules match
 	// reserved:init, this drops all ingress and egress traffic.
-	ingress, egress, _, _, matchingRules := repo.computePolicyEnforcementAndRules(initIdentity)
+	ingress, egress, _, _, matchingRulesI, matchingRulesE := repo.computePolicyEnforcementAndRules(initIdentity)
 	require.True(t, ingress)
 	require.True(t, egress)
-	require.Equal(t, ruleSlice{}, matchingRules, "no rules should be returned since policy enforcement is disabled")
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
 
 	// Check that the "always" and "never" modes are not affected.
 	SetPolicyEnabled(option.AlwaysEnforce)
-	ingress, egress, _, _, _ = repo.computePolicyEnforcementAndRules(initIdentity)
+	ingress, egress, _, _, _, _ = repo.computePolicyEnforcementAndRules(initIdentity)
 	require.True(t, ingress)
 	require.True(t, egress)
 
 	SetPolicyEnabled(option.NeverEnforce)
-	ingress, egress, _, _, _ = repo.computePolicyEnforcementAndRules(initIdentity)
+	ingress, egress, _, _, matchingRulesI, matchingRulesE = repo.computePolicyEnforcementAndRules(initIdentity)
 	require.False(t, ingress)
 	require.False(t, egress)
+	require.Empty(t, matchingRulesI, "returned matching rules did not match")
+	require.Empty(t, matchingRulesE, "returned matching rules did not match")
+
 }
 
 func TestWildcardL3RulesIngress(t *testing.T) {
@@ -1382,10 +1405,10 @@ func TestDefaultAllow(t *testing.T) {
 
 		_, _ = repo.MustAddPolicyEntries(tc.rules)
 
-		ing, egr, _, _, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+		ing, egr, _, _, matchingRulesI, matchingRulesE := repo.computePolicyEnforcementAndRules(fooIdentity)
 		require.Equal(t, tc.ingress, ing, "case %d: ingress should match", i)
 		require.Equal(t, tc.egress, egr, "case %d: egress should match", i)
-		require.Len(t, matchingRules, tc.ruleC, "case %d: rule count should match", i)
+		require.Equal(t, tc.ruleC, len(matchingRulesI)+len(matchingRulesE), "case %d: rule count should match", i)
 	}
 
 	for i, tc := range egressCases {
@@ -1395,10 +1418,10 @@ func TestDefaultAllow(t *testing.T) {
 
 		_, _ = repo.MustAddPolicyEntries(tc.rules)
 
-		ing, egr, _, _, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+		ing, egr, _, _, matchingRulesI, matchingRulesE := repo.computePolicyEnforcementAndRules(fooIdentity)
 		require.Equal(t, tc.ingress, ing, "case %d: ingress should match", i)
 		require.Equal(t, tc.egress, egr, "case %d: egress should match", i)
-		require.Len(t, matchingRules, tc.ruleC, "case %d: rule count should match", i)
+		require.Equal(t, tc.ruleC, len(matchingRulesI)+len(matchingRulesE), "case %d: rule count should match", i)
 	}
 
 	// test all combinations of ingress + egress cases
@@ -1411,10 +1434,10 @@ func TestDefaultAllow(t *testing.T) {
 			_, _ = repo.MustAddPolicyEntries(etc.rules)
 			_, _ = repo.MustAddPolicyEntries(itc.rules)
 
-			ing, egr, _, _, matchingRules := repo.computePolicyEnforcementAndRules(fooIdentity)
+			ing, egr, _, _, matchingRulesI, matchingRulesE := repo.computePolicyEnforcementAndRules(fooIdentity)
 			require.Equal(t, itc.ingress, ing, "case ingress %d + egress %d: ingress should match", i, e)
 			require.Equal(t, etc.egress, egr, "case ingress %d + egress %d: egress should match", i, e)
-			require.Len(t, matchingRules, itc.ruleC+etc.ruleC, "case ingress %d + egress %d: rule count should match", i, e)
+			require.Equal(t, itc.ruleC+etc.ruleC, len(matchingRulesI)+len(matchingRulesE), "case ingress %d + egress %d: rule count should match", i, e)
 		}
 	}
 }
