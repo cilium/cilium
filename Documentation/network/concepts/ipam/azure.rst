@@ -71,6 +71,87 @@ Configuration
   additional information how to install and run Prometheus including the
   Grafana dashboard.
 
+Custom Azure IPAM Configuration
+===============================
+
+Custom Azure IPAM configuration can be defined from Helm or with a custom CNI
+configuration ``ConfigMap``. 
+
+If you configure both helm and Custom CNI for the same field, Custom CNI is 
+preferred over Helm configuration.
+
+Helm
+----
+
+The Azure IPAM configuration can be specified via Helm, using either the ``--set`` flag
+or the helm value file.
+
+The following example configures Cilium to:
+
+* Use the interface ``eth0`` for pod IP allocation.
+* Set the minimum number of IPs to allocate to 10.
+
+.. parsed-literal::
+  helm upgrade cilium |CHART_RELEASE| \\
+    --namespace kube-system \\
+    --reuse-values \\
+    --set azure.enabled=true \\
+    --set azure.nodeSpec.azureInterfaceName=eth0 \\
+    --set ipam.nodeSpec.ipamMinAllocate=10
+
+The full list of available options can be found in the :ref:`helm_reference`
+section in the ``azure.nodeSpec`` and ``ipam.nodeSpec`` sections.
+
+Create a CNI configuration
+--------------------------
+
+Create a ``cni-config.yaml`` file based on the template below. Fill in the
+``interface-name`` field:
+
+.. code-block:: yaml
+
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: cni-configuration
+     namespace: kube-system
+   data:
+     cni-config: |-
+       {
+         "cniVersion":"0.3.1",
+         "name":"cilium",
+         "plugins": [
+           {
+             "cniVersion":"0.3.1",
+             "type":"cilium-cni",
+             "azure": {
+               "interface-name":"eth0"
+             }
+           }
+         ]
+       }
+
+Additional parameters may be configured in the ``azure`` or ``ipam`` section of
+the CNI configuration file. See the list of Azure allocation parameters below
+for a reference of the supported options.
+
+Deploy the ``ConfigMap``:
+
+.. code-block:: shell-session
+
+   kubectl apply -f cni-config.yaml
+
+Configure Cilium to use the custom CNI configuration 
+----------------------------------------------------
+
+Using the instructions above to deploy Cilium and CNI config, specify the
+following additional arguments to Helm:
+
+.. code-block:: shell-session
+
+   --set cni.customConf=true \
+   --set cni.configMap=cni-configuration
+
 Azure Allocation Parameters
 ===========================
 
