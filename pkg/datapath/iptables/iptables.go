@@ -575,6 +575,7 @@ func (m *Manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 		return nil
 	}
 
+	// NOTE: Proxy port restoration depends on the comment string below, see doGetProxyPorts()
 	rule := []string{
 		"-t", "mangle",
 		"-A", ciliumPreMangleChain,
@@ -1115,7 +1116,7 @@ func (m *Manager) doGetProxyPorts(prog iptablesInterface) map[string]uint16 {
 	}
 
 	re := regexp.MustCompile(
-		"(cilium-[^ ]*) proxy.*TPROXY redirect " +
+		"/\\* cilium: TPROXY to host ([^ ]+) proxy \\*/ TPROXY redirect " +
 			"(0.0.0.0|" + ipfamily.IPv4().Localhost +
 			"|::|" + ipfamily.IPv6().Localhost + ")" +
 			":([1-9][0-9]*) mark",
