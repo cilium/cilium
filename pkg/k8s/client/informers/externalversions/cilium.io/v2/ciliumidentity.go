@@ -43,7 +43,7 @@ func NewCiliumIdentityInformer(client versioned.Interface, resyncPeriod time.Dur
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCiliumIdentityInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredCiliumIdentityInformer(client versioned.Interface, resyncPeriod 
 				}
 				return client.CiliumV2().CiliumIdentities().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisciliumiov2.CiliumIdentity{},
 		resyncPeriod,
 		indexers,

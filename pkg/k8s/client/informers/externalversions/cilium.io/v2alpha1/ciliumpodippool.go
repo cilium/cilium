@@ -43,7 +43,7 @@ func NewCiliumPodIPPoolInformer(client versioned.Interface, resyncPeriod time.Du
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCiliumPodIPPoolInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredCiliumPodIPPoolInformer(client versioned.Interface, resyncPeriod
 				}
 				return client.CiliumV2alpha1().CiliumPodIPPools().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisciliumiov2alpha1.CiliumPodIPPool{},
 		resyncPeriod,
 		indexers,
