@@ -80,7 +80,6 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		panicMessage:         nil,
 		deadLockHeader:       nil,
 		RunInitFailed:        nil,
-		emptyBPFInitArg:      nil,
 		RemovingMapMsg:       {stringMatcher("globals/cilium_policy")},
 		symbolSubstitution:   nil,
 		uninitializedRegen:   nil,
@@ -412,7 +411,6 @@ const (
 	panicMessage                       = "panic:"
 	deadLockHeader                     = "POTENTIAL DEADLOCK:"                                  // from github.com/sasha-s/go-deadlock/deadlock.go:header
 	RunInitFailed                      = "JoinEP: "                                             // from https://github.com/cilium/cilium/pull/5052
-	emptyBPFInitArg                    = "empty argument passed to bpf/init.sh"                 // from https://github.com/cilium/cilium/issues/10228
 	RemovingMapMsg                     = "Removing map to allow for property upgrade"           // from https://github.com/cilium/cilium/pull/10626
 	symbolSubstitution                 = "Skipping symbol substitution"                         //
 	uninitializedRegen                 = "Uninitialized regeneration level"                     // from https://github.com/cilium/cilium/pull/10949
