@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -86,6 +87,9 @@ func TestScript(t *testing.T) {
 			clustercfgcell.WithSyncedCanaries(true),
 			clustercfgcell.Cell,
 			clustermesh.Synchronization,
+
+			// Provide the namespace manager.
+			cmnamespace.Cell,
 		)
 
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
