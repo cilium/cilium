@@ -63,8 +63,6 @@
 # define CT_REPORT_FLAGS		0xff
 #endif
 
-#define KERNEL_HZ 250   /* warp: 0 jiffies */
-
 #define ENABLE_IDENTITY_MARK 1
 
 #define HASH_INIT4_SEED 0xcafe
