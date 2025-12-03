@@ -211,14 +211,6 @@ allocation:
 
   If unspecified, no minimum number of IPs is required.
 
-``spec.ipam.max-allocate``
-  The maximum number of IPs that can be allocated to the node.
-  When the current amount of allocated IPs will approach this value,
-  the considered value for PreAllocate will decrease down to 0 in order to
-  not attempt to allocate more addresses than defined.
-
-  If unspecified, no maximum number of IPs will be enforced.
-
 ``spec.ipam.pre-allocate``
   The number of IP addresses that must be available for allocation at all
   times.  It defines the buffer of addresses available immediately without
@@ -226,14 +218,10 @@ allocation:
 
   If unspecified, this value defaults to 8.
 
-``spec.ipam.max-above-watermark``
-  The maximum number of addresses to allocate beyond the addresses needed to
-  reach the PreAllocate watermark.  Going above the watermark can help reduce
-  the number of API calls to allocate IPs, e.g. when a new ENI is allocated, as
-  many secondary IPs as possible are allocated. Limiting the amount can help
-  reduce waste of IPs.
+``spec.ipam.static-ip-tags``
+  A map of tags to select a pool of IPs from which to assign a static IP to the node.
 
-  If let unspecified, the value defaults to 0.
+  If unspecified, no tags are required.
 
 ``spec.eni.first-interface-index``
   The index of the first ENI to use for IP allocation, e.g. if the node has
@@ -280,6 +268,17 @@ allocation:
   ``subnet-tags`` or ``first-interface-index`` to exclude additional interfaces.
 
   If unspecified, no tags are used to exclude interfaces.
+
+``spec.eni.use-primary-address``
+  Whether an ENI's primary address should be available for allocations on the node.
+
+  If unspecified, this option is disabled.
+
+``spec.eni.disable-prefix-delegation``
+  Whether ENI prefix delegation should be disabled on this node.
+
+  If unspecified, this option is disabled.
+
 
 ``spec.eni.delete-on-termination``
   Remove the ENI when the instance is terminated
