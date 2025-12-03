@@ -119,22 +119,6 @@ type CiliumNetworkPolicyNodeStatus struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// CreateCNPNodeStatus returns a CiliumNetworkPolicyNodeStatus created from the
-// provided fields.
-func CreateCNPNodeStatus(enforcing, ok bool, cnpError error, rev uint64, annotations map[string]string) CiliumNetworkPolicyNodeStatus {
-	cnpns := CiliumNetworkPolicyNodeStatus{
-		Enforcing:   enforcing,
-		Revision:    rev,
-		OK:          ok,
-		LastUpdated: slimv1.Now(),
-		Annotations: annotations,
-	}
-	if cnpError != nil {
-		cnpns.Error = cnpError.Error()
-	}
-	return cnpns
-}
-
 func (r *CiliumNetworkPolicy) String() string {
 	result := ""
 	result += fmt.Sprintf("TypeMeta: %s, ", r.TypeMeta.String())
