@@ -922,12 +922,11 @@ func (e *Endpoint) deleteMaps() []error {
 	return errors
 }
 
-// garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
-// local conntrack table or the global conntrack table.
+// garbageCollectConntrack will run the ctmap.GC() on the conntrack tables.
 //
 // The endpoint lock must be held
 func (e *Endpoint) garbageCollectConntrack(filter ctmap.GCFilter) {
-	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4, option.Config.EnableIPv6) {
+	for _, m := range ctmap.Maps(option.Config.EnableIPv4, option.Config.EnableIPv6) {
 		if err := m.Open(); err != nil {
 			// If the CT table doesn't exist, there's nothing to GC.
 			if os.IsNotExist(err) {

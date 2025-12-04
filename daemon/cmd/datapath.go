@@ -85,7 +85,7 @@ func initMaps(params daemonParams) error {
 		return nil
 	}
 
-	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
+	for _, m := range ctmap.Maps(option.Config.EnableIPv4,
 		option.Config.EnableIPv6) {
 		if err := m.Create(); err != nil {
 			return fmt.Errorf("initializing conntrack map %s: %w", m.Name(), err)

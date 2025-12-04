@@ -31,7 +31,7 @@ func init() {
 
 func flushCt() {
 	ipv4, ipv6 := getIpEnableStatuses()
-	maps := ctmap.GlobalMaps(ipv4, ipv6)
+	maps := ctmap.Maps(ipv4, ipv6)
 
 	observable4, next4, complete4 := stream.Multicast[ctmap.GCEvent]()
 	observable6, next6, complete6 := stream.Multicast[ctmap.GCEvent]()
