@@ -27,7 +27,6 @@ func setup(tb testing.TB) {
 }
 
 func BenchmarkPrivilegedPerClusterCTMapUpdate(b *testing.B) {
-
 	setup(b)
 
 	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
@@ -47,7 +46,6 @@ func BenchmarkPrivilegedPerClusterCTMapUpdate(b *testing.B) {
 }
 
 func BenchmarkPrivilegedPerClusterCTMapLookup(b *testing.B) {
-
 	setup(b)
 
 	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
@@ -174,20 +172,20 @@ func TestPrivilegedPerClusterCTMapsCleanup(t *testing.T) {
 		{
 			name:    "IPv4",
 			ipv4:    true,
-			present: []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
-			absent:  []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal},
+			present: []mapType{mapTypeIPv6TCPGlobal},
+			absent:  []mapType{mapTypeIPv4TCPGlobal},
 		},
 		{
 			name:    "IPv6",
 			ipv6:    true,
-			present: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal},
-			absent:  []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
+			present: []mapType{mapTypeIPv4TCPGlobal},
+			absent:  []mapType{mapTypeIPv6TCPGlobal},
 		},
 		{
 			name:   "dual",
 			ipv4:   true,
 			ipv6:   true,
-			absent: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal, mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
+			absent: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal},
 		},
 	}
 

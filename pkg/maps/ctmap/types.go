@@ -21,17 +21,12 @@ import (
 type mapType int
 
 const (
-	// mapTypeIPv4TCPLocal and friends are map types which correspond to a
+	// map types which correspond to a
 	// combination of the following attributes:
 	// * IPv4 or IPv6;
 	// * TCP or non-TCP (shortened to Any)
-	// * Local (endpoint-specific) or global (endpoint-oblivious).
-	mapTypeIPv4TCPLocal mapType = iota
-	mapTypeIPv6TCPLocal
-	mapTypeIPv4TCPGlobal
+	mapTypeIPv4TCPGlobal mapType = iota
 	mapTypeIPv6TCPGlobal
-	mapTypeIPv4AnyLocal
-	mapTypeIPv6AnyLocal
 	mapTypeIPv4AnyGlobal
 	mapTypeIPv6AnyGlobal
 	mapTypeMax
@@ -40,18 +35,10 @@ const (
 // String renders the map type into a user-readable string.
 func (m mapType) String() string {
 	switch m {
-	case mapTypeIPv4TCPLocal:
-		return "Local IPv4 TCP CT map"
-	case mapTypeIPv6TCPLocal:
-		return "Local IPv6 TCP CT map"
 	case mapTypeIPv4TCPGlobal:
 		return "Global IPv4 TCP CT map"
 	case mapTypeIPv6TCPGlobal:
 		return "Global IPv6 TCP CT map"
-	case mapTypeIPv4AnyLocal:
-		return "Local IPv4 non-TCP CT map"
-	case mapTypeIPv6AnyLocal:
-		return "Local IPv6 non-TCP CT map"
 	case mapTypeIPv4AnyGlobal:
 		return "Global IPv4 non-TCP CT map"
 	case mapTypeIPv6AnyGlobal:
@@ -62,13 +49,13 @@ func (m mapType) String() string {
 
 func (m mapType) name() string {
 	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal:
+	case mapTypeIPv4TCPGlobal:
 		return "tcp4"
-	case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal:
+	case mapTypeIPv6TCPGlobal:
 		return "tcp6"
-	case mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
+	case mapTypeIPv4AnyGlobal:
 		return "any4"
-	case mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
+	case mapTypeIPv6AnyGlobal:
 		return "any6"
 	default:
 		panic("Unexpected map type " + m.String())
@@ -77,7 +64,7 @@ func (m mapType) name() string {
 
 func (m mapType) isIPv4() bool {
 	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
+	case mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal:
 		return true
 	}
 	return false
@@ -85,23 +72,7 @@ func (m mapType) isIPv4() bool {
 
 func (m mapType) isIPv6() bool {
 	switch m {
-	case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
-		return true
-	}
-	return false
-}
-
-func (m mapType) isLocal() bool {
-	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4AnyLocal, mapTypeIPv6AnyLocal:
-		return true
-	}
-	return false
-}
-
-func (m mapType) isGlobal() bool {
-	switch m {
-	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal, mapTypeIPv4AnyGlobal, mapTypeIPv6AnyGlobal:
+	case mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal:
 		return true
 	}
 	return false
@@ -109,7 +80,7 @@ func (m mapType) isGlobal() bool {
 
 func (m mapType) isTCP() bool {
 	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal:
+	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal:
 		return true
 	}
 	return false
@@ -117,10 +88,6 @@ func (m mapType) isTCP() bool {
 
 func (m mapType) key() bpf.MapKey {
 	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv4AnyLocal:
-		return &CtKey4{}
-	case mapTypeIPv6TCPLocal, mapTypeIPv6AnyLocal:
-		return &CtKey6{}
 	case mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal:
 		return &CtKey4Global{}
 	case mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal:
@@ -148,9 +115,6 @@ func (m mapType) maxEntries() int {
 		}
 		return option.CTMapEntriesGlobalAnyDefault
 
-	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4AnyLocal, mapTypeIPv6AnyLocal:
-		return mapNumEntriesLocal
-
 	default:
 		panic("Unexpected map type " + m.String())
 	}
@@ -170,16 +134,16 @@ func FilterMapsByProto(maps []*Map, ipVsn CTMapIPVersion) (ctMapTCP *Map, ctMapA
 		switch ipVsn {
 		case CTMapIPv4:
 			switch m.mapType {
-			case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal:
+			case mapTypeIPv4TCPGlobal:
 				ctMapTCP = m
-			case mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
+			case mapTypeIPv4AnyGlobal:
 				ctMapAny = m
 			}
 		case CTMapIPv6:
 			switch m.mapType {
-			case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal:
+			case mapTypeIPv6TCPGlobal:
 				ctMapTCP = m
-			case mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
+			case mapTypeIPv6AnyGlobal:
 				ctMapAny = m
 			}
 		}
