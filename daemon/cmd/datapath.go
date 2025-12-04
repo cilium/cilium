@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
-	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -117,12 +116,6 @@ func initMaps(params daemonParams) error {
 		}
 	}
 
-	if params.KPRConfig.KubeProxyReplacement {
-		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
-			option.Config.EnableIPv6); err != nil {
-			return fmt.Errorf("initializing neighbors map: %w", err)
-		}
-	}
 	if params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
 		if err := nat.CreateRetriesMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {

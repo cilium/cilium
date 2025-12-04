@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
 	"github.com/cilium/cilium/pkg/maps/multicast"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
@@ -59,6 +60,9 @@ var Cell = cell.Module(
 
 	// Provides access to the multicast maps.
 	multicast.Cell,
+
+	// Initializes the neighbors map in the datapath
+	neighborsmap.Cell,
 
 	// Provides access to the SRv6 maps.
 	srv6map.Cell,
