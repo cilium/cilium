@@ -159,7 +159,7 @@ bool __assert_map_add_failure(const char *name, const __u8 name_len,
 	__scapy_assert.len = len;
 	scapy_memcpy(__scapy_assert.exp_buf, buf, len);
 
-	if (data + len < data_end)
+	if (data + len <= data_end)
 		scapy_memcpy(__scapy_assert.got_buf, data, len);
 
 	scapy_strncpy(__scapy_assert.name, name, name_len);
