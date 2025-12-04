@@ -489,7 +489,7 @@ func (ct *ConnectivityTest) PrintReport(ctx context.Context) error {
 
 		wg.Add(len(ct.CiliumPods()))
 		for _, ciliumPod := range ct.CiliumPods() {
-			cmd := strings.Split("cilium bpf ct flush global", " ")
+			cmd := strings.Split("cilium bpf ct flush", " ")
 			go func(ctx context.Context, pod Pod) {
 				defer wg.Done()
 

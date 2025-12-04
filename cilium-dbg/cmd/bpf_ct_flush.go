@@ -17,7 +17,7 @@ import (
 
 // bpfCtFlushCmd represents the bpf_ct_flush command
 var bpfCtFlushCmd = &cobra.Command{
-	Use:   "flush global",
+	Use:   "flush",
 	Short: "Flush all connection tracking entries",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf ct flush")
