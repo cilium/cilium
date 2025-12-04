@@ -110,13 +110,6 @@ func initMaps(params daemonParams) error {
 		}
 	}
 
-	if params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
-		if err := nat.CreateRetriesMaps(option.Config.EnableIPv4,
-			option.Config.EnableIPv6); err != nil {
-			return fmt.Errorf("initializing NAT retries map: %w", err)
-		}
-	}
-
 	if !option.Config.RestoreState {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
