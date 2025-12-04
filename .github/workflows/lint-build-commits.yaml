@@ -161,6 +161,26 @@ jobs:
               - 'pkg/**'
               - 'test/**'
 
+      - name: Setup additional repositories
+        shell: bash
+        run: |
+          # This is required for libtinfo5
+          uri="http://security.ubuntu.com/ubuntu"
+          arch="amd64"
+          if [ ${{ runner.arch }} == "ARM64" ]; then
+            uri="http://ports.ubuntu.com/ubuntu-ports"
+            arch="arm64"
+          fi
+
+          sudo tee -a /etc/apt/sources.list.d/jammy-security.sources <<EOF
+          Types: deb
+          URIs: $uri
+          Suites: jammy-updates
+          Components: main universe restricted multiverse
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          Architectures: $arch
+          EOF
+
       - name: Set clang directory
         if: steps.test-tree.outputs.src == 'true'
         id: set_clang_dir
@@ -170,7 +190,7 @@ jobs:
         if: steps.test-tree.outputs.src == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libtinfo6
+          sudo apt-get install -y --no-install-recommends libtinfo5
 
       - name: Install LLVM and Clang
         if: steps.test-tree.outputs.src == 'true'
