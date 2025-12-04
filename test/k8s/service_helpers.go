@@ -590,7 +590,7 @@ func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, _, ch
 
 		// Clear CT tables on all Cilium nodes
 		kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
-			"cilium-dbg bpf ct flush global", "Unable to flush CT maps")
+			"cilium-dbg bpf ct flush", "Unable to flush CT maps")
 	}
 }
 
@@ -859,7 +859,7 @@ func testMaglev(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	for _, label := range []string{helpers.K8s1, helpers.K8s2} {
 		pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 		ExpectWithOffset(1, err).Should(BeNil(), "cannot get cilium pod name %s", label)
-		kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium-dbg bpf ct flush global", "Unable to flush CT maps")
+		kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium-dbg bpf ct flush", "Unable to flush CT maps")
 	}
 
 	for _, port := range []int{60000, 61000, 62000} {
