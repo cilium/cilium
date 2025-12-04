@@ -1305,7 +1305,7 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	}
 
 	e.removeDirectories()
-	e.controllers.RemoveAll()
+	// Controllers are already stopped and cleaned up by Stop()
 	e.cleanPolicySignals()
 
 	if !e.isProperty(PropertyFakeEndpoint) {
