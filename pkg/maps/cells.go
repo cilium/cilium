@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
+	"github.com/cilium/cilium/pkg/maps/fragmap"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
 	"github.com/cilium/cilium/pkg/maps/multicast"
@@ -46,6 +47,9 @@ var Cell = cell.Module(
 
 	// Provides access to egressgateway specific maps.
 	egressmap.Cell,
+
+	// Initializes the fragments map in the datapath
+	fragmap.Cell,
 
 	// Provides signalmap for datapath signals
 	signalmap.Cell,
