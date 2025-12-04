@@ -68,8 +68,10 @@ type CiliumBGPAdvertisement struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
+	// +kubebuilder:validation:Required
 	Spec CiliumBGPAdvertisementSpec `json:"spec"`
 }
 
