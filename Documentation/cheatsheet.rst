@@ -284,7 +284,7 @@ List connection tracking entries:
 
 .. code-block:: shell-session
 
-    sudo cilium-dbg bpf ct list global
+    sudo cilium-dbg bpf ct list
 
 Flush connection tracking entries:
 
