@@ -62,6 +62,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.EnableConntrackAccounting = lnc.EnableConntrackAccounting
 
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
+	node.EnableHostFirewall = lnc.EnableHostFirewall
 
 	node.HashInit4Seed = lnc.MaglevConfig.SeedJhash0
 	node.HashInit6Seed = lnc.MaglevConfig.SeedJhash1

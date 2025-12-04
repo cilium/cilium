@@ -7,7 +7,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
-#define ENABLE_HOST_FIREWALL		1
 
 #define POD_SEC_IDENTITY		112233
 
@@ -28,6 +27,8 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/policy.h"
+
+ASSIGN_CONFIG(bool, enable_host_firewall, true)
 
 /* Send a request from pod to external endpoint. Emulate that it was
  * SNATed by our iptables setup by setting the .saddr to NODE_IP and
