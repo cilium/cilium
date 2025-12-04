@@ -358,18 +358,18 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 	globalDeleteLock[m.mapType].Lock()
 	if ipv6 {
 		if m.mapType.isGlobal() {
-			filterCallback := cleanup(m, filter, natMap, &stats, next6, true)
+			filterCallback := cleanup(m, filter, natMap, &stats, next6, ipv6)
 			stats.dumpError = iterate[CtKey6Global, CtEntry](m, &stats, filterCallback)
 		} else {
-			filterCallback := cleanup(m, filter, natMap, &stats, next6, true)
+			filterCallback := cleanup(m, filter, natMap, &stats, next6, ipv6)
 			stats.dumpError = iterate[CtKey6, CtEntry](m, &stats, filterCallback)
 		}
 	} else {
 		if m.mapType.isGlobal() {
-			filterCallback := cleanup(m, filter, natMap, &stats, next4, true)
+			filterCallback := cleanup(m, filter, natMap, &stats, next4, ipv6)
 			stats.dumpError = iterate[CtKey4Global, CtEntry](m, &stats, filterCallback)
 		} else {
-			filterCallback := cleanup(m, filter, natMap, &stats, next4, true)
+			filterCallback := cleanup(m, filter, natMap, &stats, next4, ipv6)
 			stats.dumpError = iterate[CtKey4, CtEntry](m, &stats, filterCallback)
 		}
 	}
@@ -411,6 +411,7 @@ func iterate[KT any, VT any, KP bpf.KeyPointer[KT], VP bpf.ValuePointer[VT]](m *
 }
 
 var _ tupleKeyAccessor = &tuple.TupleKey4{}
+
 var _ tupleKeyAccessor = &tuple.TupleKey6{}
 
 type tupleKeyAccessor interface {
@@ -466,7 +467,6 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 		default:
 			stats.aliveEntries++
 		}
-
 	}
 }
 
@@ -731,7 +731,8 @@ func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval t
 }
 
 func GetIntervalWithConfig(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64,
-	conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval time.Duration) time.Duration {
+	conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval time.Duration,
+) time.Duration {
 	if val := conntrackGCInterval; val != time.Duration(0) {
 		return val
 	}
