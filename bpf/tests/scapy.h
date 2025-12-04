@@ -105,7 +105,7 @@ void *scapy__push_data(struct pktgen *builder, void *data, int len)
  * Assert structure to store in the map
  */
 struct scapy_assert {
-	char name[__SCAPY_MAX_STR_LEN];		/* Assert names */
+	char name[__SCAPY_MAX_STR_LEN];		/* Assert name */
 	char file[__SCAPY_MAX_STR_LEN];		/* Filename */
 	char lnum[__SCAPY_MAX_STR_LEN];		/* Line number */
 	char first_layer[__SCAPY_MAX_STR_LEN];	/* Scapy  layer (e.g. Ether) */
@@ -127,22 +127,40 @@ struct {
 } scapy_assert_map __section_maps_btf;
 static __u32 scapy_assert_map_cnt;
 
-/* Needs to be global (in map) to not blow up stack size */
+/* Needs to be here not to blow up stack size */
 static struct scapy_assert __scapy_assert = {0};
 
-/**
- * Compare a packet (ctx) to a scapy buffer starting from ctx's OFF byte
- *
- * NAME: assertion quoted name (unique in the test): "test_a".
- * FIRST_LAYER: Scapy layer name (e.g. Ether, IP), quoted: "Ether".
- * CTX: ctx ptr.
- * OFF: start to compare against ctx->data + OFF.
- * BUF_NAME: scapy buffer name (quoted literal)
- * _BUF: pointer to the first byte of the scapy buffer BUF_DECL() / BUF().
- * _BUF_LEN: length of the buffer.
- * LEN: how many bytes to compare.
- */
-#define ASSERT_CTX_BUF_OFF2(NAME, FIRST_LAYER, CTX, OFF, BUF_NAME, _BUF,		\
+#define __ASSERT_TRACE_FAIL_LEN(BUF_NAME, _BUF_LEN, LEN)		\
+	test_log("Buffer '" BUF_NAME "' of len (%d) < LEN  (%d)",	\
+			 _BUF_LEN, LEN)
+
+#define __ASSERT_TRACE_FAIL_BUF(BUF_NAME, _BUF_LEN, LEN)		\
+	test_log("CTX and buffer '" BUF_NAME "' content mismatch ")
+
+static __always_inline
+bool __assert_map_add_failure(const char *name, const __u8 name_len,
+			      const char *first_layer,
+			      const __u8 first_layer_len,
+			      const unsigned char *buf,
+			      const __u16 len, void *data,
+			      const void *data_end)
+{
+	__scapy_assert.len = len;
+	scapy_memcpy(__scapy_assert.exp_buf, buf, len);
+
+	if (data + len <= data_end)
+		scapy_memcpy(__scapy_assert.got_buf, data, len);
+
+	scapy_strncpy(__scapy_assert.name, name, name_len);
+	scapy_strncpy(__scapy_assert.file, __FILE__, sizeof(__FILE__));
+	scapy_strncpy(__scapy_assert.lnum, LINE_STRING, sizeof(LINE_STRING));
+	scapy_strncpy(__scapy_assert.first_layer, first_layer, first_layer_len);
+
+	return map_update_elem(&scapy_assert_map, &scapy_assert_map_cnt,
+			    &__scapy_assert, BPF_ANY) == 0;
+}
+
+#define __ASSERT_CTX_BUF_OFF(NAME, FIRST_LAYER, CTX, OFF, BUF_NAME, _BUF,		\
 			    _BUF_LEN, LEN)						\
 	do {										\
 		void *__DATA = (void *)(long)(CTX)->data;				\
@@ -153,34 +171,23 @@ static struct scapy_assert __scapy_assert = {0};
 											\
 		if (__DATA + (LEN) > __DATA_END) {					\
 			_ok = false;							\
-			_len = (__u16)(__DATA_END - __DATA);				\
 			test_log("CTX len (%d) - offset (%d) < LEN (%d)",		\
-				 _len + OFF, OFF, LEN);					\
+					 _len + OFF, OFF, LEN);				\
 		}									\
 		if ((_BUF_LEN) < (LEN)) {						\
 			_ok = false;							\
-			test_log("Buffer '" BUF_NAME "' of len (%d) < LEN  (%d)",	\
-				 _BUF_LEN, LEN);					\
+			__ASSERT_TRACE_FAIL_LEN(BUF_NAME, _BUF_LEN, LEN);		\
 		}									\
 		if (_ok && scapy_memcmp(__DATA, _BUF, LEN) != 0) {			\
 			_ok = false;							\
-			test_log("CTX and buffer '" BUF_NAME "' content mismatch ");	\
+			__ASSERT_TRACE_FAIL_BUF(BUF_NAME, _BUF_LEN, LEN);		\
 		}									\
 		if (!_ok) {								\
-			__scapy_assert.len = LEN;					\
-			scapy_memcpy(__scapy_assert.exp_buf, _BUF, LEN);		\
-			if (__DATA + (LEN) <= __DATA_END) {				\
-				scapy_memcpy(__scapy_assert.got_buf, __DATA, LEN);	\
-			}								\
-			scapy_strncpy(__scapy_assert.name, NAME, sizeof(NAME));		\
-			scapy_strncpy(__scapy_assert.file, __FILE__,			\
-				      sizeof(__FILE__));				\
-			scapy_strncpy(__scapy_assert.lnum, LINE_STRING,			\
-				      sizeof(LINE_STRING));				\
-			scapy_strncpy(__scapy_assert.first_layer, FIRST_LAYER,		\
-				      sizeof(FIRST_LAYER));				\
-			if (map_update_elem(&scapy_assert_map, &scapy_assert_map_cnt,	\
-					    &__scapy_assert, BPF_ANY) != 0) {		\
+			if (!__assert_map_add_failure(NAME, sizeof(NAME),		\
+						      FIRST_LAYER,			\
+						      sizeof(FIRST_LAYER),		\
+						      _BUF, LEN, __DATA,		\
+						      __DATA_END)) {			\
 				test_log("ERROR: unable to push failed assert to map!");\
 				test_fail_now();					\
 			}								\
@@ -190,7 +197,27 @@ static struct scapy_assert __scapy_assert = {0};
 	} while (0)
 
 /**
- * Compare a packet (ctx) to a scapy buffer starting from ctx's OFF byte
+ * Compare a packet (ctx) to a scapy buffer(BUF_NAME) starting from ctx's OFF
+ * byte. As opposed ASSERT_CTX_BUF_OFF, this version receives a pointer to
+ * the buffer _BUF and the _BUF_LEN.
+ *
+ * NAME: assertion quoted name (unique in the test): "test_a".
+ * FIRST_LAYER: Scapy layer name (e.g. Ether, IP), quoted: "Ether".
+ * CTX: ctx ptr.
+ * OFF: start to compare against ctx->data + OFF.
+ * BUF_NAME: scapy buffer name (quoted literal)
+ * _BUF: pointer to the first byte of the scapy buffer BUF_DECL() / BUF().
+ * _BUF_LEN: length of the buffer.
+ * LEN: how many bytes to compare.
+ */
+#define ASSERT_CTX_BUF_OFF2(NAME, FIRST_LAYER, CTX, OFF, BUF_NAME, _BUF,	\
+			    _BUF_LEN, LEN)					\
+	__ASSERT_CTX_BUF_OFF(NAME, FIRST_LAYER, CTX, OFF, BUF_NAME, _BUF,	\
+			     _BUF_LEN, LEN)
+
+/**
+ * Compare a packet (ctx) to a scapy buffer(BUF_NAME) starting from ctx's OFF
+ * byte.
  *
  * NAME: assertion quoted name (unique in the test): "test_a".
  * FIRST_LAYER: Scapy layer name (e.g. Ether, IP), quoted: "Ether".
