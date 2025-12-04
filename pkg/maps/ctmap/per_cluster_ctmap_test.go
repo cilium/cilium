@@ -27,7 +27,6 @@ func setup(tb testing.TB) {
 }
 
 func BenchmarkPrivilegedPerClusterCTMapUpdate(b *testing.B) {
-
 	setup(b)
 
 	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
@@ -47,7 +46,6 @@ func BenchmarkPrivilegedPerClusterCTMapUpdate(b *testing.B) {
 }
 
 func BenchmarkPrivilegedPerClusterCTMapLookup(b *testing.B) {
-
 	setup(b)
 
 	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
