@@ -11,14 +11,18 @@ package config
 type BPFSock struct {
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Use jiffies (count of timer ticks since boot).
+	EnableJiffies bool `config:"enable_jiffies"`
 	// Enable support for Local Redirect Policy.
 	EnableLRP bool `config:"enable_lrp"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+	// Number of clock ticks per second.
+	KernelHz uint32 `config:"kernel_hz"`
 
 	Node
 }
 
 func NewBPFSock(node Node) *BPFSock {
-	return &BPFSock{false, false, false, node}
+	return &BPFSock{false, false, false, false, 0x0, node}
 }

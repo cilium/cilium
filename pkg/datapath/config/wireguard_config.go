@@ -14,6 +14,8 @@ type BPFWireguard struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Use jiffies (count of timer ticks since boot).
+	EnableJiffies bool `config:"enable_jiffies"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
@@ -24,6 +26,8 @@ type BPFWireguard struct {
 	InterfaceIfindex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
+	// Number of clock ticks per second.
+	KernelHz uint32 `config:"kernel_hz"`
 	// Masquerade address for IPv4 traffic.
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
@@ -33,8 +37,8 @@ type BPFWireguard struct {
 }
 
 func NewBPFWireguard(node Node) *BPFWireguard {
-	return &BPFWireguard{0x5dc, false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		[4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFWireguard{0x5dc, false, false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		node}
 }

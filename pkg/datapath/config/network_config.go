@@ -9,9 +9,14 @@ package config
 // do not instantiate directly! Always use [NewBPFNetwork] to ensure the default
 // values configured in the ELF are honored.
 type BPFNetwork struct {
+	// Use jiffies (count of timer ticks since boot).
+	EnableJiffies bool `config:"enable_jiffies"`
+	// Number of clock ticks per second.
+	KernelHz uint32 `config:"kernel_hz"`
+
 	Node
 }
 
 func NewBPFNetwork(node Node) *BPFNetwork {
-	return &BPFNetwork{node}
+	return &BPFNetwork{false, 0x0, node}
 }

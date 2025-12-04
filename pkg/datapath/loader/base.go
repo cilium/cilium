@@ -222,12 +222,16 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
 	}
 
+	cfg := config.NewBPFNetwork(config.NodeConfig(lnc))
+	cfg.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
+	cfg.KernelHz = uint32(option.Config.KernelHz)
+
 	var obj networkObjects
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: config.NewBPFNetwork(config.NodeConfig(lnc)),
+		Constants: cfg,
 	})
 	if err != nil {
 		return err

@@ -140,6 +140,9 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 
+	cfg.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
+	cfg.KernelHz = uint32(option.Config.KernelHz)
+
 	if err := loadAssignAttach(logger, xdpDev, xdpMode, iface, spec, cfg); err != nil {
 		// Usually, a jumbo MTU causes the invalid argument error, e.g.:
 		// "create link: invalid argument" or "update link: invalid argument"
