@@ -697,6 +697,7 @@
       ]
     },
     {
+      "groupName": "cilium-envoy",
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
@@ -709,6 +710,7 @@
       ]
     },
     {
+      "groupName": "cilium-envoy",
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
