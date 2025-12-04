@@ -130,12 +130,16 @@ static __u32 scapy_assert_map_cnt;
 /* Needs to be here not to blow up stack size */
 static struct scapy_assert __scapy_assert = {0};
 
+#ifndef __ASSERT_TRACE_FAIL_LEN
 #define __ASSERT_TRACE_FAIL_LEN(BUF_NAME, _BUF_LEN, LEN)		\
 	test_log("Buffer '" BUF_NAME "' of len (%d) < LEN  (%d)",	\
 			 _BUF_LEN, LEN)
+#endif /* __ASSERT_TRACE_FAIL_LEN */
 
+#ifndef __ASSERT_TRACE_FAIL_BUF
 #define __ASSERT_TRACE_FAIL_BUF(BUF_NAME, _BUF_LEN, LEN)		\
 	test_log("CTX and buffer '" BUF_NAME "' content mismatch ")
+#endif /* __ASSERT_TRACE_FAIL_BUF */
 
 static __always_inline
 bool __assert_map_add_failure(const char *name, const __u8 name_len,
