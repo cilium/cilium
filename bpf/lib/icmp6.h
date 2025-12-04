@@ -473,71 +473,71 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 	if (type == ICMP6_NS_MSG_TYPE && handle_ns)
 		return icmp6_handle_ns(ctx, ETH_HLEN, METRIC_INGRESS, ext_err);
 
-#ifdef ENABLE_HOST_FIREWALL
-	/* When the host firewall is enabled, we drop and allow ICMPv6 messages
-	 * according to RFC4890, except for echo request and reply messages which
-	 * are handled by host policies and can be dropped.
-	 * |          ICMPv6 Message         |     Action      | Type |
-	 * |---------------------------------|-----------------|------|
-	 * |          ICMPv6-unreach         |   CTX_ACT_OK    |   1  |
-	 * |          ICMPv6-too-big         |   CTX_ACT_OK    |   2  |
-	 * |           ICMPv6-timed          |   CTX_ACT_OK    |   3  |
-	 * |         ICMPv6-parameter        |   CTX_ACT_OK    |   4  |
-	 * |    ICMPv6-err-private-exp-100   |  CTX_ACT_DROP   |  100 |
-	 * |    ICMPv6-err-private-exp-101   |  CTX_ACT_DROP   |  101 |
-	 * |       ICMPv6-err-expansion      |  CTX_ACT_DROP   |  127 |
-	 * |       ICMPv6-echo-message       |    Firewall     |  128 |
-	 * |        ICMPv6-echo-reply        |    Firewall     |  129 |
-	 * |      ICMPv6-mult-list-query     |   CTX_ACT_OK    |  130 |
-	 * |      ICMPv6-mult-list-report    |   CTX_ACT_OK    |  131 |
-	 * |      ICMPv6-mult-list-done      |   CTX_ACT_OK    |  132 |
-	 * |      ICMPv6-router-solici       |   CTX_ACT_OK    |  133 |
-	 * |      ICMPv6-router-advert       |   CTX_ACT_OK    |  134 |
-	 * |     ICMPv6-neighbor-solicit     | icmp6_handle_ns |  135 |
-	 * |      ICMPv6-neighbor-advert     |   CTX_ACT_OK    |  136 |
-	 * |     ICMPv6-redirect-message     |  CTX_ACT_DROP   |  137 |
-	 * |      ICMPv6-router-renumber     |   CTX_ACT_OK    |  138 |
-	 * |      ICMPv6-node-info-query     |  CTX_ACT_DROP   |  139 |
-	 * |     ICMPv6-node-info-response   |  CTX_ACT_DROP   |  140 |
-	 * |   ICMPv6-inv-neighbor-solicit   |   CTX_ACT_OK    |  141 |
-	 * |    ICMPv6-inv-neighbor-advert   |   CTX_ACT_OK    |  142 |
-	 * |    ICMPv6-mult-list-report-v2   |   CTX_ACT_OK    |  143 |
-	 * | ICMPv6-home-agent-disco-request |  CTX_ACT_DROP   |  144 |
-	 * |  ICMPv6-home-agent-disco-reply  |  CTX_ACT_DROP   |  145 |
-	 * |      ICMPv6-mobile-solicit      |  CTX_ACT_DROP   |  146 |
-	 * |      ICMPv6-mobile-advert       |  CTX_ACT_DROP   |  147 |
-	 * |      ICMPv6-send-solicit        |   CTX_ACT_OK    |  148 |
-	 * |       ICMPv6-send-advert        |   CTX_ACT_OK    |  149 |
-	 * |       ICMPv6-mobile-exp         |  CTX_ACT_DROP   |  150 |
-	 * |    ICMPv6-mult-router-advert    |   CTX_ACT_OK    |  151 |
-	 * |    ICMPv6-mult-router-solicit   |   CTX_ACT_OK    |  152 |
-	 * |     ICMPv6-mult-router-term     |   CTX_ACT_OK    |  153 |
-	 * |         ICMPv6-FMIPv6           |  CTX_ACT_DROP   |  154 |
-	 * |       ICMPv6-rpl-control        |  CTX_ACT_DROP   |  155 |
-	 * |   ICMPv6-info-private-exp-200   |  CTX_ACT_DROP   |  200 |
-	 * |   ICMPv6-info-private-exp-201   |  CTX_ACT_DROP   |  201 |
-	 * |      ICMPv6-info-expansion      |  CTX_ACT_DROP   |  255 |
-	 * |       ICMPv6-unallocated        |  CTX_ACT_DROP   |      |
-	 * |       ICMPv6-unassigned         |  CTX_ACT_DROP   |      |
-	 */
+	if (CONFIG(enable_host_firewall)) {
+		/* When the host firewall is enabled, we drop and allow ICMPv6 messages
+		 * according to RFC4890, except for echo request and reply messages which
+		 * are handled by host policies and can be dropped.
+		 * |          ICMPv6 Message         |     Action      | Type |
+		 * |---------------------------------|-----------------|------|
+		 * |          ICMPv6-unreach         |   CTX_ACT_OK    |   1  |
+		 * |          ICMPv6-too-big         |   CTX_ACT_OK    |   2  |
+		 * |           ICMPv6-timed          |   CTX_ACT_OK    |   3  |
+		 * |         ICMPv6-parameter        |   CTX_ACT_OK    |   4  |
+		 * |    ICMPv6-err-private-exp-100   |  CTX_ACT_DROP   |  100 |
+		 * |    ICMPv6-err-private-exp-101   |  CTX_ACT_DROP   |  101 |
+		 * |       ICMPv6-err-expansion      |  CTX_ACT_DROP   |  127 |
+		 * |       ICMPv6-echo-message       |    Firewall     |  128 |
+		 * |        ICMPv6-echo-reply        |    Firewall     |  129 |
+		 * |      ICMPv6-mult-list-query     |   CTX_ACT_OK    |  130 |
+		 * |      ICMPv6-mult-list-report    |   CTX_ACT_OK    |  131 |
+		 * |      ICMPv6-mult-list-done      |   CTX_ACT_OK    |  132 |
+		 * |      ICMPv6-router-solici       |   CTX_ACT_OK    |  133 |
+		 * |      ICMPv6-router-advert       |   CTX_ACT_OK    |  134 |
+		 * |     ICMPv6-neighbor-solicit     | icmp6_handle_ns |  135 |
+		 * |      ICMPv6-neighbor-advert     |   CTX_ACT_OK    |  136 |
+		 * |     ICMPv6-redirect-message     |  CTX_ACT_DROP   |  137 |
+		 * |      ICMPv6-router-renumber     |   CTX_ACT_OK    |  138 |
+		 * |      ICMPv6-node-info-query     |  CTX_ACT_DROP   |  139 |
+		 * |     ICMPv6-node-info-response   |  CTX_ACT_DROP   |  140 |
+		 * |   ICMPv6-inv-neighbor-solicit   |   CTX_ACT_OK    |  141 |
+		 * |    ICMPv6-inv-neighbor-advert   |   CTX_ACT_OK    |  142 |
+		 * |    ICMPv6-mult-list-report-v2   |   CTX_ACT_OK    |  143 |
+		 * | ICMPv6-home-agent-disco-request |  CTX_ACT_DROP   |  144 |
+		 * |  ICMPv6-home-agent-disco-reply  |  CTX_ACT_DROP   |  145 |
+		 * |      ICMPv6-mobile-solicit      |  CTX_ACT_DROP   |  146 |
+		 * |      ICMPv6-mobile-advert       |  CTX_ACT_DROP   |  147 |
+		 * |      ICMPv6-send-solicit        |   CTX_ACT_OK    |  148 |
+		 * |       ICMPv6-send-advert        |   CTX_ACT_OK    |  149 |
+		 * |       ICMPv6-mobile-exp         |  CTX_ACT_DROP   |  150 |
+		 * |    ICMPv6-mult-router-advert    |   CTX_ACT_OK    |  151 |
+		 * |    ICMPv6-mult-router-solicit   |   CTX_ACT_OK    |  152 |
+		 * |     ICMPv6-mult-router-term     |   CTX_ACT_OK    |  153 |
+		 * |         ICMPv6-FMIPv6           |  CTX_ACT_DROP   |  154 |
+		 * |       ICMPv6-rpl-control        |  CTX_ACT_DROP   |  155 |
+		 * |   ICMPv6-info-private-exp-200   |  CTX_ACT_DROP   |  200 |
+		 * |   ICMPv6-info-private-exp-201   |  CTX_ACT_DROP   |  201 |
+		 * |      ICMPv6-info-expansion      |  CTX_ACT_DROP   |  255 |
+		 * |       ICMPv6-unallocated        |  CTX_ACT_DROP   |      |
+		 * |       ICMPv6-unassigned         |  CTX_ACT_DROP   |      |
+		 */
 
-	if (type == ICMP6_NS_MSG_TYPE)
+		if (type == ICMP6_NS_MSG_TYPE)
+			return CTX_ACT_OK;
+
+		if (type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY)
+			/* Decision is deferred to the host policies. */
+			return CTX_ACT_OK;
+
+		if ((type >= ICMPV6_DEST_UNREACH && type <= ICMPV6_PARAMPROB) ||
+		    (type >= ICMPV6_MGM_QUERY && type <= ICMP6_NA_MSG_TYPE) ||
+			(type >= ICMP6_INV_NS_MSG_TYPE && type <= ICMPV6_MLD2_REPORT) ||
+			(type >= ICMP6_SEND_NS_MSG_TYPE && type <= ICMP6_SEND_NA_MSG_TYPE) ||
+			(type >= ICMPV6_MRDISC_ADV && type <= ICMP6_MULT_RT_MSG_TYPE))
+			return SKIP_HOST_FIREWALL;
+		return DROP_FORBIDDEN_ICMP6;
+	} else {
 		return CTX_ACT_OK;
-
-	if (type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY)
-		/* Decision is deferred to the host policies. */
-		return CTX_ACT_OK;
-
-	if ((type >= ICMPV6_DEST_UNREACH && type <= ICMPV6_PARAMPROB) ||
-	    (type >= ICMPV6_MGM_QUERY && type <= ICMP6_NA_MSG_TYPE) ||
-	    (type >= ICMP6_INV_NS_MSG_TYPE && type <= ICMPV6_MLD2_REPORT) ||
-	    (type >= ICMP6_SEND_NS_MSG_TYPE && type <= ICMP6_SEND_NA_MSG_TYPE) ||
-	    (type >= ICMPV6_MRDISC_ADV && type <= ICMP6_MULT_RT_MSG_TYPE))
-		return SKIP_HOST_FIREWALL;
-	return DROP_FORBIDDEN_ICMP6;
-#else
-	return CTX_ACT_OK;
-#endif /* ENABLE_HOST_FIREWALL */
+	}
 }
 
 static __always_inline

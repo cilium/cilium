@@ -274,6 +274,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableConntrackAccounting != other.EnableConntrackAccounting {
 		return false
 	}
+	if in.EnableHostFirewall != other.EnableHostFirewall {
+		return false
+	}
 	if ((in.IPv4PodSubnets != nil) && (other.IPv4PodSubnets != nil)) || ((in.IPv4PodSubnets == nil) != (other.IPv4PodSubnets == nil)) {
 		in, other := &in.IPv4PodSubnets, &other.IPv4PodSubnets
 		if other == nil {

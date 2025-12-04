@@ -213,6 +213,9 @@ type LocalNodeConfiguration struct {
 	// Enable per flow (conntrack) statistics
 	EnableConntrackAccounting bool
 
+	// EnableHostFirewall enable host firewall
+	EnableHostFirewall bool
+
 	// IPv4PodSubnets is a list of IPv4 subnets that pod IPs are assigned from
 	// these are then used when encryption is enabled to configure the node
 	// for encryption over these subnets at node initialization.

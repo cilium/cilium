@@ -12,7 +12,6 @@
 #define ENABLE_EGRESS_GATEWAY		1
 #define ENABLE_MASQUERADE_IPV4		1
 #define ENABLE_MASQUERADE_IPV6		1
-#define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX 0
 
 #include "lib/bpf_host.h"
@@ -20,6 +19,8 @@
 #include "lib/egressgw.h"
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
+
+ASSIGN_CONFIG(bool, enable_host_firewall, true)
 
 /* Test that a packet matching an egress gateway policy on the to-netdev
  * program gets redirected to the gateway node.

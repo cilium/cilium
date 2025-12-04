@@ -12,7 +12,6 @@
 #define ENABLE_EGRESS_GATEWAY		1
 #define ENABLE_MASQUERADE_IPV4		1
 #define ENABLE_MASQUERADE_IPV6		1
-#define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX		42
 #define SECONDARY_IFACE_IFINDEX	44
 
@@ -40,6 +39,8 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
+
+ASSIGN_CONFIG(bool, enable_host_firewall, true)
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,

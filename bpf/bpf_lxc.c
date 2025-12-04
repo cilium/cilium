@@ -59,8 +59,15 @@
 #include "lib/vtep.h"
 #include "lib/subnet.h"
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
-static __always_inline int
+#if !defined(ENABLE_ROUTING)
+/* During the migration of the ENABLE_HOST_FIREWALL macro to a runtime configuration,
+ * the code generation logic based on preprocessor directives was changed,
+ * and the code is now always compiled even when enable-host-firewall is disabled.
+ *
+ * As a result, depending on the build options, this function may not be used.
+ * temporarily, add the __maybe_unused macro.
+ */
+static __always_inline int __maybe_unused
 lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
 {
 	int ret __maybe_unused;
@@ -640,13 +647,24 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 	}
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
-	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, enforce ingress host policies via policy tailcall.
+#if !defined(ENABLE_ROUTING)
+	/* previously, the preprocessor condition was
+	 * #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING).
+	 * After migrating ENABLE_HOST_FIREWALL to a runtime configuration,
+	 * this was changed to an if statement.
+	 *
+	 * When working on ENABLE_ROUTING,
+	 * please update the if statement
+	 * so that it is semantically equivalent to the original preprocessor condition.
 	 */
-	if (dst_sec_identity == HOST_ID)
-		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+	if (CONFIG(enable_host_firewall)) {
+		/* If the destination is the local host and per-endpoint routes are
+		 * enabled, enforce ingress host policies via policy tailcall.
+		 */
+		if (dst_sec_identity == HOST_ID)
+			return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
+	}
+#endif /* !ENABLE_ROUTING */
 
 #ifdef ENABLE_IDENTITY_MARK
 	/* Always encode the source identity when forwarding the packet.
@@ -682,7 +700,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
 				if (is_defined(ENABLE_ROUTING) &&
-				    is_defined(ENABLE_HOST_FIREWALL) &&
+				    CONFIG(enable_host_firewall) &&
 				    dst_sec_identity == HOST_ID)
 					return lxc_redirect_to_host(ctx, SECLABEL_IPV6,
 								    bpf_htons(ETH_P_IPV6),
@@ -702,12 +720,14 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef TUNNEL_MODE
 	if (ct_state->from_tunnel || !skip_tunnel) {
-#if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
-		/* See comment in handle_ipv4_from_lxc(). */
-		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
-		    identity_is_remote_node(dst_sec_identity))
-			goto pass_to_stack;
-#endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
+#if !defined(ENABLE_NODEPORT)
+		if (CONFIG(enable_host_firewall)) {
+			/* See comment in handle_ipv4_from_lxc(). */
+			if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
+			    identity_is_remote_node(dst_sec_identity))
+				goto pass_to_stack;
+		}
+#endif /* !ENABLE_NODEPORT */
 
 		if (info && info->flag_has_tunnel_ep)
 			return encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
@@ -1086,13 +1106,24 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
 	}
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
-	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, enforce ingress host policies via policy tailcall.
+#if !defined(ENABLE_ROUTING)
+	/* previously, the preprocessor condition was
+	 * #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING).
+	 * After migrating ENABLE_HOST_FIREWALL to a runtime configuration,
+	 * this was changed to an if statement.
+	 *
+	 * When working on ENABLE_ROUTING,
+	 * please update the if statement
+	 * so that it is semantically equivalent to the original preprocessor condition.
 	 */
-	if (dst_sec_identity == HOST_ID)
-		return lxc_deliver_to_host(ctx, SECLABEL_IPV4);
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+	if (CONFIG(enable_host_firewall)) {
+		/* If the destination is the local host and per-endpoint routes are
+		 * enabled, enforce ingress host policies via policy tailcall.
+		 */
+		if (dst_sec_identity == HOST_ID)
+			return lxc_deliver_to_host(ctx, SECLABEL_IPV4);
+	}
+#endif /* !ENABLE_ROUTING */
 
 #ifdef ENABLE_IDENTITY_MARK
 	/* Always encode the source identity when forwarding the packet.
@@ -1141,7 +1172,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
 				if (is_defined(ENABLE_ROUTING) &&
-				    is_defined(ENABLE_HOST_FIREWALL) &&
+				    CONFIG(enable_host_firewall) &&
 				    dst_sec_identity == HOST_ID)
 					return lxc_redirect_to_host(ctx, SECLABEL_IPV4,
 								    bpf_htons(ETH_P_IP),
@@ -1196,20 +1227,31 @@ skip_vtep:
 		if (cluster_id > UINT16_MAX)
 			return DROP_INVALID_CLUSTER_ID;
 
-#if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
-		/*
-		 * For the host firewall, traffic from a pod to a remote node is sent
-		 * through the tunnel. In the case of node to remote pod traffic via
-		 * externalTrafficPolicy=Local services, packets may be DNATed when
-		 * they enter the remote node (without being SNATed at the same time).
-		 * If kube-proxy is used, the response needs to go through the stack
-		 * to apply the correct reverse DNAT, and then be routed accordingly.
-		 * See #14674 for details.
+#if !defined(ENABLE_NODEPORT)
+		/* previously, the preprocessor condition was
+		 * #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL).
+		 * After migrating ENABLE_HOST_FIREWALL to a runtime configuration,
+		 * this was changed to an if statement.
+		 *
+		 * When working on ENABLE_NODEPORT,
+		 * please update the if statement
+		 * so that it is semantically equivalent to the original preprocessor condition.
 		 */
-		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
-		    identity_is_remote_node(dst_sec_identity))
-			goto pass_to_stack;
-#endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
+		if (CONFIG(enable_host_firewall)) {
+			/*
+			 * For the host firewall, traffic from a pod to a remote node is sent
+			 * through the tunnel. In the case of node to remote pod traffic via
+			 * externalTrafficPolicy=Local services, packets may be DNATed when
+			 * they enter the remote node (without being SNATed at the same time).
+			 * If kube-proxy is used, the response needs to go through the stack
+			 * to apply the correct reverse DNAT, and then be routed accordingly.
+			 * See #14674 for details.
+			 */
+			if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
+			    identity_is_remote_node(dst_sec_identity))
+				goto pass_to_stack;
+		}
+#endif /* !ENABLE_NODEPORT */
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 		/*
@@ -2486,24 +2528,35 @@ int cil_to_container(struct __ctx_buff *ctx)
 			  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN,
 			  TRACE_PAYLOAD_LEN, proto);
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
-	/* If the packet comes from the hostns and per-endpoint routes are enabled,
-	 * jump to bpf_host to enforce egress host policies before anything else.
+#if !defined(ENABLE_ROUTING)
+	/* previously, the preprocessor condition was
+	 * #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING).
+	 * After migrating ENABLE_HOST_FIREWALL to a runtime configuration,
+	 * this was changed to an if statement.
 	 *
-	 * We will jump back to bpf_lxc once host policies are enforced. Whenever
-	 * we call inherit_identity_from_host, the packet mark is cleared. Thus,
-	 * when we jump back, the packet mark will have been cleared and the
-	 * identity won't match HOST_ID anymore.
+	 * When working on ENABLE_ROUTING,
+	 * please update the if statement
+	 * so that it is semantically equivalent to the original preprocessor condition.
 	 */
-	if (identity == HOST_ID) {
-		ctx_store_meta(ctx, CB_FROM_HOST, 1);
-		ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);
+	if (CONFIG(enable_host_firewall)) {
+		/* If the packet comes from the hostns and per-endpoint routes are enabled,
+		 * jump to bpf_host to enforce egress host policies before anything else.
+		 *
+		 * We will jump back to bpf_lxc once host policies are enforced. Whenever
+		 * we call inherit_identity_from_host, the packet mark is cleared. Thus,
+		 * when we jump back, the packet mark will have been cleared and the
+		 * identity won't match HOST_ID anymore.
+		 */
+		if (identity == HOST_ID) {
+			ctx_store_meta(ctx, CB_FROM_HOST, 1);
+			ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);
 
-		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
-		return send_drop_notify(ctx, identity, sec_label, LXC_ID,
-					DROP_HOST_NOT_READY, METRIC_INGRESS);
+			ret = tail_call_policy(ctx, CONFIG(host_ep_id));
+			return send_drop_notify(ctx, identity, sec_label, LXC_ID,
+						DROP_HOST_NOT_READY, METRIC_INGRESS);
+		}
 	}
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+#endif /* !ENABLE_ROUTING */
 
 
 	switch (proto) {

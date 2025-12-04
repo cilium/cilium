@@ -51,3 +51,5 @@ NODE_CONFIG(bool, debug_lb, "Enable debugging trace statements for load balancer
 
 NODE_CONFIG(__u16, nodeport_port_min, "Nodeport minimum port value.")
 NODE_CONFIG(__u16, nodeport_port_max, "Nodeport maximum port value.")
+
+NODE_CONFIG(bool, enable_host_firewall, "Enable host network policies")

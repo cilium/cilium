@@ -15,6 +15,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.DebugLB = true
+			cfg.EnableHostFirewall = true
 
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
 			cfg.AllowICMPFragNeeded = permutation[1]
@@ -37,6 +38,7 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.DebugLB = true
+			cfg.EnableHostFirewall = true
 
 			cfg.EnableRemoteNodeMasquerade = permutation[0]
 			if permutation[1] {

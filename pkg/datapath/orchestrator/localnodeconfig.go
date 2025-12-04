@@ -147,6 +147,7 @@ func newLocalNodeConfig(
 		EnablePolicyAccounting:       config.PolicyAccounting,
 		WireguardIfIndex:             wgIndex,
 		EnableIPSec:                  ipsecCfg.Enabled(),
+		EnableHostFirewall:           config.EnableHostFirewall,
 		EncryptNode:                  config.EncryptNode,
 		EnableConntrackAccounting:    config.BPFConntrackAccounting,
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
