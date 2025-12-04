@@ -347,19 +347,21 @@ const (
 )
 
 type ScapyAssert struct {
-	Name       [scapyMaxStrLen]byte
-	File       [scapyMaxStrLen]byte
-	LNum       [scapyMaxStrLen]byte
-	FirstLayer [scapyMaxStrLen]byte
-	Len        uint16
-	ExpBuf     [scapyMaxBuf]byte
-	GotBuf     [scapyMaxBuf]byte
-	Pad        [2]byte
+	Name             [scapyMaxStrLen]byte
+	CalleeFunctionId int32
+	File             [scapyMaxStrLen]byte
+	LNum             [scapyMaxStrLen]byte
+	FirstLayer       [scapyMaxStrLen]byte
+	Len              uint16
+	ExpBuf           [scapyMaxBuf]byte
+	GotBuf           [scapyMaxBuf]byte
+	Pad              [2]byte
 }
 
 func assertToJSONMap(a ScapyAssert) map[string]any {
 	return map[string]any{
 		"name":        string(bytes.TrimRight(a.Name[:], "\x00")),
+		"cfi":         string(a.CalleeFunctionId),
 		"file":        string(bytes.TrimRight(a.File[:], "\x00")),
 		"linenum":     string(bytes.TrimRight(a.LNum[:], "\x00")),
 		"first-layer": string(bytes.TrimRight(a.FirstLayer[:], "\x00")),
