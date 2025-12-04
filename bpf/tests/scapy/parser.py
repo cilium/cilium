@@ -32,10 +32,14 @@ def find_buf_refs(filepath: str, bufs: dict[str, dict]) -> dict[str, dict]:
             # Remove trailing );
             scapy_buf = re.sub(r'\s*\)\s*;\s*$', '', scapy_buf)
 
-            if name in bufs and scapy_buf != bufs[name]:
-                raise Exception(f"Mismatching packet definitions with name '{name}'; found '{scapy_buf}' and '{bufs[name]}'")
+            try:
+                buf = eval(scapy_buf)
+            except Exception as e:
+                raise Exception(f"Unknown scapy buffer '{scapy_buf}'. Please make sure it's defined under scapy/*_pkt_defs.py")
 
-            buf = eval(scapy_buf)
+            if name in bufs and buf != bufs[name]["buf"]:
+                raise Exception(f"Mismatching packet definitions with name '{name}'; found '{scapy_buf}' and '{bufs[name]}'.")
+
             bufs[name] = {
                 "str": scapy_buf,
                 "buf": buf,
