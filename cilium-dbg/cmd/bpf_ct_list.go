@@ -81,7 +81,7 @@ func getMaps(t string, id uint32) []ctmap.CtMap {
 	var r []ctmap.CtMap
 	ipv4, ipv6 := getIpEnableStatuses()
 	if t == "global" {
-		m = ctmap.GlobalMaps(ipv4, ipv6)
+		m = ctmap.Maps(ipv4, ipv6)
 	}
 	if t == "cluster" {
 		// Ignoring the error, as we already validated the cluster ID.

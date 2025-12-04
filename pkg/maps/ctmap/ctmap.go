@@ -638,7 +638,7 @@ func (m *Map) Flush(next4, next6 func(GCEvent)) int {
 // once all referenced to the map are cleared - that is, all BPF programs which
 // refer to the old map and removed/reloaded.
 func DeleteIfUpgradeNeeded() {
-	for _, newMap := range maps(true, true) {
+	for _, newMap := range Maps(true, true) {
 		path, err := newMap.Path()
 		if err != nil {
 			newMap.Logger.Warn("Failed to get path for CT map", logfields.Error, err)
@@ -663,9 +663,11 @@ func DeleteIfUpgradeNeeded() {
 	}
 }
 
-// maps returns the global connection tracking maps.
-// protocol will not be returned.
-func maps(ipv4, ipv6 bool) []*Map {
+// Maps returns a slice of all CT maps that are used.
+// If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
+//
+// The returned maps are not yet opened.
+func Maps(ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if ipv4 {
 		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
@@ -678,20 +680,11 @@ func maps(ipv4, ipv6 bool) []*Map {
 	return result
 }
 
-// GlobalMaps returns a slice of CT maps that are used globally by all
-// endpoints that are not otherwise configured to use their own local maps.
-// If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
-//
-// The returned maps are not yet opened.
-func GlobalMaps(ipv4, ipv6 bool) []*Map {
-	return maps(ipv4, ipv6)
-}
-
 // WriteBPFMacros writes the map names for the global conntrack maps into the
 // specified writer.
 func WriteBPFMacros(fw io.Writer) {
 	var mapEntriesTCP, mapEntriesAny int
-	for _, m := range maps(true, true) {
+	for _, m := range Maps(true, true) {
 		if m.mapType.isTCP() {
 			mapEntriesTCP = m.mapType.maxEntries()
 		} else {
@@ -706,7 +699,7 @@ func WriteBPFMacros(fw io.Writer) {
 // or true if they exist or an internal error occurs.
 func Exists(ipv4, ipv6 bool) bool {
 	result := true
-	for _, m := range maps(ipv4, ipv6) {
+	for _, m := range Maps(ipv4, ipv6) {
 		path, err := m.Path()
 		if err != nil {
 			// Catch this error early

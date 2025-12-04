@@ -335,8 +335,8 @@ func (gc *GC) enableWithConfig(
 		go func() {
 			<-initialScanComplete
 			gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
-			// Not supporting BPF map pressure for local CT maps as of yet.
-			ctmap.CalculateCTMapPressure(gc.controllerManager, gc.metricsRegistry, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
+			// Not supporting BPF map pressure for per-cluster CT maps as of yet.
+			ctmap.CalculateCTMapPressure(gc.controllerManager, gc.metricsRegistry, ctmap.Maps(gc.ipv4, gc.ipv6)...)
 		}()
 	}
 }
@@ -360,7 +360,7 @@ func (gc *GC) Observe6() stream.Observable[ctmap.GCEvent] {
 func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 	success = true
 
-	maps := ctmap.GlobalMaps(ipv4, ipv6)
+	maps := ctmap.Maps(ipv4, ipv6)
 
 	// We treat per-cluster CT Maps as global maps. When we don't enable
 	// cluster-aware addressing, perClusterCTMapsRetriever is nil (default).
