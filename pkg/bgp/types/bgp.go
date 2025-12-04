@@ -163,8 +163,8 @@ const (
 	RoutePolicyMatchInvert
 )
 
-func (d RoutePolicyMatchType) String() string {
-	switch d {
+func (t RoutePolicyMatchType) String() string {
+	switch t {
 	case RoutePolicyMatchAny:
 		return "any"
 	case RoutePolicyMatchAll:
@@ -174,6 +174,14 @@ func (d RoutePolicyMatchType) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+func (t RoutePolicyMatchType) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + t.String() + "\""), nil
+}
+
+func (t RoutePolicyMatchType) MarshalYAML() (any, error) {
+	return t.String(), nil
 }
 
 // RoutePolicyNeighborMatch matches BGP neighbor IP address with the provided IPs using the provided match logic type.
@@ -300,6 +308,27 @@ const (
 	RoutePolicyActionReject
 )
 
+func (a RoutePolicyAction) String() string {
+	switch a {
+	case RoutePolicyActionNone:
+		return "none"
+	case RoutePolicyActionAccept:
+		return "accept"
+	case RoutePolicyActionReject:
+		return "reject"
+	default:
+		return "unknown"
+	}
+}
+
+func (a RoutePolicyAction) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + a.String() + "\""), nil
+}
+
+func (a RoutePolicyAction) MarshalYAML() (any, error) {
+	return a.String(), nil
+}
+
 // RoutePolicyActions define policy actions taken on route matched by a routing policy.
 //
 // +deepequal-gen=true
@@ -350,6 +379,25 @@ const (
 	// RoutePolicyTypeImport represents import routing policy type (affecting how the routes are imported into RIB).
 	RoutePolicyTypeImport
 )
+
+func (t RoutePolicyType) String() string {
+	switch t {
+	case RoutePolicyTypeExport:
+		return "export"
+	case RoutePolicyTypeImport:
+		return "import"
+	default:
+		return "unknown"
+	}
+}
+
+func (t RoutePolicyType) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + t.String() + "\""), nil
+}
+
+func (t RoutePolicyType) MarshalYAML() (any, error) {
+	return t.String(), nil
+}
 
 // RoutePolicy represents a BGP routing policy, also called "route map" in some BGP implementations.
 // It can contain multiple Statements that are evaluated in the given order. Each Statement
