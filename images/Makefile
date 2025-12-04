@@ -13,7 +13,8 @@ OUTPUT := "type=registry,push=true"
 endif
 
 PLATFORMS=linux/amd64,linux/arm64
-RUNTIME_IMAGE=quay.io/cilium/cilium-runtime
+BASE_IMAGE_REGISTRY ?= quay.io
+RUNTIME_IMAGE=$(BASE_IMAGE_REGISTRY)/cilium/cilium-runtime
 RUNTIME_DIRECTORY?=images/runtime
 
 all-images: lint runtime-image builder-image cilium-image operator-image hubble-relay-image

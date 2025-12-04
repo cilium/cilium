@@ -30,7 +30,20 @@ cilium-operator Docker image:
 
     ARCH=amd64 DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make docker-operator-generic-image
 
-The commands above assumes that your username for ``quay.io`` is ``myaccount``.
+The commands above assume that your username for ``quay.io`` is ``myaccount``.
+- ``DOCKER_DEV_ACCOUNT`` sets where to push images (combined with ``DOCKER_REGISTRY``).
+- ``DOCKER_IMAGE_TAG`` sets the image tag.
+
+.. note::
+   When using ``make -C images`` directly, use ``REGISTRIES`` instead of ``DOCKER_REGISTRY``
+   to control where images are pushed. ``REGISTRIES`` supports multiple space-separated registries.
+
+To pull base images (``cilium-builder``, ``cilium-runtime``) from a custom registry set ``BASE_IMAGE_REGISTRY``:
+
+.. code-block:: shell-session
+
+    # Pull base images from mirror, push to local registry
+    cd images && make BASE_IMAGE_REGISTRY=my-mirror.example.com REGISTRIES=localhost:5001 PUSH=true cilium-image
 
 ~~~~~~~~~~~~~~
 Race detection

@@ -4,7 +4,7 @@ set -eu
 
 cd "$(dirname "$0")/../.."
 
-CILIUM_BUILDER_IMAGE=$(cat images/cilium/Dockerfile | grep '^ARG CILIUM_BUILDER_IMAGE=' | cut -d '=' -f 2)
+CILIUM_BUILDER_IMAGE=$(./images/scripts/get-image-uri.sh builder)
 
 GO=""
 if which go > /dev/null; then

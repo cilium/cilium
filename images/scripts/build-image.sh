@@ -39,6 +39,9 @@ else
   image_tag="$("${script_dir}/make-image-tag.sh")"
 fi
 
+cilium_builder_image="$("${script_dir}/make-image-tag.sh" builder)"
+cilium_runtime_image="$("${script_dir}/make-image-tag.sh" runtime)"
+
 tag_args=()
 for registry in "${registries[@]}" ; do
   tag_args+=(--tag "${registry}/${image_name}:${image_tag}")
@@ -100,6 +103,8 @@ run_buildx() {
     "--target=release"
     "--file=${image_dir}/Dockerfile"
   )
+  build_args+=("--build-arg" "CILIUM_BUILDER_IMAGE=${cilium_builder_image}")
+  build_args+=("--build-arg" "CILIUM_RUNTIME_IMAGE=${cilium_runtime_image}")
   if [ "${with_root_context}" = "false" ] ; then
     build_args+=("${image_dir}")
   else
