@@ -195,7 +195,10 @@ func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
 		return nil, err
 	}
 
-	var result []types.Device
+	var (
+		result []types.Device
+		errs   []error
+	)
 
 	for _, dirName := range files {
 		addr := dirName.Name()
@@ -205,10 +208,16 @@ func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
 			continue
 		}
 
-		result = append(result, *mgr.parseDevice(addr))
+		device, err := mgr.parseDevice(addr)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse device %s: %w", addr, err))
+			continue
+		}
+
+		result = append(result, *device)
 	}
 
-	return result, nil
+	return result, errors.Join(errs...)
 }
 
 const (
@@ -241,70 +250,82 @@ func isNetworkDevice(pciAddr string) bool {
 }
 
 // parseDevice constructs a PciDevice from a PCI device's sysfs attributes.
-func (mgr *SRIOVManager) parseDevice(addr string) *PciDevice {
+func (mgr *SRIOVManager) parseDevice(addr string) (*PciDevice, error) {
 	dev := PciDevice{
 		addr: addr,
 	}
 
 	devicePath := path.Join(mgr.sysPath, addr)
 	driver, err := os.Readlink(path.Join(devicePath, "driver"))
-	if err == nil {
-		// 	/sys/bus/pci/devices/0000:02:00.0# readlink driver
-		// ../../../../bus/pci/drivers/mlx5_core
-		_, driver := path.Split(driver)
-		dev.driver = driver
+	if err != nil {
+		return nil, err
 	}
+
+	// 	/sys/bus/pci/devices/0000:02:00.0# readlink driver
+	// ../../../../bus/pci/drivers/mlx5_core
+	_, driver = path.Split(driver)
+	dev.driver = driver
 
 	vendor, err := os.ReadFile(path.Join(devicePath, "vendor"))
-	if err == nil {
-		dev.vendor = strings.ReplaceAll(string(vendor), "\n", "")
+	if err != nil {
+		return nil, err
 	}
+	dev.vendor = strings.ReplaceAll(string(vendor), "\n", "")
 
 	kernelIfNames, err := os.ReadDir(path.Join(devicePath, "net"))
-	if err == nil {
-		for _, d := range kernelIfNames {
-			dev.kernelIfName = d.Name()
-			break
-		}
+	if err != nil {
+		return nil, err
+	}
+	if len(kernelIfNames) > 0 {
+		dev.kernelIfName = kernelIfNames[0].Name()
 	}
 
 	device, err := os.ReadFile(path.Join(devicePath, "device"))
-	if err == nil {
-		dev.deviceID = strings.ReplaceAll(string(device), "\n", "")
+	if err != nil {
+		return nil, err
+	}
+	dev.deviceID = strings.ReplaceAll(string(device), "\n", "")
+
+	pfNames, err := os.ReadDir(path.Join(devicePath, "physfn", "net"))
+	if err != nil {
+		return nil, err
+	}
+	if len(pfNames) > 0 {
+		dev.pfName = pfNames[0].Name()
 	}
 
-	// absurdly nested for now x.x
-	pfNames, err := os.ReadDir(path.Join(devicePath, "physfn", "net"))
-	if err == nil {
-		for _, d := range pfNames {
-			dev.pfName = d.Name()
+	pfDevPath := path.Join(defaultNetPath, dev.pfName, "device")
+	vfCount, err := os.ReadFile(path.Join(pfDevPath, "sriov_numvfs"))
+	if err != nil {
+		return nil, err
+	}
+	vfCnt, err := strconv.Atoi(strings.ReplaceAll(string(vfCount), "\n", ""))
+	if err != nil {
+		return nil, err
+	}
+
+	// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn0
+	// ../0000:02:00.2
+	// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn1
+	// ../0000:02:00.3
+	var found bool
+	for i := range vfCnt {
+		vf, err := os.Readlink(path.Join(pfDevPath, fmt.Sprintf("virtfn%d", i)))
+		if err != nil {
+			continue
+		}
+		_, vfAddr := path.Split(vf)
+		if vfAddr == addr {
+			dev.vfID = i
+			found = true
 			break
 		}
-
-		pfDevPath := path.Join(defaultNetPath, dev.pfName, "device")
-		vfCount, err := os.ReadFile(path.Join(pfDevPath, "sriov_numvfs"))
-		if err == nil {
-			vfCnt, err := strconv.Atoi(strings.ReplaceAll(string(vfCount), "\n", ""))
-			if err == nil {
-				// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn0
-				// ../0000:02:00.2
-				// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn1
-				// ../0000:02:00.3
-				for i := 0; i < vfCnt; i++ {
-					vf, err := os.Readlink(path.Join(pfDevPath, fmt.Sprintf("virtfn%d", i)))
-					if err == nil {
-						_, vfAddr := path.Split(vf)
-						if vfAddr == addr {
-							dev.vfID = i
-							break
-						}
-					}
-				}
-			}
-		}
+	}
+	if !found {
+		return nil, fmt.Errorf("failed to find address %s", addr)
 	}
 
-	return &dev
+	return &dev, nil
 }
 
 // setupVfs configures a PF that has an `ifname` with `vfCount` virtual functions by
