@@ -6,21 +6,37 @@
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
+#include "static_data.h"
+
 #define NSEC_PER_SEC	(1000ULL * 1000ULL * 1000UL)
 
+NODE_CONFIG(bool, enable_jiffies, "Use jiffies (count of timer ticks since boot).");
+NODE_CONFIG(__u32, kernel_hz, "Number of clock ticks per second.");
+
 /* Monotonic clock, scalar format. */
-#define bpf_ktime_get_sec()	\
-	({ __u64 __x = ktime_get_ns() / NSEC_PER_SEC; __x; })
+static __always_inline __u64 bpf_ktime_get_sec(void)
+{
+	return ktime_get_ns() / NSEC_PER_SEC;
+}
 
 /* Jiffies */
-#define bpf_sec_to_jiffies(s)	\
-	({ __u64 __x = (s) * KERNEL_HZ; __x; })
+static __always_inline __u64 bpf_sec_to_jiffies(__u64 s)
+{
+	return s * CONFIG(kernel_hz);
+}
 
-#if defined(ENABLE_JIFFIES) && KERNEL_HZ != 1
-# define BPF_MONO_SCALER	8
-# define bpf_mono_now()		(jiffies >> BPF_MONO_SCALER)
-# define bpf_sec_to_mono(s)	((__u32)bpf_sec_to_jiffies(s) >> BPF_MONO_SCALER)
-#else
-# define bpf_mono_now()		bpf_ktime_get_sec()
-# define bpf_sec_to_mono(s)	(s)
-#endif /* ENABLE_JIFFIES */
+#define BPF_MONO_SCALER 8
+
+static __always_inline __u64 bpf_mono_now(void)
+{
+	if (CONFIG(enable_jiffies) && CONFIG(kernel_hz) != 1)
+		return jiffies >> BPF_MONO_SCALER;
+	return bpf_ktime_get_sec();
+}
+
+static __always_inline __u32 bpf_sec_to_mono(__u32 s)
+{
+	if (CONFIG(enable_jiffies) && CONFIG(kernel_hz) != 1)
+		return (__u32)bpf_sec_to_jiffies(s) >> BPF_MONO_SCALER;
+	return s;
+}
