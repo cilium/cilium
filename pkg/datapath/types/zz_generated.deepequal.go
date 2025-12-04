@@ -241,6 +241,12 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableLocalNodeRoute != other.EnableLocalNodeRoute {
 		return false
 	}
+	if in.DatapathIsLayer2 != other.DatapathIsLayer2 {
+		return false
+	}
+	if in.DatapathIsNetkit != other.DatapathIsNetkit {
+		return false
+	}
 	if in.EnableWireguard != other.EnableWireguard {
 		return false
 	}

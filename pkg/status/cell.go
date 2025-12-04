@@ -102,6 +102,7 @@ type statusParams struct {
 	PolicyMapFactory policymap.Factory
 	TunnelConfig     tunnel.Config
 	WireguardAgent   wgTypes.WireguardAgent
+	ConnectorConfig  datapath.ConnectorConfig
 }
 
 // Config is the collector configuration

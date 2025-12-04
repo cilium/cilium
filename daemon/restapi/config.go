@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -77,7 +76,7 @@ type configModifyApiHandlerParams struct {
 	TunnelConfig    tunnel.Config
 	BandwidthConfig datapath.BandwidthConfig
 	WgConfig        wgTypes.WireguardConfig
-	ConnectorConfig types.ConnectorConfig
+	ConnectorConfig datapath.ConnectorConfig
 
 	EventHandler *ConfigModifyEventHandler
 }
@@ -349,7 +348,7 @@ type getConfigHandler struct {
 	tunnelConfig    tunnel.Config
 	bandwidthConfig datapath.BandwidthConfig
 	wgConfig        wgTypes.WireguardConfig
-	connectorConfig types.ConnectorConfig
+	connectorConfig datapath.ConnectorConfig
 }
 
 func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.Responder {
@@ -395,7 +394,8 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		DeviceMTU:                    int64(h.mtuConfig.GetDeviceMTU()),
 		RouteMTU:                     int64(h.mtuConfig.GetRouteMTU()),
 		EnableRouteMTUForCNIChaining: h.mtuConfig.IsEnableRouteMTUForCNIChaining(),
-		DatapathMode:                 models.DatapathMode(option.Config.DatapathMode),
+		DatapathMode:                 models.DatapathMode(h.connectorConfig.GetOperationalMode().String()),
+		ConfiguredDatapathMode:       models.ConfiguredDatapathMode(h.connectorConfig.GetConfiguredMode().String()),
 		IpamMode:                     option.Config.IPAM,
 		Masquerade:                   option.Config.MasqueradingEnabled(),
 		MasqueradeProtocols: &models.DaemonConfigurationStatusMasqueradeProtocols{
