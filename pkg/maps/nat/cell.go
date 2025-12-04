@@ -7,14 +7,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/tuple"
-
-	"github.com/cilium/hive/cell"
 )
 
 // ErrMapDisabled is the expected error will be if map was not created
@@ -106,6 +107,7 @@ var Cell = cell.Module(
 
 		return promise4, promise6
 	}),
+	cell.Provide(provideNATRetriesMap),
 )
 
 // NatMap4 describes ipv4 nat map behaviors, used for providing map
@@ -120,4 +122,31 @@ type NatMap4 interface {
 type NatMap6 interface {
 	NatMap
 	DumpBatch6(func(*tuple.TupleKey6, *NatEntry6)) (count int, err error)
+}
+
+// NATRetriesMap is a marker interface for the NAT retries map.
+// It doesn't provide any functionality to the Cilium Agent because
+// the bpf map is only created by the Cilium Agent for the datapath.
+// It's still provided to be picked up as dependency by the Loader
+// and initialized at startup.
+type NATRetriesMap any
+
+func provideNATRetriesMap(lifecycle cell.Lifecycle, daemonConfig *option.DaemonConfig, kprConfig kpr.KPRConfig) bpf.MapOut[NATRetriesMap] {
+	if !kprConfig.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
+		return bpf.NewMapOut(NATRetriesMap(nil))
+	}
+
+	natRetriesMap := newNATRetriesMap(daemonConfig.IPv4Enabled(), daemonConfig.IPv6Enabled())
+
+	lifecycle.Append(cell.Hook{
+		OnStart: func(context cell.HookContext) error {
+			return natRetriesMap.init()
+		},
+		OnStop: func(context cell.HookContext) error {
+			// no need to close because the maps are only created for datapath (Create)
+			return nil
+		},
+	})
+
+	return bpf.NewMapOut(NATRetriesMap(natRetriesMap))
 }
