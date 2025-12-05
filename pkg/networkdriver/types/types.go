@@ -20,10 +20,12 @@ type DeviceManagerType int
 
 const (
 	sriovDeviceManagerStr = "sr-iov"
+	dummyDeviceManagerStr = "dummy"
 )
 
 const (
 	DeviceManagerTypeSRIOV DeviceManagerType = iota
+	DeviceManagerTypeDummy
 
 	DeviceManagerTypeUnknown
 )
@@ -32,6 +34,8 @@ func (d DeviceManagerType) String() string {
 	switch d {
 	case DeviceManagerTypeSRIOV:
 		return sriovDeviceManagerStr
+	case DeviceManagerTypeDummy:
+		return dummyDeviceManagerStr
 	}
 
 	return ""
@@ -41,6 +45,8 @@ func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 	switch d {
 	case DeviceManagerTypeSRIOV:
 		return json.Marshal(sriovDeviceManagerStr)
+	case DeviceManagerTypeDummy:
+		return json.Marshal(dummyDeviceManagerStr)
 	}
 
 	return nil, errUnknownDriverType
@@ -56,6 +62,8 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 	switch strings.ToLower(s) {
 	case sriovDeviceManagerStr:
 		*d = DeviceManagerTypeSRIOV
+	case dummyDeviceManagerStr:
+		*d = DeviceManagerTypeDummy
 	default:
 		return errUnknownDriverType
 	}
