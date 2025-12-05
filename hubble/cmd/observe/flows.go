@@ -554,10 +554,10 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 		"Show all flows observed at the given interface name (e.g. eth0)"))
 	filterFlags.Var(filterVar(
 		"encrypted", ofilter,
-		"Show only flows that were encrypted (WireGuard/IPsec)"))
+		"Show only encrypted flows (WireGuard/IPsec)"))
 	filterFlags.Var(filterVar(
 		"unencrypted", ofilter,
-		"Show only flows that were not encrypted"))
+		"Show only unencrypted flows"))
 
 	rawFilterFlags.StringArray(allowlistFlag, []string{}, "Specify allowlist as JSON encoded FlowFilters")
 	rawFilterFlags.StringArray(denylistFlag, []string{}, "Specify denylist as JSON encoded FlowFilters")
