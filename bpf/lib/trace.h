@@ -62,6 +62,11 @@ enum {
 #define MONITOR_AGGREGATION TRACE_AGGREGATE_NONE
 #endif
 
+#ifndef TRACE_EXTENSION
+#define TRACE_EXTENSION
+#define trace_extension_hook(ctx, msg) do {} while (0)
+#endif
+
 /**
  * update_trace_metrics
  * @ctx:	socket buffer
@@ -167,6 +172,7 @@ struct trace_notify {
 		union v6addr	orig_ip6;
 	};
 	__u64		ip_trace_id;
+	TRACE_EXTENSION
 };
 
 #ifdef TRACE_NOTIFY
@@ -251,6 +257,7 @@ _send_trace_notify(struct __ctx_buff *ctx, enum trace_point obs_point,
 	};
 	memset(&msg.orig_ip6, 0, sizeof(union v6addr));
 
+	trace_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
@@ -302,6 +309,7 @@ _send_trace_notify4(struct __ctx_buff *ctx, enum trace_point obs_point,
 		.ip_trace_id	= ip_trace_id,
 	};
 
+	trace_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
@@ -354,6 +362,7 @@ _send_trace_notify6(struct __ctx_buff *ctx, enum trace_point obs_point,
 
 	ipv6_addr_copy(&msg.orig_ip6, orig_addr);
 
+	trace_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));

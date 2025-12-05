@@ -36,6 +36,11 @@ enum {
 #define MONITOR_AGGREGATION TRACE_SOCK_AGGREGATE_NONE
 #endif
 
+#ifndef TRACE_SOCK_EXTENSION
+#define TRACE_SOCK_EXTENSION
+#define trace_sock_extension_hook(ctx, msg) do {} while (0)
+#endif
+
 /* L4 protocol for the trace event */
 enum l4_protocol {
 	L4_PROTOCOL_UNKNOWN = 0,
@@ -75,6 +80,7 @@ struct trace_sock_notify {
 	__u64 sock_cookie;
 	__u64 cgroup_id;
 	struct ip dst_ip;
+	TRACE_SOCK_EXTENSION
 };
 
 #ifdef TRACE_SOCK_NOTIFY
@@ -162,6 +168,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 		.ipv6		= 0,
 	};
 
+	trace_sock_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 
@@ -208,6 +215,7 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	};
 	ipv6_addr_copy_unaligned(&msg.dst_ip.ip6, dst_addr);
 
+	trace_sock_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU, &msg, sizeof(msg));
 }
 #else
