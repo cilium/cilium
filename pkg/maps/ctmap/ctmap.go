@@ -352,15 +352,6 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 	stats := statStartGc(m, logResults)
 	defer stats.finish()
 
-	if natMap != nil {
-		err := natMap.Open()
-		if err == nil {
-			defer natMap.Close()
-		} else {
-			natMap = nil
-		}
-	}
-
 	// We serialize the deletions in order to avoid forced map walk restarts
 	// when keys are being evicted underneath us from concurrent goroutines.
 	// Thus globalDeleteLock must be held while performing cleanip sweep
