@@ -550,6 +550,12 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		return nil
 	}
 
+	if err := natMap.Open(); err != nil {
+		natMap.Logger.Error("Unable to open NAT map", logfields.Error, err)
+		return nil
+	}
+	defer natMap.Close()
+
 	family := gcFamilyIPv4
 	if ctMapTCP.mapType.isIPv6() {
 		family = gcFamilyIPv6
