@@ -32,7 +32,7 @@ var Cell = cell.Module(
 			return out4, out6
 		}
 
-		ipv4Nat, ipv6Nat = GlobalMaps(registry, cfg.EnableIPv4, cfg.EnableIPv6, true)
+		ipv4Nat, ipv6Nat = GlobalMaps(registry, cfg.EnableIPv4, cfg.EnableIPv6)
 		if ipv4Nat != nil {
 			out4 = bpf.NewMapOut[NatMap4](ipv4Nat)
 		}
@@ -42,15 +42,6 @@ var Cell = cell.Module(
 
 		lc.Append(cell.Hook{
 			OnStart: func(hc cell.HookContext) error {
-				// Maps are still created before DaemonConfig promise is resolved in
-				// daemon.initMaps(...) under the same circumstances
-				// so we just open them here so they can be provided to hive.
-				//
-				// TODO: Refactor ctmap gc Enable() such that it can use the map descriptors from
-				// here so we can move all nat map creation logic into here.
-				// NOTE: This code runs concurrently with startDaemon(), so if any dependency to
-				// daemon having finished endpoint restore, for example, is added, we should
-				// await for an appropriate promise.
 				if ipv4Nat != nil {
 					if err := ipv4Nat.OpenOrCreate(); err != nil {
 						return fmt.Errorf("open IPv4 nat map: %w", err)

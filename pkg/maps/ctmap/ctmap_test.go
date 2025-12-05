@@ -11,11 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 func init() {
-	InitMapInfo(nil, true, true, true)
+	nat4, nat6 := nat.GlobalMaps(nil, true, true)
+	InitMapInfo(nil, true, true, nat4, nat6)
 }
 
 func TestCalculateInterval(t *testing.T) {
