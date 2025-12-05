@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/ipcache"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -42,6 +43,11 @@ var Cell = cell.Module(
 	"policy-k8s-watcher",
 	"Watches K8s policy related objects",
 
+	cell.ProvidePrivate(configAdapter),
+	CellGroupForTesting,
+)
+
+var CellGroupForTesting = cell.Group(
 	cell.Invoke(startK8sPolicyWatcher),
 )
 
@@ -50,15 +56,32 @@ type ipc interface {
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
 }
 
+type policyWatcherConfig struct {
+	ClusterName                          string
+	EnableK8sNetworkPolicy               bool
+	EnableCiliumNetworkPolicy            bool
+	EnableCiliumClusterwideNetworkPolicy bool
+	ClustermeshPolicyConfig              cmtypes.PolicyConfig
+}
+
+func configAdapter(cfg *option.DaemonConfig, cm cmtypes.PolicyConfig, _ legacy.DaemonInitialization) policyWatcherConfig {
+	return policyWatcherConfig{
+		ClusterName:                          cfg.ClusterName,
+		EnableK8sNetworkPolicy:               cfg.EnableK8sNetworkPolicy,
+		EnableCiliumNetworkPolicy:            cfg.EnableCiliumNetworkPolicy,
+		EnableCiliumClusterwideNetworkPolicy: cfg.EnableCiliumClusterwideNetworkPolicy,
+		ClustermeshPolicyConfig:              cm,
+	}
+}
+
 type PolicyWatcherParams struct {
 	cell.In
 
 	Lifecycle cell.Lifecycle
 
-	ClientSet               client.Clientset
-	Config                  *option.DaemonConfig
-	ClusterMeshPolicyConfig cmtypes.PolicyConfig
-	Logger                  *slog.Logger
+	ClientSet client.Clientset
+	Config    policyWatcherConfig
+	Logger    *slog.Logger
 
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
@@ -90,7 +113,6 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 	p := &policyWatcher{
 		log:                              params.Logger,
 		config:                           params.Config,
-		clusterMeshPolicyConfig:          params.ClusterMeshPolicyConfig,
 		policyImporter:                   params.PolicyImporter,
 		k8sResourceSynced:                params.K8sResourceSynced,
 		k8sAPIGroups:                     params.K8sAPIGroups,
