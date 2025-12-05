@@ -234,13 +234,13 @@ const (
 // DebugMsg is the message format of the debug message found in the BPF ring buffer
 type DebugMsg struct {
 	api.DefaultSrcDstGetter
-	Type    uint8
-	SubType uint8
-	Source  uint16
-	Hash    uint32
-	Arg1    uint32
-	Arg2    uint32
-	Arg3    uint32
+	Type    uint8  `align:"type"`
+	SubType uint8  `align:"subtype"`
+	Source  uint16 `align:"source"`
+	Hash    uint32 `align:"hash"`
+	Arg1    uint32 `align:"arg1"`
+	Arg2    uint32 `align:"arg2"`
+	Arg3    uint32 `align:"arg3"`
 }
 
 // Dump prints the message according to the verbosity level specified
@@ -435,15 +435,16 @@ const (
 // DebugCapture is the metadata sent along with a captured packet frame
 type DebugCapture struct {
 	api.DefaultSrcDstGetter
-	Type    uint8
-	SubType uint8
+	Type    uint8 `align:"type"`
+	SubType uint8 `align:"subtype"`
 	// Source, if populated, is the ID of the source endpoint.
-	Source  uint16
-	Hash    uint32
-	Len     uint32
-	OrigLen uint32
-	Arg1    uint32
-	Arg2    uint32
+	Source  uint16 `align:"source"`
+	Hash    uint32 `align:"hash"`
+	OrigLen uint32 `align:"len_orig"`
+	Len     uint16 `align:"len_cap"`
+	Version uint16 `align:"version"`
+	Arg1    uint32 `align:"arg1"`
+	Arg2    uint32 `align:"arg2"`
 	// data
 }
 
@@ -475,8 +476,9 @@ func (n *DebugCapture) Decode(data []byte) error {
 	n.SubType = data[1]
 	n.Source = byteorder.Native.Uint16(data[2:4])
 	n.Hash = byteorder.Native.Uint32(data[4:8])
-	n.Len = byteorder.Native.Uint32(data[8:12])
-	n.OrigLen = byteorder.Native.Uint32(data[12:16])
+	n.OrigLen = byteorder.Native.Uint32(data[8:12])
+	n.Len = byteorder.Native.Uint16(data[12:14])
+	n.Version = byteorder.Native.Uint16(data[14:16])
 	n.Arg1 = byteorder.Native.Uint32(data[16:20])
 	n.Arg2 = byteorder.Native.Uint32(data[20:24])
 
@@ -576,7 +578,7 @@ type DebugCaptureVerbose struct {
 	Prefix    string `json:"prefix,omitempty"`
 
 	Source uint16 `json:"source"`
-	Bytes  uint32 `json:"bytes"`
+	Bytes  uint16 `json:"bytes"`
 
 	Summary string `json:"summary,omitempty"`
 }
