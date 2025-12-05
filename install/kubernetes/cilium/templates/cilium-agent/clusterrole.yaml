@@ -110,6 +110,7 @@ rules:
   - ciliumcidrgroups
   - ciliuml2announcementpolicies
   - ciliumpodippools
+  - ciliumnetworkdriverconfigs
   verbs:
   - list
   - watch
