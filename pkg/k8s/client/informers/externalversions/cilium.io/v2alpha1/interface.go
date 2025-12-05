@@ -33,6 +33,8 @@ type Interface interface {
 	CiliumL2AnnouncementPolicies() CiliumL2AnnouncementPolicyInformer
 	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
 	CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer
+	// CiliumNetworkDriverConfigs returns a CiliumNetworkDriverConfigInformer.
+	CiliumNetworkDriverConfigs() CiliumNetworkDriverConfigInformer
 	// CiliumPodIPPools returns a CiliumPodIPPoolInformer.
 	CiliumPodIPPools() CiliumPodIPPoolInformer
 }
@@ -101,6 +103,11 @@ func (v *version) CiliumL2AnnouncementPolicies() CiliumL2AnnouncementPolicyInfor
 // CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
 func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
 	return &ciliumLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumNetworkDriverConfigs returns a CiliumNetworkDriverConfigInformer.
+func (v *version) CiliumNetworkDriverConfigs() CiliumNetworkDriverConfigInformer {
+	return &ciliumNetworkDriverConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumPodIPPools returns a CiliumPodIPPoolInformer.

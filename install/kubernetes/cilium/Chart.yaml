@@ -175,3 +175,9 @@ annotations:
       displayName: Cilium Datapath Plugin
       description: |
         CiliumDatapathPlugin is a plugin that extends datapath functionality.
+    - kind: CiliumNetworkDriverConfig
+      version: v2alpha1
+      name: ciliumnetworkdriverconfigs.cilium.io
+      displayName: Cilium Network Driver Config
+      description: |
+        CiliumNetworkDriverConfig defines a configuration for the Cilium Network Driver module.
