@@ -122,6 +122,7 @@ ctx_set_cluster_id_mark(struct __sk_buff *ctx, __u32 cluster_id)
 	__u32 cluster_id_lower = (cluster_id & 0xFF);
 	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
 
+	ctx->mark &= MARK_MAGIC_KEY_MASK;
 	ctx->mark |=  cluster_id_lower | cluster_id_upper | MARK_MAGIC_CLUSTER_ID;
 }
 
