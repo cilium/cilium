@@ -238,6 +238,28 @@ var controllerTestFixture = []client.Object{
 			},
 		},
 	},
+
+	// Gateway with allowed routes invalid namespace selector
+	&gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-with-invalid-namespaces-selector",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1.Listener{
+				{
+					Name: "https",
+					Port: 80,
+					AllowedRoutes: &gatewayv1.AllowedRoutes{
+						Namespaces: &gatewayv1.RouteNamespaces{
+							From: ptr.To(gatewayv1.NamespacesFromSelector),
+						},
+					},
+				},
+			},
+		},
+	},
 }
 
 var namespaceFixtures = []client.Object{

@@ -146,6 +146,10 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 					})
 				}
 			case gatewayv1.NamespacesFromSelector:
+				if l.AllowedRoutes.Namespaces.Selector == nil {
+					scopedLog.WarnContext(ctx, "AllowedRoutes namespace set to Selector but no selector specified", logfields.Gateway, gw.GetName())
+					continue
+				}
 				nsList := &corev1.NamespaceList{}
 				err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels))
 				if err != nil {
