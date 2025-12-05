@@ -4,6 +4,7 @@
 #pragma once
 
 #include "common.h"
+#include "identity.h"
 #include "dbg.h"
 #include "eps.h"
 #include "l3.h"
