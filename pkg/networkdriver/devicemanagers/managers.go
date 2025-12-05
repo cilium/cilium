@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
@@ -25,7 +26,12 @@ func InitManager(logger *slog.Logger, managerType types.DeviceManagerType, drive
 		}
 
 		return sriov.NewManager(logger, c)
+	case dummy.DummyConfig:
+		if managerType != types.DeviceManagerTypeDummy {
+			return nil, fmt.Errorf("%w: expected %T, got %T", errInvalidConfigurationForManager, dummy.DummyConfig{}, c)
+		}
 
+		return dummy.NewManager(logger, c)
 	}
 
 	return nil, errUnknownManagerType

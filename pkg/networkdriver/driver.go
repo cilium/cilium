@@ -10,19 +10,16 @@ import (
 	"os"
 	"path"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/containerd/nri/pkg/stub"
 	resourceapi "k8s.io/api/resource/v1"
-	"k8s.io/utils/ptr"
-
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 	"k8s.io/dynamic-resource-allocation/resourceslice"
-
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
