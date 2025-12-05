@@ -10,13 +10,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
+
+	"github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/annotation"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type ownerMock struct{}
@@ -60,7 +68,7 @@ var mtuMock = fakeMTU{}
 func TestAllocatedIPDump(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil, nil, nil, false)
 	ipam.ConfigureAllocator()
 
 	allocv4, allocv6, status := ipam.Dump()
@@ -81,7 +89,7 @@ func TestExpirationTimer(t *testing.T) {
 
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil, nil, nil, false)
 	ipam.ConfigureAllocator()
 
 	err := ipam.AllocateIP(ip, "foo", PoolDefault())
@@ -149,7 +157,7 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) { return "some-pool", nil })
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil, nil)
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil, nil, nil, nil, false)
 	ipam.ConfigureAllocator()
 
 	// Allocate IPs and test expiration timer. 'pool' is empty in order to test
@@ -197,4 +205,84 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 	// Release IPv4 address
 	err = ipam.ReleaseIP(ipv4.IP, PoolDefault())
 	require.NoError(t, err)
+}
+
+// insertPool writes a LocalPodIPPool object into StateDB.
+func insertPool(t *testing.T, db *statedb.DB, tbl statedb.RWTable[k8s.LocalPodIPPool], name string, skipMasq bool) {
+	t.Helper()
+	ann := map[string]string{}
+	if skipMasq {
+		ann[annotation.IPAMSkipMasquerade] = "true"
+	}
+
+	poolObj := k8s.LocalPodIPPool{
+		CiliumPodIPPool: &k8sv2alpha1.CiliumPodIPPool{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Annotations: ann,
+			},
+		},
+		UpdatedAt: time.Now(),
+	}
+
+	w := db.WriteTxn(tbl)
+	tbl.Insert(w, poolObj)
+	w.Commit()
+}
+
+func createTestIPAM(t *testing.T, db *statedb.DB, pools statedb.Table[k8s.LocalPodIPPool], onlyMasqDefault bool) *IPAM {
+	fakeAddressing := fakeTypes.NewNodeAddressing()
+	cfg := &option.DaemonConfig{
+		EnableIPv4:              true,
+		EnableIPv6:              false,
+		IPAM:                    ipamOption.IPAMMultiPool,
+		RoutingMode:             option.RoutingModeTunnel,
+		EnableHealthChecking:    true,
+		EnableUnreachableRoutes: false,
+	}
+
+	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, cfg, &ownerMock{}, node.NewTestLocalNodeStore(node.LocalNode{}), &ownerMock{}, &resourceMock{}, &fakeMTU{}, nil, nil, nil, nil, db, pools, onlyMasqDefault)
+
+	// Use a small fake allocator that supports pools
+	ipam.IPv4Allocator = newFakePoolAllocator(map[string]string{
+		"default": "10.0.0.0/24",
+		"blue":    "10.0.1.0/24",
+		"red":     "10.0.2.0/24",
+		"green":   "10.0.3.0/24",
+	})
+
+	return ipam
+}
+
+func TestAllocateNextFamily_SkipMasquerade(t *testing.T) {
+	db := statedb.New()
+	poolsTbl, err := k8s.NewPodIPPoolTable(db)
+	require.NoError(t, err)
+
+	// onlyMasqueradeDefaultPool = true
+	ipam := createTestIPAM(t, db, poolsTbl, true)
+	res, err := ipam.AllocateNextFamily(IPv4, "ns/pod", "blue")
+	require.NoError(t, err)
+	require.True(t, res.SkipMasquerade, "SkipMasquerade should be true for non-default pools when onlyMasqueradeDefaultPool is set")
+	res, err = ipam.AllocateNextFamily(IPv4, "ns/pod", "default")
+	require.NoError(t, err)
+	require.False(t, res.SkipMasquerade, "default pool should always be masqueraded even if global flag set")
+	// onlyMasqueradeDefaultPool = false but pool annotated with skip-masquerade
+	insertPool(t, db, poolsTbl, "red", true)
+	ipam = createTestIPAM(t, db, poolsTbl, false)
+	res, err = ipam.AllocateNextFamily(IPv4, "ns/pod", "red")
+	require.NoError(t, err)
+	require.True(t, res.SkipMasquerade, "SkipMasquerade should be true based on pool annotation")
+	// ignore annotation on default pool
+	insertPool(t, db, poolsTbl, "default", true)
+	ipam = createTestIPAM(t, db, poolsTbl, false)
+	res, err = ipam.AllocateNextFamily(IPv4, "ns/pod", "default")
+	require.NoError(t, err)
+	require.False(t, res.SkipMasquerade, "default pool should always be masqueraded even if annotation set")
+	// neither flag nor annotation set
+	insertPool(t, db, poolsTbl, "green", false)
+	ipam = createTestIPAM(t, db, poolsTbl, false)
+	res, err = ipam.AllocateNextFamily(IPv4, "ns/pod", "green")
+	require.NoError(t, err)
+	require.False(t, res.SkipMasquerade, "SkipMasquerade should default to false")
 }

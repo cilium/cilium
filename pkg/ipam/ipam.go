@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/cilium/statedb"
+
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
@@ -67,7 +69,7 @@ type Metadata interface {
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(logger *slog.Logger, nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDiscovery Owner, localNodeStore *node.LocalNodeStore, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset, metadata Metadata, sysctl sysctl.Sysctl, ipMasqAgent *ipmasq.IPMasqAgent) *IPAM {
+func NewIPAM(logger *slog.Logger, nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDiscovery Owner, localNodeStore *node.LocalNodeStore, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset, metadata Metadata, sysctl sysctl.Sysctl, ipMasqAgent *ipmasq.IPMasqAgent, db *statedb.DB, podIPPools statedb.Table[agentK8s.LocalPodIPPool], onlyMasqueradeDefaultPool bool) *IPAM {
 	return &IPAM{
 		logger:           logger,
 		nodeAddressing:   nodeAddressing,
@@ -85,6 +87,11 @@ func NewIPAM(logger *slog.Logger, nodeAddressing types.NodeAddressing, c *option
 		metadata:       metadata,
 		sysctl:         sysctl,
 		ipMasqAgent:    ipMasqAgent,
+
+		db:         db,
+		podIPPools: podIPPools,
+
+		onlyMasqueradeDefaultPool: onlyMasqueradeDefaultPool,
 	}
 }
 

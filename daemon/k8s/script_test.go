@@ -58,6 +58,7 @@ func TestScript(t *testing.T) {
 				cell.Invoke(
 					func(statedb.Table[LocalPod]) {},
 					func(statedb.Table[Namespace]) {},
+					func(statedb.Table[LocalPodIPPool]) {},
 				),
 			)
 
