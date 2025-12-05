@@ -174,20 +174,20 @@ func TestPrivilegedPerClusterCTMapsCleanup(t *testing.T) {
 		{
 			name:    "IPv4",
 			ipv4:    true,
-			present: []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
-			absent:  []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal},
+			present: []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal},
+			absent:  []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal},
 		},
 		{
 			name:    "IPv6",
 			ipv6:    true,
-			present: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal},
-			absent:  []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
+			present: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal},
+			absent:  []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal},
 		},
 		{
 			name:   "dual",
 			ipv4:   true,
 			ipv6:   true,
-			absent: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal, mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
+			absent: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal, mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal},
 		},
 	}
 
