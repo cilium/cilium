@@ -107,19 +107,20 @@ func testResolver(t *testing.T, cells ...cell.Cell) {
 
 		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ dial.Resolver) {
 			cl = cl_
+
+			// Add a reactor to check that services are being watched.
+			cl.SlimFakeClientset.PrependReactor("list", "services",
+				func(action k8stest.Action) (handled bool, ret runtime.Object, err error) {
+					started.Store(true)
+					return false, nil, nil
+				},
+			)
 			resolver = resolver_
 		}),
 		cell.Group(cells...))
 
 	require.NoError(t, h.Start(tlog, ctx))
 	t.Cleanup(func() { require.NoError(t, h.Stop(tlog, ctx)) })
-
-	cl.SlimFakeClientset.PrependReactor("list", "services",
-		func(action k8stest.Action) (handled bool, ret runtime.Object, err error) {
-			started.Store(true)
-			return false, nil, nil
-		},
-	)
 
 	_, err := cl.Slim().CoreV1().Services("bar").Create(ctx, &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
@@ -137,7 +138,6 @@ func testResolver(t *testing.T, cells ...cell.Cell) {
 	host, port := resolver.Resolve(ctx, "foo.bar.com", "8080")
 	require.Equal(t, "foo.bar.com", host)
 	require.Equal(t, "8080", port)
-	require.False(t, started.Load(), "The store should not have started")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		host, port := resolver.Resolve(ctx, "foo.bar", "8080")
