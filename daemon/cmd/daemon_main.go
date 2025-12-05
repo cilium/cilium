@@ -1319,7 +1319,6 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 
 func initClockSourceOption(logger *slog.Logger) {
 	option.Config.ClockSource = option.ClockSourceKtime
-	option.Config.KernelHz = 1 // Known invalid non-zero to avoid div by zero.
 	hz, err := probes.KernelHZ()
 	if err != nil {
 		logger.Info(

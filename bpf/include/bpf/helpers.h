@@ -43,7 +43,6 @@ static long BPF_FUNC(for_each_map_elem, void *map, void *callback_fn,
 static __u64 BPF_FUNC(ktime_get_ns);
 static __u64 BPF_FUNC(ktime_get_boot_ns);
 static __u64 BPF_FUNC(jiffies64);
-#define jiffies	jiffies64()
 
 /* We have cookies! ;-) */
 static __sock_cookie BPF_FUNC(get_socket_cookie, void *ctx);
