@@ -5609,6 +5609,9 @@
     "secretsNamespaceAnnotations": {
       "type": "object"
     },
+    "secretsNamespaceLabels": {
+      "type": "object"
+    },
     "securityContext": {
       "properties": {
         "allowPrivilegeEscalation": {
