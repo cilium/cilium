@@ -76,6 +76,8 @@ update-versions: update-chart cilium/values.yaml # Update the Helm values file t
 
 CRD_FILES := $(shell find $(ROOT_DIR)/examples/crds/*/ -type f)
 CRDS := $(foreach path,$(patsubst %.yaml,%,$(CRD_FILES)),$(shell basename $(path)))
+RAND_FILES := $(shell grep -R -l -e "rand" -e "shuffle" -e "genPrivateKey" -e "genCA" -e "genSignedCert" -e "UUID" -e "commonCA" --include="*.yaml" $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates)
+RAND_SECRETS := $(foreach rand_file,$(RAND_FILES),$(shell grep -l -e 'kind: Secret' $(rand_file)))
 lint:
 	$(ECHO_CHECK)
 	$(QUIET)grep -RL $(COMMON_LABELS_EXCLUSIONS) .Values.commonLabels $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates/*.yaml $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates/**/*.yaml >> missing_label
@@ -92,6 +94,11 @@ lint:
 		|| (echo -e "$$crd not found in $(CHART_FILE).\nPlease update the chart to include $$crd."; exit 1); \
 	done
 	$(QUIET)$(HELM) lint --with-subcharts --values ./cilium/values.yaml ./cilium
+	$(QUIET)echo -e "non-idempotent secrets:"; \
+		for rand_secret in $(RAND_SECRETS); do \
+		grep -l -e "cilium.io/non-idempotent" $$rand_secret \
+		|| (echo -e "$$rand_secret missing label \"cilium.io/non-idempotent\".\nPlease add the label to it."; exit 1); \
+	done
 
 docs:
 	$(QUIET)$(HELM_DOCS)

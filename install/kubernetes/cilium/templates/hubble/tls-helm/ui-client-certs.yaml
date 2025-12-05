@@ -10,10 +10,11 @@ metadata:
   name: hubble-ui-client-certs
   namespace: {{ include "cilium.namespace" . }}
 
-  {{- with .Values.commonLabels }}
   labels:
+  {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
+    cilium.io/non-idempotent: "true"
 
   {{- with .Values.hubble.annotations }}
   annotations:
