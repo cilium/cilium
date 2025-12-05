@@ -15,7 +15,6 @@
 #include "eth.h"
 #include "ipv6_core.h"
 #include "map_defs.h"
-#include "mono.h"
 #include "config.h"
 #include "socket.h"
 #include "tunnel.h"
