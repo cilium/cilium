@@ -6,10 +6,23 @@ package secretsync
 import (
 	"fmt"
 	"log/slog"
+	"time"
+
+	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
 	"github.com/cilium/hive/cell"
-	ctrlRuntime "sigs.k8s.io/controller-runtime"
+
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+// This is the base resync duration for synchronized Secrets.
+// Jitter will be added on a per-Secret basis, so that the resyncs
+// don't line up.
+const resyncInterval = time.Hour
+
+// jitterAmount represents what fraction of the resyncInterval
+// resyncs will be jittered by. Default is 20 percent.
+const jitterAmount = 0.2
 
 // Cell manages K8s Secret synchronization from application namespaces
 // into dedicated Cilium secrets namespace.
@@ -57,7 +70,9 @@ func initSecretSyncReconciliation(params secretSyncParams) error {
 		return nil
 	}
 
-	reconciler := NewSecretSyncReconciler(params.CtrlRuntimeManager.GetClient(), params.Logger, params.Registrations)
+	params.Logger.Debug("Synchronized Secrets will resync", logfields.SyncInterval, resyncInterval)
+
+	reconciler := NewSecretSyncReconciler(params.CtrlRuntimeManager.GetClient(), params.Logger, params.Registrations, resyncInterval, jitterAmount)
 
 	if !reconciler.hasRegistrations() {
 		params.Logger.Debug("Skipping secret sync initialization as no registrations are available")
