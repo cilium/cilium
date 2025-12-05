@@ -43,9 +43,6 @@ const (
 	// Default CES Synctime, multiple consecutive syncs with k8s-apiserver are
 	// batched and synced together after a short delay.
 	DefaultCESSyncTime = 500 * time.Millisecond
-
-	CESWriteQPSLimitMax = 50
-	CESWriteQPSBurstMax = 100
 )
 
 func (c *Controller) initializeQueue() {
