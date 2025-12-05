@@ -603,7 +603,7 @@ func TestDecodeDropNotify(t *testing.T) {
 	SrcLabel := identity.NumericIdentity(123)
 	DstLabel := identity.NumericIdentity(456)
 
-	dropNotify := func(version uint16, iptraceid ...uint64) monitor.DropNotify {
+	dropNotify := func(version uint8, iptraceid ...uint64) monitor.DropNotify {
 		var id uint64
 		if len(iptraceid) > 0 {
 			id = iptraceid[0]

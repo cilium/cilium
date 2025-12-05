@@ -438,13 +438,14 @@ type DebugCapture struct {
 	Type    uint8 `align:"type"`
 	SubType uint8 `align:"subtype"`
 	// Source, if populated, is the ID of the source endpoint.
-	Source  uint16 `align:"source"`
-	Hash    uint32 `align:"hash"`
-	OrigLen uint32 `align:"len_orig"`
-	Len     uint16 `align:"len_cap"`
-	Version uint16 `align:"version"`
-	Arg1    uint32 `align:"arg1"`
-	Arg2    uint32 `align:"arg2"`
+	Source     uint16 `align:"source"`
+	Hash       uint32 `align:"hash"`
+	OrigLen    uint32 `align:"len_orig"`
+	Len        uint16 `align:"len_cap"`
+	Version    uint8  `align:"version"`
+	ExtVersion uint8  `align:"ext_version"`
+	Arg1       uint32 `align:"arg1"`
+	Arg2       uint32 `align:"arg2"`
 	// data
 }
 
@@ -478,7 +479,8 @@ func (n *DebugCapture) Decode(data []byte) error {
 	n.Hash = byteorder.Native.Uint32(data[4:8])
 	n.OrigLen = byteorder.Native.Uint32(data[8:12])
 	n.Len = byteorder.Native.Uint16(data[12:14])
-	n.Version = byteorder.Native.Uint16(data[14:16])
+	n.Version = data[14]
+	n.ExtVersion = data[15]
 	n.Arg1 = byteorder.Native.Uint32(data[16:20])
 	n.Arg2 = byteorder.Native.Uint32(data[20:24])
 
