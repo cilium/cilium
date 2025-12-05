@@ -118,10 +118,21 @@ type CtMapRecord struct {
 
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols.
-func InitMapInfo(registry *metrics.Registry, v4, v6, natRequired bool) {
-	global4Map, global6Map := nat.GlobalMaps(registry, v4, v6, natRequired)
+func InitMapInfo(registry *metrics.Registry, v4, v6 bool, nat4 nat.NatMap4, nat6 nat.NatMap6) {
+	var global4Map, global6Map *nat.Map
 	global4MapLock := &lock.Mutex{}
 	global6MapLock := &lock.Mutex{}
+
+	if nat4 != nil {
+		if m, ok := nat4.(*nat.Map); ok && m != nil {
+			global4Map = m
+		}
+	}
+	if nat6 != nil {
+		if m, ok := nat6.(*nat.Map); ok && m != nil {
+			global6Map = m
+		}
+	}
 
 	mapInfo = map[mapType]mapAttributes{
 		mapTypeIPv4TCPGlobal: {natMap: global4Map, natMapLock: global4MapLock},

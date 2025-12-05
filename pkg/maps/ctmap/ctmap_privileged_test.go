@@ -26,7 +26,8 @@ import (
 )
 
 func init() {
-	InitMapInfo(nil, true, true, true)
+	nat4, nat6 := nat.GlobalMaps(nil, true, true)
+	InitMapInfo(nil, true, true, nat4, nat6)
 }
 
 func setupCTMap(tb testing.TB) {
