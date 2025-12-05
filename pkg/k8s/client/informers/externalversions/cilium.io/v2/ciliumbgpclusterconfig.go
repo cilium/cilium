@@ -43,7 +43,7 @@ func NewCiliumBGPClusterConfigInformer(client versioned.Interface, resyncPeriod 
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredCiliumBGPClusterConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -68,7 +68,7 @@ func NewFilteredCiliumBGPClusterConfigInformer(client versioned.Interface, resyn
 				}
 				return client.CiliumV2().CiliumBGPClusterConfigs().Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisciliumiov2.CiliumBGPClusterConfig{},
 		resyncPeriod,
 		indexers,
