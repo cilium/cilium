@@ -30,6 +30,11 @@ type EgressCommonRule struct {
 	// +kubebuilder:validation:Optional
 	ToEndpoints []EndpointSelector `json:"toEndpoints,omitempty"`
 
+	// Deprecated.
+	//
+	// +kubebuilder:validation:MaxItems=0
+	ToRequires []string `json:"toRequires,omitempty"`
+
 	// ToCIDR is a list of IP blocks which the endpoint subject to the rule
 	// is allowed to initiate connections. Only connections destined for
 	// outside of the cluster and not targeting the host will be subject
