@@ -93,6 +93,8 @@ func New(params parameters) *GC {
 		signalHandler:    params.SignalManager,
 
 		controllerManager: controller.NewManager(),
+
+		perClusterCTMapsRetriever: params.PerClusterCTMapsRetriever,
 	}
 
 	gc.observable4, gc.next4, gc.complete4 = stream.Multicast[ctmap.GCEvent]()
