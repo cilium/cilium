@@ -120,37 +120,6 @@ func (m mapType) maxEntries() int {
 	}
 }
 
-type CTMapIPVersion int
-
-const (
-	CTMapIPv4 CTMapIPVersion = iota
-	CTMapIPv6
-)
-
-// FilterMapsByProto filters the given CT maps by the given IP version, and
-// returns two maps - one for TCP and one for any protocol.
-func FilterMapsByProto(maps []*Map, ipVsn CTMapIPVersion) (ctMapTCP *Map, ctMapAny *Map) {
-	for _, m := range maps {
-		switch ipVsn {
-		case CTMapIPv4:
-			switch m.mapType {
-			case mapTypeIPv4TCPGlobal:
-				ctMapTCP = m
-			case mapTypeIPv4AnyGlobal:
-				ctMapAny = m
-			}
-		case CTMapIPv6:
-			switch m.mapType {
-			case mapTypeIPv6TCPGlobal:
-				ctMapTCP = m
-			case mapTypeIPv6AnyGlobal:
-				ctMapAny = m
-			}
-		}
-	}
-	return
-}
-
 type CtKey interface {
 	bpf.MapKey
 
