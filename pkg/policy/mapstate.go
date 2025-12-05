@@ -630,6 +630,21 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 	return true
 }
 
+// deleteExistingWithChanges deletes an existing 'key'/'entry' from 'ms' keeping track of incremental
+// changes in 'changes'
+func (ms *mapState) deleteExistingWithChanges(key Key, entry mapStateEntry, changes ChangeState) {
+	// Only record as a delete if the entry was not added on the same round of changes
+	if changes.insertOldIfNotExists(key, entry) && changes.Deletes != nil {
+		changes.Deletes[key] = struct{}{}
+	}
+	// Remove a potential previously added key
+	if changes.Adds != nil {
+		delete(changes.Adds, key)
+	}
+
+	ms.delete(key)
+}
+
 // deleteKeyWithChanges deletes a 'key' from 'ms' keeping track of incremental changes in 'changes'
 // Note: key is only deleted if the 'precedence' matches with the precedence field of the found
 // entry
@@ -638,16 +653,7 @@ func (ms *mapState) deleteKeyWithChanges(key Key, precedence types.Precedence, c
 		if entry.Precedence != precedence {
 			return
 		}
-		// Only record as a delete if the entry was not added on the same round of changes
-		if changes.insertOldIfNotExists(key, entry) && changes.Deletes != nil {
-			changes.Deletes[key] = struct{}{}
-		}
-		// Remove a potential previously added key
-		if changes.Adds != nil {
-			delete(changes.Adds, key)
-		}
-
-		ms.delete(key)
+		ms.deleteExistingWithChanges(key, entry, changes)
 	}
 }
 
@@ -716,7 +722,7 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 		for k, v := range ms.NarrowerOrEqualKeys(newKey) {
 			if v.Precedence < newEntry.Precedence ||
 				v.Precedence == newEntry.Precedence && k != newKey {
-				ms.deleteKeyWithChanges(k, v.Precedence, changes)
+				ms.deleteExistingWithChanges(k, v, changes)
 			}
 		}
 	} else {
@@ -747,7 +753,7 @@ func (ms *mapState) insertWithChanges(newKey Key, newEntry mapStateEntry, featur
 		if features.contains(precedenceFeatures) {
 			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
 				if v.Precedence < newEntry.Precedence {
-					ms.deleteKeyWithChanges(k, v.Precedence, changes)
+					ms.deleteExistingWithChanges(k, v, changes)
 				}
 			}
 		}
@@ -841,7 +847,7 @@ func (ms *mapState) authPreferredInsert(newKey Key, newEntry mapStateEntry, feat
 	for k, v := range ms.SubsetKeysWithSameID(newKey) {
 		if v.Precedence < newEntry.Precedence {
 			if !ms.overrideProxyPortForAuth(newEntry, k, v, changes) {
-				ms.deleteKeyWithChanges(k, v.Precedence, changes)
+				ms.deleteExistingWithChanges(k, v, changes)
 				continue
 			}
 		}
