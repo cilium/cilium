@@ -411,6 +411,8 @@ spec:
           mountPath: /var/lib/kubelet/plugins
         - name: plugin-registry
           mountPath: /var/lib/kubelet/plugins_registry
+        - name: nri-plugin
+          mountPath: /var/run/nri
         {{- range .Values.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -1071,6 +1073,10 @@ spec:
       - name: plugin-registry
         hostPath:
           path: /var/lib/kubelet/plugins_registry
+          type: Directory
+      - name: nri-plugin
+        hostPath:
+          path: /var/run/nri
           type: Directory
       {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
       - name: hubble-tls
