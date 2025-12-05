@@ -1057,6 +1057,12 @@ spec:
                             type: object
                         type: object
                       type: array
+                    toRequires:
+                      description: Deprecated.
+                      items:
+                        type: string
+                      maxItems: 0
+                      type: array
                     toServices:
                       description: |-
                         ToServices is a list of services to which the endpoint subject
@@ -1612,6 +1618,12 @@ spec:
                             type: array
                         type: object
                       type: array
+                    toRequires:
+                      description: Deprecated.
+                      items:
+                        type: string
+                      maxItems: 0
+                      type: array
                     toServices:
                       description: |-
                         ToServices is a list of services to which the endpoint subject
@@ -2152,6 +2164,12 @@ spec:
                             type: object
                         type: object
                         x-kubernetes-map-type: atomic
+                      type: array
+                    fromRequires:
+                      description: Deprecated.
+                      items:
+                        type: string
+                      maxItems: 0
                       type: array
                     icmps:
                       description: |-
@@ -3061,6 +3079,12 @@ spec:
                             type: object
                         type: object
                         x-kubernetes-map-type: atomic
+                      type: array
+                    fromRequires:
+                      description: Deprecated.
+                      items:
+                        type: string
+                      maxItems: 0
                       type: array
                     icmps:
                       description: |-
@@ -4295,6 +4319,12 @@ spec:
                               type: object
                           type: object
                         type: array
+                      toRequires:
+                        description: Deprecated.
+                        items:
+                          type: string
+                        maxItems: 0
+                        type: array
                       toServices:
                         description: |-
                           ToServices is a list of services to which the endpoint subject
@@ -4851,6 +4881,12 @@ spec:
                               type: array
                           type: object
                         type: array
+                      toRequires:
+                        description: Deprecated.
+                        items:
+                          type: string
+                        maxItems: 0
+                        type: array
                       toServices:
                         description: |-
                           ToServices is a list of services to which the endpoint subject
@@ -5391,6 +5427,12 @@ spec:
                               type: object
                           type: object
                           x-kubernetes-map-type: atomic
+                        type: array
+                      fromRequires:
+                        description: Deprecated.
+                        items:
+                          type: string
+                        maxItems: 0
                         type: array
                       icmps:
                         description: |-
@@ -6301,6 +6343,12 @@ spec:
                               type: object
                           type: object
                           x-kubernetes-map-type: atomic
+                        type: array
+                      fromRequires:
+                        description: Deprecated.
+                        items:
+                          type: string
+                        maxItems: 0
                         type: array
                       icmps:
                         description: |-
