@@ -221,4 +221,11 @@ Install Cilium
 
 .. include:: k8s-install-validate.rst
 
+.. raw:: html
+   
+   Explore the Cilium Helm chart, configuration options, and available versions directly from ArtifactHub.
+
+   <div class="artifacthub-widget-group" data-url="https://staging.artifacthub.io/packages/search?kind=10&ts_query_web=sandbox&sort=relevance&page=1" data-theme="light" data-header="false" data-color="#417598" data-responsive="true" data-loading="true" data-stars="false"></div>
+   <script async src="https://artifacthub.io/artifacthub-widget.js"></script>
+
 .. include:: next-steps.rst
