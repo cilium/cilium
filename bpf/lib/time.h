@@ -30,7 +30,7 @@ static __always_inline __u64 bpf_sec_to_jiffies(__u64 s)
 static __always_inline __u64 bpf_mono_now(void)
 {
 	if (CONFIG(enable_jiffies) && CONFIG(kernel_hz) != 1)
-		return jiffies >> BPF_MONO_SCALER;
+		return jiffies64() >> BPF_MONO_SCALER;
 	return bpf_ktime_get_sec();
 }
 
