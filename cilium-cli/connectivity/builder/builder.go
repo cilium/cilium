@@ -320,6 +320,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		multicast{},
 		strictModeEncryption{},
 		ipsecKeyDerivation{},
+		ztunnelPodToPodEncryption{},
 	}
 	return injectTests(tests, connTests...)
 }
