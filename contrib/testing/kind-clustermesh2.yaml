@@ -24,6 +24,8 @@ startupProbe:
   failureThreshold: 9999
 clustermesh:
   useAPIServer: true
+  config:
+    enabled: true
   apiserver:
     image:
       pullPolicy: Never
