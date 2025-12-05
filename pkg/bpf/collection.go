@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/container/set"
@@ -150,6 +152,9 @@ type CollectionOptions struct {
 
 	// Set of objects to keep during reachability pruning.
 	Keep *set.Set[string]
+
+	// Path to the file containing datapath runtime config for this collection.
+	ConfigPath string
 }
 
 func (co *CollectionOptions) populateMapReplacements() {
@@ -195,6 +200,8 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		logfields.MapRenames, opts.MapRenames,
 		logfields.Constants, fmt.Sprintf("%#v", opts.Constants),
 	)
+
+	serializeConstants(logger, opts)
 
 	// Copy spec so the modifications below don't affect the input parameter,
 	// allowing the spec to be safely re-used by the caller.
@@ -285,6 +292,31 @@ func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
 	}
 
 	return nil
+}
+
+func serializeConstants(logger *slog.Logger, opts *CollectionOptions) {
+	if opts.ConfigPath == "" {
+		return
+	}
+
+	// Create directory to store the file under opts.ConfigPath.
+	if err := os.MkdirAll(filepath.Dir(opts.ConfigPath), 0755); err != nil {
+		logger.Error("Failed to create directory for config file", logfields.Path, opts.ConfigPath, logfields.Error, err)
+		return
+	}
+
+	file, err := os.Create(opts.ConfigPath)
+	if err != nil {
+		logger.Error("Failed to create config file", logfields.Path, opts.ConfigPath, logfields.Error, err)
+		return
+	}
+	defer file.Close()
+
+	scs := spew.ConfigState{
+		Indent:   " ",
+		SortKeys: true,
+	}
+	scs.Fdump(file, opts.Constants)
 }
 
 // applyConstants sets the values of BPF C runtime configurables defined using
