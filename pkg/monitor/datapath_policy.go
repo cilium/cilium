@@ -54,7 +54,8 @@ type PolicyVerdictNotify struct {
 	Hash        uint32                   `align:"hash"`
 	OrigLen     uint32                   `align:"len_orig"`
 	CapLen      uint16                   `align:"len_cap"`
-	Version     uint16                   `align:"version"`
+	Version     uint8                    `align:"version"`
+	ExtVersion  uint8                    `align:"ext_version"`
 	RemoteLabel identity.NumericIdentity `align:"remote_label"`
 	Verdict     int32                    `align:"verdict"`
 	DstPort     uint16                   `align:"dst_port"`
@@ -96,7 +97,8 @@ func (n *PolicyVerdictNotify) Decode(data []byte) error {
 	n.Hash = byteorder.Native.Uint32(data[4:8])
 	n.OrigLen = byteorder.Native.Uint32(data[8:12])
 	n.CapLen = byteorder.Native.Uint16(data[12:14])
-	n.Version = byteorder.Native.Uint16(data[14:16])
+	n.Version = data[14]
+	n.ExtVersion = data[15]
 	n.RemoteLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
 	n.Verdict = int32(byteorder.Native.Uint32(data[20:24]))
 	n.DstPort = byteorder.Native.Uint16(data[24:26])

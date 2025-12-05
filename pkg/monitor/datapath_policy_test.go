@@ -25,7 +25,7 @@ func TestDecodePolicyVerdicyNotify(t *testing.T) {
 		Hash:        0x04_05_06_07,
 		OrigLen:     0x08_09_0a_0b,
 		CapLen:      0x0c_0d,
-		Version:     0x0e_10,
+		Version:     0x10,
 		RemoteLabel: 0x11_12_13_14,
 		Verdict:     0x15_16_17_18,
 		DstPort:     0x19_1a,
