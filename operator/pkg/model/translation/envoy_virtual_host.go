@@ -286,6 +286,13 @@ func pathPrefixMutation(rewrite *model.HTTPURLRewriteFilter, httpRoute *model.HT
 				// hold `/` in case the entire path is removed
 				Substitution: `/\2`,
 			}
+		} else if httpRoute.PathMatch.Prefix == "/" {
+			route.Route.RegexRewrite = &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+				Pattern: &envoy_type_matcher_v3.RegexMatcher{
+					Regex: `^/(.*)`,
+				},
+				Substitution: strings.TrimSuffix(rewrite.Path.Prefix, "/") + `/\1`,
+			}
 		} else {
 			route.Route.PrefixRewrite = rewrite.Path.Prefix
 		}
