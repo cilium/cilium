@@ -12,6 +12,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/cilium/cilium/operator/endpointgc"
 	"github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/controller"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -28,6 +29,14 @@ func (igc *GC) startCRDModeGC(ctx context.Context) error {
 	if igc.gcInterval == 0 {
 		igc.logger.DebugContext(ctx, "CRD identity garbage collector disabled with interval set to 0")
 		return nil
+	}
+
+	// Don't run GC if CEP is disabled and CEP CRD is not present
+	if option.Config.DisableCiliumEndpointCRD {
+		if !endpointgc.CheckForCiliumEndpointCRD(ctx, igc.k8sClient, igc.logger) {
+			igc.logger.DebugContext(ctx, "CRD identity garbage collector disabled as CiliumEndpoint CRD is not present")
+			return nil
+		}
 	}
 
 	igc.logger.InfoContext(ctx, "Starting CRD identity garbage collector", logfields.Interval, igc.gcInterval)

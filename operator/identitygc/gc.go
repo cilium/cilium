@@ -51,6 +51,7 @@ type params struct {
 type GC struct {
 	logger *slog.Logger
 
+	k8sClient           k8sClient.Clientset
 	clientset           ciliumV2.CiliumIdentityInterface
 	kvstoreClient       kvstore.Client
 	identity            resource.Resource[*v2.CiliumIdentity]
@@ -94,6 +95,7 @@ func registerGC(p params) {
 
 	gc := &GC{
 		logger:              p.Logger,
+		k8sClient:           p.Clientset,
 		clientset:           p.Clientset.CiliumV2().CiliumIdentities(),
 		kvstoreClient:       p.KVStoreClient,
 		identity:            p.Identity,
