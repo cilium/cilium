@@ -343,20 +343,18 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 			m.Logger.Error("Unable to get per-cluster NAT map", logfields.Error, err)
 		} else {
 			natMap = natm
+			err := natMap.Open()
+			if err != nil {
+				m.Logger.Error("Unable to open per-cluster NAT map", logfields.Error, err)
+				natMap = nil
+			} else {
+				defer natMap.Close()
+			}
 		}
 	}
 
 	stats := statStartGc(m, logResults)
 	defer stats.finish()
-
-	if natMap != nil {
-		err := natMap.Open()
-		if err == nil {
-			defer natMap.Close()
-		} else {
-			natMap = nil
-		}
-	}
 
 	// We serialize the deletions in order to avoid forced map walk restarts
 	// when keys are being evicted underneath us from concurrent goroutines.
@@ -555,17 +553,19 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		} else {
 			natMap = natm
 		}
+
+		if natMap != nil {
+			if err := natMap.Open(); err != nil {
+				natMap.Logger.Error("Unable to open per-cluster NAT map", logfields.Error, err)
+				return nil
+			}
+			defer natMap.Close()
+		}
 	}
 
 	if natMap == nil {
 		return nil
 	}
-
-	if err := natMap.Open(); err != nil {
-		natMap.Logger.Error("Unable to open NAT map", logfields.Error, err)
-		return nil
-	}
-	defer natMap.Close()
 
 	family := gcFamilyIPv4
 	if ctMapTCP.mapType.isIPv6() {
