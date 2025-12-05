@@ -25,6 +25,8 @@ type CiliumL2AnnouncementPolicyExpansion interface{}
 
 type CiliumLoadBalancerIPPoolExpansion interface{}
 
+type CiliumNetworkDriverConfigExpansion interface{}
+
 type CiliumNodeConfigExpansion interface{}
 
 type CiliumPodIPPoolExpansion interface{}
