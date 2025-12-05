@@ -148,7 +148,8 @@ type NatGCStats struct {
 	*bpf.DumpStats
 
 	// family is the address family
-	Family gcFamily
+	Family    gcFamily
+	ClusterID uint32
 
 	IngressAlive   uint32
 	IngressDeleted uint32
@@ -156,10 +157,11 @@ type NatGCStats struct {
 	EgressAlive    uint32
 }
 
-func newNatGCStats(m *nat.Map, family gcFamily) NatGCStats {
+func newNatGCStats(m *nat.Map, family gcFamily, clusterID uint32) NatGCStats {
 	return NatGCStats{
 		DumpStats: m.DumpStats(),
 		Family:    family,
+		ClusterID: clusterID,
 	}
 }
 
