@@ -93,6 +93,13 @@ const (
 	CDPPPluralName     = "ciliumdatapathplugins"
 	CDPPKindDefinition = "CiliumDatapathPlugin"
 	CDPPName           = CDPPPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumNetworkDriverConfig
+	CiliumNetworkDriverConfigSingularName   = "ciliumnetworkdriverconfig"
+	CiliumNetworkDriverConfigPluralName     = "ciliumnetworkdriverconfigs"
+	CiliumNetworkDriverConfigKindDefinition = "CiliumNetworkDriverConfig"
+
+	CiliumNetworkDriverConfigName = CiliumNetworkDriverConfigPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -161,6 +168,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumGatewayClassConfigList{},
 
 		&CiliumDatapathPlugin{},
+
+		&CiliumNetworkDriverConfig{},
+		&CiliumNetworkDriverConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
