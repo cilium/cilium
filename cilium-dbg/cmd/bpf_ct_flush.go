@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/nat"
 )
 
 // bpfCtFlushCmd represents the bpf_ct_flush command
@@ -30,6 +31,19 @@ func init() {
 }
 
 func flushCt() {
+	nat4, nat6 := nat.GlobalMaps(nil, true, true)
+	if err := nat4.Open(); err != nil {
+		nat4 = nil
+	} else {
+		defer func() { nat4.Close() }()
+	}
+	if err := nat6.Open(); err != nil {
+		nat6 = nil
+	} else {
+		defer func() { nat6.Close() }()
+	}
+	ctmap.InitMapInfo(nil, true, true, nat4, nat6)
+
 	ipv4, ipv6 := getIpEnableStatuses()
 	maps := ctmap.GlobalMaps(ipv4, ipv6)
 
