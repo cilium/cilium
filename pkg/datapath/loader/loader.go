@@ -287,9 +287,6 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 
-	cfg.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
-	cfg.KernelHz = uint32(option.Config.KernelHz)
-
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
@@ -451,9 +448,6 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 
-	cfg.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
-	cfg.KernelHz = uint32(option.Config.KernelHz)
-
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -543,9 +537,6 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
-
-	cfg.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
-	cfg.KernelHz = uint32(option.Config.KernelHz)
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -722,9 +713,6 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
-	cfg.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
-	cfg.KernelHz = uint32(option.Config.KernelHz)
-
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
@@ -845,9 +833,6 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
-	cfg.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
-	cfg.KernelHz = uint32(option.Config.KernelHz)
-
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
 		Constants: cfg,
@@ -896,8 +881,6 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-	cfg.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
-	cfg.KernelHz = uint32(option.Config.KernelHz)
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{

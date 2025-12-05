@@ -11,8 +11,12 @@ package config
 type Node struct {
 	// Index of the interface used to connect nodes in the cluster.
 	DirectRoutingDevIfindex uint32 `config:"direct_routing_dev_ifindex"`
+	// Use jiffies (count of timer ticks since boot).
+	EnableJiffies bool `config:"enable_jiffies"`
 	// Enable hybrid mode routing based on subnet IDs.
 	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
+	// Number of clock ticks per second.
+	KernelHz uint32 `config:"kernel_hz"`
 	// Enable ICMP responses for policy-denied traffic.
 	PolicyDenyResponseEnabled bool `config:"policy_deny_response_enabled"`
 	// Internal IPv6 router address assigned to the cilium_host interface.
@@ -32,7 +36,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0, false, false,
+	return &Node{0x0, false, false, 0x0, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},

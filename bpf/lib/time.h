@@ -10,8 +10,8 @@
 
 #define NSEC_PER_SEC	(1000ULL * 1000ULL * 1000UL)
 
-DECLARE_CONFIG(bool, enable_jiffies, "Use jiffies (count of timer ticks since boot).");
-DECLARE_CONFIG(__u32, kernel_hz, "Number of clock ticks per second.");
+NODE_CONFIG(bool, enable_jiffies, "Use jiffies (count of timer ticks since boot).");
+NODE_CONFIG(__u32, kernel_hz, "Number of clock ticks per second.");
 
 /* Monotonic clock, scalar format. */
 static __always_inline __u64 bpf_ktime_get_sec(void)
