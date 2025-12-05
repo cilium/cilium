@@ -1,0 +1,11 @@
+name: Generate ZTunnel Certificates
+description: |
+  Generate TLS certificates for ztunnel and create the cilium-ztunnel-secrets
+  Kubernetes secret required for ztunnel encryption mode.
+runs:
+  using: composite
+  steps:
+    - id: generate-certs
+      shell: bash
+      run: |
+        bash ./.github/actions/ztunnel-certs/action.sh

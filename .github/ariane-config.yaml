@@ -8,6 +8,7 @@ triggers:
     - conformance-clustermesh.yaml
     - conformance-delegated-ipam.yaml
     - conformance-ipsec-e2e.yaml
+    - conformance-ztunnel-e2e.yaml
     - conformance-eks.yaml
     - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
@@ -47,6 +48,9 @@ triggers:
   /ci-ipsec-e2e:
     workflows:
     - conformance-ipsec-e2e.yaml
+  /ci-ztunnel-e2e:
+    workflows:
+    - conformance-ztunnel-e2e.yaml
   /ci-eks:
     workflows:
     - conformance-eks.yaml
@@ -170,3 +174,5 @@ workflows:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   hubble-cli-integration-test.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
+  conformance-ztunnel-e2e.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
