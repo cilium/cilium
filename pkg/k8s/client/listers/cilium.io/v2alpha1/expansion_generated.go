@@ -53,6 +53,10 @@ type CiliumL2AnnouncementPolicyListerExpansion interface{}
 // CiliumLoadBalancerIPPoolLister.
 type CiliumLoadBalancerIPPoolListerExpansion interface{}
 
+// CiliumNetworkDriverConfigListerExpansion allows custom methods to be added to
+// CiliumNetworkDriverConfigLister.
+type CiliumNetworkDriverConfigListerExpansion interface{}
+
 // CiliumPodIPPoolListerExpansion allows custom methods to be added to
 // CiliumPodIPPoolLister.
 type CiliumPodIPPoolListerExpansion interface{}
