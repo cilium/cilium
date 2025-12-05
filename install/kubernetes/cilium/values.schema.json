@@ -58,6 +58,27 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "nodeSpec": {
+          "properties": {
+            "securityGroupTags": {
+              "items": {},
+              "type": "array"
+            },
+            "securityGroups": {
+              "items": {},
+              "type": "array"
+            },
+            "vSwitchTags": {
+              "items": {},
+              "type": "array"
+            },
+            "vSwitches": {
+              "items": {},
+              "type": "array"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"
@@ -440,6 +461,14 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "nodeSpec": {
+          "properties": {
+            "azureInterfaceName": {
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"
@@ -4102,6 +4131,12 @@
         },
         "nodeSpec": {
           "properties": {
+            "ipamMaxAllocate": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
             "ipamMinAllocate": {
               "type": [
                 "null",
@@ -4113,6 +4148,10 @@
                 "null",
                 "integer"
               ]
+            },
+            "ipamStaticIPTags": {
+              "items": {},
+              "type": "array"
             }
           },
           "type": "object"

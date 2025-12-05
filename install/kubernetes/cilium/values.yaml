@@ -443,9 +443,16 @@ azure:
   # clientID: 00000000-0000-0000-0000-000000000000
   # clientSecret: 00000000-0000-0000-0000-000000000000
   # userAssignedIdentityID: 00000000-0000-0000-0000-000000000000
+  nodeSpec:
+    azureInterfaceName: ""
 alibabacloud:
   # -- Enable AlibabaCloud ENI integration
   enabled: false
+  nodeSpec:
+    vSwitches: []
+    vSwitchTags: []
+    securityGroups: []
+    securityGroupTags: []
 # -- Enable bandwidth manager to optimize TCP and UDP workloads and allow
 # for rate-limiting traffic from individual Pods with EDT (Earliest Departure
 # Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
@@ -2137,6 +2144,13 @@ ipam:
     # type: [null, integer]
     # @schema
     ipamPreAllocate: ~
+    # -- IPAM max allocate
+    # @schema
+    # type: [null, integer]
+    # @schema
+    ipamMaxAllocate: ~
+    # -- IPAM static IP tags (currently only works with AWS)
+    ipamStaticIPTags: []
 # -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
 # no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
 # @schema
