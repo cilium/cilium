@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	node_types "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -271,7 +272,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 				select {
 				case <-ctx.Done():
 					return nil
-				default:
+				case <-time.After(time.Second):
 					driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.driverName)
 				}
 			}
