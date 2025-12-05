@@ -67,8 +67,6 @@ const (
 	MapNameAny6Global = MapNameAny6 + "global"
 	MapNameAny4Global = MapNameAny4 + "global"
 
-	mapNumEntriesLocal = 64000
-
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
 	TUPLE_F_RELATED = 2
@@ -357,21 +355,11 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 	// to happen concurrently.
 	globalDeleteLock[m.mapType].Lock()
 	if ipv6 {
-		if m.mapType.isGlobal() {
-			filterCallback := cleanup(m, filter, natMap, &stats, next6, true)
-			stats.dumpError = iterate[CtKey6Global, CtEntry](m, &stats, filterCallback)
-		} else {
-			filterCallback := cleanup(m, filter, natMap, &stats, next6, true)
-			stats.dumpError = iterate[CtKey6, CtEntry](m, &stats, filterCallback)
-		}
+		filterCallback := cleanup(m, filter, natMap, &stats, next6, true)
+		stats.dumpError = iterate[CtKey6Global, CtEntry](m, &stats, filterCallback)
 	} else {
-		if m.mapType.isGlobal() {
-			filterCallback := cleanup(m, filter, natMap, &stats, next4, true)
-			stats.dumpError = iterate[CtKey4Global, CtEntry](m, &stats, filterCallback)
-		} else {
-			filterCallback := cleanup(m, filter, natMap, &stats, next4, true)
-			stats.dumpError = iterate[CtKey4, CtEntry](m, &stats, filterCallback)
-		}
+		filterCallback := cleanup(m, filter, natMap, &stats, next4, true)
+		stats.dumpError = iterate[CtKey4Global, CtEntry](m, &stats, filterCallback)
 	}
 	globalDeleteLock[m.mapType].Unlock()
 
