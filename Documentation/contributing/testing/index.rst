@@ -23,6 +23,7 @@ information about Cilium's CI infrastructure.
    :maxdepth: 2
    :glob:
 
+   local_dev_test
    ci
    e2e
    e2e_legacy
