@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -1668,11 +1669,17 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	// In the case of an policy update it is possible that an
 	// endpoint has started regeneration before the policy was
 	// updated, and that the policy was updated before the said
-	// endpoint reached this point. In this case the endpoint's
-	// policy is going to be recomputed soon after and we do
-	// nothing here.
+	// endpoint reached this point. In this case, we need to
+	// ensure that the endpoint will be regenerated at least once
+	// afterward. This to ensure it doesn't get stuck with a
+	// detached policy.
 	if l4.users != nil {
 		l4.users[user] = struct{}{}
+	} else {
+		go user.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+			Reason:            "selector policy has changed because of another endpoint with the same identity",
+			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+		})
 	}
 
 	l4.mutex.Unlock()
@@ -1781,15 +1788,30 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 
 // Detach makes the L4Policy ready for garbage collection, removing
 // circular pointer references.
+// The endpointID argument is only necessary if isDelete is false.
+// It ensures that detach does not call a regeneration trigger on
+// the same endpoint that initiated a selector policy update.
 // Note that the L4Policy itself is not modified in any way, so that it may still
 // be used concurrently.
-func (l4 *L4Policy) Detach(selectorCache *SelectorCache) {
+func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpointID uint64) {
 	l4.Ingress.Detach(selectorCache)
 	l4.Egress.Detach(selectorCache)
 
 	l4.mutex.Lock()
+	defer l4.mutex.Unlock()
+	// If this detach is a delete there is no reason to initiate
+	// a regenerate.
+	if !isDelete {
+		for ePolicy := range l4.users {
+			if endpointID != ePolicy.PolicyOwner.GetID() {
+				go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+					Reason:            "selector policy has changed because of another endpoint with the same identity",
+					RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+				})
+			}
+		}
+	}
 	l4.users = nil
-	l4.mutex.Unlock()
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.

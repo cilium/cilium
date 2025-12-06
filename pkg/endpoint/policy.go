@@ -277,7 +277,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics) (*policyGener
 	// TODO: GH-7515: Consider ways to compute policy outside of the
 	// endpoint regeneration process, ideally as part of the policy change
 	// handler.
-	err = repo.GetPolicyCache().UpdatePolicy(securityIdentity)
+	err = repo.GetPolicyCache().UpdatePolicy(securityIdentity, uint64(e.ID))
 	if err != nil {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		repo.Mutex.RUnlock()
