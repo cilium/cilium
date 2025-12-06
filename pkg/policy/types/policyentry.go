@@ -16,7 +16,7 @@ type PolicyEntry struct {
 	// take precedence over higher values. Rules having the default priority level 0 are
 	// considered first, then the rest of the rules, from the earliest to later priority levels.
 	// This is currently limited to 24 bits, i.e., max allowed priority is (1<<24-1).
-	Priority uint32
+	Priority float64
 
 	// Authentication specifies the cryptographic authentication required for the traffic to be
 	// allowed

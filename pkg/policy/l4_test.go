@@ -163,11 +163,15 @@ func TestCreateL4Filter(t *testing.T) {
 
 	for _, es := range selectors {
 		eps := types.ToSelectors(es)
+		entry := &types.PolicyEntry{
+			L3:      eps,
+			Ingress: true,
+			L4:      []api.PortRule{*portrule},
+		}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		td.testPolicyContext.SetIngress(true)
-		filter, err := createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple)
+		filter, err := createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -177,8 +181,8 @@ func TestCreateL4Filter(t *testing.T) {
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 
-		td.testPolicyContext.SetIngress(false)
-		filter, err = createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple)
+		entry.Ingress = false
+		filter, err = createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -211,14 +215,18 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 	}
 
-	auth := &api.Authentication{Mode: api.AuthenticationModeDisabled}
 	for _, es := range selectors {
 		eps := types.ToSelectors(es)
+		entry := &types.PolicyEntry{
+			L3:             eps,
+			Ingress:        true,
+			L4:             []api.PortRule{*portrule},
+			Authentication: &api.Authentication{Mode: api.AuthenticationModeDisabled},
+		}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		td.testPolicyContext.SetIngress(true)
-		filter, err := createL4Filter(td.testPolicyContext, eps, auth, portrule, tuple)
+		filter, err := createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -228,8 +236,8 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 			require.Equal(t, redirectTypeEnvoy, sp.redirectType())
 		}
 
-		td.testPolicyContext.SetIngress(false)
-		filter, err = createL4Filter(td.testPolicyContext, eps, auth, portrule, tuple)
+		entry.Ingress = false
+		filter, err = createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.NoError(t, err)
 		require.Len(t, filter.PerSelectorPolicies, 1)
 		for _, sp := range filter.PerSelectorPolicies {
@@ -266,15 +274,19 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 
 	for _, es := range selectors {
 		eps := types.ToSelectors(es)
+		entry := &types.PolicyEntry{
+			L3:      eps,
+			Ingress: true,
+			L4:      []api.PortRule{*portrule},
+		}
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		td.testPolicyContext.SetIngress(true)
-		_, err := createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple)
+		_, err := createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.Error(t, err)
 
-		td.testPolicyContext.SetIngress(false)
-		_, err = createL4Filter(td.testPolicyContext, eps, nil, portrule, tuple)
+		entry.Ingress = false
+		_, err = createL4Filter(td.testPolicyContext, entry, portrule, tuple)
 		require.Error(t, err)
 	}
 }
