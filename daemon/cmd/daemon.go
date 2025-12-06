@@ -145,7 +145,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	bootstrapStats.daemonInit.Start()
 
-	ctmap.InitMapInfo(params.MetricsRegistry, params.DaemonConfig.EnableIPv4, params.DaemonConfig.EnableIPv6, params.KPRConfig.KubeProxyReplacement || params.DaemonConfig.EnableBPFMasquerade)
+	ctmap.InitMapInfo(params.MetricsRegistry, params.DaemonConfig.EnableIPv4, params.DaemonConfig.EnableIPv6, params.NatMap4, params.NatMap6)
 
 	bootstrapStats.daemonInit.End(true)
 

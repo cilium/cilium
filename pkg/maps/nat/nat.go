@@ -375,10 +375,7 @@ func DeleteSwappedMapping6(m *Map, tk tuple.TupleKey) error {
 }
 
 // GlobalMaps returns all global NAT maps.
-func GlobalMaps(registry *metrics.Registry, ipv4, ipv6, natRequired bool) (ipv4Map, ipv6Map *Map) {
-	if !natRequired {
-		return
-	}
+func GlobalMaps(registry *metrics.Registry, ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map) {
 	if ipv4 {
 		ipv4Map = NewMap(registry, MapNameSnat4Global, IPv4, maxEntries())
 	}
