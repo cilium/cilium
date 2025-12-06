@@ -57,6 +57,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/cmdref"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
@@ -77,6 +78,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/version"
+	wgAgent "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
 var (
@@ -170,6 +172,9 @@ var (
 		cell.Provide(func() *operatorOption.OperatorConfig {
 			return operatorOption.Config
 		}),
+
+		ipsec.OperatorCell,
+		wgAgent.OperatorCell,
 
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
