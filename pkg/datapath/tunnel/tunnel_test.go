@@ -14,6 +14,7 @@ import (
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var defaultTestConfig = userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(Geneve), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange}
@@ -23,9 +24,15 @@ func TestConfig(t *testing.T) {
 		return func() EnablerOut { return NewEnabler(enable, opts...) }
 	}
 
+	var (
+		dcIPv46 = &option.DaemonConfig{EnableIPv4: true, EnableIPv6: true}
+		dcIPv4  = &option.DaemonConfig{EnableIPv4: true, EnableIPv6: false}
+	)
+
 	tests := []struct {
 		name     string
 		ucfg     userCfg
+		dc       *option.DaemonConfig
 		enablers []any
 
 		shallFail      bool
@@ -38,22 +45,26 @@ func TestConfig(t *testing.T) {
 		{
 			name:      "invalid protocol",
 			ucfg:      userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: "invalid", TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dc:        dcIPv46,
 			shallFail: true,
 		},
 		{
 			name:      "invalid underlay",
 			ucfg:      userCfg{UnderlayProtocol: "invalid", TunnelProtocol: string(VXLAN), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dc:        dcIPv46,
 			shallFail: true,
 		},
 		{
 			name:     "tunnel not enabled",
 			ucfg:     defaultTestConfig,
+			dc:       dcIPv46,
 			underlay: IPv4,
 			proto:    Disabled,
 		},
 		{
 			name:     "tunnel not enabled, with enablers",
 			ucfg:     defaultTestConfig,
+			dc:       dcIPv46,
 			enablers: []any{enabler(false), enabler(false)},
 			underlay: IPv4,
 			proto:    Disabled,
@@ -61,6 +72,7 @@ func TestConfig(t *testing.T) {
 		{
 			name:           "tunnel enabled, vxlan",
 			ucfg:           userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(VXLAN), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dc:             dcIPv46,
 			enablers:       []any{enabler(true), enabler(false)},
 			underlay:       IPv4,
 			proto:          VXLAN,
@@ -71,6 +83,7 @@ func TestConfig(t *testing.T) {
 		{
 			name:           "tunnel enabled, vxlan, custom port",
 			ucfg:           userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(VXLAN), TunnelPort: 1234, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dc:             dcIPv46,
 			enablers:       []any{enabler(false), enabler(true)},
 			underlay:       IPv4,
 			proto:          VXLAN,
@@ -79,8 +92,20 @@ func TestConfig(t *testing.T) {
 			shouldAdaptMTU: true,
 		},
 		{
+			name:           "tunnel enabled, vxlan, alt underlay",
+			ucfg:           userCfg{UnderlayProtocol: string(IPv6), TunnelProtocol: string(VXLAN), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dc:             dcIPv4,
+			enablers:       []any{enabler(true), enabler(false)},
+			underlay:       IPv4,
+			proto:          VXLAN,
+			port:           defaults.TunnelPortVXLAN,
+			deviceName:     defaults.VxlanDevice,
+			shouldAdaptMTU: true,
+		},
+		{
 			name:           "tunnel enabled, geneve",
 			ucfg:           defaultTestConfig,
+			dc:             dcIPv46,
 			enablers:       []any{enabler(true), enabler(true)},
 			underlay:       IPv4,
 			proto:          Geneve,
@@ -91,6 +116,7 @@ func TestConfig(t *testing.T) {
 		{
 			name:           "tunnel enabled, vxlan, ipv6 underlay",
 			ucfg:           userCfg{UnderlayProtocol: string(IPv6), TunnelProtocol: string(VXLAN), TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dc:             dcIPv46,
 			enablers:       []any{enabler(true), enabler(true)},
 			underlay:       IPv6,
 			proto:          VXLAN,
@@ -101,6 +127,7 @@ func TestConfig(t *testing.T) {
 		{
 			name:           "tunnel enabled, geneve, custom port",
 			ucfg:           userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(Geneve), TunnelPort: 1234, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dc:             dcIPv46,
 			enablers:       []any{enabler(true), enabler(false)},
 			underlay:       IPv4,
 			proto:          Geneve,
@@ -118,10 +145,12 @@ func TestConfig(t *testing.T) {
 				return nil
 			}))},
 			shallFail: true,
+			dc:        dcIPv46,
 		},
 		{
 			name:           "tunnel enabled, don't need MTU adaptation, one",
 			ucfg:           defaultTestConfig,
+			dc:             dcIPv46,
 			enablers:       []any{enabler(true, WithoutMTUAdaptation()), enabler(true)},
 			underlay:       IPv4,
 			proto:          Geneve,
@@ -132,6 +161,7 @@ func TestConfig(t *testing.T) {
 		{
 			name:           "tunnel enabled, don't need MTU adaptation, all",
 			ucfg:           defaultTestConfig,
+			dc:             dcIPv46,
 			enablers:       []any{enabler(true, WithoutMTUAdaptation()), enabler(false)},
 			underlay:       IPv4,
 			proto:          Geneve,
@@ -149,6 +179,7 @@ func TestConfig(t *testing.T) {
 				cell.Config(tt.ucfg),
 				cell.Provide(newConfig),
 				cell.Provide(tt.enablers...),
+				cell.Provide(func() *option.DaemonConfig { return tt.dc }),
 				cell.Invoke(func(tc Config) { out = tc }),
 			).Populate(hivetest.Logger(t))
 

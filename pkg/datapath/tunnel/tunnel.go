@@ -5,6 +5,7 @@ package tunnel
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/hive/cell"
@@ -13,6 +14,7 @@ import (
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // EncapProtocol represents the valid types of encapsulation protocols.
@@ -64,6 +66,9 @@ type Config struct {
 type newConfigIn struct {
 	cell.In
 
+	Logger    *slog.Logger
+	DaemonCfg *option.DaemonConfig
+
 	Cfg      userCfg
 	Enablers []enabler `group:"request-enable-tunneling"`
 }
@@ -88,7 +93,16 @@ func newConfig(in newConfigIn) (Config, error) {
 	}
 
 	switch UnderlayProtocol(in.Cfg.UnderlayProtocol) {
-	case IPv4, IPv6:
+	case IPv4:
+		if !in.DaemonCfg.EnableIPv4 {
+			in.Logger.Info("Selected underlay IPv4 is disabled, switching to IPv6.")
+			in.Cfg.UnderlayProtocol = string(IPv6)
+		}
+	case IPv6:
+		if !in.DaemonCfg.EnableIPv6 {
+			in.Logger.Info("Selected underlay IPv6 is disabled, switching to IPv4.")
+			in.Cfg.UnderlayProtocol = string(IPv4)
+		}
 	default:
 		return configDisabled, fmt.Errorf("invalid IP family for underlay %q", in.Cfg.UnderlayProtocol)
 	}
