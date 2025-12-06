@@ -772,7 +772,7 @@ func (r *gatewayReconciler) runCommonRouteChecks(input routechecks.Input, parent
 			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionTrue,
 			Reason:  string(gatewayv1.RouteReasonAccepted),
-			Message: "Accepted HTTPRoute",
+			Message: "Accepted " + input.GetGVK().Kind,
 		})
 
 		// set ResolvedRefs to okay, this wil be overwritten in checks if needed
@@ -902,7 +902,7 @@ func (r *gatewayReconciler) setTLSRouteStatuses(scopedLog *slog.Logger, ctx cont
 
 		// Checks finished, apply the status to the actual objects.
 		if err := r.updateTLSRouteStatus(ctx, scopedLog, &original, tlsr); err != nil {
-			return fmt.Errorf("failed to update HTTPRoute status: %w", err)
+			return fmt.Errorf("failed to update TLSRoute status: %w", err)
 		}
 
 		// Update the cached copy with the same status changes to prevent re-fetching from client cache.
@@ -936,7 +936,7 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 
 		// Checks finished, apply the status to the actual objects.
 		if err := r.updateGRPCRouteStatus(ctx, scopedLog, &original, grpcr); err != nil {
-			return fmt.Errorf("failed to update HTTPRoute status: %w", err)
+			return fmt.Errorf("failed to update GRPCRoute status: %w", err)
 		}
 
 		// Update the cached copy with the same status changes to prevent re-fetching from client cache.
