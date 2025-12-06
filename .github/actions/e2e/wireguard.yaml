@@ -11,6 +11,8 @@
   endpoint-routes: 'true'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy for HTTP routing
+  test-l7: 'true'
 - name: 'wireguard-2'
   kernel: '6.1'
   kube-proxy: 'none'
@@ -26,6 +28,8 @@
   misc: 'socketLB.hostNamespaceOnly=true'
   local-redirect-policy: 'true'
   node-local-dns: 'true'
+  # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy, node local DNS requires DNS proxy
+  test-l7: 'true'
 - name: 'wireguard-3'
   kernel: '6.12'
   kube-proxy: 'none'
@@ -39,6 +43,8 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  # L7 testing: WireGuard strict mode + Ingress controller - critical for proxy traffic encryption
+  test-l7: 'true'
 - name: 'wireguard-4'
   kernel: '5.15'
   kube-proxy: 'none'
@@ -52,6 +58,8 @@
   host-fw: 'true'
   ciliumendpointslice: 'true'
   ingress-controller: 'true'
+  # L7 testing: WireGuard encryption + Ingress controller + host firewall - proxy traffic must traverse host firewall
+  test-l7: 'true'
 - name: 'wireguard-5'
   kernel: '6.12'
   kube-proxy: 'none'
@@ -64,3 +72,5 @@
   ingress-controller: 'true'
   encryption: 'wireguard'
   skip-upgrade: 'true'
+  # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy for HTTP routing
+  test-l7: 'true'

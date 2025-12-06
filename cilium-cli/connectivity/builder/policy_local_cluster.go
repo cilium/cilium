@@ -19,7 +19,7 @@ type policyLocalCluster struct{}
 func (t policyLocalCluster) build(ct *check.ConnectivityTest, templates map[string]string) {
 	newTest("policy-local-cluster-egress", ct).
 		WithCiliumPolicy(clientEgressToEchoNoClusterPolicyYAML).
-		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]).
+		WithCiliumPolicy(templates["clientEgressOnlyPort53PolicyYAML"]).
 		WithScenarios(tests.PodToPod()).
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {

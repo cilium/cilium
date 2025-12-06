@@ -2,24 +2,45 @@ name: Cilium E2E Upgrade (ci-e2e-upgrade)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       PR-number:
         description: "Pull request number."
-        required: true
+        required: false
+        type: string
+      UID:
+        description: "A second number, to differentiate multiple runs of the same workflow by the same PR"
+        required: false
+        default: 1
+        type: number
       context-ref:
         description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
-        required: true
+        required: false
+        type: string
       SHA:
         description: "SHA under test (head of the PR branch)."
-        required: true
+        required: false
+        type: string
       base-SHA:
         description: "SHA of the base branch (target branch of the PR)."
         required: false
+        type: string
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
+        type: string
         default: '{}'
+      is-workflow-call:
+        description: "Distinguish if it's a workflow_call event."
+        required: false
+        type: boolean
+        default: true
+      test-l7-only:
+        description: "Run test configurations with L7-only tests."
+        required: false
+        type: boolean
+        default: false
+
   # Run every 8 hours
   schedule:
     - cron:  '0 5/8 * * *'
@@ -39,35 +60,29 @@ permissions:
 concurrency:
   # Structure:
   # - Workflow name
+  #   For workflow_call events, this is the name of the *parent* workflow.
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
-  #   - workflow_dispatch: PR number
+  # The 'tests-e2e-upgrade' suffix added to schedule ensures that for workflow_call
+  # events it doesn't conflict with other potential parallel workflow_call done to
+  # other workflows from the same parent workflow. As otherwise the group name would
+  # be identical.
   #
   # This structure ensures a unique concurrency group name is generated for each
   # type of testing, such that re-runs will cancel the previous run.
   group: |
     ${{ github.workflow }}
+    tests-e2e-upgrade
     ${{ github.event_name }}
-    ${{
-      (github.event_name == 'schedule' && github.sha) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
-    }}
+    ${{ github.sha }}
+    ${{ inputs.UID }}
   cancel-in-progress: true
 
 env:
   test_concurrency: 5
 
 jobs:
-  echo-inputs:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Echo Workflow Dispatch Inputs
-        run: |
-          echo '${{ tojson(inputs) }}'
-
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
@@ -103,7 +118,23 @@ jobs:
         id: generate-matrix
         run: |
           cd /tmp/generated/e2e
-          jq '[.[] | del(."key-one", ."key-two") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+          # When test-l7-only is true: filter to only test-l7: true configs
+          # When test-l7-only is false (default):
+          #   - On schedule: include all configs (with L3/L4 AND L7)
+          #   - Otherwise: include only test-l7: false configs (L3/L4 only)
+          if [ "${{ inputs.test-l7-only }}" = "true" ]; then
+            jq '[.[] | select(.["test-l7"] == "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+            CONFIG_COUNT=$(jq 'length' matrix.json)
+            echo "::notice::Filtering matrix to test-l7: true configurations only (${CONFIG_COUNT} configs for L7-only testing)"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            jq '[.[] | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+            CONFIG_COUNT=$(jq 'length' matrix.json)
+            echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
+          else
+            jq '[.[] | select(.["test-l7"] != "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+            CONFIG_COUNT=$(jq 'length' matrix.json)
+            echo "::notice::Including only test-l7: false configurations (${CONFIG_COUNT} configs - L3/L4 testing only)"
+          fi
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
           echo "matrix=$(jq -c . < /tmp/generated/e2e/matrix.json)" >> $GITHUB_OUTPUT
@@ -170,11 +201,43 @@ jobs:
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
+          L7_FILTER="((dns)|(fqdn)|(l7)|(client-egress-tls-sni))"
+
+          SEQUENTIAL_CONNECTIVITY_TESTS="seq-.*,!pod-to-world.*"
           CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
           if [ "${{ matrix.ipv4 }}" == "false" ]; then
             CONCURRENT_CONNECTIVITY_TESTS="!(seq-.*|pod-to-world.*|pod-to-cidr)"
           fi
+
+          # When test-l7-only is true: run ONLY L7 tests (exclude L3/L4 tests)
+          # When test-l7-only is false (default):
+          #   - On schedule: run full test suite (L3/L4 AND L7 tests together)
+          #   - Otherwise: exclude L7 tests (L3/L4 traffic only)
+          if [ "${{ inputs.test-l7-only }}" = "true" ]; then
+            # L7-only mode: run only L7 tests
+            SEQUENTIAL_CONNECTIVITY_TESTS="seq-.*${L7_FILTER},!pod-to-world.*"
+            CONCURRENT_CONNECTIVITY_TESTS="${CONCURRENT_CONNECTIVITY_TESTS},${L7_FILTER},no-unexpected-packet-drops,check-log-errors"
+            echo "::notice::Running L7-only tests ${L7_FILTER}"
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            # Scheduled run: full test suite (L3/L4 AND L7)
+            echo "::notice::Running full test suite (L3/L4 AND L7 tests)"
+          else
+            # Default mode: L3/L4 tests only, exclude L7
+            SEQUENTIAL_CONNECTIVITY_TESTS="${SEQUENTIAL_CONNECTIVITY_TESTS},!${L7_FILTER}"
+            CONCURRENT_CONNECTIVITY_TESTS="${CONCURRENT_CONNECTIVITY_TESTS},!${L7_FILTER}"
+            echo "::notice::Excluding L7 tests - running L3/L4 traffic only"
+          fi
+
+          echo sequential_connectivity_tests=${SEQUENTIAL_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
           echo concurrent_connectivity_tests=${CONCURRENT_CONNECTIVITY_TESTS} >> $GITHUB_OUTPUT
+
+          # Determine if proxy traffic check should be enabled
+          # Disable if: L7 tests are excluded OR ipv4 is explicitly false
+          ENABLE_PROXY_CHECK="true"
+          if [[ "${{ inputs.test-l7-only }}" != "true" || "${{ matrix.ipv4 }}" == "false" ]]; then
+            ENABLE_PROXY_CHECK="false"
+          fi
+          echo enable_proxy_check=${ENABLE_PROXY_CHECK} >> $GITHUB_OUTPUT
 
       - name: Resolve full kernel version
         id: kernel-version
@@ -435,13 +498,13 @@ jobs:
           # Enable the check for proxy traffic only if IPv4 is enabled.
           # Otherwise we will be skipping proxy tests and won't have DNS proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ steps.vars.outputs.enable_proxy_check }}" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-sequential
-          tests: 'seq-.*,!pod-to-world.*'
+          tests: ${{ steps.vars.outputs.sequential_connectivity_tests }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
@@ -514,14 +577,14 @@ jobs:
         with:
           # enable the check for proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
-          args: ${{ steps.bpftrace-params.outputs.params }} "${{ matrix.ipv4 != 'false' }}" "${{ matrix.encryption }}"
+          args: ${{ steps.bpftrace-params.outputs.params }} "${{ steps.vars.outputs.enable_proxy_check }}" "${{ matrix.encryption }}"
 
       - name: Run sequential Cilium tests
         if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-sequential
-          tests: 'seq-.*,!pod-to-world.*'
+          tests: ${{ steps.vars.outputs.sequential_connectivity_tests }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
 
       - name: Run concurrent Cilium tests
@@ -566,12 +629,12 @@ jobs:
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
-          artifacts_suffix: "${{ matrix.name }}"
+          artifacts_suffix: "${{ matrix.name }}-${{ inputs.UID }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
 
   merge-upload-and-status:
-    if: ${{ always() }}
+    if: ${{ always() && !inputs.is-workflow-call }}
     name: Merge Upload and Status
     needs: setup-and-test
     uses: ./.github/workflows/common-post-jobs.yaml
