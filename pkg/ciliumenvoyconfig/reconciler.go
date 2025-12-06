@@ -5,16 +5,24 @@ package ciliumenvoyconfig
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"iter"
 	"log/slog"
+	"strings"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
+	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -77,6 +85,78 @@ func (ops *envoyOps) Prune(ctx context.Context, txn statedb.ReadTxn, objects ite
 	return nil
 }
 
+// isPortBindingError checks if the error is related to port binding failure.
+// It checks both ProxyError.Detail and the error message string for common
+// port binding failure indicators.
+func isPortBindingError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var proxyErr *xds.ProxyError
+	if errors.As(err, &proxyErr) {
+		// Check ProxyError.Detail field which contains the actual Envoy error message
+		detail := strings.ToLower(proxyErr.Detail)
+		if strings.Contains(detail, "cannot bind") ||
+			strings.Contains(detail, "address already in use") ||
+			strings.Contains(detail, "eaddrinuse") {
+			return true
+		}
+	}
+
+	// Fallback to checking the error message itself
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "cannot bind") ||
+		strings.Contains(errStr, "address already in use") ||
+		strings.Contains(errStr, "eaddrinuse")
+}
+
+// retryWithNewPorts attempts to reallocate ports for listeners that failed to bind
+// and retries UpdateEnvoyResources. Only listeners that need port reallocation are cloned.
+func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resources envoy.Resources) error {
+	newListeners := make([]*envoy_config_listener.Listener, 0, len(resources.Listeners))
+
+	for _, listener := range resources.Listeners {
+		if listener.GetInternalListener() != nil {
+			newListeners = append(newListeners, listener)
+			continue
+		}
+
+		if listener.GetAddress() != nil {
+			listenerName := listener.Name
+
+			newPort, err := ops.portAllocator.AllocateCRDProxyPortWithReallocate(listenerName, true)
+			if err != nil || newPort == 0 {
+				ops.log.Error("Failed to reallocate proxy port",
+					logfields.Listener, listenerName,
+					logfields.Error, err)
+				return err
+			}
+
+			clonedListener := proto.Clone(listener).(*envoy_config_listener.Listener)
+			clonedListener.Address, clonedListener.AdditionalAddresses = envoy.GetLocalListenerAddresses(newPort, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+
+			ops.log.Info("Reallocated proxy port due to binding failure",
+				logfields.Listener, listenerName,
+				logfields.ProxyPort, newPort)
+
+			if resources.PortAllocationCallbacks == nil {
+				resources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
+			}
+			resources.PortAllocationCallbacks[listenerName] = func(ctx context.Context) error {
+				return ops.portAllocator.AckProxyPortWithReference(ctx, listenerName)
+			}
+
+			newListeners = append(newListeners, clonedListener)
+		} else {
+			newListeners = append(newListeners, listener)
+		}
+	}
+
+	resources.Listeners = newListeners
+	return ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
+}
+
 // Update implements reconciler.Operations.
 func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.Revision, res *EnvoyResource) error {
 	resources := res.Resources
@@ -90,6 +170,23 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 	}
 
 	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
+
+	if err != nil && isPortBindingError(err) {
+		ops.log.Warn("Port binding failed, attempting to reallocate ports and retry",
+			logfields.Error, err)
+
+		retryResources := resources
+		retryErr := ops.retryWithNewPorts(ctx, prevResources, retryResources)
+		if retryErr == nil {
+			resources = retryResources
+			err = nil
+		} else {
+			ops.log.Error("Failed to retry with new ports after binding failure",
+				logfields.Error, retryErr)
+			return fmt.Errorf("failed to reallocate ports after binding failure: %w (original error: %w)", retryErr, err)
+		}
+	}
+
 	if err == nil {
 		if prevResources.ListenersAddedOrDeleted(&resources) {
 			ops.policyTrigger.TriggerPolicyUpdates()

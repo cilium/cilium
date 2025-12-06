@@ -516,6 +516,11 @@ func (s staticPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	return 1000, nil
 }
 
+// AllocateCRDProxyPortWithReallocate implements PortAllocator.
+func (s staticPortAllocator) AllocateCRDProxyPortWithReallocate(name string, forceReallocate bool) (uint16, error) {
+	return 1000, nil
+}
+
 // ReleaseProxyPort implements PortAllocator.
 func (s staticPortAllocator) ReleaseProxyPort(name string) error {
 	s.log.Info("ReleaseProxyPort", logfields.Listener, name)
