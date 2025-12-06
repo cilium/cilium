@@ -65,7 +65,7 @@ func (h *HTTPRouteInput) mergeStatusConditions(parentRef gatewayv1alpha2.ParentR
 		}
 	}
 	if index != -1 {
-		h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions = merge(h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
+		h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions = helpers.MergeConditions(h.HTTPRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
 		return
 	}
 	h.HTTPRoute.Status.RouteStatus.Parents = append(h.HTTPRoute.Status.RouteStatus.Parents, gatewayv1alpha2.RouteParentStatus{
