@@ -163,7 +163,7 @@ struct {
 	__type(value, struct policy_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, POLICY_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | CONDITIONAL_RO);
 } cilium_policy_v2 __section_maps_btf;
 
 /* Return a verdict for the chosen 'policy', possibly propagating the auth type from 'policy2', if
