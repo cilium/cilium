@@ -78,7 +78,7 @@ jobs:
           gh auth login --with-token <<< "${{ steps.get_token.outputs.app_token }}"
 
       - name: Checkout release tool
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           repository: cilium/release
@@ -89,7 +89,7 @@ jobs:
 
       - name: Checkout helm chart
         if: ${{ inputs.step == '5-publish-helm' }}
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           repository: cilium/charts
@@ -107,7 +107,7 @@ jobs:
           git remote set-head origin --auto
 
       - name: Checkout cilium source code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
