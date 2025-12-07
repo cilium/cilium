@@ -14,6 +14,7 @@ import (
 // fetch followers for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/users/followers#list-followers-of-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/users/followers#list-followers-of-the-authenticated-user
 //
 //meta:operation GET /user/followers
@@ -48,6 +49,7 @@ func (s *UsersService) ListFollowers(ctx context.Context, user string, opts *Lis
 // string will list people the authenticated user is following.
 //
 // GitHub API docs: https://docs.github.com/rest/users/followers#list-the-people-a-user-follows
+//
 // GitHub API docs: https://docs.github.com/rest/users/followers#list-the-people-the-authenticated-user-follows
 //
 //meta:operation GET /user/following
@@ -82,6 +84,7 @@ func (s *UsersService) ListFollowing(ctx context.Context, user string, opts *Lis
 // string for "user" will check if the authenticated user is following "target".
 //
 // GitHub API docs: https://docs.github.com/rest/users/followers#check-if-a-person-is-followed-by-the-authenticated-user
+//
 // GitHub API docs: https://docs.github.com/rest/users/followers#check-if-a-user-follows-another-user
 //
 //meta:operation GET /user/following/{username}

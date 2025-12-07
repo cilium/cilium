@@ -143,6 +143,7 @@ func (s *ActivityService) ListEventsForOrganization(ctx context.Context, org str
 // true, only public events will be returned.
 //
 // GitHub API docs: https://docs.github.com/rest/activity/events#list-events-for-the-authenticated-user
+//
 // GitHub API docs: https://docs.github.com/rest/activity/events#list-public-events-for-a-user
 //
 //meta:operation GET /users/{username}/events
@@ -177,6 +178,7 @@ func (s *ActivityService) ListEventsPerformedByUser(ctx context.Context, user st
 // true, only public events will be returned.
 //
 // GitHub API docs: https://docs.github.com/rest/activity/events#list-events-received-by-the-authenticated-user
+//
 // GitHub API docs: https://docs.github.com/rest/activity/events#list-public-events-received-by-a-user
 //
 //meta:operation GET /users/{username}/received_events

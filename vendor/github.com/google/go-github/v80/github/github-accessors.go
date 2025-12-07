@@ -11286,6 +11286,14 @@ func (i *Import) GetVCSUsername() string {
 	return *i.VCSUsername
 }
 
+// GetAccessibleRepositoriesURL returns the AccessibleRepositoriesURL field if it's non-nil, zero value otherwise.
+func (i *InstallableOrganization) GetAccessibleRepositoriesURL() string {
+	if i == nil || i.AccessibleRepositoriesURL == nil {
+		return ""
+	}
+	return *i.AccessibleRepositoriesURL
+}
+
 // GetAccessTokensURL returns the AccessTokensURL field if it's non-nil, zero value otherwise.
 func (i *Installation) GetAccessTokensURL() string {
 	if i == nil || i.AccessTokensURL == nil {
@@ -12548,6 +12556,14 @@ func (i *Issue) GetNumber() int {
 		return 0
 	}
 	return *i.Number
+}
+
+// GetParentIssueURL returns the ParentIssueURL field if it's non-nil, zero value otherwise.
+func (i *Issue) GetParentIssueURL() string {
+	if i == nil || i.ParentIssueURL == nil {
+		return ""
+	}
+	return *i.ParentIssueURL
 }
 
 // GetPullRequestLinks returns the PullRequestLinks field.
@@ -14332,6 +14348,62 @@ func (l *ListProjectsPaginationOptions) GetPerPage() int {
 		return 0
 	}
 	return *l.PerPage
+}
+
+// GetCount returns the Count field if it's non-nil, zero value otherwise.
+func (l *ListProvisionedSCIMGroupsEnterpriseOptions) GetCount() int {
+	if l == nil || l.Count == nil {
+		return 0
+	}
+	return *l.Count
+}
+
+// GetExcludedAttributes returns the ExcludedAttributes field if it's non-nil, zero value otherwise.
+func (l *ListProvisionedSCIMGroupsEnterpriseOptions) GetExcludedAttributes() string {
+	if l == nil || l.ExcludedAttributes == nil {
+		return ""
+	}
+	return *l.ExcludedAttributes
+}
+
+// GetFilter returns the Filter field if it's non-nil, zero value otherwise.
+func (l *ListProvisionedSCIMGroupsEnterpriseOptions) GetFilter() string {
+	if l == nil || l.Filter == nil {
+		return ""
+	}
+	return *l.Filter
+}
+
+// GetStartIndex returns the StartIndex field if it's non-nil, zero value otherwise.
+func (l *ListProvisionedSCIMGroupsEnterpriseOptions) GetStartIndex() int {
+	if l == nil || l.StartIndex == nil {
+		return 0
+	}
+	return *l.StartIndex
+}
+
+// GetCount returns the Count field if it's non-nil, zero value otherwise.
+func (l *ListProvisionedSCIMUsersEnterpriseOptions) GetCount() int {
+	if l == nil || l.Count == nil {
+		return 0
+	}
+	return *l.Count
+}
+
+// GetFilter returns the Filter field if it's non-nil, zero value otherwise.
+func (l *ListProvisionedSCIMUsersEnterpriseOptions) GetFilter() string {
+	if l == nil || l.Filter == nil {
+		return ""
+	}
+	return *l.Filter
+}
+
+// GetStartIndex returns the StartIndex field if it's non-nil, zero value otherwise.
+func (l *ListProvisionedSCIMUsersEnterpriseOptions) GetStartIndex() int {
+	if l == nil || l.StartIndex == nil {
+		return 0
+	}
+	return *l.StartIndex
 }
 
 // GetTotalCount returns the TotalCount field if it's non-nil, zero value otherwise.
@@ -25022,6 +25094,46 @@ func (r *RepositoryRulesetRules) GetPullRequest() *PullRequestRuleParameters {
 	return r.PullRequest
 }
 
+// GetRepositoryCreate returns the RepositoryCreate field.
+func (r *RepositoryRulesetRules) GetRepositoryCreate() *EmptyRuleParameters {
+	if r == nil {
+		return nil
+	}
+	return r.RepositoryCreate
+}
+
+// GetRepositoryDelete returns the RepositoryDelete field.
+func (r *RepositoryRulesetRules) GetRepositoryDelete() *EmptyRuleParameters {
+	if r == nil {
+		return nil
+	}
+	return r.RepositoryDelete
+}
+
+// GetRepositoryName returns the RepositoryName field.
+func (r *RepositoryRulesetRules) GetRepositoryName() *SimplePatternRuleParameters {
+	if r == nil {
+		return nil
+	}
+	return r.RepositoryName
+}
+
+// GetRepositoryTransfer returns the RepositoryTransfer field.
+func (r *RepositoryRulesetRules) GetRepositoryTransfer() *EmptyRuleParameters {
+	if r == nil {
+		return nil
+	}
+	return r.RepositoryTransfer
+}
+
+// GetRepositoryVisibility returns the RepositoryVisibility field.
+func (r *RepositoryRulesetRules) GetRepositoryVisibility() *RepositoryVisibilityRuleParameters {
+	if r == nil {
+		return nil
+	}
+	return r.RepositoryVisibility
+}
+
 // GetRequiredDeployments returns the RequiredDeployments field.
 func (r *RepositoryRulesetRules) GetRequiredDeployments() *RequiredDeploymentsRuleParameters {
 	if r == nil {
@@ -26158,6 +26270,22 @@ func (s *ScanningAnalysis) GetWarning() string {
 	return *s.Warning
 }
 
+// GetPath returns the Path field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseAttributeOperation) GetPath() string {
+	if s == nil || s.Path == nil {
+		return ""
+	}
+	return *s.Path
+}
+
+// GetValue returns the Value field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseAttributeOperation) GetValue() string {
+	if s == nil || s.Value == nil {
+		return ""
+	}
+	return *s.Value
+}
+
 // GetDisplay returns the Display field if it's non-nil, zero value otherwise.
 func (s *SCIMEnterpriseDisplayReference) GetDisplay() string {
 	if s == nil || s.Display == nil {
@@ -26244,6 +26372,94 @@ func (s *SCIMEnterpriseMeta) GetLocation() string {
 		return ""
 	}
 	return *s.Location
+}
+
+// GetID returns the ID field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseUserAttributes) GetID() string {
+	if s == nil || s.ID == nil {
+		return ""
+	}
+	return *s.ID
+}
+
+// GetMeta returns the Meta field.
+func (s *SCIMEnterpriseUserAttributes) GetMeta() *SCIMEnterpriseMeta {
+	if s == nil {
+		return nil
+	}
+	return s.Meta
+}
+
+// GetName returns the Name field.
+func (s *SCIMEnterpriseUserAttributes) GetName() *SCIMEnterpriseUserName {
+	if s == nil {
+		return nil
+	}
+	return s.Name
+}
+
+// GetFormatted returns the Formatted field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseUserName) GetFormatted() string {
+	if s == nil || s.Formatted == nil {
+		return ""
+	}
+	return *s.Formatted
+}
+
+// GetMiddleName returns the MiddleName field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseUserName) GetMiddleName() string {
+	if s == nil || s.MiddleName == nil {
+		return ""
+	}
+	return *s.MiddleName
+}
+
+// GetDisplay returns the Display field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseUserRole) GetDisplay() string {
+	if s == nil || s.Display == nil {
+		return ""
+	}
+	return *s.Display
+}
+
+// GetPrimary returns the Primary field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseUserRole) GetPrimary() bool {
+	if s == nil || s.Primary == nil {
+		return false
+	}
+	return *s.Primary
+}
+
+// GetType returns the Type field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseUserRole) GetType() string {
+	if s == nil || s.Type == nil {
+		return ""
+	}
+	return *s.Type
+}
+
+// GetItemsPerPage returns the ItemsPerPage field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseUsers) GetItemsPerPage() int {
+	if s == nil || s.ItemsPerPage == nil {
+		return 0
+	}
+	return *s.ItemsPerPage
+}
+
+// GetStartIndex returns the StartIndex field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseUsers) GetStartIndex() int {
+	if s == nil || s.StartIndex == nil {
+		return 0
+	}
+	return *s.StartIndex
+}
+
+// GetTotalResults returns the TotalResults field if it's non-nil, zero value otherwise.
+func (s *SCIMEnterpriseUsers) GetTotalResults() int {
+	if s == nil || s.TotalResults == nil {
+		return 0
+	}
+	return *s.TotalResults
 }
 
 // GetCreated returns the Created field if it's non-nil, zero value otherwise.
@@ -29300,6 +29516,14 @@ func (t *TreeEntry) GetURL() string {
 		return ""
 	}
 	return *t.URL
+}
+
+// GetRepositorySelection returns the RepositorySelection field if it's non-nil, zero value otherwise.
+func (u *UpdateAppInstallationRepositoriesOptions) GetRepositorySelection() string {
+	if u == nil || u.RepositorySelection == nil {
+		return ""
+	}
+	return *u.RepositorySelection
 }
 
 // GetPath returns the Path field if it's non-nil, zero value otherwise.

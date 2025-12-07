@@ -263,6 +263,7 @@ type SecretScanningValidityChecks struct {
 // Deprecated: Use RepositoriesService.ListByUser or RepositoriesService.ListByAuthenticatedUser instead.
 //
 // GitHub API docs: https://docs.github.com/rest/repos/repos#list-repositories-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/repos/repos#list-repositories-for-the-authenticated-user
 //
 //meta:operation GET /user/repos
@@ -530,6 +531,7 @@ type createRepoRequest struct {
 // exponential back-off to verify repository's creation.
 //
 // GitHub API docs: https://docs.github.com/rest/repos/repos#create-a-repository-for-the-authenticated-user
+//
 // GitHub API docs: https://docs.github.com/rest/repos/repos#create-an-organization-repository
 //
 //meta:operation POST /orgs/{org}/repos

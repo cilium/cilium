@@ -194,6 +194,7 @@ func (s *OrganizationsService) ListAll(ctx context.Context, opts *OrganizationsL
 // organizations for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/orgs/orgs#list-organizations-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/orgs/orgs#list-organizations-for-the-authenticated-user
 //
 //meta:operation GET /user/orgs

@@ -88,6 +88,7 @@ func (u User) String() string {
 // user.
 //
 // GitHub API docs: https://docs.github.com/rest/users/users#get-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/users/users#get-the-authenticated-user
 //
 //meta:operation GET /user

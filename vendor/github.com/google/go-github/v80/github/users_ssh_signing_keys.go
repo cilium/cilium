@@ -26,6 +26,7 @@ func (k SSHSigningKey) String() string {
 // username string will fetch SSH signing keys for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/users/ssh-signing-keys#list-ssh-signing-keys-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/users/ssh-signing-keys#list-ssh-signing-keys-for-the-authenticated-user
 //
 //meta:operation GET /user/ssh_signing_keys

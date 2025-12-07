@@ -45,6 +45,7 @@ type GPGEmail struct {
 // via Basic Auth or via OAuth with at least read:gpg_key scope.
 //
 // GitHub API docs: https://docs.github.com/rest/users/gpg-keys#list-gpg-keys-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/users/gpg-keys#list-gpg-keys-for-the-authenticated-user
 //
 //meta:operation GET /user/gpg_keys

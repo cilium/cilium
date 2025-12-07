@@ -72,6 +72,7 @@ type ListMembersOptions struct {
 // public members; otherwise, it will only return public members.
 //
 // GitHub API docs: https://docs.github.com/rest/orgs/members#list-organization-members
+//
 // GitHub API docs: https://docs.github.com/rest/orgs/members#list-public-organization-members
 //
 //meta:operation GET /orgs/{org}/members
@@ -237,6 +238,7 @@ func (s *OrganizationsService) ListOrgMemberships(ctx context.Context, opts *Lis
 // authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/orgs/members#get-an-organization-membership-for-the-authenticated-user
+//
 // GitHub API docs: https://docs.github.com/rest/orgs/members#get-organization-membership-for-a-user
 //
 //meta:operation GET /orgs/{org}/memberships/{username}
@@ -268,6 +270,7 @@ func (s *OrganizationsService) GetOrgMembership(ctx context.Context, user, org s
 // authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/orgs/members#set-organization-membership-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/orgs/members#update-an-organization-membership-for-the-authenticated-user
 //
 //meta:operation PUT /orgs/{org}/memberships/{username}

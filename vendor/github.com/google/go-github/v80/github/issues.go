@@ -54,6 +54,7 @@ type Issue struct {
 	EventsURL         *string           `json:"events_url,omitempty"`
 	LabelsURL         *string           `json:"labels_url,omitempty"`
 	RepositoryURL     *string           `json:"repository_url,omitempty"`
+	ParentIssueURL    *string           `json:"parent_issue_url,omitempty"`
 	Milestone         *Milestone        `json:"milestone,omitempty"`
 	PullRequestLinks  *PullRequestLinks `json:"pull_request,omitempty"`
 	Repository        *Repository       `json:"repository,omitempty"`
@@ -159,6 +160,7 @@ type IssueType struct {
 // repositories.
 //
 // GitHub API docs: https://docs.github.com/rest/issues/issues#list-issues-assigned-to-the-authenticated-user
+//
 // GitHub API docs: https://docs.github.com/rest/issues/issues#list-user-account-issues-assigned-to-the-authenticated-user
 //
 //meta:operation GET /issues

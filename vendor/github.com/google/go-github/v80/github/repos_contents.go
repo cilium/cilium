@@ -353,6 +353,7 @@ const (
 // or github.Zipball constant.
 //
 // GitHub API docs: https://docs.github.com/rest/repos/contents#download-a-repository-archive-tar
+//
 // GitHub API docs: https://docs.github.com/rest/repos/contents#download-a-repository-archive-zip
 //
 //meta:operation GET /repos/{owner}/{repo}/tarball/{ref}

@@ -31,6 +31,7 @@ func (k Key) String() string {
 // string will fetch keys for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/users/keys#list-public-keys-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/users/keys#list-public-ssh-keys-for-the-authenticated-user
 //
 //meta:operation GET /user/keys
