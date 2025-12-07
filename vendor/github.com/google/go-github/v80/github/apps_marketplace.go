@@ -90,6 +90,7 @@ type MarketplacePurchaseAccount struct {
 // ListPlans lists all plans for your Marketplace listing.
 //
 // GitHub API docs: https://docs.github.com/rest/apps/marketplace#list-plans
+//
 // GitHub API docs: https://docs.github.com/rest/apps/marketplace#list-plans-stubbed
 //
 //meta:operation GET /marketplace_listing/plans
@@ -118,6 +119,7 @@ func (s *MarketplaceService) ListPlans(ctx context.Context, opts *ListOptions) (
 // ListPlanAccountsForPlan lists all GitHub accounts (user or organization) on a specific plan.
 //
 // GitHub API docs: https://docs.github.com/rest/apps/marketplace#list-accounts-for-a-plan
+//
 // GitHub API docs: https://docs.github.com/rest/apps/marketplace#list-accounts-for-a-plan-stubbed
 //
 //meta:operation GET /marketplace_listing/plans/{plan_id}/accounts
@@ -146,6 +148,7 @@ func (s *MarketplaceService) ListPlanAccountsForPlan(ctx context.Context, planID
 // GetPlanAccountForAccount get GitHub account (user or organization) associated with an account.
 //
 // GitHub API docs: https://docs.github.com/rest/apps/marketplace#get-a-subscription-plan-for-an-account
+//
 // GitHub API docs: https://docs.github.com/rest/apps/marketplace#get-a-subscription-plan-for-an-account-stubbed
 //
 //meta:operation GET /marketplace_listing/accounts/{account_id}
@@ -170,6 +173,7 @@ func (s *MarketplaceService) GetPlanAccountForAccount(ctx context.Context, accou
 // ListMarketplacePurchasesForUser lists all GitHub marketplace purchases made by a user.
 //
 // GitHub API docs: https://docs.github.com/rest/apps/marketplace#list-subscriptions-for-the-authenticated-user
+//
 // GitHub API docs: https://docs.github.com/rest/apps/marketplace#list-subscriptions-for-the-authenticated-user-stubbed
 //
 //meta:operation GET /user/marketplace_purchases

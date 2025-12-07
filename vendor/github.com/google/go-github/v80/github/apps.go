@@ -215,6 +215,7 @@ func (i Installation) String() string {
 // (e.g., https://github.com/settings/apps/:app_slug).
 //
 // GitHub API docs: https://docs.github.com/rest/apps/apps#get-an-app
+//
 // GitHub API docs: https://docs.github.com/rest/apps/apps#get-the-authenticated-app
 //
 //meta:operation GET /app
