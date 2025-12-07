@@ -73,6 +73,7 @@ type PullRequestListCommentsOptions struct {
 // the repository.
 //
 // GitHub API docs: https://docs.github.com/rest/pulls/comments#list-review-comments-in-a-repository
+//
 // GitHub API docs: https://docs.github.com/rest/pulls/comments#list-review-comments-on-a-pull-request
 //
 //meta:operation GET /repos/{owner}/{repo}/pulls/comments

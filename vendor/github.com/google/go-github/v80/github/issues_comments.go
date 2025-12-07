@@ -55,6 +55,7 @@ type IssueListCommentsOptions struct {
 // number of 0 will return all comments on all issues for the repository.
 //
 // GitHub API docs: https://docs.github.com/rest/issues/comments#list-issue-comments
+//
 // GitHub API docs: https://docs.github.com/rest/issues/comments#list-issue-comments-for-a-repository
 //
 //meta:operation GET /repos/{owner}/{repo}/issues/comments

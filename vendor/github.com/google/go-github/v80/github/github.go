@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	Version = "v79.0.0"
+	Version = "v80.0.0"
 
 	defaultAPIVersion = "2022-11-28"
 	defaultBaseURL    = "https://api.github.com/"
@@ -55,6 +55,7 @@ const (
 	mediaTypeOrgPermissionRepo = "application/vnd.github.v3.repository+json"
 	mediaTypeIssueImportAPI    = "application/vnd.github.golden-comet-preview+json"
 	mediaTypeStarring          = "application/vnd.github.star+json"
+	mediaTypeSCIM              = "application/scim+json"
 
 	// Media Type values to access preview APIs.
 	// These media types will be added to the API request as headers
@@ -202,6 +203,7 @@ type Client struct {
 	CodesOfConduct     *CodesOfConductService
 	Codespaces         *CodespacesService
 	Copilot            *CopilotService
+	Credentials        *CredentialsService
 	Dependabot         *DependabotService
 	DependencyGraph    *DependencyGraphService
 	Emojis             *EmojisService
@@ -444,6 +446,7 @@ func (c *Client) initialize() {
 	c.Codespaces = (*CodespacesService)(&c.common)
 	c.CodesOfConduct = (*CodesOfConductService)(&c.common)
 	c.Copilot = (*CopilotService)(&c.common)
+	c.Credentials = (*CredentialsService)(&c.common)
 	c.Dependabot = (*DependabotService)(&c.common)
 	c.DependencyGraph = (*DependencyGraphService)(&c.common)
 	c.Emojis = (*EmojisService)(&c.common)

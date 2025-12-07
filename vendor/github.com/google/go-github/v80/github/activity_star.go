@@ -69,6 +69,7 @@ type ActivityListStarredOptions struct {
 // will list the starred repositories for the authenticated user.
 //
 // GitHub API docs: https://docs.github.com/rest/activity/starring#list-repositories-starred-by-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/activity/starring#list-repositories-starred-by-the-authenticated-user
 //
 //meta:operation GET /user/starred

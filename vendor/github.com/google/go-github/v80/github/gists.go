@@ -97,6 +97,7 @@ type GistListOptions struct {
 // user.
 //
 // GitHub API docs: https://docs.github.com/rest/gists/gists#list-gists-for-a-user
+//
 // GitHub API docs: https://docs.github.com/rest/gists/gists#list-gists-for-the-authenticated-user
 //
 //meta:operation GET /gists
