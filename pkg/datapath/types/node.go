@@ -178,6 +178,9 @@ type LocalNodeConfiguration struct {
 	// EnableIPSec enables IPSec routes
 	EnableIPSec bool
 
+	// EnableConntrackAccounting Enables per flow (conntrack) statistics
+	EnableConntrackAccounting bool
+
 	// EncryptNode enables encrypting NodeIP traffic
 	EncryptNode bool
 
