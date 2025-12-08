@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -476,10 +475,6 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 		"Regenerating restored endpoints",
 		logfields.Restored, len(state.restored),
 	)
-
-	// Before regenerating, check whether the CT map has properties that
-	// match this Cilium userspace instance. If not, it must be removed
-	ctmap.DeleteIfUpgradeNeeded()
 
 	// Insert all endpoints into the endpoint list first before starting
 	// the regeneration. This is required to ensure that if an individual
