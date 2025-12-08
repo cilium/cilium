@@ -177,6 +177,74 @@ func cleanCallsMaps(mapNamePattern string) error {
 	return err
 }
 
+// cleanupStaleDatapathConfigs removes datapath configuration directories and files
+// that are no longer relevant based on the current configuration. This handles cases
+// where features are toggled (IPSec, overlay, wireguard, XDP) or devices are removed.
+//
+// This function is conservative and only removes directories it explicitly knows about:
+// - dp_config/ipsec/ - removed if IPSec is disabled
+// - dp_config/devices/<dev>/ - removed if device is no longer in the active device list
+func cleanupStaleDatapathConfigs(logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, devices []string) {
+	dpConfigPath := filepath.Join(option.Config.StateDir, "dp_config")
+
+	expectedDevices := make(map[string]bool)
+
+	expectedDevices["cilium_host"] = true
+	expectedDevices["cilium_net"] = true
+
+	for _, dev := range devices {
+		expectedDevices[dev] = true
+	}
+
+	if tunnelConfig.EncapProtocol() != tunnel.Disabled {
+		expectedDevices[tunnelConfig.DeviceName()] = true
+	}
+
+	if lnc.EnableWireguard {
+		expectedDevices[wgTypes.IfaceName] = true
+	}
+
+	if option.Config.EnableIPIPTermination && !option.Config.EnableHealthDatapath {
+		if option.Config.IPv4Enabled() {
+			expectedDevices[defaults.IPIPv4Device] = true
+		}
+		if option.Config.IPv6Enabled() {
+			expectedDevices[defaults.IPIPv6Device] = true
+		}
+	}
+
+	ipsecPath := filepath.Join(dpConfigPath, "ipsec")
+	if !lnc.EnableIPSec {
+		if err := os.RemoveAll(ipsecPath); err != nil && !os.IsNotExist(err) {
+			logger.Warn("Failed to remove stale IPSec config directory",
+				logfields.Path, ipsecPath,
+				logfields.Error, err)
+		}
+	}
+
+	devicesPath := filepath.Join(dpConfigPath, "devices")
+	if entries, err := os.ReadDir(devicesPath); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			deviceName := entry.Name()
+			devicePath := filepath.Join(devicesPath, deviceName)
+
+			if expectedDevices[deviceName] {
+				continue
+			}
+
+			if err := os.RemoveAll(devicePath); err != nil && !os.IsNotExist(err) {
+				logger.Warn("Failed to remove stale device config directory",
+					logfields.Path, devicePath,
+					logfields.Error, err)
+			}
+		}
+	}
+}
+
 // reinitializeIPSec is used to recompile and load encryption network programs.
 func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	// We need to take care not to load bpf_network and bpf_host onto the same
@@ -426,6 +494,9 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	devices := lnc.DeviceNames()
+
+	// Clean up stale datapath config directories based on current configuration
+	cleanupStaleDatapathConfigs(l.logger, lnc, tunnelConfig, devices)
 
 	if err := cleanIngressQdisc(l.logger, devices); err != nil {
 		l.logger.Warn("Unable to clean up ingress qdiscs", logfields.Error, err)
