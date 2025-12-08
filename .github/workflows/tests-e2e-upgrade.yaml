@@ -463,6 +463,40 @@ jobs:
         if: ${{ matrix.encryption != '' }}
         uses: ./.github/actions/bpftrace/check
 
+      - name: Features tested before cilium-agent restart
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        uses: ./.github/actions/feature-status
+        with:
+          title: "Summary of all features tested before cilium-agent restart"
+          json-filename: "${{ env.job_name }} (${{ matrix.name }}) - before agent restart"
+
+      - name: Setup conn-disrupt-test before restarting
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        uses: ./.github/actions/conn-disrupt-test-setup
+        with:
+          # cilium-agent only restart should not result in L7 traffic failures.
+          include-conn-disrupt-test-l7-traffic: true
+
+      - name: Restart Cilium Agent
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        shell: bash
+        run: |
+          kubectl -n kube-system rollout restart daemonset cilium
+          kubectl -n kube-system rollout status daemonset cilium
+
+          cilium status --wait --interactive=false --wait-duration=10m
+          kubectl get pods --all-namespaces -o wide
+          kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
+
+      - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after agent restart' }}
+        if: ${{ matrix.skip-upgrade != 'true' }}
+        uses: ./.github/actions/conn-disrupt-test-check
+        with:
+          job-name: cilium-restart-${{ matrix.name }}-precheck
+          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
+          include-conn-disrupt-test-l7-traffic: true
+
       - name: Features tested before downgrade
         uses: ./.github/actions/feature-status
         with:
@@ -480,7 +514,6 @@ jobs:
           # disable the check for proxy traffic.
           script: ./.github/actions/bpftrace/scripts/check-encryption-leaks.bt
           args: ${{ steps.bpftrace-params.outputs.params }} "false" "${{ matrix.encryption }}"
-
 
       - name: Downgrade to Cilium ${{ steps.vars.outputs.downgrade_version }}
         if: ${{ matrix.skip-upgrade != 'true' }}
