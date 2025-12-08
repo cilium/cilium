@@ -159,14 +159,7 @@ func (gc *GC) isFullGC(ipv4, ipv6 bool) bool {
 
 // Enable enables the periodic execution of the connection tracking garbage collection.
 func (gc *GC) Enable() {
-	gc.enable(gc.runGC, true)
-}
-
-func (gc *GC) enable(
-	runGC func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool),
-	runMapPressureDaemon bool,
-) {
-	gc.enableWithConfig(runGC, runMapPressureDaemon,
+	gc.enableWithConfig(gc.runGC, true,
 		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval,
 		gcIntervalRounding, minGCInterval)
 }
@@ -353,7 +346,7 @@ func (gc *GC) enableWithConfig(
 func (gc *GC) Run(filter ctmap.GCFilter) (int, error) {
 	totalDeleted := 0
 	for _, m := range gc.ctMaps.ActiveMaps() {
-		deleted, err := gc.run(m, filter)
+		deleted, err := m.GC(filter, gc.next4, gc.next6)
 		if err != nil {
 			gc.logger.Error("failed to run GC on map",
 				logfields.BPFMapName, m.Name(),
@@ -365,10 +358,6 @@ func (gc *GC) Run(filter ctmap.GCFilter) (int, error) {
 	}
 
 	return totalDeleted, nil
-}
-
-func (gc *GC) run(m *ctmap.Map, filter ctmap.GCFilter) (int, error) {
-	return m.GC(filter, gc.next4, gc.next6)
 }
 
 func (gc *GC) Observe4() stream.Observable[ctmap.GCEvent] {
