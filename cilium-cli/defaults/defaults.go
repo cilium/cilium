@@ -173,7 +173,7 @@ var (
 		// renovate: datasource=docker
 		"ConnectivityDNSTestServerImage": "registry.k8s.io/coredns/coredns:v1.12.4@sha256:986f04c2e15e147d00bdd51e8c51bcef3644b13ff806be7d2ff1b261d6dfbae1",
 		// renovate: datasource=docker
-		"ConnectivityTestConnDisruptImage": "quay.io/cilium/test-connection-disruption:v0.0.16@sha256:e8e3257b2c89543dc49a2d820f2d2d69c1fe60eaf1036fc1f1f7375bad8e6232",
+		"ConnectivityTestConnDisruptImage": "quay.io/cilium/test-connection-disruption:v0.0.17@sha256:62374cfd0e87e6541244331ccf477a21c527c3eefa9d841b97af79996939be0c",
 		// renovate: datasource=docker
 		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.5.0@sha256:fc7f887ab4d8da06f481a4f8d59afded88b3c5823f03610a7e808f7eba45eeea",
 		// renovate: datasource=docker
