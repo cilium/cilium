@@ -6,12 +6,14 @@ package gc
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
 	"os"
 	stdtime "time"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
@@ -341,7 +343,7 @@ func (gc *GC) enableWithConfig(
 			<-initialScanComplete
 			gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
 			// Not supporting BPF map pressure for per-cluster CT maps as of yet.
-			ctmap.CalculateCTMapPressure(gc.controllerManager, gc.ctMaps.ActiveMaps()...)
+			gc.calculateCTMapPressure()
 		}()
 	}
 }
@@ -469,4 +471,38 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 	}
 
 	return
+}
+
+const ctmapPressureInterval = 30 * time.Second
+
+// calculateCTMapPressure is a controller that calculates the BPF CT map
+// pressure and pubishes it as part of the BPF map pressure metric.
+func (gc *GC) calculateCTMapPressure() {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	gc.controllerManager.UpdateController("ct-map-pressure", controller.ControllerParams{
+		Group: controller.Group{
+			Name: "ct-map-pressure",
+		},
+		DoFunc: func(context.Context) error {
+			var errs error
+			for _, m := range gc.ctMaps.ActiveMaps() {
+				ctx, cancelCtx := context.WithTimeout(ctx, ctmapPressureInterval)
+				defer cancelCtx()
+				count, err := m.Count(ctx)
+				if errors.Is(err, ebpf.ErrNotSupported) {
+					// We don't have batch ops, so cancel context to kill this
+					// controller.
+					cancel(err)
+					return err
+				}
+				if err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to dump CT map %v: %w", m.Name(), err))
+				}
+				m.UpdatePressureMetricWithSize(int32(count))
+			}
+			return errs
+		},
+		RunInterval: 30 * time.Second,
+		Context:     ctx,
+	})
 }
