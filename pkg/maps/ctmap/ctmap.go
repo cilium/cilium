@@ -320,7 +320,7 @@ func newMap(mapName string, m mapType, registry *metrics.Registry) *Map {
 
 // doGCForFamily iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 bool, logResults bool) gcStats {
+func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bool, logResults bool) gcStats {
 	family := nat.IPv4
 	if ipv6 {
 		family = nat.IPv6
@@ -363,10 +363,10 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 	// to happen concurrently.
 	globalDeleteLock[m.mapType].Lock()
 	if ipv6 {
-		filterCallback := cleanup(m, filter, natMap, &stats, next6, ipv6)
+		filterCallback := m.cleanup(filter, natMap, &stats, next6, ipv6)
 		stats.dumpError = iterate[CtKey6Global, CtEntry](m, &stats, filterCallback)
 	} else {
-		filterCallback := cleanup(m, filter, natMap, &stats, next4, ipv6)
+		filterCallback := m.cleanup(filter, natMap, &stats, next4, ipv6)
 		stats.dumpError = iterate[CtKey4Global, CtEntry](m, &stats, filterCallback)
 	}
 	globalDeleteLock[m.mapType].Unlock()
@@ -374,7 +374,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 	return stats
 }
 
-func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
+func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
 	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
@@ -419,7 +419,7 @@ type tupleKeyAccessor interface {
 	GetFlags() uint8
 }
 
-func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func(GCEvent), ipv6 bool) func(key bpf.MapKey, value bpf.MapValue) {
+func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next func(GCEvent), ipv6 bool) func(key bpf.MapKey, value bpf.MapValue) {
 	var countFailedFn func(uint16, uint32)
 	if ACT != nil {
 		countFailedFn = ACT.CountFailed4
@@ -443,7 +443,7 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 
 		switch action {
 		case deleteEntry:
-			err := purgeCtEntry(m, ctKey, entry, natMap, next, countFailedFn)
+			err := m.purgeCtEntry(ctKey, entry, natMap, next, countFailedFn)
 			if err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
 					m.Logger.Debug("key is missing, likely due to lru eviction - skipping",
@@ -486,20 +486,20 @@ func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, 
 	return noAction
 }
 
-func doGC(m *Map, filter GCFilter, next4, next6 func(GCEvent), logResults bool) (int, error) {
-	stats := doGCForFamily(m, filter, next4, next6, m.mapType.isIPv6(), logResults)
+func (m *Map) doGC(filter GCFilter, next4, next6 func(GCEvent), logResults bool) (int, error) {
+	stats := m.doGCForFamily(filter, next4, next6, m.mapType.isIPv6(), logResults)
 	return int(stats.deleted), stats.dumpError
 }
 
 // GC runs garbage collection for map m with name mapType with the given filter.
 // It returns how many items were deleted from m.
-func GC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
+func (m *Map) GC(filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
 	if filter.RemoveExpired {
 		t, _ := timestamp.GetCTCurTime(timestamp.GetClockSourceFromOptions())
 		filter.Time = uint32(t)
 	}
 
-	return doGC(m, filter, next4, next6, false)
+	return m.doGC(filter, next4, next6, false)
 }
 
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
@@ -634,7 +634,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 // Flush runs garbage collection for map m with the name mapType, deleting all
 // entries. The specified map must be already opened using bpf.OpenMap().
 func (m *Map) Flush(next4, next6 func(GCEvent)) int {
-	d, _ := doGC(m, GCFilter{
+	d, _ := m.doGC(GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
 	}, next4, next6, false)

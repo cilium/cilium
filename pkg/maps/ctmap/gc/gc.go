@@ -364,7 +364,7 @@ func (gc *GC) Run(filter ctmap.GCFilter) (int, error) {
 }
 
 func (gc *GC) run(m *ctmap.Map, filter ctmap.GCFilter) (int, error) {
-	return ctmap.GC(m, filter, gc.next4, gc.next6)
+	return m.GC(filter, gc.next4, gc.next6)
 }
 
 func (gc *GC) Observe4() stream.Observable[ctmap.GCEvent] {
@@ -425,7 +425,7 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 			defer m.Close()
 		}
 
-		deleted, err := ctmap.GC(m, filter, gc.next4, gc.next6)
+		deleted, err := m.GC(filter, gc.next4, gc.next6)
 		if err != nil {
 			gc.logger.Error("failed to perform CT garbage collection",
 				logfields.Error, err,
