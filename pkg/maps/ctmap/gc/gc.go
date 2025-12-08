@@ -92,7 +92,7 @@ type GC struct {
 	complete6   func(error)
 }
 
-func New(params parameters) *GC {
+func newGC(params parameters) *GC {
 	gc := &GC{
 		logger: params.Logger,
 
