@@ -10,11 +10,13 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -57,6 +59,13 @@ type ServiceExportSyncParameters struct {
 	Services       resource.Resource[*slim_corev1.Service]
 
 	SyncCallback ServiceExportSyncCallback `optional:"true"`
+
+	// NamespaceManager is used to determine if a namespace is global.
+	// Optional - if not provided, namespace filtering is disabled.
+	NamespaceManager cmnamespace.Manager `optional:"true"`
+	// Namespaces is the resource for watching namespace events.
+	// Optional - if not provided, namespace filtering is disabled.
+	Namespaces resource.Resource[*slim_corev1.Namespace] `optional:"true"`
 }
 
 func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
@@ -85,6 +94,9 @@ func registerServiceExportSync(jg job.Group, cfg ServiceExportSyncParameters) {
 
 					store:        store,
 					syncCallback: cfg.SyncCallback,
+
+					namespaceManager: cfg.NamespaceManager,
+					namespaces:       cfg.Namespaces,
 				}).loop(ctx)
 				return nil
 			},
@@ -110,6 +122,10 @@ type serviceExportSync struct {
 
 	store        store.SyncStore
 	syncCallback ServiceExportSyncCallback
+
+	// Namespace filtering support
+	namespaceManager cmnamespace.Manager
+	namespaces       resource.Resource[*slim_corev1.Namespace]
 }
 
 func (s *serviceExportSync) loop(ctx context.Context) {
@@ -151,6 +167,47 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 		return
 	}
 
+	// Setup namespace events channel if namespace filtering is enabled
+	var namespaceEvents <-chan resource.Event[*slim_corev1.Namespace]
+	namespaceFilteringEnabled := s.namespaceManager != nil && s.namespaces != nil
+	if namespaceFilteringEnabled {
+		s.logger.Info("Namespace filtering is enabled for service export sync")
+		namespaceEvents = s.namespaces.Events(ctx)
+	} else {
+		s.logger.Info("Namespace filtering is disabled for service export sync")
+	}
+
+	// isNamespaceGlobal checks if the namespace is global. If namespace filtering
+	// is disabled, all namespaces are considered global.
+	isNamespaceGlobal := func(namespace string) bool {
+		if !namespaceFilteringEnabled {
+			return true
+		}
+		isGlobal, err := s.namespaceManager.IsGlobalNamespaceByName(namespace)
+		if err != nil {
+			s.logger.Warn("Failed to determine if namespace is global, assuming not global",
+				logfields.Error, err,
+				logfields.K8sNamespace, namespace,
+			)
+			return false
+		}
+		return isGlobal
+	}
+
+	// syncServiceExport syncs a service export based on namespace global status
+	syncServiceExport := func(key resource.Key) error {
+		// Check namespace global status before syncing
+		if !isNamespaceGlobal(key.Namespace) {
+			s.logger.Debug("Skipping service export sync for non-global namespace",
+				logfields.K8sSvcName, key.Name,
+				logfields.K8sNamespace, key.Namespace,
+			)
+			// Delete the service export from kvstore if it exists (namespace may have become non-global)
+			return s.store.DeleteKey(ctx, types.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
+		}
+		return s.syncMCSAPIServiceSpec(ctx, serviceStore, serviceExportStore, key)
+	}
+
 	servicesSynced, serviceExportsSynced := false, false
 	for serviceEvents != nil || serviceExportsEvents != nil {
 		select {
@@ -169,8 +226,7 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 				continue
 			}
 
-			ev.Done(s.syncMCSAPIServiceSpec(ctx,
-				serviceStore, serviceExportStore, ev.Key))
+			ev.Done(syncServiceExport(ev.Key))
 
 		case ev, ok := <-serviceExportsEvents:
 			if !ok {
@@ -187,8 +243,53 @@ func (s *serviceExportSync) loop(ctx context.Context) {
 				continue
 			}
 
-			ev.Done(s.syncMCSAPIServiceSpec(ctx,
-				serviceStore, serviceExportStore, ev.Key))
+			ev.Done(syncServiceExport(ev.Key))
+
+		case ev, ok := <-namespaceEvents:
+			if !ok {
+				s.logger.Info("Namespace event channel closed, ignoring future namespace events")
+				namespaceEvents = nil
+				continue
+			}
+			ev.Done(nil)
+
+			if ev.Kind == resource.Sync {
+				continue
+			}
+
+			// Handle namespace changes - resync all service exports in this namespace
+			if ev.Object == nil {
+				continue
+			}
+
+			nsName := ev.Key.Name
+			isGlobal := s.namespaceManager.IsGlobalNamespaceByObject(ev.Object)
+
+			s.logger.Info("Namespace global status changed, resyncing service exports",
+				logfields.K8sNamespace, nsName,
+				"isGlobal", isGlobal,
+			)
+
+			// Get all service exports in this namespace and resync them
+			svcExports, err := serviceExportStore.ByIndex(cache.NamespaceIndex, nsName)
+			if err != nil {
+				s.logger.Warn("Failed to list service exports for namespace update",
+					logfields.Error, err,
+					logfields.K8sNamespace, nsName,
+				)
+				continue
+			}
+
+			for _, svcExport := range svcExports {
+				key := resource.Key{Namespace: svcExport.Namespace, Name: svcExport.Name}
+				if ev.Kind == resource.Delete || !isGlobal {
+					// Namespace deleted or no longer global - delete all service exports
+					s.store.DeleteKey(ctx, types.NewEmptyMCSAPIServiceSpec(s.clusterName, key.Namespace, key.Name))
+				} else {
+					// Namespace became global - upsert service exports
+					s.syncMCSAPIServiceSpec(ctx, serviceStore, serviceExportStore, key)
+				}
+			}
 		}
 	}
 }
