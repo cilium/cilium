@@ -2458,3 +2458,197 @@ func TestDecode_PolicyVerdictNotify(t *testing.T) {
 		})
 	}
 }
+
+func TestDecode_CustomMonitorDecoder(t *testing.T) {
+	getTemplate := func() *flowpb.Flow {
+		template := &flowpb.Flow{
+			EventType:   &flowpb.CiliumEventType{Type: 5},
+			Summary:     flowpb.IPVersion_IPv4.String(),
+			Type:        flowpb.FlowType_L3_L4,
+			Source:      &flowpb.Endpoint{},
+			Destination: &flowpb.Endpoint{},
+			Ethernet: &flowpb.Ethernet{
+				Source:      srcMAC.String(),
+				Destination: dstMAC.String(),
+			},
+			IP: &flowpb.IP{
+				IpVersion:   flowpb.IPVersion_IPv4,
+				Source:      localIP.String(),
+				Destination: remoteIP.String(),
+			},
+		}
+		return template
+	}
+
+	testCases := []struct {
+		name    string
+		opts    []options.Option
+		event   any
+		ipTuple ipTuple
+		want    *flowpb.Flow
+	}{
+		{
+			name: "policy",
+			event: monitor.PolicyVerdictNotify{
+				Type:        byte(monitorAPI.MessageTypePolicyVerdict),
+				Source:      localEP,
+				Flags:       monitorAPI.PolicyEgress,
+				RemoteLabel: identity.NumericIdentity(remoteID),
+			},
+			opts: []options.Option{
+				options.WithPolicyVerdictNotifyDecoder(func(data []byte, decoded *flowpb.Flow) (*monitor.PolicyVerdictNotify, error) {
+					decoded.Uuid = "foobar"
+					return &monitor.PolicyVerdictNotify{
+						Type:        byte(monitorAPI.MessageTypePolicyVerdict),
+						Source:      1226,
+						Flags:       monitorAPI.PolicyEgress,
+						RemoteLabel: identity.NumericIdentity(1337),
+					}, nil
+				}),
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				Source:           &flowpb.Endpoint{ID: 1234},
+				Destination:      &flowpb.Endpoint{Identity: 1337},
+				TrafficDirection: flowpb.TrafficDirection_EGRESS,
+				Uuid:             "foobar",
+				IsReply:          wrapperspb.Bool(false),
+				Verdict:          flowpb.Verdict_FORWARDED,
+			},
+		},
+		{
+			name: "trace",
+			event: monitor.TraceNotify{
+				Type:     byte(monitorAPI.MessageTypeTrace),
+				Source:   localEP,
+				ObsPoint: monitorAPI.TraceFromLxc,
+				Reason:   monitor.TraceReasonCtEstablished,
+				Version:  monitor.TraceNotifyVersion2,
+			},
+			opts: []options.Option{
+				options.WithTraceNotifyDecoder(func(data []byte, decoded *flowpb.Flow) (*monitor.TraceNotify, error) {
+					decoded.Uuid = "foobar-trace"
+					return &monitor.TraceNotify{
+						Type:     byte(monitorAPI.MessageTypePolicyVerdict),
+						Source:   1226,
+						Version:  monitor.TraceNotifyVersion2,
+						Reason:   monitor.TraceReasonCtRelated,
+						DstID:    1337,
+						DstLabel: 1337,
+					}, nil
+				}),
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				Source:                &flowpb.Endpoint{ID: 1234},
+				Destination:           &flowpb.Endpoint{Identity: 1337},
+				EventType:             &flowpb.CiliumEventType{Type: 4},
+				TrafficDirection:      flowpb.TrafficDirection_INGRESS,
+				TraceObservationPoint: flowpb.TraceObservationPoint_TO_ENDPOINT,
+				TraceReason:           flowpb.TraceReason_RELATED,
+				Uuid:                  "foobar-trace",
+				IsReply:               wrapperspb.Bool(false),
+				Verdict:               flowpb.Verdict_FORWARDED,
+			},
+		},
+		{
+			name: "drop",
+			event: monitor.DropNotify{
+				Type:     byte(monitorAPI.MessageTypeDrop),
+				Source:   localEP,
+				Version:  monitor.DropNotifyVersion3,
+				DstLabel: 5,
+				DstID:    11,
+			},
+			opts: []options.Option{
+				options.WithDropNotifyDecoder(func(data []byte, decoded *flowpb.Flow) (*monitor.DropNotify, error) {
+					decoded.Uuid = "foobar-drop"
+					return &monitor.DropNotify{
+						Type:     byte(monitorAPI.MessageTypeDrop),
+						Source:   1226,
+						Version:  monitor.DropNotifyVersion3,
+						DstID:    1337,
+						DstLabel: 1337,
+						File:     1,
+					}, nil
+				}),
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				Source:           &flowpb.Endpoint{ID: 1234},
+				Destination:      &flowpb.Endpoint{Identity: 1337},
+				EventType:        &flowpb.CiliumEventType{Type: 1},
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+				Verdict:          flowpb.Verdict_DROPPED,
+				Uuid:             "foobar-drop",
+				File: &flowpb.FileInfo{
+					Name: "bpf_host.c",
+					Line: 0,
+				},
+			},
+		},
+		{
+			name: "dbg",
+			event: monitor.DebugCapture{
+				DefaultSrcDstGetter: monitorAPI.DefaultSrcDstGetter{},
+				Type:                byte(monitorAPI.MessageTypeCapture),
+				SubType:             monitor.DbgGeneric,
+				Source:              localEP,
+				Arg1:                12,
+				Arg2:                34,
+			},
+			opts: []options.Option{
+				options.WithDebugCaptureDecoder(func(data []byte, decoded *flowpb.Flow) (*monitor.DebugCapture, error) {
+					decoded.Uuid = "foobar-dbg"
+					return &monitor.DebugCapture{
+						Type:    byte(monitorAPI.MessageTypeCapture),
+						Source:  1226,
+						SubType: monitor.DbgCTCreated4,
+						Arg1:    12,
+					}, nil
+				}),
+			},
+			ipTuple: egressTuple,
+			want: &flowpb.Flow{
+				Source: &flowpb.Endpoint{ID: 1234},
+				EventType: &flowpb.CiliumEventType{
+					Type:    3,
+					SubType: 50,
+				},
+				DebugCapturePoint: 50,
+				Uuid:              "foobar-dbg",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			var l []gopacket.SerializableLayer
+			l = append(l, &layers.Ethernet{SrcMAC: srcMAC, DstMAC: dstMAC, EthernetType: layers.EthernetTypeIPv4}, &layers.IPv4{SrcIP: tc.ipTuple.src.AsSlice(), DstIP: tc.ipTuple.dst.AsSlice()})
+
+			want := proto.Clone(getTemplate())
+			proto.Merge(want, tc.want)
+
+			data, err := testutils.CreateL3L4Payload(tc.event, l...)
+			if err != nil {
+				t.Fatalf("Unexpected error from CreateL3L4Payload(%T, ...): %v", tc.event, err)
+			}
+
+			parser, err := New(hivetest.Logger(t), defaultEndpointGetter, nil, nil, nil, nil, nil, tc.opts...)
+			require.NoError(t, err)
+
+			got := &flowpb.Flow{}
+			if err := parser.Decode(data, got); err != nil {
+				t.Fatalf("Unexpected error from Decode(data, %T): %v", got, err)
+			}
+
+			opts := []cmp.Option{
+				protocmp.Transform(),
+				protocmp.IgnoreFields(&flowpb.Flow{}, "reply"),
+			}
+			if diff := cmp.Diff(want, got, opts...); diff != "" {
+				t.Errorf("Unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

@@ -37,6 +37,11 @@ type Parser struct {
 	serviceGetter  getters.ServiceGetter
 	linkGetter     getters.LinkGetter
 
+	dropNotifyDecoder          options.DropNotifyDecoderFunc
+	traceNotifyDecoder         options.TraceNotifyDecoderFunc
+	policyVerdictNotifyDecoder options.PolicyVerdictNotifyDecoderFunc
+	debugCaptureDecoder        options.DebugCaptureDecoderFunc
+
 	epResolver          *common.EndpointResolver
 	correlateL3L4Policy bool
 
@@ -131,6 +136,22 @@ func New(
 
 	args := &options.Options{
 		EnableNetworkPolicyCorrelation: true,
+		DropNotifyDecoder: func(data []byte, decoded *pb.Flow) (*monitor.DropNotify, error) {
+			dn := &monitor.DropNotify{}
+			return dn, dn.Decode(data)
+		},
+		DebugCaptureDecoder: func(data []byte, decoded *pb.Flow) (*monitor.DebugCapture, error) {
+			dbg := &monitor.DebugCapture{}
+			return dbg, dbg.Decode(data)
+		},
+		TraceNotifyDecoder: func(data []byte, decoded *pb.Flow) (*monitor.TraceNotify, error) {
+			tn := &monitor.TraceNotify{}
+			return tn, tn.Decode(data)
+		},
+		PolicyVerdictNotifyDecoder: func(data []byte, decoded *pb.Flow) (*monitor.PolicyVerdictNotify, error) {
+			pvn := &monitor.PolicyVerdictNotify{}
+			return pvn, pvn.Decode(data)
+		},
 	}
 
 	for _, opt := range opts {
@@ -138,16 +159,20 @@ func New(
 	}
 
 	return &Parser{
-		log:                 log,
-		dnsGetter:           dnsGetter,
-		endpointGetter:      endpointGetter,
-		identityGetter:      identityGetter,
-		ipGetter:            ipGetter,
-		serviceGetter:       serviceGetter,
-		linkGetter:          linkGetter,
-		epResolver:          common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
-		packet:              packet,
-		correlateL3L4Policy: args.EnableNetworkPolicyCorrelation,
+		log:                        log,
+		dnsGetter:                  dnsGetter,
+		endpointGetter:             endpointGetter,
+		identityGetter:             identityGetter,
+		ipGetter:                   ipGetter,
+		serviceGetter:              serviceGetter,
+		linkGetter:                 linkGetter,
+		dropNotifyDecoder:          args.DropNotifyDecoder,
+		debugCaptureDecoder:        args.DebugCaptureDecoder,
+		traceNotifyDecoder:         args.TraceNotifyDecoder,
+		policyVerdictNotifyDecoder: args.PolicyVerdictNotifyDecoder,
+		epResolver:                 common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
+		packet:                     packet,
+		correlateL3L4Policy:        args.EnableNetworkPolicyCorrelation,
 	}, nil
 }
 
@@ -159,6 +184,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 
 	eventType := data[0]
 
+	var err error
 	var packetOffset int
 	var dn *monitor.DropNotify
 	var tn *monitor.TraceNotify
@@ -169,15 +195,15 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
-		dn = &monitor.DropNotify{}
-		if err := dn.Decode(data); err != nil {
+		dn, err = p.dropNotifyDecoder(data, decoded)
+		if err != nil {
 			return fmt.Errorf("failed to parse drop: %w", err)
 		}
 		eventSubType = dn.SubType
 		packetOffset = (int)(dn.DataOffset())
 	case monitorAPI.MessageTypeTrace:
-		tn = &monitor.TraceNotify{}
-		if err := tn.Decode(data); err != nil {
+		tn, err = p.traceNotifyDecoder(data, decoded)
+		if err != nil {
 			return fmt.Errorf("failed to parse trace: %w", err)
 		}
 		eventSubType = tn.ObsPoint
@@ -192,16 +218,16 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 
 		packetOffset = (int)(tn.DataOffset())
 	case monitorAPI.MessageTypePolicyVerdict:
-		pvn = &monitor.PolicyVerdictNotify{}
-		if err := pvn.Decode(data); err != nil {
+		pvn, err = p.policyVerdictNotifyDecoder(data, decoded)
+		if err != nil {
 			return fmt.Errorf("failed to parse policy verdict: %w", err)
 		}
 		eventSubType = pvn.SubType
 		packetOffset = int(pvn.DataOffset())
 		authType = pb.AuthType(pvn.GetAuthType())
 	case monitorAPI.MessageTypeCapture:
-		dbg = &monitor.DebugCapture{}
-		if err := dbg.Decode(data); err != nil {
+		dbg, err = p.debugCaptureDecoder(data, decoded)
+		if err != nil {
 			return fmt.Errorf("failed to parse debug capture: %w", err)
 		}
 		eventSubType = dbg.SubType

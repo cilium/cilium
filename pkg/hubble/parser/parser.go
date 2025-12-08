@@ -64,7 +64,7 @@ func New(
 		return nil, err
 	}
 
-	dbg, err := debug.New(log, endpointGetter)
+	dbg, err := debug.New(log, endpointGetter, opts...)
 	if err != nil {
 		return nil, err
 	}
