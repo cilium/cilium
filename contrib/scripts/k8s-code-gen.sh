@@ -77,7 +77,7 @@ function kube::codegen::deepequal_helpers() {
             -name zz_generated.deepequal.go \
             | xargs -0 rm -f
 
-        go run github.com/cilium/deepequal-gen \
+        go tool github.com/cilium/deepequal-gen \
             -v "${v}" \
             --output-file zz_generated.deepequal.go \
             --go-header-file "${boilerplate}" \
