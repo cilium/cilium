@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/signal"
 )
 
@@ -300,31 +299,25 @@ func TestGetInterval(t *testing.T) {
 	actualLast := time.Minute
 	expectedLast := time.Minute
 	logger := hivetest.Logger(t)
-	interval := getInterval(logger, actualLast, expectedLast, 0.1)
+	interval := getInterval(logger, actualLast, expectedLast, 0.1, 0, 0)
 	require.Equal(t, time.Minute, interval)
 	expectedLast = interval
 
-	option.Config.ConntrackGCInterval = 10 * time.Second
-	interval = getInterval(logger, actualLast, expectedLast, 0.1)
+	interval = getInterval(logger, actualLast, expectedLast, 0.1, 10*time.Second, 0)
 	require.Equal(t, 10*time.Second, interval)
 
-	option.Config.ConntrackGCInterval = 0 // back to default
-	interval = getInterval(logger, actualLast, expectedLast, 0.1)
+	interval = getInterval(logger, actualLast, expectedLast, 0.1, 0, 0)
 	require.Equal(t, time.Minute, interval)
 
 	// Setting ConntrackGCMaxInterval limits the maximum interval
-	oldMaxInterval := option.Config.ConntrackGCMaxInterval
-	option.Config.ConntrackGCMaxInterval = 20 * time.Second
-	require.Equal(t, 20*time.Second, getInterval(logger, actualLast, expectedLast, 0.1))
-	option.Config.ConntrackGCMaxInterval = oldMaxInterval
-	require.Equal(t, time.Minute, getInterval(logger, actualLast, expectedLast, 0.1))
+	require.Equal(t, 20*time.Second, getInterval(logger, actualLast, expectedLast, 0.1, 0, 20*time.Second))
+	require.Equal(t, time.Minute, getInterval(logger, actualLast, expectedLast, 0.1, 0, 0))
 }
 
 func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
 	return calculateIntervalWithConfig(prevInterval, maxDeleteRatio, gcIntervalRounding, minGCInterval)
 }
 
-func getInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
-	return getIntervalWithConfig(logger, actualPrevInterval, expectedPrevInterval, maxDeleteRatio,
-		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval, gcIntervalRounding, minGCInterval)
+func getInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64, gcInterval time.Duration, gcMaxInterval time.Duration) time.Duration {
+	return getIntervalWithConfig(logger, actualPrevInterval, expectedPrevInterval, maxDeleteRatio, gcInterval, gcMaxInterval, gcIntervalRounding, minGCInterval)
 }
