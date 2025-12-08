@@ -813,41 +813,6 @@ func TestPrivilegedGetModel(t *testing.T) {
 	require.NotNil(t, model)
 }
 
-func TestPrivilegedCheckAndUpgrade(t *testing.T) {
-	setup(t)
-
-	// CheckAndUpgrade removes map file if upgrade is needed
-	// so we setup and use another map.
-	upgradeMap := NewMap("cilium_test_upgrade",
-		ebpf.Hash,
-		&TestKey{},
-		&TestValue{},
-		maxEntries,
-		unix.BPF_F_NO_PREALLOC).WithCache()
-	err := upgradeMap.OpenOrCreate()
-	require.NoError(t, err)
-	defer func() {
-		_ = upgradeMap.Unpin()
-		upgradeMap.Close()
-	}()
-
-	// Exactly the same MapInfo so it won't be upgraded.
-	upgrade := upgradeMap.CheckAndUpgrade(upgradeMap)
-	require.False(t, upgrade)
-
-	// preallocMap unsets unix.BPF_F_NO_PREALLOC so upgrade is needed.
-	EnableMapPreAllocation()
-	preallocMap := NewMap("cilium_test_upgrade",
-		ebpf.Hash,
-		&TestKey{},
-		&TestValue{},
-		maxEntries,
-		0).WithCache()
-	upgrade = upgradeMap.CheckAndUpgrade(preallocMap)
-	require.True(t, upgrade)
-	DisableMapPreAllocation()
-}
-
 func TestPrivilegedUnpin(t *testing.T) {
 	setup(t)
 

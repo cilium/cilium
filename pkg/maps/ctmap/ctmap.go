@@ -641,50 +641,6 @@ func (m *Map) Flush(next4, next6 func(GCEvent)) int {
 	return d
 }
 
-// DeleteIfUpgradeNeeded attempts to open the conntrack maps associated with
-// the specified endpoint, and delete the maps from the filesystem if any
-// properties do not match the properties defined in this package.
-//
-// The typical trigger for this is when, for example, the CT entry size changes
-// from one version of Cilium to the next. When Cilium restarts, it may opt
-// to restore endpoints from the prior life. Existing endpoints that use the
-// old map style are incompatible with the new version, so the CT map must be
-// destroyed and recreated during upgrade. By removing the old map location
-// from the filesystem, we ensure that the next time that the endpoint is
-// regenerated, it will recreate a new CT map with the new properties.
-//
-// Note that if an existing BPF program refers to the map at the canonical
-// paths (as fetched via the getMapPathsToKeySize() call below), then that BPF
-// program will continue to operate on the old map, even once the map is
-// removed from the filesystem. The old map will only be completely cleaned up
-// once all referenced to the map are cleared - that is, all BPF programs which
-// refer to the old map and removed/reloaded.
-func DeleteIfUpgradeNeeded() {
-	for _, newMap := range Maps(true, true) {
-		path, err := newMap.Path()
-		if err != nil {
-			newMap.Logger.Warn("Failed to get path for CT map", logfields.Error, err)
-			continue
-		}
-
-		// Pass nil key and value types since we're not intending on accessing the
-		// map's contents.
-		oldMap, err := bpf.OpenMap(path, nil, nil)
-		if err != nil {
-			newMap.Logger.Debug("Couldn't open CT map for upgrade",
-				logfields.Error, err,
-				logfields.Path, path,
-			)
-			continue
-		}
-		defer oldMap.Close()
-
-		if oldMap.CheckAndUpgrade(&newMap.Map) {
-			newMap.Logger.Warn("CT Map upgraded, expect brief disruption of ongoing connections", logfields.Path, path)
-		}
-	}
-}
-
 // Maps returns a slice of all CT maps that are used.
 // If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
 //

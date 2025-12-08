@@ -1633,26 +1633,6 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 	return nil
 }
 
-// CheckAndUpgrade checks the received map's properties (for the map currently
-// loaded into the kernel) against the desired properties, and if they do not
-// match, deletes the map.
-//
-// Returns true if the map was upgraded.
-func (m *Map) CheckAndUpgrade(desired *Map) bool {
-	flags := desired.Flags() | GetMapMemoryFlags(desired.Type())
-
-	return objCheck(
-		m.Logger,
-		m.m,
-		m.path,
-		desired.Type(),
-		desired.KeySize(),
-		desired.ValueSize(),
-		desired.MaxEntries(),
-		flags,
-	)
-}
-
 func (m *Map) exist() (bool, error) {
 	path, err := m.Path()
 	if err != nil {
