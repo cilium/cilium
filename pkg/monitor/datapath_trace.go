@@ -189,6 +189,19 @@ var (
 	}
 )
 
+const TraceNotifyExtensionDisabled = 0
+
+var (
+	// Downstream projects should register introduced extensions length so that
+	// the upstream parsing code still works even if the DP events contain
+	// additional fields.
+	traceNotifyExtensionLengthFromVersion = map[uint8]uint{
+		// The TraceNotifyExtension is intended for downstream extensions and
+		// should not be used in the upstream project.
+		TraceNotifyExtensionDisabled: 0,
+	}
+)
+
 /* Reasons for forwarding a packet, keep in sync with api/v1/flow/flow.proto */
 const (
 	TraceReasonPolicy = iota
@@ -316,7 +329,7 @@ func (n *TraceNotify) OriginalIP() net.IP {
 //
 // Returns zero for invalid or unknown TraceNotify messages.
 func (n *TraceNotify) DataOffset() uint {
-	return traceNotifyLength[n.Version]
+	return traceNotifyLength[n.Version] + traceNotifyExtensionLengthFromVersion[n.ExtVersion]
 }
 
 // DumpInfo prints a summary of the trace messages.

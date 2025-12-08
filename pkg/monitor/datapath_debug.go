@@ -432,6 +432,19 @@ const (
 	DebugCaptureLen = 24
 )
 
+const DebugCaptureExtensionDisabled = 0
+
+var (
+	// Downstream projects should register introduced extensions length so that
+	// the upstream parsing code still works even if the DP events contain
+	// additional fields.
+	debugCaptureExtensionLengthFromVersion = map[uint8]uint{
+		// The DebugCaptureExtension is intended for downstream extensions and
+		// should not be used in the upstream project.
+		DebugCaptureExtensionDisabled: 0,
+	}
+)
+
 // DebugCapture is the metadata sent along with a captured packet frame
 type DebugCapture struct {
 	api.DefaultSrcDstGetter
@@ -487,12 +500,18 @@ func (n *DebugCapture) Decode(data []byte) error {
 	return nil
 }
 
+// DataOffset returns the offset from the beginning of DebugCapture where the
+// notification data begins.
+func (n *DebugCapture) DataOffset() uint {
+	return DebugCaptureLen + debugCaptureExtensionLengthFromVersion[n.ExtVersion]
+}
+
 // DumpInfo prints a summary of the capture messages.
 func (n *DebugCapture) DumpInfo(buf *bufio.Writer, data []byte, linkMonitor getters.LinkGetter) {
 	prefix := n.infoPrefix(linkMonitor)
 
 	if len(prefix) > 0 {
-		fmt.Fprintf(buf, "%s: %s\n", prefix, GetConnectionSummary(data[DebugCaptureLen:], nil))
+		fmt.Fprintf(buf, "%s: %s\n", prefix, GetConnectionSummary(data[n.DataOffset():], nil))
 	}
 }
 
@@ -523,8 +542,8 @@ func (n *DebugCapture) infoPrefix(linkMonitor getters.LinkGetter) string {
 func (n *DebugCapture) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string) {
 	fmt.Fprintf(buf, "%s MARK %#x FROM %d DEBUG: %d bytes, %s", prefix, n.Hash, n.Source, n.Len, n.subTypeString())
 
-	if n.Len > 0 && len(data) > DebugCaptureLen {
-		Dissect(buf, dissect, data[DebugCaptureLen:], nil)
+	if n.Len > 0 && len(data) > int(n.DataOffset()) {
+		Dissect(buf, dissect, data[n.DataOffset():], nil)
 	}
 }
 
@@ -555,7 +574,7 @@ func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getter
 
 	v := DebugCaptureToVerbose(n, linkMonitor)
 	v.CPUPrefix = cpuPrefix
-	v.Summary = GetConnectionSummary(data[DebugCaptureLen:], nil)
+	v.Summary = GetConnectionSummary(data[n.DataOffset():], nil)
 
 	ret, err := json.Marshal(v)
 	return string(ret), err

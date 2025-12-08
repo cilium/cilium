@@ -45,6 +45,86 @@ func TestDecodeDebugCapture(t *testing.T) {
 	require.Equal(t, input.Arg2, output.Arg2)
 }
 
+func TestDecodeDebugCaptureExt(t *testing.T) {
+	setTmpExtVer := func(extVer uint8, extLen uint) {
+		oldLen, ok := debugCaptureExtensionLengthFromVersion[extVer]
+		if !ok {
+			t.Cleanup(func() { delete(debugCaptureExtensionLengthFromVersion, extVer) })
+		} else {
+			t.Cleanup(func() { debugCaptureExtensionLengthFromVersion[extVer] = oldLen })
+		}
+		debugCaptureExtensionLengthFromVersion[extVer] = extLen
+	}
+
+	setTmpExtVer(1, 4)
+	setTmpExtVer(2, 8)
+	setTmpExtVer(3, 16)
+
+	tcs := []struct {
+		name      string
+		dc        DebugCapture
+		extension []uint32
+	}{
+		{
+			name: "no extension",
+			dc: DebugCapture{
+				Version:    1,
+				ExtVersion: 0,
+			},
+		},
+		{
+			name: "extension 1",
+			dc: DebugCapture{
+				Version:    1,
+				ExtVersion: 1,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+			},
+		},
+		{
+			name: "extension 2",
+			dc: DebugCapture{
+				Version:    1,
+				ExtVersion: 2,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+			},
+		},
+		{
+			name: "extension 2",
+			dc: DebugCapture{
+				Version:    1,
+				ExtVersion: 3,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+				0xFA1AFE1,
+				0xF00DF00D,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		buf := bytes.NewBuffer(nil)
+		err := binary.Write(buf, byteorder.Native, tc.dc)
+		require.NoError(t, err)
+		err = binary.Write(buf, byteorder.Native, tc.extension)
+		require.NoError(t, err)
+		err = binary.Write(buf, byteorder.Native, uint32(0xDEADBEEF))
+		require.NoError(t, err)
+
+		output := &DebugCapture{}
+		err = output.Decode(buf.Bytes())
+		require.NoError(t, err)
+
+		require.Equal(t, uint32(0xDEADBEEF), byteorder.Native.Uint32(buf.Bytes()[output.DataOffset():]))
+	}
+}
+
 func BenchmarkNewDecodeDebugCapture(b *testing.B) {
 	input := &DebugCapture{}
 	buf := bytes.NewBuffer(nil)

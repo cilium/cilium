@@ -46,6 +46,19 @@ const (
 	PolicyVerdictNotifyFlagMatchTypeBitOffset = 3
 )
 
+const PolicyVerdictExtensionDisabled = 0
+
+var (
+	// Downstream projects should register introduced extensions length so that
+	// the upstream parsing code still works even if the DP events contain
+	// additional fields.
+	policyVerdictExtensionLengthFromVersion = map[uint8]uint{
+		// The PolicyVerdictExtension is intended for downstream extensions and
+		// should not be used in the upstream project.
+		PolicyVerdictExtensionDisabled: 0,
+	}
+)
+
 // PolicyVerdictNotify is the message format of a policy verdict notification in the bpf ring buffer
 type PolicyVerdictNotify struct {
 	Type        uint8                    `align:"type"`
@@ -137,6 +150,12 @@ func (n *PolicyVerdictNotify) IsTrafficAudited() bool {
 	return (n.Flags&PolicyVerdictNotifyFlagIsAudited > 0)
 }
 
+// DataOffset returns the offset from the beginning of PolicyVerdictNotify where the
+// notification data begins.
+func (n *PolicyVerdictNotify) DataOffset() uint {
+	return PolicyVerdictNotifyLen + policyVerdictExtensionLengthFromVersion[n.ExtVersion]
+}
+
 // GetPolicyActionString returns the action string corresponding to the action
 func GetPolicyActionString(verdict int32, audit bool) string {
 	if audit {
@@ -172,5 +191,5 @@ func (n *PolicyVerdictNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric a
 	fmt.Fprintf(buf, ", proto %d, %s, action %s, auth: %s, match %s, %s\n", n.Proto, dir,
 		GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
 		n.GetAuthType(), n.GetPolicyMatchType(),
-		GetConnectionSummary(data[PolicyVerdictNotifyLen:], &decodeOpts{IsL3Device: n.IsTrafficL3Device(), IsIPv6: n.IsTrafficIPv6()}))
+		GetConnectionSummary(data[n.DataOffset():], &decodeOpts{IsL3Device: n.IsTrafficL3Device(), IsIPv6: n.IsTrafficIPv6()}))
 }

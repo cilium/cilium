@@ -206,6 +206,86 @@ func TestDecodeDropNotify(t *testing.T) {
 	}
 }
 
+func TestDecodeDropNotifyExtension(t *testing.T) {
+	setTmpExtVer := func(extVer uint8, extLen uint) {
+		oldLen, ok := dropNotifyExtensionLengthFromVersion[extVer]
+		if !ok {
+			t.Cleanup(func() { delete(dropNotifyExtensionLengthFromVersion, extVer) })
+		} else {
+			t.Cleanup(func() { dropNotifyExtensionLengthFromVersion[extVer] = oldLen })
+		}
+		dropNotifyExtensionLengthFromVersion[extVer] = extLen
+	}
+
+	setTmpExtVer(1, 4)
+	setTmpExtVer(2, 8)
+	setTmpExtVer(3, 16)
+
+	tcs := []struct {
+		name      string
+		dn        DropNotify
+		extension []uint32
+	}{
+		{
+			name: "no extension",
+			dn: DropNotify{
+				Version:    3,
+				ExtVersion: 0,
+			},
+		},
+		{
+			name: "extension 1",
+			dn: DropNotify{
+				Version:    3,
+				ExtVersion: 1,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+			},
+		},
+		{
+			name: "extension 2",
+			dn: DropNotify{
+				Version:    3,
+				ExtVersion: 2,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+			},
+		},
+		{
+			name: "extension 2",
+			dn: DropNotify{
+				Version:    3,
+				ExtVersion: 3,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+				0xFA1AFE1,
+				0xF00DF00D,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		buf := bytes.NewBuffer(nil)
+		err := binary.Write(buf, byteorder.Native, tc.dn)
+		require.NoError(t, err)
+		err = binary.Write(buf, byteorder.Native, tc.extension)
+		require.NoError(t, err)
+		err = binary.Write(buf, byteorder.Native, uint32(0xDEADBEEF))
+		require.NoError(t, err)
+
+		output := &DropNotify{}
+		err = output.Decode(buf.Bytes())
+		require.NoError(t, err)
+
+		require.Equal(t, uint32(0xDEADBEEF), byteorder.Native.Uint32(buf.Bytes()[output.DataOffset():]))
+	}
+}
+
 func BenchmarkNewDropNotifyV1_Decode(b *testing.B) {
 	input := DropNotify{}
 	buf := bytes.NewBuffer(nil)
