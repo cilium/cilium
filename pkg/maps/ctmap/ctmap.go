@@ -304,7 +304,7 @@ func OpenCTMap(m CtMap) (path string, err error) {
 }
 
 // newMap creates a new CT map of the specified type with the specified name.
-func newMap(mapName string, m mapType) *Map {
+func newMap(mapName string, m mapType, registry *metrics.Registry) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			ebpf.LRUHash,
@@ -312,7 +312,7 @@ func newMap(mapName string, m mapType) *Map {
 			m.value(),
 			m.maxEntries(),
 			0,
-		),
+		).WithPressureMetric(registry),
 		mapType: m,
 	}
 	return result
@@ -695,12 +695,12 @@ func DeleteIfUpgradeNeeded() {
 func Maps(ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if ipv4 {
-		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
-		result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
+		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal, nil))
+		result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal, nil))
 	}
 	if ipv6 {
-		result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
-		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
+		result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal, nil))
+		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal, nil))
 	}
 	return result
 }
@@ -821,11 +821,8 @@ const ctmapPressureInterval = 30 * time.Second
 
 // CalculateCTMapPressure is a controller that calculates the BPF CT map
 // pressure and pubishes it as part of the BPF map pressure metric.
-func CalculateCTMapPressure(mgr *controller.Manager, registry *metrics.Registry, allMaps ...*Map) {
+func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
 	ctx, cancel := context.WithCancelCause(context.Background())
-	for _, m := range allMaps {
-		m.WithPressureMetric(registry)
-	}
 	mgr.UpdateController("ct-map-pressure", controller.ControllerParams{
 		Group: controller.Group{
 			Name: "ct-map-pressure",
@@ -833,24 +830,6 @@ func CalculateCTMapPressure(mgr *controller.Manager, registry *metrics.Registry,
 		DoFunc: func(context.Context) error {
 			var errs error
 			for _, m := range allMaps {
-				path, err := OpenCTMap(m)
-				if err != nil {
-					const msg = "Skipping CT map pressure calculation"
-					if os.IsNotExist(err) {
-						m.Logger.Debug(msg,
-							logfields.Error, err,
-							logfields.Path, path,
-						)
-					} else {
-						m.Logger.Warn(msg,
-							logfields.Error, err,
-							logfields.Path, path,
-						)
-					}
-					continue
-				}
-				defer m.Close()
-
 				ctx, cancelCtx := context.WithTimeout(ctx, ctmapPressureInterval)
 				defer cancelCtx()
 				count, err := m.Count(ctx)
