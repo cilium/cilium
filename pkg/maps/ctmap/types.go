@@ -422,7 +422,7 @@ func (c *CtEntry) New() bpf.MapValue { return &CtEntry{} }
 
 type GCRunner interface {
 	// Run runs the oneshot connection tracking garbage collection.
-	Run(m *Map, filter GCFilter) (int, error)
+	Run(filter GCFilter) (int, error)
 
 	// Observe4 allows external consumers to observe ongoing GC iterations over CT maps for IPv4 entries.
 	Observe4() stream.Observable[GCEvent]
@@ -435,7 +435,7 @@ type fakeCTMapGC struct{}
 
 func NewFakeGCRunner() GCRunner { return fakeCTMapGC{} }
 
-func (g fakeCTMapGC) Run(m *Map, filter GCFilter) (int, error) {
+func (g fakeCTMapGC) Run(filter GCFilter) (int, error) {
 	return 0, nil
 }
 

@@ -351,7 +351,24 @@ func (gc *GC) enableWithConfig(
 	}
 }
 
-func (gc *GC) Run(m *ctmap.Map, filter ctmap.GCFilter) (int, error) {
+func (gc *GC) Run(filter ctmap.GCFilter) (int, error) {
+	totalDeleted := 0
+	for _, m := range gc.ctMaps.ActiveMaps() {
+		deleted, err := gc.run(m, filter)
+		if err != nil {
+			gc.logger.Error("failed to run GC on map",
+				logfields.BPFMapName, m.Name(),
+				logfields.Error, err,
+			)
+		}
+
+		totalDeleted += deleted
+	}
+
+	return totalDeleted, nil
+}
+
+func (gc *GC) run(m *ctmap.Map, filter ctmap.GCFilter) (int, error) {
 	return ctmap.GC(m, filter, gc.next4, gc.next6)
 }
 

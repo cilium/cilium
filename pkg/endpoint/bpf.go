@@ -923,34 +923,9 @@ func (e *Endpoint) deleteMaps() []error {
 	return errors
 }
 
-// garbageCollectConntrack will run the ctmap.GC() on the conntrack tables.
-//
-// The endpoint lock must be held
-func (e *Endpoint) garbageCollectConntrack(filter ctmap.GCFilter) {
-	for _, m := range ctmap.Maps(option.Config.EnableIPv4, option.Config.EnableIPv6) {
-		if err := m.Open(); err != nil {
-			// If the CT table doesn't exist, there's nothing to GC.
-			if os.IsNotExist(err) {
-				e.getLogger().Debug(
-					"Skipping GC for endpoint",
-					logfields.Error, err,
-				)
-			} else {
-				e.getLogger().Warn(
-					"Unable to open map",
-					logfields.Error, err,
-				)
-			}
-			continue
-		}
-		defer m.Close()
-
-		e.ctMapGC.Run(m, filter)
-	}
-}
-
+// scrubIPsInConntrackTableLocked will run the CTMap garbagecollector with the endpoint IPs.
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
-	e.garbageCollectConntrack(ctmap.GCFilter{
+	e.ctMapGC.Run(ctmap.GCFilter{
 		MatchIPs: map[netip.Addr]struct{}{
 			e.IPv4: {},
 			e.IPv6: {},
