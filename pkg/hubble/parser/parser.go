@@ -119,6 +119,7 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 				Name:    v1.FlowEmitter,
 				Version: v1.FlowEmitterVersion,
 			},
+			Uuid: monitorEvent.UUID.String(),
 		}
 		switch payload.Data[0] {
 		case monitorAPI.MessageTypeDebug:
@@ -140,7 +141,6 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 				return nil, err
 			}
 		}
-		flow.Uuid = monitorEvent.UUID.String()
 		// FIXME: Time and NodeName are now part of GetFlowsResponse. We
 		// populate these fields for compatibility with old clients.
 		flow.Time = ts
@@ -155,6 +155,7 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 					Name:    v1.FlowEmitter,
 					Version: v1.FlowEmitterVersion,
 				},
+				Uuid: monitorEvent.UUID.String(),
 			}
 			logrecord, ok := payload.Message.(accesslog.LogRecord)
 			if !ok {
@@ -163,7 +164,6 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 			if err := p.l7.Decode(&logrecord, flow); err != nil {
 				return nil, err
 			}
-			flow.Uuid = monitorEvent.UUID.String()
 			// FIXME: Time and NodeName are now part of GetFlowsResponse. We
 			// populate these fields for compatibility with old clients.
 			flow.Time = ts
