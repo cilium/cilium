@@ -30,10 +30,12 @@ type lxcObjects struct {
 
 	EgressPolicyProg *ebpf.Program `ebpf:"cil_lxc_policy_egress"`
 	EgressPolicyMap  *ebpf.Map     `ebpf:"cilium_egresscall_policy"`
+
+	CiliumPolicyA *ebpf.Map `ebpf:"cilium_policy_a"`
 }
 
 func (o *lxcObjects) Close() {
-	bpfClose(o.ToContainer, o.FromContainer, o.PolicyProg, o.PolicyMap, o.EgressPolicyProg, o.EgressPolicyMap)
+	bpfClose(o.ToContainer, o.FromContainer, o.PolicyProg, o.PolicyMap, o.EgressPolicyProg, o.EgressPolicyMap, o.CiliumPolicyA)
 }
 
 // hostObjects receives eBPF objects for attaching to cilium_host. Objects
@@ -44,31 +46,35 @@ type hostObjects struct {
 
 	PolicyProg *ebpf.Program `ebpf:"cil_host_policy"`
 	PolicyMap  *ebpf.Map     `ebpf:"cilium_call_policy"`
+
+	CiliumPolicyA *ebpf.Map `ebpf:"cilium_policy_a"`
 }
 
 func (o *hostObjects) Close() {
-	bpfClose(o.ToHost, o.FromHost, o.PolicyProg, o.PolicyMap)
+	bpfClose(o.ToHost, o.FromHost, o.PolicyProg, o.PolicyMap, o.CiliumPolicyA)
 }
 
 // hostNetObjects receives eBPF objects for attaching to cilium_net. Objects
 // originate from bpf_host.c.
 type hostNetObjects struct {
-	ToHost *ebpf.Program `ebpf:"cil_to_host"`
+	ToHost        *ebpf.Program `ebpf:"cil_to_host"`
+	CiliumPolicyA *ebpf.Map     `ebpf:"cilium_policy_a"`
 }
 
 func (o *hostNetObjects) Close() {
-	bpfClose(o.ToHost)
+	bpfClose(o.ToHost, o.CiliumPolicyA)
 }
 
 // hostNetdevObjects receives eBPF objects for attaching to external interfaces.
 // Objects originate from bpf_host.c.
 type hostNetdevObjects struct {
-	FromNetdev *ebpf.Program `ebpf:"cil_from_netdev"`
-	ToNetdev   *ebpf.Program `ebpf:"cil_to_netdev"`
+	FromNetdev    *ebpf.Program `ebpf:"cil_from_netdev"`
+	ToNetdev      *ebpf.Program `ebpf:"cil_to_netdev"`
+	CiliumPolicyA *ebpf.Map     `ebpf:"cilium_policy_a"`
 }
 
 func (o *hostNetdevObjects) Close() {
-	bpfClose(o.FromNetdev, o.ToNetdev)
+	bpfClose(o.FromNetdev, o.ToNetdev, o.CiliumPolicyA)
 }
 
 // overlayObjects receives eBPF objects for attaching to overlay interfaces.

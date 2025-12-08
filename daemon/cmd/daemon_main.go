@@ -59,6 +59,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -298,6 +299,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection (beta), if support available")
 	option.BindEnv(vp, option.EnableBPFTProxy)
+
+	flags.Bool(option.EnablePolicySharedMapArena, false, "Enable use of BPF Arena for Policy (Phase 3)")
+	option.BindEnv(vp, option.EnablePolicySharedMapArena)
 
 	flags.Bool(option.EnableHostLegacyRouting, defaults.EnableHostLegacyRouting, "Enable the legacy host forwarding model which does not bypass upper stack in host namespace")
 	option.BindEnv(vp, option.EnableHostLegacyRouting)
@@ -812,6 +816,20 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableNonDefaultDenyPolicies)
 	option.BindEnv(vp, option.EnableNonDefaultDenyPolicies)
 
+	flags.Int(option.PolicySharedMapMaxSharedRefs, defaults.PolicySharedMapMaxSharedRefs, "Maximum shared references stored per overlay entry")
+	option.BindEnv(vp, option.PolicySharedMapMaxSharedRefs)
+
+	flags.Int(option.PolicySharedMapMaxPrivateOverrides, defaults.PolicySharedMapMaxPrivateOverrides, "Maximum private overrides stored per overlay entry")
+	option.BindEnv(vp, option.PolicySharedMapMaxPrivateOverrides)
+	flags.Bool(option.PolicySharedMapMetrics, defaults.PolicySharedMapMetrics, "Emit metrics for layered shared policy maps")
+	option.BindEnv(vp, option.PolicySharedMapMetrics)
+
+	flags.Int(option.PolicyGlobalRulesMax, defaults.PolicyGlobalRulesMax, "Maximum unique rules in the Global Rule Map")
+	option.BindEnv(vp, option.PolicyGlobalRulesMax)
+
+	flags.Int(option.PolicyRuleListNodesMax, defaults.PolicyRuleListNodesMax, "Maximum nodes in the RuleSet List Map")
+	option.BindEnv(vp, option.PolicyRuleListNodesMax)
+
 	flags.Bool(option.EnableEndpointLockdownOnPolicyOverflow, false, "When an endpoint's policy map overflows, shutdown all (ingress and egress) network traffic for that endpoint.")
 	option.BindEnv(vp, option.EnableEndpointLockdownOnPolicyOverflow)
 
@@ -1213,6 +1231,7 @@ type daemonConfigParams struct {
 	KPRInitializer  kprinitializer.KPRInitializer
 	IPSecConfig     datapath.IPsecConfig
 	WireguardConfig wgTypes.WireguardConfig
+	PolicyConfig    policymap.PolicyConfig
 }
 
 type daemonParams struct {
@@ -1221,6 +1240,7 @@ type daemonParams struct {
 	// Ensures that the legacy daemon config initialization is executed
 	legacy.DaemonConfigInitialization
 	DaemonConfig *option.DaemonConfig
+	PolicyConfig policymap.PolicyConfig
 
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle

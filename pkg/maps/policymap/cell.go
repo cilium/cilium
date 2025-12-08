@@ -64,13 +64,18 @@ type factory struct {
 	policyMapEntries int
 
 	stats *StatsMap
+
+	// arenaOnly when true, skips creating per-endpoint BPF policy maps.
+	// The shared arena handles all policy lookups instead.
+	arenaOnly bool
 }
 
-func newFactory(logger *slog.Logger, stats *StatsMap, policyMapEntries int) *factory {
+func newFactory(logger *slog.Logger, stats *StatsMap, policyMapEntries int, arenaOnly bool) *factory {
 	return &factory{
 		logger:           logger,
 		policyMapEntries: policyMapEntries,
 		stats:            stats,
+		arenaOnly:        arenaOnly,
 	}
 }
 
@@ -78,6 +83,18 @@ func newFactory(logger *slog.Logger, stats *StatsMap, policyMapEntries int) *fac
 // is used to govern which peer identities can communicate with the endpoint
 // protected by this map.
 func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
+	// When arena mode is enabled, return a stub PolicyMap.
+	if f.arenaOnly {
+		f.logger.Debug("Creating stub policy map for arena mode",
+			"endpointID", id)
+		return &PolicyMap{
+			Map:       nil,
+			stats:     f.stats,
+			epID:      id,
+			arenaOnly: true,
+		}, nil
+	}
+
 	m, err := newPolicyMap(f.logger, id, f.policyMapEntries, f.stats)
 	if err != nil {
 		return nil, err
@@ -91,6 +108,10 @@ func (f *factory) OpenEndpoint(id uint16) (*PolicyMap, error) {
 
 // RemoveEndpoint removes the policy map of the specified endpoint.
 func (f *factory) RemoveEndpoint(id uint16) error {
+	// When arena mode is enabled, no per-endpoint maps exist to remove.
+	if f.arenaOnly {
+		return nil
+	}
 	return os.RemoveAll(bpf.LocalMapPath(f.logger, MapName, id))
 }
 
@@ -147,7 +168,13 @@ func createFactory(in struct {
 			logfields.Entries, maxStatsEntries)
 	}
 
-	out.Factory = Factory(newFactory(in.Log, m, in.BpfPolicyMapMax))
+	// When arena mode is enabled, skip creating per-endpoint policy maps.
+	arenaOnly := SharedManagerEnabled()
+	if arenaOnly {
+		in.Log.Info("Arena mode enabled: skipping per-endpoint policy map creation")
+	}
+
+	out.Factory = Factory(newFactory(in.Log, m, in.BpfPolicyMapMax, arenaOnly))
 
 	out.NodeDefines = map[string]string{
 		"POLICY_MAP_SIZE":       fmt.Sprint(in.BpfPolicyMapMax),

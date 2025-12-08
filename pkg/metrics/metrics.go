@@ -205,6 +205,12 @@ const (
 
 	LabelMapGroup = "map_group"
 
+	// LabelSharedMapType is the label for the type of shared map entry (shared, private)
+	LabelSharedMapType      = "type"
+	LabelSharedMapOne       = "shared"
+	LabelSharedMapPriv      = "private"
+	LabelSharedMapSpillover = "spillover"
+
 	// LabelVersion is the label for the version number
 	LabelVersion = "version"
 
@@ -300,6 +306,14 @@ var (
 	// and update for that CiliumEndpoint received through CiliumEndpointSlice.
 	// Measure of local CEP roundtrip time with CiliumEndpointSlice feature enabled.
 	EndpointPropagationDelay = NoOpObserverVec
+
+	// PolicySharedMapEntries tracks the number of entries in the layered policy map.
+	// Labeled by type (shared, private).
+	PolicySharedMapEntries = NoOpGaugeVec
+
+	// PolicySharedMapOps tracks the number of operations on the shared policy map.
+	// Labeled by operation (add, delete, lookup) and outcome.
+	PolicySharedMapOps = NoOpCounterVec
 
 	// Policy
 	// Policy is the number of policies loaded into the agent
@@ -510,6 +524,9 @@ var (
 	// BPFMapCapacity is the max capacity of bpf maps, labelled by map group classification.
 	BPFMapCapacity = NoOpGaugeVec
 
+	// PolicySharedMapArenaPages tracks the number of pages in the BPF Arena (total and used).
+	PolicySharedMapArenaPages = NoOpGaugeVec
+
 	// VersionMetric labelled by Cilium version
 	VersionMetric = NoOpGaugeVec
 
@@ -626,6 +643,8 @@ type LegacyMetrics struct {
 	EndpointStateCount               metric.Vec[metric.Gauge]
 	EndpointRegenerationTimeStats    metric.Vec[metric.Observer]
 	EndpointPropagationDelay         metric.Vec[metric.Observer]
+	PolicySharedMapEntries           metric.Vec[metric.Gauge]
+	PolicySharedMapOps               metric.Vec[metric.Counter]
 	Policy                           metric.Gauge
 	PolicyRevision                   metric.Gauge
 	PolicyChangeTotal                metric.Vec[metric.Counter]
@@ -676,6 +695,7 @@ type LegacyMetrics struct {
 	BPFSyscallDuration               metric.Vec[metric.Observer]
 	BPFMapOps                        metric.Vec[metric.Counter]
 	BPFMapCapacity                   metric.Vec[metric.Gauge]
+	PolicySharedMapArenaPages        metric.Vec[metric.Gauge]
 	VersionMetric                    metric.Vec[metric.Gauge]
 	APILimiterWaitHistoryDuration    metric.Vec[metric.Observer]
 	APILimiterWaitDuration           metric.Vec[metric.Gauge]
@@ -741,6 +761,23 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:      "endpoint_regeneration_time_stats_seconds",
 			Help:      "Endpoint regeneration time stats labeled by the scope",
 		}, []string{LabelScope, LabelStatus}),
+
+		PolicySharedMapEntries: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_policy_shared_map_entries",
+			Namespace:  Namespace,
+			Name:       "policy_shared_map_entries",
+			Help:       "Number of entries in the layered policy map (shared vs private)",
+		}, []string{LabelSharedMapType}),
+
+		PolicySharedMapOps: metric.NewCounterVecWithLabels(metric.CounterOpts{
+			ConfigName: Namespace + "_policy_shared_map_ops_total",
+			Namespace:  Namespace,
+			Name:       "policy_shared_map_ops_total",
+			Help:       "Total number of operations on the shared policy map",
+		}, metric.Labels{
+			{Name: LabelOperation, Values: metric.NewValues("add", "delete", "lookup", "incremental_update", "full_update")},
+			{Name: LabelOutcome, Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFail)},
+		}),
 
 		Policy: metric.NewGauge(metric.GaugeOpts{
 			ConfigName: Namespace + "_policy",
@@ -1160,6 +1197,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Capacity of map, tagged by map group. All maps with a capacity of 65536 are grouped under 'default'",
 		}, []string{LabelMapGroup}),
 
+		PolicySharedMapArenaPages: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_" + SubsystemBPF + "_policy_shared_map_arena_pages",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemBPF,
+			Name:       "policy_shared_map_arena_pages",
+			Help:       "Number of memory pages in BPF Arena (used by Shared Policy Map)",
+		}, []string{LabelStatus}),
+
 		VersionMetric: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_version",
 			Namespace:  Namespace,
@@ -1282,6 +1327,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	PolicyEndpointStatus = lm.PolicyEndpointStatus
 	PolicyImplementationDelay = lm.PolicyImplementationDelay
 	PolicyIncrementalUpdateDuration = lm.PolicyIncrementalUpdateDuration
+	PolicySharedMapOps = lm.PolicySharedMapOps
 	Identity = lm.Identity
 	IdentityLabelSources = lm.IdentityLabelSources
 	EventTS = lm.EventTS
@@ -1334,6 +1380,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	APILimiterRateLimit = lm.APILimiterRateLimit
 	APILimiterAdjustmentFactor = lm.APILimiterAdjustmentFactor
 	APILimiterProcessedRequests = lm.APILimiterProcessedRequests
+	PolicySharedMapArenaPages = lm.PolicySharedMapArenaPages
 
 	return lm
 }

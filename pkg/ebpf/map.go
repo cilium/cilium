@@ -64,6 +64,19 @@ func NewMap(logger *slog.Logger, spec *MapSpec) *Map {
 	}
 }
 
+// NewMapFromFD creates a new Map object from an existing FD.
+func NewMapFromFD(logger *slog.Logger, fd int, spec *MapSpec) (*Map, error) {
+	m, err := ciliumebpf.NewMapFromFD(fd)
+	if err != nil {
+		return nil, err
+	}
+	return &Map{
+		logger: logger,
+		spec:   spec,
+		Map:    m,
+	}, nil
+}
+
 // LoadRegisterMap loads the specified map from a bpffs pin path and registers
 // its handle in the package-global map register.
 func LoadRegisterMap(logger *slog.Logger, mapName string) (*Map, error) {

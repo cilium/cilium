@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#define BPF_ALIGN_CHECKER
 #include <bpf/ctx/unspec.h>
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>
@@ -111,3 +112,4 @@ add_type(struct node_value);
 #include "lib/lrp.h"
 add_type(struct skip_lb4_key);
 add_type(struct skip_lb6_key);
+

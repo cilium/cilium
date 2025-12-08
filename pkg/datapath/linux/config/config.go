@@ -187,6 +187,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
 	cDefinesMap["NODE_MAP_SIZE"] = fmt.Sprintf("%d", h.nodeMap.Size())
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
+	if option.Config.EnablePolicySharedMapArena {
+		cDefinesMap["ENABLE_BPF_ARENA"] = "1"
+	}
 	cDefinesMap["L2_RESPONDER_MAP4_SIZE"] = fmt.Sprintf("%d", l2respondermap.DefaultMaxEntries)
 	cDefinesMap["L2_RESPONDER_MAP6_SIZE"] = fmt.Sprintf("%d", l2v6respondermap.DefaultMaxEntries)
 	cDefinesMap["CT_CONNECTION_LIFETIME_TCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutTCP.Seconds()))

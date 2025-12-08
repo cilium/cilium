@@ -2399,6 +2399,20 @@ policyEnforcementMode: "default"
 # -- policyCIDRMatchMode is a list of entities that may be selected by CIDR selector.
 # The possible value is "nodes".
 policyCIDRMatchMode:
+
+policySharedMap:
+  # -- Enable layered shared policy map plumbing.
+  enabled: false
+  # -- Operating mode for shared policy maps: legacy, dual, shared, off.
+  mode: "legacy"
+  # -- Maximum shared references stored per overlay entry.
+  maxSharedRefs: 16
+  # -- Maximum private overrides stored per overlay entry.
+  maxPrivateOverrides: 8
+  # -- Quota for shared handles consumed per endpoint (0 = auto).
+  sharedQuotaPerEndpoint: 0
+  # -- Emit metrics for layered shared policy maps.
+  metrics: true
 pprof:
   # -- Enable pprof for cilium-agent
   enabled: false

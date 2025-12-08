@@ -23,6 +23,30 @@ const (
 	// AgentHealthPort is the default value for option.AgentHealthPort
 	AgentHealthPort = 9879
 
+	// PolicySharedMapMaxSharedRefs caps shared references included per overlay entry by default.
+	PolicySharedMapMaxSharedRefs = 16
+
+	// PolicySharedMapMaxPrivateOverrides caps private overrides included per overlay entry by default.
+	PolicySharedMapMaxPrivateOverrides = 8
+
+	// PolicyMapEntries is the default maximum number of entries in the policy map.
+	PolicyMapEntries = 16384
+
+	// PolicySharedMapSharedQuotaPerEndpoint limits shared usage per endpoint when non-zero.
+	PolicySharedMapSharedQuotaPerEndpoint = 0
+
+	// PolicySharedMapMetrics enables shared/overlay metrics by default.
+	PolicySharedMapMetrics = true
+
+	// PolicySharedMapRuleSetPoolSize is the default size of the global rule set pool.
+	PolicySharedMapRuleSetPoolSize = 1048576
+
+	// PolicyGlobalRulesMax is the default max size of the Global Rule Map.
+	PolicyGlobalRulesMax = 65535
+
+	// PolicyRuleListNodesMax is the default max size of the RuleSet List Map.
+	PolicyRuleListNodesMax = 65535
+
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
 

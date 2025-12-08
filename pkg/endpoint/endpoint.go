@@ -58,6 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -163,6 +164,10 @@ type Endpoint struct {
 	epBuildQueue EndpointBuildQueue
 
 	policyRepo policy.PolicyRepository
+
+	// offloadedDesiredPolicy tracks which policy rules have been offloaded
+	// to the BPF Arena Shared Policy Map.
+	offloadedDesiredPolicy map[policytypes.Key]struct{}
 
 	// namedPortsGetter can get the ipcache.IPCache object.
 	namedPortsGetter namedPortsGetter

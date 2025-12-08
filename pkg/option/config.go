@@ -680,6 +680,10 @@ const (
 	// EnableBPFTProxy option supports enabling or disabling BPF TProxy.
 	EnableBPFTProxy = "enable-bpf-tproxy"
 
+	// EnableBPFArenaPolicy enables the use of BPF Arena (native pointers) for policy.
+	// Default: true
+	EnablePolicySharedMapArena = "enable-policy-shared-map-arena"
+
 	// EnableAutoDirectRoutingName is the name for the EnableAutoDirectRouting option
 	EnableAutoDirectRoutingName = "auto-direct-node-routes"
 
@@ -959,6 +963,24 @@ const (
 
 	// PolicyCIDRMatchMode defines the entities that CIDR selectors can reach
 	PolicyCIDRMatchMode = "policy-cidr-match-mode"
+
+	// PolicySharedMapMaxSharedRefs configures the overlay shared reference budget.
+	PolicySharedMapMaxSharedRefs = "policy-shared-map-max-shared-refs"
+
+	// PolicySharedMapMaxPrivateOverrides configures the overlay private override budget.
+	PolicySharedMapMaxPrivateOverrides = "policy-shared-map-max-private-overrides"
+
+	// PolicySharedMapMetrics enables metrics for shared/overlay policy map usage.
+	PolicySharedMapMetrics = "policy-shared-map-metrics"
+
+	// PolicySharedMapRuleSetPoolSize configures the size of the Global Rule Set Allocator pool.
+	PolicySharedMapRuleSetPoolSize = "policy-shared-map-rule-set-pool-size"
+
+	// PolicyGlobalRulesMax configures the max size of the Global Rule Map (Phase 3).
+	PolicyGlobalRulesMax = "policy-global-rules-max"
+
+	// PolicyRuleListNodesMax configures the max size of the RuleSet List Map (Phase 3).
+	PolicyRuleListNodesMax = "policy-rule-list-nodes-max"
 
 	// EnableNodeSelectorLabels enables use of the node label based identity
 	EnableNodeSelectorLabels = "enable-node-selector-labels"
@@ -1412,6 +1434,7 @@ type DaemonConfig struct {
 	EnableSocketLBTracing         bool
 	EnableSocketLBPeer            bool
 	EnablePolicy                  string
+	EnablePolicySharedMapArena    bool
 	EnableTracing                 bool
 	EnableIPIPTermination         bool
 	EnableUnreachableRoutes       bool
@@ -1850,6 +1873,24 @@ type DaemonConfig struct {
 	// - nodes
 	PolicyCIDRMatchMode []string
 
+	// PolicySharedMapMaxSharedRefs limits overlay references into the shared map.
+	PolicySharedMapMaxSharedRefs int
+
+	// PolicySharedMapMaxPrivateOverrides limits overlay private overrides per endpoint.
+	PolicySharedMapMaxPrivateOverrides int
+
+	// PolicySharedMapMetrics enables metrics for shared/overlay policy map usage.
+	PolicySharedMapMetrics bool
+
+	// PolicySharedMapRuleSetPoolSize is the configured size of the global rule set pool.
+	PolicySharedMapRuleSetPoolSize int
+
+	// PolicyGlobalRulesMax is the configured max size of the Global Rule Map.
+	PolicyGlobalRulesMax int
+
+	// PolicyRuleListNodesMax is the configured max size of the RuleSet List Map.
+	PolicyRuleListNodesMax int
+
 	// MaxConnectedClusters sets the maximum number of clusters that can be
 	// connected in a clustermesh.
 	// The value is used to determine the bit allocation for cluster ID and
@@ -1943,8 +1984,14 @@ var (
 		EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
 		EnableCiliumNetworkPolicy:            defaults.EnableCiliumNetworkPolicy,
 		EnableCiliumClusterwideNetworkPolicy: defaults.EnableCiliumClusterwideNetworkPolicy,
-		PolicyCIDRMatchMode:                  defaults.PolicyCIDRMatchMode,
-		MaxConnectedClusters:                 defaults.MaxConnectedClusters,
+
+		PolicyCIDRMatchMode:                defaults.PolicyCIDRMatchMode,
+		PolicySharedMapMaxSharedRefs:       defaults.PolicySharedMapMaxSharedRefs,
+		PolicySharedMapMaxPrivateOverrides: defaults.PolicySharedMapMaxPrivateOverrides,
+
+		PolicySharedMapMetrics:         defaults.PolicySharedMapMetrics,
+		PolicySharedMapRuleSetPoolSize: defaults.PolicySharedMapRuleSetPoolSize,
+		MaxConnectedClusters:           defaults.MaxConnectedClusters,
 
 		BPFDistributedLRU:             defaults.BPFDistributedLRU,
 		BPFEventsDropEnabled:          defaults.BPFEventsDropEnabled,
@@ -2829,11 +2876,20 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
 	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
+
+	c.PolicySharedMapMaxSharedRefs = vp.GetInt(PolicySharedMapMaxSharedRefs)
+	c.PolicySharedMapMaxPrivateOverrides = vp.GetInt(PolicySharedMapMaxPrivateOverrides)
+
+	c.PolicySharedMapMetrics = vp.GetBool(PolicySharedMapMetrics)
+	c.PolicySharedMapRuleSetPoolSize = vp.GetInt(PolicySharedMapRuleSetPoolSize)
+	c.PolicyGlobalRulesMax = vp.GetInt(PolicyGlobalRulesMax)
+	c.PolicyRuleListNodesMax = vp.GetInt(PolicyRuleListNodesMax)
 	c.EnableNodeSelectorLabels = vp.GetBool(EnableNodeSelectorLabels)
 	c.NodeLabels = vp.GetStringSlice(NodeLabels)
 
 	c.EnableCiliumNetworkPolicy = vp.GetBool(EnableCiliumNetworkPolicy)
 	c.EnableCiliumClusterwideNetworkPolicy = vp.GetBool(EnableCiliumClusterwideNetworkPolicy)
+	c.EnablePolicySharedMapArena = vp.GetBool(EnablePolicySharedMapArena)
 
 	c.IdentityAllocationMode = vp.GetString(IdentityAllocationMode)
 	switch c.IdentityAllocationMode {

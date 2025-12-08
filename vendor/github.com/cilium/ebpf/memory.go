@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"unsafe"
 
 	"github.com/cilium/ebpf/internal/unix"
 )
@@ -42,7 +43,7 @@ type Memory struct {
 	cleanup runtime.Cleanup
 }
 
-func newMemory(fd, size int) (*Memory, error) {
+func newMemory(fd, size int, addrHint uint64) (*Memory, error) {
 	// Typically, maps created with BPF_F_RDONLY_PROG remain writable from user
 	// space until frozen. As a security precaution, the kernel doesn't allow
 	// mapping bpf map memory as read-write into user space if the bpf map was
@@ -51,21 +52,49 @@ func newMemory(fd, size int) (*Memory, error) {
 	// The user would be able to write to the map after freezing (since the kernel
 	// can't change the protection mode of an already-mapped page), while the
 	// verifier assumes the contents to be immutable.
-	b, err := unix.Mmap(fd, 0, size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+	var b []byte
+	var err error
+
+	flags := unix.MAP_SHARED
+	if addrHint != 0 {
+		flags |= unix.MAP_FIXED
+		// MmapPtr returns unsafe.Pointer, which we then convert to a slice.
+		var ptr unsafe.Pointer
+		ptr, err = unix.MmapPtr(fd, 0, unsafe.Pointer(uintptr(addrHint)), uintptr(size), unix.PROT_READ|unix.PROT_WRITE, flags)
+		if err == nil {
+			b = unsafe.Slice((*byte)(ptr), size)
+		}
+	} else {
+		b, err = unix.Mmap(fd, 0, size, unix.PROT_READ|unix.PROT_WRITE, flags)
+	}
 
 	// If the map is frozen when an rw mapping is requested, expect EPERM. If the
 	// map was created with BPF_F_RDONLY_PROG, expect EACCES.
 	var ro bool
 	if errors.Is(err, unix.EPERM) || errors.Is(err, unix.EACCES) {
 		ro = true
-		b, err = unix.Mmap(fd, 0, size, unix.PROT_READ, unix.MAP_SHARED)
+		if addrHint != 0 {
+			var ptr unsafe.Pointer
+			ptr, err = unix.MmapPtr(fd, 0, unsafe.Pointer(uintptr(addrHint)), uintptr(size), unix.PROT_READ, flags)
+			if err == nil {
+				b = unsafe.Slice((*byte)(ptr), size)
+			}
+		} else {
+			b, err = unix.Mmap(fd, 0, size, unix.PROT_READ, flags)
+		}
 	}
 	if err != nil {
+		fmt.Printf("Mmap failed: fd=%d size=%d prot=%x flags=%x err=%v\n", fd, size, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED, err)
 		return nil, fmt.Errorf("setting up memory-mapped region: %w", err)
 	}
 
 	mm := &Memory{b: b, ro: ro, heap: false}
-	mm.cleanup = runtime.AddCleanup(mm, memoryCleanupFunc(), b)
+	// For MAP_FIXED mappings (Arena), we do not register a cleanup function.
+	// These mappings are intended to be singleton/persistent for the process lifetime.
+	// Unmapping them when an ephemeral Map object is GC'd would break other components.
+	if addrHint == 0 {
+		mm.cleanup = runtime.AddCleanup(mm, memoryCleanupFunc(), b)
+	}
 
 	return mm, nil
 }

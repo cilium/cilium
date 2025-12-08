@@ -87,6 +87,10 @@ type PolicyMap struct {
 	*bpf.Map
 	stats *StatsMap // shared stats map
 	epID  uint16
+
+	// arenaOnly when true, this is a stub map for arena mode.
+	// All operations are no-ops since the arena handles policy lookups.
+	arenaOnly bool
 }
 
 func (pe PolicyEntry) IsDeny() bool {
@@ -319,6 +323,10 @@ func NewEntryFromPolicyEntry(key PolicyKey, pe policyTypes.MapStateEntry) Policy
 // Clears the associated policy stat entry, if in debug mode.
 // Returns an error if the update of the PolicyMap fails.
 func (pm *PolicyMap) Update(key *PolicyKey, entry *PolicyEntry) error {
+	// Arena mode: policy is stored in shared arena, not per-endpoint map
+	if pm.arenaOnly {
+		return nil
+	}
 	if option.Config.Debug {
 		pm.stats.ZeroStat(pm.epID, *key)
 	}
@@ -328,17 +336,28 @@ func (pm *PolicyMap) Update(key *PolicyKey, entry *PolicyEntry) error {
 // DeleteKey deletes the key-value pair from the given PolicyMap with PolicyKey
 // k. Returns an error if deletion from the PolicyMap fails.
 func (pm *PolicyMap) DeleteKey(key PolicyKey) error {
+	// Arena mode: policy is stored in shared arena, not per-endpoint map
+	if pm.arenaOnly {
+		return nil
+	}
 	return pm.Map.Delete(&key)
 }
 
 // DeleteEntry removes an entry from the PolicyMap. It can be used in
 // conjunction with DumpToSlice() to inspect and delete map entries.
 func (pm *PolicyMap) DeleteEntry(entry *PolicyEntryDump) error {
+	// Arena mode: policy is stored in shared arena, not per-endpoint map
+	if pm.arenaOnly {
+		return nil
+	}
 	return pm.Map.Delete(&entry.Key)
 }
 
 // String returns a human-readable string representing the policy map.
 func (pm *PolicyMap) String() string {
+	if pm.arenaOnly {
+		return fmt.Sprintf("arena-mode-ep-%d", pm.epID)
+	}
 	path, err := pm.Path()
 	if err != nil {
 		return err.Error()
@@ -347,6 +366,10 @@ func (pm *PolicyMap) String() string {
 }
 
 func (pm *PolicyMap) Dump() (string, error) {
+	// Arena mode: return empty since policies are in shared arena
+	if pm.arenaOnly {
+		return "", nil
+	}
 	entries, err := pm.DumpToSlice()
 	if err != nil {
 		return "", err
@@ -354,7 +377,29 @@ func (pm *PolicyMap) Dump() (string, error) {
 	return entries.String(), nil
 }
 
+// MaxEntries returns the maximum number of entries in the policy map.
+func (pm *PolicyMap) MaxEntries() uint32 {
+	if pm.arenaOnly {
+		// Return a reasonable default for arena mode
+		return 16384
+	}
+	return pm.Map.MaxEntries()
+}
+
+// Close closes the policy map.
+func (pm *PolicyMap) Close() error {
+	// Arena mode: no underlying map to close
+	if pm.arenaOnly {
+		return nil
+	}
+	return pm.Map.Close()
+}
+
 func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
+	// Arena mode: return empty since policies are in shared arena
+	if pm.arenaOnly {
+		return PolicyEntriesDump{}, nil
+	}
 	entries := PolicyEntriesDump{}
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
@@ -379,6 +424,10 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 }
 
 func (pm *PolicyMap) DumpToMapStateMap() (policyTypes.MapStateMap, error) {
+	// Arena mode: return empty since policies are in shared arena
+	if pm.arenaOnly {
+		return make(policyTypes.MapStateMap), nil
+	}
 	out := make(policyTypes.MapStateMap)
 
 	cb := func(bpfKey bpf.MapKey, bpfVal bpf.MapValue) {

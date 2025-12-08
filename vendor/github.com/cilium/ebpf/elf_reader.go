@@ -111,6 +111,8 @@ func LoadCollectionSpecFromReader(rd io.ReaderAt) (*CollectionSpec, error) {
 			sections[idx] = newElfSection(sec, mapSection)
 		case sec.Name == ".maps":
 			sections[idx] = newElfSection(sec, btfMapSection)
+		case isArenaSection(sec.Name):
+			sections[idx] = newElfSection(sec, arenaSection)
 		case isDataSection(sec.Name):
 			sections[idx] = newElfSection(sec, dataSection)
 		case sec.Type == elf.SHT_REL:
@@ -245,6 +247,10 @@ func isKconfigSection(name string) bool {
 	return name == ".kconfig"
 }
 
+func isArenaSection(name string) bool {
+	return strings.HasPrefix(name, ".addr_space.1")
+}
+
 type elfSectionKind int
 
 const (
@@ -254,6 +260,7 @@ const (
 	programSection
 	dataSection
 	structOpsSection
+	arenaSection
 )
 
 type elfSection struct {
@@ -297,7 +304,7 @@ func (ec *elfCode) assignSymbols(symbols []elf.Symbol) {
 		// Older versions of LLVM don't tag symbols correctly, so keep
 		// all NOTYPE ones.
 		switch symSection.kind {
-		case mapSection, btfMapSection, dataSection:
+		case mapSection, btfMapSection, dataSection, arenaSection:
 			if symType != elf.STT_NOTYPE && symType != elf.STT_OBJECT {
 				continue
 			}
@@ -576,6 +583,51 @@ func (ec *elfCode) relocateInstruction(ins *asm.Instruction, rel elf.Symbol) err
 		name = target.Name
 
 		// The kernel expects the offset in the second basic BPF instruction.
+		ins.Constant = int64(uint64(offset) << 32)
+		ins.Src = asm.PseudoMapValue
+
+	case arenaSection:
+		// Arena section contains global variables with __arena attribute.
+		// These live in BPF_MAP_TYPE_ARENA memory and need to be relocated
+		// to reference the arena map with the variable's offset.
+		var offset uint32
+		switch typ {
+		case elf.STT_SECTION:
+			if bind != elf.STB_LOCAL {
+				return fmt.Errorf("arena load: %s: %w: %s", name, errUnsupportedBinding, bind)
+			}
+			offset = uint32(uint64(ins.Constant))
+
+		case elf.STT_OBJECT:
+			if bind != elf.STB_GLOBAL && bind != elf.STB_LOCAL && bind != elf.STB_WEAK {
+				return fmt.Errorf("arena load: %s: %w: %s", name, errUnsupportedBinding, bind)
+			}
+			offset = uint32(rel.Value)
+
+		case elf.STT_NOTYPE:
+			if bind != elf.STB_LOCAL {
+				return fmt.Errorf("arena load: %s: %w: %s", name, errUnsupportedBinding, bind)
+			}
+			offset = uint32(rel.Value)
+
+		default:
+			return fmt.Errorf("incorrect relocation type %v for arena load", typ)
+		}
+
+		// Find the arena map to associate this variable with.
+		var arenaMapName string
+		for mapName, mapSpec := range ec.maps {
+			if mapSpec.Type == Arena {
+				arenaMapName = mapName
+				break
+			}
+		}
+		if arenaMapName == "" {
+			return fmt.Errorf("arena variable %q: no arena map found", name)
+		}
+
+		// Reference the arena map with the variable's offset.
+		name = arenaMapName
 		ins.Constant = int64(uint64(offset) << 32)
 		ins.Src = asm.PseudoMapValue
 
@@ -1073,6 +1125,10 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 		return nil, fmt.Errorf("BTF map definition: btf.VarSecInfo doesn't point to a *btf.Var: %T", vs.Type)
 	}
 
+	if MapType(mapType) == Arena && mapExtra == 0 {
+		mapExtra = 0x10000000000 // 1TB default for Arena
+	}
+
 	return &MapSpec{
 		Name:       sanitizeName(name, -1),
 		Type:       MapType(mapType),
@@ -1213,19 +1269,50 @@ func (ec *elfCode) loadDataSections() error {
 			return fmt.Errorf("data section %s: contents exceed maximum size", sec.Name)
 		}
 
-		mapSpec := &MapSpec{
-			Name:       sanitizeName(sec.Name, -1),
-			Type:       Array,
-			KeySize:    4,
-			ValueSize:  uint32(sec.Size),
-			MaxEntries: 1,
+		var (
+			data    []byte
+			mapSpec *MapSpec
+		)
+
+		// Check for existing Arena map for .addr_space.1
+		if sec.Name == ".addr_space.1" {
+			for _, m := range ec.maps {
+				if m.Type == Arena {
+					mapSpec = m
+					if mapSpec.MapExtra == 0 {
+						mapSpec.MapExtra = 0x10000000000 // 1TB
+					}
+					break
+				}
+			}
 		}
 
-		if isConstantDataSection(sec.Name) {
-			mapSpec.Flags = sys.BPF_F_RDONLY_PROG
+		if mapSpec == nil {
+			if strings.HasPrefix(sec.Name, ".addr_space.1") {
+				mapSpec = &MapSpec{
+					Name:       sanitizeName(sec.Name, -1),
+					Type:       Arena,
+					KeySize:    0,
+					ValueSize:  0,
+					MaxEntries: 4096,
+					Flags:      sys.BPF_F_MMAPABLE,
+					MapExtra:   0x10000000000, // 1TB
+				}
+			} else {
+				mapSpec = &MapSpec{
+					Name:       sanitizeName(sec.Name, -1),
+					Type:       Array,
+					KeySize:    4,
+					ValueSize:  uint32(sec.Size),
+					MaxEntries: 1,
+				}
+
+				if isConstantDataSection(sec.Name) {
+					mapSpec.Flags = sys.BPF_F_RDONLY_PROG
+				}
+			}
 		}
 
-		var data []byte
 		switch sec.Type {
 		// Only open the section if we know there's actual data to be read.
 		case elf.SHT_PROGBITS:
@@ -1247,7 +1334,9 @@ func (ec *elfCode) loadDataSections() error {
 			return fmt.Errorf("data section %s: unknown section type %s", sec.Name, sec.Type)
 		}
 
+		// if sec.Name != ".addr_space.1" {
 		mapSpec.Contents = []MapKV{{uint32(0), data}}
+		// }
 
 		for off, sym := range sec.symbols {
 			// Skip symbols marked with the 'hidden' attribute.

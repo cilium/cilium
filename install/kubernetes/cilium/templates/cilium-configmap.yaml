@@ -209,6 +209,14 @@ data:
   policy-cidr-match-mode: {{ join " " .Values.policyCIDRMatchMode | quote }}
 {{- end}}
 
+{{- if hasKey .Values "policySharedMap" }}
+  enable-policy-shared-map-arena: "{{ .Values.policySharedMap.enabled }}"
+  policy-shared-map-max-shared-refs: "{{ .Values.policySharedMap.maxSharedRefs }}"
+  policy-shared-map-max-private-overrides: "{{ .Values.policySharedMap.maxPrivateOverrides }}"
+  policy-shared-map-quota-per-endpoint: "{{ .Values.policySharedMap.sharedQuotaPerEndpoint }}"
+  policy-shared-map-metrics: "{{ .Values.policySharedMap.metrics }}"
+{{- end }}
+
 
 {{- if .Values.prometheus.enabled }}
   # If you want metrics enabled in all of your Cilium agents, set the port for
@@ -1343,7 +1351,7 @@ data:
 {{- end }}
 
 {{- if .Values.operator.unmanagedPodWatcher.restart }}
-  unmanaged-pod-watcher-interval: {{ .Values.operator.unmanagedPodWatcher.intervalSeconds | quote }}
+  unmanaged-pod-watcher-interval: {{ printf "%ds" (int .Values.operator.unmanagedPodWatcher.intervalSeconds) | quote }}
 {{- else }}
   unmanaged-pod-watcher-interval: "0"
 {{- end }}

@@ -484,7 +484,15 @@ func (m *Map) Memory() (*Memory, error) {
 		return nil, err
 	}
 
-	mm, err := newMemory(m.FD(), size)
+	// Try to get MapExtra, which acts as an address hint for Arena maps.
+	var mapExtra uint64
+	if info, err := m.Info(); err == nil {
+		if extra, ok := info.MapExtra(); ok {
+			mapExtra = extra
+		}
+	}
+
+	mm, err := newMemory(m.FD(), size, mapExtra)
 	if err != nil {
 		return nil, fmt.Errorf("creating new Memory: %w", err)
 	}
@@ -516,7 +524,15 @@ func (m *Map) unsafeMemory() (*Memory, error) {
 		return nil, err
 	}
 
-	mm, err := newUnsafeMemory(m.FD(), size)
+	// Try to get MapExtra, which acts as an address hint for Arena maps.
+	var mapExtra uint64
+	if info, err := m.Info(); err == nil {
+		if extra, ok := info.MapExtra(); ok {
+			mapExtra = extra
+		}
+	}
+
+	mm, err := newUnsafeMemory(m.FD(), size, mapExtra)
 	if err != nil {
 		return nil, fmt.Errorf("creating new Memory: %w", err)
 	}
@@ -1609,6 +1625,9 @@ func (m *Map) Freeze() error {
 // in spec and freezes the Map if requested by spec.
 func (m *Map) finalize(spec *MapSpec) error {
 	for _, kv := range spec.Contents {
+		if m.Type() == Arena {
+			continue
+		}
 		if err := m.Put(kv.Key, kv.Value); err != nil {
 			return fmt.Errorf("putting value: key %v: %w", kv.Key, err)
 		}

@@ -457,6 +457,19 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 	return cfg, renames
 }
 
+// Helper to inject Arena map replacement
+func addArenaMapReplacement(spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions) {
+	if spec.Maps[policymap.ArenaMapName] == nil {
+		return
+	}
+	if arena := policymap.ArenaMap(); arena != nil {
+		if opts.CollectionOptions.MapReplacements == nil {
+			opts.CollectionOptions.MapReplacements = make(map[string]*ebpf.Map)
+		}
+		opts.CollectionOptions.MapReplacements[policymap.ArenaMapName] = arena.Map
+	}
+}
+
 // attachCiliumHost inserts the host endpoint's policy program into the global
 // cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
 func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
@@ -467,14 +480,17 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 
 	co, renames := ciliumHostRewrites(ep, lnc)
 
-	var hostObj hostObjects
-	commit, err := bpf.LoadAndAssign(logger, &hostObj, spec, &bpf.CollectionOptions{
+	opts := &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:  co,
 		MapRenames: renames,
-	})
+	}
+	addArenaMapReplacement(spec, opts)
+
+	var hostObj hostObjects
+	commit, err := bpf.LoadAndAssign(logger, &hostObj, spec, opts)
 	if err != nil {
 		return err
 	}
@@ -557,14 +573,17 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 
 	co, renames := ciliumNetRewrites(ep, lnc, net)
 
-	var netObj hostNetObjects
-	commit, err := bpf.LoadAndAssign(logger, &netObj, spec, &bpf.CollectionOptions{
+	opts := &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:  co,
 		MapRenames: renames,
-	})
+	}
+	addArenaMapReplacement(spec, opts)
+
+	var netObj hostNetObjects
+	commit, err := bpf.LoadAndAssign(logger, &netObj, spec, opts)
 	if err != nil {
 		return err
 	}
@@ -619,14 +638,17 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 
 		co, renames := netdevRewrites(ep, lnc, iface)
 
-		var netdevObj hostNetdevObjects
-		commit, err := bpf.LoadAndAssign(logger, &netdevObj, spec, &bpf.CollectionOptions{
+		opts := &bpf.CollectionOptions{
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
 			Constants:  co,
 			MapRenames: renames,
-		})
+		}
+		addArenaMapReplacement(spec, opts)
+
+		var netdevObj hostNetdevObjects
+		commit, err := bpf.LoadAndAssign(logger, &netdevObj, spec, opts)
 		if err != nil {
 			return err
 		}
@@ -731,14 +753,17 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*
 
 	co, renames := endpointRewrites(ep, lnc)
 
-	var obj lxcObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	opts := &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:  co,
 		MapRenames: renames,
-	})
+	}
+	addArenaMapReplacement(spec, opts)
+
+	var obj lxcObjects
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, opts)
 	if err != nil {
 		return err
 	}
@@ -833,8 +858,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
-	var obj overlayObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	opts := &bpf.CollectionOptions{
 		Constants: cfg,
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
@@ -842,7 +866,11 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-	})
+	}
+	addArenaMapReplacement(spec, opts)
+
+	var obj overlayObjects
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, opts)
 	if err != nil {
 		return err
 	}
@@ -882,8 +910,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
-	var obj wireguardObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
+	opts := &bpf.CollectionOptions{
 		Constants: cfg,
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
@@ -891,7 +918,12 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-	})
+	}
+	addArenaMapReplacement(spec, opts)
+
+	var obj wireguardObjects
+	commit, err := bpf.LoadAndAssign(logger, &obj, spec, opts)
+
 	if err != nil {
 		return err
 	}

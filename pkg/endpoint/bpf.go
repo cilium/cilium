@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -898,6 +899,12 @@ func (e *Endpoint) deleteMaps() []error {
 		errors = append(errors, fmt.Errorf("removing endpoint program from global policy map: %w", err))
 	}
 
+	// Best-effort cleanup of shared overlays when the feature is enabled so the
+	// shared map metadata can accurately reflect active endpoints.
+	if policymap.SharedManagerEnabled() {
+		policymap.RemoveEndpointOverlay(e.ID)
+	}
+
 	// Remove rate limit from bandwidth manager map.
 	if e.bps != 0 {
 		e.bandwidthManager.DeleteBandwidthLimit(e.ID)
@@ -1222,6 +1229,24 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		return nil
 	}
 
+	// sync to arena if enabled - this handles all policy updates in arena mode.
+	// the per-endpoint map updates below become no-ops when arena is enabled.
+	// IMPORTANT: Always sync overlay even if desiredPolicy is nil - this creates
+	// an empty overlay entry which is required for BPF lookups to succeed.
+	if policymap.SharedManagerEnabled() {
+		var entries iter.Seq2[policytypes.Key, policytypes.MapStateEntry]
+		var ingressPolicyEnabled, egressPolicyEnabled bool
+		if e.desiredPolicy != nil {
+			entries = e.desiredPolicy.Entries()
+			ingressPolicyEnabled = e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
+			egressPolicyEnabled = e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
+		}
+		if _, syncErr := policymap.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled); syncErr != nil {
+			e.getLogger().Debug("failed to sync shared policy overlay during incremental update",
+				logfields.Error, syncErr)
+		}
+	}
+
 	// Add policy map entries before deleting to avoid transient drops. If there
 	// isn't enough space to add all the entries before deleting some, then delete
 	// first. If e.realizedPolicy or e.policyMap is nil then the map has not been
@@ -1375,8 +1400,36 @@ func (e *Endpoint) syncPolicyMap() error {
 		return ErrComingOutOfLockdown
 	}
 
+	var offloaded map[policytypes.Key]struct{}
+	// IMPORTANT: Always sync overlay even if desiredPolicy is nil - this creates
+	// an empty overlay entry which is required for BPF lookups to succeed.
+	if policymap.SharedManagerEnabled() {
+		var entries iter.Seq2[policytypes.Key, policytypes.MapStateEntry]
+		var ingressPolicyEnabled, egressPolicyEnabled bool
+		if e.desiredPolicy != nil {
+			entries = e.desiredPolicy.Entries()
+			ingressPolicyEnabled = e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
+			egressPolicyEnabled = e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
+		}
+		var syncErr error
+		offloaded, syncErr = policymap.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
+		if syncErr != nil {
+			e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, syncErr)
+		}
+	}
+
+	// Migration: Clean up offloaded entries from the legacy map
+	for k := range offloaded {
+		if !e.deletePolicyKey(k) {
+			deleteErrors++
+		}
+	}
+
 	// Add policy map entries before deleting to avoid transient drops
 	for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
+		if _, ok := offloaded[k]; ok {
+			continue
+		}
 		if !e.addPolicyKey(k, v) {
 			addErrors++
 		}
@@ -1395,6 +1448,9 @@ func (e *Endpoint) syncPolicyMap() error {
 		addErrors = 0
 		// Add policy map entries before deleting to avoid transient drops
 		for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
+			if _, ok := offloaded[k]; ok {
+				continue
+			}
 			if !e.addPolicyKey(k, v) {
 				addErrors++
 			}
@@ -1422,8 +1478,48 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 		return
 	}
 
+	var offloaded map[policytypes.Key]struct{}
+	// IMPORTANT: Always sync overlay even if desiredPolicy is nil - this creates
+	// an empty overlay entry which is required for BPF lookups to succeed.
+	if policymap.SharedManagerEnabled() {
+		var entries iter.Seq2[policytypes.Key, policytypes.MapStateEntry]
+		var ingressPolicyEnabled, egressPolicyEnabled bool
+		if e.desiredPolicy != nil {
+			entries = e.desiredPolicy.Entries()
+			ingressPolicyEnabled = e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
+			egressPolicyEnabled = e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
+		}
+		var syncErr error
+		offloaded, syncErr = policymap.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
+		if syncErr != nil {
+			e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, syncErr)
+		}
+	}
+
+	// Migration: Clean up offloaded entries from the legacy map
+	// realized is MapStateMap (map[Key]Value), so efficient check is possible
+	for k := range offloaded {
+		if v, exists := realized[k]; exists {
+			if !e.deletePolicyKey(k) {
+				deleteErrors++
+				continue
+			}
+			diffCount++
+			if withDiffs {
+				// Record deletion in diffs if requested
+				diffs = append(diffs, policy.MapChange{
+					Key:   k,
+					Value: v,
+				})
+			}
+		}
+	}
+
 	// Add policy map entries before deleting to avoid transient drops
 	for k, v := range e.desiredPolicy.UpdatedMap(realized) {
+		if _, ok := offloaded[k]; ok {
+			continue
+		}
 		if !e.addPolicyKey(k, v) {
 			addErrors++
 			continue
@@ -1465,6 +1561,9 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 	if addErrors > 0 {
 		addErrors = 0
 		for k, v := range e.desiredPolicy.UpdatedMap(realized) {
+			if _, ok := offloaded[k]; ok {
+				continue
+			}
 			if !e.addPolicyKey(k, v) {
 				addErrors++
 				continue
@@ -1483,6 +1582,7 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 	if addErrors > 0 || deleteErrors > 0 {
 		err = fmt.Errorf("syncPolicyMapWith failed")
 	}
+
 	return diffCount, diffs, err
 }
 

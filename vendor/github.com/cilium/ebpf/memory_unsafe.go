@@ -48,10 +48,33 @@ var unsafeMemory = false
 // Variable pointer.
 var ErrInvalidType = errors.New("invalid type")
 
-func newUnsafeMemory(fd, size int) (*Memory, error) {
+func newUnsafeMemory(fd, size int, addrHint uint64) (*Memory, error) {
 	// Some architectures need the size to be page-aligned to work with MAP_FIXED.
 	if size%os.Getpagesize() != 0 {
 		return nil, fmt.Errorf("memory: must be a multiple of page size (requested %d bytes)", size)
+	}
+
+	// If we have an address hint, we skip allocating a backing slice on the Go heap
+	// and map directly to the hint address.
+	if addrHint != 0 {
+		flags := unix.MAP_SHARED | unix.MAP_FIXED
+		ptr, err := unix.MmapPtr(fd, 0, unsafe.Pointer(uintptr(addrHint)), uintptr(size), unix.PROT_READ|unix.PROT_WRITE, flags)
+
+		// If the map is frozen or read-only, retry with read-only protection.
+		var ro bool
+		if errors.Is(err, unix.EPERM) || errors.Is(err, unix.EACCES) {
+			ro = true
+			ptr, err = unix.MmapPtr(fd, 0, unsafe.Pointer(uintptr(addrHint)), uintptr(size), unix.PROT_READ, flags)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("setting up memory-mapped region at %x: %w", addrHint, err)
+		}
+
+		b := unsafe.Slice((*byte)(ptr), size)
+		mm := &Memory{b: b, ro: ro, heap: true}
+		// Use AddCleanup to ensure unmapping, similar to newMemory.
+		mm.cleanup = runtime.AddCleanup(mm, memoryCleanupFunc(), b)
+		return mm, nil
 	}
 
 	// Allocate a page-aligned span of memory on the Go heap.

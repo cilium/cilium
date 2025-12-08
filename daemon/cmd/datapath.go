@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -127,6 +128,31 @@ func initMaps(params daemonParams) error {
 		if err := nat.CreateRetriesMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
 			return fmt.Errorf("initializing NAT retries map: %w", err)
+		}
+	}
+
+	if err := policymap.InitSharedPolicyMaps(params.PolicyConfig.BpfPolicyMapMax); err != nil {
+		return fmt.Errorf("initializing shared policy maps: %w", err)
+	}
+
+	if err := policymap.InitUniversalMaps(); err != nil {
+		return fmt.Errorf("initializing universal policy maps: %w", err)
+	}
+
+	// Recover shared policy state from pinned maps
+	if policymap.SharedManagerEnabled() {
+		overlayMap, err := policymap.OverlayPolicyMap()
+		if err == nil {
+			params.Logger.Info("Recovering shared policy overlays...")
+			zero := uint32(0)
+			err = overlayMap.IterateWithCallback(&zero, &policymap.OverlayEntryBPF{}, func(k, v any) {
+				epID := uint16(*k.(*uint32))
+				overlay := *v.(*policymap.OverlayEntryBPF)
+				policymap.RestoreEndpointOverlay(epID, overlay)
+			})
+			if err != nil {
+				params.Logger.Warn("Failed to iterate overlay map during recovery", logfields.Error, err)
+			}
 		}
 	}
 
