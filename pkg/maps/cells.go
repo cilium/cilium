@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
@@ -46,6 +47,9 @@ var Cell = cell.Module(
 	// Receives datapath signals for GC fill-up events
 	// Note that we can't import this from ctmap package, as gc needs to import ctmap.
 	gc.Cell,
+
+	// Provides the ctmap.GCMps which contains the connection tracking state maps.
+	ctmap.Cell,
 
 	// Provides access to egressgateway specific maps.
 	egressmap.Cell,

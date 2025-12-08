@@ -12,8 +12,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // listFilterIfs returns a map of interfaces based on the given filter.
@@ -73,23 +71,5 @@ func clearCiliumVeths(logger *slog.Logger) error {
 			}
 		}
 	}
-	return nil
-}
-
-// initMaps opens all BPF maps (and creates them if they do not exist). This
-// must be done *before* any operations which read BPF maps, especially
-// restoring endpoints and services.
-func initMaps(params daemonParams) error {
-	if option.Config.DryMode {
-		return nil
-	}
-
-	for _, m := range ctmap.Maps(option.Config.EnableIPv4,
-		option.Config.EnableIPv6) {
-		if err := m.Create(); err != nil {
-			return fmt.Errorf("initializing conntrack map %s: %w", m.Name(), err)
-		}
-	}
-
 	return nil
 }
