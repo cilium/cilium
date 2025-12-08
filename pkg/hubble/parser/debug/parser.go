@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
@@ -23,13 +24,25 @@ type Parser struct {
 	log            *slog.Logger
 	endpointGetter getters.EndpointGetter
 	linkMonitor    getters.LinkGetter
+
+	debugMsgDecoder options.DebugMsgDecoderFunc
 }
 
 // New creates a new parser
-func New(log *slog.Logger, endpointGetter getters.EndpointGetter) (*Parser, error) {
+func New(log *slog.Logger, endpointGetter getters.EndpointGetter, opts ...options.Option) (*Parser, error) {
+	args := &options.Options{
+		DebugMsgDecoder: func(data []byte) (*monitor.DebugMsg, error) {
+			dbg := &monitor.DebugMsg{}
+			return dbg, dbg.Decode(data)
+		},
+	}
+	for _, opt := range opts {
+		opt(args)
+	}
 	return &Parser{
-		log:            log,
-		endpointGetter: endpointGetter,
+		log:             log,
+		endpointGetter:  endpointGetter,
+		debugMsgDecoder: args.DebugMsgDecoder,
 	}, nil
 }
 
@@ -45,8 +58,8 @@ func (p *Parser) Decode(data []byte, cpu int) (*flowpb.DebugEvent, error) {
 		return nil, errors.NewErrInvalidType(eventType)
 	}
 
-	dbg := &monitor.DebugMsg{}
-	if err := dbg.Decode(data); err != nil {
+	dbg, err := p.debugMsgDecoder(data)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse debug event: %w", err)
 	}
 
