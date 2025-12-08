@@ -5751,6 +5751,9 @@
                   },
                   {
                     "type": "string"
+                  },
+                  {
+                    "type": "string"
                   }
                 ]
               },
