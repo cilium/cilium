@@ -693,9 +693,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	if !e.ctCleaned {
 		go func() {
 			if !e.isProperty(PropertyFakeEndpoint) {
-				if ctmap.Exists(option.Config.EnableIPv4, option.Config.EnableIPv6) {
-					e.scrubIPsInConntrackTable()
-				}
+				e.scrubIPsInConntrackTable()
 			}
 			close(datapathRegenCtxt.ctCleaned)
 		}()
