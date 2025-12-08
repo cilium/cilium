@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"math"
 	"net/netip"
 	"strings"
@@ -16,14 +15,11 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -650,83 +646,4 @@ func Maps(ipv4, ipv6 bool) []*Map {
 		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal, nil))
 	}
 	return result
-}
-
-// GetInterval returns the interval adjusted based on the deletion ratio of the
-// last run.
-//   - actualPrevInterval 	= actual time elapsed since last GC.
-//   - expectedPrevInterval 	= Is the last computed interval, which we expected to
-//     wait *unless* a signal caused early pass. If this is set to zero then we use gc starting interval.
-func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
-	return GetIntervalWithConfig(logger, actualPrevInterval, expectedPrevInterval, maxDeleteRatio,
-		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval, GCIntervalRounding, MinGCInterval)
-}
-
-func GetIntervalWithConfig(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64,
-	conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval time.Duration,
-) time.Duration {
-	if val := conntrackGCInterval; val != time.Duration(0) {
-		return val
-	}
-
-	adjustedDeleteRatio := maxDeleteRatio
-	if expectedPrevInterval == time.Duration(0) {
-		expectedPrevInterval = defaults.ConntrackGCStartingInterval
-	} else if actualPrevInterval < expectedPrevInterval && actualPrevInterval > 0 {
-		adjustedDeleteRatio *= float64(expectedPrevInterval) / float64(actualPrevInterval)
-	}
-
-	newInterval := calculateIntervalWithConfig(expectedPrevInterval, adjustedDeleteRatio, gcIntervalRounding, minGCInterval)
-	if val := conntrackGCMaxInterval; val != time.Duration(0) && newInterval > val {
-		newInterval = val
-	}
-
-	if newInterval != expectedPrevInterval {
-		logger.Info(
-			"Conntrack garbage collector interval recalculated",
-			logfields.ExpectedPrevInterval, expectedPrevInterval,
-			logfields.ActualPrevInterval, actualPrevInterval,
-			logfields.NewInterval, newInterval,
-			logfields.DeleteRatio, maxDeleteRatio,
-			logfields.AdjustedDeleteRatio, adjustedDeleteRatio,
-		)
-	}
-
-	metrics.ConntrackInterval.WithLabelValues("global").Set(newInterval.Seconds())
-
-	return newInterval
-}
-
-var (
-	MinGCInterval      = defaults.ConntrackGCMinInterval
-	GCIntervalRounding = time.Second
-)
-
-func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
-	return calculateIntervalWithConfig(prevInterval, maxDeleteRatio, GCIntervalRounding, MinGCInterval)
-}
-
-func calculateIntervalWithConfig(prevInterval time.Duration, maxDeleteRatio float64, gcIntervalRounding, minGCInterval time.Duration) (interval time.Duration) {
-	interval = prevInterval
-
-	if maxDeleteRatio == 0.0 {
-		return
-	}
-
-	switch {
-	case maxDeleteRatio > 0.25:
-		if maxDeleteRatio > 0.9 {
-			maxDeleteRatio = 0.9
-		}
-		// 25%..90% => 1.3x..10x shorter
-		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(gcIntervalRounding), minGCInterval)
-	case maxDeleteRatio < 0.05:
-		// When less than 5% of entries were deleted, increase the
-		// interval. Use a simple 1.5x multiplier to start growing slowly
-		// as a new node may not be seeing workloads yet and thus the
-		// scan will return a low deletion ratio at first.
-		interval = min(time.Duration(float64(interval)*1.5).Round(gcIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
-	}
-
-	return
 }
