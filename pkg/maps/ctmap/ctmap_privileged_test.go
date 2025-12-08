@@ -227,7 +227,7 @@ func TestPrivilegedCtGcIcmp(t *testing.T) {
 	}
 	mcast, next, complete := stream.Multicast[GCEvent]()
 	mcast.Observe(context.Background(), NatMapNext4, func(err error) {})
-	stats := ctMap.doGCForFamily(filter, next, nil, false, false)
+	stats := ctMap.doGCForFamily(filter, next, nil, false)
 	complete(nil)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
@@ -341,7 +341,7 @@ func TestPrivilegedCtGcTcp(t *testing.T) {
 	}
 	mcast, next, complete := stream.Multicast[GCEvent]()
 	mcast.Observe(context.Background(), NatMapNext4, func(err error) {})
-	stats := ctMap.doGCForFamily(filter, next, nil, false, false)
+	stats := ctMap.doGCForFamily(filter, next, nil, false)
 	complete(nil)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
@@ -435,7 +435,7 @@ func TestPrivilegedCtGcDsr(t *testing.T) {
 	}
 	mcast, next, complete := stream.Multicast[GCEvent]()
 	mcast.Observe(context.Background(), NatMapNext4, func(err error) {})
-	stats := ctMap.doGCForFamily(filter, next, nil, false, false)
+	stats := ctMap.doGCForFamily(filter, next, nil, false)
 	complete(nil)
 	require.Equal(t, uint32(0), stats.aliveEntries)
 	require.Equal(t, uint32(1), stats.deleted)
@@ -917,6 +917,6 @@ func benchmarkCtGc(t *testing.B, size int) {
 		t.Logf("starting gc")
 		defer t.Logf("done gc pass!")
 		t.StartTimer()
-		ctMap.doGCForFamily(filter, func(g GCEvent) {}, nil, false, false)
+		ctMap.doGCForFamily(filter, func(g GCEvent) {}, nil, false)
 	}
 }
