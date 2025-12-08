@@ -183,6 +183,8 @@ func (l *loader) reinitializeEncryption(ctx context.Context, lnc *datapath.Local
 	// bpf_host code in reloadHostDatapath onto the physical devices as selected
 	// by configuration.
 	if !lnc.EnableIPSec || option.Config.AreDevicesRequired(lnc.KPRConfig, lnc.EnableWireguard, lnc.EnableIPSec) {
+		os.RemoveAll(bpfStateDeviceDir(networkConfig))
+
 		return nil
 	}
 
@@ -253,6 +255,10 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 	// if it is disabled, the overlay network programs don't have to be (re)initialized
 	if tunnelConfig.EncapProtocol() == tunnel.Disabled {
 		cleanCallsMaps("cilium_calls_overlay*")
+
+		os.RemoveAll(bpfStateDeviceDir(defaults.VxlanDevice))
+		os.RemoveAll(bpfStateDeviceDir(defaults.GeneveDevice))
+
 		return nil
 	}
 
@@ -272,6 +278,9 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration) (err error) {
 	if !lnc.EnableWireguard {
 		cleanCallsMaps("cilium_calls_wireguard*")
+
+		os.RemoveAll(bpfStateDeviceDir(wgTypes.IfaceName))
+
 		return
 	}
 
@@ -406,7 +415,6 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	devices := lnc.DeviceNames()
-
 	if err := cleanIngressQdisc(l.logger, devices); err != nil {
 		l.logger.Warn("Unable to clean up ingress qdiscs", logfields.Error, err)
 		return err
@@ -462,10 +470,8 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
 	}
 
-	if lnc.EnableIPSec {
-		if err := l.reinitializeEncryption(ctx, lnc); err != nil {
-			return err
-		}
+	if err := l.reinitializeEncryption(ctx, lnc); err != nil {
+		return err
 	}
 
 	if err := reinitializeWireguard(ctx, l.logger, lnc); err != nil {
