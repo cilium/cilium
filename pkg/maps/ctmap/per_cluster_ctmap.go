@@ -111,14 +111,16 @@ type PerClusterCTMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterCTMapKey) String() string  { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (k *PerClusterCTMapKey) String() string { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+
 func (k *PerClusterCTMapKey) New() bpf.MapKey { return &PerClusterCTMapKey{} }
 
 type PerClusterCTMapVal struct {
 	Fd uint32
 }
 
-func (v *PerClusterCTMapVal) String() string    { return fmt.Sprintf("fd=%d", v.Fd) }
+func (v *PerClusterCTMapVal) String() string { return fmt.Sprintf("fd=%d", v.Fd) }
+
 func (v *PerClusterCTMapVal) New() bpf.MapValue { return &PerClusterCTMapVal{} }
 
 // NewPerClusterCTMaps returns a new instance of the per-cluster CT maps manager.
@@ -282,7 +284,7 @@ func newPerClusterCTMap(m mapType) *PerClusterCTMap {
 
 func (om *PerClusterCTMap) newInnerMap(clusterID uint32) *Map {
 	name := ClusterInnerMapName(om.m, clusterID)
-	im := newMap(name, om.m)
+	im := newMap(name, om.m, nil)
 	im.clusterID = clusterID
 	return im
 }
