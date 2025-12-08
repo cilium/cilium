@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -48,7 +47,6 @@ type parameters struct {
 	Lifecycle               cell.Lifecycle
 	JobGroup                job.Group
 	Logger                  *slog.Logger
-	MetricsRegistry         *metrics.Registry
 	DB                      *statedb.DB
 	NodeAddrs               statedb.Table[tables.NodeAddress]
 	DaemonConfig            *option.DaemonConfig
@@ -69,8 +67,6 @@ type GC struct {
 
 	ipv4 bool
 	ipv6 bool
-
-	metricsRegistry *metrics.Registry
 
 	db        *statedb.DB
 	nodeAddrs statedb.Table[tables.NodeAddress]
@@ -94,8 +90,7 @@ type GC struct {
 
 func New(params parameters) *GC {
 	gc := &GC{
-		logger:          params.Logger,
-		metricsRegistry: params.MetricsRegistry,
+		logger: params.Logger,
 
 		ipv4: params.DaemonConfig.EnableIPv4,
 		ipv6: params.DaemonConfig.EnableIPv6,
@@ -346,7 +341,7 @@ func (gc *GC) enableWithConfig(
 			<-initialScanComplete
 			gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
 			// Not supporting BPF map pressure for per-cluster CT maps as of yet.
-			ctmap.CalculateCTMapPressure(gc.controllerManager, gc.metricsRegistry, ctmap.Maps(gc.ipv4, gc.ipv6)...)
+			ctmap.CalculateCTMapPressure(gc.controllerManager, gc.ctMaps.ActiveMaps()...)
 		}()
 	}
 }
