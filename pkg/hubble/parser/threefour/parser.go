@@ -197,7 +197,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 			return fmt.Errorf("failed to parse policy verdict: %w", err)
 		}
 		eventSubType = pvn.SubType
-		packetOffset = monitor.PolicyVerdictNotifyLen
+		packetOffset = int(pvn.DataOffset())
 		authType = pb.AuthType(pvn.GetAuthType())
 	case monitorAPI.MessageTypeCapture:
 		dbg = &monitor.DebugCapture{}
@@ -205,7 +205,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 			return fmt.Errorf("failed to parse debug capture: %w", err)
 		}
 		eventSubType = dbg.SubType
-		packetOffset = monitor.DebugCaptureLen
+		packetOffset = int(dbg.DataOffset())
 	default:
 		return errors.NewErrInvalidType(eventType)
 	}

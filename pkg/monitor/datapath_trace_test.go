@@ -66,6 +66,86 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.Equal(t, in.IPTraceID, out.IPTraceID)
 }
 
+func TestDecodeTraceNotifyExtension(t *testing.T) {
+	setTmpExtVer := func(extVer uint8, extLen uint) {
+		oldLen, ok := traceNotifyExtensionLengthFromVersion[extVer]
+		if !ok {
+			t.Cleanup(func() { delete(traceNotifyExtensionLengthFromVersion, extVer) })
+		} else {
+			t.Cleanup(func() { traceNotifyExtensionLengthFromVersion[extVer] = oldLen })
+		}
+		traceNotifyExtensionLengthFromVersion[extVer] = extLen
+	}
+
+	setTmpExtVer(1, 4)
+	setTmpExtVer(2, 8)
+	setTmpExtVer(3, 16)
+
+	tcs := []struct {
+		name      string
+		tn        TraceNotify
+		extension []uint32
+	}{
+		{
+			name: "no extension",
+			tn: TraceNotify{
+				Version:    TraceNotifyVersion2,
+				ExtVersion: 0,
+			},
+		},
+		{
+			name: "extension 1",
+			tn: TraceNotify{
+				Version:    TraceNotifyVersion2,
+				ExtVersion: 1,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+			},
+		},
+		{
+			name: "extension 2",
+			tn: TraceNotify{
+				Version:    TraceNotifyVersion2,
+				ExtVersion: 2,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+			},
+		},
+		{
+			name: "extension 2",
+			tn: TraceNotify{
+				Version:    TraceNotifyVersion2,
+				ExtVersion: 3,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+				0xFA1AFE1,
+				0xF00DF00D,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		buf := bytes.NewBuffer(nil)
+		err := binary.Write(buf, byteorder.Native, tc.tn)
+		require.NoError(t, err)
+		err = binary.Write(buf, byteorder.Native, tc.extension)
+		require.NoError(t, err)
+		err = binary.Write(buf, byteorder.Native, uint32(0xDEADBEEF))
+		require.NoError(t, err)
+
+		output := &TraceNotify{}
+		err = output.Decode(buf.Bytes())
+		require.NoError(t, err)
+
+		require.Equal(t, uint32(0xDEADBEEF), byteorder.Native.Uint32(buf.Bytes()[output.DataOffset():]))
+	}
+}
+
 func TestDecodeTraceNotifyErrors(t *testing.T) {
 	tn := TraceNotify{}
 	err := tn.Decode([]byte{})
