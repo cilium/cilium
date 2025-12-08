@@ -3,7 +3,12 @@
 
 package options
 
-import "strings"
+import (
+	"strings"
+
+	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/monitor"
+)
 
 // Option is used to configure parsers
 type Option func(*Options)
@@ -14,6 +19,13 @@ type Options struct {
 	HubbleRedactSettings           HubbleRedactSettings
 	EnableNetworkPolicyCorrelation bool
 	SkipUnknownCGroupIDs           bool
+
+	DropNotifyDecoder          DropNotifyDecoderFunc
+	DebugMsgDecoder            DebugMsgDecoderFunc
+	DebugCaptureDecoder        DebugCaptureDecoderFunc
+	TraceNotifyDecoder         TraceNotifyDecoderFunc
+	PolicyVerdictNotifyDecoder PolicyVerdictNotifyDecoderFunc
+	TraceSockNotifyDecoder     TraceSockNotifyDecoderFunc
 }
 
 // HubbleRedactSettings contains all hubble redact related options
@@ -63,6 +75,54 @@ func WithNetworkPolicyCorrelation(enabled bool) Option {
 func WithSkipUnknownCGroupIDs(enabled bool) Option {
 	return func(opt *Options) {
 		opt.SkipUnknownCGroupIDs = enabled
+	}
+}
+
+type DropNotifyDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.DropNotify, error)
+
+func WithDropNotifyDecoder(decode DropNotifyDecoderFunc) Option {
+	return func(opt *Options) {
+		opt.DropNotifyDecoder = decode
+	}
+}
+
+type DebugMsgDecoderFunc func(data []byte) (*monitor.DebugMsg, error)
+
+func WithDebugMsgDecoder(decode DebugMsgDecoderFunc) Option {
+	return func(opt *Options) {
+		opt.DebugMsgDecoder = decode
+	}
+}
+
+type DebugCaptureDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.DebugCapture, error)
+
+func WithDebugCaptureDecoder(decode DebugCaptureDecoderFunc) Option {
+	return func(opt *Options) {
+		opt.DebugCaptureDecoder = decode
+	}
+}
+
+type TraceNotifyDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.TraceNotify, error)
+
+func WithTraceNotifyDecoder(decode TraceNotifyDecoderFunc) Option {
+	return func(opt *Options) {
+		opt.TraceNotifyDecoder = decode
+	}
+}
+
+type PolicyVerdictNotifyDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.PolicyVerdictNotify, error)
+
+func WithPolicyVerdictNotifyDecoder(decode PolicyVerdictNotifyDecoderFunc) Option {
+	return func(opt *Options) {
+		opt.PolicyVerdictNotifyDecoder = decode
+	}
+}
+
+type TraceSockNotifyDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.TraceSockNotify, error)
+
+func WithTraceSockNotifyDecoder(decode TraceSockNotifyDecoderFunc) Option {
+	return func(opt *Options) {
+		opt.TraceSockNotifyDecoder = decode
 	}
 }
 
