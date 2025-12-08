@@ -118,7 +118,7 @@ type CtMapRecord struct {
 
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols.
-func InitMapInfo(registry *metrics.Registry, v4, v6 bool, nat4 nat.NatMap4, nat6 nat.NatMap6) {
+func InitMapInfo(nat4 nat.NatMap4, nat6 nat.NatMap6) {
 	var global4Map, global6Map *nat.Map
 	global4MapLock := &lock.Mutex{}
 	global6MapLock := &lock.Mutex{}
@@ -542,7 +542,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		natMap = ctMap.natMap
 	} else {
 		// per-cluster map handling
-		var family = nat.IPv4
+		family := nat.IPv4
 		if ctMapTCP.mapType.isIPv6() {
 			family = nat.IPv6
 		}
@@ -690,6 +690,8 @@ func DeleteIfUpgradeNeeded() {
 // If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
 //
 // The returned maps are not yet opened.
+//
+// This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 func Maps(ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if ipv4 {

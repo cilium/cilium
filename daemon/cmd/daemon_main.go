@@ -1218,7 +1218,6 @@ type daemonParams struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
 	KVStoreClient       kvstore.Client
 	WGAgent             wgTypes.WireguardAgent
@@ -1244,8 +1243,6 @@ type daemonParams struct {
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
 	InfraIPAllocator    infraendpoints.InfraIPAllocator
-	NatMap4             nat.NatMap4
-	NatMap6             nat.NatMap6
 }
 
 func daemonConfigInitialization(params daemonConfigParams) legacy.DaemonConfigInitialization {
