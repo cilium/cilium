@@ -312,7 +312,7 @@ func newMap(mapName string, m mapType, registry *metrics.Registry) *Map {
 
 // doGCForFamily iterates through a CTv6 map and drops entries based on the given
 // filter.
-func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bool, logResults bool) gcStats {
+func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bool) gcStats {
 	family := nat.IPv4
 	if ipv6 {
 		family = nat.IPv6
@@ -345,7 +345,7 @@ func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bo
 		}
 	}
 
-	stats := statStartGc(m, logResults)
+	stats := statStartGc(m)
 	defer stats.finish()
 
 	// We serialize the deletions in order to avoid forced map walk restarts
@@ -442,7 +442,6 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 						logfields.Error, err,
 						logfields.Key, ctKey.ToHost(),
 					)
-					stats.skipped++
 				} else {
 					m.Logger.Error("key is missing, likely due to lru eviction - skipping",
 						logfields.Error, err,
@@ -478,8 +477,8 @@ func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, 
 	return noAction
 }
 
-func (m *Map) doGC(filter GCFilter, next4, next6 func(GCEvent), logResults bool) (int, error) {
-	stats := m.doGCForFamily(filter, next4, next6, m.mapType.isIPv6(), logResults)
+func (m *Map) doGC(filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
+	stats := m.doGCForFamily(filter, next4, next6, m.mapType.isIPv6())
 	return int(stats.deleted), stats.dumpError
 }
 
@@ -491,7 +490,7 @@ func (m *Map) GC(filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
 		filter.Time = uint32(t)
 	}
 
-	return m.doGC(filter, next4, next6, false)
+	return m.doGC(filter, next4, next6)
 }
 
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
@@ -629,7 +628,7 @@ func (m *Map) Flush(next4, next6 func(GCEvent)) int {
 	d, _ := m.doGC(GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
-	}, next4, next6, false)
+	}, next4, next6)
 
 	return d
 }
