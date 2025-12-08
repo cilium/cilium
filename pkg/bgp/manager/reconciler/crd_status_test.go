@@ -63,7 +63,14 @@ func newCRDStatusFixture(ctx context.Context, req *require.Assertions, l *slog.L
 		w := action.(k8sTesting.WatchAction)
 		gvr := w.GetResource()
 		ns := w.GetNamespace()
-		watch, err := f.fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns)
+
+		// Extract ListOptions for WatchList semantics (SendInitialEvents)
+		var opts []metav1.ListOptions
+		if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
+			opts = append(opts, watchAction.ListOptions)
+		}
+
+		watch, err := f.fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns, opts...)
 		if err != nil {
 			return false, nil, err
 		}
@@ -258,6 +265,9 @@ func TestCRDConditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set node name before creating fixture so field selectors match
+			nodeTypes.SetName("node0")
+
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 

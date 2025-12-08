@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	k8stest "k8s.io/client-go/testing"
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
@@ -109,8 +109,8 @@ func testResolver(t *testing.T, cells ...cell.Cell) {
 			cl = cl_
 
 			// Add a reactor to check that services are being watched.
-			cl.SlimFakeClientset.PrependReactor("list", "services",
-				func(action k8stest.Action) (handled bool, ret runtime.Object, err error) {
+			cl.SlimFakeClientset.PrependWatchReactor("services",
+				func(action k8stest.Action) (handled bool, ret watch.Interface, err error) {
 					started.Store(true)
 					return false, nil, nil
 				},

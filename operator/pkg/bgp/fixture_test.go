@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	k8sTesting "k8s.io/client-go/testing"
 
@@ -61,7 +62,14 @@ func newFixture(t testing.TB, ctx context.Context, req *require.Assertions, dc *
 		w := action.(k8sTesting.WatchAction)
 		gvr := w.GetResource()
 		ns := w.GetNamespace()
-		watch, err := f.fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns)
+
+		// Extract ListOptions for WatchList semantics (SendInitialEvents)
+		var opts []metav1.ListOptions
+		if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
+			opts = append(opts, watchAction.ListOptions)
+		}
+
+		watch, err := f.fakeClientSet.CiliumFakeClientset.Tracker().Watch(gvr, ns, opts...)
 		if err != nil {
 			return false, nil, err
 		}

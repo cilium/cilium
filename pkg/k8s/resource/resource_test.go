@@ -254,7 +254,8 @@ func TestResource_WithFakeClient(t *testing.T) {
 }
 
 type createsAndDeletesListerWatcher struct {
-	events chan watch.Event
+	events   chan watch.Event
+	stopOnce sync.Once
 }
 
 func (lw *createsAndDeletesListerWatcher) ResultChan() <-chan watch.Event {
@@ -262,7 +263,9 @@ func (lw *createsAndDeletesListerWatcher) ResultChan() <-chan watch.Event {
 }
 
 func (lw *createsAndDeletesListerWatcher) Stop() {
-	close(lw.events)
+	lw.stopOnce.Do(func() {
+		close(lw.events)
+	})
 }
 
 func (*createsAndDeletesListerWatcher) List(options metav1.ListOptions) (k8sRuntime.Object, error) {
@@ -270,6 +273,24 @@ func (*createsAndDeletesListerWatcher) List(options metav1.ListOptions) (k8sRunt
 }
 
 func (lw *createsAndDeletesListerWatcher) Watch(options metav1.ListOptions) (watch.Interface, error) {
+	// Support WatchList semantics: if SendInitialEvents is true, send a bookmark
+	// event to signal the end of the initial events stream.
+	if options.SendInitialEvents != nil && *options.SendInitialEvents {
+		// Send bookmark asynchronously so we return the watch interface first
+		go func() {
+			lw.events <- watch.Event{
+				Type: watch.Bookmark,
+				Object: &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						ResourceVersion: "0",
+						Annotations: map[string]string{
+							metav1.InitialEventsAnnotationKey: "true",
+						},
+					},
+				},
+			}
+		}()
+	}
 	return lw, nil
 }
 
