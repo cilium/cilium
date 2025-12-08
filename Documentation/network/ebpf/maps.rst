@@ -18,7 +18,7 @@ code. Configuration options will be added on request if demand arises.
 Map Name                 Scope            Default Limit   Scale Implications
 ======================== ================ =============== =====================================================
 Auth                     node             512k            Max 512k authenticated relations per node
-Connection Tracking      node or endpoint 1M TCP/256k UDP Max 1M concurrent TCP connections, max 256k expected UDP answers
+Connection Tracking      node             1M TCP/256k UDP Max 1M concurrent TCP connections, max 256k expected UDP answers
 NAT                      node             512k            Max 512k NAT entries
 Neighbor Table           node             512k            Max 512k neighbor entries
 Endpoints                node             64k             Max 64k local endpoints + host IPs per node
