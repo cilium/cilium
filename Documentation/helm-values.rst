@@ -3663,7 +3663,7 @@
    * - :spelling:ignore:`securityContext.capabilities.ciliumAgent`
      - Capabilities for the ``cilium-agent`` container
      - list
-     - ``["CHOWN","KILL","NET_ADMIN","NET_RAW","IPC_LOCK","SYS_MODULE","SYS_ADMIN","SYS_RESOURCE","DAC_OVERRIDE","FOWNER","SETGID","SETUID"]``
+     - ``["CHOWN","KILL","NET_ADMIN","NET_RAW","IPC_LOCK","SYS_MODULE","SYS_ADMIN","SYS_RESOURCE","DAC_OVERRIDE","FOWNER","SETGID","SETUID","SYSLOG"]``
    * - :spelling:ignore:`securityContext.capabilities.cleanCiliumState`
      - Capabilities for the ``clean-cilium-state`` init container
      - list
