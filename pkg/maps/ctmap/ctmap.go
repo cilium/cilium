@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"math"
 	"net/netip"
-	"os"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -718,24 +717,6 @@ func WriteBPFMacros(fw io.Writer) {
 	}
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", mapEntriesTCP)
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", mapEntriesAny)
-}
-
-// Exists returns false if the global CT maps are not pinned to the filesystem,
-// or true if they exist or an internal error occurs.
-func Exists(ipv4, ipv6 bool) bool {
-	result := true
-	for _, m := range Maps(ipv4, ipv6) {
-		path, err := m.Path()
-		if err != nil {
-			// Catch this error early
-			return true
-		}
-		if _, err = os.Stat(path); os.IsNotExist(err) {
-			result = false
-		}
-	}
-
-	return result
 }
 
 // GetInterval returns the interval adjusted based on the deletion ratio of the
