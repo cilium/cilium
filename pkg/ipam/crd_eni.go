@@ -72,7 +72,7 @@ func configureENIDevices(logger *slog.Logger, oldNode, newNode *ciliumv2.CiliumN
 
 func setupENIDevices(logger *slog.Logger, eniConfigByMac configMap, sysctl sysctl.Sysctl) {
 	// Wait for the interfaces to be attached to the local node
-	eniLinkByMac, err := waitForNetlinkDevices(logger, eniConfigByMac)
+	eniLinkByMac, err := waitForNetlinkDevicesWithRefetch(logger, eniConfigByMac)
 	if err != nil {
 		attachedENIByMac := make(map[string]string, len(eniLinkByMac))
 		for mac, link := range eniLinkByMac {
@@ -131,6 +131,31 @@ func parseENIConfig(name string, eni *eniTypes.ENI, mtuConfig MtuConfiguration, 
 		mtu:          mtuConfig.GetDeviceMTU(),
 		usePrimaryIP: usePrimary,
 	}, nil
+}
+
+func waitForNetlinkDevicesWithRefetch(logger *slog.Logger, configByMac configMap) (linkMap, error) {
+	// ensX interfaces are created by renaming eth0 interface.
+	// There is a brief window, where we can list the interfaces by MAC address,
+	// and return eth0 link, before it gets renamed to ensX.
+	// However, we need correct name of interface for setting rp_filter.
+	// Let's refetch the links after we found them to make sure we have correct name.
+
+	_, err := waitForNetlinkDevices(logger, configByMac)
+	if err != nil {
+		return nil, err
+	}
+
+	// Give some time for renaming to happen.
+	// Usually it happens under ~100 ms.
+	time.Sleep(1 * time.Second)
+
+	// Refetch links
+	linkByMac, err := waitForNetlinkDevices(logger, configByMac)
+	if err != nil {
+		return nil, err
+	}
+
+	return linkByMac, nil
 }
 
 const (
@@ -209,7 +234,10 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 		// receive packets from world ips directly to pod IPs when an Network Load Balancer is used
 		// in IP mode + preserve client IP mode. Since the default route for world IPs goes to the
 		// primary ENI, the kernel will drop packets from world IPs to pod IPs if rp_filter is enabled.
-		sysctl.Disable([]string{"net", "ipv4", "conf", link.Attrs().Name, "rp_filter"})
+		err = sysctl.Disable([]string{"net", "ipv4", "conf", link.Attrs().Name, "rp_filter"})
+		if err != nil {
+			return fmt.Errorf("failed to disable rp_filter on link %q: %w", link.Attrs().Name, err)
+		}
 	}
 
 	return nil
