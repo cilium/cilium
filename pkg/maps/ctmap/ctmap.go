@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"math"
 	"net/netip"
@@ -658,21 +657,6 @@ func Maps(ipv4, ipv6 bool) []*Map {
 		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal, nil))
 	}
 	return result
-}
-
-// WriteBPFMacros writes the map names for the global conntrack maps into the
-// specified writer.
-func WriteBPFMacros(fw io.Writer) {
-	var mapEntriesTCP, mapEntriesAny int
-	for _, m := range Maps(true, true) {
-		if m.mapType.isTCP() {
-			mapEntriesTCP = m.mapType.maxEntries()
-		} else {
-			mapEntriesAny = m.mapType.maxEntries()
-		}
-	}
-	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", mapEntriesTCP)
-	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", mapEntriesAny)
 }
 
 // GetInterval returns the interval adjusted based on the deletion ratio of the
