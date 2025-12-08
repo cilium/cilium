@@ -100,7 +100,7 @@ type CtMap interface {
 	Open() error
 	Close() error
 	Path() (string, error)
-	DumpEntries() (string, error)
+	DumpEntriesWithTimeDiff(clockSource *models.ClockSource) (string, error)
 	DumpWithCallback(bpf.DumpCallback) error
 	Count(context.Context) (int, error)
 	Update(key bpf.MapKey, value bpf.MapValue) error
@@ -267,16 +267,10 @@ func DumpEntriesWithTimeDiff(m CtMap, clockSource *models.ClockSource) (string, 
 	return sb.String(), err
 }
 
-// DoDumpEntries iterates through Map m and writes the values of the ct entries
+// DumpEntriesWithTimeDiff iterates through Map m and writes the values of the ct entries
 // in m to a string.
-func DoDumpEntries(m CtMap) (string, error) {
-	return DumpEntriesWithTimeDiff(m, nil)
-}
-
-// DumpEntries iterates through Map m and writes the values of the ct entries
-// in m to a string.
-func (m *Map) DumpEntries() (string, error) {
-	return DoDumpEntries(m)
+func (m *Map) DumpEntriesWithTimeDiff(clockSource *models.ClockSource) (string, error) {
+	return DumpEntriesWithTimeDiff(m, clockSource)
 }
 
 // Count batch dumps the Map m and returns the count of the entries.
