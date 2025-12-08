@@ -380,6 +380,11 @@ func (gc *GC) Observe6() stream.Observable[ctmap.GCEvent] {
 	return gc.observable6
 }
 
+type gcMap struct {
+	m                 *ctmap.Map
+	openCloseRequired bool
+}
+
 // runGC run CT's garbage collector for the global map.
 //
 // If `isIPv6` is set specifies that is the IPv6 map. `filter` represents the
@@ -387,32 +392,43 @@ func (gc *GC) Observe6() stream.Observable[ctmap.GCEvent] {
 func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 	success = true
 
-	maps := ctmap.Maps(ipv4, ipv6)
+	// maps defines the maps that need garbage collection.
+	// The value defines whether the maps need to be opened and closed.
+	maps := []*gcMap{}
+
+	for _, m := range gc.ctMaps.ActiveMaps() {
+		maps = append(maps, &gcMap{m: m, openCloseRequired: false})
+	}
 
 	// We treat per-cluster CT Maps as global maps. When we don't enable
 	// cluster-aware addressing, perClusterCTMapsRetriever is nil (default).
 	if gc.perClusterCTMapsRetriever != nil {
-		maps = append(maps, gc.perClusterCTMapsRetriever()...)
-	}
-	for _, m := range maps {
-		path, err := ctmap.OpenCTMap(m)
-		if err != nil {
-			success = false
-			msg := "Skipping CT garbage collection"
-			if os.IsNotExist(err) {
-				gc.logger.Debug(msg,
-					logfields.Path, path,
-					logfields.Error, err,
-				)
-			} else {
-				gc.logger.Warn(msg,
-					logfields.Path, path,
-					logfields.Error, err,
-				)
-			}
-			continue
+		for _, m := range gc.perClusterCTMapsRetriever() {
+			maps = append(maps, &gcMap{m: m, openCloseRequired: true})
 		}
-		defer m.Close()
+	}
+	for _, gcMap := range maps {
+		m := gcMap.m
+		if gcMap.openCloseRequired {
+			path, err := ctmap.OpenCTMap(m)
+			if err != nil {
+				success = false
+				msg := "Skipping CT garbage collection"
+				if os.IsNotExist(err) {
+					gc.logger.Debug(msg,
+						logfields.Path, path,
+						logfields.Error, err,
+					)
+				} else {
+					gc.logger.Warn(msg,
+						logfields.Path, path,
+						logfields.Error, err,
+					)
+				}
+				continue
+			}
+			defer m.Close()
+		}
 
 		deleted, err := ctmap.GC(m, filter, gc.next4, gc.next6)
 		if err != nil {
@@ -428,7 +444,7 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 				maxDeleteRatio = ratio
 			}
 			gc.logger.Debug("Deleted filtered entries from map",
-				logfields.Path, path,
+				logfields.Path, m.Name(),
 				logfields.Count, deleted,
 			)
 		}
@@ -440,9 +456,8 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 		// both for global and per-cluster maps.
 		for i := 0; i+1 < len(maps); i += 2 {
 			startTime := time.Now()
-
 			ctMapTCP, ctMapAny := maps[i], maps[i+1]
-			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
+			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP.m, ctMapAny.m)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
 				gc.logger.Info(
 					"Deleted orphan SNAT entries from map",
