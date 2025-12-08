@@ -22,10 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
@@ -166,7 +168,7 @@ func (gc *GC) enable(
 ) {
 	gc.enableWithConfig(runGC, runMapPressureDaemon,
 		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval,
-		ctmap.GCIntervalRounding, ctmap.MinGCInterval)
+		gcIntervalRounding, minGCInterval)
 }
 
 func (gc *GC) enableWithConfig(
@@ -246,7 +248,7 @@ func (gc *GC) enableWithConfig(
 				maxDeleteRatio, success = runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 
-			interval := ctmap.GetIntervalWithConfig(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio,
+			interval := getIntervalWithConfig(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio,
 				conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval)
 			if success && gc.isFullGC(ipv4, ipv6) {
 				// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
@@ -505,4 +507,72 @@ func (gc *GC) calculateCTMapPressure() {
 		RunInterval: 30 * time.Second,
 		Context:     ctx,
 	})
+}
+
+// getIntervalWithConfig returns the interval adjusted based on the deletion ratio of the
+// last run.
+//   - actualPrevInterval 	= actual time elapsed since last GC.
+//   - expectedPrevInterval 	= Is the last computed interval, which we expected to
+//     wait *unless* a signal caused early pass. If this is set to zero then we use gc starting interval.
+func getIntervalWithConfig(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64,
+	conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval time.Duration,
+) time.Duration {
+	if val := conntrackGCInterval; val != time.Duration(0) {
+		return val
+	}
+
+	adjustedDeleteRatio := maxDeleteRatio
+	if expectedPrevInterval == time.Duration(0) {
+		expectedPrevInterval = defaults.ConntrackGCStartingInterval
+	} else if actualPrevInterval < expectedPrevInterval && actualPrevInterval > 0 {
+		adjustedDeleteRatio *= float64(expectedPrevInterval) / float64(actualPrevInterval)
+	}
+
+	newInterval := calculateIntervalWithConfig(expectedPrevInterval, adjustedDeleteRatio, gcIntervalRounding, minGCInterval)
+	if val := conntrackGCMaxInterval; val != time.Duration(0) && newInterval > val {
+		newInterval = val
+	}
+
+	if newInterval != expectedPrevInterval {
+		logger.Info(
+			"Conntrack garbage collector interval recalculated",
+			logfields.ExpectedPrevInterval, expectedPrevInterval,
+			logfields.ActualPrevInterval, actualPrevInterval,
+			logfields.NewInterval, newInterval,
+			logfields.DeleteRatio, maxDeleteRatio,
+			logfields.AdjustedDeleteRatio, adjustedDeleteRatio,
+		)
+	}
+
+	metrics.ConntrackInterval.WithLabelValues("global").Set(newInterval.Seconds())
+
+	return newInterval
+}
+
+const (
+	minGCInterval      = defaults.ConntrackGCMinInterval
+	gcIntervalRounding = time.Second
+)
+
+func calculateIntervalWithConfig(prevInterval time.Duration, maxDeleteRatio float64, gcIntervalRounding, minGCInterval time.Duration) time.Duration {
+	if maxDeleteRatio == 0.0 {
+		return prevInterval
+	}
+
+	switch {
+	case maxDeleteRatio > 0.25:
+		if maxDeleteRatio > 0.9 {
+			maxDeleteRatio = 0.9
+		}
+		// 25%..90% => 1.3x..10x shorter
+		return max(time.Duration(float64(prevInterval)*(1.0-maxDeleteRatio)).Round(gcIntervalRounding), minGCInterval)
+	case maxDeleteRatio < 0.05:
+		// When less than 5% of entries were deleted, increase the
+		// interval. Use a simple 1.5x multiplier to start growing slowly
+		// as a new node may not be seeing workloads yet and thus the
+		// scan will return a low deletion ratio at first.
+		return min(time.Duration(float64(prevInterval)*1.5).Round(gcIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
+	}
+
+	return prevInterval
 }
