@@ -56,6 +56,7 @@ type parameters struct {
 	EndpointManager         EndpointManager
 	NodeAddressing          types.NodeAddressing
 	SignalManager           SignalHandler
+	CTMaps                  ctmap.CTMaps
 
 	// PerClusterCTMapsRetriever is an optional function that, if provided, is
 	// used to retrieve the per-cluster CT maps. The slice of maps returned by
@@ -80,6 +81,8 @@ type GC struct {
 	perClusterCTMapsRetriever PerClusterCTMapsRetriever
 	controllerManager         *controller.Manager
 
+	ctMaps ctmap.CTMaps
+
 	observable4 stream.Observable[ctmap.GCEvent]
 	next4       func(ctmap.GCEvent)
 	complete4   func(error)
@@ -102,6 +105,7 @@ func New(params parameters) *GC {
 
 		endpointsManager: params.EndpointManager,
 		signalHandler:    params.SignalManager,
+		ctMaps:           params.CTMaps,
 
 		controllerManager: controller.NewManager(),
 
