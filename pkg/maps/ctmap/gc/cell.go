@@ -23,7 +23,7 @@ var Cell = cell.Module(
 	),
 
 	cell.ProvidePrivate(
-		New,
+		newGC,
 
 		// Register the signal handler for CT and NAT fill-up signals.
 		newSignalHandler,
