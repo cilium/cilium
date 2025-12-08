@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -730,38 +729,4 @@ func calculateIntervalWithConfig(prevInterval time.Duration, maxDeleteRatio floa
 	}
 
 	return
-}
-
-const ctmapPressureInterval = 30 * time.Second
-
-// CalculateCTMapPressure is a controller that calculates the BPF CT map
-// pressure and pubishes it as part of the BPF map pressure metric.
-func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
-	ctx, cancel := context.WithCancelCause(context.Background())
-	mgr.UpdateController("ct-map-pressure", controller.ControllerParams{
-		Group: controller.Group{
-			Name: "ct-map-pressure",
-		},
-		DoFunc: func(context.Context) error {
-			var errs error
-			for _, m := range allMaps {
-				ctx, cancelCtx := context.WithTimeout(ctx, ctmapPressureInterval)
-				defer cancelCtx()
-				count, err := m.Count(ctx)
-				if errors.Is(err, ebpf.ErrNotSupported) {
-					// We don't have batch ops, so cancel context to kill this
-					// controller.
-					cancel(err)
-					return err
-				}
-				if err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to dump CT map %v: %w", m.Name(), err))
-				}
-				m.UpdatePressureMetricWithSize(int32(count))
-			}
-			return errs
-		},
-		RunInterval: 30 * time.Second,
-		Context:     ctx,
-	})
 }
