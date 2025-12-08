@@ -49,6 +49,19 @@ var (
 	}
 )
 
+const DropNotifyExtensionDisabled = 0
+
+var (
+	// Downstream projects should register introduced extensions length so that
+	// the upstream parsing code still works even if the DP events contain
+	// additional fields.
+	dropNotifyExtensionLengthFromVersion = map[uint8]uint{
+		// The DropNotifyExtension is intended for downstream extensions and
+		// should not be used in the upstream project.
+		DropNotifyExtensionDisabled: 0,
+	}
+)
+
 // DropNotify is the message format of a drop notification in the BPF ring buffer
 type DropNotify struct {
 	Type       uint8                    `align:"type"`
@@ -178,7 +191,7 @@ func (n *DropNotify) IsVXLAN() bool {
 //
 // Returns zero for invalid or unknown DropNotify messages.
 func (n *DropNotify) DataOffset() uint {
-	return dropNotifyLengthFromVersion[n.Version]
+	return dropNotifyLengthFromVersion[n.Version] + dropNotifyExtensionLengthFromVersion[n.ExtVersion]
 }
 
 // DumpInfo prints a summary of the drop messages.

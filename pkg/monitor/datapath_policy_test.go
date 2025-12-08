@@ -58,6 +58,86 @@ func TestDecodePolicyVerdicyNotify(t *testing.T) {
 	require.Equal(t, input.Cookie, output.Cookie)
 }
 
+func TestDecodePolicyVerdictNotifyExtension(t *testing.T) {
+	setTmpExtVer := func(extVer uint8, extLen uint) {
+		oldLen, ok := policyVerdictExtensionLengthFromVersion[extVer]
+		if !ok {
+			t.Cleanup(func() { delete(policyVerdictExtensionLengthFromVersion, extVer) })
+		} else {
+			t.Cleanup(func() { policyVerdictExtensionLengthFromVersion[extVer] = oldLen })
+		}
+		policyVerdictExtensionLengthFromVersion[extVer] = extLen
+	}
+
+	setTmpExtVer(1, 4)
+	setTmpExtVer(2, 8)
+	setTmpExtVer(3, 16)
+
+	tcs := []struct {
+		name      string
+		pvn       PolicyVerdictNotify
+		extension []uint32
+	}{
+		{
+			name: "no extension",
+			pvn: PolicyVerdictNotify{
+				Version:    1,
+				ExtVersion: 0,
+			},
+		},
+		{
+			name: "extension 1",
+			pvn: PolicyVerdictNotify{
+				Version:    1,
+				ExtVersion: 1,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+			},
+		},
+		{
+			name: "extension 2",
+			pvn: PolicyVerdictNotify{
+				Version:    3,
+				ExtVersion: 2,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+			},
+		},
+		{
+			name: "extension 2",
+			pvn: PolicyVerdictNotify{
+				Version:    3,
+				ExtVersion: 3,
+			},
+			extension: []uint32{
+				0xC0FFEE,
+				0xDECAFBAD,
+				0xFA1AFE1,
+				0xF00DF00D,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		buf := bytes.NewBuffer(nil)
+		err := binary.Write(buf, byteorder.Native, tc.pvn)
+		require.NoError(t, err)
+		err = binary.Write(buf, byteorder.Native, tc.extension)
+		require.NoError(t, err)
+		err = binary.Write(buf, byteorder.Native, uint32(0xDEADBEEF))
+		require.NoError(t, err)
+
+		output := &PolicyVerdictNotify{}
+		err = output.Decode(buf.Bytes())
+		require.NoError(t, err)
+
+		require.Equal(t, uint32(0xDEADBEEF), byteorder.Native.Uint32(buf.Bytes()[output.DataOffset():]))
+	}
+}
+
 func BenchmarkNewDecodePolicyVerdictNotify(b *testing.B) {
 	input := &PolicyVerdictNotify{}
 	buf := bytes.NewBuffer(nil)
