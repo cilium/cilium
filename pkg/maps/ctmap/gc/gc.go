@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -51,6 +52,7 @@ type parameters struct {
 	Lifecycle               cell.Lifecycle
 	JobGroup                job.Group
 	Logger                  *slog.Logger
+	Config                  config
 	DB                      *statedb.DB
 	NodeAddrs               statedb.Table[tables.NodeAddress]
 	DaemonConfig            *option.DaemonConfig
@@ -66,8 +68,19 @@ type parameters struct {
 	PerClusterCTMapsRetriever PerClusterCTMapsRetriever `optional:"true"`
 }
 
+type config struct {
+	ConntrackGCInterval    time.Duration
+	ConntrackGCMaxInterval time.Duration
+}
+
+func (r config) Flags(flags *pflag.FlagSet) {
+	flags.Duration("conntrack-gc-interval", r.ConntrackGCInterval, "Overwrite the connection-tracking garbage collection interval")
+	flags.Duration("conntrack-gc-max-interval", r.ConntrackGCMaxInterval, "Set the maximum interval for the connection-tracking garbage collection")
+}
+
 type GC struct {
 	logger *slog.Logger
+	config config
 
 	ipv4 bool
 	ipv6 bool
@@ -95,6 +108,7 @@ type GC struct {
 func newGC(params parameters) *GC {
 	gc := &GC{
 		logger: params.Logger,
+		config: params.Config,
 
 		ipv4: params.DaemonConfig.EnableIPv4,
 		ipv6: params.DaemonConfig.EnableIPv6,
@@ -160,7 +174,7 @@ func (gc *GC) isFullGC(ipv4, ipv6 bool) bool {
 // Enable enables the periodic execution of the connection tracking garbage collection.
 func (gc *GC) Enable() {
 	gc.enableWithConfig(gc.runGC, true,
-		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval,
+		gc.config.ConntrackGCInterval, gc.config.ConntrackGCMaxInterval,
 		gcIntervalRounding, minGCInterval)
 }
 
