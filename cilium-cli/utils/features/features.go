@@ -120,6 +120,8 @@ const (
 	L7LoadBalancer Feature = "loadbalancer-l7"
 
 	RHEL Feature = "rhel"
+
+	ExternalEnvoyProxy Feature = "external-envoy-proxy"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
