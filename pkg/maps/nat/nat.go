@@ -461,10 +461,7 @@ func newRetriesMap(name string) *bpf.Map {
 // RetriesMaps returns the maps that contain the histograms of the number of retries.
 // This should only be used from components which aren't capable of using hive - mainly the cilium-dbg.
 // It needs to initialized beforehand via the Cilium Agent.
-func RetriesMaps(ipv4, ipv6, natRequired bool) (ipv4RetriesMap, ipv6RetriesMap RetriesMap) {
-	if !natRequired {
-		return
-	}
+func RetriesMaps(ipv4 bool, ipv6 bool) (ipv4RetriesMap, ipv6RetriesMap RetriesMap) {
 	if ipv4 {
 		ipv4RetriesMap = newRetriesMap(mapNameSnat4AllocRetries)
 	}
