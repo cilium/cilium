@@ -264,6 +264,13 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	svc.Spec.Selector = map[string]string{}
 	svc.Spec.Ports = servicePorts(svcImport, localSvc)
+	svc.Spec.InternalTrafficPolicy = ptr.To(ptr.Deref(svcImport.Spec.InternalTrafficPolicy, corev1.ServiceInternalTrafficPolicyCluster))
+	if svcImport.Spec.TrafficDistribution != nil {
+		svc.Spec.TrafficDistribution = ptr.To(*svcImport.Spec.TrafficDistribution)
+	} else {
+		svc.Spec.TrafficDistribution = nil
+	}
+
 	if err := ctrl.SetControllerReference(svcImport, svc, r.Scheme()); err != nil {
 		return controllerruntime.Fail(err)
 	}

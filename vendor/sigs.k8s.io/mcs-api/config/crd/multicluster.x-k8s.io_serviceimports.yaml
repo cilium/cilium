@@ -20,7 +20,7 @@ metadata:
     # The revision is updated on each CRD change and reset back to 0 on every new version.
     # It can be used together with the version label when installing those CRDs
     # and prevent any downgrades.
-    multicluster.x-k8s.io/crd-schema-revision: "0"
+    multicluster.x-k8s.io/crd-schema-revision: "1"
 spec:
   group: multicluster.x-k8s.io
   scope: Namespaced
@@ -78,6 +78,15 @@ spec:
                 - ports
                 - type
               properties:
+                internalTrafficPolicy:
+                  description: |-
+                    InternalTrafficPolicy describes how nodes distribute service traffic they
+                    receive on the ClusterIP. If set to "Local", the proxy will assume that pods
+                    only want to talk to endpoints of the service on the same node as the pod,
+                    dropping the traffic if there are no local endpoints. The default value,
+                    "Cluster", uses the standard behavior of routing to all endpoints evenly
+                    (possibly modified by topology and other features).
+                  type: string
                 ipFamilies:
                   description: IPFamilies identifies all the IPFamilies assigned for this ServiceImport.
                   type: array
@@ -160,6 +169,15 @@ spec:
                             Default value is 10800(for 3 hours).
                           type: integer
                           format: int32
+                trafficDistribution:
+                  description: |-
+                    TrafficDistribution offers a way to express preferences for how traffic
+                    is distributed to Service endpoints. Implementations can use this field
+                    as a hint, but are not required to guarantee strict adherence. If the
+                    field is not set, the implementation will apply its default routing
+                    strategy. If set to "PreferClose", implementations should prioritize
+                    endpoints that are in the same zone.
+                  type: string
                 type:
                   description: |-
                     type defines the type of this service.

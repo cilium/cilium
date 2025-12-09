@@ -265,6 +265,14 @@ const (
 	// annotations.
 	ServiceExportReasonAnnotationsConflict ServiceExportConditionReason = "AnnotationsConflict"
 
+	// ServiceExportReasonInternalTrafficPolicyConflict is used with the "Conflict"
+	// condition when the exported service has a conflict related to internal traffic policy.
+	ServiceExportReasonInternalTrafficPolicyConflict ServiceExportConditionReason = "InternalTrafficPolicyConflict"
+
+	// ServiceExportReasonTrafficDistributionConflict is used with the "Conflict"
+	// condition when the exported service has a conflict related to traffic distribution.
+	ServiceExportReasonTrafficDistributionConflict ServiceExportConditionReason = "TrafficDistributionConflict"
+
 	// ServiceExportReasonNoConflicts is used with the "Conflict" condition
 	// when the condition is False.
 	ServiceExportReasonNoConflicts ServiceExportConditionReason = "NoConflicts"
