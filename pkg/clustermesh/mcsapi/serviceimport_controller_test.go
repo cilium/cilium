@@ -1034,11 +1034,11 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict)))
 
+			condition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict))
+			require.NotNil(t, condition)
+			require.Equal(t, string(conflictTest.assertReason), condition.Reason)
 			if conflictTest.assertMsgInclude != "" {
-				condition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict))
-				require.NotNil(t, condition)
 				require.Contains(t, condition.Message, conflictTest.assertMsgInclude)
-				require.Equal(t, string(conflictTest.assertReason), condition.Reason)
 			}
 		})
 	}
@@ -1073,11 +1073,11 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
 			require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict)))
 
+			condition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict))
+			require.NotNil(t, condition)
+			require.Equal(t, string(conflictTest.assertReason), condition.Reason)
 			if conflictTest.assertMsgInclude != "" {
-				condition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict))
-				require.NotNil(t, condition)
 				require.Contains(t, condition.Message, conflictTest.assertMsgInclude)
-				require.Equal(t, string(conflictTest.assertReason), condition.Reason)
 			}
 		})
 	}
