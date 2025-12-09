@@ -128,7 +128,7 @@ func (s *ztunnelPodToPodEncryption) getClientAndServerPods(t *check.Test) {
 func (s *ztunnelPodToPodEncryption) getZTunnelPods(ctx context.Context, t *check.Test) {
 	// get ztunnel pods
 	ztunnelPods, err := s.ct.K8sClient().ListPods(ctx, s.namespace, metav1.ListOptions{
-		LabelSelector: "k8s-app=ztunnel-cilium",
+		LabelSelector: "app=ztunnel",
 	})
 	if err != nil {
 		t.Fatalf("Failed to list ztunnel pods: %s", err)
@@ -280,9 +280,9 @@ func (s *ztunnelPodToPodEncryption) labelNamespace(ctx context.Context, t *check
 		}
 		t.Infof("Labeling namespace %s with 'mtls-enabled=true'", s.ct.Params().TestNamespace)
 	} else {
-		patch = map[string]interface{}{
-			"metadata": map[string]interface{}{
-				"labels": map[string]interface{}{
+		patch = map[string]any{
+			"metadata": map[string]any{
+				"labels": map[string]any{
 					"mtls-enabled": nil,
 				},
 			},
