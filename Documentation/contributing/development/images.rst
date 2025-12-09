@@ -32,6 +32,9 @@ cilium-operator Docker image:
 
 The commands above assumes that your username for ``quay.io`` is ``myaccount``.
 
+Set ``BASE_IMAGE_REGISTRY`` to redirect pull of base images (``cilium-builder``, ``cilium-runtime``, ``cilium-envoy``).
+This allows to keeps tags/digests pinned in the Dockerfile, but use custom registry for builds.
+
 ~~~~~~~~~~~~~~
 Race detection
 ~~~~~~~~~~~~~~

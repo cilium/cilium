@@ -64,8 +64,6 @@ ETCD_IMAGE_VERSION = v3.6.6
 ETCD_IMAGE_SHA = sha256:60a30b5d81b2217555e2cfb9537f655b7ba97220b99c39ee2e162a7127225890
 ETCD_IMAGE=gcr.io/etcd-development/etcd:$(ETCD_IMAGE_VERSION)@$(ETCD_IMAGE_SHA)
 
-CILIUM_BUILDER_IMAGE=$(shell cat $(ROOT_DIR)/images/cilium/Dockerfile | grep "ARG CILIUM_BUILDER_IMAGE=" | cut -d"=" -f2)
-
 export CILIUM_CLI ?= cilium
 export KUBECTL ?= kubectl
 
@@ -155,10 +153,34 @@ ifeq ($(NOSTRIP),)
     GO_BUILD_LDFLAGS += -s -w
 endif
 
-ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
-    CILIUM_ENVOY_REF=$(shell sed -E -e 's/^ARG CILIUM_ENVOY_IMAGE=([^ ]*)/\1/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
-    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:(.*-)?([^:@]*).*/\2/p;d')
+ifneq ($(wildcard $(ROOT_DIR)/images/cilium/Dockerfile),)
+    CILIUM_DOCKERFILE := $(ROOT_DIR)/images/cilium/Dockerfile
+
+    # Reading img ref from images/cilium/Dockerfile ARG value
+    get_cilium_ref = $(shell sed -nE 's/^ARG $(1)=([^ ]*)/\1/p' $(CILIUM_DOCKERFILE) | head -n1)
+
+    # Replacing quay.io registry if BASE_IMAGE_REGISTRY env is set
+    replace_registry = $(strip $(if $(strip $(BASE_IMAGE_REGISTRY)), \
+      $(subst quay.io,$(strip $(BASE_IMAGE_REGISTRY)),$(1)), \
+      $(1) \
+    ))
+
+    CILIUM_BUILDER_REF := $(strip $(call get_cilium_ref,CILIUM_BUILDER_IMAGE))
+    CILIUM_RUNTIME_REF := $(strip $(call get_cilium_ref,CILIUM_RUNTIME_IMAGE))
+    CILIUM_ENVOY_REF   := $(strip $(call get_cilium_ref,CILIUM_ENVOY_IMAGE))
+
+    CILIUM_BUILDER_IMAGE ?= $(call replace_registry,$(CILIUM_BUILDER_REF))
+    CILIUM_RUNTIME_IMAGE ?= $(call replace_registry,$(CILIUM_RUNTIME_REF))
+    CILIUM_ENVOY_IMAGE   ?= $(call replace_registry,$(CILIUM_ENVOY_REF))
+
+    CILIUM_ENVOY_SHA := $(shell echo $(CILIUM_ENVOY_REF) | sed -E 's/[^/]*\/[^:]*:(.*-)?([^:@]*).*/\2/p;d')
     GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.requiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+
+    ifneq ($(strip $(BASE_IMAGE_REGISTRY)),)
+      DOCKER_BUILD_FLAGS += --build-arg CILIUM_BUILDER_IMAGE=$(CILIUM_BUILDER_IMAGE)
+      DOCKER_BUILD_FLAGS += --build-arg CILIUM_RUNTIME_IMAGE=$(CILIUM_RUNTIME_IMAGE)
+      DOCKER_BUILD_FLAGS += --build-arg CILIUM_ENVOY_IMAGE=$(CILIUM_ENVOY_IMAGE)
+    endif
 endif
 
 # Use git only if in a Git repo, otherwise find the files from the file system
