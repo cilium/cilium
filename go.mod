@@ -146,7 +146,6 @@ require (
 require (
 	cel.dev/expr v0.24.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
-	github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20250520111509-a70c2aa677fa // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.6.0 // indirect
@@ -338,7 +337,6 @@ replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.16
 replace github.com/osrg/gobgp/v3 => github.com/cilium/gobgp/v3 v3.0.0-20251113221723-3540251c0674
 
 tool (
-	github.com/AdamKorcz/go-118-fuzz-build/testing
 	github.com/cilium/deepequal-gen
 	github.com/cilium/ebpf/cmd/bpf2go
 	github.com/cilium/linters
