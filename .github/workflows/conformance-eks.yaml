@@ -55,7 +55,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  test_concurrency: 3
+  test_concurrency: 2
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.220.0
