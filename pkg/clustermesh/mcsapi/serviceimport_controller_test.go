@@ -341,6 +341,40 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					Namespace: "default",
 				},
 			},
+
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-internal-traffic-policy",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-internal-traffic-policy",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					InternalTrafficPolicy: ptr.To(corev1.ServiceInternalTrafficPolicyLocal),
+				},
+			},
+
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-traffic-distribution",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-traffic-distribution",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					TrafficDistribution: ptr.To(corev1.ServiceTrafficDistributionPreferClose),
+				},
+			},
 		}
 		remoteSvcImportTestFixtures = []*mcsapitypes.MCSAPIServiceSpec{
 			{
@@ -487,7 +521,22 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					"my-label":  "test",
 					"my-label2": "test",
 				},
-
+				ExportCreationTimestamp: olderTime,
+				Ports:                   []mcsapiv1alpha1.ServicePort{},
+				Type:                    mcsapiv1alpha1.ClusterSetIP,
+			},
+			{
+				Cluster:                 remoteClusterName,
+				Name:                    "conflict-internal-traffic-policy",
+				Namespace:               "default",
+				ExportCreationTimestamp: olderTime,
+				Ports:                   []mcsapiv1alpha1.ServicePort{},
+				Type:                    mcsapiv1alpha1.ClusterSetIP,
+			},
+			{
+				Cluster:                 remoteClusterName,
+				Name:                    "conflict-traffic-distribution",
+				Namespace:               "default",
 				ExportCreationTimestamp: olderTime,
 				Ports:                   []mcsapiv1alpha1.ServicePort{},
 				Type:                    mcsapiv1alpha1.ClusterSetIP,
@@ -936,6 +985,26 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				})
 			},
 			assertReason: mcsapiv1alpha1.ServiceExportReasonLabelsConflict,
+		},
+		{
+			name: "conflict-internal-traffic-policy",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return svcImport.Spec.InternalTrafficPolicy == nil
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return ptr.Equal(svcImport.Spec.InternalTrafficPolicy, ptr.To(corev1.ServiceInternalTrafficPolicyLocal))
+			},
+			assertReason: mcsapiv1alpha1.ServiceExportReasonInternalTrafficPolicyConflict,
+		},
+		{
+			name: "conflict-traffic-distribution",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return svcImport.Spec.TrafficDistribution == nil
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return ptr.Equal(svcImport.Spec.TrafficDistribution, ptr.To(corev1.ServiceTrafficDistributionPreferClose))
+			},
+			assertReason: mcsapiv1alpha1.ServiceExportReasonTrafficDistributionConflict,
 		},
 	}
 

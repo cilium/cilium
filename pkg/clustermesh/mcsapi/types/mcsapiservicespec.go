@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -68,6 +69,22 @@ type MCSAPIServiceSpec struct {
 
 	// IPFamilies identifies all the IPFamilies assigned for this ServiceImport.
 	IPFamilies []corev1.IPFamily `json:"ipFamilies,omitempty"`
+
+	// InternalTrafficPolicy describes how nodes distribute service traffic they
+	// receive on the ClusterIP. If set to "Local", the proxy will assume that pods
+	// only want to talk to endpoints of the service on the same node as the pod,
+	// dropping the traffic if there are no local endpoints. The default value,
+	// "Cluster", uses the standard behavior of routing to all endpoints evenly
+	// (possibly modified by topology and other features).
+	InternalTrafficPolicy *corev1.ServiceInternalTrafficPolicy `json:"internalTrafficPolicy,omitempty"`
+
+	// TrafficDistribution offers a way to express preferences for how traffic
+	// is distributed to Service endpoints. Implementations can use this field
+	// as a hint, but are not required to guarantee strict adherence. If the
+	// field is not set, the implementation will apply its default routing
+	// strategy. If set to "PreferClose", implementations should prioritize
+	// endpoints that are in the same zone.
+	TrafficDistribution *string `json:"trafficDistribution,omitempty"`
 }
 
 // GetKeyName returns the kvstore key to be used for MCSAPIServiceSpec
@@ -118,6 +135,15 @@ func (s *MCSAPIServiceSpec) validate() error {
 		return fmt.Errorf("type is unknown: %s", s.Type)
 	case s.SessionAffinity != corev1.ServiceAffinityClientIP && s.SessionAffinity != corev1.ServiceAffinityNone:
 		return fmt.Errorf("session affinity is unknown: %s", s.SessionAffinity)
+	case s.InternalTrafficPolicy != nil &&
+		*s.InternalTrafficPolicy != corev1.ServiceInternalTrafficPolicyCluster &&
+		*s.InternalTrafficPolicy != corev1.ServiceInternalTrafficPolicyLocal:
+		return fmt.Errorf("internal traffic policy is unknown: %s", *s.InternalTrafficPolicy)
+	case s.TrafficDistribution != nil &&
+		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferClose &&
+		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferSameZone &&
+		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferSameNode:
+		return fmt.Errorf("traffic distribution is unknown: %s", *s.TrafficDistribution)
 	}
 
 	return nil
@@ -213,14 +239,19 @@ func FromCiliumServiceToMCSAPIServiceSpec(clusterName string, svc *slim_corev1.S
 	if svc.Spec.SessionAffinityConfig != nil &&
 		svc.Spec.SessionAffinityConfig.ClientIP != nil &&
 		svc.Spec.SessionAffinityConfig.ClientIP.TimeoutSeconds != nil {
-
-		timeoutSeconds := *svc.Spec.SessionAffinityConfig.ClientIP.TimeoutSeconds
 		mcsAPISvcSpec.SessionAffinityConfig = &corev1.SessionAffinityConfig{
 			ClientIP: &corev1.ClientIPConfig{
-				TimeoutSeconds: &timeoutSeconds,
+				TimeoutSeconds: ptr.To(*svc.Spec.SessionAffinityConfig.ClientIP.TimeoutSeconds),
 			},
 		}
 	}
+	if svc.Spec.InternalTrafficPolicy != nil {
+		mcsAPISvcSpec.InternalTrafficPolicy = ptr.To(corev1.ServiceInternalTrafficPolicy(*svc.Spec.InternalTrafficPolicy))
+	}
+	if svc.Spec.TrafficDistribution != nil {
+		mcsAPISvcSpec.TrafficDistribution = ptr.To(*svc.Spec.TrafficDistribution)
+	}
+
 	mcsAPISvcSpec.ExportCreationTimestamp = svcExport.CreationTimestamp
 	return mcsAPISvcSpec
 }
