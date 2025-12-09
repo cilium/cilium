@@ -217,8 +217,8 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 			return fmt.Errorf("failed to set eni primary ip address %q on link %q: %w", cfg.ip, link.Attrs().Name, err)
 		}
 
-		// Remove the default route for this ENI, as it can overlap with the
-		// default route of the primary ENI and therefore break node connectivity
+		// Remove the subnet route for this ENI if it got setup by something(like networkd),
+		// as it can cause the health check to following subnet route using secondary ENI and fail.
 		err = netlink.RouteDel(&netlink.Route{
 			Dst:   cfg.cidr,
 			Src:   cfg.ip,
