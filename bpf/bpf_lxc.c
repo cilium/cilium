@@ -594,6 +594,162 @@ struct {
 } cilium_tail_call_buffer6 __section_maps_btf;
 
 #ifdef ENABLE_IPV6
+static __always_inline int
+ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+			    struct ipv6_ct_tuple *tuple,
+			    const __u32 dst_sec_identity,
+			    const struct ct_state *ct_state,
+			    enum ct_status ct_status,
+			    const struct remote_endpoint_info *info __maybe_unused,
+			    bool skip_tunnel __maybe_unused,
+			    bool hairpin_flow,
+			    bool from_l7lb,
+			    __u16 proxy_port,
+			    struct trace_ctx *trace,
+			    __s8 *ext_err)
+{
+	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
+	int ret;
+
+#ifdef ENABLE_SRV6
+	{
+		__u32 *vrf_id;
+		union v6addr *sid;
+
+		/* Determine if packet belongs to a VRF */
+		vrf_id = srv6_lookup_vrf6(&ip6->saddr, &ip6->daddr);
+		if (vrf_id) {
+			/* Do policy lookup if it belongs to a VRF */
+			sid = srv6_lookup_policy6(*vrf_id, &ip6->daddr);
+			if (sid) {
+				/* If there's a policy, tailcall to the H.Encaps logic */
+				srv6_store_meta_sid(ctx, sid);
+				return tail_call_internal(ctx, CILIUM_CALL_SRV6_ENCAP,
+							  ext_err);
+			}
+		}
+	}
+#endif /* ENABLE_SRV6 */
+
+	hairpin_flow |= ct_state->loopback;
+
+	/* L7 LB does L7 policy enforcement, so we only redirect packets
+	 * NOT from L7 LB.
+	 */
+	if (!from_l7lb && proxy_port > 0) {
+		/* Trace the packet before it is forwarded to proxy */
+		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
+				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
+				  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
+		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
+	}
+
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+	/* If the destination is the local host and per-endpoint routes are
+	 * enabled, enforce ingress host policies via policy tailcall.
+	 */
+	if (dst_sec_identity == HOST_ID)
+		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
+#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
+
+#ifdef ENABLE_IDENTITY_MARK
+	/* Always encode the source identity when forwarding the packet.
+	 * This prevents loss of identity if the packet is later SNATed,
+	 * or the endpoint is torn down.
+	 */
+	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
+#endif
+
+	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
+		const struct endpoint_info *ep;
+		union v6addr daddr;
+
+		ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
+
+		/* Loopback replies are addressed to config service_loopback_ipv6, so
+		 * an endpoint lookup with ip6->daddr won't work.
+		 *
+		 * But as it is loopback traffic, the clientIP and backendIP
+		 * are identical and we can just use the packet's saddr
+		 * for the destination endpoint lookup.
+		 */
+		if (ct_status == CT_REPLY && hairpin_flow)
+			ipv6_addr_copy(&daddr, (union v6addr *)&ip6->saddr);
+		/* Lookup IPv6 address, this will return a match if:
+		 *  - The destination IP address belongs to a local endpoint managed by
+		 *    cilium
+		 *  - The destination IP address is an IP address associated with the
+		 *    host itself.
+		 */
+		ep = __lookup_ip6_endpoint(&daddr);
+		if (ep) {
+#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
+			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
+				if (is_defined(ENABLE_ROUTING) &&
+				    is_defined(ENABLE_HOST_FIREWALL) &&
+				    dst_sec_identity == HOST_ID)
+					return lxc_redirect_to_host(ctx, SECLABEL_IPV6,
+								    bpf_htons(ETH_P_IPV6),
+								    trace);
+
+				goto pass_to_stack;
+			}
+#endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
+
+			/* If the packet is from L7 LB it is coming from the host */
+			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV6,
+						   MARK_MAGIC_IDENTITY, ep,
+						   METRIC_EGRESS, from_l7lb, false);
+		}
+	}
+
+	/* The packet goes to a peer not managed by this agent instance */
+#ifdef TUNNEL_MODE
+	if (ct_state->from_tunnel || !skip_tunnel) {
+#if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
+		/* See comment in handle_ipv4_from_lxc(). */
+		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
+		    identity_is_remote_node(dst_sec_identity))
+			goto pass_to_stack_hostfw;
+#endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
+
+		if (info && info->flag_has_tunnel_ep)
+			return encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
+						      dst_sec_identity, trace,
+						      bpf_htons(ETH_P_IPV6));
+	}
+#endif
+	if (is_defined(ENABLE_HOST_ROUTING)) {
+		int oif = 0;
+
+		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
+		/* Error handling for local routes - just pass the packet to the kernel stack */
+		if (ret == DROP_NO_FIB && *ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
+			goto pass_to_stack;
+		if (fib_ok(ret))
+			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
+					  dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
+					  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
+		return ret;
+	}
+
+pass_to_stack:
+#ifdef ENABLE_ROUTING
+	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
+	if (unlikely(ret != CTX_ACT_OK))
+		return ret;
+#endif
+
+pass_to_stack_hostfw: __maybe_unused
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, dst_sec_identity,
+			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
+			  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
+
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
+
+	return CTX_ACT_OK;
+}
+
 /* Handle egress IPv6 traffic from a container after service translation has been done
  * either at the socket level or by the caller.
  * In the case of the caller doing the service translation it passes in state via CB,
@@ -605,7 +761,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_state *ct_state, ct_state_new = {};
 	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
-	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -803,143 +958,10 @@ ct_recreate6:
 		return DROP_UNKNOWN_CT;
 	}
 
-#ifdef ENABLE_SRV6
-	{
-		__u32 *vrf_id;
-		union v6addr *sid;
-
-		/* Determine if packet belongs to a VRF */
-		vrf_id = srv6_lookup_vrf6(&ip6->saddr, &ip6->daddr);
-		if (vrf_id) {
-			/* Do policy lookup if it belongs to a VRF */
-			sid = srv6_lookup_policy6(*vrf_id, &ip6->daddr);
-			if (sid) {
-				/* If there's a policy, tailcall to the H.Encaps logic */
-				srv6_store_meta_sid(ctx, sid);
-				return tail_call_internal(ctx, CILIUM_CALL_SRV6_ENCAP,
-							  ext_err);
-			}
-		}
-	}
-#endif /* ENABLE_SRV6 */
-
-	hairpin_flow |= ct_state->loopback;
-
-	/* L7 LB does L7 policy enforcement, so we only redirect packets
-	 * NOT from L7 LB.
-	 */
-	if (!from_l7lb && proxy_port > 0) {
-		/* Trace the packet before it is forwarded to proxy */
-		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6, UNKNOWN_ID,
-				  bpf_ntohs(proxy_port), TRACE_IFINDEX_UNKNOWN,
-				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
-		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
-	}
-
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
-	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, enforce ingress host policies via policy tailcall.
-	 */
-	if (*dst_sec_identity == HOST_ID)
-		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
-
-#ifdef ENABLE_IDENTITY_MARK
-	/* Always encode the source identity when forwarding the packet.
-	 * This prevents loss of identity if the packet is later SNATed,
-	 * or the endpoint is torn down.
-	 */
-	set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
-#endif
-
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow || is_defined(ENABLE_HOST_ROUTING)) {
-		const struct endpoint_info *ep;
-		union v6addr daddr;
-
-		ipv6_addr_copy(&daddr, (union v6addr *)&ip6->daddr);
-
-		/* Loopback replies are addressed to config service_loopback_ipv6, so
-		 * an endpoint lookup with ip6->daddr won't work.
-		 *
-		 * But as it is loopback traffic, the clientIP and backendIP
-		 * are identical and we can just use the packet's saddr
-		 * for the destination endpoint lookup.
-		 */
-		if (ct_status == CT_REPLY && hairpin_flow)
-			ipv6_addr_copy(&daddr, (union v6addr *)&ip6->saddr);
-		/* Lookup IPv6 address, this will return a match if:
-		 *  - The destination IP address belongs to a local endpoint managed by
-		 *    cilium
-		 *  - The destination IP address is an IP address associated with the
-		 *    host itself.
-		 */
-		ep = __lookup_ip6_endpoint(&daddr);
-		if (ep) {
-#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
-				if (is_defined(ENABLE_ROUTING) &&
-				    is_defined(ENABLE_HOST_FIREWALL) &&
-				    *dst_sec_identity == HOST_ID)
-					return lxc_redirect_to_host(ctx, SECLABEL_IPV6,
-								    bpf_htons(ETH_P_IPV6),
-								    &trace);
-
-				goto pass_to_stack;
-			}
-#endif /* ENABLE_HOST_ROUTING || ENABLE_ROUTING */
-
-			/* If the packet is from L7 LB it is coming from the host */
-			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV6,
-						   MARK_MAGIC_IDENTITY, ep,
-						   METRIC_EGRESS, from_l7lb, false);
-		}
-	}
-
-	/* The packet goes to a peer not managed by this agent instance */
-#ifdef TUNNEL_MODE
-	if (ct_state->from_tunnel || !skip_tunnel) {
-#if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
-		/* See comment in handle_ipv4_from_lxc(). */
-		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
-		    identity_is_remote_node(*dst_sec_identity))
-			goto pass_to_stack_hostfw;
-#endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
-
-		if (info && info->flag_has_tunnel_ep)
-			return encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
-						      *dst_sec_identity, &trace,
-						      bpf_htons(ETH_P_IPV6));
-	}
-#endif
-	if (is_defined(ENABLE_HOST_ROUTING)) {
-		int oif = 0;
-
-		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
-		/* Error handling for local routes - just pass the packet to the kernel stack */
-		if (ret == DROP_NO_FIB && *ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
-			goto pass_to_stack;
-		if (fib_ok(ret))
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
-					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
-					  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
-		return ret;
-	}
-
-pass_to_stack:
-#ifdef ENABLE_ROUTING
-	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
-	if (unlikely(ret != CTX_ACT_OK))
-		return ret;
-#endif
-
-pass_to_stack_hostfw: __maybe_unused
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, *dst_sec_identity,
-			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
-			  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
-
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
-
-	return CTX_ACT_OK;
+	return ipv6_forward_to_destination(ctx, ip6, tuple, *dst_sec_identity,
+					   ct_state, ct_status, info, skip_tunnel,
+					   hairpin_flow, from_l7lb, proxy_port,
+					   &trace, ext_err);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_LXC_CONT)
