@@ -190,7 +190,7 @@ func getEncryptionStatus() models.EncryptionStatus {
 			if err != nil {
 				errs = errors.Join(errs, err)
 			}
-		case models.EncryptionStatusModeDisabled, models.EncryptionStatusModeIPsec:
+		case models.EncryptionStatusModeDisabled, models.EncryptionStatusModeIPsec, models.EncryptionStatusModeZtunnel:
 		default:
 		}
 	}

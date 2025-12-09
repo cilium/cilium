@@ -2538,7 +2538,8 @@ func init() {
           "enum": [
             "Disabled",
             "IPsec",
-            "Wireguard"
+            "Wireguard",
+            "Ztunnel"
           ]
         },
         "msg": {
@@ -7905,7 +7906,8 @@ func init() {
           "enum": [
             "Disabled",
             "IPsec",
-            "Wireguard"
+            "Wireguard",
+            "Ztunnel"
           ]
         },
         "msg": {
