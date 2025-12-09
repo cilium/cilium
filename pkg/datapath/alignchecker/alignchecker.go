@@ -27,8 +27,8 @@ import (
 
 var (
 	toCheck = map[string][]any{
-		"ipv4_ct_tuple":        {ctmap.CtKey4{}, ctmap.CtKey4Global{}},
-		"ipv6_ct_tuple":        {ctmap.CtKey6{}, ctmap.CtKey6Global{}},
+		"ipv4_ct_tuple":        {ctmap.CtKey4Global{}},
+		"ipv6_ct_tuple":        {ctmap.CtKey6Global{}},
 		"ct_entry":             {ctmap.CtEntry{}},
 		"ipcache_key":          {ipcachemap.Key{}},
 		"remote_endpoint_info": {ipcachemap.RemoteEndpointInfo{}},

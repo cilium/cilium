@@ -64,14 +64,16 @@ func BenchmarkPrivileged_MapUpdate(b *testing.B) {
 	defer m.Map.Unpin()
 	require.NoError(b, err)
 
-	key := &CtKey4{
-		tuple.TupleKey4{
-			DestAddr:   types.IPv4{0xa, 0x10, 0xc5, 0xf0},
-			SourceAddr: types.IPv4{0xa, 0x10, 0x9d, 0xb3},
-			DestPort:   0,
-			SourcePort: 0,
-			NextHeader: u8proto.TCP,
-			Flags:      tuple.TUPLE_F_OUT,
+	key := &CtKey4Global{
+		tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				DestAddr:   types.IPv4{0xa, 0x10, 0xc5, 0xf0},
+				SourceAddr: types.IPv4{0xa, 0x10, 0x9d, 0xb3},
+				DestPort:   0,
+				SourcePort: 0,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_OUT,
+			},
 		},
 	}
 	value := &CtEntry{
