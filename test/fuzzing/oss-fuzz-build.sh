@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Authors of Cilium
+#
+# Ciliums OSS-Fuzz integration can be found here:
+# https://github.com/google/oss-fuzz/tree/master/projects/cilium
 
 set -eu
 
