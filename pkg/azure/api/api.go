@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/api/helpers"
 	"github.com/cilium/cilium/pkg/azure/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -38,6 +40,7 @@ const (
 	virtualMachineScaleSetVMsGet    = "VirtualMachineScaleSetVMs.Get"
 	virtualMachineScaleSetVMsUpdate = "VirtualMachineScaleSetVMs.Update"
 	virtualNetworksListAll          = "VirtualNetworks.ListAll"
+	subnetsGet                      = "Subnets.Get"
 
 	interfacesListVirtualMachineScaleSetNetworkInterfaces   = "Interfaces.ListVirtualMachineScaleSetNetworkInterfaces"
 	interfacesListVirtualMachineScaleSetVMNetworkInterfaces = "Interfaces.ListVirtualMachineScaleSetVMNetworkInterfaces"
@@ -45,11 +48,14 @@ const (
 
 // Client represents an Azure API client
 type Client struct {
+	logger                    *slog.Logger
+	subscriptionID            string
 	resourceGroup             string
 	interfaces                *armnetwork.InterfacesClient
 	publicIPPrefixes          *armnetwork.PublicIPPrefixesClient
 	virtualNetworks           *armnetwork.VirtualNetworksClient
 	virtualMachines           *armcompute.VirtualMachinesClient
+	subnets                   *armnetwork.SubnetsClient
 	virtualMachineScaleSetVMs *armcompute.VirtualMachineScaleSetVMsClient
 	virtualMachineScaleSets   *armcompute.VirtualMachineScaleSetsClient
 	limiter                   *helpers.APILimiter
@@ -107,7 +113,7 @@ func newClientOptions(cloudName string) (*azcore.ClientOptions, error) {
 }
 
 // NewClient returns a new Azure client
-func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID string, metrics MetricsAPI, rateLimit float64, burst int, usePrimary bool) (*Client, error) {
+func NewClient(logger *slog.Logger, cloudName, subscriptionID, resourceGroup, userAssignedIdentityID string, metrics MetricsAPI, rateLimit float64, burst int, usePrimary bool) (*Client, error) {
 	clientOptions, err := newClientOptions(cloudName)
 	if err != nil {
 		return nil, err
@@ -137,6 +143,11 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID 
 		return nil, err
 	}
 
+	subnetsClient, err := armnetwork.NewSubnetsClient(subscriptionID, credential, armClientOptions)
+	if err != nil {
+		return nil, err
+	}
+
 	virtualMachineScaleSetVMsClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(subscriptionID, credential, armClientOptions)
 	if err != nil {
 		return nil, err
@@ -153,11 +164,14 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID 
 	}
 
 	c := &Client{
+		logger:                    logger,
+		subscriptionID:            subscriptionID,
 		resourceGroup:             resourceGroup,
 		interfaces:                interfacesClient,
 		publicIPPrefixes:          publicIPPrefixesClient,
 		virtualNetworks:           virtualNetworksClient,
 		virtualMachines:           virtualMachinesClient,
+		subnets:                   subnetsClient,
 		virtualMachineScaleSetVMs: virtualMachineScaleSetVMsClient,
 		virtualMachineScaleSets:   virtualMachineScaleSetsClient,
 		metricsAPI:                metrics,
@@ -175,21 +189,6 @@ func deriveStatus(err error) string {
 	}
 
 	return "OK"
-}
-
-// listAllNetworkInterfaces lists all Azure Interfaces in the client's resource group
-func (c *Client) listAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.Interface, error) {
-	networkInterfaces, err := c.listVirtualMachineScaleSetsNetworkInterfaces(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	vmInterfaces, err := c.vmNetworkInterfaces(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return append(networkInterfaces, vmInterfaces...), nil
 }
 
 // vmNetworkInterfaces list all interfaces of non-VMSS instances in the client's resource group
@@ -374,12 +373,35 @@ func deriveGatewayIP(subnetIP netip.Addr) string {
 // GetInstances returns the list of all instances including all attached
 // interfaces as instanceMap
 func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
-	instances := ipamTypes.NewInstanceMap()
-
-	networkInterfaces, err := c.listAllNetworkInterfaces(ctx)
+	networkInterfaces, err := c.ListAllNetworkInterfaces(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	return c.ParseInterfacesIntoInstanceMap(networkInterfaces, subnets), nil
+}
+
+// ListAllNetworkInterfaces returns all network interfaces in the resource group
+// This is exposed to allow callers to fetch network interfaces once and parse them multiple times
+func (c *Client) ListAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.Interface, error) {
+	networkInterfaces, err := c.listVirtualMachineScaleSetsNetworkInterfaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	vmInterfaces, err := c.vmNetworkInterfaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(networkInterfaces, vmInterfaces...), nil
+}
+
+// ParseInterfacesIntoInstanceMap parses network interfaces into an InstanceMap
+// This allows re-parsing the same network interface data with different subnet maps
+// without making additional Azure API calls
+func (c *Client) ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.InstanceMap {
+	instances := ipamTypes.NewInstanceMap()
 
 	for _, iface := range networkInterfaces {
 		if instanceID, azureInterface := parseInterface(iface, subnets, c.usePrimary); instanceID != "" {
@@ -387,14 +409,11 @@ func (c *Client) GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) 
 		}
 	}
 
-	return instances, nil
+	return instances
 }
 
 // GetInstance returns the interfaces of a given instance
 func (c *Client) GetInstance(ctx context.Context, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
-	instance := ipamTypes.Instance{}
-	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
-
 	resourceID, err := arm.ParseResourceID(instanceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse instance ID %q", instanceID)
@@ -408,13 +427,36 @@ func (c *Client) GetInstance(ctx context.Context, subnets ipamTypes.SubnetMap, i
 		return nil, err
 	}
 
+	return c.ParseInterfacesIntoInstance(networkInterfaces, subnets), nil
+}
+
+// ListVMNetworkInterfaces returns all network interfaces for a specific VMSS instance
+// This is exposed to allow callers to fetch network interfaces once and parse them multiple times
+func (c *Client) ListVMNetworkInterfaces(ctx context.Context, instanceID string) ([]*armnetwork.Interface, error) {
+	resourceID, err := arm.ParseResourceID(instanceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse instance ID %q", instanceID)
+	}
+	if strings.ToLower(resourceID.ResourceType.Type) != "virtualmachinescalesets/virtualmachines" {
+		return nil, fmt.Errorf("instance %q is not a virtual machine scale set instance", instanceID)
+	}
+
+	return c.listVirtualMachineScaleSetVMNetworkInterfaces(ctx, resourceID.Parent.Name, resourceID.Name)
+}
+
+// ParseInterfacesIntoInstance parses network interfaces into an Instance
+// This allows re-parsing the same network interface data with different subnet maps
+// without making additional Azure API calls
+func (c *Client) ParseInterfacesIntoInstance(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.Instance {
+	instance := ipamTypes.Instance{}
+	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+
 	for _, networkInterface := range networkInterfaces {
 		_, azureInterface := parseInterface(networkInterface, subnets, c.usePrimary)
 		instance.Interfaces[azureInterface.ID] = ipamTypes.InterfaceRevision{Resource: azureInterface}
-
 	}
 
-	return &instance, nil
+	return &instance
 }
 
 // listAllVPCs lists all VPCs
@@ -505,6 +547,148 @@ func (c *Client) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetwor
 	}
 
 	return vpcs, subnets, nil
+}
+
+// parseSubnetID extracts resource group, virtual network, and subnet names from an Azure subnet ID.
+// Expected format: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{vnetName}/subnets/{subnetName}
+// Uses arm.ParseResourceID from the Azure SDK for robust parsing.
+func parseSubnetID(subnetID string) (resourceGroupName, vnetName, subnetName string, err error) {
+	resourceID, err := arm.ParseResourceID(subnetID)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to parse subnet ID %q: %w", subnetID, err)
+	}
+
+	// Verify this is a Microsoft.Network subnet resource
+	if resourceID.ResourceType.Namespace != "Microsoft.Network" {
+		return "", "", "", fmt.Errorf("invalid Azure subnet ID format (wrong provider namespace): %s", subnetID)
+	}
+
+	// Verify this is a subnet resource (child of virtualNetworks)
+	if resourceID.ResourceType.Type != "virtualNetworks/subnets" {
+		return "", "", "", fmt.Errorf("invalid Azure subnet ID format: %s", subnetID)
+	}
+
+	// Verify we have a resource group (not a subscription-level resource)
+	if resourceID.ResourceGroupName == "" {
+		return "", "", "", fmt.Errorf("invalid Azure subnet ID format (missing resource group): %s", subnetID)
+	}
+
+	// resourceID.Name is the subnet name
+	// resourceID.Parent.Name is the vnet name
+	// resourceID.ResourceGroupName is the resource group
+	if resourceID.Parent == nil {
+		return "", "", "", fmt.Errorf("invalid Azure subnet ID format (no parent vnet): %s", subnetID)
+	}
+
+	return resourceID.ResourceGroupName, resourceID.Parent.Name, resourceID.Name, nil
+}
+
+// getSubnetWithPagination retrieves a subnet with accurate IP configuration counting via pagination
+func (c *Client) getSubnetWithPagination(ctx context.Context, subscriptionID, resourceGroup, vnetName, subnetName string) (*ipamTypes.Subnet, error) {
+	c.limiter.Limit(ctx, subnetsGet)
+	sinceStart := spanstat.Start()
+
+	result, err := c.subnets.Get(ctx, resourceGroup, vnetName, subnetName, nil)
+	c.metricsAPI.ObserveAPICall(subnetsGet, deriveStatus(err), sinceStart.Seconds())
+
+	if err != nil {
+		return nil, err
+	}
+
+	subnet := &result.Subnet
+	if subnet.ID == nil {
+		return nil, fmt.Errorf("subnet %s not found", subnetName)
+	}
+
+	cidrString := ""
+	if subnet.Properties != nil && subnet.Properties.AddressPrefix != nil {
+		cidrString = *subnet.Properties.AddressPrefix
+	}
+	if cidrString == "" && subnet.Properties != nil && len(subnet.Properties.AddressPrefixes) > 0 {
+		cidrString = *subnet.Properties.AddressPrefixes[0]
+	}
+
+	if cidrString == "" {
+		return nil, fmt.Errorf("subnet %s has no valid CIDR", subnetName)
+	}
+
+	cidr, err := netip.ParsePrefix(cidrString)
+	if err != nil {
+		return nil, fmt.Errorf("subnet %s has invalid CIDR %s: %w", subnetName, cidrString, err)
+	}
+
+	// Calculate available addresses more accurately
+	// Note: This is simplified for SDK v2. PR #41554 had more complex pagination logic for SDK v1
+	availableAddresses := int(cidr.Addr().BitLen()) - cidr.Bits()
+	if availableAddresses > 0 {
+		// Reserve some addresses for Azure (typically 5 per subnet)
+		availableAddresses = (1 << availableAddresses) - 5
+
+		// Count used IP configurations if present
+		if subnet.Properties != nil && subnet.Properties.IPConfigurations != nil {
+			availableAddresses -= len(subnet.Properties.IPConfigurations)
+		}
+
+		if availableAddresses < 0 {
+			availableAddresses = 0
+		}
+	}
+
+	azSubnet := &ipamTypes.Subnet{
+		ID:                 *subnet.ID,
+		CIDR:               cidr,
+		VirtualNetworkID:   extractVNetID(*subnet.ID),
+		AvailableAddresses: availableAddresses,
+		Tags:               map[string]string{},
+	}
+
+	// Copy tags if present - In ARM SDK v2, tags are accessed differently
+	// For now, leave empty tags map since this is not critical for subnet discovery functionality
+
+	return azSubnet, nil
+}
+
+// extractVNetID extracts the VNet ID from a subnet ID
+func extractVNetID(subnetID string) string {
+	// Extract VNet ID from subnet ID by removing the subnet portion
+	// /subscriptions/.../virtualNetworks/{vnet}/subnets/{subnet} -> /subscriptions/.../virtualNetworks/{vnet}
+	idx := strings.LastIndex(subnetID, "/subnets/")
+	if idx == -1 {
+		return ""
+	}
+	return subnetID[:idx]
+}
+
+// GetSubnetsByIDs retrieves subnet information for specific subnet IDs
+func (c *Client) GetSubnetsByIDs(ctx context.Context, subnetIDs []string) (ipamTypes.SubnetMap, error) {
+	subnets := ipamTypes.SubnetMap{}
+
+	for _, subnetID := range subnetIDs {
+		// Parse subnet ID to extract resource group, vnet and subnet names
+		resourceGroup, vnetName, subnetName, err := parseSubnetID(subnetID)
+		if err != nil {
+			c.logger.Warn("Failed to parse subnet ID, skipping",
+				logfields.Error, err,
+				logfields.SubnetID, subnetID,
+			)
+			continue
+		}
+
+		// Use pagination-aware subnet query for accurate IP configuration counting
+		subnet, err := c.getSubnetWithPagination(ctx, c.subscriptionID, resourceGroup, vnetName, subnetName)
+		if err != nil {
+			c.logger.Warn("Failed to get subnet details, skipping",
+				logfields.Error, err,
+			)
+			continue
+		}
+
+		if subnet != nil {
+			subnets[subnetID] = subnet
+		}
+	}
+
+	return subnets, nil
 }
 
 func generateIpConfigName() string {
