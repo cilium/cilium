@@ -133,7 +133,7 @@ func (i *identityUpdater) UpdateIdentities(added, deleted identity.IdentityMap) 
 
 	start := time.Now()
 
-	i.logger.Info(
+	i.logger.Debug(
 		"Processing identity update",
 		logfields.AddedPolicyID, slices.Collect(maps.Keys(added)),
 		logfields.DeletedPolicyID, slices.Collect(maps.Keys(deleted)),
@@ -188,7 +188,7 @@ func (i *identityUpdater) doUpdatePolicyMaps(ctx context.Context) error {
 		return nil
 	}
 
-	i.logger.Info(
+	i.logger.Debug(
 		"Incremental policy update: waiting for endpoint notifications to complete",
 		logfields.Count, len(q.wgs),
 	)
@@ -213,7 +213,7 @@ func (i *identityUpdater) doUpdatePolicyMaps(ctx context.Context) error {
 	// Direct all endpoints to consume the incremental changes and update policy.
 	// This returns a wg that is done when all endpoints have updated both their bpf
 	// policymaps as well as Envoy. (Or if ctx is closed).
-	i.logger.Info("Incremental policy update: triggering UpdatePolicyMaps for all endpoints")
+	i.logger.Debug("Incremental policy update: triggering UpdatePolicyMaps for all endpoints")
 	updatedWG := i.epmanager.UpdatePolicyMaps(ctx, noopWG)
 	updatedWG.Wait()
 	metrics.PolicyIncrementalUpdateDuration.WithLabelValues("global").Observe(time.Since(q.firstStartTime).Seconds())
