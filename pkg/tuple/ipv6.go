@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// TupleKey6 represents the key for IPv6 entries in the local BPF conntrack map.
+// TupleKey6 represents the key for IPv6 entries in the BPF conntrack map.
 // Address field names are correct for return traffic, i.e., they are reversed
 // compared to the original direction traffic.
 type TupleKey6 tupleKey[types.IPv6]

@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// tupleKey represents the key for {IPv4,IPv6} entries in the local BPF conntrack map.
+// tupleKey represents the key for {IPv4,IPv6} entries in the BPF conntrack map.
 // Address field names are correct for return traffic, i.e., they are reversed
 // compared to the original direction traffic.
 type tupleKey[AddrT ipFamily] struct {
@@ -26,7 +26,7 @@ type tupleKey[AddrT ipFamily] struct {
 	Flags      uint8           `align:"flags"`
 }
 
-// TupleKey4 represents the key for {IPv4,IPv6} entries in the local BPF conntrack map.
+// TupleKey4 represents the key for IPv4 entries in the BPF conntrack map.
 // Address field names are correct for return traffic, i.e., they are reversed
 // compared to the original direction traffic.
 type TupleKey4 tupleKey[types.IPv4]
