@@ -25,7 +25,6 @@ on:
         required: true
     inputs:
       environment:
-        required: true
         type: string
         default: "release-base-images"
 
