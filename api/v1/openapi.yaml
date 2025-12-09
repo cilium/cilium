@@ -3474,6 +3474,7 @@ definitions:
           - Disabled
           - IPsec
           - Wireguard
+          - Ztunnel
       msg:
         type: string
         description: Human readable error/warning message
