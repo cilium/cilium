@@ -1407,7 +1407,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 	if (IS_ERR(ret))
 		return ret;
 
-	backend_local = __lookup_ip6_endpoint(&tuple->daddr);
+	backend_local = __lookup_ip6_endpoint(&backend->address);
 	if (!backend_local && lb6_svc_is_hostport(svc))
 		return DROP_INVALID;
 	if (backend_local || !nodeport_uses_dsr6(svc)) {
@@ -1460,7 +1460,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 		ctx_store_meta(ctx, CB_HINT,
 			       ((__u32)tuple->sport << 16) | tuple->dport);
-		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &tuple->daddr);
+		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &backend->address);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key->dport);
 		ctx_store_meta_ipv6(ctx, CB_ADDR_V6_1, &key->address);
@@ -2682,6 +2682,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 					    bool *punt_to_stack __maybe_unused,
 					    __s8 *ext_err)
 {
+	const struct lb4_backend *backend;
 	struct ct_state ct_state_svc = {};
 	__u32 cluster_id = 0;
 	bool backend_local;
@@ -2743,8 +2744,6 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 		if (!ret)
 			return NAT_46X64_RECIRC;
 	} else {
-		const struct lb4_backend *backend;
-
 		ret = lb4_local(get_ct_map4(tuple), ctx, fraginfo, l4_off,
 				key, tuple, svc, &ct_state_svc, &backend,
 				ext_err);
@@ -2786,7 +2785,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 	if (IS_ERR(ret))
 		return ret;
 
-	backend_local = __lookup_ip4_endpoint(tuple->daddr);
+	backend_local = __lookup_ip4_endpoint(backend->address);
 	if (!backend_local && lb4_svc_is_hostport(svc))
 		return DROP_INVALID;
 	/* Reply from DSR packet is never seen on this node again
@@ -2859,7 +2858,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 		ctx_store_meta(ctx, CB_HINT,
 			       ((__u32)tuple->sport << 16) | tuple->dport);
-		ctx_store_meta(ctx, CB_ADDR_V4, tuple->daddr);
+		ctx_store_meta(ctx, CB_ADDR_V4, backend->address);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key->dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, key->address);
