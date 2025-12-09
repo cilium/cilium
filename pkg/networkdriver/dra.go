@@ -97,6 +97,28 @@ func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kube
 	return result, err
 }
 
+func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi.ResourceClaim) (map[string]types.DeviceConfig, error) {
+	devicesCfg := map[string]types.DeviceConfig{}
+	for _, cfg := range claim.Status.Allocation.Devices.Config {
+		if cfg.Opaque.Parameters.Raw != nil {
+			c := types.DeviceConfig{}
+			if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &c); err != nil {
+				driver.logger.ErrorContext(
+					ctx, "failed to parse config",
+					logfields.Request, cfg.Requests,
+					logfields.Params, cfg.Opaque.Parameters,
+					logfields.Error, err,
+				)
+				return nil, fmt.Errorf("failed to unmarshal config for %s: %w", path.Join(claim.Namespace, claim.Name), err)
+			}
+			for _, request := range cfg.Requests {
+				devicesCfg[request] = c
+			}
+		}
+	}
+	return devicesCfg, nil
+}
+
 func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourceapi.ResourceClaim) kubeletplugin.PrepareResult {
 	if len(claim.Status.ReservedFor) != 1 {
 		return kubeletplugin.PrepareResult{
@@ -112,6 +134,11 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
+	deviceClaimConfigs, err := driver.deviceClaimConfigs(ctx, claim)
+	if err != nil {
+		return kubeletplugin.PrepareResult{Err: err}
+	}
+
 	var (
 		alloc         []allocation
 		devicesStatus []resourceapi.AllocatedDeviceStatus
@@ -120,36 +147,9 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	for _, result := range claim.Status.Allocation.Devices.Results {
 		var thisAlloc allocation
 
-		for _, cfg := range claim.Status.Allocation.Devices.Config {
-			for _, reqName := range cfg.Requests {
-				var foundConfig bool
-
-				if reqName == result.Request && cfg.Opaque.Parameters.Raw != nil {
-					c := types.DeviceConfig{}
-					err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &c)
-					if err != nil {
-						driver.logger.ErrorContext(
-							ctx, "failed to parse config",
-							logfields.Request, reqName,
-							logfields.Params, cfg.Opaque.Parameters,
-							logfields.Error, err,
-						)
-
-						return kubeletplugin.PrepareResult{
-							Err: fmt.Errorf("failed to unmarshal config for %s: %w", path.Join(claim.Namespace, claim.Name), err),
-						}
-					}
-
-					thisAlloc.Config = c
-					foundConfig = true
-					break
-				}
-
-				if foundConfig {
-					// we found a config for this, no need to look further
-					break
-				}
-			}
+		cfg, ok := deviceClaimConfigs[result.Request]
+		if ok {
+			thisAlloc.Config = cfg
 		}
 
 		var found bool
