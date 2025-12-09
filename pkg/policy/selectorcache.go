@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -48,6 +49,10 @@ func newScIdentityCache(ids identity.IdentityMap) scIdentityCache {
 	}
 
 	return idCache
+}
+
+func (c *scIdentityCache) Len() int {
+	return len(c.ids)
 }
 
 func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.LabelArray) *scIdentity {
@@ -331,6 +336,8 @@ func (sc *SelectorCache) Stats() selectorStats {
 			result.maxCardinalityByClass[class] = len(selections)
 		}
 	}
+	result.selectors = sc.selectors.Len()
+	result.identities = sc.idCache.Len()
 
 	return result
 }
@@ -428,6 +435,10 @@ func (sc *SelectorCache) RegisterMetrics() {
 	if err := metrics.Register(newSelectorCacheMetrics(sc)); err != nil {
 		sc.logger.Warn("Selector cache metrics registration failed. No metrics will be reported.", logfields.Error, err)
 	}
+
+	if err := metrics.Register(selectorCacheOperationDuration); err != nil {
+		sc.logger.Warn("Selector cache metrics registration failed. No metrics will be reported.", logfields.Error, err)
+	}
 }
 
 // oldVersionCleaner is called from a goroutine without holding any locks
@@ -512,6 +523,7 @@ func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabel
 
 	for i, selector := range selectors {
 		// Check if the selector has already been cached
+		operationStart := time.Now()
 		key := selector.Key()
 		sel, exists := sc.selectors.Get(key)
 		if !exists {
@@ -522,8 +534,12 @@ func (sc *SelectorCache) AddSelectors(user CachedSelectionUser, lbls stringLabel
 		if sel.addUser(user, sc.localIdentityNotifier) {
 			added = true
 		}
-
 		css[i] = sel
+
+		if !exists {
+			selectorCacheOperationDuration.WithLabelValues(types.LabelValueSCOperationAddSelector, types.LabelValueSCOperation, types.LabelValueSCTypePeer).Observe(time.Since(operationStart).Seconds())
+		}
+
 	}
 	return css, added
 }
@@ -557,7 +573,6 @@ func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source
 	txn := sc.versioned.PrepareNextVersion()
 	idSel.updateSelections(txn)
 	txn.Commit()
-
 	return idSel
 }
 
@@ -583,10 +598,12 @@ func (sc *SelectorCache) AddIdentitySelectorForTest(user CachedSelectionUser, lb
 
 // lock must be held
 func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user CachedSelectionUser) {
+	start := time.Now()
 	key := selector.String()
 	sel, exists := sc.selectors.Get(key)
 	if exists && sel.removeUser(user, sc.localIdentityNotifier) {
 		sc.selectors.Delete(sel)
+		selectorCacheOperationDuration.WithLabelValues(types.LabelValueSCOperationRemoveSelector, types.LabelValueSCOperation, types.LabelValueSCTypePeer).Observe(time.Since(start).Seconds())
 	}
 }
 
@@ -711,8 +728,14 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 	// identities are matched against selectors that have no namespace requirements.
 	namespaces := map[string]identity.NumericIdentitySlice{"": {}}
 
+	start := time.Now()
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
+	operationStart := time.Now()
+	defer func() {
+		selectorCacheOperationDuration.WithLabelValues(types.LabelValueSCOperationIdentityUpdates, types.LabelValueSCOperationLock, types.LabelValueSCTypePeer).Observe(operationStart.Sub(start).Seconds())
+		selectorCacheOperationDuration.WithLabelValues(types.LabelValueSCOperationIdentityUpdates, types.LabelValueSCOperation, types.LabelValueSCTypePeer).Observe(time.Since(operationStart).Seconds())
+	}()
 
 	txn := sc.versioned.PrepareNextVersion()
 
