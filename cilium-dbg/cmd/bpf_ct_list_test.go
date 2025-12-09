@@ -21,24 +21,28 @@ import (
 )
 
 var (
-	ctKey4 = ctmap.CtKey4{
-		TupleKey4: tuple.TupleKey4{
-			DestAddr:   types.IPv4{10, 10, 10, 1},
-			SourceAddr: types.IPv4{10, 10, 10, 2},
-			DestPort:   byteorder.HostToNetwork16(80),
-			SourcePort: byteorder.HostToNetwork16(13579),
-			NextHeader: 6,
-			Flags:      123,
+	ctKey4 = ctmap.CtKey4Global{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				DestAddr:   types.IPv4{10, 10, 10, 1},
+				SourceAddr: types.IPv4{10, 10, 10, 2},
+				DestPort:   byteorder.HostToNetwork16(80),
+				SourcePort: byteorder.HostToNetwork16(13579),
+				NextHeader: 6,
+				Flags:      123,
+			},
 		},
 	}
-	ctKey6 = ctmap.CtKey6{
-		TupleKey6: tuple.TupleKey6{
-			DestAddr:   types.IPv6{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
-			SourceAddr: types.IPv6{1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 121, 98, 219, 61},
-			DestPort:   byteorder.HostToNetwork16(443),
-			SourcePort: byteorder.HostToNetwork16(7878),
-			NextHeader: 17,
-			Flags:      31,
+	ctKey6 = ctmap.CtKey6Global{
+		TupleKey6Global: tuple.TupleKey6Global{
+			TupleKey6: tuple.TupleKey6{
+				DestAddr:   types.IPv6{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+				SourceAddr: types.IPv6{1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 121, 98, 219, 61},
+				DestPort:   byteorder.HostToNetwork16(443),
+				SourcePort: byteorder.HostToNetwork16(7878),
+				NextHeader: 17,
+				Flags:      31,
+			},
 		},
 	}
 	ctValue = ctmap.CtEntry{
@@ -127,7 +131,7 @@ func TestDumpCt4(t *testing.T) {
 	// JSON output may reorder the entries, but in our case they are all
 	// the same.
 	ctRecordDump := ctmap.CtMapRecord{
-		Key:   &ctmap.CtKey4{TupleKey4: ctDump[0].Key},
+		Key:   &ctmap.CtKey4Global{TupleKey4Global: tuple.TupleKey4Global{TupleKey4: ctDump[0].Key}},
 		Value: ctDump[0].Value,
 	}
 	require.Equal(t, ctRecordDump, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
@@ -166,7 +170,7 @@ func TestDumpCt6(t *testing.T) {
 	// JSON output may reorder the entries, but in our case they are all
 	// the same.
 	ctRecordDump := ctmap.CtMapRecord{
-		Key:   &ctmap.CtKey6{TupleKey6: ctDump[0].Key},
+		Key:   &ctmap.CtKey6Global{TupleKey6Global: tuple.TupleKey6Global{TupleKey6: ctDump[0].Key}},
 		Value: ctDump[0].Value,
 	}
 	require.Equal(t, ctRecordDump, ctMaps[0].(*mockmaps.CtMockMap).Entries[0])
