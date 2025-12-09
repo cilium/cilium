@@ -914,6 +914,10 @@ func (d *statusCollector) getProbes() []Probe {
 						Msg:       msg,
 						Wireguard: status,
 					}, nil
+				case d.statusParams.ZtunnelConfig.EnableZTunnel:
+					return &models.EncryptionStatus{
+						Mode: models.EncryptionStatusModeZtunnel,
+					}, nil
 				default:
 					return &models.EncryptionStatus{
 						Mode: models.EncryptionStatusModeDisabled,

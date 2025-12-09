@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
+	zconfig "github.com/cilium/cilium/pkg/ztunnel/config"
 )
 
 // Cell provides the Cilium status collector that is responsible for
@@ -102,6 +103,7 @@ type statusParams struct {
 	PolicyMapFactory policymap.Factory
 	TunnelConfig     tunnel.Config
 	WireguardAgent   wgTypes.WireguardAgent
+	ZtunnelConfig    zconfig.Config
 }
 
 // Config is the collector configuration
