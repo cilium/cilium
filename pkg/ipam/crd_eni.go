@@ -217,8 +217,10 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 			return fmt.Errorf("failed to set eni primary ip address %q on link %q: %w", cfg.ip, link.Attrs().Name, err)
 		}
 
-		// Remove the default route for this ENI, as it can overlap with the
-		// default route of the primary ENI and therefore break node connectivity
+		// Remove the subnet route for this ENI if it got setup by something(like networkd),
+		// as it can cause the traffic to following subnet route using secondary ENI as the outgoing interface.
+		// The Cilium could consider the wrong identity for the node and might drop
+		// the traffic between the host and pods when network policy is in place.
 		err = netlink.RouteDel(&netlink.Route{
 			Dst:   cfg.cidr,
 			Src:   cfg.ip,
