@@ -170,4 +170,48 @@ int check_scapy_basic_test(struct __ctx_buff *ctx)
 	return 0;
 }
 
+#define ASSERT_T_FUNC "An assert"
+
+PKTGEN("tc", "2_test_reuse_func")
+int pktgen_scapy_reuse_func(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+
+	BUF_DECL(EXP_ARP_REQ, l2_announce_arp_req);
+	BUILDER_PUSH_BUF(builder, EXP_ARP_REQ);
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+static __always_inline
+int a_test_func(struct __ctx_buff *ctx, int cfi, BUF_TYPE *buf, __u16 len)
+{
+	ASSERT_CTX_BUF_OFF2_CFI(ASSERT_T_FUNC, cfi, "Ether", ctx, 0, buf, len,
+				len);
+	return rc;
+}
+
+CHECK("tc", "2_test_reuse_func")
+int check_scapy_reuse_func_test(struct __ctx_buff *ctx)
+{
+	int rc;
+
+	test_init();
+
+	BUF_DECL(EXP_ARP_REQ, l2_announce_arp_req);
+
+	ASSERT_CTX_BUF_OFF(ASSERT1, "Ether", ctx, 0, EXP_ARP_REQ,
+			   LEN_EXP_ARP_REQ);
+
+	rc = a_test_func(ctx, 1, BUF(EXP_ARP_REQ), sizeof(BUF(EXP_ARP_REQ)));
+	assert(rc == 0)
+	test_finish();
+
+	return 0;
+}
+
 BPF_LICENSE("Dual BSD/GPL");
