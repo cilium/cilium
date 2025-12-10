@@ -41,6 +41,7 @@ func newPrefixToIdentityTable(db *statedb.DB) statedb.RWTable[client.PrefixToIde
 	table, err := statedb.NewTable(
 		db,
 		client.PrefixToIdentityTableName,
+		client.IdentityToPrefixIndex,
 		client.PrefixToIdentityIndex,
 	)
 	if err != nil {
@@ -48,18 +49,18 @@ func newPrefixToIdentityTable(db *statedb.DB) statedb.RWTable[client.PrefixToIde
 	}
 
 	// Pre-insert entries for testing: nested prefixes /8, /24, /16 and /32
-	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.0/8"), identity.NumericIdentity(444))
-	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.0/24"), identity.NumericIdentity(111))
-	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.0/16"), identity.NumericIdentity(222))
+	insertPrefixes(db, table, []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, identity.NumericIdentity(444))
+	insertPrefixes(db, table, []netip.Prefix{netip.MustParsePrefix("10.0.0.0/24")}, identity.NumericIdentity(111))
+	insertPrefixes(db, table, []netip.Prefix{netip.MustParsePrefix("10.0.0.0/16")}, identity.NumericIdentity(222))
 	// Add a more specific /32 entry so lookup prefers it over the /24 and /16
-	insertPrefix(db, table, netip.MustParsePrefix("10.0.0.3/32"), identity.NumericIdentity(333))
+	insertPrefixes(db, table, []netip.Prefix{netip.MustParsePrefix("10.0.0.3/32"), netip.MustParsePrefix("10.0.0.4/32")}, identity.NumericIdentity(333))
 	return table
 }
 
-func insertPrefix(db *statedb.DB, table statedb.RWTable[client.PrefixToIdentity], prefix netip.Prefix, ident identity.NumericIdentity) {
+func insertPrefixes(db *statedb.DB, table statedb.RWTable[client.PrefixToIdentity], prefix []netip.Prefix, ident identity.NumericIdentity) {
 	w := db.WriteTxn(table)
 	table.Insert(w, client.PrefixToIdentity{
-		Prefix:   []netip.Prefix{prefix},
+		Prefix:   prefix,
 		Identity: ident,
 	})
 	w.Commit()
@@ -143,6 +144,10 @@ func TestLookupSecIDByIP(t *testing.T) {
 
 	// The /32 entry should take precedence over the /24 and /16
 	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("10.0.0.3"))
+	require.True(t, exists)
+	require.Equal(t, identity.NumericIdentity(333), ident_.ID)
+
+	ident_, exists = rc.LookupSecIDByIP(netip.MustParseAddr("10.0.0.4"))
 	require.True(t, exists)
 	require.Equal(t, identity.NumericIdentity(333), ident_.ID)
 
