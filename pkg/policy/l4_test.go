@@ -146,6 +146,8 @@ func TestCreateL4Filter(t *testing.T) {
 	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
 
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -196,6 +198,8 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
 
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -244,6 +248,8 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 	// Suppress the expected warning logs for this test
 
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -286,6 +292,8 @@ func (a SortablePolicyRules) Less(i, j int) bool { return a[i].Rule < a[j].Rule 
 
 func TestJSONMarshal(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	model := &models.L4Policy{}
 	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Egress))
 	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Ingress))

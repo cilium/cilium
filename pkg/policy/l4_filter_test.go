@@ -46,6 +46,7 @@ var (
 
 type testData struct {
 	sc              *SelectorCache
+	closer          func()
 	repo            *Repository
 	identityManager identitymanager.IDManager
 
@@ -73,11 +74,13 @@ type testData struct {
 }
 
 func newTestData(logger *slog.Logger) *testData {
-
 	idMgr := identitymanager.NewIDManager(logger)
+
+	sc, closer := testNewSelectorCache(logger, nil)
 	td := &testData{
 		identityManager:   idMgr,
-		sc:                testNewSelectorCache(logger, nil),
+		sc:                sc,
+		closer:            closer,
 		repo:              NewPolicyRepository(logger, nil, &fakeCertificateManager{}, envoypolicy.NewEnvoyL7RulesTranslator(logger, certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
 		idSet:             set.NewSet[identity.NumericIdentity](),
 		testPolicyContext: &testPolicyContextType{logger: logger},
@@ -472,6 +475,8 @@ func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
 
 func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -549,6 +554,8 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 // Should resolve to one rule.
 func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -660,6 +667,8 @@ func TestMergeAllowAllL3AndShadowedL7(t *testing.T) {
 // same API resource specified at L7 for HTTP.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	identicalHTTPRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -720,6 +729,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(t *testing.T) {
 // Case 4: identical allow all at L3 with identical restrictions on Kafka.
 func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	identicalKafkaRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -782,6 +792,7 @@ func TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(t *testing.T) {
 // is not supported, so return an error.
 func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	// Case 5A: Kafka first, HTTP second.
 	conflictingParsersRule := api.Rule{
@@ -944,6 +955,8 @@ func TestMergeIdenticalAllowAllL3AndMismatchingParsers(t *testing.T) {
 // TLS policy without L7 rules does not inspect L7, uses L7ParserType "tls"
 func TestMergeTLSTCPPolicy(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	egressRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{
@@ -1023,6 +1036,8 @@ func TestMergeTLSTCPPolicy(t *testing.T) {
 
 func TestMergeTLSHTTPPolicy(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	egressRule := api.Rule{
 		Egress: []api.EgressRule{
 			{
@@ -1107,6 +1122,8 @@ func TestMergeTLSHTTPPolicy(t *testing.T) {
 
 func TestMergeTLSSNIPolicy(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	egressRule := api.Rule{
 		Egress: []api.EgressRule{
 			{
@@ -1208,6 +1225,7 @@ func TestMergeTLSSNIPolicy(t *testing.T) {
 
 func TestMergeListenerPolicy(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	//
 	// no namespace (NodeFirewall policy): Can not refer to EnvoyConfig
@@ -1438,6 +1456,8 @@ func TestMergeListenerPolicy(t *testing.T) {
 // shadows the second).
 func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	// Case 6A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1534,6 +1554,8 @@ func TestL3RuleShadowedByL3AllowAll(t *testing.T) {
 // shadows the second), but setting traffic to the HTTP proxy.
 func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	// Case 7A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and allows all on L7. Net result sets
 	// parser type to whatever is in first rule, but without the restriction
@@ -1658,6 +1680,8 @@ func TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(t *testing.T) {
 // wildcard and the specified endpoint.
 func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	// Case 8A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and restricts on the same resource on L7.
 	// PerSelectorPolicies contains entries for both endpoints selected in each rule
@@ -1804,6 +1828,8 @@ func TestL3RuleWithL7RuleShadowedByL3AllowAll(t *testing.T) {
 // Should fail as cannot have conflicting parsers on same port.
 func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	// Case 9A: Kafka first, then HTTP.
 	conflictingL7Rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1888,6 +1914,8 @@ func TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(t *testing.T) {
 // which is now possible.
 func TestL3SelectingEndpointAndL3AllowAllMergeDifferentL7(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	// Case 9A: Kafka first, then HTTP.
 	conflictingL7Rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1971,6 +1999,8 @@ func TestL3SelectingEndpointAndL3AllowAllMergeDifferentL7(t *testing.T) {
 // but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	selectDifferentEndpointsRestrictL7 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -2041,6 +2071,8 @@ func TestMergingWithDifferentEndpointsSelectedAllowSameL7(t *testing.T) {
 // Case 11: allow all on L7 in both rules, but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	selectDifferentEndpointsAllowAllL7 := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
@@ -2091,6 +2123,8 @@ func TestMergingWithDifferentEndpointSelectedAllowAllL7(t *testing.T) {
 // other L3 should restrict at L7 in a separate filter.
 func TestAllowingLocalhostShadowsL7(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	// This test checks that when the AllowLocalhost=always option is
 	// enabled, we always wildcard the host at L7. That means we need to
 	// set the option in the config, and of course clean up afterwards so
@@ -2145,6 +2179,8 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 
 func TestEntitiesL3(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	allowWorldRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{
@@ -2174,6 +2210,8 @@ func TestEntitiesL3(t *testing.T) {
 // Case 13: deny all at L3 in case of an empty non-nil toEndpoints slice.
 func TestEgressEmptyToEndpoints(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Egress: []api.EgressRule{
@@ -2266,6 +2304,7 @@ func TestDNSWildcardInDefaultAllow(t *testing.T) {
 func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	defer td.closer()
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2335,6 +2374,7 @@ func TestHTTPWildcardInDefaultAllow(t *testing.T) {
 func TestKafkaWildcardInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	defer td.closer()
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2403,6 +2443,7 @@ func TestKafkaWildcardInDefaultAllow(t *testing.T) {
 func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	defer td.closer()
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -2471,6 +2512,7 @@ func TestDNSWildcardWithL3FilterInDefaultAllow(t *testing.T) {
 func TestDenyRuleNoWildcardInDefaultAllow(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	defer td.closer()
 
 	// Set policy as a deny rule
 	origIsDeny := td.testPolicyContext.isDeny
@@ -2632,6 +2674,7 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			logger := hivetest.Logger(t)
 			td := newTestData(logger)
+			defer td.closer()
 
 			ctx := &testPolicyContextType{
 				logger:            logger,

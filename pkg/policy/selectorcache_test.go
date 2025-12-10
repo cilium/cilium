@@ -23,6 +23,59 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
+// testNewSelectorCache returns a newly initialized SelectorCache and a function used to
+// stop the incremental update notifier goroutine of the new selector cache.
+// Typically the caller would do something like this:
+//
+// sc, closer := testNewSelectorCache(...)
+// defer closer()
+//
+// This way the 'closer' is called right before 'sc' goes out of scope. If 'sc' is returned up the
+// call stack, then the 'closer' should be returned as well so that the defer on it can be done at
+// the right scope.
+func testNewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) (*SelectorCache, func()) {
+	sc := NewSelectorCache(logger, ids)
+	sc.userHandlerDone = make(chan struct{})
+
+	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
+
+	return sc, func() {
+		sc.userMutex.Lock()
+		defer sc.userMutex.Unlock()
+
+		// Only ever execute the termination signaling and wait once
+		if sc.userHandlerDone != nil {
+			handlerWasStarted := true // assume the handler was started
+
+			// Execute Once to see if the handler was really started
+			sc.startNotificationsHandlerOnce.Do(func() {
+				// if this executes then the handler was NOT started
+				handlerWasStarted = false
+			})
+
+			if handlerWasStarted {
+				// Append an empty user notification to tell the handler to close
+				sc.userNotes = append(sc.userNotes, userNotification{})
+
+				// Unlock so thet handler is not blocked when it wakes up
+				sc.userMutex.Unlock()
+
+				// tell the handler to wake up
+				sc.userCond.Signal()
+
+				// wait for the handler to process the zero notification and close
+				<-sc.userHandlerDone
+
+				// lock again
+				sc.userMutex.Lock()
+
+				// nil the channel to not wait again for an already done handler
+				sc.userHandlerDone = nil
+			}
+		}
+	}
+}
+
 type cachedSelectionUser struct {
 	t    *testing.T
 	sc   *SelectorCache
@@ -245,7 +298,8 @@ func (cs *testCachedSelector) String() string {
 }
 
 func TestAddRemoveSelector(t *testing.T) {
-	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	sc, closer := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	defer closer()
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -297,7 +351,8 @@ func TestAddRemoveSelector(t *testing.T) {
 }
 
 func TestMultipleIdentitySelectors(t *testing.T) {
-	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	sc, closer := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	defer closer()
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -358,7 +413,8 @@ func TestMultipleIdentitySelectors(t *testing.T) {
 }
 
 func TestIdentityUpdates(t *testing.T) {
-	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	sc, closer := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	defer closer()
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -431,7 +487,8 @@ func TestIdentityUpdates(t *testing.T) {
 }
 
 func TestIdentityUpdatesMultipleUsers(t *testing.T) {
-	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	sc, closer := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	defer closer()
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -511,7 +568,8 @@ func TestIdentityUpdatesMultipleUsers(t *testing.T) {
 }
 
 func TestTransactionalUpdate(t *testing.T) {
-	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	sc, closer := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	defer closer()
 
 	// Add some identities to the identity cache
 	wg := &sync.WaitGroup{}
@@ -614,7 +672,9 @@ func TestSelectorCacheCanSkipUpdate(t *testing.T) {
 		return idMap
 	}
 
-	sc := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	sc, closer := testNewSelectorCache(hivetest.Logger(t), identity.IdentityMap{})
+	defer closer()
+
 	wg := &sync.WaitGroup{}
 
 	require.False(t, sc.CanSkipUpdate(toIdentityMap(id1), nil))
@@ -641,15 +701,11 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 		require.Nil(t, r)
 	}()
 
-	sc := testNewSelectorCache(hivetest.Logger(t), nil)
+	sc, closer := testNewSelectorCache(hivetest.Logger(t), nil)
+	defer closer()
+
 	sel := newIdentitySelector(sc, "test", nil, EmptyStringLabels)
 
 	selections := sel.GetSelections()
 	require.Empty(t, selections)
-}
-
-func testNewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
-	sc := NewSelectorCache(logger, ids)
-	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
-	return sc
 }

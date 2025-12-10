@@ -47,6 +47,8 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 	SetPolicyEnabled(option.DefaultEnforcement)
 
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	repo := td.repo
 
 	fooSelectLabel := labels.ParseSelectLabel("foo")
@@ -220,6 +222,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 
 func TestWildcardL3RulesIngress(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -423,6 +426,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 
 func TestWildcardL4RulesIngress(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	labelsL4Kafka := labels.LabelArray{labels.ParseLabel("L4-kafka")}
 	labelsL7Kafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -551,6 +555,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 
 func TestWildcardL3RulesEgress(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
 	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -718,6 +723,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 
 func TestWildcardL4RulesEgress(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	labelsL3DNS := labels.LabelArray{labels.ParseLabel("L3-dns")}
 	labelsL7DNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -848,6 +854,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 
 func TestWildcardCIDRRulesEgress(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
@@ -935,6 +942,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 
 func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -1049,6 +1057,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 
 func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -1162,6 +1171,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 
 func TestMinikubeGettingStarted(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
 
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1241,6 +1251,8 @@ func TestMinikubeGettingStarted(t *testing.T) {
 
 func TestIterate(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	repo := td.repo
 
 	numWithEgress := 0
@@ -1377,6 +1389,7 @@ func TestDefaultAllow(t *testing.T) {
 	// three test runs: ingress, egress, and ingress + egress cartesian
 	for i, tc := range ingressCases {
 		td := newTestData(hivetest.Logger(t))
+
 		td.addIdentity(fooIdentity)
 		repo := td.repo
 
@@ -1386,6 +1399,8 @@ func TestDefaultAllow(t *testing.T) {
 		require.Equal(t, tc.ingress, ing, "case %d: ingress should match", i)
 		require.Equal(t, tc.egress, egr, "case %d: egress should match", i)
 		require.Len(t, matchingRules, tc.ruleC, "case %d: rule count should match", i)
+
+		td.closer()
 	}
 
 	for i, tc := range egressCases {
@@ -1399,6 +1414,8 @@ func TestDefaultAllow(t *testing.T) {
 		require.Equal(t, tc.ingress, ing, "case %d: ingress should match", i)
 		require.Equal(t, tc.egress, egr, "case %d: egress should match", i)
 		require.Len(t, matchingRules, tc.ruleC, "case %d: rule count should match", i)
+
+		td.closer()
 	}
 
 	// test all combinations of ingress + egress cases
@@ -1415,6 +1432,8 @@ func TestDefaultAllow(t *testing.T) {
 			require.Equal(t, itc.ingress, ing, "case ingress %d + egress %d: ingress should match", i, e)
 			require.Equal(t, etc.egress, egr, "case ingress %d + egress %d: egress should match", i, e)
 			require.Len(t, matchingRules, itc.ruleC+etc.ruleC, "case ingress %d + egress %d: rule count should match", i, e)
+
+			td.closer()
 		}
 	}
 }
@@ -1423,7 +1442,9 @@ func TestReplaceByResource(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
 	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
-	sc := testNewSelectorCache(hivetest.Logger(t), nil)
+	sc, closer := testNewSelectorCache(hivetest.Logger(t), nil)
+	defer closer()
+
 	repo.selectorCache = sc
 	assert.True(t, sc.selectors.Empty())
 
