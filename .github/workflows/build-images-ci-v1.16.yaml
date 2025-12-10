@@ -9,10 +9,6 @@ on:
       - opened
       - synchronize
       - reopened
-  push:
-    branches:
-      - v1.16
-      - ft/v1.16/**
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -82,6 +78,11 @@ jobs:
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
+
+      - name: Copy scripts to trusted directory
+        run: |
+          mkdir -p ../cilium-base-branch
+          cp -r .github/actions/set-runtime-image ../cilium-base-branch
 
       - name: Check for disk usage and cleanup /mnt
         shell: bash
@@ -169,6 +170,15 @@ jobs:
         run: |
           df -h
 
+      - name: Copy runtime image tag from untrusted branch
+        run: |
+          cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/set-runtime-image/
+
+      - name: Set runtime image environment variable
+        uses: ./../cilium-base-branch/set-runtime-image
+        with:
+          repository: ${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}
+
       # Load Golang cache build from GitHub
       - name: Restore Golang cache build from GitHub
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -228,6 +238,7 @@ jobs:
           tags: ${{ steps.tag.outputs.normal_tag }}
           target: release
           build-args: |
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
@@ -243,7 +254,8 @@ jobs:
           tags: ${{ steps.tag.outputs.race_tag }}
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:b21eb30e9334659f2f5b42ec71ad373fc6a10239@sha256:96a219d4c99c02049fecc7798a0f3a0494a4e589115cb36172e75c7d0383c148
+            BASE_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             MODIFIERS="LOCKDEBUG=1 RACE=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
@@ -260,6 +272,7 @@ jobs:
           tags: ${{ steps.tag.outputs.unstripped_tag }}
           target: release
           build-args: |
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             MODIFIERS="NOSTRIP=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
