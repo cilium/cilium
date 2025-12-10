@@ -852,9 +852,9 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
 
-	cachedSelectors, _ := td.sc.AddSelectorsTxn(dummySelectorCacheUser, EmptyStringLabels,
-		types.ToSelectors(api.CIDR("192.0.0.0/3"))...)
-	td.sc.Commit()
+	cachedSelectors, _ := td.sc.AddSelectors(dummySelectorCacheUser, EmptyStringLabels,
+		types.ToSelector(api.CIDR("192.0.0.0/3")))
+	defer td.sc.RemoveSelectors(cachedSelectors, dummySelectorCacheUser)
 
 	l480Get := api.Rule{
 		Egress: []api.EgressRule{

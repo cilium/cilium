@@ -308,11 +308,9 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		hasIngressDefaultDeny, hasEgressDefaultDeny,
 		matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
 
-	sc := p.GetSelectorCache()
-
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
-		SelectorCache:        sc,
+		SelectorCache:        p.GetSelectorCache(),
 		L4Policy:             NewL4Policy(p.GetRevision()),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
@@ -347,9 +345,6 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 
 	// Make the calculated policy ready for incremental updates
 	calculatedPolicy.Attach(&policyCtx)
-
-	// Commit selector changes
-	sc.Commit()
 
 	return calculatedPolicy, nil
 }

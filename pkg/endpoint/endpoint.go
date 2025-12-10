@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -1640,6 +1641,13 @@ func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 		e.proxyPolicyRevision = revision
 	}
 	e.unlock()
+}
+
+func (e *Endpoint) GetPolicyVersionHandle() *versioned.VersionHandle {
+	if e.desiredPolicy != nil {
+		return e.desiredPolicy.VersionHandle
+	}
+	return nil
 }
 
 func (e *Endpoint) GetListenerProxyPort(listener string) uint16 {

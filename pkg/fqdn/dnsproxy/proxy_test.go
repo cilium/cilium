@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/container/versioned"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	fqdndns "github.com/cilium/cilium/pkg/fqdn/dns"
@@ -44,7 +45,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -1425,7 +1425,7 @@ func (t selectorMock) GetSelections() identity.NumericIdentitySlice {
 	panic("implement me")
 }
 
-func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
+func (t selectorMock) GetSelectionsAt(*versioned.VersionHandle) identity.NumericIdentitySlice {
 	panic("implement me")
 }
 

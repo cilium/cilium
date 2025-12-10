@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -38,7 +39,7 @@ type rule struct {
 func (r *rule) IdentitySelectionUpdated(logger *slog.Logger, selector types.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
-func (d *rule) IdentitySelectionCommit(*slog.Logger, SelectorSnapshot) {
+func (d *rule) IdentitySelectionCommit(*slog.Logger, *versioned.Tx) {
 }
 
 func (r *rule) IsPeerSelector() bool {
