@@ -388,6 +388,7 @@ Makefile* @cilium/build
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
 /Documentation/beta.rst @cilium/docs-structure
+/Documentation/alpha.rst @cilium/docs-structure
 /Documentation/reference-guides/bpf/ @cilium/sig-datapath @cilium/docs-structure
 /Documentation/reference-guides/xfrm/ @cilium/ipsec @cilium/docs-structure
 /Documentation/check-build.sh @cilium/docs-structure
@@ -460,6 +461,7 @@ Makefile* @cilium/build
 /Documentation/security/network/proxy/ @cilium/proxy @cilium/docs-structure
 /Documentation/security/policy-creation.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/policy/ @cilium/sig-policy @cilium/docs-structure
+/Documentation/security/standalone-dns-proxy.rst @cilium/fqdn @cilium/docs-structure
 /Documentation/security/threat-model.rst @cilium/security @cilium/docs-structure
 /Documentation/spelling_wordlist.txt @cilium/docs-structure
 /Documentation/update-cmdref.sh @cilium/docs-structure
@@ -487,6 +489,7 @@ Makefile* @cilium/build
 /install/kubernetes/cilium/**/spire @cilium/helm @cilium/sig-servicemesh
 /install/kubernetes/cilium/templates/clustermesh* @cilium/helm @cilium/sig-clustermesh
 /install/kubernetes/cilium/templates/hubble* @cilium/helm @cilium/sig-hubble
+/install/kubernetes/cilium/templates/standalone-dns-proxy* @cilium/helm @cilium/fqdn
 /LICENSE @cilium/contributing
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure

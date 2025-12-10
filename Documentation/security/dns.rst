@@ -170,3 +170,8 @@ Clean-up
 
    kubectl delete -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
    kubectl delete cnp fqdn
+
+Limitations
+===========
+
+By default, Cilium uses an in-agent DNS proxy for DNS policy enforcement. For high availability, consider using the :ref:`standalone_dns_proxy` (alpha feature).

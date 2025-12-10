@@ -4255,3 +4255,41 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
+# -- Standalone DNS Proxy Configuration
+# Note: The standalone DNS proxy uses the agent's dnsProxy.* configuration
+# for DNS settings (proxyPort, enableDnsCompression) to ensure consistency.
+standaloneDnsProxy:
+  # -- Enable standalone DNS proxy (alpha feature)
+  enabled: false
+  # -- Roll out Standalone DNS proxy automatically when configmap is updated.
+  rollOutPods: false
+  # -- Standalone DNS proxy annotations
+  annotations: {}
+  # -- Standalone DNS proxy debug mode
+  debug: false
+  # -- Standalone DNS proxy server port
+  serverPort: 10095
+  # -- Standalone DNS proxy Node Selector
+  nodeSelector:
+    kubernetes.io/os: linux
+  # -- Standalone DNS proxy tolerations
+  tolerations: []
+  # -- Standalone DNS proxy auto mount service account token
+  automountServiceAccountToken: false
+  # -- Standalone DNS proxy update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  # -- Standalone DNS proxy image
+  image:
+    # @schema
+    # type: [null, string]
+    # @schema
+    override: ~
+    repository: ""
+    tag: ""
+    digest: ""
+    useDigest: false
+    pullPolicy: "Always"
