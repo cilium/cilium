@@ -477,7 +477,7 @@ func Test_deriveLabelsForNames(t *testing.T) {
 // makeIPs generates count sequential IPv4 IPs
 func makeIPs(count uint32) []netip.Addr {
 	ips := make([]netip.Addr, 0, count)
-	for i := uint32(0); i < count; i++ {
+	for i := range uint32(count) {
 		ips = append(ips, netip.AddrFrom4([4]byte{byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i >> 0)}))
 	}
 	return ips
