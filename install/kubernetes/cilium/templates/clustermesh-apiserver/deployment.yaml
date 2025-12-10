@@ -137,6 +137,7 @@ spec:
         - --advertise-client-urls=https://localhost:2379
         - --initial-cluster-token=$(INITIAL_CLUSTER_TOKEN)
         - --auto-compaction-retention=1
+        - --enable-grpc-gateway=false
         {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
         - --listen-metrics-urls=http://0.0.0.0:{{ .Values.clustermesh.apiserver.metrics.etcd.port }}
         - --metrics={{ .Values.clustermesh.apiserver.metrics.etcd.mode }}
