@@ -730,7 +730,7 @@ func TestRing_ReadFrom_Test_1(t *testing.T) {
 	}
 
 	// Add 5 events
-	for i := uint64(0); i < 5; i++ {
+	for i := range uint64(5) {
 		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 		lastWrite = r.LastWrite()
 		if lastWrite != i {
@@ -792,7 +792,7 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 	}
 
 	// Add 20 events
-	for i := uint64(0); i < 20; i++ {
+	for i := range uint64(20) {
 		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 		lastWrite = r.LastWrite()
 		if lastWrite != i {
@@ -851,7 +851,7 @@ func TestRing_ReadFrom_Test_2(t *testing.T) {
 	}
 
 	// Add 20 more events that we read back immediately
-	for i := uint64(0); i < 20; i++ {
+	for i := range uint64(20) {
 		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(20 + i)}})
 
 		want := &timestamppb.Timestamp{Seconds: int64(20 + (i - 1))}
@@ -890,7 +890,7 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 	}
 
 	// Add 20 events
-	for i := uint64(0); i < 20; i++ {
+	for i := range uint64(20) {
 		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(i)}})
 		lastWrite = r.LastWrite()
 		if lastWrite != i {
@@ -949,7 +949,7 @@ func TestRing_ReadFrom_Test_3(t *testing.T) {
 	}
 
 	// Add 20 more events that we read back immediately
-	for i := uint64(0); i < 20; i++ {
+	for i := range uint64(20) {
 		r.Write(&v1.Event{Timestamp: &timestamppb.Timestamp{Seconds: int64(20 + i)}})
 
 		want := &timestamppb.Timestamp{Seconds: int64(20 + (i - 1))}

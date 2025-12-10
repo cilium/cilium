@@ -2782,7 +2782,7 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 
 	// Create N services
 	N := 16
-	for i := 0; i < N; i++ {
+	for i := range N {
 		_, err = fakeK8s.Services("default").Create(t.Context(), &slim_core_v1.Service{
 			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name: "service" + strconv.Itoa(i),
@@ -2804,7 +2804,7 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 	}, 5*time.Second, 100*time.Millisecond)
 
 	previousIPs := []string{}
-	for i := 0; i < N; i++ {
+	for i := range N {
 		svc, err := fakeK8s.Services("default").Get(t.Context(), "service"+strconv.Itoa(i), meta_v1.GetOptions{})
 		require.NoError(t, err)
 		t.Log("service", i, "ingress", svc.Status.LoadBalancer.Ingress)
@@ -2860,14 +2860,14 @@ func TestLBIPAMRestartOnFullPool(t *testing.T) {
 		assert.Equal(collect, int64(N), counters.serviceEvents.Load())
 	}, 5*time.Second, 100*time.Millisecond)
 
-	for i := 0; i < N; i++ {
+	for i := range N {
 		svc, err := fakeK8s.Services("default").Get(t.Context(), "service"+strconv.Itoa(i), meta_v1.GetOptions{})
 		require.NoError(t, err)
 		t.Log("service", i, "ingress", svc.Status.LoadBalancer.Ingress)
 	}
 
 	// The same services should still have IPs
-	for i := 0; i < N; i++ {
+	for i := range N {
 		svc, err := fakeK8s.Services("default").Get(t.Context(), "service"+strconv.Itoa(i), meta_v1.GetOptions{})
 		require.NoError(t, err)
 		if i < N/2 {
