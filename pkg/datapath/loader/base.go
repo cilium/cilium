@@ -204,11 +204,11 @@ func (l *loader) reinitializeEncryption(ctx context.Context, lnc *datapath.Local
 
 		// Always attach to all physical devices in ENI mode.
 		attach = physicalDevs(links)
-		option.Config.EncryptInterface = linkNames(attach)
+		option.Config.UnsafeDaemonConfigOption.EncryptInterface = linkNames(attach)
 	} else {
 		// In other modes, attach only to the interfaces explicitly specified by the
 		// user. Resolve links by name.
-		for _, iface := range option.Config.EncryptInterface {
+		for _, iface := range option.Config.UnsafeDaemonConfigOption.EncryptInterface {
 			link, err := safenetlink.LinkByName(iface)
 			if err != nil {
 				return fmt.Errorf("retrieving device %s: %w", iface, err)
@@ -370,7 +370,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
 
-	if option.Config.EnableIPIPDevices {
+	if option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices {
 		// This setting needs to be applied before creating the IPIP devices.
 		sysIPIP := []tables.Sysctl{
 			{Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true},

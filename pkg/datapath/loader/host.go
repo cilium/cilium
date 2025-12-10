@@ -208,7 +208,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 	// devices being created via health datapath (see Reinitialize()) since
 	// it can push packets up the local stack which should be handled by
 	// the host instead.
-	if option.Config.EnableIPIPTermination && !option.Config.EnableHealthDatapath {
+	if option.Config.EnableIPIPTermination && !option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
 		if option.Config.IPv4Enabled() {
 			devices = append(devices, defaults.IPIPv4Device)
 		}
