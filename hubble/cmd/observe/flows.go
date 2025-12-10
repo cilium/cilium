@@ -552,6 +552,12 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 	filterFlags.Var(filterVar(
 		"interface", ofilter,
 		"Show all flows observed at the given interface name (e.g. eth0)"))
+	filterFlags.Var(filterVar(
+		"encrypted", ofilter,
+		"Show only encrypted flows (WireGuard/IPsec)"))
+	filterFlags.Var(filterVar(
+		"unencrypted", ofilter,
+		"Show only unencrypted flows"))
 
 	rawFilterFlags.StringArray(allowlistFlag, []string{}, "Specify allowlist as JSON encoded FlowFilters")
 	rawFilterFlags.StringArray(denylistFlag, []string{}, "Specify denylist as JSON encoded FlowFilters")
@@ -657,6 +663,8 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 	}
 	// default value for when the flag is on the command line without any options
 	flowsCmd.Flags().Lookup("not").NoOptDefVal = "true"
+	flowsCmd.Flags().Lookup("encrypted").NoOptDefVal = "true"
+	flowsCmd.Flags().Lookup("unencrypted").NoOptDefVal = "true"
 	template.RegisterFlagSets(flowsCmd, flagSets...)
 	return flowsCmd
 }
