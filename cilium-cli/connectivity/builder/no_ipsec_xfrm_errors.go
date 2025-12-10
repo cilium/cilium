@@ -17,3 +17,12 @@ func (t noIpsecXfrmErrors) build(ct *check.ConnectivityTest, _ map[string]string
 		WithFeatureRequirements(features.RequireMode(features.EncryptionPod, "ipsec")).
 		WithScenarios(tests.NoIPsecXfrmErrors(ct.Params().ExpectedXFRMErrors))
 }
+
+type noIpsecXfrmErrorsFinal struct{}
+
+func (t noIpsecXfrmErrorsFinal) build(ct *check.ConnectivityTest, _ map[string]string) {
+	newTest("no-ipsec-xfrm-errors", ct).
+		WithCondition(func() bool { return !ct.Params().IncludeConnDisruptTest }).
+		WithFeatureRequirements(features.RequireMode(features.EncryptionPod, "ipsec")).
+		WithScenarios(tests.NoIPsecXfrmErrorsFinal(ct.Params().ExpectedXFRMErrors))
+}

@@ -341,6 +341,7 @@ func sequentialTests(ct *check.ConnectivityTest) error {
 func finalTests(ct *check.ConnectivityTest) error {
 	return injectTests([]testBuilder{
 		noUnexpectedPacketDrops{},
+		noIpsecXfrmErrorsFinal{},
 		checkLogErrors{},
 	}, ct)
 }
