@@ -16,7 +16,6 @@ import (
 	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,16 +69,7 @@ func derivedName(name types.NamespacedName) string {
 	return "derived-" + strings.ToLower(base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(hash.Sum(nil)))[:10]
 }
 
-func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport, localSvc *corev1.Service) []corev1.ServicePort {
-	// Populate the derived service targetPort from the local service so that local
-	// EndpointSlice are generated correctly
-	localTargetPortMap := map[int32]intstr.IntOrString{}
-	if localSvc != nil {
-		for _, port := range localSvc.Spec.Ports {
-			localTargetPortMap[port.Port] = port.TargetPort
-		}
-	}
-
+func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport) []corev1.ServicePort {
 	ports := make([]corev1.ServicePort, 0, len(svcImport.Spec.Ports))
 	for _, port := range svcImport.Spec.Ports {
 		ports = append(ports, corev1.ServicePort{
@@ -87,7 +77,6 @@ func servicePorts(svcImport *mcsapiv1alpha1.ServiceImport, localSvc *corev1.Serv
 			Protocol:    port.Protocol,
 			AppProtocol: port.AppProtocol,
 			Port:        port.Port,
-			TargetPort:  localTargetPortMap[port.Port],
 		})
 	}
 
@@ -210,21 +199,6 @@ func (r *mcsAPIServiceReconciler) getBaseDerivedService(
 	return &svc, true, nil
 }
 
-// getLocalServiceIfExported returns the service that we are currently exporting from. This
-// means that that the Service is only returned if a ServiceExport is also created
-func (r *mcsAPIServiceReconciler) getLocalServiceIfExported(ctx context.Context, req ctrl.Request) (*corev1.Service, error) {
-	var svcExport mcsapiv1alpha1.ServiceExport
-	if err := r.Client.Get(ctx, req.NamespacedName, &svcExport); err != nil {
-		return nil, client.IgnoreNotFound(err)
-	}
-
-	var svc corev1.Service
-	if err := r.Client.Get(ctx, req.NamespacedName, &svc); err != nil {
-		return nil, client.IgnoreNotFound(err)
-	}
-	return &svc, nil
-}
-
 func (r *mcsAPIServiceReconciler) getSvcImport(ctx context.Context, req ctrl.Request) (*mcsapiv1alpha1.ServiceImport, error) {
 	var svcImport mcsapiv1alpha1.ServiceImport
 	if err := r.Client.Get(ctx, req.NamespacedName, &svcImport); err != nil {
@@ -240,11 +214,6 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	if svcImport == nil {
 		return controllerruntime.Success()
-	}
-
-	localSvc, err := r.getLocalServiceIfExported(ctx, req)
-	if err != nil {
-		return controllerruntime.Fail(err)
 	}
 
 	derivedServiceName := derivedName(req.NamespacedName)
@@ -263,7 +232,7 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	svc.Spec.Selector = map[string]string{}
-	svc.Spec.Ports = servicePorts(svcImport, localSvc)
+	svc.Spec.Ports = servicePorts(svcImport)
 	svc.Spec.InternalTrafficPolicy = ptr.To(ptr.Deref(svcImport.Spec.InternalTrafficPolicy, corev1.ServiceInternalTrafficPolicyCluster))
 	if svcImport.Spec.TrafficDistribution != nil {
 		svc.Spec.TrafficDistribution = ptr.To(*svcImport.Spec.TrafficDistribution)
