@@ -3660,6 +3660,62 @@
      - Enable socket LB
      - bool
      - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy`
+     - Standalone DNS Proxy Configuration
+     - object
+     - ``{"annotations":{},"automountServiceAccountToken":false,"debug":false,"dnsCompression":true,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false},"l7Proxy":true,"nodeSelector":{"kubernetes.io/os":"linux"},"proxyPort":10094,"rollOutPods":false,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}``
+   * - :spelling:ignore:`standaloneDnsProxy.annotations`
+     - Standalone DNS proxy annotations
+     - object
+     - ``{}``
+   * - :spelling:ignore:`standaloneDnsProxy.automountServiceAccountToken`
+     - Standalone DNS proxy auto mount service account token
+     - bool
+     - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy.debug`
+     - Standalone DNS proxy debug mode
+     - bool
+     - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy.dnsCompression`
+     - Standalone DNS proxy DNS compression
+     - bool
+     - ``true``
+   * - :spelling:ignore:`standaloneDnsProxy.enabled`
+     - Enable standalone DNS proxy(alpha feature)
+     - bool
+     - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy.image`
+     - Standalone DNS proxy image
+     - object
+     - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false}``
+   * - :spelling:ignore:`standaloneDnsProxy.l7Proxy`
+     - L7 proxy mode enables proxy for DNS traffic
+     - bool
+     - ``true``
+   * - :spelling:ignore:`standaloneDnsProxy.nodeSelector`
+     - Standalone DNS proxy Node Selector
+     - object
+     - ``{"kubernetes.io/os":"linux"}``
+   * - :spelling:ignore:`standaloneDnsProxy.proxyPort`
+     - Standalone DNS proxy port # -- Port on which the DNS proxy listens for DNS requests. It should match the port configured in cilium-agent's dnsProxy.proxyPort.
+     - int
+     - ``10094``
+   * - :spelling:ignore:`standaloneDnsProxy.rollOutPods`
+     - Roll out Standalone Dns proxy automatically when configmap is updated.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy.serverPort`
+     - Standalone DNS proxy server port
+     - int
+     - ``10095``
+   * - :spelling:ignore:`standaloneDnsProxy.tolerations`
+     - Standalone DNS proxy tolerations
+     - list
+     - ``[]``
+   * - :spelling:ignore:`standaloneDnsProxy.updateStrategy`
+     - Standalone DNS proxy update strategy
+     - object
+     - ``{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}``
    * - :spelling:ignore:`startupProbe.failureThreshold`
      - failure threshold of startup probe. Allow Cilium to take up to 600s to start up (300 attempts with 2s between attempts).
      - int

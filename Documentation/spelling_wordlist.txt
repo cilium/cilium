@@ -312,6 +312,7 @@ distro
 distros
 dmesg
 dns
+dnsProxy
 dockerd
 dockerhub
 dpaa
@@ -674,6 +675,7 @@ prometheus
 proto
 protobuf
 proxied
+proxyPort
 proxying
 proxylib
 qdisc
@@ -720,6 +722,7 @@ roadmap
 rollout
 routable
 routingMode
+rst
 runnable
 runtimes
 sandboxing
@@ -805,6 +808,7 @@ tiefighter
 tls
 toCIDR
 toCIDRSet
+toFQDN
 toFQDNs
 toGroups
 tofqdns
