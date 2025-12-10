@@ -12,23 +12,6 @@ on:
     paths:
       - images/runtime/**
       - images/builder/**
-  # This workflow can be reused so that renovate can execute this workflow_dispatch:
-  # run from a different environment than 'release-base-images'. See
-  # build-images-base-renovate.yaml
-  workflow_call:
-    secrets:
-      QUAY_BASE_RELEASE_USERNAME_202411:
-        required: true
-      QUAY_BASE_RELEASE_PASSWORD_202411:
-        required: true
-      AUTO_COMMITTER_PEM_202411:
-        required: true
-      AUTO_COMMITTER_APP_ID_202411:
-        required: true
-    inputs:
-      environment:
-        type: string
-        default: "release-base-images"
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -46,7 +29,7 @@ jobs:
     if: ${{ ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Images
     timeout-minutes: 60
-    environment: ${{ inputs.environment || 'release-base-images' }}
+    environment: 'release-base-images'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout default branch (trusted)
@@ -342,7 +325,7 @@ jobs:
   image-digests:
     name: Display Digests
     runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment || 'release-base-images' }}
+    environment: 'release-base-images'
     needs: build-and-push
     steps:
       - name: Downloading Image Digests
