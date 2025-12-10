@@ -1496,7 +1496,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(version *versioned.VersionHand
 	return rules
 }
 
-func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
+func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMaps, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		// Always allow all ports
@@ -1560,18 +1560,20 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 		}
 	}
 
-	addWildcardRules(l4Policy.ExactLookup("0", 0, u8proto.ANY.String()))
-	addWildcardRules(l4Policy.ExactLookup("0", 0, u8proto.TCP.String()))
+	for i := range l4Policy {
+		addWildcardRules(l4Policy[i].ExactLookup("0", 0, u8proto.ANY.String()))
+		addWildcardRules(l4Policy[i].ExactLookup("0", 0, u8proto.TCP.String()))
+	}
 
 	if !wildcardDenyAll {
-		l4Policy.ForEach(func(l4 *policy.L4Filter) bool {
+		for l4 := range l4Policy.Filters() {
 			var protocol envoy_config_core.SocketAddress_Protocol
 			switch l4.U8Proto {
 			case u8proto.TCP, u8proto.ANY:
 				protocol = envoy_config_core.SocketAddress_TCP
 			default:
 				// Other protocol rules not sent to Envoy for now.
-				return true
+				continue
 			}
 
 			port := l4.Port
@@ -1582,7 +1584,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			// Skip if a named port can not be resolved (yet)
 			// wildcard port already taken care of above
 			if port == 0 {
-				return true
+				continue
 			}
 
 			rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.PerSelectorPolicies))
@@ -1639,7 +1641,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 					logfields.TrafficDirection, dir,
 					logfields.Port, port,
 				)
-				return true
+				continue
 			}
 
 			// Short-circuit rules if a rule allows all and all other rules can be short-circuited
@@ -1650,7 +1652,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 						logfields.TrafficDirection, dir,
 						logfields.Port, port,
 					)
-					return true
+					continue
 				}
 				if allowAllRule != nil {
 					s.logger.Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention",
@@ -1669,8 +1671,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 				Protocol: protocol,
 				Rules:    envoypolicy.SortPortNetworkPolicyRules(rules),
 			})
-			return true
-		})
+		}
 	}
 	if len(PerPortPolicies) == 0 || len(PerPortPolicies) == 0 && wildcardAllowAll {
 		return nil
@@ -1689,8 +1690,8 @@ func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, names []string
 		ConntrackMapName: "global",
 	}
 
-	var ingressMap policy.L4PolicyMap
-	var egressMap policy.L4PolicyMap
+	var ingressMap policy.L4PolicyMaps
+	var egressMap policy.L4PolicyMaps
 	if l4Policy != nil {
 		ingressMap = l4Policy.Ingress.PortRules
 		egressMap = l4Policy.Egress.PortRules

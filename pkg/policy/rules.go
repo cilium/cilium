@@ -11,8 +11,8 @@ import (
 // to be written with []*rule as a receiver.
 type ruleSlice []*rule
 
-func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMap, error) {
-	result := NewL4PolicyMap()
+func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMaps, error) {
+	result := L4PolicyMaps{makeL4PolicyMap()}
 
 	ingress := policyCtx.IsIngress()
 	msg := "Resolving egress policy"
