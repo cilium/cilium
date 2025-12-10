@@ -12,7 +12,7 @@ import (
 type IPv6 [16]byte
 
 func (v6 IPv6) IsZero() bool {
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		if v6[i] != 0 {
 			return false
 		}

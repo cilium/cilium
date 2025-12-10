@@ -317,7 +317,7 @@ var (
 // makeIPs generates count sequential IPv4 IPs
 func makeIPs(count uint32) []netip.Addr {
 	ips := make([]netip.Addr, 0, count)
-	for i := uint32(0); i < count; i++ {
+	for i := range count {
 		ips = append(ips, netip.AddrFrom4([4]byte{byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i >> 0)}))
 	}
 	return ips
@@ -463,11 +463,11 @@ func benchmarkUnmarshalJSON(b *testing.B, numDNSEntries int) {
 
 	n := b.N
 	emptyCaches := make([]*DNSCache, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		emptyCaches[i] = NewDNSCache(0)
 	}
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		err := emptyCaches[i].UnmarshalJSON(data)
 		require.NoError(b, err)
 	}
