@@ -2,11 +2,6 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
   push:
     branches:
       - v1.16
@@ -82,6 +77,11 @@ jobs:
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
+
+      - name: Copy scripts to trusted directory
+        run: |
+          mkdir -p ../cilium-base-branch
+          cp -r .github/actions/set-runtime-image ../cilium-base-branch
 
       - name: Check for disk usage and cleanup /mnt
         shell: bash
@@ -169,6 +169,15 @@ jobs:
         run: |
           df -h
 
+      - name: Copy runtime image tag from untrusted branch
+        run: |
+          cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/set-runtime-image/
+
+      - name: Set runtime image environment variable
+        uses: ./../cilium-base-branch/set-runtime-image
+        with:
+          repository: ${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}
+
       # Load Golang cache build from GitHub
       - name: Restore Golang cache build from GitHub
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -223,6 +232,7 @@ jobs:
           tags: ${{ steps.tag.outputs.normal_tag }}
           target: release
           build-args: |
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
@@ -238,7 +248,8 @@ jobs:
           tags: ${{ steps.tag.outputs.race_tag }}
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:affff2c98da6fc08fb342e2ec2f7d72bcec6faf3@sha256:b1bfdc9e4dacd46fce72c3a351a88ddbc6fd654da06bb248469d054ad0780613
+            BASE_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             MODIFIERS="LOCKDEBUG=1 RACE=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
@@ -255,6 +266,7 @@ jobs:
           tags: ${{ steps.tag.outputs.unstripped_tag }}
           target: release
           build-args: |
+            CILIUM_RUNTIME_IMAGE=${{ env.CILIUM_RUNTIME_IMAGE }}
             MODIFIERS="NOSTRIP=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
@@ -305,6 +317,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
+          # shellcheck disable=SC2078
           if [ ${{ github.event_name == 'push' && !startsWith(github.ref_name, 'ft/') }} ]; then
             echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           fi

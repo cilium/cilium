@@ -2,14 +2,6 @@ name: Base Image Release Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
-    paths:
-      - images/runtime/**
-      - images/builder/**
   # This workflow can be reused so that renovate can execute this workflow_dispatch:
   # run from a different environment than 'release-base-images'. See
   # build-images-base-renovate.yaml
@@ -25,7 +17,6 @@ on:
         required: true
     inputs:
       environment:
-        required: true
         type: string
         default: "release-base-images"
 
