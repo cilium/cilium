@@ -23,6 +23,11 @@ import (
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
+type selectorUpdate struct {
+	selector       policytypes.CachedSelector
+	added, deleted []identity.NumericIdentity
+}
+
 type cachedSelectionUser struct {
 	t    *testing.T
 	sc   *SelectorCache
@@ -34,6 +39,8 @@ type cachedSelectionUser struct {
 	notifications int
 	adds          int
 	deletes       int
+
+	updates []selectorUpdate
 }
 
 func (sc *SelectorCache) haveUserNotifications() bool {
@@ -141,21 +148,37 @@ func (csu *cachedSelectionUser) IdentitySelectionUpdated(logger *slog.Logger, se
 	csu.adds += len(added)
 	csu.deletes += len(deleted)
 
-	selections := selector.GetSelections()
-
-	// Validate added & deleted against the selections
-	for _, add := range added {
-		require.True(csu.t, haveNid(add, selections))
-	}
-	for _, del := range deleted {
-		require.False(csu.t, haveNid(del, selections))
-	}
-
-	// update selections
-	csu.selections[selector] = selections
+	// collect updates as the changes may not be visible in selections before Commit
+	csu.updates = append(csu.updates, selectorUpdate{
+		selector: selector,
+		added:    slices.Clone(added),
+		deleted:  slices.Clone(deleted),
+	})
 }
 
-func (csu *cachedSelectionUser) IdentitySelectionCommit(*slog.Logger, SelectorSnapshot) {
+func (csu *cachedSelectionUser) IdentitySelectionCommit(logger *slog.Logger, txn SelectorSnapshot) {
+	csu.updateMutex.Lock()
+	defer csu.updateMutex.Unlock()
+
+	for i := range csu.updates {
+		selector := csu.updates[i].selector
+		added := csu.updates[i].added
+		deleted := csu.updates[i].deleted
+
+		selections := selector.GetSelectionsAt(txn)
+
+		// Validate added & deleted against the selections
+		for _, add := range added {
+			require.True(csu.t, haveNid(add, selections))
+		}
+		for _, del := range deleted {
+			require.False(csu.t, haveNid(del, selections))
+		}
+
+		// update selections
+		csu.selections[selector] = selections
+	}
+	csu.updates = nil
 	csu.updateCond.Signal()
 }
 
