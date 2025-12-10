@@ -220,7 +220,7 @@ func (d *statusCollector) getRoutingStatus() *models.Routing {
 		InterHostRoutingMode: models.RoutingInterHostRoutingModeTunnel,
 		TunnelProtocol:       d.statusParams.TunnelConfig.EncapProtocol().String(),
 	}
-	if d.statusParams.DaemonConfig.EnableHostLegacyRouting {
+	if d.statusParams.DaemonConfig.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
 		s.IntraHostRoutingMode = models.RoutingIntraHostRoutingModeLegacy
 	}
 	if d.statusParams.DaemonConfig.RoutingMode == option.RoutingModeNative {
@@ -301,7 +301,7 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		SocketLBTracing:       &models.KubeProxyReplacementFeaturesSocketLBTracing{},
 		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
-		BpfSocketLBHostnsOnly: d.statusParams.DaemonConfig.BPFSocketLBHostnsOnly,
+		BpfSocketLBHostnsOnly: d.statusParams.DaemonConfig.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly,
 	}
 	if d.statusParams.KPRConfig.KubeProxyReplacement {
 		features.NodePort.Enabled = true

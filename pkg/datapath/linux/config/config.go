@@ -280,15 +280,15 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	if h.kprCfg.EnableSocketLB {
-		if option.Config.BPFSocketLBHostnsOnly {
+		if option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
 		} else {
 			cDefinesMap["ENABLE_SOCKET_LB_FULL"] = "1"
 		}
-		if option.Config.EnableSocketLBPeer {
+		if option.Config.UnsafeDaemonConfigOption.EnableSocketLBPeer {
 			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
 		}
-		if option.Config.EnableSocketLBTracing {
+		if option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing {
 			cDefinesMap["TRACE_SOCK_NOTIFY"] = "1"
 		}
 
@@ -315,7 +315,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 
 	if h.kprCfg.KubeProxyReplacement {
-		if option.Config.EnableHealthDatapath {
+		if option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
 		}
 		if option.Config.EnableMKE && h.kprCfg.EnableSocketLB {
@@ -367,8 +367,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 		if option.Config.EnableIPv4 {
 			if option.Config.LoadBalancerRSSv4CIDR != "" {
-				ipv4 := byteorder.NetIPv4ToHost32(option.Config.LoadBalancerRSSv4.IP)
-				ones, _ := option.Config.LoadBalancerRSSv4.Mask.Size()
+				ipv4 := byteorder.NetIPv4ToHost32(option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.IP)
+				ones, _ := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv4.Mask.Size()
 				cDefinesMap["IPV4_RSS_PREFIX"] = fmt.Sprintf("%d", ipv4)
 				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
 			} else {
@@ -378,8 +378,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 		if option.Config.EnableIPv6 {
 			if option.Config.LoadBalancerRSSv6CIDR != "" {
-				ipv6 := option.Config.LoadBalancerRSSv6.IP
-				ones, _ := option.Config.LoadBalancerRSSv6.Mask.Size()
+				ipv6 := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.IP
+				ones, _ := option.Config.UnsafeDaemonConfigOption.LoadBalancerRSSv6.Mask.Size()
 				extraMacrosMap["IPV6_RSS_PREFIX"] = ipv6.String()
 				fw.WriteString(FmtDefineAddress("IPV6_RSS_PREFIX", ipv6))
 				cDefinesMap["IPV6_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
@@ -392,7 +392,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
 		}
-		if !option.Config.EnableHostLegacyRouting {
+		if !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
 			cDefinesMap["ENABLE_HOST_ROUTING"] = "1"
 		}
 	}
@@ -601,7 +601,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.EnableIPIPDevices {
+	if option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices {
 		if option.Config.IPv4Enabled() {
 			ipip4, err := safenetlink.LinkByName(defaults.IPIPv4Device)
 			if err != nil {
@@ -823,7 +823,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	if !option.Config.EnableHostLegacyRouting && drd != nil && len(devices) == 1 {
+	if !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting && drd != nil && len(devices) == 1 {
 		if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
 			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
 		}
