@@ -519,7 +519,7 @@ func Test_MergeL3(t *testing.T) {
 		identityFoo: labelsFoo,
 		identityBar: labelsBar,
 	}
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 
 	type authResult map[identity.NumericIdentity]AuthTypes
 	tests := []struct {
@@ -1153,7 +1153,7 @@ func Test_MergeRules(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
@@ -1268,7 +1268,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
@@ -1348,7 +1348,7 @@ func Test_AllowAll(t *testing.T) {
 		identityFoo: labelsFoo,
 		identityBar: labelsBar,
 	}
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
@@ -1680,7 +1680,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		worldIPIdentity:                       lblWorldIP,     // "192.0.2.3/32"
 		worldSubnetIdentity:                   lblWorldSubnet, // "192.0.2.0/24"
 	}
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
@@ -1869,7 +1869,7 @@ func Test_Allowception(t *testing.T) {
 		one3Z8Identity:                        one3Z8Lbls,  // 16331 (0x3fcb): ["1.0.0.0/8"]
 		one0Z32Identity:                       one0Z32Lbls, // 16332 (0x3fcc): ["1.1.1.1/32"]
 	}
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 
 	computedMapStateForAllowCeption := emptyMapState(hivetest.Logger(t)).withState(mapStateMap{
 		ingressKey(0, 0, 0, 0):                             mapEntryL7None_(lblsAllowAllIngress),
@@ -1915,7 +1915,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityHost:         hostLabel.LabelArray(),
 	}
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
@@ -2017,7 +2017,7 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 	})
 	id2 := addCIDRIdentity("192.0.2.0/24", identityCache)
 	id3 := addCIDRIdentity("192.0.3.0/24", identityCache)
-	selectorCache := testNewSelectorCache(logger, identityCache)
+	selectorCache := testNewSelectorCache(t, logger, identityCache)
 
 	fqdnSel := api.FQDNSelector{MatchName: "www.example.com"}
 	idExample, fqdnIdentities := addFQDNIdentity(fqdnSel, identityCache)
@@ -2194,7 +2194,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
+			td := newTestData(t, hivetest.Logger(t)).withIDs(ruleTestIDs)
 			tr := api.Rule{
 				EndpointSelector: endpointSelectorA,
 			}

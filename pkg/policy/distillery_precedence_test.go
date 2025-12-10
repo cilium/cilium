@@ -30,7 +30,7 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 	}
 
 	logger := hivetest.Logger(t)
-	selectorCache := testNewSelectorCache(logger, identityCache)
+	selectorCache := testNewSelectorCache(t, logger, identityCache)
 
 	type args struct {
 		cs       *testCachedSelector
@@ -247,7 +247,7 @@ func TestOrderedPolicyValidation(t *testing.T) {
 		identity1111:      labels1111,
 		identity1100:      labels1100,
 	}
-	selectorCache := testNewSelectorCache(logger, identityCache)
+	selectorCache := testNewSelectorCache(t, logger, identityCache)
 	identity := identity.NewIdentityFromLabelArray(identityFoo, labelsFoo)
 
 	type probe struct {
