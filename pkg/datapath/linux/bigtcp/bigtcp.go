@@ -211,7 +211,7 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, 
 		if ipsecCfg.Enabled() {
 			return errors.New("BIG TCP is not supported with encryption enabled")
 		}
-		if daemonCfg.EnableHostLegacyRouting {
+		if daemonCfg.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
 			return errors.New("BIG TCP is not supported with legacy host routing")
 		}
 	}

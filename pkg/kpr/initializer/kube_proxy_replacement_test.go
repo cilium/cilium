@@ -60,11 +60,11 @@ func (cfg *kprConfig) set() (err error) {
 	}
 
 	cfg.ipsecConfig = fakeTypes.IPsecConfig{EnableIPsec: cfg.enableIPSec}
-	option.Config.EnableHostLegacyRouting = cfg.enableHostLegacyRouting
+	option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = cfg.enableHostLegacyRouting
 	option.Config.InstallNoConntrackIptRules = cfg.installNoConntrackIptRules
 	option.Config.EnableBPFMasquerade = cfg.enableBPFMasquerade
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
-	option.Config.EnableSocketLBTracing = true
+	option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing = true
 	option.Config.RoutingMode = cfg.routingMode
 
 	if cfg.nodePortMode == loadbalancer.LBModeDSR || cfg.nodePortMode == loadbalancer.LBModeHybrid {
@@ -109,11 +109,11 @@ func (cfg *kprConfig) verify(t *testing.T, lbConfig loadbalancer.Config, kprCfg 
 		}
 	}
 	require.Equal(t, cfg.enableSocketLB, kprCfg.EnableSocketLB)
-	require.Equal(t, cfg.enableHostLegacyRouting, option.Config.EnableHostLegacyRouting)
+	require.Equal(t, cfg.enableHostLegacyRouting, option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting)
 	require.Equal(t, cfg.installNoConntrackIptRules, option.Config.InstallNoConntrackIptRules)
 	require.Equal(t, cfg.enableBPFMasquerade, option.Config.EnableBPFMasquerade)
 	require.Equal(t, cfg.enableIPv4Masquerade, option.Config.EnableIPv4Masquerade)
-	require.Equal(t, cfg.enableSocketLBTracing, option.Config.EnableSocketLBTracing)
+	require.Equal(t, cfg.enableSocketLBTracing, option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing)
 }
 
 func TestInitKubeProxyReplacementOptions(t *testing.T) {
