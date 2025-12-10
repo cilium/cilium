@@ -265,6 +265,9 @@ type SelectorCache struct {
 
 	// used to lazily start the handler for user notifications.
 	startNotificationsHandlerOnce sync.Once
+
+	// userHandlerDone is initialized only in tests to allow termination of the handler
+	userHandlerDone chan struct{}
 }
 
 // GetReadTxn returns a read-only state of the current selectors in the selector cache.
@@ -369,6 +372,12 @@ func (sc *SelectorCache) handleUserNotifications() {
 		sc.userMutex.Unlock()
 
 		for _, n := range notifications {
+			// Allow testing code to stop the handler by sending a zero notification.
+			if n.user == nil && sc.userHandlerDone != nil {
+				close(sc.userHandlerDone)
+				return
+			}
+
 			if n.selector == nil {
 				n.user.IdentitySelectionCommit(sc.logger, n.txn)
 			} else {

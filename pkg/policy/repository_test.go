@@ -46,7 +46,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 	repo := td.repo
 
 	fooSelectLabel := labels.ParseSelectLabel("foo")
@@ -242,7 +242,7 @@ func TestComputePolicyEnforcementAndRules(t *testing.T) {
 }
 
 func TestWildcardL3RulesIngress(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -445,7 +445,7 @@ func TestWildcardL3RulesIngress(t *testing.T) {
 }
 
 func TestWildcardL4RulesIngress(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL4Kafka := labels.LabelArray{labels.ParseLabel("L4-kafka")}
 	labelsL7Kafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -573,7 +573,7 @@ func TestWildcardL4RulesIngress(t *testing.T) {
 }
 
 func TestWildcardL3RulesEgress(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL4 := labels.LabelArray{labels.ParseLabel("L4")}
 	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -740,7 +740,7 @@ func TestWildcardL3RulesEgress(t *testing.T) {
 }
 
 func TestWildcardL4RulesEgress(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3DNS := labels.LabelArray{labels.ParseLabel("L3-dns")}
 	labelsL7DNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -870,7 +870,7 @@ func TestWildcardL4RulesEgress(t *testing.T) {
 }
 
 func TestWildcardCIDRRulesEgress(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsHTTP := labels.LabelArray{labels.ParseLabel("http")}
@@ -957,7 +957,7 @@ func TestWildcardCIDRRulesEgress(t *testing.T) {
 }
 
 func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsKafka := labels.LabelArray{labels.ParseLabel("kafka")}
@@ -1071,7 +1071,7 @@ func TestWildcardL3RulesIngressFromEntities(t *testing.T) {
 }
 
 func TestWildcardL3RulesEgressToEntities(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	labelsL3 := labels.LabelArray{labels.ParseLabel("L3")}
 	labelsDNS := labels.LabelArray{labels.ParseLabel("dns")}
@@ -1184,7 +1184,7 @@ func TestWildcardL3RulesEgressToEntities(t *testing.T) {
 }
 
 func TestMinikubeGettingStarted(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	rule1 := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -1263,7 +1263,7 @@ func TestMinikubeGettingStarted(t *testing.T) {
 }
 
 func TestIterate(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 	repo := td.repo
 
 	numWithEgress := 0
@@ -1399,7 +1399,7 @@ func TestDefaultAllow(t *testing.T) {
 
 	// three test runs: ingress, egress, and ingress + egress cartesian
 	for i, tc := range ingressCases {
-		td := newTestData(hivetest.Logger(t))
+		td := newTestData(t, hivetest.Logger(t))
 		td.addIdentity(fooIdentity)
 		repo := td.repo
 
@@ -1412,7 +1412,7 @@ func TestDefaultAllow(t *testing.T) {
 	}
 
 	for i, tc := range egressCases {
-		td := newTestData(hivetest.Logger(t))
+		td := newTestData(t, hivetest.Logger(t))
 		td.addIdentity(fooIdentity)
 		repo := td.repo
 
@@ -1427,7 +1427,7 @@ func TestDefaultAllow(t *testing.T) {
 	// test all combinations of ingress + egress cases
 	for e, etc := range egressCases {
 		for i, itc := range ingressCases {
-			td := newTestData(hivetest.Logger(t))
+			td := newTestData(t, hivetest.Logger(t))
 			td.addIdentity(fooIdentity)
 			repo := td.repo
 
@@ -1446,7 +1446,7 @@ func TestReplaceByResource(t *testing.T) {
 	// don't use the full testdata() here, since we want to watch
 	// selectorcache changes carefully
 	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
-	sc := testNewSelectorCache(hivetest.Logger(t), nil)
+	sc := testNewSelectorCache(t, hivetest.Logger(t), nil)
 	repo.selectorCache = sc
 	assert.True(t, sc.selectors.Empty())
 
