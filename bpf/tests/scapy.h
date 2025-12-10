@@ -109,8 +109,9 @@ struct scapy_assert {
 	char file[__SCAPY_MAX_STR_LEN];		/* Filename */
 	char lnum[__SCAPY_MAX_STR_LEN];		/* Line number */
 	char first_layer[__SCAPY_MAX_STR_LEN];	/* Scapy  layer (e.g. Ether) */
-	__u16 len;				/* Buffer len (data compared) */
+	__u16 exp_len;				/* Exp. len (compared len) */
 	__u8 exp_buf[__SCAPY_MAX_BUF];		/* Expected buffer */
+	__u16 got_len;				/* Got buffer len */
 	__u8 got_buf[__SCAPY_MAX_BUF];		/* Got buffer */
 	__u8 pad[2];
 };
@@ -129,6 +130,7 @@ static __u32 scapy_assert_map_cnt;
 
 /* Needs to be here not to blow up stack size */
 static struct scapy_assert __scapy_assert = {0};
+static struct scapy_assert __scapy_null_assert = {0};
 
 #ifndef __ASSERT_TRACE_FAIL_LEN
 #define __ASSERT_TRACE_FAIL_LEN(BUF_NAME, _BUF_LEN, LEN)		\
@@ -141,6 +143,9 @@ static struct scapy_assert __scapy_assert = {0};
 	test_log("CTX and buffer '" BUF_NAME "' content mismatch ")
 #endif /* __ASSERT_TRACE_FAIL_BUF */
 
+#define __SCAPY_GET_CTX_LEN(__DATA, __DATA_END) \
+	(__u16)((unsigned long long)(__DATA_END) - (unsigned long long)(__DATA))
+
 static __always_inline
 bool __assert_map_add_failure(const char *name, const __u8 name_len,
 			      const char *first_layer,
@@ -149,11 +154,17 @@ bool __assert_map_add_failure(const char *name, const __u8 name_len,
 			      const __u16 len, void *data,
 			      const void *data_end)
 {
-	__scapy_assert.len = len;
+	__scapy_assert.exp_len = len;
 	scapy_memcpy(__scapy_assert.exp_buf, buf, len);
 
-	if (data + len <= data_end)
+	__scapy_assert.got_len = __SCAPY_GET_CTX_LEN(data, data_end);
+	if (data + len <= data_end) {
 		scapy_memcpy(__scapy_assert.got_buf, data, len);
+	} else {
+		/* Clear previous assert content */
+		scapy_memcpy(__scapy_assert.got_buf,
+			     __scapy_null_assert.got_buf, len);
+	}
 
 	scapy_strncpy(__scapy_assert.name, name, name_len);
 	scapy_strncpy(__scapy_assert.file, __FILE__, sizeof(__FILE__));
