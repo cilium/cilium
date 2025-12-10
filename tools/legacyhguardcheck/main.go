@@ -75,6 +75,7 @@ var exclude = []string{
 	"bpf/tests/common.h",
 	"bpf/tests/bpf_skb_255_tests.c",
 	"bpf/tests/bpf_skb_511_tests.c",
+	"bpf/tests/scapy.h",
 }
 
 func checkFile(filePath string) (bool, error) {
