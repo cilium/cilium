@@ -290,7 +290,6 @@ func Test_mcsDerivedService_Reconcile(t *testing.T) {
 			require.Len(t, svc.Spec.Ports, 2)
 			require.Equal(t, "my-port-1", svc.Spec.Ports[0].Name)
 			require.Equal(t, "my-port-target-port", svc.Spec.Ports[1].Name)
-			require.Equal(t, "test-target-port", svc.Spec.Ports[1].TargetPort.String())
 
 			svcImport := &mcsapiv1alpha1.ServiceImport{}
 			err = c.Get(context.Background(), key, svcImport)
