@@ -1172,10 +1172,10 @@ func TestDaemonConfig_StoreInFile(t *testing.T) {
 	Config.DryMode = false
 
 	// minor change
-	Config.EncryptInterface = append(Config.EncryptInterface, "yolo")
+	Config.UnsafeDaemonConfigOption.EncryptInterface = append(Config.UnsafeDaemonConfigOption.EncryptInterface, "yolo")
 	err = Config.ValidateUnchanged()
 	assert.NoError(t, err)
-	Config.EncryptInterface = nil
+	Config.UnsafeDaemonConfigOption.EncryptInterface = nil
 
 	// IntOptions changes are ignored
 	Config.Opts.SetBool("unit-test-key-only", false)

@@ -204,7 +204,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, "cilium_throttle")
 	}
 
-	if !option.Config.EnableHealthDatapath {
+	if !option.Config.UnsafeDaemonConfigOption.EnableHealthDatapath {
 		maps = append(maps, lbmaps.HealthProbe6MapName, lbmaps.HealthProbe4MapName)
 	}
 
