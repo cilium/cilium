@@ -166,63 +166,66 @@ func (td *testData) addIdentitySelector(sel api.EndpointSelector) bool {
 	return added
 }
 
-func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4PolicyMap, availableIDs ...identity.NumericIdentity) {
+func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4PolicyMaps, availableIDs ...identity.NumericIdentity) {
 	t.Helper()
 
-	require.Equal(t, expected.Len(), actual.Len())
-	expected.ForEach(func(l4 *L4Filter) bool {
-		port := l4.PortName
-		if len(port) == 0 {
-			port = fmt.Sprintf("%d", l4.Port)
-		}
-
-		l4B := actual.ExactLookup(port, l4.EndPort, string(l4.Protocol))
-		require.NotNil(t, l4B, "Port Protocol lookup failed: [Port: %s, EndPort: %d, Protocol: %s]", port, l4.EndPort, string(l4.Protocol))
-
-		// If no available IDs are provided, we assume the same pointer for
-		// cached selector is used for both expected and actual L4PolicyMap,
-		// just make sure L4 filter is equal
-		if len(availableIDs) == 0 {
-			require.True(t, l4.Equals(l4B), "Expected: %s\nActual: %s", l4.String(), l4B.String())
-			return true
-		}
-
-		require.Equal(t, l4.Port, l4B.Port)
-		require.Equal(t, l4.EndPort, l4B.EndPort)
-		require.Equal(t, l4.PortName, l4B.PortName)
-		require.Equal(t, l4.Protocol, l4B.Protocol)
-		require.Equal(t, l4.Ingress, l4B.Ingress)
-		require.Equal(t, l4.wildcard, l4B.wildcard)
-
-		require.Len(t, l4B.PerSelectorPolicies, len(l4.PerSelectorPolicies))
-
-		for k, v := range l4.PerSelectorPolicies {
-			found := false
-			for bK, bV := range l4B.PerSelectorPolicies {
-				if k.String() == bK.String() {
-					require.True(t, v.Equal(bV), "Expected: %s\nActual: %s", perSelectorPolicyToString(v), perSelectorPolicyToString(bV))
-
-					selActual := bK.(*identitySelector).cachedSelections
-					selExpected := make(map[identity.NumericIdentity]struct{})
-					for id := range k.(*identitySelector).cachedSelections {
-						if slices.Contains(availableIDs, id) {
-							selExpected[id] = struct{}{}
-						}
-					}
-
-					require.True(t, maps.Equal(selExpected, selActual), "Expected: %v\nActual: %v", selExpected, selActual)
-					found = true
-				}
+	require.Len(t, expected, len(actual))
+	for i := range expected {
+		require.Equal(t, expected[i].Len(), actual[i].Len())
+		expected[i].ForEach(func(l4 *L4Filter) bool {
+			port := l4.PortName
+			if len(port) == 0 {
+				port = fmt.Sprintf("%d", l4.Port)
 			}
 
-			require.True(t, found, "Failed to find expected cached selector in PerSelectorPolicy: %s (%v)", k.String(), l4B.PerSelectorPolicies)
-		}
+			l4B := actual[i].ExactLookup(port, l4.EndPort, string(l4.Protocol))
+			require.NotNil(t, l4B, "Port Protocol lookup failed: [Port: %s, EndPort: %d, Protocol: %s]", port, l4.EndPort, string(l4.Protocol))
 
-		return true
-	})
+			// If no available IDs are provided, we assume the same pointer for
+			// cached selector is used for both expected and actual L4PolicyMap,
+			// just make sure L4 filter is equal
+			if len(availableIDs) == 0 {
+				require.True(t, l4.Equals(l4B), "Expected: %s\nActual: %s", l4.String(), l4B.String())
+				return true
+			}
+
+			require.Equal(t, l4.Port, l4B.Port)
+			require.Equal(t, l4.EndPort, l4B.EndPort)
+			require.Equal(t, l4.PortName, l4B.PortName)
+			require.Equal(t, l4.Protocol, l4B.Protocol)
+			require.Equal(t, l4.Ingress, l4B.Ingress)
+			require.Equal(t, l4.wildcard, l4B.wildcard)
+
+			require.Len(t, l4B.PerSelectorPolicies, len(l4.PerSelectorPolicies))
+
+			for k, v := range l4.PerSelectorPolicies {
+				found := false
+				for bK, bV := range l4B.PerSelectorPolicies {
+					if k.String() == bK.String() {
+						require.True(t, v.Equal(bV), "Expected: %s\nActual: %s", perSelectorPolicyToString(v), perSelectorPolicyToString(bV))
+
+						selActual := bK.(*identitySelector).cachedSelections
+						selExpected := make(map[identity.NumericIdentity]struct{})
+						for id := range k.(*identitySelector).cachedSelections {
+							if slices.Contains(availableIDs, id) {
+								selExpected[id] = struct{}{}
+							}
+						}
+
+						require.True(t, maps.Equal(selExpected, selActual), "Expected: %v\nActual: %v", selExpected, selActual)
+						found = true
+					}
+				}
+
+				require.True(t, found, "Failed to find expected cached selector in PerSelectorPolicy: %s (%v)", k.String(), l4B.PerSelectorPolicies)
+			}
+
+			return true
+		})
+	}
 }
 
-func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPolicy, epPolicy *EndpointPolicy, expectedIn, expectedOut L4PolicyMap) {
+func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPolicy, epPolicy *EndpointPolicy, expectedIn, expectedOut L4PolicyMaps) {
 	t.Helper()
 	logger := hivetest.Logger(t)
 
@@ -256,13 +259,13 @@ func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPoli
 // select identity A.
 //
 // The repository is cleared when called.
-func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMap, rules ...*api.Rule) {
+func (td *testData) policyMapEquals(t *testing.T, expectedIn, expectedOut L4PolicyMaps, rules ...*api.Rule) {
 	t.Helper()
 	entries := utils.RulesToPolicyEntries(rules)
 	td.policyMapEqualsPolicyEntries(t, expectedIn, expectedOut, entries...)
 }
 
-func (td *testData) policyMapEqualsPolicyEntries(t *testing.T, expectedIn, expectedOut L4PolicyMap, entries ...*types.PolicyEntry) {
+func (td *testData) policyMapEqualsPolicyEntries(t *testing.T, expectedIn, expectedOut L4PolicyMaps, entries ...*types.PolicyEntry) {
 	t.Helper()
 	logger := hivetest.Logger(t)
 
@@ -519,7 +522,7 @@ func TestL3Wildcarding(t *testing.T) {
 			},
 		},
 	}
-	td.policyMapEquals(t, NewL4PolicyMap(), nil, &ruleB1)
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &ruleB1)
 
 	// CaseB2: No identities are selected with wildcard port
 	ruleB2 := api.Rule{
@@ -537,7 +540,7 @@ func TestL3Wildcarding(t *testing.T) {
 			},
 		},
 	}
-	td.policyMapEquals(t, NewL4PolicyMap(), nil, &ruleB2)
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &ruleB2)
 
 	// CaseB3: No identities are selected without L4
 	ruleB3 := api.Rule{
@@ -550,7 +553,7 @@ func TestL3Wildcarding(t *testing.T) {
 			},
 		},
 	}
-	td.policyMapEquals(t, NewL4PolicyMap(), nil, &ruleB3)
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &ruleB3)
 
 	//
 	// C: Nil FromEndpoints (No L3 specified): a wildcard selector is implicitly added when
@@ -593,7 +596,7 @@ func TestL3Wildcarding(t *testing.T) {
 			{},
 		},
 	}
-	td.policyMapEquals(t, NewL4PolicyMap(), nil, &ruleC3)
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &ruleC3)
 }
 
 // Tests in this file:
@@ -705,7 +708,7 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 		},
 	}
 
-	td.policyMapEquals(t, NewL4PolicyMap(), nil, &rule2)
+	td.policyMapEquals(t, L4PolicyMaps{makeL4PolicyMap()}, nil, &rule2)
 
 	// Case1C: nil FromEndpoints with non-wildcard port selects all identities.
 	rule3 := api.Rule{
@@ -2412,7 +2415,7 @@ func TestEgressEmptyToEndpoints(t *testing.T) {
 		},
 	}
 
-	expected := NewL4PolicyMap()
+	expected := L4PolicyMaps{makeL4PolicyMap()}
 	td.policyMapEquals(t, nil, expected, &rule)
 }
 

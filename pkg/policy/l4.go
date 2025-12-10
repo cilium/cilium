@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"log/slog"
 	"math/bits"
 	"sort"
@@ -1208,7 +1209,7 @@ func (l4 *L4Filter) String() string {
 // addL4Filter adds 'filterToMerge' into the 'resMap'. Returns an error if it
 // the 'filterToMerge' can't be merged with an existing filter for the same
 // port and proto.
-func (resMap *l4PolicyMap) addL4Filter(policyCtx PolicyContext,
+func (resMap *L4PolicyMap) addL4Filter(policyCtx PolicyContext,
 	p api.PortProtocol, filterToMerge *L4Filter,
 ) error {
 	existingFilter := resMap.ExactLookup(p.Port, uint16(p.EndPort), string(p.Protocol))
@@ -1236,39 +1237,54 @@ func (resMap *l4PolicyMap) addL4Filter(policyCtx PolicyContext,
 	return nil
 }
 
-// L4PolicyMap is a list of L4 filters indexable by port/endport/protocol
-type L4PolicyMap interface {
-	Upsert(port string, endPort uint16, protocol string, l4 *L4Filter)
-	Delete(port string, endPort uint16, protocol string)
-	ExactLookup(port string, endPort uint16, protocol string) *L4Filter
-	Detach(selectorCache *SelectorCache)
-	ForEach(func(l4 *L4Filter) bool)
-	Len() int
-}
-
-// NewL4PolicyMap creates an new L4PolicMap.
-func NewL4PolicyMap() *l4PolicyMap {
-	return &l4PolicyMap{
+// makeL4PolicyMap creates an new L4PolicMap.
+func makeL4PolicyMap() L4PolicyMap {
+	return L4PolicyMap{
 		NamedPortMap:   make(map[string]*L4Filter),
 		RangePortMap:   make(map[portProtoKey]*L4Filter),
 		RangePortIndex: bitlpm.NewUintTrie[uint32, map[portProtoKey]struct{}](),
+	}
+}
+
+// L4PolicyMaps is a slice of L4PolicyMap, one for each tier in the policy
+type L4PolicyMaps []L4PolicyMap
+
+func (ls L4PolicyMaps) Len() int {
+	length := 0
+	for i := range ls {
+		length += ls[i].Len()
+	}
+	return length
+}
+
+func (ls L4PolicyMaps) Filters() iter.Seq[*L4Filter] {
+	return func(yield func(*L4Filter) bool) {
+		done := false
+		for i := range ls {
+			ls[i].ForEach(func(l4 *L4Filter) bool {
+				ok := yield(l4)
+				if !ok {
+					done = true
+				}
+				return ok
+			})
+			if done {
+				break
+			}
+		}
 	}
 }
 
 // NewL4PolicyMapWithValues creates an new L4PolicMap, with an initial
 // set of values. The initMap argument does not support port ranges.
-func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMap {
-	l4M := &l4PolicyMap{
-		NamedPortMap:   make(map[string]*L4Filter),
-		RangePortMap:   make(map[portProtoKey]*L4Filter),
-		RangePortIndex: bitlpm.NewUintTrie[uint32, map[portProtoKey]struct{}](),
-	}
+func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMaps {
+	l4M := L4PolicyMaps{makeL4PolicyMap()}
 	for k, v := range initMap {
 		portProtoSlice := strings.Split(k, "/")
 		if len(portProtoSlice) < 2 {
 			continue
 		}
-		l4M.Upsert(portProtoSlice[0], 0, portProtoSlice[1], v)
+		l4M[0].Upsert(portProtoSlice[0], 0, portProtoSlice[1], v)
 	}
 	return l4M
 }
@@ -1278,8 +1294,8 @@ type portProtoKey struct {
 	Proto         uint8
 }
 
-// l4PolicyMap is the implementation of L4PolicyMap
-type l4PolicyMap struct {
+// L4PolicyMap is the implementation of L4PolicyMap
+type L4PolicyMap struct {
 	// NamedPortMap represents the named ports (a Kubernetes feature)
 	// that map to an L4Filter. They must be tracked at the selection
 	// level, because they can only be resolved at the endpoint/identity
@@ -1310,7 +1326,7 @@ func makePolicyMapKey(port, mask uint16, proto uint8) uint32 {
 }
 
 // Upsert L4Filter adds an L4Filter indexed by protocol/port-endPort.
-func (l4M *l4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 *L4Filter) {
+func (l4M *L4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 *L4Filter) {
 	if iana.IsSvcName(port) {
 		l4M.NamedPortMap[port+"/"+protocol] = l4
 		return
@@ -1341,7 +1357,7 @@ func (l4M *l4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 
 }
 
 // Delete an L4Filter from the index by protocol/port-endPort
-func (l4M *l4PolicyMap) Delete(port string, endPort uint16, protocol string) {
+func (l4M *L4PolicyMap) Delete(port string, endPort uint16, protocol string) {
 	if iana.IsSvcName(port) {
 		delete(l4M.NamedPortMap, port+"/"+protocol)
 		return
@@ -1373,7 +1389,7 @@ func (l4M *l4PolicyMap) Delete(port string, endPort uint16, protocol string) {
 }
 
 // ExactLookup looks up an L4Filter by protocol/port-endPort and looks for an exact match.
-func (l4M *l4PolicyMap) ExactLookup(port string, endPort uint16, protocol string) *L4Filter {
+func (l4M *L4PolicyMap) ExactLookup(port string, endPort uint16, protocol string) *L4Filter {
 	if iana.IsSvcName(port) {
 		return l4M.NamedPortMap[port+"/"+protocol]
 	}
@@ -1388,7 +1404,7 @@ func (l4M *l4PolicyMap) ExactLookup(port string, endPort uint16, protocol string
 }
 
 // ForEach iterates over all L4Filters in the l4PolicyMap.
-func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
+func (l4M *L4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 	for _, f := range l4M.NamedPortMap {
 		if !fn(f) {
 			return
@@ -1402,7 +1418,7 @@ func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 }
 
 // Len returns the number of entries in the map.
-func (l4M *l4PolicyMap) Len() int {
+func (l4M *L4PolicyMap) Len() int {
 	if l4M == nil {
 		return 0
 	}
@@ -1433,7 +1449,7 @@ func (pf policyFeatures) contains(feature policyFeatures) bool {
 }
 
 type L4DirectionPolicy struct {
-	PortRules L4PolicyMap
+	PortRules L4PolicyMaps
 
 	// features tracks properties of PortRules to skip code when features are not used
 	features policyFeatures
@@ -1441,8 +1457,12 @@ type L4DirectionPolicy struct {
 
 func newL4DirectionPolicy() L4DirectionPolicy {
 	return L4DirectionPolicy{
-		PortRules: NewL4PolicyMap(),
+		PortRules: L4PolicyMaps{makeL4PolicyMap()},
 	}
+}
+
+func (l4 L4DirectionPolicy) Filters() iter.Seq[*L4Filter] {
+	return l4.PortRules.Filters()
 }
 
 // Detach removes the cached selectors held by L4PolicyMap from the
@@ -1453,11 +1473,10 @@ func (l4 L4DirectionPolicy) Detach(selectorCache *SelectorCache) {
 }
 
 // detach is used directly from tracing and testing functions
-func (l4M *l4PolicyMap) Detach(selectorCache *SelectorCache) {
-	l4M.ForEach(func(l4 *L4Filter) bool {
+func (l4M L4PolicyMaps) Detach(selectorCache *SelectorCache) {
+	for l4 := range l4M.Filters() {
 		l4.detach(selectorCache)
-		return true
-	})
+	}
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
@@ -1467,12 +1486,11 @@ func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redir
 	var redirectTypes redirectTypes
 	var features policyFeatures
 
-	l4.PortRules.ForEach(func(f *L4Filter) bool {
+	for f := range l4.Filters() {
 		feat, redir := f.attach(ctx, l4Policy)
 		features |= feat
 		redirectTypes |= redir
-		return true
-	})
+	}
 	l4.features = features
 	return redirectTypes
 }
@@ -1720,7 +1738,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	}
 
 	ingress := []*models.PolicyRule{}
-	l4.Ingress.PortRules.ForEach(func(v *L4Filter) bool {
+	for v := range l4.Ingress.Filters() {
 		rulesBySelector := map[string][][]string{}
 		derivedFrom := labels.LabelArrayList{}
 		for sel, rules := range v.RuleOrigin {
@@ -1733,11 +1751,10 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 			DerivedFromRules: derivedFrom.GetModel(),
 			RulesBySelector:  rulesBySelector,
 		})
-		return true
-	})
+	}
 
 	egress := []*models.PolicyRule{}
-	l4.Egress.PortRules.ForEach(func(v *L4Filter) bool {
+	for v := range l4.Egress.Filters() {
 		// TODO: Add RulesBySelector field like for ingress above?
 		derivedFrom := labels.LabelArrayList{}
 		for _, rules := range v.RuleOrigin {
@@ -1748,8 +1765,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 			Rule:             v.Marshal(),
 			DerivedFromRules: derivedFrom.GetModel(),
 		})
-		return true
-	})
+	}
 
 	return &models.L4Policy{
 		Ingress: ingress,
@@ -1764,7 +1780,7 @@ func (l4 *L4Policy) GetRuleOriginModel() *models.L4Policy {
 	}
 
 	ingress := []*models.PolicyRule{}
-	l4.Ingress.PortRules.ForEach(func(v *L4Filter) bool {
+	for v := range l4.Ingress.Filters() {
 		derivedFrom := labels.LabelArrayList{}
 		for _, rules := range v.RuleOrigin {
 			lal := rules.GetLabelArrayList()
@@ -1773,11 +1789,10 @@ func (l4 *L4Policy) GetRuleOriginModel() *models.L4Policy {
 		ingress = append(ingress, &models.PolicyRule{
 			DerivedFromRules: derivedFrom.GetModel(),
 		})
-		return true
-	})
+	}
 
 	egress := []*models.PolicyRule{}
-	l4.Egress.PortRules.ForEach(func(v *L4Filter) bool {
+	for v := range l4.Egress.Filters() {
 		derivedFrom := labels.LabelArrayList{}
 		for _, rules := range v.RuleOrigin {
 			lal := rules.GetLabelArrayList()
@@ -1786,8 +1801,7 @@ func (l4 *L4Policy) GetRuleOriginModel() *models.L4Policy {
 		egress = append(egress, &models.PolicyRule{
 			DerivedFromRules: derivedFrom.GetModel(),
 		})
-		return true
-	})
+	}
 
 	return &models.L4Policy{
 		Ingress: ingress,

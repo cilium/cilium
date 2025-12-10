@@ -515,10 +515,9 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
 func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy) {
-	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
+	for l4 := range l4policy.Filters() {
 		l4.toMapState(logger, p, l4policy.features, ChangeState{})
-		return true
-	})
+	}
 }
 
 type PerSelectorPolicyTuple struct {
@@ -537,14 +536,22 @@ func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolic
 
 func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, PerSelectorPolicyTuple) bool) bool {
 	ok := true
-	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		for cs, ps := range l4.PerSelectorPolicies {
-			if ps != nil && ps.IsRedirect() {
-				ok = yield(l4, PerSelectorPolicyTuple{ps, cs})
+	for i := range l4policy.PortRules {
+		l4policy.PortRules[i].ForEach(func(l4 *L4Filter) bool {
+			for cs, ps := range l4.PerSelectorPolicies {
+				if ps != nil && ps.IsRedirect() {
+					if !yield(l4, PerSelectorPolicyTuple{ps, cs}) {
+						ok = false
+						return false
+					}
+				}
 			}
+			return true
+		})
+		if !ok {
+			break
 		}
-		return ok
-	})
+	}
 	return ok
 }
 
