@@ -213,15 +213,13 @@ func (p *policyWatcher) updateToServicesPolicies(ev serviceEvent) error {
 			continue
 		}
 
-		if p.config.Debug {
-			p.log.Debug(
-				"Service updated or deleted, recalculating CiliumNetworkPolicy rules",
-				logfields.CiliumNetworkPolicyName, cnp.Name,
-				logfields.K8sAPIVersion, cnp.APIVersion,
-				logfields.K8sNamespace, cnp.Namespace,
-				logfields.ServiceID, ev.name,
-			)
-		}
+		p.log.Debug(
+			"Service updated or deleted, recalculating CiliumNetworkPolicy rules",
+			logfields.CiliumNetworkPolicyName, cnp.Name,
+			logfields.K8sAPIVersion, cnp.APIVersion,
+			logfields.K8sNamespace, cnp.Namespace,
+			logfields.ServiceID, ev.name,
+		)
 		initialRecvTime := time.Now()
 
 		resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
