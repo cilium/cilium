@@ -40,7 +40,7 @@ runs:
         cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}"
 
     - name: Upload artifacts
-      if: ${{ always() && inputs.job_status == 'failure' }}
+      if: ${{ always() && (inputs.job_status == 'failure' || inputs.always_capture_sysdump == 'true') }}
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
       with:
         name: "cilium-sysdumps-${{ inputs.artifacts_suffix }}"
