@@ -169,7 +169,7 @@ static struct scapy_assert __scapy_assert = {0};
 		if (!_ok) {								\
 			__scapy_assert.len = LEN;					\
 			scapy_memcpy(__scapy_assert.exp_buf, _BUF, LEN);		\
-			if (__DATA + (LEN) < __DATA_END) {				\
+			if (__DATA + (LEN) <= __DATA_END) {				\
 				scapy_memcpy(__scapy_assert.got_buf, __DATA, LEN);	\
 			}								\
 			scapy_strncpy(__scapy_assert.name, NAME, sizeof(NAME));		\
