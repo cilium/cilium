@@ -5670,6 +5670,9 @@
                   },
                   {
                     "type": "string"
+                  },
+                  {
+                    "type": "string"
                   }
                 ]
               },
