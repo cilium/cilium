@@ -2652,3 +2652,76 @@ func TestDecode_CustomMonitorDecoder(t *testing.T) {
 		})
 	}
 }
+
+type customDecoder struct {
+}
+
+// DecodePacket implements options.L34PacketDecoder.
+func (c customDecoder) DecodePacket(payload []byte, decoded *flowpb.Flow, isL3Device bool, isIPv6 bool, isVXLAN bool, isGeneve bool) (sourceIP netip.Addr, destinationIP netip.Addr, sourcePort uint16, destinationPort uint16, err error) {
+	sourceIP = netip.MustParseAddr("10.13.37.1")
+	destinationIP = netip.MustParseAddr("10.13.37.2")
+	sourcePort = 10011
+	destinationPort = 443
+
+	decoded.IP = &flowpb.IP{
+		Source:      sourceIP.String(),
+		Destination: destinationIP.String(),
+		IpVersion:   flowpb.IPVersion_IPv4,
+	}
+
+	return
+}
+
+func TestDecode_CustomPacketDecoder(t *testing.T) {
+	event := monitor.TraceNotify{
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		Source:   localEP,
+		ObsPoint: monitorAPI.TraceFromLxc,
+		Reason:   monitor.TraceReasonCtEstablished,
+		Version:  monitor.TraceNotifyVersion2,
+	}
+
+	var l []gopacket.SerializableLayer
+	l = append(l, &layers.Ethernet{SrcMAC: srcMAC, DstMAC: dstMAC, EthernetType: layers.EthernetTypeIPv4}, &layers.IPv4{SrcIP: egressTuple.src.AsSlice(), DstIP: egressTuple.dst.AsSlice()})
+
+	want := &flowpb.Flow{
+		EventType: &flowpb.CiliumEventType{
+			Type:    4,
+			SubType: 5,
+		},
+		Type:        flowpb.FlowType_L3_L4,
+		Source:      &flowpb.Endpoint{},
+		Destination: &flowpb.Endpoint{},
+		IP: &flowpb.IP{
+			IpVersion:   flowpb.IPVersion_IPv4,
+			Source:      "10.13.37.1",
+			Destination: "10.13.37.2",
+		},
+		TraceObservationPoint: flowpb.TraceObservationPoint_FROM_ENDPOINT,
+		TraceReason:           flowpb.TraceReason_ESTABLISHED,
+		TrafficDirection:      flowpb.TrafficDirection_INGRESS,
+		IsReply:               wrapperspb.Bool(false),
+		Verdict:               flowpb.Verdict_FORWARDED,
+	}
+
+	data, err := testutils.CreateL3L4Payload(event, l...)
+	if err != nil {
+		t.Fatalf("Unexpected error from CreateL3L4Payload(%T, ...): %v", event, err)
+	}
+
+	parser, err := New(hivetest.Logger(t), defaultEndpointGetter, nil, nil, nil, nil, nil, options.WithL34PacketDecoder(customDecoder{}))
+	require.NoError(t, err)
+
+	got := &flowpb.Flow{}
+	if err := parser.Decode(data, got); err != nil {
+		t.Fatalf("Unexpected error from Decode(data, %T): %v", got, err)
+	}
+
+	opts := []cmp.Option{
+		protocmp.Transform(),
+		protocmp.IgnoreFields(&flowpb.Flow{}, "reply"),
+	}
+	if diff := cmp.Diff(want, got, opts...); diff != "" {
+		t.Errorf("Unexpected diff (-want +got):\n%s", diff)
+	}
+}
