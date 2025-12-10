@@ -64,6 +64,11 @@ var (
 				Name:      "full",
 				Namespace: "default",
 			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{{
+					Port: 80,
+				}},
+			},
 		},
 		&discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
@@ -401,6 +406,61 @@ var (
 			Ports:       commonPorts,
 			AddressType: discoveryv1.AddressTypeIPv4,
 		},
+
+		&mcsapiv1alpha1.ServiceExport{
+			TypeMeta: typeMetaSvcExport,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "port-filter",
+				Namespace: "default",
+			},
+		},
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "port-filter",
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{Port: 80},
+					{
+						// This port conflicts with the derived service
+						// and should be ignored when mirroring local epslice
+						Name: "myport",
+						Port: 8080,
+					},
+				},
+			},
+		},
+		&discoveryv1.EndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "port-filter",
+				Namespace: "default",
+				Labels: map[string]string{
+					discoveryv1.LabelServiceName: "port-filter",
+				},
+			},
+			Endpoints: commonEndpoints,
+			Ports: []discoveryv1.EndpointPort{
+				{Port: ptr.To[int32](80)},
+				{Name: ptr.To("myport"), Port: ptr.To[int32](4242)},
+			},
+			AddressType: discoveryv1.AddressTypeIPv4,
+		},
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      derivedName(types.NamespacedName{Name: "port-filter", Namespace: "default"}),
+				Namespace: "default",
+				Annotations: map[string]string{
+					"clustermesh.cilium.io/supported-ip-families": "IPv4",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{Port: 80},
+					{Name: "myport", Port: 42},
+				},
+			},
+		},
 	}
 )
 
@@ -527,4 +587,28 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 			require.True(t, apierrors.IsNotFound(err), "EndpointSlice should be deleted")
 		})
 	}
+
+	t.Run("Check mirrored Endpoint port-filter", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "port-filter",
+			Namespace: "default",
+		}
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
+			NamespacedName: key,
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		keyDerived := types.NamespacedName{
+			Name:      derivedName(types.NamespacedName{Name: "port-filter", Namespace: "default"}),
+			Namespace: "default",
+		}
+		epSlice := &discoveryv1.EndpointSlice{}
+		err = c.Get(t.Context(), keyDerived, epSlice)
+		require.NoError(t, err)
+
+		require.Equal(t, []discoveryv1.EndpointPort{{
+			Port: ptr.To[int32](80),
+		}}, epSlice.Ports)
+	})
 }
