@@ -309,7 +309,7 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 	}
 
 	if newK8sPod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy &&
-		!option.Config.EnableSocketLBTracing {
+		!option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing {
 		scopedLog.Debug("Skip pod event using host networking")
 		return err
 	}

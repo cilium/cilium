@@ -2321,9 +2321,9 @@ func TestAllowingLocalhostShadowsL7(t *testing.T) {
 	// set the option in the config, and of course clean up afterwards so
 	// that this test doesn't affect subsequent tests.
 	// XXX: Does this affect other tests being run concurrently?
-	oldLocalhostOpt := option.Config.AllowLocalhost
-	option.Config.AllowLocalhost = option.AllowLocalhostAlways
-	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
+	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
+	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostAlways
+	defer func() { option.Config.UnsafeDaemonConfigOption.AllowLocalhost = oldLocalhostOpt }()
 
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,

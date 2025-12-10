@@ -88,10 +88,12 @@ func testSocketTermination(t *testing.T, hostOnly bool) {
 			func() testSyncChan { return syncChan },
 			func() *option.DaemonConfig {
 				return &option.DaemonConfig{
-					BPFSocketLBHostnsOnly:                  hostOnly,
-					EnableSocketLBPodConnectionTermination: true,
-					EnableIPv4:                             true,
-					EnableIPv6:                             true,
+					UnsafeDaemonConfigOption: option.UnsafeDaemonConfig{
+						BPFSocketLBHostnsOnly:                  hostOnly,
+						EnableSocketLBPodConnectionTermination: true,
+					},
+					EnableIPv4: true,
+					EnableIPv6: true,
 				}
 			},
 			func() kpr.KPRConfig {

@@ -508,9 +508,9 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	td.addIdentity(fooIdentity)
 
 	// Emulate Kubernetes mode with allow from localhost
-	oldLocalhostOpt := option.Config.AllowLocalhost
-	option.Config.AllowLocalhost = option.AllowLocalhostAlways
-	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
+	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
+	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostAlways
+	defer func() { option.Config.UnsafeDaemonConfigOption.AllowLocalhost = oldLocalhostOpt }()
 
 	selFoo := api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	rule1 := api.Rule{

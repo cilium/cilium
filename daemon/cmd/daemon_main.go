@@ -995,8 +995,8 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		)
 	}
 
-	option.Config.AllowLocalhost = strings.ToLower(option.Config.AllowLocalhost)
-	switch option.Config.AllowLocalhost {
+	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = strings.ToLower(option.Config.UnsafeDaemonConfigOption.AllowLocalhost)
+	switch option.Config.UnsafeDaemonConfigOption.AllowLocalhost {
 	case option.AllowLocalhostAlways, option.AllowLocalhostAuto, option.AllowLocalhostPolicy:
 	default:
 		logging.Fatal(scopedLog, fmt.Sprintf("Invalid setting for --allow-localhost, must be { %s, %s, %s }",
