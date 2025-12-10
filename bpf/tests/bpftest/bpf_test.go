@@ -351,8 +351,9 @@ type ScapyAssert struct {
 	File       [scapyMaxStrLen]byte
 	LNum       [scapyMaxStrLen]byte
 	FirstLayer [scapyMaxStrLen]byte
-	Len        uint16
+	ExpLen     uint16
 	ExpBuf     [scapyMaxBuf]byte
+	GotLen     uint16
 	GotBuf     [scapyMaxBuf]byte
 	Pad        [2]byte
 }
@@ -363,9 +364,10 @@ func assertToJSONMap(a ScapyAssert) map[string]any {
 		"file":        string(bytes.TrimRight(a.File[:], "\x00")),
 		"linenum":     string(bytes.TrimRight(a.LNum[:], "\x00")),
 		"first-layer": string(bytes.TrimRight(a.FirstLayer[:], "\x00")),
-		"len":         a.Len,
-		"exp-buf":     hex.EncodeToString(a.ExpBuf[:a.Len]),
-		"got-buf":     hex.EncodeToString(a.GotBuf[:a.Len]),
+		"exp-len":     a.ExpLen,
+		"exp-buf":     hex.EncodeToString(a.ExpBuf[:a.ExpLen]),
+		"got-len":     a.GotLen,
+		"got-buf":     hex.EncodeToString(a.GotBuf[:a.GotLen]),
 	}
 }
 
@@ -389,8 +391,17 @@ func scapyParseAsserts(t *testing.T, scapyAssertMap *ebpf.Map) {
 		if err != nil {
 			t.Fatalf("error while getting iterating over the assert map: %s", err)
 		}
-		if aval.Len == 0 {
+
+		if aval.GotLen == 0 || aval.ExpLen == 0 {
 			break
+		}
+
+		if aval.GotLen < aval.ExpLen {
+			fName := string(bytes.TrimRight(aval.File[:], "\x00"))
+			lNum := string(bytes.TrimRight(aval.LNum[:], "\x00"))
+
+			t.Logf("  Warning: assert '%s' at %s:%s expected CTX to have at least '%d' bytes, but only had '%d'. Got buffer will be NULL and diff invalid!", aval.Name, fName, lNum, aval.ExpLen, aval.GotLen)
+			t.Logf("  Tip: temporally lower the expected size in the assert to '%d' to parse the ctx contents in Scapy.", aval.GotLen)
 		}
 
 		asserts = append(asserts, assertToJSONMap(aval))
