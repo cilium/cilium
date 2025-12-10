@@ -423,6 +423,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | ip_version | [IPVersion](#flow-IPVersion) | repeated | filter based on IP version (ipv4 or ipv6) |
 | trace_id | [string](#string) | repeated | trace_id filters flows by trace ID |
 | ip_trace_id | [uint64](#uint64) | repeated | ip_trace_id filters flows by IPTraceID |
+| encrypted | [bool](#bool) | repeated | encrypted filters flows based on encryption status (WireGuard/IPsec). When set to true, only encrypted flows are returned. When set to false, only unencrypted flows are returned. |
 | experimental | [FlowFilter.Experimental](#flow-FlowFilter-Experimental) |  | experimental contains filters that are not stable yet. Support for experimental features is always optional and subject to change. |
 
 

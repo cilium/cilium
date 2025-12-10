@@ -3521,6 +3521,10 @@ type FlowFilter struct {
 	TraceId []string `protobuf:"bytes,28,rep,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
 	// ip_trace_id filters flows by IPTraceID
 	IpTraceId []uint64 `protobuf:"varint,39,rep,packed,name=ip_trace_id,json=ipTraceId,proto3" json:"ip_trace_id,omitempty"`
+	// encrypted filters flows based on encryption status (WireGuard/IPsec).
+	// When set to true, only encrypted flows are returned.
+	// When set to false, only unencrypted flows are returned.
+	Encrypted []bool `protobuf:"varint,40,rep,packed,name=encrypted,proto3" json:"encrypted,omitempty"`
 	// experimental contains filters that are not stable yet. Support for
 	// experimental features is always optional and subject to change.
 	Experimental  *FlowFilter_Experimental `protobuf:"bytes,999,opt,name=experimental,proto3" json:"experimental,omitempty"`
@@ -3827,6 +3831,13 @@ func (x *FlowFilter) GetTraceId() []string {
 func (x *FlowFilter) GetIpTraceId() []uint64 {
 	if x != nil {
 		return x.IpTraceId
+	}
+	return nil
+}
+
+func (x *FlowFilter) GetEncrypted() []bool {
+	if x != nil {
+		return x.Encrypted
 	}
 	return nil
 }
@@ -5584,7 +5595,7 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\bsub_type\x18\x03 \x01(\x05R\asubType\"@\n" +
 	"\x0fCiliumEventType\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\x05R\x04type\x12\x19\n" +
-	"\bsub_type\x18\x02 \x01(\x05R\asubType\"\xc4\r\n" +
+	"\bsub_type\x18\x02 \x01(\x05R\asubType\"\xe2\r\n" +
 	"\n" +
 	"FlowFilter\x12\x12\n" +
 	"\x04uuid\x18\x1d \x03(\tR\x04uuid\x12\x1b\n" +
@@ -5634,7 +5645,8 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
 	"ip_version\x18\x19 \x03(\x0e2\x0f.flow.IPVersionR\tipVersion\x12\x19\n" +
 	"\btrace_id\x18\x1c \x03(\tR\atraceId\x12\x1e\n" +
-	"\vip_trace_id\x18' \x03(\x04R\tipTraceId\x12B\n" +
+	"\vip_trace_id\x18' \x03(\x04R\tipTraceId\x12\x1c\n" +
+	"\tencrypted\x18( \x03(\bR\tencrypted\x12B\n" +
 	"\fexperimental\x18\xe7\a \x01(\v2\x1d.flow.FlowFilter.ExperimentalR\fexperimental\x1a5\n" +
 	"\fExperimental\x12%\n" +
 	"\x0ecel_expression\x18\x01 \x03(\tR\rcelExpression\"\xce\x01\n" +
