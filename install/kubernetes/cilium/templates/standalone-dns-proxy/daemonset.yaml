@@ -1,0 +1,80 @@
+{{- if .Values.standaloneDnsProxy.enabled }}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: standalone-dns-proxy
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.standaloneDnsProxy.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: standalone-dns-proxy
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: standalone-dns-proxy
+    name: standalone-dns-proxy
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  minReadySeconds: 5
+  {{- with .Values.standaloneDnsProxy.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      k8s-app: standalone-dns-proxy
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.standaloneDnsProxy.rollOutPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/standalone-dns-proxy-configmap-checksum: {{ include (print $.Template.BasePath "/standalone-dns-proxy/configmap.yaml") . | sha256sum | quote }}
+        {{- end }}
+        container.apparmor.security.beta.kubernetes.io/standalone-dns-proxy: "unconfined"
+      labels:
+        k8s-app: standalone-dns-proxy
+        name: standalone-dns-proxy
+        app.kubernetes.io/name: standalone-dns-proxy
+        app.kubernetes.io/part-of: cilium
+        {{- with .Values.commonLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      hostNetwork: true
+      automountServiceAccountToken: {{ .Values.standaloneDnsProxy.automountServiceAccountToken }}
+      {{- with .Values.standaloneDnsProxy.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      tolerations:
+      - operator: Exists
+      {{- with .Values.standaloneDnsProxy.tolerations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: standalone-dns-proxy
+          image: {{ include "cilium.image" .Values.standaloneDnsProxy.image | quote }}
+          args:
+          - --config-dir=/tmp/standalone-dns-proxy/config-map
+          imagePullPolicy: {{ .Values.standaloneDnsProxy.image.pullPolicy }}
+          volumeMounts:
+          - mountPath: /tmp/standalone-dns-proxy/config-map
+            name: standalone-dns-proxy-config-path
+            readOnly: true
+          - mountPath: /var/run/standalone-dns-proxy
+            name: runtime-dir
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN", "NET_RAW"]
+              drop: ["ALL"]
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: standalone-dns-proxy-config
+        name: standalone-dns-proxy-config-path
+      - emptyDir: {}
+        name: runtime-dir
+{{- end }}

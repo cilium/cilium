@@ -313,6 +313,7 @@ distro
 distros
 dmesg
 dns
+dnsProxy
 dockerd
 dockerhub
 dpaa
@@ -329,6 +330,7 @@ effectful
 egressing
 elfutils
 ena
+enableDnsCompression
 enableSourceIPVerification
 enablement
 endPort
@@ -675,6 +677,7 @@ prometheus
 proto
 protobuf
 proxied
+proxyPort
 proxying
 proxylib
 qdisc
@@ -806,6 +809,7 @@ tiefighter
 tls
 toCIDR
 toCIDRSet
+toFQDN
 toFQDNs
 toGroups
 tofqdns
