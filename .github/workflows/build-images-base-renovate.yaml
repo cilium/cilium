@@ -18,7 +18,7 @@ permissions:
 jobs:
   build-base-images-from-renovate:
     name: "Build Base Images From Renovate"
-    uses: ./.github/workflows/build-images-base.yaml
+    uses: ./.github/workflows/build-images-base-v1.18.yaml
     secrets: inherit
     with:
       # Build the base images from this environment which is set up specifically
