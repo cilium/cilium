@@ -646,13 +646,8 @@ func (ms *mapState) deleteExistingWithChanges(key Key, entry mapStateEntry, chan
 }
 
 // deleteKeyWithChanges deletes a 'key' from 'ms' keeping track of incremental changes in 'changes'
-// Note: key is only deleted if the 'precedence' matches with the precedence field of the found
-// entry
-func (ms *mapState) deleteKeyWithChanges(key Key, precedence types.Precedence, changes ChangeState) {
+func (ms *mapState) deleteKeyWithChanges(key Key, changes ChangeState) {
 	if entry, exists := ms.get(key); exists {
-		if entry.Precedence != precedence {
-			return
-		}
 		ms.deleteExistingWithChanges(key, entry, changes)
 	}
 }
@@ -1019,7 +1014,7 @@ func (mc *MapChanges) consumeMapChanges(p *EndpointPolicy, features policyFeatur
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental
 			// changes
-			p.policyMapState.deleteKeyWithChanges(key, entry.Precedence, changes)
+			p.policyMapState.deleteKeyWithChanges(key, changes)
 		}
 	}
 

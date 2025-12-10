@@ -1373,14 +1373,17 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: true,
-		name:      "test-4c - Later order delete suppressed",
+		name:      "test-4c - Later order deny all does not prevent allow",
 		args: []args{
-			{level: 1, cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: ListenerPriorityHTTP},
+			{level: 2, cs: nil, adds: []int{0}, deletes: []int{}, ingress: false, deny: true},
 		},
 		state: testMapState(t, mapStateMap{
+			AnyEgressKey():    denyEntry().withLevel(2),
 			HttpEgressKey(44): proxyEntryHTTP(1),
 		}),
-		adds:    Keys{},
+		adds: Keys{
+			AnyEgressKey(): {},
+		},
 		deletes: Keys{},
 	}, {
 		continued: true,
@@ -1389,6 +1392,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 1, cs: csFoo, adds: []int{44}, deletes: []int{}, port: 0, proto: 6, ingress: false, deny: true},
 		},
 		state: testMapState(t, mapStateMap{
+			AnyEgressKey():    denyEntry().withLevel(2),
 			TcpEgressKey(44):  denyEntry().withLevel(1),
 			HttpEgressKey(44): proxyEntryHTTP(1),
 		}),
@@ -1404,6 +1408,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 1, cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, deny: true},
 		},
 		state: testMapState(t, mapStateMap{
+			AnyEgressKey():    denyEntry().withLevel(2),
 			TcpEgressKey(44):  denyEntry().withLevel(1),
 			HttpEgressKey(43): denyEntry().withLevel(1),
 		}),
@@ -1420,6 +1425,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 0, cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: ListenerPriorityHTTP},
 		},
 		state: testMapState(t, mapStateMap{
+			AnyEgressKey():    denyEntry().withLevel(2),
 			TcpEgressKey(44):  denyEntry().withLevel(1),
 			HttpEgressKey(43): proxyEntryHTTP(1).withLevel(0),
 		}),
