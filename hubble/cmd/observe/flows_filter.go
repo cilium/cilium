@@ -213,6 +213,7 @@ func newFlowFilter() *flowFilter {
 			{"uuid"},
 			{"traffic-direction"},
 			{"cel-expression"},
+			{"encrypted", "unencrypted"},
 		},
 	}
 }
@@ -747,6 +748,14 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 	case "interface":
 		f.apply(func(f *flowpb.FlowFilter) {
 			f.Interface = append(f.Interface, &flowpb.NetworkInterface{Name: val})
+		})
+	case "encrypted":
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.Encrypted = append(f.GetEncrypted(), true)
+		})
+	case "unencrypted":
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.Encrypted = append(f.GetEncrypted(), false)
 		})
 	}
 
