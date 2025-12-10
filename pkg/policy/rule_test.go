@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/testutils"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -1594,6 +1595,12 @@ func checkFlow(t *testing.T, repo *Repository, idManager identitymanager.IDManag
 	require.NoError(t, err)
 	require.Equal(t, allowed, actual.Allowed())
 
+	// Verify that the iterative policy engine matches.
+	// This is to test that the policy iteration system is in aggrement. If this assertion fails,
+	// it means the iterative simulator has a bug.
+	entries := repo.searchRLocked()
+	simulateVerdict, _, _ := testutils.IteratePolicy(entries, flow)
+	require.Equal(t, actual.Allowed(), simulateVerdict.Allowed(), "Validation of the policy simulator failed.")
 }
 
 func TestIngressAllowAll(t *testing.T) {
