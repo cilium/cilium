@@ -889,7 +889,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 
 	type args struct {
 		cs       *testCachedSelector
@@ -1225,7 +1225,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
-	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 
 	type args struct {
 		cs       *testCachedSelector
@@ -2281,7 +2281,7 @@ func TestMapState_Get_stacktrace(t *testing.T) {
 // TestDenyPreferredInsertLogic is now less valuable since we do not have the mapstate
 // validator any more, but may still catch bugs.
 func TestDenyPreferredInsertLogic(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
 	p, _ := td.repo.resolvePolicyLocked(fooIdentity)
 

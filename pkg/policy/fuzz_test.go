@@ -31,7 +31,7 @@ func FuzzResolvePolicy(f *testing.F) {
 		}
 
 		logger := slog.New(slog.DiscardHandler)
-		td := newTestData(logger).withIDs(ruleTestIDs)
+		td := newTestData(f, logger).withIDs(ruleTestIDs)
 		td.repo.mustAdd(r)
 		sp, err := td.repo.resolvePolicyLocked(idA)
 		if err != nil {

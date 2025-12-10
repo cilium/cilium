@@ -197,7 +197,7 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 }
 
 func BenchmarkResolveCIDRPolicyRules(b *testing.B) {
-	td := newTestData(hivetest.Logger(b))
+	td := newTestData(b, hivetest.Logger(b))
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
 
 	b.ReportAllocs()
@@ -208,7 +208,7 @@ func BenchmarkResolveCIDRPolicyRules(b *testing.B) {
 }
 
 func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
-	td := newTestData(hivetest.Logger(b))
+	td := newTestData(b, hivetest.Logger(b))
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 	owner := DummyOwner{logger: hivetest.Logger(b)}
@@ -224,7 +224,7 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 }
 
 func BenchmarkResolveL3IngressPolicyRules(b *testing.B) {
-	td := newTestData(hivetest.Logger(b))
+	td := newTestData(b, hivetest.Logger(b))
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, b)
 
 	b.ReportAllocs()
@@ -235,7 +235,7 @@ func BenchmarkResolveL3IngressPolicyRules(b *testing.B) {
 }
 
 func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
-	td := newTestData(hivetest.Logger(b))
+	td := newTestData(b, hivetest.Logger(b))
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, b)
 
 	for b.Loop() {
@@ -247,7 +247,7 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 }
 
 func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
-	td := newTestData(hivetest.Logger(b))
+	td := newTestData(b, hivetest.Logger(b))
 	td.bootstrapRepo(GenerateL3EgressRules, 1000, b)
 
 	for b.Loop() {
@@ -260,7 +260,7 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 
 func TestEgressCIDRTCPPort(t *testing.T) {
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
+	td := newTestData(t, logger)
 	repo := td.repo
 
 	td.bootstrapRepo(nil, 1, t)
@@ -334,7 +334,7 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 
 func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
 	logger := hivetest.Logger(t)
-	td := newTestData(logger).withIDs(ruleTestIDs, identity.ListReservedIdentities())
+	td := newTestData(t, logger).withIDs(ruleTestIDs, identity.ListReservedIdentities())
 	repo := td.repo
 
 	td.bootstrapRepo(nil, 1, t)
@@ -418,7 +418,7 @@ func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
 
 func TestL7WithIngressWildcard(t *testing.T) {
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
+	td := newTestData(t, logger)
 	repo := td.repo
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
@@ -496,9 +496,8 @@ func TestL7WithIngressWildcard(t *testing.T) {
 }
 
 func TestL7WithLocalHostWildcard(t *testing.T) {
-
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
+	td := newTestData(t, logger)
 	repo := td.repo
 
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
@@ -585,9 +584,8 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 }
 
 func TestMapStateWithIngressWildcard(t *testing.T) {
-
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
+	td := newTestData(t, logger)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 
@@ -678,9 +676,8 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 }
 
 func TestMapStateWithIngress(t *testing.T) {
-
 	logger := hivetest.Logger(t)
-	td := newTestData(logger)
+	td := newTestData(t, logger)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressRules, 1000, t)
 

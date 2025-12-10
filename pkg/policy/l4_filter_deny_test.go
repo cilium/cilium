@@ -38,7 +38,8 @@ import (
 
 // Case 1: deny all at L3 in both rules.
 func TestMergeDenyAllL3(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 1A: Specify WildcardEndpointSelector explicitly.
 	rule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -115,7 +116,8 @@ func TestMergeDenyAllL3(t *testing.T) {
 // in another rule. Should resolve to just allowing all on L3/L4 (first rule
 // shadows the second).
 func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 2A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -209,7 +211,7 @@ func TestL3DenyRuleShadowedByL3DenyAll(t *testing.T) {
 
 // Case 3: deny all on L4 in both rules, but select different endpoints in each rule.
 func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
 
 	selectDifferentEndpointsDenyAllL7 := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -260,7 +262,8 @@ func TestMergingWithDifferentEndpointSelectedDenyAllL7(t *testing.T) {
 // another rule. Should resolve to just allowing all on L3/L4 (first rule
 // shadows the second) and denying that particular endpoint.
 func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 4A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
@@ -360,7 +363,8 @@ func TestL3AllowRuleShadowedByL3DenyAll(t *testing.T) {
 // endpoint in another rule. Should resolve to just allowing all on L3/L7 and
 // denying that particular endpoint.
 func TestL3L4AllowRuleWithByL3DenyAll(t *testing.T) {
-	td := newTestData(hivetest.Logger(t))
+	td := newTestData(t, hivetest.Logger(t))
+
 	// Case 5A: Specify WildcardEndpointSelector explicitly.
 	shadowRule := api.Rule{
 		EndpointSelector: endpointSelectorA,
