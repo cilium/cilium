@@ -4,6 +4,7 @@
 package options
 
 import (
+	"net/netip"
 	"strings"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
@@ -26,6 +27,7 @@ type Options struct {
 	TraceNotifyDecoder         TraceNotifyDecoderFunc
 	PolicyVerdictNotifyDecoder PolicyVerdictNotifyDecoderFunc
 	TraceSockNotifyDecoder     TraceSockNotifyDecoderFunc
+	L34PacketDecoder           L34PacketDecoder
 }
 
 // HubbleRedactSettings contains all hubble redact related options
@@ -123,6 +125,20 @@ type TraceSockNotifyDecoderFunc func(data []byte, decoded *pb.Flow) (*monitor.Tr
 func WithTraceSockNotifyDecoder(decode TraceSockNotifyDecoderFunc) Option {
 	return func(opt *Options) {
 		opt.TraceSockNotifyDecoder = decode
+	}
+}
+
+type L34PacketDecoder interface {
+	DecodePacket(payload []byte, decoded *pb.Flow, isL3Device, isIPv6, isVXLAN, isGeneve bool) (
+		sourceIP, destinationIP netip.Addr,
+		sourcePort, destinationPort uint16,
+		err error,
+	)
+}
+
+func WithL34PacketDecoder(decoder L34PacketDecoder) Option {
+	return func(opt *Options) {
+		opt.L34PacketDecoder = decoder
 	}
 }
 
