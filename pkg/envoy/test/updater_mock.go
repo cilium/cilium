@@ -4,6 +4,7 @@
 package test
 
 import (
+	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -42,6 +43,10 @@ func (m *ProxyUpdaterMock) UpdateProxyStatistics(proxyType, l4Protocol string, p
 }
 
 func (m *ProxyUpdaterMock) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {}
+
+func (m *ProxyUpdaterMock) GetPolicyVersionHandle() *versioned.VersionHandle {
+	return versioned.Latest()
+}
 
 func (m *ProxyUpdaterMock) GetListenerProxyPort(listener string) uint16 {
 	return 0
