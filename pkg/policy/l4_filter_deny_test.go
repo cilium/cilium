@@ -111,7 +111,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 		},
 	}
 
-	expected = NewL4PolicyMap()
+	expected = L4PolicyMaps{makeL4PolicyMap()}
 	td.policyMapEquals(t, expected, nil, &rule)
 }
 

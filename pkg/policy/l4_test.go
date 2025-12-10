@@ -481,7 +481,7 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 	}
 	for i, portRange := range portRanges {
 		t.Run(fmt.Sprintf("%d-%d", portRange.startPort, portRange.endPort), func(tt *testing.T) {
-			l4Map := NewL4PolicyMap()
+			l4Map := makeL4PolicyMap()
 			startFilter := &L4Filter{
 				U8Proto:  u8proto.TCP,
 				Protocol: api.ProtoTCP,
