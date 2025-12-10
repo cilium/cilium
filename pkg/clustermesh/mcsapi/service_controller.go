@@ -28,11 +28,6 @@ import (
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 )
 
-const (
-	kindServiceImport = "ServiceImport"
-	kindServiceExport = "ServiceExport"
-)
-
 // mcsAPIServiceReconciler is a controller that creates a derived service from
 // a ServiceImport object. The derived Service is created with the Cilium
 // annotations to mark it as a global Service so that we can take advantage of
@@ -283,7 +278,7 @@ func (r *mcsAPIServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&mcsapiv1alpha1.ServiceExport{}, &handler.EnqueueRequestForObject{}).
 		// Watch for changes to Services
 		Watches(&corev1.Service{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-			svcImportOwner := getOwnerReferenceName(obj.GetOwnerReferences(), mcsapiv1alpha1.GroupVersion.String(), kindServiceImport)
+			svcImportOwner := getOwnerReferenceName(obj.GetOwnerReferences(), mcsapiv1alpha1.GroupVersion.String(), mcsapiv1alpha1.ServiceImportKindName)
 			if svcImportOwner == "" {
 				return []ctrl.Request{{NamespacedName: types.NamespacedName{
 					Name: obj.GetName(), Namespace: obj.GetNamespace(),
