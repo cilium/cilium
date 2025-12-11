@@ -30,6 +30,10 @@ var (
 	timeout = 5 * time.Second
 )
 
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
+}
+
 func TestRemoteClusterStatus(t *testing.T) {
 	testutils.IntegrationTest(t)
 
