@@ -1290,38 +1290,32 @@ func (in *CiliumNetworkDriverConfigSpec) DeepEqual(other *CiliumNetworkDriverCon
 		return false
 	}
 
-	if (in.DraRegistrationRetryInterval == nil) != (other.DraRegistrationRetryInterval == nil) {
+	if in.DraRegistrationRetryIntervalSeconds != other.DraRegistrationRetryIntervalSeconds {
 		return false
-	} else if in.DraRegistrationRetryInterval != nil {
-		if *in.DraRegistrationRetryInterval != *other.DraRegistrationRetryInterval {
-			return false
-		}
 	}
-
-	if (in.DraRegistrationTimeout == nil) != (other.DraRegistrationTimeout == nil) {
+	if in.DraRegistrationTimeoutSeconds != other.DraRegistrationTimeoutSeconds {
 		return false
-	} else if in.DraRegistrationTimeout != nil {
-		if *in.DraRegistrationTimeout != *other.DraRegistrationTimeout {
-			return false
-		}
 	}
-
-	if (in.PublishInterval == nil) != (other.PublishInterval == nil) {
+	if in.PublishIntervalSeconds != other.PublishIntervalSeconds {
 		return false
-	} else if in.PublishInterval != nil {
-		if *in.PublishInterval != *other.PublishInterval {
-			return false
-		}
 	}
-
 	if in.DriverName != other.DriverName {
 		return false
 	}
-	if (in.Pools == nil) != (other.Pools == nil) {
-		return false
-	} else if in.Pools != nil {
-		if !in.Pools.DeepEqual(other.Pools) {
+	if ((in.Pools != nil) && (other.Pools != nil)) || ((in.Pools == nil) != (other.Pools == nil)) {
+		in, other := &in.Pools, &other.Pools
+		if other == nil {
 			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
 		}
 	}
 
@@ -1498,17 +1492,14 @@ func (in *CiliumNetworkDriverDevicePoolConfig) DeepEqual(other *CiliumNetworkDri
 		return false
 	}
 
-	if len(*in) != len(*other) {
+	if in.PoolName != other.PoolName {
 		return false
-	} else {
-		for key, inValue := range *in {
-			if otherValue, present := (*other)[key]; !present {
-				return false
-			} else {
-				if !inValue.DeepEqual(&otherValue) {
-					return false
-				}
-			}
+	}
+	if (in.Filter == nil) != (other.Filter == nil) {
+		return false
+	} else if in.Filter != nil {
+		if !in.Filter.DeepEqual(other.Filter) {
+			return false
 		}
 	}
 
@@ -1742,6 +1733,9 @@ func (in *SRIOVDeviceConfig) DeepEqual(other *SRIOVDeviceConfig) bool {
 	if in.VfCount != other.VfCount {
 		return false
 	}
+	if in.IfName != other.IfName {
+		return false
+	}
 
 	return true
 }
@@ -1765,13 +1759,9 @@ func (in *SRIOVDeviceManagerConfig) DeepEqual(other *SRIOVDeviceManagerConfig) b
 		if len(*in) != len(*other) {
 			return false
 		} else {
-			for key, inValue := range *in {
-				if otherValue, present := (*other)[key]; !present {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
 					return false
-				} else {
-					if !inValue.DeepEqual(&otherValue) {
-						return false
-					}
 				}
 			}
 		}

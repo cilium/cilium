@@ -4,8 +4,6 @@
 package v2alpha1
 
 import (
-	"github.com/cilium/cilium/pkg/time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -43,15 +41,18 @@ type CiliumNetworkDriverConfigSpec struct {
 	// Interval between DRA registration retries
 	//
 	// +kubebuilder:validation:Optional
-	DraRegistrationRetryInterval *time.Duration `json:"draRegistrationRetryInterval,omitempty"`
+	// +kubebuilder:default=1
+	DraRegistrationRetryIntervalSeconds int64 `json:"draRegistrationRetryInterval,omitempty"`
 	// Max amount of time waiting for DRA registration to succeed
 	//
 	// +kubebuilder:validation:Optional
-	DraRegistrationTimeout *time.Duration `json:"draRegistrationTimeout,omitempty"`
+	// +kubebuilder:default=5
+	DraRegistrationTimeoutSeconds int64 `json:"draRegistrationTimeout,omitempty"`
 	// How often DRA plugin scans for devices and publishes resourceslices.
 	//
 	// +kubebuilder:validation:Optional
-	PublishInterval *time.Duration `json:"publishInterval,omitempty"`
+	// +kubebuilder:default=10
+	PublishIntervalSeconds int64 `json:"publishInterval,omitempty"`
 
 	// Driver name used to register to DRA and with the container runtime.
 	// Is also the driver that shows up in the ResourceSlice resources advertised by the node.
@@ -65,7 +66,7 @@ type CiliumNetworkDriverConfigSpec struct {
 	// Pool names must be unique.
 	//
 	// +kubebuilder:validation:Optional
-	Pools *CiliumNetworkDriverDevicePoolConfig `json:"pools,omitempty"`
+	Pools []CiliumNetworkDriverDevicePoolConfig `json:"pools,omitempty"`
 
 	// Device manager configurations
 	//
@@ -80,7 +81,13 @@ type CiliumNetworkDriverPoolName string
 // with the pool name as a ResourceSlice.
 //
 // +deepequal-gen=true
-type CiliumNetworkDriverDevicePoolConfig map[CiliumNetworkDriverPoolName]CiliumNetworkDriverDeviceFilter
+type CiliumNetworkDriverDevicePoolConfig struct {
+	// +kubebuilder:validation:Required
+	PoolName string `json:"name"`
+
+	// +kubebuilder:validation:Optional
+	Filter *CiliumNetworkDriverDeviceFilter `json:"filter"`
+}
 
 // Criteria to match devices that are to be advertised as part of a pool.
 // All conditions must match for a device to be selected by the filter.
@@ -131,7 +138,7 @@ type SRIOVDeviceManagerConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	Ifaces map[string]SRIOVDeviceConfig `json:"ifaces,omitempty"`
+	Ifaces []SRIOVDeviceConfig `json:"ifaces,omitempty"`
 }
 
 // Configuration for SR-IOV devices
@@ -141,6 +148,11 @@ type SRIOVDeviceConfig struct {
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Optional
 	VfCount int `json:"vfCount"`
+
+	// Kernel ifname
+	//
+	// +kubebuilder:validation:Required
+	IfName string `json:"ifName"`
 }
 
 // Configuration for the dummy device manager.
