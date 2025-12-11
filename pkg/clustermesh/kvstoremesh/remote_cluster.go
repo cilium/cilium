@@ -73,15 +73,9 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		close(rc.synced.connected)
 	}
 
-	dstcfg := types.CiliumClusterConfig{
-		ID: srccfg.ID,
-		Capabilities: types.CiliumClusterConfigCapabilities{
-			SyncedCanaries:        true,
-			Cached:                true,
-			MaxConnectedClusters:  srccfg.Capabilities.MaxConnectedClusters,
-			ServiceExportsEnabled: srccfg.Capabilities.ServiceExportsEnabled,
-		},
-	}
+	var dstcfg = srccfg
+	dstcfg.Capabilities.SyncedCanaries = true
+	dstcfg.Capabilities.Cached = true
 
 	stopAndWait, err := clustercfg.Enforce(ctx, rc.name, dstcfg, rc.localBackend, rc.logger)
 	defer stopAndWait()
