@@ -29,20 +29,6 @@ var (
 	errTooManyVfs = errors.New("too many vfs")
 )
 
-type SRIOVIntf struct {
-	Ifname  string
-	VFCount int
-}
-
-type SRIOVConfig struct {
-	Enabled bool
-	Ifaces  []SRIOVIntf
-}
-
-func (s SRIOVConfig) IsEnabled() bool {
-	return s.Enabled
-}
-
 type MacAddr [6]byte
 
 type PciDevice struct {
