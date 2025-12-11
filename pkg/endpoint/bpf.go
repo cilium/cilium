@@ -1181,24 +1181,18 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	// 'e.desiredPolicy' access.
 	if !e.IsProxyDisabled() {
 		if updateEnvoy {
-			e.getLogger().Debug(
-				"applyPolicyMapChanges: Updating Envoy NetworkPolicy",
-				logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
-			)
+			e.getLogger().Debug("applyPolicyMapChanges: Updating Envoy NetworkPolicy")
 			stats.proxyPolicyCalculation.Start()
 			var rf revert.RevertFunc
-			err, rf = e.proxy.UpdateNetworkPolicy(e, &e.desiredPolicy.SelectorPolicy.L4Policy, e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled, e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled, proxyWaitGroup)
+			err, rf = e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy, proxyWaitGroup)
 			stats.proxyPolicyCalculation.End(err == nil)
 			if err == nil {
 				datapathRegenCtxt.revertStack.Push(rf)
 			}
 		} else if hasEnvoyRedirect {
 			// Wait for a possible ongoing update to be done if there were no current changes.
-			e.getLogger().Debug(
-				"applyPolicyMapChanges: Using current Networkpolicy",
-				logfields.SelectorCacheVersion, e.desiredPolicy.VersionHandle,
-			)
-			e.proxy.UseCurrentNetworkPolicy(e, &e.desiredPolicy.SelectorPolicy.L4Policy, proxyWaitGroup)
+			e.getLogger().Debug("applyPolicyMapChanges: Using current Networkpolicy")
+			e.proxy.UseCurrentNetworkPolicy(e, e.desiredPolicy, proxyWaitGroup)
 		}
 	}
 
