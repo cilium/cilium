@@ -22,6 +22,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/resourceslice"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -48,7 +49,7 @@ type Driver struct {
 	lock       lock.Mutex
 	jg         job.Group
 
-	config Config
+	config v2alpha1.CiliumNetworkDriverConfigSpec
 
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
@@ -69,7 +70,7 @@ func (driver *Driver) withLock(f func() error) error {
 }
 
 // filterDevices returns the resulting devices after applying a filter.
-func filterDevices(devices []types.Device, filter types.DeviceFilter) []types.Device {
+func filterDevices(devices []types.Device, filter v2alpha1.CiliumNetworkDriverDeviceFilter) []types.Device {
 	var result []types.Device
 
 	for _, d := range devices {
@@ -106,7 +107,17 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 	pools := make(map[string]resourceslice.Pool, len(driver.config.Pools))
 
 	for _, p := range driver.config.Pools {
-		filtered := filterDevices(driver.devices, p.Filter)
+		if p.Filter == nil {
+			// no filter specified, this shouldn't happen
+			driver.logger.ErrorContext(
+				ctx, "pool filter is missing. not handling this pool",
+				logfields.PoolName, p.PoolName,
+			)
+
+			continue
+		}
+
+		filtered := filterDevices(driver.devices, *p.Filter)
 
 		var devices []resourceapi.Device
 
@@ -116,7 +127,7 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 			}
 
 			attrs := dev.GetAttrs()
-			attrs["pool"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Name)}
+			attrs["pool"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.PoolName)}
 			devices = append(devices, resourceapi.Device{
 				Name:       dev.IfName(),
 				Attributes: attrs,
@@ -125,11 +136,11 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 
 		driver.logger.DebugContext(
 			ctx, "devices matched filter for pool",
-			logfields.PoolName, p.Name,
+			logfields.PoolName, p.PoolName,
 			logfields.Devices, filtered,
 		)
 
-		pools[p.Name] = resourceslice.Pool{
+		pools[p.PoolName] = resourceslice.Pool{
 			Slices: []resourceslice.Slice{
 				{Devices: devices},
 			},
@@ -178,36 +189,19 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			logfields.K8sAPIVersion, version.Version(),
 		)
 
-		if err := driver.config.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w", err)
+		mgrs, err := devicemanagers.InitManagers(driver.logger, driver.config.DeviceManagerConfigs)
+		if err != nil {
+			return err
 		}
 
-		for manager, managerCfg := range driver.config.DeviceManagerConfigs {
-			if !managerCfg.IsEnabled() {
-				continue
-			}
-
-			d, err := devicemanagers.InitManager(driver.logger, manager, managerCfg)
-			if err != nil {
-				driver.logger.DebugContext(ctx,
-					"failed to enable manager",
-					logfields.Type, manager,
-					logfields.Error, err,
-				)
-
-				return err
-			}
-
-			driver.logger.DebugContext(ctx, "enabled manager", logfields.Type, manager)
-			driver.deviceManagers[manager] = d
-		}
+		driver.deviceManagers = mgrs
 
 		driver.logger.DebugContext(ctx,
 			"starting driver with config",
 			logfields.Config, driver.config)
 
 		// create path for our driver plugin socket.
-		err := os.MkdirAll(driverPluginPath(driver.driverName), 0750)
+		err = os.MkdirAll(driverPluginPath(driver.driverName), 0750)
 		if err != nil {
 			return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.driverName), err)
 		}
@@ -226,7 +220,8 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 		driver.draPlugin = p
 
 		err = wait.PollUntilContextTimeout(
-			ctx, driver.config.DraRegistrationRetry, driver.config.DraRegistrationTimeout, true,
+			ctx, time.Duration(driver.config.DraRegistrationRetryIntervalSeconds)*time.Second,
+			time.Duration(driver.config.DraRegistrationTimeoutSeconds)*time.Second, true,
 			func(context.Context) (bool, error) {
 				registrationStatus := driver.draPlugin.RegistrationStatus()
 				if registrationStatus == nil {
@@ -295,7 +290,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			job.Timer(
 				"networkdriver-dra-publish-resources",
 				driver.publish,
-				driver.config.PublishInterval,
+				time.Duration(driver.config.PublishIntervalSeconds)*time.Second,
 				job.WithTrigger(trigger),
 			),
 		)

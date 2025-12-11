@@ -15,6 +15,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
 
@@ -28,14 +29,14 @@ func (cfg DummyConfig) IsEnabled() bool {
 
 type DummyManager struct {
 	logger *slog.Logger
-	config DummyConfig
+	config *v2alpha1.DummyDeviceManagerConfig
 }
 
 func (m *DummyManager) init() error {
 	return nil
 }
 
-func NewManager(logger *slog.Logger, cfg DummyConfig) (*DummyManager, error) {
+func NewManager(logger *slog.Logger, cfg *v2alpha1.DummyDeviceManagerConfig) (*DummyManager, error) {
 	mgr := &DummyManager{
 		logger: logger,
 		config: cfg,
@@ -101,15 +102,17 @@ func (d DummyDevice) Free(cfg types.DeviceConfig) error {
 	return nil
 }
 
-func (d DummyDevice) Match(filter types.DeviceFilter) bool {
-	if len(filter.DriverTypes) != 0 && !slices.Contains(filter.DriverTypes, types.DeviceManagerTypeDummy) {
+func (d DummyDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool {
+	if len(filter.DeviceManagers) != 0 && !slices.Contains(filter.DeviceManagers, types.DeviceManagerTypeDummy.String()) {
 		return false
 	}
+
 	for _, ifname := range filter.IfNames {
 		if !strings.HasPrefix(d.IfName(), ifname) {
 			return false
 		}
 	}
+
 	return true
 }
 
