@@ -101,7 +101,7 @@ func setupENIDevices(logger *slog.Logger, eniConfigByMac configMap, sysctl sysct
 			)
 			continue
 		}
-		err = configureENINetlinkDevice(link, cfg, sysctl)
+		err = configureENINetlinkDevice(logger, link, cfg, sysctl)
 		if err != nil {
 			logger.Error(
 				"Failed to configure ENI device",
@@ -162,6 +162,9 @@ const (
 	waitForNetlinkDevicesMaxTries         = 15
 	waitForNetlinkDevicesMinRetryInterval = 100 * time.Millisecond
 	waitForNetlinkDevicesMaxRetryInterval = 30 * time.Second
+
+	waitRouteSetupMaxTries      = 10
+	waitRouteSetupRetryInterval = 1 * time.Second
 )
 
 func waitForNetlinkDevices(logger *slog.Logger, configByMac configMap) (linkByMac linkMap, err error) {
@@ -196,7 +199,7 @@ func waitForNetlinkDevices(logger *slog.Logger, configByMac configMap) (linkByMa
 	return linkByMac, errors.New("timed out waiting for ENIs to be attached")
 }
 
-func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sysctl.Sysctl) error {
+func configureENINetlinkDevice(logger *slog.Logger, link netlink.Link, cfg eniDeviceConfig, sysctl sysctl.Sysctl) error {
 	if err := netlink.LinkSetMTU(link, cfg.mtu); err != nil {
 		return fmt.Errorf("failed to change MTU of link %s to %d: %w", link.Attrs().Name, cfg.mtu, err)
 	}
@@ -207,6 +210,7 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 
 	// Set the primary IP in order for SNAT to work correctly on this ENI
 	if !cfg.usePrimaryIP {
+		isDHCP, af := checkIPDHCPStatus(logger, link, cfg.ip)
 		err := netlink.AddrAdd(link, &netlink.Addr{
 			IPNet: &net.IPNet{
 				IP:   cfg.ip,
@@ -219,6 +223,10 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 
 		// Remove the subnet route for this ENI if it got setup by something(like networkd),
 		// as it can cause the health check to following subnet route using secondary ENI and fail.
+
+		if isDHCP {
+			waitRouteSetup(logger, link, cfg.cidr, af)
+		}
 		err = netlink.RouteDel(&netlink.Route{
 			Dst:   cfg.cidr,
 			Src:   cfg.ip,
@@ -241,4 +249,61 @@ func configureENINetlinkDevice(link netlink.Link, cfg eniDeviceConfig, sysctl sy
 	}
 
 	return nil
+}
+
+func checkIPDHCPStatus(logger *slog.Logger, link netlink.Link, ip net.IP) (bool, int) {
+	addressFamiliy := netlink.FAMILY_V6
+	isDHCP := false
+	if ip.To4() != nil {
+		addressFamiliy = netlink.FAMILY_V4
+	}
+	addrs, err := safenetlink.AddrList(link, addressFamiliy)
+	if err != nil {
+		logger.Info("failed to get address list for link",
+			logfields.Device, link.Attrs().Name,
+			logfields.Error, err,
+		)
+	}
+
+	for _, addr := range addrs {
+		if !addr.IP.Equal(ip) {
+			continue
+		}
+
+		if (addr.Flags & unix.IFA_F_PERMANENT) == 0 {
+			isDHCP = true
+			logger.Warn("DHCP on secondary ENI may conflict with Cilium IPAM and cause routing issues. Please disable it.", logfields.Device, link.Attrs().Name)
+		}
+		break
+	}
+	return isDHCP, addressFamiliy
+}
+
+func waitRouteSetup(logger *slog.Logger, link netlink.Link, dst *net.IPNet, af int) {
+	for i := 1; i <= waitRouteSetupMaxTries; i++ {
+		routes, err := safenetlink.RouteList(link, af)
+		if err != nil {
+			logger.Warn("Failed to get route list for link",
+				logfields.Device, link.Attrs().Name,
+				logfields.Error, err,
+			)
+		} else {
+			for _, r := range routes {
+				if r.Dst == nil {
+					continue
+				}
+				if r.Dst.IP.Equal(dst.IP) {
+					logger.Info("DHCP route setup completed",
+						logfields.Device, link.Attrs().Name,
+						logfields.DestinationCIDR, dst,
+					)
+					return
+				}
+			}
+		}
+
+		time.Sleep(waitRouteSetupRetryInterval)
+	}
+
+	logger.Warn("Timed out waiting for DHCP route setup", logfields.Device, link.Attrs().Name)
 }
