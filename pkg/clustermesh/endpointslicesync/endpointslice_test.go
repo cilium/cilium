@@ -32,6 +32,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 const (
@@ -87,6 +88,10 @@ func getEndpointSlice(ctx context.Context, clientset k8sClient.Clientset, svcNam
 	}}
 	return clientset.DiscoveryV1().EndpointSlices(svcName).
 		List(ctx, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(&labelSelector)})
+}
+
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
 }
 
 func Test_meshEndpointSlice_Reconcile(t *testing.T) {

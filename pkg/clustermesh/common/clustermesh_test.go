@@ -53,6 +53,10 @@ func (f *fakeRemoteCluster) Remove(ctx context.Context) {
 	}
 }
 
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
+}
+
 func TestClusterMesh(t *testing.T) {
 	testutils.IntegrationTest(t)
 	client := kvstore.SetupDummy(t, "etcd")
