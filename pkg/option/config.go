@@ -997,9 +997,6 @@ const (
 
 	// EnableCiliumNodeCRD is the name of the option to enable use of the CiliumNode CRD
 	EnableCiliumNodeCRDName = "enable-ciliumnode-crd"
-
-	// EnablePacketizationLayerPMTUD enables kernel plpmtud discovery on Pod netns.
-	EnablePacketizationLayerPMTUD = "enable-packetization-layer-pmtud"
 )
 
 // Default string arguments
@@ -1898,9 +1895,6 @@ type DaemonConfig struct {
 
 	// EnableCiliumNodeCRD enables the use of CiliumNode CRD
 	EnableCiliumNodeCRD bool
-
-	// EnablePacketizationLayerPMTUD enables kernel packetization layer path mtu discovery on Pod netns.
-	EnablePacketizationLayerPMTUD bool
 }
 
 var (
@@ -2595,7 +2589,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BootIDFile = vp.GetString(BootIDFilename)
 	c.EnableExtendedIPProtocols = vp.GetBool(EnableExtendedIPProtocols)
 	c.IPTracingOptionType = vp.GetUint(IPTracingOptionType)
-	c.EnablePacketizationLayerPMTUD = vp.GetBool(EnablePacketizationLayerPMTUD)
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
 	case ServiceNoBackendResponseReject, ServiceNoBackendResponseDrop:
