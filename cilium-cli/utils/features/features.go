@@ -120,6 +120,8 @@ const (
 	L7LoadBalancer Feature = "loadbalancer-l7"
 
 	RHEL Feature = "rhel"
+
+	Ztunnel Feature = "enable-ztunnel"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -411,6 +413,10 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 	}
 
 	fs[Tunnel], fs[TunnelPort] = ExtractTunnelFeatureFromConfigMap(cm)
+
+	fs[Ztunnel] = Status{
+		Enabled: cm.Data["enable-ztunnel"] == "true",
+	}
 }
 
 func (fs Set) ExtractFromNodes(nodesWithoutCilium map[string]struct{}) {
