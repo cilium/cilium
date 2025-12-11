@@ -4,11 +4,14 @@
 package manager
 
 import (
+	"context"
 	"log/slog"
 	"maps"
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/cgroups"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -61,8 +64,6 @@ type cgroupManager struct {
 	podEventsDone chan podEventStatus
 	// Cgroup path provider
 	pathProvider cgroupPathProvider
-	// Channel to shut down manager
-	shutdown chan struct{}
 	// Interface to do cgroups related operations
 	cgroupsChecker cgroup
 	// Cache indexed by cgroup id to store pod metadata
@@ -151,11 +152,6 @@ func (m *cgroupManager) DumpPodMetadata() []*FullPodMetadata {
 	return <-allMetaOut
 }
 
-// Close should only be called once from daemon close.
-func (m *cgroupManager) Close() {
-	close(m.shutdown)
-}
-
 type podUID = string
 
 type podMetadata struct {
@@ -206,14 +202,13 @@ func newManager(logger *slog.Logger, cg cgroup, pathProvider cgroupPathProvider,
 		podMetadataById:           make(map[string]*podMetadata),
 		containerMetadataByCgrpId: make(map[uint64]*containerMetadata),
 		podEvents:                 make(chan podEvent, channelSize),
-		shutdown:                  make(chan struct{}),
 		metadataCache:             map[uint64]PodMetadata{},
 		cgroupsChecker:            cg,
 		pathProvider:              pathProvider,
 	}
 }
 
-func (m *cgroupManager) processPodEvents() {
+func (m *cgroupManager) processPodEvents(ctx context.Context, _ cell.Health) error {
 	for {
 		select {
 		case ev := <-m.podEvents:
@@ -241,11 +236,11 @@ func (m *cgroupManager) processPodEvents() {
 			case podDumpMetadataEvent:
 				m.dumpPodMetadata(ev.allMetadataOut)
 			}
-		case <-m.shutdown:
+		case <-ctx.Done():
 			if m.podEventsDone != nil {
 				close(m.podEventsDone)
 			}
-			return
+			return nil
 		}
 	}
 }
