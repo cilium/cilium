@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type fakeBackend struct {
@@ -32,9 +31,20 @@ func (fb *fakeBackend) StatusCheckErrors() <-chan error {
 	return fb.statusErrors
 }
 
+func fakeRemoteClusterFactory(client kvstore.BackendOperations, errs ...error) RemoteClientFactoryFn {
+	return func(context.Context, *slog.Logger, string, kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
+		errch := make(chan error, len(errs))
+		for _, err := range errs {
+			errch <- err
+		}
+
+		close(errch)
+		return client, errch
+	}
+}
+
 func TestRemoteClusterWatchdog(t *testing.T) {
-	testutils.IntegrationTest(t)
-	client := kvstore.SetupDummy(t, "etcd")
+	client := kvstore.NewInMemoryClient(statedb.New(), "__all__")
 
 	const name = "remote"
 	path := filepath.Join(t.TempDir(), name)
@@ -67,12 +77,7 @@ func TestRemoteClusterWatchdog(t *testing.T) {
 	rc := cm.(*clusterMesh).newRemoteCluster(name, path)
 
 	statusErrors := make(chan error, 1)
-	rc.remoteClientFactory = func(ctx context.Context, logger *slog.Logger, cfgpath string,
-		options kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
-		opts := map[string]string{kvstore.EtcdOptionConfig: cfgpath}
-		backend, errch := kvstore.NewClient(ctx, logger, kvstore.EtcdBackendName, opts, options)
-		return &fakeBackend{backend, statusErrors}, errch
-	}
+	rc.remoteClientFactory = fakeRemoteClusterFactory(&fakeBackend{client, statusErrors})
 
 	var cl *clusterLock
 	rc.clusterLockFactory = func() *clusterLock {
@@ -141,12 +146,7 @@ func TestRemoteClusterCacheRevokeOnTimeout(t *testing.T) {
 	rc := cm.(*clusterMesh).newRemoteCluster(name, path)
 
 	statusErrors := make(chan error, 1)
-	rc.remoteClientFactory = func(ctx context.Context, logger *slog.Logger, cfgpath string,
-		options kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
-		errch := make(chan error)
-		close(errch)
-		return &fakeBackend{client, statusErrors}, errch
-	}
+	rc.remoteClientFactory = fakeRemoteClusterFactory(&fakeBackend{client, statusErrors})
 
 	rc.connect()
 	t.Cleanup(rc.onStop)
@@ -159,12 +159,7 @@ func TestRemoteClusterCacheRevokeOnTimeout(t *testing.T) {
 
 	// Configure the TTL and mock the factory to permanently fail all future connections.
 	rc.ttlChecker.ttl = 100 * time.Millisecond
-	rc.remoteClientFactory = func(ctx context.Context, logger *slog.Logger, cfgpath string,
-		options kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
-		errCh := make(chan error, 1)
-		errCh <- errors.New("persistent connection failure")
-		return nil, errCh
-	}
+	rc.remoteClientFactory = fakeRemoteClusterFactory(nil, errors.New("persistent connection failure"))
 
 	// Trigger a status error to force a reconnection
 	statusErrors <- errors.New("error")
