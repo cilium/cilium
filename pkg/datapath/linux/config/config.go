@@ -815,9 +815,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 	}
 
 	if !option.Config.EnableHostLegacyRouting && drd != nil && len(devices) == 1 {
-		if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
-			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
-		}
+		fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
 	}
 
 	if e.IsHost() {
