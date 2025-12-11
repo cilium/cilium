@@ -92,7 +92,7 @@ func (v *version) CiliumEndpointSlices() CiliumEndpointSliceInformer {
 
 // CiliumGatewayClassConfigs returns a CiliumGatewayClassConfigInformer.
 func (v *version) CiliumGatewayClassConfigs() CiliumGatewayClassConfigInformer {
-	return &ciliumGatewayClassConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+	return &ciliumGatewayClassConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumL2AnnouncementPolicies returns a CiliumL2AnnouncementPolicyInformer.
