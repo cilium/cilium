@@ -90,16 +90,6 @@ type DeviceManagerConfig interface {
 	IsEnabled() bool
 }
 
-type DeviceFilter struct {
-	PfNames     []string
-	PciAddrs    []string
-	Drivers     []string
-	DeviceIDs   []string
-	VendorIDs   []string
-	IfNames     []string
-	DriverTypes []DeviceManagerType
-}
-
 type RouteSet map[netip.Prefix]AddrSet
 
 type AddrSet map[netip.Prefix]struct{}

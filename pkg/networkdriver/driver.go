@@ -171,6 +171,13 @@ func (driver *Driver) publish(ctx context.Context) error {
 // Start validates the configuration file and initializes all the devicemanagers
 // that are enabled by config, and starts the DRA + NRI registration.
 func (driver *Driver) Start(ctx cell.HookContext) error {
+	if err := validateConfig(driver.config); err != nil {
+		driver.logger.ErrorContext(
+			ctx, "invalid configuration",
+			logfields.Error, err,
+		)
+	}
+
 	driver.jg.Add(job.OneShot("network-driver", func(ctx context.Context, _ cell.Health) error {
 
 		driver.logger.DebugContext(ctx, "Starting network driver...")
@@ -182,9 +189,10 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 
 		driver.deviceManagers = mgrs
 
-		driver.logger.DebugContext(ctx,
-			"starting driver with config",
-			logfields.Config, driver.config)
+		driver.logger.DebugContext(
+			ctx, "starting driver with config",
+			logfields.Config, driver.config,
+		)
 
 		// create path for our driver plugin socket.
 		err = os.MkdirAll(driverPluginPath(driver.driverName), 0750)
