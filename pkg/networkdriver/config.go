@@ -50,7 +50,12 @@ func validatePools(this v2alpha1.CiliumNetworkDriverDevicePoolConfig, others ...
 }
 
 // validateConfig ensures a configuration is sane.
-func validateConfig(c v2alpha1.CiliumNetworkDriverConfigSpec) error {
+func validateConfig(c *v2alpha1.CiliumNetworkDriverConfigSpec) error {
+	if c == nil {
+		// empty config is valid
+		return nil
+	}
+
 	// we dont allow pool definitions that allow matching
 	// the same device more than once.
 	if len(c.Pools) > 1 {
