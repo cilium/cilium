@@ -218,7 +218,7 @@ func TestResourceHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockManager := cmnamespace.NewMockNamespaceManager(false, tt.globalNamespaces...)
+			mockManager := cmnamespace.NewMockNamespaceManager(t, false, tt.globalNamespaces...)
 			params := syncParams[*ciliumv2.CiliumIdentity]{
 				NamespaceManager: mockManager,
 			}
@@ -298,7 +298,7 @@ func TestResourceHandler_CiliumEndpoint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockManager := cmnamespace.NewMockNamespaceManager(false, tt.globalNamespaces...)
+			mockManager := cmnamespace.NewMockNamespaceManager(t, false, tt.globalNamespaces...)
 
 			params := syncParams[*types.CiliumEndpoint]{
 				NamespaceManager: mockManager,
@@ -377,7 +377,7 @@ func TestResourceHandler_CiliumEndpointSlice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := cmnamespace.NewMockNamespaceManager(false, tt.globalNamespaces...)
+			m := cmnamespace.NewMockNamespaceManager(t, false, tt.globalNamespaces...)
 
 			params := syncParams[*ciliumv2alpha1.CiliumEndpointSlice]{
 				NamespaceManager: m,

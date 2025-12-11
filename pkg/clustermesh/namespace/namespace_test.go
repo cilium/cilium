@@ -4,7 +4,6 @@
 package namespace
 
 import (
-	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +14,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func TestIsGlobalNamespace(t *testing.T) {
+func TestIsGlobalNamespaceByObject(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      Config
@@ -168,13 +167,47 @@ func TestIsGlobalNamespace(t *testing.T) {
 			expected:    false,
 			description: "empty annotation value should be treated as false",
 		},
+		{
+			name: "annotation true with default true",
+			config: Config{
+				EnableDefaultGlobalNamespace: true,
+			},
+			namespace: &slim_corev1.Namespace{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name: "test-ns",
+					Annotations: map[string]string{
+						annotation.GlobalNamespace: "true",
+					},
+				},
+			},
+			expected:    true,
+			description: "annotation=true with default=true should return true",
+		},
+		{
+			name: "annotation false with default false",
+			config: Config{
+				EnableDefaultGlobalNamespace: false,
+			},
+			namespace: &slim_corev1.Namespace{
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name: "test-ns",
+					Annotations: map[string]string{
+						annotation.GlobalNamespace: "false",
+					},
+				},
+			},
+			expected:    false,
+			description: "annotation=false with default=false should return false",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &manager{
-				logger: slog.Default(),
-				cfg:    tt.config,
+			var m Manager
+			if tt.namespace != nil {
+				m = NewMockNamespaceManager(t, tt.config.EnableDefaultGlobalNamespace, tt.namespace)
+			} else {
+				m = NewMockNamespaceManager(t, tt.config.EnableDefaultGlobalNamespace)
 			}
 			result := m.IsGlobalNamespaceByObject(tt.namespace)
 			assert.Equal(t, tt.expected, result, tt.description)
@@ -213,9 +246,49 @@ func TestIsGlobalNamespaceByName(t *testing.T) {
 			description: "should return true for annotated global namespace",
 		},
 		{
+			name: "namespace exists with annotation true and default true",
+			config: Config{
+				EnableDefaultGlobalNamespace: true,
+			},
+			nsName: "global-ns",
+			namespaces: []*slim_corev1.Namespace{
+				{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "global-ns",
+						Annotations: map[string]string{
+							annotation.GlobalNamespace: "true",
+						},
+					},
+				},
+			},
+			expectError: false,
+			expected:    true,
+			description: "should return true for annotated global namespace even with default true",
+		},
+		{
 			name: "namespace exists with annotation false",
 			config: Config{
 				EnableDefaultGlobalNamespace: true,
+			},
+			nsName: "local-ns",
+			namespaces: []*slim_corev1.Namespace{
+				{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "local-ns",
+						Annotations: map[string]string{
+							annotation.GlobalNamespace: "false",
+						},
+					},
+				},
+			},
+			expectError: false,
+			expected:    false,
+			description: "should return false for annotated local namespace",
+		},
+		{
+			name: "namespace exists with annotation false and default false",
+			config: Config{
+				EnableDefaultGlobalNamespace: false,
 			},
 			nsName: "local-ns",
 			namespaces: []*slim_corev1.Namespace{
@@ -282,21 +355,29 @@ func TestIsGlobalNamespaceByName(t *testing.T) {
 			expected:    true,
 			description: "should find and evaluate correct namespace from multiple",
 		},
+		{
+			name: "default true with no annotation",
+			config: Config{
+				EnableDefaultGlobalNamespace: true,
+			},
+			nsName: "local-ns",
+			namespaces: []*slim_corev1.Namespace{
+				{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "local-ns",
+					},
+				},
+			},
+			expectError: false,
+			expected:    true,
+			description: "should return true based on default when no annotation present",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create mock namespace store
-			store := NewMockNamespaceStore(tt.namespaces...)
-
-			m := &manager{
-				logger: slog.Default(),
-				cfg:    tt.config,
-				store:  store,
-			}
-
+			m := NewMockNamespaceManager(t, tt.config.EnableDefaultGlobalNamespace, tt.namespaces...)
 			result, err := m.IsGlobalNamespaceByName(tt.nsName)
-
 			if tt.expectError {
 				require.Error(t, err, tt.description)
 			} else {

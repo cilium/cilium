@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type managerParams struct {
@@ -26,7 +25,6 @@ type managerParams struct {
 }
 
 type Manager interface {
-	IsGlobalNamespaceEnabledByDefault() bool
 	IsGlobalNamespaceByName(ns string) (bool, error)
 	IsGlobalNamespaceByObject(ns *slim_corev1.Namespace) bool
 }
@@ -40,7 +38,7 @@ type manager struct {
 
 func newManager(params managerParams) *manager {
 	m := &manager{
-		logger:     params.Logger.With(logfields.LogSubsys, "clustermesh-namespace-manager"),
+		logger:     params.Logger,
 		cfg:        params.Config,
 		namespaces: params.Namespaces,
 	}
@@ -59,19 +57,13 @@ func newManager(params managerParams) *manager {
 	return m
 }
 
-// IsGlobalNamespaceEnabledByDefault returns whether the default global namespace
-// setting is enabled in the configuration.
-func (m *manager) IsGlobalNamespaceEnabledByDefault() bool {
-	return m.cfg.EnableDefaultGlobalNamespace
-}
-
 // IsGlobalNamespaceByObject determines whether the given namespace should be treated as a global
 // namespace based on its annotations and the provided configuration.
 func (m *manager) IsGlobalNamespaceByObject(ns *slim_corev1.Namespace) bool {
 	if ns == nil {
 		return false
 	}
-	// Get annotations map safely.
+	// Get annotations for the namespace.
 	// If annotated with "clustermesh.cilium.io/global-namespace", supercede the default config.
 	annotations := ns.GetAnnotations()
 	if value, ok := annotations[annotation.GlobalNamespace]; ok {
@@ -83,7 +75,7 @@ func (m *manager) IsGlobalNamespaceByObject(ns *slim_corev1.Namespace) bool {
 
 // IsGlobalNamespaceByName determines whether the namespace with the given name should be treated
 // as a global namespace based on its annotations and the provided configuration.
-// It retrieves the namespace object from the provided resource store.
+// It retrieves the namespace object from the namep resource store embedded in manager ob.
 func (m *manager) IsGlobalNamespaceByName(ns string) (bool, error) {
 	if m.store == nil {
 		return false, fmt.Errorf("namespace store not initialized")
