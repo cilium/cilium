@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/clustercfg"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/version"
 )
 
 // Cell takes care of writing the cluster configuration to the kvstore, and
@@ -20,7 +21,8 @@ var Cell = cell.Module(
 	cell.Provide(
 		func(cinfo cmtypes.ClusterInfo, mcsAPICfg mcsapitypes.MCSAPIConfig, sc syncedCanaries) cmtypes.CiliumClusterConfig {
 			return cmtypes.CiliumClusterConfig{
-				ID: cinfo.ID,
+				ID:      cinfo.ID,
+				Version: version.GetCiliumVersion(),
 				Capabilities: cmtypes.CiliumClusterConfigCapabilities{
 					SyncedCanaries:        bool(sc),
 					MaxConnectedClusters:  cinfo.MaxConnectedClusters,
