@@ -11,6 +11,8 @@ package config
 type Node struct {
 	// Index of the interface used to connect nodes in the cluster.
 	DirectRoutingDevIfindex uint32 `config:"direct_routing_dev_ifindex"`
+	// Enable per flow (conntrack) statistics.
+	EnableConntrackAccounting bool `config:"enable_conntrack_accounting"`
 	// Enable hybrid mode routing based on subnet IDs.
 	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
 	// Enable ICMP responses for policy-denied traffic.
@@ -32,7 +34,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0, false, false,
+	return &Node{0x0, false, false, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},

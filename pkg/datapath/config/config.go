@@ -41,5 +41,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 		node.PolicyDenyResponseEnabled = false
 	}
 
+	node.EnableConntrackAccounting = lnc.EnableConntrackAccounting
+
 	return node
 }

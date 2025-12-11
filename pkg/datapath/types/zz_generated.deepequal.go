@@ -250,6 +250,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EnableIPSec != other.EnableIPSec {
 		return false
 	}
+	if in.EnableConntrackAccounting != other.EnableConntrackAccounting {
+		return false
+	}
 	if in.EncryptNode != other.EncryptNode {
 		return false
 	}
