@@ -5,6 +5,7 @@ package networkdriver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,7 +43,6 @@ func driverPluginPath(driverName string) string {
 }
 
 type Driver struct {
-	driverName string
 	kubeClient kubernetes.Interface
 	draPlugin  *kubeletplugin.Helper
 	nriPlugin  stub.Stub
@@ -49,7 +50,8 @@ type Driver struct {
 	lock       lock.Mutex
 	jg         job.Group
 
-	config v2alpha1.CiliumNetworkDriverConfigSpec
+	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
+	config    *v2alpha1.CiliumNetworkDriverConfigSpec
 
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
@@ -170,16 +172,53 @@ func (driver *Driver) publish(ctx context.Context) error {
 	})
 }
 
-// Start validates the configuration file and initializes all the devicemanagers
-// that are enabled by config, and starts the DRA + NRI registration.
-func (driver *Driver) Start(ctx cell.HookContext) error {
-	if err := validateConfig(driver.config); err != nil {
-		driver.logger.ErrorContext(
-			ctx, "invalid configuration",
-			logfields.Error, err,
-		)
-	}
+// watchConfig blocks forever until a configuration is found (from the CRD).
+func (driver *Driver) watchConfig(ctx context.Context) error {
+	var (
+		errChannelClosed    = errors.New("channel closed")
+		errContextCancelled = errors.New("context cancelled")
+	)
 
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%w: %w", errContextCancelled, ctx.Err())
+		case ev, ok := <-driver.configCRD.Events(ctx):
+			if !ok {
+				return errChannelClosed
+			}
+
+			defer ev.Done(nil)
+
+			switch ev.Kind {
+			case resource.Sync:
+				driver.logger.DebugContext(ctx, "configuration sync received")
+			case resource.Delete:
+				driver.logger.DebugContext(ctx, "configuration delete received")
+			case resource.Upsert:
+				driver.logger.DebugContext(ctx, "configuration upsert received")
+			}
+
+			if ev.Object != nil {
+				newConfig := ev.Object
+				if driver.config != nil {
+					// if we already have a config
+					driver.logger.DebugContext(
+						ctx, "config received, but we already have one",
+					)
+				} else {
+					driver.config = &newConfig.Spec
+				}
+
+				return nil
+			}
+		}
+	}
+}
+
+// Start retrieves nadvalidates the configuration. If configuration is found and valid, it
+// initializes all the devicemanagers that are enabled by config, and starts the DRA + NRI registration.
+func (driver *Driver) Start(ctx cell.HookContext) error {
 	driver.jg.Add(job.OneShot("network-driver", func(ctx context.Context, _ cell.Health) error {
 
 		if version.Version().LT(semver.Version{Major: 1, Minor: 34}) {
@@ -196,6 +235,34 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			logfields.K8sAPIVersion, version.Version(),
 		)
 
+		err := driver.watchConfig(ctx)
+		if err != nil {
+			return err
+		}
+
+		if driver.config == nil {
+			// not found, we wont start the driver
+			driver.logger.DebugContext(
+				ctx, "Network Driver configuration not found",
+			)
+
+			return nil
+		}
+
+		driver.logger.DebugContext(
+			ctx, "network driver configuration found",
+			logfields.DriverName, driver.config.DriverName,
+		)
+
+		if err := validateConfig(driver.config); err != nil {
+			driver.logger.ErrorContext(
+				ctx, "invalid configuration",
+				logfields.Error, err,
+			)
+
+			return err
+		}
+
 		mgrs, err := devicemanagers.InitManagers(driver.logger, driver.config.DeviceManagerConfigs)
 		if err != nil {
 			return err
@@ -204,18 +271,18 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 		driver.deviceManagers = mgrs
 
 		driver.logger.DebugContext(
-			ctx, "starting driver with config",
-			logfields.Config, driver.config,
+			ctx, "starting driver",
+			logfields.DriverName, driver.config.DriverName,
 		)
 
 		// create path for our driver plugin socket.
-		err = os.MkdirAll(driverPluginPath(driver.driverName), 0750)
+		err = os.MkdirAll(driverPluginPath(driver.config.DriverName), 0750)
 		if err != nil {
-			return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.driverName), err)
+			return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.config.DriverName), err)
 		}
 
 		pluginOpts := []kubeletplugin.Option{
-			kubeletplugin.DriverName(driver.driverName),
+			kubeletplugin.DriverName(driver.config.DriverName),
 			kubeletplugin.NodeName(node_types.GetName()),
 			kubeletplugin.KubeClient(driver.kubeClient),
 		}
@@ -250,19 +317,19 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 
 		driver.logger.DebugContext(ctx,
 			"DRA plugin registration successful",
-			logfields.DriverName, driver.driverName,
+			logfields.DriverName, driver.config.DriverName,
 		)
 
 		// register the NRI plugin
 		nriOptions := []stub.Option{
-			stub.WithPluginName(driver.driverName),
+			stub.WithPluginName(driver.config.DriverName),
 			stub.WithPluginIdx("00"),
 			// https://github.com/containerd/nri/pull/173
 			// Otherwise it silently exits the program
 			stub.WithOnClose(func() {
 				driver.logger.WarnContext(
 					ctx, "NRI plugin closed",
-					logfields.DriverName, driver.driverName,
+					logfields.DriverName, driver.config.DriverName,
 				)
 			}),
 		}
@@ -280,14 +347,14 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 					driver.logger.ErrorContext(
 						ctx, "NRI plugin failed",
 						logfields.Error, err,
-						logfields.Name, driver.driverName,
+						logfields.Name, driver.config.DriverName,
 					)
 				}
 				select {
 				case <-ctx.Done():
 					return nil
 				case <-time.After(time.Second):
-					driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.driverName)
+					driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.config.DriverName)
 				}
 			}
 		}))
