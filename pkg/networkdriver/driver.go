@@ -22,6 +22,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
@@ -39,7 +40,6 @@ func driverPluginPath(driverName string) string {
 }
 
 type Driver struct {
-	driverName string
 	kubeClient kubernetes.Interface
 	draPlugin  *kubeletplugin.Helper
 	nriPlugin  stub.Stub
@@ -47,7 +47,8 @@ type Driver struct {
 	lock       lock.Mutex
 	jg         job.Group
 
-	config v2alpha1.CiliumNetworkDriverConfigSpec
+	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
+	config    v2alpha1.CiliumNetworkDriverConfigSpec
 
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
@@ -168,9 +169,40 @@ func (driver *Driver) publish(ctx context.Context) error {
 	})
 }
 
-// Start validates the configuration file and initializes all the devicemanagers
-// that are enabled by config, and starts the DRA + NRI registration.
+// Start retrieves nadvalidates the configuration. If configuration is found and valid, it
+// initializes all the devicemanagers that are enabled by config, and starts the DRA + NRI registration.
 func (driver *Driver) Start(ctx cell.HookContext) error {
+
+	// how long we wait for the crd config to be found on an event
+	crdTimeout := 1 * time.Second
+	crdPollInterval := 100 * time.Millisecond
+
+	// retrieve events from our crd listener. if no config is found for this agent, dont enable the network driver
+	if err := wait.PollUntilContextTimeout(ctx, crdPollInterval, crdTimeout, true, func(ctx context.Context) (done bool, err error) {
+		ev, ok := <-driver.configCRD.Events(ctx)
+		if !ok {
+			return false, nil
+		}
+		defer ev.Done(nil)
+
+		if ev.Object != nil {
+			driver.config = ev.Object.Spec
+			return true, nil
+		}
+		return false, nil
+	}); err != nil {
+		driver.logger.DebugContext(
+			ctx, "network driver configuration not found, skipping",
+		)
+
+		return nil
+	}
+
+	driver.logger.DebugContext(
+		ctx, "network driver configuration found",
+		logfields.DriverName, driver.config.DriverName,
+	)
+
 	if err := validateConfig(driver.config); err != nil {
 		driver.logger.ErrorContext(
 			ctx, "invalid configuration",
@@ -190,18 +222,18 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 		driver.deviceManagers = mgrs
 
 		driver.logger.DebugContext(
-			ctx, "starting driver with config",
-			logfields.Config, driver.config,
+			ctx, "starting driver",
+			logfields.DriverName, driver.config.DriverName,
 		)
 
 		// create path for our driver plugin socket.
-		err = os.MkdirAll(driverPluginPath(driver.driverName), 0750)
+		err = os.MkdirAll(driverPluginPath(driver.config.DriverName), 0750)
 		if err != nil {
-			return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.driverName), err)
+			return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.config.DriverName), err)
 		}
 
 		pluginOpts := []kubeletplugin.Option{
-			kubeletplugin.DriverName(driver.driverName),
+			kubeletplugin.DriverName(driver.config.DriverName),
 			kubeletplugin.NodeName(node_types.GetName()),
 			kubeletplugin.KubeClient(driver.kubeClient),
 		}
@@ -236,19 +268,19 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 
 		driver.logger.DebugContext(ctx,
 			"DRA plugin registration successful",
-			logfields.DriverName, driver.driverName,
+			logfields.DriverName, driver.config.DriverName,
 		)
 
 		// register the NRI plugin
 		nriOptions := []stub.Option{
-			stub.WithPluginName(driver.driverName),
+			stub.WithPluginName(driver.config.DriverName),
 			stub.WithPluginIdx("00"),
 			// https://github.com/containerd/nri/pull/173
 			// Otherwise it silently exits the program
 			stub.WithOnClose(func() {
 				driver.logger.WarnContext(
 					ctx, "NRI plugin closed",
-					logfields.DriverName, driver.driverName,
+					logfields.DriverName, driver.config.DriverName,
 				)
 			}),
 		}
@@ -266,14 +298,14 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 					driver.logger.ErrorContext(
 						ctx, "NRI plugin failed",
 						logfields.Error, err,
-						logfields.Name, driver.driverName,
+						logfields.Name, driver.config.DriverName,
 					)
 				}
 				select {
 				case <-ctx.Done():
 					return nil
 				case <-time.After(time.Second):
-					driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.driverName)
+					driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.config.DriverName)
 				}
 			}
 		}))
