@@ -19,6 +19,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
@@ -114,21 +115,21 @@ func (d PciDevice) Free(config types.DeviceConfig) error {
 }
 
 // Match evaluates a filter to determine if the device matches it.
-func (d PciDevice) Match(filter types.DeviceFilter) bool {
-	if len(filter.DriverTypes) != 0 {
-		if !slices.Contains(filter.DriverTypes, types.DeviceManagerTypeSRIOV) {
+func (d PciDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool {
+	if len(filter.DeviceManagers) != 0 {
+		if !slices.Contains(filter.DeviceManagers, types.DeviceManagerTypeSRIOV.String()) {
 			return false
 		}
 	}
 
-	if len(filter.PciAddrs) != 0 {
-		if !slices.Contains(filter.PciAddrs, d.addr) {
+	if len(filter.PCIAddrs) != 0 {
+		if !slices.Contains(filter.PCIAddrs, d.addr) {
 			return false
 		}
 	}
 
 	if len(filter.IfNames) != 0 {
-		if !slices.Contains(filter.PciAddrs, d.IfName()) {
+		if !slices.Contains(filter.IfNames, d.IfName()) {
 			return false
 		}
 	}
@@ -163,13 +164,13 @@ func (d PciDevice) Match(filter types.DeviceFilter) bool {
 type SRIOVManager struct {
 	logger  *slog.Logger
 	sysPath string
-	config  SRIOVConfig
+	config  *v2alpha1.SRIOVDeviceManagerConfig
 }
 
 func (m *SRIOVManager) init() error {
 	for _, intf := range m.config.Ifaces {
-		if intf.VFCount != 0 {
-			if err := setupVfs(intf.Ifname, intf.VFCount, m.logger); err != nil {
+		if intf.VfCount != 0 {
+			if err := setupVfs(intf.IfName, intf.VfCount, m.logger); err != nil {
 				return err
 			}
 		}
@@ -178,7 +179,7 @@ func (m *SRIOVManager) init() error {
 	return nil
 }
 
-func NewManager(logger *slog.Logger, cfg SRIOVConfig) (*SRIOVManager, error) {
+func NewManager(logger *slog.Logger, cfg *v2alpha1.SRIOVDeviceManagerConfig) (*SRIOVManager, error) {
 	mgr := &SRIOVManager{
 		logger:  logger,
 		sysPath: defaultSysPath,

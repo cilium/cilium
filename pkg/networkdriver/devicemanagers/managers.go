@@ -4,35 +4,34 @@
 package devicemanagers
 
 import (
-	"errors"
-	"fmt"
 	"log/slog"
 
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
 
-var (
-	errUnknownManagerType             = errors.New("unknown manager type")
-	errInvalidConfigurationForManager = errors.New("invalid configuration type for manager")
-)
+func InitManagers(logger *slog.Logger, managerConfigs *v2alpha1.CiliumNetworkDriverDeviceManagerConfig) (map[types.DeviceManagerType]types.DeviceManager, error) {
+	result := make(map[types.DeviceManagerType]types.DeviceManager)
 
-func InitManager(logger *slog.Logger, managerType types.DeviceManagerType, driverCfg any) (types.DeviceManager, error) {
-	switch c := driverCfg.(type) {
-	case sriov.SRIOVConfig:
-		if managerType != types.DeviceManagerTypeSRIOV {
-			return nil, fmt.Errorf("%w: expected %T, got %T", errInvalidConfigurationForManager, sriov.SRIOVConfig{}, c)
+	if managerConfigs.SRIOV != nil && managerConfigs.SRIOV.Enabled {
+		sriovMgr, err := sriov.NewManager(logger, managerConfigs.SRIOV)
+		if err != nil {
+			return nil, err
 		}
 
-		return sriov.NewManager(logger, c)
-	case dummy.DummyConfig:
-		if managerType != types.DeviceManagerTypeDummy {
-			return nil, fmt.Errorf("%w: expected %T, got %T", errInvalidConfigurationForManager, dummy.DummyConfig{}, c)
-		}
-
-		return dummy.NewManager(logger, c)
+		result[types.DeviceManagerTypeSRIOV] = sriovMgr
 	}
 
-	return nil, errUnknownManagerType
+	if managerConfigs.Dummy != nil && managerConfigs.Dummy.Enabled {
+		dummyMgr, err := dummy.NewManager(logger, managerConfigs.Dummy)
+		if err != nil {
+			return nil, err
+		}
+
+		result[types.DeviceManagerTypeSRIOV] = dummyMgr
+	}
+
+	return result, nil
 }
