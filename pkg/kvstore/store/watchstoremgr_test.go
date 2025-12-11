@@ -5,7 +5,9 @@ package store
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
@@ -96,4 +98,43 @@ func TestWatchStoreManagerPanic(t *testing.T) {
 	t.Run("immediate", runnable(func() WatchStoreManager {
 		return NewWatchStoreManagerImmediate(hivetest.Logger(t))
 	}))
+}
+
+func TestWatchStoreManagerEmpty(t *testing.T) {
+	runnable := func(mgr func() WatchStoreManager) func(t *testing.T) {
+		return func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				var (
+					mgr    = mgr()
+					exited atomic.Bool
+				)
+
+				ctx, cancel := context.WithCancel(context.Background())
+
+				go func() {
+					mgr.Run(ctx)
+					exited.Store(true)
+				}()
+
+				synctest.Wait()
+				require.False(t, exited.Load(), "mgr.Run should not exit before the context is canceled")
+
+				cancel()
+
+				synctest.Wait()
+				require.True(t, exited.Load(), "mgr.Run should exit once the context is canceled")
+			})
+		}
+	}
+
+	t.Run("sync", runnable(func() WatchStoreManager {
+		f, _ := GetFactory(t)
+		backend := NewFakeLWBackend(t, kvstore.SyncedPrefix+"/foo/", nil)
+		return f.NewWatchStoreManager(backend, "foo")
+	}))
+
+	t.Run("immediate", runnable(func() WatchStoreManager {
+		return NewWatchStoreManagerImmediate(hivetest.Logger(t))
+	}))
+
 }
