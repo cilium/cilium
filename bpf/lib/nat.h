@@ -925,7 +925,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		 * L4 header, NATing it in this situation is useless, because
 		 * the following fragments won't be able to pass the NAT.
 		 */
-		if (!is_defined(ENABLE_IPV4_FRAGMENTS) && ipfrag_is_fragment(fraginfo))
+		if (unlikely(!CONFIG(enable_ipv4_fragments) && ipfrag_is_fragment(fraginfo)))
 			return DROP_FRAG_NOSUPPORT;
 
 		ret = ipv4_load_l4_ports(ctx, ip4, fraginfo, off,
@@ -1911,7 +1911,7 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		 * L4 header, NATing it in this situation is useless, because
 		 * the following fragments won't be able to pass the NAT.
 		 */
-		if (!is_defined(ENABLE_IPV6_FRAGMENTS) && ipfrag_is_fragment(fraginfo))
+		if (unlikely(!CONFIG(enable_ipv6_fragments) && ipfrag_is_fragment(fraginfo)))
 			return DROP_FRAG_NOSUPPORT;
 
 		ret = ipv6_load_l4_ports(ctx, ip6, fraginfo, off,
@@ -1927,7 +1927,7 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 		break;
 	case IPPROTO_ICMPV6:
-		if (ipfrag_is_fragment(fraginfo))
+		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
 			return DROP_INVALID;
@@ -2116,7 +2116,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 
 		break;
 	case IPPROTO_ICMPV6:
-		if (ipfrag_is_fragment(fraginfo))
+		if (unlikely(ipfrag_is_fragment(fraginfo)))
 			return DROP_INVALID;
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
 			return DROP_INVALID;

@@ -70,19 +70,19 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	struct ipv6hdr *ip6;
 	const struct endpoint_info *ep;
 	bool is_dsr = false;
-	fraginfo_t fraginfo __maybe_unused;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-#ifndef ENABLE_IPV6_FRAGMENTS
-	fraginfo = ipv6_get_fraginfo(ctx, ip6);
-	if (fraginfo < 0)
-		return (int)fraginfo;
-	if (ipfrag_is_fragment(fraginfo))
-		return DROP_FRAG_NOSUPPORT;
-#endif
+	if (!CONFIG(enable_ipv6_fragments)) {
+		fraginfo_t fraginfo = ipv6_get_fraginfo(ctx, ip6);
+
+		if (fraginfo < 0)
+			return (int)fraginfo;
+		if (ipfrag_is_fragment(fraginfo))
+			return DROP_FRAG_NOSUPPORT;
+	}
 
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
@@ -284,22 +284,21 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	struct iphdr *ip4;
 	const struct endpoint_info *ep;
 	bool is_dsr = false;
-	fraginfo_t fraginfo __maybe_unused;
 	int ret __maybe_unused;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-/* If IPv4 fragmentation is disabled
- * AND a IPv4 fragmented packet is received,
- * then drop the packet.
- */
-#ifndef ENABLE_IPV4_FRAGMENTS
-	fraginfo = ipfrag_encode_ipv4(ip4);
-	if (ipfrag_is_fragment(fraginfo))
-		return DROP_FRAG_NOSUPPORT;
-#endif
+	/* If IPv4 fragmentation is disabled AND a IPv4 fragmented packet is
+	 * received, then drop the packet.
+	 */
+	if (!CONFIG(enable_ipv4_fragments)) {
+		fraginfo_t fraginfo = ipfrag_encode_ipv4(ip4);
+
+		if (ipfrag_is_fragment(fraginfo))
+			return DROP_FRAG_NOSUPPORT;
+	}
 
 #ifdef ENABLE_MULTICAST
 	if (IN_MULTICAST(bpf_ntohl(ip4->daddr))) {
