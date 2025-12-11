@@ -65,22 +65,29 @@ spec:
                         default: false
                         type: boolean
                       ifaces:
-                        additionalProperties:
+                        items:
                           description: Configuration for SR-IOV devices
                           properties:
+                            ifName:
+                              description: Kernel ifname
+                              type: string
                             vfCount:
                               default: 0
                               description: Number of VF to be spawned for this PF.
                               type: integer
+                          required:
+                          - ifName
                           type: object
-                        type: object
+                        type: array
                     type: object
                 type: object
               draRegistrationRetryInterval:
+                default: 1
                 description: Interval between DRA registration retries
                 format: int64
                 type: integer
               draRegistrationTimeout:
+                default: 5
                 description: Max amount of time waiting for DRA registration to succeed
                 format: int64
                 type: integer
@@ -92,45 +99,56 @@ spec:
                   Format: FQDN
                 type: string
               pools:
-                additionalProperties:
-                  description: |-
-                    Criteria to match devices that are to be advertised as part of a pool.
-                    All conditions must match for a device to be selected by the filter.
-                  properties:
-                    deviceIDs:
-                      items:
-                        type: string
-                      type: array
-                    deviceManagers:
-                      items:
-                        type: string
-                      type: array
-                    drivers:
-                      items:
-                        type: string
-                      type: array
-                    ifNames:
-                      items:
-                        type: string
-                      type: array
-                    pciAddrs:
-                      items:
-                        type: string
-                      type: array
-                    pfNames:
-                      items:
-                        type: string
-                      type: array
-                    vendorIDs:
-                      items:
-                        type: string
-                      type: array
-                  type: object
                 description: |-
                   Definition of device pools to be advertised by the Network Driver.
                   Pool names must be unique.
-                type: object
+                items:
+                  description: |-
+                    Pool configuration. Devices matched by the filter are advertised
+                    with the pool name as a ResourceSlice.
+                  properties:
+                    filter:
+                      description: |-
+                        Criteria to match devices that are to be advertised as part of a pool.
+                        All conditions must match for a device to be selected by the filter.
+                      properties:
+                        deviceIDs:
+                          items:
+                            type: string
+                          type: array
+                        deviceManagers:
+                          items:
+                            type: string
+                          type: array
+                        drivers:
+                          items:
+                            type: string
+                          type: array
+                        ifNames:
+                          items:
+                            type: string
+                          type: array
+                        pciAddrs:
+                          items:
+                            type: string
+                          type: array
+                        pfNames:
+                          items:
+                            type: string
+                          type: array
+                        vendorIDs:
+                          items:
+                            type: string
+                          type: array
+                      type: object
+                    name:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
               publishInterval:
+                default: 10
                 description: How often DRA plugin scans for devices and publishes
                   resourceslices.
                 format: int64
