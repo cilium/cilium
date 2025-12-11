@@ -334,7 +334,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 #ifdef ENABLE_VTEP
 	{
 		struct vtep_key vkey = {};
-		struct vtep_value *vtep;
+		const struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->saddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
@@ -465,7 +465,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	int ret;
 	struct bpf_tunnel_key key = {};
 	struct vtep_key vkey = {};
-	struct vtep_value *info;
+	const struct vtep_value *info;
 	__u32 key_size;
 
 	key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
