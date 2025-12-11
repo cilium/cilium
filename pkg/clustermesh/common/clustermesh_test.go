@@ -300,4 +300,5 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	// Never unblock the cluster removal, and assert that the stop hook terminates
 	// regardless due to the context being closed.
 	cm.remove("cluster4")
+	gcm.Stop(t.Context())
 }
