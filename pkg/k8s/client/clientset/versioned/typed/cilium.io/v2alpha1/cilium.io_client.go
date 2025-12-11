@@ -67,8 +67,8 @@ func (c *CiliumV2alpha1Client) CiliumEndpointSlices() CiliumEndpointSliceInterfa
 	return newCiliumEndpointSlices(c)
 }
 
-func (c *CiliumV2alpha1Client) CiliumGatewayClassConfigs() CiliumGatewayClassConfigInterface {
-	return newCiliumGatewayClassConfigs(c)
+func (c *CiliumV2alpha1Client) CiliumGatewayClassConfigs(namespace string) CiliumGatewayClassConfigInterface {
+	return newCiliumGatewayClassConfigs(c, namespace)
 }
 
 func (c *CiliumV2alpha1Client) CiliumL2AnnouncementPolicies() CiliumL2AnnouncementPolicyInterface {
