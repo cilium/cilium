@@ -19,14 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
 
-type DummyConfig struct {
-	Enabled bool
-}
-
-func (cfg DummyConfig) IsEnabled() bool {
-	return cfg.Enabled
-}
-
 type DummyManager struct {
 	logger *slog.Logger
 	config *v2alpha1.DummyDeviceManagerConfig
