@@ -823,9 +823,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	if !option.Config.EnableHostLegacyRouting && drd != nil && len(devices) == 1 {
-		fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
-	}
+	fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 0\n")
 
 	if e.IsHost() {
 		// Only used to differentiate between host endpoint template and other templates.
