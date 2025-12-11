@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/spf13/pflag"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -26,8 +27,22 @@ var agentHealthzCell = cell.Module(
 	"agent-healthz",
 	"Cilium Agent Healthz endpoint",
 
+	cell.Config(agentHealthConfig{
+		AgentHealthPort:                   9879,
+		AgentHealthRequireK8sConnectivity: true,
+	}),
 	cell.Invoke(registerAgentHealthHTTPService),
 )
+
+type agentHealthConfig struct {
+	AgentHealthPort                   int
+	AgentHealthRequireK8sConnectivity bool
+}
+
+func (r agentHealthConfig) Flags(flags *pflag.FlagSet) {
+	flags.Int("agent-health-port", r.AgentHealthPort, "TCP port for agent health status API")
+	flags.Bool("agent-health-require-k8s-connectivity", r.AgentHealthRequireK8sConnectivity, "Require Kubernetes connectivity in agent health endpoint")
+}
 
 type agentHealthParams struct {
 	cell.In
@@ -35,6 +50,8 @@ type agentHealthParams struct {
 	Logger   *slog.Logger
 	JobGroup job.Group
 
+	Config          agentHealthConfig
+	DaemonConfig    *option.DaemonConfig
 	StatusCollector status.StatusCollector
 }
 
@@ -44,10 +61,10 @@ type agentHealthParams struct {
 // CLI tool reports.
 func registerAgentHealthHTTPService(params agentHealthParams) error {
 	hosts := map[string]string{}
-	if option.Config.EnableIPv4 {
+	if params.DaemonConfig.EnableIPv4 {
 		hosts["ipv4"] = "127.0.0.1"
 	}
-	if option.Config.EnableIPv6 {
+	if params.DaemonConfig.EnableIPv6 {
 		hosts["ipv6"] = "::1"
 	}
 
@@ -63,7 +80,7 @@ func registerAgentHealthHTTPService(params agentHealthParams) error {
 	for name, host := range hosts {
 		params.JobGroup.Add(job.OneShot(fmt.Sprintf("agent-healthz-server-%s", name), func(ctx context.Context, health cell.Health) error {
 			lc := net.ListenConfig{Control: setsockoptReuseAddrAndPort}
-			addr := net.JoinHostPort(host, fmt.Sprintf("%d", option.Config.AgentHealthPort))
+			addr := net.JoinHostPort(host, fmt.Sprintf("%d", params.Config.AgentHealthPort))
 			ln, err := lc.Listen(context.Background(), "tcp", addr)
 			if errors.Is(err, unix.EADDRNOTAVAIL) {
 				params.Logger.Info("healthz status API server not available", logfields.Address, addr)
@@ -110,11 +127,12 @@ func registerAgentHealthHTTPService(params agentHealthParams) error {
 
 type agentHealthHandler struct {
 	logger          *slog.Logger
+	config          agentHealthConfig
 	statusCollector status.StatusCollector
 }
 
 func (h *agentHealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	requireK8sConnectivity := option.Config.AgentHealthRequireK8sConnectivity
+	requireK8sConnectivity := h.config.AgentHealthRequireK8sConnectivity
 	if v := r.Header.Get("require-k8s-connectivity"); v != "" {
 		res, err := strconv.ParseBool(v)
 		if err != nil {
