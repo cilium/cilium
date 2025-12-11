@@ -29,44 +29,45 @@ type CiliumGatewayClassConfigInformer interface {
 type ciliumGatewayClassConfigInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
 }
 
 // NewCiliumGatewayClassConfigInformer constructs a new informer for CiliumGatewayClassConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewCiliumGatewayClassConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredCiliumGatewayClassConfigInformer(client, resyncPeriod, indexers, nil)
+func NewCiliumGatewayClassConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredCiliumGatewayClassConfigInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
 // NewFilteredCiliumGatewayClassConfigInformer constructs a new informer for CiliumGatewayClassConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredCiliumGatewayClassConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredCiliumGatewayClassConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2alpha1().CiliumGatewayClassConfigs().List(context.Background(), options)
+				return client.CiliumV2alpha1().CiliumGatewayClassConfigs(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2alpha1().CiliumGatewayClassConfigs().Watch(context.Background(), options)
+				return client.CiliumV2alpha1().CiliumGatewayClassConfigs(namespace).Watch(context.Background(), options)
 			},
 			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2alpha1().CiliumGatewayClassConfigs().List(ctx, options)
+				return client.CiliumV2alpha1().CiliumGatewayClassConfigs(namespace).List(ctx, options)
 			},
 			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2alpha1().CiliumGatewayClassConfigs().Watch(ctx, options)
+				return client.CiliumV2alpha1().CiliumGatewayClassConfigs(namespace).Watch(ctx, options)
 			},
 		},
 		&apisciliumiov2alpha1.CiliumGatewayClassConfig{},
@@ -76,7 +77,7 @@ func NewFilteredCiliumGatewayClassConfigInformer(client versioned.Interface, res
 }
 
 func (f *ciliumGatewayClassConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredCiliumGatewayClassConfigInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+	return NewFilteredCiliumGatewayClassConfigInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
 func (f *ciliumGatewayClassConfigInformer) Informer() cache.SharedIndexInformer {
