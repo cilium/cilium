@@ -23,9 +23,6 @@ const (
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
 
-	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
-	ClusterMeshHealthPort = 80
-
 	// EnableGops is the default value for option.EnableGops
 	EnableGops = true
 
@@ -436,11 +433,6 @@ const (
 	// EnableIdentityMark enables setting identity in mark field of packet
 	// for local traffic
 	EnableIdentityMark = true
-
-	// K8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
-	// for the support of Leases in Kubernetes when there is an error in discovering
-	// API groups using Discovery API.
-	K8sEnableLeasesFallbackDiscovery = false
 
 	// InstallNoConntrackRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = false
