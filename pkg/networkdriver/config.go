@@ -8,44 +8,25 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/cilium/cilium/pkg/networkdriver/types"
-	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
-
-// PoolConfig represents a pool of similar resources.
-// Each pool of resources is announced as a ResourceSlice
-// Kubernetes resource, allowing pods to claim resources from it.
-type PoolConfig struct {
-	// Pool names must be unique
-	Name   string
-	Filter types.DeviceFilter
-}
-
-type Config struct {
-	DraRegistrationRetry   time.Duration
-	DraRegistrationTimeout time.Duration
-	PublishInterval        time.Duration
-	DriverName             string
-	DeviceManagerConfigs   map[types.DeviceManagerType]types.DeviceManagerConfig
-	Pools                  []PoolConfig
-}
 
 // validateFilters ensures that we do not have more than one filter matching the same device.
 // some filter fields can be shared among devices (ex: driver, vendor, device id, pf name), but others
 // can't (ex: ifname, pciaddr).
-func validateFilters(this PoolConfig, others ...PoolConfig) error {
+func validateFilters(this v2alpha1.CiliumNetworkDriverDevicePoolConfig, others ...v2alpha1.CiliumNetworkDriverDevicePoolConfig) error {
 	for _, ifname := range this.Filter.IfNames {
 		for _, otherPool := range others {
 			if slices.Contains(otherPool.Filter.IfNames, ifname) {
-				return fmt.Errorf("%w: %s on pools %s and %s", errIfNameInMultiplePools, ifname, this.Name, otherPool.Name)
+				return fmt.Errorf("%w: %s on pools %s and %s", errIfNameInMultiplePools, ifname, this.PoolName, otherPool.PoolName)
 			}
 		}
 	}
 
-	for _, pciAddr := range this.Filter.PciAddrs {
+	for _, pciAddr := range this.Filter.PCIAddrs {
 		for _, otherPool := range others {
-			if slices.Contains(otherPool.Filter.PciAddrs, pciAddr) {
-				return fmt.Errorf("%w: %s on pools %s and %s", errPCIAddrInMultiplePools, pciAddr, this.Name, otherPool.Name)
+			if slices.Contains(otherPool.Filter.PCIAddrs, pciAddr) {
+				return fmt.Errorf("%w: %s on pools %s and %s", errPCIAddrInMultiplePools, pciAddr, this.PoolName, otherPool.PoolName)
 			}
 		}
 	}
@@ -54,10 +35,10 @@ func validateFilters(this PoolConfig, others ...PoolConfig) error {
 }
 
 // validatePools ensures that there are not any conflicting pool definitions.
-func validatePools(this PoolConfig, others ...PoolConfig) error {
+func validatePools(this v2alpha1.CiliumNetworkDriverDevicePoolConfig, others ...v2alpha1.CiliumNetworkDriverDevicePoolConfig) error {
 	for _, p := range others {
-		if this.Name == p.Name {
-			return fmt.Errorf("%w: %s", errDuplicatedPoolName, this.Name)
+		if this.PoolName == p.PoolName {
+			return fmt.Errorf("%w: %s", errDuplicatedPoolName, this.PoolName)
 		}
 
 		if err := validateFilters(this, others...); err != nil {
@@ -68,8 +49,8 @@ func validatePools(this PoolConfig, others ...PoolConfig) error {
 	return nil
 }
 
-// Validate ensures a configuration is sane.
-func (c *Config) Validate() error {
+// validateConfig ensures a configuration is sane.
+func validateConfig(c v2alpha1.CiliumNetworkDriverConfigSpec) error {
 	// we dont allow pool definitions that allow matching
 	// the same device more than once.
 	if len(c.Pools) > 1 {
