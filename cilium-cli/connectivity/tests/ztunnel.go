@@ -128,7 +128,7 @@ func (s *ztunnelPodToPodEncryption) getClientAndServerPods(t *check.Test) {
 func (s *ztunnelPodToPodEncryption) getZTunnelPods(ctx context.Context, t *check.Test) {
 	// get ztunnel pods
 	ztunnelPods, err := s.ct.K8sClient().ListPods(ctx, s.namespace, metav1.ListOptions{
-		LabelSelector: "app=ztunnel",
+		LabelSelector: "app=ztunnel-cilium",
 	})
 	if err != nil {
 		t.Fatalf("Failed to list ztunnel pods: %s", err)
