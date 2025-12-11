@@ -80,6 +80,9 @@ type ProxyRequestContext struct {
 	PolicyCheckTime      spanstat.SpanStat
 	PolicyGenerationTime spanstat.SpanStat
 	DataplaneTime        spanstat.SpanStat
+	QnameLockTime        spanstat.SpanStat
+	UpdateEpCacheTime    spanstat.SpanStat
+	UpdateNmCacheTime    spanstat.SpanStat
 	Success              bool
 	Err                  error
 	DataSource           accesslog.DNSDataSource
