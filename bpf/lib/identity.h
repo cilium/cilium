@@ -111,11 +111,6 @@ static __always_inline bool identity_is_remote_node(__u32 identity)
 		(identity & IDENTITY_LOCAL_SCOPE_MASK) == IDENTITY_LOCAL_SCOPE_REMOTE_NODE;
 }
 
-static __always_inline bool identity_is_node(__u32 identity)
-{
-	return identity_is_host(identity) || identity_is_remote_node(identity);
-}
-
 /**
  * identity_is_reserved is used to determine whether an identity is one of the
  * reserved identities that are not handed out to endpoints.
