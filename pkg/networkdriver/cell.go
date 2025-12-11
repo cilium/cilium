@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/job"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -57,7 +58,7 @@ type networkDriverParams struct {
 //			},
 //		},
 //	}
-func getNetworkDriverConfig(_ k8sClient.Clientset) (*Config, error) {
+func getNetworkDriverConfig(_ k8sClient.Clientset) (*v2alpha1.CiliumNetworkDriverConfigSpec, error) {
 	return nil, nil
 }
 
