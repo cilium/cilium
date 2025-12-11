@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -650,7 +649,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 					}
 
 					l4Policy.AccumulateMapChanges(logger, filter, cs, testSel.selections, nil)
-					l4Policy.SyncMapChanges(filter, versioned.LatestTx)
+					l4Policy.SyncMapChanges(filter, types.MockSelectorSnapshot())
 
 					closer, _ := epPolicy.ConsumeMapChanges()
 					closer()
