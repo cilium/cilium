@@ -126,19 +126,15 @@ ctx_set_cluster_id_mark(struct __sk_buff *ctx, __u32 cluster_id)
 }
 
 static __always_inline __maybe_unused __u32
-ctx_get_cluster_id_mark(struct __sk_buff *ctx)
+ctx_get_cluster_id_mark(const struct __sk_buff *ctx)
 {
-	__u32 ret = 0;
 	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
 	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
 
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_CLUSTER_ID)
-		return ret;
+		return 0;
 
-	ret = (cluster_id_upper | cluster_id_lower) & CLUSTER_ID_MAX;
-	ctx->mark &= ~(__u32)(MARK_MAGIC_CLUSTER_ID | get_mark_magic_cluster_id_mask());
-
-	return ret;
+	return (cluster_id_upper | cluster_id_lower) & CLUSTER_ID_MAX;
 }
 
 static __always_inline __maybe_unused int
