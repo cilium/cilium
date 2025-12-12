@@ -187,7 +187,7 @@ static __always_inline void *
 get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+	if (cluster_id != 0 && cluster_id != CONFIG(cluster_id))
 		return map_lookup_elem(&cilium_per_cluster_snat_v4_external, &cluster_id);
 #endif
 	return &cilium_snat_v4_external;
@@ -630,7 +630,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 # if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	if (target->cluster_id != 0 &&
-	    target->cluster_id != CLUSTER_ID) {
+	    target->cluster_id != CONFIG(cluster_id)) {
 		target->addr = IPV4_INTER_CLUSTER_SNAT;
 		target->from_local_endpoint = true;
 
@@ -1282,7 +1282,7 @@ static __always_inline void *
 get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+	if (cluster_id != 0 && cluster_id != CONFIG(cluster_id))
 		return map_lookup_elem(&cilium_per_cluster_snat_v6_external, &cluster_id);
 #endif
 	return &cilium_snat_v6_external;

@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "config.h"
+#include "clustermesh.h"
 
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
@@ -79,7 +80,7 @@ static __always_inline void *
 get_cluster_ct_map6(const struct ipv6_ct_tuple *tuple, __u32 cluster_id __maybe_unused)
 {
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	if (cluster_id != 0 && cluster_id != CLUSTER_ID) {
+	if (cluster_id != 0 && cluster_id != CONFIG(cluster_id)) {
 		if (tuple->nexthdr == IPPROTO_TCP)
 			return map_lookup_elem(&cilium_per_cluster_ct_tcp6, &cluster_id);
 
@@ -94,7 +95,7 @@ static __always_inline void *
 get_cluster_ct_any_map6(__u32 cluster_id __maybe_unused)
 {
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+	if (cluster_id != 0 && cluster_id != CONFIG(cluster_id))
 		return map_lookup_elem(&cilium_per_cluster_ct_any6, &cluster_id);
 #endif
 	return &cilium_ct_any6_global;
@@ -182,7 +183,7 @@ static __always_inline void *
 get_cluster_ct_map4(const struct ipv4_ct_tuple *tuple, __u32 cluster_id __maybe_unused)
 {
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	if (cluster_id != 0 && cluster_id != CLUSTER_ID) {
+	if (cluster_id != 0 && cluster_id != CONFIG(cluster_id)) {
 		if (tuple->nexthdr == IPPROTO_TCP)
 			return map_lookup_elem(&cilium_per_cluster_ct_tcp4, &cluster_id);
 
@@ -197,7 +198,7 @@ static __always_inline void *
 get_cluster_ct_any_map4(__u32 cluster_id __maybe_unused)
 {
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
-	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+	if (cluster_id != 0 && cluster_id != CONFIG(cluster_id))
 		return map_lookup_elem(&cilium_per_cluster_ct_any4, &cluster_id);
 #endif
 	return &cilium_ct_any4_global;
