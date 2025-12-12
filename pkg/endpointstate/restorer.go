@@ -3,7 +3,13 @@
 
 package endpointstate
 
-import "context"
+import (
+	"context"
+
+	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/pkg/endpoint"
+)
 
 // Restorer wraps a method to wait for endpoints restoration.
 type Restorer interface {
@@ -18,4 +24,18 @@ type Restorer interface {
 	// WaitForInitialPolicy blocks the caller until either the context is
 	// cancelled or initial policies of all restored endpoints have been computed.
 	WaitForInitialPolicy(ctx context.Context) error
+}
+
+// Restorable is implemented by components that need to be restored with the "old" endpoints
+// that have been read from disk by the Endpoint restorer.
+// Components should register with Hive value groups by using RestorableOut.
+type Restorable interface {
+	// EndpointsReadFromDisk is called once the "old" endpoints have been read from disk.
+	EndpointsReadFromDisk(possible map[uint16]*endpoint.Endpoint)
+}
+
+type RestorableOut struct {
+	cell.Out
+
+	Restorable Restorable `group:"endpointRestorables"`
 }

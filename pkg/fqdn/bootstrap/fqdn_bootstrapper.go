@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -19,10 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 )
-
-type FQDNProxyBootstrapper interface {
-	BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint)
-}
 
 type fqdnProxyBootstrapperParams struct {
 	cell.In
@@ -48,8 +45,7 @@ type fqdnProxyBootstrapper struct {
 }
 
 // newFQDNProxyBootstrapper handles initializing the DNS proxy in concert with the daemon.
-func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBootstrapper {
-
+func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) endpointstate.RestorableOut {
 	b := &fqdnProxyBootstrapper{
 		logger: params.Logger,
 
@@ -64,7 +60,7 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBoots
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
 	// operations require privileges not available in all unit tests.
 	if option.Config.DryMode || !option.Config.EnableL7Proxy {
-		return b
+		return endpointstate.RestorableOut{}
 	}
 
 	params.JobGroup.Add(job.OneShot("proxy-bootstrapper", b.startProxy, job.WithShutdown()))
@@ -76,14 +72,16 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) FQDNProxyBoots
 		},
 	})
 
-	return b
+	return endpointstate.RestorableOut{
+		Restorable: b,
+	}
 }
 
-var _ FQDNProxyBootstrapper = (*fqdnProxyBootstrapper)(nil)
+var _ endpointstate.Restorable = (*fqdnProxyBootstrapper)(nil)
 
 // BootstrapFQDN restores per-endpoint cached FQDN L7 rules to the proxy,
 // so it may immediately listen and start serving.
-func (b *fqdnProxyBootstrapper) BootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint) {
+func (b *fqdnProxyBootstrapper) EndpointsReadFromDisk(possibleEndpoints map[uint16]*endpoint.Endpoint) {
 	// was proxy disabled?
 	if b.proxy == nil {
 		return
