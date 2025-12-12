@@ -1714,12 +1714,6 @@ int cil_to_host(struct __ctx_buff *ctx)
 #endif
 
 #ifdef ENABLE_IPSEC
-	/* Encryption stack needs this when IPSec headers are
-	 * rewritten without FIB helper because we do not yet
-	 * know correct MAC address which will cause the stack
-	 * to mark as PACKET_OTHERHOST and drop.
-	 */
-	ctx_change_type(ctx, PACKET_HOST);
 #if !defined(TUNNEL_MODE)
 	/* Since v1.18 Cilium performs IPsec encryption at the native device,
 	 * before the packet leaves the host.
