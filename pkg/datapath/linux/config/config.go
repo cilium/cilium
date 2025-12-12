@@ -620,9 +620,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENCAP6_IFINDEX"] = "0"
 	}
 
-	// Write Identity and ClusterID related macros.
-	cDefinesMap["CLUSTER_ID_MAX"] = fmt.Sprintf("%d", option.Config.MaxConnectedClusters)
-
+	// Write Identity related macros.
 	fmt.Fprint(fw, declareConfig("identity_length", identity.GetClusterIDShift(), "Identity length in bits"))
 	fmt.Fprint(fw, assignConfig("identity_length", identity.GetClusterIDShift()))
 

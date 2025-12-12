@@ -62,7 +62,7 @@ set_identity_mark(struct __ctx_buff *ctx __maybe_unused, __u32 identity __maybe_
 		  __u32 magic __maybe_unused)
 {
 #if __ctx_is == __ctx_skb
-	__u32 cluster_id = (identity >> IDENTITY_LEN) & CLUSTER_ID_MAX;
+	__u32 cluster_id = (identity >> IDENTITY_LEN) & get_cluster_id_max();
 	__u32 cluster_id_lower = cluster_id & 0xFF;
 	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
 
