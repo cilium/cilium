@@ -17,11 +17,11 @@ type fakeCiliumGatewayClassConfigs struct {
 	Fake *FakeCiliumV2alpha1
 }
 
-func newFakeCiliumGatewayClassConfigs(fake *FakeCiliumV2alpha1) ciliumiov2alpha1.CiliumGatewayClassConfigInterface {
+func newFakeCiliumGatewayClassConfigs(fake *FakeCiliumV2alpha1, namespace string) ciliumiov2alpha1.CiliumGatewayClassConfigInterface {
 	return &fakeCiliumGatewayClassConfigs{
 		gentype.NewFakeClientWithList[*v2alpha1.CiliumGatewayClassConfig, *v2alpha1.CiliumGatewayClassConfigList](
 			fake.Fake,
-			"",
+			namespace,
 			v2alpha1.SchemeGroupVersion.WithResource("ciliumgatewayclassconfigs"),
 			v2alpha1.SchemeGroupVersion.WithKind("CiliumGatewayClassConfig"),
 			func() *v2alpha1.CiliumGatewayClassConfig { return &v2alpha1.CiliumGatewayClassConfig{} },

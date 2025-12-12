@@ -60,6 +60,8 @@
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP})
 
+ASSIGN_CONFIG(__u32, security_label, 0x10042)
+
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 #include "lib/policy.h"
@@ -175,6 +177,7 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	struct iphdr *l3;
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *entry;
+	__u32 cluster_id;
 
 	test_init();
 
@@ -248,6 +251,11 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
 	if (!entry)
 		test_fatal("couldn't find egress conntrack entry");
+
+	cluster_id = ctx_get_cluster_id_mark(ctx);
+	if (cluster_id != BACKEND_CLUSTER_ID)
+		test_fatal("ctx->mark cluster_id should be %u, got %u",
+			   BACKEND_CLUSTER_ID, cluster_id);
 
 	test_finish();
 }

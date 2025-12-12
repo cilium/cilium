@@ -41,6 +41,10 @@ type CiliumEndpointSliceListerExpansion interface{}
 // CiliumGatewayClassConfigLister.
 type CiliumGatewayClassConfigListerExpansion interface{}
 
+// CiliumGatewayClassConfigNamespaceListerExpansion allows custom methods to be added to
+// CiliumGatewayClassConfigNamespaceLister.
+type CiliumGatewayClassConfigNamespaceListerExpansion interface{}
+
 // CiliumL2AnnouncementPolicyListerExpansion allows custom methods to be added to
 // CiliumL2AnnouncementPolicyLister.
 type CiliumL2AnnouncementPolicyListerExpansion interface{}

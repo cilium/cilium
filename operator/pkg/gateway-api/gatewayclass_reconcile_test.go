@@ -27,7 +27,8 @@ var (
 	cgwccFixture = []client.Object{
 		&v2alpha1.CiliumGatewayClassConfig{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "dummy-gateway-class-config",
+				Name:      "dummy-gateway-class-config",
+				Namespace: "default",
 			},
 			Spec: v2alpha1.CiliumGatewayClassConfigSpec{},
 		},
@@ -62,9 +63,10 @@ var (
 			Spec: gatewayv1.GatewayClassSpec{
 				ControllerName: "io.cilium/gateway-controller",
 				ParametersRef: &gatewayv1.ParametersReference{
-					Group: "cilium.io",
-					Kind:  "CiliumGatewayClassConfig",
-					Name:  "dummy-gateway-class-config",
+					Group:     "cilium.io",
+					Kind:      "CiliumGatewayClassConfig",
+					Name:      "dummy-gateway-class-config",
+					Namespace: ptr.To(gatewayv1.Namespace("default")),
 				},
 			},
 		},
