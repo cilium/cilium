@@ -40,6 +40,19 @@
 #include "lib/local_delivery.h"
 
 #ifdef ENABLE_IPV6
+static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx)
+{
+	union macaddr host_mac = CILIUM_HOST_MAC;
+	int ret;
+
+	ret = ipv6_l3(ctx, __ETH_HLEN, NULL, (__u8 *)&host_mac.addr, METRIC_INGRESS);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
+	return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
+}
+
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 {
@@ -60,12 +73,13 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 
 /* See the equivalent v4 path for comments */
 static __always_inline int
-handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused)
+handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err __maybe_unused)
 {
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	const struct endpoint_info *ep;
 	fraginfo_t __maybe_unused fraginfo;
+	int ret;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -82,43 +96,41 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	if (!ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 		bool is_dsr = false;
-		int ret;
 
 		ret = nodeport_lb6(ctx, ip6, identity, &punt_to_stack, ext_err, &is_dsr);
 		if (ret < 0 || ret == TC_ACT_REDIRECT)
 			return ret;
 		if (punt_to_stack)
 			return ret;
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
 	}
 #endif
 
-#ifndef ENABLE_HOST_ROUTING
-	return CTX_ACT_OK;
-#endif
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
-		int l3_off = ETH_HLEN;
-
 #ifdef ENABLE_HOST_ROUTING
+		int l3_off = ETH_HLEN;
 		bool l2_hdr_required = true;
-		int ret;
 
 		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
 		if (ret != 0)
 			return ret;
 		if (l2_hdr_required)
 			l3_off += __ETH_HLEN;
-#endif
 
 		return ipv6_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ep,
 					   METRIC_INGRESS, false, false);
+#else
+		return CTX_ACT_OK;
+#endif /* ENABLE_HOST_ROUTING */
 	}
 
-	return CTX_ACT_OK;
+	ret = add_l2_hdr(ctx);
+	if (ret != 0)
+		return ret;
+
+	return ipv6_host_delivery(ctx);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_WIREGUARD)
@@ -137,6 +149,19 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
+{
+	union macaddr host_mac = CILIUM_HOST_MAC;
+	int ret;
+
+	ret = ipv4_l3(ctx, __ETH_HLEN, NULL, (__u8 *)&host_mac.addr, ip4);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
+	return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
+}
+
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
@@ -154,12 +179,13 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
 }
 
 static __always_inline int
-handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused)
+handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err __maybe_unused)
 {
 	void *data_end, *data;
 	struct iphdr *ip4;
 	const struct endpoint_info *ep;
 	fraginfo_t __maybe_unused fraginfo;
+	int ret;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -178,7 +204,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	if (!ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 		bool is_dsr = false;
-		int ret;
 
 		ret = nodeport_lb4(ctx, ip4, ETH_HLEN, identity, &punt_to_stack,
 				   ext_err, &is_dsr);
@@ -192,11 +217,15 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 			return ret;
 		if (punt_to_stack)
 			return ret;
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
 	}
 #endif
 
-#ifndef ENABLE_HOST_ROUTING
-	/* Without bpf_redirect_neigh() helper, we cannot redirect a
+	/* Lookup IPv4 address in the list of local endpoints and host IPs.
+	 *
+	 * Packet for local Endpoint:
+	 * Without bpf_redirect_neigh() helper, we cannot redirect a
 	 * packet to a local endpoint in the direct routing mode, as
 	 * the redirect bypasses nf_conntrack table. This makes a
 	 * second reply from the endpoint to be MASQUERADEd or to be
@@ -204,21 +233,23 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	 * which interface it was inputed. With bpf_redirect_neigh()
 	 * we bypass request and reply path in the host namespace and
 	 * do not run into this issue.
+	 * Endpoint policies will be enforced as follows:
+	 * - with per-EP routes: the packet reaches the installed
+	 *   to-container program, where policies will be enforced.
+	 * - without per-EP routes: the packet reaches cilium_host,
+	 *   where policies will be enforced via tailcall.
+	 * With bpf_redirect_neigh() helper, we redirect to the pod
+	 * ingress BPF program to enforce policies and deliver the packet.
+	 *
+	 * Packet for local Host:
+	 * We always add a L2 header and redirect to cilium_host@ingress.
+	 * Host policies will be enforced there with HostFw enabled.
 	 */
-	return CTX_ACT_OK;
-#endif
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
-		int l3_off = ETH_HLEN;
-
 #ifdef ENABLE_HOST_ROUTING
+		int l3_off = ETH_HLEN;
 		bool l2_hdr_required = true;
-		int ret;
 
 		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
 		if (ret != 0)
@@ -231,16 +262,23 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 						    sizeof(*ip4), false))
 				return DROP_INVALID;
 		}
-#endif
 
 		return ipv4_local_delivery(ctx, l3_off, identity, MARK_MAGIC_IDENTITY, ip4, ep,
 					   METRIC_INGRESS, false, false, 0);
+#else
+		return CTX_ACT_OK;
+#endif /* ENABLE_HOST_ROUTING */
 	}
 
-	/* A packet entering the node from wireguard and not going to a local endpoint
-	 * has to be going to the stack (ex. vxlan, encrypted node-to-node).
-	 */
-	return CTX_ACT_OK;
+	ret = add_l2_hdr(ctx);
+	if (ret != 0)
+		return ret;
+	if (!__revalidate_data_pull(ctx, &data, &data_end,
+				    (void **)&ip4, __ETH_HLEN,
+				    sizeof(*ip4), false))
+		return DROP_INVALID;
+
+	return ipv4_host_delivery(ctx, ip4);
 }
 
 __declare_tail(CILIUM_CALL_IPV4_FROM_WIREGUARD)
