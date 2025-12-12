@@ -6,8 +6,12 @@ package allocator
 import (
 	"context"
 	"fmt"
+	"iter"
+	"maps"
 	"math"
 	"path"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -606,4 +610,81 @@ func TestRemoteCache(t *testing.T) {
 	for i := range cache {
 		require.Equal(t, 2, cache[i])
 	}
+}
+
+func TestRunGC(t *testing.T) {
+	testutils.IntegrationTest(t)
+
+	const (
+		minID = 0
+		maxID = 1000
+	)
+
+	var (
+		ctx    = t.Context()
+		log    = hivetest.Logger(t)
+		client = kvstore.SetupDummyWithConfigOpts(t, "etcd", etcdOpts)
+		base   = randomTestName()
+		rl     = rate.NewLimiter(1*time.Millisecond, 1000)
+	)
+
+	backend, err := NewKVStoreBackend(log, KVStoreBackendConfiguration{base, "", TestAllocatorKey(""), client})
+	require.NoError(t, err, "NewKVStoreBackend")
+
+	for id, label := range map[string]string{
+		"100": "k8s:foo=bar;",
+		"101": "k8s:foo=bar;baz=qux;",
+		"102": "k8s:foo=bar;fred=true;",
+	} {
+		// Create a primary entry for all identities
+		require.NoError(t, client.Update(ctx, path.Join(base, "id", id), []byte(label), false), "client.Update")
+
+		// Create two secondary entries for all identities
+		for _, node := range []string{"node-a", "node-b"} {
+			require.NoError(t, client.Update(ctx, path.Join(base, "value", label, node), []byte(id), false), "client.Update")
+		}
+	}
+
+	var (
+		trim = func(in iter.Seq[string]) iter.Seq[string] {
+			return func(yield func(string) bool) {
+				for pfx := range in {
+					if !yield(strings.TrimPrefix(pfx, path.Join(base, "id")+"/")) {
+						return
+					}
+				}
+			}
+		}
+
+		getIDs = func() []string {
+			pairs, err := client.ListPrefix(ctx, path.Join(base, "id")+"/")
+			require.NoError(t, err, "client.ListPrefix")
+			return slices.Collect(trim(maps.Keys(pairs)))
+		}
+	)
+
+	stale, stats, err := backend.RunGC(ctx, rl, make(map[string]uint64), minID, maxID)
+	require.NoError(t, err, "backend.RunGC")
+	require.Empty(t, stale, "No identity should be stale")
+	require.Equal(t, 3, stats.Alive, "All identities should be alive")
+	require.Equal(t, 0, stats.Deleted, "No identity should have been deleted")
+
+	// Remove the secondary keys for one identity
+	require.NoError(t, client.DeletePrefix(ctx, path.Join(base, "value", "k8s:foo=bar;")+"/"))
+
+	// The corresponding identity should be treated as stale
+	stale, stats, err = backend.RunGC(ctx, rl, make(map[string]uint64), minID, maxID)
+	require.NoError(t, err, "backend.RunGC")
+	require.ElementsMatch(t, slices.Collect(trim(maps.Keys(stale))), []string{"100"}, "Identity 100 should be stale")
+	require.Equal(t, 3, stats.Alive, "All identities should be alive")
+	require.Equal(t, 0, stats.Deleted, "No identity should have been deleted")
+	require.ElementsMatch(t, getIDs(), []string{"100", "101", "102"}, "No identity should have been deleted")
+
+	// Run GC once more, it should remove the stale key
+	stale, stats, err = backend.RunGC(ctx, rl, stale, minID, maxID)
+	require.NoError(t, err, "backend.RunGC")
+	require.Empty(t, stale, "No identity should be stale")
+	require.Equal(t, 2, stats.Alive, "Two identities should be alive")
+	require.Equal(t, 1, stats.Deleted, "One identity should have been deleted")
+	require.ElementsMatch(t, getIDs(), []string{"101", "102"}, "Identity 100 should have been deleted")
 }
