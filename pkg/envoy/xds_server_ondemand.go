@@ -17,21 +17,22 @@ import (
 type onDemandXdsStarter struct {
 	XDSServer
 
-	logger                   *slog.Logger
-	runDir                   string
-	envoyLogPath             string
-	envoyDefaultLogLevel     string
-	envoyBaseID              uint64
-	keepCapNetBindService    bool
-	metricsListenerPort      int
-	adminListenerPort        int
-	connectTimeout           int64
-	maxRequestsPerConnection uint32
-	maxConnectionDuration    time.Duration
-	idleTimeout              time.Duration
-	maxConcurrentRetries     uint32
-	maxConnections           uint32
-	maxRequests              uint32
+	logger                         *slog.Logger
+	runDir                         string
+	envoyLogPath                   string
+	envoyDefaultLogLevel           string
+	envoyBaseID                    uint64
+	keepCapNetBindService          bool
+	metricsListenerPort            int
+	adminListenerPort              int
+	connectTimeout                 int64
+	maxActiveDownstreamConnections int64
+	maxRequestsPerConnection       uint32
+	maxConnectionDuration          time.Duration
+	idleTimeout                    time.Duration
+	maxConcurrentRetries           uint32
+	maxConnections                 uint32
+	maxRequests                    uint32
 
 	envoyOnce sync.Once
 }
@@ -74,18 +75,19 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoy(wg *completion.WaitGroup) error 
 	o.envoyOnce.Do(func() {
 		// Start embedded Envoy on first invocation
 		_, startErr = o.startEmbeddedEnvoyInternal(embeddedEnvoyConfig{
-			runDir:                   o.runDir,
-			logPath:                  o.envoyLogPath,
-			defaultLogLevel:          o.envoyDefaultLogLevel,
-			baseID:                   o.envoyBaseID,
-			keepCapNetBindService:    o.keepCapNetBindService,
-			connectTimeout:           o.connectTimeout,
-			maxRequestsPerConnection: o.maxRequestsPerConnection,
-			maxConnectionDuration:    o.maxConnectionDuration,
-			idleTimeout:              o.idleTimeout,
-			maxConcurrentRetries:     o.maxConcurrentRetries,
-			maxConnections:           o.maxConnections,
-			maxRequests:              o.maxRequests,
+			runDir:                         o.runDir,
+			logPath:                        o.envoyLogPath,
+			defaultLogLevel:                o.envoyDefaultLogLevel,
+			baseID:                         o.envoyBaseID,
+			keepCapNetBindService:          o.keepCapNetBindService,
+			connectTimeout:                 o.connectTimeout,
+			maxActiveDownstreamConnections: o.maxActiveDownstreamConnections,
+			maxRequestsPerConnection:       o.maxRequestsPerConnection,
+			maxConnectionDuration:          o.maxConnectionDuration,
+			idleTimeout:                    o.idleTimeout,
+			maxConcurrentRetries:           o.maxConcurrentRetries,
+			maxConnections:                 o.maxConnections,
+			maxRequests:                    o.maxRequests,
 		})
 
 		// Add Prometheus listener if the port is (properly) configured

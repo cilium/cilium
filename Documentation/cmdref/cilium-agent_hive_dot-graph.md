@@ -247,6 +247,7 @@ cilium-agent hive dot-graph [flags]
       --proxy-gid uint                                            Group ID for proxy control plane sockets. (default 1337)
       --proxy-idle-timeout-seconds int                            Set Envoy upstream HTTP idle connection timeout in seconds. Does not apply to connections with pending requests. (default 60)
       --proxy-initial-fetch-timeout uint                          Time after which an xDS stream is considered timed out (in seconds) (default 30)
+      --proxy-max-active-downstream-connections int               Set Envoy HTTP option max_active_downstream_connections (default 50000)
       --proxy-max-concurrent-retries uint32                       Maximum number of concurrent retries on Envoy clusters (default 128)
       --proxy-max-connection-duration-seconds int                 Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
       --proxy-max-requests-per-connection int                     Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
