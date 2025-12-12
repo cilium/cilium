@@ -36,6 +36,22 @@
      - Enable AlibabaCloud ENI integration
      - bool
      - ``false``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.securityGroupTags`
+     - 
+     - list
+     - ``[]``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.securityGroups`
+     - 
+     - list
+     - ``[]``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.vSwitchTags`
+     - 
+     - list
+     - ``[]``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.vSwitches`
+     - 
+     - list
+     - ``[]``
    * - :spelling:ignore:`annotateK8sNode`
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
@@ -256,6 +272,10 @@
      - Enable Azure integration. Note that this is incompatible with AKS clusters created in BYOCNI mode: use AKS BYOCNI integration (\ ``aksbyocni.enabled``\ ) instead.
      - bool
      - ``false``
+   * - :spelling:ignore:`azure.nodeSpec.azureInterfaceName`
+     - 
+     - string
+     - ``""``
    * - :spelling:ignore:`bandwidthManager`
      - Enable bandwidth manager to optimize TCP and UDP workloads and allow for rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
      - object
@@ -2723,7 +2743,11 @@
    * - :spelling:ignore:`ipam.nodeSpec`
      - NodeSpec configuration for the IPAM
      - object
-     - ``{"ipamMinAllocate":null,"ipamPreAllocate":null}``
+     - ``{"ipamMaxAllocate":null,"ipamMinAllocate":null,"ipamPreAllocate":null,"ipamStaticIPTags":[]}``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamMaxAllocate`
+     - IPAM max allocate @schema type: [null, integer] @schema
+     - string
+     - ``nil``
    * - :spelling:ignore:`ipam.nodeSpec.ipamMinAllocate`
      - IPAM min allocate @schema type: [null, integer] @schema
      - string
@@ -2732,6 +2756,10 @@
      - IPAM pre allocate @schema type: [null, integer] @schema
      - string
      - ``nil``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamStaticIPTags`
+     - IPAM static IP tags (currently only works with AWS)
+     - list
+     - ``[]``
    * - :spelling:ignore:`ipam.operator.autoCreateCiliumPodIPPools`
      - IP pools to auto-create in multi-pool IPAM mode.
      - object

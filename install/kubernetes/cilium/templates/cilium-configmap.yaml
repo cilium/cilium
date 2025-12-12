@@ -641,10 +641,25 @@ data:
 {{- end }}
   azure-use-primary-address: {{ $azureUsePrimaryAddress | quote }}
 {{- end }}
+{{- if .Values.azure.nodeSpec.azureInterfaceName }}
+  azure-interface-name: {{ .Values.azure.nodeSpec.azureInterfaceName | quote }}
+{{- end }}
 
 {{- if .Values.alibabacloud.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.vSwitches }}
+  alibabacloud-vswitches: {{ .Values.alibabacloud.nodeSpec.vSwitches | join "," | quote }}
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.vSwitchTags }}
+  alibabacloud-vswitch-tags: {{ .Values.alibabacloud.nodeSpec.vSwitchTags | join "," | quote }}
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.securityGroups }}
+  alibabacloud-security-groups: {{ .Values.alibabacloud.nodeSpec.securityGroups | join "," | quote }}
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.securityGroupTags }}
+  alibabacloud-security-group-tags: {{ .Values.alibabacloud.nodeSpec.securityGroupTags | join "," | quote }}
 {{- end }}
 
 {{- if hasKey .Values "l7Proxy" }}
@@ -1140,6 +1155,12 @@ data:
   {{- end }}
   {{- if ne .Values.ipam.nodeSpec.ipamPreAllocate nil }}
   ipam-pre-allocate: {{ .Values.ipam.nodeSpec.ipamPreAllocate | quote }}
+  {{- end }}
+  {{- if ne .Values.ipam.nodeSpec.ipamMaxAllocate nil }}
+  ipam-max-allocate: {{ .Values.ipam.nodeSpec.ipamMaxAllocate | quote }}
+  {{- end }}
+  {{- if .Values.ipam.nodeSpec.ipamStaticIPTags }}
+  ipam-static-ip-tags: {{ .Values.ipam.nodeSpec.ipamStaticIPTags | join "," | quote }}
   {{- end }}
 {{- end }}
 {{- if .Values.ipam.multiPoolPreAllocation }}
