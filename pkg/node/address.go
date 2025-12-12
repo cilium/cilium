@@ -43,11 +43,14 @@ var (
 )
 
 func getLocalNode(logger *slog.Logger) LocalNode {
+	// Only expecting errors if we're called after LocalNodeStore has stopped, e.g.
+	// we have a component that uses the legacy getters and setters here and does
+	// not depend on LocalNodeStore.
+	if localNode == nil {
+		logging.Fatal(logger, "getLocalNode called for nil localNode")
+	}
 	n, err := localNode.Get(context.TODO())
 	if err != nil {
-		// Only expecting errors if we're called after LocalNodeStore has stopped, e.g.
-		// we have a component that uses the legacy getters and setters here and does
-		// not depend on LocalNodeStore.
 		logging.Fatal(logger, "getLocalNode: unexpected error", logfields.Error, err)
 	}
 	return n
