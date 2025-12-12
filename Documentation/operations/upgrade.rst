@@ -349,6 +349,12 @@ communicating via the proxy must reconnect to re-establish connections.
   If you have a different configuration, you are not expected to take any action and the
   transition to ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
 * The Socket LB tracing message format has been updated, you might briefly see parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
+* ``bpf.datapathMode=auto`` config option has been introduced. If set, Cilium will probe
+  the underlying host for netkit support and, if found, netkit mode will be selected at
+  runtime. Otherwise, Cilium will default back to the standard veth mode. This has the
+  side effect of splitting the datapath-mode into "configured mode" and "operational mode"
+  in status outputs, where they differ. The default remains ``bpf.datapathMode=veth``
+  which be updated in future releases.
 
 Removed Options
 ~~~~~~~~~~~~~~~

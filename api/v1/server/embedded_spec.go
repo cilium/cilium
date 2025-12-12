@@ -2202,6 +2202,16 @@ func init() {
         "type": "string"
       }
     },
+    "ConfiguredDatapathMode": {
+      "description": "Configured datapath mode",
+      "type": "string",
+      "enum": [
+        "auto",
+        "veth",
+        "netkit",
+        "netkit-l2"
+      ]
+    },
     "ControllerStatus": {
       "description": "Status of a controller\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -2371,6 +2381,9 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
+        "configuredDatapathMode": {
+          "$ref": "#/definitions/ConfiguredDatapathMode"
+        },
         "daemonConfigurationMap": {
           "description": "Config map which contains all the active daemon configurations",
           "additionalProperties": {
@@ -2461,7 +2474,7 @@ func init() {
       }
     },
     "DatapathMode": {
-      "description": "Datapath mode",
+      "description": "Operational datapath mode",
       "type": "string",
       "enum": [
         "veth",
@@ -4712,6 +4725,10 @@ func init() {
           "description": "Status of the CNI configuration file",
           "$ref": "#/definitions/Status"
         },
+        "configured-datapath-mode": {
+          "description": "Status of configured datapath mode",
+          "$ref": "#/definitions/ConfiguredDatapathMode"
+        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -4721,7 +4738,7 @@ func init() {
           "$ref": "#/definitions/ControllerStatuses"
         },
         "datapath-mode": {
-          "description": "Status of datapath mode",
+          "description": "Status of operational datapath mode",
           "$ref": "#/definitions/DatapathMode"
         },
         "encryption": {
@@ -7495,6 +7512,16 @@ func init() {
         "type": "string"
       }
     },
+    "ConfiguredDatapathMode": {
+      "description": "Configured datapath mode",
+      "type": "string",
+      "enum": [
+        "auto",
+        "veth",
+        "netkit",
+        "netkit-l2"
+      ]
+    },
     "ControllerStatus": {
       "description": "Status of a controller\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -7716,6 +7743,9 @@ func init() {
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
+        "configuredDatapathMode": {
+          "$ref": "#/definitions/ConfiguredDatapathMode"
+        },
         "daemonConfigurationMap": {
           "description": "Config map which contains all the active daemon configurations",
           "additionalProperties": {
@@ -7820,7 +7850,7 @@ func init() {
       }
     },
     "DatapathMode": {
-      "description": "Datapath mode",
+      "description": "Operational datapath mode",
       "type": "string",
       "enum": [
         "veth",
@@ -10517,6 +10547,10 @@ func init() {
           "description": "Status of the CNI configuration file",
           "$ref": "#/definitions/Status"
         },
+        "configured-datapath-mode": {
+          "description": "Status of configured datapath mode",
+          "$ref": "#/definitions/ConfiguredDatapathMode"
+        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -10526,7 +10560,7 @@ func init() {
           "$ref": "#/definitions/ControllerStatuses"
         },
         "datapath-mode": {
-          "description": "Status of datapath mode",
+          "description": "Status of operational datapath mode",
           "$ref": "#/definitions/DatapathMode"
         },
         "encryption": {

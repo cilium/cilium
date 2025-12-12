@@ -61,13 +61,16 @@ type StatusResponse struct {
 	// Status of the CNI configuration file
 	CniFile *Status `json:"cni-file,omitempty"`
 
+	// Status of configured datapath mode
+	ConfiguredDatapathMode ConfiguredDatapathMode `json:"configured-datapath-mode,omitempty"`
+
 	// Status of local container runtime
 	ContainerRuntime *Status `json:"container-runtime,omitempty"`
 
 	// Status of all endpoint controllers
 	Controllers ControllerStatuses `json:"controllers,omitempty"`
 
-	// Status of datapath mode
+	// Status of operational datapath mode
 	DatapathMode DatapathMode `json:"datapath-mode,omitempty"`
 
 	// Status of transparent encryption
@@ -163,6 +166,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateCniFile(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateConfiguredDatapathMode(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -475,6 +482,27 @@ func (m *StatusResponse) validateCniFile(formats strfmt.Registry) error {
 
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateConfiguredDatapathMode(formats strfmt.Registry) error {
+	if swag.IsZero(m.ConfiguredDatapathMode) { // not required
+		return nil
+	}
+
+	if err := m.ConfiguredDatapathMode.Validate(formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("configured-datapath-mode")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("configured-datapath-mode")
+		}
+
+		return err
 	}
 
 	return nil
@@ -973,6 +1001,10 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 		res = append(res, err)
 	}
 
+	if err := m.contextValidateConfiguredDatapathMode(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateContainerRuntime(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -1297,6 +1329,28 @@ func (m *StatusResponse) contextValidateCniFile(ctx context.Context, formats str
 
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateConfiguredDatapathMode(ctx context.Context, formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ConfiguredDatapathMode) { // not required
+		return nil
+	}
+
+	if err := m.ConfiguredDatapathMode.ContextValidate(ctx, formats); err != nil {
+		ve := new(errors.Validation)
+		if stderrors.As(err, &ve) {
+			return ve.ValidateName("configured-datapath-mode")
+		}
+		ce := new(errors.CompositeError)
+		if stderrors.As(err, &ce) {
+			return ce.ValidateName("configured-datapath-mode")
+		}
+
+		return err
 	}
 
 	return nil
