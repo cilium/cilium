@@ -24,6 +24,7 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/aws"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -126,10 +127,13 @@ type devicesController struct {
 }
 
 func newDevicesController(lc cell.Lifecycle, p devicesControllerParams) (*devicesController, statedb.Table[*tables.Device], statedb.Table[*tables.Route], statedb.Table[*tables.Neighbor]) {
+	// Resolve AWS patterns in device list
+	resolvedDevices := aws.ResolvePatterns(p.Log, p.Config.Devices)
+	
 	dc := &devicesController{
 		params:               p,
 		initialized:          make(chan struct{}),
-		filter:               tables.DeviceFilter(p.Config.Devices),
+		filter:               tables.DeviceFilter(resolvedDevices),
 		enforceAutoDetection: p.Config.ForceDeviceDetection,
 		log:                  p.Log,
 		deadLinkIndexes:      sets.New[int](),

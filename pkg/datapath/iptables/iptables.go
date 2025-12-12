@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
+	"github.com/cilium/cilium/pkg/datapath/linux/aws"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -1419,6 +1420,11 @@ func (m *Manager) installMasqueradeRules(
 	localDeliveryInterface, snatDstExclusionCIDR, allocRange, hostMasqueradeIP string,
 ) error {
 	devices := nativeDevices
+	
+	// Resolve AWS patterns in masqueradeInterfaces if present
+	if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
+		m.sharedCfg.MasqueradeInterfaces = aws.ResolvePatterns(m.logger, m.sharedCfg.MasqueradeInterfaces)
+	}
 
 	if m.sharedCfg.NodeIpsetNeeded {
 		cmds := nodeIpsetNATCmds(allocRange, prog.getIpset(), m.sharedCfg.MasqueradeInterfaces)
