@@ -687,4 +687,21 @@ func TestRunGC(t *testing.T) {
 	require.Equal(t, 2, stats.Alive, "Two identities should be alive")
 	require.Equal(t, 1, stats.Deleted, "One identity should have been deleted")
 	require.ElementsMatch(t, getIDs(), []string{"101", "102"}, "Identity 100 should have been deleted")
+
+	// Create a duplicate identity for an already existing set of labels. While this
+	// should never happen thanks to locking, it has been observed in the wild, and
+	// it is better to be robust in this case as well.
+	require.NoError(t, client.Update(ctx, path.Join(base, "id", "103"), []byte("k8s:foo=bar;baz=qux;"), false), "client.Update")
+
+	// The duplicated identity should be treated as stale
+	stale, _, err = backend.RunGC(ctx, rl, make(map[string]uint64), minID, maxID)
+	require.NoError(t, err, "backend.RunGC")
+	require.ElementsMatch(t, slices.Collect(trim(maps.Keys(stale))), []string{"103"}, "Identity 103 should be stale")
+	require.ElementsMatch(t, getIDs(), []string{"101", "102", "103"}, "No identity should have been deleted")
+
+	// Run GC once more, it should remove the stale key
+	stale, _, err = backend.RunGC(ctx, rl, stale, minID, maxID)
+	require.NoError(t, err, "backend.RunGC")
+	require.Empty(t, stale, "No identity should be stale")
+	require.ElementsMatch(t, getIDs(), []string{"101", "102"}, "Identity 103 should have been deleted")
 }
