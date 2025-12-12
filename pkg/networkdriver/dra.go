@@ -71,11 +71,20 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (result map[kube_types.UID]error, err error) {
 	driver.logger.DebugContext(ctx, fmt.Sprintf("UnprepareResourceClaims called with %d claims", len(claims)))
 
+	var (
+		shouldUpdate bool
+		errs         []error
+	)
+
 	result = make(map[kube_types.UID]error, len(claims))
 
-	err = driver.withLock(func() error {
+	errs = append(errs, driver.withLock(func() error {
 		for _, c := range claims {
 			result[c.UID] = driver.unprepareResourceClaim(ctx, c)
+			if result[c.UID] == nil {
+				shouldUpdate = true
+			}
+
 			driver.logger.DebugContext(
 				ctx, "freeing resources for claim",
 				logfields.Name, c.Name,
@@ -86,9 +95,13 @@ func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kube
 		}
 
 		return nil
-	})
+	}))
 
-	return result, err
+	if shouldUpdate {
+		errs = append(errs, driver.storeState())
+	}
+
+	return result, errors.Join(errs...)
 }
 
 func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourceapi.ResourceClaim) kubeletplugin.PrepareResult {
@@ -185,9 +198,14 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (result map[kube_types.UID]kubeletplugin.PrepareResult, err error) {
 	driver.logger.DebugContext(ctx, fmt.Sprintf("PrepareResourceClaims called with %d claims", len(claims)))
 
+	var (
+		shouldUpdate bool
+		errs         []error
+	)
+
 	result = make(map[kube_types.UID]kubeletplugin.PrepareResult)
 
-	err = driver.withLock(func() error {
+	errs = append(errs, driver.withLock(func() error {
 		for _, c := range claims {
 			l := driver.logger.With(
 				logfields.K8sNamespace, c.Namespace,
@@ -195,6 +213,9 @@ func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resou
 				logfields.Name, c.Name,
 			)
 			result[c.UID] = driver.prepareResourceClaim(ctx, c)
+			if result[c.UID].Err == nil {
+				shouldUpdate = true
+			}
 
 			l.DebugContext(ctx, "allocation for claim",
 				logfields.Result, result[c.UID],
@@ -202,7 +223,11 @@ func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resou
 		}
 
 		return nil
-	})
+	}))
 
-	return result, err
+	if shouldUpdate {
+		errs = append(errs, driver.storeState())
+	}
+
+	return result, errors.Join(errs...)
 }

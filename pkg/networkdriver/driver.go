@@ -5,14 +5,19 @@ package networkdriver
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/containerd/nri/pkg/stub"
+	"github.com/google/renameio/v2"
 	resourceapi "k8s.io/api/resource/v1"
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -24,13 +29,16 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
+	"github.com/cilium/cilium/pkg/networkdriver/dummy"
+	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	node_types "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var (
-	defaultDriverPluginPath = "/var/lib/kubelet/plugins/"
+const (
+	defaultDriverPluginPath    = "/var/lib/kubelet/plugins/"
+	defaultDriverStoreFileName = "network-driver-state.json"
 )
 
 func driverPluginPath(driverName string) string {
@@ -46,7 +54,9 @@ type Driver struct {
 	lock       lock.Mutex
 	jg         job.Group
 
-	config Config
+	config   Config
+	stateDir string
+	filePath string
 
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
@@ -57,6 +67,73 @@ type Driver struct {
 type allocation struct {
 	Device types.Device
 	Config types.DeviceConfig
+}
+
+func (a allocation) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type   string
+		Device types.Device
+		Config types.DeviceConfig
+	}{
+		Type:   a.Device.Type(),
+		Device: a.Device,
+		Config: a.Config,
+	})
+}
+
+func (a *allocation) UnmarshalJSON(data []byte) error {
+	var objmap map[string]json.RawMessage
+
+	if err := json.Unmarshal(data, &objmap); err != nil {
+		return fmt.Errorf("failed to unmarshal allocation: %w", err)
+	}
+
+	rawType, ok := objmap["Type"]
+	if !ok {
+		return errors.New("allocation type not found")
+	}
+	var typ string
+	if err := json.Unmarshal(rawType, &typ); err != nil {
+		return fmt.Errorf("failed to unmarshal allocation type: %w", err)
+	}
+
+	rawDev, ok := objmap["Device"]
+	if !ok {
+		return errors.New("allocation device not found")
+	}
+	var (
+		dev types.Device
+		err error
+	)
+	switch typ {
+	case dummy.DummyDevice{}.Type():
+		var dummyDev dummy.DummyDevice
+		err = json.Unmarshal(rawDev, &dummyDev)
+		dev = &dummyDev
+	case sriov.PciDevice{}.Type():
+		var pciDev sriov.PciDevice
+		err = json.Unmarshal(rawDev, &pciDev)
+		dev = &pciDev
+	default:
+		return fmt.Errorf("unknown device type: %s", typ)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal allocation device: %w", err)
+	}
+
+	rawCfg, ok := objmap["Config"]
+	if !ok {
+		return errors.New("allocation config not found")
+	}
+	var cfg types.DeviceConfig
+	if err := json.Unmarshal(rawCfg, &cfg); err != nil {
+		return fmt.Errorf("failed to unmarshal allocation config: %w", err)
+	}
+
+	a.Device = dev
+	a.Config = cfg
+
+	return nil
 }
 
 func (driver *Driver) withLock(f func() error) error {
@@ -192,6 +269,19 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			"starting driver with config",
 			logfields.Config, driver.config)
 
+		// reload state from previous run, if present
+		if err := driver.reloadState(); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				driver.logger.InfoContext(ctx, "no previous network driver allocations found")
+			} else {
+				driver.logger.ErrorContext(ctx,
+					"failed to reload previous allocations from persistent storage, resources allocated in previous runs might be leaked",
+					logfields.Path, driver.filePath,
+					logfields.Error, err,
+				)
+			}
+		}
+
 		// create path for our driver plugin socket.
 		err := os.MkdirAll(driverPluginPath(driver.driverName), 0750)
 		if err != nil {
@@ -311,4 +401,42 @@ func (driver *Driver) Stop(ctx cell.HookContext) error {
 	driver.logger.DebugContext(ctx, "Network driver stopped")
 
 	return nil
+}
+
+func (driver *Driver) storeState() error {
+	storePath := filepath.Join(driver.stateDir, defaultDriverStoreFileName)
+
+	return driver.withLock(func() error {
+		data, err := json.Marshal(driver.allocations)
+		if err != nil {
+			return fmt.Errorf("failed to marshal driver state: %w", err)
+		}
+
+		state, err := renameio.TempFile(driver.stateDir, storePath)
+		if err != nil {
+			return fmt.Errorf("failed to open temporary file to update driver state: %w", err)
+		}
+		defer state.Cleanup()
+
+		if _, err := state.Write(data); err != nil {
+			return fmt.Errorf("failed to write updated driver state: %w", err)
+		}
+
+		if err := state.CloseAtomicallyReplace(); err != nil {
+			return fmt.Errorf("failed to atomically update driver state: %w", err)
+		}
+
+		return nil
+	})
+}
+
+func (driver *Driver) reloadState() error {
+	data, err := os.ReadFile(driver.filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read driver state: %w", err)
+	}
+
+	return driver.withLock(func() error {
+		return json.Unmarshal(data, &driver.allocations)
+	})
 }

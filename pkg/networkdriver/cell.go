@@ -5,6 +5,7 @@ package networkdriver
 
 import (
 	"log/slog"
+	"path/filepath"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell implements the Cilium Network Driver for exposing
@@ -32,6 +34,7 @@ type networkDriverParams struct {
 	Lifecycle cell.Lifecycle
 	ClientSet k8sClient.Clientset
 	JobGroup  job.Group
+	DaemonCfg *option.DaemonConfig
 }
 
 // getNetworkDriverConfig returns the network driver configuration.
@@ -88,6 +91,8 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		kubeClient:     params.ClientSet,
 		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
 		config:         *cfg,
+		stateDir:       params.DaemonCfg.StateDir,
+		filePath:       filepath.Join(params.DaemonCfg.StateDir, defaultDriverStoreFileName),
 		allocations:    make(map[kube_types.UID]map[kube_types.UID][]allocation),
 	}
 
