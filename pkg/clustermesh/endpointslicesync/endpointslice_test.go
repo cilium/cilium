@@ -5,6 +5,7 @@ package endpointslicesync
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 const (
@@ -79,13 +81,17 @@ func createGlobalService(
 	return clusterSvc
 }
 
-func getEndpointSlice(clientset k8sClient.Clientset, svcName string) (*discovery.EndpointSliceList, error) {
+func getEndpointSlice(ctx context.Context, clientset k8sClient.Clientset, svcName string) (*discovery.EndpointSliceList, error) {
 	labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{
 		discovery.LabelServiceName: svcName,
 		discovery.LabelManagedBy:   utils.EndpointSliceMeshControllerName,
 	}}
 	return clientset.DiscoveryV1().EndpointSlices(svcName).
-		List(context.Background(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(&labelSelector)})
+		List(ctx, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(&labelSelector)})
+}
+
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
 }
 
 func Test_meshEndpointSlice_Reconcile(t *testing.T) {
@@ -106,28 +112,37 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		}),
 	)
 	tlog := hivetest.Logger(t)
-	err := hive.Start(tlog, context.Background())
+	err := hive.Start(tlog, t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer hive.Stop(tlog, context.Background())
 
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(t.Context())
+
 	globalService := common.NewGlobalServiceCache(hivetest.Logger(t))
 	podInformer := newMeshPodInformer(logger, globalService)
 	nodeInformer := newMeshNodeInformer(logger)
 	controller, serviceInformer, endpointsliceInformer := newEndpointSliceMeshController(
-		context.Background(), logger,
+		ctx, logger,
 		EndpointSliceSyncConfig{ClusterMeshMaxEndpointsPerSlice: 100},
 		podInformer, nodeInformer, fakeClient, services, globalService,
 	)
-	endpointsliceInformer.Start(context.Background().Done())
-	go serviceInformer.Start(context.Background())
-	cache.WaitForCacheSync(context.Background().Done(), serviceInformer.HasSynced)
+	endpointsliceInformer.Start(ctx.Done())
+	wg.Go(func() { serviceInformer.Start(ctx) })
+	cache.WaitForCacheSync(ctx.Done(), serviceInformer.HasSynced)
 
-	go controller.Run(context.Background(), 1)
+	wg.Go(func() { controller.Run(ctx, 1) })
 	nodeInformer.onClusterAdd(remoteClusterName)
 
-	svcStore, _ := services.Store(context.Background())
+	svcStore, _ := services.Store(ctx)
+
+	defer func() {
+		cancel()
+		endpointsliceInformer.Shutdown()
+		wg.Wait()
+	}()
 
 	tick := 10 * time.Millisecond
 	timeout := 200 * time.Millisecond
@@ -144,7 +159,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 
 		var epList *discovery.EndpointSliceList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err = getEndpointSlice(fakeClient, svcName)
+			epList, err = getEndpointSlice(ctx, fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -175,7 +190,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 
 		var epList *discovery.EndpointSliceList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err = getEndpointSlice(fakeClient, svcName)
+			epList, err = getEndpointSlice(ctx, fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -198,7 +213,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		createGlobalService(globalService, podInformer, svcName, nil)
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err := getEndpointSlice(fakeClient, svcName)
+			epList, err := getEndpointSlice(ctx, fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -214,7 +229,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		var epList *discovery.EndpointSliceList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			// Make sure that we have 1 endpointslice
-			epList, err = getEndpointSlice(fakeClient, svcName)
+			epList, err = getEndpointSlice(ctx, fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -224,7 +239,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		serviceInformer.refreshAllCluster(svc1)
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err := getEndpointSlice(fakeClient, svcName)
+			epList, err := getEndpointSlice(ctx, fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Empty(c, epList.Items)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -240,7 +255,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		var epList *discovery.EndpointSliceList
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			// Make sure that we have 1 endpointslice
-			epList, err = getEndpointSlice(fakeClient, svcName)
+			epList, err = getEndpointSlice(ctx, fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Len(c, epList.Items, 1)
 		}, timeout, tick, "endpointslice is not reconciled correctly")
@@ -250,7 +265,7 @@ func Test_meshEndpointSlice_Reconcile(t *testing.T) {
 		podInformer.onClusterServiceDelete(clusterSvc)
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			epList, err := getEndpointSlice(fakeClient, svcName)
+			epList, err := getEndpointSlice(ctx, fakeClient, svcName)
 			assert.NoError(c, err)
 			assert.Empty(c, epList.Items)
 		}, timeout, tick, "endpointslice is not reconciled correctly")

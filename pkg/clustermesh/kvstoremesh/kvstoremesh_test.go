@@ -110,6 +110,10 @@ func clockAdvance(t assert.TestingT, fc *baseclocktest.FakeClock, d time.Duratio
 	fc.Step(d)
 }
 
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
+}
+
 func TestRemoteClusterRun(t *testing.T) {
 	testutils.IntegrationTest(t)
 
