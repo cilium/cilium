@@ -53,7 +53,7 @@ get_identity(const struct __ctx_buff *ctx __maybe_unused)
  * to a value other than the default 255, the most significant bits are taken
  * from identity and used for the most significant bits of cluster_id.
  *
- * An agent with 'max-connected-clusters=512' would set identity in the mark
+ * An agent with 'max-connected-clusters=511' would set identity in the mark
  * like the following:
  * CIIIIIII IIIIIIII XXXXXXXX CCCCCCCC
  */
