@@ -54,6 +54,10 @@ type PciDevice struct {
 	KernelIfaceName string
 }
 
+func (p PciDevice) Type() string {
+	return "sr-iov"
+}
+
 func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	result := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
 	result["driver"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Driver)}

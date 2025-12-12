@@ -83,6 +83,10 @@ type DummyDevice struct {
 	Flags  string
 }
 
+func (d DummyDevice) Type() string {
+	return "dummy"
+}
+
 func (d DummyDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	result := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
 	result["interface_name"] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.IfName())}
