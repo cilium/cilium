@@ -58,11 +58,11 @@ func (mgr *DummyManager) ListDevices() ([]types.Device, error) {
 			continue
 		}
 
-		devices = append(devices, DummyDevice{
-			name:   link.Attrs().Name,
-			hwAddr: link.Attrs().HardwareAddr.String(),
-			mtu:    link.Attrs().MTU,
-			flags:  link.Attrs().Flags.String(),
+		devices = append(devices, &DummyDevice{
+			Name:   link.Attrs().Name,
+			HWAddr: link.Attrs().HardwareAddr.String(),
+			MTU:    link.Attrs().MTU,
+			Flags:  link.Attrs().Flags.String(),
 		})
 	}
 
@@ -70,18 +70,18 @@ func (mgr *DummyManager) ListDevices() ([]types.Device, error) {
 }
 
 type DummyDevice struct {
-	name   string
-	hwAddr string
-	mtu    int
-	flags  string
+	Name   string
+	HWAddr string
+	MTU    int
+	Flags  string
 }
 
 func (d DummyDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	result := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
 	result["interface_name"] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.IfName())}
-	result["mac_address"] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.hwAddr)}
-	result["mtu"] = resourceapi.DeviceAttribute{IntValue: ptr.To(int64(d.mtu))}
-	result["flags"] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.flags)}
+	result["mac_address"] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.HWAddr)}
+	result["mtu"] = resourceapi.DeviceAttribute{IntValue: ptr.To(int64(d.MTU))}
+	result["flags"] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.Flags)}
 
 	return result
 }
@@ -113,9 +113,9 @@ func (d DummyDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 }
 
 func (d DummyDevice) IfName() string {
-	return d.name
+	return d.Name
 }
 
 func (d DummyDevice) KernelIfName() string {
-	return d.name
+	return d.Name
 }

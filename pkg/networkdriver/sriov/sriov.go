@@ -40,24 +40,24 @@ type PCIAddr string
 type KernelIfName string
 
 type PciDevice struct {
-	addr         string
-	driver       string
-	vendor       string
-	deviceID     string
-	pfName       string
-	vfID         int
-	kernelIfName string
+	Addr            string
+	Driver          string
+	Vendor          string
+	DeviceID        string
+	PfName          string
+	VfID            int
+	KernelIfaceName string
 }
 
 func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	result := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
-	result[types.DriverLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.driver)}
-	result[types.DeviceIDLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.deviceID)}
-	result[types.VendorLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.vendor)}
-	result[types.PFNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.pfName)}
-	result[types.PCIAddrLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.addr)}
+	result[types.DriverLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Driver)}
+	result[types.DeviceIDLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.DeviceID)}
+	result[types.VendorLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Vendor)}
+	result[types.PFNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.PfName)}
+	result[types.PCIAddrLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Addr)}
 	result[types.IfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.IfName())}
-	result[types.KernelIfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.kernelIfName)}
+	result[types.KernelIfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.KernelIfName())}
 
 	return result
 }
@@ -66,26 +66,26 @@ func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAt
 // guaranteed that we have a kernel interface for this device.
 // constructed with <pfName>vf<vfID>
 func (d PciDevice) IfName() string {
-	return fmt.Sprintf("%svf%d", d.pfName, d.vfID)
+	return fmt.Sprintf("%svf%d", d.PfName, d.VfID)
 }
 
 func (d PciDevice) KernelIfName() string {
-	return d.kernelIfName
+	return d.KernelIfaceName
 }
 
 // Setup prepares a sr-iov VF device for use.
 func (d PciDevice) Setup(config types.DeviceConfig) error {
-	if d.pfName == "" {
+	if d.PfName == "" {
 		return fmt.Errorf("device with ifname %s %w", d.IfName(), errNotAVF)
 	}
 
-	l, err := safenetlink.LinkByName(d.pfName)
+	l, err := safenetlink.LinkByName(d.PfName)
 	if err != nil {
 		return err
 	}
 
 	if config.Vlan != 0 {
-		return netlink.LinkSetVfVlan(l, d.vfID, int(config.Vlan))
+		return netlink.LinkSetVfVlan(l, d.VfID, int(config.Vlan))
 	}
 
 	return nil
@@ -93,17 +93,17 @@ func (d PciDevice) Setup(config types.DeviceConfig) error {
 
 // Free resets a sr-iov VF device.
 func (d PciDevice) Free(config types.DeviceConfig) error {
-	if d.pfName == "" {
+	if d.PfName == "" {
 		return fmt.Errorf("device with ifname %s %w", d.IfName(), errNotAVF)
 	}
 
-	l, err := safenetlink.LinkByName(d.pfName)
+	l, err := safenetlink.LinkByName(d.PfName)
 	if err != nil {
 		return err
 	}
 
 	if config.Vlan != 0 {
-		return netlink.LinkSetVfVlan(l, d.vfID, 0)
+		return netlink.LinkSetVfVlan(l, d.VfID, 0)
 	}
 
 	return nil
@@ -118,7 +118,7 @@ func (d PciDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool {
 	}
 
 	if len(filter.PCIAddrs) != 0 {
-		if !slices.Contains(filter.PCIAddrs, d.addr) {
+		if !slices.Contains(filter.PCIAddrs, d.Addr) {
 			return false
 		}
 	}
@@ -130,25 +130,25 @@ func (d PciDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool {
 	}
 
 	if len(filter.VendorIDs) != 0 {
-		if !slices.Contains(filter.VendorIDs, d.vendor) {
+		if !slices.Contains(filter.VendorIDs, d.Vendor) {
 			return false
 		}
 	}
 
 	if len(filter.DeviceIDs) != 0 {
-		if !slices.Contains(filter.DeviceIDs, d.deviceID) {
+		if !slices.Contains(filter.DeviceIDs, d.DeviceID) {
 			return false
 		}
 	}
 
 	if len(filter.Drivers) != 0 {
-		if !slices.Contains(filter.Drivers, d.driver) {
+		if !slices.Contains(filter.Drivers, d.Driver) {
 			return false
 		}
 	}
 
 	if len(filter.PfNames) != 0 {
-		if !slices.Contains(filter.PfNames, d.pfName) {
+		if !slices.Contains(filter.PfNames, d.PfName) {
 			return false
 		}
 	}
@@ -248,7 +248,7 @@ func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
 		}
 
 		if device != nil {
-			result = append(result, *device)
+			result = append(result, device)
 		}
 	}
 
@@ -335,12 +335,12 @@ func isVF(sysPath, pciAddr string) bool {
 // is the kernel ifname, which may or may not be present depending on the driver in use.
 func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[PCIAddr]netlink.LinkAttrs) (*PciDevice, error) {
 	dev := PciDevice{
-		addr: addr,
+		Addr: addr,
 	}
 
 	thisLinkAttrs, ok := netlinkAttrs[PCIAddr(addr)]
 	if ok {
-		dev.kernelIfName = thisLinkAttrs.Name
+		dev.KernelIfaceName = thisLinkAttrs.Name
 	}
 
 	devicePath := path.Join(mgr.pciDevicesPath(), addr)
@@ -351,21 +351,19 @@ func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[PCIAddr]netli
 
 	// 	/sys/bus/pci/devices/0000:02:00.0# readlink driver
 	// ../../../../bus/pci/drivers/mlx5_core
-	dev.driver = path.Base(driver)
+	dev.Driver = path.Base(driver)
 
 	vendor, err := os.ReadFile(path.Join(devicePath, "vendor"))
 	if err != nil {
 		return nil, err
 	}
-
-	dev.vendor = strings.ReplaceAll(string(vendor), "\n", "")
+	dev.Vendor = strings.ReplaceAll(string(vendor), "\n", "")
 
 	device, err := os.ReadFile(path.Join(devicePath, "device"))
 	if err != nil {
 		return nil, err
 	}
-
-	dev.deviceID = strings.ReplaceAll(string(device), "\n", "")
+	dev.DeviceID = strings.ReplaceAll(string(device), "\n", "")
 
 	pfPath, err := os.Readlink(path.Join(devicePath, "physfn"))
 	if err != nil {
@@ -380,7 +378,7 @@ func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[PCIAddr]netli
 		return nil, fmt.Errorf("pf kernel ifname for device %s: %w", pfAddr, errInterfaceNotFound)
 	}
 
-	dev.pfName = pfAttrs.Name
+	dev.PfName = pfAttrs.Name
 	pfDevPath := path.Join(mgr.pciDevicesPath(), pfAddr)
 
 	// now we need to find the vf id
@@ -401,7 +399,7 @@ func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[PCIAddr]netli
 
 		vfAddr := path.Base(v)
 		if vfAddr == addr {
-			dev.vfID = vf.ID
+			dev.VfID = vf.ID
 			found = true
 			break
 		}
