@@ -334,6 +334,10 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 			// Get the IPs associated with this identity
 			epIPs := identityIPMap[rule.Identity]
 
+			// Track which endpoint IDs we've already added for this specific DNS policy
+			// This prevents duplicates when multiple IPs(ipv4/ipv6) from the same identity point to the same endpoint
+			addedEndpoints := make(map[uint32]bool)
+
 			// For each IP, find the corresponding endpoint and create DNS policy
 			for _, prefix := range epIPs {
 				ip := prefix.Addr()
@@ -344,9 +348,18 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 					continue
 				}
 
+				endpointID := uint32(ep.GetID())
+
+				// Skip if we've already added this endpoint for this DNS policy
+				if addedEndpoints[endpointID] {
+					continue
+				}
+				// Mark this endpoint as added for this DNS policy
+				addedEndpoints[endpointID] = true
+
 				// Create DNS policy with endpoint information
 				egressL7DnsPolicy = append(egressL7DnsPolicy, &pb.DNSPolicy{
-					SourceEndpointId: uint32(ep.GetID()),
+					SourceEndpointId: endpointID,
 					DnsServers:       dnsPolicy.DnsServers,
 					DnsPattern:       dnsPolicy.DnsPattern,
 				})
