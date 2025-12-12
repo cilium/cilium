@@ -26,59 +26,40 @@ such as:
 
 ## Enabling the feature
 
-(Right now it uses a hardcoded configuration. But in the future will look something like this below.)
-Deploy a `CiliumNetworkDriverConfig` specifying the managers to be enabled:
+Deploy a `CiliumNetworkDriverConfig` CRD specifying the managers to be enabled:
 
 ```
 ---
-apiVersion: cilium.io/v1
+apiVersion: cilium.io/v2alpha1
 kind: CiliumNetworkDriverConfig
 metadata:
   name: cilium-network-driver-config
 spec:
-  selectors:
-    labels: 
-       - cilium.io/network-driver
   driverName: "sriov.cilium.k8s.io"
   deviceManagerConfigs:
-      sriov:
+      dummy:
         enabled: true
-        ifaces:
-          - ifName: enp2s0f0np0
-            vfCount: 6
-          - ifName: enp2s0f1np1
-            vfCount: 6
+
 ```
 
-In order to publish ResourceSlices, the pools need to be specified along with a filter to match:
+In order to publish ResourceSlices, the pools need to be specified along with a filter to match devices:
 ```
 ---
-apiVersion: cilium.io/v1
+apiVersion: cilium.io/v2alpha1
 kind: CiliumNetworkDriverConfig
 metadata:
   name: cilium-network-driver-config
 spec:
-  selectors:
-    labels: 
-       - cilium.io/network-driver
   driverName: "sriov.cilium.k8s.io"
   pools:
     - name: a-side
       filter:
-        pfNames:
-          - enp2s0f0np0
-    - name: b-side
-      filter:
-        pfNames:
-          - enp2s0f1np1
+        ifNames:
+          - dummy0
+          - dummy1
   deviceManagerConfigs:
-      sriov:
+      dummy:
         enabled: true
-        ifaces:
-          - ifName: enp2s0f0np0
-            vfCount: 6
-          - ifName: enp2s0f1np1
-            vfCount: 6
 ```
 
 ## References

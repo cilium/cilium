@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	resourceapi "k8s.io/api/resource/v1"
+
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 var (
@@ -75,7 +77,7 @@ type Device interface {
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	Setup(cfg DeviceConfig) error
 	Free(cfg DeviceConfig) error
-	Match(filter DeviceFilter) bool
+	Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 	IfName() string
 	KernelIfName() string
 }
@@ -86,16 +88,6 @@ type DeviceManager interface {
 
 type DeviceManagerConfig interface {
 	IsEnabled() bool
-}
-
-type DeviceFilter struct {
-	PfNames     []string
-	PciAddrs    []string
-	Drivers     []string
-	DeviceIDs   []string
-	VendorIDs   []string
-	IfNames     []string
-	DriverTypes []DeviceManagerType
 }
 
 type RouteSet map[netip.Prefix]AddrSet

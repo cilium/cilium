@@ -21,6 +21,8 @@ import (
 	"k8s.io/dynamic-resource-allocation/resourceslice"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
@@ -38,7 +40,6 @@ func driverPluginPath(driverName string) string {
 }
 
 type Driver struct {
-	driverName string
 	kubeClient kubernetes.Interface
 	draPlugin  *kubeletplugin.Helper
 	nriPlugin  stub.Stub
@@ -46,7 +47,8 @@ type Driver struct {
 	lock       lock.Mutex
 	jg         job.Group
 
-	config Config
+	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
+	config    v2alpha1.CiliumNetworkDriverConfigSpec
 
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
@@ -67,7 +69,7 @@ func (driver *Driver) withLock(f func() error) error {
 }
 
 // filterDevices returns the resulting devices after applying a filter.
-func filterDevices(devices []types.Device, filter types.DeviceFilter) []types.Device {
+func filterDevices(devices []types.Device, filter v2alpha1.CiliumNetworkDriverDeviceFilter) []types.Device {
 	var result []types.Device
 
 	for _, d := range devices {
@@ -104,7 +106,17 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 	pools := make(map[string]resourceslice.Pool, len(driver.config.Pools))
 
 	for _, p := range driver.config.Pools {
-		filtered := filterDevices(driver.devices, p.Filter)
+		if p.Filter == nil {
+			// no filter specified, this shouldn't happen
+			driver.logger.ErrorContext(
+				ctx, "pool filter is missing. not handling this pool",
+				logfields.PoolName, p.PoolName,
+			)
+
+			continue
+		}
+
+		filtered := filterDevices(driver.devices, *p.Filter)
 
 		var devices []resourceapi.Device
 
@@ -114,7 +126,7 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 			}
 
 			attrs := dev.GetAttrs()
-			attrs["pool"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Name)}
+			attrs["pool"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.PoolName)}
 			devices = append(devices, resourceapi.Device{
 				Name:       dev.IfName(),
 				Attributes: attrs,
@@ -123,11 +135,11 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 
 		driver.logger.DebugContext(
 			ctx, "devices matched filter for pool",
-			logfields.PoolName, p.Name,
+			logfields.PoolName, p.PoolName,
 			logfields.Devices, filtered,
 		)
 
-		pools[p.Name] = resourceslice.Pool{
+		pools[p.PoolName] = resourceslice.Pool{
 			Slices: []resourceslice.Slice{
 				{Devices: devices},
 			},
@@ -157,49 +169,71 @@ func (driver *Driver) publish(ctx context.Context) error {
 	})
 }
 
-// Start validates the configuration file and initializes all the devicemanagers
-// that are enabled by config, and starts the DRA + NRI registration.
+// Start retrieves nadvalidates the configuration. If configuration is found and valid, it
+// initializes all the devicemanagers that are enabled by config, and starts the DRA + NRI registration.
 func (driver *Driver) Start(ctx cell.HookContext) error {
+
+	// how long we wait for the crd config to be found on an event
+	crdTimeout := 1 * time.Second
+	crdPollInterval := 100 * time.Millisecond
+
+	// retrieve events from our crd listener. if no config is found for this agent, dont enable the network driver
+	if err := wait.PollUntilContextTimeout(ctx, crdPollInterval, crdTimeout, true, func(ctx context.Context) (done bool, err error) {
+		ev, ok := <-driver.configCRD.Events(ctx)
+		if !ok {
+			return false, nil
+		}
+		defer ev.Done(nil)
+
+		if ev.Object != nil {
+			driver.config = ev.Object.Spec
+			return true, nil
+		}
+		return false, nil
+	}); err != nil {
+		driver.logger.DebugContext(
+			ctx, "network driver configuration not found, skipping",
+		)
+
+		return nil
+	}
+
+	driver.logger.DebugContext(
+		ctx, "network driver configuration found",
+		logfields.DriverName, driver.config.DriverName,
+	)
+
+	if err := validateConfig(driver.config); err != nil {
+		driver.logger.ErrorContext(
+			ctx, "invalid configuration",
+			logfields.Error, err,
+		)
+	}
+
 	driver.jg.Add(job.OneShot("network-driver", func(ctx context.Context, _ cell.Health) error {
 
 		driver.logger.DebugContext(ctx, "Starting network driver...")
 
-		if err := driver.config.Validate(); err != nil {
-			return fmt.Errorf("invalid config: %w", err)
+		mgrs, err := devicemanagers.InitManagers(driver.logger, driver.config.DeviceManagerConfigs)
+		if err != nil {
+			return err
 		}
 
-		for manager, managerCfg := range driver.config.DeviceManagerConfigs {
-			if !managerCfg.IsEnabled() {
-				continue
-			}
+		driver.deviceManagers = mgrs
 
-			d, err := devicemanagers.InitManager(driver.logger, manager, managerCfg)
-			if err != nil {
-				driver.logger.DebugContext(ctx,
-					"failed to enable manager",
-					logfields.Type, manager,
-					logfields.Error, err,
-				)
-
-				return err
-			}
-
-			driver.logger.DebugContext(ctx, "enabled manager", logfields.Type, manager)
-			driver.deviceManagers[manager] = d
-		}
-
-		driver.logger.DebugContext(ctx,
-			"starting driver with config",
-			logfields.Config, driver.config)
+		driver.logger.DebugContext(
+			ctx, "starting driver",
+			logfields.DriverName, driver.config.DriverName,
+		)
 
 		// create path for our driver plugin socket.
-		err := os.MkdirAll(driverPluginPath(driver.driverName), 0750)
+		err = os.MkdirAll(driverPluginPath(driver.config.DriverName), 0750)
 		if err != nil {
-			return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.driverName), err)
+			return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.config.DriverName), err)
 		}
 
 		pluginOpts := []kubeletplugin.Option{
-			kubeletplugin.DriverName(driver.driverName),
+			kubeletplugin.DriverName(driver.config.DriverName),
 			kubeletplugin.NodeName(node_types.GetName()),
 			kubeletplugin.KubeClient(driver.kubeClient),
 		}
@@ -212,7 +246,8 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 		driver.draPlugin = p
 
 		err = wait.PollUntilContextTimeout(
-			ctx, driver.config.DraRegistrationRetry, driver.config.DraRegistrationTimeout, true,
+			ctx, time.Duration(driver.config.DraRegistrationRetryIntervalSeconds)*time.Second,
+			time.Duration(driver.config.DraRegistrationTimeoutSeconds)*time.Second, true,
 			func(context.Context) (bool, error) {
 				registrationStatus := driver.draPlugin.RegistrationStatus()
 				if registrationStatus == nil {
@@ -233,19 +268,19 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 
 		driver.logger.DebugContext(ctx,
 			"DRA plugin registration successful",
-			logfields.DriverName, driver.driverName,
+			logfields.DriverName, driver.config.DriverName,
 		)
 
 		// register the NRI plugin
 		nriOptions := []stub.Option{
-			stub.WithPluginName(driver.driverName),
+			stub.WithPluginName(driver.config.DriverName),
 			stub.WithPluginIdx("00"),
 			// https://github.com/containerd/nri/pull/173
 			// Otherwise it silently exits the program
 			stub.WithOnClose(func() {
 				driver.logger.WarnContext(
 					ctx, "NRI plugin closed",
-					logfields.DriverName, driver.driverName,
+					logfields.DriverName, driver.config.DriverName,
 				)
 			}),
 		}
@@ -263,14 +298,14 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 					driver.logger.ErrorContext(
 						ctx, "NRI plugin failed",
 						logfields.Error, err,
-						logfields.Name, driver.driverName,
+						logfields.Name, driver.config.DriverName,
 					)
 				}
 				select {
 				case <-ctx.Done():
 					return nil
 				case <-time.After(time.Second):
-					driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.driverName)
+					driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.config.DriverName)
 				}
 			}
 		}))
@@ -281,7 +316,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			job.Timer(
 				"networkdriver-dra-publish-resources",
 				driver.publish,
-				driver.config.PublishInterval,
+				time.Duration(driver.config.PublishIntervalSeconds)*time.Second,
 				job.WithTrigger(trigger),
 			),
 		)
