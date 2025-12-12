@@ -20,9 +20,11 @@ type CiliumClusterwideEnvoyConfig struct {
 	metav1.TypeMeta `json:",inline"`
 	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// +k8s:openapi-gen=false
+	// +kubebuilder:validation:Optional
 	Spec CiliumEnvoyConfigSpec `json:"spec,omitempty"`
 }
 

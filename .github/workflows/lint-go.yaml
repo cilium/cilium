@@ -76,7 +76,14 @@ jobs:
           # renovate: datasource=docker depName=golangci/golangci-lint
           version: v2.7.1
           skip-cache: true
-          args: "--verbose --modules-download-mode=vendor"
+          args: "--verbose --modules-download-mode=vendor --disable=kubeapilinter"
+      - name: Run kube-api-lint
+        uses: golangci/golangci-lint-action@e7fa5ac41e1cf5b7d48e45e42232ce7ada589601 # v9.1.0
+        with:
+          # renovate: datasource=docker depName=golangci/golangci-lint
+          version: v2.7.1
+          skip-cache: true
+          args: "--verbose --modules-download-mode=vendor --enable-only=kubeapilinter ./pkg/k8s/apis/cilium.io/..."
 
   precheck:
     runs-on: ubuntu-24.04

@@ -29,12 +29,17 @@ type CiliumClusterwideNetworkPolicy struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the desired Cilium specific rule specification.
+	//
+	// +kubebuilder:validation:Optional
 	Spec *api.Rule `json:"spec,omitempty"`
 
 	// Specs is a list of desired Cilium specific rule specification.
+	//
+	// +kubebuilder:validation:Optional
 	Specs api.Rules `json:"specs,omitempty"`
 
 	// Status is the status of the Cilium policy rule.
@@ -44,7 +49,7 @@ type CiliumClusterwideNetworkPolicy struct {
 	// field does not exist in the structure.
 	//
 	// +kubebuilder:validation:Optional
-	Status CiliumNetworkPolicyStatus `json:"status"`
+	Status CiliumNetworkPolicyStatus `json:"status,omitempty"`
 }
 
 // DeepEqual compares 2 CCNPs while ignoring the LastAppliedConfigAnnotation

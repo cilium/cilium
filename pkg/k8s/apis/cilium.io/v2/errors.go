@@ -22,6 +22,7 @@ var (
 // +k8s:deepcopy-gen=false
 // +deepequal-gen=false
 type ErrParse struct {
+	// +kubebuilder:validation:Required
 	msg string
 }
 
