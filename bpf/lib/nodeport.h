@@ -2651,7 +2651,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 		target.addr = IPV4_GATEWAY;
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-		if (cluster_id && cluster_id != CLUSTER_ID)
+		if (cluster_id && cluster_id != CONFIG(cluster_id))
 			target.addr = IPV4_INTER_CLUSTER_SNAT;
 #endif
 	}
