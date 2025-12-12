@@ -10,35 +10,36 @@ import (
 )
 
 type ProxyConfig struct {
-	DisableEnvoyVersionCheck          bool
-	ProxyPrometheusPort               int
-	ProxyAdminPort                    int
-	EnvoyLog                          string
-	EnvoyAccessLogBufferSize          uint
-	EnvoyDefaultLogLevel              string
-	EnvoyBaseID                       uint64
-	EnvoyKeepCapNetbindservice        bool
-	ProxyConnectTimeout               uint
-	ProxyInitialFetchTimeout          uint
-	ProxyGID                          uint
-	ProxyMaxRequestsPerConnection     int
-	ProxyMaxConnectionDurationSeconds int
-	ProxyIdleTimeoutSeconds           int
-	ProxyMaxConcurrentRetries         uint32
-	ProxyClusterMaxConnections        uint32
-	ProxyClusterMaxRequests           uint32
-	HTTPNormalizePath                 bool
-	HTTPRequestTimeout                uint
-	HTTPIdleTimeout                   uint
-	HTTPMaxGRPCTimeout                uint
-	HTTPRetryCount                    uint
-	HTTPRetryTimeout                  uint
-	HTTPStreamIdleTimeout             uint
-	UseFullTLSContext                 bool
-	ProxyXffNumTrustedHopsIngress     uint32
-	ProxyXffNumTrustedHopsEgress      uint32
-	EnvoyPolicyRestoreTimeout         time.Duration
-	EnvoyHTTPUpstreamLingerTimeout    int
+	DisableEnvoyVersionCheck            bool
+	ProxyPrometheusPort                 int
+	ProxyAdminPort                      int
+	EnvoyLog                            string
+	EnvoyAccessLogBufferSize            uint
+	EnvoyDefaultLogLevel                string
+	EnvoyBaseID                         uint64
+	EnvoyKeepCapNetbindservice          bool
+	ProxyConnectTimeout                 uint
+	ProxyInitialFetchTimeout            uint
+	ProxyGID                            uint
+	ProxyMaxActiveDownstreamConnections int64
+	ProxyMaxRequestsPerConnection       int
+	ProxyMaxConnectionDurationSeconds   int
+	ProxyIdleTimeoutSeconds             int
+	ProxyMaxConcurrentRetries           uint32
+	ProxyClusterMaxConnections          uint32
+	ProxyClusterMaxRequests             uint32
+	HTTPNormalizePath                   bool
+	HTTPRequestTimeout                  uint
+	HTTPIdleTimeout                     uint
+	HTTPMaxGRPCTimeout                  uint
+	HTTPRetryCount                      uint
+	HTTPRetryTimeout                    uint
+	HTTPStreamIdleTimeout               uint
+	UseFullTLSContext                   bool
+	ProxyXffNumTrustedHopsIngress       uint32
+	ProxyXffNumTrustedHopsEgress        uint32
+	EnvoyPolicyRestoreTimeout           time.Duration
+	EnvoyHTTPUpstreamLingerTimeout      int
 }
 
 func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
@@ -53,6 +54,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint("proxy-connect-timeout", 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	flags.Uint("proxy-initial-fetch-timeout", 30, "Time after which an xDS stream is considered timed out (in seconds)")
 	flags.Uint("proxy-gid", 1337, "Group ID for proxy control plane sockets.")
+	flags.Int64("proxy-max-active-downstream-connections", 50000, "Set Envoy HTTP option max_active_downstream_connections")
 	flags.Int("proxy-max-requests-per-connection", 0, "Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)")
 	flags.Int("proxy-max-connection-duration-seconds", 0, "Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)")
 	flags.Int("proxy-idle-timeout-seconds", 60, "Set Envoy upstream HTTP idle connection timeout in seconds. Does not apply to connections with pending requests.")

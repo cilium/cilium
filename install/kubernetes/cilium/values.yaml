@@ -2552,6 +2552,8 @@ envoy:
   clusterMaxConnections: 1024
   # -- Maximum number of requests on Envoy clusters
   clusterMaxRequests: 1024
+  # -- Maximum number of global downstream connections
+  maxGlobalDownstreamConnections: 50000
   # -- Maximum number of retries for each HTTP request
   httpRetryCount: 3
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
