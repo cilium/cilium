@@ -188,7 +188,6 @@ const (
 	opCantBeFulfilled          = "Operation cannot be fulfilled on leases.coordination.k8s.io"        // cf. https://github.com/cilium/cilium/issues/16402
 	initLeaderElection         = "error initially creating leader election record: leases."           // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-861544964
 	globalDataSupport          = "kernel doesn't support global data"                                 // cf. https://github.com/cilium/cilium/issues/16418
-	removeInexistentID         = "removing identity not added to the identity manager!"               // cf. https://github.com/cilium/cilium/issues/16419
 	failedToListCRDs           = "the server could not find the requested resource"                   // cf. https://github.com/cilium/cilium/issues/16425
 	retrieveResLock            = "retrieving resource lock kube-system/cilium-operator-resource-lock" // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-871155492
 	failedToRelLockEmptyName   = "Failed to release lock: resource name may not be empty"             // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-985819560
@@ -254,8 +253,8 @@ var badLogMessages = map[string][]string{
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
 	logutils.ErrorLogs: {opCantBeFulfilled, initLeaderElection, globalDataSupport,
-		removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName,
-		failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
+		failedToListCRDs, retrieveResLock, failedToRelLockEmptyName, failedToUpdateLock,
+		failedToReleaseLock, errorCreatingInitialLeader},
 	logutils.WarningLogs: {cantEnableJIT, delMissingService, podCIDRUnavailable,
 		unableGetNode, objectHasBeenModified, etcdTimeout, endpointRestoreFailed,
 		cantFindIdentityInCache, keyAllocFailedFoundMaster, cantRecreateMasterKey,
