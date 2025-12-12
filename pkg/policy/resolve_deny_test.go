@@ -183,6 +183,8 @@ func GenerateCIDRDenyRules(numRules int) (api.Rules, identity.IdentityMap) {
 func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 	logger := hivetest.Logger(b)
 	td := newTestData(logger)
+	defer td.closer()
+
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, b)
 	ip, err := td.repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(b, err)
@@ -201,6 +203,8 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	defer td.closer()
+
 	td.bootstrapRepo(GenerateCIDRDenyRules, 1000, t)
 	ip, err := td.repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
@@ -216,6 +220,8 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 func TestL3WithIngressDenyWildcard(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	defer td.closer()
+
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
@@ -280,6 +286,8 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 func TestL3WithLocalHostWildcardd(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	defer td.closer()
+
 	td.addIdentitySelector(hostSelector)
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
@@ -356,6 +364,8 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	defer td.closer()
+
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 
@@ -452,6 +462,8 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 func TestMapStateWithIngressDeny(t *testing.T) {
 	logger := hivetest.Logger(t)
 	td := newTestData(logger)
+	defer td.closer()
+
 	repo := td.repo
 	td.bootstrapRepo(GenerateL3IngressDenyRules, 1000, t)
 

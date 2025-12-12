@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -147,6 +146,8 @@ func TestCreateL4Filter(t *testing.T) {
 	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
 
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -197,6 +198,8 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
 
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -245,6 +248,8 @@ func TestCreateL4FilterMissingSecret(t *testing.T) {
 	// Suppress the expected warning logs for this test
 
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{
 		Ports: []api.PortProtocol{tuple},
@@ -287,6 +292,8 @@ func (a SortablePolicyRules) Less(i, j int) bool { return a[i].Rule < a[j].Rule 
 
 func TestJSONMarshal(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
+	defer td.closer()
+
 	model := &models.L4Policy{}
 	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Egress))
 	require.Equal(t, "[]", fmt.Sprintf("%+v", model.Ingress))
@@ -638,7 +645,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 					}
 
 					l4Policy.AccumulateMapChanges(logger, filter, cs, testSel.selections, nil)
-					l4Policy.SyncMapChanges(filter, versioned.LatestTx)
+					l4Policy.SyncMapChanges(filter, types.MockSelectorSnapshot())
 
 					closer, _ := epPolicy.ConsumeMapChanges()
 					closer()
