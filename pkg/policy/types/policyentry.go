@@ -8,15 +8,27 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+type Tier uint8
+
+const (
+	Admin Tier = iota
+	Normal
+	Baseline
+	numTiers // one past the lowest tier
+)
+
+type Priority uint16
+
 // PolicyEntry specifies the L3/L4 details of a single policy rule
 //
 // +deepequal-gen=true
 type PolicyEntry struct {
+	Tier Tier
+
 	// Priority defines the precedence of this rule in relation to other rules.  Lower values
 	// take precedence over higher values. Rules having the default priority level 0 are
 	// considered first, then the rest of the rules, from the earliest to later priority levels.
-	// This is currently limited to 24 bits, i.e., max allowed priority is (1<<24-1).
-	Priority uint32
+	Priority Priority
 
 	// Authentication specifies the cryptographic authentication required for the traffic to be
 	// allowed

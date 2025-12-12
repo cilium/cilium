@@ -400,7 +400,7 @@ func (pm *PolicyMap) DumpToMapStateMap() (policyTypes.MapStateMap, error) {
 		// if policymapEntry has invalid prefix length, force update by storing as an
 		// invalid MapStateEntry
 		if !val.IsValid(key) {
-			policyVal.Invalid = true
+			policyVal.Invalidate()
 		}
 		out[policyKey] = policyVal
 	}

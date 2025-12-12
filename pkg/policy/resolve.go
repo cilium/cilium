@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -53,10 +54,10 @@ type PolicyContext interface {
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
 
 	// SetPriority sets the priority level for the first rule being processed.
-	SetPriority(level uint32)
+	SetPriority(tier types.Tier, priority types.Priority)
 
 	// Priority returns the priority level for the current rule.
-	Priority() uint32
+	Priority() (tier types.Tier, priority types.Priority)
 
 	// IsDeny returns true if the policy computation should be done for the
 	// policy deny case. This function returns different values depending on the
@@ -85,8 +86,11 @@ type policyContext struct {
 	repo *Repository
 	ns   string
 
-	// level is the precedence level for the rule being processed.
-	level uint32
+	tier types.Tier
+
+	// priority is the priority level for the rule being processed. 0 has the highest
+	// precedence.
+	priority types.Priority
 
 	// isIngress is set to true for ingress rule processing, false for egress
 	isIngress bool
@@ -140,13 +144,14 @@ func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNet
 }
 
 // SetPriority sets the precedence level for the first rule being processed.
-func (p *policyContext) SetPriority(level uint32) {
-	p.level = level
+func (p *policyContext) SetPriority(tier types.Tier, priority types.Priority) {
+	p.tier = tier
+	p.priority = priority
 }
 
 // Priority returns the precedence level for the current rule.
-func (p *policyContext) Priority() uint32 {
-	return p.level
+func (p *policyContext) Priority() (types.Tier, types.Priority) {
+	return p.tier, p.priority
 }
 
 // IsDeny returns true if the policy computation should be done for the
@@ -532,7 +537,6 @@ func (p *EndpointPolicy) MissingMap(realized MapStateMap) iter.Seq2[Key, MapStat
 }
 
 func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
-	// SelectorCache used as Identities interface which only has GetPrefix() that needs no lock
 	p.policyMapState.revertChanges(changes)
 }
 
@@ -547,17 +551,20 @@ func (p *EndpointPolicy) toMapState(logger *slog.Logger) {
 	p.SelectorPolicy.L4Policy.Egress.toMapState(logger, p)
 }
 
-// toMapState transforms the L4DirectionPolicy into
+// toMapState transforms an attached L4DirectionPolicy into
 // the datapath-friendly format inside EndpointPolicy.PolicyMapState.
 // Called with selectorcache locked for reading.
 // Called without holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
 func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy) {
-	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		l4.toMapState(logger, p, l4policy.features, ChangeState{})
-		return true
-	})
+	for tier := range l4policy.PortRules {
+		basePriority := l4policy.tierBasePriority[tier]
+		l4policy.PortRules[tier].ForEach(func(l4 *L4Filter) bool {
+			l4.toMapState(logger, basePriority, p, l4policy.features, ChangeState{})
+			return true
+		})
+	}
 }
 
 type PerSelectorPolicyTuple struct {
@@ -576,14 +583,22 @@ func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolic
 
 func (l4policy L4DirectionPolicy) forEachRedirectFilter(yield func(*L4Filter, PerSelectorPolicyTuple) bool) bool {
 	ok := true
-	l4policy.PortRules.ForEach(func(l4 *L4Filter) bool {
-		for cs, ps := range l4.PerSelectorPolicies {
-			if ps != nil && ps.IsRedirect() {
-				ok = yield(l4, PerSelectorPolicyTuple{ps, cs})
+	for i := range l4policy.PortRules {
+		l4policy.PortRules[i].ForEach(func(l4 *L4Filter) bool {
+			for cs, ps := range l4.PerSelectorPolicies {
+				if ps != nil && ps.IsRedirect() {
+					if !yield(l4, PerSelectorPolicyTuple{ps, cs}) {
+						ok = false
+						return false
+					}
+				}
 			}
+			return true
+		})
+		if !ok {
+			break
 		}
-		return ok
-	})
+	}
 	return ok
 }
 
@@ -621,6 +636,7 @@ func (p *EndpointPolicy) ConsumeMapChanges() (closer func(), changes ChangeState
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
+// The returned stub is not modified.
 func NewEndpointPolicy(logger *slog.Logger, repo PolicyRepository) *EndpointPolicy {
 	return &EndpointPolicy{
 		SelectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),

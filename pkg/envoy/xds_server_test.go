@@ -222,8 +222,10 @@ var L7Rules12 = &policy.PerSelectorPolicy{
 	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}},
 }
 
+var denyPerSelectorPolicy = &policy.PerSelectorPolicy{Verdict: policy.Deny}
+
 var L7Rules12Deny = &policy.PerSelectorPolicy{
-	IsDeny:   true,
+	Verdict:  policy.Deny,
 	L7Parser: policy.ParserTypeHTTP,
 	L7Rules:  api.L7Rules{HTTP: []api.PortRuleHTTP{*PortRuleHTTP1, *PortRuleHTTP2}},
 }
@@ -338,7 +340,7 @@ var L4PolicyMap1Deny2 = policy.NewL4PolicyMapWithValues(map[string]*policy.L4Fil
 		Port:     8080,
 		Protocol: api.ProtoTCP,
 		PerSelectorPolicies: policy.L7DataMap{
-			cachedSelector1: &policy.PerSelectorPolicy{IsDeny: true},
+			cachedSelector1: denyPerSelectorPolicy,
 			cachedSelector2: L7Rules1,
 		},
 	},
@@ -553,7 +555,7 @@ func Test_getWildcardNetworkPolicyRules(t *testing.T) {
 	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
 	perSelectorPolicies := policy.L7DataMap{
 		cachedSelector2:           nil,
-		cachedSelector1:           &policy.PerSelectorPolicy{IsDeny: true},
+		cachedSelector1:           denyPerSelectorPolicy,
 		cachedRequiresV2Selector1: nil,
 	}
 

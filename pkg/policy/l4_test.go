@@ -464,7 +464,7 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 	}
 	for i, portRange := range portRanges {
 		t.Run(fmt.Sprintf("%d-%d", portRange.startPort, portRange.endPort), func(tt *testing.T) {
-			l4Map := NewL4PolicyMap()
+			l4Map := makeL4PolicyMap()
 			startFilter := &L4Filter{
 				U8Proto:  u8proto.TCP,
 				Protocol: api.ProtoTCP,
@@ -603,7 +603,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 			b.StartTimer()
 
 			for _, filter := range testL4Filters {
-				filter.toMapState(logger, epPolicy, 0, ChangeState{})
+				filter.toMapState(logger, 0, epPolicy, 0, ChangeState{})
 			}
 		}
 	})
@@ -624,7 +624,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 					psp := filter.PerSelectorPolicies
 					filter.PerSelectorPolicies = L7DataMap{ws: nil}
 
-					filter.toMapState(logger, epPolicy, 0, ChangeState{})
+					filter.toMapState(logger, 0, epPolicy, 0, ChangeState{})
 					filter.PerSelectorPolicies = psp
 				}
 			}
