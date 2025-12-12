@@ -5950,9 +5950,6 @@
         "debug": {
           "type": "boolean"
         },
-        "dnsCompression": {
-          "type": "boolean"
-        },
         "enabled": {
           "type": "boolean"
         },
@@ -5982,9 +5979,6 @@
           },
           "type": "object"
         },
-        "l7Proxy": {
-          "type": "boolean"
-        },
         "nodeSelector": {
           "properties": {
             "kubernetes.io/os": {
@@ -5992,9 +5986,6 @@
             }
           },
           "type": "object"
-        },
-        "proxyPort": {
-          "type": "integer"
         },
         "rollOutPods": {
           "type": "boolean"

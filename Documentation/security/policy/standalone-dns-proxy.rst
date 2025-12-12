@@ -37,45 +37,59 @@ To enable the Standalone DNS Proxy, set the following Helm values:
 
 .. code-block:: yaml
 
+   # Enable L7 proxy and configure DNS proxy port
+   l7Proxy: true
+   dnsProxy:
+     proxyPort: 10094  # Must be non-zero when using standalone DNS proxy
+   
+   # Enable standalone DNS proxy
    standaloneDnsProxy:
      enabled: true
-     proxyPort: 10094
      serverPort: 10095
 
 .. important::
 
-   The ``standaloneDnsProxy.proxyPort`` must match the ``dnsProxy.proxyPort`` 
-   configuration in the Cilium agent. Both the agent and standalone DNS proxy 
-   expect these ports to be the same for proper communication and DNS traffic 
-   interception.
+   The standalone DNS proxy uses the agent's DNS configuration (``dnsProxy.proxyPort`` 
+   and ``dnsProxy.enableDnsCompression``) to ensure consistency. The ``dnsProxy.proxyPort`` 
+   must be explicitly set to a non-zero value (e.g., 10094) when enabling the standalone 
+   DNS proxy. The Helm chart will fail validation if this is not configured correctly.
 
 Testing the Standalone DNS Proxy
 =================================
 
 This section provides steps to test the Standalone DNS Proxy in a development environment.
 
+.. note::
+
+   The standalone DNS proxy is an **alpha feature** and is not yet included in official 
+   Cilium releases. Testing this feature requires building custom container images from 
+   source. The following instructions guide you through building and deploying the 
+   standalone DNS proxy in a local development environment using kind (Kubernetes in Docker).
+
 Building and Deploying
 -----------------------
 
 1. **Build the Standalone DNS Proxy Image**
 
-   Build the standalone DNS proxy container image:
+   Build the standalone DNS proxy container image from source:
 
    .. code-block:: shell-session
 
       $ make docker-standalone-dns-proxy-image
 
+   This creates a local image ``quay.io/cilium/standalone-dns-proxy:latest``.
+
 2. **Set Up kind Cluster with Cilium**
 
-   Create a kind cluster and install Cilium:
+   Create a kind cluster and build/install Cilium from source:
 
    .. code-block:: shell-session
 
       $ make kind && make kind-image && make kind-install-cilium
 
-3. **Load the Image into kind**
+3. **Load the Standalone DNS Proxy Image into kind**
 
-   Load the standalone DNS proxy image into the kind cluster:
+   Load the standalone DNS proxy image you built into the kind cluster:
 
    .. code-block:: shell-session
 
@@ -92,8 +106,6 @@ Building and Deploying
           --set='l7Proxy=true' \
           --set='dnsProxy.proxyPort=10094' \
           --helm-set='standaloneDnsProxy.enabled=true' \
-          --helm-set='standaloneDnsProxy.proxyPort=10094' \
-          --helm-set='standaloneDnsProxy.l7Proxy=true' \
           --helm-set='standaloneDnsProxy.image.repository=quay.io/cilium/standalone-dns-proxy' \
           --helm-set='standaloneDnsProxy.image.tag=latest' \
           --helm-set='standaloneDnsProxy.image.useDigest=false' \
@@ -101,9 +113,10 @@ Building and Deploying
 
    .. note::
 
-      * Both ``dnsProxy.proxyPort`` and ``standaloneDnsProxy.proxyPort`` are set to ``10094`` to ensure proper communication
+      * ``dnsProxy.proxyPort=10094`` sets the DNS proxy port used by both the agent and standalone DNS proxy
       * ``l7Proxy=true`` enables L7 proxy support required for DNS policy enforcement
-      * ``image.pullPolicy=Never`` is used for local testing with kind
+      * The standalone DNS proxy automatically inherits DNS settings from the agent configuration
+      * ``image.tag=latest`` and ``image.pullPolicy=Never`` are used to reference the locally-built image
 
 5. **Restart Cilium Agent**
 
@@ -205,30 +218,51 @@ Limitations
 
 The Standalone DNS Proxy alpha release has the following known limitations:
 
-* Proxy port and server ports needs to be the same between Cilium agent and standalone DNS proxy
-  for proper communication. The ports are defined by the ``dnsProxy.proxyPort`` and 
-  ``standaloneDnsProxy.proxyPort`` settings in the Helm chart.
+* The standalone DNS proxy uses the agent's DNS configuration (``dnsProxy.proxyPort`` 
+  and ``dnsProxy.enableDnsCompression``). The ``dnsProxy.proxyPort`` must be explicitly 
+  set to a non-zero value when the standalone DNS proxy is enabled. Currently, it does not select
+  a free port if not set.
 * Metrics related to DNS are not supported yet. The metrics are currently
   only available from the in-agent DNS proxy.
 * Standalone DNS proxy depends on cilium agent to read DNS policies, enforce them and 
   communicate via gRPC. If there are connectivity issues between the proxy and agent,
   DNS policy enforcement may be affected.
+* While the standalone DNS proxy can continue to proxy DNS requests when the agent is down,
+  it cannot allocate new identities for domains that haven't been observed before.
+  If an endpoint looks up a new domain (one that hasn't been cached) while the agent is unavailable,
+  the resulting traffic will be dropped because no security identity can be allocated.
+  Only DNS lookups for previously observed domains (with cached identities) will work during agent downtime.
 
 Troubleshooting
 ===============
 
-Port Configuration Mismatch
-----------------------------
+Validation Errors
+-----------------
 
-If DNS queries are not being properly proxied, verify that the proxy ports match:
+If the Helm chart fails with a validation error about ``dnsProxy.proxyPort``:
+
+.. code-block:: text
+
+   Error: standaloneDnsProxy requires dnsProxy.proxyPort to be set to a non-zero value (e.g., 10094)
+
+This means you need to explicitly configure the DNS proxy port in your values:
+
+.. code-block:: yaml
+
+   dnsProxy:
+     proxyPort: 10094  # Must be non-zero
+
+Port Configuration Verification
+--------------------------------
+
+To verify that the DNS proxy port is correctly configured:
 
 .. code-block:: shell-session
 
-   $ kubectl -n kube-system get configmap cilium-config -o yaml | grep -E 'tofqdns-proxy-port'
-   $ kubectl -n kube-system get configmap standalone-dns-proxy-config -o yaml | grep -E 'tofqdns-proxy-port'
+   $ kubectl -n kube-system get configmap cilium-config -o yaml | grep 'tofqdns-proxy-port'
+   $ kubectl -n kube-system get configmap standalone-dns-proxy-config -o yaml | grep 'tofqdns-proxy-port'
 
-Both ``dnsProxy.proxyPort`` and ``standaloneDnsProxy.proxyPort`` must be set to the 
-same value (default: ``10094``). A mismatch will prevent proper DNS traffic interception.
+Both ConfigMaps should show the same value from ``dnsProxy.proxyPort``.
 
 gRPC Communication Issues
 -------------------------

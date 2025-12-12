@@ -3661,9 +3661,9 @@
      - bool
      - ``false``
    * - :spelling:ignore:`standaloneDnsProxy`
-     - Standalone DNS Proxy Configuration
+     - Standalone DNS Proxy Configuration Note: The standalone DNS proxy uses the agent's dnsProxy.* configuration for DNS settings (proxyPort, enableDnsCompression) to ensure consistency.
      - object
-     - ``{"annotations":{},"automountServiceAccountToken":false,"debug":false,"dnsCompression":true,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false},"l7Proxy":true,"nodeSelector":{"kubernetes.io/os":"linux"},"proxyPort":10094,"rollOutPods":false,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}``
+     - ``{"annotations":{},"automountServiceAccountToken":false,"debug":false,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"rollOutPods":false,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}``
    * - :spelling:ignore:`standaloneDnsProxy.annotations`
      - Standalone DNS proxy annotations
      - object
@@ -3676,10 +3676,6 @@
      - Standalone DNS proxy debug mode
      - bool
      - ``false``
-   * - :spelling:ignore:`standaloneDnsProxy.dnsCompression`
-     - Standalone DNS proxy DNS compression
-     - bool
-     - ``true``
    * - :spelling:ignore:`standaloneDnsProxy.enabled`
      - Enable standalone DNS proxy(alpha feature)
      - bool
@@ -3688,18 +3684,10 @@
      - Standalone DNS proxy image
      - object
      - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false}``
-   * - :spelling:ignore:`standaloneDnsProxy.l7Proxy`
-     - L7 proxy mode enables proxy for DNS traffic
-     - bool
-     - ``true``
    * - :spelling:ignore:`standaloneDnsProxy.nodeSelector`
      - Standalone DNS proxy Node Selector
      - object
      - ``{"kubernetes.io/os":"linux"}``
-   * - :spelling:ignore:`standaloneDnsProxy.proxyPort`
-     - Standalone DNS proxy port # -- Port on which the DNS proxy listens for DNS requests. It should match the port configured in cilium-agent's dnsProxy.proxyPort.
-     - int
-     - ``10094``
    * - :spelling:ignore:`standaloneDnsProxy.rollOutPods`
      - Roll out Standalone Dns proxy automatically when configmap is updated.
      - bool

@@ -329,6 +329,7 @@ effectful
 egressing
 elfutils
 ena
+enableDnsCompression
 enableSourceIPVerification
 enablement
 endPort

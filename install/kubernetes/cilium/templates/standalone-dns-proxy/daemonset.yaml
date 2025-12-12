@@ -61,21 +61,21 @@ spec:
           - --config-dir=/tmp/standalone-dns-proxy/config-map
           imagePullPolicy: {{ .Values.standaloneDnsProxy.image.pullPolicy }}
           livenessProbe:
-            httpGet:
-              host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
-              port: 9235
-              path: /healthz
-              scheme: HTTP
+            exec:
+              command:
+              - standalone-dns-proxy
+              - shell
+              - health/ok
             periodSeconds: 15
             timeoutSeconds: 3
             successThreshold: 1
             failureThreshold: 5
           readinessProbe:
-            httpGet:
-              host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
-              port: 9235
-              path: /healthz
-              scheme: HTTP
+            exec:
+              command:
+              - standalone-dns-proxy
+              - shell
+              - health/ok
             periodSeconds: 10
             successThreshold: 1
             failureThreshold: 3
@@ -84,6 +84,8 @@ spec:
           - mountPath: /tmp/standalone-dns-proxy/config-map
             name: standalone-dns-proxy-config-path
             readOnly: true
+          - mountPath: /var/run/standalone-dns-proxy
+            name: runtime-dir
           securityContext:
             capabilities:
               add: ["NET_ADMIN", "NET_RAW"]
@@ -93,4 +95,6 @@ spec:
           defaultMode: 420
           name: standalone-dns-proxy-config
         name: standalone-dns-proxy-config-path
+      - emptyDir: {}
+        name: runtime-dir
 {{- end }}
