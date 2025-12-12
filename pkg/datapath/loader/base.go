@@ -223,11 +223,13 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	}
 
 	var obj networkObjects
+	cfg := config.NewBPFNetwork(config.NodeConfig(lnc))
+	cfg.ClusterIDMax = option.Config.MaxConnectedClusters
 	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: config.NewBPFNetwork(config.NodeConfig(lnc)),
+		Constants: cfg,
 	})
 	if err != nil {
 		return err

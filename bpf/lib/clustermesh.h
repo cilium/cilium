@@ -4,6 +4,12 @@
 
 #include "lib/utils.h"
 
+#ifndef __CLUSTERMESH_IDENTITY__
+#define __CLUSTERMESH_IDENTITY__
+DECLARE_CONFIG(__u32, cluster_id_max, "Max number of clusters that can be connected in clustermesh")
+ASSIGN_CONFIG(__u32, cluster_id_max, 511)
+#endif
+
 #define CLUSTER_ID_LOWER_MASK 0x000000FF
 
 #ifndef __CLUSTERMESH_HELPERS__
@@ -37,7 +43,7 @@ extract_cluster_id_from_identity(__u32 identity)
 static __always_inline __maybe_unused __u32
 get_cluster_id_upper_mask()
 {
-	return (CLUSTER_ID_MAX & ~CLUSTER_ID_LOWER_MASK) << (8 + IDENTITY_LEN);
+	return (CONFIG(cluster_id_max) & ~CLUSTER_ID_LOWER_MASK) << (8 + IDENTITY_LEN);
 }
 
 static __always_inline __maybe_unused __u32
@@ -57,7 +63,7 @@ ctx_get_cluster_id_mark(const struct __ctx_buff *ctx __maybe_unused)
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_CLUSTER_ID)
 		return 0;
 
-	return (cluster_id_upper | cluster_id_lower) & CLUSTER_ID_MAX;
+	return (cluster_id_upper | cluster_id_lower) & CONFIG(cluster_id_max);
 #else /* __ctx_is == __ctx_xdp */
 	return 0;
 #endif /* __ctx_is == __ctx_xdp */

@@ -9,6 +9,8 @@ package config
 // not instantiate directly! Always use [NewBPFSock] to ensure the default
 // values configured in the ELF are honored.
 type BPFSock struct {
+	// Max number of clusters that can be connected in clustermesh.
+	ClusterIDMax uint32 `config:"cluster_id_max"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Enable support for Local Redirect Policy.
@@ -20,5 +22,5 @@ type BPFSock struct {
 }
 
 func NewBPFSock(node Node) *BPFSock {
-	return &BPFSock{false, false, false, node}
+	return &BPFSock{0x1ff, false, false, false, node}
 }
