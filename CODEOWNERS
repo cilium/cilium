@@ -453,6 +453,7 @@ Makefile* @cilium/build
 /Documentation/security/images/cilium_threat_model* @cilium/security @cilium/docs-structure
 /Documentation/security/network/encryption-ipsec.rst @cilium/ipsec @cilium/docs-structure
 /Documentation/security/network/encryption-wireguard.rst @cilium/wireguard @cilium/docs-structure
+/Documentation/security/network/encryption-ztunnel.rst @cilium/ztunnel @cilium/docs-structure
 /Documentation/security/network/proxy/ @cilium/proxy @cilium/docs-structure
 /Documentation/security/policy-creation.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/policy/ @cilium/sig-policy @cilium/docs-structure
