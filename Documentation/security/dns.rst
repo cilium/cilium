@@ -13,6 +13,12 @@ Locking Down External Access with DNS-Based Policies
 This document serves as an introduction for using Cilium to enforce DNS-based
 security policies for Kubernetes pods.
 
+.. note::
+
+   By default, Cilium uses an in-agent DNS proxy for DNS policy enforcement.
+   For high availability, consider using the
+   :ref:`standalone_dns_proxy` (alpha feature).
+
 .. include:: gsg_requirements.rst
 
 Deploy the Demo Application
