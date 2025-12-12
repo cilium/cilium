@@ -4,6 +4,8 @@
 
 #include "lib/utils.h"
 
+NODE_CONFIG(__u32, cluster_id, "Cluster ID")
+
 NODE_CONFIG(__u32, cluster_id_max, "Max number of clusters that can be connected in Clustermesh")
 ASSIGN_CONFIG(__u32, cluster_id_max, 255)
 

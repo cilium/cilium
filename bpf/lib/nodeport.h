@@ -852,8 +852,7 @@ static __always_inline bool nodeport_rev_dnat_get_info_ipv6(
 		struct ipv6_ct_tuple dsr_tuple;
 
 		if (entry->nat_port) {
-			ipv6_addr_copy(&nat_info->address,
-				       &entry->nat_addr);
+			ipv6_addr_copy(&nat_info->address, &entry->nat_addr);
 
 			nat_info->port = entry->nat_port;
 			return true;
@@ -2623,7 +2622,7 @@ __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS) static __always_inline
 		target.addr = IPV4_GATEWAY;
 #   if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && \
 	   defined(ENABLE_INTER_CLUSTER_SNAT)
-		if (cluster_id && cluster_id != CLUSTER_ID)
+		if (cluster_id && cluster_id != CONFIG(cluster_id))
 			target.addr = IPV4_INTER_CLUSTER_SNAT;
 #   endif
 	}
@@ -2764,14 +2763,15 @@ static __always_inline int nodeport_svc_lb4(
 	}
 #  endif
 	if (lb4_to_lb6_service(svc)) {
-		if (!is_defined(ENABLE_IPV6) || !is_defined(NODEPORT_USE_NAT_46x64))
+		if (!is_defined(ENABLE_IPV6) ||
+		    !is_defined(NODEPORT_USE_NAT_46x64))
 			return DROP_NO_SERVICE;
 
 		ret = lb4_to_lb6(ctx, ip4, l3_off);
 		if (!ret) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
-			return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
-						  ext_err);
+			return tail_call_internal(
+				ctx, CILIUM_CALL_IPV6_FROM_NETDEV, ext_err);
 		}
 	} else {
 		ret = lb4_local(get_ct_map4(tuple), ctx, fraginfo, l4_off, key,

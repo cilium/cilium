@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
@@ -41,10 +40,6 @@
 #define NODEPORT_PORT_MAX 32767
 #define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
 #define NODEPORT_PORT_MAX_NAT (NODEPORT_PORT_MIN_NAT)
-
-/* Overwrite (local) CLUSTER_ID defined in node_config.h */
-#undef CLUSTER_ID
-#define CLUSTER_ID 1
 
 /*
  * Test configurations
@@ -99,6 +94,9 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 
 /* Include an actual datapath code */
 #include "lib/bpf_overlay.h"
+
+/* Overwrite (local) cluster_id defined in clustermesh.h */
+ASSIGN_CONFIG(__u32, cluster_id, 1)
 
 #include "lib/endpoint.h"
 
