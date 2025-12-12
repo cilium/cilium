@@ -3116,6 +3116,10 @@
      - node-init update strategy
      - object
      - ``{"type":"RollingUpdate"}``
+   * - :spelling:ignore:`nodeinit.waitForCloudInit`
+     - wait for Cloud init to finish on the host and assume the node has cloud init installed
+     - bool
+     - ``false``
    * - :spelling:ignore:`operator.affinity`
      - Affinity for cilium-operator
      - object

@@ -4679,6 +4679,9 @@
             }
           },
           "type": "object"
+        },
+        "waitForCloudInit": {
+          "type": "boolean"
         }
       },
       "type": "object"
