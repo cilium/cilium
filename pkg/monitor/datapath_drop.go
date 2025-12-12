@@ -51,23 +51,23 @@ var (
 
 // DropNotify is the message format of a drop notification in the BPF ring buffer
 type DropNotify struct {
-	Type      uint8
-	SubType   uint8
-	Source    uint16
-	Hash      uint32
-	OrigLen   uint32
-	CapLen    uint16
-	Version   uint16
-	SrcLabel  identity.NumericIdentity
-	DstLabel  identity.NumericIdentity
-	DstID     uint32
-	Line      uint16
-	File      uint8
-	ExtError  int8
-	Ifindex   uint32
-	Flags     uint8
-	_         [3]uint8
-	IPTraceID uint64
+	Type      uint8                    `align:"type"`
+	SubType   uint8                    `align:"subtype"`
+	Source    uint16                   `align:"source"`
+	Hash      uint32                   `align:"hash"`
+	OrigLen   uint32                   `align:"len_orig"`
+	CapLen    uint16                   `align:"len_cap"`
+	Version   uint16                   `align:"version"`
+	SrcLabel  identity.NumericIdentity `align:"src_label"`
+	DstLabel  identity.NumericIdentity `align:"dst_label"`
+	DstID     uint32                   `align:"dst_id"`
+	Line      uint16                   `align:"line"`
+	File      uint8                    `align:"file"`
+	ExtError  int8                     `align:"ext_error"`
+	Ifindex   uint32                   `align:"ifindex"`
+	Flags     uint8                    `align:"flags"`
+	_         [3]uint8                 `align:"pad2"`
+	IPTraceID uint64                   `align:"ip_trace_id"`
 	// data
 }
 
