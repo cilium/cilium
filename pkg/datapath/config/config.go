@@ -24,6 +24,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 		node.RouterIPv6 = ([16]byte)(lnc.CiliumInternalIPv6.To16())
 	}
 
+	node.ClusterID = option.Config.ClusterID
 	node.TracePayloadLen = uint32(option.Config.TracePayloadlen)
 	node.TracePayloadLenOverlay = uint32(option.Config.TracePayloadlenOverlay)
 
