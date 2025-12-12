@@ -45,23 +45,23 @@ func (s SRIOVConfig) IsEnabled() bool {
 type MacAddr [6]byte
 
 type PciDevice struct {
-	addr         string
-	driver       string
-	vendor       string
-	deviceID     string
-	pfName       string
-	vfID         int
-	kernelIfName string
+	Addr            string
+	Driver          string
+	Vendor          string
+	DeviceID        string
+	PfName          string
+	VfID            int
+	KernelIfaceName string
 }
 
 func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	result := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
-	result["driver"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.driver)}
-	result["deviceID"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.deviceID)}
-	result["vendor"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.vendor)}
-	result["pfName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.pfName)}
+	result["driver"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Driver)}
+	result["deviceID"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.DeviceID)}
+	result["vendor"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.Vendor)}
+	result["pfName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.PfName)}
 	result["ifName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.IfName())}
-	result["kernelIfName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.kernelIfName)}
+	result["kernelIfName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.KernelIfaceName)}
 
 	return result
 }
@@ -70,26 +70,26 @@ func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAt
 // guaranteed that we have a kernel interface for this device.
 // constructed with <pfName>vf<vfID>
 func (d PciDevice) IfName() string {
-	return fmt.Sprintf("%svf%d", d.pfName, d.vfID)
+	return fmt.Sprintf("%svf%d", d.PfName, d.VfID)
 }
 
 func (d PciDevice) KernelIfName() string {
-	return d.kernelIfName
+	return d.KernelIfaceName
 }
 
 // Setup prepares a sr-iov VF device for use.
 func (d PciDevice) Setup(config types.DeviceConfig) error {
-	if d.pfName == "" {
+	if d.PfName == "" {
 		return fmt.Errorf("device with ifname %s %w", d.IfName(), errNotAVF)
 	}
 
-	l, err := safenetlink.LinkByName(d.pfName)
+	l, err := safenetlink.LinkByName(d.PfName)
 	if err != nil {
 		return err
 	}
 
 	if config.Vlan != 0 {
-		return netlink.LinkSetVfVlan(l, d.vfID, int(config.Vlan))
+		return netlink.LinkSetVfVlan(l, d.VfID, int(config.Vlan))
 	}
 
 	return nil
@@ -97,17 +97,17 @@ func (d PciDevice) Setup(config types.DeviceConfig) error {
 
 // Free resets a sr-iov VF device.
 func (d PciDevice) Free(config types.DeviceConfig) error {
-	if d.pfName == "" {
+	if d.PfName == "" {
 		return fmt.Errorf("device with ifname %s %w", d.IfName(), errNotAVF)
 	}
 
-	l, err := safenetlink.LinkByName(d.pfName)
+	l, err := safenetlink.LinkByName(d.PfName)
 	if err != nil {
 		return err
 	}
 
 	if config.Vlan != 0 {
-		return netlink.LinkSetVfVlan(l, d.vfID, 0)
+		return netlink.LinkSetVfVlan(l, d.VfID, 0)
 	}
 
 	return nil
@@ -122,7 +122,7 @@ func (d PciDevice) Match(filter types.DeviceFilter) bool {
 	}
 
 	if len(filter.PciAddrs) != 0 {
-		if !slices.Contains(filter.PciAddrs, d.addr) {
+		if !slices.Contains(filter.PciAddrs, d.Addr) {
 			return false
 		}
 	}
@@ -134,25 +134,25 @@ func (d PciDevice) Match(filter types.DeviceFilter) bool {
 	}
 
 	if len(filter.VendorIDs) != 0 {
-		if !slices.Contains(filter.VendorIDs, d.vendor) {
+		if !slices.Contains(filter.VendorIDs, d.Vendor) {
 			return false
 		}
 	}
 
 	if len(filter.DeviceIDs) != 0 {
-		if !slices.Contains(filter.DeviceIDs, d.deviceID) {
+		if !slices.Contains(filter.DeviceIDs, d.DeviceID) {
 			return false
 		}
 	}
 
 	if len(filter.Drivers) != 0 {
-		if !slices.Contains(filter.Drivers, d.driver) {
+		if !slices.Contains(filter.Drivers, d.Driver) {
 			return false
 		}
 	}
 
 	if len(filter.PfNames) != 0 {
-		if !slices.Contains(filter.PfNames, d.pfName) {
+		if !slices.Contains(filter.PfNames, d.PfName) {
 			return false
 		}
 	}
@@ -214,7 +214,7 @@ func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
 			continue
 		}
 
-		result = append(result, *device)
+		result = append(result, device)
 	}
 
 	return result, errors.Join(errs...)
@@ -252,7 +252,7 @@ func isNetworkDevice(pciAddr string) bool {
 // parseDevice constructs a PciDevice from a PCI device's sysfs attributes.
 func (mgr *SRIOVManager) parseDevice(addr string) (*PciDevice, error) {
 	dev := PciDevice{
-		addr: addr,
+		Addr: addr,
 	}
 
 	devicePath := path.Join(mgr.sysPath, addr)
@@ -264,37 +264,37 @@ func (mgr *SRIOVManager) parseDevice(addr string) (*PciDevice, error) {
 	// 	/sys/bus/pci/devices/0000:02:00.0# readlink driver
 	// ../../../../bus/pci/drivers/mlx5_core
 	_, driver = path.Split(driver)
-	dev.driver = driver
+	dev.Driver = driver
 
 	vendor, err := os.ReadFile(path.Join(devicePath, "vendor"))
 	if err != nil {
 		return nil, err
 	}
-	dev.vendor = strings.ReplaceAll(string(vendor), "\n", "")
+	dev.Vendor = strings.ReplaceAll(string(vendor), "\n", "")
 
 	kernelIfNames, err := os.ReadDir(path.Join(devicePath, "net"))
 	if err != nil {
 		return nil, err
 	}
 	if len(kernelIfNames) > 0 {
-		dev.kernelIfName = kernelIfNames[0].Name()
+		dev.KernelIfaceName = kernelIfNames[0].Name()
 	}
 
 	device, err := os.ReadFile(path.Join(devicePath, "device"))
 	if err != nil {
 		return nil, err
 	}
-	dev.deviceID = strings.ReplaceAll(string(device), "\n", "")
+	dev.DeviceID = strings.ReplaceAll(string(device), "\n", "")
 
 	pfNames, err := os.ReadDir(path.Join(devicePath, "physfn", "net"))
 	if err != nil {
 		return nil, err
 	}
 	if len(pfNames) > 0 {
-		dev.pfName = pfNames[0].Name()
+		dev.PfName = pfNames[0].Name()
 	}
 
-	pfDevPath := path.Join(defaultNetPath, dev.pfName, "device")
+	pfDevPath := path.Join(defaultNetPath, dev.PfName, "device")
 	vfCount, err := os.ReadFile(path.Join(pfDevPath, "sriov_numvfs"))
 	if err != nil {
 		return nil, err
@@ -316,7 +316,7 @@ func (mgr *SRIOVManager) parseDevice(addr string) (*PciDevice, error) {
 		}
 		_, vfAddr := path.Split(vf)
 		if vfAddr == addr {
-			dev.vfID = i
+			dev.VfID = i
 			found = true
 			break
 		}
