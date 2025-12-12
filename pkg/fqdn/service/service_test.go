@@ -49,6 +49,7 @@ var (
 	destIdentity     = identity.NumericIdentity(2)
 	destEndpointId   = uint16(102)
 	sourceIP         = "1.2.3.4/32"
+	sourceIPV6       = "2001:db8::1/128"
 	destIP           = "5.6.7.8/32"
 )
 
@@ -319,10 +320,13 @@ func setupServer(t *testing.T, port int, enableL7Proxy bool, enableStandaloneDNS
 
 // addEndpointMapping adds source and destination endpoint to the server.
 func addEndpointMapping(t *testing.T, fqdnDataServer *FQDNDataServer) {
-	// Add the source endpoint mapping to the server
+	// Add the source endpoint mapping to the server with 2 IPs (IPv4 + IPv6)
 	prefix := netip.MustParsePrefix(sourceIP)
 	validCIDR := types.NewPrefixCluster(prefix, 0)
 	dummyIdentity := ipcache.Identity{ID: sourceIdentity}
+	fqdnDataServer.OnIPIdentityCacheChange(ipcache.Upsert, validCIDR, nil, nil, nil, dummyIdentity, 0, nil, 0)
+	prefix = netip.MustParsePrefix(sourceIPV6)
+	validCIDR = types.NewPrefixCluster(prefix, 0)
 	fqdnDataServer.OnIPIdentityCacheChange(ipcache.Upsert, validCIDR, nil, nil, nil, dummyIdentity, 0, nil, 0)
 	// Add the destination endpoint mapping to the server
 	prefix = netip.MustParsePrefix(destIP)
@@ -392,6 +396,15 @@ func TestSuccessfullyStreamPolicyState(t *testing.T) {
 			})
 			// Increment the count for each response received
 			if len(receivedResultClient.GetEgressL7DnsPolicy()) > 0 {
+				receivedRules := receivedResultClient.GetEgressL7DnsPolicy()
+				sourceEndpointIDPolicyCount := 0
+				for _, r := range receivedRules {
+					if r.GetSourceEndpointId() == uint32(sourceEndpointId) {
+						sourceEndpointIDPolicyCount++
+					}
+				}
+				// Ensure no duplicate policies for the same endpoint
+				require.Equal(t, 1, sourceEndpointIDPolicyCount)
 				count++
 			}
 			connected = true
