@@ -22,9 +22,12 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/ipcache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
@@ -32,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -113,6 +117,7 @@ type BPFOps struct {
 
 	cfg           loadbalancer.Config
 	extCfg        loadbalancer.ExternalConfig
+	ipcache       *ipcache.IPCache
 	maglev        *maglev.Maglev
 	lastUpdatedAt atomic.Pointer[time.Time]
 	pruneCount    atomic.Int32
@@ -180,6 +185,7 @@ type bpfOpsParams struct {
 	Log            *slog.Logger
 	Config         loadbalancer.Config
 	ExternalConfig loadbalancer.ExternalConfig
+	IPCache        *ipcache.IPCache
 	LBMaps         maps.LBMaps
 	Maglev         *maglev.Maglev
 	DB             *statedb.DB
@@ -196,6 +202,7 @@ func newBPFOps(p bpfOpsParams) *BPFOps {
 	ops := &BPFOps{
 		cfg:       p.Config,
 		extCfg:    p.ExternalConfig,
+		ipcache:   p.IPCache,
 		maglev:    p.Maglev,
 		log:       newRateLimitingLogger(p.Log),
 		LBMaps:    p.LBMaps,
@@ -484,6 +491,9 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	if err := ops.deleteWildcard(fe, feID); err != nil {
 		return fmt.Errorf("delete wildcard: %w", err)
 	}
+
+	// Synchronise ipcache entry, using Action=Unspec to force a deletion.
+	ops.syncIPCache(fe, annotation.UnsupportedProtoActionUnspec)
 
 	// Decrease the backend reference counts and drop state associated with the frontend.
 	ops.updateBackendRefCounts(fe.Address, nil)
@@ -1077,6 +1087,9 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		return fmt.Errorf("upsert wildcard: %w", err)
 	}
 
+	// Synchronise ipcache entry.
+	ops.syncIPCache(fe, svc.UnsupportedProtoAction)
+
 	// Calculate the number of existing backend references, so we can cleanup if there there
 	// has been a change.
 	numPreviousBackends := len(ops.backendReferences[fe.Address])
@@ -1148,6 +1161,22 @@ func (ops *BPFOps) useWildcard(fe *loadbalancer.Frontend) bool {
 		// Only external scoped entries can parent wildcard entries
 		return fe.Address.Scope() == loadbalancer.ScopeExternal
 	}
+	return false
+}
+
+func (ops *BPFOps) useIPCache(fe *loadbalancer.Frontend) bool {
+	// Never allow a zero address to touch the IPCache
+	if fe.Address.AddrCluster().IsUnspecified() {
+		return false
+	}
+
+	switch fe.Type {
+	case loadbalancer.SVCTypeLoadBalancer,
+		loadbalancer.SVCTypeClusterIP,
+		loadbalancer.SVCTypeExternalIPs:
+		return fe.Address.Scope() == loadbalancer.ScopeExternal
+	}
+
 	return false
 }
 
@@ -1410,6 +1439,60 @@ func (ops *BPFOps) deleteWildcard(fe *loadbalancer.Frontend, feID loadbalancer.S
 	}
 
 	return nil
+}
+
+func (ops *BPFOps) syncIPCache(fe *loadbalancer.Frontend, svcAction annotation.UnsupportedProtoAction) {
+	if !ops.useIPCache(fe) {
+		return
+	}
+
+	// Compute the resource ID that uniquely identifies the references
+	// between this FE and the underlying IPCache entry. Note these are
+	// in a specific format, delimited by a forward-slash, so we delimit
+	// the FE L3n4Addr with a colon instead.
+	feResourceID := ipcacheTypes.NewResourceID(
+		ipcacheTypes.ResourceKindService,
+		fe.Service.Name.Namespace(),
+		fe.Address.StringWithProtocolDelimited(":"),
+	)
+
+	// Compute IPCache flags for this FE. Note we only initialise the Unroutable
+	// flag to True if we have a legitimaste 'drop' action. In any other case,
+	// the flags are uninitialised.
+	ipCacheFlags := ipcacheTypes.EndpointFlags{}
+
+	switch svcAction {
+	case annotation.UnsupportedProtoActionForward:
+		// Do nothing
+	case annotation.UnsupportedProtoActionDrop:
+		ipCacheFlags.SetUnroutable(true)
+	default:
+		// Unspecified annotation, use LB configuration
+		if ops.cfg.LBUnsupportedProtoAction == loadbalancer.LBUnsupportedProtoActionDrop {
+			ipCacheFlags.SetUnroutable(true)
+		}
+	}
+
+	ops.log.Debug("Synchronise IPCache entry",
+		logfields.Type, fe.Type,
+		logfields.ResourceID, feResourceID,
+		logfields.Flags, ipCacheFlags,
+	)
+
+	if ipCacheFlags.IsValid() {
+		ops.ipcache.UpsertMetadata(
+			fe.Address.AddrCluster().AsPrefixCluster(),
+			source.Local,
+			feResourceID,
+			ipCacheFlags,
+		)
+	} else {
+		ops.ipcache.RemoveMetadata(
+			fe.Address.AddrCluster().AsPrefixCluster(),
+			feResourceID,
+			ipCacheFlags,
+		)
+	}
 }
 
 var _ reconciler.Operations[*loadbalancer.Frontend] = &BPFOps{}
