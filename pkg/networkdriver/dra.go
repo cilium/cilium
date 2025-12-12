@@ -56,7 +56,7 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 	}
 
 	if !found {
-		d.logger.DebugContext(
+		d.logger.WarnContext(
 			ctx, "no allocation found for claim",
 			logfields.UID, claim.UID,
 			logfields.K8sNamespace, claim.Namespace,
