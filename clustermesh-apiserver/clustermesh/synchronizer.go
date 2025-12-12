@@ -15,10 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
+	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -26,12 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-)
-
-var (
-	podPrefixLbl = labels.LabelSourceK8s + ":" + k8sConst.PodNamespaceLabel
 )
 
 // Options represents the options to synchronize a given resource type.
@@ -40,16 +35,14 @@ type Options[T runtime.Object] struct {
 	Resource  string
 	Prefix    string
 	StoreOpts []store.WSSOpt
-	// NamespaceSyncRequired indicates whether namespace changes should trigger resynchronization
+	// Namespaced indicates whether namespace changes should trigger resynchronization
 	// of all resources of this type. If true, a namespace watcher will be started to monitor
 	// namespace changes and resynchronize resources accordingly. Only required for certain resource types.
-	NamespaceSyncRequired bool
+	Namespaced bool
 }
 
 // Converter knows how to convert a given Kubernetes event into the corresponding
 // set of kvstore upsert and delete operations.
-// The converter may decide to ignore certain events, e.g., if the resource
-// is not in a global namespace.
 type Converter[T runtime.Object] interface {
 	Convert(event resource.Event[T]) (upserts iter.Seq[store.Key], deletes iter.Seq[store.NamedKey])
 }
@@ -77,14 +70,11 @@ type syncParams[T runtime.Object] struct {
 // which watches for Kubernetes events and propagates the corresponding
 // representation to the kvstore.
 func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
-	scoppedLogger := in.Logger.With(
-		logfields.Resource, in.Options.Resource,
-	)
 	if !in.Options.Enabled {
-		scoppedLogger.Info("Synchronization is disabled")
+		in.Logger.Info("Synchronization is disabled")
 		return
 	}
-	scoppedLogger.Info("Synchronization is enabled")
+	in.Logger.Info("Synchronization is enabled")
 
 	store := in.Factory.NewSyncStore(
 		in.ClusterInfo.Name, in.Client,
@@ -94,13 +84,13 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 
 	// process is a helper function to log and execute store operations.
 	process := func(invoker, op, key string, do func() error) {
-		scoppedLogger.Info("Processing resource",
+		in.Logger.Info("Processing resource",
 			logfields.LogSubsys, invoker,
 			logfields.Operation, op,
 			logfields.Key, key,
 		)
 		if err := do(); err != nil {
-			scoppedLogger.Warn("Failed updating resource in etcd",
+			in.Logger.Warn("Failed updating resource in etcd",
 				logfields.Error, err,
 			)
 		}
@@ -112,54 +102,51 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 			func(ctx context.Context, _ cell.Health) error {
 				resourceStore, err := in.Resource.Store(ctx)
 				if err != nil {
-					scoppedLogger.WarnContext(ctx, "Unable to get resource store", logfields.Error, err)
 					return err
 				}
 				invoker := fmt.Sprintf("%s-sync", strings.ToLower(in.Options.Resource))
-				scoppedLogger := scoppedLogger.With(logfields.LogSubsys, invoker)
-
-				scoppedLogger.Info("Starting event synchronizer")
+				in.Logger.Info("Starting event synchronizer")
 
 				// Get event channels
 				resourceEvents := in.Resource.Events(ctx)
 				var namespaceEvents <-chan resource.Event[*slim_corev1.Namespace]
-				if in.Options.NamespaceSyncRequired {
-					scoppedLogger.Info("Namespace watcher is enabled for resource type")
+				if in.Options.Namespaced {
+					in.Logger.Info("Namespace watcher is enabled for resource type")
 					namespaceEvents = in.Namespaces.Events(ctx)
 				} else {
-					scoppedLogger.Info("Namespace watcher is not enabled for resource type")
+					in.Logger.Info("Namespace watcher is not enabled for resource type")
 				}
 
 				for {
 					select {
 					case <-ctx.Done():
-						scoppedLogger.Info("Context done, stopping event synchronizer")
+						in.Logger.Info("Context done, stopping event synchronizer")
 						return nil
 					case event, ok := <-resourceEvents:
 						if !ok {
-							scoppedLogger.Info("Resource event channel closed, stopping synchronizer")
+							in.Logger.Info("Resource event channel closed, stopping synchronizer")
 							return nil
 						}
 
 						if event.Kind == resource.Sync {
 							event.Done(nil)
-							scoppedLogger.Info("Initial entries successfully received from Kubernetes")
+							in.Logger.Info("Initial entries successfully received from Kubernetes")
 							store.Synced(ctx, synced)
 							continue
 						}
 						// Filter the event based on namespace global status.
 						// Only required for certain resource types.
-						if in.Options.NamespaceSyncRequired {
+						if in.Options.Namespaced {
 							ns, processEvent, err := resourceHandler(in, event)
 							if err != nil {
-								scoppedLogger.Warn("Failed to handle resource event",
+								in.Logger.Warn("Failed to handle resource event",
 									logfields.Error, err,
 								)
 								event.Done(err)
 								continue
 							}
 							if !processEvent {
-								scoppedLogger.Debug("Skipping resource event as it is not in a global namespace",
+								in.Logger.Debug("Skipping resource event as it is not in a global namespace",
 									logfields.Name, event.Key.Name,
 									logfields.K8sNamespace, ns,
 								)
@@ -183,13 +170,13 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 						}
 					case event, ok := <-namespaceEvents:
 						if !ok {
-							scoppedLogger.Info("Namespace event channel closed, ignoring future namespace events")
+							in.Logger.Info("Namespace event channel closed, ignoring future namespace events")
 							// Namespace watcher is optional, so we can just set to nil to ignore future events.
 							namespaceEvents = nil
 							continue
 						}
 						event.Done(nil)
-						for resEvent := range namespaceHandler[T](in, resourceStore, scoppedLogger, event) {
+						for resEvent := range namespaceHandler[T](in, resourceStore, event) {
 							upserts, deletes := in.Converter.Convert(resEvent)
 							for upsert := range upserts {
 								process(invoker, "upsert", upsert.GetKeyName(), func() error { return store.UpsertKey(ctx, upsert) })
@@ -217,7 +204,6 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 // Return an iterator of events to be processed.
 func namespaceHandler[T runtime.Object](
 	in syncParams[T], rs resource.Store[T],
-	scoppedLogger *slog.Logger,
 	event resource.Event[*slim_corev1.Namespace]) iter.Seq[resource.Event[T]] {
 	return func(yield func(resource.Event[T]) bool) {
 		if event.Kind == resource.Sync {
@@ -225,7 +211,7 @@ func namespaceHandler[T runtime.Object](
 		}
 		// Check if the object exists.
 		if event.Object == nil {
-			scoppedLogger.Info("Namespace object is nil, skipping event",
+			in.Logger.Info("Namespace object is nil, skipping event",
 				logfields.Name, event.Key.Name,
 			)
 			return
@@ -235,7 +221,7 @@ func namespaceHandler[T runtime.Object](
 		// Sync all entries in the Resource store to reflect the namespace change.
 		objects, err := rs.ByIndex(cache.NamespaceIndex, event.Key.Name)
 		if err != nil {
-			scoppedLogger.Warn("Failed to list resources for namespace update",
+			in.Logger.Warn("Failed to list resources for namespace update",
 				logfields.Error, err,
 			)
 			return
@@ -281,7 +267,7 @@ func resourceHandler[T runtime.Object](
 			return "", false, nil
 		}
 		// Get the CiliumIdentity namespace from labels.
-		namespace = obj.SecurityLabels[podPrefixLbl]
+		namespace = obj.SecurityLabels[cmk8s.PodPrefixLbl]
 	case *types.CiliumEndpoint:
 		if obj == nil { // Protect against nil pointer panic.
 			return "", false, nil

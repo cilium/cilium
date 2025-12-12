@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	podPrefixLbl = labels.LabelSourceK8s + ":" + k8sConst.PodNamespaceLabel
+	PodPrefixLbl = labels.LabelSourceK8s + ":" + k8sConst.PodNamespaceLabel
 )
 
 func CiliumSlimEndpointResource(params k8s.CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
@@ -104,7 +104,7 @@ func ciliumIdentityNamespaceIndexFunc(obj any) ([]string, error) {
 	switch t := obj.(type) {
 	case *cilium_api_v2.CiliumIdentity:
 		// Look for the namespace in security labels.
-		if namespace, exists := t.SecurityLabels[podPrefixLbl]; exists {
+		if namespace, exists := t.SecurityLabels[PodPrefixLbl]; exists {
 			return []string{namespace}, nil
 		}
 		// If no namespace found, return empty slice (no namespace association).
