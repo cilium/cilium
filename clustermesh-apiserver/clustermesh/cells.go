@@ -97,7 +97,6 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			newCiliumNodeOptions,
 			newCiliumNodeConverter,
-			newNoopNamespacer[*cilium_api_v2.CiliumNode],
 		),
 		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumNode]),
 	),

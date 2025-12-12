@@ -36,7 +36,7 @@ k8s/delete namespace-1.yaml
 
 # Wait for synchronization. No endpoints should remain synced
 kvstore/list -o json cilium/state/ip ips-empty.actual
-* cmp ips-empty.actual ips-empty.expected
+* empty ips-empty.actual
 
 # ---
 
@@ -179,4 +179,3 @@ status:
   "K8sPodName": "cep-002",
   "K8sServiceAccount": "default"
 }
--- ips-empty.expected --

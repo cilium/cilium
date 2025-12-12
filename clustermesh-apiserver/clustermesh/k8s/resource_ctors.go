@@ -4,7 +4,6 @@
 package k8s
 
 import (
-	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,7 +72,7 @@ func CiliumEndpointSliceResource(params k8s.CiliumResourceParams, mp workqueue.M
 		resource.WithMetric("CiliumEndpointSlice"), resource.WithCRDSync(params.CRDSyncPromise),
 		resource.WithIndexers(
 			cache.Indexers{
-				cache.NamespaceIndex: cache.MetaNamespaceIndexFunc, // index by namespace for global namespace lookups
+				cache.NamespaceIndex: ciliumEndpointSliceNamespaceIndexFunc, // index by namespace for global namespace lookups
 			},
 		),
 	), nil
@@ -110,5 +109,18 @@ func ciliumIdentityNamespaceIndexFunc(obj any) ([]string, error) {
 		// If no namespace found, return empty slice (no namespace association).
 		return []string{}, nil
 	}
-	return nil, fmt.Errorf("%w - found %T", errors.New("object is not a *cilium_api_v2.CiliumIdentity"), obj)
+	return nil, fmt.Errorf("object is not a *cilium_api_v2.CiliumIdentity - got %T", obj)
+}
+
+// ciliumEndpointSliceNamespaceIndexFunc extracts the namespace from CiliumEndpointSlice.
+// Since CiliumEndpointSlice has a dedicated Namespace field, we use that directly.
+func ciliumEndpointSliceNamespaceIndexFunc(obj any) ([]string, error) {
+	switch t := obj.(type) {
+	case *cilium_api_v2alpha1.CiliumEndpointSlice:
+		if t.Namespace != "" {
+			return []string{t.Namespace}, nil
+		}
+		return []string{}, nil
+	}
+	return nil, fmt.Errorf("object is not a *cilium_api_v2alpha1.CiliumEndpointSlice - got %T", obj)
 }

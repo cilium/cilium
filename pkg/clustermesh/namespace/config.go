@@ -6,18 +6,19 @@ package namespace
 import "github.com/spf13/pflag"
 
 var DefaultConfig = Config{
-	EnableDefaultGlobalNamespace: true,
+	GlobalNamespacesByDefault: true,
 }
 
 type Config struct {
-	// EnableDefaultGlobalNamespace marks all namespaces as global by default unless overridden by annotation
-	EnableDefaultGlobalNamespace bool `mapstructure:"clustermesh-default-global-namespace"`
+	// GlobalNamespacesByDefault marks all namespaces as global by default unless overridden by annotation
+	GlobalNamespacesByDefault bool `mapstructure:"clustermesh-default-global-namespace"`
 }
 
 func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool(
 		"clustermesh-default-global-namespace",
-		cfg.EnableDefaultGlobalNamespace,
+		cfg.GlobalNamespacesByDefault,
 		"Mark all namespaces as global by default unless overridden by annotation",
 	)
+	flags.MarkHidden("clustermesh-default-global-namespace")
 }

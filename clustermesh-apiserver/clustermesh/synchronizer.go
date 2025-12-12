@@ -43,6 +43,13 @@ type Converter[T runtime.Object] interface {
 	Convert(event resource.Event[T]) (upserts iter.Seq[store.Key], deletes iter.Seq[store.NamedKey])
 }
 
+// Namespacer is an interface that defines methods to handle namespace-related operations
+// for Kubernetes resources in the context of clustermesh synchronization.
+type Namespacer[T runtime.Object] interface {
+	// ExtractNamespace retrieves the namespace of a given event's object.
+	ExtractNamespace(resource.Event[T]) (namespace string)
+}
+
 type syncParams[T runtime.Object] struct {
 	cell.In
 
@@ -60,18 +67,19 @@ type syncParams[T runtime.Object] struct {
 
 	NamespaceManager cmnamespace.Manager
 	Namespaces       resource.Resource[*slim_corev1.Namespace]
-	Namespacer       Namespacer[T]
+	Namespacer       Namespacer[T] `optional:"true"`
 }
 
 // RegisterSynchronizer registers a new synchronizer for the given resource,
 // which watches for Kubernetes events and propagates the corresponding
 // representation to the kvstore.
 func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
+	logger := in.Logger.With(logfields.Resource, in.Options.Resource)
 	if !in.Options.Enabled {
-		in.Logger.Info("Synchronization is disabled")
+		logger.Info("Synchronization is disabled")
 		return
 	}
-	in.Logger.Info("Synchronization is enabled")
+	logger.Info("Synchronization is enabled")
 
 	store := in.Factory.NewSyncStore(
 		in.ClusterInfo.Name, in.Client,
@@ -81,14 +89,17 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 
 	// process is a helper function to log and execute store operations.
 	process := func(invoker, op, key string, do func() error) {
-		in.Logger.Info("Processing resource",
+		logger.Info("Updating resource in etcd",
 			logfields.LogSubsys, invoker,
 			logfields.Operation, op,
 			logfields.Key, key,
 		)
 		if err := do(); err != nil {
-			in.Logger.Warn("Failed updating resource in etcd",
+			logger.Warn("Failed updating resource in etcd",
 				logfields.Error, err,
+				logfields.LogSubsys, invoker,
+				logfields.Operation, op,
+				logfields.Key, key,
 			)
 		}
 	}
@@ -102,51 +113,44 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 					return err
 				}
 				invoker := fmt.Sprintf("%s-sync", strings.ToLower(in.Options.Resource))
-				in.Logger.Info("Starting event synchronizer")
+				logger.Info("Starting event synchronizer")
 
 				// Get event channels
 				resourceEvents := in.Resource.Events(ctx)
 				var namespaceEvents <-chan resource.Event[*slim_corev1.Namespace]
 				if in.Options.Namespaced {
-					in.Logger.Info("Namespace watcher is enabled for resource type")
+					logger.Debug("Namespace watcher is enabled for resource type")
 					namespaceEvents = in.Namespaces.Events(ctx)
 				} else {
-					in.Logger.Info("Namespace watcher is not enabled for resource type")
+					logger.Debug("Namespace watcher is not enabled for resource type")
 				}
 
 				for {
 					select {
 					case <-ctx.Done():
-						in.Logger.Info("Context done, stopping event synchronizer")
+						logger.Info("Context done, stopping event synchronizer")
 						return nil
 					case event, ok := <-resourceEvents:
 						if !ok {
-							in.Logger.Info("Resource event channel closed, stopping synchronizer")
-							return nil
+							logger.Debug("Resource event channel closed, stopping synchronizer")
+							resourceEvents = nil
+							continue
 						}
 
 						if event.Kind == resource.Sync {
 							event.Done(nil)
-							in.Logger.Info("Initial entries successfully received from Kubernetes")
+							logger.Info("Initial entries successfully received from Kubernetes")
 							store.Synced(ctx, synced)
 							continue
 						}
 						// Filter the event based on namespace global status.
 						// Only required for certain resource types.
 						// Ignore delete events as they should always be processed.
-						if in.Options.Namespaced {
-							ns, err := in.Namespacer.ExtractNamespace(event)
-							if err != nil {
-								in.Logger.Error("Failed to extract namespace from resource event",
-									logfields.Error, err,
-								)
-								// This error won't succeed for this event, so just mark it done and continue.
-								event.Done(nil)
-								continue
-							}
+						if event.Kind != resource.Delete && in.Options.Namespaced {
+							ns := in.Namespacer.ExtractNamespace(event)
 							// Check if the namespace is empty.
 							if ns == "" {
-								in.Logger.Error("Failed to determine namespace for resource event, skipping",
+								logger.Error("Failed to determine namespace for resource event, skipping",
 									logfields.Name, event.Key.Name,
 								)
 								// No way to process this event, just mark done and continue.
@@ -155,7 +159,7 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 							}
 							isGlobal, err := in.NamespaceManager.IsGlobalNamespaceByName(ns)
 							if err != nil {
-								in.Logger.Warn("Failed to determine if namespace is global",
+								logger.Warn("Failed to determine if namespace is global",
 									logfields.Error, err,
 									logfields.K8sNamespace, ns,
 								)
@@ -164,7 +168,7 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 								continue
 							}
 							if !isGlobal {
-								in.Logger.Debug("Skipping resource event as it is not in a global namespace",
+								logger.Debug("Skipping resource event as it is not in a global namespace",
 									logfields.Name, event.Key.Name,
 									logfields.K8sNamespace, ns,
 								)
@@ -176,9 +180,6 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 						// No possible errors past this point.
 						event.Done(nil)
 
-						// The convert uses global namespace config to determine whether to
-						// upsert or delete the resource. The resource decides whether the namespace
-						// needs to be considered for conversion based on the config.
 						upserts, deletes := in.Converter.Convert(event)
 						for upsert := range upserts {
 							process(invoker, "upsert", upsert.GetKeyName(), func() error { return store.UpsertKey(ctx, upsert) })
@@ -188,7 +189,7 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 						}
 					case event, ok := <-namespaceEvents:
 						if !ok {
-							in.Logger.Info("Namespace event channel closed, ignoring future namespace events")
+							logger.Info("Namespace event channel closed, ignoring future namespace events")
 							// Namespace watcher is optional, so we can just set to nil to ignore future events.
 							namespaceEvents = nil
 							continue
@@ -225,13 +226,6 @@ func namespaceHandler[T runtime.Object](
 	event resource.Event[*slim_corev1.Namespace]) iter.Seq[resource.Event[T]] {
 	return func(yield func(resource.Event[T]) bool) {
 		if event.Kind == resource.Sync {
-			return
-		}
-		// Check if the object exists.
-		if event.Object == nil {
-			in.Logger.Info("Namespace object is nil, skipping event",
-				logfields.Name, event.Key.Name,
-			)
 			return
 		}
 		isGlobal := in.NamespaceManager.IsGlobalNamespaceByObject(event.Object)

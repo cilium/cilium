@@ -30,17 +30,15 @@ type Manager interface {
 }
 
 type manager struct {
-	logger     *slog.Logger
-	cfg        Config
-	namespaces resource.Resource[*slim_corev1.Namespace]
-	store      resource.Store[*slim_corev1.Namespace]
+	logger *slog.Logger
+	cfg    Config
+	store  resource.Store[*slim_corev1.Namespace]
 }
 
 func newManager(params managerParams) *manager {
 	m := &manager{
-		logger:     params.Logger,
-		cfg:        params.Config,
-		namespaces: params.Namespaces,
+		logger: params.Logger,
+		cfg:    params.Config,
 	}
 
 	params.Lifecycle.Append(cell.Hook{
@@ -70,12 +68,12 @@ func (m *manager) IsGlobalNamespaceByObject(ns *slim_corev1.Namespace) bool {
 		return strings.ToLower(value) == "true"
 	}
 	// If the annotation is not present, fall back to the default config.
-	return m.cfg.EnableDefaultGlobalNamespace
+	return m.cfg.GlobalNamespacesByDefault
 }
 
 // IsGlobalNamespaceByName determines whether the namespace with the given name should be treated
 // as a global namespace based on its annotations and the provided configuration.
-// It retrieves the namespace object from the namep resource store embedded in manager ob.
+// It retrieves the namespace object from the named resource store embedded in manager ob.
 func (m *manager) IsGlobalNamespaceByName(ns string) (bool, error) {
 	if m.store == nil {
 		return false, fmt.Errorf("namespace store not initialized")
