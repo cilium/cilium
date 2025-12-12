@@ -369,6 +369,8 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 		log.Info(fmt.Sprintf("option %s set by dynamic sizing to %v", LBSockRevNatEntriesName, cfg.LBSockRevNatEntries)) // FIXME
 	}
 
+	cfg.LBSockRevNatEntries = dcfg.AlignMapSizeForLRU(log, LBSockRevNatEntriesName, cfg.LBSockRevNatEntries)
+
 	if cfg.LBSockRevNatEntries < option.LimitTableMin {
 		return Config{}, fmt.Errorf("specified Socket Reverse NAT table size %d must be greater or equal to %d",
 			cfg.LBSockRevNatEntries, option.LimitTableMin)
