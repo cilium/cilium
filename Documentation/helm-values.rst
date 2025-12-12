@@ -1596,6 +1596,10 @@
      - Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
      - int
      - ``0``
+   * - :spelling:ignore:`envoy.maxGlobalDownstreamConnections`
+     - Maximum number of global downstream connections
+     - int
+     - ``50000``
    * - :spelling:ignore:`envoy.maxRequestsPerConnection`
      - ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
      - int
