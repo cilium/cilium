@@ -99,10 +99,14 @@ func (d DummyDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 		return false
 	}
 
-	for _, ifname := range filter.IfNames {
-		if !strings.HasPrefix(d.IfName(), ifname) {
-			return false
+	if len(filter.IfNames) != 0 {
+		for _, ifname := range filter.IfNames {
+			if strings.HasPrefix(d.IfName(), ifname) {
+				return true
+			}
 		}
+
+		return false
 	}
 
 	return true
