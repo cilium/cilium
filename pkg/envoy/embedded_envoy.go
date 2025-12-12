@@ -65,8 +65,6 @@ var (
 const (
 	ciliumEnvoyStarter = "cilium-envoy-starter"
 	ciliumEnvoy        = "cilium-envoy"
-
-	maxActiveDownstreamConnections = 50000
 )
 
 // EnableTracing changes Envoy log level to "trace", producing the most logs.
@@ -103,18 +101,19 @@ type EmbeddedEnvoy struct {
 }
 
 type embeddedEnvoyConfig struct {
-	runDir                   string
-	logPath                  string
-	defaultLogLevel          string
-	baseID                   uint64
-	keepCapNetBindService    bool
-	connectTimeout           int64
-	maxRequestsPerConnection uint32
-	maxConnectionDuration    time.Duration
-	idleTimeout              time.Duration
-	maxConcurrentRetries     uint32
-	maxConnections           uint32
-	maxRequests              uint32
+	runDir                         string
+	logPath                        string
+	defaultLogLevel                string
+	baseID                         uint64
+	keepCapNetBindService          bool
+	connectTimeout                 int64
+	maxActiveDownstreamConnections int64
+	maxRequestsPerConnection       uint32
+	maxConnectionDuration          time.Duration
+	idleTimeout                    time.Duration
+	maxConcurrentRetries           uint32
+	maxConnections                 uint32
+	maxRequests                    uint32
 }
 
 // startEmbeddedEnvoyInternal starts an Envoy proxy instance.
@@ -136,20 +135,21 @@ func (o *onDemandXdsStarter) startEmbeddedEnvoyInternal(config embeddedEnvoyConf
 	bootstrapFilePath := filepath.Join(bootstrapDir, "bootstrap.pb")
 
 	o.writeBootstrapConfigFile(bootstrapConfig{
-		filePath:                 bootstrapFilePath,
-		nodeId:                   "host~127.0.0.1~no-id~localdomain", // node id format inherited from Istio
-		cluster:                  ingressClusterName,
-		adminPath:                getAdminSocketPath(GetSocketDir(config.runDir)),
-		xdsSock:                  getXDSSocketPath(GetSocketDir(config.runDir)),
-		egressClusterName:        egressClusterName,
-		ingressClusterName:       ingressClusterName,
-		connectTimeout:           config.connectTimeout,
-		maxRequestsPerConnection: config.maxRequestsPerConnection,
-		maxConnectionDuration:    config.maxConnectionDuration,
-		idleTimeout:              config.idleTimeout,
-		maxConcurrentRetries:     config.maxConcurrentRetries,
-		maxConnections:           config.maxConnections,
-		maxRequests:              config.maxRequests,
+		filePath:                       bootstrapFilePath,
+		nodeId:                         "host~127.0.0.1~no-id~localdomain", // node id format inherited from Istio
+		cluster:                        ingressClusterName,
+		adminPath:                      getAdminSocketPath(GetSocketDir(config.runDir)),
+		xdsSock:                        getXDSSocketPath(GetSocketDir(config.runDir)),
+		egressClusterName:              egressClusterName,
+		ingressClusterName:             ingressClusterName,
+		connectTimeout:                 config.connectTimeout,
+		maxRequestsPerConnection:       config.maxRequestsPerConnection,
+		maxActiveDownstreamConnections: config.maxActiveDownstreamConnections,
+		maxConnectionDuration:          config.maxConnectionDuration,
+		idleTimeout:                    config.idleTimeout,
+		maxConcurrentRetries:           config.maxConcurrentRetries,
+		maxConnections:                 config.maxConnections,
+		maxRequests:                    config.maxRequests,
 	})
 
 	o.logger.Debug("Envoy: Starting embedded Envoy")
@@ -358,20 +358,21 @@ func (e *EmbeddedEnvoy) GetAdminClient() *EnvoyAdminClient {
 }
 
 type bootstrapConfig struct {
-	filePath                 string
-	nodeId                   string
-	cluster                  string
-	adminPath                string
-	xdsSock                  string
-	egressClusterName        string
-	ingressClusterName       string
-	connectTimeout           int64
-	maxRequestsPerConnection uint32
-	maxConnectionDuration    time.Duration
-	idleTimeout              time.Duration
-	maxConcurrentRetries     uint32
-	maxConnections           uint32
-	maxRequests              uint32
+	filePath                       string
+	nodeId                         string
+	cluster                        string
+	adminPath                      string
+	xdsSock                        string
+	egressClusterName              string
+	ingressClusterName             string
+	connectTimeout                 int64
+	maxActiveDownstreamConnections int64
+	maxRequestsPerConnection       uint32
+	maxConnectionDuration          time.Duration
+	idleTimeout                    time.Duration
+	maxConcurrentRetries           uint32
+	maxConnections                 uint32
+	maxRequests                    uint32
 }
 
 func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
@@ -542,7 +543,7 @@ func (o *onDemandXdsStarter) writeBootstrapConfigFile(config bootstrapConfig) {
 				Name: "envoy.resource_monitors.global_downstream_max_connections",
 				ConfigType: &envoy_config_overload.ResourceMonitor_TypedConfig{
 					TypedConfig: toAny(&envoy_extensions_resource_monitors_downstream_connections.DownstreamConnectionsConfig{
-						MaxActiveDownstreamConnections: maxActiveDownstreamConnections,
+						MaxActiveDownstreamConnections: config.maxActiveDownstreamConnections,
 					}),
 				},
 			}},

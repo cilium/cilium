@@ -2324,6 +2324,9 @@
         "maxConnectionDurationSeconds": {
           "type": "integer"
         },
+        "maxGlobalDownstreamConnections": {
+          "type": "integer"
+        },
         "maxRequestsPerConnection": {
           "type": "integer"
         },
