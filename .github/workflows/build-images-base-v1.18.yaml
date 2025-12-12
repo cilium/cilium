@@ -125,7 +125,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: anchore/sbom-action@fbfd9c6c189226748411491745178e0c2017392d # v0.20.10
+        uses: anchore/sbom-action@43a17d6e7add2b5535efe4dcae9952337c479a93 # v0.20.11
         with:
           artifact-name: sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx.json
@@ -213,7 +213,7 @@ jobs:
 
       - name: Generate SBOM
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: anchore/sbom-action@fbfd9c6c189226748411491745178e0c2017392d # v0.20.10
+        uses: anchore/sbom-action@43a17d6e7add2b5535efe4dcae9952337c479a93 # v0.20.11
         with:
           artifact-name: sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
           output-file: ./sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx.json
