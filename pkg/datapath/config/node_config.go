@@ -9,6 +9,8 @@ package config
 // instantiate directly! Always use [NewNode] to ensure the default values
 // configured in the ELF are honored.
 type Node struct {
+	// Max number of clusters that can be connected in Clustermesh.
+	ClusterIDMax uint32 `config:"cluster_id_max"`
 	// Index of the interface used to connect nodes in the cluster.
 	DirectRoutingDevIfindex uint32 `config:"direct_routing_dev_ifindex"`
 	// Enable hybrid mode routing based on subnet IDs.
@@ -32,7 +34,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0, false, false,
+	return &Node{0xff, 0x0, false, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
