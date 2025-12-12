@@ -72,6 +72,7 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 }
 
 type Device interface {
+	Type() string
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	Setup(cfg DeviceConfig) error
 	Free(cfg DeviceConfig) error
