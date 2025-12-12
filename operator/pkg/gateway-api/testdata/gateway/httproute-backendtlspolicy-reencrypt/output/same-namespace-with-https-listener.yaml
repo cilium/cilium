@@ -1,0 +1,96 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: same-namespace-with-https-listener
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tls-validity-checks-certificate
+            namespace: gateway-conformance-infra
+    - name: https-with-hostname
+      port: 443
+      hostname: second-example.org
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tls-validity-checks-certificate
+            namespace: gateway-conformance-infra
+status:
+  addresses:
+    - type: IPAddress
+      value: 172.18.255.197
+  conditions:
+    - lastTransitionTime: "2025-08-18T04:34:43Z"
+      message: Gateway successfully scheduled
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-08-18T04:35:05Z"
+      message: Gateway Programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+  listeners:
+    - attachedRoutes: 1
+      conditions:
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
+          type: Programmed
+      name: https
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute
+    - attachedRoutes: 0
+      conditions:
+        - lastTransitionTime: "2025-07-01T05:06:15Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
+          type: Programmed
+      name: https-with-hostname
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute

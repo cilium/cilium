@@ -380,6 +380,7 @@ kind-servicemesh-install-cilium: check_deps kind-ready ## Install a local Cilium
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_backendtlspolicies.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
 	$(CILIUM_CLI) install \
@@ -407,6 +408,7 @@ kind-servicemesh-prereqs: check_deps kind-ready
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_httproutes.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_referencegrants.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_grpcroutes.yaml
+	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/$(GW_CHANNEL)/gateway.networking.k8s.io_backendtlspolicies.yaml
 	kubectl apply --server-side -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/$(GW_VERSION)/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
 
 	$(eval KIND_VALUES_FAST_FILES += --helm-values=$(ROOT_DIR)/contrib/testing/kind-servicemesh.yaml)

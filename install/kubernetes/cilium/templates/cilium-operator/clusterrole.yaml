@@ -327,6 +327,7 @@ rules:
   - grpcroutes
   - referencegrants
   - referencepolicies
+  - backendtlspolicies
   verbs:
   - get
   - list
@@ -345,6 +346,7 @@ rules:
   - httproutes/status
   - grpcroutes/status
   - tlsroutes/status
+  - backendtlspolicies/status
   verbs:
   - update
   - patch
@@ -363,6 +365,14 @@ rules:
   verbs:
   - update
   - patch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch  
 {{- end }}
 {{- if or .Values.gatewayAPI.enabled .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport }}
 - apiGroups:
