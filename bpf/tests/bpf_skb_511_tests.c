@@ -1,16 +1,13 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#ifndef __CLUSTERMESH_IDENTITY__
-#define __CLUSTERMESH_IDENTITY__
-#define CLUSTER_ID_MAX 511
-#endif
-
 #ifndef __CLUSTERMESH_HELPERS__
 #define __CLUSTERMESH_HELPERS__
 #define IDENTITY_LEN 15
 #define IDENTITY_MAX 32767
 #endif
+
+#define get_cluster_id_max() 511
 
 #include <bpf/ctx/skb.h>
 #include <lib/overloadable.h>

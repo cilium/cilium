@@ -224,11 +224,6 @@ return false;
 # define NAT_46X64_PREFIX_3 0
 #endif
 
-#ifndef __CLUSTERMESH_IDENTITY__
-#define __CLUSTERMESH_IDENTITY__
-#define CLUSTER_ID_MAX 255
-#endif
-
 #ifndef __CLUSTERMESH_HELPERS__
 #define __CLUSTERMESH_HELPERS__
 #define IDENTITY_LEN 16
