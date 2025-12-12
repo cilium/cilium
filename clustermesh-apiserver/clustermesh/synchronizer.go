@@ -15,15 +15,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
 	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -64,6 +60,7 @@ type syncParams[T runtime.Object] struct {
 
 	NamespaceManager cmnamespace.Manager
 	Namespaces       resource.Resource[*slim_corev1.Namespace]
+	Namespacer       Namespacer[T]
 }
 
 // RegisterSynchronizer registers a new synchronizer for the given resource,
@@ -136,16 +133,37 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 						}
 						// Filter the event based on namespace global status.
 						// Only required for certain resource types.
+						// Ignore delete events as they should always be processed.
 						if in.Options.Namespaced {
-							ns, processEvent, err := resourceHandler(in, event)
+							ns, err := in.Namespacer.ExtractNamespace(event)
 							if err != nil {
-								in.Logger.Warn("Failed to handle resource event",
+								in.Logger.Error("Failed to extract namespace from resource event",
 									logfields.Error, err,
 								)
+								// This error won't succeed for this event, so just mark it done and continue.
+								event.Done(nil)
+								continue
+							}
+							// Check if the namespace is empty.
+							if ns == "" {
+								in.Logger.Error("Failed to determine namespace for resource event, skipping",
+									logfields.Name, event.Key.Name,
+								)
+								// No way to process this event, just mark done and continue.
+								event.Done(nil)
+								continue
+							}
+							isGlobal, err := in.NamespaceManager.IsGlobalNamespaceByName(ns)
+							if err != nil {
+								in.Logger.Warn("Failed to determine if namespace is global",
+									logfields.Error, err,
+									logfields.K8sNamespace, ns,
+								)
+								// Retry this as it might succeed later because of dependency on namespace store.
 								event.Done(err)
 								continue
 							}
-							if !processEvent {
+							if !isGlobal {
 								in.Logger.Debug("Skipping resource event as it is not in a global namespace",
 									logfields.Name, event.Key.Name,
 									logfields.K8sNamespace, ns,
@@ -176,7 +194,7 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 							continue
 						}
 						event.Done(nil)
-						for resEvent := range namespaceHandler[T](in, resourceStore, event) {
+						for resEvent := range namespaceHandler(in, resourceStore, event) {
 							upserts, deletes := in.Converter.Convert(resEvent)
 							for upsert := range upserts {
 								process(invoker, "upsert", upsert.GetKeyName(), func() error { return store.UpsertKey(ctx, upsert) })
@@ -246,54 +264,4 @@ func namespaceHandler[T runtime.Object](
 			}
 		}
 	}
-}
-
-// resourceHandler is a helper function that retrives the namepace of a given event's object
-// and determines whether the event should be processed based on whether the namespace
-// is global or not. This is required only for CiliumIdentity, CiliumEndpoint and
-// CiliumEndpointSlice resources. Only handle Upsert and Delete events.
-func resourceHandler[T runtime.Object](
-	in syncParams[T],
-	event resource.Event[T]) (namespace string, process bool, err error) {
-	// For Delete events, always process (cleanup regardless of namespace state)
-	if event.Kind == resource.Delete {
-		return namespace, true, nil
-	}
-
-	// Type switch on the event object to determine the resource type
-	switch obj := any(event.Object).(type) {
-	case *cilium_api_v2.CiliumIdentity:
-		if obj == nil { // Protect against nil pointer panic.
-			return "", false, nil
-		}
-		// Get the CiliumIdentity namespace from labels.
-		namespace = obj.SecurityLabels[cmk8s.PodPrefixLbl]
-	case *types.CiliumEndpoint:
-		if obj == nil { // Protect against nil pointer panic.
-			return "", false, nil
-		}
-		namespace = obj.Namespace
-	case *cilium_api_v2a1.CiliumEndpointSlice:
-		if obj == nil { // Protect against nil pointer panic.
-			return "", false, nil
-		}
-		namespace = obj.Namespace
-	default:
-		// For other resource types, we don't need namespace-based filtering
-		return "", false, nil
-	}
-
-	// If no namespace, it's a cluster-scoped resource, don't process
-	if namespace == "" {
-		return "", false, fmt.Errorf("could not determine namespace")
-	}
-
-	// Check if the namespace is global
-	isGlobal, err := in.NamespaceManager.IsGlobalNamespaceByName(namespace)
-	if err != nil {
-		return namespace, false, fmt.Errorf("failed to determine if namespace %q is global: %w", namespace, err)
-	}
-
-	// For Upsert events, only process if namespace is global
-	return namespace, isGlobal, err
 }

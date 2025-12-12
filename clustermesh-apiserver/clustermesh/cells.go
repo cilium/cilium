@@ -97,6 +97,7 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			newCiliumNodeOptions,
 			newCiliumNodeConverter,
+			newNoopNamespacer[*cilium_api_v2.CiliumNode],
 		),
 		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumNode]),
 	),
@@ -105,6 +106,7 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			newCiliumIdentityOptions,
 			newCiliumIdentityConverter,
+			newCiliumIdentityNamespacer,
 		),
 		cell.Invoke(RegisterSynchronizer[*cilium_api_v2.CiliumIdentity]),
 	),
@@ -113,6 +115,7 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			newCiliumEndpointOptions,
 			newCiliumEndpointConverter,
+			newCiliumEndpointNamespacer,
 		),
 		cell.Invoke(RegisterSynchronizer[*types.CiliumEndpoint]),
 	),
@@ -121,6 +124,7 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			newCiliumEndpointSliceOptions,
 			newCiliumEndpointSliceConverter,
+			newCiliumEndpointSliceNamespacer,
 		),
 		cell.Invoke(RegisterSynchronizer[*cilium_api_v2a1.CiliumEndpointSlice]),
 	),
