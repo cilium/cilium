@@ -874,4 +874,19 @@ func (mgr *endpointManager) stopEndpoints() {
 	wg.Wait()
 
 	mgr.logger.Info("All endpoints' goroutines stopped.")
+
+	// Wait for all endpoint controllers to fully terminate.
+	// This ensures controller goroutines are cleaned up and prevents race
+	// conditions where controllers might access resources (like LocalNodeStore)
+	// that are being shut down.
+	mgr.logger.Info("Waiting for all endpoints' controllers to be stopped.")
+	wg.Add(len(eps))
+	for _, ep := range eps {
+		go func(ep *endpoint.Endpoint) {
+			ep.GetControllers().RemoveAllAndWait()
+			wg.Done()
+		}(ep)
+	}
+	wg.Wait()
+	mgr.logger.Info("All endpoints' controllers stopped.")
 }

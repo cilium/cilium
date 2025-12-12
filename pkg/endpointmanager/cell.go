@@ -202,29 +202,33 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 
 	mgr := New(p.Logger, p.MetricsRegistry, p.EPSynchronizer, p.LocalNodeStore, p.Health, p.MonitorAgent, p.Config)
 
-	p.Lifecycle.Append(cell.Hook{
-		OnStop: func(cell.HookContext) error {
-			// Stop all endpoints (its goroutines) on exit.
-			mgr.stopEndpoints()
-			return nil
-		},
-	})
-
+	var cancelPeriodicControllers context.CancelFunc
 	if p.Config.EndpointGCInterval > 0 {
-		ctx, cancel := context.WithCancel(context.Background())
+		var ctx context.Context
+		ctx, cancelPeriodicControllers = context.WithCancel(context.Background())
 		p.Lifecycle.Append(cell.Hook{
 			OnStart: func(cell.HookContext) error {
 				mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
 				mgr.WithPeriodicEndpointRegeneration(ctx, p.Config.EndpointRegenInterval)
 				return nil
 			},
-			OnStop: func(cell.HookContext) error {
-				cancel()
-				mgr.controllers.RemoveAllAndWait()
-				return nil
-			},
 		})
 	}
+
+	p.Lifecycle.Append(cell.Hook{
+		OnStop: func(cell.HookContext) error {
+			// Stop manager-level controllers first (if any)
+			if cancelPeriodicControllers != nil {
+				cancelPeriodicControllers()
+				mgr.controllers.RemoveAllAndWait()
+			}
+			// Then stop all endpoints (its goroutines) on exit.
+			// This must happen before LocalNodeStore stops since endpoint
+			// controllers (e.g., CEP sync) may access it.
+			mgr.stopEndpoints()
+			return nil
+		},
+	})
 
 	mgr.InitMetrics(p.MetricsRegistry)
 
