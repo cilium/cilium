@@ -613,14 +613,34 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p ReconcileParams, svc *loadb
 		return desiredRoutes
 	}
 
+	// Check if this is a Gateway API or Ingress service by label.
+	// These services use dummy endpoints (192.192.192.192:9999) that are filtered out
+	// by the loadbalancer reflector, so we identify them by their label instead.
+	// Gateway API: io.cilium/gateway-api or io.cilium.gateway/owning-gateway
+	// Ingress: cilium.io/ingress
+	isGatewayOrIngressService := svc.Labels.HasLabelWithKey("io.cilium/gateway-api") ||
+		svc.Labels.HasLabelWithKey("io.cilium.gateway/owning-gateway") ||
+		svc.Labels.HasLabelWithKey("cilium.io/ingress")
+
 	for _, fe := range frontends {
 		if fe.Type != loadbalancer.SVCTypeLoadBalancer {
 			continue
 		}
 
 		hasBackends, hasLocalBackends := hasBackends(p, fe)
-		// Ignore externalTrafficPolicy == Local && no local EPs or ignore when there are no backends and EnableNoServiceEndpointsRoutable == false.
-		if (fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends) || (!r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends) {
+
+		// For services with real backends, respect externalTrafficPolicy: Local by skipping
+		// advertisement when there are no local endpoints.
+		// For Gateway API/Ingress services (identified by label), advertise regardless of
+		// local endpoint availability, since traffic is handled by Envoy on any node.
+		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends && !isGatewayOrIngressService {
+			continue
+		}
+
+		// Respect EnableNoServiceEndpointsRoutable for services with zero backends.
+		// However, Gateway API and Ingress services should always be advertised even with
+		// zero backends (dummy endpoints are filtered), since Envoy handles the traffic.
+		if !r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends && !isGatewayOrIngressService {
 			continue
 		}
 
