@@ -71,6 +71,10 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 			params.Config.SkipUnknownCGroupIDs,
 		),
 	)
+	parserOpts = append(
+		parserOpts,
+		params.ParserOptions...,
+	)
 	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, parserOpts...)
 }
 
@@ -88,6 +92,8 @@ type payloadParserParams struct {
 	LinkCache         *link.LinkCache
 
 	Config config
+	// NOTE: ordering is not guaranteed, do not rely on it.
+	ParserOptions []parserOptions.Option `group:"hubble-parser-options"`
 }
 
 type payloadGetters struct {

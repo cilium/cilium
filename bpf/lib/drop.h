@@ -25,6 +25,11 @@
 
 #define NOTIFY_DROP_VER 3
 
+#ifndef DROP_EXTENSION
+#define DROP_EXTENSION
+#define drop_extension_hook(ctx, msg) do {} while (0)
+#endif
+
 struct drop_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
@@ -40,6 +45,7 @@ struct drop_notify {
 				*/
 	__u8		pad2[3];
 	__u64		ip_trace_id;
+	DROP_EXTENSION
 };
 
 #ifdef DROP_NOTIFY
@@ -105,6 +111,7 @@ int tail_drop_notify(struct __ctx_buff *ctx)
 		.ip_trace_id    = ip_trace_id,
 	};
 
+	drop_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
