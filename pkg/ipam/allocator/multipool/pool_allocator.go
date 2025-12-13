@@ -192,17 +192,16 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 	}
 
 	var errs []error
+	var inUseCIDRs []string
 
-	// delete CIDR set for CIDRs not present in the new CIDRs
-	for i, oldCIDR := range cidrSets {
+	// Validate: check if any CIDR being removed is still in use
+	for _, oldCIDR := range cidrSets {
 		if oldCIDR == nil {
 			continue
 		}
 		if exists := slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR); exists {
 			continue
 		}
-
-		cidrSets[i] = nil
 
 		for node, pools := range p.nodes {
 			for pool, allocatedCIDRSets := range pools {
@@ -226,17 +225,27 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 					if !allocated {
 						continue
 					}
-					p.logger.Warn(
-						"CIDR from pool still in use by node",
-						logfields.CIDR, cidr,
-						logfields.PoolName, pool,
-						logfields.Node, node,
-					)
-					p.markOrphan(node, pool, cidr)
-					delete(cidrs, cidr)
+					inUseCIDRs = append(inUseCIDRs, fmt.Sprintf("%s (pool: %s, node: %s)", cidr, pool, node))
 				}
 			}
 		}
+	}
+
+	// If any in-use CIDRs were found, reject the update
+	if len(inUseCIDRs) > 0 {
+		return nil, fmt.Errorf("cannot remove in-use CIDRs from pool: %v", inUseCIDRs)
+	}
+
+	// delete CIDR set for CIDRs not present in the new CIDRs
+	for i, oldCIDR := range cidrSets {
+		if oldCIDR == nil {
+			continue
+		}
+		if exists := slices.ContainsFunc(newCIDRs, oldCIDR.IsClusterCIDR); exists {
+			continue
+		}
+
+		cidrSets[i] = nil
 	}
 	cidrSets = slices.DeleteFunc(cidrSets, func(a cidralloc.CIDRAllocator) bool { return a == nil })
 	cidrSets = append(cidrSets, newCIDRSets...)
@@ -316,23 +325,26 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 		return fmt.Errorf("pool %q requested for deletion doesn't exist", poolName)
 	}
 
+	// Validate: Check if pool is still in use by any node
+	var nodesUsingPool []string
 	for node, pools := range p.nodes {
 		cidrSets, found := pools[poolName]
 		if !found {
 			continue
 		}
-		p.logger.Warn(
-			"pool still in use by node",
-			logfields.PoolName, poolName,
-			logfields.Node, node,
-		)
+		// If the node has any CIDRs from this pool, it's still in use
+		if len(cidrSets.v4) > 0 || len(cidrSets.v6) > 0 {
+			nodesUsingPool = append(nodesUsingPool, node)
+		}
+	}
+
+	// If any nodes are using the pool, reject the deletion
+	if len(nodesUsingPool) > 0 {
+		return fmt.Errorf("cannot delete pool %q: still in use by nodes %v", poolName, nodesUsingPool)
+	}
+
+	for node := range p.nodes {
 		delete(p.nodes[node], poolName)
-		for cidr := range cidrSets.v4 {
-			p.markOrphan(node, poolName, cidr)
-		}
-		for cidr := range cidrSets.v6 {
-			p.markOrphan(node, poolName, cidr)
-		}
 	}
 
 	delete(p.pools, poolName)
