@@ -4,7 +4,6 @@
 
 set -eu
 
-GOIMPORTS=("golang.org/x/tools/cmd/goimports" "-w")
 MATCHES=(
     "netlink.XfrmStateAdd"
     "netlink.XfrmStateUpdate"
