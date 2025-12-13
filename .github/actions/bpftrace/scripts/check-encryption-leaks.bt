@@ -84,6 +84,8 @@ struct dnshdr {
 // - WG pod-to-pod:   outer packet is encrypted (encap bit not set), similarly as VinE.
 // - WG node-to-node: currently unsupported, only pod-to-pod leak detection checks.
 //
+// We ignore TCP RST packets (see https://github.com/cilium/cilium/issues/35485).
+//
 // Note: br_forward is not exclusive of Kind. We run this script in CI where we
 // expect only br-kind-cilium (and br-kind-cilium-secondary). To run this script
 // on a local setup, ensure that no other bridges interfere.
@@ -116,6 +118,13 @@ kprobe:br_forward
     $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
     $tcph = ((struct tcphdr*) ($skb->head + $skb->inner_transport_header));
     $icmph = ((struct icmphdr*) ($skb->head + $skb->inner_transport_header));
+  }
+
+  // Ignore TCP RST packets.
+  if ((($proto == PROTO_IPV4 && $ip4h->protocol == PROTO_TCP) ||
+       ($proto == PROTO_IPV6 && $ip6h->nexthdr == PROTO_TCP)) &&
+      $tcph->rst) {
+    return;
   }
 
   if ($proto == PROTO_IPV4) {
