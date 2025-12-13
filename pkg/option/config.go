@@ -100,12 +100,6 @@ const (
 	// represents the value of that option.
 	ConfigDir = "config-dir"
 
-	// ConntrackGCInterval is the name of the ConntrackGCInterval option
-	ConntrackGCInterval = "conntrack-gc-interval"
-
-	// ConntrackGCMaxInterval is the name of the ConntrackGCMaxInterval option
-	ConntrackGCMaxInterval = "conntrack-gc-max-interval"
-
 	// DebugArg is the argument enables debugging mode
 	DebugArg = "debug"
 
@@ -1528,14 +1522,6 @@ type DaemonConfig struct {
 	// events, specifically those which cause many regenerations.
 	EndpointQueueSize int
 
-	// ConntrackGCInterval is the connection tracking garbage collection
-	// interval
-	ConntrackGCInterval time.Duration
-
-	// ConntrackGCMaxInterval if set limits the automatic GC interval calculation to
-	// the specified maximum value.
-	ConntrackGCMaxInterval time.Duration
-
 	// ServiceLoopbackIPv4 is the address to use for service loopback SNAT
 	ServiceLoopbackIPv4 string
 
@@ -2723,9 +2709,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.FixedZoneMapping = forward
 		c.ReverseFixedZoneMapping = reverse
 	}
-
-	c.ConntrackGCInterval = vp.GetDuration(ConntrackGCInterval)
-	c.ConntrackGCMaxInterval = vp.GetDuration(ConntrackGCMaxInterval)
 
 	bpfEventsDefaultRateLimit := vp.GetUint32(BPFEventsDefaultRateLimit)
 	bpfEventsDefaultBurstLimit := vp.GetUint32(BPFEventsDefaultBurstLimit)

@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -96,10 +95,6 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 
 	mapPrefix := []string{
 		policymap.MapName,
-		ctmap.MapNameTCP6,
-		ctmap.MapNameTCP4,
-		ctmap.MapNameAny6,
-		ctmap.MapNameAny4,
 		callsmap.MapName,
 	}
 

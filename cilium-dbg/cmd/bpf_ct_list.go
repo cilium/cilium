@@ -134,7 +134,7 @@ func doDumpEntries(m ctmap.CtMap) {
 		}
 	}
 
-	out, err = ctmap.DumpEntriesWithTimeDiff(m, clockSource)
+	out, err = m.DumpEntriesWithTimeDiff(clockSource)
 	if err != nil {
 		Fatalf("Error while dumping BPF Map: %s", err)
 	}

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"path"
 
 	"github.com/cilium/ebpf"
@@ -38,66 +37,6 @@ func createMap(spec *ebpf.MapSpec, opts *ebpf.MapOptions) (*ebpf.Map, error) {
 	}
 
 	return m, err
-}
-
-func objCheck(logger *slog.Logger, m *ebpf.Map, path string, mapType ebpf.MapType, keySize, valueSize, maxEntries, flags uint32) bool {
-	scopedLogger := logger.With(logfields.Path, path)
-	mismatch := false
-
-	if m.Type() != mapType {
-		scopedLogger.Warn("Map type mismatch for BPF map",
-			logfields.Old, m.Type(),
-			logfields.New, mapType,
-		)
-		mismatch = true
-	}
-
-	if m.KeySize() != keySize {
-		scopedLogger.Warn("Key-size mismatch for BPF map",
-			logfields.Old, m.KeySize(),
-			logfields.New, keySize,
-		)
-		mismatch = true
-	}
-
-	if m.ValueSize() != valueSize {
-		scopedLogger.Warn("Value-size mismatch for BPF map",
-			logfields.Old, m.ValueSize(),
-			logfields.New, valueSize,
-		)
-		mismatch = true
-	}
-
-	if m.MaxEntries() != maxEntries {
-		scopedLogger.Warn("Max entries mismatch for BPF map",
-			logfields.Old, m.MaxEntries(),
-			logfields.New, maxEntries,
-		)
-		mismatch = true
-	}
-	if m.Flags() != flags {
-		scopedLogger.Warn("Flags mismatch for BPF map",
-			logfields.Old, m.Flags(),
-			logfields.New, flags,
-		)
-		mismatch = true
-	}
-
-	if mismatch {
-		if m.Type() == ebpf.ProgramArray {
-			return false
-		}
-
-		scopedLogger.Warn("Removing map to allow for property upgrade (expect map data loss)")
-
-		// Kernel still holds map reference count via attached prog.
-		// Only exception is prog array, but that is already resolved
-		// differently.
-		os.Remove(path)
-		return true
-	}
-
-	return false
 }
 
 // OpenOrCreateMap attempts to load the pinned map at "pinDir/<spec.Name>" if

@@ -48,7 +48,7 @@ func flushCt() {
 			defer func() { nat6.Close() }()
 		}
 	}
-	ctmap.InitMapInfo(nil, ipv4, ipv6, nat4, nat6)
+	ctmap.InitMapInfo(nat4, nat6)
 
 	maps := ctmap.Maps(ipv4, ipv6)
 

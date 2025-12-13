@@ -7,26 +7,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"math"
 	"net/netip"
-	"os"
 	"strings"
 
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/timestamp"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -102,7 +95,7 @@ type CtMap interface {
 	Open() error
 	Close() error
 	Path() (string, error)
-	DumpEntries() (string, error)
+	DumpEntriesWithTimeDiff(clockSource *models.ClockSource) (string, error)
 	DumpWithCallback(bpf.DumpCallback) error
 	Count(context.Context) (int, error)
 	Update(key bpf.MapKey, value bpf.MapValue) error
@@ -118,7 +111,7 @@ type CtMapRecord struct {
 
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols.
-func InitMapInfo(registry *metrics.Registry, v4, v6 bool, nat4 nat.NatMap4, nat6 nat.NatMap6) {
+func InitMapInfo(nat4 nat.NatMap4, nat6 nat.NatMap6) {
 	var global4Map, global6Map *nat.Map
 	global4MapLock := &lock.Mutex{}
 	global6MapLock := &lock.Mutex{}
@@ -269,16 +262,10 @@ func DumpEntriesWithTimeDiff(m CtMap, clockSource *models.ClockSource) (string, 
 	return sb.String(), err
 }
 
-// DoDumpEntries iterates through Map m and writes the values of the ct entries
+// DumpEntriesWithTimeDiff iterates through Map m and writes the values of the ct entries
 // in m to a string.
-func DoDumpEntries(m CtMap) (string, error) {
-	return DumpEntriesWithTimeDiff(m, nil)
-}
-
-// DumpEntries iterates through Map m and writes the values of the ct entries
-// in m to a string.
-func (m *Map) DumpEntries() (string, error) {
-	return DoDumpEntries(m)
+func (m *Map) DumpEntriesWithTimeDiff(clockSource *models.ClockSource) (string, error) {
+	return DumpEntriesWithTimeDiff(m, clockSource)
 }
 
 // Count batch dumps the Map m and returns the count of the entries.
@@ -304,7 +291,7 @@ func OpenCTMap(m CtMap) (path string, err error) {
 }
 
 // newMap creates a new CT map of the specified type with the specified name.
-func newMap(mapName string, m mapType) *Map {
+func newMap(mapName string, m mapType, registry *metrics.Registry) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			ebpf.LRUHash,
@@ -312,7 +299,7 @@ func newMap(mapName string, m mapType) *Map {
 			m.value(),
 			m.maxEntries(),
 			0,
-		),
+		).WithPressureMetric(registry),
 		mapType: m,
 	}
 	return result
@@ -320,7 +307,7 @@ func newMap(mapName string, m mapType) *Map {
 
 // doGCForFamily iterates through a CTv6 map and drops entries based on the given
 // filter.
-func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 bool, logResults bool) gcStats {
+func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bool) gcStats {
 	family := nat.IPv4
 	if ipv6 {
 		family = nat.IPv6
@@ -353,7 +340,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 		}
 	}
 
-	stats := statStartGc(m, logResults)
+	stats := statStartGc(m)
 	defer stats.finish()
 
 	// We serialize the deletions in order to avoid forced map walk restarts
@@ -363,10 +350,10 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 	// to happen concurrently.
 	globalDeleteLock[m.mapType].Lock()
 	if ipv6 {
-		filterCallback := cleanup(m, filter, natMap, &stats, next6, ipv6)
+		filterCallback := m.cleanup(filter, natMap, &stats, next6, ipv6)
 		stats.dumpError = iterate[CtKey6Global, CtEntry](m, &stats, filterCallback)
 	} else {
-		filterCallback := cleanup(m, filter, natMap, &stats, next4, ipv6)
+		filterCallback := m.cleanup(filter, natMap, &stats, next4, ipv6)
 		stats.dumpError = iterate[CtKey4Global, CtEntry](m, &stats, filterCallback)
 	}
 	globalDeleteLock[m.mapType].Unlock()
@@ -374,7 +361,7 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 	return stats
 }
 
-func purgeCtEntry(m *Map, key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
+func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
 	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
@@ -419,7 +406,7 @@ type tupleKeyAccessor interface {
 	GetFlags() uint8
 }
 
-func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func(GCEvent), ipv6 bool) func(key bpf.MapKey, value bpf.MapValue) {
+func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next func(GCEvent), ipv6 bool) func(key bpf.MapKey, value bpf.MapValue) {
 	var countFailedFn func(uint16, uint32)
 	if ACT != nil {
 		countFailedFn = ACT.CountFailed4
@@ -443,14 +430,13 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 
 		switch action {
 		case deleteEntry:
-			err := purgeCtEntry(m, ctKey, entry, natMap, next, countFailedFn)
+			err := m.purgeCtEntry(ctKey, entry, natMap, next, countFailedFn)
 			if err != nil {
 				if errors.Is(err, ebpf.ErrKeyNotExist) {
 					m.Logger.Debug("key is missing, likely due to lru eviction - skipping",
 						logfields.Error, err,
 						logfields.Key, ctKey.ToHost(),
 					)
-					stats.skipped++
 				} else {
 					m.Logger.Error("key is missing, likely due to lru eviction - skipping",
 						logfields.Error, err,
@@ -486,20 +472,20 @@ func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, 
 	return noAction
 }
 
-func doGC(m *Map, filter GCFilter, next4, next6 func(GCEvent), logResults bool) (int, error) {
-	stats := doGCForFamily(m, filter, next4, next6, m.mapType.isIPv6(), logResults)
+func (m *Map) doGC(filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
+	stats := m.doGCForFamily(filter, next4, next6, m.mapType.isIPv6())
 	return int(stats.deleted), stats.dumpError
 }
 
 // GC runs garbage collection for map m with name mapType with the given filter.
 // It returns how many items were deleted from m.
-func GC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
+func (m *Map) GC(filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
 	if filter.RemoveExpired {
 		t, _ := timestamp.GetCTCurTime(timestamp.GetClockSourceFromOptions())
 		filter.Time = uint32(t)
 	}
 
-	return doGC(m, filter, next4, next6, false)
+	return m.doGC(filter, next4, next6)
 }
 
 // PurgeOrphanNATEntries removes orphan SNAT entries. We call an SNAT entry
@@ -542,7 +528,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		natMap = ctMap.natMap
 	} else {
 		// per-cluster map handling
-		var family = nat.IPv4
+		family := nat.IPv4
 		if ctMapTCP.mapType.isIPv6() {
 			family = nat.IPv6
 		}
@@ -634,238 +620,29 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 // Flush runs garbage collection for map m with the name mapType, deleting all
 // entries. The specified map must be already opened using bpf.OpenMap().
 func (m *Map) Flush(next4, next6 func(GCEvent)) int {
-	d, _ := doGC(m, GCFilter{
+	d, _ := m.doGC(GCFilter{
 		RemoveExpired: true,
 		Time:          MaxTime,
-	}, next4, next6, false)
+	}, next4, next6)
 
 	return d
-}
-
-// DeleteIfUpgradeNeeded attempts to open the conntrack maps associated with
-// the specified endpoint, and delete the maps from the filesystem if any
-// properties do not match the properties defined in this package.
-//
-// The typical trigger for this is when, for example, the CT entry size changes
-// from one version of Cilium to the next. When Cilium restarts, it may opt
-// to restore endpoints from the prior life. Existing endpoints that use the
-// old map style are incompatible with the new version, so the CT map must be
-// destroyed and recreated during upgrade. By removing the old map location
-// from the filesystem, we ensure that the next time that the endpoint is
-// regenerated, it will recreate a new CT map with the new properties.
-//
-// Note that if an existing BPF program refers to the map at the canonical
-// paths (as fetched via the getMapPathsToKeySize() call below), then that BPF
-// program will continue to operate on the old map, even once the map is
-// removed from the filesystem. The old map will only be completely cleaned up
-// once all referenced to the map are cleared - that is, all BPF programs which
-// refer to the old map and removed/reloaded.
-func DeleteIfUpgradeNeeded() {
-	for _, newMap := range Maps(true, true) {
-		path, err := newMap.Path()
-		if err != nil {
-			newMap.Logger.Warn("Failed to get path for CT map", logfields.Error, err)
-			continue
-		}
-
-		// Pass nil key and value types since we're not intending on accessing the
-		// map's contents.
-		oldMap, err := bpf.OpenMap(path, nil, nil)
-		if err != nil {
-			newMap.Logger.Debug("Couldn't open CT map for upgrade",
-				logfields.Error, err,
-				logfields.Path, path,
-			)
-			continue
-		}
-		defer oldMap.Close()
-
-		if oldMap.CheckAndUpgrade(&newMap.Map) {
-			newMap.Logger.Warn("CT Map upgraded, expect brief disruption of ongoing connections", logfields.Path, path)
-		}
-	}
 }
 
 // Maps returns a slice of all CT maps that are used.
 // If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
 //
 // The returned maps are not yet opened.
+//
+// This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
 func Maps(ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if ipv4 {
-		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
-		result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
+		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal, nil))
+		result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal, nil))
 	}
 	if ipv6 {
-		result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
-		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
+		result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal, nil))
+		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal, nil))
 	}
 	return result
-}
-
-// WriteBPFMacros writes the map names for the global conntrack maps into the
-// specified writer.
-func WriteBPFMacros(fw io.Writer) {
-	var mapEntriesTCP, mapEntriesAny int
-	for _, m := range Maps(true, true) {
-		if m.mapType.isTCP() {
-			mapEntriesTCP = m.mapType.maxEntries()
-		} else {
-			mapEntriesAny = m.mapType.maxEntries()
-		}
-	}
-	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", mapEntriesTCP)
-	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", mapEntriesAny)
-}
-
-// Exists returns false if the global CT maps are not pinned to the filesystem,
-// or true if they exist or an internal error occurs.
-func Exists(ipv4, ipv6 bool) bool {
-	result := true
-	for _, m := range Maps(ipv4, ipv6) {
-		path, err := m.Path()
-		if err != nil {
-			// Catch this error early
-			return true
-		}
-		if _, err = os.Stat(path); os.IsNotExist(err) {
-			result = false
-		}
-	}
-
-	return result
-}
-
-// GetInterval returns the interval adjusted based on the deletion ratio of the
-// last run.
-//   - actualPrevInterval 	= actual time elapsed since last GC.
-//   - expectedPrevInterval 	= Is the last computed interval, which we expected to
-//     wait *unless* a signal caused early pass. If this is set to zero then we use gc starting interval.
-func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
-	return GetIntervalWithConfig(logger, actualPrevInterval, expectedPrevInterval, maxDeleteRatio,
-		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval, GCIntervalRounding, MinGCInterval)
-}
-
-func GetIntervalWithConfig(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64,
-	conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval time.Duration,
-) time.Duration {
-	if val := conntrackGCInterval; val != time.Duration(0) {
-		return val
-	}
-
-	adjustedDeleteRatio := maxDeleteRatio
-	if expectedPrevInterval == time.Duration(0) {
-		expectedPrevInterval = defaults.ConntrackGCStartingInterval
-	} else if actualPrevInterval < expectedPrevInterval && actualPrevInterval > 0 {
-		adjustedDeleteRatio *= float64(expectedPrevInterval) / float64(actualPrevInterval)
-	}
-
-	newInterval := calculateIntervalWithConfig(expectedPrevInterval, adjustedDeleteRatio, gcIntervalRounding, minGCInterval)
-	if val := conntrackGCMaxInterval; val != time.Duration(0) && newInterval > val {
-		newInterval = val
-	}
-
-	if newInterval != expectedPrevInterval {
-		logger.Info(
-			"Conntrack garbage collector interval recalculated",
-			logfields.ExpectedPrevInterval, expectedPrevInterval,
-			logfields.ActualPrevInterval, actualPrevInterval,
-			logfields.NewInterval, newInterval,
-			logfields.DeleteRatio, maxDeleteRatio,
-			logfields.AdjustedDeleteRatio, adjustedDeleteRatio,
-		)
-	}
-
-	metrics.ConntrackInterval.WithLabelValues("global").Set(newInterval.Seconds())
-
-	return newInterval
-}
-
-var (
-	MinGCInterval      = defaults.ConntrackGCMinInterval
-	GCIntervalRounding = time.Second
-)
-
-func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
-	return calculateIntervalWithConfig(prevInterval, maxDeleteRatio, GCIntervalRounding, MinGCInterval)
-}
-
-func calculateIntervalWithConfig(prevInterval time.Duration, maxDeleteRatio float64, gcIntervalRounding, minGCInterval time.Duration) (interval time.Duration) {
-	interval = prevInterval
-
-	if maxDeleteRatio == 0.0 {
-		return
-	}
-
-	switch {
-	case maxDeleteRatio > 0.25:
-		if maxDeleteRatio > 0.9 {
-			maxDeleteRatio = 0.9
-		}
-		// 25%..90% => 1.3x..10x shorter
-		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(gcIntervalRounding), minGCInterval)
-	case maxDeleteRatio < 0.05:
-		// When less than 5% of entries were deleted, increase the
-		// interval. Use a simple 1.5x multiplier to start growing slowly
-		// as a new node may not be seeing workloads yet and thus the
-		// scan will return a low deletion ratio at first.
-		interval = min(time.Duration(float64(interval)*1.5).Round(gcIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
-	}
-
-	return
-}
-
-const ctmapPressureInterval = 30 * time.Second
-
-// CalculateCTMapPressure is a controller that calculates the BPF CT map
-// pressure and pubishes it as part of the BPF map pressure metric.
-func CalculateCTMapPressure(mgr *controller.Manager, registry *metrics.Registry, allMaps ...*Map) {
-	ctx, cancel := context.WithCancelCause(context.Background())
-	for _, m := range allMaps {
-		m.WithPressureMetric(registry)
-	}
-	mgr.UpdateController("ct-map-pressure", controller.ControllerParams{
-		Group: controller.Group{
-			Name: "ct-map-pressure",
-		},
-		DoFunc: func(context.Context) error {
-			var errs error
-			for _, m := range allMaps {
-				path, err := OpenCTMap(m)
-				if err != nil {
-					const msg = "Skipping CT map pressure calculation"
-					if os.IsNotExist(err) {
-						m.Logger.Debug(msg,
-							logfields.Error, err,
-							logfields.Path, path,
-						)
-					} else {
-						m.Logger.Warn(msg,
-							logfields.Error, err,
-							logfields.Path, path,
-						)
-					}
-					continue
-				}
-				defer m.Close()
-
-				ctx, cancelCtx := context.WithTimeout(ctx, ctmapPressureInterval)
-				defer cancelCtx()
-				count, err := m.Count(ctx)
-				if errors.Is(err, ebpf.ErrNotSupported) {
-					// We don't have batch ops, so cancel context to kill this
-					// controller.
-					cancel(err)
-					return err
-				}
-				if err != nil {
-					errs = errors.Join(errs, fmt.Errorf("failed to dump CT map %v: %w", m.Name(), err))
-				}
-				m.UpdatePressureMetricWithSize(int32(count))
-			}
-			return errs
-		},
-		RunInterval: 30 * time.Second,
-		Context:     ctx,
-	})
 }

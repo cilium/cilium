@@ -188,12 +188,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(vp, option.ConfigDir)
 
-	flags.Duration(option.ConntrackGCInterval, time.Duration(0), "Overwrite the connection-tracking garbage collection interval")
-	option.BindEnv(vp, option.ConntrackGCInterval)
-
-	flags.Duration(option.ConntrackGCMaxInterval, time.Duration(0), "Set the maximum interval for the connection-tracking garbage collection")
-	option.BindEnv(vp, option.ConntrackGCMaxInterval)
-
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(vp, option.DebugArg)
 
@@ -1219,7 +1213,6 @@ type daemonParams struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
 	KVStoreClient       kvstore.Client
 	WGAgent             wgTypes.WireguardAgent
@@ -1246,8 +1239,6 @@ type daemonParams struct {
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
 	InfraIPAllocator    infraendpoints.InfraIPAllocator
-	NatMap4             nat.NatMap4
-	NatMap6             nat.NatMap6
 }
 
 func daemonConfigInitialization(params daemonConfigParams) legacy.DaemonConfigInitialization {

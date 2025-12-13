@@ -11,8 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -49,8 +52,8 @@ func TestGCEnableDualStack(t *testing.T) {
 	returnRatio := 0.1 // low -> high next interval
 	// Use local variables instead of modifying global state
 	localConntrackGCMaxInterval := time.Millisecond * 500
-	localGCIntervalRounding := ctmap.GCIntervalRounding
-	localMinGCInterval := ctmap.MinGCInterval
+	localGCIntervalRounding := gcIntervalRounding
+	localMinGCInterval := minGCInterval
 
 	gc.enableWithConfig(func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 		if ipv4 {
@@ -274,4 +277,47 @@ func (f *fakeSignalMan) MuteSignals(signals ...signal.SignalType) error {
 
 func (f *fakeSignalMan) UnmuteSignals(signals ...signal.SignalType) error {
 	return nil
+}
+
+func TestCalculateInterval(t *testing.T) {
+	require.Equal(t, time.Minute, calculateInterval(time.Minute, 0.1))  // no change
+	require.Equal(t, time.Minute, calculateInterval(time.Minute, 0.2))  // no change
+	require.Equal(t, time.Minute, calculateInterval(time.Minute, 0.25)) // no change
+
+	require.Equal(t, 36*time.Second, calculateInterval(time.Minute, 0.40))
+	require.Equal(t, 24*time.Second, calculateInterval(time.Minute, 0.60))
+
+	require.Equal(t, 15*time.Second, calculateInterval(10*time.Second, 0.01))
+	require.Equal(t, 15*time.Second, calculateInterval(10*time.Second, 0.04))
+
+	require.Equal(t, defaults.ConntrackGCMinInterval, calculateInterval(1*time.Second, 0.9))
+
+	require.Equal(t, defaults.ConntrackGCMaxLRUInterval, calculateInterval(24*time.Hour, 0.01))
+}
+
+func TestGetInterval(t *testing.T) {
+	actualLast := time.Minute
+	expectedLast := time.Minute
+	logger := hivetest.Logger(t)
+	interval := getInterval(logger, actualLast, expectedLast, 0.1, 0, 0)
+	require.Equal(t, time.Minute, interval)
+	expectedLast = interval
+
+	interval = getInterval(logger, actualLast, expectedLast, 0.1, 10*time.Second, 0)
+	require.Equal(t, 10*time.Second, interval)
+
+	interval = getInterval(logger, actualLast, expectedLast, 0.1, 0, 0)
+	require.Equal(t, time.Minute, interval)
+
+	// Setting ConntrackGCMaxInterval limits the maximum interval
+	require.Equal(t, 20*time.Second, getInterval(logger, actualLast, expectedLast, 0.1, 0, 20*time.Second))
+	require.Equal(t, time.Minute, getInterval(logger, actualLast, expectedLast, 0.1, 0, 0))
+}
+
+func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
+	return calculateIntervalWithConfig(prevInterval, maxDeleteRatio, gcIntervalRounding, minGCInterval)
+}
+
+func getInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64, gcInterval time.Duration, gcMaxInterval time.Duration) time.Duration {
+	return getIntervalWithConfig(logger, actualPrevInterval, expectedPrevInterval, maxDeleteRatio, gcInterval, gcMaxInterval, gcIntervalRounding, minGCInterval)
 }
