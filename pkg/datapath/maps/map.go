@@ -152,6 +152,9 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb6_backends_v2",
 			"cilium_lb6_reverse_sk",
 			"cilium_snat_v6_external",
+			"cilium_snat_v6_alloc_retries",
+			"cilium_l2_responder_v6",
+			"cilium_egress_gw_policy_v6",
 			lbmaps.MaglevOuter6MapName,
 			lbmaps.Affinity6MapName,
 			lbmaps.SourceRange6MapName,
@@ -174,6 +177,9 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_backends_v2",
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
+			"cilium_snat_v4_alloc_retries",
+			"cilium_l2_responder_v4",
+			"cilium_egress_gw_policy_v4",
 			lbmaps.MaglevOuter4MapName,
 			lbmaps.Affinity4MapName,
 			lbmaps.SourceRange4MapName,
@@ -185,7 +191,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	if !ms.kprCfg.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
-		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
+		maps = append(maps, []string{
+			"cilium_snat_v4_external", "cilium_snat_v6_external",
+			"cilium_snat_v4_alloc_retries", "cilium_snat_v6_alloc_retries",
+		}...)
 	}
 
 	if !option.Config.EnableIPv4FragmentsTracking {
@@ -215,6 +224,16 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !(option.Config.EnableIPMasqAgent && option.Config.EnableIPv6Masquerade) {
 		maps = append(maps, ipmasq.MapNameIPv6)
+	}
+
+	if !option.Config.EnableSRv6 {
+		maps = append(maps,
+			"cilium_srv6_sid",
+			"cilium_srv6_policy_v4",
+			"cilium_srv6_policy_v6",
+			"cilium_srv6_vrf_v4",
+			"cilium_srv6_vrf_v6",
+		)
 	}
 
 	if !option.Config.EnableXDPPrefilter {
