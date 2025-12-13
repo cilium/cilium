@@ -516,8 +516,8 @@ func (s staticPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	return 1000, nil
 }
 
-// AllocateCRDProxyPortWithReallocate implements PortAllocator.
-func (s staticPortAllocator) AllocateCRDProxyPortWithReallocate(name string, forceReallocate bool) (uint16, error) {
+// ReallocateCRDProxyPort implements PortAllocator.
+func (s staticPortAllocator) ReallocateCRDProxyPort(name string) (uint16, error) {
 	return 1000, nil
 }
 
