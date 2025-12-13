@@ -5,10 +5,12 @@ package bpf
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -150,6 +152,9 @@ type CollectionOptions struct {
 
 	// Set of objects to keep during reachability pruning.
 	Keep *set.Set[string]
+
+	// Path to the file containing datapath runtime config for this collection.
+	ConfigPath string
 }
 
 func (co *CollectionOptions) populateMapReplacements() {
@@ -195,6 +200,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		logfields.MapRenames, opts.MapRenames,
 		logfields.Constants, fmt.Sprintf("%#v", opts.Constants),
 	)
+
+	if err := serializeConstants(logger, opts); err != nil {
+		return nil, nil, fmt.Errorf("serializing constants: %w", err)
+	}
 
 	// Copy spec so the modifications below don't affect the input parameter,
 	// allowing the spec to be safely re-used by the caller.
@@ -282,6 +291,29 @@ func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
 		}
 
 		mapSpec.Name = rename
+	}
+
+	return nil
+}
+
+func serializeConstants(logger *slog.Logger, opts *CollectionOptions) error {
+	if opts.ConfigPath == "" {
+		return nil
+	}
+
+	// Create directory to store the file under opts.ConfigPath.
+	if err := os.MkdirAll(filepath.Dir(opts.ConfigPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory for config file %s: %w", opts.ConfigPath, err)
+	}
+
+	file, err := os.Create(opts.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to create config file %s: %w", opts.ConfigPath, err)
+	}
+	defer file.Close()
+
+	if err := json.NewEncoder(file).Encode(opts.Constants); err != nil {
+		return fmt.Errorf("failed to encode constants to JSON: %w", err)
 	}
 
 	return nil
