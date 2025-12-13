@@ -4,6 +4,8 @@
 package metrics
 
 import (
+	"math/big"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	ciliumMetrics "github.com/cilium/cilium/pkg/metrics"
@@ -38,6 +40,7 @@ type prometheusMetrics struct {
 	poolMaintainer         *triggerMetrics
 	k8sSync                *triggerMetrics
 	resync                 *triggerMetrics
+	RemainingIPs           *prometheus.GaugeVec
 }
 
 const LabelTargetNodeName = "target_node"
@@ -199,7 +202,6 @@ func NewPrometheusMetrics(namespace string, registry *ciliumMetrics.Registry) *p
 	m.poolMaintainer.Register(registry)
 	m.k8sSync.Register(registry)
 	m.resync.Register(registry)
-
 	return m
 }
 
@@ -289,6 +291,26 @@ func (p *prometheusMetrics) ObserveBackgroundSync(status string, duration time.D
 	p.BackgroundSyncDuration.WithLabelValues(status).Observe(duration.Seconds())
 }
 
+type remainingIPsMetric struct {
+	RemainingIPs *prometheus.GaugeVec
+}
+
+func NewremainingIPsMetric(namespace string) *remainingIPsMetric {
+	return &remainingIPsMetric{
+		RemainingIPs: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: ipamSubsystem,
+			Name:      "remaining_ips",
+			Help:      "Number of remaining IPs in the IPAM pool labeled by family",
+		}, []string{"pool", "family"}),
+	}
+}
+
+func (p *remainingIPsMetric) SetRemainingIPs(poolName string, family string, remaining *big.Int) {
+	f, _ := new(big.Float).SetInt(remaining).Float64()
+	p.RemainingIPs.WithLabelValues(poolName, family).Set(f)
+}
+
 type triggerMetrics struct {
 	total        prometheus.Counter
 	folds        prometheus.Gauge
@@ -372,6 +394,7 @@ func (m *NoOpMetrics) SetIPAvailable(node string, n int)                        
 func (m *NoOpMetrics) SetIPUsed(node string, n int)                                              {}
 func (m *NoOpMetrics) SetIPNeeded(node string, n int)                                            {}
 func (m *NoOpMetrics) ObserveBackgroundSync(status string, duration time.Duration)               {}
+func (m *NoOpMetrics) SetRemainingIPs(poolName, family string, remaining *big.Int)               {}
 func (m *NoOpMetrics) PoolMaintainerTrigger() trigger.MetricsObserver                            { return &NoOpMetricsObserver{} }
 func (m *NoOpMetrics) K8sSyncTrigger() trigger.MetricsObserver                                   { return &NoOpMetricsObserver{} }
 func (m *NoOpMetrics) ResyncTrigger() trigger.MetricsObserver                                    { return &NoOpMetricsObserver{} }
