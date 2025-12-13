@@ -605,7 +605,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_state *ct_state, ct_state_new = {};
 	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
-	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -926,12 +925,6 @@ ct_recreate6:
 	}
 
 pass_to_stack:
-#ifdef ENABLE_ROUTING
-	ret = ipv6_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, METRIC_EGRESS);
-	if (unlikely(ret != CTX_ACT_OK))
-		return ret;
-#endif
-
 pass_to_stack_hostfw: __maybe_unused
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, *dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
@@ -1035,7 +1028,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	const struct remote_endpoint_info *info;
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	struct ipv4_ct_tuple *tuple;
-	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret, verdict, l4_off;
@@ -1471,12 +1463,6 @@ skip_vtep:
 	}
 
 pass_to_stack:
-#ifdef ENABLE_ROUTING
-	ret = ipv4_l3(ctx, ETH_HLEN, NULL, (__u8 *)&router_mac.addr, ip4);
-	if (unlikely(ret != CTX_ACT_OK))
-		return ret;
-#endif
-
 pass_to_stack_hostfw: __maybe_unused
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, *dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
