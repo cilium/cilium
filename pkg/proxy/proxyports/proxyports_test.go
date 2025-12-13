@@ -324,7 +324,7 @@ func TestRestoredPort(t *testing.T) {
 	require.False(t, pp.acknowledged)
 }
 
-func TestAllocateCRDProxyPortWithReallocate(t *testing.T) {
+func TestReallocateCRDProxyPort(t *testing.T) {
 	testRunDir := t.TempDir()
 	socketDir := envoy.GetSocketDir(testRunDir)
 	err := os.MkdirAll(socketDir, 0o700)
@@ -336,15 +336,10 @@ func TestAllocateCRDProxyPortWithReallocate(t *testing.T) {
 	}
 	p := proxyPortsForTest(t)
 
-	// First allocation
-	port1, err := p.AllocateCRDProxyPortWithReallocate("listener1", false)
+	// First allocation using AllocateCRDProxyPort
+	port1, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.NotEqual(t, uint16(0), port1)
-
-	// Second allocation without forceReallocate should return the same port
-	port2, err := p.AllocateCRDProxyPortWithReallocate("listener1", false)
-	require.NoError(t, err)
-	require.Equal(t, port1, port2)
 
 	// ACK the port to set rulesPort
 	err = p.AckProxyPortWithReference(context.TODO(), "listener1")
@@ -357,19 +352,19 @@ func TestAllocateCRDProxyPortWithReallocate(t *testing.T) {
 	require.True(t, pp.configured)
 	require.True(t, pp.acknowledged)
 
-	// Force reallocation should allocate a new port
-	port3, err := p.AllocateCRDProxyPortWithReallocate("listener1", true)
+	// Reallocation should allocate a new port
+	port2, err := p.ReallocateCRDProxyPort("listener1")
 	require.NoError(t, err)
-	require.NotEqual(t, uint16(0), port3)
-	require.NotEqual(t, port1, port3, "forceReallocate=true should allocate a new port")
+	require.NotEqual(t, uint16(0), port2)
+	require.NotEqual(t, port1, port2, "ReallocateCRDProxyPort should allocate a new port")
 
 	// Verify the port was reset and new port allocated
 	name2, pp2 := p.FindByTypeWithReference(types.ProxyTypeCRD, "listener1", false)
 	require.Equal(t, "listener1", name2)
-	require.Equal(t, port3, pp2.ProxyPort)
-	require.Equal(t, uint16(0), pp2.rulesPort, "rulesPort should be reset to 0 after forceReallocate")
+	require.Equal(t, port2, pp2.ProxyPort)
+	require.Equal(t, uint16(0), pp2.rulesPort, "rulesPort should be reset to 0 after reallocation")
 	require.True(t, pp2.configured)
-	require.False(t, pp2.acknowledged, "acknowledged should be reset to false after forceReallocate")
+	require.False(t, pp2.acknowledged, "acknowledged should be reset to false after reallocation")
 
 	// Verify old port is marked as available for reuse
 	inuse, exists := p.allocatedPorts[port1]
@@ -377,7 +372,7 @@ func TestAllocateCRDProxyPortWithReallocate(t *testing.T) {
 	require.False(t, inuse, "old port should be marked as available for reuse")
 
 	// Verify new port is marked as in use
-	inuse2, exists2 := p.allocatedPorts[port3]
+	inuse2, exists2 := p.allocatedPorts[port2]
 	require.True(t, exists2)
 	require.True(t, inuse2, "new port should be marked as in use")
 }

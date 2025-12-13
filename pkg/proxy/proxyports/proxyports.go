@@ -267,12 +267,6 @@ func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (err error) {
 // Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
 // Each allocated port must be eventually freed with ReleaseProxyPort().
 func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
-	return p.AllocateCRDProxyPortWithReallocate(name, false)
-}
-
-// AllocateCRDProxyPortWithReallocate() allocates a new port for listener 'name'.
-// If forceReallocate is true, it will force reallocation of a new port even if one was already allocated.
-func (p *ProxyPorts) AllocateCRDProxyPortWithReallocate(name string, forceReallocate bool) (uint16, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -281,20 +275,16 @@ func (p *ProxyPorts) AllocateCRDProxyPortWithReallocate(name string, forceReallo
 		pp = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false}
 	}
 
-	if forceReallocate && pp.ProxyPort != 0 {
-		p.reset(pp)
-		pp.rulesPort = 0
-	}
-
 	// Allocate a new port only if a port was never allocated before.
 	// This is required since Envoy may already be listening on the
 	// previously allocated port for this proxy listener.
 	if pp.ProxyPort == 0 {
 		var err error
-		if !forceReallocate && pp.rulesPort != 0 && !p.allocatedPorts[pp.rulesPort] {
+		// Try to allocate the same port that was previously used on the datapath
+		if pp.rulesPort != 0 && !p.allocatedPorts[pp.rulesPort] {
 			pp.ProxyPort = pp.rulesPort
 		} else {
-			pp.ProxyPort, err = p.allocatePort(0, p.rangeMin, p.rangeMax)
+			pp.ProxyPort, err = p.allocatePort(pp.rulesPort, p.rangeMin, p.rangeMax)
 			if err != nil {
 				return 0, err
 			}
@@ -307,6 +297,42 @@ func (p *ProxyPorts) AllocateCRDProxyPortWithReallocate(name string, forceReallo
 	pp.configured = true
 
 	p.logger.Debug("AllocateProxyPort: allocated proxy port",
+		fieldProxyRedirectID, name,
+		logfields.ProxyPort, pp.ProxyPort,
+	)
+
+	return pp.ProxyPort, nil
+}
+
+// ReallocateCRDProxyPort() reallocates a new port for listener 'name'.
+// This will force reallocation of a new port even if one was already allocated.
+func (p *ProxyPorts) ReallocateCRDProxyPort(name string) (uint16, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	pp := p.proxyPorts[name]
+	if pp == nil || pp.Ingress {
+		pp = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false}
+	}
+
+	if pp.ProxyPort != 0 {
+		p.reset(pp)
+		pp.rulesPort = 0
+	}
+
+	// Allocate a new port
+	var err error
+	pp.ProxyPort, err = p.allocatePort(0, p.rangeMin, p.rangeMax)
+	if err != nil {
+		return 0, err
+	}
+	p.proxyPorts[name] = pp
+	// marks port as reserved
+	p.allocatedPorts[pp.ProxyPort] = true
+	// mark proxy port as configured
+	pp.configured = true
+
+	p.logger.Debug("ReallocateProxyPort: reallocated proxy port",
 		fieldProxyRedirectID, name,
 		logfields.ProxyPort, pp.ProxyPort,
 	)
