@@ -46,8 +46,7 @@
 #include <bpf/config/node.h>
 
 /* Overwrite (local) CLUSTER_ID defined in node_config.h */
-#undef CLUSTER_ID
-#define CLUSTER_ID 1
+ASSIGN_CONFIG(__u32, cluster_id, 1)
 
 /* Need to undef EVENT_SOURCE here since it is defined in
  * both of common.h and bpf_lxc.c.

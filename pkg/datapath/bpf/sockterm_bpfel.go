@@ -124,6 +124,7 @@ type SockTermMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type SockTermVariableSpecs struct {
+	ConfigClusterId      *ebpf.VariableSpec `ebpf:"__config_cluster_id"`
 	CiliumSockTermFilter *ebpf.VariableSpec `ebpf:"cilium_sock_term_filter"`
 }
 
@@ -162,6 +163,7 @@ func (m *SockTermMaps) Close() error {
 //
 // It can be passed to LoadSockTermObjects or ebpf.CollectionSpec.LoadAndAssign.
 type SockTermVariables struct {
+	ConfigClusterId      *ebpf.Variable `ebpf:"__config_cluster_id"`
 	CiliumSockTermFilter *ebpf.Variable `ebpf:"cilium_sock_term_filter"`
 }
 
