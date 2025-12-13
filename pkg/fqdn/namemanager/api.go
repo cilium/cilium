@@ -276,6 +276,31 @@ func (h *getFQDNNamesHandler) Handle(params GetFqdnNamesParams) middleware.Respo
 	return NewGetFqdnNamesOK().WithPayload(payload)
 }
 
+type getFQDNGCCacheHandler struct {
+	*manager
+}
+
+func (h *getFQDNGCCacheHandler) Handle(params GetFqdnGccacheParams) middleware.Responder {
+	if h.gcCache == nil {
+		return NewGetFqdnGccacheNotFound()
+	}
+
+	entries := h.gcCache.List()
+	if len(entries) == 0 {
+		return NewGetFqdnGccacheNotFound()
+	}
+
+	payload := make([]*models.FQDNGCCacheEntry, 0, len(entries))
+	for _, entry := range entries {
+		payload = append(payload, &models.FQDNGCCacheEntry{
+			Fqdn:                  entry.FQDN,
+			GarbageCollectionTime: strfmt.DateTime(entry.GarbageCollectionTime),
+		})
+	}
+
+	return NewGetFqdnGccacheOK().WithPayload(payload)
+}
+
 func parseFqdnFilters(cidr, pattern, src *string) (fqdn.PrefixMatcherFunc, fqdn.NameMatcherFunc, string, error) {
 	prefixMatcher := func(ip netip.Addr) bool { return true }
 	if cidr != nil {
