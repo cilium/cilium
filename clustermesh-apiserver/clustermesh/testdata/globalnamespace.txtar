@@ -1,0 +1,181 @@
+#! --cluster-id=3 --cluster-name=cluster3 --clustermesh-default-global-namespace=false
+
+hive/start
+
+# Add two namespaces
+k8s/add namespace-1.yaml namespace-2.yaml
+
+# Add two CiliumEndpoints
+k8s/add endpoint-1.yaml endpoint-2.yaml
+
+# Assert that the synced key gets created. We compare on the key only as the
+# value is the timestamp at which synchronization completed
+kvstore/list -o plain cilium/synced synced.actual
+* grep -q '^# cilium/synced/cluster3/cilium/state/ip/v1$' synced.actual
+
+# Wait for synchronization. Only endpoint-1 should be synced as it is in a global namespace
+kvstore/list -o json cilium/state/ip ips-1.actual
+* cmp ips-1.actual ips-1.expected
+
+# Annotate namespace-2 as global
+k8s/update namespace-2-annotated.yaml
+
+# Wait for synchronization. Now both endpoints should be synced
+kvstore/list -o json cilium/state/ip ips-1+2.actual
+* cmp ips-1+2.actual ips-1+2.expected
+
+# Annotate namespace-2 as non-global
+k8s/update namespace-2.yaml
+
+# Wait for synchronization. Only endpoint-1 should remain synced
+kvstore/list -o json cilium/state/ip ips-1.actual
+* cmp ips-1.actual ips-1.expected
+
+# Delete namespace-1
+k8s/delete namespace-1.yaml
+
+# Wait for synchronization. No endpoints should remain synced
+kvstore/list -o json cilium/state/ip ips-empty.actual
+* empty ips-empty.actual
+
+# ---
+
+-- namespace-1.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: don
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- namespace-2.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quixote
+
+-- namespace-2-annotated.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quixote
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- endpoint-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  name: cep-001
+  namespace: don
+status:
+  id: 1481
+  identity:
+    id: 199472
+    labels:
+    - k8s:app=don
+  networking:
+    addressing:
+    - ipv4: 10.244.1.79
+      ipv6: fd00:10:244:1::d643
+    node: 172.18.0.3
+  service-account: default
+  state: ready
+
+-- endpoint-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  name: cep-002
+  namespace: quixote
+status:
+  encryption:
+    key: 5
+  id: 1482
+  identity:
+    id: 199475
+    labels:
+    - k8s:app=quixote
+  networking:
+    addressing:
+    - ipv4: 10.244.2.74
+      ipv6: fd00:10:244:2::e024
+    node: 172.18.0.2
+  service-account: default
+  state: ready
+
+
+-- ips-1.expected --
+# cilium/state/ip/v1/default/10.244.1.79
+{
+  "IP": "10.244.1.79",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "don",
+  "K8sPodName": "cep-001",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:1::d643
+{
+  "IP": "fd00:10:244:1::d643",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "don",
+  "K8sPodName": "cep-001",
+  "K8sServiceAccount": "default"
+}
+-- ips-1+2.expected --
+# cilium/state/ip/v1/default/10.244.1.79
+{
+  "IP": "10.244.1.79",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "don",
+  "K8sPodName": "cep-001",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/10.244.2.74
+{
+  "IP": "10.244.2.74",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199475,
+  "Key": 5,
+  "Metadata": "",
+  "K8sNamespace": "quixote",
+  "K8sPodName": "cep-002",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:1::d643
+{
+  "IP": "fd00:10:244:1::d643",
+  "Mask": null,
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "don",
+  "K8sPodName": "cep-001",
+  "K8sServiceAccount": "default"
+}
+# cilium/state/ip/v1/default/fd00:10:244:2::e024
+{
+  "IP": "fd00:10:244:2::e024",
+  "Mask": null,
+  "HostIP": "172.18.0.2",
+  "ID": 199475,
+  "Key": 5,
+  "Metadata": "",
+  "K8sNamespace": "quixote",
+  "K8sPodName": "cep-002",
+  "K8sServiceAccount": "default"
+}
