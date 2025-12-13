@@ -66,6 +66,7 @@ func init() {
 	fqdnCacheCmd.AddCommand(fqdnCleanCacheCmd)
 	fqdnCmd.AddCommand(fqdnCacheCmd)
 	fqdnCmd.AddCommand(fqdnNames)
+	fqdnCmd.AddCommand(fqdnGCCacheCmd)
 	RootCmd.AddCommand(fqdnCmd)
 
 	fqdnCleanCacheCmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation")

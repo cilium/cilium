@@ -65,6 +65,8 @@ type ClientService interface {
 
 	GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error)
 
+	GetFqdnGccache(params *GetFqdnGccacheParams, opts ...ClientOption) (*GetFqdnGccacheOK, error)
+
 	GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error)
 
 	GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, error)
@@ -221,6 +223,49 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOpti
 	//
 	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetFqdnCacheID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+GetFqdnGccache lists recently garbage collected f q d n entries
+*/
+func (a *Client) GetFqdnGccache(params *GetFqdnGccacheParams, opts ...ClientOption) (*GetFqdnGccacheOK, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewGetFqdnGccacheParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "GetFqdnGccache",
+		Method:             "GET",
+		PathPattern:        "/fqdn/gccache",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetFqdnGccacheReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*GetFqdnGccacheOK)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetFqdnGccache: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

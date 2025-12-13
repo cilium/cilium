@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/netip"
 	"os"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -138,16 +137,13 @@ func (n *manager) doGC(ctx context.Context) error {
 
 	metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToCleanSlice)))
 	namesCount := len(namesToCleanSlice)
-	// Limit the amount of info level logging to some sane amount
-	if namesCount > 20 {
-		// namesToClean is only used for logging after this so we can reslice it in place
-		namesToCleanSlice = namesToCleanSlice[:20]
-	}
-	n.logger.Info(
-		"FQDN garbage collector work deleted entries",
+
+	n.gcCache.Add(namesToCleanSlice, GCStart)
+
+	n.logger.Debug(
+		"FQDN garbage collector cleaned entries",
 		logfields.Controller, dnsGCJobName,
 		logfields.LenEntries, namesCount,
-		logfields.Entries, strings.Join(namesToCleanSlice, ","),
 	)
 
 	// Remove any now-stale ipcache metadata.
