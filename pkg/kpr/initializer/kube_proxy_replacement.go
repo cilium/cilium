@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -41,7 +40,6 @@ type kprInitializer struct {
 	lbConfig     loadbalancer.Config
 	kprCfg       kpr.KPRConfig
 	wgCfg        wgTypes.WireguardConfig
-	ipsecAgent   datapath.IPsecAgent
 }
 
 func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
