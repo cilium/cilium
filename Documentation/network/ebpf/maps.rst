@@ -14,29 +14,27 @@ will fail and thus limits the scalability of the datapath. The following table
 shows the default values of the maps. Each limit can be bumped in the source
 code. Configuration options will be added on request if demand arises.
 
-======================== ================ =============== =====================================================
-Map Name                 Scope            Default Limit   Scale Implications
-======================== ================ =============== =====================================================
-Auth                     node             512k            Max 512k authenticated relations per node
-Connection Tracking      node             1M TCP/256k UDP Max 1M concurrent TCP connections, max 256k expected UDP answers
-NAT                      node             512k            Max 512k NAT entries
-Neighbor Table           node             512k            Max 512k neighbor entries
-Endpoints                node             64k             Max 64k local endpoints + host IPs per node
-IP cache                 node             512k            Max 256k endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across all clusters
-Service Load Balancer    node             64k             Max ~3k clusterIP/nodePort Services across all clusters (see: `service map sizing <#service-lb-map-sizing>`_ section for details).
-Service Backends         node             64k             Max 64k cumulative unique backends across all services across all clusters
-Policy                   endpoint         16k             Max 16k allowed identity + port + protocol pairs for specific endpoint
-Proxy Map                node             512k            Max 512k concurrent redirected TCP connections to proxy
-Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
-IPv4 Fragmentation       node             8k              Max 8k fragmented datagrams in flight simultaneously on the node
-IPv6 Fragmentation       node             8k              Max 8k fragmented datagrams in flight simultaneously on the node
-Session Affinity         node             64k             Max 64k affinities from different clients
-IPv4 Masq                node             16k             Max 16k IPv4 cidrs used by BPF-based ip-masq-agent
-IPv6 Masq                node             16k             Max 16k IPv6 cidrs used by BPF-based ip-masq-agent
-Service Source Ranges    node             64k             Max 64k cumulative LB source ranges across all services
-Egress Policy            endpoint         16k             Max 16k endpoints across all destination CIDRs across all clusters 
-Node                     node             16k             Max 16k distinct node IPs (IPv4 & IPv6) across all clusters.
-======================== ================ =============== =====================================================
+======================== ================ ================= =====================================================
+Map Name                 Scope            Default Limit     Scale Implications
+======================== ================ ================= =====================================================
+Auth                     node             512k              Max 512k authenticated relations per node
+Connection Tracking      node             512k TCP/256k UDP Max 512k concurrent TCP connections, max 256k expected UDP answers
+NAT                      node             512k              Max 512k NAT entries
+Neighbor Table           node             512k              Max 512k neighbor entries
+Endpoints                node             64k               Max 64k local endpoints + host IPs per node
+IP cache                 node             512k              Max 256k endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across all clusters
+Service Load Balancer    node             64k               Max ~3k clusterIP/nodePort Services across all clusters (see: `service map sizing <#service-lb-map-sizing>`_ section for details).
+Service Backends         node             64k               Max 64k cumulative unique backends across all services across all clusters
+Service Source Ranges    node             64k               Max 64k cumulative LB source ranges across all services
+Service Session Affinity node             64k               Max 64k affinities from different clients
+Policy                   endpoint         16k               Max 16k allowed identity + port + protocol pairs for specific endpoint
+IPv4 Fragmentation       node             8k                Max 8k fragmented datagrams in flight simultaneously on the node
+IPv6 Fragmentation       node             8k                Max 8k fragmented datagrams in flight simultaneously on the node
+IPv4 Masq                node             16k               Max 16k IPv4 cidrs used by BPF-based ip-masq-agent
+IPv6 Masq                node             16k               Max 16k IPv6 cidrs used by BPF-based ip-masq-agent
+Egress Policy            node             16k               Max 16k endpoints across all destination CIDRs across all clusters
+Node                     node             16k               Max 16k distinct node IPs (IPv4 & IPv6) across all clusters.
+======================== ================ ================= =====================================================
 
 For some BPF maps, the upper capacity limit can be overridden using command
 line options for ``cilium-agent``. A given capacity can be set using
