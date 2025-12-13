@@ -150,17 +150,19 @@ type NameManager interface {
 type apiHandlers struct {
 	cell.Out
 
-	PolicyDeleteFqdnCacheHandler policyRestAPI.DeleteFqdnCacheHandler
-	PolicyGetFqdnCacheHandler    policyRestAPI.GetFqdnCacheHandler
-	PolicyGetFqdnCacheIDHandler  policyRestAPI.GetFqdnCacheIDHandler
-	PolicyGetFqdnNamesHandler    policyRestAPI.GetFqdnNamesHandler
+	PolicyDeleteFqdnCacheHandler   policyRestAPI.DeleteFqdnCacheHandler
+	PolicyGetFqdnCacheHandler      policyRestAPI.GetFqdnCacheHandler
+	PolicyGetFqdnCacheIDHandler    policyRestAPI.GetFqdnCacheIDHandler
+	PolicyGetFqdnNamesHandler      policyRestAPI.GetFqdnNamesHandler
+	PolicyGetFqdnGccacheHandler    policyRestAPI.GetFqdnGccacheHandler
 }
 
 func handlers(nm *manager) apiHandlers {
 	return apiHandlers{
-		PolicyDeleteFqdnCacheHandler: &deleteFQDNCacheHandler{nm},
-		PolicyGetFqdnCacheHandler:    &getFQDNCacheHandler{nm},
-		PolicyGetFqdnCacheIDHandler:  &getFQDNCacheIDHandler{nm},
-		PolicyGetFqdnNamesHandler:    &getFQDNNamesHandler{nm},
+		PolicyDeleteFqdnCacheHandler:   &deleteFQDNCacheHandler{nm},
+		PolicyGetFqdnCacheHandler:      &getFQDNCacheHandler{nm},
+		PolicyGetFqdnCacheIDHandler:    &getFQDNCacheIDHandler{nm},
+		PolicyGetFqdnNamesHandler:      &getFQDNNamesHandler{nm},
+		PolicyGetFqdnGccacheHandler:    &getFQDNGCCacheHandler{nm},
 	}
 }

@@ -47,6 +47,8 @@ type manager struct {
 
 	cache *fqdn.DNSCache
 
+	gcCache *GCCache
+
 	bootstrapCompleted bool
 
 	// list of locks used as coordination points for name updates
@@ -72,12 +74,18 @@ func New(params ManagerParams) *manager {
 	// locally running endpoints.
 	cache.DisableCleanupTrack()
 
+	gcCache, err := NewGCCache(DefaultGCCacheSize)
+	if err != nil {
+		params.Logger.Error("Failed to create FQDN GC cache", "error", err)
+	}
+
 	n := &manager{
 		logger:       params.Logger,
 		params:       params,
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
 		selectorIDs:  make(map[api.FQDNSelector][]identity.NumericIdentity),
 		cache:        cache,
+		gcCache:      gcCache,
 		nameLocks:    make([]*lock.Mutex, params.Config.DNSProxyLockCount),
 	}
 
