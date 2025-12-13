@@ -543,23 +543,48 @@ func GC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
 // CT GC to remove corresponding SNAT entries.
 // See the unit test TestPrivilegedOrphanNatGC for more examples.
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
+	var natMap *nat.Map
+
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
-	ctMap := mapInfo[ctMapTCP.mapType]
-	if ctMap.natMapLock != nil {
-		ctMap.natMapLock.Lock()
-		defer ctMap.natMapLock.Unlock()
+	if ctMapTCP.clusterID == 0 {
+		// global map handling
+		ctMap := mapInfo[ctMapTCP.mapType]
+		if ctMap.natMapLock != nil {
+			ctMap.natMapLock.Lock()
+			defer ctMap.natMapLock.Unlock()
+		}
+		natMap = ctMap.natMap
+	} else {
+		// per-cluster map handling
+		var family = nat.IPv4
+		if ctMapTCP.mapType.isIPv6() {
+			family = nat.IPv6
+		}
+
+		natm, err := nat.GetClusterNATMap(ctMapTCP.clusterID, family)
+		if err != nil {
+			ctMapTCP.Logger.Error("Unable to get per-cluster NAT map", logfields.Error, err)
+		} else {
+			natMap = natm
+		}
 	}
-	natMap := ctMap.natMap
+
 	if natMap == nil {
 		return nil
 	}
+
+	if err := natMap.Open(); err != nil {
+		natMap.Logger.Error("Unable to open NAT map", logfields.Error, err)
+		return nil
+	}
+	defer natMap.Close()
 
 	family := gcFamilyIPv4
 	if ctMapTCP.mapType.isIPv6() {
 		family = gcFamilyIPv6
 	}
-	stats := newNatGCStats(natMap, family)
+	stats := newNatGCStats(natMap, family, ctMapTCP.clusterID)
 	defer stats.finish()
 	egressEntriesToDelete := make([]nat.NatKey, 0)
 	ingressEntriesToDelete := make([]nat.NatKey, 0)

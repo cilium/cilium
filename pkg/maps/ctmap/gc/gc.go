@@ -4,6 +4,7 @@
 package gc
 
 import (
+	"cmp"
 	"log/slog"
 	"net/netip"
 	"os"
@@ -49,6 +50,9 @@ type parameters struct {
 	NodeAddressing  types.NodeAddressing
 	SignalManager   SignalHandler
 
+	// PerClusterCTMapsRetriever is an optional function that, if provided, is
+	// used to retrieve the per-cluster CT maps. The slice of maps returned by
+	// the function must contain consecutive (TCP, ANY) pairs.
 	PerClusterCTMapsRetriever PerClusterCTMapsRetriever `optional:"true"`
 }
 
@@ -93,6 +97,8 @@ func New(params parameters) *GC {
 		signalHandler:    params.SignalManager,
 
 		controllerManager: controller.NewManager(),
+
+		perClusterCTMapsRetriever: params.PerClusterCTMapsRetriever,
 	}
 
 	gc.observable4, gc.next4, gc.complete4 = stream.Multicast[ctmap.GCEvent]()
@@ -361,17 +367,13 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 	}
 
 	if triggeredBySignal {
-		vsns := []ctmap.CTMapIPVersion{}
-		if ipv4 {
-			vsns = append(vsns, ctmap.CTMapIPv4)
-		}
-		if ipv6 {
-			vsns = append(vsns, ctmap.CTMapIPv6)
-		}
-
-		for _, vsn := range vsns {
+		// This works under the assumption that [maps] contains consecutive pairs
+		// of CT maps, respectively of TCP and ANY type, which is currently true
+		// both for global and per-cluster maps.
+		for i := 0; i+1 < len(maps); i += 2 {
 			startTime := time.Now()
-			ctMapTCP, ctMapAny := ctmap.FilterMapsByProto(maps, vsn)
+
+			ctMapTCP, ctMapAny := maps[i], maps[i+1]
 			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
 				gc.logger.Info(
@@ -380,7 +382,8 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 					logfields.EgressDeleted, stats.EgressDeleted,
 					logfields.IngressAlive, stats.IngressAlive,
 					logfields.EgressAlive, stats.EgressAlive,
-					logfields.CTMapIPVersion, vsn,
+					logfields.Family, stats.Family,
+					logfields.ClusterID, cmp.Or(stats.ClusterID, option.Config.ClusterID),
 					logfields.Duration, time.Since(startTime),
 				)
 			}

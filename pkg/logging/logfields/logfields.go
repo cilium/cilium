@@ -1483,8 +1483,6 @@ const (
 
 	EgressAlive = "egressAlive"
 
-	CTMapIPVersion = "ctMapIPVersion"
-
 	ExpectedPrevInterval = "expectedPrevInterval"
 
 	ActualPrevInterval = "actualPrevInterval"
