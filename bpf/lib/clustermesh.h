@@ -74,16 +74,28 @@ ctx_get_cluster_id_mark(const struct __ctx_buff *ctx __maybe_unused)
 }
 
 /**
- * set_cluster_id_mark - sets the cluster_id mark.
+ * set_cluster_id - sets the cluster_id.
+ */
+static __always_inline __maybe_unused void
+ctx_set_cluster_id(struct __ctx_buff *ctx __maybe_unused, __u32 cluster_id __maybe_unused)
+{
+/* ctx->mark not available in XDP. */
+#if __ctx_is == __ctx_skb
+	__u32 cluster_id_lower = cluster_id & 0xFF;
+	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
+	ctx->mark = cluster_id_lower | cluster_id_upper;
+#endif /* __ctx_is == __ctx_skb */
+}
+
+/**
+ * ctx_set_cluster_id_mark - sets the cluster_id mark.
  */
 static __always_inline __maybe_unused void
 ctx_set_cluster_id_mark(struct __ctx_buff *ctx __maybe_unused, __u32 cluster_id __maybe_unused)
 {
 /* ctx->mark not available in XDP. */
 #if __ctx_is == __ctx_skb
-	__u32 cluster_id_lower = cluster_id & 0xFF;
-	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
-
-	ctx->mark = cluster_id_lower | cluster_id_upper | MARK_MAGIC_CLUSTER_ID;
+	ctx_set_cluster_id(ctx, cluster_id);
+	ctx->mark |= MARK_MAGIC_CLUSTER_ID;
 #endif /* __ctx_is == __ctx_skb */
 }
