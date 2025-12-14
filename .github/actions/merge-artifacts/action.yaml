@@ -54,7 +54,7 @@ runs:
         fi
     - name: Merge ${{ inputs.name }}
       if: ${{ steps.filter_artifacts.outputs.exists == 'true' }}
-      uses: actions/upload-artifact/merge@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: actions/upload-artifact/merge@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
         name: ${{ inputs.name }}
         pattern: ${{ inputs.pattern }}
