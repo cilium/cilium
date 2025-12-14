@@ -205,7 +205,10 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 				}
 			}
 		}
-		if err := driverutil.ApplyFixes(fixActions, analysisflags.Diff, dbg('v')); err != nil {
+		write := func(filename string, content []byte) error {
+			return os.WriteFile(filename, content, 0644)
+		}
+		if err := driverutil.ApplyFixes(fixActions, write, analysisflags.Diff, dbg('v')); err != nil {
 			// Fail when applying fixes failed.
 			log.Print(err)
 			exitAtLeast(1)
