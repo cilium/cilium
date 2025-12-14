@@ -131,8 +131,8 @@ ifneq ($(GOTEST_FORMATTER),cat)
 endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
-GOLANGCILINT_WANT_VERSION = v2.7.1
-GOLANGCILINT_IMAGE_SHA = sha256:d5162141f0d4489657eade74cf082e4038a41a9bcfe645c2a5f991df308e20d8
+GOLANGCILINT_WANT_VERSION = v2.7.2
+GOLANGCILINT_IMAGE_SHA = sha256:5d6d5c70a61f1356adfd9dd6316ce286799fefc9d743421356ff1b00842368ba
 GOLANGCILINT_VERSION = $(shell golangci-lint version --short 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
