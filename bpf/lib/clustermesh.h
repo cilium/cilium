@@ -26,8 +26,7 @@ get_cluster_id_max()
 static __always_inline __u32
 get_identity_len()
 {
-	__u32 identity_len = CONFIG(identity_length);
-	return identity_len;
+	return CONFIG(identity_length);
 }
 
 static __always_inline __u32
@@ -82,7 +81,7 @@ ctx_set_cluster_id_mark(struct __ctx_buff *ctx __maybe_unused, __u32 cluster_id 
 {
 /* ctx->mark not available in XDP. */
 #if __ctx_is == __ctx_skb
-	__u32 cluster_id_lower = (cluster_id & 0xFF);
+	__u32 cluster_id_lower = cluster_id & 0xFF;
 	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
 
 	ctx->mark = cluster_id_lower | cluster_id_upper | MARK_MAGIC_CLUSTER_ID;
