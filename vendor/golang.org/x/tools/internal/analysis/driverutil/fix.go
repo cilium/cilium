@@ -93,11 +93,13 @@ type FixAction struct {
 //
 // If printDiff (from the -diff flag) is set, instead of updating the
 // files it display the final patch composed of all the cleanly merged
-// fixes.
+// fixes. (It is tempting to factor printDiff as just a variant of
+// writeFile that is provided the old and new content, but it's hard
+// to generate a good summary that way.)
 //
 // TODO(adonovan): handle file-system level aliases such as symbolic
 // links using robustio.FileID.
-func ApplyFixes(actions []FixAction, printDiff, verbose bool) error {
+func ApplyFixes(actions []FixAction, writeFile func(filename string, content []byte) error, printDiff, verbose bool) error {
 	generated := make(map[*token.File]bool)
 
 	// Select fixes to apply.
@@ -160,7 +162,9 @@ func ApplyFixes(actions []FixAction, printDiff, verbose bool) error {
 	var (
 		accumulatedEdits = make(map[string][]diff.Edit)
 		filePkgs         = make(map[string]*types.Package) // maps each file to an arbitrary package that includes it
-		goodFixes        = 0
+
+		goodFixes    = 0 // number of fixes cleanly applied
+		skippedFixes = 0 // number of fixes skipped (because e.g. edits a generated file)
 	)
 fixloop:
 	for _, fixact := range fixes {
@@ -168,6 +172,7 @@ fixloop:
 		for _, edit := range fixact.fix.TextEdits {
 			file := fixact.act.FileSet.File(edit.Pos)
 			if generated[file] {
+				skippedFixes++
 				continue fixloop
 			}
 		}
@@ -227,7 +232,7 @@ fixloop:
 			log.Printf("%s: fix %s applied", fixact.act.Name, fixact.fix.Message)
 		}
 	}
-	badFixes := len(fixes) - goodFixes
+	badFixes := len(fixes) - goodFixes - skippedFixes // number of fixes that could not be applied
 
 	// Show diff or update files to final state.
 	var files []string
@@ -261,12 +266,11 @@ fixloop:
 			os.Stdout.WriteString(unified)
 
 		} else {
-			// write
+			// write file
 			totalFiles++
-			// TODO(adonovan): abstract the I/O.
-			if err := os.WriteFile(file, final, 0644); err != nil {
+			if err := writeFile(file, final); err != nil {
 				log.Println(err)
-				continue
+				continue // (causes ApplyFix to return an error)
 			}
 			filesUpdated++
 		}
@@ -305,15 +309,25 @@ fixloop:
 	// TODO(adonovan): should we log that n files were updated in case of total victory?
 	if badFixes > 0 || filesUpdated < totalFiles {
 		if printDiff {
-			return fmt.Errorf("%d of %d fixes skipped (e.g. due to conflicts)", badFixes, len(fixes))
+			return fmt.Errorf("%d of %s skipped (e.g. due to conflicts)",
+				badFixes,
+				plural(len(fixes), "fix", "fixes"))
 		} else {
-			return fmt.Errorf("applied %d of %d fixes; %d files updated. (Re-run the command to apply more.)",
-				goodFixes, len(fixes), filesUpdated)
+			return fmt.Errorf("applied %d of %s; %s updated. (Re-run the command to apply more.)",
+				goodFixes,
+				plural(len(fixes), "fix", "fixes"),
+				plural(filesUpdated, "file", "files"))
 		}
 	}
 
 	if verbose {
-		log.Printf("applied %d fixes, updated %d files", len(fixes), filesUpdated)
+		if skippedFixes > 0 {
+			log.Printf("skipped %s that would edit generated files",
+				plural(skippedFixes, "fix", "fixes"))
+		}
+		log.Printf("applied %s, updated %s",
+			plural(len(fixes), "fix", "fixes"),
+			plural(filesUpdated, "file", "files"))
 	}
 
 	return nil
@@ -326,6 +340,9 @@ fixloop:
 // information for the fixed file and thus cannot accurately tell
 // whether k is among the free names of T{k: 0}, which requires
 // knowledge of whether T is a struct type.
+//
+// Like [imports.Process] (the core of x/tools/cmd/goimports), it also
+// merges import decls.
 func FormatSourceRemoveImports(pkg *types.Package, src []byte) ([]byte, error) {
 	// This function was reduced from the "strict entire file"
 	// path through [format.Source].
@@ -339,6 +356,10 @@ func FormatSourceRemoveImports(pkg *types.Package, src []byte) ([]byte, error) {
 	ast.SortImports(fset, file)
 
 	removeUnneededImports(fset, pkg, file)
+
+	// TODO(adonovan): to generate cleaner edits when adding an import,
+	// consider adding a call to imports.mergeImports; however, it does
+	// cause comments to migrate.
 
 	// printerNormalizeNumbers means to canonicalize number literal prefixes
 	// and exponents while printing. See https://golang.org/doc/go1.13#gofmt.
@@ -423,5 +444,14 @@ func removeUnneededImports(fset *token.FileSet, pkg *types.Package, file *ast.Fi
 	// Apply the deletions.
 	for _, del := range deletions {
 		del()
+	}
+}
+
+// plural returns "n nouns", selecting the plural form as approriate.
+func plural(n int, singular, plural string) string {
+	if n == 1 {
+		return "1 " + singular
+	} else {
+		return fmt.Sprintf("%d %s", n, plural)
 	}
 }

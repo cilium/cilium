@@ -34,6 +34,8 @@ type Bundle struct {
 	RefreshHint int64 `protobuf:"varint,4,opt,name=refresh_hint,json=refreshHint,proto3" json:"refresh_hint,omitempty"`
 	// The sequence number of the bundle.
 	SequenceNumber uint64 `protobuf:"varint,5,opt,name=sequence_number,json=sequenceNumber,proto3" json:"sequence_number,omitempty"`
+	// WIT authorities for authenticating WIT-SVIDs.
+	WitAuthorities []*WITKey `protobuf:"bytes,6,rep,name=wit_authorities,json=witAuthorities,proto3" json:"wit_authorities,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -101,6 +103,13 @@ func (x *Bundle) GetSequenceNumber() uint64 {
 		return x.SequenceNumber
 	}
 	return 0
+}
+
+func (x *Bundle) GetWitAuthorities() []*WITKey {
+	if x != nil {
+		return x.WitAuthorities
+	}
+	return nil
 }
 
 type X509Certificate struct {
@@ -230,6 +239,79 @@ func (x *JWTKey) GetTainted() bool {
 	return false
 }
 
+type WITKey struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The PKIX encoded public key.
+	PublicKey []byte `protobuf:"bytes,1,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
+	// The key identifier.
+	KeyId string `protobuf:"bytes,2,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"`
+	// When the key expires (seconds since Unix epoch). If zero, the key does
+	// not expire.
+	ExpiresAt int64 `protobuf:"varint,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// This authority is no longer secure and must not be used
+	Tainted       bool `protobuf:"varint,4,opt,name=tainted,proto3" json:"tainted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WITKey) Reset() {
+	*x = WITKey{}
+	mi := &file_spire_api_types_bundle_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WITKey) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WITKey) ProtoMessage() {}
+
+func (x *WITKey) ProtoReflect() protoreflect.Message {
+	mi := &file_spire_api_types_bundle_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WITKey.ProtoReflect.Descriptor instead.
+func (*WITKey) Descriptor() ([]byte, []int) {
+	return file_spire_api_types_bundle_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *WITKey) GetPublicKey() []byte {
+	if x != nil {
+		return x.PublicKey
+	}
+	return nil
+}
+
+func (x *WITKey) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
+func (x *WITKey) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+func (x *WITKey) GetTainted() bool {
+	if x != nil {
+		return x.Tainted
+	}
+	return false
+}
+
 type BundleMask struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// x509_authorities field mask.
@@ -240,13 +322,15 @@ type BundleMask struct {
 	RefreshHint bool `protobuf:"varint,4,opt,name=refresh_hint,json=refreshHint,proto3" json:"refresh_hint,omitempty"`
 	// sequence_number field mask.
 	SequenceNumber bool `protobuf:"varint,5,opt,name=sequence_number,json=sequenceNumber,proto3" json:"sequence_number,omitempty"`
+	// wit_authorities field mask.
+	WitAuthorities bool `protobuf:"varint,6,opt,name=wit_authorities,json=witAuthorities,proto3" json:"wit_authorities,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *BundleMask) Reset() {
 	*x = BundleMask{}
-	mi := &file_spire_api_types_bundle_proto_msgTypes[3]
+	mi := &file_spire_api_types_bundle_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -258,7 +342,7 @@ func (x *BundleMask) String() string {
 func (*BundleMask) ProtoMessage() {}
 
 func (x *BundleMask) ProtoReflect() protoreflect.Message {
-	mi := &file_spire_api_types_bundle_proto_msgTypes[3]
+	mi := &file_spire_api_types_bundle_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -271,7 +355,7 @@ func (x *BundleMask) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BundleMask.ProtoReflect.Descriptor instead.
 func (*BundleMask) Descriptor() ([]byte, []int) {
-	return file_spire_api_types_bundle_proto_rawDescGZIP(), []int{3}
+	return file_spire_api_types_bundle_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *BundleMask) GetX509Authorities() bool {
@@ -302,17 +386,25 @@ func (x *BundleMask) GetSequenceNumber() bool {
 	return false
 }
 
+func (x *BundleMask) GetWitAuthorities() bool {
+	if x != nil {
+		return x.WitAuthorities
+	}
+	return false
+}
+
 var File_spire_api_types_bundle_proto protoreflect.FileDescriptor
 
 const file_spire_api_types_bundle_proto_rawDesc = "" +
 	"\n" +
-	"\x1cspire/api/types/bundle.proto\x12\x0fspire.api.types\"\x86\x02\n" +
+	"\x1cspire/api/types/bundle.proto\x12\x0fspire.api.types\"\xc8\x02\n" +
 	"\x06Bundle\x12!\n" +
 	"\ftrust_domain\x18\x01 \x01(\tR\vtrustDomain\x12K\n" +
 	"\x10x509_authorities\x18\x02 \x03(\v2 .spire.api.types.X509CertificateR\x0fx509Authorities\x12@\n" +
 	"\x0fjwt_authorities\x18\x03 \x03(\v2\x17.spire.api.types.JWTKeyR\x0ejwtAuthorities\x12!\n" +
 	"\frefresh_hint\x18\x04 \x01(\x03R\vrefreshHint\x12'\n" +
-	"\x0fsequence_number\x18\x05 \x01(\x04R\x0esequenceNumber\"?\n" +
+	"\x0fsequence_number\x18\x05 \x01(\x04R\x0esequenceNumber\x12@\n" +
+	"\x0fwit_authorities\x18\x06 \x03(\v2\x17.spire.api.types.WITKeyR\x0ewitAuthorities\"?\n" +
 	"\x0fX509Certificate\x12\x12\n" +
 	"\x04asn1\x18\x01 \x01(\fR\x04asn1\x12\x18\n" +
 	"\atainted\x18\x02 \x01(\bR\atainted\"w\n" +
@@ -322,13 +414,21 @@ const file_spire_api_types_bundle_proto_rawDesc = "" +
 	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x12\x1d\n" +
 	"\n" +
 	"expires_at\x18\x03 \x01(\x03R\texpiresAt\x12\x18\n" +
-	"\atainted\x18\x04 \x01(\bR\atainted\"\xac\x01\n" +
+	"\atainted\x18\x04 \x01(\bR\atainted\"w\n" +
+	"\x06WITKey\x12\x1d\n" +
+	"\n" +
+	"public_key\x18\x01 \x01(\fR\tpublicKey\x12\x15\n" +
+	"\x06key_id\x18\x02 \x01(\tR\x05keyId\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x03 \x01(\x03R\texpiresAt\x12\x18\n" +
+	"\atainted\x18\x04 \x01(\bR\atainted\"\xd5\x01\n" +
 	"\n" +
 	"BundleMask\x12)\n" +
 	"\x10x509_authorities\x18\x02 \x01(\bR\x0fx509Authorities\x12'\n" +
 	"\x0fjwt_authorities\x18\x03 \x01(\bR\x0ejwtAuthorities\x12!\n" +
 	"\frefresh_hint\x18\x04 \x01(\bR\vrefreshHint\x12'\n" +
-	"\x0fsequence_number\x18\x05 \x01(\bR\x0esequenceNumberB7Z5github.com/spiffe/spire-api-sdk/proto/spire/api/typesb\x06proto3"
+	"\x0fsequence_number\x18\x05 \x01(\bR\x0esequenceNumber\x12'\n" +
+	"\x0fwit_authorities\x18\x06 \x01(\bR\x0ewitAuthoritiesB7Z5github.com/spiffe/spire-api-sdk/proto/spire/api/typesb\x06proto3"
 
 var (
 	file_spire_api_types_bundle_proto_rawDescOnce sync.Once
@@ -342,21 +442,23 @@ func file_spire_api_types_bundle_proto_rawDescGZIP() []byte {
 	return file_spire_api_types_bundle_proto_rawDescData
 }
 
-var file_spire_api_types_bundle_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_spire_api_types_bundle_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_spire_api_types_bundle_proto_goTypes = []any{
 	(*Bundle)(nil),          // 0: spire.api.types.Bundle
 	(*X509Certificate)(nil), // 1: spire.api.types.X509Certificate
 	(*JWTKey)(nil),          // 2: spire.api.types.JWTKey
-	(*BundleMask)(nil),      // 3: spire.api.types.BundleMask
+	(*WITKey)(nil),          // 3: spire.api.types.WITKey
+	(*BundleMask)(nil),      // 4: spire.api.types.BundleMask
 }
 var file_spire_api_types_bundle_proto_depIdxs = []int32{
 	1, // 0: spire.api.types.Bundle.x509_authorities:type_name -> spire.api.types.X509Certificate
 	2, // 1: spire.api.types.Bundle.jwt_authorities:type_name -> spire.api.types.JWTKey
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	3, // 2: spire.api.types.Bundle.wit_authorities:type_name -> spire.api.types.WITKey
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_spire_api_types_bundle_proto_init() }
@@ -370,7 +472,7 @@ func file_spire_api_types_bundle_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_spire_api_types_bundle_proto_rawDesc), len(file_spire_api_types_bundle_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

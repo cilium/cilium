@@ -600,7 +600,7 @@ func (in *input) readToken() {
 
 	// Checked all punctuation. Must be identifier token.
 	if c := in.peekRune(); !isIdent(c) {
-		in.Error(fmt.Sprintf("unexpected input character %#q", c))
+		in.Error(fmt.Sprintf("unexpected input character %#q", rune(c)))
 	}
 
 	// Scan over identifier.
