@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"maps"
 	"net"
-	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
@@ -210,16 +209,6 @@ func newEndpoints(initialBackendsSize int) *Endpoints {
 	return &Endpoints{
 		Backends: make(map[cmtypes.AddrCluster]*Backend, initialBackendsSize),
 	}
-}
-
-// Prefixes returns the endpoint's backends as a slice of netip.Prefix.
-func (e *Endpoints) Prefixes() []netip.Prefix {
-	prefixes := make([]netip.Prefix, 0, len(e.Backends))
-	for addrCluster := range e.Backends {
-		addr := addrCluster.Addr()
-		prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
-	}
-	return prefixes
 }
 
 type endpointSlice interface {

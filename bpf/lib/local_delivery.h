@@ -4,7 +4,9 @@
 #pragma once
 
 #include "common.h"
+#include "identity.h"
 #include "dbg.h"
+#include "eps.h"
 #include "l3.h"
 #include "token_bucket.h"
 
@@ -113,12 +115,9 @@ local_delivery_fill_meta(struct __ctx_buff *ctx, __u32 seclabel,
 }
 
 static __always_inline int
-local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
-	       __u32 magic __maybe_unused,
-	       const struct endpoint_info *ep __maybe_unused,
-	       __u8 direction __maybe_unused,
-	       bool from_host __maybe_unused,
-	       bool from_tunnel __maybe_unused, __u32 cluster_id __maybe_unused)
+local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
+	       const struct endpoint_info *ep, __u8 direction, bool from_host,
+	       bool from_tunnel, __u32 cluster_id)
 {
 	bool use_fast_redirect;
 

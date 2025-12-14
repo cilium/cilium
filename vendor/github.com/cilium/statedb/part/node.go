@@ -172,7 +172,7 @@ func (n *header[T]) clone(watch bool) *header[T] {
 	return nCopy
 }
 
-func (n *header[T]) promote(watch bool) *header[T] {
+func (n *header[T]) promote() *header[T] {
 	switch n.kind() {
 	case nodeKindLeaf:
 		node4 := &node4[T]{}
@@ -180,7 +180,7 @@ func (n *header[T]) promote(watch bool) *header[T] {
 		node4.prefixP = n.prefixP
 		node4.leaf = n.getLeaf()
 		node4.setKind(nodeKind4)
-		if watch {
+		if n.watch != nil {
 			node4.watch = make(chan struct{})
 		}
 		return node4.self()
@@ -192,7 +192,7 @@ func (n *header[T]) promote(watch bool) *header[T] {
 		size := node4.size()
 		copy(node16.children[:], node4.children[:size])
 		copy(node16.keys[:], node4.keys[:size])
-		if watch {
+		if n.watch != nil {
 			node16.watch = make(chan struct{})
 		}
 		return node16.self()
@@ -205,7 +205,7 @@ func (n *header[T]) promote(watch bool) *header[T] {
 		for i, k := range node16.keys[:node16.size()] {
 			node48.index[k] = int8(i)
 		}
-		if watch {
+		if n.watch != nil {
 			node48.watch = make(chan struct{})
 		}
 		return node48.self()
@@ -220,7 +220,7 @@ func (n *header[T]) promote(watch bool) *header[T] {
 		for _, child := range node48.children[:node48.size()] {
 			node256.children[child.prefix()[0]] = child
 		}
-		if watch {
+		if n.watch != nil {
 			node256.watch = make(chan struct{})
 		}
 		return node256.self()
@@ -231,7 +231,19 @@ func (n *header[T]) promote(watch bool) *header[T] {
 	}
 }
 
+func isClosedChan(ch <-chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
+	}
+}
+
 func (n *header[T]) printTree(level int) {
+	if n == nil {
+		return
+	}
 	fmt.Print(strings.Repeat(" ", level))
 
 	var children []*header[T]
@@ -254,9 +266,9 @@ func (n *header[T]) printTree(level int) {
 		panic("unknown node kind")
 	}
 	if leaf := n.getLeaf(); leaf != nil {
-		fmt.Printf(" %x -> %v (L:%p W:%p)", leaf.fullKey(), leaf.value, leaf, leaf.watch)
+		fmt.Printf(" %x -> %v (L:%p W:%p %v)", leaf.fullKey(), leaf.value, leaf, leaf.watch, isClosedChan(leaf.watch))
 	}
-	fmt.Printf(" (N:%p, W:%p)\n", n, n.watch)
+	fmt.Printf(" (N:%p, W:%p %v)\n", n, n.watch, isClosedChan(n.watch))
 
 	for _, child := range children {
 		if child != nil {
@@ -495,15 +507,12 @@ type node256[T any] struct {
 	children [256]*header[T]
 }
 
-func newNode4[T any]() *header[T] {
-	n := &node4[T]{header: header[T]{watch: make(chan struct{})}}
-	n.setKind(nodeKind4)
-	return n.self()
-}
-
-func search[T any](root *header[T], key []byte) (value T, watch <-chan struct{}, ok bool) {
+func search[T any](root *header[T], rootWatch <-chan struct{}, key []byte) (value T, watch <-chan struct{}, ok bool) {
 	this := root
-	watch = root.watch
+	watch = rootWatch
+	if root == nil {
+		return
+	}
 	for {
 		if !bytes.HasPrefix(key, this.prefix()) {
 			return
@@ -515,7 +524,9 @@ func search[T any](root *header[T], key []byte) (value T, watch <-chan struct{},
 		if len(key) == 0 {
 			if leaf := this.getLeaf(); leaf != nil {
 				value = leaf.value
-				watch = leaf.watch
+				if leaf.watch != nil {
+					watch = leaf.watch
+				}
 				ok = true
 			}
 			return

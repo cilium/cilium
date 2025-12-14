@@ -221,6 +221,10 @@
 # - @cilium/wireguard:
 #   Maintain the kernel WireGuard configuration and datapath impacts related to
 #   ensuring traffic is encrypted correctly when WireGuard mode is enabled.
+# - @cilium/ztunnel:
+#   Maintain the ztunnel mTLS-proxy integration in Cilium to ensure the ztunnel
+#   agent receives the necessary information to successfully proxy pod-to-pod
+#   traffic through mTLS tunnels.
 #
 # END_CODEOWNERS_DOCS
 #
@@ -289,7 +293,8 @@ Makefile* @cilium/build
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/drop_reasons.h @cilium/sig-hubble
 /bpf/lib/egress_gateway.h @cilium/egress-gateway
-/bpf/lib/encrypt.h @cilium/ipsec
+/bpf/lib/encrypt.h @cilium/sig-encryption @cilium/ipsec @cilium/wireguard
+/bpf/lib/ipsec.h @cilium/ipsec
 /bpf/lib/policy.h @cilium/sig-datapath @cilium/sig-policy
 /bpf/lib/proxy.h @cilium/proxy @cilium/sig-datapath
 /bpf/lib/wireguard.h @cilium/wireguard @cilium/sig-datapath
@@ -374,6 +379,7 @@ Makefile* @cilium/build
 /daemon/cmd/bootstrap_statistics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
 /daemon/cmd/cells*.go @cilium/sig-foundations
+/daemon/infraendpoints/ @cilium/sig-agent @cilium/endpoint
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
@@ -472,11 +478,11 @@ Makefile* @cilium/build
 /images/builder/update-cilium-builder-image.sh @cilium/github-sec
 /images/hubble-relay @cilium/sig-hubble
 /images/runtime/update-cilium-runtime-image.sh @cilium/github-sec
-/install/kubernetes/ @cilium/sig-k8s @cilium/helm
-/install/kubernetes/cilium/**/cilium-envoy @cilium/sig-k8s @cilium/helm @cilium/envoy @cilium/sig-servicemesh
-/install/kubernetes/cilium/**/spire @cilium/sig-k8s @cilium/helm @cilium/sig-servicemesh
-/install/kubernetes/cilium/templates/clustermesh* @cilium/sig-k8s @cilium/helm @cilium/sig-clustermesh
-/install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
+/install/kubernetes/ @cilium/helm
+/install/kubernetes/cilium/**/cilium-envoy @cilium/helm @cilium/envoy @cilium/sig-servicemesh
+/install/kubernetes/cilium/**/spire @cilium/helm @cilium/sig-servicemesh
+/install/kubernetes/cilium/templates/clustermesh* @cilium/helm @cilium/sig-clustermesh
+/install/kubernetes/cilium/templates/hubble* @cilium/helm @cilium/sig-hubble
 /LICENSE @cilium/contributing
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
@@ -493,6 +499,7 @@ Makefile* @cilium/build
 /operator/pkg/networkpolicy @cilium/sig-policy
 /operator/pkg/secretsync @cilium/envoy @cilium/sig-servicemesh
 /operator/pkg/workqueuemetrics @cilium/metrics
+/operator/pkg/ztunnel @cilium/ztunnel
 /pkg/act/ @cilium/sig-datapath @cilium/metrics
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
@@ -567,7 +574,6 @@ Makefile* @cilium/build
 /pkg/hubble/metrics @cilium/hubble-metrics
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
-/pkg/identity/restoration @cilium/sig-policy @cilium/ipcache
 /pkg/idpool/ @cilium/sig-policy
 /pkg/ip/ @cilium/sig-agent
 /pkg/ipalloc/ @cilium/sig-ipam
@@ -577,6 +583,7 @@ Makefile* @cilium/build
 /pkg/ipam/allocator/azure/ @cilium/sig-ipam @cilium/azure
 /pkg/ipam/allocator/clusterpool/ @cilium/sig-ipam @cilium/operator
 /pkg/ipcache/ @cilium/ipcache
+/pkg/ipcache/restore @cilium/sig-policy @cilium/ipcache
 /pkg/ipmasq @cilium/sig-agent
 /pkg/k8s/ @cilium/sig-k8s
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
@@ -589,7 +596,6 @@ Makefile* @cilium/build
 /pkg/l2announcer/ @cilium/sig-agent
 /pkg/labels @cilium/sig-policy @cilium/api
 /pkg/labelsfilter @cilium/sig-policy
-/pkg/launcher @cilium/sig-agent
 /pkg/loadbalancer @cilium/sig-lb
 /pkg/loadinfo/ @cilium/sig-agent
 /pkg/lock @cilium/sig-agent
@@ -599,6 +605,7 @@ Makefile* @cilium/build
 /pkg/maps/ @cilium/sig-datapath
 /pkg/maps/egressmap @cilium/egress-gateway
 /pkg/maps/encrypt @cilium/ipsec
+/pkg/maps/policymap @cilium/sig-policy
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
 /pkg/monitor @cilium/sig-datapath
@@ -617,7 +624,7 @@ Makefile* @cilium/build
 /pkg/option @cilium/sig-agent @cilium/cli
 /pkg/pidfile @cilium/sig-agent
 /pkg/policy @cilium/sig-policy
-/pkg/policy/api/ @cilium/api
+/pkg/policy/api/ @cilium/api @cilium/sig-policy
 /pkg/policy/groups/aws/ @cilium/sig-policy @cilium/aws
 /pkg/policy/k8s @cilium/sig-policy
 /pkg/pprof @cilium/sig-foundations
@@ -653,6 +660,7 @@ Makefile* @cilium/build
 /pkg/wal/ @cilium/sig-foundations
 /pkg/wireguard @cilium/wireguard
 /pkg/xds/ @cilium/envoy
+/pkg/ztunnel/ @cilium/ztunnel
 /plugins/cilium-cni/ @cilium/sig-k8s
 /plugins/cilium-docker/ @cilium/docker
 /README.rst @cilium/docs-structure @cilium/release-managers
@@ -660,6 +668,7 @@ Makefile* @cilium/build
 /SECURITY-INSIGHTS.yml @cilium/security
 /stable.txt @cilium/release-managers
 /standalone-dns-proxy/ @cilium/fqdn
+/standalone-dns-proxy/Makefile @cilium/build
 /test/ @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
@@ -671,22 +680,21 @@ Makefile* @cilium/build
 # Policy tests
 /test/k8s/chaos.go @cilium/sig-policy
 /test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
-/test/runtime/net_policies.go @cilium/sig-policy @cilium/ci-structure
 # Hubble/monitoring tests
 /test/k8s/hubble.go @cilium/sig-hubble @cilium/ci-structure
 /test/runtime/monitor.go @cilium/sig-hubble @cilium/ci-structure
 # L7 proxy tests
 /test/k8s/fqdn.go @cilium/fqdn @cilium/ci-structure
 /test/k8s/kafka_policies.go @cilium/envoy @cilium/ci-structure
-/test/runtime/fqdn.go @cilium/fqdn @cilium/ci-structure
 # BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
 /test/k8s/config.go @cilium/sig-k8s
 /test/k8s/pod_mac_address.go @cilium/sig-k8s
+/tools/ @cilium/contributing
+/tools/complexity-diff @cilium/loader
 /tools/dpgen @cilium/loader
 /tools/metricslint @cilium/metrics
-/tools/ @cilium/contributing
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor

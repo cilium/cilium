@@ -15,17 +15,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func TestL4Policy(t *testing.T) {
 	td := newTestData(hivetest.Logger(t))
 
-	rule1 := api.Rule{
+	rule1 := &api.Rule{
 		EndpointSelector: endpointSelectorA,
 		Ingress: []api.IngressRule{
 			{
@@ -53,15 +55,27 @@ func TestL4Policy(t *testing.T) {
 		},
 	}
 
+	// Transform to PolicyEntries and set priority level to 0.5
+	require.NoError(t, rule1.Sanitize())
+	entries := utils.RulesToPolicyEntries(api.Rules{rule1})
+	require.Len(t, entries, 2)
+	for i := range entries {
+		entries[i].Priority = 0.5
+	}
+
 	l7rules := api.L7Rules{
 		HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 	}
 	l7map := L7DataMap{
 		td.wildcardCachedSelector: &PerSelectorPolicy{
-			L7Parser: ParserTypeHTTP,
-			Priority: ListenerPriorityHTTP,
-			L7Rules:  l7rules,
+			L7Parser:         ParserTypeHTTP,
+			ListenerPriority: ListenerPriorityHTTP,
+			L7Rules:          l7rules,
+			Priority:         0, // will still be zero, since there is only one "tier" of entry priorities
 		},
+	}
+	l7mapLevelOnly := L7DataMap{
+		td.wildcardCachedSelector: nil, // allow priority zero is compressed to nil
 	}
 
 	expected := NewL4Policy(0)
@@ -80,30 +94,24 @@ func TestL4Policy(t *testing.T) {
 
 	expected.Egress.PortRules.Upsert("3000", 0, "TCP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
-		wildcard: td.wildcardCachedSelector,
-		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: nil,
-		},
-		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		wildcard:            td.wildcardCachedSelector,
+		PerSelectorPolicies: l7mapLevelOnly,
+		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "UDP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
-		wildcard: td.wildcardCachedSelector,
-		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: nil,
-		},
-		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		wildcard:            td.wildcardCachedSelector,
+		PerSelectorPolicies: l7mapLevelOnly,
+		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 	expected.Egress.PortRules.Upsert("3000", 0, "SCTP", &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
-		wildcard: td.wildcardCachedSelector,
-		PerSelectorPolicies: L7DataMap{
-			td.wildcardCachedSelector: nil,
-		},
-		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
+		wildcard:            td.wildcardCachedSelector,
+		PerSelectorPolicies: l7mapLevelOnly,
+		RuleOrigin:          OriginForTest(map[CachedSelector]labels.LabelArrayList{td.wildcardCachedSelector: {nil}}),
 	})
 
-	td.policyMapEquals(t, expected.Ingress.PortRules, expected.Egress.PortRules, &rule1)
+	td.policyMapEqualsPolicyEntries(t, expected.Ingress.PortRules, expected.Egress.PortRules, entries...)
 
 	// This rule actually overlaps with the existing ingress "http" rule,
 	// so we'd expect it to merge.
@@ -149,8 +157,8 @@ func TestL4Policy(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
@@ -325,15 +333,15 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
 			},
 			td.cachedSelectorB: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -385,14 +393,14 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 	}
 	l7map := L7DataMap{
 		td.wildcardCachedSelector: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  l7rules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          l7rules,
 		},
 		td.cachedSelectorB: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  l7rules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          l7rules,
 		},
 	}
 
@@ -458,14 +466,14 @@ func TestMergeL7PolicyIngress(t *testing.T) {
 	// The L3-dependent L7 rules are not merged together.
 	l7map = L7DataMap{
 		td.cachedSelectorB: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  fooRules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          fooRules,
 		},
 		td.wildcardCachedSelector: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  barRules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          barRules,
 		},
 	}
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
@@ -529,15 +537,15 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 		wildcard: td.wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
 				},
 			},
 			td.cachedSelectorB: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/private", Method: "GET"}},
 				},
@@ -598,15 +606,15 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: &PerSelectorPolicy{
-					L7Parser: ParserTypeHTTP,
-					Priority: ListenerPriorityHTTP,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
 					},
 				},
 				td.cachedSelectorB: &PerSelectorPolicy{
-					L7Parser: ParserTypeHTTP,
-					Priority: ListenerPriorityHTTP,
+					L7Parser:         ParserTypeHTTP,
+					ListenerPriority: ListenerPriorityHTTP,
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{{Path: "/private", Method: "GET"}},
 					},
@@ -623,15 +631,15 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 			wildcard: td.wildcardCachedSelector,
 			PerSelectorPolicies: L7DataMap{
 				td.wildcardCachedSelector: &PerSelectorPolicy{
-					L7Parser: ParserTypeKafka,
-					Priority: ListenerPriorityKafka,
+					L7Parser:         ParserTypeKafka,
+					ListenerPriority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{{Topic: "foo"}, {}},
 					},
 				},
 				td.cachedSelectorB: &PerSelectorPolicy{
-					L7Parser: ParserTypeKafka,
-					Priority: ListenerPriorityKafka,
+					L7Parser:         ParserTypeKafka,
+					ListenerPriority: ListenerPriorityKafka,
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{{Topic: "foo"}},
 					},
@@ -691,14 +699,14 @@ func TestMergeL7PolicyEgress(t *testing.T) {
 	// The l3-dependent l7 rules are not merged together.
 	l7map := L7DataMap{
 		td.cachedSelectorB: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  fooRules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          fooRules,
 		},
 		td.wildcardCachedSelector: &PerSelectorPolicy{
-			L7Parser: ParserTypeKafka,
-			Priority: ListenerPriorityKafka,
-			L7Rules:  barRules,
+			L7Parser:         ParserTypeKafka,
+			ListenerPriority: ListenerPriorityKafka,
+			L7Rules:          barRules,
 		},
 	}
 	expected = NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
@@ -1174,6 +1182,8 @@ func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
 }
 
 func TestL3RuleLabels(t *testing.T) {
+	logger := hivetest.Logger(t)
+
 	ruleLabels := map[string]labels.LabelArray{
 		"rule0": labels.ParseLabelArray("name=apiRule0"),
 		"rule1": labels.ParseLabelArray("name=apiRule1"),
@@ -1257,7 +1267,7 @@ func TestL3RuleLabels(t *testing.T) {
 
 	for i, test := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
+			td := newTestData(logger).withIDs(ruleTestIDs)
 
 			for _, r := range test.rulesToApply {
 				td.repo.mustAdd(rules[r])
@@ -1287,7 +1297,7 @@ func TestL3RuleLabels(t *testing.T) {
 						for sel := range filter.PerSelectorPolicies {
 							cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
 							t.Logf("Testing %+v", cidrLabels)
-							if matches = sel.(*identitySelector).source.(*labelIdentitySelector).xxxMatches(cidrLabels); matches {
+							if matches = sel.(*identitySelector).source.(*types.CIDRSelector).Matches(cidrLabels); matches {
 								break
 							}
 						}
@@ -1476,13 +1486,13 @@ func TestRuleLog(t *testing.T) {
 
 	// endpoint b should have all 3 rules
 	td.repo.MustAddList(rules)
-	verdict, egress, _, err := LookupFlow(td.repo.logger, td.repo, flowAToB, nil, nil)
+	verdict, egress, _, err := LookupFlow(td.repo.logger, td.repo, td.identityManager, flowAToB, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, api.Allowed, verdict)
 	require.Equal(t, []string{"rule1", "rule2", "rule3"}, egress.Log())
 
 	// endpoint c should have just rule3
-	verdict, egress, _, err = LookupFlow(td.repo.logger, td.repo, flowAToC, nil, nil)
+	verdict, egress, _, err = LookupFlow(td.repo.logger, td.repo, td.identityManager, flowAToC, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, api.Allowed, verdict)
 	require.Equal(t, []string{"rule3"}, egress.Log())
@@ -1496,6 +1506,7 @@ var (
 	}
 	idA               = identity.NewIdentity(1001, labelsA.Labels())
 	endpointSelectorA = api.NewESFromLabels(labels.ParseSelectLabel("id=a"))
+	labelSelectorA    = types.NewLabelSelector(endpointSelectorA)
 
 	labelsB = labels.LabelArray{
 		labels.NewLabel("id1", "b", labels.LabelSourceK8s),
@@ -1511,6 +1522,7 @@ var (
 	}
 	idC               = identity.NewIdentity(1003, labelsC.Labels())
 	endpointSelectorC = api.NewESFromLabels(labels.ParseSelectLabel("id=t"))
+	labelSelectorC    = types.NewLabelSelector(endpointSelectorC)
 
 	flowAToB   = Flow{From: idA, To: idB, Proto: u8proto.TCP, Dport: 80}
 	flowAToC   = Flow{From: idA, To: idC, Proto: u8proto.TCP, Dport: 80}
@@ -1526,7 +1538,7 @@ var (
 	}
 
 	defaultDenyIngress = &types.PolicyEntry{
-		Subject:     api.WildcardEndpointSelector,
+		Subject:     types.WildcardSelector,
 		Ingress:     true,
 		DefaultDeny: true,
 	}
@@ -1536,7 +1548,7 @@ var (
 	}
 )
 
-func checkFlow(t *testing.T, repo *Repository, flow Flow, verdict api.Decision) {
+func checkFlow(t *testing.T, repo *Repository, idManager identitymanager.IDManager, flow Flow, verdict api.Decision) {
 	t.Helper()
 
 	srcEP := &EndpointInfo{
@@ -1548,7 +1560,8 @@ func checkFlow(t *testing.T, repo *Repository, flow Flow, verdict api.Decision) 
 		ID:            2,
 		TCPNamedPorts: namedPorts,
 	}
-	actual, _, _, err := LookupFlow(hivetest.Logger(t), repo, flow, srcEP, dstEP)
+
+	actual, _, _, err := LookupFlow(hivetest.Logger(t), repo, idManager, flow, srcEP, dstEP)
 	require.NoError(t, err)
 	require.Equal(t, verdict, actual)
 }
@@ -1561,17 +1574,15 @@ func TestIngressAllowAll(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
-				api.WildcardEndpointSelector,
-			},
+			L3: types.ToSelectors(api.WildcardEndpointSelector),
 		}})
 
-	checkFlow(t, repo, flowAToB, api.Denied)
-	checkFlow(t, repo, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToB, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
 
-	checkFlow(t, repo, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
 }
 
 func TestIngressAllowAllL4Overlap(t *testing.T) {
@@ -1583,15 +1594,13 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
-				api.WildcardEndpointSelector,
-			},
+			L3: types.ToSelectors(api.WildcardEndpointSelector),
 		}, &types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
 			// port 80 only
@@ -1603,22 +1612,21 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
 }
 
 func TestIngressAllowAllNamedPort(t *testing.T) {
-	repo := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs).repo
+	td := newTestData(hivetest.Logger(t)).withIDs(ruleTestIDs)
+	repo := td.repo
 	repo.MustAddPolicyEntries(types.PolicyEntries{
 		defaultDenyIngress,
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
-				api.WildcardEndpointSelector,
-			},
+			L3: types.ToSelectors(api.WildcardEndpointSelector),
 			L4: []api.PortRule{{
 				Ports: []api.PortProtocol{
 					{Port: "port-80", Protocol: api.ProtoTCP},
@@ -1627,9 +1635,9 @@ func TestIngressAllowAllNamedPort(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToB, api.Denied)
-	checkFlow(t, repo, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToB, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
 }
 
 func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
@@ -1640,15 +1648,13 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
-			L3: types.PeerSelectorSlice{
-				api.WildcardEndpointSelector,
-			},
+			L3: types.ToSelectors(api.WildcardEndpointSelector),
 		}, &types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
+			Subject:     labelSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
 			// port 80 only
@@ -1659,8 +1665,8 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 			}},
 		},
 	})
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
 }
 
 func TestIngressL4AllowAll(t *testing.T) {
@@ -1671,8 +1677,8 @@ func TestIngressL4AllowAll(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorC,
-			L3:          types.PeerSelectorSlice{},
+			Subject:     labelSelectorC,
+			L3:          types.Selectors{},
 			L4: []api.PortRule{{
 				Ports: []api.PortProtocol{
 					{Port: "80", Protocol: api.ProtoTCP},
@@ -1680,8 +1686,8 @@ func TestIngressL4AllowAll(t *testing.T) {
 			}},
 		},
 	})
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
 
 	pol, err := repo.resolvePolicyLocked(idC)
 	require.NoError(t, err)
@@ -1714,8 +1720,8 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
 
 	pol, err := repo.resolvePolicyLocked(idC)
 	require.NoError(t, err)
@@ -1749,9 +1755,9 @@ func TestEgressAllowAll(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, flowAToB, api.Allowed)
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToB, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
 
 }
 
@@ -1773,9 +1779,9 @@ func TestEgressL4AllowAll(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, flowAToB, api.Allowed)
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToB, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
 
 	pol, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -1812,12 +1818,12 @@ func TestEgressL4AllowWorld(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, flowAToWorld80, api.Allowed)
-	checkFlow(t, repo, flowAToWorld90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToWorld80, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToWorld90, api.Denied)
 
 	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
-	checkFlow(t, repo, flowAToC, api.Denied)
-	checkFlow(t, repo, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
 
 	pol, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -1852,12 +1858,12 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, flowAToWorld80, api.Allowed)
-	checkFlow(t, repo, flowAToWorld90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToWorld80, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToWorld90, api.Denied)
 
 	// Pod to pod must be allowed on port 80, denied on port 90 (all identity)
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
 
 	pol, err := repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
@@ -1887,12 +1893,12 @@ func TestEgressL3AllowWorld(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, flowAToWorld80, api.Allowed)
-	checkFlow(t, repo, flowAToWorld90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToWorld80, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToWorld90, api.Allowed)
 
 	// Pod to pod must be denied on port 80 and 90, only world was whitelisted
-	checkFlow(t, repo, flowAToC, api.Denied)
-	checkFlow(t, repo, flowAToC90, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Denied)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Denied)
 }
 
 func TestEgressL3AllowAllEntity(t *testing.T) {
@@ -1911,12 +1917,12 @@ func TestEgressL3AllowAllEntity(t *testing.T) {
 		},
 	})
 
-	checkFlow(t, repo, flowAToWorld80, api.Allowed)
-	checkFlow(t, repo, flowAToWorld90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToWorld80, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToWorld90, api.Allowed)
 
 	// Pod to pod must be allowed on both port 80 and 90 (L3 only rule)
-	checkFlow(t, repo, flowAToC, api.Allowed)
-	checkFlow(t, repo, flowAToC90, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC, api.Allowed)
+	checkFlow(t, repo, td.identityManager, flowAToC90, api.Allowed)
 }
 
 func TestL4WildcardMerge(t *testing.T) {
@@ -1989,8 +1995,8 @@ func TestL4WildcardMerge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2006,8 +2012,8 @@ func TestL4WildcardMerge(t *testing.T) {
 			Port: 7000, Protocol: api.ProtoTCP, U8Proto: 6,
 			PerSelectorPolicies: L7DataMap{
 				td.cachedSelectorC: &PerSelectorPolicy{
-					L7Parser: "testparser",
-					Priority: ListenerPriorityProxylib,
+					L7Parser:         "testparser",
+					ListenerPriority: ListenerPriorityProxylib,
 					L7Rules: api.L7Rules{
 						L7Proto: "testparser",
 						L7:      []api.PortRuleL7{{"Key": "Value"}, {}},
@@ -2119,8 +2125,8 @@ func TestL4WildcardMerge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2176,8 +2182,8 @@ func TestL4WildcardMerge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.wildcardCachedSelector: nil,
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2239,8 +2245,8 @@ func TestL3L4L7Merge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorC: nil,
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2289,8 +2295,8 @@ func TestL3L4L7Merge(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorC: nil,
 			td.wildcardCachedSelector: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
@@ -2312,18 +2318,18 @@ func TestMatches(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject:     endpointSelectorA,
-			L3:          types.PeerSelectorSlice{endpointSelectorC},
+			Subject:     labelSelectorA,
+			L3:          types.Selectors{labelSelectorC},
 		},
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Subject: api.NewESFromLabels(
+			Subject: types.NewLabelSelectorFromLabels(
 				labels.ParseSelectLabel("id=a"),
 				labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),
 			),
 			Node: true,
-			L3:   types.PeerSelectorSlice{endpointSelectorC},
+			L3:   types.Selectors{labelSelectorC},
 		},
 	})
 
@@ -2438,8 +2444,8 @@ func TestMergeL7PolicyEgressWithMultipleSelectors(t *testing.T) {
 		PerSelectorPolicies: L7DataMap{
 			td.cachedSelectorB: nil,
 			td.cachedSelectorC: &PerSelectorPolicy{
-				L7Parser: ParserTypeHTTP,
-				Priority: ListenerPriorityHTTP,
+				L7Parser:         ParserTypeHTTP,
+				ListenerPriority: ListenerPriorityHTTP,
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Method: "GET"}, {Host: "foo"}},
 				},
@@ -2461,26 +2467,26 @@ func TestMergeListenerReference(t *testing.T) {
 	err := ps.mergeRedirect(ps)
 	require.NoError(t, err)
 	require.Empty(t, ps.Listener)
-	require.Equal(t, ListenerPriority(0), ps.Priority)
+	require.Equal(t, ListenerPriority(0), ps.ListenerPriority)
 
 	// Listener reference remains when the other has none
 	ps0 := &PerSelectorPolicy{Listener: "listener0"}
 	err = ps0.mergeRedirect(ps)
 	require.NoError(t, err)
 	require.Equal(t, "listener0", ps0.Listener)
-	require.Equal(t, ListenerPriority(0), ps0.Priority)
+	require.Equal(t, ListenerPriority(0), ps0.ListenerPriority)
 
 	// Listener reference is propagated when there is none to begin with
 	err = ps.mergeRedirect(ps0)
 	require.NoError(t, err)
 	require.Equal(t, "listener0", ps.Listener)
-	require.Equal(t, ListenerPriority(0), ps.Priority)
+	require.Equal(t, ListenerPriority(0), ps.ListenerPriority)
 
 	// A listener is not changed when there is no change
 	err = ps0.mergeRedirect(ps0)
 	require.NoError(t, err)
 	require.Equal(t, "listener0", ps0.Listener)
-	require.Equal(t, ListenerPriority(0), ps0.Priority)
+	require.Equal(t, ListenerPriority(0), ps0.ListenerPriority)
 
 	// Cannot merge two different listeners with the default (zero) priority
 	ps0a := &PerSelectorPolicy{Listener: "listener0a"}
@@ -2492,46 +2498,46 @@ func TestMergeListenerReference(t *testing.T) {
 
 	// Listener with a defined (non-zero) priority takes precedence over
 	// a listener with an undefined (zero) priority
-	ps1 := &PerSelectorPolicy{Listener: "listener1", Priority: 1}
+	ps1 := &PerSelectorPolicy{Listener: "listener1", ListenerPriority: 1}
 	err = ps1.mergeRedirect(ps0)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps1.Listener)
-	require.Equal(t, ListenerPriority(1), ps1.Priority)
+	require.Equal(t, ListenerPriority(1), ps1.ListenerPriority)
 
 	err = ps0.mergeRedirect(ps1)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps0.Listener)
-	require.Equal(t, ListenerPriority(1), ps0.Priority)
+	require.Equal(t, ListenerPriority(1), ps0.ListenerPriority)
 
 	// Listener with the lower priority value takes precedence
-	ps2 := &PerSelectorPolicy{Listener: "listener2", Priority: 2}
+	ps2 := &PerSelectorPolicy{Listener: "listener2", ListenerPriority: 2}
 	err = ps1.mergeRedirect(ps2)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps1.Listener)
-	require.Equal(t, ListenerPriority(1), ps1.Priority)
+	require.Equal(t, ListenerPriority(1), ps1.ListenerPriority)
 
 	err = ps2.mergeRedirect(ps1)
 	require.NoError(t, err)
 	require.Equal(t, "listener1", ps2.Listener)
-	require.Equal(t, ListenerPriority(1), ps2.Priority)
+	require.Equal(t, ListenerPriority(1), ps2.ListenerPriority)
 
 	// Cannot merge two different listeners with the same priority
-	ps12 := &PerSelectorPolicy{Listener: "listener1", Priority: 2}
-	ps2 = &PerSelectorPolicy{Listener: "listener2", Priority: 2}
+	ps12 := &PerSelectorPolicy{Listener: "listener1", ListenerPriority: 2}
+	ps2 = &PerSelectorPolicy{Listener: "listener2", ListenerPriority: 2}
 	err = ps12.mergeRedirect(ps2)
 	require.Error(t, err)
 	err = ps2.mergeRedirect(ps12)
 	require.Error(t, err)
 
 	// Lower priority is propagated also when the listeners are the same
-	ps23 := &PerSelectorPolicy{Listener: "listener2", Priority: 3}
+	ps23 := &PerSelectorPolicy{Listener: "listener2", ListenerPriority: 3}
 	err = ps2.mergeRedirect(ps23)
 	require.NoError(t, err)
 	require.Equal(t, "listener2", ps2.Listener)
-	require.Equal(t, ListenerPriority(2), ps2.Priority)
+	require.Equal(t, ListenerPriority(2), ps2.ListenerPriority)
 
 	err = ps23.mergeRedirect(ps2)
 	require.NoError(t, err)
 	require.Equal(t, "listener2", ps23.Listener)
-	require.Equal(t, ListenerPriority(2), ps23.Priority)
+	require.Equal(t, ListenerPriority(2), ps23.ListenerPriority)
 }

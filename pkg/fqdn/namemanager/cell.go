@@ -124,16 +124,16 @@ type NameManager interface {
 	// associated with that selector.
 	// This function also evaluates if any DNS names in the cache are matched by
 	// this new selector and updates the labels for those DNS names accordingly.
-	RegisterFQDNSelector(selector api.FQDNSelector)
+	RegisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64)
 
 	// UnregisterFQDNSelector removes this FQDNSelector from the set of
 	// IPs which are being tracked by the identityNotifier. The result
 	// of this is that an IP may be evicted from IPCache if it is no longer
 	// selected by any other FQDN selector.
-	UnregisterFQDNSelector(selector api.FQDNSelector)
+	UnregisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevision uint64)
 	// UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 	// have changed for a name they will be reflected in updatedDNSIPs.
-	UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, name string, record *fqdn.DNSIPRecords) <-chan error
+	UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, name string, record *fqdn.DNSIPRecords, caches ...*fqdn.DNSCache) <-chan error
 
 	// LockName is used to serialize  parallel end-to-end updates to the same name.
 	LockName(name string)

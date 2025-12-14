@@ -7,9 +7,12 @@
 #include <bpf/config/node.h>
 #include <netdev_config.h>
 
+#define IS_BPF_NETWORK 1
+
 #include "lib/common.h"
+#include "lib/drop.h"
 #include "lib/trace.h"
-#include "lib/encrypt.h"
+#include "lib/ipsec.h"
 
 __section_entry
 int cil_from_network(struct __ctx_buff *ctx)
@@ -38,7 +41,7 @@ int cil_from_network(struct __ctx_buff *ctx)
 	 * from the stack by xfrm. In that case, the packets should
 	 * be marked with MARK_MAGIC_DECRYPT.
 	 */
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+	if (ctx_is_decrypt(ctx))
 		obs_point_from = TRACE_FROM_STACK;
 
 	/* Pass unknown protocols to the stack */
@@ -46,6 +49,8 @@ int cil_from_network(struct __ctx_buff *ctx)
 		goto out;
 
 	ret = do_decrypt(ctx, proto);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, UNKNOWN_ID, ret, METRIC_INGRESS);
 #endif
 
 /* We need to handle following possible packets come to this program
@@ -72,7 +77,7 @@ int cil_from_network(struct __ctx_buff *ctx)
  * because it doesn't matter for the non-IPSec mode.
  */
 #ifdef ENABLE_IPSEC
-	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+	if (ctx_is_decrypt(ctx))
 		trace.reason = TRACE_REASON_ENCRYPTED;
 
 	/* Only possible redirect in here is the one in the do_decrypt

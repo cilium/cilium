@@ -214,7 +214,8 @@ clusters.
 
    ClusterIP:
      A Kubernetes service of type ClusterIP is used to expose the control
-     plane. This requires the ClusterIPs are routable between clusters.
+     plane. This requires the ClusterIPs are routable between clusters. This is
+     typically only available via the helm chart installation method.
 
 Wait for the Cluster Mesh components to come up by invoking ``cilium
 clustermesh status --wait``. If you are using a service of type LoadBalancer

@@ -89,7 +89,6 @@ runs:
             --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
             --helm-set=l2NeighDiscovery.enabled=true \
-            --helm-set-string=encryption.ipsec.keyRotationDuration="1m" \
             --set='${{ inputs.misc }}' \
             --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
             --set-string=extraEnv[0].value=true \
@@ -214,7 +213,7 @@ runs:
 
           LOCAL_REDIRECT_POLICY=""
           if [ "${{ inputs.local-redirect-policy }}" == "true" ]; then
-            LOCAL_REDIRECT_POLICY="--helm-set=localRedirectPolicy=true"
+            LOCAL_REDIRECT_POLICY="--helm-set=localRedirectPolicies.enabled=true"
           fi
 
           BGP_CONTROL_PLANE=""

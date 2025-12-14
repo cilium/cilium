@@ -129,23 +129,22 @@ spec:
         - --trusted-ca-file=/var/lib/etcd-secrets/ca.crt
         - --cert-file=/var/lib/etcd-secrets/tls.crt
         - --key-file=/var/lib/etcd-secrets/tls.key
-        # Surrounding the IPv4 address with brackets works in this case, since etcd
-        # uses net.SplitHostPort() internally and it accepts the that format.
-        - --listen-client-urls=https://127.0.0.1:2379,https://[$(HOSTNAME_IP)]:2379
-        - --advertise-client-urls=https://[$(HOSTNAME_IP)]:2379
+        - --listen-client-urls=https://0.0.0.0:2379
+        # We advertise localhost as client URLs for convenience, even though
+        # technically not correct. However, it doesn't matter, as this is a
+        # single replica cluster, and clients directly connect to it via the
+        # address provided as part of their configuration.
+        - --advertise-client-urls=https://localhost:2379
         - --initial-cluster-token=$(INITIAL_CLUSTER_TOKEN)
         - --auto-compaction-retention=1
+        - --enable-grpc-gateway=false
         {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
-        - --listen-metrics-urls=http://[$(HOSTNAME_IP)]:{{ .Values.clustermesh.apiserver.metrics.etcd.port }}
+        - --listen-metrics-urls=http://0.0.0.0:{{ .Values.clustermesh.apiserver.metrics.etcd.port }}
         - --metrics={{ .Values.clustermesh.apiserver.metrics.etcd.mode }}
         {{- end }}
         env:
         - name: ETCDCTL_API
           value: "3"
-        - name: HOSTNAME_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
         - name: INITIAL_CLUSTER_TOKEN
           valueFrom:
             fieldRef:
@@ -456,8 +455,17 @@ spec:
                 path: common-etcd-client.key
               - key: tls.crt
                 path: common-etcd-client.crt
+          {{- if not .Values.tls.caBundle.enabled }}
               - key: ca.crt
                 path: common-etcd-client-ca.crt
+          {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              optional: true
+              items:
+              - key: {{ .Values.tls.caBundle.key }}
+                path: common-etcd-client-ca.crt
+          {{- end }}
       {{- if eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "external"}}
       - configMap:
           defaultMode: 0400

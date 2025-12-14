@@ -264,11 +264,14 @@ func cep(name, ns, nodeIP string) types.CiliumEndpoint {
 	}
 }
 
-type fakeRestorer struct {
-}
+type fakeRestorer struct{}
 
 func (r *fakeRestorer) Await(context.Context) (endpointstate.Restorer, error) {
 	return r, nil
+}
+
+func (r *fakeRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
+	return nil
 }
 
 func (r *fakeRestorer) WaitForEndpointRestore(_ context.Context) error {

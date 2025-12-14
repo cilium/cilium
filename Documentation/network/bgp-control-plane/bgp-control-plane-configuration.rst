@@ -381,11 +381,16 @@ Default value of ``RestartTime`` is 120 seconds. More details on graceful restar
 Transport
 ---------
 
-The transport section of ``CiliumBGPPeerConfig`` can be used to configure a custom
-destination port for a peer's BGP session.
+The transport section of ``CiliumBGPPeerConfig`` can be used to tweak connection settings for a peer's BGP session.
 
 By default, when BGP is operating in `active mode <https://datatracker.ietf.org/doc/html/rfc4271#section-8.2.1>`_
 (with the Cilium agent initiating the TCP connection), the destination port is 179 and the source port is ephemeral.
+The ``peerPort`` field can be used to configure a custom destination port.
+
+The source IP address for the BGP session is by default auto-detected based on the egress interface.
+The ``sourceInterface`` field can be used to override this with the IP address applied in the provided
+network interface. The interface must not have more than one non-loopback, non-multicast
+and non-link-local-IPv6 address per address family.
 
 Here is an example of setting the transport configuration:
 
@@ -398,6 +403,7 @@ Here is an example of setting the transport configuration:
     spec:
       transport:
         peerPort: 179
+        sourceInterface: lo
 
 
 .. _bgp_peer_configuration_afi:
@@ -531,6 +537,7 @@ The following advertisement types are supported by Cilium:
 
 - :ref:`Pod CIDR ranges <bgp-adverts-podcidr>`
 - :ref:`Service Virtual IPs <bgp-adverts-service>`
+- :ref:`Interface IPs <bgp-adverts-interface>`
 
 .. _bgp-adverts-podcidr:
 
@@ -971,6 +978,42 @@ There are some known issues for using this feature:
   end up advertising the same prefix through aggregation, but with different path
   attributes. You can track `this issue
   <https://github.com/cilium/cilium/issues/40585>`__ for updates.
+
+.. _bgp-adverts-interface:
+
+Interface IPs
+^^^^^^^^^^^^^
+
+The BGP control plane can advertise arbitrary IP addresses assigned on a local interface to BGP peers.
+This can be useful for example in multi-homing setups, where a common node's loopback address can be advertised
+via multiple BGP sessions over different network interfaces.
+
+The interface IPs are advertised as exact routes (``/32`` or ``/128`` prefixes).
+IP addresses from the loopback, multicast, IPv6 link-local and IPv4-mapped IPv6 address ranges are not advertised.
+
+.. note::
+    The interface must be administratively enabled and in operationally ``up`` or ``unknown`` state
+    in order to advertise its IP addresses.
+
+The following example can be used to advertise IP addresses assigned on a local interface with the name ``lo``:
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2
+    kind: CiliumBGPAdvertisement
+    metadata:
+      name: bgp-advertisements
+      labels:
+        advertise: bgp
+    spec:
+      advertisements:
+        - advertisementType: "Interface"
+          interface:
+            name: lo
+
+.. note::
+    Cilium does not manage IP addresses on arbitrary (non-Cilium-owned) local interfaces,
+    the node administrator must configure them themselves.
 
 .. _bgp-override:
 

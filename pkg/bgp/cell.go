@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/agent"
 	"github.com/cilium/cilium/pkg/bgp/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgp/api"
+	"github.com/cilium/cilium/pkg/bgp/gobgp"
 	"github.com/cilium/cilium/pkg/bgp/manager"
 	"github.com/cilium/cilium/pkg/bgp/manager/reconciler"
 	"github.com/cilium/cilium/pkg/bgp/manager/store"
@@ -37,8 +38,16 @@ var Cell = cell.Module(
 	// Provide config so that other cells can access it
 	cell.Config(bgp_option.DefaultConfig),
 
-	// The Controller which is the entry point of the module
-	cell.Provide(agent.NewController, signaler.NewBGPCPSignaler),
+	// Main BGP CP components
+	cell.Provide(
+		agent.NewController,
+		signaler.NewBGPCPSignaler,
+		manager.NewBGPRouterManager,
+		// GoBGP is currently the only supported router.
+		// If more are implemented, provide implementation based on configuration.
+		gobgp.NewRouterProvider,
+	),
+
 	cell.ProvidePrivate(
 		// BGP configuration resources
 		newBGPNodeConfigResource,
@@ -54,9 +63,6 @@ var Cell = cell.Module(
 	cell.Provide(
 		// Create a slim Secret store for BGP secrets, which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*slim_core_v1.Secret],
-		// goBGP is currently the only supported RouterManager, if more are
-		// implemented, provide the manager via a Cell that pics implementation based on configuration.
-		manager.NewBGPRouterManager,
 		// Create a CiliumLoadBalancerIPPool store which signals the BGP CP upon each resource event.
 		store.NewBGPCPResourceStore[*v2.CiliumLoadBalancerIPPool],
 		// Create a CiliumPodIPPool store which signals the BGP CP upon each resource event.

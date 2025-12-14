@@ -25,13 +25,19 @@ func Test_MergeRoutePolicies(t *testing.T) {
 	var nilPointerInt64 *int64
 
 	conditionsNeighborOne := types.RoutePolicyConditions{
-		MatchNeighbors: []netip.Addr{netip.MustParseAddr("fd00::1")},
-		MatchFamilies:  []types.Family{{Afi: types.AfiIPv6}},
+		MatchNeighbors: &types.RoutePolicyNeighborMatch{
+			Type:      types.RoutePolicyMatchAny,
+			Neighbors: []netip.Addr{netip.MustParseAddr("fd00::1")},
+		},
+		MatchFamilies: []types.Family{{Afi: types.AfiIPv6}},
 	}
 
 	conditionsNeighborThree := types.RoutePolicyConditions{
-		MatchNeighbors: []netip.Addr{netip.MustParseAddr("fd00::3")},
-		MatchFamilies:  []types.Family{{Afi: types.AfiIPv6}},
+		MatchNeighbors: &types.RoutePolicyNeighborMatch{
+			Type:      types.RoutePolicyMatchAny,
+			Neighbors: []netip.Addr{netip.MustParseAddr("fd00::3")},
+		},
+		MatchFamilies: []types.Family{{Afi: types.AfiIPv6}},
 	}
 
 	tests := []struct {
@@ -988,32 +994,50 @@ func TestRoutePolicySoftReset(t *testing.T) {
 
 			current := RoutePolicyMap{}
 			for _, policy := range tt.currentPolicies {
-				current[policy.name] = &types.RoutePolicy{
+				routePolicy := &types.RoutePolicy{
 					Name: policy.name,
 					Type: policy.typ,
 					Statements: []*types.RoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: policy.neighbors,
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
 							},
 						},
 					},
 				}
+				if len(policy.neighbors) > 0 {
+					routePolicy.Statements[0].Conditions = types.RoutePolicyConditions{
+						MatchNeighbors: &types.RoutePolicyNeighborMatch{
+							Type:      types.RoutePolicyMatchAny,
+							Neighbors: policy.neighbors,
+						},
+					}
+				}
+				current[policy.name] = routePolicy
 			}
 
 			desired := RoutePolicyMap{}
 			for _, policy := range tt.desiredPolicies {
-				desired[policy.name] = &types.RoutePolicy{
+				routePolicy := &types.RoutePolicy{
 					Name: policy.name,
 					Type: policy.typ,
 					Statements: []*types.RoutePolicyStatement{
 						{
-							Conditions: types.RoutePolicyConditions{
-								MatchNeighbors: policy.neighbors,
+							Actions: types.RoutePolicyActions{
+								RouteAction: types.RoutePolicyActionAccept,
 							},
 						},
 					},
 				}
+				if len(policy.neighbors) > 0 {
+					routePolicy.Statements[0].Conditions = types.RoutePolicyConditions{
+						MatchNeighbors: &types.RoutePolicyNeighborMatch{
+							Type:      types.RoutePolicyMatchAny,
+							Neighbors: policy.neighbors,
+						},
+					}
+				}
+				desired[policy.name] = routePolicy
 			}
 
 			_, err := ReconcileRoutePolicies(&ReconcileRoutePoliciesParams{

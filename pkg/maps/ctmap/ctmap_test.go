@@ -11,11 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 func init() {
-	InitMapInfo(nil, true, true, true)
+	nat4, nat6 := nat.GlobalMaps(nil, true, true)
+	InitMapInfo(nil, true, true, nat4, nat6)
 }
 
 func TestCalculateInterval(t *testing.T) {
@@ -56,26 +58,4 @@ func TestGetInterval(t *testing.T) {
 	require.Equal(t, 20*time.Second, GetInterval(logger, actualLast, expectedLast, 0.1))
 	option.Config.ConntrackGCMaxInterval = oldMaxInterval
 	require.Equal(t, time.Minute, GetInterval(logger, actualLast, expectedLast, 0.1))
-}
-
-func TestFilterMapsByProto(t *testing.T) {
-	maps := []*Map{
-		newMap("tcp4", mapTypeIPv4TCPGlobal),
-		newMap("any4", mapTypeIPv4AnyGlobal),
-		newMap("tcp6", mapTypeIPv6TCPGlobal),
-		newMap("any6", mapTypeIPv6AnyGlobal),
-	}
-
-	ctMapTCP, ctMapAny := FilterMapsByProto(maps, CTMapIPv4)
-	require.Equal(t, mapTypeIPv4TCPGlobal, ctMapTCP.mapType)
-	require.Equal(t, mapTypeIPv4AnyGlobal, ctMapAny.mapType)
-
-	ctMapTCP, ctMapAny = FilterMapsByProto(maps, CTMapIPv6)
-	require.Equal(t, mapTypeIPv6TCPGlobal, ctMapTCP.mapType)
-	require.Equal(t, mapTypeIPv6AnyGlobal, ctMapAny.mapType)
-
-	maps = maps[0:2] // remove ipv6 maps
-	ctMapTCP, ctMapAny = FilterMapsByProto(maps, CTMapIPv6)
-	require.Nil(t, ctMapTCP)
-	require.Nil(t, ctMapAny)
 }

@@ -25,19 +25,6 @@ type EgressCommonRule struct {
 	// +kubebuilder:validation:Optional
 	ToEndpoints []EndpointSelector `json:"toEndpoints,omitempty"`
 
-	// ToRequires is a list of additional constraints which must be met
-	// in order for the selected endpoints to be able to connect to other
-	// endpoints. These additional constraints do no by itself grant access
-	// privileges and must always be accompanied with at least one matching
-	// ToEndpoints.
-	//
-	// Example:
-	// Any Endpoint with the label "team=A" requires any endpoint to which it
-	// communicates to also carry the label "team=A".
-	//
-	// +kubebuilder:validation:Optional
-	ToRequires []EndpointSelector `json:"toRequires,omitempty"`
-
 	// ToCIDR is a list of IP blocks which the endpoint subject to the rule
 	// is allowed to initiate connections. Only connections destined for
 	// outside of the cluster and not targeting the host will be subject
@@ -67,7 +54,7 @@ type EgressCommonRule struct {
 	// initiate connections to 10.2.3.0/24 except from IPs in subnet 10.2.3.0/28.
 	//
 	// +kubebuilder:validation:Optional
-	ToCIDRSet CIDRRuleSlice `json:"toCIDRSet,omitempty"`
+	ToCIDRSet CIDRRuleSlice `json:"toCIDRSet,omitzero"`
 
 	// ToEntities is a list of special entities to which the endpoint subject
 	// to the rule is allowed to initiate connections. Supported entities are
@@ -133,9 +120,7 @@ func (in *EgressCommonRule) DeepEqual(other *EgressCommonRule) bool {
 //     member will have no effect on the rule.
 //
 //   - If multiple members of the structure are specified, then all members
-//     must match in order for the rule to take effect. The exception to this
-//     rule is the ToRequires member; the effects of any Requires field in any
-//     rule will apply to all other rules as well.
+//     must match in order for the rule to take effect.
 //
 //   - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
 //     mutually exclusive. Only one of these members may be present within an
@@ -195,9 +180,7 @@ type EgressRule struct {
 //     member will have no effect on the rule.
 //
 //   - If multiple members of the structure are specified, then all members
-//     must match in order for the rule to take effect. The exception to this
-//     rule is the ToRequires member; the effects of any Requires field in any
-//     rule will apply to all other rules as well.
+//     must match in order for the rule to take effect.
 //
 //   - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
 //     mutually exclusive. Only one of these members may be present within an
@@ -227,18 +210,6 @@ type EgressDenyRule struct {
 	ICMPs ICMPRules `json:"icmps,omitempty"`
 }
 
-// AllowsWildcarding returns true if wildcarding should be performed upon
-// policy evaluation for the given rule.
-func (e *EgressRule) AllowsWildcarding() bool {
-	return e.EgressCommonRule.AllowsWildcarding() && len(e.ToFQDNs) == 0
-}
-
-// AllowsWildcarding returns true if wildcarding should be performed upon
-// policy evaluation for the given rule.
-func (e *EgressCommonRule) AllowsWildcarding() bool {
-	return len(e.ToRequires)+len(e.ToServices) == 0
-}
-
 // RequiresDerivative returns true when the EgressCommonRule contains sections
 // that need a derivative policy created in order to be enforced
 // (e.g. ToGroups).
@@ -251,7 +222,6 @@ func (e *EgressCommonRule) IsL3() bool {
 		return false
 	}
 	return len(e.ToEndpoints) > 0 ||
-		len(e.ToRequires) > 0 ||
 		len(e.ToCIDR) > 0 ||
 		len(e.ToCIDRSet) > 0 ||
 		len(e.ToEntities) > 0 ||
@@ -273,7 +243,7 @@ func (e *EgressRule) CreateDerivative(ctx context.Context) (*EgressRule, error) 
 	if err != nil {
 		return &EgressRule{}, err
 	}
-	newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
+	newRule.ToCIDRSet = append(newRule.ToCIDRSet, cidrSet...)
 	newRule.ToGroups = nil
 	return newRule, nil
 }
@@ -292,7 +262,7 @@ func (e *EgressDenyRule) CreateDerivative(ctx context.Context) (*EgressDenyRule,
 	if err != nil {
 		return &EgressDenyRule{}, err
 	}
-	newRule.ToCIDRSet = append(e.ToCIDRSet, cidrSet...)
+	newRule.ToCIDRSet = append(newRule.ToCIDRSet, cidrSet...)
 	newRule.ToGroups = nil
 	return newRule, nil
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/mac"
 )
 
 // fakeSender mocks the GNeigh Sender, allowing for a feedback channel.
@@ -30,14 +31,15 @@ type fakeSender struct {
 type fakeGarp struct {
 	addr  netip.Addr
 	iface Interface
+	srcHW net.HardwareAddr
 }
 
-func (fs *fakeSender) SendArp(iface Interface, ip netip.Addr) error {
-	fs.sent <- fakeGarp{addr: ip, iface: iface}
+func (fs *fakeSender) SendArp(iface Interface, ip netip.Addr, srcHW net.HardwareAddr) error {
+	fs.sent <- fakeGarp{addr: ip, iface: iface, srcHW: srcHW}
 	return nil
 }
 
-func (fs *fakeSender) SendNd(iface Interface, ip netip.Addr) error {
+func (fs *fakeSender) SendNd(iface Interface, ip netip.Addr, srcHw net.HardwareAddr) error {
 	// Not used in this test
 	return nil
 }
@@ -59,37 +61,43 @@ func (fs *fakeSender) InterfaceByIndex(idx int) (Interface, error) {
 
 	return InterfaceFromNetInterface(
 		&net.Interface{
-			Index: def.Index,
-			Name:  def.Name,
+			Index:        def.Index,
+			Name:         def.Name,
+			HardwareAddr: net.HardwareAddr(def.HardwareAddr),
 		},
 	), nil
 }
 
 var fakeDevices = map[int]*tables.Device{
 	1: {
-		Index:    1,
-		Name:     "lo",
-		Selected: false,
+		Index:        1,
+		Name:         "lo",
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:00:00:00:00:00")),
+		Selected:     false,
 	},
 	2: {
-		Index:    2,
-		Name:     "eth0",
-		Selected: true,
+		Index:        2,
+		Name:         "eth0",
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:02")),
+		Selected:     true,
 	},
 	3: {
-		Index:    3,
-		Name:     "eth0.0",
-		Selected: false,
+		Index:        3,
+		Name:         "eth0.0",
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:03")),
+		Selected:     false,
 	},
 	4: {
-		Index:    4,
-		Name:     "eth0.1",
-		Selected: true,
+		Index:        4,
+		Name:         "eth0.1",
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:04")),
+		Selected:     true,
 	},
 	5: {
-		Index:    5,
-		Name:     "ens1",
-		Selected: true,
+		Index:        5,
+		Name:         "ens1",
+		HardwareAddr: tables.HardwareAddr(mac.MustParseMAC("00:aa:bb:cc:dd:05")),
+		Selected:     true,
 	},
 }
 
@@ -99,6 +107,8 @@ func fixture(t *testing.T, c *Config) (
 	statedb.RWTable[*tables.Device],
 	*processor,
 ) {
+	t.Helper()
+
 	// These allow us to inspect the state of the processor cell.
 	var (
 		garpSent = make(chan fakeGarp, 10)
@@ -195,6 +205,7 @@ func TestProcessorSingleInterface(t *testing.T) {
 	require.Len(t, garps, 1)
 	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
 	require.Equal(t, garps[0].iface.Name(), cfg.L2PodAnnouncementsInterface)
+	require.Equal(t, garps[0].srcHW, net.HardwareAddr(fakeDevices[2].HardwareAddr))
 
 	// On second event we expect no GARP to be sent.
 	proc.EndpointCreated(ep1)
@@ -206,6 +217,7 @@ func TestProcessorSingleInterface(t *testing.T) {
 	require.Len(t, garps, 1)
 	require.Equal(t, garps[0].addr.String(), ep2.IPv4.String())
 	require.Equal(t, garps[0].iface.Name(), cfg.L2PodAnnouncementsInterface)
+	require.Equal(t, garps[0].srcHW, net.HardwareAddr(fakeDevices[2].HardwareAddr))
 
 	// Second event for second endpoint should not trigger a GARP.
 	proc.EndpointCreated(ep2)
@@ -221,6 +233,7 @@ func TestProcessorSingleInterface(t *testing.T) {
 	require.Len(t, garps, 1)
 	require.Equal(t, garps[0].addr.String(), ep1.IPv4.String())
 	require.Equal(t, garps[0].iface.Name(), cfg.L2PodAnnouncementsInterface)
+	require.Equal(t, garps[0].srcHW, net.HardwareAddr(fakeDevices[2].HardwareAddr))
 
 	// But GARP should still not be set for recreated ep2.
 	proc.EndpointCreated(ep2)

@@ -669,6 +669,9 @@ const (
 	// K8sUID is the UID of a K8s object
 	K8sUID = "k8sUID"
 
+	// K8sServiceAccount is the name of a K8s ServiceAccount
+	K8sServiceAccount = "k8sServiceAccount"
+
 	// Attempt is the attempt number if an operation is attempted multiple times
 	Attempt = "attempt"
 
@@ -1489,6 +1492,8 @@ const (
 
 	CRDs = "CRDs"
 
+	CRDName = "crdName"
+
 	PodCIDRs = "podCIDRs"
 
 	LenIPs = "lenIPs"
@@ -1509,8 +1514,6 @@ const (
 
 	EgressAlive = "egressAlive"
 
-	CTMapIPVersion = "ctMapIPVersion"
-
 	ExpectedPrevInterval = "expectedPrevInterval"
 
 	ActualPrevInterval = "actualPrevInterval"
@@ -1529,7 +1532,11 @@ const (
 
 	Cmd = "cmd"
 
+	Maps = "maps"
+
 	Prog = "prog"
+
+	Programs = "programs"
 
 	Table = "table"
 
@@ -1841,4 +1848,6 @@ const (
 	ReloadKeypairError = "reloadKeypairError"
 
 	ReloadCAError = "reloadCAError"
+
+	ExtendedMessage = "extendedMessage"
 )

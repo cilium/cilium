@@ -224,3 +224,7 @@ external software and protocols:
 - `@cilium/wireguard <https://github.com/orgs/cilium/teams/wireguard>`__:
   Maintain the kernel WireGuard configuration and datapath impacts related to
   ensuring traffic is encrypted correctly when WireGuard mode is enabled.
+- `@cilium/ztunnel <https://github.com/orgs/cilium/teams/ztunnel>`__:
+  Maintain the ztunnel mTLS-proxy integration in Cilium to ensure the ztunnel
+  agent receives the necessary information to successfully proxy pod-to-pod
+  traffic through mTLS tunnels.

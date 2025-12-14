@@ -210,9 +210,9 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 	}
 
 	// defined set to match neighbor
-	if len(apiStatement.Conditions.MatchNeighbors) > 0 {
+	if apiStatement.Conditions.MatchNeighbors != nil && len(apiStatement.Conditions.MatchNeighbors.Neighbors) > 0 {
 		neighbors := []string{}
-		for _, addr := range apiStatement.Conditions.MatchNeighbors {
+		for _, addr := range apiStatement.Conditions.MatchNeighbors.Neighbors {
 			neighbors = append(neighbors, netip.PrefixFrom(addr, addr.BitLen()).String())
 		}
 		ds := &gobgp.DefinedSet{
@@ -221,19 +221,19 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 			List:        neighbors,
 		}
 		s.Conditions.NeighborSet = &gobgp.MatchSet{
-			Type: gobgp.MatchSet_ANY, // any of the configured neighbors
+			Type: toGoBGPPolicyMatchType(apiStatement.Conditions.MatchNeighbors.Type),
 			Name: ds.Name,
 		}
 		definedSets = append(definedSets, ds)
 	}
 
 	// defined set to match prefixes
-	if len(apiStatement.Conditions.MatchPrefixes) > 0 {
+	if apiStatement.Conditions.MatchPrefixes != nil && len(apiStatement.Conditions.MatchPrefixes.Prefixes) > 0 {
 		ds := &gobgp.DefinedSet{
 			DefinedType: gobgp.DefinedType_PREFIX,
 			Name:        policyPrefixDefinedSetName(name),
 		}
-		for _, prefix := range apiStatement.Conditions.MatchPrefixes {
+		for _, prefix := range apiStatement.Conditions.MatchPrefixes.Prefixes {
 			p := &gobgp.Prefix{
 				IpPrefix:      prefix.CIDR.String(),
 				MaskLengthMin: uint32(prefix.PrefixLenMin),
@@ -242,7 +242,7 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 			ds.Prefixes = append(ds.Prefixes, p)
 		}
 		s.Conditions.PrefixSet = &gobgp.MatchSet{
-			Type: gobgp.MatchSet_ANY, // any of the configured prefixes
+			Type: toGoBGPPolicyMatchType(apiStatement.Conditions.MatchPrefixes.Type),
 			Name: ds.Name,
 		}
 		definedSets = append(definedSets, ds)
@@ -301,18 +301,26 @@ func toAgentPolicyStatement(s *gobgp.Statement, definedSets map[string]*gobgp.De
 				}
 				neighbors = append(neighbors, neighbor.Addr())
 			}
-			stmt.Conditions.MatchNeighbors = neighbors
+			stmt.Conditions.MatchNeighbors = &types.RoutePolicyNeighborMatch{
+				Type:      toAgentPolicyMatchType(s.Conditions.NeighborSet.Type),
+				Neighbors: neighbors,
+			}
 		}
 		if s.Conditions.PrefixSet != nil && definedSets[s.Conditions.PrefixSet.Name] != nil {
+			prefixes := make([]types.RoutePolicyPrefix, 0, len(definedSets[s.Conditions.PrefixSet.Name].Prefixes))
 			for _, pfx := range definedSets[s.Conditions.PrefixSet.Name].Prefixes {
 				cidr, err := netip.ParsePrefix(pfx.IpPrefix)
 				if err == nil {
-					stmt.Conditions.MatchPrefixes = append(stmt.Conditions.MatchPrefixes, &types.RoutePolicyPrefixMatch{
+					prefixes = append(prefixes, types.RoutePolicyPrefix{
 						CIDR:         cidr,
 						PrefixLenMin: int(pfx.MaskLengthMin),
 						PrefixLenMax: int(pfx.MaskLengthMax),
 					})
 				}
+			}
+			stmt.Conditions.MatchPrefixes = &types.RoutePolicyPrefixMatch{
+				Type:     toAgentPolicyMatchType(s.Conditions.PrefixSet.Type),
+				Prefixes: prefixes,
 			}
 		}
 		for _, family := range s.Conditions.AfiSafiIn {
@@ -388,6 +396,30 @@ func toAgentPolicyType(d gobgp.PolicyDirection) types.RoutePolicyType {
 		return types.RoutePolicyTypeImport
 	}
 	return types.RoutePolicyTypeExport
+}
+
+func toGoBGPPolicyMatchType(apiType types.RoutePolicyMatchType) gobgp.MatchSet_Type {
+	switch apiType {
+	case types.RoutePolicyMatchAny:
+		return gobgp.MatchSet_ANY
+	case types.RoutePolicyMatchAll:
+		return gobgp.MatchSet_ALL
+	case types.RoutePolicyMatchInvert:
+		return gobgp.MatchSet_INVERT
+	}
+	return gobgp.MatchSet_ANY
+}
+
+func toAgentPolicyMatchType(t gobgp.MatchSet_Type) types.RoutePolicyMatchType {
+	switch t {
+	case gobgp.MatchSet_ANY:
+		return types.RoutePolicyMatchAny
+	case gobgp.MatchSet_ALL:
+		return types.RoutePolicyMatchAll
+	case gobgp.MatchSet_INVERT:
+		return types.RoutePolicyMatchInvert
+	}
+	return types.RoutePolicyMatchAny
 }
 
 func toGoBGPSoftResetDirection(direction types.SoftResetDirection) gobgp.ResetPeerRequest_SoftResetDirection {

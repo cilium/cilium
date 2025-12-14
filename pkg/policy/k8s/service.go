@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -240,7 +240,7 @@ func (p *policyWatcher) resolveToServices(key resource.Key, cnp *types.SlimCNP) 
 		svcEndpoints := newServiceEndpoints(svc, txn, p.backends)
 
 		// This extracts the selected service endpoints from the rule
-		// and translates it to a ToCIDRSet
+		// and translates it to a ToCIDRSet/ToEndpoints
 		numMatches := svcEndpoints.processRule(cnp.Spec)
 		for _, spec := range cnp.Specs {
 			numMatches += svcEndpoints.processRule(spec)
@@ -352,36 +352,32 @@ func serviceSelectorMatches(sel *api.K8sServiceSelectorNamespace, svc serviceDet
 	if !(sel.Namespace == svc.getNamespace() || sel.Namespace == "") {
 		return false
 	}
-
-	es := api.EndpointSelector(sel.Selector)
-	es.SyncRequirementsWithLabelSelector()
-
-	r := es.Matches(labelsMatcher(svc.getLabels()))
+	ls := policytypes.NewLabelSelector(api.EndpointSelector(sel.Selector))
+	r := policytypes.Matches(ls, labelsMatcher(svc.getLabels()))
 	return r
 }
 
 type labelsMatcher labels.Labels
 
-// Get implements labels.Labels.
-func (l labelsMatcher) Get(label string) (value string) {
-	v, ok := labels.Labels(l)[label]
-	if ok {
-		value = v.Value
-	}
-	return
+// Get implements labels.LabelMatcher; label source is ignored
+func (l labelsMatcher) GetLabel(label *labels.Label) (value string) {
+	v := l[label.Key]
+	return v.Value
 }
 
-// Has implements labels.Labels.
-func (l labelsMatcher) Has(label string) (exists bool) {
-	return labels.Labels(l).HasLabelWithKey(label)
+// Has implements labels.LabelMatcher.
+func (l labelsMatcher) HasLabel(label *labels.Label) (exists bool) {
+	_, ok := l[label.Key]
+	return ok
 }
 
-func (l labelsMatcher) Lookup(label string) (value string, exists bool) {
-	v, ok := labels.Labels(l)[label]
+// Lookup implements labels.LabelMatcher
+func (l labelsMatcher) LookupLabel(label *labels.Label) (value string, exists bool) {
+	v, ok := l[label.Key]
 	return v.Value, ok
 }
 
-var _ k8sLabels.Labels = labelsMatcher{}
+var _ labels.LabelMatcher = labelsMatcher{}
 
 // serviceRefMatches returns true if the ToServices k8sService reference
 // matches the name/namespace of the provided service svc
@@ -394,8 +390,6 @@ func serviceRefMatches(ref *api.K8sServiceNamespace, svcID loadbalancer.ServiceN
 type serviceEndpoints struct {
 	svc             *loadbalancer.Service
 	backendPrefixes func() backendPrefixes
-
-	enableHighScaleIPcache bool
 }
 
 func (s serviceEndpoints) getLabels() labels.Labels { return s.svc.Labels }
@@ -439,8 +433,9 @@ func appendSelector(toEndpoints *[]api.EndpointSelector, svcSelector map[string]
 	*toEndpoints = append(*toEndpoints, endpointSelector)
 }
 
-// processRule parses the ToServices selectors in the provided rule and translates
-// it to ToCIDRSet entries
+// processRule parses the ToServices selectors in the provided rule and translates it to:
+// - ToCIDRSet entries for services without selector
+// - ToEndpoints entries for services with selector
 func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 	if rule == nil {
 		return
@@ -449,7 +444,7 @@ func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 		for _, toService := range egress.ToServices {
 			if sel := toService.K8sServiceSelector; sel != nil {
 				if serviceSelectorMatches(sel, s) {
-					if len(s.svc.Selector) == 0 || s.enableHighScaleIPcache {
+					if len(s.svc.Selector) == 0 {
 						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.backendPrefixes())
 					} else {
 						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace())
@@ -458,7 +453,7 @@ func (s *serviceEndpoints) processRule(rule *api.Rule) (numMatches int) {
 				}
 			} else if ref := toService.K8sService; ref != nil {
 				if serviceRefMatches(ref, s.svc.Name) {
-					if len(s.svc.Selector) == 0 || s.enableHighScaleIPcache {
+					if len(s.svc.Selector) == 0 {
 						appendEndpoints(&rule.Egress[i].ToCIDRSet, s.backendPrefixes())
 					} else {
 						appendSelector(&rule.Egress[i].ToEndpoints, s.svc.Selector, s.svc.Name.Namespace())

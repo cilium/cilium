@@ -288,6 +288,17 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	case <-allocatedIdentity:
 	}
 
+	releaseNewlyAllocatedIdentity := func() {
+		_, err := e.allocator.Release(context.Background(), id, false)
+		if err != nil {
+			e.getLogger().Warn(
+				"Unable to release newly allocated identity again",
+				logfields.Error, err,
+				logfields.IdentityNew, id.ID,
+			)
+		}
+	}
+
 	// Wait for initial identities and ipcache from the
 	// kvstore before doing any policy calculation for
 	// endpoints that don't have a fixed identity or are
@@ -320,6 +331,7 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 		// is deleted.
 		select {
 		case <-e.aliveCtx.Done():
+			releaseNewlyAllocatedIdentity()
 			return ErrNotAlive
 		case <-gotInitialGlobalIdentities:
 		}
@@ -327,10 +339,12 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 
 	// Wait for registered initializers to complete before allowing endpoint regeneration.
 	if err := regenerator.WaitForFence(e.aliveCtx); err != nil {
+		releaseNewlyAllocatedIdentity()
 		return err
 	}
 
 	if err := e.lockAlive(); err != nil {
+		releaseNewlyAllocatedIdentity()
 		e.getLogger().Warn("Endpoint to restore has been deleted")
 		return err
 	}
@@ -386,8 +400,22 @@ func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	}
 	// The identity of a freshly restored endpoint is incomplete due to some
 	// parts of the identity not being marshaled to JSON. Hence we must set
-	// the identity even if has not changed.
-	e.SetIdentity(id, true)
+	// the identity even if has not changed. This will also upsert the identity
+	// so that other parts of the system can correctly keep track of the identity.
+	identityToRelease := e.SetIdentity(id)
+
+	// If a separate goroutine has already set the identity we need to clear a reference
+	// to avoid leaking a ref.
+	if identityToRelease != nil {
+		_, err := e.allocator.Release(context.Background(), identityToRelease, false)
+		if err != nil {
+			e.getLogger().Warn(
+				"Unable to release old endpoint identity",
+				logfields.Error, err,
+				logfields.IdentityOld, identityToRelease.ID,
+			)
+		}
+	}
 	e.unlock()
 
 	return nil
@@ -401,6 +429,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		ID:                       e.ID,
 		ContainerName:            e.GetContainerName(),
 		ContainerID:              e.GetContainerID(),
+		ContainerNetnsPath:       e.containerNetnsPath,
 		DockerNetworkID:          e.dockerNetworkID,
 		DockerEndpointID:         e.dockerEndpointID,
 		IfName:                   e.ifName,
@@ -450,6 +479,9 @@ type serializableEndpoint struct {
 	// containerID is the container ID that docker has assigned to the endpoint
 	// Note: The JSON tag was kept for backward compatibility.
 	ContainerID string `json:"dockerID,omitempty"`
+
+	// ContainerNetnsPath is the path to the container's network namespace
+	ContainerNetnsPath string
 
 	// dockerNetworkID is the network ID of the libnetwork network if the
 	// endpoint is a docker managed container which uses libnetwork
@@ -581,6 +613,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.initialEnvoyPolicyComputed = make(chan struct{})
 	ep.containerName.Store(&r.ContainerName)
 	ep.containerID.Store(&r.ContainerID)
+	ep.containerNetnsPath = r.ContainerNetnsPath
 	ep.dockerNetworkID = r.DockerNetworkID
 	ep.dockerEndpointID = r.DockerEndpointID
 	ep.ifName = r.IfName

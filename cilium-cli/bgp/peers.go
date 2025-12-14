@@ -49,7 +49,7 @@ func (s *Status) GetPeeringState(ctx context.Context) error {
 			return err
 		}
 		// print the errors, but continue with printing results
-		fmt.Fprintf(os.Stderr, "Errors by retrieving routes: %v\n\n", err)
+		fmt.Fprintf(os.Stderr, "Errors retrieving peering state: %v\n\n", err)
 	}
 
 	return s.writeStatus(res)

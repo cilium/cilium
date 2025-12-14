@@ -30,11 +30,10 @@ var files = map[uint8]string{
 	109: "local_delivery.h",
 	110: "trace.h",
 	111: "encap.h",
-	112: "encrypt.h",
-	113: "host_firewall.h",
-	114: "nodeport_egress.h",
-	115: "ipv6.h",
-	116: "classifiers.h",
+	112: "host_firewall.h",
+	113: "nodeport_egress.h",
+	114: "ipv6.h",
+	115: "classifiers.h",
 
 	// @@ source files list end
 }

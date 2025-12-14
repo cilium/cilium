@@ -59,7 +59,8 @@ func (dt *deleteTracker[Obj]) close() {
 	}
 
 	// Remove the delete tracker from the table.
-	txn := dt.db.WriteTxn(dt.table).getTxn()
+	wtxn := dt.db.WriteTxn(dt.table)
+	txn := wtxn.getTxn()
 	dt.db = nil
 	db := txn.db
 	table := txn.modifiedTables[dt.table.tablePos()]
@@ -67,7 +68,7 @@ func (dt *deleteTracker[Obj]) close() {
 		panic("BUG: Table missing from write transaction")
 	}
 	_, _, table.deleteTrackers = table.deleteTrackers.Delete([]byte(dt.trackerName))
-	txn.Commit()
+	wtxn.Commit()
 
 	db.metrics.DeleteTrackerCount(dt.table.Name(), table.deleteTrackers.Len())
 

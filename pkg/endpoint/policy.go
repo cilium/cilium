@@ -1099,22 +1099,29 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 
 // SetIdentity resets endpoint's policy identity to 'id'.
 // Caller triggers policy regeneration if needed.
+// If an identity was previously set and managed by the agent, it is
+// returned. If the endpoint was restored with an identity without having
+// executed SetIdentity during startup, the old identity is not returned.
 // Called with e.mutex Lock()ed
-func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool) {
+func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) (identityToRelease *identityPkg.Identity) {
 	oldIdentity := "no identity"
 	if e.SecurityIdentity != nil {
 		oldIdentity = e.SecurityIdentity.StringID()
 	}
 
 	// Current security identity for endpoint is its old identity - delete its
-	// reference from global identity manager, add add a reference to the new
-	// identity for the endpoint.
-	if newEndpoint {
+	// reference from global identity manager, add a reference to the new
+	// identity for the endpoint. If the endpoint has never had its identity set,
+	// we should not remove the old identity from the identity manager
+	if e.identitySet {
+		// ensure we return the identity in case we remove it
+		identityToRelease = e.SecurityIdentity
+		e.identityManager.RemoveOldAddNew(e.SecurityIdentity, identity)
+	} else {
 		// TODO - GH-9354.
 		e.identityManager.Add(identity)
-	} else {
-		e.identityManager.RemoveOldAddNew(e.SecurityIdentity, identity)
 	}
+	e.identitySet = true
 	e.SecurityIdentity = identity
 	e.replaceIdentityLabels(labels.LabelSourceAny, identity.Labels)
 
@@ -1143,6 +1150,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity, newEndpoint bool)
 	e.UpdateLogger(map[string]any{
 		logfields.Identity: identity.StringID(),
 	})
+	return identityToRelease
 }
 
 // UpdateNoTrackRules updates the NOTRACK iptable rules for this endpoint. If noTrackPort

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
@@ -18,7 +17,10 @@ import (
 func TestRulesToPolicyEntries(t *testing.T) {
 	lbls := labels.LabelArray{labels.NewLabel("foo", "bar", labels.LabelSourceK8s)}
 	es := api.NewESFromLabels(labels.ParseSelectLabel("foo=bar"))
-	nodeSelector := api.NewESFromLabels(labels.ParseSelectLabel("node=selector"))
+	ls := types.NewLabelSelector(es)
+	nodeEndpointSelector := api.NewESFromLabels(labels.ParseSelectLabel("node=selector"))
+	nodeSelector := types.NewLabelSelector(nodeEndpointSelector)
+
 	trueBool := true
 	falseBool := false
 
@@ -57,14 +59,14 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
 					Ingress:     true,
-					L3: types.PeerSelectorSlice{
+					L3: types.ToSelectors([]types.APISelector{
 						api.NewESFromLabels(labels.ParseSelectLabel("from=endpoint")),
 						api.CIDR("192.168.1.0/24"),
-					},
+					}...),
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -99,14 +101,14 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
 					Deny:        true,
 					Ingress:     true,
-					L3: types.PeerSelectorSlice{
+					L3: types.ToSelectors(
 						api.NewESFromLabels(labels.ParseSelectLabel("from=endpoint")),
-					},
+					),
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -142,14 +144,14 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
 					Ingress:     false,
-					L3: types.PeerSelectorSlice{
+					L3: types.ToSelectors([]types.APISelector{
 						api.NewESFromLabels(labels.ParseSelectLabel("to=endpoint")),
 						api.CIDRRule{Cidr: "10.0.0.0/8"},
-					},
+					}...),
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -184,14 +186,14 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
 					Deny:        true,
 					Ingress:     false,
-					L3: types.PeerSelectorSlice{
+					L3: types.ToSelectors(
 						api.NewESFromLabels(labels.ParseSelectLabel("to=endpoint")),
-					},
+					),
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -206,7 +208,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			name: "node selector",
 			rules: api.Rules{
 				{
-					NodeSelector: nodeSelector,
+					NodeSelector: nodeEndpointSelector,
 					Labels:       lbls,
 					Ingress: []api.IngressRule{
 						{
@@ -228,7 +230,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Labels:      lbls,
 					DefaultDeny: true,
 					Ingress:     true,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -255,19 +257,19 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
 					Ingress:     true,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4:          api.PortRules{},
 				},
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
 					Ingress:     false,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4:          api.PortRules{},
 				},
 			},
@@ -288,19 +290,19 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
 					Ingress:     true,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4:          api.PortRules{},
 				},
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
 					Ingress:     false,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4:          api.PortRules{},
 				},
 			},
@@ -331,41 +333,41 @@ func TestMergeEndpointSelectors(t *testing.T) {
 		cidrSlice     api.CIDRSlice
 		cidrRuleSlice api.CIDRRuleSlice
 		fqdns         api.FQDNSelectorSlice
-		want          types.PeerSelectorSlice
+		want          types.Selectors
 	}{
 		{
 			name: "all nil",
-			want: types.PeerSelectorSlice{},
+			want: types.Selectors{},
 		},
 		{
 			name:      "only endpoints",
 			endpoints: endpoints,
-			want:      types.ToPeerSelectorSlice(endpoints),
+			want:      types.ToSelectors(endpoints...),
 		},
 		{
 			name:  "only nodes",
 			nodes: nodes,
-			want:  types.ToPeerSelectorSlice(nodes),
+			want:  types.ToSelectors(nodes...),
 		},
 		{
 			name:     "only entities",
 			entities: entities,
-			want:     types.ToPeerSelectorSlice(entities.GetAsEndpointSelectors()),
+			want:     types.ToSelectors(entities.GetAsEndpointSelectors()...),
 		},
 		{
 			name:      "only cidrSlice",
 			cidrSlice: cidrSlice,
-			want:      types.ToPeerSelectorSlice(cidrSlice),
+			want:      types.ToSelectors(cidrSlice...),
 		},
 		{
 			name:          "only cidrRuleSlice",
 			cidrRuleSlice: cidrRuleSlice,
-			want:          types.ToPeerSelectorSlice(cidrRuleSlice),
+			want:          types.ToSelectors(cidrRuleSlice...),
 		},
 		{
 			name:  "only fqdns",
 			fqdns: fqdns,
-			want:  types.ToPeerSelectorSlice(fqdns),
+			want:  types.ToSelectors(fqdns...),
 		},
 		{
 			name:          "all present",
@@ -375,14 +377,14 @@ func TestMergeEndpointSelectors(t *testing.T) {
 			cidrSlice:     cidrSlice,
 			cidrRuleSlice: cidrRuleSlice,
 			fqdns:         fqdns,
-			want: types.PeerSelectorSlice{
+			want: types.ToSelectors([]types.APISelector{
 				endpoints[0],
 				nodes[0],
 				entities.GetAsEndpointSelectors()[0],
 				cidrSlice[0],
 				cidrRuleSlice[0],
 				fqdns[0],
-			},
+			}...),
 		},
 		{
 			name:      "empty non-nil endpoints",
@@ -499,47 +501,6 @@ func TestIcmpRules(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := icmpRules(tt.icmpRules)
 			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestConvertToLabelSelectorRequirementSlice(t *testing.T) {
-	tests := []struct {
-		name      string
-		selectors []api.EndpointSelector
-		want      []slim_metav1.LabelSelectorRequirement
-	}{
-		{
-			name:      "empty",
-			selectors: []api.EndpointSelector{},
-			want:      nil,
-		},
-		{
-			name: "single selector",
-			selectors: []api.EndpointSelector{
-				api.NewESFromLabels(labels.ParseSelectLabel("foo=bar")),
-			},
-			want: []slim_metav1.LabelSelectorRequirement{
-				{Key: "any.foo", Operator: slim_metav1.LabelSelectorOpIn, Values: []string{"bar"}},
-			},
-		},
-		{
-			name: "multiple selectors",
-			selectors: []api.EndpointSelector{
-				api.NewESFromLabels(labels.ParseSelectLabel("foo=bar")),
-				api.NewESFromLabels(labels.ParseSelectLabel("baz=qux")),
-			},
-			want: []slim_metav1.LabelSelectorRequirement{
-				{Key: "any.foo", Operator: slim_metav1.LabelSelectorOpIn, Values: []string{"bar"}},
-				{Key: "any.baz", Operator: slim_metav1.LabelSelectorOpIn, Values: []string{"qux"}},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := convertToLabelSelectorRequirementSlice(tt.selectors)
-			assert.ElementsMatch(t, tt.want, got)
 		})
 	}
 }

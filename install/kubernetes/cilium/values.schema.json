@@ -1327,6 +1327,9 @@
                     "Cluster"
                   ]
                 },
+                "externallyCreated": {
+                  "type": "boolean"
+                },
                 "internalTrafficPolicy": {
                   "enum": [
                     "Local",
@@ -1392,17 +1395,6 @@
                       "type": "boolean"
                     },
                     "method": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                },
-                "client": {
-                  "properties": {
-                    "cert": {
-                      "type": "string"
-                    },
-                    "key": {
                       "type": "string"
                     }
                   },
@@ -1581,6 +1573,9 @@
               "type": "object"
             },
             "enabled": {
+              "type": "boolean"
+            },
+            "installCRDs": {
               "type": "boolean"
             }
           },
@@ -1974,6 +1969,49 @@
           "items": {},
           "type": "array"
         },
+        "nodeSpec": {
+          "properties": {
+            "deleteOnTermination": {
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
+            "disablePrefixDelegation": {
+              "type": "boolean"
+            },
+            "excludeInterfaceTags": {
+              "items": {},
+              "type": "array"
+            },
+            "firstInterfaceIndex": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "securityGroupTags": {
+              "items": {},
+              "type": "array"
+            },
+            "securityGroups": {
+              "items": {},
+              "type": "array"
+            },
+            "subnetIDs": {
+              "items": {},
+              "type": "array"
+            },
+            "subnetTags": {
+              "items": {},
+              "type": "array"
+            },
+            "usePrimaryAddress": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "subnetIDsFilter": {
           "items": {},
           "type": "array"
@@ -2115,6 +2153,12 @@
             "null",
             "string"
           ]
+        },
+        "clusterMaxConnections": {
+          "type": "integer"
+        },
+        "clusterMaxRequests": {
+          "type": "integer"
         },
         "connectTimeoutSeconds": {
           "type": "integer"
@@ -2502,6 +2546,9 @@
           },
           "type": "object"
         },
+        "useOriginalSourceAddress": {
+          "type": "boolean"
+        },
         "xffNumTrustedHopsL7PolicyEgress": {
           "type": "integer"
         },
@@ -2723,7 +2770,14 @@
                         "anyOf": [
                           {
                             "properties": {
+                              "aggregationInterval": {
+                                "type": "string"
+                              },
                               "excludeFilters": {
+                                "items": {},
+                                "type": "array"
+                              },
+                              "fieldAggregate": {
                                 "items": {},
                                 "type": "array"
                               },
@@ -2770,6 +2824,9 @@
             },
             "static": {
               "properties": {
+                "aggregationInterval": {
+                  "type": "string"
+                },
                 "allowList": {
                   "items": {},
                   "type": "array"
@@ -2780,6 +2837,10 @@
                 },
                 "enabled": {
                   "type": "boolean"
+                },
+                "fieldAggregate": {
+                  "items": {},
+                  "type": "array"
                 },
                 "fieldMask": {
                   "items": {},
@@ -4039,6 +4100,23 @@
         "multiPoolPreAllocation": {
           "type": "string"
         },
+        "nodeSpec": {
+          "properties": {
+            "ipamMinAllocate": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
+            "ipamPreAllocate": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            }
+          },
+          "type": "object"
+        },
         "operator": {
           "properties": {
             "autoCreateCiliumPodIPPools": {
@@ -5053,6 +5131,14 @@
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "packetizationLayerPMTUD": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"

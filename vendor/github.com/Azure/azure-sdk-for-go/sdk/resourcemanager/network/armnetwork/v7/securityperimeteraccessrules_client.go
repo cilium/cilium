@@ -45,7 +45,7 @@ func NewSecurityPerimeterAccessRulesClient(subscriptionID string, credential azc
 // CreateOrUpdate - Creates or updates a network access rule.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - profileName - The name of the NSP profile.
@@ -103,7 +103,7 @@ func (client *SecurityPerimeterAccessRulesClient) createOrUpdateCreateRequest(ct
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -124,7 +124,7 @@ func (client *SecurityPerimeterAccessRulesClient) createOrUpdateHandleResponse(r
 // Delete - Deletes an NSP access rule.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - profileName - The name of the NSP profile.
@@ -180,7 +180,7 @@ func (client *SecurityPerimeterAccessRulesClient) deleteCreateRequest(ctx contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -189,7 +189,7 @@ func (client *SecurityPerimeterAccessRulesClient) deleteCreateRequest(ctx contex
 // Get - Gets the specified NSP access rule by name.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - profileName - The name of the NSP profile.
@@ -246,7 +246,7 @@ func (client *SecurityPerimeterAccessRulesClient) getCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -263,7 +263,7 @@ func (client *SecurityPerimeterAccessRulesClient) getHandleResponse(resp *http.R
 
 // NewListPager - Lists the NSP access rules in the specified NSP profile.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - profileName - The name of the NSP profile.
@@ -322,7 +322,7 @@ func (client *SecurityPerimeterAccessRulesClient) listCreateRequest(ctx context.
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -340,7 +340,7 @@ func (client *SecurityPerimeterAccessRulesClient) listHandleResponse(resp *http.
 // Reconcile - Reconcile NSP access rules
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkSecurityPerimeterName - The name of the network security perimeter.
 //   - profileName - The name of the NSP profile.
@@ -398,7 +398,7 @@ func (client *SecurityPerimeterAccessRulesClient) reconcileCreateRequest(ctx con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {

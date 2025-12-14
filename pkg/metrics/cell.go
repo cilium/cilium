@@ -14,6 +14,19 @@ import (
 	pkgmetric "github.com/cilium/cilium/pkg/metrics/metric"
 )
 
+// NewCell constructs a metrics cell for the provided module.
+// The returned cell is barebones with an empty registry configured with default
+// sampler and metrics script commands.
+func NewCell(module string) cell.Cell {
+	return cell.Module(
+		fmt.Sprintf("%s-metrics", module),
+		fmt.Sprintf("Metrics for %s module", module),
+		cell.Config(defaultSamplerConfig),
+		cell.Provide(NewRegistry),
+		cell.Provide(metricsCommands, newSampler),
+	)
+}
+
 // Cell provides metrics registry and the 'metrics*' shell commands.
 var Cell = cell.Module("metrics", "Metrics",
 	// Provide registry to hive, but also invoke if case no cells decide to use as dependency
@@ -51,12 +64,6 @@ var AgentCell = cell.Group(
 	),
 )
 
-var OperatorCell = cell.Module("operator-metrics", "Operator Metrics",
-	cell.Config(defaultSamplerConfig),
-	cell.Provide(NewRegistry),
-	cell.Provide(metricsCommands, newSampler),
-)
-
 // Metric constructs a new metric cell.
 //
 // This cell type provides `S` to the hive as returned by `ctor`, it also makes each individual field
@@ -68,11 +75,6 @@ var OperatorCell = cell.Module("operator-metrics", "Operator Metrics",
 // `github.com/cilium/cilium/pkg/metrics/metric.WithMetadata`
 // and `github.com/prometheus/client_golang/prometheus.Collector` interfaces.
 func Metric[S any](ctor func() S) cell.Cell {
-	var (
-		withMeta  pkgmetric.WithMetadata
-		collector prometheus.Collector
-	)
-
 	var nilOut S
 	outTyp := reflect.TypeOf(nilOut)
 	if outTyp.Kind() == reflect.Ptr {
@@ -95,8 +97,6 @@ func Metric[S any](ctor func() S) cell.Cell {
 		))
 	}
 
-	withMetaTyp := reflect.TypeOf(&withMeta).Elem()
-	collectorTyp := reflect.TypeOf(&collector).Elem()
 	for i := range outTyp.NumField() {
 		field := outTyp.Field(i)
 		if !field.IsExported() {
@@ -107,14 +107,14 @@ func Metric[S any](ctor func() S) cell.Cell {
 			))
 		}
 
-		if !field.Type.Implements(withMetaTyp) {
+		if !field.Type.Implements(reflect.TypeFor[pkgmetric.WithMetadata]()) {
 			panic(fmt.Errorf(
 				"The struct returned by the constructor passed to metrics.Metric has a field '%s', which is not metric.WithMetadata.",
 				field.Name,
 			))
 		}
 
-		if !field.Type.Implements(collectorTyp) {
+		if !field.Type.Implements(reflect.TypeFor[prometheus.Collector]()) {
 			panic(fmt.Errorf(
 				"The struct returned by the constructor passed to metrics.Metric has a field '%s', which is not prometheus.Collector.",
 				field.Name,

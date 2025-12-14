@@ -1,0 +1,548 @@
+name: EKS Cluster Pool Manager
+
+# Run on schedule every 2 hours and allow manual triggering
+on:
+  schedule:
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      min_cluster_per_region:
+        description: 'Number of clusters that should exist on each region'
+        required: false
+        default: '2'
+        type: string
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To be able to request the JWT from GitHub's OIDC provider
+  id-token: write
+
+env:
+  # renovate: datasource=github-releases depName=eksctl-io/eksctl
+  eksctl_version: v0.220.0
+
+jobs:
+  generate-cleanup-matrix:
+    name: Generate Cleanup Matrix
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'schedule' }}
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      empty: ${{ steps.set-matrix.outputs.empty }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          destination_directory="/tmp/generated/eks"
+          mkdir -p "${destination_directory}"
+
+          # Convert both version files to JSON
+          yq -o=json ".github/actions/eks/k8s-versions.yaml" | jq . > "${destination_directory}/eks.json"
+          yq -o=json ".github/actions/aws-cni/k8s-versions.yaml" | jq . > "${destination_directory}/aws-cni.json"
+
+      - name: Generate Matrix
+        id: set-matrix
+        run: |
+          cd /tmp/generated/eks
+
+          # Extract unique regions from both version files
+          jq -s '{ "region": ([.[].include[].region] | unique) }' eks.json aws-cni.json > /tmp/matrix.json
+
+          echo "Generated matrix:"
+          cat /tmp/matrix.json
+
+          echo "matrix=$(jq -c . < /tmp/matrix.json)" >> $GITHUB_OUTPUT
+          echo "empty=false" >> $GITHUB_OUTPUT
+
+  cleanup-old-clusters:
+    name: Cleanup clusters older than 3 hours
+    runs-on: ubuntu-24.04
+    needs: generate-cleanup-matrix
+    if: ${{ needs.generate-cleanup-matrix.outputs.empty == 'false' }}
+    timeout-minutes: 30
+    strategy:
+      matrix: ${{ fromJson(needs.generate-cleanup-matrix.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ matrix.region }}
+
+      - name: List and delete old clusters
+        env:
+          REGION: ${{ matrix.region }}
+          MAX_AGE_HOURS: 3
+        run: |
+          set -e
+
+          echo "Checking for clusters in region: ${REGION}"
+
+          # Get current timestamp
+          CURRENT_TIME=$(date +%s)
+          HOURS_AGO=$((CURRENT_TIME - (MAX_AGE_HOURS * 3600)))
+
+          S3_BUCKET="${{ format('{0}-{1}-eks-kubeconfig-pool', github.repository_owner, github.event.repository.name) }}"
+
+          # Clean up stale lock files (older than 1 hour)
+          echo "Cleaning up stale lock files..."
+          LOCK_FILES=$(aws s3 ls "s3://${S3_BUCKET}/locks/" --recursive --region ${REGION} | awk '{print $4}' || echo "")
+          for lock_file in ${LOCK_FILES}; do
+            if [ -n "${lock_file}" ]; then
+              LOCK_TIMESTAMP=$(echo "${lock_file}" | grep -oP 'locks/.*-\K[0-9]+(?=\.lock)' || echo "0")
+              if [ "${LOCK_TIMESTAMP}" != "0" ]; then
+                LOCK_AGE_SECONDS=$((CURRENT_TIME - LOCK_TIMESTAMP))
+                if [ ${LOCK_AGE_SECONDS} -gt 3600 ]; then
+                  echo "Removing stale lock file: ${lock_file} (age: $((LOCK_AGE_SECONDS / 60)) minutes)"
+                  aws s3 rm "s3://${S3_BUCKET}/${lock_file}" --region ${REGION} || true
+                fi
+              fi
+            fi
+          done
+
+          # List all EKS clusters with the usage tag and fetch all needed information at once
+          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --query clusters --output text | \
+            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json 2>/dev/null || echo "[]")
+
+          # Filter clusters by usage tag and extract needed information
+          FILTERED_CLUSTERS=$(echo "${CLUSTERS_JSON}" | jq -r --arg tag_value "${{ github.repository_owner }}-${{ github.event.repository.name }}" \
+            '[.[] | select(.tags.usage == $tag_value)] | if length == 0 then [] else . end')
+
+          if [ "$(echo "${FILTERED_CLUSTERS}" | jq 'length')" -eq 0 ]; then
+            echo "No clusters found in region ${REGION} with our usage tag"
+            exit 0
+          fi
+
+          echo "Found $(echo "${FILTERED_CLUSTERS}" | jq 'length') clusters with our usage tag"
+
+          # Process each cluster
+          echo "${FILTERED_CLUSTERS}" | jq -c '.[]' | while read -r cluster_info; do
+            cluster=$(echo "${cluster_info}" | jq -r '.name')
+            CREATION_TIME=$(echo "${cluster_info}" | jq -r '.createdAt')
+
+            echo "Checking cluster: ${cluster}"
+
+            # Get cluster creation time
+            CREATION_TIMESTAMP=$(date -d "${CREATION_TIME}" +%s)
+
+            CLUSTER_AGE_SECONDS=$((CURRENT_TIME - CREATION_TIMESTAMP))
+            CLUSTER_AGE_HOURS=$((CLUSTER_AGE_SECONDS / 3600))
+
+            echo "Cluster ${cluster} age: ${CLUSTER_AGE_HOURS} hours"
+
+            # Delete clusters older than 3 hours
+            if [ ${CREATION_TIMESTAMP} -lt ${HOURS_AGO} ]; then
+              # Check if kubeconfig exists in S3 pool before deleting
+              # If it doesn't exist, the cluster is being used and should not be deleted
+              S3_BUCKET="${{ format('{0}-{1}-eks-kubeconfig-pool', github.repository_owner, github.event.repository.name) }}"
+              if [ -n "${S3_BUCKET}" ]; then
+                echo "Checking if kubeconfig for cluster ${cluster} exists in S3 bucket ${S3_BUCKET}"
+                KUBECONFIG_EXISTS=$(aws s3 ls "s3://${S3_BUCKET}/kubeconfig-pool/" --recursive --region ${REGION} | grep -c "${cluster}-" || echo "0")
+
+                if [ "${KUBECONFIG_EXISTS}" -eq "0" ]; then
+                  echo "Kubeconfig for cluster ${cluster} not found in S3 pool - cluster is being used, skipping deletion"
+                  continue
+                fi
+
+                echo "Kubeconfig found in pool for cluster ${cluster} (age: ${CLUSTER_AGE_HOURS} hours), proceeding with deletion"
+
+                # Remove kubeconfig from S3 pool
+                echo "Removing kubeconfigs for cluster ${cluster} from S3 bucket ${S3_BUCKET}"
+                aws s3 rm "s3://${S3_BUCKET}/kubeconfig-pool/" --recursive --exclude "*" --include "${cluster}-*" --region ${REGION} || true
+              fi
+
+              # Delete the cluster
+              eksctl delete cluster --name ${cluster} --region ${REGION} --wait || {
+                echo "Failed to delete cluster ${cluster}, continuing..."
+              }
+            else
+              echo "Cluster ${cluster} is not old enough to delete (age: ${CLUSTER_AGE_HOURS} hours, threshold: ${MAX_AGE_HOURS} hours)"
+            fi
+          done
+
+  generate-create-matrix:
+    name: Generate Create Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      empty: ${{ steps.set-matrix.outputs.empty }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          destination_directory="/tmp/generated/eks"
+          mkdir -p "${destination_directory}"
+
+          # Convert both version files to JSON
+          yq -o=json ".github/actions/eks/k8s-versions.yaml" | jq . > "${destination_directory}/eks.json"
+          yq -o=json ".github/actions/aws-cni/k8s-versions.yaml" | jq . > "${destination_directory}/aws-cni.json"
+
+      - name: Generate Matrix
+        id: set-matrix
+        run: |
+          cd /tmp/generated/eks
+
+          # Use only default versions for pool from both sources
+          jq '{ "include": [ .include[] | select(.default) ] }' eks.json > /tmp/eks-defaults.json
+          jq '{ "include": [ .include[] | select(.default) ] }' aws-cni.json > /tmp/aws-cni-defaults.json
+
+          # Expand matrix with different addon configurations
+          cat > /tmp/expand-addons.jq << 'EOF'
+          {
+            "include": [
+              # all-addons configuration from aws-cni versions
+              (.aws_cni.include[] | . + {
+                "addons": "coredns kube-proxy vpc-cni",
+                "addons_name": "all-addons"
+              }),
+              # coredns-kubeproxy configuration from eks versions
+              (.eks.include[] | . + {
+                "addons": "coredns kube-proxy",
+                "addons_name": "coredns-kubeproxy"
+              })
+            ]
+          }
+          EOF
+
+          jq -s '{eks: .[0], aws_cni: .[1]}' /tmp/eks-defaults.json /tmp/aws-cni-defaults.json | \
+            jq -f /tmp/expand-addons.jq > /tmp/matrix.json
+
+          echo "Generated matrix:"
+          cat /tmp/matrix.json
+
+          echo "matrix=$(jq -c . < /tmp/matrix.json)" >> $GITHUB_OUTPUT
+          echo "empty=$(jq '(.include | length) == 0' /tmp/matrix.json)" >> $GITHUB_OUTPUT
+
+  ensure-s3-bucket:
+    name: Ensure S3 bucket exists
+    runs-on: ubuntu-24.04
+    needs: generate-create-matrix
+    if: ${{ always() && needs.generate-create-matrix.outputs.empty == 'false' }}
+    timeout-minutes: 10
+    strategy:
+      matrix: ${{ fromJson(needs.generate-create-matrix.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ matrix.region }}
+
+      - name: Create S3 bucket if it doesn't exist
+        env:
+          REGION: ${{ matrix.region }}
+        run: |
+          set -e
+
+          S3_BUCKET="${{ format('{0}-{1}-eks-kubeconfig-pool', github.repository_owner, github.event.repository.name) }}"
+
+          echo "Checking if S3 bucket ${S3_BUCKET} exists in region ${REGION}"
+
+          # Check if bucket exists
+          if aws s3api head-bucket --bucket "${S3_BUCKET}" --region "${REGION}" 2>/dev/null; then
+            echo "Bucket ${S3_BUCKET} already exists"
+          else
+            echo "Bucket ${S3_BUCKET} does not exist, creating..."
+
+            # Create bucket
+            if [ "${REGION}" = "us-east-1" ]; then
+              # us-east-1 doesn't need LocationConstraint
+              aws s3api create-bucket \
+                --bucket "${S3_BUCKET}" \
+                --region "${REGION}"
+            else
+              aws s3api create-bucket \
+                --bucket "${S3_BUCKET}" \
+                --region "${REGION}" \
+                --create-bucket-configuration LocationConstraint="${REGION}"
+            fi
+
+            # Enable versioning
+            aws s3api put-bucket-versioning \
+              --bucket "${S3_BUCKET}" \
+              --region "${REGION}" \
+              --versioning-configuration Status=Enabled
+
+            # Set bucket tags
+            aws s3api put-bucket-tagging \
+              --bucket "${S3_BUCKET}" \
+              --region "${REGION}" \
+              --tagging "TagSet=[{Key=usage,Value=${{ github.repository_owner }}-${{ github.event.repository.name }}},{Key=managed-by,Value=github-actions}]"
+
+            echo "Bucket ${S3_BUCKET} created successfully"
+          fi
+
+  create-clusters:
+    permissions:
+      # To be able to trigger eks-cluster-pool-manager.yaml workflow
+      actions: write
+      # To be able to access the repository with actions/checkout
+      contents: read
+      # To be able to request the JWT from GitHub's OIDC provider
+      id-token: write
+    name: Create EKS clusters for pool
+    runs-on: ubuntu-24.04
+    needs: [cleanup-old-clusters, generate-create-matrix, ensure-s3-bucket]
+    if: ${{ always() && needs.generate-create-matrix.outputs.empty == 'false' }}
+    timeout-minutes: 30
+    strategy:
+      matrix: ${{ fromJson(needs.generate-create-matrix.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ matrix.region }}
+
+      - name: Check pool status and determine if cluster creation needed
+        id: check-pool
+        env:
+          REGION: ${{ matrix.region }}
+          VERSION: ${{ matrix.version }}
+          ADDONS: ${{ matrix.addons }}
+          ZONES: ${{ matrix.zones }}
+          DESIRED_COUNT: ${{ inputs.min_cluster_per_region || '2' }}
+        run: |
+          set -e
+
+          # Compute SHA256 hash of addons and zones to differentiate pools by configuration
+          ADDONS_HASH=$(echo -n "${ADDONS} ${ZONES}" | sha256sum | cut -c1-8)
+
+          KUBECONFIG_PATH="${REGION}-${VERSION}-${ADDONS_HASH}"
+          KUBECONFIG_PATH_SAFE="${KUBECONFIG_PATH//[.\/]/-}"
+          S3_PREFIX="kubeconfig-pool/${KUBECONFIG_PATH_SAFE}/"
+
+          S3_BUCKET="${{ format('{0}-{1}-eks-kubeconfig-pool', github.repository_owner, github.event.repository.name) }}"
+
+          echo "Checking pool in s3://${S3_BUCKET}/${S3_PREFIX}"
+
+          # Count existing kubeconfigs in the pool
+          EXISTING_COUNT=$(aws s3 ls "s3://${S3_BUCKET}/${S3_PREFIX}" --region ${REGION} | wc -l || echo "0")
+
+          # Count clusters being created (lock files)
+          LOCK_COUNT=$(aws s3 ls "s3://${S3_BUCKET}/locks/${KUBECONFIG_PATH_SAFE}/" --region ${REGION} | wc -l || echo "0")
+
+          TOTAL_COUNT=$((EXISTING_COUNT + LOCK_COUNT))
+
+          echo "Existing clusters in pool: ${EXISTING_COUNT}"
+          echo "Clusters being created: ${LOCK_COUNT}"
+          echo "Total count: ${TOTAL_COUNT}"
+          echo "Desired count: ${DESIRED_COUNT}"
+
+          if [ ${TOTAL_COUNT} -ge ${DESIRED_COUNT} ]; then
+            echo "Pool has enough clusters or clusters being created (${TOTAL_COUNT} >= ${DESIRED_COUNT})"
+            echo "should_create=false" >> $GITHUB_OUTPUT
+          else
+            echo "Need to create cluster(s) for pool"
+            echo "should_create=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Export variables for next steps
+          echo "kubeconfig_path_safe=${KUBECONFIG_PATH_SAFE}" >> $GITHUB_OUTPUT
+          echo "s3_bucket=${S3_BUCKET}" >> $GITHUB_OUTPUT
+
+      - name: Generate cluster name
+        id: cluster-name
+        if: ${{ steps.check-pool.outputs.should_create == 'true' }}
+        run: |
+          TIMESTAMP=$(date +%s)
+          CLUSTER_NAME="cilium-pool-${{ matrix.version }}-${{ matrix.addons_name }}-${TIMESTAMP}"
+          # Sanitize cluster name (replace dots with dashes)
+          CLUSTER_NAME="${CLUSTER_NAME//./-}"
+          echo "cluster_name=${CLUSTER_NAME}" >> $GITHUB_OUTPUT
+          echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
+          echo "Generated cluster name: ${CLUSTER_NAME}"
+
+      - name: Create lock file in S3
+        if: ${{ steps.check-pool.outputs.should_create == 'true' }}
+        env:
+          S3_BUCKET: ${{ steps.check-pool.outputs.s3_bucket }}
+          KUBECONFIG_PATH_SAFE: ${{ steps.check-pool.outputs.kubeconfig_path_safe }}
+          CLUSTER_NAME: ${{ steps.cluster-name.outputs.cluster_name }}
+          TIMESTAMP: ${{ steps.cluster-name.outputs.timestamp }}
+          REGION: ${{ matrix.region }}
+        run: |
+          set -e
+
+          LOCK_KEY="locks/${KUBECONFIG_PATH_SAFE}/${CLUSTER_NAME}-${TIMESTAMP}.lock"
+
+          echo "Creating lock file: s3://${S3_BUCKET}/${LOCK_KEY}"
+
+          # Create lock file with metadata
+          echo "cluster_name=${CLUSTER_NAME}" > /tmp/lock-${CLUSTER_NAME}.txt
+          echo "timestamp=${TIMESTAMP}" >> /tmp/lock-${CLUSTER_NAME}.txt
+          echo "workflow_run_id=${{ github.run_id }}" >> /tmp/lock-${CLUSTER_NAME}.txt
+
+          aws s3 cp /tmp/lock-${CLUSTER_NAME}.txt "s3://${S3_BUCKET}/${LOCK_KEY}" --region ${REGION}
+
+          echo "Lock file created successfully"
+
+      - name: Setup EKS cluster
+        id: setup-cluster
+        if: ${{ steps.check-pool.outputs.should_create == 'true' }}
+        uses: ./.github/actions/setup-eks-cluster
+        with:
+          create-cluster: 'true'
+          cluster_name: ${{ steps.cluster-name.outputs.cluster_name }}
+          region: ${{ matrix.region }}
+          zones: ${{ matrix.zones }}
+          owner: "eks-cluster-pool-manager"
+          version: ${{ matrix.version }}
+          addons: ${{ matrix.addons }}
+
+      - name: Create EKS nodegroups
+        # We can only create node groups with vpc-cni addon or if Cilium was
+        # already installed in the cluster.
+        if: ${{ steps.check-pool.outputs.should_create == 'true' && contains(matrix.addons, 'vpc-cni') }}
+        uses: ./.github/actions/setup-eks-nodegroup
+        with:
+          cluster_name: ${{ steps.setup-cluster.outputs.cluster_name }}
+          region: ${{ matrix.region }}
+          owner: "eks-cluster-pool-manager"
+          version: ${{ matrix.version }}
+          spot: false
+
+      - name: Upload kubeconfig to S3 pool
+        if: ${{ steps.check-pool.outputs.should_create == 'true' }}
+        env:
+          REGION: ${{ matrix.region }}
+          VERSION: ${{ matrix.version }}
+          ADDONS: ${{ matrix.addons }}
+          ZONES: ${{ matrix.zones }}
+          CLUSTER_NAME: ${{ steps.setup-cluster.outputs.cluster_name }}
+          TIMESTAMP: ${{ steps.cluster-name.outputs.timestamp }}
+          S3_BUCKET: ${{ steps.check-pool.outputs.s3_bucket }}
+          KUBECONFIG_PATH_SAFE: ${{ steps.check-pool.outputs.kubeconfig_path_safe }}
+        run: |
+          set -e
+
+          # Compute SHA256 hash of addons and zones
+          ADDONS_HASH=$(echo -n "${ADDONS} ${ZONES}" | sha256sum | cut -c1-8)
+
+          KUBECONFIG_PATH="${REGION}-${VERSION}-${ADDONS_HASH}"
+          KUBECONFIG_PATH_SAFE="${KUBECONFIG_PATH//[.\/]/-}"
+          S3_PREFIX="kubeconfig-pool/${KUBECONFIG_PATH_SAFE}/"
+
+          S3_BUCKET="${{ format('{0}-{1}-eks-kubeconfig-pool', github.repository_owner, github.event.repository.name) }}"
+
+          TIMESTAMP=$(date +%s)
+          KUBECONFIG_KEY="${CLUSTER_NAME}-${TIMESTAMP}.yaml"
+
+          echo "Uploading kubeconfig to s3://${S3_BUCKET}/${S3_PREFIX}${KUBECONFIG_KEY}"
+
+          # Get kubeconfig
+          eksctl utils write-kubeconfig --cluster=${CLUSTER_NAME} --region=${REGION} --kubeconfig=/tmp/kubeconfig-${CLUSTER_NAME}.yaml
+
+          # Upload to S3
+          aws s3 cp /tmp/kubeconfig-${CLUSTER_NAME}.yaml "s3://${S3_BUCKET}/${S3_PREFIX}${KUBECONFIG_KEY}" --region ${REGION}
+
+          echo "Kubeconfig uploaded successfully to pool"
+
+          # Remove lock file now that cluster is ready
+          LOCK_KEY="locks/${KUBECONFIG_PATH_SAFE}/${CLUSTER_NAME}-${TIMESTAMP}.lock"
+          echo "Removing lock file: s3://${S3_BUCKET}/${LOCK_KEY}"
+          aws s3 rm "s3://${S3_BUCKET}/${LOCK_KEY}" --region ${REGION} || true
+
+      - name: Cleanup lock file on failure
+        if: ${{ failure() && steps.check-pool.outputs.should_create == 'true' }}
+        env:
+          S3_BUCKET: ${{ steps.check-pool.outputs.s3_bucket }}
+          KUBECONFIG_PATH_SAFE: ${{ steps.check-pool.outputs.kubeconfig_path_safe }}
+          CLUSTER_NAME: ${{ steps.cluster-name.outputs.cluster_name }}
+          TIMESTAMP: ${{ steps.cluster-name.outputs.timestamp }}
+          REGION: ${{ matrix.region }}
+        run: |
+          LOCK_KEY="locks/${KUBECONFIG_PATH_SAFE}/${CLUSTER_NAME}-${TIMESTAMP}.lock"
+          echo "Removing lock file after failure: s3://${S3_BUCKET}/${LOCK_KEY}"
+          aws s3 rm "s3://${S3_BUCKET}/${LOCK_KEY}" --region ${REGION} || true
+
+  report-status:
+    name: Report pool status
+    runs-on: ubuntu-24.04
+    needs: [generate-cleanup-matrix, cleanup-old-clusters, create-clusters]
+    if: ${{ always() && needs.generate-cleanup-matrix.outputs.empty == 'false' }}
+    timeout-minutes: 10
+    strategy:
+      matrix: ${{ fromJson(needs.generate-cleanup-matrix.outputs.matrix) }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ matrix.region }}
+
+      - name: Report pool status
+        env:
+          REGION: ${{ matrix.region }}
+        run: |
+          set -e
+
+          echo "=== Pool Status for ${REGION} ==="
+
+          S3_BUCKET="${{ format('{0}-{1}-eks-kubeconfig-pool', github.repository_owner, github.event.repository.name) }}"
+
+          if [ -z "${S3_BUCKET}" ]; then
+            echo "S3 bucket variable not configured"
+            exit 0
+          fi
+
+          echo "S3 Bucket: ${S3_BUCKET}"
+          echo ""
+
+          # List all kubeconfigs in pool
+          echo "Kubeconfigs in pool:"
+          aws s3 ls "s3://${S3_BUCKET}/kubeconfig-pool/" --recursive --region ${REGION} | awk '{print $4}' || echo "None"
+
+          echo ""
+
+          # List all running clusters with our usage tag
+          echo "Running EKS clusters:"
+          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --query clusters --output text | \
+            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json 2>/dev/null || echo "[]")
+
+          # Filter and display clusters by usage tag
+          FILTERED_CLUSTERS=$(echo "${CLUSTERS_JSON}" | jq -r --arg tag_value "${{ github.repository_owner }}-${{ github.event.repository.name }}" \
+            '[.[] | select(.tags.usage == $tag_value)]')
+
+          if [ "$(echo "${FILTERED_CLUSTERS}" | jq 'length')" -eq 0 ]; then
+            echo "No clusters found"
+          else
+            echo "${FILTERED_CLUSTERS}" | jq -r '.[] | "  - \(.name) (created: \(.createdAt))"'
+          fi
+

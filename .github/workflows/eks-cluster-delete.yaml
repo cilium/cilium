@@ -1,0 +1,46 @@
+name: Delete EKS Clusters
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: "EKS cluster name to delete"
+        required: true
+        type: string
+      region:
+        description: "AWS region where the cluster is located"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # renovate: datasource=github-releases depName=eksctl-io/eksctl
+  eksctl_version: v0.220.0
+
+jobs:
+  delete-cluster:
+    name: Delete EKS Cluster
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
+          rm "eksctl_$(uname -s)_amd64.tar.gz"
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ inputs.region }}
+
+      - name: Delete EKS cluster
+        run: |
+          eksctl delete cluster --name "${{ inputs.cluster_name }}" --region ${{ inputs.region }}
+        shell: bash {0} # Disable default fail-fast behaviour
+

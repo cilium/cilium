@@ -14,6 +14,8 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive/health"
@@ -23,9 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 type (
@@ -34,16 +33,17 @@ type (
 	Shutdowner = upstream.Shutdowner
 )
 
-var (
-	ShutdownWithError = upstream.ShutdownWithError
-)
+var ShutdownWithError = upstream.ShutdownWithError
 
 // New wraps the hive.New to create a hive with defaults used by cilium-agent.
 func New(cells ...cell.Cell) *Hive {
 	cells = append(
 		slices.Clone(cells),
 
-		job.Cell,
+		cell.Group(
+			job.Cell,
+			metrics.Metric(newHiveJobsCiliumMetrics),
+		),
 
 		// Module health
 		cell.Group(
@@ -143,7 +143,7 @@ var decodeHooks = cell.DecodeHooks{
 		if from.Kind() != reflect.String {
 			return data, nil
 		}
-		if to != reflect.TypeOf(netip.Prefix{}) {
+		if to != reflect.TypeFor[netip.Prefix]() {
 			return data, nil
 		}
 		return netip.ParsePrefix(data.(string))
@@ -155,8 +155,10 @@ func AddConfigOverride[Cfg cell.Flagger](h *Hive, override func(*Cfg)) {
 }
 
 // jobGroupProvider provides a (private) job group to modules, with scoped health reporting, logging and metrics.
-func jobGroupProvider(reg job.Registry, h cell.Health, l *slog.Logger, lc cell.Lifecycle, mid cell.ModuleID) job.Group {
+func jobGroupProvider(reg job.Registry, h cell.Health, l *slog.Logger, lc cell.Lifecycle, jobsMetrics *hiveJobsCiliumMetrics, mid cell.ModuleID) job.Group {
 	return reg.NewGroup(h, lc,
 		job.WithLogger(l),
-		job.WithPprofLabels(pprof.Labels("cell", string(mid))))
+		job.WithPprofLabels(pprof.Labels("cell", string(mid))),
+		job.WithMetrics(jobMetricsFor(jobsMetrics, mid)),
+	)
 }

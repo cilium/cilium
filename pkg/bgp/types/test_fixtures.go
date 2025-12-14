@@ -58,12 +58,18 @@ var (
 				Statements: []*RoutePolicyStatement{
 					{
 						Conditions: RoutePolicyConditions{
-							MatchNeighbors: []netip.Addr{netip.MustParseAddr("172.16.0.1")},
-							MatchPrefixes: []*RoutePolicyPrefixMatch{
-								{
-									CIDR:         netip.MustParsePrefix("1.2.3.0/24"),
-									PrefixLenMin: 24,
-									PrefixLenMax: 32,
+							MatchNeighbors: &RoutePolicyNeighborMatch{
+								Type:      RoutePolicyMatchAny,
+								Neighbors: []netip.Addr{netip.MustParseAddr("172.16.0.1")},
+							},
+							MatchPrefixes: &RoutePolicyPrefixMatch{
+								Type: RoutePolicyMatchAny,
+								Prefixes: []RoutePolicyPrefix{
+									{
+										CIDR:         netip.MustParsePrefix("1.2.3.0/24"),
+										PrefixLenMin: 24,
+										PrefixLenMax: 32,
+									},
 								},
 							},
 						},
@@ -89,17 +95,23 @@ var (
 				Statements: []*RoutePolicyStatement{
 					{
 						Conditions: RoutePolicyConditions{
-							MatchNeighbors: []netip.Addr{netip.MustParseAddr("172.16.0.1"), netip.MustParseAddr("10.10.10.10")},
-							MatchPrefixes: []*RoutePolicyPrefixMatch{
-								{
-									CIDR:         netip.MustParsePrefix("1.2.3.0/24"),
-									PrefixLenMin: 24,
-									PrefixLenMax: 32,
-								},
-								{
-									CIDR:         netip.MustParsePrefix("192.188.0.0/16"),
-									PrefixLenMin: 24,
-									PrefixLenMax: 32,
+							MatchNeighbors: &RoutePolicyNeighborMatch{
+								Type:      RoutePolicyMatchInvert,
+								Neighbors: []netip.Addr{netip.MustParseAddr("172.16.0.1"), netip.MustParseAddr("10.10.10.10")},
+							},
+							MatchPrefixes: &RoutePolicyPrefixMatch{
+								Type: RoutePolicyMatchAny,
+								Prefixes: []RoutePolicyPrefix{
+									{
+										CIDR:         netip.MustParsePrefix("1.2.3.0/24"),
+										PrefixLenMin: 24,
+										PrefixLenMax: 32,
+									},
+									{
+										CIDR:         netip.MustParsePrefix("192.188.0.0/16"),
+										PrefixLenMin: 24,
+										PrefixLenMax: 32,
+									},
 								},
 							},
 							MatchFamilies: []Family{
@@ -120,17 +132,23 @@ var (
 					},
 					{
 						Conditions: RoutePolicyConditions{
-							MatchNeighbors: []netip.Addr{netip.MustParseAddr("fe80::210:5aff:feaa:20a2")},
-							MatchPrefixes: []*RoutePolicyPrefixMatch{
-								{
-									CIDR:         netip.MustParsePrefix("2001:0DB8::/64"),
-									PrefixLenMin: 24,
-									PrefixLenMax: 32,
-								},
-								{
-									CIDR:         netip.MustParsePrefix("2002::/16"),
-									PrefixLenMin: 24,
-									PrefixLenMax: 32,
+							MatchNeighbors: &RoutePolicyNeighborMatch{
+								Type:      RoutePolicyMatchAny,
+								Neighbors: []netip.Addr{netip.MustParseAddr("fe80::210:5aff:feaa:20a2")},
+							},
+							MatchPrefixes: &RoutePolicyPrefixMatch{
+								Type: RoutePolicyMatchInvert,
+								Prefixes: []RoutePolicyPrefix{
+									{
+										CIDR:         netip.MustParsePrefix("2001:0DB8::/64"),
+										PrefixLenMin: 24,
+										PrefixLenMax: 32,
+									},
+									{
+										CIDR:         netip.MustParsePrefix("2002::/16"),
+										PrefixLenMin: 24,
+										PrefixLenMax: 32,
+									},
 								},
 							},
 							MatchFamilies: []Family{
@@ -159,12 +177,18 @@ var (
 					// valid statement
 					{
 						Conditions: RoutePolicyConditions{
-							MatchNeighbors: []netip.Addr{netip.MustParseAddr("172.16.0.1")},
-							MatchPrefixes: []*RoutePolicyPrefixMatch{
-								{
-									CIDR:         netip.MustParsePrefix("1.2.3.0/24"),
-									PrefixLenMin: 24,
-									PrefixLenMax: 32,
+							MatchNeighbors: &RoutePolicyNeighborMatch{
+								Type:      RoutePolicyMatchAny,
+								Neighbors: []netip.Addr{netip.MustParseAddr("172.16.0.1")},
+							},
+							MatchPrefixes: &RoutePolicyPrefixMatch{
+								Type: RoutePolicyMatchAny,
+								Prefixes: []RoutePolicyPrefix{
+									{
+										CIDR:         netip.MustParsePrefix("1.2.3.0/24"),
+										PrefixLenMin: 24,
+										PrefixLenMax: 32,
+									},
 								},
 							},
 						},
@@ -177,12 +201,18 @@ var (
 					// invalid statement - wrong neighbor address
 					{
 						Conditions: RoutePolicyConditions{
-							MatchNeighbors: []netip.Addr{{}},
-							MatchPrefixes: []*RoutePolicyPrefixMatch{
-								{
-									CIDR:         netip.MustParsePrefix("192.188.0.0/16"),
-									PrefixLenMin: 24,
-									PrefixLenMax: 32,
+							MatchNeighbors: &RoutePolicyNeighborMatch{
+								Type:      RoutePolicyMatchAny,
+								Neighbors: []netip.Addr{{}},
+							},
+							MatchPrefixes: &RoutePolicyPrefixMatch{
+								Type: RoutePolicyMatchAny,
+								Prefixes: []RoutePolicyPrefix{
+									{
+										CIDR:         netip.MustParsePrefix("192.188.0.0/16"),
+										PrefixLenMin: 24,
+										PrefixLenMax: 32,
+									},
 								},
 							},
 						},

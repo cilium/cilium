@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -442,6 +441,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	dir := datapathRegenCtxt.currentDir
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
 		if err := e.writeHeaderfile(datapathRegenCtxt.nextDir); err != nil {
+			e.unlock()
 			return 0, fmt.Errorf("write endpoint header file: %w", err)
 		}
 		dir = datapathRegenCtxt.nextDir
@@ -462,7 +462,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		// ARP, and IPv6 ND are delivered to the host stack in all datapath configurations.
 		if e.isProperty(PropertyAtHostNS) {
 			stats.mapSync.Start()
-			err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
+			err = e.lxcMap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 			stats.mapSync.End(err == nil)
 			if err != nil {
 				return 0, fmt.Errorf("Exposing endpoint in endpoints BPF map failed: %w", err)
@@ -497,7 +497,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	if !datapathRegenCtxt.epInfoCache.IsHost() || option.Config.EnableHostFirewall {
 		// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
 		stats.mapSync.Start()
-		err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
+		err = e.lxcMap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
 		stats.mapSync.End(err == nil)
 		if err != nil {
 			return 0, fmt.Errorf("Exposing new BPF failed: %w", err)
@@ -583,7 +583,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 
 	if datapathRegenCtxt.regenerationLevel > regeneration.RegenerateWithoutDatapath {
 		if e.Options.IsEnabled(option.Debug) {
-			debugFunc := func(format string, args ...interface{}) {
+			debugFunc := func(format string, args ...any) {
 				e.getLogger().Debug(fmt.Sprintf(format, args...))
 			}
 			ctx, cancel := context.WithCancel(regenContext.parentContext)
@@ -603,7 +603,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 			return err
 		}
 
-		if err := os.WriteFile(filepath.Join(datapathRegenCtxt.nextDir, defaults.TemplateIDPath), []byte(templateHash+"\n"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(datapathRegenCtxt.nextDir, defaults.TemplateIDPath), []byte(templateHash+"\n"), 0o644); err != nil {
 			return fmt.Errorf("unable to write template id: %w", err)
 		}
 
@@ -887,7 +887,7 @@ func (e *Endpoint) deleteMaps() []error {
 	// Remove the endpoint from cilium_lxc. After this point, ip->epID lookups
 	// will fail, causing packets to/from the Pod to be dropped in many cases,
 	// stopping packet evaluation.
-	if err := lxcmap.DeleteElement(e.getLogger(), e); err != nil {
+	if err := e.lxcMap.DeleteElement(e.getLogger(), e); err != nil {
 		errors = append(errors, err...)
 	}
 
@@ -923,12 +923,11 @@ func (e *Endpoint) deleteMaps() []error {
 	return errors
 }
 
-// garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
-// local conntrack table or the global conntrack table.
+// garbageCollectConntrack will run the ctmap.GC() on the conntrack tables.
 //
 // The endpoint lock must be held
 func (e *Endpoint) garbageCollectConntrack(filter ctmap.GCFilter) {
-	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4, option.Config.EnableIPv6) {
+	for _, m := range ctmap.Maps(option.Config.EnableIPv4, option.Config.EnableIPv6) {
 		if err := m.Open(); err != nil {
 			// If the CT table doesn't exist, there's nothing to GC.
 			if os.IsNotExist(err) {

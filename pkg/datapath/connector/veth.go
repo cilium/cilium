@@ -10,25 +10,11 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/netns"
 )
-
-// RenameLinkInRemoteNs renames the netdevice in the target namespace to the
-// provided dstIfName.
-func RenameLinkInRemoteNs(ns *netns.NetNS, srcIfName, dstIfName string) error {
-	return ns.Do(func() error {
-		err := link.Rename(srcIfName, dstIfName)
-		if err != nil {
-			return fmt.Errorf("failed to rename link from %q to %q: %w", srcIfName, dstIfName, err)
-		}
-		return nil
-	})
-}
 
 // SetupVeth sets up the net interface, the temporary interface and fills up some endpoint
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
@@ -44,19 +30,6 @@ func SetupVeth(defaultLogger *slog.Logger, id string, cfg LinkConfig, sysctl sys
 
 	veth, link, err := SetupVethWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, sysctl)
 	return veth, link, tmpIfName, err
-}
-
-// LinkConfig contains the GRO/GSO, MTU values and buffer margins to be configured on both sides of the created pair.
-type LinkConfig struct {
-	GROIPv6MaxSize int
-	GSOIPv6MaxSize int
-
-	GROIPv4MaxSize int
-	GSOIPv4MaxSize int
-
-	DeviceMTU      int
-	DeviceHeadroom uint16
-	DeviceTailroom uint16
 }
 
 // SetupVethWithNames sets up the net interface, the peer interface and fills up some endpoint

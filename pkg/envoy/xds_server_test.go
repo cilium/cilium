@@ -4,7 +4,6 @@
 package envoy
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -14,18 +13,19 @@ import (
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/container/versioned"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
+	"github.com/cilium/cilium/pkg/envoy/test"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
-	"github.com/cilium/cilium/pkg/proxy/endpoint/test"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
@@ -33,10 +33,9 @@ var (
 	IPv4Addr = "10.1.1.1"
 
 	ep endpoint.EndpointUpdater = &test.ProxyUpdaterMock{
-		Id:            1000,
-		Ipv4:          "10.0.0.1",
-		Ipv6:          "f00d::1",
-		VersionHandle: versioned.Latest(),
+		Id:   1000,
+		Ipv4: "10.0.0.1",
+		Ipv6: "f00d::1",
 	}
 )
 
@@ -198,24 +197,24 @@ var (
 	// slogloggercheck: the default logger is enough for tests.
 	testSelectorCache = policy.NewSelectorCache(logging.DefaultSlogLogger, IdentityCache)
 
-	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)
+	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)
 
 	EndpointSelector1 = api.NewESFromLabels(
 		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 	)
-	cachedSelector1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, EndpointSelector1)
+	cachedSelector1, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, EndpointSelector1)
 
 	// EndpointSelector1 with FromRequires("k8s:version=v2") folded in
 	RequiresV2Selector1 = api.NewESFromLabels(
 		labels.NewLabel("app", "etcd", labels.LabelSourceK8s),
 		labels.NewLabel("version", "v2", labels.LabelSourceK8s),
 	)
-	cachedRequiresV2Selector1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, RequiresV2Selector1)
+	cachedRequiresV2Selector1, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, RequiresV2Selector1)
 
 	EndpointSelector2 = api.NewESFromLabels(
 		labels.NewLabel("version", "v1", labels.LabelSourceK8s),
 	)
-	cachedSelector2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, EndpointSelector2)
+	cachedSelector2, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, EndpointSelector2)
 )
 
 var L7Rules12 = &policy.PerSelectorPolicy{
@@ -1670,9 +1669,8 @@ func Test_getPublicListenerAddress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getPublicListenerAddress(tt.args.port, tt.args.ipv4, tt.args.ipv6); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getPublicListenerAddress() = %v, want %v", got, tt.want)
-			}
+			got := getPublicListenerAddress(tt.args.port, tt.args.ipv4, tt.args.ipv6)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -1742,12 +1740,8 @@ func Test_getLocalListenerAddresses(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, gotAdditional := GetLocalListenerAddresses(tt.args.port, tt.args.ipv4, tt.args.ipv6)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getLocalListenerAddresses() got = %v, want %v", got, tt.want)
-			}
-			if !reflect.DeepEqual(gotAdditional, tt.wantAdditional) {
-				t.Errorf("getLocalListenerAddresses() got1 = %v, want %v", gotAdditional, tt.wantAdditional)
-			}
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantAdditional, gotAdditional)
 		})
 	}
 }

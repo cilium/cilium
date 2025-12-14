@@ -54,13 +54,13 @@ var tests []string
 
 func RunE(hooks api.Hooks) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		params.CiliumNamespace = namespace
-		params.ImpersonateAs = impersonateAs
-		params.ImpersonateGroups = impersonateGroups
+		params.CiliumNamespace = RootParams.Namespace
+		params.ImpersonateAs = RootParams.ImpersonateAs
+		params.ImpersonateGroups = RootParams.ImpersonateGroups
 
 		for _, test := range tests {
-			if strings.HasPrefix(test, "!") {
-				rgx, err := regexp.Compile(strings.TrimPrefix(test, "!"))
+			if after, ok := strings.CutPrefix(test, "!"); ok {
+				rgx, err := regexp.Compile(after)
 				if err != nil {
 					return fmt.Errorf("test filter: %w", err)
 				}
@@ -198,6 +198,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	cmd.Flags().BoolVar(&params.IncludeConnDisruptTest, "include-conn-disrupt-test", false, "Include conn disrupt test")
 	cmd.Flags().BoolVar(&params.IncludeConnDisruptTestNSTraffic, "include-conn-disrupt-test-ns-traffic", false, "Include conn disrupt test for NS traffic")
 	cmd.Flags().BoolVar(&params.IncludeConnDisruptTestEgressGateway, "include-conn-disrupt-test-egw", false, "Include conn disrupt test for Egress Gateway")
+	cmd.Flags().BoolVar(&params.IncludeConnDisruptTestL7Traffic, "include-conn-disrupt-test-l7-traffic", false, "Include conn disrupt test for L7 traffic")
 	cmd.Flags().BoolVar(&params.ConnDisruptTestSetup, "conn-disrupt-test-setup", false, "Set up conn disrupt test dependencies")
 	cmd.Flags().StringVar(&params.ConnDisruptTestRestartsPath, "conn-disrupt-test-restarts-path", "/tmp/cilium-conn-disrupt-restarts", "Conn disrupt test temporary result file (used internally)")
 	cmd.Flags().StringVar(&params.ConnDisruptTestXfrmErrorsPath, "conn-disrupt-test-xfrm-errors-path", "/tmp/cilium-conn-disrupt-xfrm-errors", "Conn disrupt test temporary result file (used internally)")
@@ -328,7 +329,7 @@ func newConnectivityTests(
 		}
 		params.ExternalDeploymentPort += i
 		params.EchoServerHostPort += i
-		cc, err := check.NewConnectivityTest(k8sClient, params, hooks, logger, owners)
+		cc, err := check.NewConnectivityTest(RootK8sClient, params, hooks, logger, owners)
 		if err != nil {
 			return nil, err
 		}

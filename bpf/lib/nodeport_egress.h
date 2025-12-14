@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "drop.h"
 #include "nodeport.h"
 
 #ifdef ENABLE_NODEPORT
@@ -231,7 +232,7 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 src_id __maybe_unused,
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
-    (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
+    (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||		\
      defined(ENABLE_MASQUERADE_IPV6)
 	if (!snat_done) {
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
@@ -530,7 +531,7 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
-    (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
+    (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||		\
      defined(ENABLE_MASQUERADE_IPV4) ||					\
     (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
 	if (!snat_done) {

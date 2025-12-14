@@ -54,11 +54,11 @@ type DaemonConfigurationStatus struct {
 	// Tailroom buffer margin on workload facing devices
 	DeviceTailroom int64 `json:"deviceTailroom,omitempty"`
 
-	// Configured compatibility mode for --egress-multi-home-ip-rule-compat
-	EgressMultiHomeIPRuleCompat bool `json:"egress-multi-home-ip-rule-compat,omitempty"`
-
 	// True if BBR is enabled only in the host network namespace
 	EnableBBRHostNamespaceOnly bool `json:"enableBBRHostNamespaceOnly,omitempty"`
+
+	// Enable PLPMTUD probing on the pod netns
+	EnablePacketizationLayerPMTUD bool `json:"enablePacketizationLayerPMTUD,omitempty"`
 
 	// Enable route MTU for pod netns when CNI chaining is used
 	EnableRouteMTUForCNIChaining bool `json:"enableRouteMTUForCNIChaining,omitempty"`

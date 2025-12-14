@@ -17,7 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
+	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
@@ -68,6 +71,13 @@ type EndpointsLookup interface {
 
 	// GetEndpointsByContainerID looks up endpoints by container ID
 	GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint
+
+	// GetEndpointsByServiceAccount looks up endpoints by their given namespace,
+	// service account pair.
+	GetEndpointsByServiceAccount(namespace string, serviceAccount string) []*endpoint.Endpoint
+
+	// GetEndpointsByNamespace looks up endpoints by namespace.
+	GetEndpointsByNamespace(namespace string) []*endpoint.Endpoint
 
 	// GetEndpoints returns a slice of all endpoints present in endpoint manager.
 	GetEndpoints() []*endpoint.Endpoint
@@ -135,11 +145,6 @@ type EndpointManager interface {
 	// Returns immediately.
 	TriggerRegenerateAllEndpoints()
 
-	// WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
-	// this function is called to be at a given policy revision.
-	// New endpoints appearing while waiting are ignored.
-	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
-
 	// OverrideEndpointOpts applies the given options to all endpoints.
 	OverrideEndpointOpts(om option.OptionMap)
 
@@ -196,6 +201,15 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	p.Config.Validate(p.Logger)
 
 	mgr := New(p.Logger, p.MetricsRegistry, p.EPSynchronizer, p.LocalNodeStore, p.Health, p.MonitorAgent, p.Config)
+
+	p.Lifecycle.Append(cell.Hook{
+		OnStop: func(cell.HookContext) error {
+			// Stop all endpoints (its goroutines) on exit.
+			mgr.stopEndpoints()
+			return nil
+		},
+	})
+
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(cell.Hook{
@@ -225,9 +239,15 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 type endpointSynchronizerParams struct {
 	cell.In
 
-	Clientset client.Clientset
+	Clientset           client.Clientset
+	CiliumEndpoint      resource.Resource[*types.CiliumEndpoint]
+	CiliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
 }
 
 func newEndpointSynchronizer(p endpointSynchronizerParams) EndpointResourceSynchronizer {
-	return &EndpointSynchronizer{Clientset: p.Clientset}
+	return &EndpointSynchronizer{
+		Clientset:           p.Clientset,
+		CiliumEndpoint:      p.CiliumEndpoint,
+		CiliumEndpointSlice: p.CiliumEndpointSlice,
+	}
 }

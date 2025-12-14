@@ -262,7 +262,7 @@ func (client *VirtualMachineRunCommandsClient) getCreateRequest(ctx context.Cont
 	reqQP := req.Raw().URL.Query()
 	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
-	req.Raw().Header["Accept"] = []string{"application/json, text/json"}
+	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
@@ -395,7 +395,7 @@ func (client *VirtualMachineRunCommandsClient) listCreateRequest(ctx context.Con
 	reqQP := req.Raw().URL.Query()
 	reqQP.Set("api-version", "2025-04-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
-	req.Raw().Header["Accept"] = []string{"application/json, text/json"}
+	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 

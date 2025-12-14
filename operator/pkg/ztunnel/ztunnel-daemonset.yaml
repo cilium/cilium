@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ztunnel-cilium
+  labels:
+    app: ztunnel-cilium
+    app.kubernetes.io/name: ztunnel-cilium
+    app.kubernetes.io/managed-by: cilium-operator
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: ztunnel-cilium
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: ztunnel-cilium
+    spec:
+      hostNetwork: true
+      containers:
+      - args:
+        - proxy
+        - ztunnel
+        env:
+        - name: XDS_ADDRESS
+          value: "https://localhost:15012"
+        - name: XDS_ROOT_CA
+          value: "/etc/ztunnel/bootstrap-root.crt"
+        - name: CA_ROOT_CA
+          value: "/etc/ztunnel/bootstrap-root.crt"
+        - name: CA_ADDRESS
+          value: "https://localhost:15012"
+        - name: ISTIO_META_DNS_CAPTURE
+          value: false
+        - name: INPOD_UDS
+          value: /var/run/cilium/ztunnel.sock
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.hostIP
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: ISTIO_META_ENABLE_HBONE
+          value: "true"
+        image: docker.io/istio/ztunnel:1.28.0-distroless
+        imagePullPolicy: IfNotPresent
+        name: istio-proxy
+        stdin: false
+        stdinOnce: false
+        tty: false
+        readinessProbe:
+          initialDelaySeconds: 0
+          failureThreshold: 3
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - SYS_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: false
+          runAsUser: 0
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/run/cilium
+          name: cilium-dir
+          readOnly: false
+        - mountPath: /etc/ztunnel
+          name: cilium-ztunnel-secrets
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: system-node-critical
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      shareProcessNamespace: false
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/run/cilium
+          type: DirectoryOrCreate
+        name: cilium-dir
+      - name: cilium-ztunnel-secrets
+        secret:
+          secretName: cilium-ztunnel-secrets
+          defaultMode: 420
+          items:
+            - key: bootstrap-root.crt
+              path: bootstrap-root.crt
+              mode: 420
+  updateStrategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate

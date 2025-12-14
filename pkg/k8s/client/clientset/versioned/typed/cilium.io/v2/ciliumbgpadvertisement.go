@@ -9,7 +9,6 @@ import (
 	context "context"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	applyconfigurationciliumiov2 "github.com/cilium/cilium/pkg/k8s/client/applyconfiguration/cilium.io/v2"
 	scheme "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -33,19 +32,18 @@ type CiliumBGPAdvertisementInterface interface {
 	List(ctx context.Context, opts v1.ListOptions) (*ciliumiov2.CiliumBGPAdvertisementList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumiov2.CiliumBGPAdvertisement, err error)
-	Apply(ctx context.Context, ciliumBGPAdvertisement *applyconfigurationciliumiov2.CiliumBGPAdvertisementApplyConfiguration, opts v1.ApplyOptions) (result *ciliumiov2.CiliumBGPAdvertisement, err error)
 	CiliumBGPAdvertisementExpansion
 }
 
 // ciliumBGPAdvertisements implements CiliumBGPAdvertisementInterface
 type ciliumBGPAdvertisements struct {
-	*gentype.ClientWithListAndApply[*ciliumiov2.CiliumBGPAdvertisement, *ciliumiov2.CiliumBGPAdvertisementList, *applyconfigurationciliumiov2.CiliumBGPAdvertisementApplyConfiguration]
+	*gentype.ClientWithList[*ciliumiov2.CiliumBGPAdvertisement, *ciliumiov2.CiliumBGPAdvertisementList]
 }
 
 // newCiliumBGPAdvertisements returns a CiliumBGPAdvertisements
 func newCiliumBGPAdvertisements(c *CiliumV2Client) *ciliumBGPAdvertisements {
 	return &ciliumBGPAdvertisements{
-		gentype.NewClientWithListAndApply[*ciliumiov2.CiliumBGPAdvertisement, *ciliumiov2.CiliumBGPAdvertisementList, *applyconfigurationciliumiov2.CiliumBGPAdvertisementApplyConfiguration](
+		gentype.NewClientWithList[*ciliumiov2.CiliumBGPAdvertisement, *ciliumiov2.CiliumBGPAdvertisementList](
 			"ciliumbgpadvertisements",
 			c.RESTClient(),
 			scheme.ParameterCodec,

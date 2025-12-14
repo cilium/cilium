@@ -34,6 +34,7 @@
 #include "lib/l3.h"
 #include "lib/local_delivery.h"
 #include "lib/lxc.h"
+#include "lib/lrp.h"
 #include "lib/identity.h"
 #include "lib/policy.h"
 #include "lib/mcast.h"
@@ -56,6 +57,38 @@
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
 #include "lib/vtep.h"
+#include "lib/subnet.h"
+
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
+static __always_inline int
+lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
+{
+	int ret __maybe_unused;
+
+	ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+
+	/* Note that bpf_lxc can be loaded before bpf_host, so bpf_host's policy
+	 * program may not yet be present at this time.
+	 */
+	ret = tail_call_policy(ctx, CONFIG(host_ep_id));
+
+	/* report fine-grained error: */
+	return DROP_HOST_NOT_READY;
+}
+#endif
+
+#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
+static __always_inline int
+lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
+		     __be16 proto, struct trace_ctx *trace)
+{
+	send_trace_notify(ctx, TRACE_TO_HOST, src_sec_identity, HOST_ID,
+			  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
+			  trace->reason, trace->monitor, proto);
+	return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
+}
+#endif
 
 /* Per-packet LB is needed if all LB cases can not be handled in bpf_sock.
  * Most services with L7 LB flag can not be redirected to their proxy port
@@ -71,9 +104,48 @@
 # define ENABLE_PER_PACKET_LB 1
 #endif
 
-#ifdef ENABLE_PER_PACKET_LB
-
 #ifdef ENABLE_IPV4
+static __always_inline void
+lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
+		      __u16 *proxy_port, __u32 *cluster_id __maybe_unused,
+		      bool clear)
+{
+	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
+			     ctx_load_meta(ctx, CB_CT_STATE);
+
+	if (meta & 1)
+		state->loopback = 1;
+
+	state->rev_nat_index = meta >> 16;
+
+	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
+			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
+
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+	*cluster_id = clear ? ctx_load_and_clear_meta(ctx, CB_CLUSTER_ID_EGRESS) :
+			      ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+#endif
+}
+
+#ifdef ENABLE_PER_PACKET_LB
+/* lb4_ctx_store_state() stores per packet load balancing state to be picked
+ * up on the continuation tail call.
+ */
+static __always_inline void
+lb4_ctx_store_state(struct __ctx_buff *ctx, const struct ct_state *state,
+		    __u16 proxy_port, __u32 cluster_id)
+{
+	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+		       state->loopback);
+	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
+}
+
+/* lb4_ctx_restore_state() restores per packet load balancing state from the
+ * previous tail call.
+ * tuple->flags does not need to be restored, as it will be reinitialized from
+ * the packet.
+ */
 static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4,
 						       __s8 *ext_err)
 {
@@ -102,6 +174,8 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 	if (svc) {
+		const struct lb4_backend *backend;
+
 #if defined(ENABLE_L7_LB)
 		if (lb4_svc_is_l7_loadbalancer(svc)) {
 			proxy_port = (__u16)svc->l7_lb_proxy_port;
@@ -120,13 +194,13 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		 * redirect services based on user configured policies. Per packet LB should
 		 * not override LB decisions made for local-redirect services in bpf_sock.
 		 */
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(ENABLE_SOCKET_LB_FULL)
-		if (unlikely(lb4_svc_is_localredirect(svc)))
+		if (CONFIG(enable_lrp) && is_defined(ENABLE_SOCKET_LB_FULL) &&
+		    unlikely(lb4_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
-		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, fraginfo,
+
+		ret = lb4_local(get_ct_map4(&tuple), ctx, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				false, &cluster_id, ext_err, CONFIG(endpoint_netns_cookie));
+				&backend, ext_err);
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
@@ -139,15 +213,79 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			}
 			return ret;
 		}
+
+		if (tuple.saddr == backend->address) {
+			if (CONFIG(enable_lrp)) {
+				__net_cookie netns_cookie = CONFIG(endpoint_netns_cookie);
+
+				if (netns_cookie > 0 && unlikely(lb4_svc_is_localredirect(svc)) &&
+				    lrp_v4_skip_xlate_from_ctx_to_svc(netns_cookie, tuple.daddr,
+								      tuple.sport))
+					goto skip_service_lookup;
+			}
+
+			/* Special loopback case: The origin endpoint has transmitted to a
+			 * service which is being translated back to the source. This would
+			 * result in a packet with identical source and destination address.
+			 * Linux considers such packets as martian source and will drop unless
+			 * received on a loopback device. Perform NAT on the source address
+			 * to make it appear from an outside address.
+			 */
+			ct_state_new.loopback = 1;
+		}
+
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+		cluster_id = backend->cluster_id;
+#endif
+
+		ret = lb4_dnat_request(ctx, backend, ETH_HLEN, fraginfo,
+				       l4_off, &key, &tuple, ct_state_new.loopback);
+		if (IS_ERR(ret))
+			return ret;
 	}
 skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_EGRESS, ext_err);
 }
+#endif /* ENABLE_PER_PACKET_LB */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
+/* lb6_ctx_restore_state() restores per packet load balancing state from the
+ * previous tail call.
+ * tuple->flags does not need to be restored, as it will be reinitialized from
+ * the packet.
+ */
+static __always_inline void
+lb6_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
+		      __u16 *proxy_port,  bool clear)
+{
+	__u32 meta = clear ? ctx_load_and_clear_meta(ctx, CB_CT_STATE) :
+				       ctx_load_meta(ctx, CB_CT_STATE);
+
+	if (meta & 1)
+		state->loopback = 1;
+
+	state->rev_nat_index = meta >> 16;
+
+	*proxy_port = clear ? (ctx_load_and_clear_meta(ctx, CB_PROXY_MAGIC) >> 16) :
+			      (ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16);
+}
+
+#ifdef ENABLE_PER_PACKET_LB
+/* lb6_ctx_store_state() stores per packet load balancing state to be picked
+ * up on the continuation tail call.
+ */
+static __always_inline void
+lb6_ctx_store_state(struct __ctx_buff *ctx, const struct ct_state *state,
+		    __u16 proxy_port)
+{
+	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
+	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
+		       state->loopback);
+}
+
 static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6,
 						       __s8 *ext_err)
 {
@@ -186,6 +324,8 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	 */
 	svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 	if (svc) {
+		const struct lb6_backend *backend;
+
 #if defined(ENABLE_L7_LB)
 		if (lb6_svc_is_l7_loadbalancer(svc)) {
 			proxy_port = (__u16)svc->l7_lb_proxy_port;
@@ -196,13 +336,13 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			goto skip_service_lookup;
 #endif /* ENABLE_L7_LB */
 		/* See comment in __per_packet_lb_svc_xlate_4. */
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY) && defined(ENABLE_SOCKET_LB_FULL)
-		if (unlikely(lb6_svc_is_localredirect(svc)))
+		if (CONFIG(enable_lrp) && is_defined(ENABLE_SOCKET_LB_FULL) &&
+		    unlikely(lb6_svc_is_localredirect(svc)))
 			goto skip_service_lookup;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY && ENABLE_SOCKET_LB_FULL */
-		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, fraginfo,
+
+		ret = lb6_local(get_ct_map6(&tuple), ctx, fraginfo,
 				l4_off, &key, &tuple, svc, &ct_state_new,
-				false, ext_err, CONFIG(endpoint_netns_cookie));
+				&backend, ext_err);
 
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE) {
@@ -215,6 +355,24 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			}
 			return ret;
 		}
+
+		if (ipv6_addr_equals(&tuple.saddr, &backend->address)) {
+			if (CONFIG(enable_lrp)) {
+				__net_cookie netns_cookie = CONFIG(endpoint_netns_cookie);
+
+				if (netns_cookie > 0 && unlikely(lb6_svc_is_localredirect(svc)) &&
+				    lrp_v6_skip_xlate_from_ctx_to_svc(netns_cookie, tuple.daddr,
+								      tuple.sport))
+					goto skip_service_lookup;
+			}
+
+			ct_state_new.loopback = 1;
+		}
+
+		ret = lb6_dnat_request(ctx, backend, ETH_HLEN, fraginfo,
+				       l4_off, &key, &tuple, ct_state_new.loopback);
+		if (IS_ERR(ret))
+			return ret;
 	}
 
 skip_service_lookup:
@@ -222,9 +380,8 @@ skip_service_lookup:
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_EGRESS, ext_err);
 }
+#endif /* ENABLE_PER_PACKET_LB */
 #endif /* ENABLE_IPV6 */
-
-#endif
 
 #if defined(ENABLE_ARP_PASSTHROUGH) && defined(ENABLE_ARP_RESPONDER)
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
@@ -448,9 +605,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_state *ct_state, ct_state_new = {};
 	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple;
-#ifdef ENABLE_ROUTING
-	union macaddr router_mac = CONFIG(interface_mac);
-#endif
+	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -478,11 +633,20 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 */
 	if (1) {
 		const union v6addr *daddr = (union v6addr *)&ip6->daddr;
+		bool same_subnet_id = false;
+
+		if (CONFIG(hybrid_routing_enabled)) {
+			const union v6addr *saddr = (union v6addr *)&ip6->saddr;
+			__u32 src_subnet_id = lookup_ip6_subnet_id(saddr);
+			__u32 dst_subnet_id = lookup_ip6_subnet_id(daddr);
+
+			same_subnet_id = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
+		}
 
 		info = lookup_ip6_remote_endpoint(daddr, 0);
 		if (info) {
 			*dst_sec_identity = info->sec_identity;
-			skip_tunnel = info->flag_skip_tunnel;
+			skip_tunnel = (info->flag_skip_tunnel) || same_subnet_id;
 		} else {
 			*dst_sec_identity = WORLD_IPV6_ID;
 		}
@@ -674,15 +838,10 @@ ct_recreate6:
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, jump to the bpf_host program to enforce ingress host policies.
+	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (*dst_sec_identity == HOST_ID) {
-		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
-
-		/* return fine-grained error: */
-		return DROP_HOST_NOT_READY;
-	}
+	if (*dst_sec_identity == HOST_ID)
+		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 #ifdef ENABLE_IDENTITY_MARK
@@ -718,8 +877,12 @@ ct_recreate6:
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
-				if (is_defined(ENABLE_ROUTING))
-					goto to_host;
+				if (is_defined(ENABLE_ROUTING) &&
+				    is_defined(ENABLE_HOST_FIREWALL) &&
+				    *dst_sec_identity == HOST_ID)
+					return lxc_redirect_to_host(ctx, SECLABEL_IPV6,
+								    bpf_htons(ETH_P_IPV6),
+								    &trace);
 
 				goto pass_to_stack;
 			}
@@ -761,20 +924,6 @@ ct_recreate6:
 					  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 		return ret;
 	}
-
-	goto pass_to_stack;
-
-#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-to_host:
-#endif
-#ifdef ENABLE_ROUTING
-	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
-		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV6, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
-				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
-		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
-	}
-#endif
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING
@@ -819,7 +968,6 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo __maybe_unused;
-	int ret __maybe_unused;
 	bool from_l7lb = false;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -887,9 +1035,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	const struct remote_endpoint_info *info;
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	struct ipv4_ct_tuple *tuple;
-#ifdef ENABLE_ROUTING
-	union macaddr router_mac = CONFIG(interface_mac);
-#endif
+	union macaddr __maybe_unused router_mac = CONFIG(interface_mac);
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret, verdict, l4_off;
@@ -920,11 +1066,20 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
 
+	bool same_subnet_id = false;
+
+	if (CONFIG(hybrid_routing_enabled)) {
+		__u32 src_subnet_id = lookup_ip4_subnet_id(ip4->saddr);
+		__u32 dst_subnet_id = lookup_ip4_subnet_id(ip4->daddr);
+
+		same_subnet_id = (src_subnet_id == dst_subnet_id) && (src_subnet_id != 0);
+	}
+
 	/* Determine the destination category for policy fallback. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
 	if (info) {
 		*dst_sec_identity = info->sec_identity;
-		skip_tunnel = info->flag_skip_tunnel;
+		skip_tunnel = (info->flag_skip_tunnel) || same_subnet_id;
 	} else {
 		*dst_sec_identity = WORLD_IPV4_ID;
 	}
@@ -1144,17 +1299,10 @@ ct_recreate4:
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
-	 * enabled, jump to the bpf_host program to enforce ingress host policies.
-	 * Note that bpf_lxc can be loaded before bpf_host, so bpf_host's policy
-	 * program may not yet be present at this time.
+	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (*dst_sec_identity == HOST_ID) {
-		ctx_store_meta(ctx, CB_FROM_HOST, 0);
-		ret = tail_call_policy(ctx, CONFIG(host_ep_id));
-
-		/* report fine-grained error: */
-		return DROP_HOST_NOT_READY;
-	}
+	if (*dst_sec_identity == HOST_ID)
+		return lxc_deliver_to_host(ctx, SECLABEL_IPV4);
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 #ifdef ENABLE_IDENTITY_MARK
@@ -1203,8 +1351,12 @@ ct_recreate4:
 		if (ep) {
 #if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
 			if (ep->flags & ENDPOINT_MASK_HOST_DELIVERY) {
-				if (is_defined(ENABLE_ROUTING))
-					goto to_host;
+				if (is_defined(ENABLE_ROUTING) &&
+				    is_defined(ENABLE_HOST_FIREWALL) &&
+				    *dst_sec_identity == HOST_ID)
+					return lxc_redirect_to_host(ctx, SECLABEL_IPV4,
+								    bpf_htons(ETH_P_IP),
+								    &trace);
 
 				goto pass_to_stack;
 			}
@@ -1317,20 +1469,6 @@ skip_vtep:
 					  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 		return ret;
 	}
-
-	goto pass_to_stack;
-
-#if defined(ENABLE_HOST_ROUTING) || defined(ENABLE_ROUTING)
-to_host:
-#endif
-#ifdef ENABLE_ROUTING
-	if (is_defined(ENABLE_HOST_FIREWALL) && *dst_sec_identity == HOST_ID) {
-		send_trace_notify(ctx, TRACE_TO_HOST, SECLABEL_IPV4, HOST_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_NET_IFINDEX,
-				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
-		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
-	}
-#endif
 
 pass_to_stack:
 #ifdef ENABLE_ROUTING

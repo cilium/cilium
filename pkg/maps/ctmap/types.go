@@ -21,17 +21,12 @@ import (
 type mapType int
 
 const (
-	// mapTypeIPv4TCPLocal and friends are map types which correspond to a
+	// map types which correspond to a
 	// combination of the following attributes:
 	// * IPv4 or IPv6;
 	// * TCP or non-TCP (shortened to Any)
-	// * Local (endpoint-specific) or global (endpoint-oblivious).
-	mapTypeIPv4TCPLocal mapType = iota
-	mapTypeIPv6TCPLocal
-	mapTypeIPv4TCPGlobal
+	mapTypeIPv4TCPGlobal mapType = iota
 	mapTypeIPv6TCPGlobal
-	mapTypeIPv4AnyLocal
-	mapTypeIPv6AnyLocal
 	mapTypeIPv4AnyGlobal
 	mapTypeIPv6AnyGlobal
 	mapTypeMax
@@ -40,18 +35,10 @@ const (
 // String renders the map type into a user-readable string.
 func (m mapType) String() string {
 	switch m {
-	case mapTypeIPv4TCPLocal:
-		return "Local IPv4 TCP CT map"
-	case mapTypeIPv6TCPLocal:
-		return "Local IPv6 TCP CT map"
 	case mapTypeIPv4TCPGlobal:
 		return "Global IPv4 TCP CT map"
 	case mapTypeIPv6TCPGlobal:
 		return "Global IPv6 TCP CT map"
-	case mapTypeIPv4AnyLocal:
-		return "Local IPv4 non-TCP CT map"
-	case mapTypeIPv6AnyLocal:
-		return "Local IPv6 non-TCP CT map"
 	case mapTypeIPv4AnyGlobal:
 		return "Global IPv4 non-TCP CT map"
 	case mapTypeIPv6AnyGlobal:
@@ -62,13 +49,13 @@ func (m mapType) String() string {
 
 func (m mapType) name() string {
 	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal:
+	case mapTypeIPv4TCPGlobal:
 		return "tcp4"
-	case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal:
+	case mapTypeIPv6TCPGlobal:
 		return "tcp6"
-	case mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
+	case mapTypeIPv4AnyGlobal:
 		return "any4"
-	case mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
+	case mapTypeIPv6AnyGlobal:
 		return "any6"
 	default:
 		panic("Unexpected map type " + m.String())
@@ -77,7 +64,7 @@ func (m mapType) name() string {
 
 func (m mapType) isIPv4() bool {
 	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
+	case mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal:
 		return true
 	}
 	return false
@@ -85,23 +72,7 @@ func (m mapType) isIPv4() bool {
 
 func (m mapType) isIPv6() bool {
 	switch m {
-	case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
-		return true
-	}
-	return false
-}
-
-func (m mapType) isLocal() bool {
-	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4AnyLocal, mapTypeIPv6AnyLocal:
-		return true
-	}
-	return false
-}
-
-func (m mapType) isGlobal() bool {
-	switch m {
-	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal, mapTypeIPv4AnyGlobal, mapTypeIPv6AnyGlobal:
+	case mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal:
 		return true
 	}
 	return false
@@ -109,7 +80,7 @@ func (m mapType) isGlobal() bool {
 
 func (m mapType) isTCP() bool {
 	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal:
+	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal:
 		return true
 	}
 	return false
@@ -117,10 +88,6 @@ func (m mapType) isTCP() bool {
 
 func (m mapType) key() bpf.MapKey {
 	switch m {
-	case mapTypeIPv4TCPLocal, mapTypeIPv4AnyLocal:
-		return &CtKey4{}
-	case mapTypeIPv6TCPLocal, mapTypeIPv6AnyLocal:
-		return &CtKey6{}
 	case mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal:
 		return &CtKey4Global{}
 	case mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal:
@@ -148,43 +115,9 @@ func (m mapType) maxEntries() int {
 		}
 		return option.CTMapEntriesGlobalAnyDefault
 
-	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4AnyLocal, mapTypeIPv6AnyLocal:
-		return mapNumEntriesLocal
-
 	default:
 		panic("Unexpected map type " + m.String())
 	}
-}
-
-type CTMapIPVersion int
-
-const (
-	CTMapIPv4 CTMapIPVersion = iota
-	CTMapIPv6
-)
-
-// FilterMapsByProto filters the given CT maps by the given IP version, and
-// returns two maps - one for TCP and one for any protocol.
-func FilterMapsByProto(maps []*Map, ipVsn CTMapIPVersion) (ctMapTCP *Map, ctMapAny *Map) {
-	for _, m := range maps {
-		switch ipVsn {
-		case CTMapIPv4:
-			switch m.mapType {
-			case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal:
-				ctMapTCP = m
-			case mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
-				ctMapAny = m
-			}
-		case CTMapIPv6:
-			switch m.mapType {
-			case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal:
-				ctMapTCP = m
-			case mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
-				ctMapAny = m
-			}
-		}
-	}
-	return
 }
 
 type CtKey interface {
@@ -203,81 +136,6 @@ type CtKey interface {
 	GetFlags() uint8
 
 	GetTupleKey() tuple.TupleKey
-}
-
-type CtKey4 struct {
-	tuple.TupleKey4
-}
-
-// ToNetwork converts CtKey4 ports to network byte order.
-func (k *CtKey4) ToNetwork() CtKey {
-	n := *k
-	n.SourcePort = byteorder.HostToNetwork16(n.SourcePort)
-	n.DestPort = byteorder.HostToNetwork16(n.DestPort)
-	return &n
-}
-
-// ToHost converts CtKey ports to host byte order.
-func (k *CtKey4) ToHost() CtKey {
-	n := *k
-	n.SourcePort = byteorder.NetworkToHost16(n.SourcePort)
-	n.DestPort = byteorder.NetworkToHost16(n.DestPort)
-	return &n
-}
-
-// GetFlags returns the tuple's flags.
-func (k *CtKey4) GetFlags() uint8 {
-	return k.Flags
-}
-
-func (k *CtKey4) String() string {
-	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
-}
-
-func (k *CtKey4) New() bpf.MapKey { return &CtKey4{} }
-
-// Dump writes the contents of key to sb and returns true if the value for next
-// header in the key is nonzero.
-func (k *CtKey4) Dump(sb *strings.Builder, reverse bool) bool {
-	var addrDest string
-
-	if k.NextHeader == 0 {
-		return false
-	}
-
-	// Addresses swapped, see issue #5848
-	if reverse {
-		addrDest = k.SourceAddr.String()
-	} else {
-		addrDest = k.DestAddr.String()
-	}
-
-	if k.Flags&TUPLE_F_SERVICE != 0 {
-		sb.WriteString(fmt.Sprintf("%s SVC %s %d:%d ",
-			k.NextHeader.String(), k.DestAddr.String(), k.DestPort,
-			k.SourcePort),
-		)
-	} else if k.Flags&TUPLE_F_IN != 0 {
-		sb.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.SourcePort,
-			k.DestPort),
-		)
-	} else {
-		sb.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.DestPort,
-			k.SourcePort),
-		)
-	}
-
-	if k.Flags&TUPLE_F_RELATED != 0 {
-		sb.WriteString("related ")
-	}
-
-	return true
-}
-
-func (k *CtKey4) GetTupleKey() tuple.TupleKey {
-	return &k.TupleKey4
 }
 
 type CtKey4Global struct {
@@ -361,80 +219,6 @@ func (k *CtKey4Global) Dump(sb *strings.Builder, reverse bool) bool {
 
 func (k *CtKey4Global) GetTupleKey() tuple.TupleKey {
 	return &k.TupleKey4Global
-}
-
-// CtKey6 is needed to provide CtEntry type to Lookup values
-type CtKey6 struct {
-	tuple.TupleKey6
-}
-
-// ToNetwork converts CtKey6 ports to network byte order.
-func (k *CtKey6) ToNetwork() CtKey {
-	return &CtKey6{
-		TupleKey6: *k.TupleKey6.ToNetwork().(*tuple.TupleKey6),
-	}
-}
-
-// ToHost converts CtKey ports to host byte order.
-func (k *CtKey6) ToHost() CtKey {
-	return &CtKey6{
-		TupleKey6: *k.TupleKey6.ToHost().(*tuple.TupleKey6),
-	}
-}
-
-// GetFlags returns the tuple's flags.
-func (k *CtKey6) GetFlags() uint8 {
-	return k.Flags
-}
-
-func (k *CtKey6) String() string {
-	return fmt.Sprintf("[%s]:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
-}
-
-func (k *CtKey6) New() bpf.MapKey { return &CtKey6{} }
-
-// Dump writes the contents of key to sb and returns true if the value for next
-// header in the key is nonzero.
-func (k *CtKey6) Dump(sb *strings.Builder, reverse bool) bool {
-	var addrDest string
-
-	if k.NextHeader == 0 {
-		return false
-	}
-
-	// Addresses swapped, see issue #5848
-	if reverse {
-		addrDest = k.SourceAddr.String()
-	} else {
-		addrDest = k.DestAddr.String()
-	}
-
-	if k.Flags&TUPLE_F_SERVICE != 0 {
-		sb.WriteString(fmt.Sprintf("%s SVC %s %d:%d ",
-			k.NextHeader.String(), k.DestAddr.String(), k.DestPort,
-			k.SourcePort),
-		)
-	} else if k.Flags&TUPLE_F_IN != 0 {
-		sb.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.SourcePort,
-			k.DestPort),
-		)
-	} else {
-		sb.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
-			k.NextHeader.String(), addrDest, k.DestPort,
-			k.SourcePort),
-		)
-	}
-
-	if k.Flags&TUPLE_F_RELATED != 0 {
-		sb.WriteString("related ")
-	}
-
-	return true
-}
-
-func (k *CtKey6) GetTupleKey() tuple.TupleKey {
-	return &k.TupleKey6
 }
 
 // CtKey6Global is needed to provide CtEntry type to Lookup values
@@ -607,7 +391,6 @@ func (c *CtEntry) flagsString() string {
 }
 
 func (c *CtEntry) StringWithTimeDiff(toRemSecs func(uint32) string) string {
-
 	var timeDiff string
 	if toRemSecs != nil {
 		timeDiff = fmt.Sprintf(" (%s)", toRemSecs(c.Lifetime))
@@ -638,9 +421,6 @@ func (c *CtEntry) String() string {
 func (c *CtEntry) New() bpf.MapValue { return &CtEntry{} }
 
 type GCRunner interface {
-	// Enable enables the periodic execution of the connection tracking garbage collection.
-	Enable()
-
 	// Run runs the oneshot connection tracking garbage collection.
 	Run(m *Map, filter GCFilter) (int, error)
 
@@ -654,8 +434,6 @@ type GCRunner interface {
 type fakeCTMapGC struct{}
 
 func NewFakeGCRunner() GCRunner { return fakeCTMapGC{} }
-
-func (fakeCTMapGC) Enable() {}
 
 func (g fakeCTMapGC) Run(m *Map, filter GCFilter) (int, error) {
 	return 0, nil

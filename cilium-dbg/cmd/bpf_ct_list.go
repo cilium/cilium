@@ -23,7 +23,7 @@ import (
 // bpfCtListCmd represents the bpf_ct_list command
 var (
 	bpfCtListCmd = &cobra.Command{
-		Use:     "list ( global | cluster <identifier> )",
+		Use:     "list [cluster <identifier>]",
 		Aliases: []string{"ls"},
 		Short:   "List connection tracking entries",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -52,12 +52,12 @@ func init() {
 
 func parseArgs(args []string) (string, uint32, error) {
 	if len(args) == 0 {
-		return "", 0, fmt.Errorf("no CT map type provided")
+		return "global", 0, nil
 	}
 
 	t := args[0]
 	switch t {
-	case "global":
+	case "global": // backwards compatibility
 		return t, 0, nil
 	case "cluster":
 		if len(args) != 2 {
@@ -81,7 +81,7 @@ func getMaps(t string, id uint32) []ctmap.CtMap {
 	var r []ctmap.CtMap
 	ipv4, ipv6 := getIpEnableStatuses()
 	if t == "global" {
-		m = ctmap.GlobalMaps(ipv4, ipv6)
+		m = ctmap.Maps(ipv4, ipv6)
 	}
 	if t == "cluster" {
 		// Ignoring the error, as we already validated the cluster ID.
@@ -152,7 +152,7 @@ func dumpCt(maps []ctmap.CtMap, args ...any) {
 			if os.IsNotExist(err) {
 				msg := "Unable to open %s: %s."
 				if t != "global" {
-					msg = "Unable to open %s: %s: please try using \"cilium bpf ct list global\"."
+					msg = "Unable to open %s: %s: please try using \"cilium bpf ct list\"."
 				}
 				fmt.Fprintf(os.Stderr, msg+" Skipping.\n", path, err)
 				continue

@@ -8,13 +8,13 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 #undef ENABLE_HEALTH_CHECK
-#define ENABLE_LOCAL_REDIRECT_POLICY 1
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
 
 #include "lib/bpf_lxc.h"
 
 #define NETNS_COOKIE	5000
 
+ASSIGN_CONFIG(bool, enable_lrp, true)
 ASSIGN_CONFIG(__u64, endpoint_netns_cookie, NETNS_COOKIE)
 
 #include "lib/lb.h"

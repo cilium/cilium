@@ -8,18 +8,15 @@ import (
 	"fmt"
 	"iter"
 	"log/slog"
-	"net"
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"go4.org/netipx"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/identity"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -36,12 +33,12 @@ type syncHostIPsParams struct {
 	cell.In
 
 	Logger        *slog.Logger
-	Jobs          job.Registry
-	Health        cell.Health
+	JobGroup      job.Group
 	DB            *statedb.DB
 	Config        *option.DaemonConfig
 	NodeAddresses statedb.Table[tables.NodeAddress]
 	IPCache       *ipcache.IPCache
+	LXCMap        lxcmap.Map
 }
 
 type syncHostIPs struct {
@@ -60,7 +57,7 @@ func (s *syncHostIPs) StartAndWaitFirst(ctx context.Context) error {
 	}
 }
 
-func newSyncHostIPs(lc cell.Lifecycle, p syncHostIPsParams) *syncHostIPs {
+func newSyncHostIPs(p syncHostIPsParams) *syncHostIPs {
 	s := &syncHostIPs{
 		params:     p,
 		start:      make(chan struct{}),
@@ -72,8 +69,7 @@ func newSyncHostIPs(lc cell.Lifecycle, p syncHostIPsParams) *syncHostIPs {
 		return s
 	}
 
-	g := p.Jobs.NewGroup(p.Health, lc)
-	g.Add(job.OneShot("sync-hostips", s.loop))
+	p.JobGroup.Add(job.OneShot("sync-hostips", s.loop))
 
 	return s
 }
@@ -123,19 +119,17 @@ func (s *syncHostIPs) loop(ctx context.Context, health cell.Health) error {
 // changes were made.
 func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]) error {
 	type ipIDLabel struct {
-		identity.IPIdentityPair
-		labels.Labels
+		IP     netip.Addr
+		ID     identity.NumericIdentity
+		Labels labels.Labels
 	}
 	specialIdentities := make([]ipIDLabel, 0, 2)
 
-	addIdentity := func(ip net.IP, mask net.IPMask, id identity.NumericIdentity, labels labels.Labels) {
+	addIdentity := func(ip netip.Addr, id identity.NumericIdentity, labels labels.Labels) {
 		specialIdentities = append(specialIdentities, ipIDLabel{
-			identity.IPIdentityPair{
-				IP:   ip,
-				Mask: mask,
-				ID:   id,
-			},
-			labels,
+			IP:     ip,
+			ID:     id,
+			Labels: labels,
 		})
 	}
 
@@ -149,7 +143,7 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 		if option.Config.IsExcludedLocalAddress(addr.Addr) {
 			continue
 		}
-		addIdentity(addr.Addr.AsSlice(), nil, identity.ReservedIdentityHost, labels.LabelHost)
+		addIdentity(addr.Addr, identity.ReservedIdentityHost, labels.LabelHost)
 	}
 
 	if option.Config.EnableIPv6 {
@@ -159,7 +153,7 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 			ipv6Ident = identity.ReservedIdentityWorld
 			ipv6Label = labels.LabelWorld
 		}
-		addIdentity(net.IPv6zero, net.CIDRMask(0, net.IPv6len*8), ipv6Ident, ipv6Label)
+		addIdentity(netip.IPv6Unspecified(), ipv6Ident, ipv6Label)
 	}
 
 	if option.Config.EnableIPv4 {
@@ -169,10 +163,10 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 			ipv4Ident = identity.ReservedIdentityWorld
 			ipv4Label = labels.LabelWorld
 		}
-		addIdentity(net.IPv4zero, net.CIDRMask(0, net.IPv4len*8), ipv4Ident, ipv4Label)
+		addIdentity(netip.IPv4Unspecified(), ipv4Ident, ipv4Label)
 	}
 
-	existingEndpoints, err := lxcmap.DumpToMap()
+	existingEndpoints, err := s.params.LXCMap.DumpToMap()
 	if err != nil {
 		return fmt.Errorf("dump lxcmap: %w", err)
 	}
@@ -181,9 +175,9 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 	for _, ipIDLblsPair := range specialIdentities {
 		isHost := ipIDLblsPair.ID == identity.ReservedIdentityHost
 		if isHost {
-			added, err := lxcmap.SyncHostEntry(ipIDLblsPair.IP)
+			added, err := s.params.LXCMap.SyncHostEntry(ipIDLblsPair.IP)
 			if err != nil {
-				return fmt.Errorf("Unable to add host entry to endpoint map: %w", err)
+				return fmt.Errorf("unable to add host entry to endpoint map: %w", err)
 			}
 			if added {
 				s.params.Logger.Debug(
@@ -193,31 +187,31 @@ func (s *syncHostIPs) sync(addrs iter.Seq2[tables.NodeAddress, statedb.Revision]
 			}
 		}
 
-		delete(existingEndpoints, ipIDLblsPair.IP.String())
+		delete(existingEndpoints, ipIDLblsPair.IP)
 
 		lbls := ipIDLblsPair.Labels
 		if ipIDLblsPair.ID.IsWorld() {
-			p := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(netipx.MustFromStdIP(ipIDLblsPair.IP), 0))
+			p := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(ipIDLblsPair.IP, 0))
 			s.params.IPCache.OverrideIdentity(p, lbls, source.Local, daemonResourceID)
 		} else {
-			p := cmtypes.NewLocalPrefixCluster(ippkg.IPToNetPrefix(ipIDLblsPair.IP))
+			p := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(ipIDLblsPair.IP, ipIDLblsPair.IP.BitLen()))
 			s.params.IPCache.UpsertMetadata(p, source.Local, daemonResourceID, lbls)
 		}
 	}
 
 	// existingEndpoints is a map from endpoint IP to endpoint info. Referring
 	// to the key as host IP here because we only care about the host endpoint.
-	for hostIP, info := range existingEndpoints {
-		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
+	for addr, info := range existingEndpoints {
+		if addr.IsValid() && info.IsHost() {
+			if err := s.params.LXCMap.DeleteEntry(addr); err != nil {
 				return fmt.Errorf("unable to delete obsolete host IP: %w", err)
 			} else {
 				s.params.Logger.Debug(
 					"Removed outdated host IP from endpoint map",
-					logfields.IPAddr, hostIP,
+					logfields.IPAddr, addr,
 				)
 			}
-			p := cmtypes.NewLocalPrefixCluster(ippkg.IPToNetPrefix(ip))
+			p := cmtypes.NewLocalPrefixCluster(netip.PrefixFrom(addr, addr.BitLen()))
 			s.params.IPCache.RemoveMetadata(p, daemonResourceID, labels.LabelHost)
 		}
 	}

@@ -147,10 +147,8 @@ kind-install-cilium-clustermesh: check_deps kind-clustermesh-ready ## Install a 
 	$(MAKE) kind-connect-clustermesh
 
 .PHONY: kind-install-cilium-clustermesh-fast
-kind-install-cilium-clustermesh-fast: check_deps kind-clustermesh-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into the ClusterMesh clusters and enable ClusterMesh.
+kind-install-cilium-clustermesh-fast: check_deps kind-clustermesh-ready kind-load-base-images ## "Fast" Install a local Cilium version using volume-mounted binaries into the ClusterMesh clusters and enable ClusterMesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
-	docker pull quay.io/cilium/cilium-ci:latest
-	kind load docker-image --name clustermesh1 quay.io/cilium/cilium-ci:latest
 	-$(CILIUM_CLI) --context=kind-clustermesh1 uninstall >/dev/null
 	$(CILIUM_CLI) --context=kind-clustermesh1 install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
@@ -159,7 +157,6 @@ kind-install-cilium-clustermesh-fast: check_deps kind-clustermesh-ready ## "Fast
 		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
 
 	@echo "  INSTALL cilium on clustermesh2 cluster"
-	kind load docker-image --name clustermesh2 quay.io/cilium/cilium-ci:latest
 	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
 	$(KUBECTL) --context=kind-clustermesh1 get secret -n kube-system cilium-ca -o yaml | \
 		$(KUBECTL) --context=kind-clustermesh2 replace --force -f -
@@ -178,6 +175,16 @@ KIND_CLUSTER_NAME ?= $(shell kind get clusters -q | head -n1)
 kind-ready:
 	@$(ECHO_CHECK) kind-ready
 	@if [ -n "$(shell kind get clusters -q)" ]; then echo "kind is ready"; else echo "kind not ready"; exit 1; fi
+
+PREPULL_IMAGES ?= quay.io/cilium/cilium-ci:latest  quay.io/cilium/operator-generic-ci:latest $(CILIUM_ENVOY_REF)
+
+.PHONY: kind-load-base-images
+kind-load-base-images:
+	@echo "  PULL cluster images"
+	for image in $(PREPULL_IMAGES); do docker pull $$image; done
+	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		kind load docker-image $(PREPULL_IMAGES) -n $$cluster_name; \
+	done
 
 $(eval $(call KIND_ENV,kind-build-image-agent))
 kind-build-image-agent: ## Build cilium-dev docker image
@@ -225,13 +232,9 @@ endif
 
 .PHONY: kind-install-cilium-fast
 kind-install-cilium-fast: .SHELLFLAGS=-c
-kind-install-cilium-fast: check_deps kind-ready ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
+kind-install-cilium-fast: check_deps kind-ready kind-load-base-images ## "Fast" Install a local Cilium version using volume-mounted binaries into all clusters.
 	@echo "  INSTALL cilium"
-	docker pull quay.io/cilium/cilium-ci:latest
 	$(QUIET)for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
-		for node in $(shell kind -n "$$cluster_name" get nodes); do \
-			kind load docker-image quay.io/cilium/cilium-ci:latest -n $$cluster_name --nodes $$node; \
-		done; \
 		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
 		sleep 5; \
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \

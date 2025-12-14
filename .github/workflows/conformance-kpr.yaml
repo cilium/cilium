@@ -27,8 +27,8 @@ on:
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
 permissions:
-  # To read actions state with catchpoint/workflow-telemetry-action
-  actions: read
+  # To be able to trigger eks-cluster-pool-manager.yaml workflow
+  actions: write
   # To be able to access the repository with actions/checkout
   contents: read
   # To allow retrieving information from the PR API
@@ -85,7 +85,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -107,6 +107,7 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "advanced-features": true}'
+      test-concurrency: 2
 
   conformance-eks-kpr-ipsec:
     name: Conformance EKS with KPR + IPsec
@@ -132,6 +133,7 @@ jobs:
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
       extra-args: '{"kpr": true, "advanced-features": true, "wireguard": true}'
+      test-concurrency: 2
 
   merge-upload-and-status:
     name: Merge Upload and Status

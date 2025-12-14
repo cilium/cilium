@@ -5,12 +5,103 @@
 
 #include <linux/icmp.h>
 
-#include "drop.h"
+#include "common.h"
 #include "dbg.h"
+
+DECLARE_CONFIG(bool, allow_icmp_frag_needed,
+	       "Allow ICMP_FRAG_NEEDED messages when applying Network Policy")
+DECLARE_CONFIG(bool, enable_icmp_rule, "Apply Network Policy for ICMP packets")
 
 #ifndef EFFECTIVE_EP_ID
 #define EFFECTIVE_EP_ID 0
 #endif
+
+enum {
+	POLICY_INGRESS = 1,
+	POLICY_EGRESS = 2,
+};
+
+enum {
+	POLICY_MATCH_NONE = 0,
+	POLICY_MATCH_L3_ONLY = 1,
+	POLICY_MATCH_L3_L4 = 2,
+	POLICY_MATCH_L4_ONLY = 3,
+	POLICY_MATCH_ALL = 4,
+	POLICY_MATCH_L3_PROTO = 5,
+	POLICY_MATCH_PROTO_ONLY = 6,
+};
+
+/*
+ * Longest-prefix match map lookup only matches the number of bits from the
+ * beginning of the key stored in the map indicated by the 'lpm_key' field in
+ * the same stored map key, not including the 'lpm_key' field itself. Note that
+ * the 'lpm_key' value passed in the lookup function argument needs to be a
+ * "full prefix" (POLICY_FULL_PREFIX defined below).
+ *
+ * Since we need to be able to wildcard 'sec_label' independently on 'protocol'
+ * and 'dport' fields, we'll need to do that explicitly with a separate lookup
+ * where 'sec_label' is zero. For the 'protocol' and 'port' we can use the
+ * longest-prefix match by placing them at the end ot the key in this specific
+ * order, as we want to be able to wildcard those fields in a specific pattern:
+ * 'protocol' can only be wildcarded if dport is also fully wildcarded.
+ * 'protocol' is never partially wildcarded, so it is either fully wildcarded or
+ * not wildcarded at all. 'dport' can be partially wildcarded, but only when
+ * 'protocol' is fully specified. This follows the logic that the destination
+ * port is a property of a transport protocol and can not be specified without
+ * also specifying the protocol.
+ */
+struct policy_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u32		sec_label;
+	__u8		egress:1,
+			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
+};
+
+/* POLICY_FULL_PREFIX gets full prefix length of policy_key */
+#define POLICY_FULL_PREFIX						\
+  (8 * (sizeof(struct policy_key) - sizeof(struct bpf_lpm_trie_key)))
+
+struct policy_entry {
+	__be16		proxy_port;
+	__u8		deny:1,
+			reserved:2, /* bits used in Cilium 1.16, keep unused for Cilium 1.17 */
+			lpm_prefix_length:5; /* map key protocol and dport prefix length */
+	__u8		auth_type:7,
+			has_explicit_auth_type:1;
+	__u32		precedence;
+	__u32		cookie;
+};
+
+/*
+ * LPM_FULL_PREFIX_BITS is the maximum length in 'lpm_prefix_length' when none of the protocol or
+ * dport bits in the key are wildcarded.
+ */
+#define LPM_PROTO_PREFIX_BITS 8                             /* protocol specified */
+#define LPM_FULL_PREFIX_BITS (LPM_PROTO_PREFIX_BITS + 16)   /* protocol and dport specified */
+
+/* Highest possible precedence */
+#define MAX_PRECEDENCE (~0U)
+
+/*
+ * policy_stats_key has the same layout as policy_key, apart from the first four bytes.
+ */
+struct policy_stats_key {
+	__u16		endpoint_id;
+	__u8		pad1;
+	__u8		prefix_len;
+	__u32		sec_label;
+	__u8		egress:1,
+			pad:7;
+	__u8		protocol; /* can be wildcarded if 'dport' is fully wildcarded */
+	__be16		dport; /* can be wildcarded with CIDR-like prefix */
+};
+
+struct policy_stats_value {
+	__u64		packets;
+	__u64		bytes;
+};
 
 /* Global policy stats map */
 struct {
@@ -75,6 +166,12 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_policy_v2 __section_maps_btf;
 
+/* Return a verdict for the chosen 'policy', possibly propagating the auth type from 'policy2', if
+ * non-NULL and of the same precedence.
+ *
+ * Always called with non-NULL 'policy', while 'policy2' may be NULL.
+ * If 'policy2' is non-null, it never has a higher precedence than 'policy'.
+ */
 static __always_inline int
 __policy_check(const struct policy_entry *policy, const struct policy_entry *policy2, __s8 *ext_err,
 	       __u16 *proxy_port, __u32 *cookie)
@@ -90,25 +187,19 @@ __policy_check(const struct policy_entry *policy, const struct policy_entry *pol
 	if (unlikely(policy->deny))
 		return DROP_POLICY_DENY;
 
-	/* The chosen 'policy' has higher proxy port priority or if on the same it has more
+	/* The chosen 'policy' has higher precedence or if on the same precedence it has more
 	 * specific L4 match, or if also the L4 are equally specific, then the chosen policy has
 	 * an L3 match, which is considered to be more specific.
-	 * If proxy port priority is the same, then by definition either both have a proxy
+	 * If precedence is the same, then by definition either both have a proxy
 	 * redirect or neither has one, so we do not need to check if the other policy has a proxy
 	 * redirect or not.
 	 */
 	*proxy_port = policy->proxy_port;
 
 	auth_type = policy->auth_type;
-	if (unlikely(policy2 && policy2->auth_type > auth_type &&
-		     !policy->has_explicit_auth_type)) {
-		/* Both L4-only and L3/4 policy matched, the chosen more specific one does not have
-		 * an explicit auth type: Propagate the auth type from the more general policy if
-		 * its (explicit or propagated) auth_type is greater than the propagated auth_type
-		 * of the chosen policy (policy entry may have an auth_type propagated from another
-		 * entry with en explicit auth type. Numerically greater value has precedence in
-		 * that case).
-		 */
+	/* Propagate the auth type from the same precedence, more general policy2 if needed. */
+	if (unlikely(policy2 && policy2->precedence == policy->precedence &&
+		     !policy->has_explicit_auth_type && policy2->auth_type > auth_type)) {
 		auth_type = policy2->auth_type;
 	}
 
@@ -123,10 +214,10 @@ __policy_check(const struct policy_entry *policy, const struct policy_entry *pol
 /* Allow experimental access to the @map parameter. */
 static __always_inline int
 __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
-		    __u32 remote_id, __u16 ethertype __maybe_unused, __be16 dport,
-		    __u8 proto, int off __maybe_unused, int dir,
-		    bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
-		    __u16 *proxy_port, __u32 *cookie)
+		    __u32 remote_id, __u16 ethertype, __be16 dport, __u8 proto,
+		    int off, int dir, bool is_untracked_fragment,
+		    __u8 *match_type, __s8 *ext_err, __u16 *proxy_port,
+		    __u32 *cookie)
 {
 	const struct policy_entry *policy;
 	const struct policy_entry *l4policy;
@@ -140,52 +231,52 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	};
 	__u8 p_len;
 
-#if defined(ALLOW_ICMP_FRAG_NEEDED) || defined(ENABLE_ICMP_RULE)
-	switch (ethertype) {
-	case ETH_P_IP:
-		if (proto == IPPROTO_ICMP) {
-			struct icmphdr icmphdr __align_stack_8;
+	if (CONFIG(allow_icmp_frag_needed) || CONFIG(enable_icmp_rule)) {
+		switch (ethertype) {
+		case ETH_P_IP:
+			if (proto == IPPROTO_ICMP) {
+				struct icmphdr icmphdr __align_stack_8;
 
-			if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
-				return DROP_INVALID;
+				if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
+					return DROP_INVALID;
 
-# if defined(ALLOW_ICMP_FRAG_NEEDED)
-			if (icmphdr.type == ICMP_DEST_UNREACH &&
-			    icmphdr.code == ICMP_FRAG_NEEDED) {
-				*proxy_port = 0;
-				return CTX_ACT_OK;
+				if (CONFIG(allow_icmp_frag_needed)) {
+					if (icmphdr.type == ICMP_DEST_UNREACH &&
+					    icmphdr.code == ICMP_FRAG_NEEDED) {
+						*proxy_port = 0;
+						return CTX_ACT_OK;
+					}
+				}
+
+				if (CONFIG(enable_icmp_rule))
+					key.dport = bpf_u8_to_be16(icmphdr.type);
 			}
-# endif
+			break;
+		case ETH_P_IPV6:
+			if (CONFIG(enable_icmp_rule)) {
+				if (proto == IPPROTO_ICMPV6) {
+					__u8 icmp_type;
 
-# if defined(ENABLE_ICMP_RULE)
-			key.dport = bpf_u8_to_be16(icmphdr.type);
-# endif
+					if (ctx_load_bytes(ctx, off, &icmp_type,
+							   sizeof(icmp_type)) < 0)
+						return DROP_INVALID;
+
+					key.dport = bpf_u8_to_be16(icmp_type);
+				}
+			}
+			break;
+		default:
+			break;
 		}
-		break;
-	case ETH_P_IPV6:
-# if defined(ENABLE_ICMP_RULE)
-		if (proto == IPPROTO_ICMPV6) {
-			__u8 icmp_type;
-
-			if (ctx_load_bytes(ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
-				return DROP_INVALID;
-
-			key.dport = bpf_u8_to_be16(icmp_type);
-		}
-# endif
-		break;
-	default:
-		break;
 	}
-#endif /* ALLOW_ICMP_FRAG_NEEDED || ENABLE_ICMP_RULE */
 
 	/* Policy match precedence when both L3 and L4-only lookups find a matching policy:
-
-	 * 1. Deny policy, if any, is selected.
-	 * 2. Policy with higher proxy port pririty is selected. This includes giving precedence
-	 *    to proxy redirect over non-proxy redirect, and proxy port priority.
-	 * 3. The entry with longer prefix length is selected out of the two allow entries.
-	 * 4. Otherwise the allow entry with non-wildcard L3 is chosen.
+	 *
+	 * 1. Policy with the higher precedence value is selected. This includes giving precedence
+	 *    to deny over allow, proxy redirect over non-proxy redirect, and proxy port priority.
+	 * 2. The entry with longer prefix length is selected out of the two entries with the same
+	 *    precedence.
+	 * 3. Otherwise the allow entry with non-wildcard L3 is chosen.
 	 */
 
 	/* Note: Untracked fragments always have zero ports in the tuple so they can
@@ -195,8 +286,10 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	/* L3 lookup: an exact match on L3 identity and LPM match on L4 proto and port. */
 	policy = map_lookup_elem(map, &key);
 
-	/* L3 policy can be chosen without the 2nd lookup if it is a deny. */
-	if (likely(policy && policy->deny)) {
+	/* L3 policy can be chosen without the 2nd lookup if it has the highest possible precedence
+	 * value (which implies that it is a deny).
+	 */
+	if (likely(policy && policy->precedence == MAX_PRECEDENCE)) {
 		l4policy = NULL;
 		goto check_policy;
 	}
@@ -207,14 +300,14 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 
 	/* The found l4policy is chosen if:
 	 * - only l4 policy was found, or if both policies are found, and:
-	 * 1. It is a deny policy, or
-	 * 2. proxy port priority is equal and L4-only policy has longer LPM prefix length
-	 *    than the L3 policy
+	 * 1. It has higher precedence value, or
+	 * 2. Precedence is equal (which implies both are denys or both are allows) and
+	 *    L4-only policy has longer LPM prefix length than the L3 policy
 	 */
 	if (l4policy &&
-	    (l4policy->deny || !policy ||
-	     l4policy->proxy_port_priority > policy->proxy_port_priority ||
-	     (l4policy->proxy_port_priority == policy->proxy_port_priority &&
+	    (!policy ||
+	     l4policy->precedence > policy->precedence ||
+	     (l4policy->precedence == policy->precedence &&
 	      l4policy->lpm_prefix_length > policy->lpm_prefix_length)))
 		goto check_l4_policy;
 
@@ -252,9 +345,8 @@ check_l4_policy:
 }
 
 static __always_inline int
-policy_can_access(struct __ctx_buff *ctx, __u32 local_id,
-		  __u32 remote_id, __u16 ethertype __maybe_unused, __be16 dport,
-		  __u8 proto, int off __maybe_unused, int dir,
+policy_can_access(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
+		  __u16 ethertype, __be16 dport, __u8 proto, int off, int dir,
 		  bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
 		  __u16 *proxy_port, __u32 *cookie)
 {

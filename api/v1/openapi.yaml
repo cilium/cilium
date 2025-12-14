@@ -559,11 +559,6 @@ paths:
       deprecated: true
       tags:
       - policy
-      parameters:
-      - name: labels
-        in: body
-        schema:
-          "$ref": "#/definitions/Labels"
       responses:
         '200':
           description: Success
@@ -571,69 +566,6 @@ paths:
             "$ref": "#/definitions/Policy"
         '404':
           description: No policy rules found
-    put:
-      summary: Create or update a policy (sub)tree
-      description: "Deprecated: will be removed in v1.19"
-      deprecated: true
-      tags:
-      - policy
-      parameters:
-      - "$ref": "#/parameters/policy-rules"
-      - "$ref": "#/parameters/policy-replace"
-      - "$ref": "#/parameters/policy-replace-with-labels"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/Policy"
-        '400':
-          description: Invalid policy
-          x-go-name: InvalidPolicy
-          schema:
-            "$ref": "#/definitions/Error"
-        '403':
-          description: Forbidden
-        '460':
-          description: Invalid path
-          x-go-name: InvalidPath
-          schema:
-            "$ref": "#/definitions/Error"
-        '500':
-          description: Policy import failed
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
-    delete:
-      summary: Delete a policy (sub)tree
-      description: "Deprecated: will be removed in v1.19"
-      deprecated: true
-      tags:
-      - policy
-      parameters:
-      - name: labels
-        in: body
-        required: false
-        schema:
-          "$ref": "#/definitions/Labels"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/Policy"
-        '400':
-          description: Invalid request
-          x-go-name: Invalid
-          schema:
-            "$ref": "#/definitions/Error"
-        '403':
-          description: Forbidden
-        '404':
-          description: Policy not found
-        '500':
-          description: Error while deleting policy
-          x-go-name: Failure
-          schema:
-            "$ref": "#/definitions/Error"
   "/policy/selectors":
     get:
       summary: See what selectors match which identities
@@ -1236,6 +1168,9 @@ definitions:
         type: string
       container-name:
         description: Name assigned to container
+        type: string
+      container-netns-path:
+        description: Path of Container Netns
         type: string
       docker-endpoint-id:
         description: Docker endpoint ID
@@ -2525,6 +2460,9 @@ definitions:
       enableRouteMTUForCNIChaining:
         description: Enable route MTU for pod netns when CNI chaining is used
         type: boolean
+      enablePacketizationLayerPMTUD:
+        description: Enable PLPMTUD probing on the pod netns
+        type: boolean
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
       ipam-mode:
@@ -2542,9 +2480,6 @@ definitions:
           ipv6:
             description: Status of masquerading for IPv6 traffic
             type: boolean
-      egress-multi-home-ip-rule-compat:
-        description: Configured compatibility mode for --egress-multi-home-ip-rule-compat
-        type: boolean
       installUplinkRoutesForDelegatedIPAM:
         description: |
           Install ingress/egress routes through uplink on host for Pods when working with
@@ -3539,6 +3474,7 @@ definitions:
           - Disabled
           - IPsec
           - Wireguard
+          - Ztunnel
       msg:
         type: string
         description: Human readable error/warning message
@@ -3848,20 +3784,16 @@ definitions:
     description: Single BGP route policy statement
     properties:
       match-neighbors:
-        description: Matches any of the provided BGP neighbor IP addresses. If empty matches all neighbors.
-        type: array
-        items:
-          type: string
+        description: Matches BGP neighbor IP address with the provided match rules
+        "$ref": "#/definitions/BgpRoutePolicyNeighborMatch"
       match-families:
         description:  Matches any of the provided address families. If empty matches all address families.
         type: array
         items:
           "$ref": "#/definitions/BgpFamily"
       match-prefixes:
-        description:  Matches any of the provided prefixes. If empty matches all prefixes.
-        type: array
-        items:
-          "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
+        description: Matches CIDR prefix with the provided match rules
+        "$ref": "#/definitions/BgpRoutePolicyPrefixMatch"
       route-action:
         description: RIB processing action taken on the matched route
         type: string
@@ -3894,7 +3826,29 @@ definitions:
       unchanged:
         description: Don't change nexthop
         type: boolean
+  BgpRoutePolicyNeighborMatch:
+    description: Matches a neighbor in a BGP route policy
+    properties:
+      type:
+        description: Defines matching logic in case of multiple neighbors
+        "$ref": "#/definitions/BgpRoutePolicyMatchType"
+      neighbors:
+        description: Neighbor IP addresses to match with
+        type: array
+        items:
+          type: string
   BgpRoutePolicyPrefixMatch:
+    description: Matches a CIDR prefix in a BGP route policy
+    properties:
+      type:
+        description: Defines matching logic in case of multiple prefixes
+        "$ref": "#/definitions/BgpRoutePolicyMatchType"
+      prefixes:
+        description: Prefixes to match with
+        type: array
+        items:
+          "$ref": "#/definitions/BgpRoutePolicyPrefix"
+  BgpRoutePolicyPrefix:
     description: Matches a CIDR prefix in a BGP route policy
     properties:
       cidr:
@@ -3906,6 +3860,13 @@ definitions:
       prefix-len-max:
         description: Maximal prefix length that will match if it falls under CIDR
         type: integer
+  BgpRoutePolicyMatchType:
+    description: Defines BGP route policy matching logic in case of multiple match elements.
+    type: string
+    enum:
+      - any
+      - all
+      - invert
   BgpCapabilities:
     description: Represents the BGP capabilities.
     properties:

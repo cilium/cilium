@@ -1,5 +1,22 @@
 # Release History
 
+## 7.2.0 (2025-11-20)
+### Features Added
+
+- New enum type `AccessMode` with values `AccessModeDefault`, `AccessModeRestricted`
+- New enum type `ConnectionAuthenticationType` with values `ConnectionAuthenticationTypeCertificate`, `ConnectionAuthenticationTypePSK`
+- New enum type `LoadBalancerScope` with values `LoadBalancerScopePrivate`, `LoadBalancerScopePublic`
+- New enum type `RouteTableUsageMode` with values `RouteTableUsageModeManagedOnly`, `RouteTableUsageModeUseExisting`
+- New struct `CertificateAuthentication`
+- New field `EnableL4ClientIPPreservation` in struct `ApplicationGatewayBackendSettingsPropertiesFormat`
+- New field `EnableProbeProxyProtocolHeader` in struct `ApplicationGatewayOnDemandProbe`
+- New field `EnableProbeProxyProtocolHeader` in struct `ApplicationGatewayProbePropertiesFormat`
+- New field `Scope` in struct `LoadBalancerPropertiesFormat`
+- New field `RouteTableUsageMode` in struct `ManagerRoutingConfigurationPropertiesFormat`
+- New field `AccessMode` in struct `PrivateLinkServiceProperties`
+- New field `AuthenticationType`, `CertificateAuthentication` in struct `VirtualNetworkGatewayConnectionPropertiesFormat`
+
+
 ## 7.1.0 (2025-10-23)
 ### Features Added
 

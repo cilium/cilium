@@ -88,6 +88,24 @@ type ServiceImportSpec struct {
 	// +kubebuilder:validation:MaxItems:=2
 	// +optional
 	IPFamilies []v1.IPFamily `json:"ipFamilies,omitempty"`
+
+	// InternalTrafficPolicy describes how nodes distribute service traffic they
+	// receive on the ClusterIP. If set to "Local", the proxy will assume that pods
+	// only want to talk to endpoints of the service on the same node as the pod,
+	// dropping the traffic if there are no local endpoints. The default value,
+	// "Cluster", uses the standard behavior of routing to all endpoints evenly
+	// (possibly modified by topology and other features).
+	// +optional
+	InternalTrafficPolicy *v1.ServiceInternalTrafficPolicy `json:"internalTrafficPolicy,omitempty"`
+
+	// TrafficDistribution offers a way to express preferences for how traffic
+	// is distributed to Service endpoints. Implementations can use this field
+	// as a hint, but are not required to guarantee strict adherence. If the
+	// field is not set, the implementation will apply its default routing
+	// strategy. If set to "PreferClose", implementations should prioritize
+	// endpoints that are in the same zone.
+	// +optional
+	TrafficDistribution *string `json:"trafficDistribution,omitempty"`
 }
 
 // ServicePort represents the port on which the service is exposed

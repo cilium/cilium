@@ -18,7 +18,7 @@ code. Configuration options will be added on request if demand arises.
 Map Name                 Scope            Default Limit   Scale Implications
 ======================== ================ =============== =====================================================
 Auth                     node             512k            Max 512k authenticated relations per node
-Connection Tracking      node or endpoint 1M TCP/256k UDP Max 1M concurrent TCP connections, max 256k expected UDP answers
+Connection Tracking      node             1M TCP/256k UDP Max 1M concurrent TCP connections, max 256k expected UDP answers
 NAT                      node             512k            Max 512k NAT entries
 Neighbor Table           node             512k            Max 512k neighbor entries
 Endpoints                node             64k             Max 64k local endpoints + host IPs per node
@@ -29,6 +29,7 @@ Policy                   endpoint         16k             Max 16k allowed identi
 Proxy Map                node             512k            Max 512k concurrent redirected TCP connections to proxy
 Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
 IPv4 Fragmentation       node             8k              Max 8k fragmented datagrams in flight simultaneously on the node
+IPv6 Fragmentation       node             8k              Max 8k fragmented datagrams in flight simultaneously on the node
 Session Affinity         node             64k             Max 64k affinities from different clients
 IPv4 Masq                node             16k             Max 16k IPv4 cidrs used by BPF-based ip-masq-agent
 IPv6 Masq                node             16k             Max 16k IPv6 cidrs used by BPF-based ip-masq-agent

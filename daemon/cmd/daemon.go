@@ -6,22 +6,18 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"sync"
 
+	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -36,8 +32,8 @@ const (
 )
 
 func initNodeLocalRoutingRule(params daemonParams) error {
-	if !option.Config.DryMode {
-		if option.Config.EnableL7Proxy {
+	if !params.DaemonConfig.DryMode {
+		if params.DaemonConfig.EnableL7Proxy {
 			if err := linuxdatapath.NodeEnsureLocalRoutingRule(); err != nil {
 				return fmt.Errorf("ensuring local routing rule: %w", err)
 			}
@@ -46,55 +42,57 @@ func initNodeLocalRoutingRule(params daemonParams) error {
 	return nil
 }
 
-func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonParams) error {
-	var err error
-
-	bootstrapStats.daemonInit.Start()
-
+func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	// WireGuard and IPSec are mutually exclusive.
-	if params.IPsecAgent.Enabled() && params.WGAgent.Enabled() {
+	if params.IPSecConfig.Enabled() && params.WireguardConfig.Enabled() {
 		return fmt.Errorf("WireGuard (--%s) cannot be used with IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
 	}
 
 	if !params.IPSecConfig.DNSProxyInsecureSkipTransparentModeCheckEnabled() {
-		if params.IPsecAgent.Enabled() && option.Config.EnableL7Proxy && !option.Config.DNSProxyEnableTransparentMode {
+		if params.IPSecConfig.Enabled() && params.DaemonConfig.EnableL7Proxy && !params.DaemonConfig.DNSProxyEnableTransparentMode {
 			return fmt.Errorf("IPSec requires DNS proxy transparent mode to be enabled (--dnsproxy-enable-transparent-mode=\"true\")")
 		}
 	}
 
-	if params.IPsecAgent.Enabled() && option.Config.TunnelingEnabled() {
+	if params.IPSecConfig.Enabled() && params.DaemonConfig.TunnelingEnabled() {
 		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
 			return fmt.Errorf("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later): %w", err)
 		}
 	}
 
-	if option.Config.EnableHostFirewall {
-		if params.IPsecAgent.Enabled() {
+	if params.DaemonConfig.EnableHostFirewall {
+		if params.IPSecConfig.Enabled() {
 			return fmt.Errorf("IPSec cannot be used with the host firewall.")
 		}
 	}
 
-	if option.Config.LocalRouterIPv4 != "" || option.Config.LocalRouterIPv6 != "" {
-		if params.IPsecAgent.Enabled() {
+	if params.DaemonConfig.LocalRouterIPv4 != "" || params.DaemonConfig.LocalRouterIPv6 != "" {
+		if params.IPSecConfig.Enabled() {
 			return fmt.Errorf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, datapath.EnableIPSec)
+		}
+	}
+
+	if params.IPSecConfig.Enabled() || params.WireguardConfig.Enabled() {
+		if !params.DaemonConfig.EnableCiliumNodeCRD {
+			return fmt.Errorf("CiliumNode CRD cannot be disabled when encryption is enabled with WireGuard (--%s) or IPsec (--%s)", wgTypes.EnableWireguard, datapath.EnableIPSec)
 		}
 	}
 
 	// IPAMENI IPSec is configured from Reinitialize() to pull in devices
 	// that may be added or removed at runtime.
-	if params.IPsecAgent.Enabled() &&
-		!option.Config.TunnelingEnabled() &&
-		len(option.Config.EncryptInterface) == 0 &&
+	if params.IPSecConfig.Enabled() &&
+		!params.DaemonConfig.TunnelingEnabled() &&
+		len(params.DaemonConfig.EncryptInterface) == 0 &&
 		// If devices are required, we don't look at the EncryptInterface, as we
 		// don't load bpf_network in loader.reinitializeIPSec. Instead, we load
 		// bpf_host onto physical devices as chosen by configuration.
-		!option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) &&
-		option.Config.IPAM != ipamOption.IPAMENI {
+		!params.DaemonConfig.AreDevicesRequired(params.KPRConfig, params.WireguardConfig.Enabled(), params.IPSecConfig.Enabled()) &&
+		params.DaemonConfig.IPAM != ipamOption.IPAMENI {
 		link, err := linuxdatapath.NodeDeviceNameWithDefaultRoute(params.Logger)
 		if err != nil {
 			return fmt.Errorf("Ipsec default interface lookup failed, consider \"encrypt-interface\" to manually configure interface. Err: %w", err)
 		}
-		option.Config.EncryptInterface = append(option.Config.EncryptInterface, link)
+		params.DaemonConfig.EncryptInterface = append(params.DaemonConfig.EncryptInterface, link)
 	}
 
 	// Do the partial kube-proxy replacement initialization before creating BPF
@@ -104,142 +102,64 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 	// the feature does not influence the decision which BPF maps should be
 	// created.
 	if err := params.KPRInitializer.InitKubeProxyReplacementOptions(); err != nil {
-		params.Logger.Error("unable to initialize kube-proxy replacement options", logfields.Error, err)
 		return fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	ctmap.InitMapInfo(params.MetricsRegistry, option.Config.EnableIPv4, option.Config.EnableIPv6, params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
-
-	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
-		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
-		metrics.IdentityLabelSources.WithLabelValues(labels.LabelSourceReserved).Inc()
-	})
-
-	// Collect CIDR identities from the "old" bpf ipcache and restore them
-	// in to the metadata layer.
-	if option.Config.RestoreState && !option.Config.DryMode {
-		// this *must* be called before initMaps(), which will "hide"
-		// the "old" ipcache.
-		err := params.IdentityRestorer.RestoreLocalIdentities()
-		if err != nil {
-			params.Logger.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", logfields.Error, err)
+	if params.K8sClientConfig.IsEnabled() {
+		// Kubernetes demands that the localhost can always reach local
+		// pods. Therefore unless the AllowLocalhost policy is set to a
+		// specific mode, always allow localhost to reach local
+		// endpoints.
+		if params.DaemonConfig.AllowLocalhost == option.AllowLocalhostAuto {
+			params.DaemonConfig.AllowLocalhost = option.AllowLocalhostAlways
+			params.Logger.Info("k8s mode: Allowing localhost to reach local endpoints")
 		}
 	}
 
-	bootstrapStats.daemonInit.End(true)
-
-	// Stop all endpoints (its goroutines) on exit.
-	cleaner.cleanupFuncs.Add(func() {
-		params.Logger.Info("Waiting for all endpoints' goroutines to be stopped.")
-		var wg sync.WaitGroup
-
-		eps := params.EndpointManager.GetEndpoints()
-		wg.Add(len(eps))
-
-		for _, ep := range eps {
-			go func(ep *endpoint.Endpoint) {
-				ep.Stop()
-				wg.Done()
-			}(ep)
+	// BPF masquerade depends on BPF NodePort, so the following checks should
+	// happen after invoking initKubeProxyReplacementOptions().
+	if params.DaemonConfig.MasqueradingEnabled() && params.DaemonConfig.EnableBPFMasquerade {
+		var err error
+		switch {
+		case len(params.DaemonConfig.MasqueradeInterfaces) > 0:
+			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
+				option.MasqueradeInterfaces, option.Devices)
 		}
+		if err != nil {
+			return fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
+		}
+		if params.DaemonConfig.EnableMasqueradeRouteSource {
+			return fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
+		}
+	} else if params.DaemonConfig.EnableIPMasqAgent {
+		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
+	} else if !params.DaemonConfig.MasqueradingEnabled() && params.DaemonConfig.EnableBPFMasquerade {
+		return fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
+	}
 
-		wg.Wait()
-		params.Logger.Info("All endpoints' goroutines stopped.")
-	})
+	return nil
+}
+
+func configureDaemon(ctx context.Context, params daemonParams) error {
+	var err error
+
+	bootstrapStats.daemonInit.Start()
+
+	ctmap.InitMapInfo(params.MetricsRegistry, params.DaemonConfig.EnableIPv4, params.DaemonConfig.EnableIPv6, params.NatMap4, params.NatMap6)
+
+	bootstrapStats.daemonInit.End(true)
 
 	// Open or create BPF maps.
 	bootstrapStats.mapsInit.Start()
 	err = initMaps(params)
 	bootstrapStats.mapsInit.EndError(err)
 	if err != nil {
-		params.Logger.Error("error while opening/creating BPF maps", logfields.Error, err)
 		return fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 
-	if option.Config.DNSPolicyUnloadOnShutdown {
-		params.Logger.Debug(
-			"Registering cleanup function to unload DNS policies due to option",
-			logfields.Option, option.DNSPolicyUnloadOnShutdown,
-		)
-
-		// add to pre-cleanup funcs because this needs to run on graceful shutdown, but
-		// before the relevant subystems are being shut down.
-		cleaner.preCleanupFuncs.Add(func() {
-			// Stop k8s watchers
-			params.Logger.Info("Stopping k8s watcher")
-			params.K8sWatcher.StopWatcher()
-
-			// Iterate over the policy repository and remove L7 DNS part
-			needsPolicyRegen := false
-			removeL7DNSRules := func(pr policyAPI.Ports) error {
-				portProtocols := pr.GetPortProtocols()
-				if len(portProtocols) == 0 {
-					return nil
-				}
-				portRule := pr.GetPortRule()
-				if portRule == nil || portRule.Rules == nil {
-					return nil
-				}
-				dnsRules := portRule.Rules.DNS
-				params.Logger.Debug(
-					"Found egress L7 DNS rules",
-					logfields.PortProtocol, portProtocols[0],
-					logfields.DNSRules, dnsRules,
-				)
-
-				// For security reasons, the L7 DNS policy must be a
-				// wildcard in order to trigger this logic.
-				// Otherwise we could invalidate the L7 security
-				// rules. This means if any of the DNS L7 rules
-				// have a matchPattern of * then it is OK to delete
-				// the L7 portion of those rules.
-				hasWildcard := false
-				for _, dns := range dnsRules {
-					if dns.MatchPattern == "*" {
-						hasWildcard = true
-						break
-					}
-				}
-				if hasWildcard {
-					portRule.Rules = nil
-					needsPolicyRegen = true
-				}
-				return nil
-			}
-
-			params.Policy.Iterate(func(rule *policytypes.PolicyEntry) {
-				_ = rule.L4.Iterate(removeL7DNSRules)
-			})
-
-			if !needsPolicyRegen {
-				params.Logger.Info(
-					"No policy recalculation needed to remove DNS rules due to option",
-					logfields.Option, option.DNSPolicyUnloadOnShutdown,
-				)
-				return
-			}
-
-			// Bump revision to trigger policy recalculation
-			params.Logger.Info(
-				"Triggering policy recalculation to remove DNS rules due to option",
-				logfields.Option, option.DNSPolicyUnloadOnShutdown,
-			)
-			params.Policy.BumpRevision()
-			regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
-				Reason:            "unloading DNS rules on graceful shutdown",
-				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-			}
-			wg := params.EndpointManager.RegenerateAllEndpoints(regenerationMetadata)
-			wg.Wait()
-			params.Logger.Info("All endpoints regenerated after unloading DNS rules on graceful shutdown")
-		})
-	}
-
-	policyAPI.InitEntities(params.ClusterInfo.Name)
-
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
-	if err := params.EndpointRestorer.FetchOldEndpoints(ctx, option.Config.StateDir); err != nil {
+	if err := params.EndpointRestorer.FetchOldEndpoints(ctx, params.DaemonConfig.StateDir); err != nil {
 		params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
 	}
 	bootstrapStats.restore.End(true)
@@ -255,32 +175,22 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
 		// context deadline or if the context has been cancelled, the context's
 		// error will be returned. Otherwise, it succeeded.
-		if !option.Config.DryMode {
+		if !params.DaemonConfig.DryMode {
 			_, err := params.CRDSyncPromise.Await(ctx)
 			if err != nil {
 				return err
 			}
 		}
 
-		if option.Config.IPAM == ipamOption.IPAMClusterPool ||
-			option.Config.IPAM == ipamOption.IPAMMultiPool {
+		if params.DaemonConfig.IPAM == ipamOption.IPAMClusterPool ||
+			params.DaemonConfig.IPAM == ipamOption.IPAMMultiPool {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
 			params.NodeDiscovery.UpdateCiliumNodeResource()
 		}
 
 		if err := agentK8s.WaitForNodeInformation(ctx, params.Logger, params.Resources.LocalNode, params.Resources.LocalCiliumNode); err != nil {
-			params.Logger.Error("unable to connect to get node spec from apiserver", logfields.Error, err)
 			return fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
-		}
-
-		// Kubernetes demands that the localhost can always reach local
-		// pods. Therefore unless the AllowLocalhost policy is set to a
-		// specific mode, always allow localhost to reach local
-		// endpoints.
-		if option.Config.AllowLocalhost == option.AllowLocalhostAuto {
-			option.Config.AllowLocalhost = option.AllowLocalhostAlways
-			params.Logger.Info("k8s mode: Allowing localhost to reach local endpoints")
 		}
 
 		bootstrapStats.k8sInit.End(true)
@@ -294,7 +204,7 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 	drdName := ""
 	directRoutingDevice, _ := params.DirectRoutingDevice.Get(ctx, rxn)
 	if directRoutingDevice == nil {
-		if option.Config.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) {
+		if params.DaemonConfig.AreDevicesRequired(params.KPRConfig, params.WGAgent.Enabled(), params.IPsecAgent.Enabled()) {
 			// Fail hard if devices are required to function.
 			return fmt.Errorf("unable to determine direct routing device. Use --%s to specify it", option.DirectRoutingDevice)
 		}
@@ -308,62 +218,20 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 
 	nativeDevices, _ := datapathTables.SelectedDevices(params.Devices, rxn)
 	if err := params.KPRInitializer.FinishKubeProxyReplacementInit(nativeDevices, drdName); err != nil {
-		params.Logger.Error("failed to finalise LB initialization", logfields.Error, err)
 		return fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
-
-	// BPF masquerade depends on BPF NodePort, so the following checks should
-	// happen after invoking initKubeProxyReplacementOptions().
-	if option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
-
-		var err error
-		switch {
-		case len(option.Config.MasqueradeInterfaces) > 0:
-			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
-				option.MasqueradeInterfaces, option.Devices)
-		}
-		if err != nil {
-			params.Logger.Error("unable to initialize BPF masquerade support", logfields.Error, err)
-			return fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
-		}
-		if option.Config.EnableMasqueradeRouteSource {
-			params.Logger.Error("BPF masquerading does not yet support masquerading to source IP from routing layer")
-			return fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
-		}
-	} else if option.Config.EnableIPMasqAgent {
-		params.Logger.Error(
-			fmt.Sprintf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade),
-			logfields.Error, err,
-		)
-		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
-	} else if !option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
-		params.Logger.Error("IPv4 and IPv6 masquerading are both disabled, BPF masquerading requires at least one to be enabled")
-		return fmt.Errorf("BPF masquerade requires (--%s=\"true\" or --%s=\"true\")", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
-	}
-	if len(nativeDevices) == 0 {
-		if option.Config.EnableHostFirewall {
-			const msg = "Host firewall's external facing device could not be determined. Use --%s to specify."
-			params.Logger.Error(
-				fmt.Sprintf(msg, option.Devices),
-				logfields.Error, err,
-			)
-			return fmt.Errorf(msg, option.Devices)
-		}
+	if len(nativeDevices) == 0 && params.DaemonConfig.EnableHostFirewall {
+		return fmt.Errorf("failed to determine host firewall's external facing device (use --%s to specify)", option.Devices)
 	}
 
+	// Launch the K8s watchers in parallel as we continue to process other
+	// daemon options.
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
-	if params.Clientset.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-
-		// Launch the K8s watchers in parallel as we continue to process other
-		// daemon options.
-		params.K8sWatcher.InitK8sSubsystem(ctx, params.CacheStatus)
-		bootstrapStats.k8sInit.End(true)
-	} else {
-		close(params.CacheStatus)
-	}
+	bootstrapStats.k8sInit.Start()
+	params.K8sWatcher.InitK8sSubsystem(ctx)
+	bootstrapStats.k8sInit.End(true)
 
 	bootstrapStats.cleanup.Start()
 	err = clearCiliumVeths(params.Logger)
@@ -376,7 +244,7 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 	// the Kubernetes or CiliumNode resource in the K8s subsystem from call
 	// k8s.WaitForNodeInformation(). These will be used later after starting
 	// IPAM initialization to finish off the `cilium_host` IP restoration.
-	var restoredRouterIPs restoredIPs
+	var restoredRouterIPs infraendpoints.RestoredIPs
 	restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv6FromK8s = node.GetInternalIPv4Router(params.Logger), node.GetIPv6Router(params.Logger)
 	// Fetch the router IPs from the filesystem in case they were set a priori
 	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS(params.Logger)
@@ -401,11 +269,13 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 	}
 
 	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
-	params.NodeDiscovery.StartDiscovery(ctx)
+	if params.DaemonConfig.EnableCiliumNodeCRD {
+		params.NodeDiscovery.StartDiscovery(ctx)
+	}
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
-	if params.Clientset.IsEnabled() && option.Config.AnnotateK8sNode {
+	if params.Clientset.IsEnabled() && params.DaemonConfig.AnnotateK8sNode {
 		bootstrapStats.k8sInit.Start()
 		params.Logger.Info("Annotating k8s node",
 			logfields.V4Prefix, node.GetIPv4AllocRange(params.Logger),
@@ -432,16 +302,16 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 		}
 
 		bootstrapStats.k8sInit.End(true)
-	} else if !option.Config.AnnotateK8sNode {
+	} else if !params.DaemonConfig.AnnotateK8sNode {
 		params.Logger.Debug("Annotate k8s node is disabled.")
 	}
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
-	if option.Config.EnableIPv6 {
+	if params.DaemonConfig.EnableIPv6 {
 		params.IPAM.IPv6Allocator.RestoreFinished()
 	}
-	if option.Config.EnableIPv4 {
+	if params.DaemonConfig.EnableIPv4 {
 		params.IPAM.IPv4Allocator.RestoreFinished()
 	}
 
@@ -450,7 +320,7 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 	// well known identities have already been initialized above.
 	// Ignore the channel returned by this function, as we want the global
 	// identity allocator to run asynchronously.
-	if option.Config.IdentityAllocationMode != option.IdentityAllocationModeCRD ||
+	if params.DaemonConfig.IdentityAllocationMode != option.IdentityAllocationModeCRD ||
 		params.Clientset.IsEnabled() {
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
@@ -488,5 +358,85 @@ func configureDaemon(ctx context.Context, cleaner *daemonCleanup, params daemonP
 		params.Logger.Error("Unable to start IPsec key watcher", logfields.Error, err)
 	}
 
+	if !params.DaemonConfig.DryMode {
+		params.Logger.Info("Validating configured node address ranges")
+		if err := node.ValidatePostInit(params.Logger); err != nil {
+			return fmt.Errorf("postinit failed: %w", err)
+		}
+	}
+
+	bootstrapStats.overall.End(true)
+	bootstrapStats.updateMetrics()
+
 	return nil
+}
+
+func unloadDNSPolicies(params daemonParams) {
+	if params.DaemonConfig.DNSPolicyUnloadOnShutdown {
+		params.Logger.Info("Unload DNS policies")
+
+		// Iterate over the policy repository and remove L7 DNS part
+		needsPolicyRegen := false
+		removeL7DNSRules := func(pr policyAPI.Ports) error {
+			portProtocols := pr.GetPortProtocols()
+			if len(portProtocols) == 0 {
+				return nil
+			}
+			portRule := pr.GetPortRule()
+			if portRule == nil || portRule.Rules == nil {
+				return nil
+			}
+			dnsRules := portRule.Rules.DNS
+			params.Logger.Debug(
+				"Found egress L7 DNS rules",
+				logfields.PortProtocol, portProtocols[0],
+				logfields.DNSRules, dnsRules,
+			)
+
+			// For security reasons, the L7 DNS policy must be a
+			// wildcard in order to trigger this logic.
+			// Otherwise we could invalidate the L7 security
+			// rules. This means if any of the DNS L7 rules
+			// have a matchPattern of * then it is OK to delete
+			// the L7 portion of those rules.
+			hasWildcard := false
+			for _, dns := range dnsRules {
+				if dns.MatchPattern == "*" {
+					hasWildcard = true
+					break
+				}
+			}
+			if hasWildcard {
+				portRule.Rules = nil
+				needsPolicyRegen = true
+			}
+			return nil
+		}
+
+		params.Policy.Iterate(func(rule *policytypes.PolicyEntry) {
+			_ = rule.L4.Iterate(removeL7DNSRules)
+		})
+
+		if !needsPolicyRegen {
+			params.Logger.Info(
+				"No policy recalculation needed to remove DNS rules due to option",
+				logfields.Option, option.DNSPolicyUnloadOnShutdown,
+			)
+			return
+		}
+
+		// Bump revision to trigger policy recalculation
+		params.Logger.Info(
+			"Triggering policy recalculation to remove DNS rules due to option",
+			logfields.Option, option.DNSPolicyUnloadOnShutdown,
+		)
+		params.Policy.BumpRevision()
+		regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
+			Reason:            "unloading DNS rules on graceful shutdown",
+			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+		}
+		wg := params.EndpointManager.RegenerateAllEndpoints(regenerationMetadata)
+		wg.Wait()
+		params.Logger.Info("All endpoints regenerated after unloading DNS rules on graceful shutdown")
+	}
 }

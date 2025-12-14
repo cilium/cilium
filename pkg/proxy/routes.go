@@ -39,7 +39,7 @@ var (
 
 // ReinstallRoutingRules ensures the presence of routing rules and tables needed
 // to route packets to and from the L7 proxy. Or removes rules if the proxy is disabled.
-func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled bool) error {
+func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled, wireguardEnabled bool) error {
 	defer p.routeManager.FinalizeInitializer(p.routeInitializer)
 
 	localNode, err := p.localNodeStore.Get(ctx)
@@ -47,12 +47,7 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 		return fmt.Errorf("failed to retrieve local node: %w", err)
 	}
 
-	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes(ipsecEnabled)
-
-	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
-	if !fromIngressProxy || !fromEgressProxy {
-		mtu = 0
-	}
+	fromIngressProxy, fromEgressProxy, mtu := requireFromProxyRoutes(ipsecEnabled, wireguardEnabled, mtu)
 
 	rxn := p.db.ReadTxn()
 	hostDevice, _, hostDeviceFound := p.devices.Get(rxn, tables.DeviceNameIndex.Query(defaults.HostDevice))
@@ -122,9 +117,32 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 	return nil
 }
 
-func requireFromProxyRoutes(ipsecEnabled bool) (fromIngressProxy, fromEgressProxy bool) {
-	fromIngressProxy = (option.Config.EnableEnvoyConfig || ipsecEnabled) && !option.Config.TunnelingEnabled()
-	fromEgressProxy = ipsecEnabled && !option.Config.TunnelingEnabled()
+// requireFromProxyRoutes determines whether routes from the proxy are needed,
+// and selects the appropriate MTU to set on those routes.
+//
+// Conditions for proxy routes:
+//   - Native routing + Envoy: install only Ingress routes to handle reply packet of
+//     hair-pinning traffic in Ingress L7 proxy (i.e. backend is in the same node).
+//   - Native routing + IPSec: install Ingress+Egress routes for (a) the same reason
+//     as above, and also to account for XFRM overhead on proxy-to-proxy connections.
+//   - Native routing + WireGuard: install only Ingress routes to account for WireGuard
+//     overhead on reply packets from Ingress L7 proxy in proxy-to-proxy connections.
+func requireFromProxyRoutes(ipsecEnabled, wireguardEnabled bool, mtuIn int) (fromIngressProxy, fromEgressProxy bool, mtu int) {
+	if option.Config.TunnelingEnabled() {
+		return
+	}
+	if option.Config.EnableEnvoyConfig {
+		fromIngressProxy = true
+	}
+	switch {
+	case ipsecEnabled:
+		fromIngressProxy = true
+		fromEgressProxy = true
+		mtu = mtuIn
+	case wireguardEnabled:
+		fromIngressProxy = true
+		mtu = mtuIn
+	}
 	return
 }
 

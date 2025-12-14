@@ -229,12 +229,6 @@ func (i *IngressCommonRule) sanitize() error {
 		}
 	}
 
-	for n := range i.FromRequires {
-		if err := i.FromRequires[n].Sanitize(); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
 	for n := range i.FromNodes {
 		if err := i.FromNodes[n].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
@@ -434,12 +428,6 @@ func (e *EgressCommonRule) sanitize(l3Members map[string]int) error {
 
 	for i := range e.ToEndpoints {
 		if err := e.ToEndpoints[i].Sanitize(); err != nil {
-			return errors.Join(err, retErr)
-		}
-	}
-
-	for i := range e.ToRequires {
-		if err := e.ToRequires[i].Sanitize(); err != nil {
 			return errors.Join(err, retErr)
 		}
 	}
@@ -710,10 +698,9 @@ func (c *CIDRRule) sanitize() error {
 	if len(c.Cidr) > 0 {
 		cnt++
 	}
-	if c.CIDRGroupSelector != nil {
+	if c.CIDRGroupSelector.LabelSelector != nil {
 		cnt++
-		es := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, c.CIDRGroupSelector)
-		if err := es.Sanitize(); err != nil {
+		if err := c.CIDRGroupSelector.SanitizeWithKeyExtender(labels.GetSourcePrefixKeyExtender(labels.LabelSourceCIDRGroupKeyPrefix)); err != nil {
 			return fmt.Errorf("failed to parse cidrGroupSelector %v: %w", c.CIDRGroupSelector.String(), err)
 		}
 	}
@@ -724,7 +711,7 @@ func (c *CIDRRule) sanitize() error {
 		return fmt.Errorf("more than one of cidr, cidrGroupRef, or cidrGroupSelector may not be set")
 	}
 
-	if len(c.CIDRGroupRef) > 0 || c.CIDRGroupSelector != nil {
+	if len(c.CIDRGroupRef) > 0 || c.CIDRGroupSelector.LabelSelector != nil {
 		return nil // these are selectors;
 	}
 

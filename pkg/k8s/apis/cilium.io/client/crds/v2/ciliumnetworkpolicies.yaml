@@ -100,9 +100,7 @@ spec:
                         member will have no effect on the rule.
 
                       - If multiple members of the structure are specified, then all members
-                        must match in order for the rule to take effect. The exception to this
-                        rule is the ToRequires member; the effects of any Requires field in any
-                        rule will apply to all other rules as well.
+                        must match in order for the rule to take effect.
 
                       - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
                         mutually exclusive. Only one of these members may be present within an
@@ -1062,73 +1060,6 @@ spec:
                             type: object
                         type: object
                       type: array
-                    toRequires:
-                      description: |-
-                        ToRequires is a list of additional constraints which must be met
-                        in order for the selected endpoints to be able to connect to other
-                        endpoints. These additional constraints do no by itself grant access
-                        privileges and must always be accompanied with at least one matching
-                        ToEndpoints.
-
-                        Example:
-                        Any Endpoint with the label "team=A" requires any endpoint to which it
-                        communicates to also carry the label "team=A".
-                      items:
-                        description: EndpointSelector is a wrapper for k8s LabelSelector.
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector
-                              requirements. The requirements are ANDed.
-                            items:
-                              description: |-
-                                A label selector requirement is a selector that contains values, a key, and an operator that
-                                relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector
-                                    applies to.
-                                  type: string
-                                operator:
-                                  description: |-
-                                    operator represents a key's relationship to a set of values.
-                                    Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  enum:
-                                  - In
-                                  - NotIn
-                                  - Exists
-                                  - DoesNotExist
-                                  type: string
-                                values:
-                                  description: |-
-                                    values is an array of string values. If the operator is In or NotIn,
-                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                    the values array must be empty. This array is replaced during a strategic
-                                    merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          matchLabels:
-                            additionalProperties:
-                              description: MatchLabelsValue represents the value from
-                                the MatchLabels {key,value} pair.
-                              maxLength: 63
-                              pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                              type: string
-                            description: |-
-                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                              map is equivalent to an element of matchExpressions, whose key field is "key", the
-                              operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      type: array
                     toServices:
                       description: |-
                         ToServices is a list of services to which the endpoint subject
@@ -1236,9 +1167,7 @@ spec:
                         member will have no effect on the rule.
 
                       - If multiple members of the structure are specified, then all members
-                        must match in order for the rule to take effect. The exception to this
-                        rule is the ToRequires member; the effects of any Requires field in any
-                        rule will apply to all other rules as well.
+                        must match in order for the rule to take effect.
 
                       - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
                         mutually exclusive. Only one of these members may be present within an
@@ -1686,73 +1615,6 @@ spec:
                             type: array
                         type: object
                       type: array
-                    toRequires:
-                      description: |-
-                        ToRequires is a list of additional constraints which must be met
-                        in order for the selected endpoints to be able to connect to other
-                        endpoints. These additional constraints do no by itself grant access
-                        privileges and must always be accompanied with at least one matching
-                        ToEndpoints.
-
-                        Example:
-                        Any Endpoint with the label "team=A" requires any endpoint to which it
-                        communicates to also carry the label "team=A".
-                      items:
-                        description: EndpointSelector is a wrapper for k8s LabelSelector.
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector
-                              requirements. The requirements are ANDed.
-                            items:
-                              description: |-
-                                A label selector requirement is a selector that contains values, a key, and an operator that
-                                relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector
-                                    applies to.
-                                  type: string
-                                operator:
-                                  description: |-
-                                    operator represents a key's relationship to a set of values.
-                                    Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  enum:
-                                  - In
-                                  - NotIn
-                                  - Exists
-                                  - DoesNotExist
-                                  type: string
-                                values:
-                                  description: |-
-                                    values is an array of string values. If the operator is In or NotIn,
-                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                    the values array must be empty. This array is replaced during a strategic
-                                    merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          matchLabels:
-                            additionalProperties:
-                              description: MatchLabelsValue represents the value from
-                                the MatchLabels {key,value} pair.
-                              maxLength: 63
-                              pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                              type: string
-                            description: |-
-                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                              map is equivalent to an element of matchExpressions, whose key field is "key", the
-                              operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      type: array
                     toServices:
                       description: |-
                         ToServices is a list of services to which the endpoint subject
@@ -1945,9 +1807,7 @@ spec:
                         member will have no effect on the rule.
 
                       - If multiple members are set, all of them need to match in order for
-                        the rule to take effect. The exception to this rule is FromRequires field;
-                        the effects of any Requires field in any rule will apply to all other
-                        rules as well.
+                        the rule to take effect.
 
                       - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually
                         exclusive. Only one of these members may be present within an individual
@@ -2240,72 +2100,6 @@ spec:
                         FromNodes is a list of nodes identified by an
                         EndpointSelector which are allowed to communicate with the endpoint
                         subject to the rule.
-                      items:
-                        description: EndpointSelector is a wrapper for k8s LabelSelector.
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector
-                              requirements. The requirements are ANDed.
-                            items:
-                              description: |-
-                                A label selector requirement is a selector that contains values, a key, and an operator that
-                                relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector
-                                    applies to.
-                                  type: string
-                                operator:
-                                  description: |-
-                                    operator represents a key's relationship to a set of values.
-                                    Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  enum:
-                                  - In
-                                  - NotIn
-                                  - Exists
-                                  - DoesNotExist
-                                  type: string
-                                values:
-                                  description: |-
-                                    values is an array of string values. If the operator is In or NotIn,
-                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                    the values array must be empty. This array is replaced during a strategic
-                                    merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          matchLabels:
-                            additionalProperties:
-                              description: MatchLabelsValue represents the value from
-                                the MatchLabels {key,value} pair.
-                              maxLength: 63
-                              pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                              type: string
-                            description: |-
-                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                              map is equivalent to an element of matchExpressions, whose key field is "key", the
-                              operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      type: array
-                    fromRequires:
-                      description: |-
-                        FromRequires is a list of additional constraints which must be met
-                        in order for the selected endpoints to be reachable. These
-                        additional constraints do no by itself grant access privileges and
-                        must always be accompanied with at least one matching FromEndpoints.
-
-                        Example:
-                        Any Endpoint with the label "team=A" requires consuming endpoint
-                        to also carry the label "team=A".
                       items:
                         description: EndpointSelector is a wrapper for k8s LabelSelector.
                         properties:
@@ -2937,9 +2731,7 @@ spec:
                         member will have no effect on the rule.
 
                       - If multiple members are set, all of them need to match in order for
-                        the rule to take effect. The exception to this rule is FromRequires field;
-                        the effects of any Requires field in any rule will apply to all other
-                        rules as well.
+                        the rule to take effect.
 
                       - FromEndpoints, FromCIDR, FromCIDRSet, FromGroups and FromEntities are mutually
                         exclusive. Only one of these members may be present within an individual
@@ -3273,72 +3065,6 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       type: array
-                    fromRequires:
-                      description: |-
-                        FromRequires is a list of additional constraints which must be met
-                        in order for the selected endpoints to be reachable. These
-                        additional constraints do no by itself grant access privileges and
-                        must always be accompanied with at least one matching FromEndpoints.
-
-                        Example:
-                        Any Endpoint with the label "team=A" requires consuming endpoint
-                        to also carry the label "team=A".
-                      items:
-                        description: EndpointSelector is a wrapper for k8s LabelSelector.
-                        properties:
-                          matchExpressions:
-                            description: matchExpressions is a list of label selector
-                              requirements. The requirements are ANDed.
-                            items:
-                              description: |-
-                                A label selector requirement is a selector that contains values, a key, and an operator that
-                                relates the key and values.
-                              properties:
-                                key:
-                                  description: key is the label key that the selector
-                                    applies to.
-                                  type: string
-                                operator:
-                                  description: |-
-                                    operator represents a key's relationship to a set of values.
-                                    Valid operators are In, NotIn, Exists and DoesNotExist.
-                                  enum:
-                                  - In
-                                  - NotIn
-                                  - Exists
-                                  - DoesNotExist
-                                  type: string
-                                values:
-                                  description: |-
-                                    values is an array of string values. If the operator is In or NotIn,
-                                    the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                    the values array must be empty. This array is replaced during a strategic
-                                    merge patch.
-                                  items:
-                                    type: string
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                              required:
-                              - key
-                              - operator
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          matchLabels:
-                            additionalProperties:
-                              description: MatchLabelsValue represents the value from
-                                the MatchLabels {key,value} pair.
-                              maxLength: 63
-                              pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                              type: string
-                            description: |-
-                              matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                              map is equivalent to an element of matchExpressions, whose key field is "key", the
-                              operator is "In", and the values array contains only "value". The requirements are ANDed.
-                            type: object
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      type: array
                     icmps:
                       description: |-
                         ICMPs is a list of ICMP rule identified by type number
@@ -3611,9 +3337,7 @@ spec:
                           member will have no effect on the rule.
 
                         - If multiple members of the structure are specified, then all members
-                          must match in order for the rule to take effect. The exception to this
-                          rule is the ToRequires member; the effects of any Requires field in any
-                          rule will apply to all other rules as well.
+                          must match in order for the rule to take effect.
 
                         - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
                           mutually exclusive. Only one of these members may be present within an
@@ -4574,73 +4298,6 @@ spec:
                               type: object
                           type: object
                         type: array
-                      toRequires:
-                        description: |-
-                          ToRequires is a list of additional constraints which must be met
-                          in order for the selected endpoints to be able to connect to other
-                          endpoints. These additional constraints do no by itself grant access
-                          privileges and must always be accompanied with at least one matching
-                          ToEndpoints.
-
-                          Example:
-                          Any Endpoint with the label "team=A" requires any endpoint to which it
-                          communicates to also carry the label "team=A".
-                        items:
-                          description: EndpointSelector is a wrapper for k8s LabelSelector.
-                          properties:
-                            matchExpressions:
-                              description: matchExpressions is a list of label selector
-                                requirements. The requirements are ANDed.
-                              items:
-                                description: |-
-                                  A label selector requirement is a selector that contains values, a key, and an operator that
-                                  relates the key and values.
-                                properties:
-                                  key:
-                                    description: key is the label key that the selector
-                                      applies to.
-                                    type: string
-                                  operator:
-                                    description: |-
-                                      operator represents a key's relationship to a set of values.
-                                      Valid operators are In, NotIn, Exists and DoesNotExist.
-                                    enum:
-                                    - In
-                                    - NotIn
-                                    - Exists
-                                    - DoesNotExist
-                                    type: string
-                                  values:
-                                    description: |-
-                                      values is an array of string values. If the operator is In or NotIn,
-                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                      the values array must be empty. This array is replaced during a strategic
-                                      merge patch.
-                                    items:
-                                      type: string
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                required:
-                                - key
-                                - operator
-                                type: object
-                              type: array
-                              x-kubernetes-list-type: atomic
-                            matchLabels:
-                              additionalProperties:
-                                description: MatchLabelsValue represents the value
-                                  from the MatchLabels {key,value} pair.
-                                maxLength: 63
-                                pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                                type: string
-                              description: |-
-                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                operator is "In", and the values array contains only "value". The requirements are ANDed.
-                              type: object
-                          type: object
-                          x-kubernetes-map-type: atomic
-                        type: array
                       toServices:
                         description: |-
                           ToServices is a list of services to which the endpoint subject
@@ -4748,9 +4405,7 @@ spec:
                           member will have no effect on the rule.
 
                         - If multiple members of the structure are specified, then all members
-                          must match in order for the rule to take effect. The exception to this
-                          rule is the ToRequires member; the effects of any Requires field in any
-                          rule will apply to all other rules as well.
+                          must match in order for the rule to take effect.
 
                         - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
                           mutually exclusive. Only one of these members may be present within an
@@ -5199,73 +4854,6 @@ spec:
                               type: array
                           type: object
                         type: array
-                      toRequires:
-                        description: |-
-                          ToRequires is a list of additional constraints which must be met
-                          in order for the selected endpoints to be able to connect to other
-                          endpoints. These additional constraints do no by itself grant access
-                          privileges and must always be accompanied with at least one matching
-                          ToEndpoints.
-
-                          Example:
-                          Any Endpoint with the label "team=A" requires any endpoint to which it
-                          communicates to also carry the label "team=A".
-                        items:
-                          description: EndpointSelector is a wrapper for k8s LabelSelector.
-                          properties:
-                            matchExpressions:
-                              description: matchExpressions is a list of label selector
-                                requirements. The requirements are ANDed.
-                              items:
-                                description: |-
-                                  A label selector requirement is a selector that contains values, a key, and an operator that
-                                  relates the key and values.
-                                properties:
-                                  key:
-                                    description: key is the label key that the selector
-                                      applies to.
-                                    type: string
-                                  operator:
-                                    description: |-
-                                      operator represents a key's relationship to a set of values.
-                                      Valid operators are In, NotIn, Exists and DoesNotExist.
-                                    enum:
-                                    - In
-                                    - NotIn
-                                    - Exists
-                                    - DoesNotExist
-                                    type: string
-                                  values:
-                                    description: |-
-                                      values is an array of string values. If the operator is In or NotIn,
-                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                      the values array must be empty. This array is replaced during a strategic
-                                      merge patch.
-                                    items:
-                                      type: string
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                required:
-                                - key
-                                - operator
-                                type: object
-                              type: array
-                              x-kubernetes-list-type: atomic
-                            matchLabels:
-                              additionalProperties:
-                                description: MatchLabelsValue represents the value
-                                  from the MatchLabels {key,value} pair.
-                                maxLength: 63
-                                pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                                type: string
-                              description: |-
-                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                operator is "In", and the values array contains only "value". The requirements are ANDed.
-                              type: object
-                          type: object
-                          x-kubernetes-map-type: atomic
-                        type: array
                       toServices:
                         description: |-
                           ToServices is a list of services to which the endpoint subject
@@ -5458,9 +5046,7 @@ spec:
                           member will have no effect on the rule.
 
                         - If multiple members are set, all of them need to match in order for
-                          the rule to take effect. The exception to this rule is FromRequires field;
-                          the effects of any Requires field in any rule will apply to all other
-                          rules as well.
+                          the rule to take effect.
 
                         - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually
                           exclusive. Only one of these members may be present within an individual
@@ -5753,72 +5339,6 @@ spec:
                           FromNodes is a list of nodes identified by an
                           EndpointSelector which are allowed to communicate with the endpoint
                           subject to the rule.
-                        items:
-                          description: EndpointSelector is a wrapper for k8s LabelSelector.
-                          properties:
-                            matchExpressions:
-                              description: matchExpressions is a list of label selector
-                                requirements. The requirements are ANDed.
-                              items:
-                                description: |-
-                                  A label selector requirement is a selector that contains values, a key, and an operator that
-                                  relates the key and values.
-                                properties:
-                                  key:
-                                    description: key is the label key that the selector
-                                      applies to.
-                                    type: string
-                                  operator:
-                                    description: |-
-                                      operator represents a key's relationship to a set of values.
-                                      Valid operators are In, NotIn, Exists and DoesNotExist.
-                                    enum:
-                                    - In
-                                    - NotIn
-                                    - Exists
-                                    - DoesNotExist
-                                    type: string
-                                  values:
-                                    description: |-
-                                      values is an array of string values. If the operator is In or NotIn,
-                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                      the values array must be empty. This array is replaced during a strategic
-                                      merge patch.
-                                    items:
-                                      type: string
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                required:
-                                - key
-                                - operator
-                                type: object
-                              type: array
-                              x-kubernetes-list-type: atomic
-                            matchLabels:
-                              additionalProperties:
-                                description: MatchLabelsValue represents the value
-                                  from the MatchLabels {key,value} pair.
-                                maxLength: 63
-                                pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                                type: string
-                              description: |-
-                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                operator is "In", and the values array contains only "value". The requirements are ANDed.
-                              type: object
-                          type: object
-                          x-kubernetes-map-type: atomic
-                        type: array
-                      fromRequires:
-                        description: |-
-                          FromRequires is a list of additional constraints which must be met
-                          in order for the selected endpoints to be reachable. These
-                          additional constraints do no by itself grant access privileges and
-                          must always be accompanied with at least one matching FromEndpoints.
-
-                          Example:
-                          Any Endpoint with the label "team=A" requires consuming endpoint
-                          to also carry the label "team=A".
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:
@@ -6451,9 +5971,7 @@ spec:
                           member will have no effect on the rule.
 
                         - If multiple members are set, all of them need to match in order for
-                          the rule to take effect. The exception to this rule is FromRequires field;
-                          the effects of any Requires field in any rule will apply to all other
-                          rules as well.
+                          the rule to take effect.
 
                         - FromEndpoints, FromCIDR, FromCIDRSet, FromGroups and FromEntities are mutually
                           exclusive. Only one of these members may be present within an individual
@@ -6731,72 +6249,6 @@ spec:
                           FromNodes is a list of nodes identified by an
                           EndpointSelector which are allowed to communicate with the endpoint
                           subject to the rule.
-                        items:
-                          description: EndpointSelector is a wrapper for k8s LabelSelector.
-                          properties:
-                            matchExpressions:
-                              description: matchExpressions is a list of label selector
-                                requirements. The requirements are ANDed.
-                              items:
-                                description: |-
-                                  A label selector requirement is a selector that contains values, a key, and an operator that
-                                  relates the key and values.
-                                properties:
-                                  key:
-                                    description: key is the label key that the selector
-                                      applies to.
-                                    type: string
-                                  operator:
-                                    description: |-
-                                      operator represents a key's relationship to a set of values.
-                                      Valid operators are In, NotIn, Exists and DoesNotExist.
-                                    enum:
-                                    - In
-                                    - NotIn
-                                    - Exists
-                                    - DoesNotExist
-                                    type: string
-                                  values:
-                                    description: |-
-                                      values is an array of string values. If the operator is In or NotIn,
-                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                      the values array must be empty. This array is replaced during a strategic
-                                      merge patch.
-                                    items:
-                                      type: string
-                                    type: array
-                                    x-kubernetes-list-type: atomic
-                                required:
-                                - key
-                                - operator
-                                type: object
-                              type: array
-                              x-kubernetes-list-type: atomic
-                            matchLabels:
-                              additionalProperties:
-                                description: MatchLabelsValue represents the value
-                                  from the MatchLabels {key,value} pair.
-                                maxLength: 63
-                                pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
-                                type: string
-                              description: |-
-                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                                map is equivalent to an element of matchExpressions, whose key field is "key", the
-                                operator is "In", and the values array contains only "value". The requirements are ANDed.
-                              type: object
-                          type: object
-                          x-kubernetes-map-type: atomic
-                        type: array
-                      fromRequires:
-                        description: |-
-                          FromRequires is a list of additional constraints which must be met
-                          in order for the selected endpoints to be reachable. These
-                          additional constraints do no by itself grant access privileges and
-                          must always be accompanied with at least one matching FromEndpoints.
-
-                          Example:
-                          Any Endpoint with the label "team=A" requires consuming endpoint
-                          to also carry the label "team=A".
                         items:
                           description: EndpointSelector is a wrapper for k8s LabelSelector.
                           properties:

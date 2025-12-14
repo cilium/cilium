@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -159,6 +160,7 @@ type Endpoint struct {
 	monitorAgent     monitoragent.Agent
 	wgConfig         wgTypes.WireguardConfig
 	ipsecConfig      datapath.IPsecConfig
+	lxcMap           lxcmap.Map
 
 	epBuildQueue EndpointBuildQueue
 
@@ -216,6 +218,10 @@ type Endpoint struct {
 	// Immutable after Endpoint creation.
 	containerIfName string
 
+	// containerNetnsPath is the path to the container's network namespace.
+	// Immutable after Endpoint creation.
+	containerNetnsPath string
+
 	// parentIfIndex is the interface index of the network device over which traffic
 	// with the source endpoints IP should egress when that traffic is not masqueraded.
 	parentIfIndex int
@@ -265,6 +271,12 @@ type Endpoint struct {
 	// SecurityIdentity is the security identity of this endpoint. This is computed from
 	// the endpoint's labels.
 	SecurityIdentity *identity.Identity `json:"SecLabel"`
+
+	// identitySet is used to keep track of whether the SecurityIdentity of an endpoint
+	// has been added to the identity manager. This is only false for new endpoints without an identity or
+	// on endpoints that have been restored. We do this to ensure we only remove it from
+	// the identity manager if we are sure it was added.
+	identitySet bool
 
 	// policyMapFactory is used to create endpoint policy maps
 	policyMapFactory policymap.Factory
@@ -605,7 +617,7 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 	return nil
 }
 
-func createEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, ID uint16, ifName string, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer) *Endpoint {
+func createEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, ID uint16, ifName string, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map) *Endpoint {
 	ep := &Endpoint{
 		dnsRulesAPI:        dnsRulesAPI,
 		epBuildQueue:       epBuildQueue,
@@ -618,6 +630,7 @@ func createEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue E
 		monitorAgent:       monitorAgent,
 		wgConfig:           wgCfg,
 		ipsecConfig:        ipsecCfg,
+		lxcMap:             lxcMap,
 		policyMapFactory:   policyMapFactory,
 		policyRepo:         policyRepo,
 		namedPortsGetter:   namedPortsGetter,
@@ -686,8 +699,8 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 }
 
 // CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
-func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer) (*Endpoint, error) {
-	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, "", wgCfg, ipsecCfg, policyDebugLog)
+func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map) (*Endpoint, error) {
+	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, "", wgCfg, ipsecCfg, policyDebugLog, lxcMap)
 	ep.DatapathConfiguration = NewDatapathConfiguration()
 
 	ep.isIngress = true
@@ -717,13 +730,13 @@ func CreateIngressEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuild
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
-func CreateHostEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer) (*Endpoint, error) {
+func CreateHostEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, policyDebugLog io.Writer, lxcMap lxcmap.Map) (*Endpoint, error) {
 	iface, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {
 		return nil, err
 	}
 
-	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, defaults.HostDevice, wgCfg, ipsecCfg, policyDebugLog)
+	ep := createEndpoint(logger, dnsRulesAPI, epBuildQueue, loader, orchestrator, compilationLock, bandwidthManager, ipTablesManager, identityManager, monitorAgent, policyMapFactory, policyRepo, namedPortsGetter, proxy, allocator, ctMapGC, kvstoreSyncher, 0, defaults.HostDevice, wgCfg, ipsecCfg, policyDebugLog, lxcMap)
 	ep.isHost = true
 	ep.mac = mac.MAC(iface.Attrs().HardwareAddr)
 	ep.nodeMAC = mac.MAC(iface.Attrs().HardwareAddr)
@@ -939,7 +952,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 //
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func ParseEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, epJSON []byte, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig) (*Endpoint, error) {
+func ParseEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue EndpointBuildQueue, loader datapath.Loader, orchestrator datapath.Orchestrator, compilationLock datapath.CompilationLock, bandwidthManager datapath.BandwidthManager, ipTablesManager datapath.IptablesManager, identityManager identitymanager.IDManager, monitorAgent monitoragent.Agent, policyMapFactory policymap.Factory, policyRepo policy.PolicyRepository, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ctMapGC ctmap.GCRunner, kvstoreSyncher *ipcache.IPIdentitySynchronizer, epJSON []byte, wgCfg wgTypes.WireguardConfig, ipsecCfg datapath.IPsecConfig, lxcMap lxcmap.Map) (*Endpoint, error) {
 	ep := Endpoint{
 		dnsRulesAPI:      dnsRulesAPI,
 		epBuildQueue:     epBuildQueue,
@@ -952,6 +965,7 @@ func ParseEndpoint(logger *slog.Logger, dnsRulesAPI DNSRulesAPI, epBuildQueue En
 		monitorAgent:     monitorAgent,
 		wgConfig:         wgCfg,
 		ipsecConfig:      ipsecCfg,
+		lxcMap:           lxcMap,
 		policyMapFactory: policyMapFactory,
 		namedPortsGetter: namedPortsGetter,
 		policyRepo:       policyRepo,
@@ -1275,16 +1289,20 @@ func (e *Endpoint) leaveLocked(conf DeleteConfig) []error {
 	}
 
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
-		// Restored endpoint may be created with a reserved identity of 5
-		// (init), which is not registered in the identity manager and
-		// therefore doesn't need to be removed.
-		if e.SecurityIdentity.ID != identity.ReservedIdentityInit {
-			e.identityManager.Remove(e.SecurityIdentity)
-		}
+		if e.identitySet {
+			// Restored endpoint may be created with a reserved identity of 5
+			// (init), which is not registered in the identity manager and
+			// therefore doesn't need to be removed.
+			// If identity was never set, eg. if the endpoint was disconnecting when it was restored
+			// we have not yet added its identity - hence we should not remove it.
+			if e.SecurityIdentity.ID != identity.ReservedIdentityInit {
+				e.identityManager.Remove(e.SecurityIdentity)
+			}
 
-		_, err := e.allocator.Release(context.Background(), e.SecurityIdentity, false)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("unable to release identity: %w", err))
+			_, err := e.allocator.Release(context.Background(), e.SecurityIdentity, false)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to release identity: %w", err))
+			}
 		}
 		e.removeNetworkPolicy()
 		e.SecurityIdentity = nil
@@ -2307,15 +2325,15 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 		logfields.IdentityNew, allocatedIdentity.StringID(),
 	)
 
-	e.SetIdentity(allocatedIdentity, false)
+	identityToRelease := e.SetIdentity(allocatedIdentity)
 
-	if oldIdentity != nil {
-		_, err := e.allocator.Release(context.Background(), oldIdentity, false)
+	if identityToRelease != nil {
+		_, err := e.allocator.Release(context.Background(), identityToRelease, false)
 		if err != nil {
 			scopedLog.Warn(
 				"Unable to release old endpoint identity",
 				logfields.Error, err,
-				logfields.IdentityOld, oldIdentity.ID,
+				logfields.IdentityOld, identityToRelease.ID,
 			)
 		}
 	}
@@ -2545,13 +2563,13 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		// ingress rule and multiple egress rules. If we find more rules than
 		// expected, we delete all rules referring to a per-ENI routing table ID.
 		if e.IPv4.IsValid() {
-			if err := linuxrouting.Delete(e.getLogger(), e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
+			if err := linuxrouting.Delete(e.getLogger(), e.IPv4); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
 			}
 		}
 
 		if e.IPv6.IsValid() {
-			if err := linuxrouting.Delete(e.getLogger(), e.IPv6, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
+			if err := linuxrouting.Delete(e.getLogger(), e.IPv6); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
 			}
 		}
@@ -2714,4 +2732,12 @@ func (e *Endpoint) isProperty(propertyKey string) bool {
 		return ok && isSet
 	}
 	return false
+}
+
+func (e *Endpoint) GetContainerNetnsPath() string {
+	return e.containerNetnsPath
+}
+
+func (e *Endpoint) SetContainerNetnsPath(path string) {
+	e.containerNetnsPath = path
 }

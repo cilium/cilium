@@ -614,7 +614,7 @@ func TestPrivilegedDumpReliablyWithCallbackOverlapping(t *testing.T) {
 	defer m.Close()
 
 	// Prepopulate the map.
-	for i := uint32(0); i < maxEntries; i++ {
+	for i := range uint32(maxEntries) {
 		err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 200})
 		require.NoError(t, err)
 	}

@@ -17,7 +17,7 @@ func (k *K8sInstaller) getHelmValues() (map[string]any, error) {
 	helmMapOpts := map[string]string{}
 
 	switch {
-	case versioncheck.MustCompile(">=1.14.0")(k.chartVersion):
+	case versioncheck.MustCompile(">=1.15.0")(k.chartVersion):
 		// TODO(aanm) to keep the previous behavior unchanged we will set the number
 		// of the operator replicas to 1. Ideally this should be the default in the helm chart
 		helmMapOpts["operator.replicas"] = "1"

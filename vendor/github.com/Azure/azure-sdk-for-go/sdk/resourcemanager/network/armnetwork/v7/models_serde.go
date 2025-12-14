@@ -1514,6 +1514,7 @@ func (a *ApplicationGatewayBackendSettings) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements the json.Marshaller interface for type ApplicationGatewayBackendSettingsPropertiesFormat.
 func (a ApplicationGatewayBackendSettingsPropertiesFormat) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]any)
+	populate(objectMap, "enableL4ClientIpPreservation", a.EnableL4ClientIPPreservation)
 	populate(objectMap, "hostName", a.HostName)
 	populate(objectMap, "pickHostNameFromBackendAddress", a.PickHostNameFromBackendAddress)
 	populate(objectMap, "port", a.Port)
@@ -1534,6 +1535,9 @@ func (a *ApplicationGatewayBackendSettingsPropertiesFormat) UnmarshalJSON(data [
 	for key, val := range rawMsg {
 		var err error
 		switch key {
+		case "enableL4ClientIpPreservation":
+			err = unpopulate(val, "EnableL4ClientIPPreservation", &a.EnableL4ClientIPPreservation)
+			delete(rawMsg, key)
 		case "hostName":
 			err = unpopulate(val, "HostName", &a.HostName)
 			delete(rawMsg, key)
@@ -2663,6 +2667,7 @@ func (a ApplicationGatewayOnDemandProbe) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]any)
 	populate(objectMap, "backendAddressPool", a.BackendAddressPool)
 	populate(objectMap, "backendHttpSettings", a.BackendHTTPSettings)
+	populate(objectMap, "enableProbeProxyProtocolHeader", a.EnableProbeProxyProtocolHeader)
 	populate(objectMap, "host", a.Host)
 	populate(objectMap, "match", a.Match)
 	populate(objectMap, "path", a.Path)
@@ -2686,6 +2691,9 @@ func (a *ApplicationGatewayOnDemandProbe) UnmarshalJSON(data []byte) error {
 			delete(rawMsg, key)
 		case "backendHttpSettings":
 			err = unpopulate(val, "BackendHTTPSettings", &a.BackendHTTPSettings)
+			delete(rawMsg, key)
+		case "enableProbeProxyProtocolHeader":
+			err = unpopulate(val, "EnableProbeProxyProtocolHeader", &a.EnableProbeProxyProtocolHeader)
 			delete(rawMsg, key)
 		case "host":
 			err = unpopulate(val, "Host", &a.Host)
@@ -3270,6 +3278,7 @@ func (a *ApplicationGatewayProbeHealthResponseMatch) UnmarshalJSON(data []byte) 
 // MarshalJSON implements the json.Marshaller interface for type ApplicationGatewayProbePropertiesFormat.
 func (a ApplicationGatewayProbePropertiesFormat) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]any)
+	populate(objectMap, "enableProbeProxyProtocolHeader", a.EnableProbeProxyProtocolHeader)
 	populate(objectMap, "host", a.Host)
 	populate(objectMap, "interval", a.Interval)
 	populate(objectMap, "match", a.Match)
@@ -3294,6 +3303,9 @@ func (a *ApplicationGatewayProbePropertiesFormat) UnmarshalJSON(data []byte) err
 	for key, val := range rawMsg {
 		var err error
 		switch key {
+		case "enableProbeProxyProtocolHeader":
+			err = unpopulate(val, "EnableProbeProxyProtocolHeader", &a.EnableProbeProxyProtocolHeader)
+			delete(rawMsg, key)
 		case "host":
 			err = unpopulate(val, "Host", &a.Host)
 			delete(rawMsg, key)
@@ -8014,6 +8026,41 @@ func (b *BreakOutCategoryPolicies) UnmarshalJSON(data []byte) error {
 		}
 		if err != nil {
 			return fmt.Errorf("unmarshalling type %T: %v", b, err)
+		}
+	}
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaller interface for type CertificateAuthentication.
+func (c CertificateAuthentication) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]any)
+	populate(objectMap, "inboundAuthCertificateChain", c.InboundAuthCertificateChain)
+	populate(objectMap, "inboundAuthCertificateSubjectName", c.InboundAuthCertificateSubjectName)
+	populate(objectMap, "outboundAuthCertificate", c.OutboundAuthCertificate)
+	return json.Marshal(objectMap)
+}
+
+// UnmarshalJSON implements the json.Unmarshaller interface for type CertificateAuthentication.
+func (c *CertificateAuthentication) UnmarshalJSON(data []byte) error {
+	var rawMsg map[string]json.RawMessage
+	if err := json.Unmarshal(data, &rawMsg); err != nil {
+		return fmt.Errorf("unmarshalling type %T: %v", c, err)
+	}
+	for key, val := range rawMsg {
+		var err error
+		switch key {
+		case "inboundAuthCertificateChain":
+			err = unpopulate(val, "InboundAuthCertificateChain", &c.InboundAuthCertificateChain)
+			delete(rawMsg, key)
+		case "inboundAuthCertificateSubjectName":
+			err = unpopulate(val, "InboundAuthCertificateSubjectName", &c.InboundAuthCertificateSubjectName)
+			delete(rawMsg, key)
+		case "outboundAuthCertificate":
+			err = unpopulate(val, "OutboundAuthCertificate", &c.OutboundAuthCertificate)
+			delete(rawMsg, key)
+		}
+		if err != nil {
+			return fmt.Errorf("unmarshalling type %T: %v", c, err)
 		}
 	}
 	return nil
@@ -21278,6 +21325,7 @@ func (l LoadBalancerPropertiesFormat) MarshalJSON() ([]byte, error) {
 	populate(objectMap, "probes", l.Probes)
 	populate(objectMap, "provisioningState", l.ProvisioningState)
 	populate(objectMap, "resourceGuid", l.ResourceGUID)
+	populate(objectMap, "scope", l.Scope)
 	return json.Marshal(objectMap)
 }
 
@@ -21316,6 +21364,9 @@ func (l *LoadBalancerPropertiesFormat) UnmarshalJSON(data []byte) error {
 			delete(rawMsg, key)
 		case "resourceGuid":
 			err = unpopulate(val, "ResourceGUID", &l.ResourceGUID)
+			delete(rawMsg, key)
+		case "scope":
+			err = unpopulate(val, "Scope", &l.Scope)
 			delete(rawMsg, key)
 		}
 		if err != nil {
@@ -22516,6 +22567,7 @@ func (m ManagerRoutingConfigurationPropertiesFormat) MarshalJSON() ([]byte, erro
 	populate(objectMap, "description", m.Description)
 	populate(objectMap, "provisioningState", m.ProvisioningState)
 	populate(objectMap, "resourceGuid", m.ResourceGUID)
+	populate(objectMap, "routeTableUsageMode", m.RouteTableUsageMode)
 	return json.Marshal(objectMap)
 }
 
@@ -22536,6 +22588,9 @@ func (m *ManagerRoutingConfigurationPropertiesFormat) UnmarshalJSON(data []byte)
 			delete(rawMsg, key)
 		case "resourceGuid":
 			err = unpopulate(val, "ResourceGUID", &m.ResourceGUID)
+			delete(rawMsg, key)
+		case "routeTableUsageMode":
+			err = unpopulate(val, "RouteTableUsageMode", &m.RouteTableUsageMode)
 			delete(rawMsg, key)
 		}
 		if err != nil {
@@ -26824,6 +26879,7 @@ func (p *PrivateLinkServiceListResult) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements the json.Marshaller interface for type PrivateLinkServiceProperties.
 func (p PrivateLinkServiceProperties) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]any)
+	populate(objectMap, "accessMode", p.AccessMode)
 	populate(objectMap, "alias", p.Alias)
 	populate(objectMap, "autoApproval", p.AutoApproval)
 	populate(objectMap, "destinationIPAddress", p.DestinationIPAddress)
@@ -26847,6 +26903,9 @@ func (p *PrivateLinkServiceProperties) UnmarshalJSON(data []byte) error {
 	for key, val := range rawMsg {
 		var err error
 		switch key {
+		case "accessMode":
+			err = unpopulate(val, "AccessMode", &p.AccessMode)
+			delete(rawMsg, key)
 		case "alias":
 			err = unpopulate(val, "Alias", &p.Alias)
 			delete(rawMsg, key)
@@ -37765,7 +37824,9 @@ func (v *VirtualNetworkGatewayConnectionListResult) UnmarshalJSON(data []byte) e
 // MarshalJSON implements the json.Marshaller interface for type VirtualNetworkGatewayConnectionPropertiesFormat.
 func (v VirtualNetworkGatewayConnectionPropertiesFormat) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]any)
+	populate(objectMap, "authenticationType", v.AuthenticationType)
 	populate(objectMap, "authorizationKey", v.AuthorizationKey)
+	populate(objectMap, "certificateAuthentication", v.CertificateAuthentication)
 	populate(objectMap, "connectionMode", v.ConnectionMode)
 	populate(objectMap, "connectionProtocol", v.ConnectionProtocol)
 	populate(objectMap, "connectionStatus", v.ConnectionStatus)
@@ -37805,8 +37866,14 @@ func (v *VirtualNetworkGatewayConnectionPropertiesFormat) UnmarshalJSON(data []b
 	for key, val := range rawMsg {
 		var err error
 		switch key {
+		case "authenticationType":
+			err = unpopulate(val, "AuthenticationType", &v.AuthenticationType)
+			delete(rawMsg, key)
 		case "authorizationKey":
 			err = unpopulate(val, "AuthorizationKey", &v.AuthorizationKey)
+			delete(rawMsg, key)
+		case "certificateAuthentication":
+			err = unpopulate(val, "CertificateAuthentication", &v.CertificateAuthentication)
 			delete(rawMsg, key)
 		case "connectionMode":
 			err = unpopulate(val, "ConnectionMode", &v.ConnectionMode)

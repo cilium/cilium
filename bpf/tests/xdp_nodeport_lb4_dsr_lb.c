@@ -29,8 +29,7 @@
 #define fib_lookup mock_fib_lookup
 
 static volatile const __u8 *client_mac = mac_one;
-/* this matches the default node_config.h: */
-static volatile const __u8 lb_mac[ETH_ALEN] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
+static volatile const __u8 *lb_mac = mac_host;
 static volatile const __u8 *remote_backend_mac = mac_five;
 
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,

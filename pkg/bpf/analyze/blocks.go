@@ -6,7 +6,6 @@ package analyze
 import (
 	"errors"
 	"fmt"
-	"iter"
 	"slices"
 	"strings"
 
@@ -43,6 +42,17 @@ func getLeaderMeta(ins *asm.Instruction) *leader {
 	return meta
 }
 
+// setLeader idempotently sets the leader metadata for an instruction, returning
+// the existing leader metadata if it already exists.
+func setLeader(ins *asm.Instruction) *leader {
+	l := getLeaderMeta(ins)
+	if l == nil {
+		l = &leader{}
+		setLeaderMeta(ins, l)
+	}
+	return l
+}
+
 // addPredecessors adds one or more predecessor instructions to the list of
 // predecessors for the given instruction. If a predecessor is already in the
 // list, it is not added again.
@@ -52,11 +62,7 @@ func getLeaderMeta(ins *asm.Instruction) *leader {
 // multiple branches). Initializes the instruction's leader metadata if it does
 // not exist yet.
 func addPredecessors(ins *asm.Instruction, preds ...*asm.Instruction) {
-	l := getLeaderMeta(ins)
-	if l == nil {
-		l = &leader{}
-		setLeaderMeta(ins, l)
-	}
+	l := setLeader(ins)
 	for _, pred := range preds {
 		if pred == nil {
 			continue
@@ -96,15 +102,22 @@ func getEdgeMeta(ins *asm.Instruction) *edge {
 	return meta
 }
 
-// setEdgeBranchTarget sets the branch target for an edge instruction. This is
-// used to mark the target of a jump instruction that branches to another basic
-// block.
-func setEdgeBranchTarget(ins *asm.Instruction, target *asm.Instruction) {
+// setEdge idempotently sets the edge metadata for an instruction, returning the
+// existing edge metadata if it already exists.
+func setEdge(ins *asm.Instruction) *edge {
 	e := getEdgeMeta(ins)
 	if e == nil {
 		e = &edge{}
 		setEdgeMeta(ins, e)
 	}
+	return e
+}
+
+// setEdgeBranchTarget sets the branch target for an edge instruction. This is
+// used to mark the target of a jump instruction that branches to another basic
+// block.
+func setEdgeBranchTarget(ins *asm.Instruction, target *asm.Instruction) {
+	e := setEdge(ins)
 	e.branch = target
 }
 
@@ -113,15 +126,18 @@ func setEdgeBranchTarget(ins *asm.Instruction, target *asm.Instruction) {
 // executed if the branch is not taken, typically the instruction immediately
 // following the branch instruction.
 func setEdgeFallthrough(ins *asm.Instruction, target *asm.Instruction) {
-	if ins == nil {
-		return
-	}
-	e := getEdgeMeta(ins)
-	if e == nil {
-		e = &edge{}
-		setEdgeMeta(ins, e)
-	}
+	e := setEdge(ins)
 	e.fthrough = target
+}
+
+// setEdgeExit marks an instruction as an edge with no branch target, and
+// optionally marks the next instruction as a leader. This is used for exit
+// instructions that terminate a basic block without branching to another block.
+func setEdgeExit(ins, next *asm.Instruction) {
+	setEdge(ins)
+	if next != nil {
+		setLeader(next)
+	}
 }
 
 // setBranchTarget creates a two-way association between both the branch
@@ -146,9 +162,21 @@ func setBranchTarget(branch, target, prev *asm.Instruction) {
 	} else {
 		// If the instruction preceding the branch target cannot fall through (Ja,
 		// Exit), don't register it as a predecessor.
-		setEdgeFallthrough(prev, nil)
+		if prev != nil {
+			setEdge(prev)
+		}
 		addPredecessors(target, branch)
 	}
+}
+
+// setBranchFallthrough sets the fallthrough target for a branch instruction.
+func setBranchFallthrough(branch, fthrough *asm.Instruction) {
+	if fthrough == nil || !canFallthrough(branch) {
+		return
+	}
+
+	setEdgeFallthrough(branch, fthrough)
+	addPredecessors(fthrough, branch)
 }
 
 // A Block is a contiguous sequence of instructions that are executed together.
@@ -167,9 +195,15 @@ type Block struct {
 	raw        asm.RawInstructionOffset
 	start, end int
 
+	// If this block is the start of a function, sym is set to the function name.
+	sym string
+
 	predecessors []*Block
 	branch       *Block
 	fthrough     *Block
+
+	// calls are blocks that are called from this block.
+	calls []*Block
 }
 
 func (b *Block) leader(insns asm.Instructions) *leader {
@@ -179,7 +213,7 @@ func (b *Block) leader(insns asm.Instructions) *leader {
 	return getLeaderMeta(&insns[b.start])
 }
 
-func (b *Block) edge(insns asm.Instructions) *edge {
+func (b *Block) last(insns asm.Instructions) *asm.Instruction {
 	if len(insns) == 0 {
 		return nil
 	}
@@ -188,7 +222,16 @@ func (b *Block) edge(insns asm.Instructions) *edge {
 		return nil
 	}
 
-	return getEdgeMeta(&insns[b.end])
+	return &insns[b.end]
+}
+
+func (b *Block) edge(insns asm.Instructions) *edge {
+	last := b.last(insns)
+	if last == nil {
+		return nil
+	}
+
+	return getEdgeMeta(last)
 }
 
 func (b *Block) iterateLocal(insns asm.Instructions) *BlockIterator {
@@ -224,11 +267,7 @@ func (b *Block) iterateGlobal(blocks Blocks, insns asm.Instructions) *BlockItera
 // After the next call to [Backtracker.Previous], the backtracker will point to
 // the last instruction in the block.
 func (b *Block) backtrack(insns asm.Instructions) *Backtracker {
-	return &Backtracker{
-		insns: insns,
-		stop:  b.start,
-		index: b.end,
-	}
+	return newBacktracker(b, insns)
 }
 
 func (b *Block) String() string {
@@ -237,6 +276,11 @@ func (b *Block) String() string {
 
 func (b *Block) Dump(insns asm.Instructions) string {
 	var sb strings.Builder
+
+	if b.sym != "" {
+		sb.WriteString(fmt.Sprintf("Function: %s\n", b.sym))
+	}
+
 	sb.WriteString("Predecessors: [")
 	for i, from := range b.predecessors {
 		if i > 0 {
@@ -267,6 +311,17 @@ func (b *Block) Dump(insns asm.Instructions) string {
 		sb.WriteString("\n")
 	} else {
 		sb.WriteString("Instructions: not provided, call Dump() with insns\n")
+	}
+
+	if len(b.calls) > 0 {
+		sb.WriteString("Calls: [")
+		for i, callee := range b.calls {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("%d", callee.id))
+		}
+		sb.WriteString("]\n")
 	}
 
 	if b.branch != nil {
@@ -386,12 +441,7 @@ func (i *BlockIterator) Next() bool {
 // [Backtracker.Previous] will return the instruction preceding the current one,
 // if any.
 func (i *BlockIterator) Backtrack() *Backtracker {
-	return &Backtracker{
-		insns: i.insns,
-		stop:  i.block.start,
-		index: i.index,
-		ins:   &i.insns[i.index],
-	}
+	return newBacktracker(i.block, i.insns).Seek(i.index)
 }
 
 // Backtracker is an iterator that walks backwards through a Block's
@@ -401,10 +451,24 @@ func (i *BlockIterator) Backtrack() *Backtracker {
 // before it is read, by following the control flow backwards.
 type Backtracker struct {
 	insns asm.Instructions
-	stop  int
+
+	block   *Block
+	visited []*Block
 
 	index int
 	ins   *asm.Instruction
+}
+
+// newBacktracker creates a new Backtracker starting at the end of the given
+// block.
+func newBacktracker(block *Block, insns asm.Instructions) *Backtracker {
+	bt := &Backtracker{
+		insns: insns,
+		block: block,
+		index: block.end,
+	}
+
+	return bt
 }
 
 // Instruction returns the current instruction.
@@ -415,16 +479,77 @@ func (bt *Backtracker) Instruction() *asm.Instruction {
 // Previous moves to the previous instruction within the block.
 // Returns false when reaching the start of the block.
 func (bt *Backtracker) Previous() bool {
-	if bt.index <= bt.stop {
+	// First call to Previous, point to the current instruction.
+	if bt.ins == nil {
+		bt.ins = &bt.insns[bt.index]
+		return true
+	}
+
+	// Make sure index doesn't underrun the start of the block.
+	prev := bt.index - 1
+	if prev < bt.block.start {
+		// Roll over to the Block's only predecessor, if any.
+		return bt.previousBlock()
+	}
+
+	// Update index and ins in lockstep to avoid subtle bugs.
+	bt.index = prev
+	bt.ins = &bt.insns[prev]
+
+	return true
+}
+
+// Seek moves the Backtracker to the given instruction index within the block
+// and pulls the instruction.
+//
+// Panics if the index is out of bounds of the block.
+func (bt *Backtracker) Seek(index int) *Backtracker {
+	if index < bt.block.start || index > bt.block.end {
+		panic(fmt.Sprintf("seek index %d out of bounds for block [%d, %d]", index, bt.block.start, bt.block.end))
+	}
+
+	bt.index = index
+	bt.ins = &bt.insns[index]
+
+	return bt
+}
+
+// previousBlock rolls over the Backtracker to the first and only predecessor of
+// the current block, if any. Returns false if there is no predecessor or if
+// there are multiple predecessors.
+func (bt *Backtracker) previousBlock() bool {
+	if len(bt.block.predecessors) != 1 {
 		return false
 	}
 
-	// Only decrement if Previous was called before.
-	if bt.ins != nil {
-		bt.index--
+	pred := bt.block.predecessors[0]
+
+	// Prevent infinite loops when backtracking.
+	//
+	// In the vast majority of cases, backtracking terminates in the first
+	// predecessor, either because of a positive match, the register got
+	// clobbered, or because of multiple grandparents.
+	//
+	// Maintaining a visited list tends to dominate the CPU and memory profiles of
+	// the backtracking process, so avoid it whenever possible.
+	if pred == bt.block {
+		// Never roll over to self.
+		return false
+	}
+	if len(bt.visited) == 0 {
+		// First rollover, initialize visited list in a single allocation.
+		bt.visited = []*Block{bt.block, pred}
+	} else {
+		// Subsequent rollovers, check visited list and append if needed.
+		if slices.Contains(bt.visited, pred) {
+			return false
+		}
+		bt.visited = append(bt.visited, pred)
 	}
 
-	bt.ins = &bt.insns[bt.index]
+	bt.block = pred
+	bt.index = pred.end
+	bt.ins = &bt.insns[pred.end]
 
 	return true
 }
@@ -432,6 +557,8 @@ func (bt *Backtracker) Previous() bool {
 // Clone creates a copy of the Backtracker at its current position.
 func (bt *Backtracker) Clone() *Backtracker {
 	cpy := *bt
+	cpy.visited = slices.Clone(cpy.visited)
+
 	return &cpy
 }
 
@@ -526,16 +653,11 @@ func MakeBlocks(insns asm.Instructions) (Blocks, error) {
 
 // computeBlocks computes the basic blocks from the given instruction stream.
 func computeBlocks(insns asm.Instructions) (Blocks, error) {
-	targets, err := rawJumpTargets(insns)
-	if err != nil {
-		return nil, fmt.Errorf("collecting jump targets: %w", err)
+	if err := markBranches(insns); err != nil {
+		return nil, fmt.Errorf("marking branches: %w", err)
 	}
 
-	if err := tagLeadersAndEdges(insns, targets); err != nil {
-		return nil, fmt.Errorf("tagging instructions: %w", err)
-	}
-
-	blocks, err := allocateBlocks(insns)
+	blocks, callers, err := allocateBlocks(insns)
 	if err != nil {
 		return nil, fmt.Errorf("allocating blocks: %w", err)
 	}
@@ -543,6 +665,8 @@ func computeBlocks(insns asm.Instructions) (Blocks, error) {
 	if err := connectBlocks(blocks, insns); err != nil {
 		return nil, fmt.Errorf("connecting blocks: %w", err)
 	}
+
+	callers.connect(blocks)
 
 	return blocks, nil
 }
@@ -581,137 +705,58 @@ func loadBlocks(insns asm.Instructions) Blocks {
 	return blocks
 }
 
-// rawJumpTargets returns a map of raw instruction offsets to jump targets,
-// where each target is a logical instruction in the instruction stream.
+// markBranches identifies all jump targets in the instruction stream and marks
+// branch and fallthrough edges accordingly.
 //
-// The raw instruction offsets are the offsets of the instructions in the raw
-// bytecode, which may not correspond to the logical instruction indices due to
-// variable instruction sizes (e.g. dword loads).
-func rawJumpTargets(insns asm.Instructions) (rawTargets, error) {
-	// Jump offsets are in raw instructions of size [asm.InstructionSize], but
-	// some instructions are 2x the size of a normal instruction (e.g. dword
-	// loads). Find the raw offsets of all jump targets and mark them for
-	// resolution.
-	targets := make(rawTargets)
+// It performs two passes over the instruction stream: the first pass identifies
+// all branch instructions and their raw jump targets, while the second pass
+// resolves these raw targets to actual instruction pointers.
+func markBranches(insns asm.Instructions) error {
+	var targets rawTargets
+
 	i := insns.Iterate()
 	for i.Next() {
-		target, ok := jumpTarget(i.Offset, i.Ins)
-		if !ok {
-			continue
+		// Set a leader on symbols, as they mark the start of functions.
+		if sym := i.Ins.Symbol(); sym != "" {
+			setLeader(i.Ins)
 		}
 
-		// Queue the target as a 'raw' leader to be resolved to a logical insn in
-		// the next loop.
-		targets.add(target)
+		switch op := i.Ins.OpCode.JumpOp(); op {
+		// No branch, ignore instruction.
+		case asm.InvalidJumpOp, asm.Call:
+			continue
 
-		// Mark the instruction as an incomplete edge to avoid re-checking if each
-		// insn is a jump in a subsequent step.
-		setEdgeMeta(i.Ins, &edge{})
+		// There may be more instructions or another program after an exit. Emit an
+		// edge with no branch or fallthrough and a leader on the next instruction,
+		// if any.
+		case asm.Exit:
+			setEdgeExit(i.Ins, next(i, insns))
+
+		// Regular branching instructions.
+		default:
+			raw, err := jumpTarget(i.Offset, i.Ins)
+			if err != nil {
+				return fmt.Errorf("determine jump target instruction offset: %w", err)
+			}
+
+			setBranchFallthrough(i.Ins, next(i, insns))
+
+			// Queue the target by its raw instruction offset be updated with a branch
+			// instruction pointer during a second pass since we cannot perform random
+			// lookups of instructions by their raw offsets.
+			targets.add(i.Ins, raw)
+		}
 	}
 
-	if len(targets) == 0 {
-		// No jump targets to resolve.
-		return nil, nil
-	}
-
-	// Second loop for finding the [asm.Instruction] for each raw offset
-	// identified in the previous step.
-	next, stop := iter.Pull(targets.keysSorted())
-	defer stop()
-
-	// Memoize the next leader so we don't need a map lookup for every insn.
-	nextTarget, ok := next()
-	if !ok {
-		return nil, errors.New("no jump target to resolve, this is a bug")
-	}
-
+	// Second pass for resolving jumps to their target instructions. This can only
+	// be done after all raw jump offsets have been identified, since jumps can be
+	// forward or backward.
 	i = insns.Iterate()
 	for i.Next() {
-		if i.Offset != nextTarget {
-			continue
-		}
-
-		// Map the raw instruction offset to its logical instruction.
-		targets.resolve(i.Offset, i.Index, i.Ins)
-
-		// Pull the next target to resolve.
-		nextTarget, ok = next()
-		if !ok {
-			// No more targets to resolve.
-			break
-		}
-	}
-
-	return targets, nil
-}
-
-// tagLeadersAndEdges tags the instructions in the given instruction stream
-// as leaders and/or edges based on their control flow properties. It identifies
-// the first instruction as a leader without predecessors, the last instruction
-// as an edge without a branch or fallthrough, and processes jump instructions
-// to create leaders for their targets and edges for their predecessors.
-//
-// Returns error if any edge instruction does not have a target instruction at
-// the specified raw offset.
-func tagLeadersAndEdges(insns asm.Instructions, targets rawTargets) error {
-	// Mark first insn as leader without predecessors, last insn as an edge
-	// without a branch or fallthrough.
-	setLeaderMeta(&insns[0], &leader{})
-	setEdgeMeta(&insns[len(insns)-1], &edge{})
-
-	if len(targets) == 0 {
-		// No jump targets to resolve.
-		return nil
-	}
-
-	// Find all jump instructions, create leaders for their targets and edges for
-	// their predecessors.
-	i := insns.Iterate()
-	for i.Next() {
-		// If the insn was identified as an edge in a prior step, add it as a
-		// predecessor to the next instruction and to the branch target.
-		e := getEdgeMeta(i.Ins)
-		if e == nil {
-			continue
-		}
-
-		// If the instruction is a branch, we need to find the target instruction
-		// and set it as the branch target.
-		raw, ok := jumpTarget(i.Offset, i.Ins)
-		if !ok {
-			// Edge doesn't have a jump target. This could be an exit or call
-			// instruction, in which case there's no jump target to resolve and no
-			// leader to create.
-			continue
-		}
-
-		tgt := targets.get(raw)
-		if tgt == nil {
-			return fmt.Errorf("edge %v has no target instruction at offset %d", i.Ins, raw)
-		}
-
-		// In case of a jump to the first instruction, the target has no
-		// predecessor, so we need a bounds check.
-		var prev *asm.Instruction
-		if tgt.index-1 >= 0 {
-			prev = &insns[tgt.index-1]
-		}
-		setBranchTarget(i.Ins, tgt.ins, prev)
-
-		// No next instruction, don't set a fallthrough target.
-		if i.Index == len(insns)-1 {
-			continue
-		}
-
-		// If the instruction is an unconditional jump, don't consider the next
-		// instruction a fallthrough target.
-		if i.Ins.OpCode.JumpOp() == asm.Ja {
-			continue
-		}
-
-		next := &insns[i.Index+1]
-		addPredecessors(next, i.Ins)
-		setEdgeFallthrough(i.Ins, next)
+		// Map the raw instruction offset to its logical instruction. In case of a
+		// jump to the first instruction, the target has no prior instruction and
+		// tgtPrev will be nil.
+		targets.resolve(i.Offset, i.Ins, previous(i, insns))
 	}
 
 	return nil
@@ -722,9 +767,14 @@ func tagLeadersAndEdges(insns asm.Instructions, targets rawTargets) error {
 // instruction and finalizes the current one when it reaches an edge
 // instruction. No blocks are pointing to each other yet, this is done in a
 // subsequent step.
-func allocateBlocks(insns asm.Instructions) (Blocks, error) {
+func allocateBlocks(insns asm.Instructions) (Blocks, bpfCallers, error) {
+	if len(insns) == 0 {
+		return nil, nil, errors.New("insns is empty, cannot allocate blocks")
+	}
+
 	// Expect at least one block.
 	blocks := make(Blocks, 0, 1)
+	callers := make(bpfCallers)
 
 	var block *Block
 	i := insns.Iterate()
@@ -735,15 +785,22 @@ func allocateBlocks(insns asm.Instructions) (Blocks, error) {
 			blocks.add(block)
 		}
 
+		// Record function references in the current block.
+		callers.record(i.Ins, block)
+
 		// Finalize the block if we've reached an edge.
 		maybeFinalizeBlock(block, i)
 	}
 
 	if blocks.count() == 0 {
-		return nil, errors.New("no blocks created, this is a bug")
+		return nil, nil, errors.New("no blocks created, this is a bug")
 	}
 
-	return blocks, nil
+	if start := blocks.first().start; start != 0 {
+		return nil, nil, fmt.Errorf("first block starts at instruction index %d; this could be a bug, or the first insn is not a symbol", start)
+	}
+
+	return blocks, callers, nil
 }
 
 // maybeAllocateBlock allocates a new block for the instruction pointed to by
@@ -756,6 +813,7 @@ func maybeAllocateBlock(i *asm.InstructionIterator) *Block {
 		return nil
 	}
 	l.block = &Block{
+		sym:   i.Ins.Symbol(),
 		start: i.Index,
 		raw:   i.Offset,
 	}

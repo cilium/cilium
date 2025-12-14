@@ -246,15 +246,8 @@ func newXDSServer(logger *slog.Logger, restorerPromise promise.Promise[endpoints
 	return xdsServer
 }
 
-func (s *xdsServer) start() error {
-	socketListener, err := s.newSocketListener()
-	if err != nil {
-		return fmt.Errorf("failed to create socket listener: %w", err)
-	}
-
-	s.stopFunc = s.startXDSGRPCServer(socketListener, s.resourceConfig)
-
-	return nil
+func (s *xdsServer) start(ctx context.Context) error {
+	return s.startXDSGRPCServer(ctx, s.resourceConfig)
 }
 
 func (s *xdsServer) initializeXdsConfigs() {
@@ -1304,7 +1297,7 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, versio
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
-		selections := sel.GetSelections(version)
+		selections := sel.GetSelectionsAt(version)
 
 		// No remote policies would match this rule. Discard it.
 		if len(selections) == 0 {
@@ -1416,7 +1409,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(version *versioned.VersionHand
 					Deny: l7.GetDeny(),
 				})
 			}
-			selections := sel.GetSelections(version)
+			selections := sel.GetSelectionsAt(version)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
@@ -1451,7 +1444,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(version *versioned.VersionHand
 			s.logger.Warn("L3-only rule for selector surprisingly requires proxy redirection!", logfields.Selector, sel)
 		}
 
-		selections := sel.GetSelections(version)
+		selections := sel.GetSelectionsAt(version)
 		if len(selections) == 0 {
 			continue
 		}
@@ -1678,7 +1671,6 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Pol
 			})
 			return true
 		})
-
 	}
 	if len(PerPortPolicies) == 0 || len(PerPortPolicies) == 0 && wildcardAllowAll {
 		return nil

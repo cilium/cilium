@@ -42,7 +42,7 @@ def load_json(file_path) -> dict:
         return json.load(f)
 
 
-def organize_data(data) -> dict:
+def organize_data(data, key: str) -> dict:
     """
     Organize data into dict keyed by (collection, build, load, program).
 
@@ -54,13 +54,19 @@ def organize_data(data) -> dict:
     """
     organized = {}
     for entry in data:
-        key = (entry["collection"], entry["build"],
-               entry["load"], entry["program"])
-        organized[key] = entry["insns_processed"]
+        if not key in entry:
+            logging.error(f"Key '{key}' not found in data.")
+            break
+        if not isinstance(entry[key], (int, float)) or not str(entry[key]).isnumeric():
+            logging.error(f"Key '{key}' doesn't have a numeric value.")
+            break
+        k = (entry["collection"], entry["build"],
+             entry["load"], entry["program"])
+        organized[k] = int(entry[key])
     return organized
 
 
-def plot_comparison(file1: str, file2: str, outdir: str):
+def plot_comparison(file1: str, file2: str, key: str, outdir: str):
     """Plot comparison of eBPF verifier logs.
 
     Args:
@@ -68,8 +74,8 @@ def plot_comparison(file1: str, file2: str, outdir: str):
         file2 (str): Path to the second JSON file.
         outdir (str): Output directory for the plots.
     """
-    data1 = organize_data(load_json(file1))
-    data2 = organize_data(load_json(file2))
+    data1 = organize_data(load_json(file1), key)
+    data2 = organize_data(load_json(file2), key)
 
     # Collect all unique (collection, build, load) triples
     groups = set((c, b, l) for c, b, l, _ in data1.keys()) | set(
@@ -127,7 +133,7 @@ def plot_comparison(file1: str, file2: str, outdir: str):
                               bar_height, label="After", alpha=0.7)
 
         plt.yticks(y_pos, filtered_programs)
-        plt.xlabel("insns_processed")
+        plt.xlabel(key)
         plt.title(f"Collection {collection} - Build {build} - Load {load}")
         plt.legend()
 
@@ -146,7 +152,7 @@ def plot_comparison(file1: str, file2: str, outdir: str):
         plt.tight_layout()
         build_dir = os.path.join(outdir, collection, f"build{build}")
         os.makedirs(build_dir, exist_ok=True)
-        outfile = os.path.join(build_dir, f"load{load}.png")
+        outfile = os.path.join(build_dir, f"states-load{load}.png")
         plt.savefig(outfile)
         plt.close()
         logging.info(f"Saved plot: {outfile}")
@@ -189,6 +195,7 @@ def main():
     parser.add_argument("file_before", help="Path to the log before patch")
     parser.add_argument("file_after", help="Path to the log after patch")
     parser.add_argument('-v', '--verbose', action='store_true', help="Print debug logs.")
+    parser.add_argument('--key', default="insns_processed", help="Verifier statistic to compare (ex., peak_states, verification_time_microseconds).")
 
     args = parser.parse_args()
 
@@ -200,7 +207,7 @@ def main():
 
     output_dir = setup_output_dir(args.file_after, args.file_before)
 
-    plot_comparison(args.file_before, args.file_after, output_dir)
+    plot_comparison(args.file_before, args.file_after, args.key, output_dir)
 
 
 if __name__ == "__main__":

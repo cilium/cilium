@@ -21,7 +21,7 @@ func IPFamiliesFromString(s string) ([]corev1.IPFamily, error) {
 		return nil, nil
 	}
 	ipfamilies := make([]corev1.IPFamily, 0, 2)
-	for _, ipfamily := range strings.Split(s, ",") {
+	for ipfamily := range strings.SplitSeq(s, ",") {
 		ipfamily = strings.TrimSpace(ipfamily)
 		switch ipfamily {
 		case string(corev1.IPv4Protocol):

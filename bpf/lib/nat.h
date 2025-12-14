@@ -13,7 +13,6 @@
 
 #include "bpf/compiler.h"
 #include "common.h"
-#include "drop.h"
 #include "signal.h"
 #include "conntrack.h"
 #include "conntrack_map.h"
@@ -28,6 +27,12 @@
 DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
+
+#ifdef ENABLE_NODEPORT
+#define NAT_MIN_EGRESS		NODEPORT_PORT_MIN_NAT
+#else
+#define NAT_MIN_EGRESS		EPHEMERAL_MIN
+#endif
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -782,9 +787,8 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	__u32 icmpoff;
 	__u8 type;
 	int ret;
-	__u32 icmp_xlen_off = (__u32)off + offsetof(struct icmphdr, un.frag.__unused) + 1;
-	__u8 icmp_xlen;
-	bool icmp_has_full_l4_header;
+	bool icmp_has_inner_l4_csum = true;
+	__u32 total_inner_len = (__u32)ctx_full_len(ctx) - inner_l3_off;
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
@@ -842,15 +846,10 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
-	/*
-	 * The snat_v4_rewrite_headers() call only rewrites the checksum for
-	 * TCP and UDP.  UDP's checksum is covered by the RFC 792 inclusion
-	 * of the 1st 64 bits of the datagram following the IP header, but
-	 * TCP needs an additional 3 32-bit words to include the checksum.
-	 */
-	if (ctx_load_bytes(ctx, icmp_xlen_off, &icmp_xlen, sizeof(__u8)) < 0)
-		return DROP_INVALID;
-	icmp_has_full_l4_header = icmp_xlen >= ((tuple.nexthdr == IPPROTO_TCP) ? 3 : 0);
+	/* Check if the inner L4 header has checksum */
+	if (tuple.nexthdr == IPPROTO_TCP &&
+	    total_inner_len < iphdr.ihl + TCP_CSUM_OFF + sizeof(__u16))
+		icmp_has_inner_l4_csum = false;
 
 	/* We found SNAT entry to NAT embedded packet. The destination addr
 	 * should be NATed according to the entry.
@@ -861,7 +860,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 	/* Failing to update the inner L4 checksum is not fatal if the header
 	 * is incomplete.
 	 */
-	if (!icmp_has_full_l4_header && ret == DROP_CSUM_L4)
+	if (!icmp_has_inner_l4_csum && ret == DROP_CSUM_L4)
 		ret = 0;
 
 	return ret;
@@ -963,6 +962,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 			break;
 		case ICMP_ECHOREPLY:
+		case ICMP_REDIRECT:
 			return NAT_PUNT_TO_STACK;
 		case ICMP_DEST_UNREACH:
 			if (icmphdr.code > NR_ICMP_UNREACH)
@@ -1006,11 +1006,10 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	__u16 port_off;
 	__u32 icmpoff;
 	__u8 type;
-	__u8 icmp_xlen;
-	bool icmp_has_full_l4_header;
+	bool icmp_has_inner_l4_csum = true;
 	int ret;
-	__u32 icmp_xlen_off = (__u32) inner_l3_off - sizeof(struct icmphdr) +
-	  offsetof(struct icmphdr, un.frag.__unused) + 1;
+	__u32 total_inner_len = (__u32)(ctx_full_len(ctx) - inner_l3_off);
+
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
@@ -1070,15 +1069,10 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
-	/*
-	 * The snat_v4_rewrite_headers() call only rewrites the checksum for
-	 * TCP and UDP.  UDP's checksum is covered by the RFC 792 inclusion
-	 * of the 1st 64 bits of the datagram following the IP header, but
-	 * TCP needs an additional 3 32-bit words to include the checksum.
-	 */
-	if (ctx_load_bytes(ctx, icmp_xlen_off, &icmp_xlen, sizeof(__u8)) < 0)
-		return DROP_INVALID;
-	icmp_has_full_l4_header = icmp_xlen >= ((tuple.nexthdr == IPPROTO_TCP) ? 3 : 0);
+	/* Check if the inner L4 header has checksum */
+	if (tuple.nexthdr == IPPROTO_TCP &&
+	    total_inner_len < iphdr.ihl + TCP_CSUM_OFF + sizeof(__u16))
+		icmp_has_inner_l4_csum = false;
 
 	/* The embedded packet was SNATed on egress. Reverse it again: */
 	ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, (int)inner_l3_off, true, icmpoff,
@@ -1087,7 +1081,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 	/* Failing to update the inner L4 checksum is not fatal if the header
 	 * is incomplete.
 	 */
-	if (!icmp_has_full_l4_header && ret == DROP_CSUM_L4)
+	if (!icmp_has_inner_l4_csum && ret == DROP_CSUM_L4)
 		ret = 0;
 	return ret;
 }
@@ -1940,6 +1934,7 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 		switch (icmp6hdr.icmp6_type) {
 		case ICMPV6_ECHO_REPLY:
+		case ICMPV6_REDIRECT:
 		case ICMP6_NS_MSG_TYPE:
 		case ICMP6_NA_MSG_TYPE:
 			return NAT_PUNT_TO_STACK;

@@ -274,8 +274,8 @@ func (reporter *JUnitReporter) failureTypeForState(state types.SpecState) string
 // information that is within the <Checks></Checks> labels. It'll return the
 // given output as first result, and the check output in the second string.
 func reportChecks(output string) (string, string) {
-	var checks string
-	var stdout string
+	var checks strings.Builder
+	var stdout strings.Builder
 	var dest = "stdout"
 
 	for line := range strings.SplitSeq(output, "\n") {
@@ -290,14 +290,14 @@ func reportChecks(output string) (string, string) {
 		}
 		switch dest {
 		case "stdout":
-			stdout += line + "\n"
+			stdout.WriteString(line + "\n")
 			continue
 		case "checks":
-			checks += line + "\n"
+			checks.WriteString(line + "\n")
 			continue
 		}
 	}
-	return stdout, checks
+	return stdout.String(), checks.String()
 }
 
 // mapTestToCODEOWNER maps the test prefix to the corresponding filename

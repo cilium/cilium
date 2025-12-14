@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
@@ -120,10 +122,13 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 
 	ds.hive = hive.New(
 		cell.Provide(
-			func(log *slog.Logger) k8sClient.Clientset {
+			func() (_ statedbReconciler.Reconciler[*reconciler.DesiredRoute]) {
+				return nil
+			},
+			func(log *slog.Logger) (k8sClient.Clientset, k8sClient.Config) {
 				cs, _ := k8sFakeClient.NewFakeClientset(log)
 				cs.Disable()
-				return cs
+				return cs, cs.Config()
 			},
 			func() kvstore.Config { return kvstore.Config{KVStore: kvstore.EtcdBackendName} },
 			func() kvstore.Client { return client },
@@ -230,6 +235,7 @@ func (ds *DaemonSuite) setupConfigOptions() {
 	ds.hive.RegisterFlags(mockCmd.Flags())
 	InitGlobalFlags(ds.log, mockCmd, ds.hive.Viper())
 	option.Config.Populate(ds.log, ds.hive.Viper())
+	option.Config.PopulateEnableCiliumNodeCRD(ds.log, ds.hive.Viper())
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
@@ -246,7 +252,8 @@ func (ds *DaemonSuite) setupConfigOptions() {
 // convenience wrapper that adds a single policy
 func (ds *DaemonSuite) policyImport(rules policyAPI.Rules) {
 	ds.updatePolicy(&policyTypes.PolicyUpdate{
-		Rules: policyUtils.RulesToPolicyEntries(rules),
+		Rules:    policyUtils.RulesToPolicyEntries(rules),
+		Resource: ipcachetypes.ResourceID("policy"),
 	})
 }
 

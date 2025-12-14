@@ -159,14 +159,14 @@ func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfi
 					} else {
 						logger.Warn(
 							"Unknown CiliumNode object type received",
-							logfields.Type, reflect.TypeOf(oldNode),
-							logfields.Object, oldNode,
+							logfields.Type, reflect.TypeOf(newNode), //nolint:modernize // newNode is any, can't use TypeFor
+							logfields.Object, newNode,
 						)
 					}
 				} else {
 					logger.Warn(
 						"Unknown CiliumNode object type received",
-						logfields.Type, reflect.TypeOf(oldNode),
+						logfields.Type, reflect.TypeOf(oldNode), //nolint:modernize // oldNode is any, can't use TypeFor
 						logfields.Object, oldNode,
 					)
 				}
@@ -845,12 +845,11 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 
 				// For now, we can hardcode the interface number to a valid
 				// integer because it will not be used in the allocation result
-				// anyway. To elaborate, Azure IPAM mode automatically sets
-				// option.Config.EgressMultiHomeIPRuleCompat to true, meaning
-				// that the CNI will not use the interface number when creating
-				// the pod rules and routes. We are hardcoding simply to bypass
-				// the parsing errors when InterfaceNumber is empty. See
-				// https://github.com/cilium/cilium/issues/15496.
+				// anyway. Azure IPAM does not use the per-interface egress rule
+				// priority meaning that the CNI will not use the interface
+				// number when creating the pod rules and routes. We are hardcoding
+				// simply to bypass the parsing errors when InterfaceNumber
+				// is empty. See https://github.com/cilium/cilium/issues/15496.
 				//
 				// TODO: Once https://github.com/cilium/cilium/issues/14705 is
 				// resolved, then we don't need to hardcode this anymore.

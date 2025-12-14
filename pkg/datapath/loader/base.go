@@ -305,7 +305,7 @@ func reinitializeWireguard(ctx context.Context, logger *slog.Logger, lnc *datapa
 	return
 }
 
-func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, extraCArgs []string, devices []string) error {
+func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, devices []string) error {
 	xdpConfig := lnc.XDPConfig
 	maybeUnloadObsoleteXDPPrograms(logger, devices, xdpConfig.Mode(), bpf.CiliumPath())
 	if xdpConfig.Disabled() {
@@ -320,7 +320,7 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapa
 			continue
 		}
 
-		if err := compileAndLoadXDPProg(ctx, logger, lnc, dev, xdpConfig.Mode(), extraCArgs); err != nil {
+		if err := compileAndLoadXDPProg(ctx, logger, lnc, dev, xdpConfig.Mode()); err != nil {
 			if option.Config.NodePortAcceleration == option.XDPModeBestEffort {
 				logger.Info("Failed to attach XDP program, ignoring due to best-effort mode",
 					logfields.Error, err,
@@ -333,17 +333,6 @@ func reinitializeXDPLocked(ctx context.Context, logger *slog.Logger, lnc *datapa
 	}
 
 	return nil
-}
-
-// ReinitializeXDP (re-)configures the XDP datapath only. This includes recompilation
-// and reinsertion of the object into the kernel as well as an atomic program replacement
-// at the XDP hook. extraCArgs can be passed-in in order to alter BPF code defines.
-func (l *loader) ReinitializeXDP(ctx context.Context, lnc *datapath.LocalNodeConfiguration, extraCArgs []string) error {
-	l.compilationLock.Lock()
-	defer l.compilationLock.Unlock()
-	devices := lnc.DeviceNames()
-
-	return reinitializeXDPLocked(ctx, l.logger, lnc, extraCArgs, devices)
 }
 
 func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
@@ -479,8 +468,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		}
 	}
 
-	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := reinitializeXDPLocked(ctx, l.logger, lnc, extraArgs, devices); err != nil {
+	if err := reinitializeXDPLocked(ctx, l.logger, lnc, devices); err != nil {
 		logging.Fatal(l.logger, "Failed to compile XDP program", logfields.Error, err)
 	}
 
@@ -489,7 +477,6 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		logging.Fatal(l.logger, "alignchecker compile failed", logfields.Error, err)
 	}
 	// Validate alignments of C and Go equivalent structs
-	alignchecker.RegisterLbStructsToCheck(lnc.LBConfig.AlgorithmAnnotation)
 	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
 		logging.Fatal(l.logger, "C and Go structs alignment check failed", logfields.Error, err)
 	}
@@ -517,7 +504,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	// Reinstall proxy rules for any running proxies if needed
-	if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU, lnc.EnableIPSec); err != nil {
+	if err := p.ReinstallRoutingRules(ctx, lnc.RouteMTU, lnc.EnableIPSec, lnc.EnableWireguard); err != nil {
 		return err
 	}
 

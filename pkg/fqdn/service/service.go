@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
@@ -274,14 +273,13 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 	// Build egress L7 DNS policies with endpoint information
 	var egressL7DnsPolicy []*pb.DNSPolicy
 	var identityToEndpointMapping []*pb.IdentityToEndpointMapping
-
+	var identityToPrefixMapping []*pb.IdentityToPrefixMapping
 	// Process identity to IPs mappings - build both for quick lookup map and endpoint mappings
 	identityIPMap := make(map[identity.NumericIdentity][]netip.Prefix)
 
 	for identityIP := range identityToIPs {
 		var prefixes []netip.Prefix
 		endpointToIPsBytes := make(map[uint64][][]byte) // Group IPs by endpoint ID for this identity
-
 		// Process each IP prefix and group by endpoint ID
 		for prefix := range identityIP.IPs.All() {
 			prefixes = append(prefixes, prefix)
@@ -306,6 +304,20 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 			}
 			endpointInfos = append(endpointInfos, endpointInfo)
 		}
+
+		// Add identity to prefix mapping
+		prefixBytes := make([][]byte, 0, len(prefixes))
+		for _, p := range prefixes {
+			prefixBin, err := p.MarshalBinary()
+			if err != nil {
+				return err
+			}
+			prefixBytes = append(prefixBytes, prefixBin)
+		}
+		identityToPrefixMapping = append(identityToPrefixMapping, &pb.IdentityToPrefixMapping{
+			Identity: identityIP.Identity.Uint32(),
+			Prefix:   prefixBytes,
+		})
 
 		// Add identity to endpoint mapping if there are endpoint infos
 		if len(endpointInfos) > 0 {
@@ -346,6 +358,7 @@ func (s *FQDNDataServer) sendAndRecvAckForDNSPolicies(stream pb.FQDNData_StreamP
 		RequestId:                 requestID,
 		EgressL7DnsPolicy:         egressL7DnsPolicy,
 		IdentityToEndpointMapping: identityToEndpointMapping,
+		IdentityToPrefixMapping:   identityToPrefixMapping,
 	}
 
 	if err := stream.Send(policyState); err != nil {
@@ -568,7 +581,7 @@ func (s *FQDNDataServer) buildDNSPolicyFromL4Filter(l4Filter *policy.L4Filter, p
 
 // buildDNSServers creates the list of DNS servers from L4 filter and cache selector
 func (s *FQDNDataServer) buildDNSServers(l4Filter *policy.L4Filter, cacheSelector policy.CachedSelector) []*pb.DNSServer {
-	if cacheSelector == nil || len(cacheSelector.GetSelections(versioned.Latest())) == 0 {
+	if cacheSelector == nil || len(cacheSelector.GetSelections()) == 0 {
 		// No cache selector - return single server without identity
 		return []*pb.DNSServer{
 			{
@@ -577,7 +590,7 @@ func (s *FQDNDataServer) buildDNSServers(l4Filter *policy.L4Filter, cacheSelecto
 			},
 		}
 	}
-	selections := cacheSelector.GetSelections(versioned.Latest())
+	selections := cacheSelector.GetSelections()
 	dnsServers := make([]*pb.DNSServer, 0, len(selections))
 
 	for _, selection := range selections {

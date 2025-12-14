@@ -20,14 +20,8 @@ const (
 )
 
 const (
-	// AgentHealthPort is the default value for option.AgentHealthPort
-	AgentHealthPort = 9879
-
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
-
-	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
-	ClusterMeshHealthPort = 80
 
 	// EnableGops is the default value for option.EnableGops
 	EnableGops = true
@@ -352,6 +346,10 @@ const (
 	// CiliumNode.Spec.ENI.DisablePrefixDelegation if no value is set.
 	ENIDisableNodeLevelPD = false
 
+	// ENIDeleteOnTermination is the default value for
+	// CiliumNode.Spec.ENI.DeleteOnTermination if no value is set.
+	ENIDeleteOnTermination = true
+
 	// ENIGarbageCollectionTagManagedName is part of the ENIGarbageCollectionTags default tag set
 	ENIGarbageCollectionTagManagedName = "io.cilium/cilium-managed"
 
@@ -435,11 +433,6 @@ const (
 	// EnableIdentityMark enables setting identity in mark field of packet
 	// for local traffic
 	EnableIdentityMark = true
-
-	// K8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
-	// for the support of Leases in Kubernetes when there is an error in discovering
-	// API groups using Discovery API.
-	K8sEnableLeasesFallbackDiscovery = false
 
 	// InstallNoConntrackRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = false
@@ -551,6 +544,9 @@ const (
 
 	// IPTracingOptionType is the default value for option.IPTracingOptionType
 	IPTracingOptionType = 0
+
+	// EnableCiliumNodeCRD is the default value for option.EnableCiliumNodeCRD
+	EnableCiliumNodeCRD = true
 )
 
 var (

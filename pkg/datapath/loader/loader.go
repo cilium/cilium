@@ -284,6 +284,9 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
+	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
@@ -442,6 +445,9 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
+	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -510,10 +516,6 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	}
 	cfg.InterfaceMAC = em.As8()
 
-	if !option.Config.EnableHostLegacyRouting {
-		cfg.SecctxFromIPCache = true
-	}
-
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
@@ -532,6 +534,9 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 	if option.Config.EnableVTEP {
 		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
+
+	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableIcmpRule = option.Config.EnableICMPRules
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -696,12 +701,17 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.HostEpID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	if option.Config.EnableVTEP {
 		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
+
+	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
@@ -867,10 +877,6 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 
 	cfg := config.NewBPFWireguard(config.NodeConfig(lnc))
 	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
-
-	if !option.Config.EnableHostLegacyRouting {
-		cfg.SecctxFromIPCache = true
-	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||

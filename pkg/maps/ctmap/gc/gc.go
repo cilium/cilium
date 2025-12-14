@@ -4,12 +4,16 @@
 package gc
 
 import (
+	"cmp"
+	"context"
+	"fmt"
 	"log/slog"
 	"net/netip"
 	"os"
 	stdtime "time"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 
@@ -17,10 +21,12 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -39,16 +45,21 @@ type PerClusterCTMapsRetriever func() []*ctmap.Map
 type parameters struct {
 	cell.In
 
-	Lifecycle       cell.Lifecycle
-	Logger          *slog.Logger
-	MetricsRegistry *metrics.Registry
-	DB              *statedb.DB
-	NodeAddrs       statedb.Table[tables.NodeAddress]
-	DaemonConfig    *option.DaemonConfig
-	EndpointManager EndpointManager
-	NodeAddressing  types.NodeAddressing
-	SignalManager   SignalHandler
+	Lifecycle               cell.Lifecycle
+	JobGroup                job.Group
+	Logger                  *slog.Logger
+	MetricsRegistry         *metrics.Registry
+	DB                      *statedb.DB
+	NodeAddrs               statedb.Table[tables.NodeAddress]
+	DaemonConfig            *option.DaemonConfig
+	EndpointRestorerPromise promise.Promise[endpointstate.Restorer]
+	EndpointManager         EndpointManager
+	NodeAddressing          types.NodeAddressing
+	SignalManager           SignalHandler
 
+	// PerClusterCTMapsRetriever is an optional function that, if provided, is
+	// used to retrieve the per-cluster CT maps. The slice of maps returned by
+	// the function must contain consecutive (TCP, ANY) pairs.
 	PerClusterCTMapsRetriever PerClusterCTMapsRetriever `optional:"true"`
 }
 
@@ -93,6 +104,8 @@ func New(params parameters) *GC {
 		signalHandler:    params.SignalManager,
 
 		controllerManager: controller.NewManager(),
+
+		perClusterCTMapsRetriever: params.PerClusterCTMapsRetriever,
 	}
 
 	gc.observable4, gc.next4, gc.complete4 = stream.Multicast[ctmap.GCEvent]()
@@ -107,6 +120,29 @@ func New(params parameters) *GC {
 			return nil
 		},
 	})
+
+	enableGCFunc := func(ctx context.Context, _ cell.Health) error {
+		params.Logger.Info("Starting connection tracking garbage collector")
+
+		restorer, err := params.EndpointRestorerPromise.Await(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for endpoint restorer: %w", err)
+		}
+
+		if err := restorer.WaitForEndpointRestore(ctx); err != nil {
+			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
+		}
+
+		gc.Enable()
+
+		return nil
+	}
+
+	params.JobGroup.Add(
+		job.Observer("nat-map-next4", func(ctx context.Context, event ctmap.GCEvent) error { ctmap.NatMapNext4(event); return nil }, gc.Observe4()),
+		job.Observer("nat-map-next6", func(ctx context.Context, event ctmap.GCEvent) error { ctmap.NatMapNext6(event); return nil }, gc.Observe6()),
+		job.OneShot("enable-gc", enableGCFunc))
+
 	return gc
 }
 
@@ -118,7 +154,7 @@ func (gc *GC) isFullGC(ipv4, ipv6 bool) bool {
 	return ipv4 == gc.ipv4 && ipv6 == gc.ipv6
 }
 
-// Enable enables the connection tracking garbage collection.
+// Enable enables the periodic execution of the connection tracking garbage collection.
 func (gc *GC) Enable() {
 	gc.enable(gc.runGC, true)
 }
@@ -126,6 +162,16 @@ func (gc *GC) Enable() {
 func (gc *GC) enable(
 	runGC func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool),
 	runMapPressureDaemon bool,
+) {
+	gc.enableWithConfig(runGC, runMapPressureDaemon,
+		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval,
+		ctmap.GCIntervalRounding, ctmap.MinGCInterval)
+}
+
+func (gc *GC) enableWithConfig(
+	runGC func(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool),
+	runMapPressureDaemon bool,
+	conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval time.Duration,
 ) {
 	var (
 		initialScan         = true
@@ -176,7 +222,8 @@ func (gc *GC) enable(
 
 				gcFilter = ctmap.GCFilter{
 					RemoveExpired: true,
-					EmitCTEntryCB: emitEntryCB}
+					EmitCTEntryCB: emitEntryCB,
+				}
 
 				success = false
 			)
@@ -198,7 +245,8 @@ func (gc *GC) enable(
 				maxDeleteRatio, success = runGC(ipv4, ipv6, triggeredBySignal, gcFilter)
 			}
 
-			interval := ctmap.GetInterval(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio)
+			interval := ctmap.GetIntervalWithConfig(gc.logger, gcInterval, cachedGCInterval, maxDeleteRatio,
+				conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval)
 			if success && gc.isFullGC(ipv4, ipv6) {
 				// Mark the CT GC as over in each EP DNSZombies instance, if we did a *full* GC run
 				nextGCTime := time.Now().Add(interval)
@@ -293,8 +341,8 @@ func (gc *GC) enable(
 		go func() {
 			<-initialScanComplete
 			gc.logger.Info("Initial scan of connection tracking completed, starting ctmap pressure metrics controller")
-			// Not supporting BPF map pressure for local CT maps as of yet.
-			ctmap.CalculateCTMapPressure(gc.controllerManager, gc.metricsRegistry, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
+			// Not supporting BPF map pressure for per-cluster CT maps as of yet.
+			ctmap.CalculateCTMapPressure(gc.controllerManager, gc.metricsRegistry, ctmap.Maps(gc.ipv4, gc.ipv6)...)
 		}()
 	}
 }
@@ -318,7 +366,7 @@ func (gc *GC) Observe6() stream.Observable[ctmap.GCEvent] {
 func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (maxDeleteRatio float64, success bool) {
 	success = true
 
-	maps := ctmap.GlobalMaps(ipv4, ipv6)
+	maps := ctmap.Maps(ipv4, ipv6)
 
 	// We treat per-cluster CT Maps as global maps. When we don't enable
 	// cluster-aware addressing, perClusterCTMapsRetriever is nil (default).
@@ -366,17 +414,13 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 	}
 
 	if triggeredBySignal {
-		vsns := []ctmap.CTMapIPVersion{}
-		if ipv4 {
-			vsns = append(vsns, ctmap.CTMapIPv4)
-		}
-		if ipv6 {
-			vsns = append(vsns, ctmap.CTMapIPv6)
-		}
-
-		for _, vsn := range vsns {
+		// This works under the assumption that [maps] contains consecutive pairs
+		// of CT maps, respectively of TCP and ANY type, which is currently true
+		// both for global and per-cluster maps.
+		for i := 0; i+1 < len(maps); i += 2 {
 			startTime := time.Now()
-			ctMapTCP, ctMapAny := ctmap.FilterMapsByProto(maps, vsn)
+
+			ctMapTCP, ctMapAny := maps[i], maps[i+1]
 			stats := ctmap.PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 			if stats != nil && (stats.EgressDeleted != 0 || stats.IngressDeleted != 0) {
 				gc.logger.Info(
@@ -385,7 +429,8 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 					logfields.EgressDeleted, stats.EgressDeleted,
 					logfields.IngressAlive, stats.IngressAlive,
 					logfields.EgressAlive, stats.EgressAlive,
-					logfields.CTMapIPVersion, vsn,
+					logfields.Family, stats.Family,
+					logfields.ClusterID, cmp.Or(stats.ClusterID, option.Config.ClusterID),
 					logfields.Duration, time.Since(startTime),
 				)
 			}

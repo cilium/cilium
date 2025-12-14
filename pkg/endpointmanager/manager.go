@@ -400,6 +400,20 @@ func (mgr *endpointManager) GetEndpointsByPodName(namespacedName string) []*endp
 	return eps
 }
 
+// GetEndpointsByNamespace looks up endpoints by namespace
+func (mgr *endpointManager) GetEndpointsByNamespace(namespace string) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		if ep.GetK8sNamespace() == namespace {
+			eps = append(eps, ep)
+		}
+	}
+
+	return eps
+}
+
 // GetEndpointsByContainerID looks up endpoints by container ID
 func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint {
 	mgr.mutex.RLock()
@@ -408,6 +422,27 @@ func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*end
 	eps := make([]*endpoint.Endpoint, 0, 1)
 	for _, ep := range mgr.endpoints {
 		if ep.GetContainerID() == containerID {
+			eps = append(eps, ep)
+		}
+	}
+	return eps
+}
+
+func (mgr *endpointManager) GetEndpointsByServiceAccount(namespace string, serviceAccount string) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		podSA := ""
+
+		if pod := ep.GetPod(); pod == nil {
+			continue
+		} else {
+			podSA = pod.Spec.ServiceAccountName
+		}
+
+		if ep.K8sNamespace == namespace && serviceAccount == podSA {
 			eps = append(eps, ep)
 		}
 	}
@@ -796,24 +831,6 @@ func (mgr *endpointManager) initHostEndpointLabels(ctx context.Context, ep *endp
 	mgr.startNodeLabelsObserver(ln.Labels)
 }
 
-// WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
-// this function is called to be at a given policy revision.
-// New endpoints appearing while waiting are ignored.
-func (mgr *endpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
-	eps := mgr.GetEndpoints()
-	for i := range eps {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-eps[i].WaitForPolicyRevision(ctx, rev, nil):
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-		}
-	}
-	return nil
-}
-
 // EndpointExists returns whether the endpoint with id exists.
 func (mgr *endpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
@@ -838,4 +855,23 @@ func (mgr *endpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIde
 	mgr.policyUpdateCallback(&sync.WaitGroup{}, idsToRegen, true)
 
 	wg.Wait()
+}
+
+func (mgr *endpointManager) stopEndpoints() {
+	mgr.logger.Info("Waiting for all endpoints' goroutines to be stopped.")
+	var wg sync.WaitGroup
+
+	eps := mgr.GetEndpoints()
+	wg.Add(len(eps))
+
+	for _, ep := range eps {
+		go func(ep *endpoint.Endpoint) {
+			ep.Stop()
+			wg.Done()
+		}(ep)
+	}
+
+	wg.Wait()
+
+	mgr.logger.Info("All endpoints' goroutines stopped.")
 }

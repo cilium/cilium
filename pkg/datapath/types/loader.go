@@ -20,7 +20,6 @@ type Loader interface {
 	HostDatapathInitialized() <-chan struct{}
 
 	ReloadDatapath(ctx context.Context, ep Endpoint, cfg *LocalNodeConfiguration, stats *metrics.SpanStat) (string, error)
-	ReinitializeXDP(ctx context.Context, cfg *LocalNodeConfiguration, extraCArgs []string) error
 	EndpointHash(cfg EndpointConfiguration, lnCfg *LocalNodeConfiguration) (string, error)
 	ReinitializeHostDev(ctx context.Context, mtu int) error
 	Reinitialize(ctx context.Context, cfg *LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy) error
@@ -39,7 +38,7 @@ type PreFilter interface {
 // Proxy is any type which installs rules related to redirecting traffic to
 // a proxy.
 type Proxy interface {
-	ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled bool) error
+	ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled, wireguardEnabled bool) error
 }
 
 // IptablesManager manages iptables rules.

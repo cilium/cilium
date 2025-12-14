@@ -102,21 +102,8 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, xdpDevs []string, xdpMo
 	}
 }
 
-// xdpCompileArgs derives compile arguments for bpf_xdp.c.
-func xdpCompileArgs(extraCArgs []string) ([]string, error) {
-	args := []string{}
-	copy(args, extraCArgs)
-
-	return args, nil
-}
-
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
-func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode, extraCArgs []string) error {
-	args, err := xdpCompileArgs(extraCArgs)
-	if err != nil {
-		return fmt.Errorf("failed to derive XDP compile extra args: %w", err)
-	}
-
+func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -127,7 +114,6 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		Source:     xdpProg,
 		Output:     xdpObj,
 		OutputType: outputObject,
-		Options:    args,
 	}
 
 	objPath, err := compile(ctx, logger, prog, dirs)

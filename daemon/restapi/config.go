@@ -402,7 +402,6 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 			IPV4: option.Config.EnableIPv4Masquerade,
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
-		EgressMultiHomeIPRuleCompat:         option.Config.EgressMultiHomeIPRuleCompat,
 		InstallUplinkRoutesForDelegatedIPAM: option.Config.InstallUplinkRoutesForDelegatedIPAM,
 		GROMaxSize:                          int64(h.bigTCPConfig.GetGROIPv6MaxSize()),
 		GSOMaxSize:                          int64(h.bigTCPConfig.GetGSOIPv6MaxSize()),
@@ -412,6 +411,7 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		EnableBBRHostNamespaceOnly:          h.bandwidthConfig.EnableBBRHostnsOnly,
 		DeviceHeadroom:                      int64(h.connectorConfig.GetPodDeviceHeadroom()),
 		DeviceTailroom:                      int64(h.connectorConfig.GetPodDeviceTailroom()),
+		EnablePacketizationLayerPMTUD:       h.mtuConfig.IsEnablePacketizationLayerPMTUD(),
 	}
 
 	cfg := &models.DaemonConfiguration{

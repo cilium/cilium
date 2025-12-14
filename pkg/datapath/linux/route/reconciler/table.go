@@ -116,6 +116,38 @@ func (k *DesiredRouteKey) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
+type NexthopInfo struct {
+	Device  *tables.Device
+	Nexthop netip.Addr
+}
+
+func (nh *NexthopInfo) String() string {
+	if nh == nil {
+		return "none"
+	}
+	parts := []string{}
+	if nh.Nexthop.IsValid() {
+		parts = append(parts, nh.Nexthop.String())
+	}
+	if nh.Device != nil {
+		parts = append(parts, nh.Device.Name+" ("+strconv.Itoa(nh.Device.Index)+")")
+	}
+	return strings.Join(parts, " ")
+}
+
+type MultiPathInfo []*NexthopInfo
+
+func (m MultiPathInfo) String() string {
+	if len(m) == 0 {
+		return "none"
+	}
+	var nhs []string
+	for _, nh := range m {
+		nhs = append(nhs, nh.String())
+	}
+	return "[" + strings.Join(nhs, ", ") + "]"
+}
+
 type DesiredRoute struct {
 	// Composite primary key for the route.
 	Owner    *RouteOwner
@@ -134,6 +166,9 @@ type DesiredRoute struct {
 	Src netip.Addr
 	// Optional, non-nil if device is specified.
 	Device *tables.Device
+	// Optional, if it's empty, no multipath is specified. This is mutually
+	// exclusive with Nexthop and Device.
+	MultiPath MultiPathInfo
 	// Optional, if 0 no MTU is specified.
 	MTU uint32
 	// Optional, if 0 no scope is specified.
@@ -172,6 +207,7 @@ func (dr *DesiredRoute) TableHeader() []string {
 		"Nexthop",
 		"Src",
 		"Device",
+		"MultiPath",
 		"MTU",
 		"Scope",
 		"Type",
@@ -212,6 +248,8 @@ func (dr *DesiredRoute) TableRow() []string {
 	} else {
 		row = append(row, dr.Device.Name+" ("+strconv.Itoa(dr.Device.Index)+")")
 	}
+
+	row = append(row, dr.MultiPath.String())
 
 	if dr.MTU == 0 {
 		row = append(row, "none")

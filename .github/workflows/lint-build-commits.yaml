@@ -41,7 +41,7 @@ jobs:
           git config --global user.email "github-actions@users.noreply.github.com"
 
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -68,6 +68,7 @@ jobs:
           # build-commits-bpf: Check if datapath build works for every commit
           filters: |
             src:
+              - '.github/workflows/lint-build-commits.yaml'
               - 'bpf/**'
               - '!**/*.md'
 
@@ -79,6 +80,7 @@ jobs:
           # build-commits-test: Check if ginkgo test suite build works for every commit
           filters: |
             src:
+              - '.github/workflows/lint-build-commits.yaml'
               - 'pkg/**'
               - 'test/**'
               - '!**/*.md'
@@ -100,7 +102,7 @@ jobs:
           git config --global user.email "github-actions@users.noreply.github.com"
 
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -110,11 +112,11 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Install Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.3
+          go-version: 1.25.5
 
       - name: Load Golang cache build from GitHub
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -186,7 +188,7 @@ jobs:
           git config --global user.email "github-actions@users.noreply.github.com"
 
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -196,11 +198,11 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Install Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.3
+          go-version: 1.25.5
 
       - name: Load hubble-cli Golang cache build from GitHub
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -280,7 +282,7 @@ jobs:
           git config --global user.email "github-actions@users.noreply.github.com"
 
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -290,11 +292,11 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Install Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.3
+          go-version: 1.25.5
 
       - name: Load Golang cache build from GitHub
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -373,7 +375,7 @@ jobs:
           git config --global user.email "github-actions@users.noreply.github.com"
 
       - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -383,11 +385,11 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Install Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.3
+          go-version: 1.25.5
 
       - name: Set clang directory
         id: set_clang_dir

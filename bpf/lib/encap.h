@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "dbg.h"
+#include "eps.h"
 #include "hash.h"
 #include "trace.h"
 

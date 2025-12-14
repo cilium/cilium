@@ -4,6 +4,8 @@
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
 
+#include <linux/in.h>
+
 #include <bpf/config/node.h>
 #include <bpf/config/sock.h>
 #include <netdev_config.h>
@@ -12,6 +14,7 @@
 
 #include "lib/common.h"
 #include "lib/lb.h"
+#include "lib/lrp.h"
 #include "lib/endian.h"
 #include "lib/eps.h"
 #include "lib/identity.h"
@@ -184,10 +187,8 @@ sock4_skip_xlate(const struct lb4_service *svc, __be32 address)
 
 #ifdef ENABLE_NODEPORT
 static __always_inline const struct lb4_service *
-sock4_wildcard_lookup(struct lb4_key *key __maybe_unused,
-		      const bool include_remote_hosts __maybe_unused,
-		      const bool inv_match __maybe_unused,
-		      const bool in_hostns __maybe_unused)
+sock4_wildcard_lookup(struct lb4_key *key, const bool include_remote_hosts,
+		      const bool inv_match, const bool in_hostns)
 {
 	const struct remote_endpoint_info *info;
 	__u16 service_port;
@@ -313,12 +314,11 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock4_skip_xlate(svc, orig_key.address))
 		return -EPERM;
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
-	if (lb4_svc_is_localredirect(svc) &&
-	    lb4_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx_full),
-					   orig_key.address, orig_key.dport))
+	if (CONFIG(enable_lrp) &&
+	    lb4_svc_is_localredirect(svc) &&
+	    lrp_v4_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx_full),
+					      orig_key.address, orig_key.dport))
 		return -ENXIO;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 #ifdef ENABLE_L7_LB
 	/* Do not perform service translation at socker layer for
@@ -337,7 +337,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 			 * (node-local nodeport) there is no policy enforcement
 			 * anyway.
 			 */
-			l7backend.address = bpf_htonl(0x7f000001);
+			l7backend.address = bpf_htonl(INADDR_LOOPBACK);
 			l7backend.port = (__be16)svc->l7_lb_proxy_port;
 			l7backend.proto = 0;
 			l7backend.flags = 0;
@@ -729,10 +729,8 @@ sock6_skip_xlate(const struct lb6_service *svc, const union v6addr *address)
 
 #ifdef ENABLE_NODEPORT
 static __always_inline __maybe_unused const struct lb6_service *
-sock6_wildcard_lookup(struct lb6_key *key __maybe_unused,
-		      const bool include_remote_hosts __maybe_unused,
-		      const bool inv_match __maybe_unused,
-		      const bool in_hostns __maybe_unused)
+sock6_wildcard_lookup(struct lb6_key *key, const bool include_remote_hosts,
+		      const bool inv_match, const bool in_hostns)
 {
 	const struct remote_endpoint_info *info;
 	__u16 service_port;
@@ -976,10 +974,10 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	const struct lb6_service *svc;
 	__u16 dst_port = ctx_dst_port(ctx);
 	__u8 protocol = ctx_protocol(ctx);
-	struct lb6_key key = {
+	struct lb6_key key __align_stack_8 = {
 		.dport		= dst_port,
 		.proto		= protocol,
-	}, orig_key;
+	}, orig_key __align_stack_8;
 	const struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
@@ -1018,11 +1016,11 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
-#if defined(ENABLE_LOCAL_REDIRECT_POLICY)
-	if (lb6_svc_is_localredirect(svc) &&
-	    lb6_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx), orig_key.address, orig_key.dport))
+	if (CONFIG(enable_lrp) &&
+	    lb6_svc_is_localredirect(svc) &&
+	    lrp_v6_skip_xlate_from_ctx_to_svc(get_netns_cookie(ctx),
+					      orig_key.address, orig_key.dport))
 		return -ENXIO;
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 #ifdef ENABLE_L7_LB
 	/* See __sock4_xlate_fwd for commentary. */

@@ -30,7 +30,7 @@ struct policy_verdict_notify {
 		ipv6:1,
 		match_type:3,
 		audited:1,
-		pad0:1;
+		l3:1;
 	__u8	auth_type;
 	__u8	pad1[3]; /* align with 64 bits */
 	__u32	cookie;
@@ -107,6 +107,7 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 		.audited	= is_audited,
 		.auth_type      = auth_type,
 		.cookie		= cookie,
+		.l3		= THIS_IS_L3_DEV,
 	};
 
 	ctx_event_output(ctx, &cilium_events,

@@ -55,13 +55,6 @@ type Link interface {
 	isLink()
 }
 
-// NewLinkFromFD creates a link from a raw fd.
-//
-// Deprecated: use [NewFromFD] instead.
-func NewLinkFromFD(fd int) (Link, error) {
-	return NewFromFD(fd)
-}
-
 // NewFromFD creates a link from a raw fd.
 //
 // You should not use fd after calling this function.

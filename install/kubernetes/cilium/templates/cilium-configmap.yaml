@@ -587,6 +587,35 @@ data:
 {{- end }}
   ec2-api-endpoint: {{ .Values.eni.ec2APIEndpoint | quote }}
   eni-tags: {{ .Values.eni.eniTags | toRawJson | quote }}
+{{- if .Values.eni.nodeSpec }}
+  {{- if ne .Values.eni.nodeSpec.firstInterfaceIndex nil }}
+  eni-first-interface-index: {{ .Values.eni.nodeSpec.firstInterfaceIndex | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.subnetIDs }}
+  eni-subnet-ids: {{ .Values.eni.nodeSpec.subnetIDs | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.subnetTags }}
+  eni-subnet-tags: {{ .Values.eni.nodeSpec.subnetTags | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.securityGroups }}
+  eni-security-groups: {{ .Values.eni.nodeSpec.securityGroups | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.securityGroupTags }}
+  eni-security-group-tags: {{ .Values.eni.nodeSpec.securityGroupTags | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.excludeInterfaceTags }}
+  eni-exclude-interface-tags: {{ .Values.eni.nodeSpec.excludeInterfaceTags | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.usePrimaryAddress }}
+  eni-use-primary-address: "true"
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.disablePrefixDelegation }}
+  eni-disable-prefix-delegation: "true"
+  {{- end }}
+  {{- if ne .Values.eni.nodeSpec.deleteOnTermination nil }}
+  eni-delete-on-termination: {{ .Values.eni.nodeSpec.deleteOnTermination | quote }}
+  {{- end }}
+{{- end }}
 {{- if .Values.eni.subnetIDsFilter }}
   subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}
 {{- end }}
@@ -699,6 +728,8 @@ data:
     {{- if .Values.encryption.wireguard.persistentKeepalive }}
   wireguard-persistent-keepalive: {{ .Values.encryption.wireguard.persistentKeepalive | quote }}
     {{- end }}
+  {{- else if eq .Values.encryption.type "ztunnel" }}
+  enable-ztunnel: {{ .Values.encryption.enabled | quote }}
   {{- end }}
   {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
@@ -1055,8 +1086,10 @@ data:
   hubble-export-file-max-size-mb: {{ .Values.hubble.export.fileMaxSizeMb | default .Values.hubble.export.static.fileMaxSizeMb | quote }}
   hubble-export-file-max-backups: {{ .Values.hubble.export.fileMaxBackups | default .Values.hubble.export.static.fileMaxBackups | quote }}
   hubble-export-file-compress: {{ .Values.hubble.export.fileCompress | default .Values.hubble.export.static.fileCompress | quote }}
+  hubble-export-aggregation-interval: {{ include "validateDuration" .Values.hubble.export.aggregationInterval | default .Values.hubble.export.static.aggregationInterval | quote }}
   hubble-export-file-path: {{ .Values.hubble.export.static.filePath | quote }}
   hubble-export-fieldmask: {{ .Values.hubble.export.static.fieldMask | join " " | quote }}
+  hubble-export-fieldaggregate: {{ .Values.hubble.export.static.fieldAggregate | join " " | quote }}
   hubble-export-allowlist: {{ .Values.hubble.export.static.allowList | join " " | quote }}
   hubble-export-denylist: {{ .Values.hubble.export.static.denyList | join " " | quote }}
 {{- end }}
@@ -1100,6 +1133,14 @@ data:
   {{- end }}
 {{- else }}
   ipam: {{ $ipam | quote }}
+{{- end }}
+{{- if .Values.ipam.nodeSpec }}
+  {{- if ne .Values.ipam.nodeSpec.ipamMinAllocate nil }}
+  ipam-min-allocate: {{ .Values.ipam.nodeSpec.ipamMinAllocate | quote }}
+  {{- end }}
+  {{- if ne .Values.ipam.nodeSpec.ipamPreAllocate nil }}
+  ipam-pre-allocate: {{ .Values.ipam.nodeSpec.ipamPreAllocate | quote }}
+  {{- end }}
 {{- end }}
 {{- if .Values.ipam.multiPoolPreAllocation }}
   ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation | quote }}
@@ -1222,6 +1263,10 @@ data:
 
 {{- if .Values.pmtuDiscovery.enabled }}
   enable-pmtu-discovery: "true"
+{{- end }}
+
+{{- if not .Values.pmtuDiscovery.packetizationLayerPMTUD.enabled }}
+  enable-packetization-layer-pmtud: "false"
 {{- end }}
 
 {{- if not .Values.securityContext.privileged }}
@@ -1380,6 +1425,9 @@ data:
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
   proxy-max-concurrent-retries: {{ .Values.envoy.maxConcurrentRetries | quote }}
+  proxy-use-original-source-address: {{ .Values.envoy.useOriginalSourceAddress | quote }}
+  proxy-cluster-max-connections: {{ .Values.envoy.clusterMaxConnections | quote }}
+  proxy-cluster-max-requests: {{ .Values.envoy.clusterMaxRequests | quote }}
   http-retry-count: {{ .Values.envoy.httpRetryCount | quote }}
   http-stream-idle-timeout: {{ .Values.envoy.streamIdleTimeoutDurationSeconds | quote }}
 
@@ -1411,6 +1459,7 @@ data:
   clustermesh-cache-ttl: {{ .Values.clustermesh.cacheTTL | quote }}
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
   clustermesh-enable-mcs-api: {{ (or .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) | quote }}
+  clustermesh-mcs-api-install-crds: {{ .Values.clustermesh.mcsapi.installCRDs | quote }}
   policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}
 
   nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}

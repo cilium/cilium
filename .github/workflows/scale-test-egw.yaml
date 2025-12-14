@@ -71,18 +71,18 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.3
+  go_version: 1.25.5
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.216.0
+  eksctl_version: v0.220.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.34.1
+  kubectl_version: v1.34.2
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 545.0.0
+  gcloud_version: 548.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 28ad818b04552e1252899f22a91fb0938ae94c75
+  egw_utils_ref: c57010f02aee601b7e7dd628b5d3e1bce079d166
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -111,7 +111,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -122,6 +122,15 @@ jobs:
           images: cilium-ci operator-aws-ci cilium-cli-ci
 
   install-and-scaletest:
+    permissions:
+      # To be able to trigger eks-cluster-pool-manager.yaml workflow
+      actions: write
+      # To be able to access the repository with actions/checkout
+      contents: read
+      # To be able to request the JWT from GitHub's OIDC provider
+      id-token: write
+      # To allow retrieving information from the PR API
+      pull-requests: read
     runs-on: ubuntu-24.04
     name: Install and Scale Test
     needs: wait-for-images
@@ -134,7 +143,7 @@ jobs:
           - egw
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -282,7 +291,7 @@ jobs:
           fi
 
       - name: Install Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version: ${{ env.go_version }}
 
@@ -315,7 +324,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
@@ -332,7 +341,7 @@ jobs:
           gcloud version
 
       - name: Clone ClusterLoader2
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: kubernetes/perf-tests
           # Avoid using renovate to update this dependency because: (1)
@@ -363,7 +372,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
+        uses: cilium/cilium-cli@e875161a362b9092ff3e1110eccf52a9fdb17c0a # v0.18.9
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -375,7 +384,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout context ref (NOT TRUSTED)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ steps.vars.outputs.SHA }}
           persist-credentials: false
@@ -504,17 +513,18 @@ jobs:
           sudo chmod +r cilium-sysdump-final.zip
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "final-${{ matrix.test_type }}"
           job_status: "${{ job.status }}"
           junits-directory: 'report'
           capture_sysdump: 'false'
+          capture_features_tested: ${{ steps.run-cl2.outcome != 'skipped' }}
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' && steps.run-cl2.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@28366d1190baf620c6f4daa7494e528ea6c41482 # main
+        uses: cilium/scale-tests-action/export-results@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
         with:
           test_name: ${{ steps.vars.outputs.test_name }}
           tested_sha: ${{ steps.vars.outputs.SHA }}
@@ -525,7 +535,7 @@ jobs:
       # Refresh credentials
       - name: Set up AWS CLI credentials
         if:  ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}

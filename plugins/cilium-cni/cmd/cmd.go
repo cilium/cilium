@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 
@@ -43,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/version"
 	chainingapi "github.com/cilium/cilium/plugins/cilium-cni/chaining/api"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/awscni"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/azure"
@@ -64,12 +66,25 @@ var (
 
 // Cmd provides methods for the CNI ADD, DEL and CHECK commands.
 type Cmd struct {
-	logger *slog.Logger
-	cfg    EndpointConfigurator
+	logger  *slog.Logger
+	version string
+	cfg     EndpointConfigurator
+
+	onConfigReady          []OnConfigReady
+	onIPAMReady            []OnIPAMReady
+	onLinkConfigReady      []OnLinkConfigReady
+	onInterfaceConfigReady []OnInterfaceConfigReady
 }
 
 // Option allows the customization of the Cmd implementation
 type Option func(cmd *Cmd)
+
+// WithVersion overrides the version reported by the CNI plugin binary in its about string.
+func WithVersion(version string) Option {
+	return func(cmd *Cmd) {
+		cmd.version = version
+	}
+}
 
 // WithEPConfigurator is used to create a Cmd instance with a custom
 // endpoint configurator. The endpoint configurator can be used to customize
@@ -81,26 +96,29 @@ func WithEPConfigurator(cfg EndpointConfigurator) Option {
 	}
 }
 
-// NewCmd creates a new Cmd instance with Add, Del and Check methods
-func NewCmd(logger *slog.Logger, opts ...Option) *Cmd {
+// PluginMain is the main entry point for the Cilium CNI plugin.
+func PluginMain(opts ...Option) {
+	// slogloggercheck: the logger has been initialized with default settings
+	logger := logging.DefaultSlogLogger.With(logfields.LogSubsys, "cilium-cni")
 	cmd := &Cmd{
-		logger: logger,
-		cfg:    &DefaultConfigurator{},
+		logger:  logger,
+		version: "Cilium CNI plugin " + version.Version,
+		cfg:     &DefaultConfigurator{},
 	}
 	for _, opt := range opts {
 		opt(cmd)
 	}
-	return cmd
-}
 
-// CNIFuncs returns the CNI functions supported by Cilium that can be passed to skel.PluginMainFuncs
-func (cmd *Cmd) CNIFuncs() skel.CNIFuncs {
-	return skel.CNIFuncs{
-		Add:    cmd.Add,
-		Del:    cmd.Del,
-		Check:  cmd.Check,
-		Status: cmd.Status,
-	}
+	skel.PluginMainFuncs(
+		skel.CNIFuncs{
+			Add:    cmd.Add,
+			Del:    cmd.Del,
+			Check:  cmd.Check,
+			Status: cmd.Status,
+		},
+		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0", "1.1.0"),
+		cmd.version,
+	)
 }
 
 type CmdState struct {
@@ -241,7 +259,6 @@ func allocateIPsWithDelegatedPlugin(
 	}
 	// Interface number could not be determined from IPAM result for now.
 	// Set a static value zero before we have a proper solution.
-	// option.Config.EgressMultiHomeIPRuleCompat also needs to be set to true.
 	for _, ipConfig := range ipamResult.IPs {
 		ipNet := ipConfig.Address
 		if ipNet.IP.To4() != nil {
@@ -549,6 +566,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		return err
 	}
 
+	for _, hook := range cmd.onConfigReady {
+		if err := hook.OnConfigReady(n, cniArgs, conf); err != nil {
+			return err
+		}
+	}
+
 	// If CNI ADD gives us a PrevResult, we're a chained plugin and *must* detect a
 	// valid chained mode. If no chained mode we understand is specified, error out.
 	// Otherwise, continue with normal plugin execution.
@@ -632,6 +655,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			return errors.New("IPAM did provide neither IPv4 nor IPv6 address")
 		}
 
+		for _, hook := range cmd.onIPAMReady {
+			if err := hook.OnIPAMReady(ipam); err != nil {
+				return err
+			}
+		}
+
 		state, ep, err := epConf.PrepareEndpoint(ipam)
 		if err != nil {
 			return fmt.Errorf("unable to prepare endpoint configuration: %w", err)
@@ -647,6 +676,13 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			DeviceHeadroom: uint16(conf.DeviceHeadroom),
 			DeviceTailroom: uint16(conf.DeviceTailroom),
 		}
+
+		for _, hook := range cmd.onLinkConfigReady {
+			if err := hook.OnLinkConfigReady(&linkConfig); err != nil {
+				return err
+			}
+		}
+
 		var hostLink, epLink netlink.Link
 		var tmpIfName string
 		var l2Mode bool
@@ -684,9 +720,10 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		if err := netlink.LinkSetNsFd(epLink, ns.FD()); err != nil {
 			return fmt.Errorf("unable to move netkit pair %q to netns %s: %w", epLink, args.Netns, err)
 		}
-		err = connector.RenameLinkInRemoteNs(ns, tmpIfName, epConf.IfName())
-		if err != nil {
-			return fmt.Errorf("unable to set up netkit on container side: %w", err)
+		if err := ns.Do(func() error {
+			return link.Rename(tmpIfName, epConf.IfName())
+		}); err != nil {
+			return fmt.Errorf("failed to rename link from %q to %q: %w", tmpIfName, epConf.IfName(), err)
 		}
 
 		if l2Mode {
@@ -747,6 +784,12 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			}
 		}
 
+		for _, hook := range cmd.onInterfaceConfigReady {
+			if err := hook.OnInterfaceConfigReady(state, ep, res); err != nil {
+				return err
+			}
+		}
+
 		var macAddrStr string
 
 		if err = ns.Do(func() error {
@@ -791,6 +834,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 
 		// Specify that endpoint must be regenerated synchronously. See GH-4409.
 		ep.SyncBuildEndpoint = true
+		ep.ContainerNetnsPath = filepath.Join(defaults.NetNsPath, filepath.Base(args.Netns))
 		var newEp *models.Endpoint
 		if newEp, err = c.EndpointCreate(ep); err != nil {
 			scopedLogger.Warn(
@@ -813,6 +857,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			macAddrStr = newEp.Status.Networking.Mac
 		}
 		if err = ns.Do(func() error {
+			configurePacketizationLayerPMTUD(scopedLogger, conf, sysctl)
 			return configureCongestionControl(conf, sysctl)
 		}); err != nil {
 			return fmt.Errorf("unable to configure congestion control: %w", err)
@@ -1293,4 +1338,36 @@ func needsEndpointRoutingOnHost(conf *models.DaemonConfigurationStatus) bool {
 		return conf.InstallUplinkRoutesForDelegatedIPAM
 	}
 	return false
+}
+
+const (
+	// Based on recommendation in https://datatracker.ietf.org/doc/html/rfc4821.
+	mtuProbeBaseMSS = 1024
+	mtuProbeFloor   = 48
+	mtuProbeAlways  = 2
+)
+
+// configurePacketPathMTUDiscovery configures netns to use plpmtud for mtu discovery.
+// When using connection based transport protocols such as tcp, this adjusts message
+// size to discover a working MTU for network path in case of a black hole.
+func configurePacketizationLayerPMTUD(logger *slog.Logger, conf *models.DaemonConfigurationStatus, sysctl sysctl.Sysctl) {
+	if !conf.EnablePacketizationLayerPMTUD {
+		return
+	}
+
+	err := sysctl.ApplySettings([]tables.Sysctl{
+		{Name: []string{"net", "ipv4", "tcp_base_mss"}, Val: strconv.Itoa(mtuProbeBaseMSS)},
+	})
+	if err != nil {
+		logger.Warn("could not apply net.ipv4.tcp_base_mss setting for plmtud "+
+			"(note: this flag was only added in kernel version 5.11): %w", logfields.Error, err)
+	}
+	// Note: These setting apply to both IPv4 and IPv6.
+	if err = sysctl.ApplySettings([]tables.Sysctl{
+		{Name: []string{"net", "ipv4", "tcp_mtu_probing"}, Val: strconv.Itoa(mtuProbeAlways)},
+		{Name: []string{"net", "ipv4", "tcp_mtu_probe_floor"}, Val: strconv.Itoa(mtuProbeFloor)},
+	}); err != nil {
+		logger.Warn("could not enable mtu probing",
+			logfields.Error, err)
+	}
 }

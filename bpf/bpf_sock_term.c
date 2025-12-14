@@ -8,7 +8,7 @@
 #include <lib/static_data.h>
 
 #include "bpf/compiler.h"
-#include "lib/common.h"
+#include "lib/endian.h"
 #include "lib/sock.h"
 #include "lib/sock_term.h"
 

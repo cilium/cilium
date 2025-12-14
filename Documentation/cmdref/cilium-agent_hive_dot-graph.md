@@ -17,6 +17,8 @@ cilium-agent hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
+      --agent-health-port int                                     TCP port for agent health status API (default 9879)
+      --agent-health-require-k8s-connectivity                     Require Kubernetes connectivity in agent health endpoint (default true)
       --agent-labels strings                                      Additional labels to identify this agent in monitor events
       --agent-liveness-update-interval duration                   Interval at which the agent updates liveness time for the datapath (default 1s)
       --api-rate-limit string                                     API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)
@@ -88,6 +90,7 @@ cilium-agent hive dot-graph [flags]
       --enable-l2-pod-announcements                               Enable announcing Pod IPs with Gratuitous ARP and NDP
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
       --enable-no-service-endpoints-routable                      Enable routes when service has 0 endpoints (default true)
+      --enable-packetization-layer-pmtud                          Enables kernel packetization layer path mtu discovery on Pod netns (default true)
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-service-topology                                   Enable support for service topology aware hints
@@ -95,8 +98,18 @@ cilium-agent hive dot-graph [flags]
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
       --enable-wireguard                                          Enable WireGuard
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
+      --enable-ztunnel                                            Use zTunnel as Cilium's encryption infrastructure
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --endpoint-regen-interval duration                          Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
+      --eni-delete-on-termination                                 Whether the ENI should be deleted when the associated instance is terminated at the node level (default true)
+      --eni-disable-prefix-delegation                             Whether ENI prefix delegation should be disabled on this node at the node level
+      --eni-exclude-interface-tags stringToString                 List of tags to use when excluding ENIs for Cilium IP allocation (default [])
+      --eni-first-interface-index int                             Index of the first ENI to use for IP allocation at the node level
+      --eni-security-group-tags stringToString                    List of tags to use when evaluating what AWS security groups to use for the ENI at the node level (default [])
+      --eni-security-groups strings                               List of security groups to attach to any ENI that is created and attached to the instance at the node level
+      --eni-subnet-ids strings                                    List of subnet ids to use when evaluating what AWS subnets to use for ENI and IP allocation at the node level
+      --eni-subnet-tags stringToString                            List of tags to use when evaluating what AWS subnets to use for ENI and IP allocation at the node level (default [])
+      --eni-use-primary-address                                   Whether an ENI's primary address should be available for allocations on the node at the node level
       --envoy-access-log-buffer-size uint                         Envoy access log buffer size in bytes (default 4096)
       --envoy-base-id uint                                        Envoy base ID
       --envoy-config-retry-interval duration                      Interval in which an attempt is made to reconcile failed EnvoyConfigs. If the duration is zero, the retry is deactivated. (default 15s)
@@ -119,13 +132,17 @@ cilium-agent hive dot-graph [flags]
       --http-stream-idle-timeout uint                             Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. Default 300s (default 300)
       --hubble-disable-tls                                        Allow Hubble server to run on the given listen address without TLS. (default true)
       --hubble-drop-events                                        Emit packet drop Events related to pods (alpha)
+      --hubble-drop-events-extended                               Include L4 network policies in drop event message
       --hubble-drop-events-interval duration                      Minimum time between emitting same events (default 2m0s)
+      --hubble-drop-events-rate-limit int                         Rate limit for the drop event emitter in events per second (0 for no rate limit) (default 1)
       --hubble-drop-events-reasons strings                        Drop reasons to emit events for (default [auth_required,policy_denied])
       --hubble-dynamic-metrics-config-path string                 Filepath with dynamic configuration of hubble metrics.
       --hubble-event-buffer-capacity int                          Capacity of Hubble events buffer. The provided value must be one less than an integer power of two and no larger than 65535 (ie: 1, 3, ..., 2047, 4095, ..., 65535) (default 4095)
       --hubble-event-queue-size int                               Buffer size of the channel to receive monitor events.
+      --hubble-export-aggregation-interval duration               Interval at which to aggregate before exporting Hubble flows. 0s disables aggregation.
       --hubble-export-allowlist string                            Specify allowlist as JSON encoded FlowFilters to Hubble exporter.
       --hubble-export-denylist string                             Specify denylist as JSON encoded FlowFilters to Hubble exporter.
+      --hubble-export-fieldaggregate strings                      Specify list of fields to use for aggregation in Hubble exporter. Empty list disables aggregation.
       --hubble-export-fieldmask strings                           Specify list of fields to use for field mask in Hubble exporter.
       --hubble-export-file-compress                               Compress rotated Hubble export files.
       --hubble-export-file-max-backups int                        Number of rotated Hubble export files to keep. (default 5)
@@ -159,6 +176,8 @@ cilium-agent hive dot-graph [flags]
       --ignore-flags-drift-checker strings                        Ignores specified flags during drift checking
       --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
       --ip-masq-agent-config-path string                          ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
+      --ipam-min-allocate int                                     Minimum number of IPs that must be allocated when the node is first bootstrapped at the node level
+      --ipam-pre-allocate int                                     Number of IP addresses that must be available for allocation in the IPAMspec at the node level
       --ipsec-key-file string                                     Path to IPsec key file
       --ipsec-key-rotation-duration duration                      Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. (default 5m0s)
       --iptables-lock-timeout duration                            Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
@@ -212,6 +231,8 @@ cilium-agent hive dot-graph [flags]
       --procfs string                                             Path to the host's proc filesystem mount (default "/proc")
       --prometheus-serve-addr string                              IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-admin-port int                                      Port to serve Envoy admin interface on.
+      --proxy-cluster-max-connections uint32                      Maximum number of connections on Envoy clusters (default 1024)
+      --proxy-cluster-max-requests uint32                         Maximum number of requests on Envoy clusters (default 1024)
       --proxy-connect-timeout uint                                Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 2)
       --proxy-gid uint                                            Group ID for proxy control plane sockets. (default 1337)
       --proxy-idle-timeout-seconds int                            Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s (default 60)
@@ -222,6 +243,7 @@ cilium-agent hive dot-graph [flags]
       --proxy-portrange-max uint16                                End of port range that is used to allocate ports for L7 proxies. (default 20000)
       --proxy-portrange-min uint16                                Start of port range that is used to allocate ports for L7 proxies. (default 10000)
       --proxy-prometheus-port int                                 Port to serve Envoy metrics on. Default 0 (disabled).
+      --proxy-use-original-source-address                         Controls if Cilium's Envoy BPF metadata listener filter for L7 policy enforcement redirects should be configured to use original source address when extracting the metadata (doesn't affect Ingress/Gateway API). (default true)
       --proxy-xff-num-trusted-hops-egress uint32                  Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
       --proxy-xff-num-trusted-hops-ingress uint32                 Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.
       --read-cni-conf string                                      CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
@@ -247,6 +269,7 @@ cilium-agent hive dot-graph [flags]
       --vtep-sync-interval duration                               Interval for VTEP sync (default 1m0s)
       --wireguard-persistent-keepalive duration                   The Wireguard keepalive interval as a Go duration string
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready
+      --ztunnel-zds-unix-addr string                              Unix address for zds server (default "/var/run/cilium/ztunnel.sock")
 ```
 
 ### SEE ALSO

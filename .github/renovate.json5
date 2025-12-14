@@ -44,12 +44,14 @@
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
     "install/kubernetes/Makefile.values",
+    "test/k8s/manifests/netpol-cyclonus"
   ],
   "schedule": [
     "on sunday"
   ],
   postUpdateOptions: [
-    "gomodTidy"
+    // update source import paths on major updates
+    "gomodUpdateImportPaths"
   ],
   // This ignorePaths configuration option overrides the config:base preset and
   // should not be removed.
@@ -205,11 +207,7 @@
         "go.mod",
         "go.sum"
       ],
-      "postUpdateOptions": [
-        // update source import paths on major updates
-        "gomodUpdateImportPaths"
-      ],
-      matchBaseBranches: [
+      "matchBaseBranches": [
         "main"
       ]
     },
@@ -269,11 +267,6 @@
         "github.com/cilium/client-go",
         // We update this dependency manually together with envoy proxy updates
         "github.com/cilium/proxy",
-        // Renovate automatically downgrades this dependency from tracking the
-        // master branch to the latest release. Ignore this dependency until a
-        // v2 release is out which is tracked with the following upstream issue:
-        // https://github.com/google/go-licenses/issues/205
-        "github.com/google/go-licenses",
         // We update this dependency manually together with conformance test changes
         "sigs.k8s.io/gateway-api",
         // Stop updating envoy control plane packages until they pushed the
@@ -291,7 +284,9 @@
         // Once we decide to spend cycles on ginkgo v2 we should update the
         // dependency manually.
         "github.com/onsi/ginkgo",
-        "github.com/onsi/gomega/*"
+        "github.com/onsi/gomega/*",
+        // We can't update to helm v4 until https://github.com/helm/helm/issues/31525 is fixed
+        "helm.sh/helm/*"
       ]
     },
     {
@@ -321,10 +316,21 @@
       ],
     },
     {
-      // Do not allow any major and minor updates into stable branches.
-      "enabled": false,
       "groupName": "all external docker images dependencies",
       "groupSlug": "all-external-images-deps-stable",
+      "matchFiles": [
+        "install/kubernetes/Makefile.values"
+      ],
+      "matchBaseBranches": [
+        "!main",
+      ],
+      // This is required as otherwise patch version updates into stable branches
+      // are also skipped if a minor version update is available at the same time.
+      "separateMinorPatch": true
+    },
+    {
+      // Do not allow any major and minor updates into stable branches by default.
+      "enabled": false,
       "matchFiles": [
         "install/kubernetes/Makefile.values"
       ],
@@ -334,6 +340,10 @@
       ],
       matchBaseBranches: [
         "!main",
+      ],
+      "matchDepNames": [
+        // Explicitly allow certgen updates.
+        "!quay.io/cilium/certgen",
       ]
     },
     {
@@ -401,16 +411,6 @@
         "v1.17",
         "v1.16",
       ]
-    },
-    {
-      // Disable major updates for go-github as those require updating import paths
-      "enabled": false,
-      "matchPackageNames": [
-        "github.com/google/go-github/v*",
-      ],
-      "matchUpdateTypes": [
-        "major",
-      ],
     },
     {
       // Avoid updating patch version for statedb as it might contain breaking changes
@@ -485,16 +485,6 @@
         "quay.io/lvh-images/kind"
       ],
       "versioning": "regex:^((?<compatibility>[a-z0-9-.]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)(@(?<currentDigest>sha256:[a-f0-9]+))?$"
-    },
-    {
-      // Disable updates for rhel8.6 for both complexity-test and kind
-      // since new versions are making the tests to fail.
-      "enabled": false,
-      "matchPackageNames": [
-        "quay.io/lvh-images/complexity-test",
-        "quay.io/lvh-images/kind"
-      ],
-      "matchCurrentVersion": "/^rhel8\\.6-.*$/"
     },
     {
       "groupName": "stable lvh-images",
@@ -592,7 +582,8 @@
           "make -C Documentation update-cmdref"
         ],
         "fileFilters": [
-          "Documentation/cmdref/cilium_connectivity_test.md"
+          "Documentation/cmdref/cilium_connectivity_test.md",
+          "Documentation/cmdref/cilium_connectivity_perf.md"
         ],
         "executionMode": "update"
       }
@@ -664,26 +655,53 @@
       }
     },
     {
-      // The images from the image-tools repository have a timestamp-based versioning scheme, see https://github.com/cilium/image-tools/pull/286
+      // Images from the image-tools repository that have a timestamp-based versioning scheme
+      // See https://github.com/cilium/image-tools/pull/286
       "matchPackageNames": [
-        "quay.io/cilium/cilium-bpftool",
-        "quay.io/cilium/ca-certificates",
-        "quay.io/cilium/cilium-checkpatch",
         "quay.io/cilium/image-compilers",
-        "quay.io/cilium/iptables",
-        "quay.io/cilium/cilium-llvm",
         "quay.io/cilium/image-maker",
-        "quay.io/cilium/network-perf",
         "quay.io/cilium/startup-script",
         "quay.io/cilium/image-tester",
       ],
       "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$",
     },
     {
+      // Images from the image-tools repository that have a semantic + timestamp-based versioning scheme
+      // See https://github.com/cilium/image-tools/pull/413
+      // See each image for an example version tag
+      "matchPackageNames": [
+        "quay.io/cilium/cilium-bpftool",    // 7.4.0-1758805548-08727cd
+        "quay.io/cilium/iptables",          // 1.8.8-1-1758805548-08727cd
+        "quay.io/cilium/cilium-llvm",       // 19.1.7-1758805548-08727cd
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-\\d+)?-(?<build>\\d+)-[a-f0-9]{7}$",
+    },
+    {
+      // Images from the image-tools repository that have a semantic (major.minor only) + timestamp-based versioning scheme
+      // See https://github.com/cilium/image-tools/pull/413
+      // See each image for an example version tag
+      "matchPackageNames": [
+        "quay.io/cilium/cilium-checkpatch", // 5.12-1755701578-b97bd7a
+        "quay.io/cilium/network-perf",      // 3.19-1758616553-aad452d
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)-(?<patch>\\d+)-[a-f0-9]{7}$",
+    },
+    {
+      // Avoid updating minor or major version for github.com/envoyproxy/go-control-plane/envoy
+      // as we need to update cilium-envoy accordingly.
+      "matchPackageNames": [
+        "github.com/envoyproxy/go-control-plane/envoy",
+      ],
+      "matchUpdateTypes": [
+        "patch",
+      ]
+    },
+    {
+      "groupName": "cilium-envoy",
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
-      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.34\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "v1.18",
@@ -692,10 +710,11 @@
       ]
     },
     {
+      "groupName": "cilium-envoy",
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
-      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+)-(?<revision>.*)$",
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.35\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "main",
@@ -765,6 +784,14 @@
       ]
     },
     {
+      // Separate patch version updates, so that renovate can update the patch
+      // versions on stable branches.
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "separateMinorPatch": true
+    },
+    {
       // Do not allow any major and minor etcd updates into stable branches.
       "enabled": false,
       "matchDepNames": [
@@ -776,6 +803,21 @@
       ],
       "matchBaseBranches": [
         "!main",
+      ]
+    },
+    {
+      // Temporarily disable all etcd updates on v1.16 and v1.17, because newer
+      // versions are compiled with go 1.24.8 or later, which includes a breaking
+      // change in IP addresses parsing affecting the clustermesh-apiserver usage.
+      // See cilium/cilium#42818 for more details and the fix, which is intended
+      // to be backported once we built up sufficient confidence.
+      "enabled": false,
+      "matchDepNames": [
+        "gcr.io/etcd-development/etcd"
+      ],
+      "matchBaseBranches": [
+        "v1.16",
+        "v1.17",
       ]
     }
   ],

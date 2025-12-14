@@ -8,7 +8,6 @@ import (
 	"os"
 
 	datapathchecker "github.com/cilium/cilium/pkg/datapath/alignchecker"
-	monitorchecker "github.com/cilium/cilium/pkg/monitor/alignchecker"
 )
 
 func main() {
@@ -22,13 +21,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Cannot check alignment against %s: %s\n", bpfObjPath, err)
 		os.Exit(1)
 	}
-	datapathchecker.RegisterLbStructsToCheck(false)
 	if err := datapathchecker.CheckStructAlignments(bpfObjPath); err != nil {
 		fmt.Fprintf(os.Stderr, "C and Go structs alignment check in datapath failed: %s\n", err)
-		os.Exit(1)
-	}
-	if err := monitorchecker.CheckStructAlignments(bpfObjPath); err != nil {
-		fmt.Fprintf(os.Stderr, "C and Go structs alignment check in monitor failed: %s\n", err)
 		os.Exit(1)
 	}
 	fmt.Fprintf(os.Stdout, "OK\n")

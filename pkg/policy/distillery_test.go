@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -36,21 +37,13 @@ const (
 	AuthTypeDisabled   = types.AuthTypeDisabled
 )
 
-func setupTest(tb testing.TB) {
-	ep1 = testutils.NewTestEndpoint(tb)
-	ep2 = testutils.NewTestEndpoint(tb)
-}
-
-var (
-	ep1, ep2 testutils.TestEndpoint
-)
-
 func localIdentity(n uint32) identity.NumericIdentity {
 	return identity.NumericIdentity(n) | identity.IdentityScopeLocal
 }
 
 func TestCacheManagement(t *testing.T) {
-	setupTest(t)
+	ep1 := testutils.NewTestEndpoint(t)
+	ep2 := testutils.NewTestEndpoint(t)
 	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
@@ -60,22 +53,10 @@ func TestCacheManagement(t *testing.T) {
 	deleted := cache.delete(identity)
 	require.False(t, deleted)
 
-	// Insert directly to cache and delete the entry.
-	csp := cache.lookupOrCreate(identity)
-	require.NotNil(t, csp)
-	require.Nil(t, csp.getPolicy())
-	removed := cache.delete(identity)
-	require.True(t, removed)
-
 	// Insert identity twice. Should be the same policy.
-	policy1, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
-	require.NoError(t, err)
-	require.True(t, updated)
-	policy2, updated, err := cache.updateSelectorPolicy(identity, ep1.Id)
-	require.NoError(t, err)
-	require.False(t, updated)
-	// must be same pointer
-	require.Same(t, policy2, policy1)
+	policy1 := cache.insert(identity)
+	policy2 := cache.insert(identity)
+	require.Equal(t, policy2, policy1)
 
 	// Despite two insert calls, there is no reference tracking; any delete
 	// will clear the cache.
@@ -90,23 +71,26 @@ func TestCacheManagement(t *testing.T) {
 	ep3.SetIdentity(1234, true)
 	identity3 := ep3.GetSecurityIdentity()
 	require.NotEqual(t, identity, identity3)
-	policy1, _, _ = cache.updateSelectorPolicy(identity, ep1.Id)
-	require.NotNil(t, policy1)
-	policy3, _, _ := cache.updateSelectorPolicy(identity3, ep3.Id)
-	require.NotNil(t, policy3)
-	require.NotSame(t, policy3, policy1)
+	policy1 = cache.insert(identity)
+	policy3 := cache.insert(identity3)
+	require.NotEqual(t, policy3, policy1)
 	_ = cache.delete(identity)
-	_, updated, _ = cache.updateSelectorPolicy(identity3, ep3.Id)
-	require.False(t, updated)
+	policy3, ok := cache.lookup(identity3)
+	require.NotNil(t, policy3)
+	require.True(t, ok)
 }
 
 func TestCachePopulation(t *testing.T) {
+	ep1 := testutils.NewTestEndpoint(t)
+	ep2 := testutils.NewTestEndpoint(t)
+
 	repo := NewPolicyRepository(hivetest.Logger(t), nil, nil, nil, nil, testpolicy.NewPolicyMetricsNoop())
 	repo.revision.Store(42)
 	cache := repo.policyCache
 
 	identity1 := ep1.GetSecurityIdentity()
 	require.Equal(t, identity1, ep2.GetSecurityIdentity())
+	cip1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
 	policy1, updated, err := cache.updateSelectorPolicy(identity1, ep1.Id)
@@ -115,26 +99,61 @@ func TestCachePopulation(t *testing.T) {
 	_, updated, err = cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NoError(t, err)
 	require.False(t, updated)
-	policy2, _, _ := cache.updateSelectorPolicy(identity1, ep1.Id)
-	require.NotNil(t, policy2)
-	require.Same(t, policy1, policy2)
+	policy3, _, _ := cache.updateSelectorPolicy(identity1, ep1.Id)
+	require.NotNil(t, policy1)
+	require.Same(t, policy1, policy3)
+	cip2, ok := cache.lookup(identity1)
+	require.True(t, ok)
+	require.Same(t, cip1, cip2)
 
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	require.True(t, cacheCleared)
-	_, updated, _ = cache.updateSelectorPolicy(identity1, ep1.Id)
-	require.True(t, updated)
+	_, _, err = cache.updateSelectorPolicy(identity1, ep1.Id)
+	require.Error(t, err)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint(t)
 	ep3.SetIdentity(1234, true)
-	policy3, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
+	_, _, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
+	require.Error(t, err)
+
+	cache.insert(ep3.GetSecurityIdentity())
+	policy4, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
+
+	// policy4 must be different from ep1, ep2
+	require.NoError(t, err)
+	require.True(t, updated)
+	require.NotEqual(t, policy1, policy4)
+
+	// Insert endpoint with different identity and observe that the cache
+	// is different from ep1, ep2
+	policy5 := cache.insert(identity1)
+	idp1 := policy5.getPolicy()
+	require.Nil(t, idp1)
+
+	_, updated, err = cache.updateSelectorPolicy(identity1, ep1.GetID())
 	require.NoError(t, err)
 	require.True(t, updated)
 
-	// policy3 must be different from ep1, ep2
+	idp1 = policy5.getPolicy()
+	require.NotNil(t, idp1)
+
+	identity3 := ep3.GetSecurityIdentity()
+	policy6 := cache.insert(identity3)
+	require.NotEqual(t, policy5, policy6)
+	idp3, updated, err := cache.updateSelectorPolicy(identity3, ep3.GetID())
 	require.NoError(t, err)
-	require.NotEqual(t, policy1, policy3)
+	require.False(t, updated)
+	require.Equal(t, idp1, idp3)
+
+	repo.revision.Store(43)
+	idp3, updated, err = cache.updateSelectorPolicy(identity3, ep3.GetID())
+	require.NoError(t, err)
+	require.True(t, updated)
+	idp1 = policy5.getPolicy()
+
+	require.NotEqual(t, idp1, idp3)
 }
 
 // Distillery integration tests
@@ -394,12 +413,15 @@ func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
 // allowing simple direct evaluation of L3 and L4 state into "MapState".
 type policyDistillery struct {
 	*Repository
-	log io.Writer
+	idMgr identitymanager.IDManager
+	log   io.Writer
 }
 
 func newPolicyDistillery(t testing.TB, selectorCache *SelectorCache) *policyDistillery {
+	idMgr := identitymanager.NewIDManager(hivetest.Logger(t))
 	ret := &policyDistillery{
-		Repository: NewPolicyRepository(hivetest.Logger(t), nil, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t), certificatemanager.NewMockSecretManagerInline()), nil, testpolicy.NewPolicyMetricsNoop()),
+		Repository: NewPolicyRepository(hivetest.Logger(t), nil, nil, envoypolicy.NewEnvoyL7RulesTranslator(hivetest.Logger(t), certificatemanager.NewMockSecretManagerInline()), idMgr, testpolicy.NewPolicyMetricsNoop()),
+		idMgr:      idMgr,
 	}
 	ret.selectorCache = selectorCache
 	return ret
@@ -409,6 +431,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 	return &policyDistillery{
 		Repository: d.Repository,
 		log:        w,
+		idMgr:      d.idMgr,
 	}
 }
 
@@ -661,6 +684,8 @@ func Test_MergeL3(t *testing.T) {
 			t.Run(fmt.Sprintf("permutation_%d-%d", tt.test, round), func(t *testing.T) {
 				logBuffer := new(bytes.Buffer)
 				repo = repo.WithLogBuffer(logBuffer)
+				repo.idMgr.Add(identity)
+				defer repo.idMgr.Remove(identity)
 				mapstate, err := repo.distillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, identity)
 				if err != nil {
 					t.Errorf("Policy resolution failure: %s", err)
@@ -1202,6 +1227,8 @@ func Test_MergeRules(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
+			repo.idMgr.Add(identity)
+			defer repo.idMgr.Remove(identity)
 			mapstate, err := repo.distillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
@@ -1297,6 +1324,8 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
+			repo.idMgr.Add(identity)
+			defer repo.idMgr.Remove(identity)
 			mapstate, err := repo.distillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
@@ -1343,6 +1372,8 @@ func Test_AllowAll(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
+			repo.idMgr.Add(identity)
+			defer repo.idMgr.Remove(identity)
 			mapstate, err := repo.distillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
@@ -1384,8 +1415,8 @@ var (
 	mapKeyL3WorldEgressIPv4   = EgressKey().WithIdentity(worldReservedIDIPv4)
 	mapKeyL3WorldEgressIPv6   = EgressKey().WithIdentity(worldReservedIDIPv6)
 
-	AllowEntry    = types.AllowEntry()
-	DenyEntry     = types.DenyEntry()
+	AllowEntry    = types.AllowEntry().WithLevel(0)
+	DenyEntry     = types.DenyEntry().WithLevel(0)
 	mapEntryDeny  = NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
 	mapEntryAllow = NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
 
@@ -1394,7 +1425,6 @@ var (
 
 	worldIPIdentity = localIdentity(16324)
 	worldIPCIDR     = api.CIDR("192.0.2.3/32")
-	lblWorldIP      = labels.GetCIDRLabels(netip.MustParsePrefix(string(worldIPCIDR)))
 	hostIPv4        = api.CIDR("172.19.0.1/32")
 	hostIPv6        = api.CIDR("fc00:c111::3/64")
 	lblHostIPv4CIDR = labels.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv4)))
@@ -1415,7 +1445,6 @@ var (
 	worldSubnetRule     = api.CIDRRule{
 		Cidr: worldSubnet,
 	}
-	lblWorldSubnet   = labels.GetCIDRLabels(netip.MustParsePrefix(string(worldSubnet)))
 	ruleL3DenySubnet = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{{
 		IngressCommonRule: api.IngressCommonRule{
 			FromCIDRSet: api.CIDRRuleSlice{worldSubnetRule},
@@ -1630,13 +1659,26 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 
 	SetPolicyEnabled(option.DefaultEnforcement)
 
+	// Do not test in dualstack mode
+	defer func(ipv4, ipv6 bool) {
+		option.Config.EnableIPv4 = ipv4
+		option.Config.EnableIPv6 = ipv6
+	}(option.Config.EnableIPv4, option.Config.EnableIPv6)
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = false
+
+	// labels.GetCIDRLabels() depends on option.Config.EnableIPv4/6, so must be done
+	// after setting the config
+	lblWorldIP := labels.GetCIDRLabelArray(netip.MustParsePrefix(string(worldIPCIDR)))
+	lblWorldSubnet := labels.GetCIDRLabelArray(netip.MustParsePrefix(string(worldSubnet)))
+
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
 		identity.ReservedIdentityWorldIPv4:    labels.LabelWorldIPv4.LabelArray(),
 		identity.ReservedIdentityWorldIPv6:    labels.LabelWorldIPv6.LabelArray(),
-		worldIPIdentity:                       lblWorldIP.LabelArray(),     // "192.0.2.3/32"
-		worldSubnetIdentity:                   lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
+		worldIPIdentity:                       lblWorldIP,     // "192.0.2.3/32"
+		worldSubnetIdentity:                   lblWorldSubnet, // "192.0.2.0/24"
 	}
 	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
@@ -1744,13 +1786,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3L4Port10ProtoTCPWorldIPIngress:          mapEntryAllow,
 		})},
 	}
-	// Do not test in dualstack mode
-	defer func(ipv4, ipv6 bool) {
-		option.Config.EnableIPv4 = ipv4
-		option.Config.EnableIPv6 = ipv6
-	}(option.Config.EnableIPv4, option.Config.EnableIPv6)
-	option.Config.EnableIPv4 = true
-	option.Config.EnableIPv6 = false
+
 	for _, tt := range tests {
 		repo := newPolicyDistillery(t, selectorCache)
 		for _, rule := range tt.rules {
@@ -1761,6 +1797,8 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		t.Run(tt.test, func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
+			repo.idMgr.Add(identity)
+			defer repo.idMgr.Remove(identity)
 			mapstate, err := repo.distillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
@@ -1774,14 +1812,15 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 }
 
 var (
-	allIPv4         = api.CIDR("0.0.0.0/0")
-	lblAllIPv4      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, allIPv4))
-	one3Z8          = api.CIDR("1.0.0.0/8")
-	one3Z8Identity  = localIdentity(16331)
-	lblOne3Z8       = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one3Z8))
-	one0Z32         = api.CIDR("1.1.1.1/32")
+	allIPv4        = api.CIDR("0.0.0.0/0")
+	lblAllIPv4     = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, allIPv4))
+	one3Z8CIDR     = api.CIDR("1.0.0.0/8")
+	one3Z8Identity = localIdentity(16331)
+	one3Z8Prefix   = netip.MustParsePrefix(string(one3Z8CIDR))
+
+	one0Z32CIDR     = api.CIDR("1.1.1.1/32")
 	one0Z32Identity = localIdentity(16332)
-	lblOne0Z32      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, one0Z32))
+	one0Z32Prefix   = netip.MustParsePrefix(string(one0Z32CIDR))
 
 	ruleAllowEgressDenyCIDRSet = api.NewRule().WithEgressRules([]api.EgressRule{{
 		EgressCommonRule: api.EgressCommonRule{
@@ -1791,8 +1830,8 @@ var (
 		EgressCommonRule: api.EgressCommonRule{
 			ToCIDRSet: api.CIDRRuleSlice{
 				api.CIDRRule{
-					Cidr:        one3Z8,
-					ExceptCIDRs: []api.CIDR{one0Z32},
+					Cidr:        one3Z8CIDR,
+					ExceptCIDRs: []api.CIDR{one0Z32CIDR},
 				},
 			},
 		},
@@ -1808,11 +1847,27 @@ func Test_Allowception(t *testing.T) {
 	defer SetPolicyEnabled(oldPolicyEnable)
 
 	SetPolicyEnabled(option.DefaultEnforcement)
+
+	// Do not test in dualstack mode
+	defer func(ipv4, ipv6 bool) {
+		option.Config.EnableIPv4 = ipv4
+		option.Config.EnableIPv6 = ipv6
+	}(option.Config.EnableIPv4, option.Config.EnableIPv6)
+	option.Config.EnableIPv4 = true
+	option.Config.EnableIPv6 = false
+
+	// GetCIDRLabelArray() depends on option.Config.EnableIPv4/6, so must be done
+	// after setting the config.
+	// GetCIDRLabelArray() returns the CIDR label and the appropriate world label,
+	// as needed for an identity (rather than for a selector that only needs one of them).
+	one3Z8Lbls := labels.GetCIDRLabelArray(one3Z8Prefix)
+	one0Z32Lbls := labels.GetCIDRLabelArray(one0Z32Prefix)
+
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityWorld:        append(labels.LabelWorld.LabelArray(), lblAllIPv4...),
-		one3Z8Identity:                        lblOne3Z8,  // 16331 (0x3fcb): ["1.0.0.0/8"]
-		one0Z32Identity:                       lblOne0Z32, // 16332 (0x3fcc): ["1.1.1.1/32"]
+		one3Z8Identity:                        one3Z8Lbls,  // 16331 (0x3fcb): ["1.0.0.0/8"]
+		one0Z32Identity:                       one0Z32Lbls, // 16332 (0x3fcc): ["1.1.1.1/32"]
 	}
 	selectorCache := testNewSelectorCache(hivetest.Logger(t), identityCache)
 
@@ -1825,14 +1880,6 @@ func Test_Allowception(t *testing.T) {
 
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
-	// Do not test in dualstack mode
-	defer func(ipv4, ipv6 bool) {
-		option.Config.EnableIPv4 = ipv4
-		option.Config.EnableIPv6 = ipv6
-	}(option.Config.EnableIPv4, option.Config.EnableIPv6)
-	option.Config.EnableIPv4 = true
-	option.Config.EnableIPv6 = false
-
 	repo := newPolicyDistillery(t, selectorCache)
 	rules := api.Rules{ruleAllowEgressDenyCIDRSet}
 	for _, rule := range rules {
@@ -1842,6 +1889,8 @@ func Test_Allowception(t *testing.T) {
 	}
 	logBuffer := new(bytes.Buffer)
 	repo = repo.WithLogBuffer(logBuffer)
+	repo.idMgr.Add(identity)
+	defer repo.idMgr.Remove(identity)
 	mapstate, err := repo.distillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, identity)
 	if err != nil {
 		t.Errorf("Policy resolution failure: %s", err)
@@ -1890,6 +1939,8 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 		t.Run(tt.test, func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
+			repo.idMgr.Add(identity)
+			defer repo.idMgr.Remove(identity)
 			mapstate, err := repo.distillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, identity)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
@@ -1903,7 +1954,7 @@ func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
 }
 
 func addCIDRIdentity(prefix string, c identity.IdentityMap) identity.NumericIdentity {
-	lbls := labels.GetCIDRLabels(netip.MustParsePrefix(prefix)).LabelArray()
+	lbls := labels.GetCIDRLabelArray(netip.MustParsePrefix(prefix))
 
 	// return an existing id?
 	for id, ls := range c {
@@ -2015,6 +2066,9 @@ func Test_IncrementalFQDNDeletion(t *testing.T) {
 		t.Run(tt.test, func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
+
+			repo.idMgr.Add(fooIdentity)
+			defer repo.idMgr.Remove(fooIdentity)
 			epp, err := repo.distillEndpointPolicy(logger, DummyOwner{
 				logger: logger,
 			}, fooIdentity)
@@ -2180,7 +2234,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 					if rt.isAllow {
 						verdict = api.Allowed
 					}
-					checkFlow(t, td.repo, flow, verdict)
+					checkFlow(t, td.repo, td.identityManager, flow, verdict)
 				}
 			}
 		})

@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/spf13/afero"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -71,6 +72,9 @@ func newTestLoader(tb testing.TB) *loader {
 		Cell,
 
 		routeReconciler.TableCell,
+		cell.Provide(func() (_ statedbReconciler.Reconciler[*routeReconciler.DesiredRoute]) {
+			return nil
+		}),
 		cell.Provide(tables.NewDeviceTable), cell.Provide(statedb.RWTable[*tables.Device].ToTable),
 		cell.Provide(func() (
 			sysctl.Sysctl,
@@ -97,13 +101,22 @@ func newTestLoader(tb testing.TB) *loader {
 
 type FakeRestorer struct{}
 
+func (fr *FakeRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
+	return nil
+}
+
 func (fr *FakeRestorer) WaitForEndpointRestore(ctx context.Context) error { return nil }
-func (fr *FakeRestorer) WaitForInitialPolicy(ctx context.Context) error   { return nil }
+
+func (fr *FakeRestorer) WaitForInitialPolicy(ctx context.Context) error { return nil }
 
 type FakePreFilter struct{}
 
-func (fpf *FakePreFilter) Enabled() bool                                  { return true }
-func (fpf *FakePreFilter) WriteConfig(fw io.Writer)                       {}
-func (fpf *FakePreFilter) Dump(to []string) ([]string, int64)             { return nil, 0 }
+func (fpf *FakePreFilter) Enabled() bool { return true }
+
+func (fpf *FakePreFilter) WriteConfig(fw io.Writer) {}
+
+func (fpf *FakePreFilter) Dump(to []string) ([]string, int64) { return nil, 0 }
+
 func (fpf *FakePreFilter) Insert(revision int64, cidrs []net.IPNet) error { return nil }
+
 func (fpf *FakePreFilter) Delete(revision int64, cidrs []net.IPNet) error { return nil }

@@ -45,7 +45,7 @@ func NewReachabilityAnalysisRunsClient(subscriptionID string, credential azcore.
 // Create - Creates Reachability Analysis Runs.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - workspaceName - Workspace name.
@@ -103,7 +103,7 @@ func (client *ReachabilityAnalysisRunsClient) createCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, body); err != nil {
@@ -124,7 +124,7 @@ func (client *ReachabilityAnalysisRunsClient) createHandleResponse(resp *http.Re
 // BeginDelete - Deletes Reachability Analysis Run.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - workspaceName - Workspace name.
@@ -152,7 +152,7 @@ func (client *ReachabilityAnalysisRunsClient) BeginDelete(ctx context.Context, r
 // Delete - Deletes Reachability Analysis Run.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 func (client *ReachabilityAnalysisRunsClient) deleteOperation(ctx context.Context, resourceGroupName string, networkManagerName string, workspaceName string, reachabilityAnalysisRunName string, options *ReachabilityAnalysisRunsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ReachabilityAnalysisRunsClient.BeginDelete"
@@ -202,7 +202,7 @@ func (client *ReachabilityAnalysisRunsClient) deleteCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -211,7 +211,7 @@ func (client *ReachabilityAnalysisRunsClient) deleteCreateRequest(ctx context.Co
 // Get - Gets Reachability Analysis Run.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - workspaceName - Workspace name.
@@ -268,7 +268,7 @@ func (client *ReachabilityAnalysisRunsClient) getCreateRequest(ctx context.Conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -285,7 +285,7 @@ func (client *ReachabilityAnalysisRunsClient) getHandleResponse(resp *http.Respo
 
 // NewListPager - Gets list of Reachability Analysis Runs.
 //
-// Generated from API version 2024-10-01
+// Generated from API version 2025-01-01
 //   - resourceGroupName - The name of the resource group.
 //   - networkManagerName - The name of the network manager.
 //   - workspaceName - Workspace name.
@@ -338,7 +338,7 @@ func (client *ReachabilityAnalysisRunsClient) listCreateRequest(ctx context.Cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-10-01")
+	reqQP.Set("api-version", "2025-01-01")
 	if options != nil && options.Skip != nil {
 		reqQP.Set("skip", strconv.FormatInt(int64(*options.Skip), 10))
 	}

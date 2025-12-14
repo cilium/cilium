@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	envoy "github.com/cilium/cilium/pkg/envoy/config"
-
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -36,8 +35,6 @@ var (
 		cell.Provide(provideK8sWatchConfig),
 		LocalNodeCell,
 		cell.Provide(
-			k8s.ServiceResource,
-			k8s.EndpointsResource,
 			k8s.NetworkPolicyResource,
 			k8s.CiliumNetworkPolicyResource,
 			k8s.CiliumClusterwideNetworkPolicyResource,
@@ -97,8 +94,6 @@ type LocalCiliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
 type Resources struct {
 	cell.In
 
-	Services                         resource.Resource[*slim_corev1.Service]
-	Endpoints                        resource.Resource[*k8s.Endpoints]
 	LocalNode                        LocalNodeResource
 	LocalCiliumNode                  LocalCiliumNodeResource
 	NetworkPolicies                  resource.Resource[*slim_networkingv1.NetworkPolicy]

@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
@@ -317,114 +316,6 @@ func (s *SSHMeta) SetPolicyEnforcementAndWait(status string) bool {
 	return s.WaitEndpointsReady()
 }
 
-// PolicyDelAll deletes all policy rules currently imported into Cilium.
-func (s *SSHMeta) PolicyDelAll() *CmdRes {
-	log.Info("Deleting all policy in agent")
-	return s.PolicyDel("--all")
-}
-
-// PolicyDel deletes the policy with the given ID from Cilium.
-func (s *SSHMeta) PolicyDel(id string) *CmdRes {
-	res := s.ExecCilium(fmt.Sprintf(
-		"policy delete %s -o json | jq '.revision'", id))
-	if !res.WasSuccessful() {
-		return res
-	}
-	policyID, _ := res.IntOutput()
-	return s.PolicyWait(policyID)
-}
-
-// PolicyGet runs `cilium-dbg policy get <id>`, where id is the name of a specific
-// policy imported into Cilium. It returns the resultant CmdRes from running
-// the aforementioned command.
-func (s *SSHMeta) PolicyGet(id string) *CmdRes {
-	return s.ExecCilium(fmt.Sprintf("policy get %s", id))
-}
-
-// PolicyGetRevision retrieves the current policy revision number in the Cilium
-// agent.
-func (s *SSHMeta) PolicyGetRevision() (int, error) {
-	rev := s.ExecCilium("policy get -o json | jq '.revision'")
-	return rev.IntOutput()
-}
-
-// PolicyImportAndWait validates and imports a new policy into Cilium and waits
-// until the policy revision number increments. Returns an error if the policy
-// is invalid or could not be imported.
-func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, error) {
-	ginkgoext.By(fmt.Sprintf("Setting up policy: %s", path))
-
-	revision, err := s.PolicyGetRevision()
-	if err != nil {
-		return -1, fmt.Errorf("cannot get policy revision: %w", err)
-	}
-	s.logger.WithFields(logrus.Fields{
-		logfields.Path:           path,
-		logfields.PolicyRevision: revision}).Info("before importing policy")
-
-	s.logger.WithFields(logrus.Fields{
-		logfields.Path: path}).Info("validating policy before importing")
-
-	res := s.ExecCilium(fmt.Sprintf("policy validate %s", path))
-	if !res.WasSuccessful() {
-		s.logger.WithFields(logrus.Fields{
-			logfields.Path: path,
-		}).Errorf("could not validate policy %s: %s", path, res.CombineOutput())
-		return -1, fmt.Errorf("could not validate policy %s: %s", path, res.CombineOutput())
-	}
-
-	res = s.ExecCilium(fmt.Sprintf("policy import %s", path))
-	if !res.WasSuccessful() {
-		s.logger.WithFields(logrus.Fields{
-			logfields.Path: path,
-		}).Errorf("could not import policy: %s", res.CombineOutput())
-		return -1, fmt.Errorf("could not import policy %s", path)
-	}
-	body := func() bool {
-		currentRev, _ := s.PolicyGetRevision()
-		if currentRev > revision {
-			res := s.PolicyWait(currentRev)
-			if !res.WasSuccessful() {
-				log.Errorf("policy wait failed: %s", res.CombineOutput())
-			}
-			return res.WasSuccessful()
-		}
-		s.logger.WithFields(logrus.Fields{
-			logfields.PolicyRevision:    currentRev,
-			"policyRevisionAfterImport": revision,
-		}).Infof("policy revisions are the same")
-		return false
-	}
-	err = WithTimeout(body, "could not import policy", &TimeoutConfig{Timeout: timeout})
-	if err != nil {
-		return -1, err
-	}
-	revision, err = s.PolicyGetRevision()
-	s.logger.WithFields(logrus.Fields{
-		logfields.Path:           path,
-		logfields.PolicyRevision: revision,
-	}).Infof("policy import finished and revision increased")
-	return revision, err
-}
-
-// PolicyRenderAndImport receives an string with a policy, renders it in the
-// test root directory and imports the policy to cilium. It returns the new
-// policy id.  Returns an error if the file cannot be created or if the policy
-// cannot be imported
-func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
-	filename := fmt.Sprintf("policy_%s.json", MakeUID())
-	s.logger.Debugf("PolicyRenderAndImport: render policy to '%s'", filename)
-	err := s.RenderTemplateToFile(filename, policy, os.ModePerm)
-	if err != nil {
-		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
-		return 0, fmt.Errorf("cannot render the policy: %w", err)
-	}
-	path := s.GetFilePath(filename)
-	s.logger.Debugf("PolicyRenderAndImport: import policy from '%s'", path)
-	defer os.Remove(filename)
-	return s.PolicyImportAndWait(path, HelperTimeout)
-}
-
 // GetFilePath is a utility function which returns path to give fale relative to BasePath
 func (s *SSHMeta) GetFilePath(filename string) string {
 	return fmt.Sprintf("%s/%s", s.basePath, filename)
@@ -700,5 +591,5 @@ func (s *SSHMeta) RestartCilium() error {
 
 // FlushGlobalConntrackTable flushes the global connection tracking table.
 func (s *SSHMeta) FlushGlobalConntrackTable() *CmdRes {
-	return s.ExecCilium("bpf ct flush global")
+	return s.ExecCilium("bpf ct flush")
 }

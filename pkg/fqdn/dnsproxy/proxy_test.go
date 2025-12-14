@@ -170,7 +170,7 @@ func (s *DNSProxyTestSuite) LookupRegisteredEndpoint(ip netip.Addr) (*endpoint.E
 		return nil, false, fmt.Errorf("No EPs available when restoring")
 	}
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep, err := endpoint.NewEndpointFromChangeModel(context.TODO(), s.logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(s.logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	ep, err := endpoint.NewEndpointFromChangeModel(context.TODO(), s.logger, nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(s.logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	ep.Start(uint16(model.ID))
 	defer ep.Stop()
 	return ep, false, err
@@ -214,15 +214,15 @@ var (
 	testSelectorCache       = policy.NewSelectorCache(logging.DefaultSlogLogger, cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &testpolicy.DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
-	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, DstID1Selector)
+	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID1Selector)
 	DstID2Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst2=test"))
-	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, DstID2Selector)
+	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID2Selector)
 	DstID3Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst3=test"))
-	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, DstID3Selector)
+	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID3Selector)
 	DstID4Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst4=test"))
-	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, DstID4Selector)
+	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, DstID4Selector)
 
-	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)
+	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelectorForTest(dummySelectorCacheUser, policy.EmptyStringLabels, api.WildcardEndpointSelector)
 
 	epID1            = uint64(111)
 	epID2            = uint64(222)
@@ -789,11 +789,11 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR("::")),
 		},
 	}
-	restored1, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
+	restored1, _ := s.proxy.GetRules(uint16(epID1))
 	assertRulesEqual(t, expected1, restored1)
 
 	expected2 := restore.DNSRules{}
-	restored2, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID2))
+	restored2, _ := s.proxy.GetRules(uint16(epID2))
 	assertRulesEqual(t, expected2, restored2)
 
 	expected3 := restore.DNSRules{
@@ -806,7 +806,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID3][tcpProtoPort53][cachedDstID3Selector], makeMapOfRuleIPOrCIDR()),
 		},
 	}
-	restored3, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID3))
+	restored3, _ := s.proxy.GetRules(uint16(epID3))
 	assertRulesEqual(t, expected3, restored3)
 
 	// Test with limited set of allowed IPs
@@ -825,7 +825,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 			asIPRule(s.proxy.allowed[epID1][tcpProtoPort53][cachedDstID1Selector], makeMapOfRuleIPOrCIDR()),
 		},
 	}
-	restored1b, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
+	restored1b, _ := s.proxy.GetRules(uint16(epID1))
 	assertRulesEqual(t, expected1b, restored1b)
 
 	// unlimited again
@@ -878,7 +878,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))
@@ -930,7 +930,7 @@ func TestPrivilegedFullPathDependence(t *testing.T) {
 
 	// Restore rules for epID3
 	modelEP3 := newTestEndpointModel(int(epID3), endpoint.StateReady)
-	ep3, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, modelEP3, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	ep3, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, modelEP3, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 
 	ep3.Start(uint16(modelEP3.ID))
@@ -1122,7 +1122,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	}
 
 	// Get restored rules
-	restored, _ := s.proxy.GetRules(versioned.Latest(), uint16(epID1))
+	restored, _ := s.proxy.GetRules(uint16(epID1))
 
 	// remove rules
 	_, err = s.proxy.UpdateAllowed(epID1, dstPortProto, nil)
@@ -1141,7 +1141,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	// restore rules, set the mock to restoring state
 	s.restoring = true
 	model := newTestEndpointModel(int(epID1), endpoint.StateReady)
-	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	ep1, err := endpoint.NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &endpoint.MockEndpointBuildQueue{}, nil, nil, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 
 	ep1.Start(uint16(model.ID))
@@ -1421,7 +1421,11 @@ type selectorMock struct {
 	key string
 }
 
-func (t selectorMock) GetSelections(*versioned.VersionHandle) identity.NumericIdentitySlice {
+func (t selectorMock) GetSelections() identity.NumericIdentitySlice {
+	panic("implement me")
+}
+
+func (t selectorMock) GetSelectionsAt(*versioned.VersionHandle) identity.NumericIdentitySlice {
 	panic("implement me")
 }
 
@@ -1429,7 +1433,7 @@ func (t selectorMock) GetMetadataLabels() labels.LabelArray {
 	panic("implement me")
 }
 
-func (t selectorMock) Selects(*versioned.VersionHandle, identity.NumericIdentity) bool {
+func (t selectorMock) Selects(identity.NumericIdentity) bool {
 	panic("implement me")
 }
 
@@ -1487,7 +1491,7 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		for epID := uint64(0); epID < nEPs; epID++ {
+		for epID := range uint64(nEPs) {
 			pea.setPortRulesForID(c, epID, udpProtoPort8053, nil)
 		}
 		b.StartTimer()
@@ -1647,7 +1651,7 @@ func newTestEndpointModel(id int, state endpoint.State) *models.EndpointChangeRe
 	return &models.EndpointChangeRequest{
 		ID:    int64(id),
 		State: ptr.To(models.EndpointState(state)),
-		Properties: map[string]interface{}{
+		Properties: map[string]any{
 			endpoint.PropertyFakeEndpoint: true,
 		},
 	}

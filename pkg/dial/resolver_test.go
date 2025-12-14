@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package dial
+package dial_test
 
 import (
 	"context"
@@ -16,20 +16,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	k8stest "k8s.io/client-go/testing"
 
+	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -39,10 +44,49 @@ import (
 // Configure a generous timeout to prevent flakes when running in a noisy CI environment.
 var (
 	tick    = 10 * time.Millisecond
-	timeout = 500 * time.Second
+	timeout = 30 * time.Second
 )
 
-func TestServiceResolver(t *testing.T) {
+func TestLBServiceResolver(t *testing.T) {
+	testResolver(
+		t,
+
+		dial.ServiceResolverCell,
+
+		// LB depends on these
+		daemonk8s.TablesCell,
+		node.LocalNodeStoreTestCell,
+		source.Cell,
+		cell.Provide(
+			func() loadbalancer.Config { return loadbalancer.DefaultConfig },
+			func() loadbalancer.ExternalConfig {
+				return loadbalancer.ExternalConfig{EnableIPv4: true, EnableIPv6: true}
+			},
+			func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
+			func() kpr.KPRConfig {
+				return kpr.KPRConfig{KubeProxyReplacement: true}
+			},
+			tables.NewNodeAddressTable,
+			statedb.RWTable[tables.NodeAddress].ToTable,
+			func() *option.DaemonConfig { return &option.DaemonConfig{} },
+		),
+
+		writer.Cell,
+		reflectors.Cell,
+	)
+}
+
+func TestResourceServiceResolver(t *testing.T) {
+	testResolver(
+		t,
+
+		cell.Provide(k8s.ServiceResource),
+
+		dial.ResourceServiceResolverCell,
+	)
+}
+
+func testResolver(t *testing.T, cells ...cell.Cell) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
 	var (
@@ -51,36 +95,36 @@ func TestServiceResolver(t *testing.T) {
 
 		started  atomic.Bool
 		cl       *k8sClient.FakeClientset
-		resolver *ServiceResolver
+		resolver dial.Resolver
 	)
 
 	h := hive.New(
+		metrics.Cell,
+
 		k8sClient.FakeClientCell(),
-
-		ServiceResolverCell,
-
-		cell.Config(k8s.DefaultConfig),
 		cell.Provide(k8s.DefaultServiceWatchConfig),
-		cell.Provide(k8s.ServiceResource),
+		cell.Config(k8s.DefaultConfig),
 
-		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ *ServiceResolver) {
+		cell.Invoke(func(cl_ *k8sClient.FakeClientset, resolver_ dial.Resolver) {
 			cl = cl_
+
+			// Add a reactor to check that services are being watched.
+			cl.SlimFakeClientset.PrependWatchReactor("services",
+				func(action k8stest.Action) (handled bool, ret watch.Interface, err error) {
+					started.Store(true)
+					return false, nil, nil
+				},
+			)
 			resolver = resolver_
-		}))
+		}),
+		cell.Group(cells...))
 
-	require.NoError(t, h.Start(hivetest.Logger(t), ctx))
+	require.NoError(t, h.Start(tlog, ctx))
 	t.Cleanup(func() { require.NoError(t, h.Stop(tlog, ctx)) })
-
-	cl.SlimFakeClientset.PrependReactor("list", "services",
-		func(action k8stest.Action) (handled bool, ret runtime.Object, err error) {
-			started.Store(true)
-			return false, nil, nil
-		},
-	)
 
 	_, err := cl.Slim().CoreV1().Services("bar").Create(ctx, &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
-		Spec:       slim_corev1.ServiceSpec{ClusterIP: "192.168.0.1"},
+		Spec:       slim_corev1.ServiceSpec{ClusterIP: "192.168.0.1", Ports: []slim_corev1.ServicePort{{Port: 8080}}},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err, "Unexpected error while creating service")
 
@@ -94,7 +138,6 @@ func TestServiceResolver(t *testing.T) {
 	host, port := resolver.Resolve(ctx, "foo.bar.com", "8080")
 	require.Equal(t, "foo.bar.com", host)
 	require.Equal(t, "8080", port)
-	require.False(t, started.Load(), "The store should not have started")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		host, port := resolver.Resolve(ctx, "foo.bar", "8080")
@@ -163,7 +206,7 @@ func TestServiceURLToNamespacedName(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := ServiceURLToNamespacedName(tt.host)
+		got, err := dial.ServiceURLToNamespacedName(tt.host)
 		tt.assertErr(t, err, "Got incorrect error for host %q", tt.host)
 		assert.Equal(t, tt.expected, got, "Got incorrect value for host %q", tt.host)
 	}
@@ -175,7 +218,7 @@ func TestServiceBackendResolver(t *testing.T) {
 		ctx = t.Context()
 
 		wr       *writer.Writer
-		resolver *ServiceBackendResolver
+		resolver *dial.ServiceBackendResolver
 	)
 
 	h := hive.New(
@@ -185,7 +228,7 @@ func TestServiceBackendResolver(t *testing.T) {
 
 		cell.Provide(
 			func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
-			ServiceBackendResolverFactory("test1"),
+			dial.ServiceBackendResolverFactory("test1"),
 
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },
 			tables.NewNodeAddressTable,
@@ -194,7 +237,7 @@ func TestServiceBackendResolver(t *testing.T) {
 			func() kpr.KPRConfig { return kpr.KPRConfig{} },
 		),
 
-		cell.Invoke(func(wr_ *writer.Writer, resolver_ *ServiceBackendResolver) {
+		cell.Invoke(func(wr_ *writer.Writer, resolver_ *dial.ServiceBackendResolver) {
 			wr = wr_
 			resolver = resolver_
 		}),

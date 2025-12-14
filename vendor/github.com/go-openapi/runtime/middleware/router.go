@@ -1,16 +1,5 @@
-// Copyright 2015 go-swagger maintainers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
 
 package middleware
 
@@ -208,13 +197,13 @@ func (ra *RouteAuthenticator) CommonScopes() []string {
 }
 
 // Authenticate Authenticator interface implementation
-func (ra *RouteAuthenticator) Authenticate(req *http.Request, route *MatchedRoute) (bool, interface{}, error) {
+func (ra *RouteAuthenticator) Authenticate(req *http.Request, route *MatchedRoute) (bool, any, error) {
 	if ra.allowAnonymous {
 		route.Authenticator = ra
 		return true, nil, nil
 	}
 	// iterate in proper order
-	var lastResult interface{}
+	var lastResult any
 	for _, scheme := range ra.Schemes {
 		if authenticator, ok := ra.Authenticator[scheme]; ok {
 			applies, princ, err := authenticator.Authenticate(&security.ScopedAuthRequest{
@@ -287,7 +276,7 @@ func (ras RouteAuthenticators) AllowsAnonymous() bool {
 }
 
 // Authenticate method implemention so this collection can be used as authenticator
-func (ras RouteAuthenticators) Authenticate(req *http.Request, route *MatchedRoute) (bool, interface{}, error) {
+func (ras RouteAuthenticators) Authenticate(req *http.Request, route *MatchedRoute) (bool, any, error) {
 	var lastError error
 	var allowsAnon bool
 	var anonAuth RouteAuthenticator

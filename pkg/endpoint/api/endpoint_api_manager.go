@@ -303,7 +303,6 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 	if !regenTriggered {
 		regenMetadata := &regeneration.ExternalRegenerationMetadata{
 			Reason:            "Initial build on endpoint creation",
-			ParentContext:     ctx,
 			RegenerationLevel: regeneration.RegenerateWithDatapath,
 		}
 		build, err := ep.SetRegenerateStateIfAlive(regenMetadata)

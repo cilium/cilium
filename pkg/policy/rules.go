@@ -4,38 +4,48 @@
 package policy
 
 import (
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"cmp"
+	"fmt"
+	"slices"
+
 	"github.com/cilium/cilium/pkg/policy/types"
 )
+
+// ErrTooManyLevels is returned if an endpoint's policy results in more than
+// 2^24 distinct priorities for a given direction; the datapath cannot support more than that.
+var ErrTooManyLevels = fmt.Errorf("endpoint policy direction has more than 2^24 distinct priorities")
 
 // ruleSlice is a wrapper around a slice of *rule, which allows for functions
 // to be written with []*rule as a receiver.
 type ruleSlice []*rule
 
-func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext) (L4PolicyMap, error) {
+func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMap, error) {
 	result := NewL4PolicyMap()
 
-	policyCtx.PolicyTrace("Resolving ingress policy")
+	// sort rules (in place) by priority
+	rules.sort()
 
 	state := traceState{}
-	var requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement
-	// Iterate over all FromRequires which select ctx.To. These requirements
-	// will be appended to each EndpointSelector's MatchExpressions in
-	// each FromEndpoints for all ingress rules. This ensures that FromRequires
-	// is taken into account when evaluating policy at L4.
-	for _, r := range rules {
-		if !r.Ingress {
-			continue
-		}
-		if !r.Deny {
-			requirements = append(requirements, r.Requirements...)
-		} else {
-			requirementsDeny = append(requirementsDeny, r.Requirements...)
-		}
+	// rules are sorted by priority here
+	level := uint32(0)
+	lastPrio := float64(0)
+	if len(rules) > 0 {
+		lastPrio = rules[0].Priority
 	}
-
 	for _, r := range rules {
-		err := r.resolveIngressPolicy(policyCtx, &state, result, requirements, requirementsDeny)
+		// This rule's priority is greater than that of the previous, so we bump level.
+		// This has the effect of "flattening" an arbitrary float ordering of rules in to a
+		// single integer sequence of levels.
+		if r.Priority != lastPrio {
+			if level == types.MaxLevel {
+				return nil, ErrTooManyLevels
+			}
+			level++
+		}
+		lastPrio = r.Priority
+		policyCtx.SetPriority(level)
+
+		err := result.resolveL4Policy(policyCtx, &state, r)
 		if err != nil {
 			return nil, err
 		}
@@ -47,41 +57,20 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext) (L4Policy
 	return result, nil
 }
 
-func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext) (L4PolicyMap, error) {
-	result := NewL4PolicyMap()
-
-	policyCtx.PolicyTrace("resolving egress policy")
-
-	state := traceState{}
-	var requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement
-
-	// Iterate over all ToRequires which select ctx.To. These requirements will
-	// be appended to each EndpointSelector's MatchExpressions in each
-	// ToEndpoints for all egress rules. This ensures that ToRequires is
-	// taken into account when evaluating policy at L4.
-	for _, r := range rules {
-		if r.Ingress {
-			continue
+// Sort rules by priority, then resource as a tiebreaker.
+// Sorting rules by priority is necessary to convert from the float
+// api priority to the integer datapath level.
+func (rules ruleSlice) sort() {
+	slices.SortFunc(rules, func(a, b *rule) int {
+		// order first
+		if sign := cmp.Compare(a.Priority, b.Priority); sign != 0 {
+			return sign
 		}
-		if !r.Deny {
-			requirements = append(requirements, r.Requirements...)
-		} else {
-			requirementsDeny = append(requirementsDeny, r.Requirements...)
+		if sign := cmp.Compare(a.key.resource, b.key.resource); sign != 0 {
+			return sign
 		}
-	}
-
-	for i, r := range rules {
-		state.ruleID = i
-		err := r.resolveEgressPolicy(policyCtx, &state, result, requirements, requirementsDeny)
-		if err != nil {
-			return nil, err
-		}
-		state.ruleID++
-	}
-
-	state.trace(len(rules), policyCtx)
-
-	return result, nil
+		return cmp.Compare(a.key.idx, b.key.idx)
+	})
 }
 
 // AsPolicyEntries return the internal PolicyEntry objects as a PolicyEntries object
@@ -105,29 +94,21 @@ type traceState struct {
 	// matchedDenyRules is the number of rules that have denied traffic
 	matchedDenyRules int
 
-	// constrainedRules counts how many "FromRequires" constraints are
-	// unsatisfied
-	constrainedRules int
-
 	// ruleID is the rule ID currently being evaluated
 	ruleID int
 }
 
 func (state *traceState) trace(rules int, policyCtx PolicyContext) {
 	policyCtx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, rules)
-	if state.constrainedRules > 0 {
-		policyCtx.PolicyTrace("Found unsatisfied FromRequires constraint\n")
+	if state.matchedRules > 0 {
+		policyCtx.PolicyTrace("Found allow rule\n")
 	} else {
-		if state.matchedRules > 0 {
-			policyCtx.PolicyTrace("Found allow rule\n")
-		} else {
-			policyCtx.PolicyTrace("Found no allow rule\n")
-		}
-		if state.matchedDenyRules > 0 {
-			policyCtx.PolicyTrace("Found deny rule\n")
-		} else {
-			policyCtx.PolicyTrace("Found no deny rule\n")
-		}
+		policyCtx.PolicyTrace("Found no allow rule\n")
+	}
+	if state.matchedDenyRules > 0 {
+		policyCtx.PolicyTrace("Found deny rule\n")
+	} else {
+		policyCtx.PolicyTrace("Found no deny rule\n")
 	}
 }
 

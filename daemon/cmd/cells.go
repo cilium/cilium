@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/daemon/healthz"
+	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
@@ -70,6 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
+	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
@@ -81,6 +83,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
+	"github.com/cilium/cilium/pkg/ztunnel"
 )
 
 var (
@@ -173,15 +176,13 @@ var (
 		"controlplane",
 		"Control Plane",
 
+		// IP allocation and creation of agents infrastructure endpoints (host, health & ingress)
+		infraendpoints.Cell,
+
 		// LocalNodeStore holds onto the information about the local node and allows
 		// observing changes to it.
 		node.LocalNodeStoreCell,
-
-		// Provide a newLocalNodeSynchronizer that is invoked when LocalNodeStore is started.
-		// This fills in the initial state before it is accessed by other sub-systems.
-		// Then, it takes care of keeping selected fields (e.g., labels, annotations)
-		// synchronized with the corresponding kubernetes object.
-		cell.Provide(newLocalNodeSynchronizer),
+		nodesync.LocalNodeSyncCell,
 
 		// Controller provides flags and configuration related
 		// to Controller management, concurrent control loops
@@ -348,6 +349,9 @@ var (
 		debugapi.Cell,
 
 		svcrouteconfig.Cell,
+
+		// Instantiates an xDS server used for zTunnel integration.
+		ztunnel.Cell,
 	)
 )
 
@@ -401,9 +405,6 @@ func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (
 		// Pods can contain labels which are essential for endpoints
 		// being restored to have the right identity.
 		resources.K8sAPIGroupPodV1Core,
-		// To perform the service translation and have the BPF LB datapath
-		// with the right service -> backend (k8s endpoints) translation.
-		resources.K8sAPIGroupEndpointSliceOrEndpoint,
 	}
 
 	if cfg.K8sNetworkPolicyEnabled() {
@@ -428,7 +429,7 @@ func kvstoreExtraOptions(in struct {
 
 	NodeManager nodeManager.NodeManager
 	ClientSet   k8sClient.Clientset
-	Resolver    *dial.ServiceResolver
+	Resolver    dial.Resolver
 },
 ) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
 	goopts := kvstore.ExtraOptions{

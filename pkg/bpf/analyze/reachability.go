@@ -71,30 +71,6 @@ import (
 // makes it straightforward to mark live and/or unreachable resources like maps
 // and tail calls referenced by the instructions in a single pass.
 
-// TODO(tb): This is kind of silly. Let's just put a NewVariableSpec in the lib
-// to make this kind of testing possible. They are accessors anyway, though
-// they're copied during CollectionSpec.Copy(), which will need some extra
-// attention. Bounds checks also need to be performed in NewVariableSpec.
-// Make a variable spec interface that is satisfied by the ebpf.VariableSpec
-// This makes testing easier since we can create a mock variable spec.
-var _ VariableSpec = (*ebpf.VariableSpec)(nil)
-
-type VariableSpec interface {
-	MapName() string
-	Offset() uint64
-	Size() uint64
-	Get(out any) error
-	Constant() bool
-}
-
-func VariableSpecs(variables map[string]*ebpf.VariableSpec) map[string]VariableSpec {
-	variablesMap := make(map[string]VariableSpec)
-	for name, varSpec := range variables {
-		variablesMap[name] = varSpec
-	}
-	return variablesMap
-}
-
 type Reachable struct {
 	blocks Blocks
 	insns  asm.Instructions
@@ -142,7 +118,7 @@ func (r *Reachable) countLive() uint64 {
 //	LoadMapValue dst: Rx, fd: 0 off: {offset of variable} <{name of global data map}>
 //	LdXMem{B,H,W,DW} dst: Ry src: Rx off: 0
 //	J{OP}IMM dst: Ry off:{relative jump offset} imm: {constant value}
-func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]VariableSpec) (*Reachable, error) {
+func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]*ebpf.VariableSpec) (*Reachable, error) {
 	if blocks == nil || blocks.count() == 0 {
 		return nil, errors.New("nil or empty blocks")
 	}
@@ -156,11 +132,11 @@ func Reachability(blocks Blocks, insns asm.Instructions, variables map[string]Va
 	// lookup map. This notably includes references to non-constant variables,
 	// which will be rejected later in the branch evaluation logic. They are
 	// included here to ensure that the reachability analysis is conclusive.
-	vars := make(map[mapOffset]VariableSpec)
+	vars := make(map[mapOffset]*ebpf.VariableSpec)
 	for _, v := range variables {
 		vars[mapOffset{
-			mapName: unique.Make(v.MapName()),
-			offset:  v.Offset(),
+			mapName: unique.Make(v.SectionName),
+			offset:  v.Offset,
 		}] = v
 	}
 
@@ -215,44 +191,85 @@ func (r *Reachable) Dump(insns asm.Instructions) string {
 	return sb.String()
 }
 
-// findBranch backtracks exactly one instruction and checks if it's a branch
-// instruction comparing a register against an immediate value or another
-// register. Returns the instruction if it met the criteria, nil otherwise.
-func findBranch(bt *Backtracker) *asm.Instruction {
-	// Only the last instruction of a block can be a branch instruction.
-	if !bt.Previous() {
-		return nil
+// isBranch checks if ins is a branch instruction comparing a register against
+// an immediate value or another register. Returns the instruction if it met the
+// criteria, nil otherwise.
+func isBranch(branch *asm.Instruction) bool {
+	if branch == nil {
+		return false
 	}
-	branch := bt.Instruction()
 
 	switch branch.OpCode.JumpOp() {
 	case asm.Exit, asm.Call, asm.Ja, asm.InvalidJumpOp:
-		return nil
+		return false
 	}
 
-	return branch
+	return true
 }
 
 // findDereference backtracks instructions until it finds a memory load
 // (dereference) into the given dst register.
 //
+// The returned int64 is the accumulated mask from any AND operations applied
+// to the register after dereference. Mask value 0 means no mask was applied.
+// Mask is currently limited to 32 bits.
+//
 // The bool return value indicates whether the dereferenced value needs to be
 // sign-extended before being given to the branch resolver.
-func findDereference(bt *Backtracker, dst asm.Register) (*asm.Instruction, bool) {
+func findDereference(bt *Backtracker, dst asm.Register) (*asm.Instruction, int64, bool) {
 	var extend bool
+	var mask int64
+
 	for bt.Previous() {
 		ins := bt.Instruction()
 		if ins.Dst != dst {
 			continue
 		}
 
+		// Accumulate AND masks occurring after the dereference.
+		//
+		// ALU32 example:
+		// 	54: LdXMemW dst: r1 src: r1 off: 0 imm: 0
+		// 	55: AndImm32 dst: r1 imm: 1
+		// 	56: JEq32Imm dst: r1 off: 1 imm: 0
+		//
+		// Ignore ALU32 vs ALU differences since:
+		// - bitwise ops are signedness-agnostic
+		// - mask value doesn't get sign-extended
+		// - resulting value can never have more bits set than the original
+		//
+		// Limit mask value to 32 bits (imm) since 64-bit support would require more
+		// backtracking to resolve the src register.
+		if ins.OpCode.ALUOp() == asm.And {
+			if ins.OpCode.Mode() == asm.MemMode {
+				// Reg-reg AND not supported yet.
+				break
+			}
+
+			mask |= ins.Constant
+			continue
+		}
+
 		// Deal with left shifts and right shifts, which are emitted after
 		// dereferencing signed integers to extend them to 64 bits.
 		//
-		// Example:
+		// Example of a signed 16-bit dereference on ISAv1+:
 		// 	29: LdXMemW dst: r1 src: r1 off: 0 imm: 0
 		// 	30: LShImm dst: r1 imm: 48
 		// 	31: ArShImm dst: r1 imm: 48
+		// 	32: JSGTImm dst: r1 off: 1 imm: -1
+		//
+		// Example of a signed 8-bit dereference on ISAv3+:
+		// 	29: LdXMemB dst: r1 src: r1 off: 0 imm: 0
+		// 	30: LShImm32 dst: r1 imm: 24
+		// 	31: ArShImm32 dst: r1 imm: 24
+		// 	32: JSGT32Imm dst: r1 off: 1 imm: -1
+		//
+		// We need to extract a signal that sign-extension is needed, so we only
+		// check if the second shift is arithmetic and whether their values match.
+		// The branch resolver operates on int64 values, so extend to 64 bits
+		// regardless of the original deref size. ALU32 presence is handled in the
+		// resolver.
 		if ins.OpCode.ALUOp() == asm.ArSh {
 			shift := ins.Constant
 			if !bt.Previous() {
@@ -274,14 +291,14 @@ func findDereference(bt *Backtracker, dst asm.Register) (*asm.Instruction, bool)
 
 		op := ins.OpCode
 		if op.Class().IsLoad() && op.Mode() == asm.MemMode {
-			return ins, extend
+			return ins, mask, extend
 		}
 
 		// Register got clobbered, stop looking.
 		break
 	}
 
-	return nil, false
+	return nil, 0, false
 }
 
 // findMapLoad backtracks instructions until it finds a map load instruction
@@ -331,12 +348,12 @@ func findImmLoad(bt *Backtracker, reg asm.Register) *asm.Instruction {
 
 type mapOffset struct {
 	mapName unique.Handle[string]
-	offset  uint64
+	offset  uint32
 }
 
 // unpredictableBlock is called when the branch cannot be predicted. It visits
 // both the branch and fallthrough blocks.
-func (r *Reachable) unpredictableBlock(b *Block, vars map[mapOffset]VariableSpec) error {
+func (r *Reachable) unpredictableBlock(b *Block, vars map[mapOffset]*ebpf.VariableSpec) error {
 	if err := r.visitBlock(b.branch, vars); err != nil {
 		return fmt.Errorf("visiting branch block %d: %w", b.branch.id, err)
 	}
@@ -348,7 +365,7 @@ func (r *Reachable) unpredictableBlock(b *Block, vars map[mapOffset]VariableSpec
 
 // visitBlock recursively visits a block and its successors to determine
 // reachability based on the branch instructions and the provided vars.
-func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error {
+func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]*ebpf.VariableSpec) error {
 	if b == nil {
 		return nil
 	}
@@ -360,13 +377,25 @@ func (r *Reachable) visitBlock(b *Block, vars map[mapOffset]VariableSpec) error 
 	}
 	r.l.Set(b.id, true)
 
-	bt := b.backtrack(r.insns)
+	// Visit all bpf2bpf callees of this block since they are always reachable, as
+	// references always appear before the block's final jump instruction.
+	for _, callee := range b.calls {
+		if err := r.visitBlock(callee, vars); err != nil {
+			return fmt.Errorf("visiting callee %d: %w", callee.id, err)
+		}
+	}
 
-	branch := findBranch(bt)
-	if branch == nil {
+	// Check if the last instruction is a branch we can predict. Don't allocate a
+	// backtracker if the last instruction is not a branch.
+	branch := b.last(r.insns)
+	if !isBranch(branch) {
 		return r.unpredictableBlock(b, vars)
 	}
 
+	// Start backtracking from the end of the block. Explicitly seek to the end of
+	// the block so the next call to Previous() will yield the next-to-last insn
+	// of the block.
+	bt := b.backtrack(r.insns).Seek(b.end)
 	jump, err := predictBranch(branch, bt, vars)
 	if errors.Is(err, errUnpredictable) {
 		return r.unpredictableBlock(b, vars)
@@ -391,9 +420,9 @@ var errUnpredictable = errors.New("unpredictable branch")
 // instruction.
 //
 // If the branch cannot be predicted, it returns [errUnpredictable]. If the
-// returned bool it true, the branch is always taken. If false, the branch is
+// returned bool is true, the branch is always taken. If false, the branch is
 // never taken.
-func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]VariableSpec) (bool, error) {
+func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]*ebpf.VariableSpec) (bool, error) {
 	switch branch.OpCode.Source() {
 	// Immediate comparisons are limited to 32 bits since that's the size of the
 	// imm field in a (double-wide) branch insn. In an imm comparison, the dst
@@ -413,7 +442,7 @@ func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]
 			return false, fmt.Errorf("resolving dst register %s: %w", branch.Dst, err)
 		}
 
-		jump, err := evalJumpOp(branch.OpCode.JumpOp(), dst, branch.Constant)
+		jump, err := evalJumpOp(branch.OpCode, dst, branch.Constant)
 		if err != nil {
 			return false, fmt.Errorf("evaluating branch: %w", err)
 		}
@@ -449,7 +478,7 @@ func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]
 			return false, fmt.Errorf("resolving src register %s: %w", branch.Src, err)
 		}
 
-		jump, err := evalJumpOp(branch.OpCode.JumpOp(), dst, src)
+		jump, err := evalJumpOp(branch.OpCode, dst, src)
 		if err != nil {
 			return false, fmt.Errorf("evaluating branch: %w", err)
 		}
@@ -470,10 +499,10 @@ func predictBranch(branch *asm.Instruction, bt *Backtracker, vars map[mapOffset]
 // value directly.
 //
 // Returns errUnpredictable if the register value cannot be resolved.
-func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]VariableSpec) (int64, error) {
+func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]*ebpf.VariableSpec) (int64, error) {
 	// First, check if there's a dereference into the register.
 	derefIter := bt.Clone()
-	deref, extend := findDereference(derefIter, reg)
+	deref, mask, extend := findDereference(derefIter, reg)
 
 	if deref != nil {
 		// Found a dereference, continue looking for the map load.
@@ -492,6 +521,20 @@ func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]Varia
 			return 0, fmt.Errorf("loading variable value: %w", err)
 		}
 
+		// Bitwise operations on signed types are implementation-dependent in C due
+		// to differences in signedness representations. [findDereference] only
+		// recognizes AND operations occurring after lsh/arsh sequences, so apply
+		// the mask after performing sign extension to respect the bytecode's order
+		// of operations.
+		//
+		// For negative mask values, the correctness of the result will depend
+		// completely on the width of the mask, so the programmer should take care
+		// to size the mask appropriately. Note that mask values are currently
+		// limited to 32 bits.
+		if mask != 0 {
+			v &= mask
+		}
+
 		return v, nil
 	}
 
@@ -505,7 +548,7 @@ func resolveRegister(bt *Backtracker, reg asm.Register, vars map[mapOffset]Varia
 }
 
 // derefSize returns the width in bytes of deref.
-func derefSize(deref *asm.Instruction) (uint64, error) {
+func derefSize(deref *asm.Instruction) (uint32, error) {
 	// Make sure it's a dereference instruction.
 	if !deref.OpCode.Class().IsLoad() || deref.OpCode.Mode() != asm.MemMode {
 		return 0, fmt.Errorf("not a dereference instruction: %v", deref)
@@ -527,16 +570,16 @@ func derefSize(deref *asm.Instruction) (uint64, error) {
 
 // loadVariable loads n=(deref width) bytes from variable vs and returns it as
 // an int64.
-func loadVariable(vs VariableSpec, deref *asm.Instruction, extend bool) (int64, error) {
+func loadVariable(vs *ebpf.VariableSpec, deref *asm.Instruction, extend bool) (int64, error) {
 	size, err := derefSize(deref)
 	if err != nil {
 		return 0, fmt.Errorf("determining deref size: %w", err)
 	}
 	// Offset within the variable to load from.
-	offset := uint64(deref.Offset)
+	offset := uint32(deref.Offset)
 
 	if vs.Size() < size+offset {
-		return 0, fmt.Errorf("dereference past end of variable (var=%d, off=%d, deref=%d)", vs.Size(), offset, size)
+		return 0, fmt.Errorf("dereference past end of variable (var=%d, off=%d, deref=%d)", len(vs.Value), offset, size)
 	}
 
 	b := make([]byte, vs.Size())
@@ -569,11 +612,35 @@ func loadVariable(vs VariableSpec, deref *asm.Instruction, extend bool) (int64, 
 	return 0, fmt.Errorf("unsupported size %d for variable load", size)
 }
 
+// s32Jump returns true if the given jump operation performs a signed 32-bit
+// comparison.
+func s32Jump(op asm.OpCode) bool {
+	if op.Class() != asm.Jump32Class {
+		return false
+	}
+
+	switch op.JumpOp() {
+	case asm.JSGT, asm.JSGE, asm.JSLT, asm.JSLE:
+		return true
+	}
+
+	return false
+}
+
 // evalJumpOp evaluates the jump operation op with the given dst and src
 // operands. It returns true if the jump is taken, false otherwise.
-func evalJumpOp(op asm.JumpOp, dst, src int64) (bool, error) {
+func evalJumpOp(op asm.OpCode, dst, src int64) (bool, error) {
+	// Sign-extend 32-bit comparisons in jumps to 64 bits. These instructions will
+	// appear on machines supporting ISAv3 or later, where left-shift/right-shift
+	// sequences are no longer used to sign-extend 32-bit operands, only for s16
+	// and smaller. Apply the same treatment to both dst and src for consistency.
+	if s32Jump(op) {
+		dst = int64(int32(dst))
+		src = int64(int32(src))
+	}
+
 	var jump bool
-	switch op {
+	switch op.JumpOp() {
 	case asm.JEq:
 		jump = dst == src
 
@@ -616,10 +683,10 @@ func evalJumpOp(op asm.JumpOp, dst, src int64) (bool, error) {
 // program. ebpf-go only emits VariableSpecs for symbols with global visibility,
 // so function-scoped variables and many other symbols in .bss may not have an
 // associated VariableSpec.
-func lookupVariable(load *asm.Instruction, vars map[mapOffset]VariableSpec) VariableSpec {
+func lookupVariable(load *asm.Instruction, vars map[mapOffset]*ebpf.VariableSpec) *ebpf.VariableSpec {
 	mo := mapOffset{
 		mapName: unique.Make(load.Reference()),
-		offset:  uint64(load.Constant >> 32),
+		offset:  uint32(load.Constant >> 32),
 	}
 
 	vs, found := vars[mo]

@@ -57,6 +57,8 @@ Gunawardena
 Holzheu
 Huapeng
 Hypercalls
+ICMP
+ICMPv6
 IPcache
 IPsec
 IPv
@@ -98,6 +100,7 @@ NewProto
 Nic
 O'Reilly
 PaaS
+Packetization
 Palantir
 Pepelnjak
 Perfdash
@@ -149,6 +152,7 @@ Zhou
 aarch
 addr
 agentNotReadyTaintKey
+aggregationInterval
 alibabacloud
 allocatable
 allocateLoadBalancerNodePorts
@@ -348,11 +352,13 @@ extTrafficPolicy
 extern
 externalIPs
 externalTrafficPolicy
+externallyCreated
 extraConfig
 facto
 failover
 fcfs
 fec
+fieldAggregate
 filesystem
 filesystems
 firewalling
@@ -512,6 +518,7 @@ linux
 linuxconf
 listenAddress
 listers
+literalinclude
 liveblog
 liveness
 llc
@@ -887,3 +894,4 @@ xt
 xwing
 yaml
 zsh
+ztunnel

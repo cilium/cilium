@@ -5,8 +5,6 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 )
 
 // BPFCtCmd represents the bpf_ct command
@@ -16,6 +14,5 @@ var BPFCtCmd = &cobra.Command{
 }
 
 func init() {
-	ctmap.InitMapInfo(nil, true, true, true)
 	BPFCmd.AddCommand(BPFCtCmd)
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -24,6 +25,10 @@ import (
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
+	// AllowLocalhost returns true if policy should allow ingress from local host.
+	// Always returns false for egress.
+	AllowLocalhost() bool
+
 	// return the namespace in which the policy rule is being resolved
 	GetNamespace() string
 
@@ -43,14 +48,11 @@ type PolicyContext interface {
 	// such rules being evaluated.
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
 
-	// IsDeny returns true if the policy computation should be done for the
-	// policy deny case. This function returns different values depending on the
-	// code path as it can be changed during the policy calculation.
-	IsDeny() bool
+	// SetPriority sets the priority level for the first rule being processed.
+	SetPriority(level uint32)
 
-	// SetDeny sets the Deny field of the PolicyContext and returns the old
-	// value stored.
-	SetDeny(newValue bool) (oldValue bool)
+	// Priority returns the priority level for the current rule.
+	Priority() uint32
 
 	// DefaultDenyIngress returns true if default deny is enabled for ingress
 	DefaultDenyIngress() bool
@@ -69,9 +71,10 @@ type PolicyContext interface {
 type policyContext struct {
 	repo *Repository
 	ns   string
-	// isDeny this field is set to true if the given policy computation should
-	// be done for the policy deny.
-	isDeny             bool
+
+	// level is the precedence level for the rule being processed.
+	level uint32
+
 	defaultDenyIngress bool
 	defaultDenyEgress  bool
 
@@ -82,6 +85,10 @@ type policyContext struct {
 }
 
 var _ PolicyContext = &policyContext{}
+
+func (p *policyContext) AllowLocalhost() bool {
+	return option.Config.AlwaysAllowLocalhost()
+}
 
 // GetNamespace() returns the namespace for the policy rule being resolved
 func (p *policyContext) GetNamespace() string {
@@ -105,19 +112,14 @@ func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNet
 	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns)
 }
 
-// IsDeny returns true if the policy computation should be done for the
-// policy deny case. This function return different values depending on the
-// code path as it can be changed during the policy calculation.
-func (p *policyContext) IsDeny() bool {
-	return p.isDeny
+// SetPriority sets the precedence level for the first rule being processed.
+func (p *policyContext) SetPriority(level uint32) {
+	p.level = level
 }
 
-// SetDeny sets the Deny field of the PolicyContext and returns the old
-// value stored.
-func (p *policyContext) SetDeny(deny bool) bool {
-	oldDeny := p.isDeny
-	p.isDeny = deny
-	return oldDeny
+// Priority returns the precedence level for the current rule.
+func (p *policyContext) Priority() uint32 {
+	return p.level
 }
 
 // DefaultDenyIngress returns true if default deny is enabled for ingress

@@ -573,6 +573,8 @@ Name                                       Labels                               
 ``drop_bytes_total``                       ``reason``, ``direction``                          Enabled    Total dropped bytes
 ``forward_count_total``                    ``direction``                                      Enabled    Total forwarded packets
 ``forward_bytes_total``                    ``direction``                                      Enabled    Total forwarded bytes
+``mtu_error_message_total``                ``direction``                                      Enabled    Total number of icmp fragmentation-needed or ICMPv6 packet-too-big messages processed
+``fragmented_count_total``                 ``direction``                                      Enabled    Total number of fragmented packets processed
 ========================================== ================================================== ========== ========================================================
 
 Policy

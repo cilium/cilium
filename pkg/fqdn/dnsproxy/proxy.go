@@ -21,7 +21,6 @@ import (
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/lookup"
@@ -264,7 +263,9 @@ func (p *DNSProxy) skipIPInRestorationRLocked(ip netip.Addr) bool {
 
 // GetRules creates a fresh copy of EP's DNS rules to be stored
 // for later restoration.
-func (p *DNSProxy) GetRules(version *versioned.VersionHandle, endpointID uint16) (restore.DNSRules, error) {
+//
+// Only used for testing.
+func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 	// Lock ordering note: Acquiring the IPCache read lock (as LookupIPsBySecID does) while holding
 	// the proxy lock can lead to a deadlock. Avoid this by reading the state from DNSProxy while
 	// holding the read lock, then perform the IPCache lookups.
@@ -301,7 +302,7 @@ func (p *DNSProxy) GetRules(version *versioned.VersionHandle, endpointID uint16)
 			}
 			ips := make(map[restore.RuleIPOrCIDR]struct{})
 			count := 0
-			nids := selRegex.cs.GetSelections(version)
+			nids := selRegex.cs.GetSelections()
 		Loop:
 			for _, nid := range nids {
 				// Note: p.RLock must not be held during this call to IPCache
@@ -800,7 +801,7 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPortProto restore.PortPro
 
 	for selector, regex := range epAllow {
 		// The port was matched in getPortRulesForID, above.
-		if regex != nil && selector.Selects(versioned.Latest(), destID) && (regex.String() == matchpattern.MatchAllAnchoredPattern || regex.MatchString(name)) {
+		if regex != nil && selector.Selects(destID) && (regex.String() == matchpattern.MatchAllAnchoredPattern || regex.MatchString(name)) {
 			return true, nil
 		}
 	}
@@ -1089,7 +1090,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// - the source is known to be in the host networking namespace, or
 	// - the destination is known to be outside of the cluster, or
 	// - is the local host
-	if option.Config.DNSProxyEnableTransparentMode && !ep.IsHost() && !epAddr.IsLoopback() && ep.ID != uint16(identity.ReservedIdentityHost) && targetServerID.IsCluster() && targetServerID != identity.ReservedIdentityHost {
+	if option.Config.DNSProxyEnableTransparentMode && !ep.IsHost() && !epAddr.IsLoopback() && targetServerID.IsCluster() && targetServerID != identity.ReservedIdentityHost {
 		dialer.LocalAddr = w.RemoteAddr()
 		key = sharedClientKey(protocol, epIPPort, targetServerAddrStr)
 	}

@@ -15,7 +15,7 @@ on:
         required: true
       base-SHA:
         description: "SHA of the base branch (target branch of the PR)."
-        required: false
+        required: true
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
@@ -57,7 +57,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.25.3
+  go-version: 1.25.5
 
 jobs:
   echo-inputs:
@@ -86,31 +86,41 @@ jobs:
       matrix:
         include:
           - kernel: '5.10'
+            kernel-name: '510'
             ci-kernel: '510'
           - kernel: '5.15'
+            kernel-name: '515'
             ci-kernel: '510'
           - kernel: '6.1'
+            kernel-name: '61'
             ci-kernel: '61'
           - kernel: '6.6'
+            kernel-name: '66'
             ci-kernel: '61'
           - kernel: '6.12'
+            kernel-name: '612'
             ci-kernel: '61'
           - kernel: 'bpf-next'
+            kernel-name: 'bpf-next'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
-      - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
+      - name: Checkout base branch
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          comment_on_pr: false
+          ref: ${{ inputs.base-SHA || github.sha }}
+          persist-credentials: false
+          path: ./base
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
-          ref: ${{ inputs.SHA || github.sha }}
+          ref: ${{ inputs.SHA }}
           persist-credentials: false
+          path: ./pull
 
       - name: Resolve full kernel version
         id: kernel-version
@@ -118,23 +128,23 @@ jobs:
           KERNEL="${{ matrix.kernel }}"
           case "$KERNEL" in
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.10") FULL_KERNEL="5.10-20251031.120020" ;;
+            "5.10") FULL_KERNEL="5.10-20251201.013400" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.15") FULL_KERNEL="5.15-20251031.120020" ;;
+            "5.15") FULL_KERNEL="5.15-20251201.013400" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.1") FULL_KERNEL="6.1-20251031.120020" ;;
+            "6.1") FULL_KERNEL="6.1-20251201.013400" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.6") FULL_KERNEL="6.6-20251031.120020" ;;
+            "6.6") FULL_KERNEL="6.6-20251201.013400" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.12") FULL_KERNEL="6.12-20251031.120020" ;;
+            "6.12") FULL_KERNEL="6.12-20251201.013400" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "bpf-next") FULL_KERNEL="bpf-next-20251031.120020" ;;
+            "bpf-next") FULL_KERNEL="bpf-next-20251201.013400" ;;
             *) FULL_KERNEL="$KERNEL" ;;
           esac
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
+        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
         with:
           test-name: datapath-bpf-complexity
           image: 'complexity-test'
@@ -143,12 +153,13 @@ jobs:
           images-folder-parent: "/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.27"
+          lvh-version: "v0.0.28"
           install-dependencies: 'true'
           cmd: |
             for i in {1..5}; do curl "https://golang.org" > /dev/null 2>&1 && break || sleep 5; echo "Waiting for systemd-resolved to be ready..."; done
 
-            git config --global --add safe.directory /host
+            git config --global --add safe.directory /host/pull
+            git config --global --add safe.directory /host/base
             uname -a
 
             # The LVH image might ship with an arbitrary Go toolchain version,
@@ -158,19 +169,32 @@ jobs:
 
             # The LVH image ships with LLVM taken from a release Cilium version.
             # Replace it with the one extracted from the cilium-builder image.
-            /host/contrib/scripts/extract-llvm.sh /tmp/llvm
+            /host/base/contrib/scripts/extract-llvm.sh /tmp/llvm
             mv /tmp/llvm/usr/local/bin/{clang,llc} /bin/
             rm -r /tmp/llvm
 
-      - name: Run verifier tests
-        uses: cilium/little-vm-helper@01debd6cb7e5514cfdb4a33e776bdc647bc5306e # v0.0.27
+      - name: Run verifier tests (on base branch)
+        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
         with:
           provision: 'false'
           cmd: |
-            cd /host/
-            mkdir /host/datapath-verifier
+            cd /host/base
+            mkdir -p /host/datapath-verifier
             # Run with cgo disabled, LVH images don't ship with gcc.
-            CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=20m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host --kernel-version ${{ matrix.ci-kernel }} --result-dir /host/datapath-verifier
+            CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=20m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/base --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
+            mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-base.json
+
+      - name: Run verifier tests (on PR branch)
+        uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/pull
+            mkdir -p /host/datapath-verifier
+            # Run with cgo disabled, LVH images don't ship with gcc.
+            CGO_ENABLED=0 PRIVILEGED_TESTS=true go${{ env.go-version }} test -v -timeout=20m ./pkg/datapath/loader -run "TestPrivilegedVerifier" --cilium-base-path /host/pull --kernel-version ${{ matrix.ci-kernel }} --kernel-name ${{ matrix.kernel-name }} --result-dir /host/datapath-verifier
+            mv /host/datapath-verifier/verifier-complexity.json /host/datapath-verifier/verifier-complexity-pull.json
 
       - name: Upload artifacts
         if: ${{ always() }}
@@ -179,6 +203,44 @@ jobs:
           name: datapath-verifier_${{ matrix.kernel }}
           path: datapath-verifier
           retention-days: 5
+
+  merge-and-diff:
+    name: Merge & Diff
+    needs: setup-and-test
+    runs-on: ubuntu-24.04
+    steps:
+    - name: Checkout pull request branch (NOT TRUSTED)
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      with:
+        ref: ${{ inputs.SHA || github.sha }}
+        persist-credentials: false
+
+    - name: Download per-kernel results
+      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      with:
+        path: ./artifacts
+        pattern: datapath-verifier_*
+
+    - name: Merge verifier-complexity-base.json
+      run: |
+        cat ./artifacts/*/verifier-complexity-base.json | jq -s 'add' > ./artifacts/verifier-complexity-base.json
+
+    - name: Merge verifier-complexity-pull.json
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      run: |
+        cat ./artifacts/*/verifier-complexity-pull.json | jq -s 'add' > ./artifacts/verifier-complexity-pull.json
+        go run ./tools/complexity-diff ./artifacts/verifier-complexity-base.json ./artifacts/verifier-complexity-pull.json ./artifacts/complexity-diff.json >> $GITHUB_STEP_SUMMARY
+
+    - name: Remove per-kernel results from workspace
+      run: |
+        rm -Rf ./artifacts/datapath-verifier*
+
+    - name: Upload merged
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      with:
+        name: verifier-complexity
+        path: ./artifacts
+        retention-days: 5
 
   commit-status-final:
     if: ${{ always() }}

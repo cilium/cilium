@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type expectation struct {
@@ -871,6 +872,63 @@ func TestAllEgressMasqueradeCmds(t *testing.T) {
 
 		assert.Equal(t, tt.expected, actual)
 	}
+}
+
+func testTunnelRulesTunnelingEnabled(t *testing.T, port uint16) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+
+	mockManager := &Manager{
+		sharedCfg: SharedConfig{
+			EnableIPv4:       true,
+			EnableIPv6:       true,
+			TunnelingEnabled: true,
+			TunnelPort:       port,
+		},
+		ip4tables: mockIp4tables,
+		ip6tables: mockIp6tables,
+	}
+
+	expected := "%s -A %s -p udp --dport %d -m comment --comment %s"
+
+	mockIp4tables.expectations = []expectation{
+		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+	}
+	mockIp6tables.expectations = mockIp4tables.expectations
+
+	require.NoError(t, mockManager.addCiliumTunnelRules())
+	require.NoError(t, mockIp4tables.checkExpectations())
+	require.NoError(t, mockIp6tables.checkExpectations())
+}
+
+func TestTunnelVxlankRulesTunnelingEnabled(t *testing.T) {
+	testTunnelRulesTunnelingEnabled(t, 8472)
+}
+
+func TestTunnelGeneveRulesTunnelingEnabled(t *testing.T) {
+	testTunnelRulesTunnelingEnabled(t, 6081)
+}
+
+func TestTunnelRulesTunnelingDisabled(t *testing.T) {
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+	mockManager := &Manager{
+		sharedCfg: SharedConfig{
+			EnableIPv4:       true,
+			EnableIPv6:       true,
+			TunnelingEnabled: false,
+		},
+		ip4tables: mockIp4tables,
+		ip6tables: mockIp6tables,
+	}
+
+	// With tunneling disabled, we don't expect any `iptables` or `ip6tables`
+	// rules to be added, so leave `mockIp6tables.expectations` empty.
+	require.NoError(t, mockManager.addCiliumTunnelRules())
+	require.NoError(t, mockIp4tables.checkExpectations())
+	require.NoError(t, mockIp6tables.checkExpectations())
 }
 
 func TestNoTrackHostPorts(t *testing.T) {

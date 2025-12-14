@@ -7,7 +7,7 @@
 #include <node_config.h>
 #include <lib/static_data.h>
 
-#include "lib/common.h"
+#include "lib/socket.h"
 
 __section_entry
 int probe_fib_lookup_skip_neigh(struct __ctx_buff *ctx)

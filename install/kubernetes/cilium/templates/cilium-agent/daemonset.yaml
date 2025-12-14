@@ -135,7 +135,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.healthPort }}
+            port: health
             scheme: HTTP
             httpHeaders:
             - name: "brief"
@@ -155,7 +155,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.healthPort }}
+            port: health
             scheme: HTTP
             httpHeaders:
             - name: "brief"
@@ -178,7 +178,7 @@ spec:
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
-            port: {{ .Values.healthPort }}
+            port: health
             scheme: HTTP
             httpHeaders:
             - name: "brief"
@@ -251,12 +251,17 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
-        {{- if or .Values.prometheus.enabled (or .Values.hubble.metrics.enabled .Values.hubble.metrics.dynamic.enabled) }}
         ports:
+        - name: health
+          containerPort: {{ .Values.healthPort }}
+          hostPort: {{ .Values.healthPort }}
+          protocol: TCP
+        {{- if .Values.hubble.enabled }}
         - name: peer-service
           containerPort: {{ .Values.hubble.peerService.targetPort }}
           hostPort: {{ .Values.hubble.peerService.targetPort }}
           protocol: TCP
+        {{- end }}
         {{- if .Values.prometheus.enabled }}
         - name: prometheus
           containerPort: {{ .Values.prometheus.port }}
@@ -280,7 +285,6 @@ spec:
           containerPort: {{ .Values.hubble.metrics.port }}
           hostPort: {{ .Values.hubble.metrics.port }}
           protocol: TCP
-        {{- end }}
         {{- end }}
         securityContext:
           {{- if .Values.securityContext.privileged }}
@@ -375,6 +379,10 @@ spec:
         {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ipsec") }}
         - name: cilium-ipsec-secrets
           mountPath: {{ .Values.encryption.ipsec.mountPath }}
+        {{- end }}
+        {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
+        - name: cilium-ztunnel-secrets
+          mountPath: /etc/ztunnel
         {{- end }}
         {{- if .Values.kubeConfigPath }}
         - name: kube-config
@@ -1021,6 +1029,11 @@ spec:
       - name: cilium-ipsec-secrets
         secret:
           secretName: {{ .Values.encryption.ipsec.secretName }}
+      {{- end }}
+      {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
+      - name: cilium-ztunnel-secrets
+        secret:
+          secretName: cilium-ztunnel-secrets
       {{- end }}
       {{- if .Values.cni.configMap }}
       - name: cni-configuration

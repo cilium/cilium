@@ -73,8 +73,8 @@ on:
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
 permissions:
-  # To read actions state with catchpoint/workflow-telemetry-action
-  actions: read
+  # To be able to trigger eks-cluster-pool-manager.yaml workflow
+  actions: write
   # To be able to access the repository with actions/checkout
   contents: read
   # To allow retrieving information from the PR API
@@ -112,11 +112,11 @@ concurrency:
 
 env:
   test_concurrency: ${{ inputs.test-concurrency || 3 }}
-  clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
+  clusterNamePrefix: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.216.0
+  eksctl_version: v0.220.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.34.1
+  kubectl_version: v1.34.2
 
 jobs:
   echo-inputs:
@@ -143,7 +143,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -162,7 +162,7 @@ jobs:
       empty: ${{ steps.set-matrix.outputs.empty }}
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -193,7 +193,7 @@ jobs:
           cat /tmp/matrix.json
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: us-west-1
@@ -236,6 +236,17 @@ jobs:
           echo "empty=$(jq '(.include | length) == 0' /tmp/result.json)" >> $GITHUB_OUTPUT
 
   installation-and-connectivity:
+    permissions:
+      # To be able to trigger eks-cluster-pool-manager.yaml workflow
+      actions: write
+      # To be able to access the repository with actions/checkout
+      contents: read
+      # To allow retrieving information from the PR API
+      pull-requests: read
+      # To be able to set commit status
+      statuses: write
+      # To be able to request the JWT from GitHub's OIDC provider
+      id-token: write
     name: Installation and Connectivity Test
     needs: [generate-matrix, wait-for-images]
     if: ${{ needs.generate-matrix.outputs.empty == 'false' }}
@@ -254,7 +265,7 @@ jobs:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -279,6 +290,16 @@ jobs:
           external-target: 'amazon.com.'
           hubble: false
 
+      - name: Get PR base branch
+        id: get-base-branch
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BASE_BRANCH=$(gh pr view ${{ inputs.PR-number }} --json baseRefName -q .baseRefName)
+          echo "base-branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+          echo "Base branch for PR #${{ inputs.PR-number }}: $BASE_BRANCH"
+
       - name: Set up job variables
         id: vars
         run: |
@@ -289,8 +310,17 @@ jobs:
             OWNER="${OWNER//[.\/]/-}"
           fi
 
+          # Create unique cluster name including version to avoid conflicts
+          # when multiple versions use same region
+          VERSION_SANITIZED="${{ matrix.version }}"
+          VERSION_SANITIZED="${VERSION_SANITIZED//[.]/-}"
+
+          CLUSTER_NAME="${{ env.clusterNamePrefix }}-${VERSION_SANITIZED}"
+          CLUSTER_NAME_HASH=$(echo -n "${CLUSTER_NAME}" | sha256sum | cut -c1-10)
+          HELM_CLUSTER_NAME="cilium-${CLUSTER_NAME_HASH}-${VERSION_SANITIZED}"
+
           CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
-            --helm-set=cluster.name=${{ env.clusterName }} \
+            --helm-set=cluster.name=${HELM_CLUSTER_NAME} \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=loadBalancer.l7.backend=envoy \
             --wait=false"
@@ -308,7 +338,7 @@ jobs:
           if [[ "$ADV_FEAT" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.masquerade=true \
               --helm-set enableIPv4Masquerade=true \
-              --helm-set localRedirectPolicy=true \
+              --helm-set localRedirectPolicies.enabled=true \
               --helm-set egressGateway.enabled=true"
           fi
 
@@ -319,6 +349,7 @@ jobs:
 
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
+          echo cluster_name=${CLUSTER_NAME} >> $GITHUB_OUTPUT
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
@@ -339,16 +370,17 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
           role-duration-seconds: 28800 # 8h
 
-      - name: Create EKS cluster
+      - name: Setup EKS cluster (from pool or create new)
+        id: setup-cluster
         uses: ./.github/actions/setup-eks-cluster
         with:
-          cluster_name: ${{ env.clusterName }}
+          cluster_name: ${{ steps.vars.outputs.cluster_name }}
           region: ${{ matrix.region }}
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
@@ -361,7 +393,7 @@ jobs:
           kubeconfig: "~/.kube/config"
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@db1773e48b18184dd2843eb5383cec4c70b228c5 # v0.18.8
+        uses: cilium/cilium-cli@e875161a362b9092ff3e1110eccf52a9fdb17c0a # v0.18.9
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
@@ -379,7 +411,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -392,10 +424,12 @@ jobs:
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
+      # Wait for Cilium to be ready after install (before creating nodegroups)
+      # since the nodegroups creation depends on Cilium being ready.
       - name: Create EKS nodegroups
         uses: ./.github/actions/setup-eks-nodegroup
         with:
-          cluster_name: ${{ env.clusterName }}
+          cluster_name: ${{ steps.setup-cluster.outputs.cluster_name }}
           region: ${{ matrix.region }}
           owner: "${{ steps.vars.outputs.owner }}"
           version: ${{ matrix.version }}
@@ -422,6 +456,7 @@ jobs:
           mkdir -p cilium-junits
 
       - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+        id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
           --test-concurrency=${{ env.test_concurrency }} \
@@ -454,12 +489,37 @@ jobs:
           extra-connectivity-test-flags: ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Run common post steps
-        if: ${{ always() }}
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
+
+      - name: Trigger cluster deletion workflow
+        if: ${{ always() && steps.setup-cluster.outputs.cluster_name != '' }}
+        continue-on-error: true
+        run: |
+          CLUSTER_NAME="${{ steps.setup-cluster.outputs.cluster_name }}"
+          REGION="${{ matrix.region }}"
+
+          # Use base branch from PR if available, otherwise fall back to current branch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "workflow_call" ]; then
+            REF="${{ steps.get-base-branch.outputs.base-branch }}"
+          else
+            REF="${{ github.ref_name }}"
+          fi
+
+          echo "Triggering delete-eks-clusters workflow with:"
+          echo "  Cluster: $CLUSTER_NAME"
+          echo "  Region: $REGION"
+          echo "  Ref: $REF"
+
+          gh workflow run eks-cluster-delete.yaml \
+            --field cluster_name="$CLUSTER_NAME" \
+            --field region="$REGION"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   merge-upload-and-status:
     name: Merge Upload and Status
@@ -485,32 +545,3 @@ jobs:
             github.ref_name != github.event.repository.default_branch
           )
         ) }}
-
-  cleanup:
-    name: Cleanup EKS Clusters
-    if: ${{ always() && needs.generate-matrix.outputs.empty == 'false' }}
-    continue-on-error: true
-    needs: [generate-matrix, installation-and-connectivity]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
-
-    steps:
-      - name: Install eksctl CLI
-        run: |
-          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
-          sudo tar -xzvf "eksctl_$(uname -s)_amd64.tar.gz" -C /usr/bin
-          rm "eksctl_$(uname -s)_amd64.tar.gz"
-
-      - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
-        with:
-          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
-          aws-region: ${{ matrix.region }}
-
-      - name: Clean up EKS
-        run: |
-          eksctl delete cluster --name ${{ env.clusterName }} --region ${{ matrix.region }}
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently

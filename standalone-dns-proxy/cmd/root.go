@@ -78,6 +78,9 @@ func NewDNSProxyCmd(h *hive.Hive) *cobra.Command {
 	)
 
 	// slogloggercheck: using default logger for configuration initialization
+	InitGlobalFlags(logging.DefaultSlogLogger, cmd, h.Viper())
+
+	// slogloggercheck: using default logger for configuration initialization
 	cobra.OnInitialize(option.InitConfig(logging.DefaultSlogLogger, cmd, "Standalone-DNS-Proxy", "standalone-dns-proxy", h.Viper()))
 
 	return cmd
@@ -86,6 +89,14 @@ func NewDNSProxyCmd(h *hive.Hive) *cobra.Command {
 func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	option.Config.Populate(logger, vp)
 	option.LogRegisteredSlogOptions(vp, logger)
+}
+
+func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
+	flags := cmd.Flags()
+
+	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
+	option.BindEnv(vp, option.ConfigDir)
+	vp.BindPFlags(flags)
 }
 
 func Execute(cmd *cobra.Command) {

@@ -33,6 +33,9 @@ type envoyProxyIntegration struct {
 	adminClient     *envoy.EnvoyAdminClient
 	xdsServer       envoy.XDSServer
 	iptablesManager datapath.IptablesManager
+	// Controls if an L7 proxy can use POD's original source address and port in
+	// the upstream connection.
+	proxyUseOriginalSourceAddress bool
 }
 
 // createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
@@ -50,8 +53,7 @@ func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGr
 		xdsServer:    p.xdsServer,
 		adminClient:  p.adminClient,
 	}
-
-	mayUseOriginalSourceAddr := p.iptablesManager.SupportsOriginalSourceAddr()
+	mayUseOriginalSourceAddr := p.proxyUseOriginalSourceAddress && p.iptablesManager.SupportsOriginalSourceAddr()
 	// Only use original source address for egress
 	if l.Ingress {
 		mayUseOriginalSourceAddr = false

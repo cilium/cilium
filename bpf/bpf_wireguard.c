@@ -47,19 +47,18 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6)
 	const struct remote_endpoint_info *info = NULL;
 	const union v6addr *src;
 
-	if (CONFIG(secctx_from_ipcache)) {
-		src = (union v6addr *)&ip6->saddr;
-		info = lookup_ip6_remote_endpoint(src, 0);
-		if (info)
-			srcid = info->sec_identity;
+	src = (union v6addr *)&ip6->saddr;
+	info = lookup_ip6_remote_endpoint(src, 0);
+	if (info)
+		srcid = info->sec_identity;
 
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *)src)[3], srcid);
-	}
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   ((__u32 *)src)[3], srcid);
 
 	return srcid;
 }
 
+/* See the equivalent v4 path for comments */
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused)
 {
@@ -67,8 +66,6 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	struct ipv6hdr *ip6;
 	const struct endpoint_info *ep;
 	fraginfo_t __maybe_unused fraginfo;
-
-	/* See the equivalent v4 path for comments */
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -96,7 +93,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 #endif
 
 #ifndef ENABLE_HOST_ROUTING
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 #endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -121,7 +118,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 					   METRIC_INGRESS, false, false);
 	}
 
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_WIREGUARD)
@@ -146,14 +143,12 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4)
 	__u32 srcid = WORLD_IPV4_ID;
 	const struct remote_endpoint_info *info = NULL;
 
-	if (CONFIG(secctx_from_ipcache)) {
-		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-		if (info)
-			srcid = info->sec_identity;
+	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+	if (info)
+		srcid = info->sec_identity;
 
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   ip4->saddr, srcid);
-	}
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->saddr, srcid);
 
 	return srcid;
 }
@@ -169,10 +164,11 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+/* If IPv4 fragmentation is disabled
+ * AND a IPv4 fragmented packet is received,
+ * then drop the packet.
+ */
 #ifndef ENABLE_IPV4_FRAGMENTS
-	/* If IPv4 fragmentation is disabled and a IPv4 fragmented
-	 * packet is received, then drop the packet.
-	 */
 	fraginfo = ipfrag_encode_ipv4(ip4);
 	if (ipfrag_is_fragment(fraginfo))
 		return DROP_FRAG_NOSUPPORT;
@@ -209,7 +205,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	 * we bypass request and reply path in the host namespace and
 	 * do not run into this issue.
 	 */
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 #endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -230,9 +226,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 		if (l2_hdr_required) {
 			/* l2 header is added */
 			l3_off += __ETH_HLEN;
-			if (!____revalidate_data_pull(ctx, &data, &data_end,
-						      (void **)&ip4, sizeof(*ip4),
-						      false, l3_off))
+			if (!__revalidate_data_pull(ctx, &data, &data_end,
+						    (void **)&ip4, l3_off,
+						    sizeof(*ip4), false))
 				return DROP_INVALID;
 		}
 #endif
@@ -244,7 +240,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity, __s8 *ext_err __maybe_unused
 	/* A packet entering the node from wireguard and not going to a local endpoint
 	 * has to be going to the stack (ex. vxlan, encrypted node-to-node).
 	 */
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 }
 
 __declare_tail(CILIUM_CALL_IPV4_FROM_WIREGUARD)
@@ -327,7 +323,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
 
 	/* Pass unknown traffic to the stack */
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 }
 
 /* to-wireguard is attached as a tc egress filter to the cilium_wg0 device. */
@@ -367,7 +363,7 @@ out:
 			  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),
 			  trace.reason, trace.monitor, proto);
 
-	return TC_ACT_OK;
+	return CTX_ACT_OK;
 }
 
 BPF_LICENSE("Dual BSD/GPL");

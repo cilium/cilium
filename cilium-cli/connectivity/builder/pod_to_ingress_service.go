@@ -68,7 +68,7 @@ func (t podToIngressService) build(ct *check.ConnectivityTest, templates map[str
 		WithCiliumVersion(">1.17.1 || >1.16.7 <1.17.0 || >1.15.14 <1.16.0").
 		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyIngressSourceEgressOtherNodePolicyYML).
-		WithCiliumPolicy(templates["clientEgressOnlyDNSPolicyYAML"]). // DNS resolution only
+		WithCiliumPolicy(templates["clientEgressOnlyPort53PolicyYAML"]). // DNS resolution only
 		WithScenarios(tests.PodToIngress()).
 		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
 			if strings.Contains(a.Destination().Name(), "cilium-ingress-same-node") {

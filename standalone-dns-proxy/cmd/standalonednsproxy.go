@@ -27,6 +27,7 @@ type StandaloneDNSProxy struct {
 	enableL7Proxy                bool
 	enableStandaloneDNSProxy     bool
 	dnsProxier                   proxy.DNSProxier
+	proxyPort                    uint16
 
 	// connHandler is the gRPC connection handler client for standalone DNS proxy
 	connHandler client.ConnectionHandler
@@ -45,6 +46,7 @@ func NewStandaloneDNSProxy(params standaloneDNSProxyParams) *StandaloneDNSProxy 
 		enableL7Proxy:                params.AgentConfig.EnableL7Proxy,
 		enableStandaloneDNSProxy:     params.FQDNConfig.EnableStandaloneDNSProxy,
 		standaloneDNSProxyServerPort: uint16(params.FQDNConfig.StandaloneDNSProxyServerPort),
+		proxyPort:                    uint16(params.AgentConfig.ToFQDNsProxyPort),
 		connHandler:                  params.ConnectionHandler,
 		dnsProxier:                   params.DNSProxier,
 		db:                           params.DB,
@@ -58,14 +60,8 @@ func NewStandaloneDNSProxy(params standaloneDNSProxyParams) *StandaloneDNSProxy 
 func (sdp *StandaloneDNSProxy) StartStandaloneDNSProxy() error {
 	sdp.logger.Info("Starting standalone DNS proxy")
 
-	// start the connection handler
-	sdp.connHandler.StartConnection()
-
-	// Wait for the connection to be established and start the proxy, will be added in future PRs
-	// Note: This is a placeholder for the actual implementation.
-	// if err := sdp.dnsProxier.Listen(sdp.proxyPort); err != nil {
-	// 	return fmt.Errorf("error opening dns proxy socket(s): %w", err)
-	// }
+	// watch the connection state and start the DNS proxy once connected
+	sdp.jobGroup.Add(job.OneShot("sdp-connection-watcher", sdp.WatchConnection, job.WithShutdown()))
 
 	sdp.jobGroup.Add(job.OneShot("sdp-watch-dns-rules", sdp.WatchDNSRulesTable,
 		job.WithRetry(3, &job.ExponentialBackoff{Min: 5 * time.Second, Max: 10 * time.Second}),
@@ -73,6 +69,30 @@ func (sdp *StandaloneDNSProxy) StartStandaloneDNSProxy() error {
 
 	sdp.logger.Info("Standalone DNS proxy started")
 	return nil
+}
+
+// watchConnection watches the connection state
+func (sdp *StandaloneDNSProxy) WatchConnection(ctx context.Context, _ cell.Health) error {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			sdp.logger.Info("Stopping connection watcher")
+			return nil
+		case <-ticker.C:
+			if sdp.connHandler.IsConnected() {
+				sdp.logger.Info("Connection to Cilium agent established")
+				// Start the DNS proxy once the connection is established
+				if err := sdp.dnsProxier.Listen(sdp.proxyPort); err != nil {
+					sdp.logger.Error("Failed to start DNS proxy", logfields.Error, err)
+					return err
+				}
+				return nil
+			}
+		}
+	}
 }
 
 // WatchDNSRulesTable watches the DNS rules table for changes and updates the DNS proxy accordingly

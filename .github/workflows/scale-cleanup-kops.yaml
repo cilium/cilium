@@ -24,9 +24,9 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.3
+  go_version: 1.25.5
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 545.0.0
+  gcloud_version: 548.0.0
 
 jobs:
   cleanup-kops-clusters:
@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -44,7 +44,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Kops
-        uses: cilium/scale-tests-action/install-kops@28366d1190baf620c6f4daa7494e528ea6c41482 # main
+        uses: cilium/scale-tests-action/install-kops@8535f579142fa598c3b2a895cfb248cd492d7c5a # main
 
       - name: Setup gcloud credentials
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0

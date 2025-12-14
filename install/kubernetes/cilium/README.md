@@ -170,7 +170,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.tproxy | bool | `false` | Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules for implementing Layer 7 policy. |
 | bpf.vlanBypass | list | `[]` | Configure explicitly allowed VLAN id's for bpf logic bypass. [0] will allow all VLAN id's without any filtering. |
 | bpfClockProbe | bool | `false` | Enable BPF clock source probing for more efficient tick retrieval. |
-| certgen | object | `{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:c6f836b5352adc16a241c5c24ba5576341c23a81b73c9fab4daba07b92d811a8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.3.0","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}` | Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually. |
+| certgen | object | `{"affinity":{},"annotations":{"cronJob":{},"job":{}},"cronJob":{"failedJobsHistoryLimit":1,"successfulJobsHistoryLimit":3},"extraVolumeMounts":[],"extraVolumes":[],"generateCA":true,"image":{"digest":"sha256:2825dbfa6f89cbed882fd1d81e46a56c087e35885825139923aa29eb8aec47a9","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.3.1","useDigest":true},"nodeSelector":{},"podLabels":{},"priorityClassName":"","resources":{},"tolerations":[],"ttlSecondsAfterFinished":null}` | Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually. |
 | certgen.affinity | object | `{}` | Affinity for certgen |
 | certgen.annotations | object | `{"cronJob":{},"job":{}}` | Annotations to be added to the hubble-certgen initial Job and CronJob |
 | certgen.cronJob.failedJobsHistoryLimit | int | `1` | The number of failed finished jobs to keep |
@@ -259,6 +259,7 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.service.annotations | object | `{}` | Annotations for the clustermesh-apiserver service. Example annotations to configure an internal load balancer on different cloud providers: * AKS: service.beta.kubernetes.io/azure-load-balancer-internal: "true" * EKS: service.beta.kubernetes.io/aws-load-balancer-scheme: "internal" * GKE: networking.gke.io/load-balancer-type: "Internal" |
 | clustermesh.apiserver.service.enableSessionAffinity | string | `"HAOnly"` | Defines when to enable session affinity. Each replica in a clustermesh-apiserver deployment runs its own discrete etcd cluster. Remote clients connect to one of the replicas through a shared Kubernetes Service. A client reconnecting to a different backend will require a full resync to ensure data integrity. Session affinity can reduce the likelihood of this happening, but may not be supported by all cloud providers. Possible values:  - "HAOnly" (default) Only enable session affinity for deployments with more than 1 replica.  - "Always" Always enable session affinity.  - "Never" Never enable session affinity. Useful in environments where            session affinity is not supported, but may lead to slightly            degraded performance due to more frequent reconnections. |
 | clustermesh.apiserver.service.externalTrafficPolicy | string | `"Cluster"` | The externalTrafficPolicy of service used for apiserver access. |
+| clustermesh.apiserver.service.externallyCreated | bool | `false` | Set externallyCreated to true to create the clustermesh-apiserver service outside this helm chart. For example after external load balancer controllers are created. |
 | clustermesh.apiserver.service.internalTrafficPolicy | string | `"Cluster"` | The internalTrafficPolicy of service used for apiserver access. |
 | clustermesh.apiserver.service.labels | object | `{}` | Labels for the clustermesh-apiserver service. |
 | clustermesh.apiserver.service.loadBalancerClass | string | `nil` | Configure a loadBalancerClass. Allows to configure the loadBalancerClass on the clustermesh-apiserver LB service in case the Service type is set to LoadBalancer (requires Kubernetes 1.24+). |
@@ -268,17 +269,22 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.service.type | string | `"NodePort"` | The type of service used for apiserver access. |
 | clustermesh.apiserver.terminationGracePeriodSeconds | int | `30` | terminationGracePeriodSeconds for the clustermesh-apiserver deployment |
 | clustermesh.apiserver.tls.admin | object | `{"cert":"","key":""}` | base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key. Used if 'auto' is not enabled. |
-| clustermesh.apiserver.tls.authMode | string | `"legacy"` | Configure the clustermesh authentication mode. Supported values: - legacy:     All clusters access remote clustermesh instances with the same               username (i.e., remote). The "remote" certificate must be               generated with CN=remote if provided manually. - migration:  Intermediate mode required to upgrade from legacy to cluster               (and vice versa) with no disruption. Specifically, it enables               the creation of the per-cluster usernames, while still using               the common one for authentication. The "remote" certificate must               be generated with CN=remote if provided manually (same as legacy). - cluster:    Each cluster accesses remote etcd instances with a username               depending on the local cluster name (i.e., remote-<cluster-name>).               The "remote" certificate must be generated with CN=remote-<cluster-name>               if provided manually. Cluster mode is meaningful only when the same               CA is shared across all clusters part of the mesh. |
+| clustermesh.apiserver.tls.admin.cert | string | `""` | Deprecated, as secrets will always need to be created externally if `auto` is disabled. |
+| clustermesh.apiserver.tls.admin.key | string | `""` | Deprecated, as secrets will always need to be created externally if `auto` is disabled. |
+| clustermesh.apiserver.tls.authMode | string | `"migration"` | Configure the clustermesh authentication mode. Supported values: - legacy:     All clusters access remote clustermesh instances with the same               username (i.e., remote). The "remote" certificate must be               generated with CN=remote if provided manually. - migration:  Intermediate mode required to upgrade from legacy to cluster               (and vice versa) with no disruption. Specifically, it enables               the creation of the per-cluster usernames, while still using               the common one for authentication. The "remote" certificate must               be generated with CN=remote if provided manually (same as legacy). - cluster:    Each cluster accesses remote etcd instances with a username               depending on the local cluster name (i.e., remote-<cluster-name>).               The "remote" certificate must be generated with CN=remote-<cluster-name>               if provided manually. Cluster mode is meaningful only when the same               CA is shared across all clusters part of the mesh. |
 | clustermesh.apiserver.tls.auto | object | `{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}` | Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time. |
 | clustermesh.apiserver.tls.auto.certManagerIssuerRef | object | `{}` | certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager. |
 | clustermesh.apiserver.tls.auto.certValidityDuration | int | `1095` | Generated certificates validity duration in days. |
-| clustermesh.apiserver.tls.auto.enabled | bool | `true` | When set to true, automatically generate a CA and certificates to enable mTLS between clustermesh-apiserver and external workload instances. If set to false, the certs to be provided by setting appropriate values below. |
-| clustermesh.apiserver.tls.client | object | `{"cert":"","key":""}` | base64 encoded PEM values for the clustermesh-apiserver client certificate and private key. Used if 'auto' is not enabled. |
-| clustermesh.apiserver.tls.enableSecrets | bool | `true` | Allow users to provide their own certificates Users may need to provide their certificates using a mechanism that requires they provide their own secrets. This setting does not apply to any of the auto-generated mechanisms below, it only restricts the creation of secrets via the `tls-provided` templates. |
+| clustermesh.apiserver.tls.auto.enabled | bool | `true` | When set to true, automatically generate a CA and certificates to enable mTLS between clustermesh-apiserver and external workload instances.  When set to false you need to pre-create the following secrets: - clustermesh-apiserver-server-cert - clustermesh-apiserver-admin-cert - clustermesh-apiserver-remote-cert - clustermesh-apiserver-local-cert The above secret should at least contains the keys `tls.crt` and `tls.key` and optionally `ca.crt` if a CA bundle is not configured. |
+| clustermesh.apiserver.tls.enableSecrets | deprecated | `true` | Allow users to provide their own certificates Users may need to provide their certificates using a mechanism that requires they provide their own secrets. This setting does not apply to any of the auto-generated mechanisms below, it only restricts the creation of secrets via the `tls-provided` templates. This option is deprecated as secrets are expected to be created externally when 'auto' is not enabled. |
 | clustermesh.apiserver.tls.remote | object | `{"cert":"","key":""}` | base64 encoded PEM values for the clustermesh-apiserver remote cluster certificate and private key. Used if 'auto' is not enabled. |
+| clustermesh.apiserver.tls.remote.cert | string | `""` | Deprecated, as secrets will always need to be created externally if `auto` is disabled. |
+| clustermesh.apiserver.tls.remote.key | string | `""` | Deprecated, as secrets will always need to be created externally if `auto` is disabled. |
 | clustermesh.apiserver.tls.server | object | `{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}` | base64 encoded PEM values for the clustermesh-apiserver server certificate and private key. Used if 'auto' is not enabled. |
+| clustermesh.apiserver.tls.server.cert | string | `""` | Deprecated, as secrets will always need to be created externally if `auto` is disabled. |
 | clustermesh.apiserver.tls.server.extraDnsNames | list | `[]` | Extra DNS names added to certificate when it's auto generated |
 | clustermesh.apiserver.tls.server.extraIpAddresses | list | `[]` | Extra IP addresses added to certificate when it's auto generated |
+| clustermesh.apiserver.tls.server.key | string | `""` | Deprecated, as secrets will always need to be created externally if `auto` is disabled. |
 | clustermesh.apiserver.tolerations | list | `[]` | Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
 | clustermesh.apiserver.topologySpreadConstraints | list | `[]` | Pod topology spread constraints for clustermesh-apiserver |
 | clustermesh.apiserver.updateStrategy | object | `{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}` | clustermesh-apiserver update strategy |
@@ -286,7 +292,7 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.config | object | `{"clusters":[],"domain":"mesh.cilium.io","enabled":false}` | Clustermesh explicit configuration. |
 | clustermesh.config.clusters | list | `[]` | Clusters to be peered in the mesh. @schema type: [object, array] @schema |
 | clustermesh.config.domain | string | `"mesh.cilium.io"` | Default dns domain for the Clustermesh API servers This is used in the case cluster addresses are not provided and IPs are used. |
-| clustermesh.config.enabled | bool | `false` | Enable the Clustermesh explicit configuration. |
+| clustermesh.config.enabled | bool | `false` | Enable the Clustermesh explicit configuration. If set to false, you need to provide the following resources yourself: - (Secret) cilium-clustermesh (used by cilium-agent/cilium-operator to connect to   the local etcd instance if KVStoreMesh is enabled or the remote clusters   if KVStoreMesh is disabled) - (Secret) cilium-kvstoremesh (used by KVStoreMesh to connect to the remote clusters) - (ConfigMap) clustermesh-remote-users (used to create one etcd user per remote cluster   if clustermesh-apiserver is used and `clustermesh.apiserver.tls.authMode` is not   set to `legacy`) |
 | clustermesh.enableEndpointSliceSynchronization | bool | `false` | Enable the synchronization of Kubernetes EndpointSlices corresponding to the remote endpoints of appropriately-annotated global services through ClusterMesh |
 | clustermesh.enableMCSAPISupport | bool | `false` | Enable Multi-Cluster Services API support (deprecated; use clustermesh.mcsapi.enabled) |
 | clustermesh.maxConnectedClusters | int | `255` | The maximum number of clusters to support in a ClusterMesh. This value cannot be changed on running clusters, and all clusters in a ClusterMesh must be configured with the same value. Values > 255 will decrease the maximum allocatable cluster-local identities. Supported values are 255 and 511. |
@@ -309,8 +315,9 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.mcsapi.corednsAutoConfigure.tolerations | list | `[]` | Node tolerations for pod assignment on nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
 | clustermesh.mcsapi.corednsAutoConfigure.ttlSecondsAfterFinished | int | `1800` | Seconds after which the completed job pod will be deleted |
 | clustermesh.mcsapi.enabled | bool | `false` | Enable Multi-Cluster Services API support |
+| clustermesh.mcsapi.installCRDs | bool | `true` | Enabled MCS-API CRDs auto-installation |
 | clustermesh.policyDefaultLocalCluster | bool | `true` | Control whether policy rules assume by default the local cluster if not explicitly selected |
-| clustermesh.useAPIServer | bool | `false` | Deploy clustermesh-apiserver for clustermesh |
+| clustermesh.useAPIServer | bool | `false` | Deploy clustermesh-apiserver for clustermesh. This option is typically used with ``clustermesh.config.enabled=true``. Refer to the  ``clustermesh.config.enabled=true``documentation for more information. |
 | cni.binPath | string | `"/opt/cni/bin"` | Configure the path to the CNI binary directory on the host. |
 | cni.chainingMode | string | `nil` | Configure chaining on top of other CNI plugins. Possible values:  - none  - aws-cni  - flannel  - generic-veth  - portmap |
 | cni.chainingTarget | string | `nil` | A CNI network name in to which the Cilium plugin should be added as a chained plugin. This will cause the agent to watch for a CNI network with this network name. When it is found, this will be used as the basis for Cilium's CNI configuration file. If this is set, it assumes a chaining mode of generic-veth. As a special case, a chaining mode of aws-cni implies a chainingTarget of aws-cni. |
@@ -382,7 +389,7 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.strictMode.allowRemoteNodeIdentities | bool | `false` | Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap. |
 | encryption.strictMode.cidr | string | `""` | CIDR for the Encryption Pod2Pod strict mode. |
 | encryption.strictMode.enabled | bool | `false` | Enable Encryption Pod2Pod strict mode. |
-| encryption.type | string | `"ipsec"` | Encryption method. Can be either ipsec or wireguard. |
+| encryption.type | string | `"ipsec"` | Encryption method. Can be one of ipsec, wireguard or ztunnel. |
 | encryption.wireguard.persistentKeepalive | string | `"0s"` | Controls WireGuard PersistentKeepalive option. Set 0s to disable. |
 | endpointHealthChecking.enabled | bool | `true` | Enable connectivity health checking between virtual endpoints. |
 | endpointLockdownOnMapOverflow | bool | `false` | Enable endpoint lockdown on policy map overflow. |
@@ -396,12 +403,24 @@ contributors across the globe, there is almost always someone available to help.
 | eni.gcTags | object | `{"io.cilium/cilium-managed":"true,"io.cilium/cluster-name":"<auto-detected>"}` | Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected |
 | eni.iamRole | string | `""` | If using IAM role for Service Accounts will not try to inject identity values from cilium-aws kubernetes secret. Adds annotation to service account if managed by Helm. See https://github.com/aws/amazon-eks-pod-identity-webhook |
 | eni.instanceTagsFilter | list | `[]` | Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances are going to be used to create new ENIs |
+| eni.nodeSpec | object | `{"deleteOnTermination":null,"disablePrefixDelegation":false,"excludeInterfaceTags":[],"firstInterfaceIndex":null,"securityGroupTags":[],"securityGroups":[],"subnetIDs":[],"subnetTags":[],"usePrimaryAddress":false}` | NodeSpec configuration for the ENI |
+| eni.nodeSpec.deleteOnTermination | string | `nil` | Delete ENI on termination @schema type: [null, boolean] @schema |
+| eni.nodeSpec.disablePrefixDelegation | bool | `false` | Disable prefix delegation for IP allocation |
+| eni.nodeSpec.excludeInterfaceTags | list | `[]` | Exclude interface tags to use for IP allocation |
+| eni.nodeSpec.firstInterfaceIndex | string | `nil` | First interface index to use for IP allocation @schema type: [null, integer] @schema |
+| eni.nodeSpec.securityGroupTags | list | `[]` | Security group tags to use for IP allocation |
+| eni.nodeSpec.securityGroups | list | `[]` | Security groups to use for IP allocation |
+| eni.nodeSpec.subnetIDs | list | `[]` | Subnet IDs to use for IP allocation |
+| eni.nodeSpec.subnetTags | list | `[]` | Subnet tags to use for IP allocation |
+| eni.nodeSpec.usePrimaryAddress | bool | `false` | Use primary address for IP allocation |
 | eni.subnetIDsFilter | list | `[]` | Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead. |
 | eni.subnetTagsFilter | list | `[]` | Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead. |
 | envoy.affinity | object | `{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cilium.io/no-schedule","operator":"NotIn","values":["true"]}]}]}},"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]},"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-envoy. |
 | envoy.annotations | object | `{}` | Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy) |
 | envoy.baseID | int | `0` |  Set Envoy'--base-id' to use when allocating shared memory regions. Only needs to be changed if multiple Envoy instances will run on the same node and may have conflicts. Supported values: 0 - 4294967295. Defaults to '0' |
 | envoy.bootstrapConfigMap | string | `nil` | ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a `bootstrap-config.json` key. When specified, Envoy will use this ConfigMap instead of the default provided by the chart. WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to syntax error or semantically incorrect configuration). Before submitting an issue, please ensure you have disabled this feature, as support cannot be provided for custom Envoy bootstrap configs. @schema type: [null, string] @schema |
+| envoy.clusterMaxConnections | int | `1024` | Maximum number of connections on Envoy clusters |
+| envoy.clusterMaxRequests | int | `1024` | Maximum number of requests on Envoy clusters |
 | envoy.connectTimeoutSeconds | int | `2` | Time in seconds after which a TCP connection attempt times out |
 | envoy.debug.admin.enabled | bool | `false` | Enable admin interface for cilium-envoy. This is useful for debugging and should not be enabled in production. |
 | envoy.debug.admin.port | int | `9901` | Port number (bound to loopback interface). kubectl port-forward can be used to access the admin interface. |
@@ -417,7 +436,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.httpRetryCount | int | `3` | Maximum number of retries for each HTTP request |
 | envoy.httpUpstreamLingerTimeout | string | `nil` | Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:2a821c32b668952bc4c41abf35a278f6ae37079785f229c24c2b47d6e861c341","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1764736996-e3dbcd7cf576759ae331f0e30e195be3347be58f","useDigest":true}` | Envoy container image. |
 | envoy.initContainers | list | `[]` | Init containers added to the cilium Envoy DaemonSet. |
 | envoy.initialFetchTimeoutSeconds | int | `30` | Time in seconds after which the initial fetch on an xDS stream is considered timed out |
 | envoy.livenessProbe.enabled | bool | `true` | Enable liveness probe for cilium-envoy |
@@ -463,6 +482,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.terminationGracePeriodSeconds | int | `1` | Configure termination grace period for cilium-envoy DaemonSet. |
 | envoy.tolerations | list | `[{"operator":"Exists"}]` | Node tolerations for envoy scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
 | envoy.updateStrategy | object | `{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}` | cilium-envoy update strategy ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#updating-a-daemonset |
+| envoy.useOriginalSourceAddress | bool | `true` | For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter to use the original source address when extracting the metadata for a request. |
 | envoy.xffNumTrustedHopsL7PolicyEgress | int | `0` | Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners. |
 | envoy.xffNumTrustedHopsL7PolicyIngress | int | `0` | Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners. |
 | envoyConfig.enabled | bool | `false` | Enable CiliumEnvoyConfig CRD CiliumEnvoyConfig CRD can also be implicitly enabled by other options. |
@@ -506,12 +526,13 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.dropEventEmitter.interval | string | `"2m"` | - Minimum time between emitting same events. |
 | hubble.dropEventEmitter.reasons | list | `["auth_required","policy_denied"]` | - Drop reasons to emit events for. ref: https://docs.cilium.io/en/stable/_api/v1/flow/README/#dropreason |
 | hubble.enabled | bool | `true` | Enable Hubble (true by default). |
-| hubble.export | object | `{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}}` | Hubble flows export. |
-| hubble.export.dynamic | object | `{"config":{"configMapName":"cilium-flowlog-config","content":[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}` | - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts. |
+| hubble.export | object | `{"dynamic":{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregationInterval":"0s","excludeFilters":[],"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false},"static":{"aggregationInterval":"0s","allowList":[],"denyList":[],"enabled":false,"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}}` | Hubble flows export. |
+| hubble.export.dynamic | object | `{"config":{"configMapName":"cilium-flowlog-config","content":[{"aggregationInterval":"0s","excludeFilters":[],"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}],"createConfigMap":true},"enabled":false}` | - Dynamic exporters configuration. Dynamic exporters may be reconfigured without a need of agent restarts. |
 | hubble.export.dynamic.config.configMapName | string | `"cilium-flowlog-config"` | -- Name of configmap with configuration that may be altered to reconfigure exporters within a running agents. |
-| hubble.export.dynamic.config.content | list | `[{"excludeFilters":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]` | -- Exporters configuration in YAML format. |
+| hubble.export.dynamic.config.content | list | `[{"aggregationInterval":"0s","excludeFilters":[],"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log","includeFilters":[],"name":"all"}]` | -- Exporters configuration in YAML format. |
 | hubble.export.dynamic.config.createConfigMap | bool | `true` | -- True if helm installer should create config map. Switch to false if you want to self maintain the file content. |
-| hubble.export.static | object | `{"allowList":[],"denyList":[],"enabled":false,"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}` | - Static exporter configuration. Static exporter is bound to agent lifecycle. |
+| hubble.export.static | object | `{"aggregationInterval":"0s","allowList":[],"denyList":[],"enabled":false,"fieldAggregate":[],"fieldMask":[],"fileCompress":false,"fileMaxBackups":5,"fileMaxSizeMb":10,"filePath":"/var/run/cilium/hubble/events.log"}` | - Static exporter configuration. Static exporter is bound to agent lifecycle. |
+| hubble.export.static.aggregationInterval | string | `"0s"` | - Defines the interval at which to aggregate before exporting Hubble flows.     Aggregation feature is only enabled when fieldAggregate is specified and aggregationInterval > 0s. |
 | hubble.export.static.fileCompress | bool | `false` | - Enable compression of rotated files. |
 | hubble.export.static.fileMaxBackups | int | `5` | - Defines max number of backup/rotated files. |
 | hubble.export.static.fileMaxSizeMb | int | `10` | - Defines max file size of output file before it gets rotated. |
@@ -709,6 +730,9 @@ contributors across the globe, there is almost always someone available to help.
 | ipam.installUplinkRoutesForDelegatedIPAM | bool | `false` | Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin. |
 | ipam.mode | string | `"cluster-pool"` | Configure IP Address Management mode. ref: https://docs.cilium.io/en/stable/network/concepts/ipam/ |
 | ipam.multiPoolPreAllocation | string | `""` | Pre-allocation settings for IPAM in Multi-Pool mode |
+| ipam.nodeSpec | object | `{"ipamMinAllocate":null,"ipamPreAllocate":null}` | NodeSpec configuration for the IPAM |
+| ipam.nodeSpec.ipamMinAllocate | string | `nil` | IPAM min allocate @schema type: [null, integer] @schema |
+| ipam.nodeSpec.ipamPreAllocate | string | `nil` | IPAM pre allocate @schema type: [null, integer] @schema |
 | ipam.operator.autoCreateCiliumPodIPPools | object | `{}` | IP pools to auto-create in multi-pool IPAM mode. |
 | ipam.operator.clusterPoolIPv4MaskSize | int | `24` | IPv4 CIDR mask size to delegate to individual nodes for IPAM. |
 | ipam.operator.clusterPoolIPv4PodCIDRList | list | `["10.0.0.0/8"]` | IPv4 CIDR list range to delegate to individual nodes for IPAM. |
@@ -771,7 +795,7 @@ contributors across the globe, there is almost always someone available to help.
 | monitor | object | `{"enabled":false}` | cilium-monitor sidecar. |
 | monitor.enabled | bool | `false` | Enable the cilium-monitor sidecar. |
 | name | string | `"cilium"` | Agent daemonset name. |
-| namespaceOverride | string | `""` | namespaceOverride allows to override the destination namespace for Cilium resources. This property allows to use Cilium as part of an Umbrella Chart with different targets. |
+| namespaceOverride | string | `""` | namespaceOverride allows to override the destination namespace for Cilium resources. |
 | nat.mapStatsEntries | int | `32` | Number of the top-k SNAT map connections to track in Cilium statedb. |
 | nat.mapStatsInterval | string | `"30s"` | Interval between how often SNAT map is counted for stats. |
 | nat46x64Gateway | object | `{"enabled":false}` | Configure standalone NAT46/NAT64 gateway |
@@ -792,7 +816,7 @@ contributors across the globe, there is almost always someone available to help.
 | nodeinit.extraEnv | list | `[]` | Additional nodeinit environment variables. |
 | nodeinit.extraVolumeMounts | list | `[]` | Additional nodeinit volumeMounts. |
 | nodeinit.extraVolumes | list | `[]` | Additional nodeinit volumes. |
-| nodeinit.image | object | `{"digest":"sha256:5bdca3c2dec2c79f58d45a7a560bf1098c2126350c901379fe850b7f78d3d757","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1755531540-60ee83e","useDigest":true}` | node-init image. |
+| nodeinit.image | object | `{"digest":"sha256:50b9cf9c280096b59b80d2fc8ee6638facef79ac18998a22f0cbc40d5d28c16f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1763560095-8f36c34","useDigest":true}` | node-init image. |
 | nodeinit.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for nodeinit pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | nodeinit.podAnnotations | object | `{}` | Annotations to be added to node-init pods. |
 | nodeinit.podLabels | object | `{}` | Labels to be added to node-init pods. |
@@ -861,6 +885,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.unmanagedPodWatcher.selector | string | `nil` | Selector for pods that should be restarted when not managed by Cilium. If not set, defaults to built-in selector "k8s-app=kube-dns". Set to empty string to select all pods. @schema type: [null, string] @schema |
 | operator.updateStrategy | object | `{"rollingUpdate":{"maxSurge":"25%","maxUnavailable":"50%"},"type":"RollingUpdate"}` | cilium-operator update strategy |
 | pmtuDiscovery.enabled | bool | `false` | Enable path MTU discovery to send ICMP fragmentation-needed replies to the client. |
+| pmtuDiscovery.packetizationLayerPMTUD | object | `{"enabled":true}` | Enable kernel probing path MTU discovery for Pods which uses different message sizes to search for correct MTU value. |
 | podAnnotations | object | `{}` | Annotations to be added to agent pods |
 | podLabels | object | `{}` | Labels to be added to agent pods |
 | podSecurityContext | object | `{"appArmorProfile":{"type":"Unconfined"},"seccompProfile":{"type":"Unconfined"}}` | Security Context for cilium-agent pods. |
@@ -876,7 +901,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-preflight |
 | preflight.annotations | object | `{}` | Annotations to be added to all top-level preflight objects (resources under templates/cilium-preflight) |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
-| preflight.envoy.image | object | `{"digest":"sha256:808c986a99e2a1ea9785b49604a1ccd1e1cdc21d4b7a2ff1236cc31788ea9b45","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1760614940-cb5737105ff9a4ca5d080c0c8f3ea1bfdc08de83","useDigest":true}` | Envoy pre-flight image. |
+| preflight.envoy.image | object | `{"digest":"sha256:2a821c32b668952bc4c41abf35a278f6ae37079785f229c24c2b47d6e861c341","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1764736996-e3dbcd7cf576759ae331f0e30e195be3347be58f","useDigest":true}` | Envoy pre-flight image. |
 | preflight.extraEnv | list | `[]` | Additional preflight environment variables. |
 | preflight.extraVolumeMounts | list | `[]` | Additional preflight volumeMounts. |
 | preflight.extraVolumes | list | `[]` | Additional preflight volumes. |

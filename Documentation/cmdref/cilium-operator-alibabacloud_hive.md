@@ -19,9 +19,10 @@ cilium-operator-alibabacloud hive [flags]
       --clustermesh-concurrent-service-endpoint-syncs int    The number of remote cluster service syncing operations that will be done concurrently. Larger number = faster endpoint slice updating, but more CPU (and network) load. (default 5)
       --clustermesh-config string                            Path to the ClusterMesh configuration directory
       --clustermesh-enable-endpoint-sync                     Whether or not the endpoint slice cluster mesh synchronization is enabled.
-      --clustermesh-enable-mcs-api                           Whether or not the MCS API support is enabled.
+      --clustermesh-enable-mcs-api                           Enable Cluster Mesh MCS-API support
       --clustermesh-endpoint-updates-batch-period duration   The length of endpoint slice updates batching period for remote cluster services. Processing of pod changes will be delayed by this duration to join them with potential upcoming updates and reduce the overall number of endpoints updates. Larger number = higher endpoint programming latency, but lower number of endpoints revision generated. (default 500ms)
       --clustermesh-endpoints-per-slice int                  The maximum number of endpoints that will be added to a remote cluster's EndpointSlice . More endpoints per slice will result in less endpoint slices, but larger resources. (default 100)
+      --clustermesh-mcs-api-install-crds                     Install and manage the MCS API CRDs. Only applicable if MCS API support is enabled. (default true)
       --clustermesh-sync-timeout duration                    Timeout waiting for the initial synchronization of information from remote clusters (default 1m0s)
       --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --default-lb-service-ipam string                       Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
@@ -40,6 +41,7 @@ cilium-operator-alibabacloud hive [flags]
       --enable-lb-ipam                                       Enable LB IPAM (default true)
       --enable-node-ipam                                     Enable Node IPAM
       --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
+      --enable-ztunnel                                       Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'

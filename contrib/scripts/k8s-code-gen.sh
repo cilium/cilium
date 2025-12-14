@@ -105,7 +105,6 @@ kube::codegen::gen_client \
 kube::codegen::gen_client \
     "./pkg/k8s/apis" \
     --with-watch \
-    --with-applyconfig \
     --output-dir "${TMPDIR}/github.com/cilium/cilium/pkg/k8s/client" \
     --output-pkg "github.com/cilium/cilium/pkg/k8s/client" \
     --plural-exceptions ${PLURAL_EXCEPTIONS} \

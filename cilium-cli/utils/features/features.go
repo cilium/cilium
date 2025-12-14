@@ -102,8 +102,6 @@ const (
 
 	EnableEnvoyConfig Feature = "enable-envoy-config"
 
-	WireguardEncapsulate Feature = "wireguard-encapsulate"
-
 	CiliumIPAMMode Feature = "ipam"
 
 	IPsecEnabled                  Feature = "enable-ipsec"
@@ -122,6 +120,8 @@ const (
 	L7LoadBalancer Feature = "loadbalancer-l7"
 
 	RHEL Feature = "rhel"
+
+	ExternalEnvoyProxy Feature = "external-envoy-proxy"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -358,10 +358,6 @@ func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
 
 	fs[EnableEnvoyConfig] = Status{
 		Enabled: cm.Data[string(EnableEnvoyConfig)] == "true",
-	}
-
-	fs[WireguardEncapsulate] = Status{
-		Enabled: cm.Data[string(WireguardEncapsulate)] == "true",
 	}
 
 	fs[CiliumIPAMMode] = Status{

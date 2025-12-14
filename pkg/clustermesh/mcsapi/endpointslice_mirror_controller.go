@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -130,6 +131,69 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) shouldMirrorLocalEndpointSlice(
 	return true, nil
 }
 
+// getFilteredPorts returns a filtered version of the local EndpointSlice ports
+// that should be mirrored to the derived EndpointSlice. It does that by comparing
+// the local Service ports frontend ports from the derived Service ports.
+// There might be mismatch between those two if there is a port conflict. In that case
+// it mean we need to skip the ports that we disagree on.
+func (r *mcsAPIEndpointSliceMirrorReconciler) getFilteredPorts(
+	ctx context.Context, localEpSlice *discoveryv1.EndpointSlice, derivedService *corev1.Service,
+) ([]discoveryv1.EndpointPort, error) {
+	if localEpSlice == nil {
+		return nil, nil
+	}
+
+	// Note that shouldMirrorLocalEndpointSlice already guarantee that a
+	// ServiceExport exist for a local EndpointSlice and that the
+	// local EndpointSlice has a service label name too
+	var localService corev1.Service
+	if err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      localEpSlice.Labels[discoveryv1.LabelServiceName],
+		Namespace: localEpSlice.Namespace,
+	}, &localService); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			return nil, err
+		}
+		return slices.Clone(localEpSlice.Ports), nil
+	}
+
+	// The Service logic link Service object and EndpointSlice objects by port
+	// name. So we need to apply filtering based on a port name mapping
+	localSvcPorts := make(map[string]corev1.ServicePort, len(localService.Spec.Ports))
+	for _, port := range localService.Spec.Ports {
+		localSvcPorts[port.Name] = port
+	}
+	derivedSvcPorts := make(map[string]corev1.ServicePort, len(derivedService.Spec.Ports))
+	for _, port := range derivedService.Spec.Ports {
+		derivedSvcPorts[port.Name] = port
+	}
+	filteredPorts := make([]discoveryv1.EndpointPort, 0, len(localEpSlice.Ports))
+	for _, epPort := range localEpSlice.Ports {
+		portName := ptr.Deref(epPort.Name, "")
+		localSvcPort := localSvcPorts[portName]
+		derivedSvcPort, derivedExists := derivedSvcPorts[portName]
+
+		if !derivedExists {
+			// If port name doesn't exist it likely means that it wasn't reconciled
+			// yet by the ServiceImport or derived Service controllers (and that
+			// the port only exist locally), so let's just skip it for now
+			continue
+		}
+
+		if localSvcPort.Port != derivedSvcPort.Port || localSvcPort.Protocol != derivedSvcPort.Protocol {
+			// A port conflict is happening, we can skip the port to exclude
+			// traffic for this port from being routed to our local cluster.
+			// This includes both local traffic and remote traffic since we
+			// won't export that port.
+			continue
+		}
+
+		filteredPorts = append(filteredPorts, epPort)
+	}
+
+	return filteredPorts, nil
+}
+
 func getDerivedServiceName(localEpSlice *discoveryv1.EndpointSlice) string {
 	serviceName := localEpSlice.Labels[discoveryv1.LabelServiceName]
 	if serviceName == "" {
@@ -156,6 +220,7 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) getLocalDerivedEndpointSlice(
 
 func (r *mcsAPIEndpointSliceMirrorReconciler) updateDerivedEndpointSlice(
 	derivedEpSlice, localEpSlice *discoveryv1.EndpointSlice, derivedService *corev1.Service,
+	filteredPorts []discoveryv1.EndpointPort,
 ) {
 	controllerutil.SetControllerReference(derivedService, derivedEpSlice, r.Scheme())
 
@@ -177,11 +242,12 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) updateDerivedEndpointSlice(
 
 	// Beware those are shallow copies, content of the struct should not be modified
 	derivedEpSlice.Endpoints = slices.Clone(localEpSlice.Endpoints)
-	derivedEpSlice.Ports = slices.Clone(localEpSlice.Ports)
+	derivedEpSlice.Ports = filteredPorts // filteredPorts is already a new slice/copy
 }
 
 func (r *mcsAPIEndpointSliceMirrorReconciler) newDerivedEndpointSlice(
 	localEpSlice *discoveryv1.EndpointSlice, derivedService *corev1.Service,
+	filteredPorts []discoveryv1.EndpointPort,
 ) *discoveryv1.EndpointSlice {
 	// Note that derivedEpsliceKey can not return nil here since it has already
 	// been checked by shouldMirrorLocalEndpointSlice that prevents the EndpointSlice
@@ -194,7 +260,7 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) newDerivedEndpointSlice(
 		},
 	}
 
-	r.updateDerivedEndpointSlice(&derivedEndpointSlice, localEpSlice, derivedService)
+	r.updateDerivedEndpointSlice(&derivedEndpointSlice, localEpSlice, derivedService, filteredPorts)
 	return &derivedEndpointSlice
 }
 
@@ -283,13 +349,25 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) Reconcile(ctx context.Context, req
 		localEpSlice = nil
 	}
 
+	var filteredPorts []discoveryv1.EndpointPort
+	if localEpSlice != nil {
+		filteredPorts, err = r.getFilteredPorts(ctx, localEpSlice, &derivedService)
+		if err != nil {
+			return controllerruntime.Fail(err)
+		}
+		if len(filteredPorts) == 0 {
+			// If all ports are filtered out we should exclude this EndpointSlice
+			localEpSlice = nil
+		}
+	}
+
 	if localEpSlice == nil && derivedEpSlice != nil {
 		err = r.Client.Delete(ctx, derivedEpSlice)
 	} else if localEpSlice != nil && derivedEpSlice == nil {
-		derivedEpSlice = r.newDerivedEndpointSlice(localEpSlice, &derivedService)
+		derivedEpSlice = r.newDerivedEndpointSlice(localEpSlice, &derivedService, filteredPorts)
 		err = r.Client.Create(ctx, derivedEpSlice)
-	} else if localEpSlice != nil && r.needUpdate(localEpSlice, derivedEpSlice, &derivedService) {
-		r.updateDerivedEndpointSlice(derivedEpSlice, localEpSlice, &derivedService)
+	} else if localEpSlice != nil && r.needUpdate(localEpSlice, derivedEpSlice, &derivedService, filteredPorts) {
+		r.updateDerivedEndpointSlice(derivedEpSlice, localEpSlice, &derivedService, filteredPorts)
 		err = r.Client.Update(ctx, derivedEpSlice)
 	}
 
@@ -359,12 +437,14 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) SetupWithManager(mgr ctrl.Manager)
 		// Watch for changes to derived Service to enqueue local EndpointSlices.
 		// We need to enqueue the "other" EndpointSlice to allow derived
 		// EndpointSlice initial creation.
+		// Also watch for changes to local Service to refresh port filtering
+		// if local Service ports where to change.
 		Watches(&corev1.Service{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
-			svcImportOwner := getOwnerReferenceName(obj.GetOwnerReferences(), mcsapiv1alpha1.GroupVersion.String(), kindServiceImport)
+			svcImportOwner := getOwnerReferenceName(obj.GetOwnerReferences(), mcsapiv1alpha1.GroupVersion.String(), mcsapiv1alpha1.ServiceImportKindName)
 			if svcImportOwner != "" {
 				return r.getEndpointSliceFromServiceRequests(ctx, types.NamespacedName{Name: svcImportOwner, Namespace: obj.GetNamespace()})
 			}
-			return nil
+			return r.getEndpointSliceFromServiceRequests(ctx, client.ObjectKeyFromObject(obj))
 		})).
 		Complete(r)
 }
@@ -396,8 +476,9 @@ func getSuffix(endpointSlice *discoveryv1.EndpointSlice) string {
 
 func (r *mcsAPIEndpointSliceMirrorReconciler) needUpdate(
 	localEpSlice, derivedEpSlice *discoveryv1.EndpointSlice, derivedService *corev1.Service,
+	filteredPorts []discoveryv1.EndpointPort,
 ) bool {
-	desiredDerivedEndpointSlice := r.newDerivedEndpointSlice(localEpSlice, derivedService)
+	desiredDerivedEndpointSlice := r.newDerivedEndpointSlice(localEpSlice, derivedService, filteredPorts)
 
 	if !maps.Equal(derivedEpSlice.Labels, desiredDerivedEndpointSlice.Labels) {
 		return true

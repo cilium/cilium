@@ -131,6 +131,12 @@ func fromServiceToMCSAPIServiceSpec(svc *corev1.Service, cluster string, svcExpo
 		Annotations:             maps.Clone(svcExport.Spec.ExportedAnnotations),
 		Labels:                  maps.Clone(svcExport.Spec.ExportedLabels),
 	}
+	if svc.Spec.InternalTrafficPolicy != nil {
+		mcsAPISvcSpec.InternalTrafficPolicy = ptr.To(*svc.Spec.InternalTrafficPolicy)
+	}
+	if svc.Spec.TrafficDistribution != nil {
+		mcsAPISvcSpec.TrafficDistribution = ptr.To(*svc.Spec.TrafficDistribution)
+	}
 	return mcsAPISvcSpec
 }
 
@@ -400,6 +406,30 @@ func checkConflictExport(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) (mc
 				return maps.Equal(svc1.Labels, svc2.Labels)
 			},
 		},
+		{
+			name:   "internalTrafficPolicy",
+			reason: mcsapiv1alpha1.ServiceExportReasonInternalTrafficPolicyConflict,
+			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
+				return string(ptr.Deref(svcSpec.InternalTrafficPolicy, corev1.ServiceInternalTrafficPolicyCluster))
+			},
+			equalFunc: func(svc1, svc2 *mcsapitypes.MCSAPIServiceSpec) bool {
+				return ptr.Deref(svc1.InternalTrafficPolicy, corev1.ServiceInternalTrafficPolicyCluster) ==
+					ptr.Deref(svc2.InternalTrafficPolicy, corev1.ServiceInternalTrafficPolicyCluster)
+			},
+		},
+		{
+			name:   "trafficDistribution",
+			reason: mcsapiv1alpha1.ServiceExportReasonTrafficDistributionConflict,
+			getterFunc: func(svcSpec *mcsapitypes.MCSAPIServiceSpec) string {
+				if svcSpec.TrafficDistribution == nil {
+					return ""
+				}
+				return string(*svcSpec.TrafficDistribution)
+			},
+			equalFunc: func(svc1, svc2 *mcsapitypes.MCSAPIServiceSpec) bool {
+				return ptr.Equal(svc1.TrafficDistribution, svc2.TrafficDistribution)
+			},
+		},
 	}
 	for i, svcExport := range orderedSvcExports[1:] {
 		for _, fieldStruct := range fieldStructs {
@@ -576,6 +606,16 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 	svcImport.Spec.Type = oldestClusterSvc.Type
 	svcImport.Spec.SessionAffinity = oldestClusterSvc.SessionAffinity
 	svcImport.Spec.SessionAffinityConfig = oldestClusterSvc.SessionAffinityConfig.DeepCopy()
+	if oldestClusterSvc.InternalTrafficPolicy != nil {
+		svcImport.Spec.InternalTrafficPolicy = ptr.To(*oldestClusterSvc.InternalTrafficPolicy)
+	} else {
+		svcImport.Spec.InternalTrafficPolicy = nil
+	}
+	if oldestClusterSvc.TrafficDistribution != nil {
+		svcImport.Spec.TrafficDistribution = ptr.To(*oldestClusterSvc.TrafficDistribution)
+	} else {
+		svcImport.Spec.TrafficDistribution = nil
+	}
 	svcImport.Labels = maps.Clone(oldestClusterSvc.Labels)
 	annotations := maps.Clone(oldestClusterSvc.Annotations)
 	if annotations == nil {

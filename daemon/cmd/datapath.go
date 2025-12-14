@@ -13,12 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/fragmap"
-	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/maps/metricsmap"
-	"github.com/cilium/cilium/pkg/maps/nat"
-	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -90,77 +84,11 @@ func initMaps(params daemonParams) error {
 		return nil
 	}
 
-	if err := lxcmap.LXCMap(params.MetricsRegistry).OpenOrCreate(); err != nil {
-		return fmt.Errorf("initializing lxc map: %w", err)
-	}
-
-	// The ipcache is shared between endpoints. Unpin the old ipcache map created
-	// by any previous instances of the agent to prevent new endpoints from
-	// picking up the old map pin. The old ipcache will continue to be used by
-	// loaded bpf programs, it will just no longer be updated by the agent.
-	//
-	// This is to allow existing endpoints that have not been regenerated yet to
-	// continue using the existing ipcache until the endpoint is regenerated for
-	// the first time and its bpf programs have been replaced. Existing endpoints
-	// are using a policy map which is potentially out of sync as local identities
-	// are re-allocated on startup.
-	if err := ipcachemap.IPCacheMap(params.MetricsRegistry).Recreate(); err != nil {
-		return fmt.Errorf("initializing ipcache map: %w", err)
-	}
-
-	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
-		return fmt.Errorf("initializing metrics map: %w", err)
-	}
-
-	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
+	for _, m := range ctmap.Maps(option.Config.EnableIPv4,
 		option.Config.EnableIPv6) {
 		if err := m.Create(); err != nil {
 			return fmt.Errorf("initializing conntrack map %s: %w", m.Name(), err)
 		}
-	}
-
-	ipv4Nat, ipv6Nat := nat.GlobalMaps(params.MetricsRegistry, option.Config.EnableIPv4,
-		option.Config.EnableIPv6, params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade)
-	if ipv4Nat != nil {
-		if err := ipv4Nat.Create(); err != nil {
-			return fmt.Errorf("initializing ipv4nat map: %w", err)
-		}
-	}
-	if ipv6Nat != nil {
-		if err := ipv6Nat.Create(); err != nil {
-			return fmt.Errorf("initializing ipv6nat map: %w", err)
-		}
-	}
-
-	if params.KPRConfig.KubeProxyReplacement {
-		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
-			option.Config.EnableIPv6); err != nil {
-			return fmt.Errorf("initializing neighbors map: %w", err)
-		}
-	}
-	if params.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
-		if err := nat.CreateRetriesMaps(option.Config.EnableIPv4,
-			option.Config.EnableIPv6); err != nil {
-			return fmt.Errorf("initializing NAT retries map: %w", err)
-		}
-	}
-
-	if option.Config.EnableIPv4FragmentsTracking {
-		if err := fragmap.InitMap4(params.MetricsRegistry, option.Config.FragmentsMapEntries); err != nil {
-			return fmt.Errorf("initializing fragments map: %w", err)
-		}
-	}
-
-	if option.Config.EnableIPv6FragmentsTracking {
-		if err := fragmap.InitMap6(params.MetricsRegistry, option.Config.FragmentsMapEntries); err != nil {
-			return fmt.Errorf("initializing fragments map: %w", err)
-		}
-	}
-
-	if !option.Config.RestoreState {
-		// If we are not restoring state, all endpoints can be
-		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap(params.MetricsRegistry).DeleteAll()
 	}
 
 	return nil

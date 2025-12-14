@@ -51,7 +51,6 @@ const (
 	configNameClusterID   = "cluster-id"
 	configNameClusterName = "cluster-name"
 
-	configNameTunnelLegacy         = "tunnel"
 	configNameTunnelProtocol       = "tunnel-protocol"
 	configNameRoutingMode          = "routing-mode"
 	configNameMaxConnectedClusters = "max-connected-clusters"
@@ -327,15 +326,10 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 
 	tunnelProtocol := ""
 	if cm.Data[configNameRoutingMode] == "tunnel" {
-		// Cilium v1.14 and newer
 		tunnelProtocol = "vxlan" // default for tunnel mode
 		if proto, ok := cm.Data[configNameTunnelProtocol]; ok {
 			tunnelProtocol = proto
 		}
-	} else if proto, ok := cm.Data[configNameTunnelLegacy]; ok {
-		// Cilium v1.13 and older (some v1.14 configurations might use it too)
-		// Can be removed once we drop support for v1.14
-		tunnelProtocol = proto
 	}
 
 	ai := &accessInformation{
@@ -1005,6 +999,9 @@ func generateEnableHelmValues(params Parameters, flavor k8s.Flavor) (map[string]
 	helmVals := map[string]any{
 		"clustermesh": map[string]any{
 			"useAPIServer": true,
+			"config": map[string]any{
+				"enabled": true,
+			},
 		},
 	}
 

@@ -7,7 +7,9 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -24,14 +26,15 @@ var Cell = cell.Module(
 type cgroupManagerParams struct {
 	cell.In
 
-	Logger    *slog.Logger
-	Lifecycle cell.Lifecycle
+	Logger   *slog.Logger
+	JobGroup job.Group
 
 	AgentConfig *option.DaemonConfig
+	KPRConfig   kpr.KPRConfig
 }
 
 func newCGroupManager(params cgroupManagerParams) CGroupManager {
-	if !params.AgentConfig.EnableSocketLBTracing {
+	if !params.KPRConfig.EnableSocketLB || !params.AgentConfig.EnableSocketLBTracing {
 		return &noopCGroupManager{}
 	}
 
@@ -48,16 +51,7 @@ func newCGroupManager(params cgroupManagerParams) CGroupManager {
 
 	cm := newManager(params.Logger, cgroupImpl{}, pathProvider, podEventsChannelSize)
 
-	params.Lifecycle.Append(cell.Hook{
-		OnStart: func(hookContext cell.HookContext) error {
-			go cm.processPodEvents()
-			return nil
-		},
-		OnStop: func(cell.HookContext) error {
-			cm.Close()
-			return nil
-		},
-	})
+	params.JobGroup.Add(job.OneShot("process-pod-events", cm.processPodEvents))
 
 	params.Logger.Info("Cgroup metadata manager is enabled")
 

@@ -1,16 +1,5 @@
-// Copyright 2015 go-swagger maintainers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
 
 package middleware
 
@@ -126,7 +115,7 @@ func newRoutableUntypedAPI(spec *loads.Document, api *untyped.API, context *Cont
 					}
 
 					// bind and validate the request using reflection
-					var bound interface{}
+					var bound any
 					var validation error
 					bound, r, validation = context.BindAndValidate(r, route)
 					if validation != nil {
@@ -287,7 +276,7 @@ func MatchedRouteFrom(req *http.Request) *MatchedRoute {
 }
 
 // SecurityPrincipalFrom request context value.
-func SecurityPrincipalFrom(req *http.Request) interface{} {
+func SecurityPrincipalFrom(req *http.Request) any {
 	return req.Context().Value(ctxSecurityPrincipal)
 }
 
@@ -466,7 +455,7 @@ func (c *Context) ResetAuth(request *http.Request) *http.Request {
 // Returns the principal object and a shallow copy of the request when its
 // context doesn't contain the principal, otherwise the same request or an error
 // (the last) if one of the authenticators returns one or an Unauthenticated error
-func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (interface{}, *http.Request, error) {
+func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (any, *http.Request, error) {
 	if route == nil || !route.HasAuth() {
 		return nil, nil, nil
 	}
@@ -504,7 +493,7 @@ func (c *Context) Authorize(request *http.Request, route *MatchedRoute) (interfa
 // Returns the validation map and a shallow copy of the request when its context
 // doesn't contain the validation, otherwise it returns the same request or an
 // CompositeValidationError error
-func (c *Context) BindAndValidate(request *http.Request, matched *MatchedRoute) (interface{}, *http.Request, error) {
+func (c *Context) BindAndValidate(request *http.Request, matched *MatchedRoute) (any, *http.Request, error) {
 	var rCtx = request.Context()
 
 	if v, ok := rCtx.Value(ctxBoundParams).(*validation); ok {
@@ -530,7 +519,7 @@ func (c *Context) NotFound(rw http.ResponseWriter, r *http.Request) {
 }
 
 // Respond renders the response after doing some content negotiation
-func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []string, route *MatchedRoute, data interface{}) {
+func (c *Context) Respond(rw http.ResponseWriter, r *http.Request, produces []string, route *MatchedRoute, data any) {
 	c.debugLogf("responding to %s %s with produces: %v", r.Method, r.URL.Path, produces)
 	offers := []string{}
 	for _, mt := range produces {

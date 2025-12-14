@@ -67,8 +67,6 @@ const (
 	MapNameAny6Global = MapNameAny6 + "global"
 	MapNameAny4Global = MapNameAny4 + "global"
 
-	mapNumEntriesLocal = 64000
-
 	TUPLE_F_OUT     = 0
 	TUPLE_F_IN      = 1
 	TUPLE_F_RELATED = 2
@@ -120,12 +118,22 @@ type CtMapRecord struct {
 
 // InitMapInfo builds the information about different CT maps for the
 // combination of L3/L4 protocols.
-func InitMapInfo(registry *metrics.Registry, v4, v6, natRequired bool) {
-	global4Map, global6Map := nat.GlobalMaps(registry, v4, v6, natRequired)
+func InitMapInfo(registry *metrics.Registry, v4, v6 bool, nat4 nat.NatMap4, nat6 nat.NatMap6) {
+	var global4Map, global6Map *nat.Map
 	global4MapLock := &lock.Mutex{}
 	global6MapLock := &lock.Mutex{}
 
-	// SNAT also only works if the CT map is global so all local maps will be nil
+	if nat4 != nil {
+		if m, ok := nat4.(*nat.Map); ok && m != nil {
+			global4Map = m
+		}
+	}
+	if nat6 != nil {
+		if m, ok := nat6.(*nat.Map); ok && m != nil {
+			global6Map = m
+		}
+	}
+
 	mapInfo = map[mapType]mapAttributes{
 		mapTypeIPv4TCPGlobal: {natMap: global4Map, natMapLock: global4MapLock},
 		mapTypeIPv6TCPGlobal: {natMap: global6Map, natMapLock: global6MapLock},
@@ -335,20 +343,18 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 			m.Logger.Error("Unable to get per-cluster NAT map", logfields.Error, err)
 		} else {
 			natMap = natm
+			err := natMap.Open()
+			if err != nil {
+				m.Logger.Error("Unable to open per-cluster NAT map", logfields.Error, err)
+				natMap = nil
+			} else {
+				defer natMap.Close()
+			}
 		}
 	}
 
 	stats := statStartGc(m, logResults)
 	defer stats.finish()
-
-	if natMap != nil {
-		err := natMap.Open()
-		if err == nil {
-			defer natMap.Close()
-		} else {
-			natMap = nil
-		}
-	}
 
 	// We serialize the deletions in order to avoid forced map walk restarts
 	// when keys are being evicted underneath us from concurrent goroutines.
@@ -357,21 +363,11 @@ func doGCForFamily(m *Map, filter GCFilter, next4, next6 func(GCEvent), ipv6 boo
 	// to happen concurrently.
 	globalDeleteLock[m.mapType].Lock()
 	if ipv6 {
-		if m.mapType.isGlobal() {
-			filterCallback := cleanup(m, filter, natMap, &stats, next6, true)
-			stats.dumpError = iterate[CtKey6Global, CtEntry](m, &stats, filterCallback)
-		} else {
-			filterCallback := cleanup(m, filter, natMap, &stats, next6, true)
-			stats.dumpError = iterate[CtKey6, CtEntry](m, &stats, filterCallback)
-		}
+		filterCallback := cleanup(m, filter, natMap, &stats, next6, ipv6)
+		stats.dumpError = iterate[CtKey6Global, CtEntry](m, &stats, filterCallback)
 	} else {
-		if m.mapType.isGlobal() {
-			filterCallback := cleanup(m, filter, natMap, &stats, next4, true)
-			stats.dumpError = iterate[CtKey4Global, CtEntry](m, &stats, filterCallback)
-		} else {
-			filterCallback := cleanup(m, filter, natMap, &stats, next4, true)
-			stats.dumpError = iterate[CtKey4, CtEntry](m, &stats, filterCallback)
-		}
+		filterCallback := cleanup(m, filter, natMap, &stats, next4, ipv6)
+		stats.dumpError = iterate[CtKey4Global, CtEntry](m, &stats, filterCallback)
 	}
 	globalDeleteLock[m.mapType].Unlock()
 
@@ -411,6 +407,7 @@ func iterate[KT any, VT any, KP bpf.KeyPointer[KT], VP bpf.ValuePointer[VT]](m *
 }
 
 var _ tupleKeyAccessor = &tuple.TupleKey4{}
+
 var _ tupleKeyAccessor = &tuple.TupleKey6{}
 
 type tupleKeyAccessor interface {
@@ -466,7 +463,6 @@ func cleanup(m *Map, filter GCFilter, natMap *nat.Map, stats *gcStats, next func
 		default:
 			stats.aliveEntries++
 		}
-
 	}
 }
 
@@ -532,14 +528,41 @@ func GC(m *Map, filter GCFilter, next4, next6 func(GCEvent)) (int, error) {
 // CT GC to remove corresponding SNAT entries.
 // See the unit test TestPrivilegedOrphanNatGC for more examples.
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
+	var natMap *nat.Map
+
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
-	ctMap := mapInfo[ctMapTCP.mapType]
-	if ctMap.natMapLock != nil {
-		ctMap.natMapLock.Lock()
-		defer ctMap.natMapLock.Unlock()
+	if ctMapTCP.clusterID == 0 {
+		// global map handling
+		ctMap := mapInfo[ctMapTCP.mapType]
+		if ctMap.natMapLock != nil {
+			ctMap.natMapLock.Lock()
+			defer ctMap.natMapLock.Unlock()
+		}
+		natMap = ctMap.natMap
+	} else {
+		// per-cluster map handling
+		var family = nat.IPv4
+		if ctMapTCP.mapType.isIPv6() {
+			family = nat.IPv6
+		}
+
+		natm, err := nat.GetClusterNATMap(ctMapTCP.clusterID, family)
+		if err != nil {
+			ctMapTCP.Logger.Error("Unable to get per-cluster NAT map", logfields.Error, err)
+		} else {
+			natMap = natm
+		}
+
+		if natMap != nil {
+			if err := natMap.Open(); err != nil {
+				natMap.Logger.Error("Unable to open per-cluster NAT map", logfields.Error, err)
+				return nil
+			}
+			defer natMap.Close()
+		}
 	}
-	natMap := ctMap.natMap
+
 	if natMap == nil {
 		return nil
 	}
@@ -548,7 +571,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	if ctMapTCP.mapType.isIPv6() {
 		family = gcFamilyIPv6
 	}
-	stats := newNatGCStats(natMap, family)
+	stats := newNatGCStats(natMap, family, ctMapTCP.clusterID)
 	defer stats.finish()
 	egressEntriesToDelete := make([]nat.NatKey, 0)
 	ingressEntriesToDelete := make([]nat.NatKey, 0)
@@ -638,7 +661,7 @@ func (m *Map) Flush(next4, next6 func(GCEvent)) int {
 // once all referenced to the map are cleared - that is, all BPF programs which
 // refer to the old map and removed/reloaded.
 func DeleteIfUpgradeNeeded() {
-	for _, newMap := range maps(true, true) {
+	for _, newMap := range Maps(true, true) {
 		path, err := newMap.Path()
 		if err != nil {
 			newMap.Logger.Warn("Failed to get path for CT map", logfields.Error, err)
@@ -663,9 +686,11 @@ func DeleteIfUpgradeNeeded() {
 	}
 }
 
-// maps returns the global connection tracking maps.
-// protocol will not be returned.
-func maps(ipv4, ipv6 bool) []*Map {
+// Maps returns a slice of all CT maps that are used.
+// If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
+//
+// The returned maps are not yet opened.
+func Maps(ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if ipv4 {
 		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
@@ -678,20 +703,11 @@ func maps(ipv4, ipv6 bool) []*Map {
 	return result
 }
 
-// GlobalMaps returns a slice of CT maps that are used globally by all
-// endpoints that are not otherwise configured to use their own local maps.
-// If ipv4 or ipv6 are false, the maps for that protocol will not be returned.
-//
-// The returned maps are not yet opened.
-func GlobalMaps(ipv4, ipv6 bool) []*Map {
-	return maps(ipv4, ipv6)
-}
-
 // WriteBPFMacros writes the map names for the global conntrack maps into the
 // specified writer.
 func WriteBPFMacros(fw io.Writer) {
 	var mapEntriesTCP, mapEntriesAny int
-	for _, m := range maps(true, true) {
+	for _, m := range Maps(true, true) {
 		if m.mapType.isTCP() {
 			mapEntriesTCP = m.mapType.maxEntries()
 		} else {
@@ -706,7 +722,7 @@ func WriteBPFMacros(fw io.Writer) {
 // or true if they exist or an internal error occurs.
 func Exists(ipv4, ipv6 bool) bool {
 	result := true
-	for _, m := range maps(ipv4, ipv6) {
+	for _, m := range Maps(ipv4, ipv6) {
 		path, err := m.Path()
 		if err != nil {
 			// Catch this error early
@@ -726,7 +742,14 @@ func Exists(ipv4, ipv6 bool) bool {
 //   - expectedPrevInterval 	= Is the last computed interval, which we expected to
 //     wait *unless* a signal caused early pass. If this is set to zero then we use gc starting interval.
 func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
-	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
+	return GetIntervalWithConfig(logger, actualPrevInterval, expectedPrevInterval, maxDeleteRatio,
+		option.Config.ConntrackGCInterval, option.Config.ConntrackGCMaxInterval, GCIntervalRounding, MinGCInterval)
+}
+
+func GetIntervalWithConfig(logger *slog.Logger, actualPrevInterval, expectedPrevInterval time.Duration, maxDeleteRatio float64,
+	conntrackGCInterval, conntrackGCMaxInterval, gcIntervalRounding, minGCInterval time.Duration,
+) time.Duration {
+	if val := conntrackGCInterval; val != time.Duration(0) {
 		return val
 	}
 
@@ -737,8 +760,8 @@ func GetInterval(logger *slog.Logger, actualPrevInterval, expectedPrevInterval t
 		adjustedDeleteRatio *= float64(expectedPrevInterval) / float64(actualPrevInterval)
 	}
 
-	newInterval := calculateInterval(expectedPrevInterval, adjustedDeleteRatio)
-	if val := option.Config.ConntrackGCMaxInterval; val != time.Duration(0) && newInterval > val {
+	newInterval := calculateIntervalWithConfig(expectedPrevInterval, adjustedDeleteRatio, gcIntervalRounding, minGCInterval)
+	if val := conntrackGCMaxInterval; val != time.Duration(0) && newInterval > val {
 		newInterval = val
 	}
 
@@ -764,6 +787,10 @@ var (
 )
 
 func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
+	return calculateIntervalWithConfig(prevInterval, maxDeleteRatio, GCIntervalRounding, MinGCInterval)
+}
+
+func calculateIntervalWithConfig(prevInterval time.Duration, maxDeleteRatio float64, gcIntervalRounding, minGCInterval time.Duration) (interval time.Duration) {
 	interval = prevInterval
 
 	if maxDeleteRatio == 0.0 {
@@ -776,13 +803,13 @@ func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (inte
 			maxDeleteRatio = 0.9
 		}
 		// 25%..90% => 1.3x..10x shorter
-		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(GCIntervalRounding), MinGCInterval)
+		interval = max(time.Duration(float64(interval)*(1.0-maxDeleteRatio)).Round(gcIntervalRounding), minGCInterval)
 	case maxDeleteRatio < 0.05:
 		// When less than 5% of entries were deleted, increase the
 		// interval. Use a simple 1.5x multiplier to start growing slowly
 		// as a new node may not be seeing workloads yet and thus the
 		// scan will return a low deletion ratio at first.
-		interval = min(time.Duration(float64(interval)*1.5).Round(GCIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
+		interval = min(time.Duration(float64(interval)*1.5).Round(gcIntervalRounding), defaults.ConntrackGCMaxLRUInterval)
 	}
 
 	return

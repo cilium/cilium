@@ -1,16 +1,5 @@
-// Copyright 2015 go-swagger maintainers
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-FileCopyrightText: Copyright 2015-2025 go-swagger maintainers
+// SPDX-License-Identifier: Apache-2.0
 
 package errors
 
@@ -20,7 +9,7 @@ import (
 	"net/http"
 )
 
-// ParseError represents a parsing error
+// ParseError represents a parsing error.
 type ParseError struct {
 	code    int32
 	Name    string
@@ -30,7 +19,7 @@ type ParseError struct {
 	message string
 }
 
-// NewParseError creates a new parse error
+// NewParseError creates a new parse error.
 func NewParseError(name, in, value string, reason error) *ParseError {
 	var msg string
 	if in == "" {
@@ -52,18 +41,18 @@ func (e *ParseError) Error() string {
 	return e.message
 }
 
-// Code returns the http status code for this error
+// Code returns the http status code for this error.
 func (e *ParseError) Code() int32 {
 	return e.code
 }
 
-// MarshalJSON implements the JSON encoding interface
+// MarshalJSON implements the JSON encoding interface.
 func (e ParseError) MarshalJSON() ([]byte, error) {
 	var reason string
 	if e.Reason != nil {
 		reason = e.Reason.Error()
 	}
-	return json.Marshal(map[string]interface{}{
+	return json.Marshal(map[string]any{
 		"code":    e.code,
 		"message": e.message,
 		"in":      e.In,

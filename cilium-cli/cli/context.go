@@ -12,17 +12,19 @@ import (
 func newCmdContext() *cobra.Command {
 	cmd := &cobra.Command{
 		Run: func(_ *cobra.Command, _ []string) {
+			contextName := RootParams.ContextName
+
 			if contextName == "" {
-				contextName = k8sClient.RawConfig.CurrentContext
+				contextName = RootK8sClient.RawConfig.CurrentContext
 			}
 
 			fmt.Printf("Context: %s\n", contextName)
 
-			if context, ok := k8sClient.RawConfig.Contexts[contextName]; ok {
+			if context, ok := RootK8sClient.RawConfig.Contexts[contextName]; ok {
 				fmt.Printf("Cluster: %s\n", context.Cluster)
 				fmt.Printf("Auth: %s\n", context.AuthInfo)
 
-				if cluster, ok := k8sClient.RawConfig.Clusters[context.Cluster]; ok {
+				if cluster, ok := RootK8sClient.RawConfig.Clusters[context.Cluster]; ok {
 					fmt.Printf("Host: %s\n", cluster.Server)
 					fmt.Printf("TLS server name: %s\n", cluster.TLSServerName)
 					fmt.Printf("CA path: %s\n", cluster.CertificateAuthority)

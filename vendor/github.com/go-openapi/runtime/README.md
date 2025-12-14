@@ -11,7 +11,7 @@ The runtime component for use in code generation or as untyped usage.
 
 ## Release notes
 
-### v0.29.0 [draft, unpublished]
+### v0.29.0
 
 **New with this release**:
 
@@ -37,3 +37,7 @@ Moving forward, we want to :
     independently from the main package (to avoid breaking changes, the existing API
     will remain maintained, but evolve at a slower pace than opentelemetry).
 * [ ] fix a few known issues with some file upload requests (e.g. #286)
+
+## Licensing
+
+This library ships under the [SPDX-License-Identifier: Apache-2.0](./LICENSE).

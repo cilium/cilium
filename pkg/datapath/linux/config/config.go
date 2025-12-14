@@ -306,10 +306,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.EnableLocalRedirectPolicy {
-		cDefinesMap["ENABLE_LOCAL_REDIRECT_POLICY"] = "1"
-	}
-
 	cDefinesMap["NAT_46X64_PREFIX_0"] = "0"
 	cDefinesMap["NAT_46X64_PREFIX_1"] = "0"
 	cDefinesMap["NAT_46X64_PREFIX_2"] = "0"
@@ -356,10 +352,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if option.Config.EnablePMTUDiscovery {
 				cDefinesMap["ENABLE_DSR_ICMP_ERRORS"] = "1"
 			}
-			if cfg.LBConfig.LBMode == loadbalancer.LBModeHybrid {
-				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
-			} else if cfg.LBConfig.LBModeAnnotation {
-				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+			if cfg.LBConfig.LBMode == loadbalancer.LBModeHybrid || cfg.LBConfig.LBModeAnnotation {
 				cDefinesMap["ENABLE_DSR_BYUSER"] = "1"
 			}
 			if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchOption {
@@ -540,10 +533,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	ctmap.WriteBPFMacros(fw)
 
-	if option.Config.AllowICMPFragNeeded {
-		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
-	}
-
 	if option.Config.ClockSource == option.ClockSourceJiffies {
 		cDefinesMap["ENABLE_JIFFIES"] = "1"
 	}
@@ -566,10 +555,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.DisableExternalIPMitigation {
 		cDefinesMap["DISABLE_EXTERNAL_IP_MITIGATION"] = "1"
-	}
-
-	if option.Config.EnableICMPRules {
-		cDefinesMap["ENABLE_ICMP_RULE"] = "1"
 	}
 
 	cDefinesMap["CIDR_IDENTITY_RANGE_START"] = fmt.Sprintf("%d", identity.MinLocalIdentity)

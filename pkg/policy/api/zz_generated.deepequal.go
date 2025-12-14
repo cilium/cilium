@@ -104,12 +104,8 @@ func (in *CIDRRule) DeepEqual(other *CIDRRule) bool {
 	if in.CIDRGroupRef != other.CIDRGroupRef {
 		return false
 	}
-	if (in.CIDRGroupSelector == nil) != (other.CIDRGroupSelector == nil) {
+	if !in.CIDRGroupSelector.DeepEqual(&other.CIDRGroupSelector) {
 		return false
-	} else if in.CIDRGroupSelector != nil {
-		if !in.CIDRGroupSelector.DeepEqual(other.CIDRGroupSelector) {
-			return false
-		}
 	}
 
 	if ((in.ExceptCIDRs != nil) && (other.ExceptCIDRs != nil)) || ((in.ExceptCIDRs == nil) != (other.ExceptCIDRs == nil)) {
@@ -211,23 +207,6 @@ func (in *EgressCommonRule) deepEqual(other *EgressCommonRule) bool {
 
 	if ((in.ToEndpoints != nil) && (other.ToEndpoints != nil)) || ((in.ToEndpoints == nil) != (other.ToEndpoints == nil)) {
 		in, other := &in.ToEndpoints, &other.ToEndpoints
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
-		}
-	}
-
-	if ((in.ToRequires != nil) && (other.ToRequires != nil)) || ((in.ToRequires == nil) != (other.ToRequires == nil)) {
-		in, other := &in.ToRequires, &other.ToRequires
 		if other == nil {
 			return false
 		}
@@ -400,14 +379,6 @@ func (in *EndpointSelector) DeepEqual(other *EndpointSelector) bool {
 		return false
 	} else if in.LabelSelector != nil {
 		if !in.LabelSelector.DeepEqual(other.LabelSelector) {
-			return false
-		}
-	}
-
-	if (in.requirements == nil) != (other.requirements == nil) {
-		return false
-	} else if in.requirements != nil {
-		if !in.requirements.DeepEqual(other.requirements) {
 			return false
 		}
 	}
@@ -635,23 +606,6 @@ func (in *IngressCommonRule) deepEqual(other *IngressCommonRule) bool {
 
 	if ((in.FromEndpoints != nil) && (other.FromEndpoints != nil)) || ((in.FromEndpoints == nil) != (other.FromEndpoints == nil)) {
 		in, other := &in.FromEndpoints, &other.FromEndpoints
-		if other == nil {
-			return false
-		}
-
-		if len(*in) != len(*other) {
-			return false
-		} else {
-			for i, inElement := range *in {
-				if !inElement.DeepEqual(&(*other)[i]) {
-					return false
-				}
-			}
-		}
-	}
-
-	if ((in.FromRequires != nil) && (other.FromRequires != nil)) || ((in.FromRequires == nil) != (other.FromRequires == nil)) {
-		in, other := &in.FromRequires, &other.FromRequires
 		if other == nil {
 			return false
 		}
@@ -1430,14 +1384,6 @@ func (in *ServiceSelector) DeepEqual(other *ServiceSelector) bool {
 		return false
 	} else if in.LabelSelector != nil {
 		if !in.LabelSelector.DeepEqual(other.LabelSelector) {
-			return false
-		}
-	}
-
-	if (in.requirements == nil) != (other.requirements == nil) {
-		return false
-	} else if in.requirements != nil {
-		if !in.requirements.DeepEqual(other.requirements) {
 			return false
 		}
 	}

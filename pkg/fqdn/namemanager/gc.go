@@ -49,14 +49,14 @@ func (n *manager) doGC(ctx context.Context) error {
 		activeConnections    = fqdn.NewDNSCache(activeConnectionsTTL)
 	)
 	namesToClean := make(sets.Set[string])
+	initialNames := n.cache.DumpNames()
 
-	// Take a snapshot of the *entire* reverse cache, so we can compute the set of
-	// IPs that have been completely removed and safely delete their metadata.
-	maybeStaleIPs := n.cache.GetIPs()
+	allEndpointNames := make(sets.Set[string])
 
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
 	endpoints := n.params.EPMgr.GetEndpoints()
 	for _, ep := range endpoints {
+		allEndpointNames.Insert(ep.DNSHistory.DumpNames().UnsortedList()...)
 		epID := ep.StringID()
 		if metrics.FQDNActiveNames.IsEnabled() || metrics.FQDNActiveIPs.IsEnabled() {
 			countFQDNs, countIPs := ep.DNSHistory.Count()
@@ -108,6 +108,11 @@ func (n *manager) doGC(ctx context.Context) error {
 		}
 	}
 
+	leakedNames := initialNames.Difference(allEndpointNames)
+	for name := range leakedNames {
+		namesToClean.Insert(name)
+	}
+
 	if namesToClean.Len() == 0 {
 		return nil
 	}
@@ -127,7 +132,9 @@ func (n *manager) doGC(ctx context.Context) error {
 
 	namesToCleanSlice := namesToClean.UnsortedList()
 
-	n.cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
+	// Take a snapshot of the *entire* reverse cache, so we can compute the set of
+	// IPs that have been completely removed and safely delete their metadata.
+	maybeStaleIPs := n.cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
 
 	metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToCleanSlice)))
 	namesCount := len(namesToCleanSlice)
@@ -168,7 +175,7 @@ func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
 			// We do not stop the agent here. It is safer to continue with best effort
 			// than to enter crash backoffs when this file is broken.
 		} else {
-			n.cache.UpdateFromCache(precache, nil)
+			n.cache.UpdateFromCache(precache)
 		}
 	}
 
@@ -181,7 +188,7 @@ func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
 	for _, possibleEP := range eps {
 		// Upgrades from old ciliums have this nil
 		if possibleEP.DNSHistory != nil {
-			n.cache.UpdateFromCache(possibleEP.DNSHistory, []string{})
+			n.cache.UpdateFromCache(possibleEP.DNSHistory)
 			if names, ips := possibleEP.DNSHistory.Count(); names > 0 {
 				n.logger.Info("restored DNS history from endpoint",
 					logfields.EndpointID, possibleEP.ID,

@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
@@ -339,6 +340,8 @@ type params struct {
 	JobGroup job.Group
 	DB       *statedb.DB
 	Devices  statedb.Table[*tables.Device]
+
+	TunnelCfg tunnel.Config
 }
 
 func newIptablesManager(p params) datapath.IptablesManager {
@@ -368,6 +371,19 @@ func newIptablesManager(p params) datapath.IptablesManager {
 
 	iptMgr.ip4tables = ip4tables
 	iptMgr.ip6tables = ip6tables
+
+	// IPTables manager cannot start properly if MASQ is enabled with no
+	// egressMasqeuradingInterfaces for any IPAM mode other then ClusterPool or
+	// Kubernetes.
+	//
+	// This is because a PodCIDR is only guaranteed to be available
+	// with the above IPAM modes, and PodCIDR and without this IPTable MASQ
+	// rules MUST be interface-specific and cannot rely on selecting a source
+	// range. See the IPTable's MASQ rule creation bits for more detail.
+	if (iptMgr.sharedCfg.IptablesMasqueradingIPv4Enabled || iptMgr.sharedCfg.IptablesMasqueradingIPv6Enabled) &&
+		len(iptMgr.sharedCfg.MasqueradeInterfaces) == 0 && (iptMgr.sharedCfg.IPAM != ipamOption.IPAMClusterPool && iptMgr.sharedCfg.IPAM != ipamOption.IPAMKubernetes) {
+		panic("Egress masquerading interfaces cannot be empty when IP masquerading is enabled with IPAM mode other than ClusterPool or Kubernetes")
+	}
 
 	// init iptables/ip6tables wait arguments before using them in the reconciler or in the manager (e.g: GetProxyPorts)
 	initDone := iptMgr.argsInit.Add()
@@ -621,6 +637,7 @@ func (m *Manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 		return nil
 	}
 
+	// NOTE: Proxy port restoration depends on the comment string below, see doGetProxyPorts()
 	rule := []string{
 		"-t", "mangle",
 		"-A", ciliumPreMangleChain,
@@ -633,6 +650,93 @@ func (m *Manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 		"--on-port", tProxyPort,
 	}
 	return prog.runProg(rule)
+}
+
+// addCiliumTunnelRules adds the iptables rules for the tunnel (node to node) traffic.
+// here we have both:
+// - a NOTRACK rule (to avoid creating ct entry in the kernel for tunnel traffic)
+// - an ACCEPT rule in the output chain in the filter table (to explicitly allow it to pass)
+func (m *Manager) addCiliumTunnelRules() (err error) {
+	port := m.sharedCfg.TunnelPort
+
+	if !m.sharedCfg.TunnelingEnabled || port == 0 {
+		return nil
+	}
+
+	if err := m.addCiliumAcceptTunnelRules(port); err != nil {
+		return err
+	}
+
+	return m.installTunnelNoTrackRules(port)
+}
+
+// addCiliumAcceptTunnelRules adds the ACCEPT rule in the cilium output chain
+// for udp destination port at `tunnelPort`.
+func (m *Manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
+	cmd := []string{
+		"-t", "filter",
+		"-A", ciliumOutputChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(tunelPort)),
+		"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
+		"-j", "ACCEPT",
+	}
+
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.ip4tables.runProg(cmd); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.ip6tables.runProg(cmd); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// addCiliumAcceptTunnelRules adds the NOTRACK rule in the cilium raw prerouting
+// and output raw chains for udp destination port at `tunnelPort`.
+func (m *Manager) installTunnelNoTrackRules(tunelPort uint16) error {
+	input := []string{
+		"-t", "raw",
+		"-A", ciliumPreRawChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(tunelPort)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
+		"-j", "CT", "--notrack",
+	}
+
+	output := []string{
+		"-t", "raw",
+		"-A", ciliumOutputRawChain,
+		"-p", "udp",
+		"--dport", strconv.Itoa(int(tunelPort)),
+		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
+		"-j", "CT", "--notrack",
+	}
+
+	if m.sharedCfg.EnableIPv4 {
+		if err := m.ip4tables.runProg(input); err != nil {
+			return err
+		}
+		if err := m.ip4tables.runProg(output); err != nil {
+			return err
+		}
+	}
+
+	if m.sharedCfg.EnableIPv6 {
+		if err := m.ip6tables.runProg(input); err != nil {
+			return err
+		}
+		if err := m.ip6tables.runProg(output); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (m *Manager) installStaticProxyRules() error {
@@ -1185,7 +1289,7 @@ func (m *Manager) doGetProxyPorts(prog iptablesInterface) map[string]uint16 {
 	}
 
 	re := regexp.MustCompile(
-		"(cilium-[^ ]*) proxy.*TPROXY redirect " +
+		"/\\* cilium: TPROXY to host ([^ ]+) proxy \\*/ TPROXY redirect " +
 			"(0.0.0.0|" + ipfamily.IPv4().Localhost +
 			"|::|" + ipfamily.IPv6().Localhost + ")" +
 			":([1-9][0-9]*) mark",
@@ -1632,6 +1736,10 @@ func (m *Manager) installRules(state desiredState) error {
 
 			return fmt.Errorf("cannot add custom chain %s: %w", c.name, err)
 		}
+	}
+
+	if err := m.addCiliumTunnelRules(); err != nil {
+		return fmt.Errorf("cannot install tunnel rules: %w", err)
 	}
 
 	if err := m.installStaticProxyRules(); err != nil {

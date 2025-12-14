@@ -46,18 +46,30 @@
 #include "lib/arp.h"
 #include "lib/encap.h"
 
-#define overlay_ingress_policy_hook(ctx, ip4, identity, ext_err) CTX_ACT_OK
-
 #ifdef ENABLE_IPV6
+static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx)
+{
+	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
+	int ret;
+
+	ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, METRIC_INGRESS);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
+	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
+}
+
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
 {
-	int ret, l3_off = ETH_HLEN;
+	int ret __maybe_unused, l3_off = ETH_HLEN;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	const struct endpoint_info *ep;
-	bool __maybe_unused is_dsr = false;
+	bool is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
@@ -110,12 +122,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			*identity = info->sec_identity;
 	}
 
-#ifdef ENABLE_IPSEC
-	if (ip6->nexthdr != IPPROTO_ESP)
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_PLAINTEXT);
-#endif
-
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
 		__u32 egress_ifindex = 0;
@@ -164,18 +170,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
-	if (1) {
-		union macaddr host_mac = CILIUM_HOST_MAC;
-		union macaddr router_mac = CONFIG(interface_mac);
-
-		ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
-			      (__u8 *)&host_mac.addr, METRIC_INGRESS);
-		if (ret != CTX_ACT_OK)
-			return ret;
-
-		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
-		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
-	}
+	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
+	return ipv6_host_delivery(ctx);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_OVERLAY)
@@ -197,19 +193,16 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
-	if (1) {
-		union macaddr host_mac = CILIUM_HOST_MAC;
-		union macaddr router_mac = CONFIG(interface_mac);
-		int ret;
+	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
+	int ret;
 
-		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
-			      (__u8 *)&host_mac.addr, ip4);
-		if (ret != CTX_ACT_OK)
-			return ret;
+	ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, ip4);
+	if (ret != CTX_ACT_OK)
+		return ret;
 
-		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
-		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
-	}
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
+	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
 }
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
@@ -290,9 +283,9 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	void *data_end, *data;
 	struct iphdr *ip4;
 	const struct endpoint_info *ep;
-	bool __maybe_unused is_dsr = false;
+	bool is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
-	int ret;
+	int ret __maybe_unused;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
@@ -387,12 +380,6 @@ skip_vtep:
 			*identity = info->sec_identity;
 	}
 
-#ifdef ENABLE_IPSEC
-	if (ip4->protocol != IPPROTO_ESP)
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_PLAINTEXT);
-#endif
-
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
 		__u32 egress_ifindex = 0;
@@ -437,16 +424,10 @@ skip_vtep:
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, MARK_MAGIC_IDENTITY,
 					   ip4, ep, METRIC_INGRESS, false, true, 0);
 
-	ret = overlay_ingress_policy_hook(ctx, ip4, *identity, ext_err);
-	if (ret != CTX_ACT_OK)
-		return ret;
-
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
-
 	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
-
 	return ipv4_host_delivery(ctx, ip4);
 }
 

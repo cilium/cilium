@@ -1,0 +1,133 @@
+name: CodeQL
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['actions']
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@cf1bb45a277cb3c205638b2cd5c984db1c46a412 # v4.31.7
+        with:
+          languages: ${{ matrix.language }}
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@cf1bb45a277cb3c205638b2cd5c984db1c46a412 # v4.31.7
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@cf1bb45a277cb3c205638b2cd5c984db1c46a412 # v4.31.7
+        with:
+          category: '/language:${{matrix.language}}'
+          output: sarif-results
+          upload: false
+
+      - name: Checking for missing-workflow-permissions issues
+        run: |
+          set -euo pipefail
+
+          SARIF_FILE="sarif-results/${{ matrix.language }}.sarif"
+          if [[ ! -f "$SARIF_FILE" ]]; then
+            echo "No SARIF file found"
+            touch /tmp/affected_files.txt
+            exit 0
+          fi
+
+          AFFECTED_FILES=$(jq -r '
+            .runs[].results // [] |
+            .[] |
+            select(.ruleId == "actions/missing-workflow-permissions") |
+            .locations[0].physicalLocation.artifactLocation.uri
+          ' "$SARIF_FILE" | sort -u)
+
+          if [[ -z "$AFFECTED_FILES" ]]; then
+            echo "✅  No issues found"
+            touch /tmp/affected_files.txt
+            exit 0
+          fi
+
+          echo "$AFFECTED_FILES" > /tmp/affected_files.txt
+          echo "Found issues in $(echo "$AFFECTED_FILES" | wc -l) files"
+
+      - name: Get modified files
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            MODIFIED_FILES=$(git diff --name-only "$BASE_SHA"..."$HEAD_SHA")
+          else
+            MODIFIED_FILES=$(git diff --name-only HEAD~1)
+          fi
+
+          echo "$MODIFIED_FILES" > /tmp/modified_files.txt
+          echo "Found $(echo "$MODIFIED_FILES" | wc -l) modified files"
+
+      - name: Check for issues in modified files
+        run: |
+          set -euo pipefail
+
+          SARIF_FILE="sarif-results/${{ matrix.language }}.sarif"
+          AFFECTED_FILES=$(cat /tmp/affected_files.txt)
+          MODIFIED_FILES=$(cat /tmp/modified_files.txt)
+
+          # If no affected files, skip check
+          if [[ -z "$AFFECTED_FILES" ]]; then
+            echo "✅ No issues in modified files"
+            exit 0
+          fi
+
+          # Check for issues in modified files
+          FAILED=false
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            if echo "$MODIFIED_FILES" | grep -qx "$file"; then
+              echo "❌ Missing permissions in modified file: $file"
+              jq -r --arg file "$file" '
+                .runs[].results // [] |
+                .[] |
+                select(.ruleId == "actions/missing-workflow-permissions" and
+                       .locations[0].physicalLocation.artifactLocation.uri == $file) |
+                "  Line \(.locations[0].physicalLocation.region.startLine): \(.message.text)"
+              ' "$SARIF_FILE"
+              FAILED=true
+            fi
+          done <<< "$AFFECTED_FILES"
+
+          if [[ "$FAILED" == "true" ]]; then
+            echo ""
+            echo "❌ Pipeline failed: Modified files have missing workflow permissions"
+            exit 1
+          fi
+
+          echo "✅ No issues in modified files"
+
+      - name: Upload SARIF as artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: codeql-sarif-${{ matrix.language }}
+          path: sarif-results/${{ matrix.language }}.sarif
+          retention-days: 7
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@cf1bb45a277cb3c205638b2cd5c984db1c46a412 # v4.31.7
+        with:
+          sarif_file: sarif-results/${{ matrix.language }}.sarif
+          category: '/language:${{matrix.language}}'

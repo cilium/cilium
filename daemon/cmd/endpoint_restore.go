@@ -8,14 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
+	"net/netip"
 	"os"
 	"slices"
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -24,9 +26,12 @@ import (
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
@@ -35,11 +40,39 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// endpointRestore cell provides the logic to restore the endpoints at agent startup.
+var endpointRestoreCell = cell.Module(
+	"endpoint-restore",
+	"Initial endpoint restoration at agent startup",
+
+	cell.Provide(promise.New[endpointstate.Restorer]),
+	cell.Provide(newEndpointRestorer),
+	cell.Invoke(registerEndpointRestoreFinishJob),
+)
+
+// registerEndpointRestoreFinishJob registers a hive job that asynchronously performs the last step of the endpoint restoration
+// (expose the restored endpoints via endpointmanager & trigger regeneration).
+//
+// The first two steps of the endpoint restoration are still explicitly initiated by the legacy startup logic (configureDaemon) -
+// therefore this cell needs to depend on legacy.DaemonInitialization.
+// For the same reason, the job can't be registered by newEndpointRestorer cell (would result in circular dependencies)
+func registerEndpointRestoreFinishJob(jobGroup job.Group, endpointRestorer *endpointRestorer, _ legacy.DaemonInitialization) {
+	if option.Config.DryMode {
+		return
+	}
+
+	jobGroup.Add(job.OneShot("finish-endpoint-restore", endpointRestorer.InitRestore, job.WithShutdown()))
+}
+
 type endpointRestorerParams struct {
 	cell.In
+
+	Resolver promise.Resolver[endpointstate.Restorer]
 
 	Logger              *slog.Logger
 	K8sWatcher          *watchers.K8sWatcher
@@ -51,6 +84,10 @@ type endpointRestorerParams struct {
 	EndpointAPIFence    endpointapi.Fence
 	IPSecAgent          datapath.IPsecAgent
 	IPAMManager         *ipam.IPAM
+	CacheStatus         k8sSynced.CacheStatus
+	DirReadStatus       policyDirectory.DirectoryWatcherReadStatus
+	IPCache             *ipcache.IPCache
+	LXCMap              lxcmap.Map
 }
 
 type endpointRestorer struct {
@@ -64,14 +101,20 @@ type endpointRestorer struct {
 	endpointAPIFence    endpointapi.Fence
 	ipSecAgent          datapath.IPsecAgent
 	ipamManager         *ipam.IPAM
+	lxcMap              lxcmap.Map
+
+	cacheStatus   k8sSynced.CacheStatus
+	dirReadStatus policyDirectory.DirectoryWatcherReadStatus
+	ipCache       *ipcache.IPCache
 
 	restoreState                  *endpointRestoreState
 	endpointRestoreComplete       chan struct{}
+	endpointRegenerateComplete    chan struct{}
 	endpointInitialPolicyComplete chan struct{}
 }
 
 func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
-	return &endpointRestorer{
+	restorer := &endpointRestorer{
 		logger:              params.Logger,
 		k8sWatcher:          params.K8sWatcher,
 		clientset:           params.Clientset,
@@ -82,8 +125,14 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 		endpointAPIFence:    params.EndpointAPIFence,
 		ipSecAgent:          params.IPSecAgent,
 		ipamManager:         params.IPAMManager,
+		lxcMap:              params.LXCMap,
+
+		cacheStatus:   params.CacheStatus,
+		dirReadStatus: params.DirReadStatus,
+		ipCache:       params.IPCache,
 
 		endpointRestoreComplete:       make(chan struct{}),
+		endpointRegenerateComplete:    make(chan struct{}),
 		endpointInitialPolicyComplete: make(chan struct{}),
 		restoreState: &endpointRestoreState{
 			possible: nil,
@@ -91,9 +140,15 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 			toClean:  []*endpoint.Endpoint{},
 		},
 	}
+
+	// Restorer promise is still required to avoid circular dependencies -
+	// but we can immediately resolve it.
+	params.Resolver.Resolve(restorer)
+
+	return restorer
 }
 
-func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
+func (r *endpointRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
 	}
@@ -106,6 +161,19 @@ func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
 	return nil
 }
 
+func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
+	if !option.Config.RestoreState {
+		return nil
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.endpointRegenerateComplete:
+	}
+	return nil
+}
+
 func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
 	if !option.Config.RestoreState {
 		return nil
@@ -114,7 +182,7 @@ func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-r.endpointRestoreComplete:
+	case <-r.endpointRegenerateComplete:
 	case <-r.endpointInitialPolicyComplete:
 	}
 	return nil
@@ -333,12 +401,12 @@ func (r *endpointRestorer) RestoreOldEndpoints() error {
 	}
 
 	var (
-		existingEndpoints map[string]lxcmap.EndpointInfo
+		existingEndpoints map[netip.Addr]lxcmap.EndpointInfo
 		err               error
 	)
 
 	if !option.Config.DryMode {
-		existingEndpoints, err = lxcmap.DumpToMap()
+		existingEndpoints, err = r.lxcMap.DumpToMap()
 		if err != nil {
 			r.logger.Warn("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup", logfields.Error, err)
 		}
@@ -373,8 +441,8 @@ func (r *endpointRestorer) RestoreOldEndpoints() error {
 		r.restoreState.restored = append(r.restoreState.restored, ep)
 
 		if existingEndpoints != nil {
-			delete(existingEndpoints, ep.GetIPv4Address())
-			delete(existingEndpoints, ep.GetIPv6Address())
+			delete(existingEndpoints, ep.IPv4Address())
+			delete(existingEndpoints, ep.IPv6Address())
 		}
 	}
 
@@ -384,10 +452,13 @@ func (r *endpointRestorer) RestoreOldEndpoints() error {
 		logfields.Failed, failed,
 	)
 
-	for epIP, info := range existingEndpoints {
-		if ip := net.ParseIP(epIP); !info.IsHost() && ip != nil {
-			if err := lxcmap.DeleteEntry(ip); err != nil {
-				r.logger.Warn("Unable to delete obsolete endpoint from BPF map", logfields.Error, err)
+	for addr, info := range existingEndpoints {
+		if addr.IsValid() && !info.IsHost() {
+			if err := r.lxcMap.DeleteEntry(addr); err != nil {
+				r.logger.Warn("Unable to delete obsolete endpoint from BPF map",
+					logfields.IPAddr, addr,
+					logfields.Error, err,
+				)
 			} else {
 				r.logger.Debug(
 					"Removed outdated endpoint from endpoint map",
@@ -559,7 +630,7 @@ func (r *endpointRestorer) handleRestoredEndpointsRegeneration(endpoints []*endp
 		logfields.Failed, failed,
 		logfields.Total, total,
 	)
-	close(r.endpointRestoreComplete)
+	close(r.endpointRegenerateComplete)
 }
 
 func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
@@ -609,17 +680,41 @@ func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) 
 	return nil
 }
 
-func (r *endpointRestorer) InitRestore() {
+func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) error {
 	if !option.Config.RestoreState {
+		health.OK("Skipped - state restore is disabled")
 		r.logger.Info("State restore is disabled. Existing endpoints on node are ignored")
-		return
+		return nil
 	}
 
-	bootstrapStats.restore.Start()
-	defer bootstrapStats.restore.End(true)
+	health.OK("Waiting for K8s initialization")
+	// Wait only for certain caches, but not all!
+	// (Check K8sWatcher.InitK8sSubsystem() for more info)
+	select {
+	case <-r.cacheStatus:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// wait for directory watcher to ingest policy from files
+	health.OK("Waiting for directory watcher to ingest policies from files")
+	r.dirReadStatus.Wait()
+
+	// After K8s caches have been synced, IPCache can start label injection.
+	// Ensure that the initial labels are injected before we regenerate endpoints
+	health.OK("Waiting for initial IPCache revision")
+	r.logger.Debug("Waiting for initial IPCache revision")
+	if err := r.ipCache.WaitForRevision(ctx, 1); err != nil {
+		return fmt.Errorf("failed to wait for initial IPCache revision: %w", err)
+	}
 
 	// When we regenerate restored endpoints, it is guaranteed that we have
 	// received the full list of policies present at the time the daemon
 	// is bootstrapped.
+	health.OK("Regenerating restored endpoints")
 	r.regenerateRestoredEndpoints(r.restoreState)
+
+	close(r.endpointRestoreComplete)
+
+	return nil
 }
