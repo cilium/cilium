@@ -26,27 +26,27 @@ func TestGetCIDKeyFromLabels(t *testing.T) {
 			name:   "Valid Labels",
 			labels: map[string]string{"source1:label1": "value1", "source2:label2": "value2", "irrelevant": "foo"},
 			source: "source1",
-			expected: &GlobalIdentity{LabelArray: []labels.Label{
+			expected: MakeGlobalIdentity([]labels.Label{
+				{Key: "irrelevant", Value: "foo", Source: "source1"},
 				{Key: "label1", Value: "value1", Source: "source1"},
 				{Key: "label2", Value: "value2", Source: "source1"},
-				{Key: "irrelevant", Value: "foo", Source: "source1"},
-			}},
+			}),
 		},
 		{
 			name:     "Empty Labels",
 			labels:   map[string]string{},
 			source:   "source",
-			expected: &GlobalIdentity{LabelArray: []labels.Label{}},
+			expected: MakeGlobalIdentity([]labels.Label{}),
 		},
 		{
 			name:   "Empty source",
 			labels: map[string]string{"source1:foo1": "value1", "source2:foo2": "value2", "foo3": "value3"},
 			source: "",
-			expected: &GlobalIdentity{LabelArray: []labels.Label{
+			expected: MakeGlobalIdentity([]labels.Label{
 				{Key: "foo1", Value: "value1", Source: "source1"},
 				{Key: "foo2", Value: "value2", Source: "source2"},
 				{Key: "foo3", Value: "value3", Source: labels.LabelSourceUnspec},
-			}},
+			}),
 		},
 	}
 
@@ -59,11 +59,8 @@ func TestGetCIDKeyFromLabels(t *testing.T) {
 				t.Fatalf("Expected a GlobalIdentity result, but got nil")
 			}
 
-			result.LabelArray.Sort()
-			tt.expected.LabelArray.Sort()
-
-			if !tt.expected.LabelArray.Equals(result.LabelArray) {
-				t.Errorf("Unexpected result:\nGot: %v\nExpected: %v", result.LabelArray, tt.expected.LabelArray)
+			if !tt.expected.Equals(result) {
+				t.Errorf("Unexpected result:\nGot: %v\nExpected: %v", result.Labels(), tt.expected.Labels())
 			}
 
 		})

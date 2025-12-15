@@ -103,12 +103,17 @@ type CachingIdentityAllocator struct {
 
 	// syncInterval is the periodic synchronization interval of the allocated identities.
 	syncInterval time.Duration
+
+	// identitySeedSalt is the per-cluster salt used to make identity allocation internally
+	// deterministic but externally difficult to predict
+	identitySeedSalt []byte
 }
 
 type AllocatorConfig struct {
 	EnableOperatorManageCIDs bool
 	Timeout                  time.Duration
 	SyncInterval             time.Duration
+	IdentitySeedSalt         []byte
 	maxAllocAttempts         int
 }
 
@@ -304,6 +309,7 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 			allocator.WithMax(maxID), allocator.WithMin(minID),
 			allocator.WithEvents(events), allocator.WithSyncInterval(m.syncInterval),
 			allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID << identity.GetClusterIDShift())),
+			allocator.WithSeedSalt(m.identitySeedSalt),
 		}
 		if m.operatorIDManagement {
 			allocOptions = append(allocOptions, allocator.WithOperatorIDManagement())
@@ -389,6 +395,7 @@ func NewCachingIdentityAllocator(logger *slog.Logger, owner IdentityAllocatorOwn
 		maxAllocAttempts:                   config.maxAllocAttempts,
 		timeout:                            config.Timeout,
 		syncInterval:                       config.SyncInterval,
+		identitySeedSalt:                   config.IdentitySeedSalt,
 	}
 	if option.Config.RunDir != "" { // disable checkpointing if this is a unit test
 		m.checkpointPath = filepath.Join(option.Config.StateDir, CheckpointFile)
@@ -566,7 +573,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
 
-	idp, allocated, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, &key.GlobalIdentity{LabelArray: lbls.LabelArray()})
+	idp, allocated, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, key.MakeGlobalIdentity(lbls.LabelArray()))
 	if err != nil {
 		return nil, false, err
 	}
@@ -841,7 +848,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	// ID is no longer used locally, it may still be used by
 	// remote nodes, so we can't rely on the locally computed
 	// "lastUse".
-	released, err = m.IdentityAllocator.Release(ctx, &key.GlobalIdentity{LabelArray: id.LabelArray})
+	released, err = m.IdentityAllocator.Release(ctx, key.MakeGlobalIdentity(id.LabelArray))
 	if released {
 		for labelSource := range id.Labels.CollectSources() {
 			metrics.IdentityLabelSources.WithLabelValues(labelSource).Dec()
@@ -1050,7 +1057,7 @@ func clusterNameValidator(clusterName string) allocator.CacheValidator {
 		}
 
 		var found bool
-		for _, lbl := range gi.LabelArray {
+		for _, lbl := range gi.Labels() {
 			if lbl.Key != api.PolicyLabelCluster {
 				continue
 			}

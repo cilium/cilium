@@ -5,6 +5,8 @@ package allocator
 
 import (
 	"context"
+	"crypto/sha3"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -102,6 +104,10 @@ type Allocator struct {
 	// max is the upper limit when allocating IDs. The allocator will never
 	// allocate an ID greater than this value.
 	max idpool.ID
+
+	// seedSalt is a random value added to make identity allocation
+	// difficult to predict. It should be the same across a given cluster.
+	seedSalt []byte
 
 	// prefixMask if set, will be ORed to all selected IDs prior to
 	// allocation
@@ -391,6 +397,11 @@ func WithMax(id idpool.ID) AllocatorOption {
 	return func(a *Allocator) { a.max = id }
 }
 
+// WithSeedSalt sets the identity seed salt
+func WithSeedSalt(salt []byte) AllocatorOption {
+	return func(a *Allocator) { a.seedSalt = salt }
+}
+
 // WithPrefixMask sets the prefix used for all ID allocations. If set, the mask
 // will be ORed to all selected IDs prior to allocation. It is the
 // responsibility of the caller to ensure that the mask is not conflicting with
@@ -480,8 +491,8 @@ func (a *Allocator) ForeachCache(cb RangeFunc) {
 // selectAvailableID selects an available ID.
 // Returns a triple of the selected ID ORed with prefixMask, the ID string and
 // the originally selected ID.
-func (a *Allocator) selectAvailableID() (idpool.ID, string, idpool.ID) {
-	if id := a.idPool.LeaseAvailableID(); id != idpool.NoID {
+func (a *Allocator) selectAvailableID(seed []byte) (idpool.ID, string, idpool.ID) {
+	if id := a.idPool.LeaseAvailableID(seed); id != idpool.NoID {
 		unmaskedID := id
 		id |= a.prefixMask
 		return id, id.String(), unmaskedID
@@ -519,13 +530,42 @@ type AllocatorKey interface {
 	Value(key any) any
 }
 
+// toSeed turns the given key in to a seed for the ID allocator's
+// random number generator. The goal is for different agents to mostly
+// select the same identity for a given key. This prevents a large number
+// of duplicate identities when a deployment is rapidly scaled up. This seed
+// is passed to the allocator to use when selecting the candidate numerical ID.
+//
+// It uses the SHA3-256 hash of the labels, plus a cluster-specific random salt,
+// plus the unix timestamp with the bottom byte dropped off. This makes it hard
+// for an outsider to predict while remaining mostly consistent. If two agents
+// happen to select a different value, it's not particularly problematic, just
+// something to avoid.
+func (a *Allocator) toSeed(key AllocatorKey) []byte {
+	h := sha3.New256()
+	h.Write([]byte(key.GetKey()))
+	// Mix in the salt, so that identities are not easily predictable. The salt is the same for a given cluster.
+	h.Write(a.seedSalt)
+
+	// Extra randomness: mix the current unix timestamp less the bottom byte.
+	t := time.Now().UTC().Unix()
+	b := make([]byte, 8)
+	binary.NativeEndian.PutUint64(b, uint64(t))
+	b[7] = 0
+	h.Write(a.seedSalt)
+
+	out := make([]byte, 0, 32)
+	out = h.Sum(out)
+	return out
+}
+
 // Return values:
 //  1. allocated ID
 //  2. whether the ID is newly allocated from kvstore
 //  3. whether this is the first owner that holds a reference to the key in
 //     localkeys store
 //  4. error in case of failure
-func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, bool, error) {
+func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey, seed []byte) (idpool.ID, bool, bool, error) {
 	var firstUse bool
 
 	kvstore.Trace(a.logger, "Allocating key in kvstore", fieldKey, key)
@@ -590,7 +630,8 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	}
 
 	a.logger.Debug("Allocating new master ID", logfields.Key, k)
-	id, strID, unmaskedID := a.selectAvailableID()
+
+	id, strID, unmaskedID := a.selectAvailableID(seed)
 	if id == 0 {
 		return 0, false, false, fmt.Errorf("no more available IDs in configured space")
 	}
@@ -699,7 +740,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 
 	// make a copy of the template and customize it
 	boff := a.backoffTemplate
-	boff.Name = key.String()
+	boff.Name = key.GetKey()
 
 	for attempt := range a.maxAllocAttempts {
 		// Check our list of local keys already in use and increment the
@@ -718,14 +759,30 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 			return val, false, false, nil
 		}
 
+		deterministic := false
+		var seed []byte
+		// Compute the identity selection seed. Skip this out of paranoia for the last attempt,
+		// just in case this is causing an issue. A few duplicate identities
+		// is better than breaking identity allocation.
+		if attempt <= a.maxAllocAttempts-1 && len(a.seedSalt) > 0 {
+			deterministic = true
+			seed = a.toSeed(key) // recompute every round, as this function is time-dependent.
+		}
+
 		// FIXME: Add non-locking variant
-		value, isNew, firstUse, err = a.lockedAllocate(ctx, key)
+		value, isNew, firstUse, err = a.lockedAllocate(ctx, key, seed)
 		if err == nil {
 			a.mainCache.insert(key, value)
 			a.logger.Debug("Allocated key",
 				logfields.Key, key,
 				logfields.ID, value,
 			)
+			if !deterministic && len(a.seedSalt) > 0 {
+				// Only the non-deterministic attempt succeeded -- warn (to fail CI).
+				// We can't warn if everything fails, as it just means the api server is down.
+				// This can happen if the CiliumIdentity watch is slow.
+				a.logger.Warn("Identity allocation fell back to non-deterministic mode.")
+			}
 			return value, isNew, firstUse, nil
 		}
 

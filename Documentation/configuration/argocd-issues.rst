@@ -13,6 +13,19 @@ Troubleshooting Cilium deployed with Argo CD
 There have been reports from users hitting issues with Argo CD. This documentation 
 page outlines some of the known issues and their solutions.
 
+
+Argo CD constantly reconciles the cilium-config Configmap
+=========================================================
+
+The ``cilium-config`` ConfigMap will randomly generate a seed
+for identity generation at first install. However, it must use the
+Helm ``lookup`` function to do so, which does not work in ArgoCD.
+To stop this, manually set the Helm value ``identitySeedSalt`` to
+a random string.
+
+This salt is used to make identity generation deterministic but difficult
+to predict; it need not be highly secure.
+
 Argo CD deletes CustomResourceDefinitions
 =========================================
 
