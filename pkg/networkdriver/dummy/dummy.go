@@ -38,6 +38,10 @@ func NewManager(logger *slog.Logger, cfg *v2alpha1.DummyDeviceManagerConfig) (*D
 	return mgr, mgr.init()
 }
 
+func (mgr *DummyManager) Type() types.DeviceManagerType {
+	return types.DeviceManagerTypeDummy
+}
+
 func (mgr *DummyManager) ListDevices() ([]types.Device, error) {
 	links, err := safenetlink.LinkList()
 	if err != nil {
@@ -68,6 +72,14 @@ func (mgr *DummyManager) ListDevices() ([]types.Device, error) {
 	}
 
 	return devices, errors.Join(errs...)
+}
+
+func (mgr *DummyManager) RestoreDevice(data []byte) (types.Device, error) {
+	var dev DummyDevice
+	if err := dev.UnmarshalBinary(data); err != nil {
+		return nil, err
+	}
+	return &dev, nil
 }
 
 type DummyDevice struct {
