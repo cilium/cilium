@@ -369,7 +369,7 @@ func TestRemoteClusterRemove(t *testing.T) {
 			fmt.Sprintf("cilium/synced/%s/cilium/cache/ip/v1", name),
 			fmt.Sprintf("cilium/cache/nodes/v1/%s/bar", name),
 			fmt.Sprintf("cilium/cache/services/v1/%s/bar", name),
-			fmt.Sprintf("cilium/cache/identities/v1/%s/bar", name),
+			fmt.Sprintf("cilium/cache/identities/v1/%s/id/bar", name),
 			fmt.Sprintf("cilium/cache/ip/v1/%s/bar", name),
 		}
 	}
@@ -377,8 +377,8 @@ func TestRemoteClusterRemove(t *testing.T) {
 	wrapper := &localClientWrapper{
 		Client: client,
 		errors: map[string]uint{
-			"cilium/cache/identities/v1/foobar/": 1,
-			"cilium/cluster-config/baz":          10,
+			"cilium/cache/identities/v1/foobar/id/": 1,
+			"cilium/cluster-config/baz":             10,
 		},
 	}
 

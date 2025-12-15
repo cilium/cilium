@@ -220,7 +220,7 @@ func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err e
 		path.Join(kvstore.StateToCachePrefix(nodeStore.NodeStorePrefix), rc.name),
 		path.Join(kvstore.StateToCachePrefix(serviceStore.ServiceStorePrefix), rc.name),
 		path.Join(kvstore.StateToCachePrefix(mcsapitypes.ServiceExportStorePrefix), rc.name),
-		path.Join(kvstore.StateToCachePrefix(identityCache.IdentitiesPath), rc.name),
+		path.Join(kvstore.StateToCachePrefix(identityCache.IdentitiesPath), rc.name, "id"),
 		path.Join(kvstore.StateToCachePrefix(ipcache.IPIdentitiesPath), rc.name),
 	}
 
