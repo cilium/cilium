@@ -210,6 +210,10 @@ func NewManager(logger *slog.Logger, cfg *v2alpha1.SRIOVDeviceManagerConfig, opt
 	return mgr, mgr.init()
 }
 
+func (mgr *SRIOVManager) Type() types.DeviceManagerType {
+	return types.DeviceManagerTypeSRIOV
+}
+
 func (mgr *SRIOVManager) pciDevicesPath() string {
 	return path.Join(mgr.sysPath, pciDevicesPath)
 }
@@ -262,6 +266,14 @@ func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
 	}
 
 	return result, nil
+}
+
+func (mgr *SRIOVManager) RestoreDevice(data []byte) (types.Device, error) {
+	var dev PciDevice
+	if err := dev.UnmarshalBinary(data); err != nil {
+		return nil, err
+	}
+	return &dev, nil
 }
 
 const (

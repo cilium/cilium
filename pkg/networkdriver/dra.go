@@ -12,6 +12,8 @@ import (
 	"path"
 
 	resourceapi "k8s.io/api/resource/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
@@ -110,7 +112,10 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	var alloc []allocation
+	var (
+		alloc         []allocation
+		devicesStatus []resourceapi.AllocatedDeviceStatus
+	)
 
 	for _, result := range claim.Status.Allocation.Devices.Results {
 		var thisAlloc allocation
@@ -149,11 +154,14 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 
 		var found bool
 
-		for _, device := range driver.devices {
-			if device.IfName() == result.Device {
-				thisAlloc.Device = device
-				found = true
-				break
+		for mgr, devices := range driver.devices {
+			for _, device := range devices {
+				if device.IfName() == result.Device {
+					thisAlloc.Manager = mgr
+					thisAlloc.Device = device
+					found = true
+					break
+				}
 			}
 		}
 
@@ -176,12 +184,79 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 
 		alloc = append(alloc, thisAlloc)
+
+		dev, err := serializeDevice(thisAlloc)
+		if err != nil {
+			driver.logger.ErrorContext(ctx, "failed to serialize device",
+				logfields.Device, thisAlloc.Device.IfName(),
+				logfields.Config, thisAlloc.Config,
+				logfields.Error, err,
+			)
+
+			return kubeletplugin.PrepareResult{
+				Err: fmt.Errorf("failed to serialize device %s for claim %s: %w", thisAlloc.Device.IfName(), path.Join(claim.Namespace, claim.Name), err),
+			}
+		}
+
+		devicesStatus = append(devicesStatus, resourceapi.AllocatedDeviceStatus{
+			Driver:     driver.config.DriverName,
+			Pool:       result.Pool,
+			Device:     result.Device,
+			Conditions: []metav1.Condition{conditionReady(claim)},
+			Data:       &runtime.RawExtension{Raw: dev},
+			NetworkData: &resourceapi.NetworkDeviceData{
+				InterfaceName: thisAlloc.Device.IfName(),
+				IPs:           []string{thisAlloc.Config.Ipv4Addr.String()},
+			},
+		})
 	}
 	driver.allocations[pod.UID] = make(map[kube_types.UID][]allocation)
 	driver.allocations[pod.UID][claim.UID] = alloc
 
+	newClaim := claim.DeepCopy()
+	newClaim.Status.Devices = append(newClaim.Status.Devices, devicesStatus...)
+	if _, err := driver.kubeClient.ResourceV1().ResourceClaims(claim.Namespace).UpdateStatus(ctx, newClaim, metav1.UpdateOptions{}); err != nil {
+		return kubeletplugin.PrepareResult{
+			Err: fmt.Errorf("failed to update claim %s status: %w", path.Join(claim.Namespace, claim.Name), err),
+		}
+	}
+
 	// we dont need to return anything here.
 	return kubeletplugin.PrepareResult{}
+}
+
+func conditionReady(claim *resourceapi.ResourceClaim) metav1.Condition {
+	return metav1.Condition{
+		Type:               "Ready",
+		Status:             metav1.ConditionTrue,
+		Reason:             "Ready",
+		Message:            "Device is ready",
+		ObservedGeneration: claim.GetGeneration(),
+		LastTransitionTime: metav1.NewTime(time.Now()),
+	}
+}
+
+func serializeDevice(a allocation) ([]byte, error) {
+	data, err := a.Device.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(types.SerializedDevice{
+		Manager: a.Manager,
+		Dev:     data,
+		Config:  a.Config,
+	})
+}
+
+func deserializeDevice(data []byte) (types.DeviceManagerType, json.RawMessage, types.DeviceConfig, error) {
+	var dev types.SerializedDevice
+
+	if err := json.Unmarshal(data, &dev); err != nil {
+		return types.DeviceManagerTypeUnknown, nil, types.DeviceConfig{}, err
+	}
+
+	return dev.Manager, dev.Dev, dev.Config, nil
 }
 
 // PrepareResourceClaims gets called when we have a request to allocate a resource claim. we also need to have a way to remember

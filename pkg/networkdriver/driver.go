@@ -5,13 +5,17 @@ package networkdriver
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
+	"maps"
 	"path"
 
 	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/containerd/nri/pkg/stub"
+	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -26,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -38,12 +43,14 @@ func driverPluginPath(driverName string) string {
 }
 
 type Driver struct {
-	kubeClient kubernetes.Interface
-	draPlugin  *kubeletplugin.Helper
-	nriPlugin  stub.Stub
-	logger     *slog.Logger
-	lock       lock.Mutex
-	jg         job.Group
+	kubeClient     kubernetes.Interface
+	draPlugin      *kubeletplugin.Helper
+	nriPlugin      stub.Stub
+	logger         *slog.Logger
+	lock           lock.Mutex
+	jg             job.Group
+	resourceClaims resource.Resource[*resourceapi.ResourceClaim]
+	pods           resource.Resource[*corev1.Pod]
 
 	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
 	config    *v2alpha1.CiliumNetworkDriverConfigSpec
@@ -51,12 +58,14 @@ type Driver struct {
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
 	allocations map[kube_types.UID]map[kube_types.UID][]allocation
-	devices     []types.Device
+	// manager_type: devices
+	devices map[types.DeviceManagerType][]types.Device
 }
 
 type allocation struct {
-	Device types.Device
-	Config types.DeviceConfig
+	Device  types.Device
+	Config  types.DeviceConfig
+	Manager types.DeviceManagerType
 }
 
 func (driver *Driver) withLock(f func() error) error {
@@ -82,7 +91,7 @@ func filterDevices(devices []types.Device, filter v2alpha1.CiliumNetworkDriverDe
 // getDevicePools queries each device manager for their devices, and group them into pools
 // that are advertised as resourceslices to the kube-api.
 func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourceslice.Pool, error) {
-	driver.devices = nil
+	driver.devices = make(map[types.DeviceManagerType][]types.Device)
 
 	for m, mgr := range driver.deviceManagers {
 		devices, err := mgr.ListDevices()
@@ -97,7 +106,7 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 				logfields.Devices, len(devices),
 			)
 
-			driver.devices = append(driver.devices, devices...)
+			driver.devices[mgr.Type()] = append(driver.devices[mgr.Type()], devices...)
 		}
 	}
 
@@ -113,8 +122,10 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 
 			continue
 		}
-
-		filtered := filterDevices(driver.devices, *p.Filter)
+		var filtered []types.Device
+		for devs := range maps.Values(driver.devices) {
+			filtered = filterDevices(devs, *p.Filter)
+		}
 
 		var devices []resourceapi.Device
 
@@ -228,7 +239,109 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 	return ch
 }
 
-// Start retrieves nadvalidates the configuration. If configuration is found and valid, it
+func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatus) (allocation, error) {
+	devMgrType, devRaw, devCfg, err := deserializeDevice(devStatus.Data.Raw)
+	if err != nil {
+		return allocation{}, fmt.Errorf("failed to deserialize device from pool %s using device manager type %s", devStatus.Pool, devMgrType)
+	}
+
+	devMgr, found := driver.deviceManagers[devMgrType]
+	if !found {
+		return allocation{}, fmt.Errorf("unknown device manager type %s", devMgrType)
+	}
+
+	dev, err := devMgr.RestoreDevice(devRaw)
+	if err != nil {
+		return allocation{}, fmt.Errorf("failed to restore device from pool %s using device manager type %s", devStatus.Pool, devMgrType)
+	}
+
+	return allocation{
+		Device:  dev,
+		Config:  devCfg,
+		Manager: devMgrType,
+	}, nil
+}
+
+func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim) error {
+	var errs []error
+
+	for _, devStatus := range claim.Status.Devices {
+		if devStatus.Driver != driver.config.DriverName {
+			continue
+		}
+
+		alloc, err := driver.deviceFromClaim(devStatus)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to restore device from claim: %w", err))
+			continue
+		}
+
+		if len(claim.Status.ReservedFor) != 1 {
+			errs = append(errs, fmt.Errorf("unexpected ReservedFor length %d for claim, should be 1", len(claim.Status.ReservedFor)))
+			continue
+		}
+		podUID := claim.Status.ReservedFor[0].UID
+
+		var claimAllocs map[kube_types.UID][]allocation
+		claimAllocs, found := driver.allocations[podUID]
+		if !found {
+			claimAllocs = make(map[kube_types.UID][]allocation)
+			driver.allocations[podUID] = claimAllocs
+		}
+		claimAllocs[claim.UID] = append(claimAllocs[claim.UID], alloc)
+	}
+
+	return errors.Join(errs...)
+}
+
+func (driver *Driver) restoreDevices(ctx context.Context) error {
+	podsStore, err := driver.pods.Store(ctx)
+	if err != nil {
+		return err
+	}
+
+	var localPodClaims []resource.Key
+	for _, pod := range podsStore.List() {
+		for _, claimRef := range pod.Status.ResourceClaimStatuses {
+			if claimRef.ResourceClaimName == nil {
+				driver.logger.InfoContext(ctx, "resourceClaimStatuses field is empty for pod, no allocation to restore",
+					logfields.K8sNamespace, pod.GetNamespace(),
+					logfields.Name, pod.Name,
+				)
+				continue
+			}
+			localPodClaims = append(localPodClaims, resource.Key{
+				Namespace: pod.GetNamespace(),
+				Name:      *claimRef.ResourceClaimName,
+			})
+		}
+	}
+	localPodClaims = ciliumslices.Unique(localPodClaims)
+
+	claimsStore, err := driver.resourceClaims.Store(ctx)
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, key := range localPodClaims {
+		claim, exists, err := claimsStore.GetByKey(key)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to get claim %s/%s from store: %w", key.Namespace, key.Name, err))
+			continue
+		}
+		if !exists {
+			errs = append(errs, fmt.Errorf("claim %s/%s not found in store", key.Namespace, key.Name))
+			continue
+		}
+		if err := driver.restoreDevicesFromClaim(claim); err != nil {
+			errs = append(errs, fmt.Errorf("failed to restore allocated devices from claim %s/%s: %w", claim.Namespace, claim.Name, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// Start retrieves and validates the configuration. If configuration is found and valid, it
 // initializes all the devicemanagers that are enabled by config, and starts the DRA + NRI registration.
 func (driver *Driver) Start(ctx cell.HookContext) error {
 	driver.jg.Add(job.OneShot("network-driver-main", func(ctx context.Context, _ cell.Health) error {
@@ -264,6 +377,10 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			logfields.DriverName, driver.config.DriverName,
 		)
 
+		driver.logger.DebugContext(ctx,
+			"starting driver with config",
+			logfields.Config, driver.config)
+
 		if err := validateConfig(driver.config); err != nil {
 			driver.logger.ErrorContext(
 				ctx, "invalid configuration",
@@ -279,6 +396,27 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 		}
 
 		driver.deviceManagers = mgrs
+
+		if err := driver.restoreDevices(ctx); err != nil {
+			driver.logger.ErrorContext(ctx,
+				"failed to restore allocated devices from claims, network driver might be unable to correctly release associated resources",
+				logfields.Error, err,
+			)
+		}
+
+		for pod, claimAllocs := range driver.allocations {
+			for claim, allocs := range claimAllocs {
+				for _, alloc := range allocs {
+					driver.logger.DebugContext(ctx,
+						"allocation device restored",
+						logfields.PodUID, pod,
+						logfields.ClaimUID, claim,
+						logfields.Device, alloc.Device.IfName(),
+						logfields.Config, alloc.Config,
+					)
+				}
+			}
+		}
 
 		if err := driver.startDRA(ctx); err != nil {
 			driver.Stop(ctx)
