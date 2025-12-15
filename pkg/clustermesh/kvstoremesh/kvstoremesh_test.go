@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -22,7 +23,6 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	baseclocktest "k8s.io/utils/clock/testing"
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -84,21 +84,6 @@ func (w *remoteClientWrapper) ListAndWatch(ctx context.Context, prefix string) k
 	}
 
 	return w.Client.ListAndWatch(ctx, prefix)
-}
-
-func clockAdvance(t assert.TestingT, fc *baseclocktest.FakeClock, d time.Duration) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	for !fc.HasWaiters() {
-		select {
-		case <-ctx.Done():
-			assert.FailNow(t, "Could not advance clock within expected timeout")
-		case <-time.After(1 * time.Millisecond):
-		}
-	}
-
-	fc.Step(d)
 }
 
 func TestMain(m *testing.M) {
@@ -218,11 +203,9 @@ func TestRemoteClusterRun(t *testing.T) {
 				km     *KVStoreMesh
 			)
 
-			fakeclock := baseclocktest.NewFakeClock(time.Now())
 			h := fixture(
 				cell.Invoke(func(local_ kvstore.Client, remote_ RemoteClient, km_ *KVStoreMesh) {
 					local, remote, km = local_, &remoteClientWrapper{Client: remote_}, km_
-					km.clock = fakeclock
 				}),
 			)
 			require.NoError(t, h.Populate(hivetest.Logger(t)), "hive.Populate")
@@ -315,15 +298,19 @@ func TestRemoteClusterRun(t *testing.T) {
 			wg.Wait()
 
 			// rc.Remove waits for a 3 minutes grace period before proceeding
-			// with the deletion. Let's handle that by advancing the fake time.
-			go clockAdvance(t, fakeclock, 3*time.Minute)
+			// with the deletion. Let's handle that in a synctest bubble.
+			synctest.Test(t, func(t *testing.T) {
+				go rc.Remove(t.Context())
 
-			// Assert that Remove() removes all keys previously created
-			rc.Remove(t.Context())
+				synctest.Wait()
+				time.Sleep(3 * time.Minute)
+				synctest.Wait()
 
-			pairs, err := local.ListPrefix(t.Context(), kvstore.BaseKeyPrefix)
-			require.NoError(t, err, "Failed to retrieve kvstore keys")
-			require.Empty(t, pairs, "Cached keys not correctly removed")
+				// Assert that Remove() removes all keys previously created
+				pairs, err := local.ListPrefix(t.Context(), kvstore.BaseKeyPrefix)
+				require.NoError(t, err, "Failed to retrieve kvstore keys")
+				require.Empty(t, pairs, "Cached keys not correctly removed")
+			})
 		})
 	}
 }
@@ -352,176 +339,164 @@ func (lcw *localClientWrapper) DeletePrefix(ctx context.Context, path string) er
 }
 
 func TestRemoteClusterRemove(t *testing.T) {
-	var (
-		ctx   = t.Context()
-		local kvstore.Client
-		km    *KVStoreMesh
-	)
+	synctest.Test(t, func(t *testing.T) {
+		var (
+			ctx   = t.Context()
+			local kvstore.Client
+			km    *KVStoreMesh
+		)
 
-	fakeclock := baseclocktest.NewFakeClock(time.Now())
-	h := fixture(
-		cell.DecorateAll(func(local kvstore.Client) kvstore.Client {
-			return &localClientWrapper{
-				Client: local,
-				errors: map[string]uint{
-					"cilium/cache/identities/v1/foobar/id/": 1,
-					"cilium/cluster-config/baz":             10,
-				},
+		h := fixture(
+			cell.DecorateAll(func(local kvstore.Client) kvstore.Client {
+				return &localClientWrapper{
+					Client: local,
+					errors: map[string]uint{
+						"cilium/cache/identities/v1/foobar/id/": 1,
+						"cilium/cluster-config/baz":             10,
+					},
+				}
+			}),
+
+			cell.Invoke(func(local_ kvstore.Client, km_ *KVStoreMesh) {
+				local, km = local_, km_
+			}),
+		)
+		require.NoError(t, h.Populate(hivetest.Logger(t)), "hive.Populate")
+
+		keys := func(name string) []string {
+			return []string{
+				fmt.Sprintf("cilium/cluster-config/%s", name),
+				fmt.Sprintf("cilium/synced/%s/cilium/cache/nodes/v1", name),
+				fmt.Sprintf("cilium/synced/%s/cilium/cache/services/v1", name),
+				fmt.Sprintf("cilium/synced/%s/cilium/cache/identities/v1", name),
+				fmt.Sprintf("cilium/synced/%s/cilium/cache/ip/v1", name),
+				fmt.Sprintf("cilium/cache/nodes/v1/%s/bar", name),
+				fmt.Sprintf("cilium/cache/services/v1/%s/bar", name),
+				fmt.Sprintf("cilium/cache/identities/v1/%s/id/bar", name),
+				fmt.Sprintf("cilium/cache/ip/v1/%s/bar", name),
 			}
-		}),
-
-		cell.Invoke(func(local_ kvstore.Client, km_ *KVStoreMesh) {
-			local, km = local_, km_
-			km.clock = fakeclock
-		}),
-	)
-	require.NoError(t, h.Populate(hivetest.Logger(t)), "hive.Populate")
-
-	keys := func(name string) []string {
-		return []string{
-			fmt.Sprintf("cilium/cluster-config/%s", name),
-			fmt.Sprintf("cilium/synced/%s/cilium/cache/nodes/v1", name),
-			fmt.Sprintf("cilium/synced/%s/cilium/cache/services/v1", name),
-			fmt.Sprintf("cilium/synced/%s/cilium/cache/identities/v1", name),
-			fmt.Sprintf("cilium/synced/%s/cilium/cache/ip/v1", name),
-			fmt.Sprintf("cilium/cache/nodes/v1/%s/bar", name),
-			fmt.Sprintf("cilium/cache/services/v1/%s/bar", name),
-			fmt.Sprintf("cilium/cache/identities/v1/%s/id/bar", name),
-			fmt.Sprintf("cilium/cache/ip/v1/%s/bar", name),
 		}
-	}
 
-	rcs := make(map[string]*remoteCluster)
-	for _, cluster := range []string{"foo", "foobar", "baz"} {
-		rcs[cluster] = km.newRemoteCluster(cluster, nil).(*remoteCluster)
-		rcs[cluster].Stop()
-	}
-
-	for _, rc := range rcs {
-		for _, key := range keys(rc.name) {
-			require.NoError(t, local.Update(ctx, key, []byte("value"), false))
+		rcs := make(map[string]*remoteCluster)
+		for _, cluster := range []string{"foo", "foobar", "baz"} {
+			rcs[cluster] = km.newRemoteCluster(cluster, nil).(*remoteCluster)
+			rcs[cluster].Stop()
 		}
-	}
 
-	var wg sync.WaitGroup
+		for _, rc := range rcs {
+			for _, key := range keys(rc.name) {
+				require.NoError(t, local.Update(ctx, key, []byte("value"), false))
+			}
+		}
 
-	assertDeleted := func(t assert.TestingT, ctx context.Context, key string) {
-		value, err := local.Get(ctx, key)
-		assert.NoError(t, err, "Failed to retrieve kvstore key %s", key)
-		assert.Empty(t, string(value), "Key %s has not been deleted", key)
-	}
+		var wg sync.WaitGroup
 
-	assertNotDeleted := func(t assert.TestingT, ctx context.Context, key string) {
-		value, err := local.Get(ctx, key)
-		assert.NoError(t, err, "Failed to retrieve kvstore key %s", key)
-		assert.NotEmpty(t, string(value), "Key %s has been incorrectly deleted", key)
-	}
+		assertDeleted := func(t *testing.T, ctx context.Context, key string) {
+			synctest.Wait()
+			value, err := local.Get(ctx, key)
+			require.NoError(t, err, "Failed to retrieve kvstore key %s", key)
+			require.Empty(t, string(value), "Key %s has not been deleted", key)
+		}
 
-	// Remove should only delete the cluster config key before grace period expiration
-	wg.Go(func() { rcs["foo"].Remove(ctx) })
-	assert.EventuallyWithT(t, func(c *assert.CollectT) {
-		assertDeleted(c, ctx, keys("foo")[0])
+		assertNotDeleted := func(t *testing.T, ctx context.Context, key string) {
+			synctest.Wait()
+			value, err := local.Get(ctx, key)
+			require.NoError(t, err, "Failed to retrieve kvstore key %s", key)
+			require.NotEmpty(t, string(value), "Key %s has been incorrectly deleted", key)
+		}
+
+		// Remove should only delete the cluster config key before grace period expiration
+		wg.Go(func() { rcs["foo"].Remove(ctx) })
+
+		assertDeleted(t, ctx, keys("foo")[0])
 		for _, key := range keys("foo")[1:] {
-			assertNotDeleted(c, ctx, key)
-		}
-	}, timeout, tick)
-
-	clockAdvance(t, fakeclock, 3*time.Minute-1*time.Millisecond)
-
-	// Grace period should still not have expired
-	time.Sleep(tick)
-	for _, key := range keys("foo")[1:] {
-		assertNotDeleted(t, ctx, key)
-	}
-
-	clockAdvance(t, fakeclock, 1*time.Millisecond)
-	wg.Wait()
-
-	// Grace period expired, all keys should now have been deleted
-	for _, key := range keys("foo") {
-		assertDeleted(t, ctx, key)
-	}
-
-	// Keys of other clusters should not have been touched
-	for _, cluster := range []string{"foobar", "baz"} {
-		for _, key := range keys(cluster) {
 			assertNotDeleted(t, ctx, key)
 		}
-	}
 
-	// Simulate the failure of one of the delete calls
-	wg.Go(func() { rcs["foobar"].Remove(ctx) })
+		// Grace period should still not have expired
+		time.Sleep(3*time.Minute - 1*time.Millisecond)
+		for _, key := range keys("foo")[1:] {
+			assertNotDeleted(t, ctx, key)
+		}
 
-	clockAdvance(t, fakeclock, 3*time.Minute)
-	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		time.Sleep(1 * time.Millisecond)
+		wg.Wait()
+
+		// Grace period expired, all keys should now have been deleted
+		for _, key := range keys("foo") {
+			assertDeleted(t, ctx, key)
+		}
+
+		// Keys of other clusters should not have been touched
+		for _, cluster := range []string{"foobar", "baz"} {
+			for _, key := range keys(cluster) {
+				assertNotDeleted(t, ctx, key)
+			}
+		}
+
+		// Simulate the failure of one of the delete calls
+		wg.Go(func() { rcs["foobar"].Remove(ctx) })
+
+		time.Sleep(3 * time.Minute)
 		// Only the keys up to the erroring one should have been deleted
 		for _, key := range keys("foobar")[0:7] {
-			assertDeleted(c, ctx, key)
+			assertDeleted(t, ctx, key)
 		}
 		for _, key := range keys("foobar")[7:] {
-			assertNotDeleted(c, ctx, key)
+			assertNotDeleted(t, ctx, key)
 		}
-	}, timeout, tick)
 
-	clockAdvance(t, fakeclock, 2*time.Second-1*time.Millisecond)
-	time.Sleep(tick)
-	for _, key := range keys("foobar")[7:] {
-		// Backoff should not have expired yet
-		assertNotDeleted(t, ctx, key)
-	}
+		time.Sleep(2*time.Second - 1*time.Millisecond)
+		for _, key := range keys("foobar")[7:] {
+			// Backoff should not have expired yet
+			assertNotDeleted(t, ctx, key)
+		}
 
-	clockAdvance(t, fakeclock, 1*time.Millisecond)
-	wg.Wait()
+		time.Sleep(1 * time.Millisecond)
+		wg.Wait()
 
-	for _, key := range keys("foobar") {
-		// Backoff expired, all keys should have been deleted
-		assertDeleted(t, ctx, key)
-	}
+		for _, key := range keys("foobar") {
+			// Backoff expired, all keys should have been deleted
+			assertDeleted(t, ctx, key)
+		}
 
-	// Simulate the persistent failure of one of the delete calls
-	wg.Go(func() { rcs["baz"].Remove(ctx) })
+		// Simulate the persistent failure of one of the delete calls
+		var returned atomic.Bool
+		wg.Go(func() { rcs["baz"].Remove(ctx); returned.Store(true) })
 
-	clockAdvance(t, fakeclock, 2*time.Second)  // First retry
-	clockAdvance(t, fakeclock, 4*time.Second)  // Second retry
-	clockAdvance(t, fakeclock, 8*time.Second)  // Third retry
-	clockAdvance(t, fakeclock, 16*time.Second) // Forth retry
+		time.Sleep(2 * time.Second)  // First retry
+		time.Sleep(4 * time.Second)  // Second retry
+		time.Sleep(8 * time.Second)  // Third retry
+		time.Sleep(16 * time.Second) // Forth retry
 
-	// Fifth and last retry
-	clockAdvance(t, fakeclock, 32*time.Second-1*time.Millisecond)
+		// Fifth and last retry
+		time.Sleep(32*time.Second - 1*time.Millisecond)
 
-	// Make sure that Remove() is still actually waiting. If it weren't,
-	// clockAdvance couldn't complete successfully.
-	clockAdvance(t, fakeclock, 1*time.Millisecond)
-	wg.Wait()
+		synctest.Wait()
+		require.False(t, returned.Load(), "[Remove] should not have returned yet")
 
-	for _, key := range keys("baz") {
-		// All keys should not have been deleted due to the persistent error
-		assertNotDeleted(t, ctx, key)
-	}
+		time.Sleep(1 * time.Millisecond)
+		wg.Wait()
 
-	// The context expired during grace period
-	cctx, cancel := context.WithCancel(t.Context())
-	wg.Go(func() { rcs["foo"].Remove(cctx) })
-	clockAdvance(t, fakeclock, 1*time.Minute)
-	cancel()
-	wg.Wait()
+		for _, key := range keys("baz") {
+			// All keys should not have been deleted due to the persistent error
+			assertNotDeleted(t, ctx, key)
+		}
 
-	// Remove the existing waiter that we didn't clean-up due to context termination.
-	if fakeclock.HasWaiters() {
-		fakeclock.Step(5 * time.Minute)
-	}
+		// The context expired during grace period
+		cctx, cancel := context.WithCancel(t.Context())
+		wg.Go(func() { rcs["foo"].Remove(cctx) })
+		time.Sleep(1 * time.Minute)
+		cancel()
+		wg.Wait()
 
-	// The context expired during backoff
-	cctx, cancel = context.WithCancel(t.Context())
-	wg.Go(func() { rcs["baz"].Remove(cctx) })
-	clockAdvance(t, fakeclock, 1*time.Minute)
-	cancel()
-	wg.Wait()
-
-	// Remove the existing waiter that we didn't clean-up due to context termination.
-	if fakeclock.HasWaiters() {
-		fakeclock.Step(5 * time.Minute)
-	}
+		// The context expired during backoff
+		cctx, cancel = context.WithCancel(t.Context())
+		wg.Go(func() { rcs["baz"].Remove(cctx) })
+		time.Sleep(1 * time.Minute)
+		cancel()
+		wg.Wait()
+	})
 }
 
 func TestRemoteClusterRemoveShutdown(t *testing.T) {
