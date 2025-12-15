@@ -24,7 +24,6 @@
   host-fw: 'true'
   lb-acceleration: 'testing-only'
   ingress-controller: 'true'
-  bgp-control-plane: 'true'
   # L7 testing: SNAT load balancer mode + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
 - name: 'lb-3'
