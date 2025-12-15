@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
-	"k8s.io/utils/clock"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
@@ -66,9 +65,6 @@ type KVStoreMesh struct {
 
 	logger *slog.Logger
 
-	// clock allows to override the clock for testing purposes
-	clock clock.Clock
-
 	started chan struct{}
 }
 
@@ -98,7 +94,6 @@ func newKVStoreMesh(lc cell.Lifecycle, params params) *KVStoreMesh {
 		client:       params.Client,
 		storeFactory: params.StoreFactory,
 		logger:       params.Logger,
-		clock:        clock.RealClock{},
 		started:      make(chan struct{}),
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
@@ -169,7 +164,6 @@ func (km *KVStoreMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		synced:         synced,
 		readyTimeout:   km.config.PerClusterReadyTimeout,
 		logger:         km.logger.With(logfields.ClusterName, name),
-		clock:          km.clock,
 
 		disableDrainOnDisconnection: km.config.DisableDrainOnDisconnection,
 	}
