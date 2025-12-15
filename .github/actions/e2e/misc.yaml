@@ -21,6 +21,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  bgp-control-plane: 'true'
   # L7 testing: Ingress covered in lb.yaml, can skip
   test-l7: 'false'
 - name: 'misc-3'
@@ -33,6 +34,7 @@
   lb-mode: 'snat'
   egress-gateway: 'true'
   ingress-controller: 'true'
+  bgp-control-plane: 'true'
   # L7 testing: Ingress covered in lb.yaml, can skip
   test-l7: 'false'
 - name: 'misc-4'
