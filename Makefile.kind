@@ -351,6 +351,7 @@ ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
 endif
 
 .PHONY: kind-install-cilium
+ENABLE_CLUSTERNETWORKPOLICY ?= false
 kind-install-cilium: check_deps kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
@@ -360,6 +361,7 @@ kind-install-cilium: check_deps kind-ready ## Install a local Cilium version int
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
 		$(KIND_VALUES_FILES) \
+		--set=k8sClusterNetworkPolicy.enabled=$(ENABLE_CLUSTERNETWORKPOLICY) \
 		--version=
 
 GW_VERSION ?= $(shell grep "sigs.k8s.io/gateway-api" go.mod | awk '{print $$2}' | awk -F'-' '{print (NF>2)?$$NF:$$0}')
