@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base",
+    "config:recommended",
     ":gitSignOff",
     "helpers:pinGitHubActionDigests"
   ],
@@ -19,7 +19,9 @@
   ],
   // self-hosted configuration
   "username": "cilium-renovate[bot]",
-  "repositories": ["cilium/cilium"],
+  "repositories": [
+    "cilium/cilium"
+  ],
   "prConcurrentLimit": 0,
   "prHourlyLimit": 0,
   // renovate first reads this configuration, then reads the repository
@@ -61,9 +63,8 @@
   "schedule": [
     "on sunday"
   ],
-  postUpdateOptions: [
-    // update source import paths on major updates
-    "gomodUpdateImportPaths"
+  "postUpdateOptions": [
+    "gomodTidy"
   ],
   // This ignorePaths configuration option overrides the config:base preset and
   // should not be removed.
@@ -87,7 +88,7 @@
   // we can upgrade them together in a single PR.
   "separateMinorPatch": false,
   "pruneStaleBranches": true,
-  "baseBranches": [
+  "baseBranchPatterns": [
     "main",
     "v1.18",
     "v1.17",
@@ -103,7 +104,7 @@
   ],
   "rebaseLabel": "dont-merge/needs-rebase",
   "stopUpdatingLabel": "renovate/stop-updating",
-  "allowedPostUpgradeCommands": [
+  "allowedCommands": [
     "^make -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
     "^make -C Documentation update-cmdref$",
@@ -134,41 +135,39 @@
         "renovatebot/github-action", // Renovate's GH action
         "renovatebot/renovate", // Renovate's bot name
         "ghcr.io/renovatebot/renovate", // Renovate's container image
-      ],
-      "matchPackagePrefixes": [
-        "actions/", // GitHub's official GH actions
-        "cilium/", // Cilium's GH actions
-        "docker.io/library/", // official Docker images
-        "docker/", // official Docker actions
-        "gcr.io/distroless", // official distroless images
-        "gcr.io/etcd-development/etcd", // etcd
-        "ghcr.io/spiffe/", // Spiffe's official images
-        "github.com/actions/", // GitHub's official GH actions
-        "github.com/aws/", // Amazon's dependencies
-        "github.com/Azure/", // Azure's dependencies
-        "github.com/cilium/", // Any Cilium dependency
-        "github.com/docker/", // Docker official org
-        "github.com/golang/", // Golang official org
-        "github.com/google/", // Google official org
-        "github.com/go-openapi/", // Open API official org
-        "github.com/hashicorp/", // Hashicorp's official org
-        "github.com/prometheus/", // Prometheus's official org
-        "go.etcd.io/etcd/", // etcd's official org
-        "golang.org/x/", // Golang official experimental org
-        "golangci/golangci-lint", // Golang CI linter
-        "protocolbuffers/protobuf", // protobuf buffers
-        "google.golang.org/", // Google official repo for api/genproto/grpc/protobuf
-        "k8s.io/", // Kubernetes official repo
-        "quay.io/cilium/", // LVH images
-        "quay.io/lvh-images/", // LVH images
-        "sigs.k8s.io/", // Kubernetes official SIG repo
+        "actions/{/,}**", // GitHub's official GH actions
+        "cilium/{/,}**", // Cilium's GH actions
+        "docker.io/library/{/,}**", // official Docker images
+        "docker/{/,}**", // official Docker actions
+        "gcr.io/distroless{/,}**", // official distroless images
+        "gcr.io/etcd-development/etcd{/,}**", // etcd
+        "ghcr.io/spiffe/{/,}**", // Spiffe's official images
+        "github.com/actions/{/,}**", // GitHub's official GH actions
+        "github.com/aws/{/,}**", // Amazon's dependencies
+        "github.com/Azure/{/,}**", // Azure's dependencies
+        "github.com/cilium/{/,}**", // Any Cilium dependency
+        "github.com/docker/{/,}**", // Docker official org
+        "github.com/golang/{/,}**", // Golang official org
+        "github.com/google/{/,}**", // Google official org
+        "github.com/go-openapi/{/,}**", // Open API official org
+        "github.com/hashicorp/{/,}**", // Hashicorp's official org
+        "github.com/prometheus/{/,}**", // Prometheus's official org
+        "go.etcd.io/etcd/{/,}**", // etcd's official org
+        "golang.org/x/{/,}**", // Golang official experimental org
+        "golangci/golangci-lint{/,}**", // Golang CI linter
+        "protocolbuffers/protobuf{/,}**", // protobuf buffers
+        "google.golang.org/{/,}**", // Google official repo for api/genproto/grpc/protobuf
+        "k8s.io/{/,}**", // Kubernetes official repo
+        "quay.io/cilium/{/,}**", // Cilium images
+        "quay.io/lvh-images/{/,}**", // LVH images
+        "sigs.k8s.io/{/,}**" // Kubernetes official SIG repo
       ],
       "automerge": true,
       "automergeType": "pr",
       "groupName": "auto-merge-trusted-deps",
       // Replace the list of reviewers with just ciliumbot
-      "reviewers":[
-        "ciliumbot",
+      "reviewers": [
+        "ciliumbot"
       ]
     },
     {
@@ -184,11 +183,11 @@
         "lockFileMaintenance",
         "rollback",
         "bump",
-        "replacement",
+        "replacement"
       ],
       "groupName": "all-dependencies",
-      "excludePackageNames": [
-        "quay.io/goswagger/swagger"
+      "matchPackageNames": [
+        "!quay.io/goswagger/swagger"
       ]
     },
     {
@@ -209,16 +208,20 @@
     {
       "groupName": "all github action dependencies",
       "groupSlug": "all-github-action",
-      "matchPaths": [
+      "matchFileNames": [
         ".github/**"
-      ],
+      ]
     },
     {
       "groupName": "all go dependencies main",
       "groupSlug": "all-go-deps-main",
-      "matchFiles": [
+      "matchFileNames": [
         "go.mod",
         "go.sum"
+      ],
+      "postUpdateOptions": [
+        // update source import paths on major updates
+        "gomodUpdateImportPaths"
       ],
       "matchBaseBranches": [
         "main"
@@ -227,18 +230,18 @@
     {
       // Disabling updating quay.io/lvh-images/kind until issue https://github.com/cilium/cilium/issues/38058 is fixed.
       "matchDepNames": [
-        "quay.io/lvh-images/kind",
+        "quay.io/lvh-images/kind"
       ],
-      "paths": [
-        ".github/workflows/conformance-runtime.yaml",
+      "matchFileNames": [
+        ".github/workflows/conformance-runtime.yaml"
       ],
       "enabled": false
     },
     {
       // Avoid updating patch releases of golang in go.mod
       "enabled": false,
-      "matchFiles": [
-        "go.mod",
+      "matchFileNames": [
+        "go.mod"
       ],
       "matchDepNames": [
         "go"
@@ -255,12 +258,12 @@
       "enabled": false,
       "groupName": "all go dependencies stable",
       "groupSlug": "all-go-deps-stable",
-      "matchFiles": [
+      "matchFileNames": [
         "go.mod",
         "go.sum"
       ],
-      matchBaseBranches: [
-        "!main",
+      "matchBaseBranches": [
+        "!main"
       ]
     },
     {
@@ -285,19 +288,17 @@
         // Stop updating envoy control plane packages until they pushed the
         // tag to stop go mod from erroring. See https://github.com/cilium/cilium/issues/41574
         "github.com/envoyproxy/go-control-plane/contrib",
-        "github.com/envoyproxy/go-control-plane/envoy"
-      ],
-      "matchPackagePatterns": [
+        "github.com/envoyproxy/go-control-plane/envoy",
         // We can't update these libraries until github.com/shoenig/go-m1cpu
         // is added as an exception to the list of licenses into CNCF.
-        ".*google/gops/*",
+        "/.*google/gops/*/",
         // We can't update these libraries until github.com/shoenig/go-m1cpu
         // is added as an exception to the list of licenses into CNCF.
-        "github.com/shirou/gopsutil/*",
+        "/github.com/shirou/gopsutil/*/",
         // Once we decide to spend cycles on ginkgo v2 we should update the
         // dependency manually.
-        "github.com/onsi/ginkgo",
-        "github.com/onsi/gomega/*",
+        "/github.com/onsi/ginkgo/",
+        "/github.com/onsi/gomega/*/",
         // We can't update to helm v4 until https://github.com/helm/helm/issues/31525 is fixed
         "helm.sh/helm/*"
       ]
@@ -306,12 +307,12 @@
       // Grouped these together because they require a re-creation of the base
       // image.
       "groupName": "base-images",
-      "matchFiles": [
+      "matchFileNames": [
         "images/builder/Dockerfile",
         "images/runtime/Dockerfile"
       ],
       "matchPackageNames": [
-        "docker.io/library/golang"
+        "docker.io/library/golang",
       ],
     },
     // Do not allow any updates for major.minor on stable release branches to avoid churn from linters.
@@ -331,20 +332,20 @@
     {
       "groupName": "all external docker images dependencies",
       "groupSlug": "all-external-images-deps-stable",
-      "matchFiles": [
+      "matchFileNames": [
         "install/kubernetes/Makefile.values"
-      ],
-      "matchBaseBranches": [
-        "!main",
       ],
       // This is required as otherwise patch version updates into stable branches
       // are also skipped if a minor version update is available at the same time.
-      "separateMinorPatch": true
+      "separateMinorPatch": true,
+      "matchBaseBranches": [
+        "!main"
+      ]
     },
     {
       // Do not allow any major and minor updates into stable branches by default.
       "enabled": false,
-      "matchFiles": [
+      "matchFileNames": [
         "install/kubernetes/Makefile.values"
       ],
       "matchUpdateTypes": [
@@ -360,7 +361,7 @@
       ]
     },
     {
-      "matchFiles": [
+      "matchFileNames": [
         "install/kubernetes/Makefile.values"
       ],
       "matchPackageNames": [
@@ -372,7 +373,7 @@
       ],
       // We need to manually fix some regressions caused by spire, thus we won't
       // be upgrading to 1.10 until we fix it.
-      "allowedVersions": "<1.10",
+      "allowedVersions": "<1.10"
     },
     {
       "matchPackageNames": [
@@ -382,8 +383,8 @@
       "matchBaseBranches": [
         "v1.18",
         "v1.17",
-        "main",
-      ],
+        "main"
+      ]
     },
     {
       "matchPackageNames": [
@@ -391,8 +392,8 @@
       ],
       "allowedVersions": "22.04",
       "matchBaseBranches": [
-        "v1.16",
-      ],
+        "v1.16"
+      ]
     },
     {
       "matchPackageNames": [
@@ -403,7 +404,7 @@
       "matchBaseBranches": [
         "v1.18",
         "v1.17",
-        "v1.16",
+        "v1.16"
       ]
     },
     {
@@ -412,7 +413,7 @@
       ],
       "allowedVersions": "<3.23",
       "matchBaseBranches": [
-        "v1.18",
+        "v1.18"
       ]
     },
     {
@@ -429,7 +430,7 @@
       // Avoid updating patch version for statedb as it might contain breaking changes
       "enabled": false,
       "matchPackageNames": [
-        "github.com/cilium/statedb",
+        "github.com/cilium/statedb"
       ],
       "matchUpdateTypes": [
         "major",
@@ -440,8 +441,8 @@
         "lockFileMaintenance",
         "rollback",
         "bump",
-        "replacement",
-      ],
+        "replacement"
+      ]
     },
     {
       // It's returning 500s for git clones.
@@ -449,15 +450,15 @@
       "matchDepNames": [
         "golang.zx2c4.com/wireguard"
       ],
-      "versioning": "regex:^v?0\\.0\\.0-(?<patch>\\d+)-.*$",
+      "versioning": "regex:^v?0\\.0\\.0-(?<patch>\\d+)-.*$"
     },
-    // Ref: https://github.com/cilium/cilium-cli#releases
     {
+      // Ref: https://github.com/cilium/cilium-cli#releases
       "groupName": "Cilium CLI",
       "groupSlug": "cilium-cli",
       "matchDepNames": [
         "cilium/cilium-cli"
-      ],
+      ]
     },
     {
       "groupName": "Hubble CLI",
@@ -473,7 +474,7 @@
       "matchDepNames": [
         "go",
         "docker.io/library/golang"
-      ],
+      ]
     },
     {
       // Group golangci-lint updates to overrule grouping of version updates in the GHA files.
@@ -525,10 +526,10 @@
       ],
       "matchBaseBranches": [
         "main"
-      ],
+      ]
     },
-    // group updating renovate versions together (config validator/self hosted renovate)
     {
+      // group updating renovate versions together (config validator/self hosted renovate)
       "groupName": "all-dependencies",
       "matchDepNames": [
         "renovatebot/renovate",
@@ -571,7 +572,7 @@
       "ignoreUnstable": false
     },
     {
-      "matchFiles": [
+      "matchFileNames": [
         "install/kubernetes/Makefile.values"
       ],
       "postUpgradeTasks": {
@@ -589,7 +590,7 @@
       }
     },
     {
-      "matchFiles": [
+      "matchFileNames": [
         "cilium-cli/defaults/defaults.go"
       ],
       "postUpgradeTasks": {
@@ -619,22 +620,22 @@
       }
     },
     {
-      enabled: false,
-      matchDepPatterns: [
-        // k8s dependencies will be updated manually along with tests
-        "k8s.io/*",
-        "sigs.k8s.io/*"
-      ],
+      // k8s dependencies will be updated manually along with tests
+      "enabled": false,
       "matchUpdateTypes": [
         "major",
         "minor"
+      ],
+      "matchDepNames": [
+        "/k8s.io/*/",
+        "/sigs.k8s.io/*/"
       ]
     },
     {
-      matchDepPatterns: [
+      "matchDepNames": [
         // k8s dependencies will be updated manually along with tests
-        "k8s.io/*",
-        "sigs.k8s.io/*"
+        "/k8s.io/*/",
+        "/sigs.k8s.io/*/"
       ],
       "postUpgradeTasks": {
         "commands": [
@@ -648,7 +649,7 @@
       // Grouped these together because they require a re-creation of the base
       // image.
       "groupName": "base-images",
-      "matchFiles": [
+      "matchFileNames": [
         "images/builder/install-protoc.sh",
         "images/builder/install-protoplugins.sh"
       ],
@@ -660,7 +661,7 @@
       }
     },
     {
-      matchPackageNames: [
+      "matchPackageNames": [
         "protocolbuffers/protobuf",
         "protocolbuffers/protobuf-go",
         "quay.io/goswagger/swagger"
@@ -681,7 +682,7 @@
         "quay.io/cilium/startup-script",
         "quay.io/cilium/image-tester",
       ],
-      "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$",
+      "versioning": "regex:^(?<major>\\d+)-[a-f0-9]{7}$"
     },
     {
       // Images from the image-tools repository that have a semantic + timestamp-based versioning scheme
@@ -735,14 +736,14 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.35\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
-        "main",
+        "main"
       ]
     },
     {
       "matchDepNames": [
         "grpc/grpc-go"
       ],
-      "versioning": "regex:cmd/protoc-gen-go-grpc/v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "versioning": "regex:cmd/protoc-gen-go-grpc/v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
     },
     {
       "matchPackageNames": [
@@ -750,11 +751,13 @@
         "github.com/aws/smithy-go",
         "renovatebot/github-action"
       ],
-      "matchDepPatterns": [
-        "github.com/Azure/azure-sdk-for-go/sdk/*",
-        "github.com/aws/aws-sdk-go-v2*"
+      "schedule": [
+        "on the 1st day instance on sunday"
       ],
-      "schedule": ["on the 1st day instance on sunday"]
+      "matchDepNames": [
+        "/github.com/Azure/azure-sdk-for-go/sdk/*/",
+        "/github.com/aws/aws-sdk-go-v2*/"
+      ]
     },
     {
       // Separate major minor and patch so that renovate can update the patch
@@ -763,7 +766,7 @@
         ".github/ISSUE_TEMPLATE/bug_report.yaml"
       ],
       "matchDepNames": [
-        "cilium/cilium",
+        "cilium/cilium"
       ],
       "separateMajorMinor": true,
       "separateMinorPatch": true,
@@ -776,12 +779,12 @@
         ".github/ISSUE_TEMPLATE/bug_report.yaml"
       ],
       "matchDepNames": [
-        "cilium/cilium",
+        "cilium/cilium"
       ],
       "matchUpdateTypes": [
         "major",
         "minor"
-      ],
+      ]
     },
     {
       "enabled": false,
@@ -789,10 +792,10 @@
         ".github/workflows/lint-build-commits.yaml"
       ],
       "matchDepTypes": [
-        "github-runner",
+        "github-runner"
       ],
       "matchPackageNames": [
-        "ubuntu",
+        "ubuntu"
       ],
       "matchUpdateTypes": [
         "major"
@@ -802,9 +805,9 @@
       ]
     },
     {
-      "groupName": "auto-merge-trusted-deps",
       // Separate patch version updates, so that renovate can update the patch
       // versions on stable branches.
+      "groupName": "auto-merge-trusted-deps",
       "matchDepNames": [
         "gcr.io/etcd-development/etcd"
       ],
@@ -841,16 +844,17 @@
     }
   ],
   "kubernetes": {
-    "fileMatch": [
-      "examples/hubble/hubble-cli\\.yaml"
+    "managerFilePatterns": [
+      "/examples/hubble/hubble-cli\\.yaml/"
     ]
   },
-  "regexManagers": [
+  "customManagers": [
     {
-      "fileMatch": [
-        "images/builder/install-protoc.sh",
-        "images/builder/install-protoplugins.sh",
-        "images/runtime/build-gops.sh"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/images/builder/install-protoc.sh/",
+        "/images/builder/install-protoplugins.sh/",
+        "/images/runtime/build-gops.sh/"
       ],
       // These regexes manage version and digest strings in shell scripts,
       // similar to the examples shown here:
@@ -867,22 +871,24 @@
       ]
     },
     {
-      "fileMatch": [
-        ".github/ISSUE_TEMPLATE/bug_report.yaml"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/ISSUE_TEMPLATE/bug_report.yaml/"
       ],
       // These regexes manage version and digest strings in shell scripts,
       // similar to the examples shown here:
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+- \'equal or higher than (?<currentValue>.*) and lower than.+"
-      ],
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+- 'equal or higher than (?<currentValue>.*) and lower than.+"
+      ]
     },
     {
-      "fileMatch": [
-        "^\\.github/workflows/[^/]+\\.ya?ml$",
-        "^\\.github/actions/e2e/[^/]+\\.ya?ml$",
-        "^\\.github/actions/ginkgo/[^/]+\\.ya?ml$",
-        "^\\.github/actions/ipsec/[^/]+\\.ya?ml$"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/[^/]+\\.ya?ml$/",
+        "/^\\.github/actions/e2e/[^/]+\\.ya?ml$/",
+        "/^\\.github/actions/ginkgo/[^/]+\\.ya?ml$/",
+        "/^\\.github/actions/ipsec/[^/]+\\.ya?ml$/"
       ],
       // This regex manages version strings in GitHub actions workflow files,
       // similar to the examples shown here:
@@ -893,15 +899,16 @@
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+[\\w.]+:\\s+'(?<currentValue>.*)'",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.*FULL_KERNEL=\"(?<currentValue>.*)\"",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'",
-        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: "(?<currentValue>.*)"',
-        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)"',
-        '# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: "(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
-        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) branch=(?<currentValue>.*?)\\s+.+_ref: (?<currentDigest>.*)'
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: \"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: \"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) branch=(?<currentValue>.*?)\\s+.+_ref: (?<currentDigest>.*)"
       ]
     },
     {
-      "fileMatch": [
-        "^Makefile\\.defs$"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^Makefile\\.defs$/"
       ],
       // This regex manages version strings in the Makefile.defs file,
       // similar to the examples shown here:
@@ -911,8 +918,9 @@
       ]
     },
     {
-      "fileMatch": [
-        "^.github/actions/set-env-variables/action\\.yml$"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^.github/actions/set-env-variables/action\\.yml$/"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\"",
@@ -920,24 +928,27 @@
       ]
     },
     {
-      "fileMatch": [
-        "^.github/workflows/renovate-config-validator\\.yaml$"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^.github/workflows/renovate-config-validator\\.yaml$/"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?)\\s+export RENOVATE_IMAGE=\"?(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"?"
       ]
     },
     {
-      "fileMatch": [
-        "^go\\.mod$"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^go\\.mod$/"
       ],
       "matchStrings": [
         "// renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+go (?<currentValue>.*)"
       ]
     },
     {
-      "fileMatch": [
-        ".github/actions/kvstore/action.yaml"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/actions/kvstore/action.yaml/"
       ],
       "matchStrings": [
         "default: (?<depName>.*?):(?<currentValue>.*?)@(?<currentDigest>.*?)\\s"
@@ -945,8 +956,9 @@
       "datasourceTemplate": "docker"
     },
     {
-      "fileMatch": [
-        "^install/kubernetes/Makefile\\.values$"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^install/kubernetes/Makefile\\.values$/"
       ],
       // This regex manages version strings in the Makefile.defs file,
       // similar to the examples shown here:
@@ -956,19 +968,21 @@
       ]
     },
     {
-      "fileMatch": [
-        "^cilium-cli/defaults/defaults\\.go$"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^cilium-cli/defaults/defaults\\.go$/"
       ],
       "matchStrings": [
-        "\/\/ renovate: datasource=(?<datasource>.*?)\\s+\"[^\"]+\": \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
+        "// renovate: datasource=(?<datasource>.*?)\\s+\"[^\"]+\": \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
       ]
     },
     {
-      "fileMatch": [
-        ".github/actions/lvh-kind/action.yaml",
-        ".github/workflows/conformance-ginkgo.yaml",
-        ".github/workflows/conformance-runtime.yaml",
-        ".github/workflows/tests-datapath-verifier.yaml",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/actions/lvh-kind/action.yaml/",
+        "/.github/workflows/conformance-ginkgo.yaml/",
+        "/.github/workflows/conformance-runtime.yaml/",
+        "/.github/workflows/tests-datapath-verifier.yaml/"
       ],
       // These regexes manage version and digest strings in shell scripts,
       // similar to the examples shown here:
@@ -978,7 +992,10 @@
       ]
     },
     {
-      "fileMatch": [".github/workflows/.*\\.ya?ml$"],
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/workflows/.*\\.ya?ml$/"
+      ],
       "matchStrings": [
         "['\"]ubuntu-(?<currentValue>[0-9]{2}\\.[0-9]{2})['\"]"
       ],
