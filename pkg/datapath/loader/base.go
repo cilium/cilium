@@ -191,7 +191,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	l.ipsecMu.Lock()
 	defer l.ipsecMu.Unlock()
 
-	interfaces := option.Config.EncryptInterface
+	interfaces := option.Config.UnsafeDaemonConfigOption.EncryptInterface
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		// IPAMENI mode supports multiple network facing interfaces that
 		// will all need Encrypt logic applied in order to decrypt any
@@ -208,7 +208,7 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 				interfaces = append(interfaces, link.Attrs().Name)
 			}
 		}
-		option.Config.EncryptInterface = interfaces
+		option.Config.UnsafeDaemonConfigOption.EncryptInterface = interfaces
 
 	}
 
@@ -389,7 +389,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
 
-	if option.Config.EnableIPIPDevices {
+	if option.Config.UnsafeDaemonConfigOption.EnableIPIPDevices {
 		// This setting needs to be applied before creating the IPIP devices.
 		sysIPIP := []tables.Sysctl{
 			{Name: []string{"net", "core", "fb_tunnels_only_for_init_net"}, Val: "2", IgnoreErr: true},
