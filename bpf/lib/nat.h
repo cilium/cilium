@@ -1071,7 +1071,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 {
 	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state = NULL;
-	struct ipv4_ct_tuple tuple = {};
+	struct ipv4_ct_tuple tuple __align_stack_8 = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo;
