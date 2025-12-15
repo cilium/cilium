@@ -618,6 +618,19 @@
       ]
     },
     {
+      // Allow k8s.io patch updates on all branches
+      // (overrides the "all go dependencies stable" rule)
+      "groupName": "auto-merge-trusted-deps",
+      "matchDepNames": [
+        "/k8s.io/*/",
+        "/sigs.k8s.io/*/"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "enabled": true
+    },
+    {
       "matchDepNames": [
         // k8s dependencies will be updated manually along with tests
         "/k8s.io/*/",
