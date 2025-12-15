@@ -419,7 +419,7 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 		Ready:       rc.isReadyLocked(),
 		Connected:   rc.backend != nil,
 		Status:      backendStatus,
-		Config:      rc.config,
+		Config:      rc.config.DeepCopy(),
 		NumFailures: int64(rc.failures),
 		LastFailure: strfmt.DateTime(rc.lastFailure),
 	}
