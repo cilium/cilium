@@ -454,6 +454,7 @@ The following metrics no longer reports a ``source_cluster`` and a ``source_node
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
+* ``cilium_agent_bootstrap_seconds`` is now deprecated. Please use ``cilium_hive_jobs_oneshot_last_run_duration_seconds`` of respective job instead.
 
 Advanced
 ========
