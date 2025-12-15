@@ -49,6 +49,16 @@ func (m *Tap) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.RecordUpstreamConnection {
+		i--
+		if m.RecordUpstreamConnection {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x20
+	}
 	if m.RecordDownstreamConnection {
 		i--
 		if m.RecordDownstreamConnection {
@@ -114,6 +124,9 @@ func (m *Tap) SizeVT() (n int) {
 		n += 2
 	}
 	if m.RecordDownstreamConnection {
+		n += 2
+	}
+	if m.RecordUpstreamConnection {
 		n += 2
 	}
 	n += len(m.unknownFields)

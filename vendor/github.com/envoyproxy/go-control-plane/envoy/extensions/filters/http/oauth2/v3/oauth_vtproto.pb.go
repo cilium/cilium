@@ -395,6 +395,18 @@ func (m *OAuth2Config) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.DisableTokenEncryption {
+		i--
+		if m.DisableTokenEncryption {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xd0
+	}
 	if m.CodeVerifierTokenExpiresIn != nil {
 		size, err := (*durationpb.Duration)(m.CodeVerifierTokenExpiresIn).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -1055,6 +1067,9 @@ func (m *OAuth2Config) SizeVT() (n int) {
 	if m.CodeVerifierTokenExpiresIn != nil {
 		l = (*durationpb.Duration)(m.CodeVerifierTokenExpiresIn).SizeVT()
 		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.DisableTokenEncryption {
+		n += 3
 	}
 	n += len(m.unknownFields)
 	return n
