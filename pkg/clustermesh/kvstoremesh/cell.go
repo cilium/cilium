@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh/reflector"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -26,4 +27,6 @@ var Cell = cell.Module(
 	// instead of the more redundant cilium_kvstoremesh_clustermesh_
 	metrics.Metric(common.MetricsProvider("")),
 	metrics.Metric(MetricsProvider),
+
+	reflector.Cell,
 )
