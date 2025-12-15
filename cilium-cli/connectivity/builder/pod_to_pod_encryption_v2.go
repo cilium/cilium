@@ -23,6 +23,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 			// this test only runs post v1.18.0 clusters
 			return versioncheck.MustCompile(">=1.18.0")(ct.CiliumVersion)
 		}).
+		WithFeatureRequirements(features.RequireDisabled(features.Ztunnel)).
 		WithScenarios(
 			tests.PodToPodEncryptionV2(),
 		)
@@ -36,6 +37,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 		WithFeatureRequirements(
 			features.RequireEnabled(features.L7Proxy),
 			features.RequireEnabled(features.EncryptionPod),
+			features.RequireDisabled(features.Ztunnel),
 		).
 		WithCiliumPolicy(clientsEgressL7HTTPFromAnyPolicyYAML).
 		WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
