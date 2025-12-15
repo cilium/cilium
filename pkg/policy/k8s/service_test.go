@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 )
@@ -243,7 +242,7 @@ func TestPolicyWatcher_updateToServicesPolicies(t *testing.T) {
 
 	p := &policyWatcher{
 		log:                hivetest.Logger(t),
-		config:             &option.DaemonConfig{},
+		config:             policyWatcherConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},
 		db:                 servicesFixture.db,
@@ -504,7 +503,7 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 
 	p := &policyWatcher{
 		log:                hivetest.Logger(t),
-		config:             &option.DaemonConfig{},
+		config:             policyWatcherConfig{},
 		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
 		k8sAPIGroups:       &k8sSynced.APIGroups{},
 		policyImporter:     policyImporter,

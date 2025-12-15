@@ -22,14 +22,12 @@ import (
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/option"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
 type policyWatcher struct {
-	log                     *slog.Logger
-	config                  *option.DaemonConfig
-	clusterMeshPolicyConfig cmtypes.PolicyConfig
+	log    *slog.Logger
+	config policyWatcherConfig
 
 	k8sResourceSynced *k8sSynced.Resources
 	k8sAPIGroups      *k8sSynced.APIGroups
@@ -170,7 +168,7 @@ func (p *policyWatcher) watchResources(ctx context.Context) {
 				case resource.Upsert:
 					err = p.addK8sNetworkPolicyV1(
 						event.Object, k8sAPIGroupNetworkingV1Core, knpDone,
-						cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName),
+						cmtypes.LocalClusterNameForPolicies(p.config.ClustermeshPolicyConfig, p.config.ClusterName),
 					)
 				case resource.Delete:
 					err = p.deleteK8sNetworkPolicyV1(event.Object, k8sAPIGroupNetworkingV1Core, knpDone)
