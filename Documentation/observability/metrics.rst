@@ -753,14 +753,17 @@ Name                               Labels                           Default     
 Jobs
 ~~~~
 
-================================== ================================ ============ ========================================================
-Name                               Labels                           Default      Description
-================================== ================================ ============ ========================================================
-``jobs_errors_total``              ``job``                          Enabled      Number of jobs runs that returned an error
-``jobs_one_shot_run_seconds``      ``job``                          Enabled      Histogram of one shot job run duration
-``jobs_timer_run_seconds``         ``job``                          Enabled      Histogram of timer job run duration
-``jobs_observer_run_seconds``      ``job``                          Enabled      Histogram of observer job run duration
-================================== ================================ ============ ========================================================
+=================================================== ================================ ============ ========================================================
+Name                                                Labels                           Default      Description
+=================================================== ================================ ============ ========================================================
+``hive_jobs_runs_total``                            ``module``, ``job_name``         Enabled      Total number of jobs runs
+``hive_jobs_runs_failed``                           ``module``, ``job_name``         Enabled      Number of jobs runs that returned an error
+``hive_jobs_oneshot_last_run_duration_seconds``     ``module``, ``job_name``         Enabled      Duration of last one shot job run
+``hive_jobs_observer_last_run_duration_seconds``    ``module``, ``job_name``         Enabled      Duration of last observer job run
+``hive_jobs_observer_run_duration_seconds``         ``module``, ``job_name``         Enabled      Histogram of observer job run duration
+``hive_jobs_timer_last_run_duration_seconds``       ``module``, ``job_name``         Enabled      Duration of last timer job run
+``hive_jobs_timer_run_duration_seconds``            ``module``, ``job_name``         Enabled      Histogram of timer job run duration
+=================================================== ================================ ============ ========================================================
 
 CIDRGroups
 ~~~~~~~~~~
