@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/operator/pkg/ztunnel"
+	"github.com/cilium/cilium/operator/unmanagedpods"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
@@ -199,6 +200,17 @@ var (
 		}),
 
 		cell.Provide(func(
+			operatorCfg *operatorOption.OperatorConfig,
+			daemonCfg *option.DaemonConfig,
+			clientset k8sClient.Clientset,
+		) unmanagedpods.SharedConfig {
+			return unmanagedpods.SharedConfig{
+				DisableCiliumEndpointCRD: daemonCfg.DisableCiliumEndpointCRD,
+				K8sEnabled:               clientset.IsEnabled(),
+			}
+		}),
+
+		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
 		) ciliumidentity.SharedConfig {
 			return ciliumidentity.SharedConfig{
@@ -268,6 +280,11 @@ var (
 			// Endpoints. Either once or periodically it validates all the present
 			// Cilium Endpoints and delete the ones that should be deleted.
 			endpointgc.Cell,
+
+			// Unmanaged Pods controller restarts pods that don't have a corresponding
+			// CiliumEndpoint object. This is primarily used to restart kube-dns pods
+			// that may have started before Cilium was ready.
+			unmanagedpods.Cell,
 
 			// Cilium Endpoint Slice Garbage Collector. One-off GC that deletes all CES
 			// present in a cluster when CES feature is disabled.
@@ -542,9 +559,6 @@ var legacyCell = cell.Module(
 	"Cilium operator legacy cell",
 
 	cell.Invoke(registerLegacyOnLeader),
-
-	// Provides the unamanged pods metric
-	metrics.Metric(NewUnmanagedPodsMetric),
 )
 
 type params struct {
@@ -554,7 +568,6 @@ type params struct {
 	Resources                operatorK8s.Resources
 	SvcResolver              dial.Resolver
 	CfgClusterMeshPolicy     cmtypes.PolicyConfig
-	Metrics                  *UnmanagedPodsMetric
 	MetricsRegistry          *metrics.Registry
 	Logger                   *slog.Logger
 	WorkQueueMetricsProvider workqueue.MetricsProvider
@@ -569,7 +582,6 @@ func registerLegacyOnLeader(p params) {
 		resources:                p.Resources,
 		cfgClusterMeshPolicy:     p.CfgClusterMeshPolicy,
 		workqueueMetricsProvider: p.WorkQueueMetricsProvider,
-		metrics:                  p.Metrics,
 		metricsRegistry:          p.MetricsRegistry,
 		logger:                   p.Logger,
 	}
@@ -586,7 +598,6 @@ type legacyOnLeader struct {
 	wg                       sync.WaitGroup
 	resources                operatorK8s.Resources
 	cfgClusterMeshPolicy     cmtypes.PolicyConfig
-	metrics                  *UnmanagedPodsMetric
 	metricsRegistry          *metrics.Registry
 	workqueueMetricsProvider workqueue.MetricsProvider
 	logger                   *slog.Logger
@@ -605,24 +616,6 @@ func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
 // in HA mode.
 func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 	isLeader.Store(true)
-
-	// Restart kube-dns as soon as possible to parallelize re-initialization
-	// of DNS with other operation functions.
-	// If kube-dns is not managed by Cilium it can prevent
-	// etcd from reaching out kube-dns in EKS.
-	// If this logic is modified, make sure the operator's clusterrole logic for
-	// pods/delete is also up-to-date.
-	if !legacy.clientset.IsEnabled() {
-		legacy.logger.InfoContext(ctx, "KubeDNS unmanaged pods controller disabled due to kubernetes support not enabled")
-	} else if option.Config.DisableCiliumEndpointCRD {
-		legacy.logger.InfoContext(ctx, fmt.Sprintf("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName))
-	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
-		legacy.wg.Add(1)
-		go func() {
-			defer legacy.wg.Done()
-			enableUnmanagedController(legacy.ctx, legacy.logger, &legacy.wg, legacy.clientset, legacy.metrics)
-		}()
-	}
 
 	legacy.logger.InfoContext(ctx,
 		"Initializing IPAM",

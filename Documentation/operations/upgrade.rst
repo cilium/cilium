@@ -396,6 +396,26 @@ Agent Options
 ~~~~~~~~~~~~~
 
 
+Operator Options
+~~~~~~~~~~~~~~~~
+
+* The ``--unmanaged-pod-watcher-interval`` flag type has been changed from ``int`` (seconds)
+  to ``time.Duration`` for improved usability and consistency with other Cilium configuration
+  options. If you have this flag explicitly configured, update your configuration to use
+  duration format (e.g., ``15s``, ``1m``, ``90s``). The default value remains 15 seconds.
+
+  .. code-block:: bash
+
+      # Before (deprecated):
+      --unmanaged-pod-watcher-interval=15
+
+      # After:
+      --unmanaged-pod-watcher-interval=15s
+
+  Note: When using Helm, the ``operator.unmanagedPodWatcher.intervalSeconds`` value now
+  accepts both integers (for backward compatibility) and duration strings. Numeric values
+  will be automatically converted to duration strings (e.g., ``15`` becomes ``"15s"``).
+
 Cluster Mesh API Server Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
