@@ -275,10 +275,6 @@
         "github.com/cilium/proxy",
         // We update this dependency manually together with conformance test changes
         "sigs.k8s.io/gateway-api",
-        // Stop updating envoy control plane packages until they pushed the
-        // tag to stop go mod from erroring. See https://github.com/cilium/cilium/issues/41574
-        "github.com/envoyproxy/go-control-plane/contrib",
-        "github.com/envoyproxy/go-control-plane/envoy",
         // We can't update these libraries until github.com/shoenig/go-m1cpu
         // is added as an exception to the list of licenses into CNCF.
         "/.*google/gops/*/",

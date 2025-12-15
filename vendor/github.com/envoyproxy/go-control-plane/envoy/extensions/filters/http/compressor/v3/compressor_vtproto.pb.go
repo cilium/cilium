@@ -167,6 +167,16 @@ func (m *Compressor_ResponseDirectionConfig) MarshalToSizedBufferVTStrict(dAtA [
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.StatusHeaderEnabled {
+		i--
+		if m.StatusHeaderEnabled {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
+	}
 	if len(m.UncompressibleResponseCodes) > 0 {
 		var pksize2 int
 		for _, num := range m.UncompressibleResponseCodes {
@@ -439,6 +449,28 @@ func (m *CompressorOverrides) MarshalToSizedBufferVTStrict(dAtA []byte) (int, er
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.CompressorLibrary != nil {
+		if vtmsg, ok := interface{}(m.CompressorLibrary).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.CompressorLibrary)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
 	if m.ResponseDirectionConfig != nil {
 		size, err := m.ResponseDirectionConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -606,6 +638,9 @@ func (m *Compressor_ResponseDirectionConfig) SizeVT() (n int) {
 		}
 		n += 1 + protohelpers.SizeOfVarint(uint64(l)) + l
 	}
+	if m.StatusHeaderEnabled {
+		n += 2
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -689,6 +724,16 @@ func (m *CompressorOverrides) SizeVT() (n int) {
 	_ = l
 	if m.ResponseDirectionConfig != nil {
 		l = m.ResponseDirectionConfig.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.CompressorLibrary != nil {
+		if size, ok := interface{}(m.CompressorLibrary).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.CompressorLibrary)
+		}
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

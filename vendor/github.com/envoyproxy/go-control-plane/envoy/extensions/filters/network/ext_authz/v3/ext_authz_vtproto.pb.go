@@ -49,6 +49,16 @@ func (m *ExtAuthz) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.SendTlsAlertOnDenial {
+		i--
+		if m.SendTlsAlertOnDenial {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x48
+	}
 	if m.IncludeTlsSession {
 		i--
 		if m.IncludeTlsSession {
@@ -189,6 +199,9 @@ func (m *ExtAuthz) SizeVT() (n int) {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	if m.IncludeTlsSession {
+		n += 2
+	}
+	if m.SendTlsAlertOnDenial {
 		n += 2
 	}
 	n += len(m.unknownFields)
