@@ -1908,4 +1908,8 @@ const (
 	DriverName = "driverName"
 
 	VfCount = "vfCount"
+
+	PodUID = "podUID"
+
+	ClaimUID = "claimUID"
 )
