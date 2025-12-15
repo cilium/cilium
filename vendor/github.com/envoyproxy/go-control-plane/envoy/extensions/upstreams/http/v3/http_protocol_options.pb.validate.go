@@ -179,6 +179,35 @@ func (m *HttpProtocolOptions) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetOutlierDetection()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "OutlierDetection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpProtocolOptionsValidationError{
+					field:  "OutlierDetection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOutlierDetection()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpProtocolOptionsValidationError{
+				field:  "OutlierDetection",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	oneofUpstreamProtocolOptionsPresent := false
 	switch v := m.UpstreamProtocolOptions.(type) {
 	case *HttpProtocolOptions_ExplicitHttpConfig_:
@@ -1062,3 +1091,148 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = HttpProtocolOptions_AutoHttpConfigValidationError{}
+
+// Validate checks the field values on HttpProtocolOptions_OutlierDetection
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
+func (m *HttpProtocolOptions_OutlierDetection) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HttpProtocolOptions_OutlierDetection
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// HttpProtocolOptions_OutlierDetectionMultiError, or nil if none found.
+func (m *HttpProtocolOptions_OutlierDetection) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HttpProtocolOptions_OutlierDetection) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetErrorMatcher() == nil {
+		err := HttpProtocolOptions_OutlierDetectionValidationError{
+			field:  "ErrorMatcher",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetErrorMatcher()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpProtocolOptions_OutlierDetectionValidationError{
+					field:  "ErrorMatcher",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpProtocolOptions_OutlierDetectionValidationError{
+					field:  "ErrorMatcher",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorMatcher()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpProtocolOptions_OutlierDetectionValidationError{
+				field:  "ErrorMatcher",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return HttpProtocolOptions_OutlierDetectionMultiError(errors)
+	}
+
+	return nil
+}
+
+// HttpProtocolOptions_OutlierDetectionMultiError is an error wrapping multiple
+// validation errors returned by
+// HttpProtocolOptions_OutlierDetection.ValidateAll() if the designated
+// constraints aren't met.
+type HttpProtocolOptions_OutlierDetectionMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HttpProtocolOptions_OutlierDetectionMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HttpProtocolOptions_OutlierDetectionMultiError) AllErrors() []error { return m }
+
+// HttpProtocolOptions_OutlierDetectionValidationError is the validation error
+// returned by HttpProtocolOptions_OutlierDetection.Validate if the designated
+// constraints aren't met.
+type HttpProtocolOptions_OutlierDetectionValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e HttpProtocolOptions_OutlierDetectionValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e HttpProtocolOptions_OutlierDetectionValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e HttpProtocolOptions_OutlierDetectionValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e HttpProtocolOptions_OutlierDetectionValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e HttpProtocolOptions_OutlierDetectionValidationError) ErrorName() string {
+	return "HttpProtocolOptions_OutlierDetectionValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e HttpProtocolOptions_OutlierDetectionValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHttpProtocolOptions_OutlierDetection.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = HttpProtocolOptions_OutlierDetectionValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = HttpProtocolOptions_OutlierDetectionValidationError{}

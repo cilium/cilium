@@ -58,17 +58,6 @@ func (m *OnDemandCds) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetSource() == nil {
-		err := OnDemandCdsValidationError{
-			field:  "Source",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetSource()).(type) {
 		case interface{ ValidateAll() error }:

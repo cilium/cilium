@@ -26,7 +26,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ExternalProcessorClient interface {
-	// This begins the bidirectional stream that Envoy will use to
+	// This begins the bidirectional stream that the data plane will use to
 	// give the server control over what the filter does. The actual
 	// protocol is described by the ProcessingRequest and ProcessingResponse
 	// messages below.
@@ -76,7 +76,7 @@ func (x *externalProcessorProcessClient) Recv() (*ProcessingResponse, error) {
 // All implementations should embed UnimplementedExternalProcessorServer
 // for forward compatibility
 type ExternalProcessorServer interface {
-	// This begins the bidirectional stream that Envoy will use to
+	// This begins the bidirectional stream that the data plane will use to
 	// give the server control over what the filter does. The actual
 	// protocol is described by the ProcessingRequest and ProcessingResponse
 	// messages below.

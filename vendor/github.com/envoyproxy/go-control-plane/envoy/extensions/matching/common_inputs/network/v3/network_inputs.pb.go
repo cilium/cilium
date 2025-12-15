@@ -555,6 +555,55 @@ func (x *DynamicMetadataInput) GetPath() []*DynamicMetadataInput_PathSegment {
 	return nil
 }
 
+// Input that matches by the network namespace of the listener address.
+// This input returns the network namespace filepath that was used to create the listening socket.
+// On Linux systems, this corresponds to the “network_namespace_filepath“ field in the
+// :ref:`SocketAddress <envoy_v3_api_msg_config.core.v3.SocketAddress>` configuration.
+//
+// .. note::
+//
+//	This input is only meaningful on Linux systems where network namespaces are supported.
+//	On other platforms, this input will always return an empty value.
+//
+// [#extension: envoy.matching.inputs.network_namespace]
+type NetworkNamespaceInput struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *NetworkNamespaceInput) Reset() {
+	*x = NetworkNamespaceInput{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *NetworkNamespaceInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NetworkNamespaceInput) ProtoMessage() {}
+
+func (x *NetworkNamespaceInput) ProtoReflect() protoreflect.Message {
+	mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NetworkNamespaceInput.ProtoReflect.Descriptor instead.
+func (*NetworkNamespaceInput) Descriptor() ([]byte, []int) {
+	return file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_rawDescGZIP(), []int{11}
+}
+
 // Specifies the segment in a path to retrieve value from Metadata.
 // Note: Currently it's not supported to retrieve a value from a list in Metadata. This means that
 // if the segment key refers to a list, it has to be the last segment in a path.
@@ -572,7 +621,7 @@ type DynamicMetadataInput_PathSegment struct {
 func (x *DynamicMetadataInput_PathSegment) Reset() {
 	*x = DynamicMetadataInput_PathSegment{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11]
+		mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -585,7 +634,7 @@ func (x *DynamicMetadataInput_PathSegment) String() string {
 func (*DynamicMetadataInput_PathSegment) ProtoMessage() {}
 
 func (x *DynamicMetadataInput_PathSegment) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11]
+	mi := &file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -670,20 +719,21 @@ var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto
 	0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x1b, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x09, 0x42, 0x07, 0xfa, 0x42, 0x04, 0x72, 0x02, 0x10, 0x01, 0x48, 0x00, 0x52, 0x03,
 	0x6b, 0x65, 0x79, 0x42, 0x0e, 0x0a, 0x07, 0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x03,
-	0xf8, 0x42, 0x01, 0x42, 0xc5, 0x01, 0xba, 0x80, 0xc8, 0xd1, 0x06, 0x02, 0x10, 0x02, 0x0a, 0x40,
-	0x69, 0x6f, 0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x2e, 0x65, 0x6e,
-	0x76, 0x6f, 0x79, 0x2e, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x6d,
-	0x61, 0x74, 0x63, 0x68, 0x69, 0x6e, 0x67, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x5f, 0x69,
-	0x6e, 0x70, 0x75, 0x74, 0x73, 0x2e, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x2e, 0x76, 0x33,
-	0x42, 0x12, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x50,
-	0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x63, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
-	0x6f, 0x6d, 0x2f, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x2f, 0x67, 0x6f,
-	0x2d, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2d, 0x70, 0x6c, 0x61, 0x6e, 0x65, 0x2f, 0x65,
-	0x6e, 0x76, 0x6f, 0x79, 0x2f, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x2f,
-	0x6d, 0x61, 0x74, 0x63, 0x68, 0x69, 0x6e, 0x67, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x5f,
-	0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x2f, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x2f, 0x76,
-	0x33, 0x3b, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x76, 0x33, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0xf8, 0x42, 0x01, 0x22, 0x17, 0x0a, 0x15, 0x4e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x4e, 0x61,
+	0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x42, 0xc5, 0x01, 0xba,
+	0x80, 0xc8, 0xd1, 0x06, 0x02, 0x10, 0x02, 0x0a, 0x40, 0x69, 0x6f, 0x2e, 0x65, 0x6e, 0x76, 0x6f,
+	0x79, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2e, 0x65, 0x78, 0x74,
+	0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x69, 0x6e, 0x67,
+	0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x5f, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x2e, 0x6e,
+	0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x2e, 0x76, 0x33, 0x42, 0x12, 0x4e, 0x65, 0x74, 0x77, 0x6f,
+	0x72, 0x6b, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a,
+	0x63, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x65, 0x6e, 0x76, 0x6f,
+	0x79, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x2f, 0x67, 0x6f, 0x2d, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x2d, 0x70, 0x6c, 0x61, 0x6e, 0x65, 0x2f, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2f, 0x65, 0x78,
+	0x74, 0x65, 0x6e, 0x73, 0x69, 0x6f, 0x6e, 0x73, 0x2f, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x69, 0x6e,
+	0x67, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x5f, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x2f,
+	0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x2f, 0x76, 0x33, 0x3b, 0x6e, 0x65, 0x74, 0x77, 0x6f,
+	0x72, 0x6b, 0x76, 0x33, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -698,7 +748,7 @@ func file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_prot
 	return file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_rawDescData
 }
 
-var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_goTypes = []interface{}{
 	(*DestinationIPInput)(nil),               // 0: envoy.extensions.matching.common_inputs.network.v3.DestinationIPInput
 	(*DestinationPortInput)(nil),             // 1: envoy.extensions.matching.common_inputs.network.v3.DestinationPortInput
@@ -711,10 +761,11 @@ var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto
 	(*ApplicationProtocolInput)(nil),         // 8: envoy.extensions.matching.common_inputs.network.v3.ApplicationProtocolInput
 	(*FilterStateInput)(nil),                 // 9: envoy.extensions.matching.common_inputs.network.v3.FilterStateInput
 	(*DynamicMetadataInput)(nil),             // 10: envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput
-	(*DynamicMetadataInput_PathSegment)(nil), // 11: envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.PathSegment
+	(*NetworkNamespaceInput)(nil),            // 11: envoy.extensions.matching.common_inputs.network.v3.NetworkNamespaceInput
+	(*DynamicMetadataInput_PathSegment)(nil), // 12: envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.PathSegment
 }
 var file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_depIdxs = []int32{
-	11, // 0: envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.path:type_name -> envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.PathSegment
+	12, // 0: envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.path:type_name -> envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.PathSegment
 	1,  // [1:1] is the sub-list for method output_type
 	1,  // [1:1] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
@@ -861,6 +912,18 @@ func file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_prot
 			}
 		}
 		file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*NetworkNamespaceInput); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DynamicMetadataInput_PathSegment); i {
 			case 0:
 				return &v.state
@@ -873,7 +936,7 @@ func file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_prot
 			}
 		}
 	}
-	file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[11].OneofWrappers = []interface{}{
+	file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_msgTypes[12].OneofWrappers = []interface{}{
 		(*DynamicMetadataInput_PathSegment_Key)(nil),
 	}
 	type x struct{}
@@ -882,7 +945,7 @@ func file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_prot
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -109,8 +109,7 @@ type ProcessingMode_BodySendMode int32
 const (
 	// Do not send the body at all. This is the default.
 	ProcessingMode_NONE ProcessingMode_BodySendMode = 0
-	// Stream the body to the server in pieces as they arrive at the
-	// proxy.
+	// Stream the body to the server in pieces as they are seen.
 	ProcessingMode_STREAMED ProcessingMode_BodySendMode = 1
 	// Buffer the message body in memory and send the entire body at once.
 	// If the body exceeds the configured buffer limit, then the

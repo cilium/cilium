@@ -145,6 +145,35 @@ func (m *HttpBufferedTrace) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetUpstreamConnection()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpBufferedTraceValidationError{
+					field:  "UpstreamConnection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpBufferedTraceValidationError{
+					field:  "UpstreamConnection",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetUpstreamConnection()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpBufferedTraceValidationError{
+				field:  "UpstreamConnection",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return HttpBufferedTraceMultiError(errors)
 	}
