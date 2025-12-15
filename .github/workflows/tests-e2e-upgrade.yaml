@@ -64,6 +64,7 @@ concurrency:
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
+  #   - workflow_dispatch: PR number
   # The 'tests-e2e-upgrade' suffix added to schedule ensures that for workflow_call
   # events it doesn't conflict with other potential parallel workflow_call done to
   # other workflows from the same parent workflow. As otherwise the group name would
@@ -75,7 +76,10 @@ concurrency:
     ${{ github.workflow }}
     tests-e2e-upgrade
     ${{ github.event_name }}
-    ${{ github.sha }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
     ${{ inputs.UID }}
   cancel-in-progress: true
 
