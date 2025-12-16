@@ -195,24 +195,6 @@ func (ep *epInfoCache) IsAtHostNS() bool {
 	return ep.atHostNS
 }
 
-func (ep *epInfoCache) SkipMasqueradeV4() bool {
-	return ep.isProperty(PropertySkipMasqueradeV4)
-}
-
-func (ep *epInfoCache) SkipMasqueradeV6() bool {
-	return ep.isProperty(PropertySkipMasqueradeV6)
-}
-
-// isProperty checks if the value of the properties map is set, it's a boolean
-// and its value is 'true'.
-func (ep *epInfoCache) isProperty(propertyKey string) bool {
-	if v, ok := ep.properties[propertyKey]; ok {
-		isSet, ok := v.(bool)
-		return ok && isSet
-	}
-	return false
-}
-
 func (ep *epInfoCache) GetPropertyValue(key string) any {
 	return ep.properties[key]
 }

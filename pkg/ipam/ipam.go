@@ -8,13 +8,10 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/cilium/statedb"
-
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging"
@@ -69,47 +66,25 @@ type Metadata interface {
 	GetIPPoolForPod(owner string, family Family) (pool string, err error)
 }
 
-// NewIPAMParams contains the parameters for creating a new IPAM instance.
-type NewIPAMParams struct {
-	Logger         *slog.Logger
-	NodeAddressing types.NodeAddressing
-	AgentConfig    *option.DaemonConfig
-	NodeDiscovery  Owner
-	LocalNodeStore *node.LocalNodeStore
-	K8sEventReg    K8sEventRegister
-	NodeResource   agentK8s.LocalCiliumNodeResource
-	MTUConfig      MtuConfiguration
-	Clientset      client.Clientset
-	Metadata       Metadata
-	Sysctl         sysctl.Sysctl
-	IPMasqAgent    *ipmasq.IPMasqAgent
-
-	DB                        *statedb.DB
-	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
-	OnlyMasqueradeDefaultPool bool
-}
-
 // NewIPAM returns a new IP address manager
-func NewIPAM(params NewIPAMParams) *IPAM {
+func NewIPAM(logger *slog.Logger, nodeAddressing types.NodeAddressing, c *option.DaemonConfig, nodeDiscovery Owner, localNodeStore *node.LocalNodeStore, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset, metadata Metadata, sysctl sysctl.Sysctl, ipMasqAgent *ipmasq.IPMasqAgent) *IPAM {
 	return &IPAM{
-		logger:                    params.Logger,
-		config:                    params.AgentConfig,
-		nodeAddressing:            params.NodeAddressing,
-		owner:                     map[Pool]map[string]string{},
-		expirationTimers:          map[timerKey]expirationTimer{},
-		excludedIPs:               map[string]string{},
-		k8sEventReg:               params.K8sEventReg,
-		localNodeStore:            params.LocalNodeStore,
-		nodeResource:              params.NodeResource,
-		mtuConfig:                 params.MTUConfig,
-		clientset:                 params.Clientset,
-		nodeDiscovery:             params.NodeDiscovery,
-		metadata:                  params.Metadata,
-		sysctl:                    params.Sysctl,
-		ipMasqAgent:               params.IPMasqAgent,
-		db:                        params.DB,
-		podIPPools:                params.PodIPPools,
-		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
+		logger:           logger,
+		nodeAddressing:   nodeAddressing,
+		config:           c,
+		owner:            map[Pool]map[string]string{},
+		expirationTimers: map[timerKey]expirationTimer{},
+		excludedIPs:      map[string]string{},
+
+		k8sEventReg:    k8sEventReg,
+		localNodeStore: localNodeStore,
+		nodeResource:   node,
+		mtuConfig:      mtuConfig,
+		clientset:      clientset,
+		nodeDiscovery:  nodeDiscovery,
+		metadata:       metadata,
+		sysctl:         sysctl,
+		ipMasqAgent:    ipMasqAgent,
 	}
 }
 
@@ -135,17 +110,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 		}
 	case ipamOption.IPAMMultiPool:
 		ipam.logger.Info("Initializing MultiPool IPAM")
-		manager := newMultiPoolManager(MultiPoolManagerParams{
-			Logger:                    ipam.logger,
-			Conf:                      ipam.config,
-			Node:                      ipam.nodeResource,
-			Owner:                     ipam.nodeDiscovery,
-			LocalNodeStore:            ipam.localNodeStore,
-			Clientset:                 ipam.clientset.CiliumV2().CiliumNodes(),
-			DB:                        ipam.db,
-			PodIPPools:                ipam.podIPPools,
-			OnlyMasqueradeDefaultPool: ipam.onlyMasqueradeDefaultPool,
-		})
+		manager := newMultiPoolManager(ipam.logger, ipam.config, ipam.nodeResource, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset.CiliumV2().CiliumNodes())
 
 		if ipam.config.IPv6Enabled() {
 			ipam.IPv6Allocator = manager.Allocator(IPv6)
