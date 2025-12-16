@@ -360,30 +360,6 @@ PodCIDRs allocated from ``CiliumPodIPPools`` can be announced to the network by 
 the ``autoDirectNodeRoutes`` Helm option can be used to enable automatic routing
 between nodes on a L2 network.
 
-Masquerade Behaviour
---------------------
-
-When combining multi-pool IPAM and BGP control plane, you may find it useful to not masquerade
-connections from such pools. As Pod IPs are advertised via BGP to your underlay network and
-return traffic can find its way back, it may not be desirable for the pod source IP to be
-masqueraded as the IP of the node it is on.
-
-It is not always possible to identify pods that should not be masqueraded with just destination
-IPs (via ``--ipvX-native-routing-cidr`` flag or ``ip-masq-agent`` rules) as there might be overlap
-between masqueraded and non-masqueraded pod destination IPs. In such cases, you can exclude IP
-pools from masquerading when eBPF-based masquerading is enabled, by using the flag
-``--only-masquerade-default-pool`` which disables masquerading for all non-default pools.
-Alternatively, you may configure this on a per-pool basis by annotating the CiliumPodIPPool
-resource with ``ipam.cilium.io/skip-masquerade="true"``.
-
-Using the flag or the annotation results in the source IP of your pods being preserved when they
-connect to endpoints outside the cluster, allowing them to be differentiated from pods in other
-pools on your underlay network. The pods can then match firewall or NAT rules on your network
-infrastructure.
-
-Changing either the flag or the annotation after a pod has been allocated an IP will not change
-masquerade behaviour for that pod until it has re-scheduled.
-
  .. _ipam_crd_multi_pool_limitations:
 
 Limitations

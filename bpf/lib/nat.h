@@ -719,10 +719,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		return NAT_PUNT_TO_STACK;
 #endif
 
-	/* Do not SNAT if this is a localhost endpoint or
-	 * endpoint explicitly disallows it (normally multi-pool IPAM endpoints)
-	 */
-	if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V4))
+	/* if this is a localhost endpoint, no SNAT is needed */
+	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
 
 	/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
@@ -1729,11 +1727,7 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 # endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
 
-	/* Do not SNAT if this is a localhost endpoint or
-	 * endpoint explicitly disallows it (normally multi-pool IPAM endpoints)
-	 */
-	 /*if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V6))*/
-	if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V6))
+	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
 		return NAT_PUNT_TO_STACK;
 
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6
