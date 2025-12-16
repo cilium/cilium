@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
+	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -51,6 +52,7 @@ type proxyParams struct {
 	Lifecycle             cell.Lifecycle
 	JobGroup              job.Group
 	Logger                *slog.Logger
+	DaemonConfig          *option.DaemonConfig
 	LocalNodeStore        *node.LocalNodeStore
 	ProxyPorts            *proxyports.ProxyPorts
 	EnvoyProxyIntegration *envoyProxyIntegration
@@ -86,6 +88,17 @@ func newProxy(params proxyParams) (*Proxy, error) {
 		}
 
 		return p, nil
+	}
+
+	if !params.DaemonConfig.DryMode {
+		params.Lifecycle.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
+				if err := linuxdatapath.NodeEnsureLocalRoutingRule(); err != nil {
+					return fmt.Errorf("failed to ensure local routing rule: %w", err)
+				}
+				return nil
+			},
+		})
 	}
 
 	p.proxyPorts.Trigger = job.NewTrigger(job.WithDebounce(10 * time.Second))
