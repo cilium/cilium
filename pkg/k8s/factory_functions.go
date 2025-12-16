@@ -142,6 +142,8 @@ func TransformToCiliumEndpoint(obj any) (any, error) {
 				// they are not used by the CEP handlers.
 				Labels:      nil,
 				Annotations: nil,
+				// OwnerReferences is needed for ztunnel xDS to extract Pod UID.
+				OwnerReferences: slim_metav1.SlimOwnerReferences(concreteObj.ObjectMeta.OwnerReferences),
 			},
 			Encryption: func() *cilium_v2.EncryptionSpec {
 				enc := concreteObj.Status.Encryption
@@ -178,6 +180,8 @@ func TransformToCiliumEndpoint(obj any) (any, error) {
 					// they are not used by the CEP handlers.
 					Labels:      nil,
 					Annotations: nil,
+					// OwnerReferences is needed for ztunnel xDS to extract Pod UID.
+					OwnerReferences: slim_metav1.SlimOwnerReferences(ciliumEndpoint.ObjectMeta.OwnerReferences),
 				},
 				Encryption: func() *cilium_v2.EncryptionSpec {
 					enc := ciliumEndpoint.Status.Encryption

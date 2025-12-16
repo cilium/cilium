@@ -59,7 +59,8 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		require.NotNil(t, workload, "Address should contain Workload")
 
 		// Validate all required field mappings from endpoint to workload
-		require.Equal(t, ep.K8sUID, workload.Uid, "Workload.Uid should match endpoint.K8sUID")
+		// The workload UID comes from OwnerReferences (Pod UID)
+		require.Equal(t, ep.K8sUID, workload.Uid, "Workload.Uid should match Pod UID from OwnerReferences")
 		require.Equal(t, ep.K8sPodName, workload.Name, "Workload.Name should match endpoint.K8sPodName")
 		require.Equal(t, ep.K8sNamespace, workload.Namespace, "Workload.Namespace should match endpoint.K8sNamespace")
 		// TODO(hemanthmalla): Currently we're setting zTunnel node name to host IP due to lack of nodename in CEP.
@@ -123,7 +124,8 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		require.NotNil(t, workload, "Address should contain Workload")
 
 		// Validate all required field mappings from endpoint to workload
-		require.Equal(t, ep.K8sUID, workload.Uid, "Workload.Uid should match endpoint.K8sUID")
+		// The workload UID comes from OwnerReferences (Pod UID)
+		require.Equal(t, ep.K8sUID, workload.Uid, "Workload.Uid should match Pod UID from OwnerReferences")
 		require.Equal(t, ep.K8sPodName, workload.Name, "Workload.Name should match endpoint.K8sPodName")
 		require.Equal(t, ep.K8sNamespace, workload.Namespace, "Workload.Namespace should match endpoint.K8sNamespace")
 		// TODO(hemanthmalla): Currently we're setting zTunnel node name to host IP due to lack of nodename in CEP.
@@ -156,7 +158,12 @@ func endpointToCiliumEndpoint(ep *endpoint.Endpoint) *types.CiliumEndpoint {
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      ep.K8sPodName,
 			Namespace: ep.K8sNamespace,
-			UID:       apimachineryTypes.UID(ep.K8sUID),
+			OwnerReferences: []slim_metav1.OwnerReference{
+				{
+					Kind: "Pod",
+					UID:  apimachineryTypes.UID(ep.K8sUID),
+				},
+			},
 		},
 
 		Networking: &v2.EndpointNetworking{
