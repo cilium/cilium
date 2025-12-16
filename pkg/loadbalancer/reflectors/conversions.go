@@ -220,116 +220,74 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		}
 	}
 
-	// NOTE: We always want to do ClusterIP services even when full kube-proxy replacement is disabled.
-	// See https://github.com/cilium/cilium/issues/16197 for context.
+	// NodePort
+	if (svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) &&
+		expType.CanExpose(slim_corev1.ServiceTypeNodePort) {
 
-	if extCfg.KubeProxyReplacement {
-		// NodePort
-		if (svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) &&
-			expType.CanExpose(slim_corev1.ServiceTypeNodePort) {
-
-			for _, scope := range scopes {
-				for _, family := range getIPFamilies(svc) {
-					if (!extCfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
-						(!extCfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
-						log().Debug(
-							"Skipping NodePort due to disabled IP family",
-							logfields.IPv4, extCfg.EnableIPv4,
-							logfields.IPv6, extCfg.EnableIPv6,
-							logfields.Family, family,
-						)
-						continue
-					}
-					for _, port := range svc.Spec.Ports {
-						if port.NodePort == 0 {
-							continue
-						}
-
-						fe := loadbalancer.FrontendParams{
-							Type:        loadbalancer.SVCTypeNodePort,
-							PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-							ServiceName: name,
-							ServicePort: uint16(port.Port),
-						}
-
-						switch family {
-						case slim_corev1.IPv4Protocol:
-							fe.Address = loadbalancer.NewL3n4Addr(
-								loadbalancer.L4Type(port.Protocol),
-								zeroV4,
-								uint16(port.NodePort),
-								scope,
-							)
-						case slim_corev1.IPv6Protocol:
-							fe.Address = loadbalancer.NewL3n4Addr(
-								loadbalancer.L4Type(port.Protocol),
-								zeroV6,
-								uint16(port.NodePort),
-								scope,
-							)
-						default:
-							continue
-						}
-
-						fes = append(fes, fe)
-					}
-				}
-			}
-		}
-
-		// LoadBalancer
-		if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer && expType.CanExpose(slim_corev1.ServiceTypeLoadBalancer) {
-			for _, ip := range svc.Status.LoadBalancer.Ingress {
-				if ip.IP == "" ||
-					(ip.IPMode != nil && *ip.IPMode != slim_corev1.LoadBalancerIPModeVIP) /* KEP-1860, skip non-VIP */ {
-					continue
-				}
-
-				addr, err := cmtypes.ParseAddrCluster(ip.IP)
-				if err != nil {
-					continue
-				}
-				if (!extCfg.EnableIPv6 && addr.Is6()) || (!extCfg.EnableIPv4 && addr.Is4()) {
+		for _, scope := range scopes {
+			for _, family := range getIPFamilies(svc) {
+				if (!extCfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
+					(!extCfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
 					log().Debug(
-						"Skipping LoadBalancer due to disabled IP family",
+						"Skipping NodePort due to disabled IP family",
 						logfields.IPv4, extCfg.EnableIPv4,
 						logfields.IPv6, extCfg.EnableIPv6,
-						logfields.Address, addr,
+						logfields.Family, family,
 					)
 					continue
 				}
+				for _, port := range svc.Spec.Ports {
+					if port.NodePort == 0 {
+						continue
+					}
 
-				for _, scope := range scopes {
-					for _, port := range svc.Spec.Ports {
-						fe := loadbalancer.FrontendParams{
-							Type:        loadbalancer.SVCTypeLoadBalancer,
-							PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-							ServiceName: name,
-							ServicePort: uint16(port.Port),
-						}
+					fe := loadbalancer.FrontendParams{
+						Type:        loadbalancer.SVCTypeNodePort,
+						PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
+						ServiceName: name,
+						ServicePort: uint16(port.Port),
+					}
 
+					switch family {
+					case slim_corev1.IPv4Protocol:
 						fe.Address = loadbalancer.NewL3n4Addr(
 							loadbalancer.L4Type(port.Protocol),
-							addr,
-							uint16(port.Port),
+							zeroV4,
+							uint16(port.NodePort),
 							scope,
 						)
-						fes = append(fes, fe)
+					case slim_corev1.IPv6Protocol:
+						fe.Address = loadbalancer.NewL3n4Addr(
+							loadbalancer.L4Type(port.Protocol),
+							zeroV6,
+							uint16(port.NodePort),
+							scope,
+						)
+					default:
+						continue
 					}
-				}
 
+					fes = append(fes, fe)
+				}
 			}
 		}
+	}
 
-		// ExternalIP
-		for _, ip := range svc.Spec.ExternalIPs {
-			addr, err := cmtypes.ParseAddrCluster(ip)
+	// LoadBalancer
+	if svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer && expType.CanExpose(slim_corev1.ServiceTypeLoadBalancer) {
+		for _, ip := range svc.Status.LoadBalancer.Ingress {
+			if ip.IP == "" ||
+				(ip.IPMode != nil && *ip.IPMode != slim_corev1.LoadBalancerIPModeVIP) /* KEP-1860, skip non-VIP */ {
+				continue
+			}
+
+			addr, err := cmtypes.ParseAddrCluster(ip.IP)
 			if err != nil {
 				continue
 			}
 			if (!extCfg.EnableIPv6 && addr.Is6()) || (!extCfg.EnableIPv4 && addr.Is4()) {
 				log().Debug(
-					"Skipping ExternalIP due to disabled IP family",
+					"Skipping LoadBalancer due to disabled IP family",
 					logfields.IPv4, extCfg.EnableIPv4,
 					logfields.IPv6, extCfg.EnableIPv6,
 					logfields.Address, addr,
@@ -337,21 +295,58 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 				continue
 			}
 
-			for _, port := range svc.Spec.Ports {
-				fe := loadbalancer.FrontendParams{
-					Type:        loadbalancer.SVCTypeExternalIPs,
-					PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-					ServiceName: name,
-					ServicePort: uint16(port.Port),
+			for _, scope := range scopes {
+				for _, port := range svc.Spec.Ports {
+					fe := loadbalancer.FrontendParams{
+						Type:        loadbalancer.SVCTypeLoadBalancer,
+						PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
+						ServiceName: name,
+						ServicePort: uint16(port.Port),
+					}
+
+					fe.Address = loadbalancer.NewL3n4Addr(
+						loadbalancer.L4Type(port.Protocol),
+						addr,
+						uint16(port.Port),
+						scope,
+					)
+					fes = append(fes, fe)
 				}
-				fe.Address = loadbalancer.NewL3n4Addr(
-					loadbalancer.L4Type(port.Protocol),
-					addr,
-					uint16(port.Port),
-					loadbalancer.ScopeExternal,
-				)
-				fes = append(fes, fe)
 			}
+
+		}
+	}
+
+	// ExternalIP
+	for _, ip := range svc.Spec.ExternalIPs {
+		addr, err := cmtypes.ParseAddrCluster(ip)
+		if err != nil {
+			continue
+		}
+		if (!extCfg.EnableIPv6 && addr.Is6()) || (!extCfg.EnableIPv4 && addr.Is4()) {
+			log().Debug(
+				"Skipping ExternalIP due to disabled IP family",
+				logfields.IPv4, extCfg.EnableIPv4,
+				logfields.IPv6, extCfg.EnableIPv6,
+				logfields.Address, addr,
+			)
+			continue
+		}
+
+		for _, port := range svc.Spec.Ports {
+			fe := loadbalancer.FrontendParams{
+				Type:        loadbalancer.SVCTypeExternalIPs,
+				PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
+				ServiceName: name,
+				ServicePort: uint16(port.Port),
+			}
+			fe.Address = loadbalancer.NewL3n4Addr(
+				loadbalancer.L4Type(port.Protocol),
+				addr,
+				uint16(port.Port),
+				loadbalancer.ScopeExternal,
+			)
+			fes = append(fes, fe)
 		}
 	}
 
