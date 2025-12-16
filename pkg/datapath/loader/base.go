@@ -329,7 +329,7 @@ func (l *loader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy, bigtcp datapath.BigTCPConfiguration) error {
 	sysSettings := []tables.Sysctl{
 		{Name: []string{"net", "core", "bpf_jit_enable"}, Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: []string{"net", "ipv4", "conf", "all", "rp_filter"}, Val: "0", IgnoreErr: false},
@@ -384,7 +384,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	if err := setupTunnelDevice(l.logger, l.sysctl, tunnelConfig.EncapProtocol(), tunnelConfig.Port(),
-		tunnelConfig.SrcPortLow(), tunnelConfig.SrcPortHigh(), lnc.DeviceMTU); err != nil {
+		tunnelConfig.SrcPortLow(), tunnelConfig.SrcPortHigh(), lnc.DeviceMTU, bigtcp); err != nil {
 		return fmt.Errorf("failed to setup %s tunnel device: %w", tunnelConfig.EncapProtocol(), err)
 	}
 
