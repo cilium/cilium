@@ -95,8 +95,8 @@ type IPAM struct {
 	nodeAddressing types.NodeAddressing
 	config         *option.DaemonConfig
 
-	IPv6Allocator Allocator
-	IPv4Allocator Allocator
+	ipv6Allocator Allocator
+	ipv4Allocator Allocator
 
 	// metadata provides information about a particular IP owner.
 	metadata Metadata
@@ -144,6 +144,16 @@ func (ipam *IPAM) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteCon
 }
 
 func (ipam *IPAM) EndpointRestored(ep *endpoint.Endpoint) {}
+
+// RestoreFinished marks the status of restoration as done
+func (ipam *IPAM) RestoreFinished() {
+	if ipam.config.EnableIPv6 {
+		ipam.ipv6Allocator.RestoreFinished()
+	}
+	if ipam.config.EnableIPv4 {
+		ipam.ipv4Allocator.RestoreFinished()
+	}
+}
 
 // DebugStatus implements debug.StatusObject to provide debug status collection
 // ability
