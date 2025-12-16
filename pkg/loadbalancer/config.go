@@ -538,6 +538,9 @@ type ExternalConfig struct {
 	BPFSocketLBHostnsOnly                  bool
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
+	DefaultLBServiceIPAM                   string
+	EnableLBIPAM                           bool
+	EnableNodeIPAM                         bool
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -550,6 +553,9 @@ func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalC
 		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         kprCfg.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
+		DefaultLBServiceIPAM:                   cfg.DefaultLBServiceIPAM,
+		EnableLBIPAM:                           cfg.EnableLBIPAM,
+		EnableNodeIPAM:                         cfg.EnableNodeIPAM,
 	}
 }
 
