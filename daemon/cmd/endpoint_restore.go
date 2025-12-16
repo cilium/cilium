@@ -11,10 +11,12 @@ import (
 	"net/netip"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
@@ -73,6 +75,7 @@ type endpointRestorerParams struct {
 
 	Resolver promise.Resolver[endpointstate.Restorer]
 
+	Lifecycle           cell.Lifecycle
 	Logger              *slog.Logger
 	K8sWatcher          *watchers.K8sWatcher
 	Clientset           k8sClient.Clientset
@@ -143,6 +146,16 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 	// Restorer promise is still required to avoid circular dependencies -
 	// but we can immediately resolve it.
 	params.Resolver.Resolve(restorer)
+
+	params.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			if err := restorer.clearStaleCiliumEndpointVeths(); err != nil {
+				// log and continue
+				params.Logger.Warn("Unable to clean stale endpoint interfaces", logfields.Error, err)
+			}
+			return nil
+		},
+	})
 
 	return restorer
 }
@@ -712,4 +725,65 @@ func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) 
 	close(r.endpointRestoreComplete)
 
 	return nil
+}
+
+// clearStaleCiliumEndpointVeths checks all veths created by cilium and removes all that
+// are considered a leftover from failed attempts to connect the container.
+func (r *endpointRestorer) clearStaleCiliumEndpointVeths() error {
+	r.logger.Info("Removing stale endpoint interfaces")
+
+	vethIfaces, err := r.listVethIfaces()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve veth interfaces on host: %w", err)
+	}
+
+	for _, v := range vethIfaces {
+		peerIndex := v.Attrs().ParentIndex
+		peerVeth, peerFoundInHostNamespace := vethIfaces[peerIndex]
+
+		// In addition to name matching, double check whether the parent of the
+		// parent is the interface itself, to avoid removing the interface in
+		// case we hit an index clash, and the actual parent of the interface is
+		// in a different network namespace. Notably, this can happen in the
+		// context of Kind nodes, as eth0 is a veth interface itself; if an
+		// lxcxxxxxx interface ends up having the same ifindex of the eth0 parent
+		// (which is actually located in the root network namespace), we would
+		// otherwise end up deleting the eth0 interface, with the obvious
+		// ill-fated consequences.
+		if peerFoundInHostNamespace &&
+			peerIndex != 0 &&
+			strings.HasPrefix(peerVeth.Attrs().Name, "lxc") &&
+			peerVeth.Attrs().ParentIndex == v.Attrs().Index {
+
+			scopedLog := r.logger.With(
+				logfields.Index, v.Attrs().Index,
+				logfields.Device, v.Attrs().Name,
+			)
+
+			scopedLog.Debug("Deleting stale veth device")
+
+			if err := netlink.LinkDel(v); err != nil {
+				scopedLog.Warn("Unable to delete stale veth device", logfields.Error, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// listVethIfaces returns a map of VETH interfaces with the index as key.
+func (*endpointRestorer) listVethIfaces() (map[int]netlink.Link, error) {
+	ifs, err := safenetlink.LinkList()
+	if err != nil {
+		return nil, err
+	}
+
+	vethLXCIdxs := map[int]netlink.Link{}
+	for _, intf := range ifs {
+		if intf.Type() == "veth" {
+			vethLXCIdxs[intf.Attrs().Index] = intf
+		}
+	}
+
+	return vethLXCIdxs, nil
 }
