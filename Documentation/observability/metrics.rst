@@ -1642,3 +1642,15 @@ Given a Node forwarding one or more such egress-IP and remote endpoint tuples, t
 This metric is especially useful when using the egress gateway feature where it's possible to overload a Node if many connections are all going to the same endpoint.
 In general, this metric should normally be fairly low.
 A high number here may indicate that a Node is reaching its limit for connections to one or more external endpoints.
+
+Local Redirect Policy (control plane)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. _local_redirect_policy_metrics:
+
+============================================= ======================================== ========== ==========================================================================================================================================
+Name                                          Labels                                    Default    Description
+============================================= ======================================== ========== ==========================================================================================================================================
+``controller_duration_seconds``                                                         Enabled    Histogram of processing times for local redirect policies
+============================================= ======================================== ========== ==========================================================================================================================================
+
