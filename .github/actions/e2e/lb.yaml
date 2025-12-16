@@ -72,3 +72,15 @@
   misc: 'bpfClockProbe=false,cni.uninstall=false,tls.secretsBackend=k8s,tls.secretSync.enabled=true,tunnelProtocol=geneve,loadBalancer.dsrDispatch=geneve'
   # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
+- name: 'lb-6'
+  kernel: '6.12'
+  kube-proxy: 'none'
+  kpr: 'true'
+  devices: '{eth0,eth1}'
+  secondary-network: 'true'
+  tunnel: 'disabled'
+  lb-mode: 'dsr'
+  ingress-controller: 'true'
+  misc: 'socketLB.enabled=false'
+  # L7 testing: DSR load balancer mode + Ingress controller requires L7 proxy for HTTP routing
+  test-l7: 'false'
