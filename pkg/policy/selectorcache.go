@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -29,6 +30,8 @@ type scIdentity struct {
 	NID       identity.NumericIdentity
 	lbls      labels.LabelArray
 	namespace string // value of the namespace label, or ""
+	// TODO this can be made optional, so that not all selectorCaches need it.
+	cachedSelectors set.Set[*identitySelector]
 }
 
 // scIdentityCache is a cache of Identities keyed by the numeric identity
@@ -53,9 +56,10 @@ func newScIdentityCache(ids identity.IdentityMap) scIdentityCache {
 func (c *scIdentityCache) insert(nid identity.NumericIdentity, lbls labels.LabelArray) *scIdentity {
 	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
 	id := &scIdentity{
-		NID:       nid,
-		lbls:      lbls,
-		namespace: namespace,
+		NID:             nid,
+		lbls:            lbls,
+		namespace:       namespace,
+		cachedSelectors: set.NewSet[*identitySelector](),
 	}
 
 	c.ids[nid] = id
@@ -93,15 +97,15 @@ func (c *scIdentityCache) exists(nid identity.NumericIdentity) bool {
 	return id != nil
 }
 
-func (c *scIdentityCache) selections(sel *identitySelector) iter.Seq[identity.NumericIdentity] {
-	return func(yield func(id identity.NumericIdentity) bool) {
+func (c *scIdentityCache) selections(sel *identitySelector) iter.Seq[*scIdentity] {
+	return func(yield func(id *scIdentity) bool) {
 		namespaces := sel.source.SelectedNamespaces()
 		if len(namespaces) > 0 {
 			// iterate identities in selected namespaces
 			for _, ns := range namespaces {
 				for id := range c.byNamespace[ns] {
 					if sel.source.Matches(id.lbls) {
-						if !yield(id.NID) {
+						if !yield(id) {
 							return
 						}
 					}
@@ -109,9 +113,9 @@ func (c *scIdentityCache) selections(sel *identitySelector) iter.Seq[identity.Nu
 			}
 		} else {
 			// no namespaces selected, iterate through all identities
-			for nid, id := range c.ids {
-				if sel.source.Matches(id.lbls) {
-					if !yield(nid) {
+			for _, scId := range c.ids {
+				if sel.source.Matches(scId.lbls) {
+					if !yield(scId) {
 						return
 					}
 				}
@@ -575,8 +579,9 @@ func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source
 	sc.selectors.Set(key, sel)
 
 	// Scan the cached set of IDs to determine any new matchers
-	for nid := range sc.idCache.selections(sel) {
-		sel.cachedSelections = sel.cachedSelections.Set(nid)
+	for scId := range sc.idCache.selections(sel) {
+		sel.cachedSelections = sel.cachedSelections.Set(scId.NID)
+		scId.cachedSelectors.Insert(sel)
 	}
 
 	// Note: No notifications are sent for the existing
@@ -699,12 +704,13 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 		}
 	}
 	for _, numericID := range added {
-		identity, _ := sc.idCache.find(numericID)
-		matches := sel.source.Matches(identity.lbls)
-		exists := sel.cachedSelections.Has(identity.NID)
+		scId, _ := sc.idCache.find(numericID)
+		matches := sel.source.Matches(scId.lbls)
+		exists := sel.cachedSelections.Has(scId.NID)
 		if matches && !exists {
 			adds = append(adds, numericID)
 			sel.cachedSelections = sel.cachedSelections.Set(numericID)
+			scId.cachedSelectors.Insert(sel)
 		} else if !matches && exists {
 			// Identity was mutated and no longer matches, the
 			// identity is deleted from the cached selections,
@@ -715,6 +721,7 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 			// was never selected by the affected selector.
 			mutated = true
 			sel.cachedSelections = sel.cachedSelections.Delete(numericID)
+			scId.cachedSelectors.Remove(sel)
 		}
 	}
 	if len(dels)+len(adds) > 0 {
@@ -842,4 +849,28 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted identity.IdentityMap, w
 		sc.queueNotifiedUsersCommit(readTxn, wg)
 	}
 	return mutated
+}
+
+// GetUsersOfType returns the users of all the selectors selecting the given nid. It will only return users of the
+// type V, so that these can be looped over as a range operation. If the selector cache is made generic, we can
+// do this in a cleaner way directly on the selector cache instead of a separate func.
+// This will also RLock the selector cache while iterating, to avoid allocations when returning a copy.
+func GetUsersOfType[V CachedSelectionUser](sc *SelectorCache, nid identity.NumericIdentity) iter.Seq[V] {
+	return func(yield func(V) bool) {
+		sc.mutex.RLock()
+		defer sc.mutex.RUnlock()
+		id, found := sc.idCache.find(nid)
+		if !found {
+			return
+		}
+		for m := range id.cachedSelectors.Members() {
+			for user := range m.users {
+				is, ok := user.(V)
+				if !ok {
+					continue
+				}
+				yield(is)
+			}
+		}
+	}
 }

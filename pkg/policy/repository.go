@@ -379,21 +379,10 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 	rulesIngress = []*rule{}
 	rulesEgress = []*rule{}
-	// Match cluster-wide rules
-	for rKey := range p.rulesByNamespace[""] {
-		r := p.rules[rKey]
-		if r.matchesSubject(securityIdentity) {
-			if r.Ingress {
-				rulesIngress = append(rulesIngress, r)
-			} else {
-				rulesEgress = append(rulesEgress, r)
-			}
-		}
-	}
-	// Match namespace-specific rules
-	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
-	if namespace != "" {
-		for rKey := range p.rulesByNamespace[namespace] {
+
+	if subjectIsNode := securityIdentity.ID == identity.ReservedIdentityHost; subjectIsNode {
+		// Match cluster-wide rules
+		for rKey := range p.rulesByNamespace[""] {
 			r := p.rules[rKey]
 			if r.matchesSubject(securityIdentity) {
 				if r.Ingress {
@@ -403,8 +392,29 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 				}
 			}
 		}
+		// Match namespace-specific rules
+		namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
+		if namespace != "" {
+			for rKey := range p.rulesByNamespace[namespace] {
+				r := p.rules[rKey]
+				if r.matchesSubject(securityIdentity) {
+					if r.Ingress {
+						rulesIngress = append(rulesIngress, r)
+					} else {
+						rulesEgress = append(rulesEgress, r)
+					}
+				}
+			}
+		}
+	} else {
+		for r := range GetUsersOfType[*rule](p.selectorCache, securityIdentity.ID) {
+			if r.Ingress {
+				rulesIngress = append(rulesIngress, r)
+			} else {
+				rulesEgress = append(rulesEgress, r)
+			}
+		}
 	}
-
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
 	// If the endpoint has the reserved:init label, i.e. if it has not yet

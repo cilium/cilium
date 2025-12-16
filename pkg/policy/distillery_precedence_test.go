@@ -214,7 +214,6 @@ func TestOrderedPolicyValidation(t *testing.T) {
 	defer SetPolicyEnabled(oldPolicyEnable)
 
 	SetPolicyEnabled(option.DefaultEnforcement)
-	logger := hivetest.Logger(t)
 
 	// identities used in tests
 	identityWorld := identity.ReservedIdentityWorld
@@ -247,7 +246,6 @@ func TestOrderedPolicyValidation(t *testing.T) {
 		identity1111:      labels1111,
 		identity1100:      labels1100,
 	}
-	selectorCache := testNewSelectorCache(t, logger, identityCache)
 	identity := identity.NewIdentityFromLabelArray(identityFoo, labelsFoo)
 
 	type probe struct {
@@ -748,6 +746,7 @@ func TestOrderedPolicyValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := hivetest.Logger(t)
+			selectorCache := testNewSelectorCache(t, logger, identityCache)
 			repo := newPolicyDistillery(t, selectorCache)
 			for _, entry := range tt.entries {
 				entry.Subject = wildcardSubject
