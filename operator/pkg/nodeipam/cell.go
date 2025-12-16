@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var Cell = cell.Module(
@@ -47,7 +48,7 @@ type NodeIPAMConfig interface {
 }
 
 func (r nodeIpamConfig) Flags(flags *pflag.FlagSet) {
-	flags.Bool("enable-node-ipam", r.EnableNodeIPAM, "Enable Node IPAM")
+	flags.Bool(option.EnableNodeIPAM, r.EnableNodeIPAM, "Enable Node IPAM")
 }
 
 func registerNodeSvcLBReconciler(params nodeipamCellParams) error {
@@ -58,7 +59,7 @@ func registerNodeSvcLBReconciler(params nodeipamCellParams) error {
 	if err := newNodeSvcLBReconciler(
 		params.CtrlRuntimeManager,
 		params.Logger,
-		params.SharedConfig.DefaultLBServiceIPAM == lbipam.DefaultLBClassNodeIPAM,
+		params.SharedConfig.DefaultLBServiceIPAM == option.ServiceLBClassNodeIPAM,
 	).SetupWithManager(params.CtrlRuntimeManager); err != nil {
 		return fmt.Errorf("Failed to register NodeSvcLBReconciler: %w", err)
 	}
