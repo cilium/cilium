@@ -60,14 +60,22 @@ type PolicyEntry struct {
 	// DefaultDeny is true if affected subjects should have non-selected traffic denied
 	DefaultDeny bool
 
-	// Deny is true if this rule should deny traffic
-	Deny bool
+	// Verdict is true if this rule should deny traffic
+	Verdict Verdict
 
 	// Ingress is true if rule should affect ingress traffic, false otherwise
 	Ingress bool
 
-	// Node is true if EndpointSelector refers to a node
+	// Node is true if Subject refers to a node
 	Node bool
+}
+
+func (entry *PolicyEntry) IsDeny() bool {
+	return entry.Verdict == Deny
+}
+
+func (entry *PolicyEntry) IsAllow() bool {
+	return entry.Verdict == Allow
 }
 
 // PolicyEntries is a slice of pointers to PolicyEntry

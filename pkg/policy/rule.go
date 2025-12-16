@@ -366,7 +366,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 	found += cnt
 
 	err = rule.L4.Iterate(func(ports api.Ports) error {
-		if !rule.Deny {
+		if !rule.IsDeny() {
 			policyCtx.PolicyTrace("      Allows port %v\n", ports.GetPortProtocols())
 		} else {
 			policyCtx.PolicyTrace("      Denies port %v\n", ports.GetPortProtocols())
@@ -434,7 +434,7 @@ func (result *l4PolicyMap) resolveL4Policy(
 		return err
 	}
 	if cnt > 0 {
-		if r.Deny {
+		if r.IsDeny() {
 			foundDeny += cnt
 		} else {
 			found += cnt

@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -118,6 +119,7 @@ func addDataToDNSTable(t *testing.T, sdp *StandaloneDNSProxy, epID uint32, pp re
 	}
 	dnsRule := make(policy.L7DataMap)
 	dnsRule[&client.DNSServerIdentity{Identities: serverID}] = &policy.PerSelectorPolicy{
+		Verdict: types.Allow,
 		L7Rules: api.L7Rules{
 			DNS: pat,
 		},
