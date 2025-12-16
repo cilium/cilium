@@ -138,6 +138,9 @@ type SRIOVDeviceManagerConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	SysPciDevicesPath string `json:"sysBusPCIDevPath,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	Ifaces []SRIOVDeviceConfig `json:"ifaces,omitempty"`
 }
 
