@@ -79,6 +79,8 @@ spec:
                           - ifName
                           type: object
                         type: array
+                      sysBusPCIDevPath:
+                        type: string
                     type: object
                 type: object
               draRegistrationRetryInterval:
