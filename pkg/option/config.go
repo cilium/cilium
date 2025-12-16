@@ -980,6 +980,15 @@ const (
 
 	// EnableCiliumNodeCRD is the name of the option to enable use of the CiliumNode CRD
 	EnableCiliumNodeCRDName = "enable-ciliumnode-crd"
+
+	// DefaultLBServiceIPAM specifies the default IPAM component the LoadBalancer uses (e.g. LB-IPAM, Node-IPAM)
+	DefaultLBServiceIPAM = "default-lb-service-ipam"
+
+	// EnableLBIPAM defines the setting that controls if LB-IPAM is enabled
+	EnableLBIPAM = "enable-lb-ipam"
+
+	// EnableNodeIPAM defines the setting that controls if Node-IPAM is enabled
+	EnableNodeIPAM = "enable-node-ipam"
 )
 
 // Default string arguments
@@ -1071,6 +1080,17 @@ const (
 
 	// BGPRouterIDAllocationModeIPPool means the router-id is allocated per IP pool
 	BGPRouterIDAllocationModeIPPool = "ip-pool"
+)
+
+const (
+	// ServiceLBClassLBIPAM means LoadBalancer VIPs are allocated via LB-IPAM
+	ServiceLBClassLBIPAM = "lbipam"
+
+	// ServiceLBClassNodeIPAM means LoadBalancer VIPs are allocated via Node-IPAM
+	ServiceLBClassNodeIPAM = "nodeipam"
+
+	// ServiceLBClassNone means LoadBalancer VIPs will not be allocated by Cilium
+	ServiceLBClassNone = "none"
 )
 
 // getEnvName returns the environment variable to be used for the given option name.
@@ -1831,6 +1851,15 @@ type DaemonConfig struct {
 
 	// EnableCiliumNodeCRD enables the use of CiliumNode CRD
 	EnableCiliumNodeCRD bool
+
+	// DefaultLBServiceIPAM determines the default component that should allocate LoadBalancer VIPs
+	DefaultLBServiceIPAM string
+
+	// EnableLBIPAM determines if LB-IPAM is enabled
+	EnableLBIPAM bool
+
+	// EnableNodeIPAM determines if Node-IPAM is enabled
+	EnableNodeIPAM bool
 }
 
 var (
@@ -1889,6 +1918,9 @@ var (
 		IPTracingOptionType: defaults.IPTracingOptionType,
 
 		EnableCiliumNodeCRD: defaults.EnableCiliumNodeCRD,
+
+		DefaultLBServiceIPAM: defaults.DefaultLBServiceIPAM,
+		EnableNodeIPAM:       defaults.EnableNodeIPAM,
 	}
 )
 
@@ -2886,6 +2918,21 @@ func (c *DaemonConfig) populateLoadBalancerSettings(logger *slog.Logger, vp *vip
 				LoadBalancerAcceleration, NodePortAcceleration, LoadBalancerAcceleration))
 		}
 	}
+
+	c.DefaultLBServiceIPAM = strings.ToLower(vp.GetString(DefaultLBServiceIPAM))
+	switch c.DefaultLBServiceIPAM {
+	case ServiceLBClassLBIPAM, ServiceLBClassNodeIPAM, ServiceLBClassNone:
+		// Accepted
+	default:
+		logging.Fatal(logger, fmt.Sprintf("invalid value for --%s, accepted values: %s, %s, %s",
+			DefaultLBServiceIPAM,
+			ServiceLBClassLBIPAM,
+			ServiceLBClassNodeIPAM,
+			ServiceLBClassNone))
+	}
+
+	c.EnableLBIPAM = vp.GetBool(EnableLBIPAM)
+	c.EnableNodeIPAM = vp.GetBool(EnableNodeIPAM)
 }
 
 func (c *DaemonConfig) checkMapSizeLimits() error {

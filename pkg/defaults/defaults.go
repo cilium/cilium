@@ -547,6 +547,12 @@ const (
 
 	// EnableCiliumNodeCRD is the default value for option.EnableCiliumNodeCRD
 	EnableCiliumNodeCRD = true
+
+	// DefaultLBServiceIPAM sets a default value for DaemonConfig.DefaultLBServiceIPAM
+	DefaultLBServiceIPAM = "lbipam"
+
+	// EnableNodeIPAM sets the dafault value for DaemonConfig.EnableNodeIPAM
+	EnableNodeIPAM = false
 )
 
 var (
