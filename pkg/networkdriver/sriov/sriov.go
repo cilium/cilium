@@ -25,8 +25,9 @@ import (
 )
 
 var (
-	errNotAVF     = errors.New("device is not a vf")
-	errTooManyVfs = errors.New("too many vfs")
+	errNotAVF               = errors.New("device is not a vf")
+	errTooManyVfs           = errors.New("too many vfs")
+	errPfAttributesNotFound = errors.New("pf netlink attributes missing")
 )
 
 type MacAddr [6]byte
@@ -47,6 +48,7 @@ func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAt
 	result["deviceID"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.deviceID)}
 	result["vendor"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.vendor)}
 	result["pfName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.pfName)}
+	result["pciAddr"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.addr)}
 	result["ifName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.IfName())}
 	result["kernelIfName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.kernelIfName)}
 
@@ -154,6 +156,15 @@ type SRIOVManager struct {
 }
 
 func (m *SRIOVManager) init() error {
+	if m.sysPath == "" {
+		m.sysPath = defaultSysPath
+	}
+
+	m.logger.Debug(
+		"initializing sr-iov device manager",
+		logfields.Path, m.sysPath,
+	)
+
 	for _, intf := range m.config.Ifaces {
 		if intf.VfCount != 0 {
 			if err := setupVfs(intf.IfName, intf.VfCount, m.logger); err != nil {
@@ -168,7 +179,7 @@ func (m *SRIOVManager) init() error {
 func NewManager(logger *slog.Logger, cfg *v2alpha1.SRIOVDeviceManagerConfig) (*SRIOVManager, error) {
 	mgr := &SRIOVManager{
 		logger:  logger,
-		sysPath: defaultSysPath,
+		sysPath: cfg.SysPciDevicesPath,
 		config:  cfg,
 	}
 
@@ -187,21 +198,43 @@ func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
 		errs   []error
 	)
 
+	netlinkAttrs, err := getLinkAttributes()
+	if err != nil {
+		return nil, err
+	}
+
 	for _, dirName := range files {
 		addr := dirName.Name()
 
-		if !isNetworkDevice(addr) {
+		if !isNetworkDevice(mgr.sysPath, addr) {
 			// we are only interested in network devices for now
+			mgr.logger.Debug(
+				"skipping non network device",
+				logfields.Device, addr,
+			)
+
 			continue
 		}
 
-		device, err := mgr.parseDevice(addr)
+		if !isVF(mgr.sysPath, addr) {
+			// only interested in sriov vfs
+			mgr.logger.Debug(
+				"skipping non vf device",
+				logfields.Device, addr,
+			)
+
+			continue
+		}
+
+		device, err := mgr.parseDevice(addr, netlinkAttrs)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse device %s: %w", addr, err))
 			continue
 		}
 
-		result = append(result, *device)
+		if device != nil {
+			result = append(result, *device)
+		}
 	}
 
 	return result, errors.Join(errs...)
@@ -218,8 +251,8 @@ const (
 // isNetworkDevice checks the PCI device class and returns whether it is a network device.
 // https://elixir.bootlin.com/linux/v6.17.6/source/include/linux/pci_ids.h#L32
 // #define PCI_CLASS_NETWORK_ETHERNET	0x0200
-func isNetworkDevice(pciAddr string) bool {
-	deviceClassPath := path.Join(defaultSysPath, pciAddr, "class")
+func isNetworkDevice(sysPath, pciAddr string) bool {
+	deviceClassPath := path.Join(sysPath, pciAddr, "class")
 	f, err := os.ReadFile(deviceClassPath)
 	if err != nil {
 		return false
@@ -236,10 +269,41 @@ func isNetworkDevice(pciAddr string) bool {
 	return v == ethernetDeviceClass
 }
 
+// getLinkAttributes returns the netlink attributes for PCI based devices. indexed by PCI address
+func getLinkAttributes() (map[string]netlink.LinkAttrs, error) {
+	links, err := safenetlink.LinkList()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]netlink.LinkAttrs)
+
+	for _, l := range links {
+		attrs := l.Attrs()
+		if attrs.ParentDev != "" {
+			result[attrs.ParentDev] = *attrs
+		}
+	}
+
+	return result, nil
+}
+
+// isVF returns whether the PCI device is an sr-iov vf or not.
+// we know if this is a VF if there is a `physfn` link in /sys/bus/pci/devices/<vf_pci_addr> path
+func isVF(sysPath, pciAddr string) bool {
+	_, err := os.Stat(path.Join(sysPath, pciAddr, "physfn"))
+	return err == nil
+}
+
 // parseDevice constructs a PciDevice from a PCI device's sysfs attributes.
-func (mgr *SRIOVManager) parseDevice(addr string) (*PciDevice, error) {
+func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[string]netlink.LinkAttrs) (*PciDevice, error) {
 	dev := PciDevice{
 		addr: addr,
+	}
+
+	thisLinkAttrs, ok := netlinkAttrs[addr]
+	if ok {
+		dev.kernelIfName = thisLinkAttrs.Name
 	}
 
 	devicePath := path.Join(mgr.sysPath, addr)
@@ -257,59 +321,55 @@ func (mgr *SRIOVManager) parseDevice(addr string) (*PciDevice, error) {
 	if err != nil {
 		return nil, err
 	}
-	dev.vendor = strings.ReplaceAll(string(vendor), "\n", "")
 
-	kernelIfNames, err := os.ReadDir(path.Join(devicePath, "net"))
-	if err != nil {
-		return nil, err
-	}
-	if len(kernelIfNames) > 0 {
-		dev.kernelIfName = kernelIfNames[0].Name()
-	}
+	dev.vendor = strings.ReplaceAll(string(vendor), "\n", "")
 
 	device, err := os.ReadFile(path.Join(devicePath, "device"))
 	if err != nil {
 		return nil, err
 	}
+
 	dev.deviceID = strings.ReplaceAll(string(device), "\n", "")
 
-	pfNames, err := os.ReadDir(path.Join(devicePath, "physfn", "net"))
+	pfPath, err := os.Readlink(path.Join(devicePath, "physfn"))
 	if err != nil {
-		return nil, err
-	}
-	if len(pfNames) > 0 {
-		dev.pfName = pfNames[0].Name()
+		// this is not a vf
+		return nil, fmt.Errorf("%s %w", addr, errNotAVF)
 	}
 
-	pfDevPath := path.Join(defaultNetPath, dev.pfName, "device")
-	vfCount, err := os.ReadFile(path.Join(pfDevPath, "sriov_numvfs"))
-	if err != nil {
-		return nil, err
-	}
-	vfCnt, err := strconv.Atoi(strings.ReplaceAll(string(vfCount), "\n", ""))
-	if err != nil {
-		return nil, err
+	_, pfAddr := path.Split(pfPath)
+
+	pfAttrs, ok := netlinkAttrs[pfAddr]
+	if !ok {
+		return &dev, nil
 	}
 
-	// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn0
-	// ../0000:02:00.2
-	// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn1
-	// ../0000:02:00.3
+	dev.pfName = pfAttrs.Name
+	pfDevPath := path.Join(mgr.sysPath, pfAddr)
+
+	// now we need to find the vf id
 	var found bool
-	for i := range vfCnt {
-		vf, err := os.Readlink(path.Join(pfDevPath, fmt.Sprintf("virtfn%d", i)))
+
+	for _, vf := range pfAttrs.Vfs {
+		// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn0
+		// ../0000:02:00.2
+		// root@c3-small-x86-01-bernardo:/sys/class/net/enp2s0f0np0/device# readlink virtfn1
+		// ../0000:02:00.3
+		v, err := os.Readlink(path.Join(pfDevPath, fmt.Sprintf("virtfn%d", vf.ID)))
 		if err != nil {
 			continue
 		}
-		_, vfAddr := path.Split(vf)
+
+		_, vfAddr := path.Split(v)
 		if vfAddr == addr {
-			dev.vfID = i
+			dev.vfID = vf.ID
 			found = true
 			break
 		}
 	}
+
 	if !found {
-		return nil, fmt.Errorf("failed to find address %s", addr)
+		return nil, fmt.Errorf("failed to find address %s in the pf %s vf list", addr, pfAttrs.Name)
 	}
 
 	return &dev, nil
