@@ -127,11 +127,11 @@ func (ipam *IPAM) ConfigureAllocator() {
 		)
 
 		if ipam.config.IPv6Enabled() {
-			ipam.IPv6Allocator = newHostScopeAllocator(ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet)
+			ipam.ipv6Allocator = newHostScopeAllocator(ipam.nodeAddressing.IPv6().AllocationCIDR().IPNet)
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.IPv4Allocator = newHostScopeAllocator(ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet)
+			ipam.ipv4Allocator = newHostScopeAllocator(ipam.nodeAddressing.IPv4().AllocationCIDR().IPNet)
 		}
 	case ipamOption.IPAMMultiPool:
 		ipam.logger.Info("Initializing MultiPool IPAM")
@@ -148,27 +148,27 @@ func (ipam *IPAM) ConfigureAllocator() {
 		})
 
 		if ipam.config.IPv6Enabled() {
-			ipam.IPv6Allocator = manager.Allocator(IPv6)
+			ipam.ipv6Allocator = manager.Allocator(IPv6)
 		}
 		if ipam.config.IPv4Enabled() {
-			ipam.IPv4Allocator = manager.Allocator(IPv4)
+			ipam.ipv4Allocator = manager.Allocator(IPv4)
 		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		ipam.logger.Info("Initializing CRD-based IPAM")
 		if ipam.config.IPv6Enabled() {
-			ipam.IPv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			ipam.ipv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.IPv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
+			ipam.ipv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl, ipam.ipMasqAgent)
 		}
 	case ipamOption.IPAMDelegatedPlugin:
 		ipam.logger.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")
 		if ipam.config.IPv6Enabled() {
-			ipam.IPv6Allocator = &noOpAllocator{}
+			ipam.ipv6Allocator = &noOpAllocator{}
 		}
 		if ipam.config.IPv4Enabled() {
-			ipam.IPv4Allocator = &noOpAllocator{}
+			ipam.ipv4Allocator = &noOpAllocator{}
 		}
 	default:
 		logging.Fatal(ipam.logger, fmt.Sprintf("Unknown IPAM backend %s", ipam.config.IPAMMode()))
