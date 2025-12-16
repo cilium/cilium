@@ -457,6 +457,7 @@ func (c *GRPCClient) updateDNSRules(rules []*pb.DNSPolicy) error {
 
 			} else {
 				cs[&DNSServerIdentity{Identities: identities}] = &policy.PerSelectorPolicy{
+					Verdict: types.Allow,
 					L7Rules: api.L7Rules{
 						DNS: dnsRulesSlice,
 					},

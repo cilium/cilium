@@ -47,6 +47,7 @@ func Test_ruleType(t *testing.T) {
 			name: "L3 from FromEndpoints",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: true,
 					L3:      types.ToSelectors(api.NewESFromLabels()),
 				},
@@ -64,6 +65,7 @@ func Test_ruleType(t *testing.T) {
 			name: "L3 from FromCIDRSet with CIDRGroupRef",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: true,
 					L3: types.ToSelectors(api.CIDRRule{
 						CIDRGroupRef: "some-group-ref",
@@ -85,8 +87,8 @@ func Test_ruleType(t *testing.T) {
 			name: "L3 IngressDeny from FromCIDRSet with CIDRGroupRef",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Deny,
 					Ingress: true,
-					Deny:    true,
 					L3: types.ToSelectors(api.CIDRRule{
 						CIDRGroupRef: "some-group-ref",
 					}),
@@ -109,6 +111,7 @@ func Test_ruleType(t *testing.T) {
 			name: "L3 from Ingress FromNodes",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: true,
 					L3: types.ToSelectors(api.NewESFromLabels(
 						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
@@ -134,6 +137,7 @@ func Test_ruleType(t *testing.T) {
 			name: "L3 from Egress ToNodes",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: false,
 					L3: types.ToSelectors(api.NewESFromLabels(
 						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
@@ -153,7 +157,9 @@ func Test_ruleType(t *testing.T) {
 		{
 			name: "No L3 rule present",
 			args: args{
-				r: policytypes.PolicyEntry{},
+				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
+				},
 			},
 		},
 		{
@@ -161,7 +167,7 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: true,
-					Deny:    true,
+					Verdict: types.Deny,
 					L3: types.ToSelectors(api.NewESFromLabels(
 						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
 				},
@@ -184,7 +190,7 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: true,
-					Deny:    true,
+					Verdict: types.Deny,
 					L3:      types.ToSelectors(api.CIDR("192.168.0.0/24")),
 				},
 			},
@@ -204,7 +210,7 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: false,
-					Deny:    true,
+					Verdict: types.Deny,
 					L3:      types.ToSelectors(api.CIDR("192.168.0.0/24")),
 				},
 			},
@@ -224,7 +230,7 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: false,
-					Deny:    true,
+					Verdict: types.Deny,
 					L3: types.ToSelectors(api.NewESFromLabels(
 						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
 				},
@@ -247,7 +253,7 @@ func Test_ruleType(t *testing.T) {
 			args: args{
 				r: policytypes.PolicyEntry{
 					Ingress: false,
-					Deny:    true,
+					Verdict: types.Deny,
 					L3: types.ToSelectors(api.NewESFromLabels(
 						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
 				},
@@ -269,6 +275,7 @@ func Test_ruleType(t *testing.T) {
 			name: "Host from Egress ToNodes",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: false,
 					L3: types.ToSelectors(api.NewESFromLabels(
 						labels.NewLabel("testnode", "", labels.LabelSourceNode))),
@@ -289,6 +296,7 @@ func Test_ruleType(t *testing.T) {
 			name: "DNS rules and other L7",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: false,
 					L4: api.PortRules{
 						{
@@ -321,6 +329,7 @@ func Test_ruleType(t *testing.T) {
 			name: "FQDN rules w/ default deny config",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict:     types.Allow,
 					Ingress:     false,
 					DefaultDeny: true,
 					L3: types.ToSelectors(api.FQDNSelector{
@@ -344,6 +353,7 @@ func Test_ruleType(t *testing.T) {
 			name: "HTTP ingress rules",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: true,
 					L4: api.PortRules{
 						{
@@ -369,6 +379,7 @@ func Test_ruleType(t *testing.T) {
 			name: "HTTP egress rules",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: false,
 					L4: api.PortRules{
 						{
@@ -394,6 +405,7 @@ func Test_ruleType(t *testing.T) {
 			name: "HTTP matches ingress rules",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: true,
 					L4: api.PortRules{
 						{
@@ -425,6 +437,7 @@ func Test_ruleType(t *testing.T) {
 			name: "HTTP matches egress rules, other L7 and SNI",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: false,
 					L4: api.PortRules{
 						{
@@ -464,6 +477,7 @@ func Test_ruleType(t *testing.T) {
 			name: "Rules matches on TLS",
 			args: args{
 				r: policytypes.PolicyEntry{
+					Verdict: types.Allow,
 					Ingress: false,
 					L4: api.PortRules{
 						{

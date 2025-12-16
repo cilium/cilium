@@ -175,7 +175,7 @@ func (in *PolicyEntry) DeepEqual(other *PolicyEntry) bool {
 	if in.DefaultDeny != other.DefaultDeny {
 		return false
 	}
-	if in.Deny != other.Deny {
+	if in.Verdict != other.Verdict {
 		return false
 	}
 	if in.Ingress != other.Ingress {

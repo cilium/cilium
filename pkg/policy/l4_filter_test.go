@@ -2876,6 +2876,7 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 				L3:      types.ToSelectors(api.NewESFromLabels(labels.ParseSelectLabel("foo"))),
 				L4:      []api.PortRule{*egressRule},
 				Ingress: false,
+				Verdict: types.Allow,
 			}
 
 			l4Filter, err := createL4Filter(ctx, entry, egressRule, portProto)

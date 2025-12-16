@@ -204,6 +204,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
+				Verdict:     policytypes.Allow,
 				L3: policytypes.ToSelectors(api.NewESFromLabels(
 					labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 					labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
@@ -236,6 +237,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
+				Verdict:     policytypes.Allow,
 				L3:          policytypes.ToSelectors(api.NewESFromLabels()),
 				L4: api.PortRules{{
 					Ports: []api.PortProtocol{{
@@ -279,6 +281,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
+				Verdict:     policytypes.Allow,
 				L3: policytypes.ToSelectors(api.NewESFromLabels(
 					labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
 					labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
@@ -300,6 +303,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
+				Verdict:     policytypes.Allow,
 			},
 		},
 		{
@@ -310,6 +314,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
+				Verdict:     policytypes.Allow,
 				L3:          policytypes.ToSelectors(api.NewESFromLabels()),
 			},
 		},
@@ -499,6 +504,7 @@ func TestParseNetworkPolicyNoSelectors(t *testing.T) {
 	expectedRule := &policytypes.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
+		Verdict:     policytypes.Allow,
 		Subject:     epSelector,
 		L3:          l3,
 		Labels: labels.ParseLabelArray(
@@ -1500,6 +1506,7 @@ func TestParseNetworkPolicyClusterLabel(t *testing.T) {
 
 	expectedRules := policytypes.PolicyEntries{
 		{
+			Verdict:     policytypes.Allow,
 			Subject:     epSelector,
 			Ingress:     true,
 			DefaultDeny: true,
@@ -1519,6 +1526,7 @@ func TestParseNetworkPolicyClusterLabel(t *testing.T) {
 				"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 			),
 		}, {
+			Verdict:     policytypes.Allow,
 			Subject:     epSelector,
 			Ingress:     false,
 			DefaultDeny: true,

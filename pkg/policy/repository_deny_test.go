@@ -51,7 +51,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	fooIngressDenyRule1 := &types.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
-		Deny:        true,
+		Verdict:     types.Deny,
 		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
 		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
@@ -62,7 +62,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	fooIngressDenyRule2 := &types.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
-		Deny:        true,
+		Verdict:     types.Deny,
 		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
 		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
@@ -73,7 +73,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	fooEgressDenyRule1 := &types.PolicyEntry{
 		Ingress:     false,
 		DefaultDeny: true,
-		Deny:        true,
+		Verdict:     types.Deny,
 		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
 		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
@@ -84,7 +84,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 	fooEgressDenyRule2 := &types.PolicyEntry{
 		Ingress:     false,
 		DefaultDeny: true,
-		Deny:        true,
+		Verdict:     types.Deny,
 		Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
 		L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 		Labels: labels.LabelArray{
@@ -96,7 +96,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
-			Deny:        true,
+			Verdict:     types.Deny,
 			Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
 			L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 			Labels: labels.LabelArray{
@@ -105,7 +105,7 @@ func TestComputePolicyDenyEnforcementAndRules(t *testing.T) {
 		}, &types.PolicyEntry{
 			Ingress:     false,
 			DefaultDeny: true,
-			Deny:        true,
+			Verdict:     types.Deny,
 			Subject:     types.NewLabelSelectorFromLabels(fooSelectLabel),
 			L3:          types.ToSelectors(api.NewESFromLabels(fooSelectLabel)),
 			Labels: labels.LabelArray{

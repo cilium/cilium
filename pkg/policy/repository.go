@@ -463,6 +463,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
 	return &rule{
 		PolicyEntry: types.PolicyEntry{
+			Verdict: types.Allow,
 			Ingress: ingress,
 			Subject: types.NewLabelSelectorFromLabels(lbls...),
 			L3:      types.WildcardSelectors,

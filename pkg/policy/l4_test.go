@@ -163,6 +163,7 @@ func TestCreateL4Filter(t *testing.T) {
 	for _, es := range selectors {
 		eps := types.ToSelectors(es)
 		entry := &types.PolicyEntry{
+			Verdict: types.Allow,
 			L3:      eps,
 			Ingress: true,
 			L4:      []api.PortRule{*portrule},
@@ -217,6 +218,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 	for _, es := range selectors {
 		eps := types.ToSelectors(es)
 		entry := &types.PolicyEntry{
+			Verdict:        types.Allow,
 			L3:             eps,
 			Ingress:        true,
 			L4:             []api.PortRule{*portrule},

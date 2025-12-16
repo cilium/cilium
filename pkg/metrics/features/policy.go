@@ -150,7 +150,7 @@ func ruleType(r types.PolicyEntry) RuleFeatures {
 
 	var rf RuleFeatures
 
-	rf.Deny = r.Deny
+	rf.Deny = r.IsDeny()
 	rf.MutualAuth = r.Authentication != nil
 	rf.NonDefaultDeny = r.DefaultDeny
 	rf.ToFQDNs, rf.Host, rf.IngressCIDRGroup = r.L3.GetRuleTypes()
