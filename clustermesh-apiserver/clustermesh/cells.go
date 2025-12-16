@@ -73,9 +73,6 @@ var Synchronization = cell.Module(
 	"clustermesh-synchronization",
 	"Synchronize information from Kubernetes to KVStore",
 
-	// Provide the namespace manager.
-	cmnamespace.Cell,
-
 	cell.Group(
 		cell.Provide(
 			func(syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
