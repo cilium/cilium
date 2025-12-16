@@ -204,7 +204,7 @@ func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4Poli
 
 					selActual := bK.(*identitySelector).cachedSelections
 					selExpected := set.NewSet[identity.NumericIdentity]()
-					for id := range k.(*identitySelector).cachedSelections.All() {
+					for id := range k.(*identitySelector).cachedSelections.Members() {
 						if slices.Contains(availableIDs, id) {
 							selExpected.Insert(id)
 						}

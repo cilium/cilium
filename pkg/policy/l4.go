@@ -778,7 +778,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 				)
 			}
 		}
-		for id := range idents.All() {
+		for id := range idents.Members() {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = id
 				p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
