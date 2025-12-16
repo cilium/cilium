@@ -79,6 +79,8 @@ spec:
                           - ifName
                           type: object
                         type: array
+                      sys_bus_pci_dev_path:
+                        type: string
                     type: object
                 type: object
               draRegistrationRetryInterval:

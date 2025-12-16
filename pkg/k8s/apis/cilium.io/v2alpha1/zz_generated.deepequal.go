@@ -1750,6 +1750,9 @@ func (in *SRIOVDeviceManagerConfig) DeepEqual(other *SRIOVDeviceManagerConfig) b
 	if in.Enabled != other.Enabled {
 		return false
 	}
+	if in.SysPciDevicesPath != other.SysPciDevicesPath {
+		return false
+	}
 	if ((in.Ifaces != nil) && (other.Ifaces != nil)) || ((in.Ifaces == nil) != (other.Ifaces == nil)) {
 		in, other := &in.Ifaces, &other.Ifaces
 		if other == nil {
