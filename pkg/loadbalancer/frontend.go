@@ -67,6 +67,10 @@ type Frontend struct {
 	// [Status] is set to done.
 	ID ServiceID
 
+	// ControlFlags carries status flags relevant to a Frontend, from the
+	// perspective of the loadbalancer control plane.
+	ControlFlags ControlFlags
+
 	// RedirectTo if set selects the backends from this service name instead
 	// of that of [FrontendParams.ServiceName]. This is used to implement the
 	// local redirect policies where traffic going to a specific service/frontend
@@ -102,6 +106,7 @@ func (fe *Frontend) TableHeader() []string {
 		"Type",
 		"ServiceName",
 		"PortName",
+		"ControlFlags",
 		"Backends",
 		"RedirectTo",
 		"Status",
@@ -120,6 +125,7 @@ func (fe *Frontend) TableRow() []string {
 		string(fe.Type),
 		fe.ServiceName.String(),
 		string(fe.PortName),
+		fe.ControlFlags.String(),
 		showBackends(fe.Backends),
 		redirectTo,
 		fe.Status.Kind.String(),

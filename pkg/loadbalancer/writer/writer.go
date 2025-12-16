@@ -264,14 +264,26 @@ func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.Serv
 	return true, w.RefreshFrontends(txn, serviceName)
 }
 
+func (w *Writer) getFrontendControlFlags(feParams loadbalancer.FrontendParams) loadbalancer.ControlFlags {
+	needWildcardEntry := false
+
+	cfParams := loadbalancer.CtrlFlagParam{
+		NeedWildcardEntry: needWildcardEntry,
+	}
+	return loadbalancer.NewCtrlFlag(&cfParams)
+}
+
 func (w *Writer) upsertFrontendParams(txn WriteTxn, params loadbalancer.FrontendParams, svc *loadbalancer.Service) (old *loadbalancer.Frontend, err error) {
 	if params.ServicePort == 0 {
 		params.ServicePort = params.Address.Port()
 	}
+
 	fe := &loadbalancer.Frontend{
 		FrontendParams: params,
 		Service:        svc,
+		ControlFlags:   w.getFrontendControlFlags(params),
 	}
+
 	var found bool
 	if old, _, found = w.fes.Get(txn, loadbalancer.FrontendByAddress(params.Address)); found {
 		fe.ID = old.ID
