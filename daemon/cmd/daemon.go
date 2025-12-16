@@ -282,12 +282,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
-	if params.DaemonConfig.EnableIPv6 {
-		params.IPAM.IPv6Allocator.RestoreFinished()
-	}
-	if params.DaemonConfig.EnableIPv4 {
-		params.IPAM.IPv4Allocator.RestoreFinished()
-	}
+	params.IPAM.RestoreFinished()
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.

@@ -76,38 +76,38 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 
 	family := IPv4
 	if ip.To4() != nil {
-		if ipam.IPv4Allocator == nil {
+		if ipam.ipv4Allocator == nil {
 			err = ErrIPv4Disabled
 			return
 		}
 
 		if needSyncUpstream {
-			if result, err = ipam.IPv4Allocator.Allocate(ip, owner, pool); err != nil {
+			if result, err = ipam.ipv4Allocator.Allocate(ip, owner, pool); err != nil {
 				return
 			}
 		} else {
-			if result, err = ipam.IPv4Allocator.AllocateWithoutSyncUpstream(ip, owner, pool); err != nil {
+			if result, err = ipam.ipv4Allocator.AllocateWithoutSyncUpstream(ip, owner, pool); err != nil {
 				return
 			}
 		}
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv4Allocator.Capacity()))
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv4Allocator.Capacity()))
 	} else {
 		family = IPv6
-		if ipam.IPv6Allocator == nil {
+		if ipam.ipv6Allocator == nil {
 			err = ErrIPv6Disabled
 			return
 		}
 
 		if needSyncUpstream {
-			if result, err = ipam.IPv6Allocator.Allocate(ip, owner, pool); err != nil {
+			if result, err = ipam.ipv6Allocator.Allocate(ip, owner, pool); err != nil {
 				return
 			}
 		} else {
-			if result, err = ipam.IPv6Allocator.AllocateWithoutSyncUpstream(ip, owner, pool); err != nil {
+			if result, err = ipam.ipv6Allocator.AllocateWithoutSyncUpstream(ip, owner, pool); err != nil {
 				return
 			}
 		}
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv6Allocator.Capacity()))
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv6Allocator.Capacity()))
 	}
 
 	// If the allocator did not populate the pool, we assume it does not
@@ -132,11 +132,11 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 	var allocator Allocator
 	switch family {
 	case IPv6:
-		allocator = ipam.IPv6Allocator
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv6Allocator.Capacity()))
+		allocator = ipam.ipv6Allocator
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv6Allocator.Capacity()))
 	case IPv4:
-		allocator = ipam.IPv4Allocator
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv4Allocator.Capacity()))
+		allocator = ipam.ipv4Allocator
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv4Allocator.Capacity()))
 
 	default:
 		err = fmt.Errorf("unknown address \"%s\" family requested", family)
@@ -216,7 +216,7 @@ func (ipam *IPAM) AllocateNextFamilyWithoutSyncUpstream(family Family, owner str
 // allocation is limited to the specified address family. If the pool has been
 // drained of addresses, an error will be returned.
 func (ipam *IPAM) AllocateNext(family, owner string, pool Pool) (ipv4Result, ipv6Result *AllocationResult, err error) {
-	if (family == "ipv6" || family == "") && ipam.IPv6Allocator != nil {
+	if (family == "ipv6" || family == "") && ipam.ipv6Allocator != nil {
 		ipv6Result, err = ipam.AllocateNextFamily(IPv6, owner, pool)
 		if err != nil {
 			return
@@ -224,7 +224,7 @@ func (ipam *IPAM) AllocateNext(family, owner string, pool Pool) (ipv4Result, ipv
 
 	}
 
-	if (family == "ipv4" || family == "") && ipam.IPv4Allocator != nil {
+	if (family == "ipv4" || family == "") && ipam.ipv4Allocator != nil {
 		ipv4Result, err = ipam.AllocateNextFamily(IPv4, owner, pool)
 		if err != nil {
 			if ipv6Result != nil {
@@ -273,20 +273,20 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 
 	family := IPv4
 	if ip.To4() != nil {
-		if ipam.IPv4Allocator == nil {
+		if ipam.ipv4Allocator == nil {
 			return ErrIPv4Disabled
 		}
 
-		ipam.IPv4Allocator.Release(ip, pool)
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv4Allocator.Capacity()))
+		ipam.ipv4Allocator.Release(ip, pool)
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv4Allocator.Capacity()))
 	} else {
 		family = IPv6
-		if ipam.IPv6Allocator == nil {
+		if ipam.ipv6Allocator == nil {
 			return ErrIPv6Disabled
 		}
 
-		ipam.IPv6Allocator.Release(ip, pool)
-		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv6Allocator.Capacity()))
+		ipam.ipv6Allocator.Release(ip, pool)
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.ipv6Allocator.Capacity()))
 	}
 
 	owner := ipam.releaseIPOwner(ip, pool)
@@ -326,8 +326,8 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 	ipam.allocatorMutex.RLock()
 	defer ipam.allocatorMutex.RUnlock()
 
-	if ipam.IPv4Allocator != nil {
-		allocPerPool4, st4 = ipam.IPv4Allocator.Dump()
+	if ipam.ipv4Allocator != nil {
+		allocPerPool4, st4 = ipam.ipv4Allocator.Dump()
 		st4 = "IPv4: " + st4
 		for pool, alloc := range allocPerPool4 {
 			for ip := range alloc {
@@ -342,8 +342,8 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 		}
 	}
 
-	if ipam.IPv6Allocator != nil {
-		allocPerPool6, st6 = ipam.IPv6Allocator.Dump()
+	if ipam.ipv6Allocator != nil {
+		allocPerPool6, st6 = ipam.ipv6Allocator.Dump()
 		st6 = "IPv6: " + st6
 		for pool, alloc := range allocPerPool6 {
 			for ip := range alloc {
