@@ -218,6 +218,7 @@ ifneq ($(RACE),)
         LOCKDEBUG=1
     endif
 else
+    GO_BUILD_FLAGS += -cover -covermode=count
     GOTEST_COVER_OPTS += -covermode=count
 endif
 
