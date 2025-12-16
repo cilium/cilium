@@ -89,7 +89,7 @@ func (e Event) GetDesiredAction() DesiredAction {
 func newEventsBuffer(logger *slog.Logger, name string, bufSize int, ttl time.Duration) *eventsBuffer {
 	b := &eventsBuffer{
 		logger:   logger,
-		buffer:   container.NewRingBuffer(bufSize),
+		buffer:   container.NewRingBuffer[Event](bufSize),
 		eventTTL: ttl,
 	}
 	b.observe, b.next, b.done = stream.Multicast[Event]()
@@ -107,12 +107,7 @@ func newEventsBuffer(logger *slog.Logger, name string, bufSize int, ttl time.Dur
 						"clearing bpf map events older than TTL",
 						logfields.TTL, b.eventTTL,
 					)
-					b.buffer.Compact(func(e any) bool {
-						event, ok := e.(*Event)
-						if !ok {
-							logger.Error("Failed to compact the event buffer", logfields.Error, wrongObjTypeErr(e))
-							return false
-						}
+					b.buffer.Compact(func(event Event) bool {
 						return time.Since(event.Timestamp) < b.eventTTL
 					})
 					return nil
@@ -132,7 +127,7 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 // purposes.
 type eventsBuffer struct {
 	logger   *slog.Logger
-	buffer   *container.RingBuffer
+	buffer   *container.RingBuffer[Event]
 	eventTTL time.Duration
 
 	observe stream.Observable[Event]
@@ -171,29 +166,15 @@ func (eb *eventsBuffer) add(e *Event) {
 	eb.next(*e)
 }
 
-func wrongObjTypeErr(i any) error {
-	return fmt.Errorf("BUG: wrong object type in event ring buffer: %T", i)
-}
-
-func (eb *eventsBuffer) eventIsValid(e any) bool {
-	event, ok := e.(Event)
-	if !ok {
-		eb.logger.Error("Could not dump contents of events buffer", logfields.Error, wrongObjTypeErr(e))
-		return false
-	}
-	return eb.eventTTL == 0 || time.Since(event.Timestamp) <= eb.eventTTL
+func (eb *eventsBuffer) eventIsValid(e Event) bool {
+	return eb.eventTTL == 0 || time.Since(e.Timestamp) <= eb.eventTTL
 }
 
 // EventCallbackFunc is used to dump events from a event buffer.
 type EventCallbackFunc func(Event)
 
 func (eb *eventsBuffer) dumpWithCallback(callback EventCallbackFunc) {
-	eb.buffer.IterateValid(eb.eventIsValid, func(e any) {
-		event, ok := e.(Event)
-		if !ok {
-			eb.logger.Error("Could not dump contents of events buffer", logfields.Error, wrongObjTypeErr(e))
-			return
-		}
+	eb.buffer.IterateValid(eb.eventIsValid, func(event Event) {
 		callback(event)
 	})
 }
