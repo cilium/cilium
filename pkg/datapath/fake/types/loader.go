@@ -39,7 +39,7 @@ func (f *FakeLoader) ReinitializeHostDev(ctx context.Context, mtu int) error {
 }
 
 // Reinitialize does nothing.
-func (f *FakeLoader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+func (f *FakeLoader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr datapath.IptablesManager, p datapath.Proxy, bigtcp datapath.BigTCPConfiguration) error {
 	return nil
 }
 

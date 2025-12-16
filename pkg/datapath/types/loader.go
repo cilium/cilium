@@ -22,7 +22,7 @@ type Loader interface {
 	ReloadDatapath(ctx context.Context, ep Endpoint, cfg *LocalNodeConfiguration, stats *metrics.SpanStat) (string, error)
 	EndpointHash(cfg EndpointConfiguration, lnCfg *LocalNodeConfiguration) (string, error)
 	ReinitializeHostDev(ctx context.Context, mtu int) error
-	Reinitialize(ctx context.Context, cfg *LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy) error
+	Reinitialize(ctx context.Context, cfg *LocalNodeConfiguration, tunnelConfig tunnel.Config, iptMgr IptablesManager, p Proxy, bigtcp BigTCPConfiguration) error
 	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration, lnCfg *LocalNodeConfiguration) error
 }
 

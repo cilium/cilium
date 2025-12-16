@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -90,6 +91,9 @@ func newTestLoader(tb testing.TB) *loader {
 				&manager.NodeConfigNotifier{},
 				promise,
 				&FakePreFilter{}
+		}),
+		cell.Provide(func() *bigtcp.Configuration {
+			return &bigtcp.Configuration{}
 		}),
 	).Populate(hivetest.Logger(tb))
 	if err != nil {
