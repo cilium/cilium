@@ -14,20 +14,20 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-// listFilterIfs returns a map of interfaces based on the given filter.
-// The filter should take a link and, if found, return the index of that
-// interface, if not found return -1.
-func listFilterIfs(filter func(netlink.Link) int) (map[int]netlink.Link, error) {
+// listVethIfaces returns a map of VETH interfaces with the index as key.
+func listVethIfaces() (map[int]netlink.Link, error) {
 	ifs, err := safenetlink.LinkList()
 	if err != nil {
 		return nil, err
 	}
+
 	vethLXCIdxs := map[int]netlink.Link{}
 	for _, intf := range ifs {
-		if idx := filter(intf); idx != -1 {
-			vethLXCIdxs[idx] = intf
+		if intf.Type() == "veth" {
+			vethLXCIdxs[intf.Attrs().Index] = intf
 		}
 	}
+
 	return vethLXCIdxs, nil
 }
 
@@ -36,20 +36,14 @@ func listFilterIfs(filter func(netlink.Link) int) (map[int]netlink.Link, error) 
 func clearCiliumVeths(logger *slog.Logger) error {
 	logger.Info("Removing stale endpoint interfaces")
 
-	leftVeths, err := listFilterIfs(func(intf netlink.Link) int {
-		// Filter by veth and return the index of the interface.
-		if intf.Type() == "veth" {
-			return intf.Attrs().Index
-		}
-		return -1
-	})
+	vethIfaces, err := listVethIfaces()
 	if err != nil {
-		return fmt.Errorf("unable to retrieve host network interfaces: %w", err)
+		return fmt.Errorf("unable to retrieve veth interfaces on host: %w", err)
 	}
 
-	for _, v := range leftVeths {
+	for _, v := range vethIfaces {
 		peerIndex := v.Attrs().ParentIndex
-		parentVeth, found := leftVeths[peerIndex]
+		peerVeth, peerFoundInHostNamespace := vethIfaces[peerIndex]
 
 		// In addition to name matching, double check whether the parent of the
 		// parent is the interface itself, to avoid removing the interface in
@@ -60,16 +54,23 @@ func clearCiliumVeths(logger *slog.Logger) error {
 		// (which is actually located in the root network namespace), we would
 		// otherwise end up deleting the eth0 interface, with the obvious
 		// ill-fated consequences.
-		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") &&
-			parentVeth.Attrs().ParentIndex == v.Attrs().Index {
-			scopedLog := logger.With(logfields.Device, v.Attrs().Name)
+		if peerFoundInHostNamespace &&
+			peerIndex != 0 &&
+			strings.HasPrefix(peerVeth.Attrs().Name, "lxc") &&
+			peerVeth.Attrs().ParentIndex == v.Attrs().Index {
+
+			scopedLog := logger.With(
+				logfields.Index, v.Attrs().Index,
+				logfields.Device, v.Attrs().Name,
+			)
 
 			scopedLog.Debug("Deleting stale veth device")
-			err := netlink.LinkDel(v)
-			if err != nil {
+
+			if err := netlink.LinkDel(v); err != nil {
 				scopedLog.Warn("Unable to delete stale veth device", logfields.Error, err)
 			}
 		}
 	}
+
 	return nil
 }
