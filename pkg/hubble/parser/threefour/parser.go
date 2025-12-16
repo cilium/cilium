@@ -207,8 +207,8 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		return fmt.Errorf("not enough bytes to decode %d", data)
 	}
 
-	isL3Device := tn != nil && tn.IsL3Device() || dn != nil && dn.IsL3Device()
-	isIPv6 := tn != nil && tn.IsIPv6() || dn != nil && dn.IsIPv6()
+	isL3Device := tn != nil && tn.IsL3Device() || dn != nil && dn.IsL3Device() || pvn != nil && pvn.IsTrafficL3Device()
+	isIPv6 := tn != nil && tn.IsIPv6() || dn != nil && dn.IsIPv6() || pvn != nil && pvn.IsTrafficIPv6()
 	isVXLAN := tn != nil && tn.IsVXLAN() || dn != nil && dn.IsVXLAN()
 	isGeneve := tn != nil && tn.IsGeneve() || dn != nil && dn.IsGeneve()
 	ether, ip, l4, tunnel, srcIP, dstIP, srcPort, dstPort, summary, err := decodeLayers(data[packetOffset:], p.packet, isL3Device, isIPv6, isVXLAN, isGeneve)
