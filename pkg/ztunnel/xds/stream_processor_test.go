@@ -389,6 +389,7 @@ func TestStreamProcessorDeltaDiscoveryRequest(t *testing.T) {
 			return nil
 		}
 
+		// These UIDs must match what MockEndpointEventSource.ListAllEndpoints returns
 		expectedUIDs := []string{
 			"12345678-1234-1234-1234-123456789abc", // ep1
 			"87654321-4321-4321-4321-cba987654321", // ep2
