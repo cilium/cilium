@@ -2301,6 +2301,8 @@ enableMasqueradeRouteSource: false
 enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
+# -- Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels
+enableTunnelBIGTCP: false
 
 nat:
   # -- Number of the top-k SNAT map connections to track in Cilium statedb.

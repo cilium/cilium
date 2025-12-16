@@ -706,6 +706,7 @@ data:
   enable-ipv4-big-tcp: {{ .Values.enableIPv4BIGTCP | quote }}
   enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
   enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
+  enable-tunnel-big-tcp: {{ .Values.enableTunnelBIGTCP | quote }}
 
 {{- if hasKey .Values.bpf "enableTCX" }}
   enable-tcx: {{ .Values.bpf.enableTCX | quote }}
