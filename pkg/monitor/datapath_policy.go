@@ -37,6 +37,10 @@ const (
 	// corresponds to whether the traffic was allowed due to the audit mode
 	PolicyVerdictNotifyFlagIsAudited = 0x40
 
+	// PolicyVerdictNotifyFlagIsL3 is the bit mask in Flags that
+	// corresponds to whether the traffic is from a L3 device or not
+	PolicyVerdictNotifyFlagIsL3 = 0x80
+
 	// PolicyVerdictNotifyFlagMatchTypeBitOffset is the bit offset in Flags that
 	// corresponds to the policy match type
 	PolicyVerdictNotifyFlagMatchTypeBitOffset = 3
@@ -101,6 +105,11 @@ func (n *PolicyVerdictNotify) IsTrafficIPv6() bool {
 	return (n.Flags&PolicyVerdictNotifyFlagIsIPv6 > 0)
 }
 
+// IsTrafficL3Device returns true if this notify is from a L3 device
+func (n *PolicyVerdictNotify) IsTrafficL3Device() bool {
+	return (n.Flags&PolicyVerdictNotifyFlagIsL3 > 0)
+}
+
 // GetPolicyMatchType returns how the traffic matched the policy
 func (n *PolicyVerdictNotify) GetPolicyMatchType() api.PolicyMatchType {
 	return api.PolicyMatchType((n.Flags & PolicyVerdictNotifyFlagMatchType) >>
@@ -149,6 +158,6 @@ func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
 	fmt.Fprintf(buf, ", proto %d, %s, action %s, auth: %s, match %s, %s\n", n.Proto, dir,
 		GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
 		n.GetAuthType(), n.GetPolicyMatchType(),
-		GetConnectionSummary(data[PolicyVerdictNotifyLen:], nil))
+		GetConnectionSummary(data[PolicyVerdictNotifyLen:], &decodeOpts{IsL3Device: n.IsTrafficL3Device(), IsIPv6: n.IsTrafficIPv6()}))
 	buf.Flush()
 }
