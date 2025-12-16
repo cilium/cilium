@@ -12,30 +12,30 @@ import (
 // RingBuffer is implemented using slices. From testing, this should
 // be fast than linked-list implementations, and also allows for efficient
 // indexing of ordered data.
-type RingBuffer struct {
-	buffer  []any
+type RingBuffer[T any] struct {
+	buffer  []T
 	next    int // index of ring buffer head.
 	maxSize int
 }
 
 // NewRingBuffer constructs a new ring buffer for a given buffer size.
-func NewRingBuffer(bufferSize int) *RingBuffer {
-	return &RingBuffer{
-		buffer:  make([]any, 0, bufferSize),
+func NewRingBuffer[T any](bufferSize int) *RingBuffer[T] {
+	return &RingBuffer[T]{
+		buffer:  make([]T, 0, bufferSize),
 		maxSize: bufferSize,
 	}
 }
 
-func (eb *RingBuffer) isFull() bool {
+func (eb *RingBuffer[T]) isFull() bool {
 	return len(eb.buffer) >= eb.maxSize
 }
 
-func (eb *RingBuffer) incr() {
+func (eb *RingBuffer[T]) incr() {
 	eb.next = (eb.next + 1) % eb.maxSize
 }
 
 // Add adds an element to the buffer.
-func (eb *RingBuffer) Add(e any) {
+func (eb *RingBuffer[T]) Add(e T) {
 	if eb.maxSize == 0 {
 		return
 	}
@@ -48,20 +48,20 @@ func (eb *RingBuffer) Add(e any) {
 	eb.buffer = append(eb.buffer, e)
 }
 
-func (eb *RingBuffer) dumpWithCallback(callback func(v any)) {
+func (eb *RingBuffer[T]) dumpWithCallback(callback func(v T)) {
 	for i := range eb.buffer {
 		callback(eb.at(i))
 	}
 }
 
-func (eb *RingBuffer) at(i int) any {
+func (eb *RingBuffer[T]) at(i int) T {
 	return eb.buffer[eb.mapIndex(i)]
 }
 
 // firstValidIndex returns the first **absolute** index in the buffer that satisfies
 // isValid.
 // note: this value needs to be mapped before indexing the buffer.
-func (eb *RingBuffer) firstValidIndex(isValid func(any) bool) int {
+func (eb *RingBuffer[T]) firstValidIndex(isValid func(T) bool) int {
 	return sort.Search(len(eb.buffer), func(i int) bool {
 		return isValid(eb.at(i))
 	})
@@ -69,7 +69,7 @@ func (eb *RingBuffer) firstValidIndex(isValid func(any) bool) int {
 
 // IterateValid calls the callback on each element of the buffer, starting with
 // the first element in the buffer that satisfies "isValid".
-func (eb *RingBuffer) IterateValid(isValid func(any) bool, callback func(any)) {
+func (eb *RingBuffer[T]) IterateValid(isValid func(T) bool, callback func(T)) {
 	startIndex := eb.firstValidIndex(isValid)
 	l := len(eb.buffer) - startIndex
 	for i := range l {
@@ -79,7 +79,7 @@ func (eb *RingBuffer) IterateValid(isValid func(any) bool, callback func(any)) {
 }
 
 // maps index in [0:len(buffer)) to the actual index in buffer.
-func (eb *RingBuffer) mapIndex(indexOffset int) int {
+func (eb *RingBuffer[T]) mapIndex(indexOffset int) int {
 	ret := (eb.next + indexOffset) % len(eb.buffer)
 	return ret
 }
@@ -87,14 +87,14 @@ func (eb *RingBuffer) mapIndex(indexOffset int) int {
 // Compact clears out invalidated elements in the buffer.
 // This may require copying the entire buffer.
 // It is assumed that if buffer[i] is invalid then every entry [0...i-1] is also not valid.
-func (eb *RingBuffer) Compact(isValid func(any) bool) {
+func (eb *RingBuffer[T]) Compact(isValid func(T) bool) {
 	if len(eb.buffer) == 0 {
 		return
 	}
 	startIndex := eb.firstValidIndex(isValid)
 	// In this case, we compact the entire buffer.
 	if startIndex >= len(eb.buffer) {
-		eb.buffer = []any{}
+		eb.buffer = []T{}
 		eb.next = 0
 		return
 	}
@@ -116,7 +116,7 @@ func (eb *RingBuffer) Compact(isValid func(any) bool) {
 		// by the length and mapping it.
 		// [... startIndex+newBufferLen ... startIndex ...]
 		end := eb.mapIndex(startIndex + newBufferLength)
-		tmp := make([]any, len(eb.buffer[:end]))
+		tmp := make([]T, len(eb.buffer[:end]))
 		copy(tmp, eb.buffer[:end])
 
 		eb.buffer = eb.buffer[mappedStart:]
@@ -142,11 +142,11 @@ func (eb *RingBuffer) Compact(isValid func(any) bool) {
 
 // Iterate is a convenience function over IterateValid that iterates
 // all elements in the buffer.
-func (eb *RingBuffer) Iterate(callback func(any)) {
-	eb.IterateValid(func(e any) bool { return true }, callback)
+func (eb *RingBuffer[T]) Iterate(callback func(T)) {
+	eb.IterateValid(func(e T) bool { return true }, callback)
 }
 
 // Size returns the size of the buffer.
-func (eb *RingBuffer) Size() int {
+func (eb *RingBuffer[T]) Size() int {
 	return len(eb.buffer)
 }
