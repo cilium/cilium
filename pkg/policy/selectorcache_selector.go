@@ -4,12 +4,11 @@
 package policy
 
 import (
-	"slices"
-	"sort"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -65,7 +64,7 @@ type identitySelector struct {
 	key              string
 	id               types.SelectorId
 	users            map[CachedSelectionUser]struct{}
-	cachedSelections map[identity.NumericIdentity]struct{}
+	cachedSelections set.Set[identity.NumericIdentity]
 	metadataLbls     stringLabels
 }
 
@@ -78,7 +77,7 @@ func newIdentitySelector(sc *SelectorCache, key string, source Selector, lbls st
 		key:              key,
 		id:               lastSelectorId,
 		users:            make(map[CachedSelectionUser]struct{}),
-		cachedSelections: make(map[identity.NumericIdentity]struct{}),
+		cachedSelections: set.NewSet[identity.NumericIdentity](),
 		source:           source,
 		metadataLbls:     lbls,
 	}
@@ -122,19 +121,10 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 
 // GetSelectionsAt returns the set of numeric identities currently
 // selected.  The cached selections can be concurrently updated. In
-// that case GetSelectionsAt() will return either the old or new version
+// that case GetSortedSelectionsAt() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (i *identitySelector) GetSelections() identity.NumericIdentitySlice {
-	return i.GetSelectionsAt(i.selectorCache.GetSelectorSnapshot())
-}
-
-// GetSelectionsAt returns the set of numeric identities currently
-// selected.  The cached selections can be concurrently updated. In
-// that case GetSelectionsAt() will return either the old or new version
-// of the selections. If the old version is returned, the user is
-// guaranteed to receive a notification including the update.
-func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) identity.NumericIdentitySlice {
+func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) *types.Selections {
 	if !selectors.IsValid() || i.id == 0 {
 		msg := "GetSelectionsAt: Invalid selector snapshot finds nothing"
 		if i.id == 0 {
@@ -145,9 +135,25 @@ func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) identity.
 			logfields.Version, selectors,
 			logfields.Stacktrace, hclog.Stacktrace(),
 		)
-		return identity.NumericIdentitySlice{}
+		return types.NewSelection(set.NewSet[identity.NumericIdentity]())
 	}
 	return selectors.Get(i.id)
+}
+
+func (i *identitySelector) GetSortedSelections() identity.NumericIdentitySlice {
+	r := i.GetSelectionsAt(i.selectorCache.GetSelectorSnapshot())
+	if r == nil {
+		return identity.NumericIdentitySlice{}
+	}
+	return r.GetSortedSelections()
+}
+
+func (i *identitySelector) GetSelections() set.Set[identity.NumericIdentity] {
+	r := i.GetSelectionsAt(i.selectorCache.GetSelectorSnapshot())
+	if r == nil {
+		return set.Set[identity.NumericIdentity]{}
+	}
+	return r.GetSelections()
 }
 
 func (i *identitySelector) GetMetadataLabels() labels.LabelArray {
@@ -160,9 +166,7 @@ func (i *identitySelector) Selects(nid identity.NumericIdentity) bool {
 	if i.IsWildcard() {
 		return true
 	}
-	nids := i.GetSelections()
-	idx := sort.Search(len(nids), func(i int) bool { return nids[i] >= nid })
-	return idx < len(nids) && nids[idx] == nid
+	return i.GetSelections().Has(nid)
 }
 
 // IsWildcard returns true if the endpoint selector selects all
@@ -231,21 +235,9 @@ func (i *identitySelector) numUsers() int {
 //
 // lock must be held
 func (i *identitySelector) updateSelections() {
-	if len(i.cachedSelections) == 0 {
+	if i.cachedSelections.Len() == 0 {
 		i.selectorCache.writeableSelections.Delete(i.id)
 		return
 	}
-
-	ids := make(identity.NumericIdentitySlice, 0, len(i.cachedSelections))
-
-	for nid := range i.cachedSelections {
-		ids = append(ids, nid)
-	}
-
-	// Sort the numeric identities so that the map iteration order
-	// does not matter. This makes testing easier, but may help
-	// identifying changes easier also otherwise.
-	slices.Sort(ids)
-
-	i.selectorCache.writeableSelections.Set(i.id, ids)
+	i.selectorCache.writeableSelections.Set(i.id, types.NewSelection(i.cachedSelections.Clone()))
 }

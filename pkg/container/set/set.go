@@ -241,3 +241,17 @@ func (s Set[T]) Clone() Set[T] {
 	}
 	return s // singular value or empty Set
 }
+
+func (s Set[T]) All() iter.Seq[T] {
+	return func(yield func(T) bool) {
+		if s.single != nil {
+			yield(*s.single)
+			return
+		}
+		for kv := range s.members {
+			if !yield(kv) {
+				break
+			}
+		}
+	}
+}

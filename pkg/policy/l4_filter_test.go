@@ -203,14 +203,14 @@ func (td *testData) verifyL4PolicyMapEqual(t *testing.T, expected, actual L4Poli
 					require.True(t, v.Equal(bV), "Expected: %s\nActual: %s", perSelectorPolicyToString(v), perSelectorPolicyToString(bV))
 
 					selActual := bK.(*identitySelector).cachedSelections
-					selExpected := make(map[identity.NumericIdentity]struct{})
-					for id := range k.(*identitySelector).cachedSelections {
+					selExpected := set.NewSet[identity.NumericIdentity]()
+					for id := range k.(*identitySelector).cachedSelections.All() {
 						if slices.Contains(availableIDs, id) {
-							selExpected[id] = struct{}{}
+							selExpected.Insert(id)
 						}
 					}
 
-					require.True(t, maps.Equal(selExpected, selActual), "Expected: %v\nActual: %v", selExpected, selActual)
+					require.True(t, selExpected.Equal(selActual), "Expected: %v\nActual: %v", selExpected, selActual)
 					found = true
 				}
 			}

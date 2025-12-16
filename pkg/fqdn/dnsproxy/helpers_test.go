@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -199,11 +200,19 @@ type MockCachedSelector struct {
 	key string
 }
 
-func (m MockCachedSelector) GetSelections() identity.NumericIdentitySlice {
+func (m MockCachedSelector) GetSelections() set.Set[identity.NumericIdentity] {
+	return set.NewSet[identity.NumericIdentity]()
+}
+
+func (m MockCachedSelector) GetSelectionsAt(types.SelectorSnapshot) set.Set[identity.NumericIdentity] {
+	return set.NewSet[identity.NumericIdentity]()
+}
+
+func (m MockCachedSelector) GetSortedSelections() identity.NumericIdentitySlice {
 	return nil
 }
 
-func (m MockCachedSelector) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
+func (m MockCachedSelector) GetSortedSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
 	return nil
 }
 

@@ -1300,11 +1300,11 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 		selections := sel.GetSelectionsAt(selectors)
 
 		// No remote policies would match this rule. Discard it.
-		if len(selections) == 0 {
+		if selections.GetSelections().Len() == 0 {
 			return nil, true
 		}
 
-		r.RemotePolicies = selections.AsUint32Slice()
+		r.RemotePolicies = selections.GetSortedSelections().AsUint32Slice()
 	}
 
 	if l7Rules == nil {
@@ -1410,13 +1410,13 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 				})
 			}
 			selections := sel.GetSelectionsAt(snapshot)
-			if len(selections) == 0 {
+			if selections.Len() == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
 			}
 			return append(rules, &cilium.PortNetworkPolicyRule{
 				Deny:           l7.GetDeny(),
-				RemotePolicies: selections.AsUint32Slice(),
+				RemotePolicies: selections.GetSortedSelections().AsUint32Slice(),
 			})
 		}
 	}
@@ -1445,15 +1445,15 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 		}
 
 		selections := sel.GetSelectionsAt(snapshot)
-		if len(selections) == 0 {
+		if selections.Len() == 0 {
 			continue
 		}
 		if l7.GetDeny() {
-			denyCount += len(selections)
-			denySlices = append(denySlices, selections.AsUint32Slice())
+			denyCount += selections.Len()
+			denySlices = append(denySlices, selections.GetSortedSelections().AsUint32Slice())
 		} else {
-			allowCount += len(selections)
-			allowSlices = append(allowSlices, selections.AsUint32Slice())
+			allowCount += selections.Len()
+			allowSlices = append(allowSlices, selections.GetSortedSelections().AsUint32Slice())
 		}
 	}
 

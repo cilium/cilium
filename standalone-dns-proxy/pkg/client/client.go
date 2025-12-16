@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -591,12 +592,22 @@ func (d *DNSServerIdentity) IsNone() bool {
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetSelections() identity.NumericIdentitySlice {
+func (d *DNSServerIdentity) GetSelections() set.Set[identity.NumericIdentity] {
+	return set.NewSet[identity.NumericIdentity](d.Identities...)
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) GetSelectionsAt(types.SelectorSnapshot) set.Set[identity.NumericIdentity] {
+	return set.NewSet[identity.NumericIdentity](d.Identities...)
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) GetSortedSelections() identity.NumericIdentitySlice {
 	return d.Identities
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
+func (d *DNSServerIdentity) GetSortedSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
 	return d.Identities
 }
 
