@@ -1559,6 +1559,7 @@ var (
 		Subject:     types.WildcardSelector,
 		Ingress:     true,
 		DefaultDeny: true,
+		Verdict:     types.Allow,
 	}
 	namedPorts = map[string]uint16{
 		"port-80": 80,
@@ -1592,6 +1593,7 @@ func TestIngressAllowAll(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
+			Verdict:     types.Allow,
 			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
 			L3: types.ToSelectors(api.WildcardEndpointSelector),
@@ -1611,12 +1613,14 @@ func TestIngressAllowAllL4Overlap(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
+			Verdict:     types.Allow,
 			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
 			L3: types.ToSelectors(api.WildcardEndpointSelector),
 		}, &types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
+			Verdict:     types.Allow,
 			Subject:     labelSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
@@ -1641,6 +1645,7 @@ func TestIngressAllowAllNamedPort(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
+			Verdict:     types.Allow,
 			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
 			L3: types.ToSelectors(api.WildcardEndpointSelector),
@@ -1665,12 +1670,14 @@ func TestIngressAllowAllL4OverlapNamedPort(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
+			Verdict:     types.Allow,
 			Subject:     labelSelectorC,
 			// Allow all L3&L4 ingress rule
 			L3: types.ToSelectors(api.WildcardEndpointSelector),
 		}, &types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
+			Verdict:     types.Allow,
 			Subject:     labelSelectorC,
 			// This rule is a subset of the above
 			// rule and should *NOT* restrict to
@@ -1694,6 +1701,7 @@ func TestIngressL4AllowAll(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
+			Verdict:     types.Allow,
 			Subject:     labelSelectorC,
 			L3:          types.Selectors{},
 			L4: []api.PortRule{{
@@ -2341,12 +2349,14 @@ func TestMatches(t *testing.T) {
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
+			Verdict:     types.Allow,
 			Subject:     labelSelectorA,
 			L3:          types.Selectors{labelSelectorC},
 		},
 		&types.PolicyEntry{
 			Ingress:     true,
 			DefaultDeny: true,
+			Verdict:     types.Allow,
 			Subject: types.NewLabelSelectorFromLabels(
 				labels.ParseSelectLabel("id=a"),
 				labels.NewLabel(labels.IDNameHost, "", labels.LabelSourceReserved),

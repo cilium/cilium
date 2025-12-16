@@ -274,11 +274,12 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: 0,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: 0,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -305,11 +306,12 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: -1,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: 1,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -333,11 +335,12 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L3:       selectors1111,
 					L4:       port80,
 					Priority: 0,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: 1,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -360,12 +363,13 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: 0,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
 					L4:       port80,
 					Priority: 1,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -393,16 +397,18 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L3:       selectors1111,
 					L4:       port80,
 					Priority: -1,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
 					L4:       port80_81,
 					Priority: 0,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: 0,
+					Verdict:  types.Allow,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -431,16 +437,18 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L3:       selectors1111,
 					L4:       port80_81,
 					Priority: 1,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
 					L4:       port80,
 					Priority: 2,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: 3,
+					Verdict:  types.Allow,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -469,16 +477,18 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L3:       selectors1111,
 					L4:       port80_81,
 					Priority: 1,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
 					L4:       port80_90,
 					Priority: 2,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: 3,
+					Verdict:  types.Allow,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -512,16 +522,18 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L3:       selectors1111,
 					L4:       port80_81,
 					Priority: 1,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
 					L4:       port80_81,
 					Priority: 2,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 				&types.PolicyEntry{
 					L3:       selectors1111,
 					Priority: 3,
+					Verdict:  types.Allow,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -551,16 +563,18 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L3:       selectors1111,
 					L4:       port80,
 					Priority: 1,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
 					L4:       port80_81,
 					Priority: 2,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 				&types.PolicyEntry{
 					L3:       selectors1100,
 					Priority: 3,
+					Verdict:  types.Allow,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -595,13 +609,14 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L4:       port80_81,
 					Ingress:  true,
 					Priority: 1,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
 					L4:       port80,
 					Priority: 2,
 					Ingress:  true,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -632,13 +647,14 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L3:       types.ToSelectors(types.APISelector(selectFoo_)),
 					Ingress:  true,
 					Priority: 1,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
 					L4:       port80,
 					Priority: 2,
 					Ingress:  true,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -663,13 +679,14 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L3:       types.ToSelectors(types.APISelector(selectFoo_)),
 					Ingress:  true,
 					Priority: 1,
-					Deny:     true,
+					Verdict:  types.Deny,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
 					L4:       portTCPAll,
 					Priority: 2,
 					Ingress:  true,
+					Verdict:  types.Allow,
 				},
 			},
 			expected: map[Key]mapStateEntry{
@@ -697,25 +714,26 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					L3:       selectors1111,
 					L4:       portUDP53,
 					Priority: 42,
+					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
 					L3:       types.ToSelectors(api.EntitySelectorMapping[api.EntityWorld]...),
-					Deny:     true,
+					Verdict:  types.Deny,
 					Priority: 43,
 				},
 				&types.PolicyEntry{
 					L3:       selectors1100,
-					Deny:     true,
+					Verdict:  types.Deny,
 					Priority: 43,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
-					Deny:     true,
+					Verdict:  types.Deny,
 					Priority: 99,
 				},
 				&types.PolicyEntry{
 					L3:       types.Selectors{},
-					Deny:     true,
+					Verdict:  types.Deny,
 					Priority: 100,
 				},
 			},

@@ -119,8 +119,6 @@ func (a StringSet) Merge(b StringSet) StringSet {
 	return a
 }
 
-type PolicyVerdict uint8
-
 // PerSelectorPolicy contains policy rules for a CachedSelector, i.e. for a
 // selection of numerical identities.
 type PerSelectorPolicy struct {
@@ -1054,7 +1052,7 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 	}
 
 	priority := policyCtx.Priority()
-	if l7Parser != ParserTypeNone || entry.Authentication != nil || entry.Deny || priority != 0 {
+	if l7Parser != ParserTypeNone || entry.Authentication != nil || !entry.IsAllow() || priority != 0 {
 		modifiedRules := rules
 
 		// If we have L7 rules and default deny is disabled (EnableDefaultDeny=false), we should ensure those rules
@@ -1065,7 +1063,7 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 		// 3. This is a positive policy (not a deny policy)
 		hasL7Rules := !rules.IsEmpty()
 		isDefaultDenyDisabled := (entry.Ingress && !policyCtx.DefaultDenyIngress()) || (!entry.Ingress && !policyCtx.DefaultDenyEgress())
-		isAllowPolicy := !entry.Deny // note: L7 rules cannot be deny
+		isAllowPolicy := entry.IsAllow() // note: L7 rules cannot be deny
 
 		if hasL7Rules && isDefaultDenyDisabled && isAllowPolicy {
 			logger.Debug("Adding wildcard L7 rules for default-allow policy",
@@ -1075,11 +1073,7 @@ func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule 
 			modifiedRules = ensureWildcard(rules, l7Parser)
 		}
 
-		verdict := types.Allow
-		if entry.Deny {
-			verdict = types.Deny
-		}
-		l4.PerSelectorPolicies.addPolicyForSelector(l7Parser, modifiedRules, terminatingTLS, originatingTLS, entry.Authentication, verdict, sni, listener, listenerPriority, priority)
+		l4.PerSelectorPolicies.addPolicyForSelector(l7Parser, modifiedRules, terminatingTLS, originatingTLS, entry.Authentication, entry.Verdict, sni, listener, listenerPriority, priority)
 	}
 
 	for cs := range l4.PerSelectorPolicies {

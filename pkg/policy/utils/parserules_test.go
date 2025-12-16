@@ -62,6 +62,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
+					Verdict:     types.Allow,
 					Ingress:     true,
 					L3: types.ToSelectors([]types.APISelector{
 						api.NewESFromLabels(labels.ParseSelectLabel("from=endpoint")),
@@ -104,7 +105,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
-					Deny:        true,
+					Verdict:     types.Deny,
 					Ingress:     true,
 					L3: types.ToSelectors(
 						api.NewESFromLabels(labels.ParseSelectLabel("from=endpoint")),
@@ -147,6 +148,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
+					Verdict:     types.Allow,
 					Ingress:     false,
 					L3: types.ToSelectors([]types.APISelector{
 						api.NewESFromLabels(labels.ParseSelectLabel("to=endpoint")),
@@ -189,7 +191,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
-					Deny:        true,
+					Verdict:     types.Deny,
 					Ingress:     false,
 					L3: types.ToSelectors(
 						api.NewESFromLabels(labels.ParseSelectLabel("to=endpoint")),
@@ -229,6 +231,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Node:        true,
 					Labels:      lbls,
 					DefaultDeny: true,
+					Verdict:     types.Allow,
 					Ingress:     true,
 					L3:          types.Selectors{},
 					L4: []api.PortRule{
@@ -260,6 +263,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
+					Verdict:     types.Allow,
 					Ingress:     true,
 					L3:          types.Selectors{},
 					L4:          api.PortRules{},
@@ -268,6 +272,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
+					Verdict:     types.Allow,
 					Ingress:     false,
 					L3:          types.Selectors{},
 					L4:          api.PortRules{},
@@ -293,6 +298,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
+					Verdict:     types.Allow,
 					Ingress:     true,
 					L3:          types.Selectors{},
 					L4:          api.PortRules{},
@@ -301,6 +307,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
+					Verdict:     types.Allow,
 					Ingress:     false,
 					L3:          types.Selectors{},
 					L4:          api.PortRules{},

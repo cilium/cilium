@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -764,6 +765,7 @@ func (sp *testSelectorPolicy) createValidDNSPolicy() iter.Seq2[*policy.L4Filter,
 			Ingress:  false,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector: &policy.PerSelectorPolicy{
+					Verdict:  policytypes.Allow,
 					L7Parser: policy.ParserTypeDNS,
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{
@@ -793,6 +795,7 @@ func (sp *testSelectorPolicy) createValidNonDNSPolicy() iter.Seq2[*policy.L4Filt
 			Ingress:  false,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector: &policy.PerSelectorPolicy{
+					Verdict:  policytypes.Allow,
 					L7Parser: policy.ParserTypeHTTP, // HTTP instead of DNS
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{
