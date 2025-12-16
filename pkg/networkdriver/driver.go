@@ -120,6 +120,8 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 
 		for _, dev := range filtered {
 			if dev.IfName() == "" {
+				// all devices need a name
+				driver.logger.Error("received device without a name", logfields.Attributes, dev.GetAttrs())
 				continue
 			}
 
