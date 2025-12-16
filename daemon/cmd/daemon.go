@@ -207,13 +207,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	params.K8sWatcher.InitK8sSubsystem(ctx)
 	bootstrapStats.k8sInit.End(true)
 
-	bootstrapStats.cleanup.Start()
-	err = clearCiliumVeths(params.Logger)
-	bootstrapStats.cleanup.EndError(err)
-	if err != nil {
-		params.Logger.Warn("Unable to clean stale endpoint interfaces", logfields.Error, err)
-	}
-
 	// Fetch the router (`cilium_host`) IPs in case they were set a priori from
 	// the Kubernetes or CiliumNode resource in the K8s subsystem from call
 	// k8s.WaitForNodeInformation(). These will be used later after starting
