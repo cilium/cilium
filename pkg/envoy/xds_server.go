@@ -1297,14 +1297,14 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
-		selections := sel.GetSelectionsAt(selectors)
+		selections := sel.GetSortedSelectionsAt(selectors)
 
 		// No remote policies would match this rule. Discard it.
-		if selections.GetSelections().Len() == 0 {
+		if len(selections) == 0 {
 			return nil, true
 		}
 
-		r.RemotePolicies = selections.GetSortedSelections().AsUint32Slice()
+		r.RemotePolicies = selections.AsUint32Slice()
 	}
 
 	if l7Rules == nil {
@@ -1409,14 +1409,14 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 					Deny: l7.GetDeny(),
 				})
 			}
-			selections := sel.GetSelectionsAt(snapshot)
-			if selections.Len() == 0 {
+			selections := sel.GetSortedSelectionsAt(snapshot)
+			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
 			}
 			return append(rules, &cilium.PortNetworkPolicyRule{
 				Deny:           l7.GetDeny(),
-				RemotePolicies: selections.GetSortedSelections().AsUint32Slice(),
+				RemotePolicies: selections.AsUint32Slice(),
 			})
 		}
 	}
@@ -1444,16 +1444,16 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 			s.logger.Warn("L3-only rule for selector surprisingly requires proxy redirection!", logfields.Selector, sel)
 		}
 
-		selections := sel.GetSelectionsAt(snapshot)
-		if selections.Len() == 0 {
+		selections := sel.GetSortedSelectionsAt(snapshot)
+		if len(selections) == 0 {
 			continue
 		}
 		if l7.GetDeny() {
-			denyCount += selections.Len()
-			denySlices = append(denySlices, selections.GetSortedSelections().AsUint32Slice())
+			denyCount += len(selections)
+			denySlices = append(denySlices, selections.AsUint32Slice())
 		} else {
-			allowCount += selections.Len()
-			allowSlices = append(allowSlices, selections.GetSortedSelections().AsUint32Slice())
+			allowCount += len(selections)
+			allowSlices = append(allowSlices, selections.AsUint32Slice())
 		}
 	}
 

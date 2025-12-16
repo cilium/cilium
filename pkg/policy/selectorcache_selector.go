@@ -124,7 +124,15 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 // that case GetSortedSelectionsAt() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) *types.Selections {
+func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) set.Set[identity.NumericIdentity] {
+	return i.at(selectors).GetSelections()
+}
+
+func (i *identitySelector) GetSortedSelectionsAt(selectors SelectorSnapshot) identity.NumericIdentitySlice {
+	return i.at(selectors).GetSortedSelections()
+}
+
+func (i *identitySelector) at(selectors SelectorSnapshot) *types.Selections {
 	if !selectors.IsValid() || i.id == 0 {
 		msg := "GetSelectionsAt: Invalid selector snapshot finds nothing"
 		if i.id == 0 {
@@ -140,20 +148,11 @@ func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) *types.Se
 	return selectors.Get(i.id)
 }
 
-func (i *identitySelector) GetSortedSelections() identity.NumericIdentitySlice {
-	r := i.GetSelectionsAt(i.selectorCache.GetSelectorSnapshot())
-	if r == nil {
-		return identity.NumericIdentitySlice{}
-	}
-	return r.GetSortedSelections()
-}
-
 func (i *identitySelector) GetSelections() set.Set[identity.NumericIdentity] {
-	r := i.GetSelectionsAt(i.selectorCache.GetSelectorSnapshot())
-	if r == nil {
-		return set.Set[identity.NumericIdentity]{}
-	}
-	return r.GetSelections()
+	return i.GetSelectionsAt(i.selectorCache.GetSelectorSnapshot())
+}
+func (i *identitySelector) GetSortedSelections() identity.NumericIdentitySlice {
+	return i.GetSortedSelectionsAt(i.selectorCache.GetSelectorSnapshot())
 }
 
 func (i *identitySelector) GetMetadataLabels() labels.LabelArray {

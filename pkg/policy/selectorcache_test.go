@@ -221,18 +221,18 @@ func (csu *cachedSelectionUser) IdentitySelectionCommit(logger *slog.Logger, txn
 		added := csu.updates[i].added
 		deleted := csu.updates[i].deleted
 
-		selections := selector.GetSelectionsAt(txn)
+		selections := selector.GetSortedSelectionsAt(txn)
 
 		// Validate added & deleted against the selections
 		for _, add := range added {
-			require.True(csu.t, haveNid(add, selections.GetSortedSelections()))
+			require.True(csu.t, haveNid(add, selections))
 		}
 		for _, del := range deleted {
-			require.False(csu.t, haveNid(del, selections.GetSortedSelections()))
+			require.False(csu.t, haveNid(del, selections))
 		}
 
 		// update selections
-		csu.selections[selector] = selections.GetSortedSelections()
+		csu.selections[selector] = selections
 	}
 	csu.updates = nil
 	csu.updateCond.Signal()
@@ -300,11 +300,14 @@ func (cs *testCachedSelector) GetSelections() set.Set[identity.NumericIdentity] 
 	return set.NewSet[identity.NumericIdentity](cs.selections...)
 }
 
-func (cs *testCachedSelector) GetSelectionsAt(SelectorSnapshot) *types.Selections {
-	return types.NewSelection(cs.GetSelections())
+func (cs *testCachedSelector) GetSelectionsAt(SelectorSnapshot) set.Set[identity.NumericIdentity] {
+	return set.NewSet[identity.NumericIdentity](cs.selections...)
 }
 
 func (cs *testCachedSelector) GetSortedSelections() identity.NumericIdentitySlice {
+	return cs.selections
+}
+func (cs *testCachedSelector) GetSortedSelectionsAt(SelectorSnapshot) identity.NumericIdentitySlice {
 	return cs.selections
 }
 
@@ -621,10 +624,10 @@ func TestTransactionalUpdate(t *testing.T) {
 
 	txn := sc.GetSelectorSnapshot()
 
-	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSelectionsAt(txn).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1}, cs24.GetSelectionsAt(txn).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs8.GetSelectionsAt(txn).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs7.GetSelectionsAt(txn).GetSortedSelections())
+	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSortedSelectionsAt(txn))
+	require.Equal(t, identity.NumericIdentitySlice{li1}, cs24.GetSortedSelectionsAt(txn))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs8.GetSortedSelectionsAt(txn))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs7.GetSortedSelectionsAt(txn))
 
 	// Add some identities to the identity cache
 	li3 := li2 + 1
@@ -637,18 +640,18 @@ func TestTransactionalUpdate(t *testing.T) {
 	wg.Wait()
 
 	// Old version handle still gets the same selections as before
-	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSelectionsAt(txn).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1}, cs24.GetSelectionsAt(txn).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs8.GetSelectionsAt(txn).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs7.GetSelectionsAt(txn).GetSortedSelections())
+	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSortedSelectionsAt(txn))
+	require.Equal(t, identity.NumericIdentitySlice{li1}, cs24.GetSortedSelectionsAt(txn))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs8.GetSortedSelectionsAt(txn))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs7.GetSortedSelectionsAt(txn))
 
 	// New version handle sees the new updates on all selectors
 	txn2 := sc.GetSelectorSnapshot()
 
-	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSelectionsAt(txn2).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li3}, cs24.GetSelectionsAt(txn2).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2, li3}, cs8.GetSelectionsAt(txn2).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2, li3, li4}, cs7.GetSelectionsAt(txn2).GetSortedSelections())
+	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSortedSelectionsAt(txn2))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li3}, cs24.GetSortedSelectionsAt(txn2))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2, li3}, cs8.GetSortedSelectionsAt(txn2))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2, li3, li4}, cs7.GetSortedSelectionsAt(txn2))
 
 	// Remove some identities from the identity cache
 	wg = &sync.WaitGroup{}
@@ -658,23 +661,23 @@ func TestTransactionalUpdate(t *testing.T) {
 	wg.Wait()
 
 	// Oldest version handle still gets the same selections as before
-	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSelectionsAt(txn).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1}, cs24.GetSelectionsAt(txn).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs8.GetSelectionsAt(txn).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs7.GetSelectionsAt(txn).GetSortedSelections())
+	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSortedSelectionsAt(txn))
+	require.Equal(t, identity.NumericIdentitySlice{li1}, cs24.GetSortedSelectionsAt(txn))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs8.GetSortedSelectionsAt(txn))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2}, cs7.GetSortedSelectionsAt(txn))
 
-	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSelectionsAt(txn2).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li3}, cs24.GetSelectionsAt(txn2).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2, li3}, cs8.GetSelectionsAt(txn2).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li1, li2, li3, li4}, cs7.GetSelectionsAt(txn2).GetSortedSelections())
+	require.Equal(t, identity.NumericIdentitySlice{li1}, cs32.GetSortedSelectionsAt(txn2))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li3}, cs24.GetSortedSelectionsAt(txn2))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2, li3}, cs8.GetSortedSelectionsAt(txn2))
+	require.Equal(t, identity.NumericIdentitySlice{li1, li2, li3, li4}, cs7.GetSortedSelectionsAt(txn2))
 
 	// New version handle sees the removal
 	txn3 := sc.GetSelectorSnapshot()
 
-	require.Equal(t, identity.NumericIdentitySlice(nil), cs32.GetSelectionsAt(txn3).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li3}, cs24.GetSelectionsAt(txn3).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li2, li3}, cs8.GetSelectionsAt(txn3).GetSortedSelections())
-	require.Equal(t, identity.NumericIdentitySlice{li2, li3, li4}, cs7.GetSelectionsAt(txn3).GetSortedSelections())
+	require.Equal(t, identity.NumericIdentitySlice(nil), cs32.GetSortedSelectionsAt(txn3))
+	require.Equal(t, identity.NumericIdentitySlice{li3}, cs24.GetSortedSelectionsAt(txn3))
+	require.Equal(t, identity.NumericIdentitySlice{li2, li3}, cs8.GetSortedSelectionsAt(txn3))
+	require.Equal(t, identity.NumericIdentitySlice{li2, li3, li4}, cs7.GetSortedSelectionsAt(txn3))
 
 	user1.RemoveSelector(cs32)
 	user1.RemoveSelector(cs24)

@@ -601,7 +601,7 @@ func (s *SelectorSnapshot) String() string {
 type CachedSelector interface {
 	// GetSelections returns the cached set of numeric identities
 	// selected by the CachedSelector for the latest revision of the
-	// selector cache.  The retuned slice must NOT be modified, as it
+	// selector cache.  The retuned set must NOT be modified, as it
 	// is shared among multiple users.
 	GetSelections() set.Set[identity.NumericIdentity]
 
@@ -612,9 +612,14 @@ type CachedSelector interface {
 	GetSortedSelections() identity.NumericIdentitySlice
 
 	// GetSelectionsAt returns the cached set of numeric identities
+	// selected by the CachedSelector.  The retuned set must NOT
+	// be modified, as it is shared among multiple users.
+	GetSelectionsAt(SelectorSnapshot) set.Set[identity.NumericIdentity]
+
+	// GetSortedSelectionsAt returns the cached set of numeric identities
 	// selected by the CachedSelector.  The retuned slice must NOT
 	// be modified, as it is shared among multiple users.
-	GetSelectionsAt(SelectorSnapshot) *Selections
+	GetSortedSelectionsAt(SelectorSnapshot) identity.NumericIdentitySlice
 
 	// GetMetadataLabels returns metadata labels for additional context
 	// surrounding the selector. These are typically the labels associated with

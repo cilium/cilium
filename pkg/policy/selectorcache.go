@@ -303,7 +303,7 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 
 	// iterating selectors requires read lock
 	for key, sel := range sc.selectors.All() {
-		selections := sel.GetSelectionsAt(version).GetSortedSelections()
+		selections := sel.GetSortedSelectionsAt(version)
 		ids := make([]int64, 0, len(selections))
 		for i := range selections {
 			ids = append(ids, int64(selections[i]))
