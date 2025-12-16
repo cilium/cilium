@@ -1673,10 +1673,6 @@ definitions:
         type: string
         description: |
           InterfaceNumber is a field for generically identifying an interface. This is only useful in ENI mode.
-      skip-masquerade:
-        type: boolean
-        description: |
-          SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.
   AddressPair:
     description: Addressing information of an endpoint
     type: object

@@ -98,11 +98,6 @@ const (
 
 	// PropertyCEPName contains the CEP name for this endpoint.
 	PropertyCEPName = "property-cep-name"
-
-	// PropertySkipMasqueradeV4 will mark the endpoint to skip IPv4 masquerade.
-	PropertySkipMasqueradeV4 = "property-skip-masquerade-v4"
-	// PropertySkipMasqueradeV6 will mark the endpoint to skip IPv6 masquerade.
-	PropertySkipMasqueradeV6 = "property-skip-masquerade-v6"
 )
 
 var (
@@ -579,14 +574,6 @@ func (e *Endpoint) IsAtHostNS() bool {
 
 func (e *Endpoint) IsHost() bool {
 	return e.isHost
-}
-
-func (e *Endpoint) SkipMasqueradeV4() bool {
-	return e.isProperty(PropertySkipMasqueradeV4)
-}
-
-func (e *Endpoint) SkipMasqueradeV6() bool {
-	return e.isProperty(PropertySkipMasqueradeV6)
 }
 
 // SetIsHost is a convenient method to create host endpoints for testing.

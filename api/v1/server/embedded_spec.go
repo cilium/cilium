@@ -3218,10 +3218,6 @@ func init() {
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",
           "type": "string"
-        },
-        "skip-masquerade": {
-          "description": "SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.\n",
-          "type": "boolean"
         }
       }
     },
@@ -8613,10 +8609,6 @@ func init() {
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",
           "type": "string"
-        },
-        "skip-masquerade": {
-          "description": "SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.\n",
-          "type": "boolean"
         }
       }
     },
