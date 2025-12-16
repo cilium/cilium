@@ -34,10 +34,11 @@ func TestPrivilegedRemoveStaleEPIfaces(t *testing.T) {
 		_, err = safenetlink.LinkByName(linkAttrs.Name)
 		assert.NoError(t, err)
 
-		// Check that stale iface is removed
-		err = clearCiliumVeths(hivetest.Logger(t))
+		restorer := &endpointRestorer{logger: hivetest.Logger(t)}
+		err = restorer.clearStaleCiliumEndpointVeths()
 		assert.NoError(t, err)
 
+		// Check that stale iface is removed
 		_, err = safenetlink.LinkByName(linkAttrs.Name)
 		assert.Error(t, err)
 
