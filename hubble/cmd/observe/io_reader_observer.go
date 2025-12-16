@@ -81,7 +81,7 @@ type ioReaderClient struct {
 	deny           filters.FilterFuncs
 
 	// Used for --last
-	buffer *container.RingBuffer
+	buffer *container.RingBuffer[*observerpb.GetFlowsResponse]
 	resps  []*observerpb.GetFlowsResponse
 	// Used for --first/--last
 	flowsReturned uint64
@@ -97,13 +97,13 @@ func newIOReaderClient(ctx context.Context, logger *slog.Logger, scanner *bufio.
 		return nil, err
 	}
 
-	var buf *container.RingBuffer
+	var buf *container.RingBuffer[*observerpb.GetFlowsResponse]
 	// last
 	if n := request.GetNumber(); !request.GetFirst() && n != 0 && n != math.MaxUint64 {
 		if n > 1_000_000 {
 			return nil, fmt.Errorf("--last must be <= 1_000_000, got %d", n)
 		}
-		buf = container.NewRingBuffer(int(n))
+		buf = container.NewRingBuffer[*observerpb.GetFlowsResponse](int(n))
 	}
 	return &ioReaderClient{
 		scanner: scanner,
@@ -170,8 +170,8 @@ func (c *ioReaderClient) popFromLastBuffer() *observerpb.GetFlowsResponse {
 			// index into the ring buffer itself
 			// TODO: Add the ability to index into the ring buffer and we could avoid
 			// this copy.
-			c.buffer.Iterate(func(i any) {
-				c.resps = append(c.resps, i.(*observerpb.GetFlowsResponse))
+			c.buffer.Iterate(func(i *observerpb.GetFlowsResponse) {
+				c.resps = append(c.resps, i)
 			})
 		}
 
