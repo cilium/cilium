@@ -186,6 +186,9 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
+      - name: Generate ZTunnel certificates
+        uses: ./.github/actions/ztunnel-certs
+
       - name: Install Cilium
         id: install-cilium
         shell: bash
