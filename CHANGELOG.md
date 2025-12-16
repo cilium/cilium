@@ -1,5 +1,68 @@
 # Changelog
 
+## v1.17.11
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* AWS EC2: Fix ENI attachment on multi-network card instances with high-performance networking (EFA) setups (Backport PR cilium/cilium#42744, Upstream PR cilium/cilium#42512, @41ks)
+* CiliumEnvoyConfig proxy ports are now restored on agent restarts. (Backport PR cilium/cilium#43118, Upstream PR cilium/cilium#43108, @jrajahalme)
+* Do not opt-out Endpoint ID 1 from dnsproxy transparent mode. (Backport PR cilium/cilium#42949, Upstream PR cilium/cilium#42887, @jrajahalme)
+* Fix a bug that would cause IPsec logs to incorrectly report the XFRM rules being processed as "Ingress" rules. (Backport PR cilium/cilium#42827, Upstream PR cilium/cilium#42640, @sjohnsonpal)
+* Fix bug that could cause the agent to fail to add XFRM states when IPsec is enabled, thus preventing a proper startup. (Backport PR cilium/cilium#42949, Upstream PR cilium/cilium#42666, @pchaigno)
+* Fix certain cases where LRPs with the skipRedirectFromBackend flag set were not correctly processed. (cilium/cilium#42751, @aditighag)
+* policy: Fix Endpoint Selector Policy Deadlock (Backport PR cilium/cilium#42969, Upstream PR cilium/cilium#38139, @nathanjsweet)
+* policy: Fix rare bug that prevented two endpoints that shared the same identity from being simultaneously updated. (Backport PR cilium/cilium#42969, Upstream PR cilium/cilium#37910, @nathanjsweet)
+* policy: Fix rare Endpoint Selector Policy Deadlock causing policies to not be updated with new identities (Backport PR cilium/cilium#42969, Upstream PR cilium/cilium#42306, @odinuge)
+
+**CI Changes:**
+* .github: Consistently clean up workers on start (Backport PR cilium/cilium#43215, Upstream PR cilium/cilium#39644, @joestringer)
+* [v1.17] ci: bump ubuntu version for lint build commit workflow (cilium/cilium#42842, @giorio94)
+* bpf: test: egressgw: fix up ENABLE_MASQUERADE (Backport PR cilium/cilium#42967, Upstream PR cilium/cilium#42912, @julianwiedmann)
+* ci: install libtinfo5 for clang in build commits workflow (cilium/cilium#43142, @tklauser)
+* Delete .github/workflows/build-images-hotfixes.yaml (Backport PR cilium/cilium#42967, Upstream PR cilium/cilium#42958, @sekhar-isovalent)
+* gh: conn-disrupt: fix XFRM error checks (Backport PR cilium/cilium#42765, Upstream PR cilium/cilium#42724, @julianwiedmann)
+* gh: ipsec-e2e: fix flaky connection disruptivity test (Backport PR cilium/cilium#42850, Upstream PR cilium/cilium#42780, @julianwiedmann)
+* gha: additionally cleanup disk space in clustermesh upgrade workflow (Backport PR cilium/cilium#42949, Upstream PR cilium/cilium#42862, @giorio94)
+* gha: wait for cert-manager CRDs to be ready in conformance clustermesh (Backport PR cilium/cilium#42967, Upstream PR cilium/cilium#42947, @giorio94)
+* makefile: More reliable update-helm-values (Backport PR cilium/cilium#42827, Upstream PR cilium/cilium#42736, @devodev)
+
+**Misc Changes:**
+* .github/workflows: make adjustments for new GitHub workflow behavior (cilium/cilium#43218, @aanm)
+* .github/workflows: remove auto-requested reviewers (Backport PR cilium/cilium#43345, Upstream PR cilium/cilium#42952, @aanm)
+* chore(deps): update all external docker images dependencies (v1.17) (cilium/cilium#43053, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#42685, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#43269, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#43324, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (patch) (cilium/cilium#43321, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.17) (cilium/cilium#42402, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/little-vm-helper to v0.0.28 (v1.17) (cilium/cilium#42772, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v33.1 (v1.17) (cilium/cilium#42808, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v33.2 (v1.17) (cilium/cilium#43189, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf-go to v1.36.11 (v1.17) (cilium/cilium#43322, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.37.0 docker digest to d80cd69 (v1.17) (cilium/cilium#43319, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.10 docker digest to 7b13449 (v1.17) (cilium/cilium#42806, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.11 docker digest to e3fb71a (v1.17) (cilium/cilium#43320, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to 2b7c93f (v1.17) (cilium/cilium#43185, @cilium-renovate[bot])
+* chore(deps): update github artifact actions (v1.17) (cilium/cilium#43325, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.11 (v1.17) (cilium/cilium#43187, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#42807, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#42938, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#43038, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#43188, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#43323, @cilium-renovate[bot])
+* docs: Add limitation about LB to same backend via multiple VIPs (Backport PR cilium/cilium#42744, Upstream PR cilium/cilium#42632, @brb)
+* Documentation: host firewall: document emergency recovery (Backport PR cilium/cilium#42949, Upstream PR cilium/cilium#42776, @squeed)
+* Minor improvements around certificate validation in etcd/clustermesh troubleshoot commands (Backport PR cilium/cilium#42949, Upstream PR cilium/cilium#42782, @giorio94)
+* tools/slogloggercheck: remove tool added by renovate (cilium/cilium#42738, @aanm)
+
+**Other Changes:**
+* [v1.17] deps: bump x/crypto to v0.45.0 (cilium/cilium#43115, @ferozsalam)
+* [v1.17] proxy: Bump envoy version to v1.34.11 (cilium/cilium#43144, @sayboras)
+* [v1.17] proxy: Bump envoy version to v1.34.12 (cilium/cilium#43261, @sayboras)
+* install: Update image digests for v1.17.10 (cilium/cilium#42734, @cilium-release-bot[bot])
+
 ## v1.17.10
 
 Summary of Changes
