@@ -30,17 +30,6 @@ const (
 	AutoCIDR = "auto"
 )
 
-func initNodeLocalRoutingRule(params daemonParams) error {
-	if !params.DaemonConfig.DryMode {
-		if params.DaemonConfig.EnableL7Proxy {
-			if err := linuxdatapath.NodeEnsureLocalRoutingRule(); err != nil {
-				return fmt.Errorf("ensuring local routing rule: %w", err)
-			}
-		}
-	}
-	return nil
-}
-
 func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	// WireGuard and IPSec are mutually exclusive.
 	if params.IPSecConfig.Enabled() && params.WireguardConfig.Enabled() {
@@ -312,15 +301,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		// allocator is initialized up until here.
 		realIdentityAllocator := params.IdentityAllocator
 		realIdentityAllocator.InitIdentityAllocator(params.Clientset, params.KVStoreClient)
-	}
-
-	// Must be done at least after initializing BPF LB-related maps
-	// (lbmap.Init()).
-	bootstrapStats.bpfBase.Start()
-	err = initNodeLocalRoutingRule(params)
-	bootstrapStats.bpfBase.EndError(err)
-	if err != nil {
-		return fmt.Errorf("error while initializing daemon: %w", err)
 	}
 
 	// Start the host IP synchronization. Blocks until the initial synchronization
