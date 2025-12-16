@@ -1193,6 +1193,16 @@ func Test_TransformToCiliumEndpoint(t *testing.T) {
 						// they are not used by the CEP handlers.
 						Labels:      nil,
 						Annotations: nil,
+						// OwnerReferences is preserved for ztunnel xDS to extract Pod UID.
+						OwnerReferences: []slim_metav1.OwnerReference{
+							{
+								Kind:       "Pod",
+								APIVersion: "v1",
+								Name:       "foo",
+								UID:        "65dasd54d45",
+								Controller: nil,
+							},
+						},
 					},
 					Identity: &v2.EndpointIdentity{
 						ID: 9654,

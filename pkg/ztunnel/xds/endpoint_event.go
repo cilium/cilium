@@ -62,13 +62,13 @@ func (c EndpointEventCollection) ToDeltaDiscoveryResponse() *v3.DeltaDiscoveryRe
 			// ztunnel uses a very stripped down representation of a Resource
 			// see: https://github.com/istio/ztunnel/blob/58cf2a0f943ffc23c32d889018428ddfa6175144/src/xds/client.rs#L773
 			res := &v3.Resource{
-				Name:     string(event.UID),
+				Name:     event.getPodUID(),
 				Resource: anyPBAddr,
 			}
 
 			createResources = append(createResources, res)
 		case REMOVED:
-			removedNames = append(removedNames, string(event.UID))
+			removedNames = append(removedNames, event.getPodUID())
 		}
 	}
 
@@ -99,6 +99,18 @@ type EndpointEvent struct {
 	*types.CiliumEndpoint
 }
 
+// getPodUID returns the Pod UID from the CiliumEndpoint's OwnerReferences.
+// CiliumEndpoints are owned by Pods, so the Pod UID is available in OwnerReferences.
+// This is consistent with the ZDS server which also uses Pod UIDs.
+func (e *EndpointEvent) getPodUID() string {
+	for _, ref := range e.OwnerReferences {
+		if ref.Kind == "Pod" {
+			return string(ref.UID)
+		}
+	}
+	return ""
+}
+
 // ToXDSAddress transforms the embedded Endpoint into a XDS Address capable of
 // being used in a DeltaDiscoveryResponse.
 //
@@ -127,7 +139,7 @@ func (e *EndpointEvent) ToXDSAddress() (*pb.Address, error) {
 	}
 
 	w := &pb.Workload{
-		Uid: string(e.UID),
+		Uid: e.getPodUID(),
 		// TODO(hemanthmalla) Convert this field to node name.
 		// zTunnel will match this with it's own node name.
 		Node:           e.Networking.NodeIP,
