@@ -232,6 +232,9 @@ const (
 	CECUseOriginalSourceAddress = CECPrefix + "/use-original-source-address"
 
 	NoTrackHostPorts = NetworkPrefix + "/no-track-host-ports"
+
+	// GlobalNamespace is the annotation used to mark namespaces for global export in ClusterMesh.
+	GlobalNamespace = ClusterMeshPrefix + "/global"
 )
 
 // CiliumPrefixRegex is a regex matching Cilium specific annotations.
