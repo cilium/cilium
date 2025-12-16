@@ -4,8 +4,9 @@
 package seven
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
@@ -143,9 +144,7 @@ func Test_decodeKafka(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := decodeKafka(tt.args.flowType, tt.args.kafka, tt.args.opts)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("decodeKafka() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
