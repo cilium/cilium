@@ -19,16 +19,19 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/k8s/constants"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 // Writer provides validated write access to the service load-balancing state.
 type Writer struct {
-	config loadbalancer.Config
+	config         loadbalancer.Config
+	externalConfig loadbalancer.ExternalConfig
 
 	nodeName string
 
@@ -55,13 +58,14 @@ const LocalClusterID = 0
 type writerParams struct {
 	cell.In
 
-	Config        loadbalancer.Config
-	DB            *statedb.DB
-	NodeAddresses statedb.Table[tables.NodeAddress]
-	Services      statedb.RWTable[*loadbalancer.Service]
-	Frontends     statedb.RWTable[*loadbalancer.Frontend]
-	Backends      statedb.RWTable[*loadbalancer.Backend]
-	Nodes         statedb.Table[*node.LocalNode]
+	Config         loadbalancer.Config
+	ExternalConfig loadbalancer.ExternalConfig
+	DB             *statedb.DB
+	NodeAddresses  statedb.Table[tables.NodeAddress]
+	Services       statedb.RWTable[*loadbalancer.Service]
+	Frontends      statedb.RWTable[*loadbalancer.Frontend]
+	Backends       statedb.RWTable[*loadbalancer.Backend]
+	Nodes          statedb.Table[*node.LocalNode]
 
 	SourcePriorities source.Sources
 }
@@ -73,6 +77,7 @@ func init() {
 func NewWriter(p writerParams) (*Writer, error) {
 	w := &Writer{
 		config:           p.Config,
+		externalConfig:   p.ExternalConfig,
 		nodeName:         nodeTypes.GetName(),
 		db:               p.DB,
 		bes:              p.Backends,
@@ -264,12 +269,34 @@ func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.Serv
 	return true, w.RefreshFrontends(txn, serviceName)
 }
 
-func (w *Writer) getFrontendControlFlags(feParams loadbalancer.FrontendParams) loadbalancer.ControlFlags {
+func (w *Writer) isServiceLBIPAM(svc *loadbalancer.Service) bool {
+	svcLBClass := ""
+	if svc.LoadBalancerClass != nil {
+		svcLBClass = *svc.LoadBalancerClass
+	}
+
+	switch w.externalConfig.DefaultLBServiceIPAM {
+	case option.ServiceLBClassLBIPAM:
+		// The default allocator is LB-IPAM, so we check the Service LB Class
+		// is not overriding LB-IPAM.
+		return (svcLBClass != constants.ServiceLBClassNodeIPAM)
+
+	case option.ServiceLBClassNodeIPAM:
+		// TODO: at the time of writing there's no obvious way to configure a
+		// Service VIP to be allocated via LB-IPAM, if the default is Node-IPAM.
+	}
+
+	return false
+}
+
+func (w *Writer) getFrontendControlFlags(feParams loadbalancer.FrontendParams, svc *loadbalancer.Service) loadbalancer.ControlFlags {
 	needWildcardEntry := false
 	switch feParams.Type {
 	case loadbalancer.SVCTypeLoadBalancer, loadbalancer.SVCTypeClusterIP:
-		// Only external scoped entries can parent wildcard entries
-		needWildcardEntry = (feParams.Address.Scope() == loadbalancer.ScopeExternal)
+		// Only VIPs that LB-IPAM has allocated, and VIPs that are externally
+		// scoped, should be programmed with a wildcard entry in the datapath.
+		needWildcardEntry = w.isServiceLBIPAM(svc) &&
+			(feParams.Address.Scope() == loadbalancer.ScopeExternal)
 	}
 
 	cfParams := loadbalancer.CtrlFlagParam{
@@ -286,7 +313,7 @@ func (w *Writer) upsertFrontendParams(txn WriteTxn, params loadbalancer.Frontend
 	fe := &loadbalancer.Frontend{
 		FrontendParams: params,
 		Service:        svc,
-		ControlFlags:   w.getFrontendControlFlags(params),
+		ControlFlags:   w.getFrontendControlFlags(params, svc),
 	}
 
 	var found bool
