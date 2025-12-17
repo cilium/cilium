@@ -248,7 +248,7 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
 	ifindex := link.Attrs().Index
-	cfg.InterfaceIfindex = uint32(ifindex)
+	cfg.InterfaceIfIndex = uint32(ifindex)
 
 	// Enable masquerading on external interfaces.
 	if option.Config.EnableBPFMasquerade {
@@ -265,18 +265,18 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
-	cfg.HostEpID = uint16(lnc.HostEndpointID)
+	cfg.HostEPID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	if lnc.EnableWireguard {
-		cfg.WgIfindex = lnc.WireguardIfIndex
-		cfg.WgPort = wgtypes.ListenPort
+		cfg.WGIfIndex = lnc.WireguardIfIndex
+		cfg.WGPort = wgtypes.ListenPort
 	}
 
 	if option.Config.EnableVTEP {
-		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
 	if option.Config.EnableL2Announcements {
@@ -284,8 +284,8 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
-	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
-	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
@@ -423,21 +423,21 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 	}
 	cfg.InterfaceMAC = em.As8()
 
-	cfg.InterfaceIfindex = uint32(ep.GetIfIndex())
+	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())
 
 	cfg.SecurityLabel = ep.GetIdentity().Uint32()
 
-	cfg.HostEpID = uint16(lnc.HostEndpointID)
+	cfg.HostEPID = uint16(lnc.HostEndpointID)
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	if lnc.EnableWireguard {
-		cfg.WgIfindex = lnc.WireguardIfIndex
-		cfg.WgPort = wgtypes.ListenPort
+		cfg.WGIfIndex = lnc.WireguardIfIndex
+		cfg.WGPort = wgtypes.ListenPort
 	}
 
 	if option.Config.EnableVTEP {
-		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
 	if option.Config.EnableL2Announcements {
@@ -445,8 +445,8 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 		cfg.L2AnnouncementsMaxLiveness = uint64(option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
-	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
-	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
@@ -522,21 +522,21 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	ifindex := link.Attrs().Index
-	cfg.InterfaceIfindex = uint32(ifindex)
+	cfg.InterfaceIfIndex = uint32(ifindex)
 
-	cfg.HostEpID = uint16(lnc.HostEndpointID)
+	cfg.HostEPID = uint16(lnc.HostEndpointID)
 
 	if lnc.EnableWireguard {
-		cfg.WgIfindex = lnc.WireguardIfIndex
-		cfg.WgPort = wgtypes.ListenPort
+		cfg.WGIfIndex = lnc.WireguardIfIndex
+		cfg.WGPort = wgtypes.ListenPort
 	}
 
 	if option.Config.EnableVTEP {
-		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
-	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
-	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -690,7 +690,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 		cfg.InterfaceMAC = em.As8()
 	}
 
-	cfg.InterfaceIfindex = uint32(ep.GetIfIndex())
+	cfg.InterfaceIfIndex = uint32(ep.GetIfIndex())
 
 	cfg.EndpointID = uint16(ep.GetID())
 	cfg.EndpointNetNSCookie = ep.GetEndpointNetNsCookie()
@@ -699,18 +699,18 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 
 	cfg.PolicyVerdictLogFilter = ep.GetPolicyVerdictLogFilter()
 
-	cfg.HostEpID = uint16(lnc.HostEndpointID)
+	cfg.HostEPID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	if option.Config.EnableVTEP {
-		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
-	cfg.AllowIcmpFragNeeded = option.Config.AllowICMPFragNeeded
-	cfg.EnableIcmpRule = option.Config.EnableICMPRules
+	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
+	cfg.EnableICMPRule = option.Config.EnableICMPRules
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
 	renames := map[string]string{
@@ -822,7 +822,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	}
 
 	cfg := config.NewBPFOverlay(config.NodeConfig(lnc))
-	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
+	cfg.InterfaceIfIndex = uint32(device.Attrs().Index)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
@@ -830,7 +830,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
 
 	if option.Config.EnableVTEP {
-		cfg.VtepMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
+		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
 
 	var obj overlayObjects
@@ -876,7 +876,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	}
 
 	cfg := config.NewBPFWireguard(config.NodeConfig(lnc))
-	cfg.InterfaceIfindex = uint32(device.Attrs().Index)
+	cfg.InterfaceIfIndex = uint32(device.Attrs().Index)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||

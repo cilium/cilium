@@ -135,7 +135,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 	}
 
 	cfg := config.NewBPFXDP(config.NodeConfig(lnc))
-	cfg.InterfaceIfindex = uint32(iface.Attrs().Index)
+	cfg.InterfaceIfIndex = uint32(iface.Attrs().Index)
 	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols

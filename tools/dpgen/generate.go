@@ -34,6 +34,12 @@ var stylized = map[string]string{
 	"netns":   "NetNS",
 	"ipcache": "IPCache",
 	"lrp":     "LRP",
+	"icmp":    "ICMP",
+	"wg":      "WG",
+	"vtep":    "VTEP",
+	"ep":      "EP",
+	"fib":     "FIB",
+	"ifindex": "IfIndex",
 }
 
 // varsToStruct generates a Go struct from the configuration variables in the

@@ -15,8 +15,8 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
-			cfg.AllowIcmpFragNeeded = permutation[1]
-			cfg.EnableIcmpRule = permutation[2]
+			cfg.AllowICMPFragNeeded = permutation[1]
+			cfg.EnableICMPRule = permutation[2]
 			cfg.EnableLRP = permutation[3]
 
 			if !yield(cfg) {
@@ -38,8 +38,8 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 				cfg.EthHeaderLength = 14
 			}
 			cfg.EnableL2Announcements = permutation[2]
-			cfg.AllowIcmpFragNeeded = permutation[3]
-			cfg.EnableIcmpRule = permutation[4]
+			cfg.AllowICMPFragNeeded = permutation[3]
+			cfg.EnableICMPRule = permutation[4]
 
 			if !yield(cfg) {
 				return
