@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
@@ -60,11 +60,10 @@ func (f *fakeIPCache) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcach
 }
 
 func TestRemoteClusterRun(t *testing.T) {
-	testutils.IntegrationTest(t)
-
-	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
-		// Explicitly set higher QPS than the default to speedup the test
-		map[string]string{kvstore.EtcdRateLimitOption: "100"},
+	var (
+		db     = statedb.New()
+		local  = kvstore.NewInMemoryClient(db, "__local__")
+		remote = kvstore.NewInMemoryClient(db, "__remote__")
 	)
 
 	tests := []struct {
@@ -136,19 +135,18 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			// The nils are only used by k8s CRD identities. We default to kvstore.
 			allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
-			<-allocator.InitIdentityAllocator(nil, client)
+			<-allocator.InitIdentityAllocator(nil, local)
 
 			t.Cleanup(func() {
 				cancel()
 				wg.Wait()
 
 				allocator.Close()
-				require.NoError(t, client.DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			// Populate the kvstore with the appropriate KV pairs
 			for key, value := range tt.kvs {
-				require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+				require.NoErrorf(t, remote.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 			}
 
 			var ipc fakeIPCache
@@ -172,7 +170,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			ready := make(chan error)
 
 			remoteClient := &remoteEtcdClientWrapper{
-				BackendOperations: client,
+				BackendOperations: remote,
 				name:              "foo",
 			}
 
@@ -245,16 +243,14 @@ func (o *fakeObserver) Delete(string, source.Source) bool {
 
 func TestRemoteClusterClusterIDChange(t *testing.T) {
 	const cid1, cid2, cid3 = 10, 20, 30
-	testutils.IntegrationTest(t)
 
-	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
-		// Explicitly set higher QPS than the default to speedup the test
-		map[string]string{kvstore.EtcdRateLimitOption: "100"},
+	var (
+		db     = statedb.New()
+		local  = kvstore.NewInMemoryClient(db, "__local__")
+		remote = kvstore.NewInMemoryClient(db, "__remote__")
 	)
 
 	id := func(clusterID uint32) identity.NumericIdentity { return identity.NumericIdentity(clusterID<<16 + 9999) }
-	// Use the KVStoreMesh API to prevent the allocator from thinking that the
-	// identity belongs to the local cluster.
 	kvs := func(clusterID uint32) map[string]string {
 		return map[string]string{
 			"cilium/cache/nodes/v1/foo/bar":        fmt.Sprintf(`{"name": "bar", "cluster": "foo", "clusterID": %d}`, clusterID),
@@ -277,7 +273,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
-	<-allocator.InitIdentityAllocator(nil, client)
+	<-allocator.InitIdentityAllocator(nil, local)
 
 	t.Cleanup(allocator.Close)
 
@@ -312,7 +308,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			cfg := types.CiliumClusterConfig{ID: id, Capabilities: types.CiliumClusterConfigCapabilities{Cached: true}}
-			rc.Run(ctx, client, cfg, ready)
+			rc.Run(ctx, remote, cfg, ready)
 			wg.Done()
 		}()
 
@@ -324,7 +320,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 
 		// Populate the kvstore with the appropriate KV pairs
 		for key, value := range kvs(cid1) {
-			require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+			require.NoErrorf(t, remote.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -349,7 +345,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		// Update the kvstore pairs with the new ClusterID
 		obs.reset()
 		for key, value := range kvs(cid2) {
-			require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+			require.NoErrorf(t, remote.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
