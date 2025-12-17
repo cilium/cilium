@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -35,9 +36,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRemoteClusterStatus(t *testing.T) {
-	testutils.IntegrationTest(t)
-
-	client := kvstore.SetupDummy(t, "etcd")
+	client := kvstore.NewInMemoryClient(statedb.New(), "__remote__")
 	kvsService := map[string]string{
 		"cilium/state/services/v1/foo/baz/bar": `{"name": "bar", "namespace": "baz", "cluster": "foo", "clusterID": 1}`,
 	}
@@ -88,8 +87,6 @@ func TestRemoteClusterStatus(t *testing.T) {
 			t.Cleanup(func() {
 				cancel()
 				wg.Wait()
-
-				require.NoError(t, client.DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			logger := hivetest.Logger(t)
@@ -179,9 +176,7 @@ func TestRemoteClusterStatus(t *testing.T) {
 }
 
 func TestRemoteClusterHooks(t *testing.T) {
-	testutils.IntegrationTest(t)
-
-	client := kvstore.SetupDummy(t, "etcd")
+	client := kvstore.NewInMemoryClient(statedb.New(), "__remote__")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
