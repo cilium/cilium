@@ -235,10 +235,8 @@ const (
 	ServiceExportConditionConflict ServiceExportConditionType = "Conflict"
 
 	// ServiceExportReasonPortConflict is used with the "Conflict" condition
-	// when the exported service has a conflict related to port configuration.
-	// This includes when ports on resulting imported services would have
-	// duplicated names (including unnamed/empty name) or duplicated
-	// port/protocol pairs.
+	// when the exported service has a conflict related to port configuration
+	// if the ports are not identical in all the constituent Services.
 	ServiceExportReasonPortConflict ServiceExportConditionReason = "PortConflict"
 
 	// ServiceExportReasonTypeConflict is used with the "Conflict" condition
@@ -272,6 +270,13 @@ const (
 	// ServiceExportReasonTrafficDistributionConflict is used with the "Conflict"
 	// condition when the exported service has a conflict related to traffic distribution.
 	ServiceExportReasonTrafficDistributionConflict ServiceExportConditionReason = "TrafficDistributionConflict"
+
+	// ServiceExportReasonIPFamilyConflict is used with the "Conflict" condition
+	// when the exported service has a conflict related to IPFamilies.
+	// The handling of IP families is implementation-specific but this condition
+	// must be used if a conflicting IP family may result in network traffic reaching
+	// only a subset of the backends depending on the IP protocol used.
+	ServiceExportReasonIPFamilyConflict ServiceExportConditionReason = "IPFamilyConflict"
 
 	// ServiceExportReasonNoConflicts is used with the "Conflict" condition
 	// when the condition is False.
