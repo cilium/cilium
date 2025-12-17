@@ -10,6 +10,9 @@ const (
 	RuntimePath = "/var/run/standalone-dns-proxy"
 
 	// ShellSockPath is the path to the UNIX domain socket exposing the debug shell
-	// and health checking for the standalone DNS proxy.
 	ShellSockPath = RuntimePath + "/shell.sock"
+
+	// HealthSockPath is the path to the UNIX domain socket for health checks.
+	// This is used by the 'standalone-dns-proxy health' command for K8s probes.
+	HealthSockPath = RuntimePath + "/health.sock"
 )

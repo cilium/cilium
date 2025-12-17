@@ -7,6 +7,7 @@ import (
 	"context"
 	"iter"
 	"log/slog"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -19,6 +20,11 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/standalone-dns-proxy/pkg/client"
 )
+
+// HealthStatusProvider is an interface for checking the health status
+type HealthStatusProvider interface {
+	IsHealthy() bool
+}
 
 type StandaloneDNSProxy struct {
 	logger *slog.Logger
@@ -37,6 +43,19 @@ type StandaloneDNSProxy struct {
 	dnsRulesTable statedb.RWTable[client.DNSRules]
 	db            *statedb.DB
 	jobGroup      job.Group
+
+	// healthStatus tracks the health status of this standalone DNS proxy instance
+	healthStatus atomic.Bool
+}
+
+// IsHealthy returns the current health status of the standalone DNS proxy
+func (sdp *StandaloneDNSProxy) IsHealthy() bool {
+	return sdp.healthStatus.Load()
+}
+
+// setHealthy sets the health status of the standalone DNS proxy
+func (sdp *StandaloneDNSProxy) setHealthy(healthy bool) {
+	sdp.healthStatus.Store(healthy)
 }
 
 // NewStandaloneDNSProxy creates a new StandaloneDNSProxy instance
@@ -55,6 +74,11 @@ func NewStandaloneDNSProxy(params standaloneDNSProxyParams) *StandaloneDNSProxy 
 	}
 }
 
+// NewHealthStatusProvider creates a HealthStatusProvider from the StandaloneDNSProxy
+func NewHealthStatusProvider(sdp *StandaloneDNSProxy) HealthStatusProvider {
+	return sdp
+}
+
 // StartStandaloneDNSProxy starts the connection management and waits for connection before starting DNS proxy
 // It also sets up the DNS rules table watcher to update the DNS proxy with the latest rules received from the Cilium agent
 func (sdp *StandaloneDNSProxy) StartStandaloneDNSProxy() error {
@@ -68,6 +92,10 @@ func (sdp *StandaloneDNSProxy) StartStandaloneDNSProxy() error {
 		job.WithShutdown()))
 
 	sdp.logger.Info("Standalone DNS proxy started")
+
+	// Mark the proxy as healthy since it has started successfully
+	sdp.setHealthy(true)
+
 	return nil
 }
 
@@ -131,6 +159,9 @@ func (sdp *StandaloneDNSProxy) WatchDNSRulesTable(ctx context.Context, _ cell.He
 // StopStandaloneDNSProxy stops the standalone DNS proxy and cleanup resources
 func (sdp *StandaloneDNSProxy) StopStandaloneDNSProxy() error {
 	sdp.logger.Info("Stopping standalone DNS proxy")
+
+	// Mark as unhealthy since we're shutting down
+	sdp.setHealthy(false)
 
 	// Stop DNS proxy first
 	sdp.dnsProxier.Cleanup()

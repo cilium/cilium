@@ -73,6 +73,7 @@ func setupTestEnv(t *testing.T) *StandaloneDNSProxy {
 			bootstrap.Cell,
 			lookup.Cell,
 			messagehandler.Cell,
+			HealthCell,
 			cell.Provide(
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{
@@ -81,6 +82,7 @@ func setupTestEnv(t *testing.T) *StandaloneDNSProxy {
 					}
 				},
 				NewStandaloneDNSProxy,
+				NewHealthStatusProvider,
 			)),
 		cell.Invoke(func(_s *StandaloneDNSProxy) {
 			sdp = _s
