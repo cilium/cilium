@@ -1175,14 +1175,26 @@ var daemonCell = cell.Module(
 	"daemon",
 	"Legacy Daemon",
 
+	cell.Provide(daemonLegacyInitialization),
+	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force initialization.
+)
+
+// daemonConfigCell provides the DaemonConfig that contains properties
+// that haven't yet been refactored to use module specific configs.
+var daemonConfigCell = cell.Module(
+	"daemonconfig",
+	"Provides and initializes global DaemonConfig",
+
 	cell.Provide(
+		// Initialize unsafe daemonconfig properties that depend on values of other configs.
 		daemonConfigInitialization,
-		daemonLegacyInitialization,
+		// Provide promise that can be used to await initialization of unsafe daemonconfig properties.
 		promise.New[*option.DaemonConfig],
-		newSyncHostIPs,
+		// Provide option.Config via hive so cells can depend on the agent config.
+		// It's not safe to access unsafe daemonconfig properties. Either use the promise or depend on legacy.DaemonConfigInitialization.
+		func() *option.DaemonConfig { return option.Config },
 	),
-	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force instantiation.
-	endpointRestoreCell,
+	cell.Invoke(func(_ legacy.DaemonConfigInitialization) {}), // Force initialization.
 )
 
 type daemonConfigParams struct {

@@ -74,7 +74,6 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 			func() (_ statedbReconciler.Reconciler[*reconciler.DesiredRoute]) { return nil },
 			func() k8sClient.Clientset { return clientset },
 			func() k8sClient.Config { return clientset.Config() },
-			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
 			func() policymap.Factory { return nil },

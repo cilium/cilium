@@ -29,6 +29,13 @@ import (
 
 const syncHostIPsInterval = time.Minute
 
+var hostIPSyncCell = cell.Module(
+	"hostip-sync",
+	"Syncs local host entries to the endpoints BPF map and IPCache",
+
+	cell.Provide(newSyncHostIPs),
+)
+
 type syncHostIPsParams struct {
 	cell.In
 
