@@ -18,13 +18,13 @@ import (
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"github.com/cilium/statedb/part"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -592,13 +592,13 @@ func (d *DNSServerIdentity) IsNone() bool {
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetSelections() set.Set[identity.NumericIdentity] {
-	return set.NewSet[identity.NumericIdentity](d.Identities...)
+func (d *DNSServerIdentity) GetSelections() part.Set[identity.NumericIdentity] {
+	return part.NewSet[identity.NumericIdentity](d.Identities...)
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetSelectionsAt(types.SelectorSnapshot) set.Set[identity.NumericIdentity] {
-	return set.NewSet[identity.NumericIdentity](d.Identities...)
+func (d *DNSServerIdentity) GetSelectionsAt(types.SelectorSnapshot) part.Set[identity.NumericIdentity] {
+	return part.NewSet[identity.NumericIdentity](d.Identities...)
 }
 
 // Not being used in the standalone dns proxy path

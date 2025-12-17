@@ -8,8 +8,8 @@ import (
 	"log/slog"
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
+	"github.com/cilium/statedb/part"
 
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -470,9 +470,9 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 	return r.subjectSelector.Selects(securityIdentity.ID)
 }
 
-func (r *rule) getSubjects() set.Set[identity.NumericIdentity] {
+func (r *rule) getSubjects() part.Set[identity.NumericIdentity] {
 	if r.Node {
-		return set.NewSet(identity.ReservedIdentityHost)
+		return part.NewSet(identity.ReservedIdentityHost)
 	}
 
 	return r.subjectSelector.GetSelections()

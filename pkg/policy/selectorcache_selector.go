@@ -6,9 +6,9 @@ package policy
 import (
 	"sync"
 
+	"github.com/cilium/statedb/part"
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -64,7 +64,7 @@ type identitySelector struct {
 	key              string
 	id               types.SelectorId
 	users            map[CachedSelectionUser]struct{}
-	cachedSelections set.Set[identity.NumericIdentity]
+	cachedSelections part.Set[identity.NumericIdentity]
 	metadataLbls     stringLabels
 }
 
@@ -77,7 +77,7 @@ func newIdentitySelector(sc *SelectorCache, key string, source Selector, lbls st
 		key:              key,
 		id:               lastSelectorId,
 		users:            make(map[CachedSelectionUser]struct{}),
-		cachedSelections: set.NewSet[identity.NumericIdentity](),
+		cachedSelections: part.NewSet[identity.NumericIdentity](),
 		source:           source,
 		metadataLbls:     lbls,
 	}
@@ -124,7 +124,7 @@ func (i *identitySelector) Equal(b *identitySelector) bool {
 // that case GetSortedSelectionsAt() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) set.Set[identity.NumericIdentity] {
+func (i *identitySelector) GetSelectionsAt(selectors SelectorSnapshot) part.Set[identity.NumericIdentity] {
 	return i.at(selectors).GetSelections()
 }
 
@@ -143,12 +143,12 @@ func (i *identitySelector) at(selectors SelectorSnapshot) *types.Selections {
 			logfields.Version, selectors,
 			logfields.Stacktrace, hclog.Stacktrace(),
 		)
-		return types.NewSelection(set.NewSet[identity.NumericIdentity]())
+		return types.NewSelection(part.NewSet[identity.NumericIdentity]())
 	}
 	return selectors.Get(i.id)
 }
 
-func (i *identitySelector) GetSelections() set.Set[identity.NumericIdentity] {
+func (i *identitySelector) GetSelections() part.Set[identity.NumericIdentity] {
 	return i.GetSelectionsAt(i.selectorCache.GetSelectorSnapshot())
 }
 func (i *identitySelector) GetSortedSelections() identity.NumericIdentitySlice {
@@ -238,5 +238,5 @@ func (i *identitySelector) updateSelections() {
 		i.selectorCache.writeableSelections.Delete(i.id)
 		return
 	}
-	i.selectorCache.writeableSelections.Set(i.id, types.NewSelection(i.cachedSelections.Clone()))
+	i.selectorCache.writeableSelections.Set(i.id, types.NewSelection(i.cachedSelections))
 }
