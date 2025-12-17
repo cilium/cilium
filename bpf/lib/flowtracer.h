@@ -297,9 +297,9 @@ struct ft_l4_ports {
 struct ft_ctx {
 	bool parsed;
 	bool tx_ready;
-	__u16 l4_off;      /* Total offset from data to L4 hdr (ports) */
-	__u16 l4_csum_off; /* Total offset from data to the L4 csum */
-	__u16 ft_hdr_off;  /* Total offset from data to FT hdr */
+	__u8 l4_off;       /* Total offset from data to L4 hdr (ports) */
+	__u8 l4_csum_off;  /* Total offset from data to the L4 csum */
+	__u8 ft_hdr_off;   /* Total offset from data to FT hdr */
 
 	__be32 sum;        /* Accumulated L4 csum delta */
 };
@@ -580,7 +580,7 @@ void __ft_intercept(struct __ctx_buff *ctx, const __u8 l4_proto,
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
 	__u16 sport;
-	__u16 l4_size;
+	__u8 l4_size;
 	struct ft_hdr *hdr;
 	struct ft_l4_ports *l4;
 
@@ -590,7 +590,7 @@ void __ft_intercept(struct __ctx_buff *ctx, const __u8 l4_proto,
 
 	ft->parsed = true;
 
-	ft->l4_off = (__u16)l4_off;
+	ft->l4_off = (__u8)l4_off;
 	l4 = (struct ft_l4_ports *)(data + l4_off);
 	if (((void *)(l4 + 1)) > data_end)
 		return;
@@ -604,7 +604,7 @@ void __ft_intercept(struct __ctx_buff *ctx, const __u8 l4_proto,
 	    sport < FT_SENTINEL_MIN_PORT)
 		return;
 
-	ft->l4_csum_off = (__u16)l4_off;
+	ft->l4_csum_off = (__u8)l4_off;
 
 	switch (l4_proto) {
 	case IPPROTO_TCP:
@@ -620,7 +620,7 @@ void __ft_intercept(struct __ctx_buff *ctx, const __u8 l4_proto,
 		return;
 	}
 
-	ft->ft_hdr_off = (__u16)l4_off + l4_size;
+	ft->ft_hdr_off = (__u8)l4_off + l4_size;
 	hdr = data + ft->ft_hdr_off;
 	if ((void *)(hdr + 1) > data_end)
 		goto ERR;

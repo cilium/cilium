@@ -11,7 +11,7 @@
 #include "lib/common.h"
 
 #define ENABLE_FLOWTRACER 1
-#include "tc_flowtracer.h"
+#include "lib/flowtracer.h"
 
 #define TCP_OFFSET (sizeof(struct ethhdr) + sizeof(struct iphdr))
 
