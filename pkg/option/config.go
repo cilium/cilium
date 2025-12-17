@@ -57,6 +57,9 @@ const (
 )
 
 const (
+	// AgentHealthPort is the TCP port for agent health status API
+	AgentHealthPort = "agent-health-port"
+
 	// ClusterHealthPort is the TCP port for cluster-wide network connectivity health API
 	ClusterHealthPort = "cluster-health-port"
 
@@ -176,6 +179,9 @@ const (
 	// EnableK8s operation of Kubernetes-related services/controllers.
 	// Intended for operating cilium with CNI-compatible orchestrators other than Kubernetes. (default is true)
 	EnableK8s = "enable-k8s"
+
+	// AgentHealthRequireK8sConnectivity determines whether the agent health endpoint requires k8s connectivity
+	AgentHealthRequireK8sConnectivity = "agent-health-require-k8s-connectivity"
 
 	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
 	K8sAPIServer = "k8s-api-server"
@@ -1179,8 +1185,14 @@ type DaemonConfig struct {
 	// HiveConfig contains the configuration for daemon hive.
 	HiveConfig HiveConfig
 
+	// AgentHealthPort is the TCP port for agent health status API
+	AgentHealthPort int
+
 	// ClusterHealthPort is the TCP port for cluster-wide network connectivity health API
 	ClusterHealthPort int
+
+	// AgentHealthRequireK8sConnectivity determines whether the agent health endpoint requires k8s connectivity
+	AgentHealthRequireK8sConnectivity bool
 
 	// IPv6ClusterAllocCIDR is the base CIDR used to allocate IPv6 node
 	// CIDRs if allocation is not performed by an orchestration system
@@ -2383,6 +2395,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	c.HiveConfig.Populate(vp)
 
+	c.AgentHealthPort = vp.GetInt(AgentHealthPort)
 	c.ClusterHealthPort = vp.GetInt(ClusterHealthPort)
 	c.AllowICMPFragNeeded = vp.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = vp.GetString(AllowLocalhost)
@@ -2466,6 +2479,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
 	c.EnableEgressGateway = vp.GetBool(EnableEgressGateway)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
+	c.AgentHealthRequireK8sConnectivity = vp.GetBool(AgentHealthRequireK8sConnectivity)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
 	c.MonitorAggregation = vp.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)

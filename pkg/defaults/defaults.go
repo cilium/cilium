@@ -20,6 +20,9 @@ const (
 )
 
 const (
+	// AgentHealthPort is the default value for option.AgentHealthPort
+	AgentHealthPort = 9879
+
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
 
