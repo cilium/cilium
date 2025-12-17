@@ -10,14 +10,14 @@ package config
 // configured in the ELF are honored.
 type BPFLXC struct {
 	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
-	AllowIcmpFragNeeded bool `config:"allow_icmp_frag_needed"`
+	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Apply Network Policy for ICMP packets.
-	EnableIcmpRule bool `config:"enable_icmp_rule"`
+	EnableICMPRule bool `config:"enable_icmp_rule"`
 	// Enable support for Local Redirect Policy.
 	EnableLRP bool `config:"enable_lrp"`
 	// Use netkit devices for pods.
@@ -35,9 +35,9 @@ type BPFLXC struct {
 	// The endpoint's network namespace cookie.
 	EndpointNetNSCookie uint64 `config:"endpoint_netns_cookie"`
 	// The host endpoint ID.
-	HostEpID uint16 `config:"host_ep_id"`
+	HostEPID uint16 `config:"host_ep_id"`
 	// Ifindex of the interface the bpf program is attached to.
-	InterfaceIfindex uint32 `config:"interface_ifindex"`
+	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
@@ -49,7 +49,7 @@ type BPFLXC struct {
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 	// VXLAN tunnel endpoint network mask.
-	VtepMask uint32 `config:"vtep_mask"`
+	VTEPMask uint32 `config:"vtep_mask"`
 
 	Node
 }

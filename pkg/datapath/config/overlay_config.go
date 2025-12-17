@@ -21,7 +21,7 @@ type BPFOverlay struct {
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Ifindex of the interface the bpf program is attached to.
-	InterfaceIfindex uint32 `config:"interface_ifindex"`
+	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
@@ -29,7 +29,7 @@ type BPFOverlay struct {
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
 	// VXLAN tunnel endpoint network mask.
-	VtepMask uint32 `config:"vtep_mask"`
+	VTEPMask uint32 `config:"vtep_mask"`
 
 	Node
 }

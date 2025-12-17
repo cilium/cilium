@@ -10,7 +10,7 @@ package config
 // configured in the ELF are honored.
 type Node struct {
 	// Index of the interface used to connect nodes in the cluster.
-	DirectRoutingDevIfindex uint32 `config:"direct_routing_dev_ifindex"`
+	DirectRoutingDevIfIndex uint32 `config:"direct_routing_dev_ifindex"`
 	// Enable hybrid mode routing based on subnet IDs.
 	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
 	// Enable ICMP responses for policy-denied traffic.
@@ -22,7 +22,7 @@ type Node struct {
 	// IPv6 source address used for SNAT when a Pod talks to itself over a Service.
 	ServiceLoopbackIPv6 [16]byte `config:"service_loopback_ipv6"`
 	// Whether or not BPF_FIB_LOOKUP_SKIP_NEIGH is supported.
-	SupportsFibLookupSkipNeigh bool `config:"supports_fib_lookup_skip_neigh"`
+	SupportsFIBLookupSkipNeigh bool `config:"supports_fib_lookup_skip_neigh"`
 	// Length of payload to capture when tracing native packets.
 	TracePayloadLen uint32 `config:"trace_payload_len"`
 	// Length of payload to capture when tracing overlay packets.
