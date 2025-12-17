@@ -902,6 +902,7 @@ TraceParent identifies the incoming request in a tracing system.
 | protocol | [Tunnel.Protocol](#flow-Tunnel-Protocol) |  |  |
 | IP | [IP](#flow-IP) |  |  |
 | l4 | [Layer4](#flow-Layer4) |  |  |
+| vni | [uint32](#uint32) |  |  |
 
 
 

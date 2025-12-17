@@ -3165,6 +3165,7 @@ type Tunnel struct {
 	Protocol      Tunnel_Protocol        `protobuf:"varint,1,opt,name=protocol,proto3,enum=flow.Tunnel_Protocol" json:"protocol,omitempty"`
 	IP            *IP                    `protobuf:"bytes,2,opt,name=IP,proto3" json:"IP,omitempty"`
 	L4            *Layer4                `protobuf:"bytes,3,opt,name=l4,proto3" json:"l4,omitempty"`
+	Vni           uint32                 `protobuf:"varint,4,opt,name=vni,proto3" json:"vni,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3218,6 +3219,13 @@ func (x *Tunnel) GetL4() *Layer4 {
 		return x.L4
 	}
 	return nil
+}
+
+func (x *Tunnel) GetVni() uint32 {
+	if x != nil {
+		return x.Vni
+	}
+	return 0
 }
 
 type Policy struct {
@@ -5573,11 +5581,12 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\bpriority\x18\x03 \x01(\rR\bpriority\"?\n" +
 	"\x04IGMP\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\rR\x04type\x12#\n" +
-	"\rgroup_address\x18\x02 \x01(\tR\fgroupAddress\"\xa3\x01\n" +
+	"\rgroup_address\x18\x02 \x01(\tR\fgroupAddress\"\xb5\x01\n" +
 	"\x06Tunnel\x121\n" +
 	"\bprotocol\x18\x01 \x01(\x0e2\x15.flow.Tunnel.ProtocolR\bprotocol\x12\x18\n" +
 	"\x02IP\x18\x02 \x01(\v2\b.flow.IPR\x02IP\x12\x1c\n" +
-	"\x02l4\x18\x03 \x01(\v2\f.flow.Layer4R\x02l4\".\n" +
+	"\x02l4\x18\x03 \x01(\v2\f.flow.Layer4R\x02l4\x12\x10\n" +
+	"\x03vni\x18\x04 \x01(\rR\x03vni\".\n" +
 	"\bProtocol\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\t\n" +
 	"\x05VXLAN\x10\x01\x12\n" +

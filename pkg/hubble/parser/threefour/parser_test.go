@@ -146,6 +146,7 @@ func TestL34DecodeVXLANOverlay(t *testing.T) {
 
 	// Check tunnel containing the underlay info.
 	assert.Equal(t, flowpb.Tunnel_VXLAN, f.GetTunnel().GetProtocol())
+	assert.Equal(t, uint32(2), f.GetTunnel().GetVni())
 	assert.Equal(t, "192.168.1.1", f.GetTunnel().GetIP().GetSource())
 	assert.Equal(t, "192.168.1.2", f.GetTunnel().GetIP().GetDestination())
 	assert.Equal(t, uint32(defaults.TunnelPortVXLAN), f.GetTunnel().GetL4().GetUDP().GetSourcePort())
@@ -218,6 +219,7 @@ func TestL34DecodeGeneveOverlay(t *testing.T) {
 
 	// Check tunnel containing the underlay info.
 	assert.Equal(t, flowpb.Tunnel_GENEVE, f.GetTunnel().GetProtocol())
+	assert.Equal(t, uint32(2), f.GetTunnel().GetVni())
 	assert.Equal(t, "192.168.1.1", f.GetTunnel().GetIP().GetSource())
 	assert.Equal(t, "192.168.1.2", f.GetTunnel().GetIP().GetDestination())
 	assert.Equal(t, uint32(defaults.TunnelPortGeneve), f.GetTunnel().GetL4().GetUDP().GetSourcePort())
