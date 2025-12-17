@@ -351,6 +351,10 @@ communicating via the proxy must reconnect to re-establish connections.
 * The Socket LB tracing message format has been updated, you might briefly see parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
 * The Cilium MCS-API implementation now raise a port conflict when any exported
   Service has ports that do not exactly match the oldest exported Service.
+* DNS Policies match pattern now support a wildcard prefix(``**.``) to match multilevel subdomains as pattern prefix. For usage see :ref:`DNS based` policies.
+  This change introduces a difference in behavior for existing policies with ``**.`` wildcard prefix in match patterns.
+  This pattern now selects all cascaded subdomains in prefix as opposed to just a single level. For example: ``**.cilium.io`` now selects both ``app.cilium.io`` and ``test.app.cilium.io`` as
+  opposed to just ``app.cilium.io`` previously.
 
 Removed Options
 ~~~~~~~~~~~~~~~
