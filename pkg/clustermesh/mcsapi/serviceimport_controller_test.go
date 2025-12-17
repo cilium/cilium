@@ -6,6 +6,7 @@ package mcsapi
 import (
 	"context"
 	"maps"
+	"slices"
 	"testing"
 	"time"
 
@@ -266,6 +267,45 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					}},
 				},
 			},
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-port-union-1",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-port-union-1",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{
+						{Name: "myport1", Port: 4242},
+					},
+				},
+			},
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "conflict-port-union-2",
+					Namespace:         "default",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "conflict-port-union-2",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{
+						{Name: "myport1", Port: 4242},
+						{Name: "myport2", Port: 4243},
+					},
+				},
+			},
 
 			&mcsapiv1alpha1.ServiceExport{
 				ObjectMeta: metav1.ObjectMeta{
@@ -476,6 +516,29 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				ExportCreationTimestamp: olderTime,
 				Ports: []mcsapiv1alpha1.ServicePort{
 					{Name: "myport", Port: 4243},
+				},
+				Type:            mcsapiv1alpha1.ClusterSetIP,
+				SessionAffinity: corev1.ServiceAffinityNone,
+			},
+			{
+				Cluster:                 remoteClusterName,
+				Name:                    "conflict-port-union-1",
+				Namespace:               "default",
+				ExportCreationTimestamp: olderTime,
+				Ports: []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				},
+				Type:            mcsapiv1alpha1.ClusterSetIP,
+				SessionAffinity: corev1.ServiceAffinityNone,
+			},
+			{
+				Cluster:                 remoteClusterName,
+				Name:                    "conflict-port-union-2",
+				Namespace:               "default",
+				ExportCreationTimestamp: olderTime,
+				Ports: []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
 				},
 				Type:            mcsapiv1alpha1.ClusterSetIP,
 				SessionAffinity: corev1.ServiceAffinityNone,
@@ -931,6 +994,38 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 			},
 			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
 				return len(svcImport.Spec.Ports) == 1 && svcImport.Spec.Ports[0].Port == 4242
+			},
+			assertReason: mcsapiv1alpha1.ServiceExportReasonPortConflict,
+		},
+		{
+			name: "conflict-port-union-1",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return slices.Equal(svcImport.Spec.Ports, []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				})
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return slices.Equal(svcImport.Spec.Ports, []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				})
+			},
+			assertReason: mcsapiv1alpha1.ServiceExportReasonPortConflict,
+		},
+		{
+			name: "conflict-port-union-2",
+			remoteSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return slices.Equal(svcImport.Spec.Ports, []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				})
+			},
+			localSvcImportValid: func(svcImport *mcsapiv1alpha1.ServiceImport) bool {
+				return slices.Equal(svcImport.Spec.Ports, []mcsapiv1alpha1.ServicePort{
+					{Name: "myport1", Port: 4242},
+					{Name: "myport2", Port: 4243},
+				})
 			},
 			assertReason: mcsapiv1alpha1.ServiceExportReasonPortConflict,
 		},

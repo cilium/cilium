@@ -349,6 +349,8 @@ communicating via the proxy must reconnect to re-establish connections.
   If you have a different configuration, you are not expected to take any action and the
   transition to ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
 * The Socket LB tracing message format has been updated, you might briefly see parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
+* The Cilium MCS-API implementation now raise a port conflict when any exported
+  Service has ports that do not exactly match the oldest exported Service.
 
 Removed Options
 ~~~~~~~~~~~~~~~
