@@ -4,9 +4,9 @@
 package config
 
 import (
-	"github.com/cilium/cilium/pkg/time"
-
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type ProxyConfig struct {
@@ -55,7 +55,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint("proxy-gid", 1337, "Group ID for proxy control plane sockets.")
 	flags.Int("proxy-max-requests-per-connection", 0, "Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)")
 	flags.Int("proxy-max-connection-duration-seconds", 0, "Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)")
-	flags.Int("proxy-idle-timeout-seconds", 60, "Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s")
+	flags.Int("proxy-idle-timeout-seconds", 60, "Set Envoy upstream HTTP idle connection timeout in seconds. Does not apply to connections with pending requests.")
 	flags.Uint32("proxy-max-concurrent-retries", 128, "Maximum number of concurrent retries on Envoy clusters")
 	flags.Uint32("proxy-cluster-max-connections", 1024, "Maximum number of connections on Envoy clusters")
 	flags.Uint32("proxy-cluster-max-requests", 1024, "Maximum number of requests on Envoy clusters")
@@ -65,7 +65,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint("http-max-grpc-timeout", 0, "Time after which a forwarded gRPC request is considered failed unless completed (in seconds). A \"grpc-timeout\" header may override this with a shorter value; defaults to 0 (unlimited)")
 	flags.Uint("http-retry-count", 3, "Number of retries performed after a forwarded request attempt fails")
 	flags.Uint("http-retry-timeout", 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
-	flags.Uint("http-stream-idle-timeout", 5*60, "Set Envoy the amount of time that the connection manager will allow a stream to exist with no upstream or downstream activity. Default 300s")
+	flags.Uint("http-stream-idle-timeout", 5*60, "Set Envoy the amount of time in seconds that the connection manager will allow a stream to exist with no upstream or downstream activity.")
 	// This should default to false in 1.16+ (i.e., we don't implement buggy behaviour) and true in 1.15 and earlier (i.e., we keep compatibility with an existing bug).
 	flags.Bool("use-full-tls-context", false, "If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.")
 	flags.Uint32("proxy-xff-num-trusted-hops-ingress", 0, "Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the ingress L7 policy enforcement Envoy listeners.")
