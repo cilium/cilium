@@ -1,5 +1,98 @@
 # Changelog
 
+## v1.18.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* [v1.18] proxy: Bump envoy version to v1.34.11 (cilium/cilium#43143, @sayboras)
+* Change the sidecar etcd instance of the Cluster Mesh API Server listen on all IP addresses (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42818, @giorio94)
+
+**Bugfixes:**
+* allow missing verbs for cilium-agent cluster role when readSecretsOnlyFromSecretsNamespace is false (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42790, @kraashen)
+* AWS EC2: Fix ENI attachment on multi-network card instances with high-performance networking (EFA) setups (Backport PR cilium/cilium#42745, Upstream PR cilium/cilium#42512, @41ks)
+* CiliumEnvoyConfig proxy ports are now restored on agent restarts. (Backport PR cilium/cilium#43117, Upstream PR cilium/cilium#43108, @jrajahalme)
+* Cleanup FQDNs that have leaked into the global FQDN cache (Backport PR cilium/cilium#42864, Upstream PR cilium/cilium#42485, @sjohnsonpal)
+* Do not opt-out Endpoint ID 1 from dnsproxy transparent mode. (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42887, @jrajahalme)
+* ENI: Fix panic on nil subnet (Backport PR cilium/cilium#43117, Upstream PR cilium/cilium#43023, @HadrienPatte)
+* Ensure cilium-agent gracefully does fallbacks when etcd is in a bad state. (Backport PR cilium/cilium#43059, Upstream PR cilium/cilium#42977, @odinuge)
+* Fix a bug that would cause Cilium to not report L4 checksum update errors when the length attribute is missing in ICMP Error messages with TCP inner packets. (Backport PR cilium/cilium#42828, Upstream PR cilium/cilium#42426, @yushoyamaguchi)
+* Fix a bug that would cause IPsec logs to incorrectly report the XFRM rules being processed as "Ingress" rules. (Backport PR cilium/cilium#42828, Upstream PR cilium/cilium#42640, @sjohnsonpal)
+* Fix agent local identity leak (Backport PR cilium/cilium#43117, Upstream PR cilium/cilium#42662, @odinuge)
+* Fix bug that could cause the agent to fail to add XFRM states when IPsec is enabled, thus preventing a proper startup. (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42666, @pchaigno)
+* Fix GC of per-cluster ctmap entries (Backport PR cilium/cilium#43294, Upstream PR cilium/cilium#43160, @giorio94)
+* Fix ipcache issues causing severe issues with the fqdn subsystem (Backport PR cilium/cilium#42864, Upstream PR cilium/cilium#42815, @odinuge)
+* Fix issue where endpoints got stuck in "waiting-to-regenerate" (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42856, @odinuge)
+* Fix leak in the policy subsystem (Backport PR cilium/cilium#43117, Upstream PR cilium/cilium#42661, @odinuge)
+* Fix rare kvstore issue where cilium continues to use an expired lease causing kvstore operations to fail consistently (Backport PR cilium/cilium#42745, Upstream PR cilium/cilium#42709, @odinuge)
+* fqdn: Fix fqdn subsystem correctness issues causing packet drops and inconsistent ipcache (Backport PR cilium/cilium#43117, Upstream PR cilium/cilium#42500, @odinuge)
+* In rare cases, the cilium-operator losing the lead of the HA deployment could continue acting as if leading for at most a minute, leading to split-brain problems such as double allocation of pod CIDRs. (Backport PR cilium/cilium#43059, Upstream PR cilium/cilium#42920, @bimmlerd)
+* KVStoreMesh now correctly respects the CA bundle setting when validating remote cluster certificates (Backport PR cilium/cilium#42828, Upstream PR cilium/cilium#42726, @giorio94)
+* policy: Fix rare Endpoint Selector Policy Deadlock causing policies to not be updated with new identities (Backport PR cilium/cilium#42864, Upstream PR cilium/cilium#42306, @odinuge)
+* Recreate CiliumEndpoints (k8s resource) if they are accidentally deleted. (Backport PR cilium/cilium#43117, Upstream PR cilium/cilium#42877, @aanm)
+* redirectpolicy: Avoid recomputing on pod changes that do not change resulting redirect backends (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42814, @joamaki)
+
+**CI Changes:**
+* bpf: test: add BPF Masq tests for unknown / handled protocols (Backport PR cilium/cilium#42711, Upstream PR cilium/cilium#42144, @julianwiedmann)
+* bpf: test: egressgw: fix up ENABLE_MASQUERADE (Backport PR cilium/cilium#42966, Upstream PR cilium/cilium#42912, @julianwiedmann)
+* bpf: tests: add BPF MASQ test for ICMP ECHOs (Backport PR cilium/cilium#42711, Upstream PR cilium/cilium#42656, @julianwiedmann)
+* bpf: tests: set ENABLE_MASQUERADE_IPV6 for EGW XDP test (Backport PR cilium/cilium#43059, Upstream PR cilium/cilium#42962, @julianwiedmann)
+* bpf:test: cover host endpoint case in tc_nodeport_l3_dev.h (Backport PR cilium/cilium#43059, Upstream PR cilium/cilium#42983, @smagnani96)
+* Delete .github/workflows/build-images-hotfixes.yaml (Backport PR cilium/cilium#42966, Upstream PR cilium/cilium#42958, @sekhar-isovalent)
+* gh: conn-disrupt: fix XFRM error checks (Backport PR cilium/cilium#42764, Upstream PR cilium/cilium#42724, @julianwiedmann)
+* gh: ipsec-e2e: fix flaky connection disruptivity test (Backport PR cilium/cilium#42823, Upstream PR cilium/cilium#42780, @julianwiedmann)
+* gha: additionally cleanup disk space in clustermesh upgrade workflow (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42862, @giorio94)
+* gha: don't filter lint-build-commits steps when workflow is modified (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42844, @giorio94)
+* gha: wait for cert-manager CRDs to be ready in conformance clustermesh (Backport PR cilium/cilium#42966, Upstream PR cilium/cilium#42947, @giorio94)
+* makefile: More reliable update-helm-values (Backport PR cilium/cilium#42828, Upstream PR cilium/cilium#42736, @devodev)
+
+**Misc Changes:**
+* .github/workflows: make adjustments for new GitHub workflow behavior (cilium/cilium#43219, @aanm)
+* [v1.18] deps: bump x/crypto to v0.45.0 (cilium/cilium#43114, @ferozsalam)
+* [v1.18] vendor: Bump to StateDB v0.4.6 (cilium/cilium#42953, @joamaki)
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#42783, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#42937, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#43036, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#43181, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#43268, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (cilium/cilium#43317, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.18) (patch) (cilium/cilium#43314, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.18) (cilium/cilium#42804, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.18) (cilium/cilium#43037, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.9 (v1.18) (cilium/cilium#43182, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/little-vm-helper to v0.0.28 (v1.18) (cilium/cilium#42771, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v33.1 (v1.18) (cilium/cilium#42805, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v33.2 (v1.18) (cilium/cilium#43184, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf-go to v1.36.11 (v1.18) (cilium/cilium#43315, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.37.0 docker digest to d80cd69 (v1.18) (cilium/cilium#43312, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.10 docker digest to 7b13449 (v1.18) (cilium/cilium#42935, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.10 docker digest to 83d7392 (v1.18) (cilium/cilium#42802, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.11 docker digest to e3fb71a (v1.18) (cilium/cilium#43313, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to 2b7c93f (v1.18) (cilium/cilium#43135, @cilium-renovate[bot])
+* chore(deps): update gcr.io/etcd-development/etcd docker tag to v3.6.6 (v1.18) (cilium/cilium#42936, @cilium-renovate[bot])
+* chore(deps): update github artifact actions (v1.18) (cilium/cilium#43318, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.11 (v1.18) (cilium/cilium#43183, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/certgen docker tag to v0.3.1 (v1.18) (cilium/cilium#43052, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#42803, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#43316, @cilium-renovate[bot])
+* docs: Add limitation about LB to same backend via multiple VIPs (Backport PR cilium/cilium#42745, Upstream PR cilium/cilium#42632, @brb)
+* Documentation: host firewall: document emergency recovery (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42776, @squeed)
+* fqdn: rewrite name manager test to use real ipcache (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42820, @odinuge)
+* Minor improvements around certificate validation in etcd/clustermesh troubleshoot commands (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42782, @giorio94)
+* node/manager: TestNodesStartupPruning poll state (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#41648, @0xch4z)
+* policy: Marshal L4Filter marshalling errors into json (Backport PR cilium/cilium#42948, Upstream PR cilium/cilium#42834, @joestringer)
+* xds: Do not log an error on a done context (Backport PR cilium/cilium#43117, Upstream PR cilium/cilium#42990, @jrajahalme)
+
+**Other Changes:**
+* [v1.18] Add periodic resync for secret-sync controller (cilium/cilium#43356, @youngnick)
+* [v1.18] bpf: lxc: transfer source identity for lxc-to-host policy (cilium/cilium#42821, @julianwiedmann)
+* [v1.18] ipcache: Fix leak in CIDR metadata consolidation logic (cilium/cilium#43354, @christarazi)
+* [v1.18] lb: Implement Hybrid-DSR via annotation infrastructure (cilium/cilium#43056, @julianwiedmann)
+* [v1.18] proxy: Bump envoy version to v1.34.12 (cilium/cilium#43259, @sayboras)
+* install: Update image digests for v1.18.4 (cilium/cilium#42735, @cilium-release-bot[bot])
+* Kubernetes endpoints that are terminating are retained in the backends BPF state regardless of the "serving" condition to avoid connection disruptions when a pod no longer signals readiness to process new connections. (cilium/cilium#42708, @joamaki)
+
 ## v1.18.4
 
 Summary of Changes
