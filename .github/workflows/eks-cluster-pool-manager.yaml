@@ -62,7 +62,7 @@ jobs:
           echo "empty=false" >> $GITHUB_OUTPUT
 
   cleanup-old-clusters:
-    name: Cleanup clusters older than 3 hours
+    name: Cleanup clusters older than 6 hours
     runs-on: ubuntu-24.04
     needs: generate-cleanup-matrix
     if: ${{ needs.generate-cleanup-matrix.outputs.empty == 'false' }}
@@ -91,7 +91,7 @@ jobs:
       - name: List and delete old clusters
         env:
           REGION: ${{ matrix.region }}
-          MAX_AGE_HOURS: 3
+          MAX_AGE_HOURS: 6
         run: |
           set -e
 
