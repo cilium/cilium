@@ -337,9 +337,18 @@ jobs:
           VERSION: ${{ matrix.version }}
           ADDONS: ${{ matrix.addons }}
           ZONES: ${{ matrix.zones }}
-          DESIRED_COUNT: ${{ inputs.min_cluster_per_region || '2' }}
         run: |
           set -e
+
+          # Set desired count based on addon configuration
+          # Buffer of 3x the number of clusters needed per PR:
+          # - coredns kube-proxy: 4 clusters/PR × 3 = 12
+          # - coredns kube-proxy vpc-cni: 1 cluster/PR × 3 = 3
+          if [[ "${ADDONS}" == "coredns kube-proxy vpc-cni" ]]; then
+            DESIRED_COUNT=3
+          else
+            DESIRED_COUNT=12
+          fi
 
           # Compute SHA256 hash of addons and zones to differentiate pools by configuration
           ADDONS_HASH=$(echo -n "${ADDONS} ${ZONES}" | sha256sum | cut -c1-8)
