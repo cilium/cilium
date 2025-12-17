@@ -8,14 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path"
 
 	resourceapi "k8s.io/api/resource/v1"
 	kube_types "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	node_types "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // HandleError logs out error messages from kubelet.
@@ -205,4 +209,57 @@ func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resou
 	})
 
 	return result, err
+}
+
+func (driver *Driver) startDRA(ctx context.Context) error {
+	driver.logger.DebugContext(
+		ctx, "starting driver",
+		logfields.DriverName, driver.config.DriverName,
+	)
+
+	// create path for our driver plugin socket.
+	if err := os.MkdirAll(driverPluginPath(driver.config.DriverName), 0750); err != nil {
+		return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.config.DriverName), err)
+	}
+
+	pluginOpts := []kubeletplugin.Option{
+		kubeletplugin.DriverName(driver.config.DriverName),
+		kubeletplugin.NodeName(node_types.GetName()),
+		kubeletplugin.KubeClient(driver.kubeClient),
+	}
+
+	p, err := kubeletplugin.Start(ctx, driver, pluginOpts...)
+	if err != nil {
+		return err
+	}
+
+	driver.draPlugin = p
+
+	err = wait.PollUntilContextTimeout(
+		ctx, time.Duration(driver.config.DraRegistrationRetryIntervalSeconds)*time.Second,
+		time.Duration(driver.config.DraRegistrationTimeoutSeconds)*time.Second, true,
+		func(context.Context) (bool, error) {
+			registrationStatus := driver.draPlugin.RegistrationStatus()
+			if registrationStatus == nil {
+				return false, nil
+			}
+
+			driver.logger.DebugContext(
+				ctx, "DRA registration status",
+				logfields.Status, registrationStatus,
+			)
+
+			return registrationStatus.PluginRegistered, nil
+		})
+
+	if err != nil {
+		return fmt.Errorf("DRA plugin registration failed: %w", err)
+	}
+
+	driver.logger.DebugContext(ctx,
+		"DRA plugin registration successful",
+		logfields.DriverName, driver.config.DriverName,
+	)
+
+	return nil
 }
