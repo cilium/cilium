@@ -349,6 +349,10 @@ communicating via the proxy must reconnect to re-establish connections.
   If you have a different configuration, you are not expected to take any action and the
   transition to ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
 * The Socket LB tracing message format has been updated, you might briefly see parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
+* DNS Policies match pattern now support a wildcard prefix(``**.``) to match multilevel subdomain as pattern prefix. For usage see :ref:`DNS based` policies.
+  This change introduces a difference in behavior for existing policies with ``**.`` wildcard prefix in match patterns.
+  This pattern now selects all cascaded subdomains in prefix as opposed to just a single level. For example: ``**.cilium.io`` now selects both ``app.cilium.io`` and ``test.app.cilium.io`` as
+  opposed to just ``app.cilium.io`` previously.
 
 Removed Options
 ~~~~~~~~~~~~~~~
