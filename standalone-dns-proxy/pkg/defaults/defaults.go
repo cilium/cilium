@@ -10,6 +10,5 @@ const (
 	RuntimePath = "/var/run/standalone-dns-proxy"
 
 	// ShellSockPath is the path to the UNIX domain socket exposing the debug shell
-	// and health checking for the standalone DNS proxy.
 	ShellSockPath = RuntimePath + "/shell.sock"
 )
