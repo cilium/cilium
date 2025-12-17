@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -154,6 +155,22 @@ func GenerateUniqueRules(numRules int) (api.Rules, identity.IdentityMap) {
 	return rules, generateCIDRIdentities(rules)
 }
 
+func GenerateMatchAllRules(numRules int) (api.Rules, identity.IdentityMap) {
+	var rules api.Rules
+	uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
+	for i := 1; i <= numRules; i++ {
+		matchAll := api.NewESFromMatchRequirements(nil, []slim_metav1.LabelSelectorRequirement{{Key: "key", Operator: slim_metav1.LabelSelectorOpDoesNotExist}})
+		rule := api.Rule{
+			EndpointSelector: matchAll,
+			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
+			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+		}
+		rule.Sanitize()
+		rules = append(rules, &rule)
+	}
+	return rules, generateCIDRIdentities(rules)
+}
+
 type DummyOwner struct {
 	logger       *slog.Logger
 	mapStateSize int
@@ -228,7 +245,6 @@ func BenchmarkResolveNoMatchingRules(b *testing.B) {
 	td.bootstrapRepo(GenerateUniqueRules, 20000, b)
 
 	b.ReportAllocs()
-	b.ResetTimer()
 	for b.Loop() {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 		ip.detach(true, 0)

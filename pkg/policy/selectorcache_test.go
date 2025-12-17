@@ -725,3 +725,25 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 	selections := sel.GetSelections()
 	require.Empty(t, selections)
 }
+
+func BenchmarkSelectorCacheIdentityUpdates(b *testing.B) {
+	td := newTestData(b, hivetest.Logger(b))
+	td.bootstrapRepo(GenerateMatchAllRules, 1, b)
+	ids := generateNumIdentities(10000)
+	wg := &sync.WaitGroup{}
+	for k, v := range ids {
+		td.sc.UpdateIdentities(identity.IdentityMap{k: v}, nil, wg)
+	}
+
+	wg.Wait()
+
+	b.ReportAllocs()
+	for b.Loop() {
+		wg := &sync.WaitGroup{}
+		td.sc.UpdateIdentities(nil, identity.IdentityMap{fooIdentity.ID: fooIdentity.LabelArray}, wg)
+		wg.Wait()
+		td.sc.UpdateIdentities(identity.IdentityMap{fooIdentity.ID: fooIdentity.LabelArray}, nil, wg)
+		wg.Wait()
+
+	}
+}
