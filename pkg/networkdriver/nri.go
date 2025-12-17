@@ -10,14 +10,18 @@ import (
 	"net/netip"
 	"path"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/stub"
+	"github.com/vishvananda/netlink"
+	kube_types "k8s.io/apimachinery/pkg/types"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
-
-	"github.com/containerd/nri/pkg/api"
-	"github.com/vishvananda/netlink"
-	kube_types "k8s.io/apimachinery/pkg/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func getNetworkNamespace(pod *api.PodSandbox) string {
@@ -171,4 +175,47 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 	})
 
 	return err
+}
+
+func (driver *Driver) startNRI(ctx context.Context) error {
+	// register the NRI plugin
+	nriOptions := []stub.Option{
+		stub.WithPluginName(driver.config.DriverName),
+		stub.WithPluginIdx("00"),
+		// https://github.com/containerd/nri/pull/173
+		// Otherwise it silently exits the program
+		stub.WithOnClose(func() {
+			driver.logger.WarnContext(
+				ctx, "NRI plugin closed",
+				logfields.DriverName, driver.config.DriverName,
+			)
+		}),
+	}
+
+	nriStub, err := stub.New(driver, nriOptions...)
+	if err != nil {
+		return fmt.Errorf("failed to create plugin stub: %w", err)
+	}
+
+	driver.nriPlugin = nriStub
+
+	driver.jg.Add(job.OneShot("networkdriver-nri-plugin-run", func(ctx context.Context, _ cell.Health) error {
+		for {
+			if err := driver.nriPlugin.Run(ctx); err != nil {
+				driver.logger.ErrorContext(
+					ctx, "NRI plugin failed",
+					logfields.Error, err,
+					logfields.Name, driver.config.DriverName,
+				)
+			}
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(time.Second):
+				driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.config.DriverName)
+			}
+		}
+	}))
+
+	return nil
 }
