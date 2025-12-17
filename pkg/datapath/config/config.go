@@ -28,10 +28,10 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.TracePayloadLenOverlay = uint32(option.Config.TracePayloadlenOverlay)
 
 	if lnc.DirectRoutingDevice != nil {
-		node.DirectRoutingDevIfindex = uint32(lnc.DirectRoutingDevice.Index)
+		node.DirectRoutingDevIfIndex = uint32(lnc.DirectRoutingDevice.Index)
 	}
 
-	node.SupportsFibLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
+	node.SupportsFIBLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
 
 	node.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
 
