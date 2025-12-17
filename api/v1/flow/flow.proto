@@ -396,6 +396,7 @@ message Tunnel {
     Protocol protocol = 1;
     IP IP = 2;
     Layer4 l4 = 3;
+    uint32 vni = 4;
 }
 
 enum Verdict {
