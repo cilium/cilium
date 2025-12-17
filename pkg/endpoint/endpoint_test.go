@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -588,9 +587,8 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 				mutex:  lock.RWMutex{},
 				labels: tt.labels,
 			}
-			if got := e.getK8sPodLabels(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Endpoint.getK8sPodLabels() = %v, want %v", got, tt.want)
-			}
+			got := e.getK8sPodLabels()
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
