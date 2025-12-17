@@ -19,7 +19,7 @@ import (
 // CiliumGatewayClassConfigsGetter has a method to return a CiliumGatewayClassConfigInterface.
 // A group's client should implement this interface.
 type CiliumGatewayClassConfigsGetter interface {
-	CiliumGatewayClassConfigs(namespace string) CiliumGatewayClassConfigInterface
+	CiliumGatewayClassConfigs() CiliumGatewayClassConfigInterface
 }
 
 // CiliumGatewayClassConfigInterface has methods to work with CiliumGatewayClassConfig resources.
@@ -43,13 +43,13 @@ type ciliumGatewayClassConfigs struct {
 }
 
 // newCiliumGatewayClassConfigs returns a CiliumGatewayClassConfigs
-func newCiliumGatewayClassConfigs(c *CiliumV2alpha1Client, namespace string) *ciliumGatewayClassConfigs {
+func newCiliumGatewayClassConfigs(c *CiliumV2alpha1Client) *ciliumGatewayClassConfigs {
 	return &ciliumGatewayClassConfigs{
 		gentype.NewClientWithList[*ciliumiov2alpha1.CiliumGatewayClassConfig, *ciliumiov2alpha1.CiliumGatewayClassConfigList](
 			"ciliumgatewayclassconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
-			namespace,
+			"",
 			func() *ciliumiov2alpha1.CiliumGatewayClassConfig { return &ciliumiov2alpha1.CiliumGatewayClassConfig{} },
 			func() *ciliumiov2alpha1.CiliumGatewayClassConfigList {
 				return &ciliumiov2alpha1.CiliumGatewayClassConfigList{}
