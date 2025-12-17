@@ -89,6 +89,12 @@ func (cfg Config) Validate() error {
 			return fmt.Errorf("hubble-export-fieldmask contains invalid fieldmask '%v': %w", fm, err)
 		}
 	}
+	if fa := cfg.ExportFieldAggregate; len(fa) > 0 {
+		_, err := fieldmaskpb.New(&flowpb.Flow{}, fa...)
+		if err != nil {
+			return fmt.Errorf("hubble-export-fieldaggregate contains invalid fieldaggregate '%v': %w", fa, err)
+		}
+	}
 	return nil
 }
 
