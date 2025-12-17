@@ -249,6 +249,7 @@
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
 /.github/actions/bpftrace/ @cilium/sig-encryption @cilium/github-sec @cilium/ci-structure
+/.github/actions/cl2-modules/egw/ @cilium/egress-gateway @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/actions/e2e/*ipsec* @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/actions/e2e/*lb* @cilium/sig-lb @cilium/github-sec @cilium/ci-structure
 /.github/actions/e2e/*netkit* @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
@@ -273,6 +274,7 @@
 /.github/workflows/conformance-eks.yaml @cilium/aws @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-gke.yaml @cilium/gke @cilium/ipsec @cilium/github-sec @cilium/ci-structure
 /.github/workflows/conformance-kind-proxy-embedded.yaml @cilium/sig-servicemesh @cilium/github-sec @cilium/ci-structure
+/.github/workflows/scale-test-egw.yaml @cilium/egress-gateway @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.github/workflows/tests-ces-migrate.yaml @cilium/sig-scalability @cilium/github-sec @cilium/ci-structure
 /.gitignore @cilium/contributing
 /.golangci.yaml @cilium/ci-structure
