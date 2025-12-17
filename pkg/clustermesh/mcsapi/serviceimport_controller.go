@@ -289,7 +289,7 @@ func intersectIPFamilies(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]
 	if clusterConflict != "" {
 		// Note that there is no standard export condition reason for this case at this time
 		return ipFamilies,
-			mcsapiv1alpha1.ServiceExportConditionReason("IPFamilyConflict"),
+			mcsapiv1alpha1.ServiceExportReasonIPFamilyConflict,
 			fmt.Sprintf("IPFamilies conflict. Cluster '%s' has no IPFamilies in common.", clusterConflict)
 	}
 
