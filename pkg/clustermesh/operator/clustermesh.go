@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
@@ -41,6 +42,9 @@ type clusterMesh struct {
 	// globalServiceExports is a list of all global service exports. The datastructure
 	// is protected by its own mutex inside the structure.
 	globalServiceExports *GlobalServiceExportCache
+
+	// ObserverFactories is the list of factories to instantiate additional observers.
+	observerFactories []observer.Factory
 
 	storeFactory store.Factory
 
@@ -83,6 +87,8 @@ type ClusterMesh interface {
 
 	ServiceExportsSynced(ctx context.Context) error
 	GlobalServiceExports() *GlobalServiceExportCache
+
+	ObserverSynced(ctx context.Context, name observer.Name) error
 }
 
 func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, ClusterMesh) {
@@ -103,6 +109,7 @@ func newClusterMesh(lc cell.Lifecycle, params clusterMeshParams) (*clusterMesh, 
 		metrics:              params.Metrics,
 		globalServices:       common.NewGlobalServiceCache(params.Logger),
 		globalServiceExports: NewGlobalServiceExportCache(),
+		observerFactories:    params.ObserverFactories,
 		storeFactory:         params.StoreFactory,
 		syncTimeoutConfig:    params.TimeoutConfig,
 	}
@@ -248,6 +255,18 @@ func (cm *clusterMesh) newRemoteCluster(name string, status common.StatusFunc) c
 		store.RWSWithEntriesMetric(cm.metrics.TotalServiceExports.WithLabelValues(name)),
 	)
 
+	rc.observers = make(map[observer.Name]observer.Observer, len(cm.observerFactories))
+	for _, factory := range cm.observerFactories {
+		var (
+			synced     = make(chan struct{})
+			onceSynced = sync.OnceFunc(func() { close(synced) })
+			obs        = factory(name, onceSynced)
+		)
+
+		rc.observers[obs.Name()] = obs
+		rc.synced.observers[obs.Name()] = synced
+	}
+
 	return rc
 }
 
@@ -272,6 +291,18 @@ func (cm *clusterMesh) ServicesSynced(ctx context.Context) error {
 // clustermesh-sync-timeout flag elapsed. It returns an error if the given context expired.
 func (cm *clusterMesh) ServiceExportsSynced(ctx context.Context) error {
 	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn { return rc.synced.ServiceExports })
+}
+
+// ObserverSynced returns after that either the given named observer has received
+// the initial list of entries from all remote clusters, or the maximum wait period
+// controlled by the clustermesh-sync-timeout flag elapsed. It returns an error if
+// the given context expired, or if the target observer is not registered.
+func (cm *clusterMesh) ObserverSynced(ctx context.Context, name observer.Name) error {
+	return cm.synced(ctx, func(rc *remoteCluster) wait.Fn {
+		return func(ctx context.Context) error {
+			return rc.synced.Observer(ctx, name)
+		}
+	})
 }
 
 func (cm *clusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) wait.Fn) error {
