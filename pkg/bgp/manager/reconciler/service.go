@@ -613,14 +613,11 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p ReconcileParams, svc *loadb
 		return desiredRoutes
 	}
 
-	// Check if this is a Gateway API or Ingress service by label.
-	// These services use dummy endpoints (192.192.192.192:9999) that are filtered out
-	// by the loadbalancer reflector, so we identify them by their label instead.
-	// Gateway API: io.cilium/gateway-api or io.cilium.gateway/owning-gateway
-	// Ingress: cilium.io/ingress
-	isGatewayOrIngressService := svc.Labels.HasLabelWithKey("io.cilium/gateway-api") ||
-		svc.Labels.HasLabelWithKey("io.cilium.gateway/owning-gateway") ||
-		svc.Labels.HasLabelWithKey("cilium.io/ingress")
+	// Check if this service has a local proxy (Envoy) handling its traffic.
+	// ProxyRedirect is non-nil when the local Envoy proxy is running and configured
+	// to handle this service (e.g., Gateway API or Ingress services).
+	// This handles deployments where cilium-envoy has a nodeSelector that excludes some nodes.
+	hasLocalProxy := svc.ProxyRedirect != nil
 
 	for _, fe := range frontends {
 		if fe.Type != loadbalancer.SVCTypeLoadBalancer {
@@ -631,17 +628,21 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p ReconcileParams, svc *loadb
 
 		// For services with real backends, respect externalTrafficPolicy: Local by skipping
 		// advertisement when there are no local endpoints.
-		// For Gateway API/Ingress services (identified by label), advertise regardless of
-		// local endpoint availability, since traffic is handled by Envoy on any node.
-		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends && !isGatewayOrIngressService {
-			continue
+		// For proxy-redirected services (Gateway API/Ingress), advertise if the local
+		// proxy is handling traffic, since backends are managed by the proxy.
+		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends {
+			if !hasLocalProxy {
+				continue
+			}
 		}
 
 		// Respect EnableNoServiceEndpointsRoutable for services with zero backends.
-		// However, Gateway API and Ingress services should always be advertised even with
-		// zero backends (dummy endpoints are filtered), since Envoy handles the traffic.
-		if !r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends && !isGatewayOrIngressService {
-			continue
+		// However, proxy-redirected services should be advertised even with zero
+		// backends, as traffic is handled by the local proxy.
+		if !r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends {
+			if !hasLocalProxy {
+				continue
+			}
 		}
 
 		addr := fe.Address.Addr()
