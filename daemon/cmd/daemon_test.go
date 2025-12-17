@@ -132,7 +132,6 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 			},
 			func() kvstore.Config { return kvstore.Config{KVStore: kvstore.EtcdBackendName} },
 			func() kvstore.Client { return client },
-			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 			func() ctmap.GCRunner { return ctmap.NewFakeGCRunner() },
 			func() policymap.Factory { return nil },
