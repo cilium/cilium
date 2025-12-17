@@ -5673,6 +5673,9 @@
                   },
                   {
                     "type": "string"
+                  },
+                  {
+                    "type": "string"
                   }
                 ]
               },
