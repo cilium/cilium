@@ -197,7 +197,7 @@ func checkPortConflict(port, olderPort portMerge) string {
 
 // mergePorts merge all the ports into a map while doing conflict resolution
 // with the oldest CreationTimestamp. It also return if it detects any conflict
-func mergePorts(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]portMerge, mcsapiv1alpha1.ServiceExportConditionReason, string) {
+func mergePorts(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]mcsapiv1alpha1.ServicePort, mcsapiv1alpha1.ServiceExportConditionReason, string) {
 	conflictMsg := ""
 	ports := []portMerge{}
 	portsByName := map[string]portMerge{}
@@ -231,11 +231,28 @@ func mergePorts(orderedSvcExports []*mcsapitypes.MCSAPIServiceSpec) ([]portMerge
 			}
 		}
 	}
+
+	mcsPorts := mergedPortsToMCSPorts(ports)
+	if conflictMsg == "" {
+		for _, svcExport := range orderedSvcExports {
+			if !slices.EqualFunc(mcsPorts, svcExport.Ports, func(a, b mcsapiv1alpha1.ServicePort) bool {
+				return a.Name == b.Name && a.Protocol == b.Protocol &&
+					a.Port == b.Port && ptr.Deref(a.AppProtocol, "") == ptr.Deref(b.AppProtocol, "")
+			}) {
+				conflictMsg = fmt.Sprintf(
+					"Ports from cluster \"%s\" does not match ports of oldest service export in cluster \"%s\".",
+					svcExport.Cluster, orderedSvcExports[0].Cluster,
+				)
+				break
+			}
+		}
+	}
+
 	reason := mcsapiv1alpha1.ServiceExportReasonNoConflicts
 	if conflictMsg != "" {
 		reason = mcsapiv1alpha1.ServiceExportReasonPortConflict
 	}
-	return ports, reason, conflictMsg
+	return mcsPorts, reason, conflictMsg
 }
 
 func mergedPortsToMCSPorts(mergedPorts []portMerge) []mcsapiv1alpha1.ServicePort {
@@ -555,7 +572,7 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	orderedSvcExports := orderSvcExportByPriority(svcExportByCluster)
-	mergedPorts, conflictReason, conflictMsg := mergePorts(orderedSvcExports)
+	ports, conflictReason, conflictMsg := mergePorts(orderedSvcExports)
 	ipFamilies, conflictReasonIPFamilies, conflictMsgIPFamilies := intersectIPFamilies(orderedSvcExports)
 	if conflictReason == mcsapiv1alpha1.ServiceExportReasonNoConflicts {
 		conflictReason, conflictMsg = conflictReasonIPFamilies, conflictMsgIPFamilies
@@ -601,7 +618,7 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	oldestClusterSvc := orderedSvcExports[0]
-	svcImport.Spec.Ports = mergedPortsToMCSPorts(mergedPorts)
+	svcImport.Spec.Ports = ports
 	svcImport.Spec.IPFamilies = ipFamilies
 	svcImport.Spec.Type = oldestClusterSvc.Type
 	svcImport.Spec.SessionAffinity = oldestClusterSvc.SessionAffinity
