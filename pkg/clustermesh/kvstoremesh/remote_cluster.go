@@ -165,17 +165,9 @@ func (rc *remoteCluster) Remove(ctx context.Context) {
 // removing the rest of the cached data. Indeed, there's no point in retrieving
 // incomplete data, and it is expected that agents will be disconnecting as well.
 func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err error) {
-	keys := []string{
-		path.Join(kvstore.ClusterConfigPrefix, rc.name),
-	}
-	prefixes := []string{
-		path.Join(kvstore.SyncedPrefix, rc.name),
-	}
-
-	for _, key := range keys {
-		if err = rc.localBackend.Delete(ctx, key); err != nil {
-			return fmt.Errorf("deleting key %q: %w", key, err)
-		}
+	var cfgkey = path.Join(kvstore.ClusterConfigPrefix, rc.name)
+	if err = rc.localBackend.Delete(ctx, cfgkey); err != nil {
+		return fmt.Errorf("deleting key %q: %w", cfgkey, err)
 	}
 
 	if withGracePeriod {
@@ -198,10 +190,9 @@ func (rc *remoteCluster) drain(ctx context.Context, withGracePeriod bool) (err e
 		}
 	}
 
-	for _, prefix := range prefixes {
-		if err = rc.localBackend.DeletePrefix(ctx, prefix+"/"); err != nil {
-			return fmt.Errorf("deleting prefix %q: %w", prefix+"/", err)
-		}
+	var synpfx = path.Join(kvstore.SyncedPrefix, rc.name) + "/"
+	if err = rc.localBackend.DeletePrefix(ctx, synpfx); err != nil {
+		return fmt.Errorf("deleting prefix %q: %w", synpfx, err)
 	}
 
 	// Sort the reflectors to ensure consistent ordering, relied upon by tests.
