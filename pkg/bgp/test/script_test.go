@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"net/http"
 	"net/netip"
 	"os"
 	"testing"
@@ -94,6 +95,30 @@ func TestPrivilegedScript(t *testing.T) {
 		noEndpointsRoutable := flags.Bool(bgpNoEndpointsRoutableFlag, true, "")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
+		// Create a temp RunDir with a mock Envoy admin server for Gateway/Ingress service tests.
+		// The BGP reconciler checks Envoy readiness by querying the /ready endpoint.
+		runDir := t.TempDir()
+		envoySocketDir := runDir + "/envoy/sockets"
+		require.NoError(t, os.MkdirAll(envoySocketDir, 0755))
+		envoySocket := envoySocketDir + "/admin.sock"
+
+		// Start mock Envoy admin server
+		listener, err := net.Listen("unix", envoySocket)
+		require.NoError(t, err)
+		mockEnvoyServer := &http.Server{
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/ready" {
+					w.WriteHeader(http.StatusOK)
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}),
+		}
+		go mockEnvoyServer.Serve(listener)
+		t.Cleanup(func() {
+			mockEnvoyServer.Close()
+		})
+
 		if *probeTCPMD5 {
 			available, err := TCPMD5SigAvailable()
 			require.NoError(t, err)
@@ -146,6 +171,7 @@ func TestPrivilegedScript(t *testing.T) {
 						IPAM:                      *ipam,
 						EnableIPv4:                true,
 						EnableIPv6:                true,
+						RunDir:                    runDir,
 					}
 					return option.Config
 				},
