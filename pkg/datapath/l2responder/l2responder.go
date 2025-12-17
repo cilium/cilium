@@ -499,7 +499,7 @@ func addRemoveIpv6SolNodeMACAddr(ifindex int, mac mac.MAC, add bool) error {
 	var ifr ifreq
 	copy(ifr.Name[:], ifi.Name)
 	ifr.Hwaddr.Family = syscall.AF_UNSPEC
-	for i := range ETH_ALEN {
+	for i := 0; i < ETH_ALEN; i++ {
 		ifr.Hwaddr.Data[i] = int8(mac[i])
 	}
 

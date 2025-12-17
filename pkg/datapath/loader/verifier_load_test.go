@@ -110,8 +110,8 @@ func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 func permute(n int) iter.Seq[[]bool] {
 	permutation := make([]bool, n)
 	return func(yield func([]bool) bool) {
-		for i := range uint64(1 << n) {
-			for j := range n {
+		for i := uint64(0); i < (1 << n); i++ {
+			for j := 0; j < n; j++ {
 				permutation[j] = (i & (1 << j)) != 0
 			}
 			if !yield(permutation) {

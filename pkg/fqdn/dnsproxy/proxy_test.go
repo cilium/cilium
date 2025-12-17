@@ -1491,7 +1491,7 @@ func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		for epID := range uint64(nEPs) {
+		for epID := uint64(0); epID < nEPs; epID++ {
 			pea.setPortRulesForID(c, epID, udpProtoPort8053, nil)
 		}
 		b.StartTimer()
