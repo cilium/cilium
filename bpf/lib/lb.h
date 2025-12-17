@@ -1987,12 +1987,13 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		tuple->daddr = backend->address;
 
-	if (lb4_svc_is_l7_punt_proxy(svc) &&
-	    __lookup_ip4_endpoint(backend->address)) {
+	bool is_local = __lookup_ip4_endpoint(backend->address);
+
+	if (lb4_svc_is_l7_punt_proxy(svc) && is_local) {
 		ctx_skip_nodeport_set(ctx);
 		return LB_PUNT_TO_STACK;
 	}
-	if (skip_xlate)
+	if (skip_xlate && !is_local)
 		return CTX_ACT_OK;
 
 	/* CT tuple contains ports in reverse order: */

@@ -1595,7 +1595,7 @@ static __always_inline __be32 rss_gen_src4(__be32 client, __be32 l4_hint)
 /*
  * Original packet: [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
  *
- * After DSR IPIP:  [rssSrcIP -> backendIP]                        } IP
+ * After DSR IPIP:  [rssSrcIP -> tunnelEndpointIP]                 } IP
  *                  [clientIP:clientPort -> serviceIP:servicePort] } IP/L4
  */
 static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
@@ -1605,10 +1605,17 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 					 int *oif __maybe_unused,
 					 __be16 *ohead __maybe_unused)
 {
-#  if __ctx_is == __ctx_xdp
 	__u16 tot_len = bpf_ntohs(ip4->tot_len) + sizeof(*ip4);
 	const int l3_off = ETH_HLEN;
 	__be32 sum;
+	__be32 daddr = backend_addr;
+	struct remote_endpoint_info *info;
+
+	info = lookup_ip4_remote_endpoint(backend_addr, 0);
+	if (info && info->tunnel_endpoint.ip4)
+		daddr = info->tunnel_endpoint.ip4;
+
+#  if __ctx_is == __ctx_xdp
 	struct {
 		__be16 tot_len;
 		__be16 id;
@@ -1628,7 +1635,7 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 		.ttl		= IPDEFTTL,
 		.protocol	= IPPROTO_IPIP,
 		.saddr		= rss_gen_src4(ip4->saddr, l4_hint),
-		.daddr		= backend_addr,
+		.daddr		= daddr,
 	};
 
 	if (dsr_is_too_big(ctx, tot_len)) {
@@ -1653,7 +1660,7 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 		return DROP_CSUM_L3;
 	return 0;
 #  else /* __ctx_is == __ctx_xdp */
-	if (dsr_set_ipip4_dev(ctx, backend_addr, 0) < 0)
+	if (dsr_set_ipip4_dev(ctx, daddr, 0) < 0)
 		return DROP_NO_TUNNEL_KEY;
 	*oif = ENCAP4_IFINDEX;
 	return CTX_ACT_REDIRECT;
