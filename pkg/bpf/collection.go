@@ -292,7 +292,7 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 		return nil
 	}
 
-	constants, err := config.StructToMap(obj)
+	constants, err := config.Map(obj)
 	if err != nil {
 		return fmt.Errorf("converting struct to map: %w", err)
 	}
