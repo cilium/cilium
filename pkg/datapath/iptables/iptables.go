@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -100,6 +101,7 @@ type iptablesInterface interface {
 
 	getProg() string
 	getIpset() string
+	getMode() string
 }
 
 type ipt struct {
@@ -107,6 +109,7 @@ type ipt struct {
 	prog     string
 	ipset    string
 	waitArgs []string
+	mode     string
 }
 
 func (ipt *ipt) initLogger(logger *slog.Logger) {
@@ -123,6 +126,11 @@ func (ipt *ipt) initArgs(ctx context.Context, waitSeconds int) {
 			ipt.waitArgs = []string{waitString}
 		}
 	}
+	if mode, err := ipt.getIPtablesMode(ctx); err == nil {
+		ipt.mode = mode
+	} else {
+		ipt.mode = "legacy"
+	}
 }
 
 func (ipt *ipt) getProg() string {
@@ -131,6 +139,10 @@ func (ipt *ipt) getProg() string {
 
 func (ipt *ipt) getIpset() string {
 	return ipt.ipset
+}
+
+func (ipt *ipt) getMode() string {
+	return ipt.mode
 }
 
 func (ipt *ipt) getVersion(ctx context.Context) (semver.Version, error) {
@@ -144,6 +156,17 @@ func (ipt *ipt) getVersion(ctx context.Context) (semver.Version, error) {
 		return semver.Version{}, fmt.Errorf("no iptables version found in string: %s", string(b))
 	}
 	return versioncheck.Version(vString[1])
+}
+
+func (ipt *ipt) getIPtablesMode(ctx context.Context) (string, error) {
+	b, err := exec.CommandContext(ctx, ipt.prog, "--version").CombinedOutput(ipt.logger, false)
+	if err != nil {
+		return "", err
+	}
+	if strings.Contains(string(b), "nf_tables") {
+		return "nft", nil
+	}
+	return "legacy", nil
 }
 
 func (ipt *ipt) runProgOutput(args []string) (string, error) {
@@ -1423,6 +1446,18 @@ func (m *Manager) installMasqueradeRules(
 	localDeliveryInterface, snatDstExclusionCIDR, allocRange, hostMasqueradeIP string,
 ) error {
 	devices := nativeDevices
+
+	if prog.getMode() == "nft" {
+		if _, exclusionCIDR, err := net.ParseCIDR(snatDstExclusionCIDR); err == nil {
+			maskSize, _ := exclusionCIDR.Mask.Size()
+			if exclusionCIDR.IP.IsUnspecified() && maskSize == 0 {
+				if prog == m.ip6tables {
+					return fmt.Errorf("nf_tables does not support ::/0 exclusion, set --%s=false", option.EnableIPv6Masquerade)
+				}
+				return fmt.Errorf("nf_tables does not support 0.0.0.0/0 exclusion, set --%s=false", option.EnableIPv4Masquerade)
+			}
+		}
+	}
 
 	if m.sharedCfg.NodeIpsetNeeded {
 		cmds := nodeIpsetNATCmds(allocRange, prog.getIpset(), m.sharedCfg.MasqueradeInterfaces)
