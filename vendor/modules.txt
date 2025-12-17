@@ -2883,7 +2883,7 @@ sigs.k8s.io/kustomize/kyaml/yaml/internal/k8sgen/pkg/util/validation/field
 sigs.k8s.io/kustomize/kyaml/yaml/merge2
 sigs.k8s.io/kustomize/kyaml/yaml/schema
 sigs.k8s.io/kustomize/kyaml/yaml/walk
-# sigs.k8s.io/mcs-api v0.3.1-0.20251209180531-e481ae73a51f
+# sigs.k8s.io/mcs-api v0.3.1-0.20251217171610-79faa199f7dd
 ## explicit; go 1.23.0
 sigs.k8s.io/mcs-api/config/crd
 sigs.k8s.io/mcs-api/pkg/apis/v1alpha1
