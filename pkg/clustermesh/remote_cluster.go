@@ -5,12 +5,15 @@ package clustermesh
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"path"
+	"sync/atomic"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
@@ -22,6 +25,12 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
+)
+
+var (
+	// ErrObserverNotRegistered is the error returned when referencing an observer
+	// which has not been registered.
+	ErrObserverNotRegistered = errors.New("observer not registered")
 )
 
 // remoteCluster implements the clustermesh business logic on top of
@@ -64,10 +73,16 @@ type remoteCluster struct {
 	// allocations in the remote cluster
 	remoteIdentityCache allocator.RemoteIDCache
 
+	// observers are observers watching additional prefixes.
+	observers map[observer.Name]observer.Observer
+
 	// status is the function which fills the common part of the status.
 	status common.StatusFunc
 
 	storeFactory store.Factory
+
+	// registered represents whether the observers have been registered.
+	registered atomic.Bool
 
 	// synced tracks the initial synchronization with the remote cluster.
 	synced synced
@@ -138,6 +153,13 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		rc.remoteIdentityCache.Watch(ctx, func(context.Context) { rc.synced.identitiesDone() })
 	})
 
+	for _, obs := range rc.observers {
+		obs.Register(mgr, backend, config)
+	}
+
+	rc.registered.Store(true)
+	defer rc.registered.Store(false)
+
 	close(ready)
 	mgr.Run(ctx)
 }
@@ -148,10 +170,14 @@ func (rc *remoteCluster) Stop() {
 
 // RevokeCache performs a partial revocation of the remote cluster's cache, draining only remote
 // services. This prevents the agent from load-balancing to potentially stale service backends.
-// Other resources are left intact to reduce churn and avoid disrupting existing connections like
-// active IPsec security associations.
+// Other resources, besides extra observers that may also implement revocation, are left intact to
+// reduce churn and avoid disrupting existing connections like active IPsec security associations.
 func (rc *remoteCluster) RevokeCache(ctx context.Context) {
 	rc.remoteServices.Drain()
+
+	for _, obs := range rc.observers {
+		obs.Revoke()
+	}
 }
 
 func (rc *remoteCluster) Remove(context.Context) {
@@ -163,6 +189,10 @@ func (rc *remoteCluster) Remove(context.Context) {
 	rc.ipCacheWatcher.Drain()
 
 	rc.remoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
+
+	for _, obs := range rc.observers {
+		obs.Drain()
+	}
 
 	rc.usedIDs.ReleaseClusterID(rc.clusterID)
 }
@@ -192,6 +222,15 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 		status.Synced.Nodes && status.Synced.Services &&
 		status.Synced.Identities && status.Synced.Endpoints
 
+	// We mark the status as ready only after being sure that all observers
+	// have been registered, as at that point we expect that [status.Enabled]
+	// is set if the reflector is enabled for the current configuration.
+	status.Ready = status.Ready && rc.registered.Load()
+	for _, obs := range rc.observers {
+		var st = obs.Status()
+		status.Ready = status.Ready && (!st.Enabled || st.Synced)
+	}
+
 	return status
 }
 
@@ -216,6 +255,10 @@ func (rc *remoteCluster) onUpdateConfig(newConfig cmtypes.CiliumClusterConfig) e
 		rc.remoteServices.Drain()
 		rc.ipCacheWatcher.Drain()
 		rc.remoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
+
+		for _, obs := range rc.observers {
+			obs.Drain()
+		}
 	}
 
 	if err := rc.usedIDs.ReserveClusterID(newConfig.ID); err != nil {
@@ -250,6 +293,8 @@ type synced struct {
 	ipcache        chan struct{}
 	identities     *lock.StoppableWaitGroup
 	identitiesDone lock.DoneFunc
+
+	observers map[observer.Name]chan struct{}
 }
 
 func newSynced() synced {
@@ -268,6 +313,7 @@ func newSynced() synced {
 		ipcache:        make(chan struct{}),
 		identities:     idswg,
 		identitiesDone: done,
+		observers:      make(map[observer.Name]chan struct{}),
 	}
 }
 
@@ -293,6 +339,19 @@ func (s *synced) Services(ctx context.Context) error {
 // (i.e., node addresses, health, ingress, ...).
 func (s *synced) IPIdentities(ctx context.Context) error {
 	return s.Wait(ctx, s.ipcache, s.identities.WaitChannel(), s.nodes)
+}
+
+// ObserverSynced returns after that either the given named observer has
+// received the initial list of entries from the remote clusters, the
+// remote cluster is disconnected, or the given context is canceled.
+// It returns an error if the target observer is not registered.
+func (s *synced) Observer(ctx context.Context, name observer.Name) error {
+	wait, ok := s.observers[name]
+	if !ok {
+		return ErrObserverNotRegistered
+	}
+
+	return s.Wait(ctx, wait)
 }
 
 type ClusterMeshMetrics interface {
