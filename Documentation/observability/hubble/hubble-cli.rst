@@ -87,6 +87,23 @@ dropped:
 Feel free to further inspect the traffic. To get help for the ``observe``
 command, use ``hubble help observe``.
 
+Filtering Encrypted Traffic
+===========================
+
+You can filter flows based on whether they are encrypted (via WireGuard or IPsec) or not.
+
+To see only encrypted flows:
+
+.. code-block:: shell-session
+
+    $ hubble observe --encrypted
+
+To see only unencrypted flows:
+
+.. code-block:: shell-session
+
+    $ hubble observe --unencrypted
+
 Next Steps
 ==========
 

@@ -302,6 +302,79 @@ func TestGetFlows(t *testing.T) {
 					`level=info msg="No connection to peer, skipping" address=192.0.2.2:4244 peer=two`,
 				},
 			},
+		}, {
+			name: "Observe encrypted flows",
+			plr: &testutils.FakePeerLister{
+				OnList: func() []poolTypes.Peer {
+					return []poolTypes.Peer{
+						{
+							Peer: peerTypes.Peer{
+								Name: "one",
+								Address: &net.TCPAddr{
+									IP:   net.ParseIP("192.0.2.1"),
+									Port: defaults.ServerPort,
+								},
+							},
+							Conn: &testutils.FakeClientConn{
+								OnGetState: func() connectivity.State {
+									return connectivity.Ready
+								},
+							},
+						},
+					}
+				},
+			},
+			ocb: fakeObserverClientBuilder{
+				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
+					return &testutils.FakeObserverClient{
+						OnGetFlows: func(_ context.Context, in *observerpb.GetFlowsRequest, _ ...grpc.CallOption) (observerpb.Observer_GetFlowsClient, error) {
+							// Verify that the request contains the Encrypted filter
+							if len(in.Whitelist) != 1 || len(in.Whitelist[0].Encrypted) != 1 || !in.Whitelist[0].Encrypted[0] {
+								return nil, fmt.Errorf("expected Encrypted filter, got %v", in.Whitelist)
+							}
+							return &testutils.FakeGetFlowsClient{
+								OnRecv: func() (*observerpb.GetFlowsResponse, error) {
+									return nil, io.EOF
+								},
+							}, nil
+						},
+					}
+				},
+			},
+			req: &observerpb.GetFlowsRequest{
+				Whitelist: []*flowpb.FlowFilter{
+					{
+						Encrypted: []bool{true},
+					},
+				},
+			},
+			stream: &testutils.FakeGetFlowsServer{
+				FakeGRPCServerStream: fss,
+				OnSend: func(resp *observerpb.GetFlowsResponse) error {
+					if resp == nil {
+						return nil
+					}
+					switch resp.GetResponseTypes().(type) {
+					case *observerpb.GetFlowsResponse_NodeStatus:
+						got.statusEvents = append(got.statusEvents, resp.GetNodeStatus())
+					}
+					if len(got.statusEvents) == 1 {
+						close(done)
+						return io.EOF
+					}
+					return nil
+				},
+			},
+			want: want{
+				flows: map[string][]*flowpb.Flow{},
+				statusEvents: []*relaypb.NodeStatusEvent{
+					{
+						StateChange: relaypb.NodeState_NODE_CONNECTED,
+						NodeNames:   []string{"one"},
+					},
+				},
+				err: io.EOF,
+			},
 		},
 	}
 	for _, tt := range tests {
