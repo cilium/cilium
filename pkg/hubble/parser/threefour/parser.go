@@ -408,9 +408,9 @@ func (d *packetDecoder) DecodePacket(payload []byte, decoded *pb.Flow, isL3Devic
 	// Expect VXLAN/Geneve overlay as first overlay layer, if not we bail out.
 	switch d.overlay.Layers[0] {
 	case layers.LayerTypeVXLAN:
-		decoded.Tunnel = &pb.Tunnel{Protocol: pb.Tunnel_VXLAN, IP: decoded.IP, L4: decoded.L4}
+		decoded.Tunnel = &pb.Tunnel{Protocol: pb.Tunnel_VXLAN, IP: decoded.IP, L4: decoded.L4, Vni: d.overlay.VXLAN.VNI}
 	case layers.LayerTypeGeneve:
-		decoded.Tunnel = &pb.Tunnel{Protocol: pb.Tunnel_GENEVE, IP: decoded.IP, L4: decoded.L4}
+		decoded.Tunnel = &pb.Tunnel{Protocol: pb.Tunnel_GENEVE, IP: decoded.IP, L4: decoded.L4, Vni: d.overlay.Geneve.VNI}
 	default:
 		return
 	}
