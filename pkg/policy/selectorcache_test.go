@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -22,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	"github.com/cilium/statedb/part"
 )
 
 // testNewSelectorCache returns a newly initialized SelectorCache and a function used to
@@ -296,12 +296,12 @@ func (cs *testCachedSelector) deleteSelections(selections ...int) (deletes []ide
 
 // CachedSelector interface
 
-func (cs *testCachedSelector) GetSelections() set.Set[identity.NumericIdentity] {
-	return set.NewSet[identity.NumericIdentity](cs.selections...)
+func (cs *testCachedSelector) GetSelections() part.Set[identity.NumericIdentity] {
+	return part.NewSet[identity.NumericIdentity](cs.selections...)
 }
 
-func (cs *testCachedSelector) GetSelectionsAt(SelectorSnapshot) set.Set[identity.NumericIdentity] {
-	return set.NewSet[identity.NumericIdentity](cs.selections...)
+func (cs *testCachedSelector) GetSelectionsAt(SelectorSnapshot) part.Set[identity.NumericIdentity] {
+	return part.NewSet[identity.NumericIdentity](cs.selections...)
 }
 
 func (cs *testCachedSelector) GetSortedSelections() identity.NumericIdentitySlice {
@@ -674,7 +674,7 @@ func TestTransactionalUpdate(t *testing.T) {
 	// New version handle sees the removal
 	txn3 := sc.GetSelectorSnapshot()
 
-	require.Equal(t, identity.NumericIdentitySlice(nil), cs32.GetSortedSelectionsAt(txn3))
+	require.Equal(t, identity.NumericIdentitySlice{}, cs32.GetSortedSelectionsAt(txn3))
 	require.Equal(t, identity.NumericIdentitySlice{li3}, cs24.GetSortedSelectionsAt(txn3))
 	require.Equal(t, identity.NumericIdentitySlice{li2, li3}, cs8.GetSortedSelectionsAt(txn3))
 	require.Equal(t, identity.NumericIdentitySlice{li2, li3, li4}, cs7.GetSortedSelectionsAt(txn3))

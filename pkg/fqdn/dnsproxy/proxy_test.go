@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/container/set"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	fqdndns "github.com/cilium/cilium/pkg/fqdn/dns"
@@ -52,6 +51,7 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/statedb/part"
 )
 
 type DNSProxyTestSuite struct {
@@ -1422,11 +1422,11 @@ type selectorMock struct {
 	key string
 }
 
-func (t selectorMock) GetSelections() set.Set[identity.NumericIdentity] {
+func (t selectorMock) GetSelections() part.Set[identity.NumericIdentity] {
 	panic("implement me")
 }
 
-func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) set.Set[identity.NumericIdentity] {
+func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) part.Set[identity.NumericIdentity] {
 	panic("implement me")
 }
 

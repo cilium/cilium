@@ -576,7 +576,7 @@ func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source
 
 	// Scan the cached set of IDs to determine any new matchers
 	for nid := range sc.idCache.selections(sel) {
-		sel.cachedSelections.Insert(nid)
+		sel.cachedSelections = sel.cachedSelections.Set(nid)
 	}
 
 	// Note: No notifications are sent for the existing
@@ -695,16 +695,16 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 	for numericID := range deleted {
 		if exists := sel.cachedSelections.Has(numericID); exists {
 			dels = append(dels, numericID)
-			sel.cachedSelections.Remove(numericID)
+			sel.cachedSelections = sel.cachedSelections.Delete(numericID)
 		}
 	}
 	for _, numericID := range added {
 		identity, _ := sc.idCache.find(numericID)
 		matches := sel.source.Matches(identity.lbls)
-		exists := sel.cachedSelections.Has(numericID)
+		exists := sel.cachedSelections.Has(identity.NID)
 		if matches && !exists {
 			adds = append(adds, numericID)
-			sel.cachedSelections.Insert(numericID)
+			sel.cachedSelections = sel.cachedSelections.Set(numericID)
 		} else if !matches && exists {
 			// Identity was mutated and no longer matches, the
 			// identity is deleted from the cached selections,
@@ -714,7 +714,7 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 			// recompute the policy as if the mutated identity
 			// was never selected by the affected selector.
 			mutated = true
-			sel.cachedSelections.Remove(numericID)
+			sel.cachedSelections = sel.cachedSelections.Delete(numericID)
 		}
 	}
 	if len(dels)+len(adds) > 0 {
