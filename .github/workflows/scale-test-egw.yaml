@@ -131,6 +131,8 @@ jobs:
       id-token: write
       # To allow retrieving information from the PR API
       pull-requests: read
+      # To be able to set commit status
+      statuses: write
     runs-on: ubuntu-24.04
     name: Install and Scale Test
     needs: wait-for-images
@@ -142,6 +144,12 @@ jobs:
           - baseline
           - egw
     steps:
+      - name: Set commit status to pending
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: pending
+
       - name: Checkout context ref (trusted)
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
