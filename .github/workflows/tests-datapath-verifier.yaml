@@ -105,6 +105,12 @@ jobs:
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
+      - name: Set commit status to pending
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: pending
+
       - name: Checkout base branch
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
