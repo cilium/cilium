@@ -95,6 +95,7 @@ type featuresParams struct {
 	DynamicConfigSource dynamicconfig.ConfigSource
 	WgConfig            wgTypes.WireguardConfig
 	IPsecConfig         types.IPsecConfig
+	ConnectorConfig     types.ConnectorConfig
 }
 
 func (fp *featuresParams) TunnelProtocol() tunnel.EncapProtocol {
@@ -125,6 +126,14 @@ func (fp *featuresParams) IsDynamicConfigSourceKindNodeConfig() bool {
 	return fp.DynamicConfigSource.IsKindNodeConfig()
 }
 
+func (fp *featuresParams) DatapathConfiguredMode() string {
+	return fp.ConnectorConfig.GetConfiguredMode().String()
+}
+
+func (fp *featuresParams) DatapathOperationalMode() string {
+	return fp.ConnectorConfig.GetOperationalMode().String()
+}
+
 type enabledFeatures interface {
 	TunnelProtocol() tunnel.EncapProtocol
 	GetChainingMode() string
@@ -133,4 +142,6 @@ type enabledFeatures interface {
 	BigTCPConfig() types.BigTCPConfig
 	IsL2PodAnnouncementEnabled() bool
 	IsDynamicConfigSourceKindNodeConfig() bool
+	DatapathConfiguredMode() string
+	DatapathOperationalMode() string
 }
