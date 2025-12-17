@@ -74,6 +74,7 @@ func setupTestEnv(t *testing.T) *StandaloneDNSProxy {
 			bootstrap.Cell,
 			lookup.Cell,
 			messagehandler.Cell,
+			ReadinessCell,
 			cell.Provide(
 				func() *option.DaemonConfig {
 					return &option.DaemonConfig{
@@ -82,6 +83,7 @@ func setupTestEnv(t *testing.T) *StandaloneDNSProxy {
 					}
 				},
 				NewStandaloneDNSProxy,
+				NewReadinessStatusProvider,
 			)),
 		cell.Invoke(func(_s *StandaloneDNSProxy) {
 			sdp = _s
