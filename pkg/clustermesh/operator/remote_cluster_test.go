@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
@@ -19,6 +20,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -225,4 +227,155 @@ func TestRemoteClusterHooks(t *testing.T) {
 
 	rc.Remove(ctx)
 	require.EqualValues(t, 1, clusterRemoveCalledCount.Load(), "cluster remove called once")
+}
+
+type fakeCMObserver struct {
+	name       observer.Name
+	onRegister func(store.WatchStoreManager, kvstore.BackendOperations, types.CiliumClusterConfig)
+	enabled    bool
+
+	cluster string
+	onSync  func()
+
+	synced     atomic.Bool
+	registered atomic.Bool
+	revoked    atomic.Bool
+	drained    atomic.Bool
+}
+
+func (f *fakeCMObserver) Name() observer.Name { return f.name }
+func (f *fakeCMObserver) Revoke()             { f.revoked.Store(true) }
+func (f *fakeCMObserver) Drain()              { f.drained.Store(true) }
+
+func (f *fakeCMObserver) Register(mgr store.WatchStoreManager, backend kvstore.BackendOperations, cfg types.CiliumClusterConfig) {
+	f.registered.Store(true)
+	if f.onRegister != nil {
+		f.onRegister(mgr, backend, cfg)
+	}
+}
+
+func (f *fakeCMObserver) Status() observer.Status {
+	return observer.Status{Enabled: f.enabled, Synced: f.synced.Load()}
+}
+
+func TestRemoteClusterExtraObservers(t *testing.T) {
+	var (
+		logger = hivetest.Logger(t)
+		remote = kvstore.NewInMemoryClient(statedb.New(), "__remote__")
+
+		cfg = types.CiliumClusterConfig{
+			ID: 10, Capabilities: types.CiliumClusterConfigCapabilities{
+				MaxConnectedClusters: 123, ServiceExportsEnabled: ptr.To(true),
+			},
+		}
+
+		onRegister = func(mgr store.WatchStoreManager, backend kvstore.BackendOperations, got types.CiliumClusterConfig) {
+			require.NotNil(t, mgr, "Received invalid [store.WatchStoreManager]")
+			require.NotNil(t, backend, "Received invalid [kvstore.BackendOperations]")
+			require.Equal(t, cfg, got, "Received mismatching [types.CiliumClusterConfig]")
+		}
+
+		fooobs = fakeCMObserver{name: "foo", onRegister: onRegister, enabled: true}
+		barobs = fakeCMObserver{name: "bar", onRegister: onRegister, enabled: false}
+
+		factory = func(obs *fakeCMObserver) observer.Factory {
+			return func(cluster string, onSync func()) observer.Observer {
+				obs.cluster = cluster
+				obs.onSync = func() {
+					onSync()
+					obs.synced.Store(true)
+				}
+				return obs
+			}
+		}
+	)
+
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+
+	cm := clusterMesh{
+		logger:            logger,
+		metrics:           NewMetrics(),
+		observerFactories: []observer.Factory{factory(&fooobs), factory(&barobs)},
+		storeFactory:      store.NewFactory(logger, store.MetricsProvider()),
+	}
+
+	rc := cm.newRemoteCluster("foo", func() *models.RemoteCluster {
+		return &models.RemoteCluster{Ready: true}
+	}).(*remoteCluster)
+
+	require.False(t, rc.Status().Ready, "Status should not be ready before [Run] is invoked")
+
+	ready := make(chan error)
+	wg.Go(func() { rc.Run(ctx, remote, cfg, ready) })
+
+	require.NoError(t, <-ready, "rc.Run() failed")
+
+	require.True(t, fooobs.registered.Swap(false), "[Register] should have been invoked")
+	require.True(t, barobs.registered.Swap(false), "[Register] should have been invoked")
+	require.False(t, fooobs.revoked.Load(), "[Revoke] should not have been invoked")
+	require.False(t, fooobs.drained.Load(), "[Drain] should not have been invoked")
+
+	require.False(t, rc.Status().Ready, "Status should not be ready before all enabled observers are synced")
+	fooobs.onSync()
+	require.True(t, rc.Status().Ready, "Status should be ready once all enabled observers are synced")
+
+	cancel()
+	wg.Wait()
+
+	rc.RevokeCache(ctx)
+	require.True(t, fooobs.revoked.Swap(false), "[Revoke] should have been invoked")
+	require.True(t, barobs.revoked.Swap(false), "[Revoke] should have been invoked")
+	require.False(t, fooobs.registered.Load(), "[Register] should not have been invoked")
+	require.False(t, fooobs.drained.Load(), "[Drain] should not have been invoked")
+
+	rc.Remove(ctx)
+	require.True(t, fooobs.drained.Swap(false), "[Drain] should have been invoked")
+	require.True(t, barobs.drained.Swap(false), "[Drain] should have been invoked")
+	require.False(t, fooobs.registered.Load(), "[Register] should not have been invoked")
+	require.False(t, fooobs.revoked.Load(), "[Revoke] should not have been invoked")
+}
+
+func TestRemoteClusterExtraObserversSynced(t *testing.T) {
+	// Make use of synctest to leverage [synctest.Wait], which allows waiting
+	// until all goroutines are durably blocked, which is not otherwise possible.
+	synctest.Test(t, func(t *testing.T) {
+		var (
+			obs    = fakeCMObserver{name: "foo"}
+			logger = hivetest.Logger(t)
+		)
+
+		cm := clusterMesh{
+			logger:  logger,
+			metrics: NewMetrics(),
+			observerFactories: []observer.Factory{
+				func(cluster string, onSync func()) observer.Observer {
+					obs.onSync = onSync
+					return &obs
+				},
+			},
+			storeFactory: store.NewFactory(logger, store.MetricsProvider()),
+		}
+
+		rc := cm.newRemoteCluster("foo", nil).(*remoteCluster)
+
+		var ch = make(chan error, 1)
+
+		ctx, cancel := context.WithCancel(t.Context())
+		go func() { ch <- rc.synced.Observer(ctx, obs.name) }()
+
+		synctest.Wait()
+		cancel()
+
+		require.ErrorIs(t, <-ch, context.Canceled, "The observer should not be synced")
+
+		obs.onSync()
+		require.NoError(t, rc.synced.Observer(t.Context(), obs.name), "The observer should be now synced")
+
+		require.ErrorIs(t, rc.synced.Observer(ctx, "non-existing"), ErrObserverNotRegistered)
+	})
 }
