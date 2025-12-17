@@ -266,6 +266,11 @@ func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.Serv
 
 func (w *Writer) getFrontendControlFlags(feParams loadbalancer.FrontendParams) loadbalancer.ControlFlags {
 	needWildcardEntry := false
+	switch feParams.Type {
+	case loadbalancer.SVCTypeLoadBalancer, loadbalancer.SVCTypeClusterIP:
+		// Only external scoped entries can parent wildcard entries
+		needWildcardEntry = (feParams.Address.Scope() == loadbalancer.ScopeExternal)
+	}
 
 	cfParams := loadbalancer.CtrlFlagParam{
 		NeedWildcardEntry: needWildcardEntry,

@@ -119,7 +119,7 @@ Address              Instances
     }
   ],
   "ID": 1,
-  "ControlFlags": 0,
+  "ControlFlags": 1,
   "RedirectTo": null
 }
 {
@@ -166,7 +166,7 @@ Address              Instances
     }
   ],
   "ID": 2,
-  "ControlFlags": 0,
+  "ControlFlags": 1,
   "RedirectTo": null
 }
 -- backends-expected.json --
@@ -277,7 +277,7 @@ healthcheckbackends:
       unhealthy: false
       unhealthyupdatedat: null
 id: 1
-controlflags: 0
+controlflags: 1
 redirectto: null
 ---
 frontendparams:
@@ -315,7 +315,7 @@ healthcheckbackends:
       unhealthy: false
       unhealthyupdatedat: null
 id: 2
-controlflags: 0
+controlflags: 1
 redirectto: null
 -- backends-expected.yaml --
 address: 10.244.1.1:8080/TCP
