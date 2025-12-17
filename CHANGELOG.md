@@ -1,5 +1,74 @@
 # Changelog
 
+## v1.16.18
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* AWS EC2: Fix ENI attachment on multi-network card instances with high-performance networking (EFA) setups (Backport PR cilium/cilium#42746, Upstream PR cilium/cilium#42512, @41ks)
+* CiliumEnvoyConfig proxy ports are now restored on agent restarts. (Backport PR cilium/cilium#43119, Upstream PR cilium/cilium#43108, @jrajahalme)
+* Do not opt-out Endpoint ID 1 from dnsproxy transparent mode. (Backport PR cilium/cilium#42951, Upstream PR cilium/cilium#42887, @jrajahalme)
+* Fix a bug that would cause IPsec logs to incorrectly report the XFRM rules being processed as "Ingress" rules. (Backport PR cilium/cilium#42826, Upstream PR cilium/cilium#42640, @sjohnsonpal)
+* Fix bug that could cause the agent to fail to add XFRM states when IPsec is enabled, thus preventing a proper startup. (Backport PR cilium/cilium#42951, Upstream PR cilium/cilium#42666, @pchaigno)
+* policy: Fix Endpoint Selector Policy Deadlock (Backport PR cilium/cilium#43082, Upstream PR cilium/cilium#38139, @nathanjsweet)
+* policy: Fix rare bug that prevented two endpoints that shared the same identity from being simultaneously updated. (Backport PR cilium/cilium#43082, Upstream PR cilium/cilium#37910, @nathanjsweet)
+* policy: Fix rare Endpoint Selector Policy Deadlock causing policies to not be updated with new identities (Backport PR cilium/cilium#43082, Upstream PR cilium/cilium#42306, @odinuge)
+
+**CI Changes:**
+* .github: Consistently clean up workers on start (Backport PR cilium/cilium#43214, Upstream PR cilium/cilium#39644, @joestringer)
+* bpf: test: egressgw: fix up ENABLE_MASQUERADE (Backport PR cilium/cilium#42972, Upstream PR cilium/cilium#42912, @julianwiedmann)
+* ci: run privileged tests in parallel except for IPSec (Backport PR cilium/cilium#42885, Upstream PR cilium/cilium#35232, @marseel)
+* Delete .github/workflows/build-images-hotfixes.yaml (Backport PR cilium/cilium#42972, Upstream PR cilium/cilium#42958, @sekhar-isovalent)
+* Fix unparallel tests packages list in Makefile (Backport PR cilium/cilium#42885, Upstream PR cilium/cilium#39250, @pippolo84)
+* gh: conn-disrupt: fix XFRM error checks (Backport PR cilium/cilium#42777, Upstream PR cilium/cilium#42724, @julianwiedmann)
+* gh: ipsec-e2e: fix flaky connection disruptivity test (Backport PR cilium/cilium#42851, Upstream PR cilium/cilium#42780, @julianwiedmann)
+* gha: additionally cleanup disk space in clustermesh upgrade workflow (Backport PR cilium/cilium#42951, Upstream PR cilium/cilium#42862, @giorio94)
+* gha: wait for cert-manager CRDs to be ready in conformance clustermesh (Backport PR cilium/cilium#42972, Upstream PR cilium/cilium#42947, @giorio94)
+* makefile: More reliable update-helm-values (Backport PR cilium/cilium#42826, Upstream PR cilium/cilium#42736, @devodev)
+* pkg: Mark node_linux_test.go as unparallel (Backport PR cilium/cilium#42885, Upstream PR cilium/cilium#38172, @jschwinger233)
+
+**Misc Changes:**
+* .github/workflows: remove auto-requested reviewers (Backport PR cilium/cilium#43346, Upstream PR cilium/cilium#42952, @aanm)
+* [v1.16] .github/workflows: make adjustments for new GitHub workflow behavior (cilium/cilium#43239, @aanm)
+* chore(deps): update actions/cache action to v5.0.1 (v1.16) (cilium/cilium#43328, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#42689, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#42942, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#43040, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#43190, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.16) (cilium/cilium#43270, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#42809, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.16) (cilium/cilium#43041, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.9 (v1.16) (cilium/cilium#43191, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/little-vm-helper to v0.0.28 (v1.16) (cilium/cilium#42773, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v33.1 (v1.16) (cilium/cilium#42812, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v33.2 (v1.16) (cilium/cilium#43194, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf-go to v1.36.11 (v1.16) (cilium/cilium#43329, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.36.1 docker digest to 6b21990 (v1.16) (cilium/cilium#43326, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.10 docker digest to 7b13449 (v1.16) (cilium/cilium#42939, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.10 docker digest to 83d7392 (v1.16) (cilium/cilium#42810, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.11 docker digest to e3fb71a (v1.16) (cilium/cilium#43327, @cilium-renovate[bot])
+* chore(deps): update gcr.io/distroless/static:nonroot docker digest to 2b7c93f (v1.16) (cilium/cilium#43138, @cilium-renovate[bot])
+* chore(deps): update go to v1.24.11 (v1.16) (cilium/cilium#43192, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/certgen docker tag to v0.3.1 (v1.16) (cilium/cilium#43054, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.34.10-1763384313-86bb34d9627caf54d09233ad653eaf621751d301 (v1.16) (cilium/cilium#42940, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#42811, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#42941, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#43039, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#43193, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.16) (patch) (cilium/cilium#43330, @cilium-renovate[bot])
+* docs: Add limitation about LB to same backend via multiple VIPs (Backport PR cilium/cilium#42746, Upstream PR cilium/cilium#42632, @brb)
+* Documentation: host firewall: document emergency recovery (Backport PR cilium/cilium#42951, Upstream PR cilium/cilium#42776, @squeed)
+* fix(deps): update module golang.org/x/crypto to v0.45.0 [security] (v1.16) (cilium/cilium#42884, @cilium-renovate[bot])
+* Minor improvements around certificate validation in etcd/clustermesh troubleshoot commands (Backport PR cilium/cilium#42951, Upstream PR cilium/cilium#42782, @giorio94)
+
+**Other Changes:**
+* [v1.16] ci: bump ubuntu version for lint build commit workflow (cilium/cilium#42843, @giorio94)
+* [v1.16] ci: fix nodegroups volume size (cilium/cilium#43051, @Artyop)
+* [v1.16] proxy: Bump envoy version to v1.34.11 (cilium/cilium#43145, @sayboras)
+* [v1.16] proxy: Bump envoy version to v1.34.12 (cilium/cilium#43262, @sayboras)
+* install: Update image digests for v1.16.17 (cilium/cilium#42733, @cilium-release-bot[bot])
+
 ## v1.16.17
 
 Summary of Changes
