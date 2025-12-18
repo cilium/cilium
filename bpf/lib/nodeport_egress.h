@@ -182,7 +182,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
 	if (!nodeport_rev_dnat_get_info_ipv6(ctx, &tuple, &nat_info))
 		return CTX_ACT_OK;
 
-#if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
+#if defined(IS_BPF_HOST)
 	if (revdnat_only)
 		goto skip_fib;
 
@@ -473,7 +473,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
 	if (!nodeport_rev_dnat_get_info_ipv4(ctx, &tuple, &nat_info))
 		return CTX_ACT_OK;
 
-#if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
+#if defined(IS_BPF_HOST)
 	if (revdnat_only)
 		goto skip_fib;
 
