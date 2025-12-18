@@ -278,10 +278,7 @@ func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath
 		return fmt.Errorf("failed to retrieve link for interface %s: %w", iface, err)
 	}
 
-	// gather compile options for bpf_overlay.c
-	opts := []string{}
-
-	if err := replaceOverlayDatapath(ctx, logger, lnc, opts, link); err != nil {
+	if err := replaceOverlayDatapath(ctx, logger, lnc, link); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
 	}
 

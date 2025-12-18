@@ -362,7 +362,7 @@ func compileNetwork(ctx context.Context, logger *slog.Logger) error {
 }
 
 // compileOverlay compiles BPF programs in bpf_overlay.c.
-func compileOverlay(ctx context.Context, logger *slog.Logger, opts []string) error {
+func compileOverlay(ctx context.Context, logger *slog.Logger) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -385,7 +385,6 @@ func compileOverlay(ctx context.Context, logger *slog.Logger, opts []string) err
 		Source:     overlayProg,
 		Output:     overlayObj,
 		OutputType: outputObject,
-		Options:    opts,
 	}
 	// Write out assembly and preprocessing files for debugging purposes
 	if _, err := compile(ctx, logger, prog, dirs); err != nil {
