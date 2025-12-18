@@ -71,13 +71,18 @@ runs:
 
             echo "Trying kubeconfig: ${KUBECONFIG_KEY}"
 
-            # Try to download and delete atomically
-            KUBECONFIG_PATH="/tmp/kubeconfig-${RANDOM}"
+            # Generate a unique claim ID for this job run
+            CLAIM_ID="${{ github.run_id }}-${{ github.run_attempt }}-${RANDOM}"
+            CLAIM_KEY="${S3_PREFIX}claimed/${KUBECONFIG_KEY}.${CLAIM_ID}"
+            KUBECONFIG_PATH="/tmp/kubeconfig-${CLAIM_ID}"
 
-            # Download the kubeconfig
-            if aws s3 cp "s3://${S3_BUCKET}/${S3_PREFIX}${KUBECONFIG_KEY}" "${KUBECONFIG_PATH}" --region ${{ inputs.region }}; then
-              # Delete it from S3 to prevent others from using it
-              if aws s3 rm "s3://${S3_BUCKET}/${S3_PREFIX}${KUBECONFIG_KEY}" --region ${{ inputs.region }}; then
+            # Atomically claim by moving the file to a unique location
+            # The first job to successfully move will win; others will fail on source not found
+            if aws s3 mv "s3://${S3_BUCKET}/${S3_PREFIX}${KUBECONFIG_KEY}" "s3://${S3_BUCKET}/${CLAIM_KEY}" --region ${{ inputs.region }} 2>/dev/null; then
+              # We won the race - now download from our claimed location
+              if aws s3 cp "s3://${S3_BUCKET}/${CLAIM_KEY}" "${KUBECONFIG_PATH}" --region ${{ inputs.region }}; then
+                # Clean up the claimed file
+                aws s3 rm "s3://${S3_BUCKET}/${CLAIM_KEY}" --region ${{ inputs.region }} || true
                 echo "Successfully claimed kubeconfig: ${KUBECONFIG_KEY}"
 
                 # Extract cluster name from filename (format: cluster-name-timestamp.yaml)
@@ -102,13 +107,14 @@ runs:
                   continue
                 fi
               else
-                echo "Failed to delete from S3, someone else may have claimed it; trying next available config"
+                echo "Failed to download claimed kubeconfig, trying next available config"
+                # Clean up the claimed file even if download failed
+                aws s3 rm "s3://${S3_BUCKET}/${CLAIM_KEY}" --region ${{ inputs.region }} || true
                 rm -f "${KUBECONFIG_PATH}"
                 continue
               fi
             else
-              echo "Failed to download s3://${S3_BUCKET}/${S3_PREFIX}${KUBECONFIG_KEY}; trying next available config"
-              rm -f "${KUBECONFIG_PATH}"
+              echo "Failed to claim kubeconfig (likely claimed by another job), trying next available config"
               continue
             fi
           done
