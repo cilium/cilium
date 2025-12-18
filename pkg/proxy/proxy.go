@@ -647,6 +647,9 @@ func requireFromProxyRoutes(mtuIn int) (fromIngressProxy, fromEgressProxy bool, 
 		fromIngressProxy = true
 		fromEgressProxy = true
 		mtu = mtuIn
+	case option.Config.EnableWireguard:
+		fromIngressProxy = true
+		mtu = mtuIn
 	}
 	return
 }
