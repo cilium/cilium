@@ -11,7 +11,7 @@
 #define __ASSERT_TRACE_FAIL_BUF(...)
 #include "scapy.h"
 
-#define fake_test_end() (void)suite_result; } while (0)
+#define fake_test_end() } while (0)
 
 #define ASSERT1 "assert1"
 #define ASSERT2 "assert2"
