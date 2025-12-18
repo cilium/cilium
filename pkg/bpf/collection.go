@@ -253,9 +253,7 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	// In debug mode, check that no maps were freed by the kernel after loading
 	// the Collection.
-	if err := mustNoFreedMaps(logger, coll, fixed); err != nil {
-		return nil, nil, err
-	}
+	logFreedMaps(logger, coll, fixed)
 
 	// Collect Maps that need their bpffs pins replaced. Pull out Map objects
 	// before returning the Collection, since commit() still needs to work when
@@ -319,29 +317,27 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 	return nil
 }
 
-// mustNoFreedMaps checks that no maps were freed by the kernel after loading
+// logFreedMaps checks that no maps were freed by the kernel after loading
 // the given Collection.
 //
 // Only runs in debug mode due to its runtime cost.
-func mustNoFreedMaps(logger *slog.Logger, coll *ebpf.Collection, fixed *set.Set[string]) error {
+func logFreedMaps(logger *slog.Logger, coll *ebpf.Collection, fixed *set.Set[string]) {
 	if !logger.Enabled(context.TODO(), slog.LevelDebug) {
-		return nil
+		return
 	}
 
 	freed, err := freedMaps(coll, fixed)
 	if errors.Is(err, ebpf.ErrRestrictedKernel) {
 		logger.Debug("Cannot detect freed maps due to restricted kernel")
-		return nil
+		return
 	}
 	if err != nil {
-		return fmt.Errorf("detecting freed maps: %w", err)
+		logger.Debug("Error detecting freed maps", logfields.Error, err)
 	}
 
 	if len(freed) > 0 {
-		return fmt.Errorf("maps freed by the kernel after dead code elimination: %s", freed)
+		logger.Debug("Maps freed by the kernel after dead code elimination", logfields.Maps, freed)
 	}
 
 	logger.Debug("No freed maps found after loading Collection")
-
-	return nil
 }
