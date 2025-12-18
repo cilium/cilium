@@ -525,10 +525,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
 	}
 
-	if option.Config.EnableVTEP {
-		cDefinesMap["ENABLE_VTEP"] = "1"
-	}
-
 	cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
 
 	vlanFilter, err := vlanFilterMacros(nativeDevices)

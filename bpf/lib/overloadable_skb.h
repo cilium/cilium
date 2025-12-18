@@ -195,11 +195,9 @@ ctx_set_encap_info4(struct __sk_buff *ctx, __u32 src_ip,
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	int ret;
 
-#ifdef ENABLE_VTEP
-	if (vni != NOT_VTEP_DST)
+	if (CONFIG(enable_vtep) && vni != NOT_VTEP_DST)
 		key.tunnel_id = get_tunnel_id(vni);
 	else
-#endif /* ENABLE_VTEP */
 		key.tunnel_id = get_tunnel_id(seclabel);
 
 	if (src_ip != 0) {

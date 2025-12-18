@@ -1168,17 +1168,13 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	 * stack to bpf_host for VTEP redirection. When L7 proxy enabled, but no
 	 * L7 policy applied to pod, VTEP redirection also happen here.
 	 */
-#if defined(ENABLE_VTEP)
-	{
+	if (CONFIG(enable_vtep)) {
 		struct vtep_key vkey = {};
 		struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
-		if (!vtep)
-			goto skip_vtep;
-
-		if (vtep->vtep_mac && vtep->tunnel_endpoint) {
+		if (vtep && vtep->vtep_mac && vtep->tunnel_endpoint) {
 			if (eth_store_daddr(ctx, (__u8 *)&vtep->vtep_mac, 0) < 0)
 				return DROP_WRITE_ERROR;
 			fake_info.tunnel_endpoint.ip4 = vtep->tunnel_endpoint;
@@ -1189,8 +1185,6 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 								bpf_htons(ETH_P_IP));
 		}
 	}
-skip_vtep:
-#endif
 
 #if defined(TUNNEL_MODE)
 	/* If the connection was established over the tunnel, ignore the
