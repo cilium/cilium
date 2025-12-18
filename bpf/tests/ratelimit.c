@@ -33,7 +33,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 	};
 	struct ratelimit_value *value;
 
-	test_init();
+	multi_test_init();
 
 	TEST("bucket-created-when-missing", {
 		value = map_lookup_elem(&cilium_ratelimit, &key);
@@ -95,5 +95,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 			test_fatal("Unexpected token amount after topup");
 	});
 
-	test_finish();
+	multi_test_finish();
 }
+
+BPF_LICENSE("Dual BSD/GPL");

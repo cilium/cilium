@@ -109,7 +109,7 @@ int ipsec_redirect_checks(const struct __ctx_buff *ctx)
 static __always_inline
 int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 {
-	test_init();
+	multi_test_init();
 
 	int ret = 0;
 	__be16 proto = is_ipv4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6);
@@ -170,7 +170,7 @@ int bad_identities_check(struct __ctx_buff *ctx, bool is_ipv4)
 		assert(ret == CTX_ACT_OK);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 PKTGEN("tc", "ipsec_redirect4")

@@ -82,7 +82,7 @@ static char pkt[100];
 CHECK("tc", "ct4")
 int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	int pkt_size = mkpkt(pkt, true);
 
@@ -209,7 +209,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 BPF_LICENSE("Dual BSD/GPL");

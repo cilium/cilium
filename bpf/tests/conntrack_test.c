@@ -42,7 +42,7 @@ bool timeout_in(const struct ct_entry *entry, int seconds)
 CHECK("tc", "conntrack")
 int bpf_test(__maybe_unused struct __sk_buff *sctx)
 {
-	test_init();
+	multi_test_init();
 
 	TEST("ct_update_timeout", {
 		struct ct_entry entry = {};
@@ -207,13 +207,13 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		assert(monitor == TRACE_PAYLOAD_LEN);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 CHECK("tc", "conntrack_svc")
 int svc_test(__maybe_unused struct __sk_buff *sctx)
 {
-	test_init();
+	multi_test_init();
 
 	TEST("ct_lookup_svc", {
 		struct __ctx_buff ctx = {};
@@ -288,7 +288,7 @@ int svc_test(__maybe_unused struct __sk_buff *sctx)
 		assert(monitor == TRACE_PAYLOAD_LEN);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 BPF_LICENSE("Dual BSD/GPL");

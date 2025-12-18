@@ -973,3 +973,5 @@ int test_extract_trace_id_8_bytes_invalid_length_check(struct __ctx_buff *ctx)
 		test_fatal("trace_id_from_ctx(ctx) = %lld; want %lld\n", trace_id, want);
 	test_finish();
 }
+
+BPF_LICENSE("Dual BSD/GPL");

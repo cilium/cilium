@@ -21,7 +21,6 @@
 static __always_inline
 int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool outer_ipv4)
 {
-	test_init();
 
 	int ret = 0;
 	__be16 proto = outer_ipv4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6);
@@ -32,6 +31,8 @@ int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool outer_ipv4
 		node_v6_add_entry((const union v6addr *)DST_NODE_IP_6, DST_NODE_ID, TARGET_SPI);
 
 	ipsec_set_encrypt_state(BAD_SPI);
+
+	multi_test_init();
 
 	/*
 	 * Ensure encryption mark is set for overlay traffic with source
@@ -48,7 +49,7 @@ int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool outer_ipv4
 		assert(ret == CTX_ACT_REDIRECT);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 PKTGEN("tc", "ipsec_redirect_tunnel4_v4")
@@ -98,3 +99,5 @@ int ipsec_redirect_tunnel6_v6_check(__maybe_unused struct __ctx_buff *ctx)
 {
 	return ipsec_redirect_checks(ctx, false);
 }
+
+BPF_LICENSE("Dual BSD/GPL");

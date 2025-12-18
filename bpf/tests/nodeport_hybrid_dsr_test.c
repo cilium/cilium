@@ -23,7 +23,7 @@
 CHECK("tc", "test_nodeport_uses_dsr_ipv4_with_flag")
 int test_nodeport_uses_dsr_ipv4_with_flag(__maybe_unused struct __ctx_buff *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	TEST("nodeport_uses_dsr4 returns true when SVC_FLAG_FWD_MODE_DSR is set", {
 		struct lb4_service svc;
@@ -58,13 +58,13 @@ int test_nodeport_uses_dsr_ipv4_with_flag(__maybe_unused struct __ctx_buff *ctx)
 			test_error("nodeport_uses_dsr4() should return false without DSR flag");
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 CHECK("tc", "test_nodeport_uses_dsr_ipv6_with_flag")
 int test_nodeport_uses_dsr_ipv6_with_flag(__maybe_unused struct __ctx_buff *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	TEST("nodeport_uses_dsr6 returns true when SVC_FLAG_FWD_MODE_DSR is set", {
 		struct lb6_service svc;
@@ -99,5 +99,5 @@ int test_nodeport_uses_dsr_ipv6_with_flag(__maybe_unused struct __ctx_buff *ctx)
 			test_error("nodeport_uses_dsr6() should return false without DSR flag");
 	});
 
-	test_finish();
+	multi_test_finish();
 }

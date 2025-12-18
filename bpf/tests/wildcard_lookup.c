@@ -113,7 +113,7 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 
 	__setup_v4();
 
-	test_init();
+	multi_test_init();
 
 	TEST("setup", {
 		info = lookup_ip4_remote_endpoint(bpf_htonl(HOST_IP), 0);
@@ -264,7 +264,7 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 		assert(!ret);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 static inline void __setup_v6_ipcache(const union v6addr *HOST_IP6)
@@ -331,7 +331,7 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 	__setup_v6_nodeport(&HOST_IP6);
 	__setup_v6_hostport(&HOST_IP6);
 
-	test_init();
+	multi_test_init();
 
 	TEST("setup", {
 		info = lookup_ip6_remote_endpoint(&HOST_IP6, 0);
@@ -482,5 +482,5 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 		assert(!ret);
 	});
 
-	test_finish();
+	multi_test_finish();
 }

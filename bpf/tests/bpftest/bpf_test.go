@@ -33,8 +33,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/tools/cover"
-	"google.golang.org/protobuf/encoding/protowire"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -524,59 +522,6 @@ func subTest(progSet programSet, resultMap *ebpf.Map, scapyAssertMap *ebpf.Map, 
 				m.Update(&key, &value, ebpf.UpdateAny)
 			}
 		}()
-
-		var key int32
-		value := make([]byte, resultMap.ValueSize())
-		err = resultMap.Lookup(&key, &value)
-		if err != nil {
-			t.Fatal("error while getting suite result:", err)
-		}
-
-		// Detect the length of the result, since the proto.Unmarshal doesn't like trailing zeros.
-		valueLen := 0
-		valueC := value
-		for {
-			_, _, len := protowire.ConsumeField(valueC)
-			if len <= 0 {
-				break
-			}
-			valueLen += len
-			valueC = valueC[len:]
-		}
-
-		result := &SuiteResult{}
-		err = proto.Unmarshal(value[:valueLen], result)
-		if err != nil {
-			t.Fatal("error while unmarshalling suite result:", err)
-		}
-
-		for _, testResult := range result.Results {
-			// Remove the C-string, null-terminator.
-			name := strings.TrimSuffix(testResult.Name, "\x00")
-			t.Run(name, func(tt *testing.T) {
-				if len(testResult.TestLog) > 0 && testing.Verbose() || testResult.Status != SuiteResult_TestResult_PASS {
-					for _, log := range testResult.TestLog {
-						tt.Logf("%s", log.FmtString())
-					}
-				}
-
-				switch testResult.Status {
-				case SuiteResult_TestResult_ERROR:
-					tt.Fatal("Test failed due to unknown error in test framework")
-				case SuiteResult_TestResult_FAIL:
-					tt.Fail()
-				case SuiteResult_TestResult_SKIP:
-					tt.Skip()
-				}
-			})
-		}
-
-		if len(result.SuiteLog) > 0 && testing.Verbose() ||
-			SuiteResult_TestResult_TestStatus(statusCode) != SuiteResult_TestResult_PASS {
-			for _, log := range result.SuiteLog {
-				t.Logf("%s", log.FmtString())
-			}
-		}
 
 		switch SuiteResult_TestResult_TestStatus(statusCode) {
 		case SuiteResult_TestResult_ERROR:

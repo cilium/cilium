@@ -9,7 +9,7 @@
 CHECK("tc", "overlay_neigh_resolver")
 int overlay_neigh_resolver(__maybe_unused struct __sk_buff *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	/* Due to https://lore.kernel.org/netdev/20251003073418.291171-1-daniel@iogearbox.net
 	 * we shouldn't use bpf_redirect_neigh() from overlay programs without providing
@@ -23,5 +23,5 @@ int overlay_neigh_resolver(__maybe_unused struct __sk_buff *ctx)
 		assert(neigh_resolver_available());
 	});
 
-	test_finish();
+	multi_test_finish();
 }

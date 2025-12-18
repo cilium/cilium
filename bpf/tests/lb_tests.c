@@ -259,3 +259,5 @@ int test_lb4_proto_mismatch_wild_dual_scope(__maybe_unused struct __ctx_buff *ct
 
 	test_finish();
 }
+
+BPF_LICENSE("Dual BSD/GPL");

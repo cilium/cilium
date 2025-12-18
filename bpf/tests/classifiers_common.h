@@ -94,7 +94,7 @@ pktgen(struct __ctx_buff *ctx, bool is_ipv4)
 static __always_inline int
 check(struct __ctx_buff *ctx, bool is_ipv4)
 {
-	test_init();
+	multi_test_init();
 
 	adjust_l2(ctx);
 
@@ -159,7 +159,7 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 		assert(flags & CLS_FLAG_VXLAN);
 	});
 
-	test_finish();
+	multi_test_finish();
 }
 
 PKTGEN("tc", "ctx_classify4")
@@ -195,7 +195,7 @@ compute_capture_len_pktgen(struct __ctx_buff *ctx) {
 CHECK("tc", "compute_capture_len")
 int compute_capture_len_check(struct __ctx_buff *ctx)
 {
-	test_init();
+	multi_test_init();
 
 	enum trace_point obs_point = TRACE_TO_OVERLAY;
 	cls_flags_t flags = CLS_FLAG_NONE;
@@ -274,5 +274,5 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 		assert(cap_len == CONFIG(trace_payload_len_overlay));
 	});
 
-	test_finish();
+	multi_test_finish();
 }
