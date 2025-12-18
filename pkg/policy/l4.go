@@ -717,50 +717,33 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 			KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 	}
 
-	// Compute and insert the wildcard entry, if present.
+	// Compute the wildcard entry, if present.
 	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port)
-	if !wildcardEntry.Invalid {
-		for _, keyToAdd := range keysToAdd {
-			keyToAdd.Identity = 0
-			p.policyMapState.insertWithChanges(keyToAdd, wildcardEntry, features, changes)
 
-			if port == 0 {
-				// Allow-all
-				scopedLog.Debug(
-					"ToMapState: allow all",
-					logfields.EndpointSelector, l4.wildcard,
-				)
-			} else {
-				// L4 allow
-				scopedLog.Debug(
-					"ToMapState: L4 allow all",
-					logfields.EndpointSelector, l4.wildcard,
-				)
-			}
-		}
-	}
-
+	var idents identity.NumericIdentitySlice
+	var entry mapStateEntry
 	for cs, currentRule := range l4.PerSelectorPolicies {
-		// is this wildcard? If so, we already added it above
-		if cs == l4.wildcard {
-			continue
+		// is this wildcard? If so, we already created it above
+		if !wildcardEntry.Invalid && cs == l4.wildcard {
+			entry = wildcardEntry
+			// wildcard identity
+			idents = identity.NumericIdentitySlice{0}
+		} else {
+			entry = l4.makeMapStateEntry(logger, p, port, cs, currentRule)
+			if entry.Invalid {
+				continue
+			}
+
+			// If this entry is identical to the wildcard's entry, we can elide it.
+			// Do not elide for port wildcards. TODO: This is probably too
+			// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
+			if !wildcardEntry.Invalid && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
+				scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
+				continue
+			}
+			idents = cs.GetSelectionsAt(p.selectors)
 		}
 
-		// create MapStateEntry
-		entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule)
-		if entry.Invalid {
-			continue
-		}
-
-		// If this entry is identical to the wildcard's entry, we can elide it.
-		// Do not elide for port wildcards. TODO: This is probably too
-		// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
-		if !wildcardEntry.Invalid && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
-			scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
-			continue
-		}
-
-		idents := cs.GetSelectionsAt(p.selectors)
 		if option.Config.Debug {
 			if entry.IsDeny() {
 				scopedLog.Debug(
