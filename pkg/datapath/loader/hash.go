@@ -40,10 +40,10 @@ func (d datapathHash) hashEndpoint(c datapath.ConfigWriter, nodeCfg *datapath.Lo
 			return "", fmt.Errorf("hashing host rewrites: %w", err)
 		}
 	} else {
-		cfg, _ := endpointRewrites(epCfg, nodeCfg)
-		_, err := fmt.Fprintf(h, "%+v", cfg)
-		if err != nil {
-			return "", fmt.Errorf("hashing endpoint rewrites: %w", err)
+		for _, cfg := range endpointConfiguration(epCfg, nodeCfg) {
+			if _, err := fmt.Fprintf(h, "%+v", cfg); err != nil {
+				return "", fmt.Errorf("hashing endpoint runtime configuration: %w", err)
+			}
 		}
 	}
 
