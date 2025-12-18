@@ -27,6 +27,10 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+const (
+	symbolFromHostNetdevXDP = "cil_xdp_entry"
+)
+
 func xdpConfigModeToFlag(xdpMode xdp.Mode) link.XDPAttachFlags {
 	switch xdpMode {
 	case xdp.ModeLinkDriver:
