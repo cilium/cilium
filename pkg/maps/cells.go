@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
+	"github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
 
@@ -97,6 +98,9 @@ var Cell = cell.Module(
 
 	// Provides access to the vtep map.
 	vtep.Cell,
+
+	// Provides access to the subnet map.
+	subnet.Cell,
 )
 
 type mapApiHandlerOut struct {
