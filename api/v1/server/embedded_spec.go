@@ -1309,6 +1309,22 @@ func init() {
         }
       }
     },
+    "/policy/subject-selectors": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "See what subject selectors match which identities on the local node",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SelectorCache"
+            }
+          }
+        }
+      }
+    },
     "/prefilter": {
       "get": {
         "tags": [
@@ -6601,6 +6617,22 @@ func init() {
           "policy"
         ],
         "summary": "See what selectors match which identities",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/SelectorCache"
+            }
+          }
+        }
+      }
+    },
+    "/policy/subject-selectors": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "See what subject selectors match which identities on the local node",
         "responses": {
           "200": {
             "description": "Success",

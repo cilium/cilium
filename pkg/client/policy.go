@@ -29,3 +29,13 @@ func (c *Client) PolicyCacheGet() (models.SelectorCache, error) {
 	}
 	return resp.Payload, nil
 }
+
+// SubjectPolicySelectorsGet returns the contents of the subject SelectorCache.
+func (c *Client) SubjectPolicySelectorsGet() (models.SelectorCache, error) {
+	params := policy.NewGetPolicySubjectSelectorsParams().WithTimeout(api.ClientTimeout)
+	resp, err := c.Policy.GetPolicySubjectSelectors(params)
+	if err != nil {
+		return nil, Hint(err)
+	}
+	return resp.Payload, nil
+}

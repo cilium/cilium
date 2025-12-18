@@ -576,6 +576,16 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/SelectorCache"
+  "/policy/subject-selectors":
+    get:
+      summary: See what subject selectors match which identities on the local node
+      tags:
+        - policy
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/SelectorCache"
   "/lrp":
     get:
       summary: Retrieve list of all local redirect policies
