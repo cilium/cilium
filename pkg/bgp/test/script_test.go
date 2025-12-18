@@ -62,6 +62,7 @@ const (
 	bgpNoEndpointsRoutableFlag = "bgp-no-endpoints-routable"
 	ipamFlag                   = "ipam"
 	probeTCPMD5Flag            = "probe-tcp-md5"
+	kubeProxyReplacementFlag   = "kube-proxy-replacement"
 )
 
 func TestPrivilegedScript(t *testing.T) {
@@ -91,6 +92,7 @@ func TestPrivilegedScript(t *testing.T) {
 		ipam := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
 		noEndpointsRoutable := flags.Bool(bgpNoEndpointsRoutableFlag, true, "")
+		kubeProxyReplacement := flags.Bool(kubeProxyReplacementFlag, true, "")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
 		if *probeTCPMD5 {
@@ -148,7 +150,7 @@ func TestPrivilegedScript(t *testing.T) {
 				},
 				func() kpr.KPRConfig {
 					return kpr.KPRConfig{
-						KubeProxyReplacement: true,
+						KubeProxyReplacement: *kubeProxyReplacement,
 					}
 				},
 			),
