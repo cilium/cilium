@@ -815,8 +815,8 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*
 	return nil
 }
 
-func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, cArgs []string, device netlink.Link) error {
-	if err := compileOverlay(ctx, logger, cArgs); err != nil {
+func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, device netlink.Link) error {
+	if err := compileOverlay(ctx, logger); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
 
