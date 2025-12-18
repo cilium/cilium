@@ -6,9 +6,9 @@ Cilium Agent API
 The following API flags are compatible with the ``cilium-agent`` flag
 ``enable-cilium-api-server-access``.
 
-=====================     ====================
+========================= ====================
 Flag Name                 Description
-=====================     ====================
+========================= ====================
 DeleteEndpoint            Deletes a list of endpoints that have endpoints matching the
                           provided properties
 DeleteEndpointID          Deletes the endpoint specified by the ID. Deletion is
@@ -88,7 +88,7 @@ PatchPrefilter            -
 PostIPAM                  -
 PostIPAMIP                -
 PutEndpointID             Creates a new endpoint
-=====================     ====================
+========================= ====================
 
 Cilium Agent Clusterwide Health API
 ===================================
@@ -96,17 +96,17 @@ Cilium Agent Clusterwide Health API
 The following API flags are compatible with the ``cilium-agent`` flag
 ``enable-cilium-health-api-server-access``.
 
-===================== ====================
-Flag Name             Description
-===================== ====================
-GetHealthz            Returns health and status information of the local node
-                      including load and uptime, as well as the status of related
-                      components including the Cilium daemon.
-GetStatus             Returns the connectivity status to all other cilium-health
-                      instances using interval-based probing.
-PutStatusProbe        Runs a synchronous probe to all other cilium-health
-                      instances and returns the connectivity status.
-===================== ====================
+========================= ====================
+Flag Name                 Description
+========================= ====================
+GetHealthz                Returns health and status information of the local node
+                          including load and uptime, as well as the status of related
+                          components including the Cilium daemon.
+GetStatus                 Returns the connectivity status to all other cilium-health
+                          instances using interval-based probing.
+PutStatusProbe            Runs a synchronous probe to all other cilium-health
+                          instances and returns the connectivity status.
+========================= ====================
 
 Cilium Operator API
 ===================
@@ -114,10 +114,10 @@ Cilium Operator API
 The following API flags are compatible with the ``cilium-operator`` flag
 ``enable-cilium-operator-server-access``.
 
-===================== ====================
-Flag Name             Description
-===================== ====================
-GetCluster            Returns the list of remote clusters and their status.
-GetHealthz            Returns the status of cilium operator instance.
-GetMetrics            Returns the metrics exposed by the Cilium operator.
-===================== ====================
+========================= ====================
+Flag Name                 Description
+========================= ====================
+GetCluster                Returns the list of remote clusters and their status.
+GetHealthz                Returns the status of cilium operator instance.
+GetMetrics                Returns the metrics exposed by the Cilium operator.
+========================= ====================
