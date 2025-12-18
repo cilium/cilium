@@ -1,0 +1,11 @@
+- metadata:
+    name: backendtlspolicy-test
+    namespace: gateway-conformance-infra
+  spec:
+    selector:
+      app: tls-backend
+    ports:
+      - name: "btls"
+        protocol: TCP
+        port: 443
+        targetPort: 8443
