@@ -39,10 +39,9 @@ const (
 	endpointProg   = endpointPrefix + "." + string(outputSource)
 	endpointObj    = endpointPrefix + ".o"
 
-	hostEndpointPrefix       = "bpf_host"
-	hostEndpointNetdevPrefix = "bpf_netdev_"
-	hostEndpointProg         = hostEndpointPrefix + "." + string(outputSource)
-	hostEndpointObj          = hostEndpointPrefix + ".o"
+	hostEndpointPrefix = "bpf_host"
+	hostEndpointProg   = hostEndpointPrefix + "." + string(outputSource)
+	hostEndpointObj    = hostEndpointPrefix + ".o"
 
 	networkPrefix = "bpf_network"
 	networkProg   = networkPrefix + "." + string(outputSource)
