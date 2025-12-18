@@ -159,7 +159,7 @@ func registerRouteInitializer(p Params) {
 	}))
 }
 
-func upsertEndpointRoute(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, ip netip.Prefix) error {
+func upsertEndpointRoute(db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, ip netip.Prefix) error {
 	owner, err := rm.GetOrRegisterOwner("endpoint/" + ep.StringID())
 	if err != nil {
 		return fmt.Errorf("getting or registering owner for endpoint %s: %w", ep.StringID(), err)
@@ -797,14 +797,14 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*
 			logfields.Interface, device,
 		)
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(logger, db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
+			if err := upsertEndpointRoute(db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
 				scopedLog.Warn("Failed to upsert route",
 					logfields.Error, err,
 				)
 			}
 		}
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(logger, db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
+			if err := upsertEndpointRoute(db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
 				scopedLog.Warn("Failed to upsert route",
 					logfields.Error, err,
 				)
