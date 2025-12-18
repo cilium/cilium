@@ -1484,6 +1484,21 @@ func (c *Collector) Run() error {
 				return fmt.Errorf("could not find running Cilium Pod")
 			},
 		},
+		{
+			Description: "Collecting CiliumNetworkDriverConfig resources",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				return c.GatherResourceUnstructured(
+					ctx,
+					schema.GroupVersionResource{
+						Group:    "cilium.io",
+						Resource: "ciliumnetworkdriverconfigs",
+						Version:  "v2alpha1",
+					},
+					ciliumNetworkDriverConfigFileName,
+				)
+			},
+		},
 	}
 	ciliumTasks = append(ciliumTasks, collectCiliumV2OrV2Alpha1Resource(c, "ciliumloadbalancerippools", "Cilium LoadBalancer IP Pools"))
 
