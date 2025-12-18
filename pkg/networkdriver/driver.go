@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"path"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/containerd/nri/pkg/stub"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
@@ -225,6 +227,15 @@ func (driver *Driver) watchConfig(ctx context.Context) error {
 func (driver *Driver) Start(ctx cell.HookContext) error {
 	driver.jg.Add(job.OneShot("network-driver-main", func(ctx context.Context, _ cell.Health) error {
 
+		if version.Version().LT(semver.Version{Major: 1, Minor: 34}) {
+			driver.logger.InfoContext(
+				ctx, "Cilium Network Driver requires Kubernetes v1.34 or later",
+				logfields.K8sAPIVersion, version.Version(),
+			)
+
+			return nil
+		}
+
 		err := driver.watchConfig(ctx)
 		if err != nil {
 			return err
@@ -249,7 +260,10 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			return err
 		}
 
-		driver.logger.DebugContext(ctx, "Starting network driver...")
+		driver.logger.DebugContext(
+			ctx, "Starting network driver...",
+			logfields.K8sAPIVersion, version.Version(),
+		)
 
 		mgrs, err := devicemanagers.InitManagers(driver.logger, driver.config.DeviceManagerConfigs)
 		if err != nil {
