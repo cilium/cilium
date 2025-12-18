@@ -528,6 +528,9 @@ IPs to be allowed are selected via:
     ``part-extra-ial.com``.
   * ``*`` alone matches all names, and inserts all cached DNS IPs into this
     rule.
+  * ``**.`` is a special prefix supported in DNS match pattern to wildcard all cascaded
+    subdomains in the prefix. For example: ``**.cilium.io`` pattern will match both
+    ``app.cilium.io`` and ``test.app.cilium.io`` but not ``cilium.io``.
 
 The example below allows all DNS traffic on port 53 to the DNS service and
 intercepts it via the `DNS Proxy`_. If using a non-standard DNS port for
@@ -1340,5 +1343,5 @@ Host Policies known issues
   Policies on service addresses rather than the service endpoints. For details,
   refer to :gh-issue:`12545`.
 
-- Host Firewall and thus Host Policies do not work together with IPsec. 
+- Host Firewall and thus Host Policies do not work together with IPsec.
   For details, refer to :gh-issue:`41854`.
