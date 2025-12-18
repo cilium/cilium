@@ -43,6 +43,8 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"Conformance/HTTPRouteRewriteHost":                       {},
 		"Conformance/HTTPRouteRewritePath":                       {},
 		"Conformance/HTTPRouteRequestMirror":                     {},
+		"Conformance/HTTPRouteBackendTLSPolicy":                  {},
+		"Conformance/HTTPRouteBackendTLSPolicySystemCA":          {},
 	}
 
 	for name := range tests {
@@ -187,6 +189,7 @@ func TestGPRCPathMatch(t *testing.T) {
 }
 
 func readGatewayInput(t *testing.T, testName string) Input {
+	t.Helper()
 	input := Input{}
 
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-gatewayclass.yaml"), &input.GatewayClass)
@@ -197,6 +200,14 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-grpcroute.yaml"), &input.GRPCRoutes)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-service.yaml"), &input.Services)
 	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-serviceimport.yaml"), &input.ServiceImports)
+
+	btlspMapFixture := &BackendTLSPolicyMapFixture{}
+	readInput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(testName), "input-backendtlspolicy.yaml"), btlspMapFixture)
+	btlspMap, err := btlspMapFixture.ToBackendTLSPolicyMap()
+	if err != nil {
+		t.Fatal("Failed reading a BackendTLSPolicy fixture", err)
+	}
+	input.BackendTLSPolicyMap = btlspMap
 
 	return input
 }
