@@ -1,0 +1,60 @@
+# Test subnet config sync to map
+
+hive/start
+
+# Add cilium-config without subnet-topology first
+k8s/add cilium-config-no-subnet.yaml
+
+# Ensure no subnet identities exist
+* db/empty subnet-identities
+
+# Ensure subnet map is empty
+subnet/map-dump subnetmap.empty
+* empty subnetmap.empty
+
+# Add subnet topology config
+k8s/add cilium-config-1.yaml
+
+# Wait for Cilium to pick up the config
+db/cmp subnet-identities subnet.table
+
+# Dump the subnet map.
+subnet/map-dump subnetmap.actual
+* cmp subnetmap.actual subnetmap.expected
+
+####
+
+-- cilium-config-1.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: cilium-config
+  namespace: kube-system
+data:
+    subnet-topology: "10.0.0.1/24,10.10.0.1/24;10.20.0.1/24;2001:0db8:85a3::/64"
+
+-- cilium-config-no-subnet.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: cilium-config
+  namespace: kube-system
+data:
+    subnet-topology: ""
+ 
+-- subnet.table --
+Prefix               Identity
+10.0.0.1/24          1
+10.10.0.1/24         1
+10.20.0.1/24         2
+2001:db8:85a3::/64   3
+
+-- subnetmap.expected --
+PREFIX=10.0.0.1/24 IDENTITY=identity=1
+PREFIX=10.10.0.1/24 IDENTITY=identity=1
+PREFIX=10.20.0.1/24 IDENTITY=identity=2
+PREFIX=2001:db8:85a3::/64 IDENTITY=identity=3
