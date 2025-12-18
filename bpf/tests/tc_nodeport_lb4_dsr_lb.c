@@ -142,13 +142,13 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
 	if (opt->type != DSR_IPV4_OPT_TYPE)
-		test_fatal("type in DSR IP option is bad")
+		test_fatal("type in DSR IP option is bad");
 	if (opt->len != 8)
-		test_fatal("length in DSR IP option is bad")
+		test_fatal("length in DSR IP option is bad");
 	if (opt->port != __bpf_ntohs(FRONTEND_PORT))
-		test_fatal("port in DSR IP option is bad")
+		test_fatal("port in DSR IP option is bad");
 	if (opt->addr != __bpf_ntohl(FRONTEND_IP))
-		test_fatal("addr in DSR IP option is bad")
+		test_fatal("addr in DSR IP option is bad");
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");

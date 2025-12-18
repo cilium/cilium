@@ -45,7 +45,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 		value = map_lookup_elem(&cilium_ratelimit, &key);
 		if (!value)
 			test_fatal("Bucket not created");
-	})
+	});
 
 	TEST("block-on-bucket-empty", {
 		value = map_lookup_elem(&cilium_ratelimit, &key);
@@ -61,7 +61,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 
 		if (ratelimit_check_and_take(&key, &settings))
 			test_fatal("Rate limit allowed when bucket empty");
-	})
+	});
 
 	TEST("topup-after-interval", {
 		value = map_lookup_elem(&cilium_ratelimit, &key);
@@ -77,7 +77,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 
 		if (value->tokens != settings.tokens_per_topup - 1)
 			test_fatal("Unexpected token amount after topup");
-	})
+	});
 
 	TEST("do-not-go-over-bucket-size", {
 		value = map_lookup_elem(&cilium_ratelimit, &key);
@@ -93,7 +93,7 @@ CHECK("xdp", "ratelimit") int test_ratelimit(void)
 
 		if (value->tokens != settings.bucket_size - 1)
 			test_fatal("Unexpected token amount after topup");
-	})
+	});
 
 	test_finish();
 }

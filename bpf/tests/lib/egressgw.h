@@ -165,10 +165,10 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 
 	if (test_ctx.dir == CT_INGRESS) {
 		if (memcmp(l2->h_source, (__u8 *)ext_svc_mac, ETH_ALEN) != 0)
-			test_fatal("src MAC is not the external svc MAC")
+			test_fatal("src MAC is not the external svc MAC");
 
 		if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-			test_fatal("dst MAC is not the client MAC")
+			test_fatal("dst MAC is not the client MAC");
 
 		if (l3->saddr != EXTERNAL_SVC_IP)
 			test_fatal("src IP has changed");
@@ -181,10 +181,10 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 				test_fatal("src IP has changed before redirecting to egress iface");
 		} else {
 			if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
-				test_fatal("src MAC is not the client MAC")
+				test_fatal("src MAC is not the client MAC");
 
 			if (memcmp(l2->h_dest, (__u8 *)ext_svc_mac, ETH_ALEN) != 0)
-				test_fatal("dst MAC is not the external svc MAC")
+				test_fatal("dst MAC is not the external svc MAC");
 
 			expected_saddr = EGRESS_IP;
 			if (test_ctx.tuple_collision)
@@ -215,7 +215,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 			test_fatal("no CT entry found");
 		if (ct_entry->packets != test_ctx.packets)
 			test_fatal("bad packet count (expected %u, actual %u)",
-				   test_ctx.packets, ct_entry->packets)
+				   test_ctx.packets, ct_entry->packets);
 
 		tuple.saddr = CLIENT_IP;
 		tuple.daddr = EXTERNAL_SVC_IP;
