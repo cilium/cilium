@@ -407,12 +407,14 @@ spec:
           mountPath: /tmp/cilium/config-map
           readOnly: true
         {{- end }}
+        {{- if semverCompare ">=1.34.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
         - name: device-plugin
           mountPath: /var/lib/kubelet/plugins
         - name: plugin-registry
           mountPath: /var/lib/kubelet/plugins_registry
         - name: nri-plugin
           mountPath: /var/run/nri
+        {{- end }}
         {{- range .Values.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -1066,6 +1068,7 @@ spec:
         hostPath:
           path: /etc/containerd
           type: Directory
+      {{- if semverCompare ">=1.34.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
       - name: device-plugin
         hostPath:
           path: /var/lib/kubelet/plugins
@@ -1078,6 +1081,7 @@ spec:
         hostPath:
           path: /var/run/nri
           type: Directory
+      {{- end }}
       {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
       - name: hubble-tls
         projected:
