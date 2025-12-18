@@ -31,8 +31,6 @@ const (
 
 	symbolFromNetwork = "cil_from_network"
 
-	symbolFromHostNetdevXDP = "cil_xdp_entry"
-
 	dirIngress = "ingress"
 	dirEgress  = "egress"
 )
