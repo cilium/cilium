@@ -84,6 +84,7 @@ import (
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/subnet"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 	"github.com/cilium/cilium/pkg/ztunnel"
 )
@@ -366,6 +367,9 @@ var (
 
 		// Instantiates an xDS server used for zTunnel integration.
 		ztunnel.Cell,
+
+		// Subnet topology watcher and management.
+		subnet.Cell,
 	)
 )
 

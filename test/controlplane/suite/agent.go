@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
@@ -79,6 +80,9 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 			func() policymap.Factory { return nil },
 			func() *server.Server { return nil },
 			func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
+			func() statedb.RWTable[subnet.SubnetTableEntry] {
+				return nil
+			},
 			k8sSynced.RejectedCRDSyncPromise,
 		),
 		kvstore.Cell(kvstore.DisabledBackendName),

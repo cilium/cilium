@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -45,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
@@ -140,6 +142,9 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 				return &loadbalancer.TestConfig{}
 			},
 			func() *server.Server { return nil },
+			func() statedb.RWTable[subnet.SubnetTableEntry] {
+				return nil
+			},
 		),
 		fakeDatapath.Cell,
 		neighbor.ForwardableIPCell,

@@ -674,6 +674,7 @@ Makefile* @cilium/build
 /pkg/source @cilium/ipcache
 /pkg/spanstat/ @cilium/sig-agent
 /pkg/status/ @cilium/sig-agent
+/pkg/subnet/ @cilium/sig-datapath
 /pkg/svcrouteconfig/ @cilium/sig-datapath @cilium/sig-bgp
 /pkg/testutils/ @cilium/ci-structure
 /pkg/testutils/scriptnet @cilium/sig-foundations
