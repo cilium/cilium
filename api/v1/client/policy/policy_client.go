@@ -79,6 +79,8 @@ type ClientService interface {
 
 	GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error)
 
+	GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error)
+
 	SetTransport(transport runtime.ClientTransport)
 }
 
@@ -537,6 +539,49 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...Cl
 	//
 	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetPolicySelectors: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+GetPolicySubjectSelectors sees what subject selectors match which identities on the local node
+*/
+func (a *Client) GetPolicySubjectSelectors(params *GetPolicySubjectSelectorsParams, opts ...ClientOption) (*GetPolicySubjectSelectorsOK, error) {
+	// NOTE: parameters are not validated before sending
+	if params == nil {
+		params = NewGetPolicySubjectSelectorsParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "GetPolicySubjectSelectors",
+		Method:             "GET",
+		PathPattern:        "/policy/subject-selectors",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetPolicySubjectSelectorsReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+
+	// only one success response has to be checked
+	success, ok := result.(*GetPolicySubjectSelectorsOK)
+	if ok {
+		return success, nil
+	}
+
+	// unexpected success response.
+
+	// no default response is defined.
+	//
+	// safeguard: normally, in the absence of a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetPolicySubjectSelectors: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

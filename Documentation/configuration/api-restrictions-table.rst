@@ -6,88 +6,89 @@ Cilium Agent API
 The following API flags are compatible with the ``cilium-agent`` flag
 ``enable-cilium-api-server-access``.
 
-===================== ====================
-Flag Name             Description
-===================== ====================
-DeleteEndpoint        Deletes a list of endpoints that have endpoints matching the
-                      provided properties
-DeleteEndpointID      Deletes the endpoint specified by the ID. Deletion is
-                      imminent and atomic, if the deletion request is valid and
-                      the endpoint exists, deletion will occur even if errors are
-                      encountered in the process. If errors have been encountered,
-                      the code 202 will be returned, otherwise 200 on success. All
-                      resources associated with the endpoint will be freed and the
-                      workload represented by the endpoint will be disconnected.It
-                      will no longer be able to initiate or receive communications
-                      of any sort.
-DeleteFqdnCache       Deletes matching DNS lookups from the cache, optionally
-                      restricted by DNS name. The removed IP data will no longer
-                      be used in generated policies.
-DeleteIPAMIP          -
-DeletePrefilter       -
-GetBGPPeers           Retrieves current operational state of BGP peers created by
-                      Cilium BGP virtual router. This includes session state,
-                      uptime, information per address family, etc.
-GetBGPRoutePolicies   Retrieves route policies from BGP Control Plane.
-GetBGPRoutes          Retrieves routes from BGP Control Plane RIB filtered by
-                      parameters you specify
-GetCgroupDumpMetadata -
-GetClusterNodes       -
-GetConfig             Returns the configuration of the Cilium daemon.
-GetDebuginfo          -
-GetEndpoint           Retrieves a list of endpoints that have metadata matching
-                      the provided parameters, or all endpoints if no parameters
-                      provided.
-GetEndpointID         Returns endpoint information
-GetEndpointIDConfig   Retrieves the configuration of the specified endpoint.
-GetEndpointIDHealthz  -
-GetEndpointIDLabels   -
-GetEndpointIDLog      -
-GetFqdnCache          Retrieves the list of DNS lookups intercepted from
-                      endpoints, optionally filtered by DNS name, CIDR IP range or
-                      source.
-GetFqdnCacheID        Retrieves the list of DNS lookups intercepted from the
-                      specific endpoint, optionally filtered by endpoint id, DNS
-                      name, CIDR IP range or source.
-GetFqdnNames          Retrieves the list of DNS-related fields (names to poll,
-                      selectors and their corresponding regexes).
-GetHealthz            Returns health and status information of the Cilium daemon
-                      and related components such as the local container runtime,
-                      connected datastore, Kubernetes integration and Hubble.
-GetIP                 Retrieves a list of IPs with known associated information
-                      such as their identities, host addresses, Kubernetes pod
-                      names, etc. The list can optionally filtered by a CIDR IP
-                      range.
-GetIdentity           Retrieves a list of identities that have metadata matching
-                      the provided parameters, or all identities if no parameters
-                      are provided.
-GetIdentityEndpoints  -
-GetIdentityID         -
-GetLRP                -
-GetMap                -
-GetMapName            -
-GetMapNameEvents      -
-GetNodeIds            Retrieves a list of node IDs allocated by the agent and
-                      their associated node IP addresses.
-GetPolicy             Returns the entire policy tree with all children.
-                      Deprecated: will be removed in v1.19
-GetPolicySelectors    -
-GetPrefilter          -
-GetService            -
-PatchConfig           Updates the daemon configuration by applying the provided
-                      ConfigurationMap and regenerates & recompiles all required
-                      datapath components.
-PatchEndpointID       Applies the endpoint change request to an existing endpoint
-PatchEndpointIDConfig Update the configuration of an existing endpoint and
-                      regenerates & recompiles the corresponding programs
-                      automatically.
-PatchEndpointIDLabels Sets labels associated with an endpoint. These can be user
-                      provided or derived from the orchestration system.
-PatchPrefilter        -
-PostIPAM              -
-PostIPAMIP            -
-PutEndpointID         Creates a new endpoint
-===================== ====================
+=====================     ====================
+Flag Name                 Description
+=====================     ====================
+DeleteEndpoint            Deletes a list of endpoints that have endpoints matching the
+                          provided properties
+DeleteEndpointID          Deletes the endpoint specified by the ID. Deletion is
+                          imminent and atomic, if the deletion request is valid and
+                          the endpoint exists, deletion will occur even if errors are
+                          encountered in the process. If errors have been encountered,
+                          the code 202 will be returned, otherwise 200 on success. All
+                          resources associated with the endpoint will be freed and the
+                          workload represented by the endpoint will be disconnected.It
+                          will no longer be able to initiate or receive communications
+                          of any sort.
+DeleteFqdnCache           Deletes matching DNS lookups from the cache, optionally
+                          restricted by DNS name. The removed IP data will no longer
+                          be used in generated policies.
+DeleteIPAMIP              -
+DeletePrefilter           -
+GetBGPPeers               Retrieves current operational state of BGP peers created by
+                          Cilium BGP virtual router. This includes session state,
+                          uptime, information per address family, etc.
+GetBGPRoutePolicies       Retrieves route policies from BGP Control Plane.
+GetBGPRoutes              Retrieves routes from BGP Control Plane RIB filtered by
+                          parameters you specify
+GetCgroupDumpMetadata     -
+GetClusterNodes           -
+GetConfig                 Returns the configuration of the Cilium daemon.
+GetDebuginfo              -
+GetEndpoint               Retrieves a list of endpoints that have metadata matching
+                          the provided parameters, or all endpoints if no parameters
+                          provided.
+GetEndpointID             Returns endpoint information
+GetEndpointIDConfig       Retrieves the configuration of the specified endpoint.
+GetEndpointIDHealthz      -
+GetEndpointIDLabels       -
+GetEndpointIDLog          -
+GetFqdnCache              Retrieves the list of DNS lookups intercepted from
+                          endpoints, optionally filtered by DNS name, CIDR IP range or
+                          source.
+GetFqdnCacheID            Retrieves the list of DNS lookups intercepted from the
+                          specific endpoint, optionally filtered by endpoint id, DNS
+                          name, CIDR IP range or source.
+GetFqdnNames              Retrieves the list of DNS-related fields (names to poll,
+                          selectors and their corresponding regexes).
+GetHealthz                Returns health and status information of the Cilium daemon
+                          and related components such as the local container runtime,
+                          connected datastore, Kubernetes integration and Hubble.
+GetIP                     Retrieves a list of IPs with known associated information
+                          such as their identities, host addresses, Kubernetes pod
+                          names, etc. The list can optionally filtered by a CIDR IP
+                          range.
+GetIdentity               Retrieves a list of identities that have metadata matching
+                          the provided parameters, or all identities if no parameters
+                          are provided.
+GetIdentityEndpoints      -
+GetIdentityID             -
+GetLRP                    -
+GetMap                    -
+GetMapName                -
+GetMapNameEvents          -
+GetNodeIds                Retrieves a list of node IDs allocated by the agent and
+                          their associated node IP addresses.
+GetPolicy                 Returns the entire policy tree with all children.
+                          Deprecated: will be removed in v1.19
+GetPolicySelectors        -
+GetPolicySubjectSelectors -
+GetPrefilter              -
+GetService                -
+PatchConfig               Updates the daemon configuration by applying the provided
+                          ConfigurationMap and regenerates & recompiles all required
+                          datapath components.
+PatchEndpointID           Applies the endpoint change request to an existing endpoint
+PatchEndpointIDConfig     Update the configuration of an existing endpoint and
+                          regenerates & recompiles the corresponding programs
+                          automatically.
+PatchEndpointIDLabels     Sets labels associated with an endpoint. These can be user
+                          provided or derived from the orchestration system.
+PatchPrefilter            -
+PostIPAM                  -
+PostIPAMIP                -
+PutEndpointID             Creates a new endpoint
+=====================     ====================
 
 Cilium Agent Clusterwide Health API
 ===================================
