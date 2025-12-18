@@ -14,12 +14,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
-	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -177,8 +175,8 @@ func cleanCallsMaps(mapNamePattern string) error {
 	return err
 }
 
-// reinitializeIPSec is used to recompile and load encryption network programs.
-func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
+// reinitializeEncryption is used to recompile and load encryption network programs.
+func (l *loader) reinitializeEncryption(ctx context.Context, lnc *datapath.LocalNodeConfiguration) error {
 	// We need to take care not to load bpf_network and bpf_host onto the same
 	// device. If devices are required, we load bpf_host and hence don't need
 	// the code below, specific to EncryptInterface. Specifically, we will load
@@ -191,77 +189,63 @@ func (l *loader) reinitializeIPSec(lnc *datapath.LocalNodeConfiguration) error {
 	l.ipsecMu.Lock()
 	defer l.ipsecMu.Unlock()
 
-	interfaces := option.Config.EncryptInterface
+	var attach []netlink.Link
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		// IPAMENI mode supports multiple network facing interfaces that
 		// will all need Encrypt logic applied in order to decrypt any
 		// received encrypted packets. This logic will attach to all
 		// !veth devices.
-		interfaces = nil
+		//
+		// Regenerate the list of interfaces to attach to on every call.
 		links, err := safenetlink.LinkList()
 		if err != nil {
 			return err
 		}
-		for _, link := range links {
-			isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
-			if err == nil && !isVirtual {
-				interfaces = append(interfaces, link.Attrs().Name)
-			}
-		}
-		option.Config.EncryptInterface = interfaces
 
+		// Always attach to all physical devices in ENI mode.
+		attach = physicalDevs(links)
+		option.Config.EncryptInterface = linkNames(attach)
+	} else {
+		// In other modes, attach only to the interfaces explicitly specified by the
+		// user. Resolve links by name.
+		for _, iface := range option.Config.EncryptInterface {
+			link, err := safenetlink.LinkByName(iface)
+			if err != nil {
+				return fmt.Errorf("retrieving device %s: %w", iface, err)
+			}
+			attach = append(attach, link)
+		}
 	}
 
 	// No interfaces is valid in tunnel disabled case
-	if len(interfaces) == 0 {
+	if len(attach) == 0 {
 		return nil
 	}
 
-	spec, err := ebpf.LoadCollectionSpec(networkObj)
-	if err != nil {
-		return fmt.Errorf("loading eBPF ELF %s: %w", networkObj, err)
-	}
-
-	var obj networkObjects
-	commit, err := bpf.LoadAndAssign(l.logger, &obj, spec, &bpf.CollectionOptions{
-		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
-		},
-		Constants: config.NewBPFNetwork(config.NodeConfig(lnc)),
-	})
-	if err != nil {
-		return err
-	}
-	defer obj.Close()
-
-	var errs error
-	for _, iface := range interfaces {
-		device, err := safenetlink.LinkByName(iface)
-		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("retrieving device %s: %w", iface, err))
-			continue
-		}
-
-		if err := attachSKBProgram(l.logger, device, obj.FromNetwork, symbolFromNetwork,
-			bpffsDeviceLinksDir(bpf.CiliumPath(), device), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
-
-			// Collect errors, keep attaching to other interfaces.
-			errs = errors.Join(errs, fmt.Errorf("interface %s: %w", iface, err))
-			continue
-		}
-
-		l.logger.Info("Encryption network program (re)loaded", logfields.Interface, iface)
-	}
-
-	if errs != nil {
-		return fmt.Errorf("failed to load encryption program: %w", errs)
-	}
-
-	if err := commit(); err != nil {
-		return fmt.Errorf("committing bpf pins: %w", err)
+	if err := replaceEncryptionDatapath(ctx, l.logger, lnc, attach); err != nil {
+		return fmt.Errorf("failed to replace encryption datapath: %w", err)
 	}
 
 	return nil
+}
+
+func physicalDevs(links []netlink.Link) []netlink.Link {
+	var phys []netlink.Link
+	for _, link := range links {
+		isVirtual, err := ethtool.IsVirtualDriver(link.Attrs().Name)
+		if err == nil && !isVirtual {
+			phys = append(phys, link)
+		}
+	}
+	return phys
+}
+
+func linkNames(links []netlink.Link) []string {
+	var names []string
+	for _, link := range links {
+		names = append(names, link.Attrs().Name)
+	}
+	return names
 }
 
 func reinitializeOverlay(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, tunnelConfig tunnel.Config) error {
@@ -479,11 +463,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *datapath.LocalNodeConfig
 	}
 
 	if lnc.EnableIPSec {
-		if err := compileNetwork(ctx, l.logger); err != nil {
-			logging.Fatal(l.logger, "failed to compile encryption programs", logfields.Error, err)
-		}
-
-		if err := l.reinitializeIPSec(lnc); err != nil {
+		if err := l.reinitializeEncryption(ctx, lnc); err != nil {
 			return err
 		}
 	}
