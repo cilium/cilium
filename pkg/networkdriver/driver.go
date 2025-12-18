@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/containerd/nri/pkg/stub"
@@ -21,6 +22,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/resourceslice"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
@@ -162,7 +164,19 @@ func (driver *Driver) publish(ctx context.Context) error {
 func (driver *Driver) Start(ctx cell.HookContext) error {
 	driver.jg.Add(job.OneShot("network-driver", func(ctx context.Context, _ cell.Health) error {
 
-		driver.logger.DebugContext(ctx, "Starting network driver...")
+		if version.Version().LT(semver.Version{Major: 1, Minor: 34}) {
+			driver.logger.InfoContext(
+				ctx, "Cilium Network Driver requires Kubernetes v1.34 or later",
+				logfields.K8sAPIVersion, version.Version(),
+			)
+
+			return nil
+		}
+
+		driver.logger.DebugContext(
+			ctx, "Starting network driver...",
+			logfields.K8sAPIVersion, version.Version(),
+		)
 
 		if err := driver.config.Validate(); err != nil {
 			return fmt.Errorf("invalid config: %w", err)
