@@ -81,7 +81,7 @@ build-container-hubble-relay:
 
 build-container-clustermesh-apiserver: ## Builds components required for the clustermesh-apiserver container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) all
- 
+
 build-container-standalone-dns-proxy: ## Builds components required for standalone dns proxy container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_STANDALONE_DNS_PROXY_CONTAINER) all
 
@@ -577,7 +577,7 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"dev-docker-operator-*-image-debug","Build platform specific cilium-operator debug images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 	$(call print_help_line,"docker-standalone-dns-proxy-image","Build standalone DNS proxy docker image")
-	
+
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance
 force :;
 
@@ -598,7 +598,8 @@ BPF_TEST_VERBOSE ?= 0
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
 	DOCKER_ARGS="--privileged -v /sys:/sys" RUN_AS_ROOT=1 contrib/scripts/builder.sh \
-		make $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run \
+		env MAKEFLAGS="$(filter-out --jobserver-auth=% --jobserver-fds=%,$(MAKEFLAGS))" \
+		make $(SUBMAKEOPTS) -C bpf/tests/ run \
 			"BPF_TEST=$(BPF_TEST)" \
 			"BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" \
 			"LOG_CODEOWNERS=$(LOG_CODEOWNERS)" \
