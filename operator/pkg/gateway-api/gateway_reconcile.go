@@ -175,15 +175,16 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
-		GatewayClass:       *gwc,
-		GatewayClassConfig: r.getGatewayClassConfig(ctx, gwc),
-		Gateway:            *gw,
-		HTTPRoutes:         httpRoutes,
-		TLSRoutes:          tlsRoutes,
-		GRPCRoutes:         grpcRoutes,
-		Services:           servicesList.Items,
-		ServiceImports:     serviceImportsList.Items,
-		ReferenceGrants:    grants.Items,
+		GatewayClass:        *gwc,
+		GatewayClassConfig:  r.getGatewayClassConfig(ctx, gwc),
+		Gateway:             *gw,
+		HTTPRoutes:          httpRoutes,
+		TLSRoutes:           tlsRoutes,
+		GRPCRoutes:          grpcRoutes,
+		Services:            servicesList.Items,
+		ServiceImports:      serviceImportsList.Items,
+		ReferenceGrants:     grants.Items,
+		BackendTLSPolicyMap: btlspMap,
 	})
 
 	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList)
