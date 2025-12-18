@@ -46,7 +46,7 @@ int ipsec_redirect_checks(__maybe_unused struct __ctx_buff *ctx, bool outer_ipv4
 		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto, SOURCE_IDENTITY);
 		assert(ctx->mark == ipsec_encode_encryption_mark(TARGET_SPI, DST_NODE_ID));
 		assert(ret == CTX_ACT_REDIRECT);
-	})
+	});
 
 	test_finish();
 }

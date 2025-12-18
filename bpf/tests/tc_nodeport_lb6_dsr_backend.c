@@ -203,9 +203,9 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("dst MAC is not the endpoint MAC");
 
 	if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &client_ip))
 		test_fatal("src IP has changed");
@@ -214,21 +214,21 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("dst IP has changed");
 
 	if (l3->nexthdr != NEXTHDR_DEST)
-		test_fatal("nexthdr in IPv6 header has changed")
+		test_fatal("nexthdr in IPv6 header has changed");
 
 	if (opt->hdr.nexthdr != IPPROTO_TCP)
-		test_fatal("nexthdr in DSR extension has changed")
+		test_fatal("nexthdr in DSR extension has changed");
 	if (opt->hdr.hdrlen != DSR_IPV6_EXT_LEN)
-		test_fatal("length in DSR extension has changed")
+		test_fatal("length in DSR extension has changed");
 	if (opt->opt_type != DSR_IPV6_OPT_TYPE)
-		test_fatal("opt_type in DSR extension has changed")
+		test_fatal("opt_type in DSR extension has changed");
 	if (opt->opt_len != DSR_IPV6_OPT_LEN)
-		test_fatal("opt_len in DSR extension has changed")
+		test_fatal("opt_len in DSR extension has changed");
 
 	if (opt->port != FRONTEND_PORT)
-		test_fatal("port in DSR extension has changed")
+		test_fatal("port in DSR extension has changed");
 	if (!ipv6_addr_equals((union v6addr *)&opt->addr, &frontend_ip))
-		test_fatal("addr in DSR extension has changed")
+		test_fatal("addr in DSR extension has changed");
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");
@@ -334,9 +334,9 @@ int check_reply(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the client MAC")
+		test_fatal("dst MAC is not the client MAC");
 
 	if (!ipv6_addr_equals((union v6addr *)&l3->saddr, &frontend_ip))
 		test_fatal("src IP hasn't been RevNATed to frontend IP");

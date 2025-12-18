@@ -342,10 +342,10 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the client MAC")
+		test_fatal("src MAC is not the client MAC");
 
 	if (memcmp(l2->h_dest, (__u8 *)ext_svc_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the external svc MAC")
+		test_fatal("dst MAC is not the external svc MAC");
 
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");

@@ -276,10 +276,10 @@ ingress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx
 		test_fatal("l2 out of bounds");
 
 	if (is_ipv4 && l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("l2 proto hasn't been set to ETH_P_IP")
+		test_fatal("l2 proto hasn't been set to ETH_P_IP");
 
 	if (!is_ipv4 && l2->h_proto != bpf_htons(ETH_P_IPV6))
-		test_fatal("l2 proto hasn't been set to ETH_P_IPV6")
+		test_fatal("l2 proto hasn't been set to ETH_P_IPV6");
 
 #if defined(IS_BPF_WIREGUARD)
 	if (is_host) {
@@ -387,7 +387,7 @@ l3_check:
 
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
-		test_fatal("metrics entry not found")
+		test_fatal("metrics entry not found");
 
 	__u64 count = 1;
 
@@ -486,11 +486,11 @@ egress_l3_to_l2_fast_redirect_check(__maybe_unused const struct __ctx_buff *ctx,
 		test_fatal("payload out of bounds");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
-		test_fatal("tcp payload was changed")
+		test_fatal("tcp payload was changed");
 
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
-		test_fatal("metrics entry not found")
+		test_fatal("metrics entry not found");
 
 	__u64 count = 1;
 

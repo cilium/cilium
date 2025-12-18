@@ -189,10 +189,10 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)CLIENT_MAC, ETH_ALEN) != 0)
-		test_fatal("src MAC has changed")
+		test_fatal("src MAC has changed");
 
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+		test_fatal("dst MAC has changed");
 
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");
@@ -296,10 +296,10 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN) != 0)
-		test_fatal("src MAC has changed")
+		test_fatal("src MAC has changed");
 
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+		test_fatal("dst MAC has changed");
 
 	if (l3->saddr != FRONTEND_IP)
 		test_fatal("src IP is not service frontend IP");
@@ -386,10 +386,10 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)CLIENT_MAC, ETH_ALEN) != 0)
-		test_fatal("src MAC has changed")
+		test_fatal("src MAC has changed");
 
 	if (memcmp(l2->h_dest, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN) != 0)
-		test_fatal("dst MAC has changed")
+		test_fatal("dst MAC has changed");
 
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");
