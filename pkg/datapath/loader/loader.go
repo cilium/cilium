@@ -31,7 +31,6 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointstate"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -57,9 +56,6 @@ const (
 	symbolFromWireguard = "cil_from_wireguard"
 
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
-
-	symbolFromOverlay = "cil_from_overlay"
-	symbolToOverlay   = "cil_to_overlay"
 
 	dirIngress = "ingress"
 	dirEgress  = "egress"
@@ -603,61 +599,6 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 	// program was wrongfully detached due to a bug or misconfiguration.
 	if err := removeObsoleteNetdevPrograms(logger, devices); err != nil {
 		logger.Error("Failed to remove obsolete netdev programs", logfields.Error, err)
-	}
-
-	return nil
-}
-
-func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, device netlink.Link) error {
-	if err := compileOverlay(ctx, logger); err != nil {
-		return fmt.Errorf("compiling overlay program: %w", err)
-	}
-
-	spec, err := ebpf.LoadCollectionSpec(overlayObj)
-	if err != nil {
-		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
-	}
-
-	cfg := config.NewBPFOverlay(config.NodeConfig(lnc))
-	cfg.InterfaceIfIndex = uint32(device.Attrs().Index)
-
-	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
-	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
-	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
-		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-	cfg.EphemeralMin = lnc.EphemeralMin
-
-	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
-	}
-
-	var obj overlayObjects
-	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: cfg,
-		MapRenames: map[string]string{
-			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
-		},
-		CollectionOptions: ebpf.CollectionOptions{
-			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
-		},
-	})
-	if err != nil {
-		return err
-	}
-	defer obj.Close()
-
-	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
-	if err := attachSKBProgram(logger, device, obj.FromOverlay, symbolFromOverlay,
-		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
-		return fmt.Errorf("interface %s ingress: %w", device, err)
-	}
-	if err := attachSKBProgram(logger, device, obj.ToOverlay, symbolToOverlay,
-		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-		return fmt.Errorf("interface %s egress: %w", device, err)
-	}
-
-	if err := commit(); err != nil {
-		return fmt.Errorf("committing bpf pins: %w", err)
 	}
 
 	return nil
