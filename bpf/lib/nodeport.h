@@ -1201,7 +1201,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 # endif
 
 	if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
-	    (is_defined(ENABLE_IPV6_FRAGMENTS) && is_defined(IS_BPF_XDP)))
+	    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS, &ext_err);
 	else
 		ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);

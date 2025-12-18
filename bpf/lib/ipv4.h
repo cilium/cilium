@@ -35,6 +35,8 @@ struct {
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ipv4_frag_datagrams __section_maps_btf;
 
+DECLARE_CONFIG(bool, enable_ipv4_fragments, "Enable IPv4 fragments tracking")
+
 static __always_inline int
 ipv4_csum_update_by_value(struct __ctx_buff *ctx, int l3_off, __u64 old_val,
 			  __u64 new_val, __u32 len)
@@ -85,7 +87,6 @@ static __always_inline bool ipv4_is_in_subnet(__be32 addr,
 	return (addr & bpf_htonl(~((1 << (32 - prefixlen)) - 1))) == subnet;
 }
 
-#ifdef ENABLE_IPV4_FRAGMENTS
 static __always_inline int
 ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 		      struct ipv4_frag_l4ports *ports)
@@ -138,22 +139,19 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 
 	return 0;
 }
-#endif
 
 static __always_inline int
 ipv4_load_l4_ports(struct __ctx_buff *ctx, struct iphdr *ip4 __maybe_unused,
 		   fraginfo_t fraginfo, int l4_off, enum ct_dir dir __maybe_unused,
 		   __be16 *ports)
 {
-#ifdef ENABLE_IPV4_FRAGMENTS
-	return ipv4_handle_fragmentation(ctx, ip4, fraginfo, l4_off, dir,
-					 (struct ipv4_frag_l4ports *)ports);
-#else
+	if (CONFIG(enable_ipv4_fragments))
+		return ipv4_handle_fragmentation(ctx, ip4, fraginfo, l4_off, dir,
+						 (struct ipv4_frag_l4ports *)ports);
 	if (unlikely(!ipfrag_has_l4_header(fraginfo)))
 		return DROP_FRAG_NOSUPPORT;
 	if (l4_load_ports(ctx, l4_off, ports) < 0)
 		return DROP_CT_INVALID_HDR;
-#endif
 
 	return 0;
 }
