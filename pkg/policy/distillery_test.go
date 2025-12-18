@@ -519,7 +519,6 @@ func Test_MergeL3(t *testing.T) {
 		identityFoo: labelsFoo,
 		identityBar: labelsBar,
 	}
-	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 
 	type authResult map[identity.NumericIdentity]AuthTypes
 	tests := []struct {
@@ -678,6 +677,7 @@ func Test_MergeL3(t *testing.T) {
 		Perm(tt.rules, func(rules []*api.Rule) {
 			round++
 
+			selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 			repo := newPolicyDistillery(t, selectorCache)
 			_, _ = repo.MustAddList(rules)
 
@@ -1153,7 +1153,6 @@ func Test_MergeRules(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
-	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
@@ -1216,6 +1215,7 @@ func Test_MergeRules(t *testing.T) {
 	}
 
 	for i, tt := range tests {
+		selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 		repo := newPolicyDistillery(t, selectorCache)
 		generatedRule := generateRule(tt.test)
 		for _, r := range tt.rules {
@@ -1268,7 +1268,6 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 	identityCache := identity.IdentityMap{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
-	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
@@ -1314,6 +1313,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		{31, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, testMapState(t, mapStateMap{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4__Allow, lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})}, // identical L3L4 entry suppressed
 	}
 	for _, tt := range tests {
+		selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 		repo := newPolicyDistillery(t, selectorCache)
 		for _, r := range tt.rules {
 			if r != nil {
@@ -1348,7 +1348,6 @@ func Test_AllowAll(t *testing.T) {
 		identityFoo: labelsFoo,
 		identityBar: labelsBar,
 	}
-	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
@@ -1362,6 +1361,7 @@ func Test_AllowAll(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 		repo := newPolicyDistillery(t, selectorCache)
 		for _, r := range tt.rules {
 			if r != nil {
@@ -1680,7 +1680,6 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		worldIPIdentity:                       lblWorldIP,     // "192.0.2.3/32"
 		worldSubnetIdentity:                   lblWorldSubnet, // "192.0.2.0/24"
 	}
-	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 
 	tests := []struct {
@@ -1788,6 +1787,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
 		repo := newPolicyDistillery(t, selectorCache)
 		for _, rule := range tt.rules {
 			if rule != nil {

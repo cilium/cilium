@@ -51,6 +51,7 @@ import (
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/statedb/part"
 )
 
 type DNSProxyTestSuite struct {
@@ -1421,11 +1422,19 @@ type selectorMock struct {
 	key string
 }
 
-func (t selectorMock) GetSelections() identity.NumericIdentitySlice {
+func (t selectorMock) GetSelections() part.Set[identity.NumericIdentity] {
 	panic("implement me")
 }
 
-func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
+func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) part.Set[identity.NumericIdentity] {
+	panic("implement me")
+}
+
+func (t selectorMock) GetSortedSelections() identity.NumericIdentitySlice {
+	panic("implement me")
+}
+
+func (t selectorMock) GetSortedSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
 	panic("implement me")
 }
 
