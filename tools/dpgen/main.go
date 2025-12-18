@@ -18,7 +18,7 @@ var embeds []string
 func init() {
 	flag.StringVar(&path, "path", "", "path to the eBPF collection")
 	flag.StringVar(&out, "out", "", "output Go file for the generated config struct")
-	flag.StringVar(&kind, "kind", "object", "kind of the eBPF collection (object or node)")
+	flag.StringVar(&kind, "kind", "", "include variables with a decl tag matching 'kind:$kind' (typically object or node)")
 	flag.StringVar(&name, "name", "", "name of the generated Go struct")
 	flag.StringVar(&embed, "embed", "", "comma-separated list of structs to embed")
 
@@ -71,8 +71,8 @@ func validate() {
 		exit("out cannot be empty")
 	}
 
-	if kind != "object" && kind != "node" {
-		exit("kind needs to be 'object' or 'node'")
+	if kind == "" {
+		exit("kind cannot be empty")
 	}
 }
 
