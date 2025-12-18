@@ -598,7 +598,7 @@ BPF_TEST_VERBOSE ?= 0
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
 	DOCKER_ARGS="--privileged -v /sys:/sys" RUN_AS_ROOT=1 contrib/scripts/builder.sh \
-		$(MAKE) $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run \
+		make $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run \
 			"BPF_TEST=$(BPF_TEST)" \
 			"BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" \
 			"LOG_CODEOWNERS=$(LOG_CODEOWNERS)" \
