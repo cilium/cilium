@@ -1,7 +1,7 @@
-#! --test-peering-ips=10.99.4.111,10.99.4.112 --bgp-no-endpoints-routable=false 
+#! --test-peering-ips=10.99.4.111,10.99.4.112 --enable-no-service-endpoints-routable=false
 
-# Tests sharing of the same LB VIP across multiple services.
-# VIP should be advertised if one of the shared services disappears but the other one remains.
+# Tests that services with externalTrafficPolicy=Cluster and no endpoints are not advertised
+# when --enable-no-service-endpoints-routable option is set to false
 
 # Start the hive
 hive start
