@@ -51,13 +51,13 @@ type PciDevice struct {
 
 func (p PciDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	result := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
-	result["driver"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.driver)}
-	result["deviceID"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.deviceID)}
-	result["vendor"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.vendor)}
-	result["pfName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.pfName)}
-	result["pciAddr"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.addr)}
-	result["ifName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.IfName())}
-	result["kernelIfName"] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.kernelIfName)}
+	result[types.DriverLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.driver)}
+	result[types.DeviceIDLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.deviceID)}
+	result[types.VendorLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.vendor)}
+	result[types.PFNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.pfName)}
+	result[types.PCIAddrLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.addr)}
+	result[types.IfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.IfName())}
+	result[types.KernelIfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(p.kernelIfName)}
 
 	return result
 }

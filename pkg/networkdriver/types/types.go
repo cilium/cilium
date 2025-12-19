@@ -14,6 +14,18 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
+const (
+	KernelIfNameLabel  = "kernelIfName"
+	IfNameLabel        = "ifName"
+	PCIAddrLabel       = "pciAddr"
+	PFNameLabel        = "pfName"
+	VendorLabel        = "vendor"
+	DeviceIDLabel      = "deviceID"
+	DriverLabel        = "driver"
+	DeviceManagerLabel = "deviceManager"
+	PoolNameLabel      = "pool"
+)
+
 var (
 	errUnknownDriverType = errors.New("unknown driver type")
 )
