@@ -341,7 +341,7 @@ func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family datap
 	return result.IP, nil
 }
 
-func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
+func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP net.IP, oldV6HealthIP net.IP) error {
 	if !r.daemonConfig.EnableHealthChecking || !r.daemonConfig.EnableEndpointHealthChecking {
 		return nil
 	}
@@ -349,7 +349,7 @@ func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
 	if r.daemonConfig.EnableIPv4 {
 		var result *ipam.AllocationResult
 		var err error
-		healthIPv4 = localNode.IPv4HealthIP
+		healthIPv4 = oldV4HealthIP
 		if healthIPv4 != nil {
 			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(healthIPv4, "health", ipam.PoolDefault())
 			if err != nil {
@@ -395,7 +395,7 @@ func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
 	if r.daemonConfig.EnableIPv6 {
 		var result *ipam.AllocationResult
 		var err error
-		healthIPv6 = localNode.IPv6HealthIP
+		healthIPv6 = oldV6HealthIP
 		if healthIPv6 != nil {
 			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(healthIPv6, "health", ipam.PoolDefault())
 			if err != nil {
@@ -423,9 +423,9 @@ func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
 	return nil
 }
 
-func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
+func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6IngressIP net.IP) error {
 	if r.daemonConfig.EnableEnvoyConfig {
-		ingressIPv4 := localNode.IPv4IngressIP
+		ingressIPv4 := oldV4IngressIP
 		if r.daemonConfig.EnableIPv4 {
 			var result *ipam.AllocationResult
 			var err error
@@ -490,7 +490,7 @@ func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
 			var err error
 
 			// Reallocate the same address as before, if possible
-			ingressIPv6 := localNode.IPv6IngressIP
+			ingressIPv6 := oldV6IngressIP
 			if ingressIPv6 != nil {
 				result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress", ipam.PoolDefault())
 				if err != nil {
@@ -554,12 +554,12 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 	}
 
 	if r.daemonConfig.EnableEnvoyConfig {
-		if err := r.allocateIngressIPs(localNode); err != nil {
+		if err := r.allocateIngressIPs(localNode.IPv4IngressIP, localNode.IPv6IngressIP); err != nil {
 			return err
 		}
 	}
 
-	return r.allocateHealthIPs(localNode)
+	return r.allocateHealthIPs(localNode.IPv4HealthIP, localNode.IPv6HealthIP)
 }
 
 func (r *infraIPAllocator) allocateServiceLoopbackIPs() error {
