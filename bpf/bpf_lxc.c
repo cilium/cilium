@@ -789,14 +789,21 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		int oif = 0;
 
 		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, ext_err, &oif);
-		/* Error handling for local routes - just pass the packet to the kernel stack */
-		if (ret == DROP_NO_FIB && *ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
-			goto pass_to_stack;
-		if (fib_ok(ret))
+		switch (ret) {
+		case CTX_ACT_REDIRECT:
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
 					  trace->reason, trace->monitor, bpf_htons(ETH_P_IPV6));
-		return ret;
+			return ret;
+		case DROP_NO_FIB:
+			/* Error handling for local routes - just pass the packet to the kernel stack */
+			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
+				break;
+
+			fallthrough;
+		default:
+			return ret;
+		}
 	}
 
 pass_to_stack: __maybe_unused
@@ -1327,15 +1334,21 @@ skip_vtep:
 		int oif = 0;
 
 		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif);
-		/* Error handling for local routes - just pass the packet to the kernel stack */
-		if (ret == DROP_NO_FIB && *ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
-			goto pass_to_stack;
-
-		if (fib_ok(ret))
+		switch (ret) {
+		case CTX_ACT_REDIRECT:
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
 					  trace->reason, trace->monitor, bpf_htons(ETH_P_IP));
-		return ret;
+			return ret;
+		case DROP_NO_FIB:
+			/* Error handling for local routes - just pass the packet to the kernel stack */
+			if (*ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
+				break;
+
+			fallthrough;
+		default:
+			return ret;
+		}
 	}
 
 pass_to_stack: __maybe_unused
