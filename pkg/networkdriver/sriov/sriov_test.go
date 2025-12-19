@@ -7,8 +7,32 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	resourceapi "k8s.io/api/resource/v1"
 )
 
+func compareAttrs(t *testing.T, one, two map[resourceapi.QualifiedName]resourceapi.DeviceAttribute) {
+	require.NotEmpty(t, one)
+	require.NotEmpty(t, two)
+
+	for k, v := range one {
+		other, ok := two[k]
+		require.True(t, ok)
+		require.NotEmpty(t, v.String())
+		require.Equal(t, v.String(), other.String())
+	}
+
+	for k, v := range two {
+		other, ok := one[k]
+		require.True(t, ok)
+		require.NotEmpty(t, v.String())
+		require.Equal(t, v.String(), other.String())
+	}
+}
+
+// TODO:
+// - test sr-iov setup
+// - test listdevices
+// - filter matching logic
 func TestSriov(t *testing.T) {
 	t.Run("test device parsing", func(t *testing.T) {
 		mgr, err := NewManager(slog.Default(), &v2alpha1.SRIOVDeviceManagerConfig{
@@ -23,12 +47,23 @@ func TestSriov(t *testing.T) {
 			"0000:02:00.0": netlink.LinkAttrs{Name: "mypf", Vfs: []netlink.VfInfo{{ID: 1}}},
 		}
 
+		expectedDevice := PciDevice{
+			addr:         "0000:02:00.1",
+			pfName:       "mypf",
+			driver:       "mydriver",
+			vfID:         1,
+			kernelIfName: "myvf",
+			deviceID:     "mydeviceid",
+			vendor:       "myvendor",
+		}
+
 		device, err := mgr.parseDevice("0000:02:00.1", netlinkAttrs)
 		require.NoError(t, err)
 		require.NotNil(t, device)
-		require.Equal(t, "mypf", device.pfName)
-		require.Equal(t, "myvf", device.kernelIfName)
-		require.Equal(t, "mydriver", device.driver)
-		require.NotZero(t, device.vfID)
+		require.Equal(t, expectedDevice.pfName, device.pfName)
+		require.Equal(t, expectedDevice.kernelIfName, device.kernelIfName)
+		require.Equal(t, expectedDevice.driver, device.driver)
+		require.Equal(t, expectedDevice.vfID, device.vfID)
+		compareAttrs(t, device.GetAttrs(), expectedDevice.GetAttrs())
 	})
 }
