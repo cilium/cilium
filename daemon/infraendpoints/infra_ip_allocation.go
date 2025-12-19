@@ -424,112 +424,115 @@ func (r *infraIPAllocator) allocateHealthIPs(oldV4HealthIP net.IP, oldV6HealthIP
 }
 
 func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6IngressIP net.IP) error {
-	if r.daemonConfig.EnableEnvoyConfig {
-		ingressIPv4 := oldV4IngressIP
-		if r.daemonConfig.EnableIPv4 {
-			var result *ipam.AllocationResult
-			var err error
+	if !r.daemonConfig.EnableEnvoyConfig {
+		return nil
+	}
 
-			// Reallocate the same address as before, if possible
-			if ingressIPv4 != nil {
-				result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress", ipam.PoolDefault())
-				if err != nil {
-					r.logger.Warn("unable to re-allocate ingress IPv4.",
-						logfields.Error, err,
-						logfields.SourceIP, ingressIPv4,
-					)
-					result = nil
-				}
-			}
+	ingressIPv4 := oldV4IngressIP
+	if r.daemonConfig.EnableIPv4 {
+		var result *ipam.AllocationResult
+		var err error
 
-			// Allocate a fresh IP if not restored, or the reallocation of the restored
-			// IP failed
-			if result == nil {
-				result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "ingress", ipam.PoolDefault())
-				if err != nil {
-					return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
-				}
-			}
-
-			// Coalescing multiple CIDRs. GH #18868
-			if r.daemonConfig.EnableIPv4Masquerade &&
-				(r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAzure) &&
-				result != nil &&
-				len(result.CIDRs) > 0 {
-				result.CIDRs, err = r.coalesceCIDRs(result.CIDRs)
-				if err != nil {
-					return fmt.Errorf("failed to coalesce CIDRs: %w", err)
-				}
-			}
-
-			ingressIPv4 = result.IP
-			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = result.IP })
-			r.logger.Debug("Allocated IPv4 Ingress address", logfields.IPAddr, result.IP)
-
-			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
-			// ENI MAC addr in order to set up rules and routes on the local node to
-			// direct ingress traffic out of the ENIs.
-			if r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud {
-				if ingressRouting, err := r.parseRoutingInfo(result); err != nil {
-					r.logger.Warn("Unable to allocate ingress information for ENI", logfields.Error, err)
-				} else {
-					if err := ingressRouting.Configure(
-						result.IP,
-						r.mtuManager.GetDeviceMTU(),
-						false,
-					); err != nil {
-						r.logger.Warn("Error while configuring ingress IP rules and routes.", logfields.Error, err)
-					}
-				}
+		// Reallocate the same address as before, if possible
+		if ingressIPv4 != nil {
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress", ipam.PoolDefault())
+			if err != nil {
+				r.logger.Warn("unable to re-allocate ingress IPv4.",
+					logfields.Error, err,
+					logfields.SourceIP, ingressIPv4,
+				)
+				result = nil
 			}
 		}
 
-		// Only allocate if enabled and not restored already
-		if r.daemonConfig.EnableIPv6 {
-			var result *ipam.AllocationResult
-			var err error
+		// Allocate a fresh IP if not restored, or the reallocation of the restored
+		// IP failed
+		if result == nil {
+			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv4, "ingress", ipam.PoolDefault())
+			if err != nil {
+				return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
+			}
+		}
 
-			// Reallocate the same address as before, if possible
-			ingressIPv6 := oldV6IngressIP
-			if ingressIPv6 != nil {
-				result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress", ipam.PoolDefault())
-				if err != nil {
-					r.logger.Warn("unable to re-allocate ingress IPv6.",
-						logfields.Error, err,
-						logfields.SourceIP, ingressIPv6,
-					)
-					result = nil
+		// Coalescing multiple CIDRs. GH #18868
+		if r.daemonConfig.EnableIPv4Masquerade &&
+			(r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAzure) &&
+			result != nil &&
+			len(result.CIDRs) > 0 {
+			result.CIDRs, err = r.coalesceCIDRs(result.CIDRs)
+			if err != nil {
+				return fmt.Errorf("failed to coalesce CIDRs: %w", err)
+			}
+		}
+
+		ingressIPv4 = result.IP
+		r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = result.IP })
+		r.logger.Debug("Allocated IPv4 Ingress address", logfields.IPAddr, result.IP)
+
+		// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
+		// ENI MAC addr in order to set up rules and routes on the local node to
+		// direct ingress traffic out of the ENIs.
+		if r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud {
+			if ingressRouting, err := r.parseRoutingInfo(result); err != nil {
+				r.logger.Warn("Unable to allocate ingress information for ENI", logfields.Error, err)
+			} else {
+				if err := ingressRouting.Configure(
+					result.IP,
+					r.mtuManager.GetDeviceMTU(),
+					false,
+				); err != nil {
+					r.logger.Warn("Error while configuring ingress IP rules and routes.", logfields.Error, err)
 				}
 			}
-
-			// Allocate a fresh IP if not restored, or the reallocation of the restored
-			// IP failed
-			if result == nil {
-				result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress", ipam.PoolDefault())
-				if err != nil {
-					if ingressIPv4 != nil {
-						r.ipAllocator.ReleaseIP(ingressIPv4, ipam.PoolDefault())
-						r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = nil })
-					}
-					return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
-				}
-			}
-
-			// Coalescing multiple CIDRs. GH #18868
-			if r.daemonConfig.EnableIPv6Masquerade &&
-				r.daemonConfig.IPAM == ipamOption.IPAMENI &&
-				result != nil &&
-				len(result.CIDRs) > 0 {
-				result.CIDRs, err = r.coalesceCIDRs(result.CIDRs)
-				if err != nil {
-					return fmt.Errorf("failed to coalesce CIDRs: %w", err)
-				}
-			}
-
-			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6IngressIP = result.IP })
-			r.logger.Debug("Allocated IPv6 Ingress address", logfields.IPAddr, result.IP)
 		}
 	}
+
+	// Only allocate if enabled and not restored already
+	if r.daemonConfig.EnableIPv6 {
+		var result *ipam.AllocationResult
+		var err error
+
+		// Reallocate the same address as before, if possible
+		ingressIPv6 := oldV6IngressIP
+		if ingressIPv6 != nil {
+			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress", ipam.PoolDefault())
+			if err != nil {
+				r.logger.Warn("unable to re-allocate ingress IPv6.",
+					logfields.Error, err,
+					logfields.SourceIP, ingressIPv6,
+				)
+				result = nil
+			}
+		}
+
+		// Allocate a fresh IP if not restored, or the reallocation of the restored
+		// IP failed
+		if result == nil {
+			result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress", ipam.PoolDefault())
+			if err != nil {
+				if ingressIPv4 != nil {
+					r.ipAllocator.ReleaseIP(ingressIPv4, ipam.PoolDefault())
+					r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = nil })
+				}
+				return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
+			}
+		}
+
+		// Coalescing multiple CIDRs. GH #18868
+		if r.daemonConfig.EnableIPv6Masquerade &&
+			r.daemonConfig.IPAM == ipamOption.IPAMENI &&
+			result != nil &&
+			len(result.CIDRs) > 0 {
+			result.CIDRs, err = r.coalesceCIDRs(result.CIDRs)
+			if err != nil {
+				return fmt.Errorf("failed to coalesce CIDRs: %w", err)
+			}
+		}
+
+		r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6IngressIP = result.IP })
+		r.logger.Debug("Allocated IPv6 Ingress address", logfields.IPAddr, result.IP)
+	}
+
 	return nil
 }
 
@@ -553,13 +556,15 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 		return fmt.Errorf("failed to allocate service loopback IPs: %w", err)
 	}
 
-	if r.daemonConfig.EnableEnvoyConfig {
-		if err := r.allocateIngressIPs(localNode.IPv4IngressIP, localNode.IPv6IngressIP); err != nil {
-			return err
-		}
+	if err := r.allocateIngressIPs(localNode.IPv4IngressIP, localNode.IPv6IngressIP); err != nil {
+		return fmt.Errorf("failed to allocate ingress IPs: %w", err)
 	}
 
-	return r.allocateHealthIPs(localNode.IPv4HealthIP, localNode.IPv6HealthIP)
+	if err := r.allocateHealthIPs(localNode.IPv4HealthIP, localNode.IPv6HealthIP); err != nil {
+		return fmt.Errorf("failed to allocate health IPs: %w", err)
+	}
+
+	return nil
 }
 
 func (r *infraIPAllocator) allocateServiceLoopbackIPs() error {
