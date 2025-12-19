@@ -175,6 +175,13 @@ rules:
 - apiGroups:
   - resource.k8s.io
   resources:
+  - resourceclaims
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - resource.k8s.io
+  resources:
   - resourceclaims/status
   verbs:
   - patch
