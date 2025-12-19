@@ -50,7 +50,7 @@ func (n *NodeDiscovery) prepareNodeAnnotation(nd nodeTypes.Node, encryptKey uint
 	return annotations
 }
 
-func (n *NodeDiscovery) updateNodeAnnotation(c kubernetes.Interface, nodeName string, annotation nodeAnnotation) error {
+func (n *NodeDiscovery) updateNodeAnnotation(ctx context.Context, c kubernetes.Interface, nodeName string, annotation nodeAnnotation) error {
 	if len(annotation) == 0 {
 		return nil
 	}
@@ -61,35 +61,28 @@ func (n *NodeDiscovery) updateNodeAnnotation(c kubernetes.Interface, nodeName st
 	}
 	patch := fmt.Appendf(nil, `{"metadata":{"annotations":%s}}`, raw)
 
-	_, err = c.CoreV1().Nodes().Patch(context.TODO(), nodeName, k8sTypes.StrategicMergePatchType, patch, metav1.PatchOptions{}, "status")
+	_, err = c.CoreV1().Nodes().Patch(ctx, nodeName, k8sTypes.StrategicMergePatchType, patch, metav1.PatchOptions{}, "status")
 
 	return err
 }
 
-func (n *NodeDiscovery) AnnotateK8sNode(ctx context.Context, ipsecSPI uint8) error {
+func (n *NodeDiscovery) AnnotateK8sNode(ctx context.Context, ipsecSPI uint8) {
 	if !n.clientset.IsEnabled() || !n.daemonConfig.AnnotateK8sNode {
 		n.logger.Debug("Annotate k8s node is disabled.")
-		return nil
+		return
 	}
 
 	latestLocalNode, err := n.localNodeStore.Get(ctx)
 	if err != nil {
 		n.logger.Warn("Cannot get local node", logfields.Error, err)
-		return nil
+		return
 	}
 
-	if _, err = n.annotateK8sNode(n.clientset, nodeTypes.GetName(), latestLocalNode.Node, ipsecSPI); err != nil {
-		n.logger.Warn("Cannot annotate k8s node with CIDR range", logfields.Error, err)
-		return nil
-	}
-
-	return nil
+	n.annotateK8sNode(ctx, n.clientset, nodeTypes.GetName(), latestLocalNode.Node, ipsecSPI)
 }
 
-// annotateK8sNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
-// In case of failure while updating the node, this function while spawn a go
-// routine to retry the node update indefinitely.
-func (n *NodeDiscovery) annotateK8sNode(cs kubernetes.Interface, nodeName string, localNode nodeTypes.Node, encryptKey uint8) (nodeAnnotation, error) {
+// annotateK8sNode starts a controller that tries to write v4 and v6 CIDRs and health IPs intojthe k8s node resource.
+func (n *NodeDiscovery) annotateK8sNode(ctx context.Context, cs kubernetes.Interface, nodeName string, localNode nodeTypes.Node, encryptKey uint8) {
 	scopedLog := n.logger.With(
 		logfields.NodeName, nodeName,
 		logfields.V4Prefix, localNode.IPv4AllocCIDR,
@@ -104,20 +97,19 @@ func (n *NodeDiscovery) annotateK8sNode(cs kubernetes.Interface, nodeName string
 	)
 	scopedLog.Info("Annotating k8s Node with node information")
 
-	annotation := n.prepareNodeAnnotation(localNode, encryptKey)
 	controller.NewManager().UpdateController("update-k8s-node-annotations",
 		controller.ControllerParams{
 			Group: nodeAnnotationControllerGroup,
-			DoFunc: func(_ context.Context) error {
-				err := n.updateNodeAnnotation(cs, nodeName, annotation)
-				if err != nil {
-					scopedLog.Warn("Unable to patch node resource with annotation", logfields.Error, err)
+			DoFunc: func(ctx context.Context) error {
+				annotation := n.prepareNodeAnnotation(localNode, encryptKey)
+				if err := n.updateNodeAnnotation(ctx, cs, nodeName, annotation); err != nil {
+					scopedLog.Warn("Unable to patch node resource with annotation, retrying", logfields.Error, err)
+					return err
 				}
-				return err
+				return nil
 			},
+			Context: ctx,
 		})
-
-	return annotation, nil
 }
 
 func prepareRemoveNodeAnnotationsPayload(annotation nodeAnnotation) ([]byte, error) {
