@@ -14,10 +14,8 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
@@ -222,24 +220,8 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
-	if params.Clientset.IsEnabled() && params.DaemonConfig.AnnotateK8sNode {
-		bootstrapStats.k8sInit.Start()
-		latestLocalNode, err := params.LocalNodeStore.Get(ctx)
-		if err == nil {
-			_, err = k8s.AnnotateNode(
-				params.Logger,
-				params.Clientset,
-				nodeTypes.GetName(),
-				latestLocalNode.Node,
-				params.IPsecAgent.SPI())
-		}
-		if err != nil {
-			params.Logger.Warn("Cannot annotate k8s node with CIDR range", logfields.Error, err)
-		}
-
-		bootstrapStats.k8sInit.End(true)
-	} else if !params.DaemonConfig.AnnotateK8sNode {
-		params.Logger.Debug("Annotate k8s node is disabled.")
+	if err = params.NodeDiscovery.AnnotateK8sNode(ctx, params.IPsecAgent.SPI()); err != nil {
+		params.Logger.Warn("Cannot annotate k8s node with CIDR range", logfields.Error, err)
 	}
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
