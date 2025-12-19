@@ -1328,13 +1328,9 @@ skip_vtep:
 
 		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, false, ext_err, &oif);
 		/* Error handling for local routes - just pass the packet to the kernel stack */
-		if (ret == DROP_NO_FIB && *ext_err == BPF_FIB_LKUP_RET_NOT_FWDED) {
-			void *data, *data_end;
-
-			if (!revalidate_data(ctx, &data, &data_end, &ip4))
-				return DROP_INVALID;
+		if (ret == DROP_NO_FIB && *ext_err == BPF_FIB_LKUP_RET_NOT_FWDED)
 			goto pass_to_stack;
-		}
+
 		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  dst_sec_identity, TRACE_EP_ID_UNKNOWN, oif,
