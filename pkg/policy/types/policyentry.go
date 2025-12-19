@@ -28,7 +28,10 @@ type PolicyEntry struct {
 	// Subject specifies the endpoint that this rule applies to
 	Subject *LabelSelector
 
-	// L3 specifies the source/destination endpoints or all endpoints if empty
+	// L3 specifies the source/destination peers.
+	// Nil selects nothing.
+	// Non-nil but empty L3 is implicitly treated as a wildcard selector if
+	// any L4 PortRules are/ also specified.
 	L3 Selectors
 
 	// L4 specifies the source/destination port rules or none if empty

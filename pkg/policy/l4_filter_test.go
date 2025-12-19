@@ -409,6 +409,193 @@ func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
 	p.logger.Info(fmt.Sprintf(format, a...))
 }
 
+func TestL3Wildcarding(t *testing.T) {
+	td := newTestData(t, hivetest.Logger(t))
+
+	// A: Specify WildcardEndpointSelector explicitly.
+
+	// Case A1: all identities with port 80 are selected
+	ruleA1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	expected80 := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
+		Ingress: true, wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		}),
+	}})
+
+	td.policyMapEquals(t, expected80, nil, &ruleA1)
+
+	// Case A2: All identities with wildcard TCP port are selected
+	ruleA2 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "0", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	expected0 := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+		Port: 0, Protocol: api.ProtoTCP, U8Proto: 6,
+		Ingress: true, wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		}),
+	}})
+
+	td.policyMapEquals(t, expected0, nil, &ruleA2)
+
+	// Case A3: All identities with wildcard port on any protocol are selected
+	ruleA3 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+			},
+		},
+	}
+
+	expectedAny := NewL4PolicyMapWithValues(map[string]*L4Filter{"80/TCP": {
+		Port: 0, Protocol: api.ProtoAny, U8Proto: 0,
+		Ingress: true, wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+		RuleOrigin: OriginForTest(map[CachedSelector]labels.LabelArrayList{
+			td.wildcardCachedSelector: {nil},
+		}),
+	}})
+
+	td.policyMapEquals(t, expectedAny, nil, &ruleA3)
+
+	//
+	// B: an empty non-nil FromEndpoints never selects anything
+	//
+
+	// CaseB1: No identities are selected with port 80
+	ruleB1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, NewL4PolicyMap(), nil, &ruleB1)
+
+	// CaseB2: No identities are selected with wildcard port
+	ruleB2 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "0", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, NewL4PolicyMap(), nil, &ruleB2)
+
+	// CaseB3: No identities are selected without L4
+	ruleB3 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{},
+				},
+			},
+		},
+	}
+	td.policyMapEquals(t, NewL4PolicyMap(), nil, &ruleB3)
+
+	//
+	// C: Nil FromEndpoints (No L3 specified): a wildcard selector is implicitly added when
+	//    ports are specified.
+
+	// CaseC1: All identities are selected with port 80
+	ruleC1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, expected80, nil, &ruleC1)
+
+	// CaseC2: All identiteis are selected with a wildcard port
+	ruleC2 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "0", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, expected0, nil, &ruleC2)
+
+	// CaseC3: No identities are selected without L4
+	ruleC3 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{},
+		},
+	}
+	td.policyMapEquals(t, NewL4PolicyMap(), nil, &ruleC3)
+}
+
 // Tests in this file:
 //
 // How to read this table:
@@ -518,8 +705,30 @@ func TestMergeAllowAllL3AndAllowAllL7(t *testing.T) {
 		},
 	}
 
-	expected = NewL4PolicyMap()
-	td.policyMapEquals(t, expected, nil, &rule2)
+	td.policyMapEquals(t, NewL4PolicyMap(), nil, &rule2)
+
+	// Case1C: nil FromEndpoints with non-wildcard port selects all identities.
+	rule3 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+			{
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+
+	td.policyMapEquals(t, expected, nil, &rule3)
 }
 
 // Case 2: allow all at L3 in both rules. Allow all in one L7 rule, but second

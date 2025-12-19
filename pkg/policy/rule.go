@@ -355,7 +355,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 		err error
 	)
 
-	// L3-only rule (with requirements folded into peerEndpoints).
+	// L3-only rule.
 	if rule.L4.Len() == 0 && len(rule.L3) > 0 {
 		cnt, err = resMap.addFilter(policyCtx, &rule.PolicyEntry, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny})
 		if err != nil {
