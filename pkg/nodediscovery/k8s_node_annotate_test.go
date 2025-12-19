@@ -27,33 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func TestPrepareRemoveNodeAnnotationsPayload(t *testing.T) {
-	tests := []struct {
-		name       string
-		annotation nodeAnnotation
-		wantJson   string
-	}{
-		{
-			name: "Test remove one annotation",
-			annotation: nodeAnnotation{
-				annotation.V4CIDRName: "cidr",
-			},
-			wantJson: "[{\"op\":\"remove\",\"path\":\"/metadata/annotations/network.cilium.io~1ipv4-pod-cidr\",\"value\":null}]",
-		},
-		{
-			name:       "Test remove zero annotations",
-			annotation: nodeAnnotation{},
-			wantJson:   "[]",
-		},
-	}
-
-	for _, tt := range tests {
-		got, err := prepareRemoveNodeAnnotationsPayload(tt.annotation)
-		require.NoError(t, err)
-		require.Equal(t, tt.wantJson, string(got), "Test Name: %s", tt.name)
-	}
-}
-
 func TestPatchingCIDRAnnotation(t *testing.T) {
 	logger := hivetest.Logger(t)
 	node.WithTestLocalNodeStore(func() {
@@ -172,40 +145,6 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 			t.FailNow()
 		}
 	})
-}
-
-func TestRemovalOfNodeAnnotations(t *testing.T) {
-	node1 := v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "node1",
-			Annotations: map[string]string{
-				annotation.V4CIDRName: "10.254.0.0/16",
-			},
-		},
-	}
-
-	patchChan := make(chan bool, 1)
-	fakeK8sClient := &fake.Clientset{}
-	fakeK8sClient.AddReactor("patch", "nodes",
-		func(action k8stesting.Action) (bool, runtime.Object, error) {
-			n1copy := node1.DeepCopy()
-			delete(n1copy.Annotations, annotation.V4CIDRName)
-			patchWanted := []byte("[{\"op\":\"remove\",\"path\":\"/metadata/annotations/network.cilium.io~1ipv4-pod-cidr\",\"value\":null}]")
-			patchReceived := action.(k8stesting.PatchAction).GetPatch()
-			require.Equal(t, string(patchWanted), string(patchReceived))
-			patchChan <- true
-			return true, n1copy, nil
-		})
-
-	err := RemoveNodeAnnotations(fakeK8sClient, "node1", map[string]string{annotation.V4CIDRName: "10.254.0.0/16"})
-	require.NoError(t, err)
-
-	select {
-	case <-patchChan:
-	case <-time.Tick(10 * time.Second):
-		t.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
-		t.FailNow()
-	}
 }
 
 func convertToAddress(v1Addrs []v1.NodeAddress) []slim_corev1.NodeAddress {
