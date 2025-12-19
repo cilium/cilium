@@ -1142,13 +1142,7 @@ func (ops *BPFOps) useMaglev(fe *loadbalancer.Frontend) bool {
 }
 
 func (ops *BPFOps) useWildcard(fe *loadbalancer.Frontend) bool {
-	switch fe.Type {
-	case loadbalancer.SVCTypeLoadBalancer,
-		loadbalancer.SVCTypeClusterIP:
-		// Only external scoped entries can parent wildcard entries
-		return fe.Address.Scope() == loadbalancer.ScopeExternal
-	}
-	return false
+	return fe.ControlFlags.NeedWildcardEntry()
 }
 
 func (ops *BPFOps) upsertService(svcKey maps.ServiceKey, svcVal maps.ServiceValue) error {

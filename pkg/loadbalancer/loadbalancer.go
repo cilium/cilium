@@ -362,6 +362,61 @@ func (s ServiceFlags) UInt16() uint16 {
 	return uint16(s)
 }
 
+// ControlFlags represent state relevant to the control plane, that may influence
+// what is programmed in the datapath, but are not themselves programmed in the
+// datapath.
+type ControlFlags uint16
+
+const (
+	controlFlagNone = 0
+
+	// controlFlagNeedWildcardEntry specifies if a service wildcard entry should
+	// be programmed in the datapath, e.g. if an L3 address is allocated and
+	// managed by Cilium.
+	controlFlagNeedWildcardEntry = 1 << 0
+)
+
+// +k8s:deepcopy-gen=true
+type CtrlFlagParam struct {
+	NeedWildcardEntry bool
+}
+
+func NewCtrlFlag(p *CtrlFlagParam) ControlFlags {
+	var flags ControlFlags
+
+	if p.NeedWildcardEntry {
+		flags |= controlFlagNeedWildcardEntry
+	}
+
+	return flags
+}
+
+func (c ControlFlags) UInt16() uint16 {
+	return uint16(c)
+}
+
+func (c ControlFlags) None() bool {
+	return (c == controlFlagNone)
+}
+
+func (c ControlFlags) NeedWildcardEntry() bool {
+	return (c & controlFlagNeedWildcardEntry) != 0
+}
+
+func (c ControlFlags) String() string {
+	var str []string
+
+	if c.None() {
+		str = append(str, "None")
+	} else {
+		if c.NeedWildcardEntry() {
+			str = append(str, "NeedWildcardEntry")
+		}
+	}
+
+	return strings.Join(str, ", ")
+}
+
 const (
 	// NONE type.
 	NONE = L4Type("NONE")

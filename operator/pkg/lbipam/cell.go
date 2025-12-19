@@ -5,6 +5,7 @@ package lbipam
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -37,7 +38,7 @@ var Cell = cell.Module(
 		EnableLBIPAM: true,
 	}),
 	cell.Config(SharedConfig{
-		DefaultLBServiceIPAM: DefaultLBClassLBIPAM,
+		DefaultLBServiceIPAM: option.ServiceLBClassLBIPAM,
 	}),
 )
 
@@ -46,7 +47,7 @@ type lbipamConfig struct {
 }
 
 func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
-	flags.BoolVar(&lc.EnableLBIPAM, "enable-lb-ipam", lc.EnableLBIPAM, "Enable LB IPAM")
+	flags.BoolVar(&lc.EnableLBIPAM, option.EnableLBIPAM, lc.EnableLBIPAM, "Enable LB IPAM")
 }
 
 func (lc lbipamConfig) IsEnabled() bool {
@@ -106,7 +107,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		svcClient:    params.Clientset.Slim().CoreV1(),
 		jobGroup:     params.JobGroup,
 		config:       params.Config,
-		defaultIPAM:  params.SharedConfig.DefaultLBServiceIPAM == DefaultLBClassLBIPAM,
+		defaultIPAM:  params.SharedConfig.DefaultLBServiceIPAM == option.ServiceLBClassLBIPAM,
 		testCounters: params.TestCounters,
 	})
 
@@ -120,11 +121,6 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 	return lbIPAM
 }
 
-const (
-	DefaultLBClassLBIPAM   = "lbipam"
-	DefaultLBClassNodeIPAM = "nodeipam"
-)
-
 // SharedConfig contains the configuration that is shared between
 // this module and others.
 // It is a temporary solution meant to avoid polluting this module with a direct
@@ -135,7 +131,11 @@ type SharedConfig struct {
 }
 
 func (sc SharedConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringVar(&sc.DefaultLBServiceIPAM, "default-lb-service-ipam", sc.DefaultLBServiceIPAM,
-		"Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set."+
-			"Applicable values: lbipam, nodeipam, none")
+	flags.StringVar(&sc.DefaultLBServiceIPAM, option.DefaultLBServiceIPAM, sc.DefaultLBServiceIPAM,
+		fmt.Sprintf("Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set."+
+			"Applicable values: %s, %s, %s",
+			option.ServiceLBClassLBIPAM,
+			option.ServiceLBClassNodeIPAM,
+			option.ServiceLBClassNone),
+	)
 }

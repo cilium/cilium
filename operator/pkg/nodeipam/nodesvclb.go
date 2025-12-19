@@ -25,11 +25,11 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/k8s/constants"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	nodeSvcLBClass                 = annotation.Prefix + "/node"
 	nodeSvcLBMatchLabelsAnnotation = annotation.Prefix + ".nodeipam" + "/match-node-labels"
 )
 
@@ -164,7 +164,7 @@ func (r nodeSvcLBReconciler) isServiceSupported(svc *corev1.Service) bool {
 	if svc.Spec.LoadBalancerClass == nil {
 		return r.DefaultIPAM
 	}
-	return *svc.Spec.LoadBalancerClass == nodeSvcLBClass
+	return *svc.Spec.LoadBalancerClass == constants.ServiceLBClassNodeIPAM
 }
 
 // getEndpointSliceNodes returns the set of node names if eTP=Local. If eTP=Cluster

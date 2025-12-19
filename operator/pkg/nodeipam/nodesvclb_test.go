@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/k8s/constants"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +24,7 @@ import (
 )
 
 var (
+	nodeSvcLBClass    = constants.ServiceLBClassNodeIPAM
 	nodeSvcLbFixtures = []client.Object{
 		&corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
