@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -110,30 +108,4 @@ func (n *NodeDiscovery) annotateK8sNode(ctx context.Context, cs kubernetes.Inter
 			},
 			Context: ctx,
 		})
-}
-
-func prepareRemoveNodeAnnotationsPayload(annotation nodeAnnotation) ([]byte, error) {
-	deleteAnnotations := []k8s.JSONPatch{}
-
-	for key := range annotation {
-		deleteAnnotations = append(deleteAnnotations, k8s.JSONPatch{
-			OP:   "remove",
-			Path: "/metadata/annotations/" + encodeJsonElement(key),
-		})
-	}
-
-	return json.Marshal(deleteAnnotations)
-}
-
-func RemoveNodeAnnotations(c kubernetes.Interface, nodeName string, annotation nodeAnnotation) error {
-	patch, err := prepareRemoveNodeAnnotationsPayload(annotation)
-	if err != nil {
-		return err
-	}
-	_, err = c.CoreV1().Nodes().Patch(context.TODO(), nodeName, k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
-	return err
-}
-
-func encodeJsonElement(element string) string {
-	return strings.ReplaceAll(element, "/", "~1")
 }
