@@ -38,7 +38,7 @@ ctx_load_meta_ipv6(const struct xdp_md *ctx __maybe_unused,
 static __always_inline __maybe_unused int
 redirect_self(struct xdp_md *ctx __maybe_unused)
 {
-	return XDP_TX;
+	return CTX_ACT_TX;
 }
 
 static __always_inline __maybe_unused int
