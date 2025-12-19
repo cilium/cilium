@@ -40,6 +40,7 @@ type infraIPAllocatorParams struct {
 	Logger         *slog.Logger
 	JobGroup       job.Group
 	DaemonConfig   *option.DaemonConfig
+	Config         config
 	DB             *statedb.DB
 	Routes         statedb.Table[*datapathTables.Route]
 	NodeAddrs      statedb.Table[datapathTables.NodeAddress]
@@ -61,6 +62,7 @@ type infraIPAllocator struct {
 	logger         *slog.Logger
 	jobGroup       job.Group
 	daemonConfig   *option.DaemonConfig
+	config         config
 	db             *statedb.DB
 	routes         statedb.Table[*datapathTables.Route]
 	nodeAddressing datapath.NodeAddressing
@@ -85,6 +87,7 @@ func newInfraIPAllocator(params infraIPAllocatorParams) InfraIPAllocator {
 		logger:         params.Logger,
 		jobGroup:       params.JobGroup,
 		daemonConfig:   params.DaemonConfig,
+		config:         params.Config,
 		db:             params.DB,
 		routes:         params.Routes,
 		nodeAddressing: params.NodeAddressing,
@@ -562,9 +565,9 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 func (r *infraIPAllocator) allocateServiceLoopbackIPs() error {
 	if r.daemonConfig.EnableIPv6 {
 		// Allocate IPv6 service loopback IP
-		serviceLoopbackIPv6 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv6)
+		serviceLoopbackIPv6 := net.ParseIP(r.config.ServiceLoopbackIPv6)
 		if serviceLoopbackIPv6 == nil {
-			return fmt.Errorf("invalid IPv6 service loopback address %s", r.daemonConfig.ServiceLoopbackIPv6)
+			return fmt.Errorf("invalid IPv6 service loopback address %s", r.config.ServiceLoopbackIPv6)
 		}
 		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv6 = serviceLoopbackIPv6 })
 		r.logger.Debug("Allocated IPv6 service loopback address", logfields.IPAddr, serviceLoopbackIPv6)
@@ -572,9 +575,9 @@ func (r *infraIPAllocator) allocateServiceLoopbackIPs() error {
 
 	if r.daemonConfig.EnableIPv4 {
 		// Allocate IPv4 service loopback IP
-		serviceLoopbackIPv4 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv4)
+		serviceLoopbackIPv4 := net.ParseIP(r.config.ServiceLoopbackIPv4)
 		if serviceLoopbackIPv4 == nil {
-			return fmt.Errorf("invalid IPv4 service loopback address %s", r.daemonConfig.ServiceLoopbackIPv4)
+			return fmt.Errorf("invalid IPv4 service loopback address %s", r.config.ServiceLoopbackIPv4)
 		}
 		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv4 = serviceLoopbackIPv4 })
 		r.logger.Debug("Allocated IPv4 service loopback address", logfields.IPAddr, serviceLoopbackIPv4)
