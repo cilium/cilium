@@ -4,6 +4,7 @@
 package sriov
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -154,6 +155,14 @@ func (d PciDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool {
 	}
 
 	return true
+}
+
+func (d PciDevice) MarshalBinary() (data []byte, err error) {
+	return json.Marshal(d)
+}
+
+func (d *PciDevice) UnmarshalBinary(data []byte) error {
+	return json.Unmarshal(data, &d)
 }
 
 type SRIOVManager struct {
