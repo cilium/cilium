@@ -112,9 +112,9 @@ func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family datapa
 			r.logger.Warn("Specified router IP is within IPv4 podCIDR.")
 		}
 		return routerIP, nil
-	} else {
-		return r.allocateDatapathIPs(ctx, family, fromK8s, fromFS)
 	}
+
+	return r.reallocateRouterIPs(ctx, family, fromK8s, fromFS)
 }
 
 func (r *infraIPAllocator) allocateRouterIPv6(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
@@ -127,9 +127,9 @@ func (r *infraIPAllocator) allocateRouterIPv6(ctx context.Context, family datapa
 			r.logger.Warn("Specified router IP is within IPv6 podCIDR.")
 		}
 		return routerIP, nil
-	} else {
-		return r.allocateDatapathIPs(ctx, family, fromK8s, fromFS)
 	}
+
+	return r.reallocateRouterIPs(ctx, family, fromK8s, fromFS)
 }
 
 // Coalesce CIDRS when allocating the DatapathIPs and healthIPs. GH #18868
@@ -151,10 +151,10 @@ func (r *infraIPAllocator) coalesceCIDRs(rCIDRs []string) (result []string, err 
 	return result, err
 }
 
-// reallocateDatapathIPs attempts to reallocate the old router IP from IPAM.
+// reallocateOldRouterIPs attempts to reallocate the old router IP from IPAM.
 // It prefers fromFS over fromK8s. If neither IPs can be re-allocated, log
 // messages are emitted and the function returns nil.
-func (r *infraIPAllocator) reallocateDatapathIPs(fromK8s, fromFS net.IP) (result *ipam.AllocationResult) {
+func (r *infraIPAllocator) reallocateOldRouterIPs(fromK8s, fromFS net.IP) (result *ipam.AllocationResult) {
 	if fromK8s == nil && fromFS == nil {
 		// We do nothing in this case because there are no router IPs to restore.
 		return nil
@@ -240,7 +240,7 @@ func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error
 	return wait.ExponentialBackoffWithContext(ctx, bo, findENIByMAC)
 }
 
-func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
+func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
 	// Avoid allocating external IP
 	r.ipAllocator.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault())
 
@@ -249,7 +249,7 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family datap
 	// by the caller.
 	// This will also cause disruption of networking until all endpoints
 	// have been regenerated.
-	result := r.reallocateDatapathIPs(fromK8s, fromFS)
+	result := r.reallocateOldRouterIPs(fromK8s, fromFS)
 	if result == nil {
 		family := ipam.DeriveFamily(family.PrimaryExternal())
 		result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault())
@@ -542,35 +542,9 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 		return fmt.Errorf("failed to get local node: %w", err)
 	}
 
-	var routerV4 net.IP
-	var routerV6 net.IP
-
-	if r.daemonConfig.EnableIPv4 {
-		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv4FromFS)
-		if err != nil {
-			return err
-		}
-		if routerIP != nil {
-			r.localNodeStore.Update(func(n *node.LocalNode) { n.SetCiliumInternalIP(routerIP) })
-			routerV4 = routerIP
-			r.logger.Debug("Allocated IPv4 Router address", logfields.IPAddr, routerIP)
-		}
+	if err := r.allocateRouterIPs(ctx, restoredRouterIPs); err != nil {
+		return fmt.Errorf("failed to allocate router IPs: %w", err)
 	}
-
-	if r.daemonConfig.EnableIPv6 {
-		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPs.IPv6FromK8s, restoredRouterIPs.IPv6FromFS)
-		if err != nil {
-			return err
-		}
-		if routerIP != nil {
-			r.localNodeStore.Update(func(n *node.LocalNode) { n.SetCiliumInternalIP(routerIP) })
-			routerV6 = routerIP
-			r.logger.Debug("Allocated IPv6 Router address", logfields.IPAddr, routerIP)
-		}
-	}
-
-	// Clean up any stale IPs from the `cilium_host` interface
-	r.removeOldCiliumHostIPs(ctx, routerV4, routerV6)
 
 	if r.daemonConfig.EnableIPv6 {
 		// Allocate IPv6 service loopback IP
@@ -599,6 +573,40 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 	}
 
 	return r.allocateHealthIPs(localNode)
+}
+
+func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouterIPs RestoredIPs) error {
+	var v4 net.IP
+	var v6 net.IP
+
+	if r.daemonConfig.EnableIPv4 {
+		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv4FromFS)
+		if err != nil {
+			return err
+		}
+		if routerIP != nil {
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.SetCiliumInternalIP(routerIP) })
+			r.logger.Debug("Allocated IPv4 Router address", logfields.IPAddr, routerIP)
+			v4 = routerIP
+		}
+	}
+
+	if r.daemonConfig.EnableIPv6 {
+		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPs.IPv6FromK8s, restoredRouterIPs.IPv6FromFS)
+		if err != nil {
+			return err
+		}
+		if routerIP != nil {
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.SetCiliumInternalIP(routerIP) })
+			r.logger.Debug("Allocated IPv6 Router address", logfields.IPAddr, routerIP)
+			v6 = routerIP
+		}
+	}
+
+	// Clean up any stale IPs from the `cilium_host` interface
+	r.removeOldCiliumHostIPs(ctx, v4, v6)
+
+	return nil
 }
 
 func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
