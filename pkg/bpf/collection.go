@@ -5,10 +5,12 @@ package bpf
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -150,6 +152,9 @@ type CollectionOptions struct {
 
 	// Set of objects to keep during reachability pruning.
 	Keep *set.Set[string]
+
+	// Path to the file containing datapath runtime config for this collection.
+	ConfigPath string
 }
 
 func (co *CollectionOptions) populateMapReplacements() {
@@ -206,6 +211,10 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	if err := applyConstants(spec, opts.Constants); err != nil {
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
+	}
+
+	if err := serializeConstants(logger, spec, opts); err != nil {
+		return nil, nil, fmt.Errorf("serializing constants: %w", err)
 	}
 
 	reach, err := computeReachability(spec)
@@ -314,6 +323,44 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 		if err := v.Set(value); err != nil {
 			return fmt.Errorf("setting Variable %s: %w", name, err)
 		}
+	}
+
+	return nil
+}
+
+func serializeConstants(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *CollectionOptions) error {
+	if opts.ConfigPath == "" {
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(opts.ConfigPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory for config file %s: %w", opts.ConfigPath, err)
+	}
+
+	file, err := os.Create(opts.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to create config file %s: %w", opts.ConfigPath, err)
+	}
+	defer file.Close()
+
+	variables := make(map[string][]byte)
+	for name, v := range spec.Variables {
+		if v.SectionName != config.Section {
+			continue
+		}
+		variables[name] = v.Value
+	}
+
+	dump := struct {
+		Object    any               `json:"object"`
+		Variables map[string][]byte `json:"variables"`
+	}{
+		Object:    opts.Constants,
+		Variables: variables,
+	}
+
+	if err := json.NewEncoder(file).Encode(dump); err != nil {
+		return fmt.Errorf("failed to encode constants to JSON: %w", err)
 	}
 
 	return nil
