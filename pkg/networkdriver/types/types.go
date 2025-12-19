@@ -4,6 +4,7 @@
 package types
 
 import (
+	"encoding"
 	"encoding/json"
 	"errors"
 	"net/netip"
@@ -108,6 +109,9 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 }
 
 type Device interface {
+	encoding.BinaryMarshaler
+	encoding.BinaryUnmarshaler
+
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	Setup(cfg DeviceConfig) error
 	Free(cfg DeviceConfig) error

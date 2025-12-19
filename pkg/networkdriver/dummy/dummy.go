@@ -4,6 +4,7 @@
 package dummy
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -118,4 +119,12 @@ func (d DummyDevice) IfName() string {
 
 func (d DummyDevice) KernelIfName() string {
 	return d.Name
+}
+
+func (d DummyDevice) MarshalBinary() (data []byte, err error) {
+	return json.Marshal(d)
+}
+
+func (d *DummyDevice) UnmarshalBinary(data []byte) error {
+	return json.Unmarshal(data, &d)
 }
