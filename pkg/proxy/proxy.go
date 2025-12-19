@@ -566,12 +566,7 @@ func (p *Proxy) SetProxyPort(name string, proxyType types.ProxyType, port uint16
 // ReinstallRoutingRules ensures the presence of routing rules and tables needed
 // to route packets to and from the L7 proxy.
 func (p *Proxy) ReinstallRoutingRules(mtu int) error {
-	fromIngressProxy, fromEgressProxy := requireFromProxyRoutes()
-
-	// Use the provided mtu (RouteMTU) only with both ingress and egress proxy.
-	if !fromIngressProxy || !fromEgressProxy {
-		mtu = 0
-	}
+	fromIngressProxy, fromEgressProxy, mtu := requireFromProxyRoutes(mtu)
 
 	if option.Config.EnableIPv4 {
 		if err := installToProxyRoutesIPv4(); err != nil {
@@ -632,9 +627,30 @@ func (p *Proxy) ReinstallRoutingRules(mtu int) error {
 	return nil
 }
 
-func requireFromProxyRoutes() (fromIngressProxy, fromEgressProxy bool) {
-	fromIngressProxy = (option.Config.EnableEnvoyConfig || option.Config.EnableIPSec) && !option.Config.TunnelingEnabled()
-	fromEgressProxy = option.Config.EnableIPSec && !option.Config.TunnelingEnabled()
+// requireFromProxyRoutes determines whether routes from the proxy are needed,
+// and selects the appropriate MTU to set on those routes.
+//
+// Conditions for proxy routes:
+//   - Native routing + Envoy: install only Ingress routes to handle reply packet of
+//     hair-pinning traffic in Ingress L7 proxy (i.e. backend is in the same node).
+//   - Native routing + IPSec: install Ingress+Egress routes for (a) the same reason
+//     as above, and also to account for XFRM overhead on proxy-to-proxy connections.
+func requireFromProxyRoutes(mtuIn int) (fromIngressProxy, fromEgressProxy bool, mtu int) {
+	if option.Config.TunnelingEnabled() {
+		return
+	}
+	if option.Config.EnableEnvoyConfig {
+		fromIngressProxy = true
+	}
+	switch {
+	case option.Config.EnableIPSec:
+		fromIngressProxy = true
+		fromEgressProxy = true
+		mtu = mtuIn
+	case option.Config.EnableWireguard:
+		fromIngressProxy = true
+		mtu = mtuIn
+	}
 	return
 }
 
