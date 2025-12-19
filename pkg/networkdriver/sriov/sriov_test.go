@@ -1,15 +1,20 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package sriov
 
 import (
 	"log/slog"
 	"maps"
+	"path"
 	"slices"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 	resourceapi "k8s.io/api/resource/v1"
+
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 const (
@@ -28,26 +33,47 @@ func compareAttrs(t *testing.T, one, two map[resourceapi.QualifiedName]resourcea
 }
 
 func TestSriov(t *testing.T) {
-	t.Run("test device parsing", func(t *testing.T) {
-		listLinkFunc := func() ([]netlink.Link, error) {
-			return []netlink.Link{
-				&netlink.GenericLink{
-					LinkType: "device",
-					LinkAttrs: netlink.LinkAttrs{
-						Name:      "mypf",
-						Vfs:       []netlink.VfInfo{{ID: 1}},
-						ParentDev: "0000:02:00.0",
-					},
+
+	listLinkFunc := func() ([]netlink.Link, error) {
+		return []netlink.Link{
+			&netlink.GenericLink{
+				LinkType: "device",
+				LinkAttrs: netlink.LinkAttrs{
+					Name:      "mypf",
+					Vfs:       []netlink.VfInfo{{ID: 1}},
+					ParentDev: "0000:02:00.0",
 				},
-				&netlink.GenericLink{
-					LinkType: "device",
-					LinkAttrs: netlink.LinkAttrs{
-						Name:      "myvf",
-						ParentDev: "0000:02:00.1",
-					},
+			},
+			&netlink.GenericLink{
+				LinkType: "device",
+				LinkAttrs: netlink.LinkAttrs{
+					Name:      "myvf",
+					ParentDev: "0000:02:00.1",
 				},
-			}, nil
+			},
+		}, nil
+	}
+
+	var mgr *SRIOVManager
+	var err error
+
+	t.Run("test sriov setup on startup", func(t *testing.T) {
+		cfg := &v2alpha1.SRIOVDeviceManagerConfig{
+			Enabled:           true,
+			SysPciDevicesPath: testDataPath,
+			Ifaces: []v2alpha1.SRIOVDeviceConfig{
+				{IfName: "mypf", VfCount: 1},
+			},
 		}
+
+		mgr, err = NewManager(slog.Default(), cfg, withNetlinkLister(listLinkFunc))
+		require.NoError(t, err)
+
+		// now restore the file
+		require.NoError(t, writeVfs(path.Join(mgr.pciDevicesPath(), "0000:02:00.0"), 0))
+	})
+
+	t.Run("test device parsing", func(t *testing.T) {
 
 		mgr, err := NewManager(slog.Default(), &v2alpha1.SRIOVDeviceManagerConfig{
 			Enabled:           true,
