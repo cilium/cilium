@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/resiliency"
@@ -64,7 +63,6 @@ type infraIPAllocator struct {
 	daemonConfig   *option.DaemonConfig
 	db             *statedb.DB
 	routes         statedb.Table[*datapathTables.Route]
-	nodeAddrs      statedb.Table[datapathTables.NodeAddress]
 	nodeAddressing datapath.NodeAddressing
 	localNodeStore *node.LocalNodeStore
 	mtuManager     mtu.MTU
@@ -89,7 +87,6 @@ func newInfraIPAllocator(params infraIPAllocatorParams) InfraIPAllocator {
 		daemonConfig:   params.DaemonConfig,
 		db:             params.DB,
 		routes:         params.Routes,
-		nodeAddrs:      params.NodeAddrs,
 		nodeAddressing: params.NodeAddressing,
 		localNodeStore: params.LocalNodeStore,
 		mtuManager:     params.MTU,
@@ -380,7 +377,7 @@ func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
 			}
 		}
 
-		r.logger.Debug("IPv4 health endpoint address", logfields.IPAddr, result.IP)
+		r.logger.Debug("Allocated IPv4 health endpoint address", logfields.IPAddr, result.IP)
 
 		// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
 		// in order to set up rules and routes on the local node to direct
@@ -418,7 +415,7 @@ func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
 			}
 			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6HealthIP = result.IP })
 		}
-		r.logger.Debug("IPv6 health endpoint address", logfields.IPAddr, result.IP)
+		r.logger.Debug("Allocated IPv6 health endpoint address", logfields.IPAddr, result.IP)
 	}
 	return nil
 }
@@ -464,7 +461,7 @@ func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
 
 			ingressIPv4 = result.IP
 			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = result.IP })
-			r.logger.Info(fmt.Sprintf("  Ingress IPv4: %s", result.IP))
+			r.logger.Debug("Allocated IPv4 Ingress address", logfields.IPAddr, result.IP)
 
 			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
 			// ENI MAC addr in order to set up rules and routes on the local node to
@@ -527,7 +524,7 @@ func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
 			}
 
 			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6IngressIP = result.IP })
-			r.logger.Info(fmt.Sprintf("  Ingress IPv6: %s", result.IP))
+			r.logger.Debug("Allocated IPv6 Ingress address", logfields.IPAddr, result.IP)
 		}
 	}
 	return nil
@@ -556,6 +553,7 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 		if routerIP != nil {
 			r.localNodeStore.Update(func(n *node.LocalNode) { n.SetCiliumInternalIP(routerIP) })
 			routerV4 = routerIP
+			r.logger.Debug("Allocated IPv4 Router address", logfields.IPAddr, routerIP)
 		}
 	}
 
@@ -567,75 +565,31 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 		if routerIP != nil {
 			r.localNodeStore.Update(func(n *node.LocalNode) { n.SetCiliumInternalIP(routerIP) })
 			routerV6 = routerIP
+			r.logger.Debug("Allocated IPv6 Router address", logfields.IPAddr, routerIP)
 		}
 	}
 
 	// Clean up any stale IPs from the `cilium_host` interface
 	r.removeOldCiliumHostIPs(ctx, routerV4, routerV6)
 
-	r.logger.Info("Addressing information:")
-	r.logger.Info(fmt.Sprintf("  Cluster-Name: %s", r.daemonConfig.ClusterName))
-	r.logger.Info(fmt.Sprintf("  Cluster-ID: %d", r.daemonConfig.ClusterID))
-	r.logger.Info(fmt.Sprintf("  Local node-name: %s", nodeTypes.GetName()))
-	r.logger.Info(fmt.Sprintf("  Node-IPv6: %s", localNode.GetNodeIP(true)))
-
-	iter := r.nodeAddrs.All(r.db.ReadTxn())
-	addrs := statedb.Collect(
-		statedb.Filter(
-			iter,
-			func(addr datapathTables.NodeAddress) bool {
-				return addr.DeviceName != datapathTables.WildcardDeviceName
-			}))
-
 	if r.daemonConfig.EnableIPv6 {
-		r.logger.Debug(fmt.Sprintf("  IPv6 allocation prefix: %s", localNode.IPv6AllocCIDR))
-
-		if c := r.daemonConfig.IPv6NativeRoutingCIDR; c != nil {
-			r.logger.Info(fmt.Sprintf("  IPv6 native routing prefix: %s", c.String()))
-		}
-
-		r.logger.Info(fmt.Sprintf("  IPv6 router address: %s", localNode.GetCiliumInternalIP(true)))
-
 		// Allocate IPv6 service loopback IP
 		loopbackIPv6 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv6)
 		if loopbackIPv6 == nil {
-			return fmt.Errorf("invalid IPv6 loopback address %s", r.daemonConfig.ServiceLoopbackIPv6)
+			return fmt.Errorf("invalid IPv6 service loopback address %s", r.daemonConfig.ServiceLoopbackIPv6)
 		}
 		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv6 = loopbackIPv6 })
-		r.logger.Info(fmt.Sprintf("  Loopback IPv6: %s", loopbackIPv6.String()))
-
-		r.logger.Info("  Local IPv6 addresses:")
-		for _, addr := range addrs {
-			if addr.Addr.Is6() {
-				r.logger.Info(fmt.Sprintf("  - %s", addr.Addr))
-			}
-		}
+		r.logger.Debug("Allocated IPv6 service loopback address", logfields.IPAddr, loopbackIPv6)
 	}
 
-	r.logger.Info(fmt.Sprintf("  External-Node IPv4: %s", localNode.GetNodeIP(false)))
-	r.logger.Info(fmt.Sprintf("  Internal-Node IPv4: %s", localNode.GetCiliumInternalIP(false)))
-
 	if r.daemonConfig.EnableIPv4 {
-		r.logger.Debug(fmt.Sprintf("  IPv4 allocation prefix: %s", localNode.IPv4AllocCIDR))
-
-		if c := r.daemonConfig.IPv4NativeRoutingCIDR; c != nil {
-			r.logger.Info(fmt.Sprintf("  IPv4 native routing prefix: %s", c.String()))
-		}
-
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv4)
 		if loopbackIPv4 == nil {
-			return fmt.Errorf("invalid IPv4 loopback address %s", r.daemonConfig.ServiceLoopbackIPv4)
+			return fmt.Errorf("invalid IPv4 service loopback address %s", r.daemonConfig.ServiceLoopbackIPv4)
 		}
 		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv4 = loopbackIPv4 })
-		r.logger.Info(fmt.Sprintf("  Loopback IPv4: %s", loopbackIPv4.String()))
-
-		r.logger.Info("  Local IPv4 addresses:")
-		for _, addr := range addrs {
-			if addr.Addr.Is4() {
-				r.logger.Info(fmt.Sprintf("  - %s", addr.Addr))
-			}
-		}
+		r.logger.Debug("Allocated IPv4 service loopback address", logfields.IPAddr, loopbackIPv4)
 	}
 
 	if r.daemonConfig.EnableEnvoyConfig {
