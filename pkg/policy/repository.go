@@ -520,7 +520,7 @@ func (p *Repository) ReplaceByResource(rules types.PolicyEntries, resource ipcac
 	oldRules := maps.Clone(p.rulesByResource[resource]) // need to clone as `p.del()` mutates this
 
 	for key, oldRule := range oldRules {
-		for _, subj := range oldRule.getSubjects() {
+		for subj := range oldRule.getSubjects().All() {
 			affectedIDs.Insert(subj)
 		}
 		p.del(key)
@@ -532,7 +532,7 @@ func (p *Repository) ReplaceByResource(rules types.PolicyEntries, resource ipcac
 			newRule := p.newRule(*r, ruleKey{resource: resource, idx: uint(i)})
 			p.insert(newRule)
 
-			for _, subj := range newRule.getSubjects() {
+			for subj := range newRule.getSubjects().All() {
 				affectedIDs.Insert(subj)
 			}
 		}

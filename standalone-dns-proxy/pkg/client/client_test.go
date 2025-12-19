@@ -244,7 +244,7 @@ func assertDNSRules(t *testing.T, c *GRPCClient, epID uint32, pp restore.PortPro
 	var gotIDs []uint32
 	var gotPatterns []string
 	for k, v := range row.DNSRule {
-		for _, id := range k.GetSelections() {
+		for id := range k.GetSelections().All() {
 			gotIDs = append(gotIDs, id.Uint32())
 		}
 		if v != nil {

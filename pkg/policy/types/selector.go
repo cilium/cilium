@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/cilium/statedb/part"
 
@@ -534,10 +535,19 @@ func init() {
 	part.RegisterKeyType(func(x SelectorId) []byte {
 		return binary.BigEndian.AppendUint64(nil, uint64(x))
 	})
+
+	part.RegisterKeyType(func(x identity.NumericIdentity) []byte {
+		return binary.BigEndian.AppendUint64(nil, uint64(x))
+	})
 }
 
-type SelectionsMap = part.Map[SelectorId, identity.NumericIdentitySlice]
-type SelectorWriteTxn = part.MapTxn[SelectorId, identity.NumericIdentitySlice]
+type Selections struct {
+	selections       part.Set[identity.NumericIdentity]
+	sortedSelections func() identity.NumericIdentitySlice
+}
+
+type SelectionsMap = part.Map[SelectorId, *Selections]
+type SelectorWriteTxn = part.MapTxn[SelectorId, *Selections]
 
 // SelectorSnapshot contains state needed to observe a coherent set of selectors
 type SelectorSnapshot struct {
@@ -555,10 +565,12 @@ func MockSelectorSnapshot() SelectorSnapshot {
 	return SelectorSnapshot{Revision: 1, valid: true}
 }
 
-func (s *SelectorSnapshot) Get(id SelectorId) identity.NumericIdentitySlice {
+var emptySelection = NewSelection(part.NewSet[identity.NumericIdentity]())
+
+func (s *SelectorSnapshot) Get(id SelectorId) *Selections {
 	v, _ := s.selections.Get(id)
-	if len(v) == 0 {
-		return nil
+	if v == nil {
+		return emptySelection
 	}
 	return v
 }
@@ -591,14 +603,25 @@ func (s *SelectorSnapshot) String() string {
 type CachedSelector interface {
 	// GetSelections returns the cached set of numeric identities
 	// selected by the CachedSelector for the latest revision of the
+	// selector cache.  The retuned set must NOT be modified, as it
+	// is shared among multiple users.
+	GetSelections() part.Set[identity.NumericIdentity]
+
+	// GetSortedSelections returns the cached set of numeric identities
+	// selected by the CachedSelector for the latest revision of the
 	// selector cache.  The retuned slice must NOT be modified, as it
 	// is shared among multiple users.
-	GetSelections() identity.NumericIdentitySlice
+	GetSortedSelections() identity.NumericIdentitySlice
 
 	// GetSelectionsAt returns the cached set of numeric identities
+	// selected by the CachedSelector.  The retuned set must NOT
+	// be modified, as it is shared among multiple users.
+	GetSelectionsAt(SelectorSnapshot) part.Set[identity.NumericIdentity]
+
+	// GetSortedSelectionsAt returns the cached set of numeric identities
 	// selected by the CachedSelector.  The retuned slice must NOT
 	// be modified, as it is shared among multiple users.
-	GetSelectionsAt(SelectorSnapshot) identity.NumericIdentitySlice
+	GetSortedSelectionsAt(SelectorSnapshot) identity.NumericIdentitySlice
 
 	// GetMetadataLabels returns metadata labels for additional context
 	// surrounding the selector. These are typically the labels associated with
@@ -659,6 +682,35 @@ func (s CachedSelectorSlice) SelectsAllEndpoints() bool {
 		}
 	}
 	return false
+}
+
+func (s *Selections) GetSelections() part.Set[identity.NumericIdentity] {
+	return s.selections
+}
+
+func (s *Selections) GetSortedSelections() identity.NumericIdentitySlice {
+	return s.sortedSelections()
+}
+
+func (s *Selections) sortSelections() identity.NumericIdentitySlice {
+	ids := make(identity.NumericIdentitySlice, 0, s.selections.Len())
+	for nid := range s.selections.All() {
+		ids = append(ids, nid)
+	}
+	slices.Sort(ids)
+	return ids
+}
+
+func (s *Selections) Len() int {
+	return s.GetSelections().Len()
+}
+
+func NewSelection(selections part.Set[identity.NumericIdentity]) *Selections {
+	s := &Selections{
+		selections: selections,
+	}
+	s.sortedSelections = sync.OnceValue(s.sortSelections)
+	return s
 }
 
 // CachedSelectionUser inserts selectors into the cache and gets update
