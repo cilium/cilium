@@ -1091,7 +1091,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 	if (map_related != NULL) {
 		/* Create an ICMPv6 entry to relate errors */
-		struct ipv6_ct_tuple icmp_tuple = {
+		struct ipv6_ct_tuple icmp_tuple __align_stack_8 = {
 			.nexthdr = IPPROTO_ICMPV6,
 			.sport = 0,
 			.dport = 0,
