@@ -414,6 +414,10 @@ spec:
           mountPath: /var/lib/kubelet/plugins_registry
         - name: nri-plugin
           mountPath: /var/run/nri
+        - name: host-sys-bus-pci-devices
+          mountPath: /host/sys/bus/pci/devices
+        - name: host-sys-devices
+          mountPath: /host/sys/devices
         {{- end }}
         {{- range .Values.extraHostPathMounts }}
         - name: {{ .name }}
@@ -1063,6 +1067,14 @@ spec:
           path: /etc/containerd
           type: Directory
       {{- if semverCompare ">=1.34.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
+      - name: host-sys-bus-pci-devices
+        hostPath:
+          path: /sys/bus/pci/devices
+          type: Directory
+      - name: host-sys-devices
+        hostPath:
+          path: /sys/devices
+          type: Directory
       - name: device-plugin
         hostPath:
           path: /var/lib/kubelet/plugins
