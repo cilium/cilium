@@ -546,24 +546,8 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 		return fmt.Errorf("failed to allocate router IPs: %w", err)
 	}
 
-	if r.daemonConfig.EnableIPv6 {
-		// Allocate IPv6 service loopback IP
-		loopbackIPv6 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv6)
-		if loopbackIPv6 == nil {
-			return fmt.Errorf("invalid IPv6 service loopback address %s", r.daemonConfig.ServiceLoopbackIPv6)
-		}
-		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv6 = loopbackIPv6 })
-		r.logger.Debug("Allocated IPv6 service loopback address", logfields.IPAddr, loopbackIPv6)
-	}
-
-	if r.daemonConfig.EnableIPv4 {
-		// Allocate IPv4 service loopback IP
-		loopbackIPv4 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv4)
-		if loopbackIPv4 == nil {
-			return fmt.Errorf("invalid IPv4 service loopback address %s", r.daemonConfig.ServiceLoopbackIPv4)
-		}
-		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv4 = loopbackIPv4 })
-		r.logger.Debug("Allocated IPv4 service loopback address", logfields.IPAddr, loopbackIPv4)
+	if err := r.allocateServiceLoopbackIPs(); err != nil {
+		return fmt.Errorf("failed to allocate service loopback IPs: %w", err)
 	}
 
 	if r.daemonConfig.EnableEnvoyConfig {
@@ -573,6 +557,30 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 	}
 
 	return r.allocateHealthIPs(localNode)
+}
+
+func (r *infraIPAllocator) allocateServiceLoopbackIPs() error {
+	if r.daemonConfig.EnableIPv6 {
+		// Allocate IPv6 service loopback IP
+		serviceLoopbackIPv6 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv6)
+		if serviceLoopbackIPv6 == nil {
+			return fmt.Errorf("invalid IPv6 service loopback address %s", r.daemonConfig.ServiceLoopbackIPv6)
+		}
+		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv6 = serviceLoopbackIPv6 })
+		r.logger.Debug("Allocated IPv6 service loopback address", logfields.IPAddr, serviceLoopbackIPv6)
+	}
+
+	if r.daemonConfig.EnableIPv4 {
+		// Allocate IPv4 service loopback IP
+		serviceLoopbackIPv4 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv4)
+		if serviceLoopbackIPv4 == nil {
+			return fmt.Errorf("invalid IPv4 service loopback address %s", r.daemonConfig.ServiceLoopbackIPv4)
+		}
+		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv4 = serviceLoopbackIPv4 })
+		r.logger.Debug("Allocated IPv4 service loopback address", logfields.IPAddr, serviceLoopbackIPv4)
+	}
+
+	return nil
 }
 
 func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouterIPs RestoredIPs) error {
