@@ -63,7 +63,7 @@ mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_
 #define ctx_redirect mock_ctx_redirect
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		int ifindex __maybe_unused, __u32 flags __maybe_unused);
+		  int ifindex __maybe_unused, __u32 flags __maybe_unused);
 
 #include "lib/bpf_host.h"
 
@@ -73,7 +73,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
-		__maybe_unused int plen, __maybe_unused __u32 flags)
+		     __maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	params->ifindex = DEFAULT_IFACE;
 
@@ -82,7 +82,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
-		int ifindex __maybe_unused, __u32 flags __maybe_unused)
+		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
 {
 	if (ifindex == BACKEND_IFACE)
 		return CTX_ACT_REDIRECT;
