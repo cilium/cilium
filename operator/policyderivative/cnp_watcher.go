@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package policyderivative
 
 import (
 	"context"
-	"log/slog"
-	"sync"
-	"time"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -15,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -23,9 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/groups"
 )
 
-var (
-	cnpToGroupsControllerGroup = controller.NewGroup("cilium-network-policy-to-groups")
-)
+var cnpToGroupsControllerGroup = controller.NewGroup("cilium-network-policy-to-groups")
 
 func init() {
 	runtime.ErrorHandlers = []runtime.ErrorHandler{
@@ -33,32 +27,32 @@ func init() {
 	}
 }
 
-// enableCNPWatcher waits for the CiliumNetworkPolicy CRD availability and then
-// garbage collects stale CiliumNetworkPolicy status field entries.
-func enableCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, clientset k8sClient.Clientset, clusterName string) {
-	logger.InfoContext(ctx, "Starting CNP derivative handler")
+// startCNPWatcher waits for the CiliumNetworkPolicy CRD availability and then
+// manages derivative policies for CNPs.
+func (c *policyDerivativeController) startCNPWatcher() {
+	c.logger.Info("Starting CNP derivative handler")
 	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	ciliumV2Controller := informer.NewInformerWithStore(
-		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNetworkPolicyList](clientset.CiliumV2().CiliumNetworkPolicies("")),
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNetworkPolicyList](c.clientset.CiliumV2().CiliumNetworkPolicies("")),
 		&cilium_v2.CiliumNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj any) {
 				k8sEventMetric(resources.MetricCNP, resources.MetricCreate)
-				if cnp := informer.CastInformerEvent[types.SlimCNP](logger, obj); cnp != nil {
+				if cnp := informer.CastInformerEvent[types.SlimCNP](c.logger, obj); cnp != nil {
 					// We need to deepcopy this structure because we are writing
 					// fields.
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 					cnpCpy := cnp.DeepCopy()
 
-					groups.AddDerivativePolicyIfNeeded(logger, clientset, clusterName, cnpCpy.CiliumNetworkPolicy, false)
+					groups.AddDerivativePolicyIfNeeded(c.logger, c.clientset, c.clusterName, cnpCpy.CiliumNetworkPolicy, false)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj any) {
 				k8sEventMetric(resources.MetricCNP, resources.MetricUpdate)
-				if oldCNP := informer.CastInformerEvent[types.SlimCNP](logger, oldObj); oldCNP != nil {
-					if newCNP := informer.CastInformerEvent[types.SlimCNP](logger, newObj); newCNP != nil {
+				if oldCNP := informer.CastInformerEvent[types.SlimCNP](c.logger, oldObj); oldCNP != nil {
+					if newCNP := informer.CastInformerEvent[types.SlimCNP](c.logger, newObj); newCNP != nil {
 						if oldCNP.DeepEqual(newCNP) {
 							return
 						}
@@ -69,13 +63,13 @@ func enableCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGro
 						newCNPCpy := newCNP.DeepCopy()
 						oldCNPCpy := oldCNP.DeepCopy()
 
-						groups.UpdateDerivativePolicyIfNeeded(logger, clientset, clusterName, newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy, false)
+						groups.UpdateDerivativePolicyIfNeeded(c.logger, c.clientset, c.clusterName, newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy, false)
 					}
 				}
 			},
 			DeleteFunc: func(obj any) {
 				k8sEventMetric(resources.MetricCNP, resources.MetricDelete)
-				cnp := informer.CastInformerEvent[types.SlimCNP](logger, obj)
+				cnp := informer.CastInformerEvent[types.SlimCNP](c.logger, obj)
 				if cnp == nil {
 					return
 				}
@@ -90,20 +84,18 @@ func enableCNPWatcher(ctx context.Context, logger *slog.Logger, wg *sync.WaitGro
 
 	mgr := controller.NewManager()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ciliumV2Controller.Run(ctx.Done())
+	c.wg.Go(func() {
+		ciliumV2Controller.Run(c.ctx.Done())
 		mgr.RemoveAllAndWait()
-	}()
+	})
 
 	mgr.UpdateController("cnp-to-groups",
 		controller.ControllerParams{
 			Group: cnpToGroupsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				groups.UpdateCNPInformation(logger, clientset, clusterName)
+				groups.UpdateCNPInformation(c.logger, c.clientset, c.clusterName)
 				return nil
 			},
-			RunInterval: 5 * time.Minute,
+			RunInterval: c.updateInterval,
 		})
 }
