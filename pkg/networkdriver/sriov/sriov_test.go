@@ -2,16 +2,30 @@ package sriov
 
 import (
 	"log/slog"
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	resourceapi "k8s.io/api/resource/v1"
 )
 
 const (
 	testDataPath = "./testdata/"
 )
+
+func compareAttrs(t *testing.T, one, two map[resourceapi.QualifiedName]resourceapi.DeviceAttribute) {
+	require.NotEmpty(t, one)
+	require.ElementsMatch(t, slices.Collect(maps.Keys(one)), slices.Collect(maps.Keys(two)))
+
+	for k, v := range one {
+		require.NotEmpty(t, v.String())
+		other := two[k]
+		require.Equal(t, v.String(), other.String())
+	}
+}
 
 func TestSriov(t *testing.T) {
 	t.Run("test device parsing", func(t *testing.T) {
@@ -58,6 +72,8 @@ func TestSriov(t *testing.T) {
 			deviceID:     "mydeviceid",
 			vendor:       "myvendor",
 		}
+
 		require.Equal(t, expectedDevice, *device)
+		compareAttrs(t, device.GetAttrs(), expectedDevice.GetAttrs())
 	})
 }
