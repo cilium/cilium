@@ -220,9 +220,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
-	if err = params.NodeDiscovery.AnnotateK8sNode(ctx, params.IPsecAgent.SPI()); err != nil {
-		params.Logger.Warn("Cannot annotate k8s node with CIDR range", logfields.Error, err)
-	}
+	params.NodeDiscovery.AnnotateK8sNode(ctx, params.IPsecAgent.SPI())
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
