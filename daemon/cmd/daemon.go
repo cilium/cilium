@@ -231,7 +231,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// We must do this after IPAM because we must wait until the
 	// K8s resources have been synced.
-	if err := params.InfraIPAllocator.AllocateIPs(ctx, restoredRouterIPs); err != nil { // will log errors/fatal internally
+	if err := params.InfraIPAllocator.AllocateIPs(ctx, restoredRouterIPs); err != nil {
 		return err
 	}
 

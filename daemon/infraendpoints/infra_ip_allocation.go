@@ -19,9 +19,7 @@ import (
 
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
-	"github.com/cilium/cilium/pkg/datapath/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -46,6 +44,7 @@ type infraIPAllocatorParams struct {
 	Routes         statedb.Table[*datapathTables.Route]
 	NodeAddrs      statedb.Table[datapathTables.NodeAddress]
 	NodeAddressing datapath.NodeAddressing
+	LocalNodeStore *node.LocalNodeStore
 	MTU            mtu.MTU
 	IPAM           *ipam.IPAM
 }
@@ -65,6 +64,7 @@ type infraIPAllocator struct {
 	routes         statedb.Table[*datapathTables.Route]
 	nodeAddrs      statedb.Table[datapathTables.NodeAddress]
 	nodeAddressing datapath.NodeAddressing
+	localNodeStore *node.LocalNodeStore
 	mtuManager     mtu.MTU
 	ipAllocator    ipamAllocator
 
@@ -88,6 +88,7 @@ func newInfraIPAllocator(params infraIPAllocatorParams) InfraIPAllocator {
 		routes:         params.Routes,
 		nodeAddrs:      params.NodeAddrs,
 		nodeAddressing: params.NodeAddressing,
+		localNodeStore: params.LocalNodeStore,
 		mtuManager:     params.MTU,
 		ipAllocator:    params.IPAM,
 	}
@@ -101,11 +102,11 @@ func (r *infraIPAllocator) GetHealthEndpointRouting() *linuxrouting.RoutingInfo 
 	return r.healthEndpointRouting
 }
 
-func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
+func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
 	if option.Config.LocalRouterIPv4 != "" {
 		routerIP := net.ParseIP(option.Config.LocalRouterIPv4)
 		if routerIP == nil {
-			return nil, fmt.Errorf("Invalid local-router-ip: %s", option.Config.LocalRouterIPv4)
+			return nil, fmt.Errorf("invalid local-router-ip: %s", option.Config.LocalRouterIPv4)
 		}
 		if r.nodeAddressing.IPv4().AllocationCIDR().Contains(routerIP) {
 			r.logger.Warn("Specified router IP is within IPv4 podCIDR.")
@@ -116,11 +117,11 @@ func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family types.
 	}
 }
 
-func (r *infraIPAllocator) allocateRouterIPv6(ctx context.Context, family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
+func (r *infraIPAllocator) allocateRouterIPv6(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
 	if option.Config.LocalRouterIPv6 != "" {
 		routerIP := net.ParseIP(option.Config.LocalRouterIPv6)
 		if routerIP == nil {
-			return nil, fmt.Errorf("Invalid local-router-ip: %s", option.Config.LocalRouterIPv6)
+			return nil, fmt.Errorf("invalid local-router-ip: %s", option.Config.LocalRouterIPv6)
 		}
 		if r.nodeAddressing.IPv6().AllocationCIDR().Contains(routerIP) {
 			r.logger.Warn("Specified router IP is within IPv6 podCIDR.")
@@ -239,7 +240,7 @@ func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr string) error
 	return wait.ExponentialBackoffWithContext(ctx, bo, findENIByMAC)
 }
 
-func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family types.NodeAddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
+func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
 	// Avoid allocating external IP
 	r.ipAllocator.ExcludeIP(family.PrimaryExternal(), "node-ip", ipam.PoolDefault())
 
@@ -253,7 +254,7 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family types
 		family := ipam.DeriveFamily(family.PrimaryExternal())
 		result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(family, "router", ipam.PoolDefault())
 		if err != nil {
-			return nil, fmt.Errorf("Unable to allocate router IP for family %s: %w", family, err)
+			return nil, fmt.Errorf("unable to allocate router IP for family %s: %w", family, err)
 		}
 	}
 
@@ -337,7 +338,7 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family types
 	return result.IP, nil
 }
 
-func (r *infraIPAllocator) allocateHealthIPs() error {
+func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
 	if !option.Config.EnableHealthChecking || !option.Config.EnableEndpointHealthChecking {
 		return nil
 	}
@@ -345,7 +346,7 @@ func (r *infraIPAllocator) allocateHealthIPs() error {
 	if option.Config.EnableIPv4 {
 		var result *ipam.AllocationResult
 		var err error
-		healthIPv4 = node.GetEndpointHealthIPv4(r.logger)
+		healthIPv4 = localNode.IPv4HealthIP
 		if healthIPv4 != nil {
 			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(healthIPv4, "health", ipam.PoolDefault())
 			if err != nil {
@@ -362,7 +363,7 @@ func (r *infraIPAllocator) allocateHealthIPs() error {
 			if err != nil {
 				return fmt.Errorf("unable to allocate health IPv4: %w, see https://cilium.link/ipam-range-full", err)
 			}
-			node.SetEndpointHealthIPv4(result.IP)
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = result.IP })
 		}
 
 		// Coalescing multiple CIDRs. GH #18868
@@ -391,7 +392,7 @@ func (r *infraIPAllocator) allocateHealthIPs() error {
 	if option.Config.EnableIPv6 {
 		var result *ipam.AllocationResult
 		var err error
-		healthIPv6 = node.GetEndpointHealthIPv6(r.logger)
+		healthIPv6 = localNode.IPv6HealthIP
 		if healthIPv6 != nil {
 			result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(healthIPv6, "health", ipam.PoolDefault())
 			if err != nil {
@@ -408,25 +409,25 @@ func (r *infraIPAllocator) allocateHealthIPs() error {
 			if err != nil {
 				if healthIPv4 != nil {
 					r.ipAllocator.ReleaseIP(healthIPv4, ipam.PoolDefault())
-					node.SetEndpointHealthIPv4(nil)
+					r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4HealthIP = nil })
 				}
 				return fmt.Errorf("unable to allocate health IPv6: %w, see https://cilium.link/ipam-range-full", err)
 			}
-			node.SetEndpointHealthIPv6(result.IP)
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6HealthIP = result.IP })
 		}
 		r.logger.Debug("IPv6 health endpoint address", logfields.IPAddr, result.IP)
 	}
 	return nil
 }
 
-func (r *infraIPAllocator) allocateIngressIPs() error {
+func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
 	if option.Config.EnableEnvoyConfig {
+		ingressIPv4 := localNode.IPv4IngressIP
 		if option.Config.EnableIPv4 {
 			var result *ipam.AllocationResult
 			var err error
 
 			// Reallocate the same address as before, if possible
-			ingressIPv4 := node.GetIngressIPv4(r.logger)
 			if ingressIPv4 != nil {
 				result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress", ipam.PoolDefault())
 				if err != nil {
@@ -458,8 +459,9 @@ func (r *infraIPAllocator) allocateIngressIPs() error {
 				}
 			}
 
-			node.SetIngressIPv4(result.IP)
-			r.logger.Info(fmt.Sprintf("  Ingress IPv4: %s", node.GetIngressIPv4(r.logger)))
+			ingressIPv4 = result.IP
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = result.IP })
+			r.logger.Info(fmt.Sprintf("  Ingress IPv4: %s", result.IP))
 
 			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
 			// ENI MAC addr in order to set up rules and routes on the local node to
@@ -485,7 +487,7 @@ func (r *infraIPAllocator) allocateIngressIPs() error {
 			var err error
 
 			// Reallocate the same address as before, if possible
-			ingressIPv6 := node.GetIngressIPv6(r.logger)
+			ingressIPv6 := localNode.IPv6IngressIP
 			if ingressIPv6 != nil {
 				result, err = r.ipAllocator.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress", ipam.PoolDefault())
 				if err != nil {
@@ -502,9 +504,9 @@ func (r *infraIPAllocator) allocateIngressIPs() error {
 			if result == nil {
 				result, err = r.ipAllocator.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress", ipam.PoolDefault())
 				if err != nil {
-					if ingressIPv4 := node.GetIngressIPv4(r.logger); ingressIPv4 != nil {
+					if ingressIPv4 != nil {
 						r.ipAllocator.ReleaseIP(ingressIPv4, ipam.PoolDefault())
-						node.SetIngressIPv4(nil)
+						r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv4IngressIP = nil })
 					}
 					return fmt.Errorf("unable to allocate ingress IPs: %w, see https://cilium.link/ipam-range-full", err)
 				}
@@ -521,8 +523,8 @@ func (r *infraIPAllocator) allocateIngressIPs() error {
 				}
 			}
 
-			node.SetIngressIPv6(result.IP)
-			r.logger.Info(fmt.Sprintf("  Ingress IPv6: %s", node.GetIngressIPv6(r.logger)))
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.IPv6IngressIP = result.IP })
+			r.logger.Info(fmt.Sprintf("  Ingress IPv6: %s", result.IP))
 		}
 	}
 	return nil
@@ -533,58 +535,71 @@ type RestoredIPs struct {
 	IPv6FromK8s, IPv6FromFS net.IP
 }
 
-func (r *infraIPAllocator) AllocateIPs(ctx context.Context, router RestoredIPs) error {
+func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs RestoredIPs) error {
+	// fetch local node. be aware that updating the local node via localNodeStore.Update doesn't update this instance!
+	localNode, err := r.localNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	var routerV4 net.IP
+	var routerV6 net.IP
+
 	if option.Config.EnableIPv4 {
-		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), router.IPv4FromK8s, router.IPv4FromFS)
+		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv4FromFS)
 		if err != nil {
 			return err
 		}
 		if routerIP != nil {
-			node.SetInternalIPv4Router(routerIP)
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.SetCiliumInternalIP(routerIP) })
+			routerV4 = routerIP
 		}
 	}
 
 	if option.Config.EnableIPv6 {
-		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), router.IPv6FromK8s, router.IPv6FromFS)
+		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPs.IPv6FromK8s, restoredRouterIPs.IPv6FromFS)
 		if err != nil {
 			return err
 		}
 		if routerIP != nil {
-			node.SetIPv6Router(routerIP)
+			r.localNodeStore.Update(func(n *node.LocalNode) { n.SetCiliumInternalIP(routerIP) })
+			routerV6 = routerIP
 		}
 	}
 
 	// Clean up any stale IPs from the `cilium_host` interface
-	r.removeOldCiliumHostIPs(ctx, node.GetInternalIPv4Router(r.logger), node.GetIPv6Router(r.logger))
+	r.removeOldCiliumHostIPs(ctx, routerV4, routerV6)
 
 	r.logger.Info("Addressing information:")
 	r.logger.Info(fmt.Sprintf("  Cluster-Name: %s", option.Config.ClusterName))
 	r.logger.Info(fmt.Sprintf("  Cluster-ID: %d", option.Config.ClusterID))
 	r.logger.Info(fmt.Sprintf("  Local node-name: %s", nodeTypes.GetName()))
-	r.logger.Info(fmt.Sprintf("  Node-IPv6: %s", node.GetIPv6(r.logger)))
+	r.logger.Info(fmt.Sprintf("  Node-IPv6: %s", localNode.GetNodeIP(true)))
 
 	iter := r.nodeAddrs.All(r.db.ReadTxn())
 	addrs := statedb.Collect(
 		statedb.Filter(
 			iter,
-			func(addr tables.NodeAddress) bool { return addr.DeviceName != tables.WildcardDeviceName }))
+			func(addr datapathTables.NodeAddress) bool {
+				return addr.DeviceName != datapathTables.WildcardDeviceName
+			}))
 
 	if option.Config.EnableIPv6 {
-		r.logger.Debug(fmt.Sprintf("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange(r.logger)))
+		r.logger.Debug(fmt.Sprintf("  IPv6 allocation prefix: %s", localNode.IPv6AllocCIDR))
 
 		if c := option.Config.IPv6NativeRoutingCIDR; c != nil {
 			r.logger.Info(fmt.Sprintf("  IPv6 native routing prefix: %s", c.String()))
 		}
 
-		r.logger.Info(fmt.Sprintf("  IPv6 router address: %s", node.GetIPv6Router(r.logger)))
+		r.logger.Info(fmt.Sprintf("  IPv6 router address: %s", localNode.GetCiliumInternalIP(true)))
 
 		// Allocate IPv6 service loopback IP
 		loopbackIPv6 := net.ParseIP(option.Config.ServiceLoopbackIPv6)
 		if loopbackIPv6 == nil {
-			return fmt.Errorf("Invalid IPv6 loopback address %s", option.Config.ServiceLoopbackIPv6)
+			return fmt.Errorf("invalid IPv6 loopback address %s", option.Config.ServiceLoopbackIPv6)
 		}
-		node.SetServiceLoopbackIPv6(loopbackIPv6)
-		r.logger.Info(fmt.Sprintf("  Loopback IPv6: %s", node.GetServiceLoopbackIPv6(r.logger).String()))
+		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv6 = loopbackIPv6 })
+		r.logger.Info(fmt.Sprintf("  Loopback IPv6: %s", loopbackIPv6.String()))
 
 		r.logger.Info("  Local IPv6 addresses:")
 		for _, addr := range addrs {
@@ -594,11 +609,11 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, router RestoredIPs) 
 		}
 	}
 
-	r.logger.Info(fmt.Sprintf("  External-Node IPv4: %s", node.GetIPv4(r.logger)))
-	r.logger.Info(fmt.Sprintf("  Internal-Node IPv4: %s", node.GetInternalIPv4Router(r.logger)))
+	r.logger.Info(fmt.Sprintf("  External-Node IPv4: %s", localNode.GetNodeIP(false)))
+	r.logger.Info(fmt.Sprintf("  Internal-Node IPv4: %s", localNode.GetCiliumInternalIP(false)))
 
 	if option.Config.EnableIPv4 {
-		r.logger.Debug(fmt.Sprintf("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange(r.logger)))
+		r.logger.Debug(fmt.Sprintf("  IPv4 allocation prefix: %s", localNode.IPv4AllocCIDR))
 
 		if c := option.Config.IPv4NativeRoutingCIDR; c != nil {
 			r.logger.Info(fmt.Sprintf("  IPv4 native routing prefix: %s", c.String()))
@@ -607,10 +622,10 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, router RestoredIPs) 
 		// Allocate IPv4 service loopback IP
 		loopbackIPv4 := net.ParseIP(option.Config.ServiceLoopbackIPv4)
 		if loopbackIPv4 == nil {
-			return fmt.Errorf("Invalid IPv4 loopback address %s", option.Config.ServiceLoopbackIPv4)
+			return fmt.Errorf("invalid IPv4 loopback address %s", option.Config.ServiceLoopbackIPv4)
 		}
-		node.SetServiceLoopbackIPv4(loopbackIPv4)
-		r.logger.Info(fmt.Sprintf("  Loopback IPv4: %s", node.GetServiceLoopbackIPv4(r.logger).String()))
+		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv4 = loopbackIPv4 })
+		r.logger.Info(fmt.Sprintf("  Loopback IPv4: %s", loopbackIPv4.String()))
 
 		r.logger.Info("  Local IPv4 addresses:")
 		for _, addr := range addrs {
@@ -621,12 +636,12 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, router RestoredIPs) 
 	}
 
 	if option.Config.EnableEnvoyConfig {
-		if err := r.allocateIngressIPs(); err != nil {
+		if err := r.allocateIngressIPs(localNode); err != nil {
 			return err
 		}
 	}
 
-	return r.allocateHealthIPs()
+	return r.allocateHealthIPs(localNode)
 }
 
 func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*linuxrouting.RoutingInfo, error) {
