@@ -24,10 +24,16 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
 
+const (
+	defaultSysfsPath = "/host/sys"
+	pciDevicesPath   = "bus/pci/devices"
+)
+
 var (
 	errNotAVF               = errors.New("device is not a vf")
 	errTooManyVfs           = errors.New("too many vfs")
 	errPfAttributesNotFound = errors.New("pf netlink attributes missing")
+	errInterfaceNotFound    = errors.New("interface not found")
 )
 
 type MacAddr [6]byte
@@ -158,7 +164,7 @@ type SRIOVManager struct {
 
 func (m *SRIOVManager) init() error {
 	if m.sysPath == "" {
-		m.sysPath = defaultSysPath
+		m.sysPath = defaultSysfsPath
 	}
 
 	m.logger.Debug(
@@ -166,12 +172,8 @@ func (m *SRIOVManager) init() error {
 		logfields.Path, m.sysPath,
 	)
 
-	for _, intf := range m.config.Ifaces {
-		if intf.VfCount != 0 {
-			if err := setupVfs(intf.IfName, intf.VfCount, m.logger); err != nil {
-				return err
-			}
-		}
+	if err := m.setupVfs(m.config.Ifaces); err != nil {
+		return err
 	}
 
 	return nil
@@ -187,9 +189,13 @@ func NewManager(logger *slog.Logger, cfg *v2alpha1.SRIOVDeviceManagerConfig) (*S
 	return mgr, mgr.init()
 }
 
+func (mgr *SRIOVManager) pciDevicesPath() string {
+	return path.Join(mgr.sysPath, pciDevicesPath)
+}
+
 // ListDevices scans the system to find sr-iov virtual functions.
 func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
-	files, err := os.ReadDir(mgr.sysPath)
+	files, err := os.ReadDir(mgr.pciDevicesPath())
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +213,7 @@ func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
 	for _, dirName := range files {
 		addr := dirName.Name()
 
-		if !isNetworkDevice(mgr.sysPath, addr) {
+		if !isNetworkDevice(mgr.pciDevicesPath(), addr) {
 			// we are only interested in network devices for now
 			mgr.logger.Debug(
 				"skipping non network device",
@@ -217,7 +223,7 @@ func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
 			continue
 		}
 
-		if !isVF(mgr.sysPath, addr) {
+		if !isVF(mgr.pciDevicesPath(), addr) {
 			// only interested in sriov vfs
 			mgr.logger.Debug(
 				"skipping non vf device",
@@ -242,8 +248,6 @@ func (mgr *SRIOVManager) ListDevices() ([]types.Device, error) {
 }
 
 const (
-	defaultSysPath = "/sys/bus/pci/devices"
-	defaultNetPath = "/sys/class/net"
 	// https://elixir.bootlin.com/linux/v6.17.6/source/include/linux/pci_ids.h#L32
 	// #define PCI_CLASS_NETWORK_ETHERNET	0x0200
 	ethernetDeviceClass = 0x0200
@@ -307,7 +311,7 @@ func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[string]netlin
 		dev.kernelIfName = thisLinkAttrs.Name
 	}
 
-	devicePath := path.Join(mgr.sysPath, addr)
+	devicePath := path.Join(mgr.pciDevicesPath(), addr)
 	driver, err := os.Readlink(path.Join(devicePath, "driver"))
 	if err != nil {
 		return nil, err
@@ -346,7 +350,7 @@ func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[string]netlin
 	}
 
 	dev.pfName = pfAttrs.Name
-	pfDevPath := path.Join(mgr.sysPath, pfAddr)
+	pfDevPath := path.Join(mgr.pciDevicesPath(), pfAddr)
 
 	// now we need to find the vf id
 	var found bool
@@ -376,63 +380,155 @@ func (mgr *SRIOVManager) parseDevice(addr string, netlinkAttrs map[string]netlin
 	return &dev, nil
 }
 
+// getIfacesPCIAddresses returns the mapping of interface names to pci addresses.
+// indexed by interface name.
+func getIfacesPCIAddresses(devicesPath string, logger *slog.Logger) (map[string]string, error) {
+	result := make(map[string]string)
+
+	deviceFiles, err := os.ReadDir(devicesPath)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, device := range deviceFiles {
+		addr := device.Name()
+		devicePath := path.Join(devicesPath, addr)
+
+		netFiles, err := os.ReadDir(path.Join(devicePath, "net"))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				// does not have a kernel network driver,
+				// or is not a network interface
+				// skip it
+				continue
+			}
+			return nil, err
+		}
+
+		for _, ifName := range netFiles {
+			result[ifName.Name()] = addr
+		}
+	}
+
+	return result, nil
+}
+
 // setupVfs configures a PF that has an `ifname` with `vfCount` virtual functions by
 // writing to  `sriov_totalvfs` device attribute in sysfs.
-func setupVfs(ifname string, vfCount int, logger *slog.Logger) error {
-	devicePath := path.Join(defaultNetPath, ifname, "device")
+func (mgr *SRIOVManager) setupVfs(ifaces []v2alpha1.SRIOVDeviceConfig) error {
+	if len(ifaces) == 0 {
+		// nothing to do. early exit.
+		return nil
+	}
+
+	pciAddrByIfname, err := getIfacesPCIAddresses(mgr.pciDevicesPath(), mgr.logger)
+	if err != nil {
+		return err
+	}
+
+	var errs error
+
+	for _, iface := range ifaces {
+		ifaceAddr, ok := pciAddrByIfname[iface.IfName]
+		if !ok {
+			errs = errors.Join(errs, fmt.Errorf("%w for %s", errInterfaceNotFound, iface.IfName))
+			continue
+		}
+
+		devicePath := path.Join(mgr.pciDevicesPath(), ifaceAddr)
+
+		maxVfs, numVfs, err := getVfs(devicePath)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("%w for interface %s", err, iface.IfName))
+			continue
+		}
+
+		if iface.VfCount > int(maxVfs) {
+			errs = errors.Join(errs, fmt.Errorf(
+				"failed to set up sriov vfs on %s: %w. max: %d, want: %d",
+				iface.IfName, errTooManyVfs, maxVfs, iface.VfCount,
+			))
+
+			continue
+		}
+
+		// if there is an existing configuration (that is, there are vfs configured)
+		// we don't want to change that as it may disrupt existing VFs
+		// print out logging messages so the operator can intervene if the change was intentional.
+		if numVfs > 0 {
+			mgr.logger.Info(fmt.Sprintf("sriov_numvfs is already set for %s. not changing it", iface.IfName))
+			if numVfs != iface.VfCount {
+				mgr.logger.Error(fmt.Sprintf(`vf count in configuration for %s is different from current configuration.
+						in order to change the vf count, the sriov configuration must be reset on the pf by
+						removing all existing VFs. ignoring configuration`, iface.IfName),
+				)
+			}
+
+			continue
+		}
+
+		// if we get here, then the PF has no VFs configured. let's set it up
+		if err := writeVfs(devicePath, iface.VfCount); err != nil {
+			errs = errors.Join(errs, fmt.Errorf(
+				"failed to set sriov_numvfs for %s: %w",
+				iface.IfName, err,
+			))
+
+			continue
+		}
+
+		mgr.logger.Info(
+			"sriov configuration complete",
+			logfields.Interface, iface.IfName,
+			logfields.VfCount, iface.VfCount,
+		)
+	}
+
+	return errs
+}
+
+// writeVfs writes vfCount to this device's sriov_numvfs file.
+func writeVfs(devicePath string, vfCount int) error {
+	return os.WriteFile(path.Join(devicePath, "sriov_numvfs"),
+		fmt.Appendf(nil, "%d", vfCount),
+		os.ModeAppend)
+}
+
+// getVfs returns the values for sriov_totalvfs and sriov_numvfs for a
+// device at path `devicePath`
+func getVfs(devicePath string) (maxVfsInt, numVfsInt int, err error) {
 	maxVfsStr, err := os.ReadFile(path.Join(devicePath, "sriov_totalvfs"))
 	if err != nil {
-		return fmt.Errorf("could not read sriov_totalvfs file for %s: %w", ifname, err)
+		return 0, 0, fmt.Errorf(
+			"could not read sriov_totalvfs file %s: %w",
+			devicePath, err,
+		)
 	}
 
 	maxVfs, err := strconv.ParseInt(strings.ReplaceAll(string(maxVfsStr), "\n", ""), 0, 32)
 	if err != nil {
-		return fmt.Errorf("could not parse int for sriov_totalvfs for %s: %w", ifname, err)
-	}
-
-	if vfCount > int(maxVfs) {
-		return fmt.Errorf(
-			"failed to set up sriov vfs on %s: %w. max: %d, want: %d",
-			ifname, errTooManyVfs, maxVfs, vfCount)
+		return 0, 0, fmt.Errorf(
+			"could not parse int for sriov_totalvfs at file %s: %w",
+			devicePath, err,
+		)
 	}
 
 	numVfsStr, err := os.ReadFile(path.Join(devicePath, "sriov_numvfs"))
 	if err != nil {
-		return fmt.Errorf("could not read sriov_numvfs file for %s: %w", ifname, err)
+		return 0, 0, fmt.Errorf(
+			"could not read sriov_numvfs file %s: %w",
+			devicePath, err,
+		)
 	}
 
 	numVfs, err := strconv.ParseInt(strings.ReplaceAll(string(numVfsStr), "\n", ""), 0, 32)
 	if err != nil {
-		return fmt.Errorf("could not parse int for sriov_numvfs for %s: %w", ifname, err)
+		return 0, 0, fmt.Errorf(
+			"could not parse int for sriov_numvfs for %s: %w",
+			devicePath, err,
+		)
 	}
 
-	// if there is an existing configuration (that is, there are vfs configured)
-	// we don't want to change that as it may disrupt existing VFs
-	// print out logging messages so the operator can intervene if the change was intentional.
-	if numVfs > 0 {
-		logger.Info(fmt.Sprintf("sriov_numvfs is already set for %s. not changing it", ifname))
-		if numVfs != int64(vfCount) {
-			logger.Error(fmt.Sprintf(`vf count in configuration for %s is different from current configuration.
-						in order to change the vf count, the sriov configuration must be reset on the pf by
-						removing all existing VFs. ignoring configuration`, ifname),
-			)
-		}
+	return int(maxVfs), int(numVfs), nil
 
-		return nil
-	}
-
-	// if we get here, then the PF has no VFs configured. let's set it up
-	if err := os.WriteFile(path.Join(devicePath, "sriov_numvfs"),
-		fmt.Appendf(nil, "%d", vfCount),
-		os.ModeAppend); err != nil {
-		return fmt.Errorf("failed to set sriov_numvfs for %s: %w", ifname, err)
-	}
-
-	logger.Info(
-		"sriov configuration complete",
-		logfields.Interface, ifname,
-		logfields.VfCount, vfCount,
-	)
-
-	return nil
 }
