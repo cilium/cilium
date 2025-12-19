@@ -43,12 +43,11 @@ import (
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/time"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
-	subsystem = "datapath-loader"
-
 	symbolFromEndpoint = "cil_from_container"
 	symbolToEndpoint   = "cil_to_container"
 	symbolFromNetwork  = "cil_from_network"
@@ -159,15 +158,34 @@ func registerRouteInitializer(p Params) {
 	}))
 }
 
-func upsertEndpointRoute(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, ip netip.Prefix) error {
+func upsertEndpointRoute(db *statedb.DB, devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager, ep datapath.Endpoint, ip netip.Prefix) error {
 	owner, err := rm.GetOrRegisterOwner("endpoint/" + ep.StringID())
 	if err != nil {
 		return fmt.Errorf("getting or registering owner for endpoint %s: %w", ep.StringID(), err)
 	}
 
-	epDev, _, found := devices.Get(db.ReadTxn(), tables.DeviceIDIndex.Query(ep.GetIfIndex()))
-	if !found {
-		return fmt.Errorf("device %d not found for endpoint %s", ep.GetIfIndex(), ep.StringID())
+	// This timeout is 50 times the current batch interval of the devices controller, and thus should
+	// be sufficient.
+	const devTableWaitTimeout = 5 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), devTableWaitTimeout)
+	defer cancel()
+
+	// Find the device associated with the endpoint. Up to this point we have only got the ifindex
+	// and the table may not yet have been populated with devices. Wait for the device to appear.
+	var epDev *tables.Device
+	for {
+		var found bool
+		var watch <-chan struct{}
+		epDev, _, watch, found = devices.GetWatch(db.ReadTxn(), tables.DeviceIDIndex.Query(ep.GetIfIndex()))
+		if found {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("device %d not found for endpoint %s: %w", ep.GetIfIndex(), ep.StringID(), ctx.Err())
+		case <-watch:
+		}
 	}
 
 	return rm.UpsertRoute(routeReconciler.DesiredRoute{
@@ -789,21 +807,14 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB, devices statedb.Table[*
 	}
 
 	if ep.RequireEndpointRoute() {
-		scopedLog := ep.Logger(subsystem).With(
-			logfields.Interface, device,
-		)
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(logger, db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
-				scopedLog.Warn("Failed to upsert route",
-					logfields.Error, err,
-				)
+			if err := upsertEndpointRoute(db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
+				return fmt.Errorf("upserting IPv4 route for endpoint %s: %w", ep.StringID(), err)
 			}
 		}
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(logger, db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
-				scopedLog.Warn("Failed to upsert route",
-					logfields.Error, err,
-				)
+			if err := upsertEndpointRoute(db, devices, rm, ep, netip.PrefixFrom(ip, ip.BitLen())); err != nil {
+				return fmt.Errorf("upserting IPv6 route for endpoint %s: %w", ep.StringID(), err)
 			}
 		}
 	}
