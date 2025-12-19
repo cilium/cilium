@@ -69,22 +69,22 @@ func updateNodeAnnotation(c kubernetes.Interface, nodeName string, annotation no
 // AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func AnnotateNode(logger *slog.Logger, cs kubernetes.Interface, nodeName string, nd nodeTypes.Node, encryptKey uint8) (nodeAnnotation, error) {
+func AnnotateNode(logger *slog.Logger, cs kubernetes.Interface, nodeName string, localNode nodeTypes.Node, encryptKey uint8) (nodeAnnotation, error) {
 	scopedLog := logger.With(
 		logfields.NodeName, nodeName,
-		logfields.V4Prefix, nd.IPv4AllocCIDR,
-		logfields.V6Prefix, nd.IPv6AllocCIDR,
-		logfields.V4HealthIP, nd.IPv4HealthIP,
-		logfields.V6HealthIP, nd.IPv6HealthIP,
-		logfields.V4IngressIP, nd.IPv4IngressIP,
-		logfields.V6IngressIP, nd.IPv6IngressIP,
-		logfields.V4CiliumHostIP, nd.GetCiliumInternalIP(false),
-		logfields.V6CiliumHostIP, nd.GetCiliumInternalIP(true),
+		logfields.V4Prefix, localNode.IPv4AllocCIDR,
+		logfields.V6Prefix, localNode.IPv6AllocCIDR,
+		logfields.V4HealthIP, localNode.IPv4HealthIP,
+		logfields.V6HealthIP, localNode.IPv6HealthIP,
+		logfields.V4IngressIP, localNode.IPv4IngressIP,
+		logfields.V6IngressIP, localNode.IPv6IngressIP,
+		logfields.V4CiliumHostIP, localNode.GetCiliumInternalIP(false),
+		logfields.V6CiliumHostIP, localNode.GetCiliumInternalIP(true),
 		logfields.Key, encryptKey,
 	)
-	scopedLog.Debug("Updating node annotations with node CIDRs")
+	scopedLog.Info("Annotating k8s Node with node information")
 
-	annotation := prepareNodeAnnotation(nd, encryptKey)
+	annotation := prepareNodeAnnotation(localNode, encryptKey)
 	controller.NewManager().UpdateController("update-k8s-node-annotations",
 		controller.ControllerParams{
 			Group: nodeAnnotationControllerGroup,
