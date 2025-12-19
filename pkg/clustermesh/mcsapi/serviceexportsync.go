@@ -37,7 +37,11 @@ func ServiceExportResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.
 		utils.ListerWatcherFromTyped(cs.MulticlusterV1alpha1().ServiceExports("")),
 		opts...,
 	)
-	return resource.New[*mcsapiv1alpha1.ServiceExport](lc, lw, mp, resource.WithMetric("ServiceExport"))
+	return resource.New[*mcsapiv1alpha1.ServiceExport](
+		lc, lw, mp,
+		resource.WithMetric("ServiceExport"),
+		resource.WithIndexers(cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
+	)
 }
 
 // ServiceExportSyncCallback represents a callback that, if provided, is executed

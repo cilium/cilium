@@ -1,0 +1,244 @@
+#! --cluster-id=3 --cluster-name=cluster3 --clustermesh-default-global-namespace=false
+
+hive/start
+
+# Add two namespaces - one global, one non-global
+k8s/add namespace-global.yaml namespace-local.yaml
+
+# Add two services with global annotation - one in each namespace
+k8s/add service-global.yaml service-local.yaml
+
+# Add endpoint slices for the services
+k8s/add endpointslice-global.yaml endpointslice-local.yaml
+
+# Assert that the synced key gets created
+kvstore/list -o plain cilium/synced synced.actual
+* grep -q '^# cilium/synced/cluster3/cilium/state/services/v1$' synced.actual
+
+# Wait for synchronization. Only service-global should be synced as it is in a global namespace
+# The service in local-ns should NOT be synced even though it has the service.cilium.io/global annotation
+kvstore/list -o json cilium/state/services services-1.actual
+* cmp services-1.actual services-1.expected
+
+# Annotate local-ns as global
+k8s/update namespace-local-annotated.yaml
+
+# Wait for synchronization. Now both services should be synced
+kvstore/list -o json cilium/state/services services-1+2.actual
+* cmp services-1+2.actual services-1+2.expected
+
+# Annotate local-ns as non-global again
+k8s/update namespace-local.yaml
+
+# Wait for synchronization. Only service-global should remain synced
+kvstore/list -o json cilium/state/services services-1.actual
+* cmp services-1.actual services-1.expected
+
+# Delete the service in the global namespace
+k8s/delete service-global.yaml
+
+# Wait for synchronization. No services should remain synced
+kvstore/list -o json cilium/state/services services-empty.actual
+* empty services-empty.actual
+
+# ---
+
+-- namespace-global.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: global-ns
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- namespace-local.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: local-ns
+
+-- namespace-local-annotated.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: local-ns
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- service-global.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+  namespace: global-ns
+  annotations:
+    service.cilium.io/global: "true"
+    service.cilium.io/shared: "true"
+spec:
+  clusterIP: 10.96.0.10
+  clusterIPs:
+  - 10.96.0.10
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: echo
+  type: ClusterIP
+
+-- service-local.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+  namespace: local-ns
+  annotations:
+    service.cilium.io/global: "true"
+    service.cilium.io/shared: "true"
+spec:
+  clusterIP: 10.96.0.20
+  clusterIPs:
+  - 10.96.0.20
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: echo
+  type: ClusterIP
+
+-- endpointslice-global.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo-service
+  name: echo-service-abc12
+  namespace: global-ns
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.10
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: worker1
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- endpointslice-local.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo-service
+  name: echo-service-def34
+  namespace: local-ns
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.10
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: worker2
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- services-1.expected --
+# cilium/state/services/v1/cluster3/global-ns/echo-service
+{
+  "cluster": "cluster3",
+  "namespace": "global-ns",
+  "name": "echo-service",
+  "frontends": {
+    "10.96.0.10": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 80
+      }
+    }
+  },
+  "backends": {
+    "10.244.1.10": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 8080
+      }
+    }
+  },
+  "labels": {},
+  "selector": {
+    "app": "echo"
+  },
+  "includeExternal": true,
+  "shared": true,
+  "clusterID": 3
+}
+-- services-1+2.expected --
+# cilium/state/services/v1/cluster3/global-ns/echo-service
+{
+  "cluster": "cluster3",
+  "namespace": "global-ns",
+  "name": "echo-service",
+  "frontends": {
+    "10.96.0.10": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 80
+      }
+    }
+  },
+  "backends": {
+    "10.244.1.10": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 8080
+      }
+    }
+  },
+  "labels": {},
+  "selector": {
+    "app": "echo"
+  },
+  "includeExternal": true,
+  "shared": true,
+  "clusterID": 3
+}
+# cilium/state/services/v1/cluster3/local-ns/echo-service
+{
+  "cluster": "cluster3",
+  "namespace": "local-ns",
+  "name": "echo-service",
+  "frontends": {
+    "10.96.0.20": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 80
+      }
+    }
+  },
+  "backends": {
+    "10.244.2.10": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 8080
+      }
+    }
+  },
+  "labels": {},
+  "selector": {
+    "app": "echo"
+  },
+  "includeExternal": true,
+  "shared": true,
+  "clusterID": 3
+}
