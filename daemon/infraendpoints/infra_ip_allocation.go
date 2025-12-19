@@ -40,6 +40,7 @@ type infraIPAllocatorParams struct {
 
 	Logger         *slog.Logger
 	JobGroup       job.Group
+	DaemonConfig   *option.DaemonConfig
 	DB             *statedb.DB
 	Routes         statedb.Table[*datapathTables.Route]
 	NodeAddrs      statedb.Table[datapathTables.NodeAddress]
@@ -60,6 +61,7 @@ var _ InfraIPAllocator = &infraIPAllocator{}
 type infraIPAllocator struct {
 	logger         *slog.Logger
 	jobGroup       job.Group
+	daemonConfig   *option.DaemonConfig
 	db             *statedb.DB
 	routes         statedb.Table[*datapathTables.Route]
 	nodeAddrs      statedb.Table[datapathTables.NodeAddress]
@@ -84,6 +86,7 @@ func newInfraIPAllocator(params infraIPAllocatorParams) InfraIPAllocator {
 	return &infraIPAllocator{
 		logger:         params.Logger,
 		jobGroup:       params.JobGroup,
+		daemonConfig:   params.DaemonConfig,
 		db:             params.DB,
 		routes:         params.Routes,
 		nodeAddrs:      params.NodeAddrs,
@@ -103,10 +106,10 @@ func (r *infraIPAllocator) GetHealthEndpointRouting() *linuxrouting.RoutingInfo 
 }
 
 func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
-	if option.Config.LocalRouterIPv4 != "" {
-		routerIP := net.ParseIP(option.Config.LocalRouterIPv4)
+	if r.daemonConfig.LocalRouterIPv4 != "" {
+		routerIP := net.ParseIP(r.daemonConfig.LocalRouterIPv4)
 		if routerIP == nil {
-			return nil, fmt.Errorf("invalid local-router-ip: %s", option.Config.LocalRouterIPv4)
+			return nil, fmt.Errorf("invalid local-router-ip: %s", r.daemonConfig.LocalRouterIPv4)
 		}
 		if r.nodeAddressing.IPv4().AllocationCIDR().Contains(routerIP) {
 			r.logger.Warn("Specified router IP is within IPv4 podCIDR.")
@@ -118,10 +121,10 @@ func (r *infraIPAllocator) allocateRouterIPv4(ctx context.Context, family datapa
 }
 
 func (r *infraIPAllocator) allocateRouterIPv6(ctx context.Context, family datapath.NodeAddressingFamily, fromK8s, fromFS net.IP) (net.IP, error) {
-	if option.Config.LocalRouterIPv6 != "" {
-		routerIP := net.ParseIP(option.Config.LocalRouterIPv6)
+	if r.daemonConfig.LocalRouterIPv6 != "" {
+		routerIP := net.ParseIP(r.daemonConfig.LocalRouterIPv6)
 		if routerIP == nil {
-			return nil, fmt.Errorf("invalid local-router-ip: %s", option.Config.LocalRouterIPv6)
+			return nil, fmt.Errorf("invalid local-router-ip: %s", r.daemonConfig.LocalRouterIPv6)
 		}
 		if r.nodeAddressing.IPv6().AllocationCIDR().Contains(routerIP) {
 			r.logger.Warn("Specified router IP is within IPv6 podCIDR.")
@@ -259,12 +262,12 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family datap
 	}
 
 	ipfamily := ipam.DeriveFamily(family.PrimaryExternal())
-	masq := (ipfamily == ipam.IPv4 && option.Config.EnableIPv4Masquerade) ||
-		(ipfamily == ipam.IPv6 && option.Config.EnableIPv6Masquerade)
+	masq := (ipfamily == ipam.IPv4 && r.daemonConfig.EnableIPv4Masquerade) ||
+		(ipfamily == ipam.IPv6 && r.daemonConfig.EnableIPv6Masquerade)
 
 	// Coalescing multiple CIDRs. GH #18868
 	if masq &&
-		(option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) &&
+		(r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAzure) &&
 		result != nil &&
 		len(result.CIDRs) > 0 {
 		result.CIDRs, err = r.coalesceCIDRs(result.CIDRs)
@@ -273,12 +276,12 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family datap
 		}
 	}
 
-	if (option.Config.IPAM == ipamOption.IPAMENI ||
-		option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
-		option.Config.IPAM == ipamOption.IPAMAzure) && result != nil {
+	if (r.daemonConfig.IPAM == ipamOption.IPAMENI ||
+		r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud ||
+		r.daemonConfig.IPAM == ipamOption.IPAMAzure) && result != nil {
 		var routingInfo *linuxrouting.RoutingInfo
 		routingInfo, err = linuxrouting.NewRoutingInfo(r.logger, result.GatewayIP, result.CIDRs,
-			result.PrimaryMAC, result.InterfaceNumber, option.Config.IPAM,
+			result.PrimaryMAC, result.InterfaceNumber, r.daemonConfig.IPAM,
 			masq)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create router info: %w", err)
@@ -287,7 +290,7 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family datap
 		// wait for ENI to be up and running before configuring routes and rules.
 		// This avoids spurious errors where netlink is not able to find
 		// the ifindex by its MAC because the ENI is not showing up yet.
-		if option.Config.IPAM == ipamOption.IPAMENI {
+		if r.daemonConfig.IPAM == ipamOption.IPAMENI {
 			if err := r.waitForENI(ctx, result.PrimaryMAC); err != nil {
 				r.logger.Warn("unable to find ENI netlink interface, this will likely lead to an error in configuring the router routes and rules",
 					logfields.MACAddr, result.PrimaryMAC,
@@ -339,11 +342,11 @@ func (r *infraIPAllocator) allocateDatapathIPs(ctx context.Context, family datap
 }
 
 func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
-	if !option.Config.EnableHealthChecking || !option.Config.EnableEndpointHealthChecking {
+	if !r.daemonConfig.EnableHealthChecking || !r.daemonConfig.EnableEndpointHealthChecking {
 		return nil
 	}
 	var healthIPv4, healthIPv6 net.IP
-	if option.Config.EnableIPv4 {
+	if r.daemonConfig.EnableIPv4 {
 		var result *ipam.AllocationResult
 		var err error
 		healthIPv4 = localNode.IPv4HealthIP
@@ -367,8 +370,8 @@ func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
 		}
 
 		// Coalescing multiple CIDRs. GH #18868
-		if option.Config.EnableIPv4Masquerade &&
-			(option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) &&
+		if r.daemonConfig.EnableIPv4Masquerade &&
+			(r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAzure) &&
 			result != nil &&
 			len(result.CIDRs) > 0 {
 			result.CIDRs, err = r.coalesceCIDRs(result.CIDRs)
@@ -382,14 +385,14 @@ func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
 		// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
 		// in order to set up rules and routes on the local node to direct
 		// endpoint traffic out of the ENIs.
-		if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
+		if r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud {
 			if r.healthEndpointRouting, err = r.parseRoutingInfo(result); err != nil {
 				r.logger.Warn("Unable to allocate health information for ENI", logfields.Error, err)
 			}
 		}
 	}
 
-	if option.Config.EnableIPv6 {
+	if r.daemonConfig.EnableIPv6 {
 		var result *ipam.AllocationResult
 		var err error
 		healthIPv6 = localNode.IPv6HealthIP
@@ -421,9 +424,9 @@ func (r *infraIPAllocator) allocateHealthIPs(localNode node.LocalNode) error {
 }
 
 func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
-	if option.Config.EnableEnvoyConfig {
+	if r.daemonConfig.EnableEnvoyConfig {
 		ingressIPv4 := localNode.IPv4IngressIP
-		if option.Config.EnableIPv4 {
+		if r.daemonConfig.EnableIPv4 {
 			var result *ipam.AllocationResult
 			var err error
 
@@ -449,8 +452,8 @@ func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
 			}
 
 			// Coalescing multiple CIDRs. GH #18868
-			if option.Config.EnableIPv4Masquerade &&
-				(option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) &&
+			if r.daemonConfig.EnableIPv4Masquerade &&
+				(r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAzure) &&
 				result != nil &&
 				len(result.CIDRs) > 0 {
 				result.CIDRs, err = r.coalesceCIDRs(result.CIDRs)
@@ -466,7 +469,7 @@ func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
 			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
 			// ENI MAC addr in order to set up rules and routes on the local node to
 			// direct ingress traffic out of the ENIs.
-			if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
+			if r.daemonConfig.IPAM == ipamOption.IPAMENI || r.daemonConfig.IPAM == ipamOption.IPAMAlibabaCloud {
 				if ingressRouting, err := r.parseRoutingInfo(result); err != nil {
 					r.logger.Warn("Unable to allocate ingress information for ENI", logfields.Error, err)
 				} else {
@@ -482,7 +485,7 @@ func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
 		}
 
 		// Only allocate if enabled and not restored already
-		if option.Config.EnableIPv6 {
+		if r.daemonConfig.EnableIPv6 {
 			var result *ipam.AllocationResult
 			var err error
 
@@ -513,8 +516,8 @@ func (r *infraIPAllocator) allocateIngressIPs(localNode node.LocalNode) error {
 			}
 
 			// Coalescing multiple CIDRs. GH #18868
-			if option.Config.EnableIPv6Masquerade &&
-				option.Config.IPAM == ipamOption.IPAMENI &&
+			if r.daemonConfig.EnableIPv6Masquerade &&
+				r.daemonConfig.IPAM == ipamOption.IPAMENI &&
 				result != nil &&
 				len(result.CIDRs) > 0 {
 				result.CIDRs, err = r.coalesceCIDRs(result.CIDRs)
@@ -545,7 +548,7 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 	var routerV4 net.IP
 	var routerV6 net.IP
 
-	if option.Config.EnableIPv4 {
+	if r.daemonConfig.EnableIPv4 {
 		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv4FromFS)
 		if err != nil {
 			return err
@@ -556,7 +559,7 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 		}
 	}
 
-	if option.Config.EnableIPv6 {
+	if r.daemonConfig.EnableIPv6 {
 		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPs.IPv6FromK8s, restoredRouterIPs.IPv6FromFS)
 		if err != nil {
 			return err
@@ -571,8 +574,8 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 	r.removeOldCiliumHostIPs(ctx, routerV4, routerV6)
 
 	r.logger.Info("Addressing information:")
-	r.logger.Info(fmt.Sprintf("  Cluster-Name: %s", option.Config.ClusterName))
-	r.logger.Info(fmt.Sprintf("  Cluster-ID: %d", option.Config.ClusterID))
+	r.logger.Info(fmt.Sprintf("  Cluster-Name: %s", r.daemonConfig.ClusterName))
+	r.logger.Info(fmt.Sprintf("  Cluster-ID: %d", r.daemonConfig.ClusterID))
 	r.logger.Info(fmt.Sprintf("  Local node-name: %s", nodeTypes.GetName()))
 	r.logger.Info(fmt.Sprintf("  Node-IPv6: %s", localNode.GetNodeIP(true)))
 
@@ -584,19 +587,19 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 				return addr.DeviceName != datapathTables.WildcardDeviceName
 			}))
 
-	if option.Config.EnableIPv6 {
+	if r.daemonConfig.EnableIPv6 {
 		r.logger.Debug(fmt.Sprintf("  IPv6 allocation prefix: %s", localNode.IPv6AllocCIDR))
 
-		if c := option.Config.IPv6NativeRoutingCIDR; c != nil {
+		if c := r.daemonConfig.IPv6NativeRoutingCIDR; c != nil {
 			r.logger.Info(fmt.Sprintf("  IPv6 native routing prefix: %s", c.String()))
 		}
 
 		r.logger.Info(fmt.Sprintf("  IPv6 router address: %s", localNode.GetCiliumInternalIP(true)))
 
 		// Allocate IPv6 service loopback IP
-		loopbackIPv6 := net.ParseIP(option.Config.ServiceLoopbackIPv6)
+		loopbackIPv6 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv6)
 		if loopbackIPv6 == nil {
-			return fmt.Errorf("invalid IPv6 loopback address %s", option.Config.ServiceLoopbackIPv6)
+			return fmt.Errorf("invalid IPv6 loopback address %s", r.daemonConfig.ServiceLoopbackIPv6)
 		}
 		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv6 = loopbackIPv6 })
 		r.logger.Info(fmt.Sprintf("  Loopback IPv6: %s", loopbackIPv6.String()))
@@ -612,17 +615,17 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 	r.logger.Info(fmt.Sprintf("  External-Node IPv4: %s", localNode.GetNodeIP(false)))
 	r.logger.Info(fmt.Sprintf("  Internal-Node IPv4: %s", localNode.GetCiliumInternalIP(false)))
 
-	if option.Config.EnableIPv4 {
+	if r.daemonConfig.EnableIPv4 {
 		r.logger.Debug(fmt.Sprintf("  IPv4 allocation prefix: %s", localNode.IPv4AllocCIDR))
 
-		if c := option.Config.IPv4NativeRoutingCIDR; c != nil {
+		if c := r.daemonConfig.IPv4NativeRoutingCIDR; c != nil {
 			r.logger.Info(fmt.Sprintf("  IPv4 native routing prefix: %s", c.String()))
 		}
 
 		// Allocate IPv4 service loopback IP
-		loopbackIPv4 := net.ParseIP(option.Config.ServiceLoopbackIPv4)
+		loopbackIPv4 := net.ParseIP(r.daemonConfig.ServiceLoopbackIPv4)
 		if loopbackIPv4 == nil {
-			return fmt.Errorf("invalid IPv4 loopback address %s", option.Config.ServiceLoopbackIPv4)
+			return fmt.Errorf("invalid IPv4 loopback address %s", r.daemonConfig.ServiceLoopbackIPv4)
 		}
 		r.localNodeStore.Update(func(n *node.LocalNode) { n.Local.ServiceLoopbackIPv4 = loopbackIPv4 })
 		r.logger.Info(fmt.Sprintf("  Loopback IPv4: %s", loopbackIPv4.String()))
@@ -635,7 +638,7 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 		}
 	}
 
-	if option.Config.EnableEnvoyConfig {
+	if r.daemonConfig.EnableEnvoyConfig {
 		if err := r.allocateIngressIPs(localNode); err != nil {
 			return err
 		}
@@ -652,8 +655,8 @@ func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*lin
 			result.CIDRs,
 			result.PrimaryMAC,
 			result.InterfaceNumber,
-			option.Config.IPAM,
-			option.Config.EnableIPv4Masquerade,
+			r.daemonConfig.IPAM,
+			r.daemonConfig.EnableIPv4Masquerade,
 		)
 	} else {
 		return linuxrouting.NewRoutingInfo(
@@ -662,8 +665,8 @@ func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*lin
 			result.CIDRs,
 			result.PrimaryMAC,
 			result.InterfaceNumber,
-			option.Config.IPAM,
-			option.Config.EnableIPv6Masquerade,
+			r.daemonConfig.IPAM,
+			r.daemonConfig.EnableIPv6Masquerade,
 		)
 	}
 }
@@ -673,10 +676,10 @@ func (r *infraIPAllocator) parseRoutingInfo(result *ipam.AllocationResult) (*lin
 func (r *infraIPAllocator) removeOldCiliumHostIPs(ctx context.Context, restoredRouterIPv4, restoredRouterIPv6 net.IP) {
 	gcHostIPsFn := func(ctx context.Context, retries int) (done bool, err error) {
 		var errs error
-		if option.Config.EnableIPv4 {
+		if r.daemonConfig.EnableIPv4 {
 			errs = errors.Join(errs, r.removeOldRouterState(false, restoredRouterIPv4))
 		}
-		if option.Config.EnableIPv6 {
+		if r.daemonConfig.EnableIPv6 {
 			errs = errors.Join(errs, r.removeOldRouterState(true, restoredRouterIPv6))
 		}
 		if resiliency.IsRetryable(errs) && !errors.As(errs, &netlink.LinkNotFoundError{}) {
