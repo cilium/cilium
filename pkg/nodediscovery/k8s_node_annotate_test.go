@@ -105,9 +105,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 		// IPv6 Node range is not checked because it shouldn't be changed.
 
 		n := &NodeDiscovery{logger: logger}
-		_, err := n.annotateK8sNode(fakeK8sClient, "node1", *node1Cilium, 0)
-
-		require.NoError(t, err)
+		n.annotateK8sNode(t.Context(), fakeK8sClient, "node1", *node1Cilium, 0)
 
 		select {
 		case <-patchChan:
@@ -165,9 +163,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 		require.Equal(t, "10.254.0.0/16", node.GetIPv4AllocRange(logger).String())
 		require.Equal(t, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96", node.GetIPv6AllocRange(logger).String())
 
-		_, err = n.annotateK8sNode(fakeK8sClient, "node2", *node2Cilium, 0)
-
-		require.NoError(t, err)
+		n.annotateK8sNode(t.Context(), fakeK8sClient, "node2", *node2Cilium, 0)
 
 		select {
 		case <-patchChan:
