@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package k8s
+package nodediscovery
 
 import (
 	"encoding/json"
@@ -19,6 +19,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
@@ -96,14 +97,15 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 				return true, n1copy, nil
 			})
 
-		node1Cilium := ParseNode(logger, toSlimNode(node1.DeepCopy()), source.Unspec)
+		node1Cilium := k8s.ParseNode(logger, toSlimNode(node1.DeepCopy()), source.Unspec)
 		node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		node.SetIPv4AllocRange(node1Cilium.IPv4AllocCIDR)
 
 		require.Equal(t, "10.2.0.0/16", node.GetIPv4AllocRange(logger).String())
 		// IPv6 Node range is not checked because it shouldn't be changed.
 
-		_, err := AnnotateNode(logger, fakeK8sClient, "node1", *node1Cilium, 0)
+		n := &NodeDiscovery{logger: logger}
+		_, err := n.annotateK8sNode(fakeK8sClient, "node1", *node1Cilium, 0)
 
 		require.NoError(t, err)
 
@@ -153,7 +155,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 				return true, n2Copy, nil
 			})
 
-		node2Cilium := ParseNode(hivetest.Logger(t), toSlimNode(node2.DeepCopy()), source.Unspec)
+		node2Cilium := k8s.ParseNode(hivetest.Logger(t), toSlimNode(node2.DeepCopy()), source.Unspec)
 		node2Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		node.SetIPv4AllocRange(node2Cilium.IPv4AllocCIDR)
 		node.SetIPv6NodeRange(node2Cilium.IPv6AllocCIDR)
@@ -163,7 +165,7 @@ func TestPatchingCIDRAnnotation(t *testing.T) {
 		require.Equal(t, "10.254.0.0/16", node.GetIPv4AllocRange(logger).String())
 		require.Equal(t, "aaaa:aaaa:aaaa:aaaa:beef:beef::/96", node.GetIPv6AllocRange(logger).String())
 
-		_, err = AnnotateNode(hivetest.Logger(t), fakeK8sClient, "node2", *node2Cilium, 0)
+		_, err = n.annotateK8sNode(fakeK8sClient, "node2", *node2Cilium, 0)
 
 		require.NoError(t, err)
 
