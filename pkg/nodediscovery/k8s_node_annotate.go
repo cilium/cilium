@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package k8s
+package nodediscovery
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"reflect"
 	"strconv"
 	"strings"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -26,7 +26,7 @@ type nodeAnnotation = map[string]string
 
 var nodeAnnotationControllerGroup = controller.NewGroup("update-k8s-node-annotations")
 
-func prepareNodeAnnotation(nd nodeTypes.Node, encryptKey uint8) nodeAnnotation {
+func (n *NodeDiscovery) prepareNodeAnnotation(nd nodeTypes.Node, encryptKey uint8) nodeAnnotation {
 	annotationMap := map[string]fmt.Stringer{
 		annotation.V4CIDRName:     nd.IPv4AllocCIDR,
 		annotation.V6CIDRName:     nd.IPv6AllocCIDR,
@@ -50,7 +50,7 @@ func prepareNodeAnnotation(nd nodeTypes.Node, encryptKey uint8) nodeAnnotation {
 	return annotations
 }
 
-func updateNodeAnnotation(c kubernetes.Interface, nodeName string, annotation nodeAnnotation) error {
+func (n *NodeDiscovery) updateNodeAnnotation(c kubernetes.Interface, nodeName string, annotation nodeAnnotation) error {
 	if len(annotation) == 0 {
 		return nil
 	}
@@ -66,11 +66,31 @@ func updateNodeAnnotation(c kubernetes.Interface, nodeName string, annotation no
 	return err
 }
 
-// AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
+func (n *NodeDiscovery) AnnotateK8sNode(ctx context.Context, ipsecSPI uint8) error {
+	if !n.clientset.IsEnabled() || !n.daemonConfig.AnnotateK8sNode {
+		n.logger.Debug("Annotate k8s node is disabled.")
+		return nil
+	}
+
+	latestLocalNode, err := n.localNodeStore.Get(ctx)
+	if err != nil {
+		n.logger.Warn("Cannot get local node", logfields.Error, err)
+		return nil
+	}
+
+	if _, err = n.annotateK8sNode(n.clientset, nodeTypes.GetName(), latestLocalNode.Node, ipsecSPI); err != nil {
+		n.logger.Warn("Cannot annotate k8s node with CIDR range", logfields.Error, err)
+		return nil
+	}
+
+	return nil
+}
+
+// annotateK8sNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func AnnotateNode(logger *slog.Logger, cs kubernetes.Interface, nodeName string, localNode nodeTypes.Node, encryptKey uint8) (nodeAnnotation, error) {
-	scopedLog := logger.With(
+func (n *NodeDiscovery) annotateK8sNode(cs kubernetes.Interface, nodeName string, localNode nodeTypes.Node, encryptKey uint8) (nodeAnnotation, error) {
+	scopedLog := n.logger.With(
 		logfields.NodeName, nodeName,
 		logfields.V4Prefix, localNode.IPv4AllocCIDR,
 		logfields.V6Prefix, localNode.IPv6AllocCIDR,
@@ -84,12 +104,12 @@ func AnnotateNode(logger *slog.Logger, cs kubernetes.Interface, nodeName string,
 	)
 	scopedLog.Info("Annotating k8s Node with node information")
 
-	annotation := prepareNodeAnnotation(localNode, encryptKey)
+	annotation := n.prepareNodeAnnotation(localNode, encryptKey)
 	controller.NewManager().UpdateController("update-k8s-node-annotations",
 		controller.ControllerParams{
 			Group: nodeAnnotationControllerGroup,
 			DoFunc: func(_ context.Context) error {
-				err := updateNodeAnnotation(cs, nodeName, annotation)
+				err := n.updateNodeAnnotation(cs, nodeName, annotation)
 				if err != nil {
 					scopedLog.Warn("Unable to patch node resource with annotation", logfields.Error, err)
 				}
@@ -101,10 +121,10 @@ func AnnotateNode(logger *slog.Logger, cs kubernetes.Interface, nodeName string,
 }
 
 func prepareRemoveNodeAnnotationsPayload(annotation nodeAnnotation) ([]byte, error) {
-	deleteAnnotations := []JSONPatch{}
+	deleteAnnotations := []k8s.JSONPatch{}
 
 	for key := range annotation {
-		deleteAnnotations = append(deleteAnnotations, JSONPatch{
+		deleteAnnotations = append(deleteAnnotations, k8s.JSONPatch{
 			OP:   "remove",
 			Path: "/metadata/annotations/" + encodeJsonElement(key),
 		})
