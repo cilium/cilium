@@ -26,16 +26,16 @@ type nodeAnnotation = map[string]string
 
 var nodeAnnotationControllerGroup = controller.NewGroup("update-k8s-node-annotations")
 
-func (n *NodeDiscovery) prepareNodeAnnotation(nd nodeTypes.Node, encryptKey uint8) nodeAnnotation {
+func (n *NodeDiscovery) prepareNodeAnnotations(localNode nodeTypes.Node) nodeAnnotation {
 	annotationMap := map[string]fmt.Stringer{
-		annotation.V4CIDRName:     nd.IPv4AllocCIDR,
-		annotation.V6CIDRName:     nd.IPv6AllocCIDR,
-		annotation.V4HealthName:   nd.IPv4HealthIP,
-		annotation.V6HealthName:   nd.IPv6HealthIP,
-		annotation.V4IngressName:  nd.IPv4IngressIP,
-		annotation.V6IngressName:  nd.IPv6IngressIP,
-		annotation.CiliumHostIP:   nd.GetCiliumInternalIP(false),
-		annotation.CiliumHostIPv6: nd.GetCiliumInternalIP(true),
+		annotation.V4CIDRName:     localNode.IPv4AllocCIDR,
+		annotation.V6CIDRName:     localNode.IPv6AllocCIDR,
+		annotation.V4HealthName:   localNode.IPv4HealthIP,
+		annotation.V6HealthName:   localNode.IPv6HealthIP,
+		annotation.V4IngressName:  localNode.IPv4IngressIP,
+		annotation.V6IngressName:  localNode.IPv6IngressIP,
+		annotation.CiliumHostIP:   localNode.GetCiliumInternalIP(false),
+		annotation.CiliumHostIPv6: localNode.GetCiliumInternalIP(true),
 	}
 
 	annotations := map[string]string{}
@@ -44,13 +44,13 @@ func (n *NodeDiscovery) prepareNodeAnnotation(nd nodeTypes.Node, encryptKey uint
 			annotations[k] = v.String()
 		}
 	}
-	if encryptKey != 0 {
-		annotations[annotation.CiliumEncryptionKey] = strconv.FormatUint(uint64(encryptKey), 10)
+	if localNode.EncryptionKey != 0 {
+		annotations[annotation.CiliumEncryptionKey] = strconv.FormatUint(uint64(localNode.EncryptionKey), 10)
 	}
 	return annotations
 }
 
-func (n *NodeDiscovery) updateNodeAnnotation(ctx context.Context, c kubernetes.Interface, nodeName string, annotation nodeAnnotation) error {
+func (n *NodeDiscovery) updateNodeAnnotations(ctx context.Context, c kubernetes.Interface, nodeName string, annotation nodeAnnotation) error {
 	if len(annotation) == 0 {
 		return nil
 	}
@@ -66,7 +66,7 @@ func (n *NodeDiscovery) updateNodeAnnotation(ctx context.Context, c kubernetes.I
 	return err
 }
 
-func (n *NodeDiscovery) AnnotateK8sNode(ctx context.Context, ipsecSPI uint8) {
+func (n *NodeDiscovery) AnnotateK8sNode(ctx context.Context) {
 	if !n.clientset.IsEnabled() || !n.daemonConfig.AnnotateK8sNode {
 		n.logger.Debug("Annotate k8s node is disabled.")
 		return
@@ -78,13 +78,13 @@ func (n *NodeDiscovery) AnnotateK8sNode(ctx context.Context, ipsecSPI uint8) {
 		return
 	}
 
-	n.annotateK8sNode(ctx, n.clientset, nodeTypes.GetName(), latestLocalNode.Node, ipsecSPI)
+	n.annotateK8sNode(ctx, n.clientset, latestLocalNode.Node)
 }
 
-// annotateK8sNode starts a controller that tries to write v4 and v6 CIDRs and health IPs intojthe k8s node resource.
-func (n *NodeDiscovery) annotateK8sNode(ctx context.Context, cs kubernetes.Interface, nodeName string, localNode nodeTypes.Node, encryptKey uint8) {
+// annotateK8sNode starts a controller that tries to write local node information into the k8s node resource annotations.
+func (n *NodeDiscovery) annotateK8sNode(ctx context.Context, cs kubernetes.Interface, localNode nodeTypes.Node) {
 	scopedLog := n.logger.With(
-		logfields.NodeName, nodeName,
+		logfields.NodeName, localNode.Name,
 		logfields.V4Prefix, localNode.IPv4AllocCIDR,
 		logfields.V6Prefix, localNode.IPv6AllocCIDR,
 		logfields.V4HealthIP, localNode.IPv4HealthIP,
@@ -93,7 +93,7 @@ func (n *NodeDiscovery) annotateK8sNode(ctx context.Context, cs kubernetes.Inter
 		logfields.V6IngressIP, localNode.IPv6IngressIP,
 		logfields.V4CiliumHostIP, localNode.GetCiliumInternalIP(false),
 		logfields.V6CiliumHostIP, localNode.GetCiliumInternalIP(true),
-		logfields.Key, encryptKey,
+		logfields.Key, localNode.EncryptionKey,
 	)
 	scopedLog.Info("Annotating k8s Node with node information")
 
@@ -101,8 +101,8 @@ func (n *NodeDiscovery) annotateK8sNode(ctx context.Context, cs kubernetes.Inter
 		controller.ControllerParams{
 			Group: nodeAnnotationControllerGroup,
 			DoFunc: func(ctx context.Context) error {
-				annotation := n.prepareNodeAnnotation(localNode, encryptKey)
-				if err := n.updateNodeAnnotation(ctx, cs, nodeName, annotation); err != nil {
+				annotations := n.prepareNodeAnnotations(localNode)
+				if err := n.updateNodeAnnotations(ctx, cs, localNode.Name, annotations); err != nil {
 					scopedLog.Warn("Unable to patch node resource with annotation, retrying", logfields.Error, err)
 					return err
 				}
