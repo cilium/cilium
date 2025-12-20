@@ -61,7 +61,7 @@ func IPMasq4Map(registry *metrics.Registry) *bpf.Map {
 			&Key4{},
 			&Value{},
 			MaxEntriesIPv4,
-			unix.BPF_F_NO_PREALLOC,
+			unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapNameIPv4))
 	})
@@ -76,7 +76,7 @@ func IPMasq6Map(registry *metrics.Registry) *bpf.Map {
 			&Key6{},
 			&Value{},
 			MaxEntriesIPv6,
-			unix.BPF_F_NO_PREALLOC,
+			unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapNameIPv6))
 	})
