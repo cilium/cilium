@@ -32,7 +32,7 @@ runs:
         # renovate: datasource=github-releases depName=kubernetes-sigs/kind
         KIND_VERSION="v0.30.0"
         # renovate: datasource=docker
-        KIND_K8S_IMAGE="quay.io/cilium/kindest-node:v1.35.0-rc.1@sha256:4b9ff49685342ba011ed29c0a1d22ac67756af4bad341a4bd8117bedba8080a9"
+        KIND_K8S_IMAGE="quay.io/cilium/kindest-node:v1.35.0@sha256:a36285a50bb7ee33d44b6d7938dca10e34f8a9294873ae4b0b04f9d21619d44c"
         KIND_K8S_VERSION=$(echo "$KIND_K8S_IMAGE" | sed -r 's|.+:(v[0-9a-z.-]+)(@.+)?|\1|')
 
         echo "KIND_VERSION=$KIND_VERSION" >> $GITHUB_ENV
