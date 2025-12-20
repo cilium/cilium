@@ -249,7 +249,7 @@ func newIPCacheMap(name string) *bpf.Map {
 		&Key{},
 		&RemoteEndpointInfo{},
 		MaxEntries,
-		unix.BPF_F_NO_PREALLOC)
+		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG)
 }
 
 func newIPCacheMapV1(name string) *bpf.Map {
