@@ -75,10 +75,11 @@ var Synchronization = cell.Module(
 
 	cell.Group(
 		cell.Provide(
-			func(syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
+			func(syncState syncstate.SyncState, nsCfg cmnamespace.Config) operatorWatchers.ServiceSyncConfig {
 				return operatorWatchers.ServiceSyncConfig{
-					Enabled: true,
-					Synced:  syncState.WaitForResource(),
+					Enabled:                   true,
+					Synced:                    syncState.WaitForResource(),
+					NamespaceFilteringEnabled: !nsCfg.EnableDefaultGlobalNamespace,
 				}
 			},
 		),
@@ -89,6 +90,11 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			func(syncState syncstate.SyncState) mcsapi.ServiceExportSyncCallback {
 				return syncState.WaitForResource()
+			},
+			func(nsCfg cmnamespace.Config) mcsapi.ServiceExportSyncConfig {
+				return mcsapi.ServiceExportSyncConfig{
+					NamespaceFilteringEnabled: !nsCfg.EnableDefaultGlobalNamespace,
+				}
 			},
 		),
 		mcsapi.ServiceExportSyncCell,
