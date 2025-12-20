@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -140,7 +142,7 @@ func newMap(logger *slog.Logger, registry *metrics.Registry) *vtepMap {
 			&Key{},
 			&VtepEndpointInfo{},
 			MaxEntries,
-			0,
+			unix.BPF_F_RDONLY_PROG,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapName)),
 		logger: logger,
