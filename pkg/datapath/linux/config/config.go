@@ -524,7 +524,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		return fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
 	}
 	cDefinesMap["CILIUM_NET_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumNetLink.Attrs().HardwareAddr))
-	cDefinesMap["CILIUM_NET_IFINDEX"] = fmt.Sprintf("%d", ciliumNetLink.Attrs().Index)
 
 	ciliumHostLink, err := safenetlink.LinkByName(defaults.HostDevice)
 	if err != nil {

@@ -1745,7 +1745,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 * from 'cilium_host', mark the packet with MARK_MAGIC_SKIP_TPROXY
 	 * and allow it to enter the foward path once punted to stack.
 	 */
-	if (ctx->mark == 0 && CONFIG(interface_ifindex) == CILIUM_NET_IFINDEX)
+	if (ctx->mark == 0 && CONFIG(interface_ifindex) == CONFIG(cilium_net_ifindex))
 		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* !TUNNEL_MODE */
 
