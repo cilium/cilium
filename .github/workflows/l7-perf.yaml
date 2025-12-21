@@ -65,11 +65,11 @@ env:
   # renovate: datasource=golang-version depName=go
   go_version: 1.25.5
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.220.0
+  eksctl_version: v0.221.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.34.3
+  kubectl_version: v1.35.0
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 549.0.1
+  gcloud_version: 550.0.0
 
   test_name: l7-perf
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -498,7 +498,7 @@ jobs:
 
       - name: Upload sysdump
         if: ${{ !success() && steps.install-cilium.outcome != 'skipped' && steps.install-cilium.outcome != 'cancelled' }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cilium-sysdump-${{ matrix.test_type }}-${{ github.run_attempt }}
           path: cilium-sysdump-final.zip

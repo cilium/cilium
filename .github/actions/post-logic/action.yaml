@@ -41,14 +41,14 @@ runs:
 
     - name: Upload artifacts
       if: ${{ always() && inputs.job_status == 'failure' }}
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
         name: "cilium-sysdumps-${{ inputs.artifacts_suffix }}"
         path: cilium-sysdump-*.zip
 
     - name: Upload JUnits [junit]
       if: ${{ always() }}
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
         name: "cilium-junits-${{ inputs.artifacts_suffix }}"
         path: ${{ inputs.junits-directory }}/*.xml
@@ -58,7 +58,7 @@ runs:
       # as features might have been captured in a previous step outside of this
       # composite action.
       if: ${{ always() }}
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
         name: "features-tested-${{ inputs.artifacts_suffix }}"
         path: ./features-tested-*.json
