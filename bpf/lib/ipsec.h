@@ -310,7 +310,7 @@ overlay_encrypt:
 	if (eth_store_daddr(ctx, (const __u8 *)&dst_mac, 0) != 0)
 		return DROP_WRITE_ERROR;
 
-	ret = ctx_redirect(ctx, CILIUM_NET_IFINDEX, BPF_F_INGRESS);
+	ret = ctx_redirect(ctx, CONFIG(cilium_net_ifindex), BPF_F_INGRESS);
 	if (ret != CTX_ACT_REDIRECT)
 		return DROP_INVALID;
 	return ret;

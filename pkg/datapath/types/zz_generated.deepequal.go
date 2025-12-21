@@ -83,6 +83,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		}
 	}
 
+	if in.CiliumNetIfIndex != other.CiliumNetIfIndex {
+		return false
+	}
 	if (in.AllocCIDRIPv4 == nil) != (other.AllocCIDRIPv4 == nil) {
 		return false
 	} else if in.AllocCIDRIPv4 != nil {
