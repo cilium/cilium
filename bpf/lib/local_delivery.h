@@ -243,8 +243,8 @@ static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx, int l3_off
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CONFIG(cilium_host_ifindex));
+	return ctx_redirect(ctx, CONFIG(cilium_host_ifindex), BPF_F_INGRESS);
 }
 
 /* Performs IPv4 L2/L3 handling and delivers the packet to the cilium_host@ingress
@@ -262,6 +262,6 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, int l3_off
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CONFIG(cilium_host_ifindex));
+	return ctx_redirect(ctx, CONFIG(cilium_host_ifindex), BPF_F_INGRESS);
 }

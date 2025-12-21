@@ -14,8 +14,6 @@
  */
 #include <lib/static_data.h>
 
-#define CILIUM_HOST_IFINDEX 1
-
 #define LRU_MEM_FLAVOR 0
 
 #define UNKNOWN_ID 0
