@@ -253,6 +253,10 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if !svcExists {
 		if err := r.Client.Create(ctx, svc); err != nil {
+			if k8sApiErrors.IsForbidden(err) && k8sApiErrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
+				r.Logger.InfoContext(ctx, "Aborting reconciliation because namespace is being terminated")
+				return controllerruntime.Success()
+			}
 			return controllerruntime.Fail(err)
 		}
 	} else {
