@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -48,10 +49,10 @@ type PolicyContext interface {
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
 
 	// SetPriority sets the priority level for the first rule being processed.
-	SetPriority(level uint32)
+	SetPriority(priority types.Priority)
 
 	// Priority returns the priority level for the current rule.
-	Priority() uint32
+	Priority() types.Priority
 
 	// DefaultDenyIngress returns true if default deny is enabled for ingress
 	DefaultDenyIngress() bool
@@ -71,8 +72,8 @@ type policyContext struct {
 	repo *Repository
 	ns   string
 
-	// level is the precedence level for the rule being processed.
-	level uint32
+	// priority is the precedence priority for the rule being processed.
+	priority types.Priority
 
 	defaultDenyIngress bool
 	defaultDenyEgress  bool
@@ -112,13 +113,13 @@ func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNet
 }
 
 // SetPriority sets the precedence level for the first rule being processed.
-func (p *policyContext) SetPriority(level uint32) {
-	p.level = level
+func (p *policyContext) SetPriority(level types.Priority) {
+	p.priority = level
 }
 
 // Priority returns the precedence level for the current rule.
-func (p *policyContext) Priority() uint32 {
-	return p.level
+func (p *policyContext) Priority() types.Priority {
+	return p.priority
 }
 
 // DefaultDenyIngress returns true if default deny is enabled for ingress

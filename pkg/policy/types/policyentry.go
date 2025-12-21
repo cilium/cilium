@@ -8,6 +8,24 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+type Verdict uint8
+
+const (
+	Allow Verdict = iota
+	Deny
+)
+
+func (v Verdict) String() string {
+	switch v {
+	case Allow:
+		return "allow"
+	case Deny:
+		return "deny"
+	default:
+		return "undefined"
+	}
+}
+
 // PolicyEntry specifies the L3/L4 details of a single policy rule
 //
 // +deepequal-gen=true
@@ -15,7 +33,6 @@ type PolicyEntry struct {
 	// Priority defines the precedence of this rule in relation to other rules.  Lower values
 	// take precedence over higher values. Rules having the default priority level 0 are
 	// considered first, then the rest of the rules, from the earliest to later priority levels.
-	// This is currently limited to 24 bits, i.e., max allowed priority is (1<<24-1).
 	Priority float64
 
 	// Authentication specifies the cryptographic authentication required for the traffic to be
