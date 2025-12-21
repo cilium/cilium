@@ -58,8 +58,8 @@ static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx)
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CONFIG(cilium_host_ifindex));
+	return ctx_redirect(ctx, CONFIG(cilium_host_ifindex), BPF_F_INGRESS);
 }
 
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
@@ -202,8 +202,8 @@ static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iph
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CONFIG(cilium_host_ifindex));
+	return ctx_redirect(ctx, CONFIG(cilium_host_ifindex), BPF_F_INGRESS);
 }
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)

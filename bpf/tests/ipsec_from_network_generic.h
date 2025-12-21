@@ -43,6 +43,8 @@ static volatile const __u8 *DEST_NODE_MAC = mac_four;
 
 #define ESP_SEQUENCE 69865
 
+ASSIGN_CONFIG(__u32, cilium_host_ifindex, 1)
+
 PKTGEN("tc", "ipv4_not_decrypted_ipsec_from_network")
 int ipv4_not_decrypted_ipsec_from_network_pktgen(struct __ctx_buff *ctx)
 {

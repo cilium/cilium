@@ -1568,7 +1568,7 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(cilium_host_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IPV6));
 
 	return ret;
@@ -1596,7 +1596,7 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(cilium_host_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(ETH_P_IP));
 
 	return ret;
@@ -1658,7 +1658,7 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_sec_identity, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(cilium_host_ifindex),
 				  trace.reason, trace.monitor, bpf_htons(proto));
 
 	return ret;
@@ -1794,7 +1794,7 @@ out:
 
 	if (!traced)
 		send_trace_notify(ctx, TRACE_TO_STACK, src_id, UNKNOWN_ID,
-				  TRACE_EP_ID_UNKNOWN, CILIUM_HOST_IFINDEX,
+				  TRACE_EP_ID_UNKNOWN, CONFIG(cilium_host_ifindex),
 				  trace.reason, trace.monitor, proto);
 
 	return ret;
