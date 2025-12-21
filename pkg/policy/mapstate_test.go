@@ -43,8 +43,8 @@ func (e mapStateEntry) WithProxyPort(proxyPort uint16) mapStateEntry {
 	return e
 }
 
-func (e mapStateEntry) withLevel(level uint32) mapStateEntry {
-	e.MapStateEntry = e.MapStateEntry.WithLevel(level)
+func (e mapStateEntry) withLevel(priority types.Priority) mapStateEntry {
+	e.MapStateEntry = e.MapStateEntry.WithPriority(priority)
 	return e
 }
 
@@ -1205,7 +1205,11 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			value := newMapStateEntry(0, NilRuleOrigin, proxyPort, priority, x.deny, NoAuthRequirement)
+			verdict := types.Allow
+			if x.deny {
+				verdict = types.Deny
+			}
+			value := newMapStateEntry(0, NilRuleOrigin, proxyPort, priority, verdict, NoAuthRequirement)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
@@ -1238,7 +1242,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		redirect ListenerPriority
 		deny     bool
 		authReq  AuthRequirement
-		level    uint32
+		level    types.Priority
 	}
 	tests := []struct {
 		continued bool // Start from the end state of the previous test
@@ -1743,7 +1747,11 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			value := newMapStateEntry(x.level, NilRuleOrigin, proxyPort, priority, x.deny, x.authReq)
+			verdict := types.Allow
+			if x.deny {
+				verdict = types.Deny
+			}
+			value := newMapStateEntry(x.level, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
@@ -1782,7 +1790,11 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.authReq != NoAuthRequirement {
 				authFeatureUsed = true
 			}
-			value := newMapStateEntry(x.level, NilRuleOrigin, proxyPort, priority, x.deny, x.authReq)
+			verdict := types.Allow
+			if x.deny {
+				verdict = types.Deny
+			}
+			value := newMapStateEntry(x.level, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
@@ -1838,11 +1850,11 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	tests := []struct {
 		name             string
 		withAllowAll     withAllowAll
-		allowAllLevel    uint32
+		allowAllLevel    types.Priority
 		aIdentities      identity.NumericIdentitySlice
-		aLevel           uint32
+		aLevel           types.Priority
 		bIdentities      identity.NumericIdentitySlice
-		bLevel           uint32
+		bLevel           types.Priority
 		aIsDeny, bIsDeny bool
 		aPort            uint16
 		aProto           u8proto.U8proto
@@ -2357,7 +2369,7 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		entry mapStateEntry
 	}
 	type LevelEntries struct {
-		level   uint32
+		level   types.Priority
 		entries []Entry
 	}
 	tests := []struct {
@@ -2791,7 +2803,7 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		var entries []keyValue
 		for _, oe := range tt.orderedEntries {
 			for i, kv := range oe.entries {
-				entries = append(entries, keyValue{kv.key, kv.entry.withLevel(oe.level*1000 + uint32(i))})
+				entries = append(entries, keyValue{kv.key, kv.entry.withLevel(oe.level*1000 + types.Priority(i))})
 			}
 		}
 

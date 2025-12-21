@@ -128,7 +128,7 @@ type PerSelectorPolicy struct {
 
 	// Priority is the priority level for this rule. Defaults to 0. Rules with lower priority
 	// values take precedence over rules with later priority values.
-	Priority uint32 `json:"priority,omitempty"`
+	Priority types.Priority `json:"priority,omitempty"`
 
 	// IsDeny is set if this L4Filter contains should be denied
 	IsDeny bool `json:",omitempty"`
@@ -222,7 +222,7 @@ func (a *PerSelectorPolicy) GetListenerPriority() ListenerPriority {
 }
 
 // GetPriority returns the priority of the PerSelectorPolicy.
-func (a *PerSelectorPolicy) GetPriority() uint32 {
+func (a *PerSelectorPolicy) GetPriority() types.Priority {
 	if a == nil {
 		return 0
 	}
@@ -635,16 +635,15 @@ func (c *ChangeState) Size() int {
 
 // generateWildcardMapStateEntry creates map state entry for wildcard selector in the filter.
 func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16) mapStateEntry {
-	wildcardEntry := mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
-
 	if l4.wildcard != nil {
 		currentRule := l4.PerSelectorPolicies[l4.wildcard]
 		cs := l4.wildcard
 
-		wildcardEntry = l4.makeMapStateEntry(logger, p, port, cs, currentRule)
+		return l4.makeMapStateEntry(logger, p, port, cs, currentRule)
 	}
 
-	return wildcardEntry
+	return makeInvalidEntry()
+
 }
 
 // makeMapStateEntry creates a mapStateEntry for the given selector and policy for the Endpoint.
@@ -662,16 +661,20 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 				logfields.Error, err,
 				logfields.EndpointSelector, cs,
 			)
-			return mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
+			return makeInvalidEntry()
 		}
 	}
 
+	verdict := types.Allow
+	if currentRule.GetDeny() {
+		verdict = types.Deny
+	}
 	return newMapStateEntry(
 		currentRule.GetPriority(),
 		l4.RuleOrigin[cs],
 		proxyPort,
 		currentRule.GetListenerPriority(),
-		currentRule.GetDeny(),
+		verdict,
 		currentRule.getAuthRequirement(),
 	)
 }
@@ -724,20 +727,20 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 	var entry mapStateEntry
 	for cs, currentRule := range l4.PerSelectorPolicies {
 		// is this wildcard? If so, we already created it above
-		if !wildcardEntry.Invalid && cs == l4.wildcard {
+		if wildcardEntry.IsValid() && cs == l4.wildcard {
 			entry = wildcardEntry
 			// wildcard identity
 			idents = identity.NumericIdentitySlice{0}
 		} else {
 			entry = l4.makeMapStateEntry(logger, p, port, cs, currentRule)
-			if entry.Invalid {
+			if !entry.IsValid() {
 				continue
 			}
 
 			// If this entry is identical to the wildcard's entry, we can elide it.
 			// Do not elide for port wildcards. TODO: This is probably too
 			// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
-			if !wildcardEntry.Invalid && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
+			if wildcardEntry.IsValid() && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
 				scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
 				continue
 			}
@@ -838,7 +841,7 @@ func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls stringL
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, listenerPriority ListenerPriority, priority uint32) {
+func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, listenerPriority ListenerPriority, priority types.Priority) {
 	for epsel := range l7 {
 		l7policy := &PerSelectorPolicy{
 			Priority:         priority,
@@ -1605,12 +1608,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 			keysToAdd = append(keysToAdd,
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		value := newMapStateEntry(priority, derivedFrom, proxyPort, listenerPriority, isDeny, authReq)
+		verdict := types.Allow
+		if isDeny {
+			verdict = types.Deny
+		}
+		value := newMapStateEntry(priority, derivedFrom, proxyPort, listenerPriority, verdict, authReq)
 
 		// If the entry is identical to wildcard map entry, we can elide it.
 		// See comment in L4Filter.toMapState()
 		wildcardMapEntry := l4.generateWildcardMapStateEntry(logger, epPolicy, port)
-		if !wildcardMapEntry.Invalid && port != 0 && value.MapStateEntry == wildcardMapEntry.MapStateEntry {
+		if wildcardMapEntry.IsValid() && port != 0 && value.MapStateEntry == wildcardMapEntry.MapStateEntry {
 			logger.Debug(
 				"AccumulateMapChanges: Skipping L3/L4 key due to existing identical L4-only key",
 				logfields.EndpointSelector, cs)

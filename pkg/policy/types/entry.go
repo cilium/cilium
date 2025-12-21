@@ -5,21 +5,31 @@ package types
 
 import "strconv"
 
-type ListenerPriority uint8
-type Precedence uint32
+type ListenerPriority uint8 // Lower values take precedence
+type Priority uint32        // Lower values take precedence, only lower 24 bits are used
+
+type Precedence uint32 // Higher values take precedence
 
 const (
 	MaxListenerPriority                    = 126
 	PrecedenceDeny              Precedence = 1 << 7
 	PrecedenceProxyPriorityMask Precedence = PrecedenceDeny - 1 // 0-127
-	PrecedenceLevelShift                   = 8
-	PrecedenceLevelBits                    = 32 - PrecedenceLevelShift
-	MaxLevel                               = 1<<PrecedenceLevelBits - 1
+	precedencePriorityShift                = 8
+	precedencePriorityBits                 = 32 - precedencePriorityShift
+	MaxPriority                 Priority   = 1<<precedencePriorityBits - 1
 
 	MaxPrecedence      = ^Precedence(0)
 	MaxDenyPrecedence  = MaxPrecedence
 	MaxAllowPrecedence = MaxPrecedence & ^(PrecedenceDeny | PrecedenceProxyPriorityMask)
 )
+
+func (p *Priority) Increment() bool {
+	if *p == MaxPriority {
+		return false
+	}
+	*p++
+	return true
+}
 
 // ProxyPortPrecedenceMayDiffer returns true if the non-proxy port precedence bits are the same
 func (p Precedence) ProxyPortPrecedenceMayDiffer(o Precedence) bool {
@@ -39,8 +49,7 @@ type MapStateEntry struct {
 	// Key. Any other value signifies proxy redirection.
 	ProxyPort uint16
 
-	// Invalid is only set to mark the current entry for update when syncing entries to datapath
-	Invalid bool
+	invalid bool
 
 	// AuthRequirement is non-zero when authentication is required for the traffic to be
 	// allowed, except for when it explicitly defines authentication is not required.
@@ -53,8 +62,33 @@ type MapStateEntry struct {
 
 type MapStateMap map[Key]MapStateEntry
 
+func (e *MapStateEntry) Invalidate() {
+	e.invalid = true
+}
+
+func (e MapStateEntry) IsValid() bool {
+	return !e.invalid
+}
+
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
+	priority, listenerPriority := e.Priority()
+
+	verdict := "allow"
+	if e.IsDeny() {
+		verdict = "deny"
+	}
+	if !e.IsValid() {
+		verdict = "invalid"
+	}
+	verdictText := "Verdict=" + verdict
+
+	var proxyText string
+	if e.ProxyPort != 0 {
+		proxyText = ",ProxyPort=" + strconv.FormatUint(uint64(e.ProxyPort), 10) +
+			"ProxyPortPriority=" + strconv.FormatUint(uint64(listenerPriority), 10)
+	}
+
 	var authText string
 	if e.AuthRequirement != 0 {
 		var authNote string
@@ -64,40 +98,50 @@ func (e MapStateEntry) String() string {
 		authText = ",AuthType=" + e.AuthRequirement.AuthType().String() + authNote
 	}
 
-	return "Precedence=" + strconv.FormatUint(uint64(e.Precedence), 10) +
-		",ProxyPort=" + strconv.FormatUint(uint64(e.ProxyPort), 10) +
-		",IsDeny=" + strconv.FormatBool(e.IsDeny()) +
-		authText +
-		",Cookie=" + strconv.FormatUint(uint64(e.Cookie), 10)
+	var cookieText string
+	if e.Cookie != 0 {
+		cookieText = ",Cookie=" + strconv.FormatUint(uint64(e.Cookie), 10)
+	}
+
+	return verdictText + ",Priority=" + strconv.FormatUint(uint64(priority), 10) +
+		proxyText + authText + cookieText
+}
+
+// Convert API priority to the lowest datapath Precedence for that priority:
+//   - Priority is inverted (0 becomes the 1 << 24 - 1)
+//   - Inverted priority is shifted to the upper bits in the 32-bit Precedence to make space for
+//     the deny and proxy port precedence bits in the lower 8 bits.
+//   - low 8 bits are left as zeroes
+func (priority Priority) toPrecedence() Precedence {
+	if priority > MaxPriority {
+		priority = MaxPriority
+	}
+	return Precedence(MaxPriority-priority) << precedencePriorityShift
 }
 
 // NewMapStateEntry creeates a new MapStateEntry
-// Lower incoming "API" 'level' and proxy port 'priority' indicate higher precedence.
+// Lower incoming "API" priority and proxy port listener priority indicate higher precedence.
 // The integrated 'Precedence' field has inverted semantics:
 // - the higher numbers have higher precedence.
-// - 'level' gets shifted into the highest 24 bits of 'Precedence', inverted
-// - 'deny' is encoded into the PrecedenceDeny bit
+// - 'priority' gets shifted into the highest 24 bits of 'Precedence', inverted
+// - 'verdict' deny status is also encoded into the PrecedenceDeny bit
 // - Proxy port 'priority' is encoded in to the low 7 bits of 'Precedence', inverted
 func NewMapStateEntry(
-	level uint32,
+	priority Priority,
 	deny bool,
 	proxyPort uint16,
-	priority ListenerPriority,
+	listenerPriority ListenerPriority,
 	authReq AuthRequirement,
 ) MapStateEntry {
+	precedence := priority.toPrecedence()
 	// Normalize inputs
 	if deny {
 		proxyPort = 0
-		priority = 0
+		listenerPriority = 0
 		authReq = 0
-	}
-	if level > MaxLevel {
-		level = MaxLevel
-	}
-	precedence := Precedence(MaxLevel-level) << PrecedenceLevelShift
-	if deny {
+
 		// Also set all the proxy port priority bits for a deny entry so that the
-		// deny entry on level 0 gets precedence of all-ones (the highest possible
+		// deny entry on priority 0 gets precedence of all-ones (the highest possible
 		// precedence)
 		precedence |= PrecedenceDeny | PrecedenceProxyPriorityMask
 	}
@@ -105,15 +149,20 @@ func NewMapStateEntry(
 		Precedence:      precedence,
 		ProxyPort:       proxyPort,
 		AuthRequirement: authReq,
-	}.WithListenerPriority(priority)
+	}.WithListenerPriority(listenerPriority)
 }
 
-func (e MapStateEntry) Level() uint32 {
-	return MaxLevel - uint32(e.Precedence>>PrecedenceLevelShift)
+func (e MapStateEntry) Priority() (Priority, ListenerPriority) {
+	return MaxPriority - Priority(e.Precedence>>precedencePriorityShift),
+		ListenerPriority(PrecedenceProxyPriorityMask + 1 - (e.Precedence & PrecedenceProxyPriorityMask))
 }
 
 func (e MapStateEntry) IsDeny() bool {
 	return e.Precedence&PrecedenceDeny != 0
+}
+
+func (e MapStateEntry) IsAllow() bool {
+	return e.Precedence&PrecedenceDeny == 0
 }
 
 // IsRedirectEntry returns true if the entry redirects to a proxy port
@@ -137,12 +186,14 @@ func DenyEntry() MapStateEntry {
 	return MapStateEntry{Precedence: MaxDenyPrecedence}
 }
 
-func (e MapStateEntry) WithLevel(level uint32) MapStateEntry {
-	if level > MaxLevel {
-		level = MaxLevel
-	}
-	e.Precedence &= 1<<PrecedenceLevelShift - 1 // clear all level bits
-	e.Precedence |= Precedence(MaxLevel-level) << PrecedenceLevelShift
+// InvalidEntry returns an invalid MapStateEntry with max precedence that translates to 0 priority
+func InvalidEntry() MapStateEntry {
+	return MapStateEntry{invalid: true, Precedence: MaxDenyPrecedence}
+}
+
+func (e MapStateEntry) WithPriority(priority Priority) MapStateEntry {
+	e.Precedence &= 1<<precedencePriorityShift - 1 // clear all priority bits
+	e.Precedence |= priority.toPrecedence()
 	return e
 }
 
