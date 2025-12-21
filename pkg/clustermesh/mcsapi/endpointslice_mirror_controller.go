@@ -13,6 +13,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
+	k8sApiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -366,6 +367,10 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) Reconcile(ctx context.Context, req
 	} else if localEpSlice != nil && derivedEpSlice == nil {
 		derivedEpSlice = r.newDerivedEndpointSlice(localEpSlice, &derivedService, filteredPorts)
 		err = r.Client.Create(ctx, derivedEpSlice)
+		if k8sApiErrors.IsForbidden(err) && k8sApiErrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
+			r.Logger.InfoContext(ctx, "Aborting reconciliation because namespace is being terminated")
+			return controllerruntime.Success()
+		}
 	} else if localEpSlice != nil && r.needUpdate(localEpSlice, derivedEpSlice, &derivedService, filteredPorts) {
 		r.updateDerivedEndpointSlice(derivedEpSlice, localEpSlice, &derivedService, filteredPorts)
 		err = r.Client.Update(ctx, derivedEpSlice)
