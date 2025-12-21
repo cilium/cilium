@@ -648,6 +648,10 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	svcImport, err = r.createOrUpdateServiceImport(ctx, svcImport)
 	if err != nil {
+		if k8sApiErrors.IsForbidden(err) && k8sApiErrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
+			r.Logger.InfoContext(ctx, "Aborting reconciliation because namespace is being terminated")
+			return controllerruntime.Success()
+		}
 		return controllerruntime.Fail(err)
 	}
 
