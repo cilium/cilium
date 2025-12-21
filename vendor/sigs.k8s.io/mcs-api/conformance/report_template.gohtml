@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>MCS API conformance report</title>
+    <style>
+        table, th, td {
+            border: 1px solid black;
+        }
+        td {
+            padding: 2px;
+        }
+    </style>
+</head>
+<body>
+<h2>MCS Conformance Report</h2>
+
+{{if .SuiteFailure }}
+    <p style="color: red">{{.SuiteFailure}}</p>
+{{end}}
+
+{{range .Groups}}
+<h3>{{.Name}}</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Conformant</th>
+            <th>Labels</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    {{range .Tests}}
+    <tr>
+        {{ if .Skipped }}
+            <td style="color:gray">Skipped{{.Message}}</td>
+        {{ else if .Failed }}
+            <td style="color:orange">Unknown{{.Message}}</td>
+        {{ else if .Conformant }}
+            <td style="color:green">Yes{{.Message}}</td>
+        {{ else }}
+            <td style="color:red">No{{.Message}}</td>
+        {{end}}
+        <td>{{range $i, $l := .Labels}}{{if $i}}, {{end}}{{$l}}{{end}}</td>
+        <td><a href="{{.Ref}}">{{.Desc}}</a></td>
+    </tr>
+    {{end}}
+</table>
+{{end}}
+</body>
+</html>
