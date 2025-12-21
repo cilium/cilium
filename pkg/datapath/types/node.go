@@ -49,6 +49,9 @@ type LocalNodeConfiguration struct {
 	// Immutable at runtime.
 	CiliumInternalIPv6 net.IP
 
+	// Interface index of the cilium_host device
+	CiliumHostIfIndex uint32
+
 	// Interface index of the cilium_net device
 	CiliumNetIfIndex uint32
 
