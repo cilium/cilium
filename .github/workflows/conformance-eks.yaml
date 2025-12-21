@@ -59,9 +59,9 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cilium_cli_ci_version:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.220.0
+  eksctl_version: v0.221.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.34.3
+  kubectl_version: v1.35.0
 
 jobs:
   echo-inputs:
@@ -391,21 +391,21 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cilium-sysdumps-${{ matrix.version }}
           path: cilium-sysdump-*.zip
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cilium-junits-${{ matrix.version }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: features-tested-${{ matrix.version }}
           path: features-tested-*
@@ -424,7 +424,7 @@ jobs:
     steps:
       - name: Merge Sysdumps
         if: ${{ needs.installation-and-connectivity.result == 'failure' }}
-        uses: actions/upload-artifact/merge@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact/merge@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cilium-sysdumps
           pattern: cilium-sysdumps-*
@@ -432,14 +432,14 @@ jobs:
           delete-merged: true
         continue-on-error: true
       - name: Merge JUnits
-        uses: actions/upload-artifact/merge@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact/merge@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cilium-junits
           pattern: cilium-junits-*
           retention-days: 5
           delete-merged: true
       - name: Merge Features tested
-        uses: actions/upload-artifact/merge@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact/merge@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: features-tested
           pattern: features-tested-*
