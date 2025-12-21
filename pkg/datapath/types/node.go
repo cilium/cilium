@@ -49,6 +49,9 @@ type LocalNodeConfiguration struct {
 	// Immutable at runtime.
 	CiliumInternalIPv6 net.IP
 
+	// Interface index of the cilium_net device
+	CiliumNetIfIndex uint32
+
 	// AllocCIDRIPv4 is the IPv4 allocation CIDR from which IP addresses for
 	// endpoints are allocated from.
 	// Immutable at runtime.
