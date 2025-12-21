@@ -186,7 +186,7 @@ func ToAST(name string, options ...Option) (AST, error) {
 		i := 0
 		for i < len(options) {
 			if options[i] == NoParams {
-				options = append(options[:i], options[i+1:]...)
+				options = append(options[:i:i], options[i+1:]...)
 			} else {
 				i++
 			}
@@ -3152,6 +3152,7 @@ func (st *state) closureTypeName() AST {
 // templateParamDecl parses:
 //
 //	<template-param-decl> ::= Ty                          # type parameter
+//	                      ::= Tk <concept name> [<template-args>] # constrained type parameter
 //	                      ::= Tn <type>                   # non-type parameter
 //	                      ::= Tt <template-param-decl>* E # template parameter
 //	                      ::= Tp <template-param-decl>    # parameter pack
@@ -3181,6 +3182,13 @@ func (st *state) templateParamDecl() (AST, AST) {
 		}
 		return tp, name
 	case 'k':
+		// We don't track enclosing template parameter levels.
+		// Don't try to demangle template parameter substitutions
+		// in constraints.
+		hold := st.parsingConstraint
+		st.parsingConstraint = true
+		defer func() { st.parsingConstraint = hold }()
+
 		st.advance(2)
 		constraint, _ := st.name()
 		name := mk("$T", &st.typeTemplateParamCount)
