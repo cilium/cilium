@@ -217,13 +217,29 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			is_host_id = secctx == HOST_ID;
 		}
 	} else if (!ctx_skip_host_fw(ctx)) {
+		const struct remote_endpoint_info *info;
+		__u32 dst_sec_identity = WORLD_IPV6_ID;
+		union v6addr *daddr;
+
 		/* Verifier workaround: R5 invalid mem access 'scalar'. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		if (ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer)) {
+		daddr = (union v6addr *)&ip6->daddr;
+
+		/* Retrieve destination identity. */
+		info = lookup_ip6_remote_endpoint(daddr, 0);
+		if (info)
+			dst_sec_identity = info->sec_identity;
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+			   daddr->p4, dst_sec_identity);
+
+		/* Only enforce host policies for packets to host IPs. */
+		if (dst_sec_identity == HOST_ID) {
+			ct_buffer.ret = ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer);
 			if (unlikely(ct_buffer.ret < 0))
 				return ct_buffer.ret;
+
 			need_hostfw = true;
 		}
 	}
@@ -291,14 +307,28 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			/* The map value is zeroed so the map update didn't happen somehow. */
 			return DROP_INVALID_TC_BUFFER;
 
+		trace.monitor = ct_buffer->monitor;
+		trace.reason = (enum trace_reason)ct_buffer->ret;
+
 		if (from_host) {
 			bool is_host_id = from_host_raw & FROM_HOST_FLAG_HOST_ID;
 
 			ret = __ipv6_host_policy_egress(ctx, is_host_id, ip6, ct_buffer, &trace,
 							ext_err);
 		} else {
-			ret = __ipv6_host_policy_ingress(ctx, ip6, ct_buffer, &remote_id, &trace,
-							 ext_err);
+			__u32 tunnel_endpoint = 0;
+
+			/* Retrieve source identity. */
+			info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+			if (info) {
+				remote_id = info->sec_identity;
+				tunnel_endpoint = info->tunnel_endpoint.ip4;
+			}
+			cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+				   ip6->saddr.s6_addr32[3], remote_id);
+
+			ret = __ipv6_host_policy_ingress(ctx, ct_buffer, &remote_id,
+							 tunnel_endpoint, ext_err);
 		}
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
@@ -653,14 +683,27 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			is_host_id = secctx == HOST_ID;
 		}
 	} else if (!ctx_skip_host_fw(ctx)) {
+		const struct remote_endpoint_info *info;
+		__u32 dst_sec_identity = WORLD_IPV4_ID;
+
 		/* Verifier workaround: R5 invalid mem access 'scalar'. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		/* We're on the ingress path of the native device. */
-		if (ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer)) {
+		/* Retrieve destination identity. */
+		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		if (info)
+			dst_sec_identity = info->sec_identity;
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+			   ip4->daddr, dst_sec_identity);
+
+		/* Only enforce host policies for packets to host IPs. */
+		if (dst_sec_identity == HOST_ID) {
+			/* We're on the ingress path of the native device. */
+			ct_buffer.ret = ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer);
 			if (unlikely(ct_buffer.ret < 0))
 				return ct_buffer.ret;
+
 			need_hostfw = true;
 		}
 	}
@@ -723,14 +766,28 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			/* The map value is zeroed so the map update didn't happen somehow. */
 			return DROP_INVALID_TC_BUFFER;
 
+		trace.monitor = ct_buffer->monitor;
+		trace.reason = (enum trace_reason)ct_buffer->ret;
+
 		if (from_host) {
 			bool is_host_id = from_host_raw & FROM_HOST_FLAG_HOST_ID;
 
 			ret = __ipv4_host_policy_egress(ctx, is_host_id, ip4, ct_buffer, &trace,
 							ext_err);
 		} else {
-			ret = __ipv4_host_policy_ingress(ctx, ip4, ct_buffer, &remote_id, &trace,
-							 ext_err);
+			__u32 tunnel_endpoint = 0;
+
+			/* Retrieve source identity. */
+			info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+			if (info) {
+				remote_id = info->sec_identity;
+				tunnel_endpoint = info->tunnel_endpoint.ip4;
+			}
+			cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+				   ip4->saddr, remote_id);
+
+			ret = __ipv4_host_policy_ingress(ctx, ip4, ct_buffer, &remote_id,
+							 tunnel_endpoint, ext_err);
 		}
 		if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 			return ret;
@@ -1555,12 +1612,14 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	__u32 tunnel_endpoint = ctx_load_meta(ctx, CB_TUNNEL_ENDPOINT);
 	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool traced = ctx_load_meta(ctx, CB_TRACED);
 	__s8 ext_err = 0;
 	int ret;
 
-	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+	ret = ipv6_host_policy_ingress(ctx, &src_id, tunnel_endpoint, false,
+				       &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  METRIC_INGRESS);
@@ -1583,12 +1642,14 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	__u32 tunnel_endpoint = ctx_load_meta(ctx, CB_TUNNEL_ENDPOINT);
 	__u32 src_id = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool traced = ctx_load_meta(ctx, CB_TRACED);
 	__s8 ext_err = 0;
 	int ret;
 
-	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+	ret = ipv4_host_policy_ingress(ctx, &src_id, tunnel_endpoint, false,
+				       &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
 						  METRIC_INGRESS);
@@ -1604,13 +1665,14 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 
 static __always_inline
 int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
-			__u32 src_sec_identity, bool traced, bool use_tailcall,
-			__s8 *ext_err)
+			__u32 src_sec_identity, bool fetch_identities,
+			bool traced, bool use_tailcall, __s8 *ext_err)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	__u32 tunnel_endpoint = 0;
 	int ret;
 
 	switch (proto) {
@@ -1621,13 +1683,50 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (fetch_identities) {
+			const struct remote_endpoint_info *info;
+			__u32 dst_sec_identity = WORLD_IPV6_ID;
+			void *data, *data_end;
+			struct ipv6hdr *ip6;
+			union v6addr *daddr;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
+
+			daddr = (union v6addr *)&ip6->daddr;
+
+			/* Retrieve destination identity. */
+			info = lookup_ip6_remote_endpoint(daddr, 0);
+			if (info)
+				dst_sec_identity = info->sec_identity;
+			cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+				   daddr->p4, dst_sec_identity);
+
+			/* Only enforce host policies for packets to host IPs. */
+			if (dst_sec_identity != HOST_ID) {
+				ret = CTX_ACT_OK;
+				break;
+			}
+
+			/* Retrieve source identity. */
+			info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
+			if (info) {
+				src_sec_identity = info->sec_identity;
+				tunnel_endpoint = info->tunnel_endpoint.ip4;
+			}
+			cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+				   ip6->saddr.s6_addr32[3], src_sec_identity);
+		}
+
 		if (use_tailcall) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 			ctx_store_meta(ctx, CB_TRACED, traced);
+			ctx_store_meta(ctx, CB_TUNNEL_ENDPOINT, tunnel_endpoint);
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY,
 						 ext_err);
 		} else {
 			ret = ipv6_host_policy_ingress(ctx, &src_sec_identity,
+						       tunnel_endpoint, false,
 						       &trace, ext_err);
 		}
 
@@ -1635,13 +1734,47 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (fetch_identities) {
+			const struct remote_endpoint_info *info;
+			__u32 dst_sec_identity = WORLD_IPV4_ID;
+			void *data, *data_end;
+			struct iphdr *ip4;
+
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
+
+			/* Retrieve destination identity. */
+			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+			if (info)
+				dst_sec_identity = info->sec_identity;
+			cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+				   ip4->daddr, dst_sec_identity);
+
+			/* Only enforce host policies for packets to host IPs. */
+			if (dst_sec_identity != HOST_ID) {
+				ret = CTX_ACT_OK;
+				break;
+			}
+
+			/* Retrieve source identity. */
+			info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
+			if (info) {
+				src_sec_identity = info->sec_identity;
+				tunnel_endpoint = info->tunnel_endpoint.ip4;
+			}
+			cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+				   ip4->saddr, src_sec_identity);
+		}
+
 		if (use_tailcall) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 			ctx_store_meta(ctx, CB_TRACED, traced);
+			ctx_store_meta(ctx, CB_TUNNEL_ENDPOINT, tunnel_endpoint);
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY,
 						 ext_err);
 		} else {
 			ret = ipv4_host_policy_ingress(ctx, &src_sec_identity,
+						       tunnel_endpoint, false,
 						       &trace, ext_err);
 		}
 
@@ -1781,7 +1914,7 @@ skip_ipsec_nodeport_revdnat:
 		goto out;
 	}
 
-	ret = host_ingress_policy(ctx, proto, src_id, traced, true, &ext_err);
+	ret = host_ingress_policy(ctx, proto, src_id, true, traced, true, &ext_err);
 #else
 	ret = CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
@@ -1907,8 +2040,13 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 		bool use_tailcall = (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) ||
 				    is_defined(DEBUG);
 
+		/* Setting `fetch_identities` to false, as:
+		 * * Packet originates from local pod. Therefore we have a valid
+		 *   src identity, and the `tunnel_endpoint` is 0.
+		 * * The caller has already checked the dst identity.
+		 */
 		ret = host_ingress_policy(ctx, proto, src_sec_identity,
-					  true, use_tailcall, &ext_err);
+					  false, true, use_tailcall, &ext_err);
 	}
 
 drop_err:
