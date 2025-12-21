@@ -42,7 +42,7 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 		redirect bool
 		deny     bool
 		authReq  AuthRequirement
-		level    uint32
+		level    types.Priority
 	}
 	tests := []struct {
 		name  string
@@ -165,7 +165,11 @@ func TestMapState_AccumulateMapChanges_Ordered(t *testing.T) {
 			if x.redirect {
 				proxyPort = 1
 			}
-			value := newMapStateEntry(x.level, NilRuleOrigin, proxyPort, 0, x.deny, x.authReq)
+			verdict := types.Allow
+			if x.deny {
+				verdict = types.Deny
+			}
+			value := newMapStateEntry(x.level, NilRuleOrigin, proxyPort, 0, verdict, x.authReq)
 			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())

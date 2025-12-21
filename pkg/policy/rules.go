@@ -27,7 +27,7 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMap, er
 
 	state := traceState{}
 	// rules are sorted by priority here
-	level := uint32(0)
+	level := types.Priority(0)
 	lastPrio := float64(0)
 	if len(rules) > 0 {
 		lastPrio = rules[0].Priority
@@ -37,10 +37,9 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4PolicyMap, er
 		// This has the effect of "flattening" an arbitrary float ordering of rules in to a
 		// single integer sequence of levels.
 		if r.Priority != lastPrio {
-			if level == types.MaxLevel {
+			if !level.Increment() {
 				return nil, ErrTooManyLevels
 			}
-			level++
 		}
 		lastPrio = r.Priority
 		policyCtx.SetPriority(level)

@@ -1415,8 +1415,8 @@ var (
 	mapKeyL3WorldEgressIPv4   = EgressKey().WithIdentity(worldReservedIDIPv4)
 	mapKeyL3WorldEgressIPv6   = EgressKey().WithIdentity(worldReservedIDIPv6)
 
-	AllowEntry    = types.AllowEntry().WithLevel(0)
-	DenyEntry     = types.DenyEntry().WithLevel(0)
+	AllowEntry    = types.AllowEntry().WithPriority(0)
+	DenyEntry     = types.DenyEntry().WithPriority(0)
 	mapEntryDeny  = NewMapStateEntry(DenyEntry).withLabels(labels.LabelArrayList{nil})
 	mapEntryAllow = NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
 

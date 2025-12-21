@@ -340,7 +340,7 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 
 // testPolicyContexttype is a dummy context used when evaluating rules.
 type testPolicyContextType struct {
-	level              uint32
+	level              types.Priority
 	ns                 string
 	sc                 *SelectorCache
 	fromFile           bool
@@ -376,12 +376,12 @@ func (p *testPolicyContextType) GetEnvoyHTTPRules(*api.L7Rules) (*cilium.HttpNet
 }
 
 // SetPriority sets the precedence level for the first rule being processed.
-func (p *testPolicyContextType) SetPriority(level uint32) {
+func (p *testPolicyContextType) SetPriority(level types.Priority) {
 	p.level = level
 }
 
 // Priority returns the precedence level for the current rule.
-func (p *testPolicyContextType) Priority() uint32 {
+func (p *testPolicyContextType) Priority() types.Priority {
 	return p.level
 }
 
