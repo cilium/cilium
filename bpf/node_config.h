@@ -14,7 +14,6 @@
  */
 #include <lib/static_data.h>
 
-#define CILIUM_NET_IFINDEX 1
 #define CILIUM_HOST_IFINDEX 1
 #define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
 
