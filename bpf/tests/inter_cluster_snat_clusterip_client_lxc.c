@@ -60,6 +60,7 @@ ASSIGN_CONFIG(__u32, cluster_id, 1)
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP})
 
 ASSIGN_CONFIG(__u32, security_label, 0x10042)
+ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"

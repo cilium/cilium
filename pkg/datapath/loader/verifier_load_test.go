@@ -11,7 +11,7 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(5) {
+		for permutation := range permute(6) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
@@ -19,6 +19,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 			cfg.EnableICMPRule = permutation[2]
 			cfg.EnableLRP = permutation[3]
 			cfg.HybridRoutingEnabled = permutation[4]
+			cfg.EnableConntrackAccounting = permutation[5]
 
 			if !yield(cfg) {
 				return
@@ -29,7 +30,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(6) {
+		for permutation := range permute(7) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.EnableRemoteNodeMasquerade = permutation[0]
@@ -42,6 +43,7 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 			cfg.AllowICMPFragNeeded = permutation[3]
 			cfg.EnableICMPRule = permutation[4]
 			cfg.HybridRoutingEnabled = permutation[5]
+			cfg.EnableConntrackAccounting = permutation[6]
 
 			if !yield(cfg) {
 				return
@@ -62,9 +64,11 @@ func networkLoadPermutations() iter.Seq[*config.BPFNetwork] {
 
 func overlayLoadPermutations() iter.Seq[*config.BPFOverlay] {
 	return func(yield func(*config.BPFOverlay) bool) {
-		for range permute(0) {
+		for permutation := range permute(1) {
 			cfg := config.NewBPFOverlay(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
+			cfg.EnableConntrackAccounting = permutation[0]
+
 			if !yield(cfg) {
 				return
 			}
@@ -87,9 +91,11 @@ func sockLoadPermutations() iter.Seq[*config.BPFSock] {
 
 func wireguardLoadPermutations() iter.Seq[*config.BPFWireguard] {
 	return func(yield func(*config.BPFWireguard) bool) {
-		for range permute(0) {
+		for permutation := range permute(1) {
 			cfg := config.NewBPFWireguard(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
+			cfg.EnableConntrackAccounting = permutation[0]
+
 			if !yield(cfg) {
 				return
 			}
@@ -99,11 +105,12 @@ func wireguardLoadPermutations() iter.Seq[*config.BPFWireguard] {
 
 func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 	return func(yield func(*config.BPFXDP) bool) {
-		for permutation := range permute(1) {
+		for permutation := range permute(2) {
 			cfg := config.NewBPFXDP(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 
 			cfg.EnableXDPPrefilter = permutation[0]
+			cfg.EnableConntrackAccounting = permutation[1]
 
 			if !yield(cfg) {
 				return
