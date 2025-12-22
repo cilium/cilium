@@ -4,6 +4,7 @@
 package types
 
 import (
+	"encoding"
 	"encoding/json"
 	"errors"
 	"net/netip"
@@ -72,6 +73,9 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 }
 
 type Device interface {
+	encoding.BinaryMarshaler
+	encoding.BinaryUnmarshaler
+
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	Setup(cfg DeviceConfig) error
 	Free(cfg DeviceConfig) error
@@ -81,7 +85,9 @@ type Device interface {
 }
 
 type DeviceManager interface {
+	Type() DeviceManagerType
 	ListDevices() ([]Device, error)
+	RestoreDevice([]byte) (Device, error)
 }
 
 type DeviceManagerConfig interface {
@@ -112,4 +118,10 @@ func (d *DeviceConfig) Empty() bool {
 	return d.Ipv4Addr == (netip.Prefix{}) &&
 		d.Routes == nil &&
 		d.Vlan == 0
+}
+
+type SerializedDevice struct {
+	Manager DeviceManagerType
+	Dev     json.RawMessage
+	Config  DeviceConfig
 }

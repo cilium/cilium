@@ -8,9 +8,12 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	corev1 "k8s.io/api/core/v1"
+	resourceapi "k8s.io/api/resource/v1"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -22,16 +25,22 @@ var Cell = cell.Module(
 	"network-driver",
 	"Cilium Network Driver",
 
+	cell.ProvidePrivate(
+		resourceClaimResource,
+		podResource,
+	),
 	cell.Invoke(registerNetworkDriver),
 )
 
 type networkDriverParams struct {
 	cell.In
 
-	Log       *slog.Logger
-	Lifecycle cell.Lifecycle
-	ClientSet k8sClient.Clientset
-	JobGroup  job.Group
+	Log            *slog.Logger
+	Lifecycle      cell.Lifecycle
+	ClientSet      k8sClient.Clientset
+	JobGroup       job.Group
+	ResourceClaims resource.Resource[*resourceapi.ResourceClaim]
+	Pods           resource.Resource[*corev1.Pod]
 }
 
 // getNetworkDriverConfig returns the network driver configuration.
@@ -85,9 +94,11 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		logger:         params.Log,
 		lock:           lock.Mutex{},
 		jg:             params.JobGroup,
+		resourceClaims: params.ResourceClaims,
+		pods:           params.Pods,
 		kubeClient:     params.ClientSet,
-		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
 		config:         *cfg,
+		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
 		allocations:    make(map[kube_types.UID]map[kube_types.UID][]allocation),
 	}
 
