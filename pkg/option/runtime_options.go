@@ -24,12 +24,6 @@ const (
 )
 
 var (
-	specConntrackAccounting = Option{
-		Define:      "CONNTRACK_ACCOUNTING",
-		Description: "Enable per flow (conntrack) statistics",
-		Requires:    nil,
-	}
-
 	specDebug = Option{
 		Define:      "DEBUG",
 		Description: "Enable debugging trace statements",
