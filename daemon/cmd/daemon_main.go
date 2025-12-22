@@ -24,7 +24,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/legacy"
 	"github.com/cilium/cilium/daemon/infraendpoints"
-	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/common"
@@ -1233,7 +1233,8 @@ type daemonParams struct {
 	KVStoreClient       kvstore.Client
 	WGAgent             wgTypes.WireguardAgent
 	LocalNodeStore      *node.LocalNodeStore
-	Resources           agentK8s.Resources
+	LocalNodeRes        k8s.LocalNodeResource
+	LocalCiliumNodeRes  k8s.LocalCiliumNodeResource
 	K8sWatcher          *watchers.K8sWatcher
 	NodeHandler         datapath.NodeHandler
 	EndpointManager     endpointmanager.EndpointManager
