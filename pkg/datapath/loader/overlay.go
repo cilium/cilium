@@ -7,26 +7,40 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/option"
 )
+
+func init() {
+	overlayConfigs.register(config.Overlay)
+}
 
 const (
 	symbolFromOverlay = "cil_from_overlay"
 	symbolToOverlay   = "cil_to_overlay"
 )
 
-func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, device netlink.Link) error {
+// overlayConfigs holds functions that yield a BPF configuration object for
+// an overlay (tunneling) network device.
+var overlayConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
+
+// overlayConfiguration returns a slice of BPF configuration objects yielded
+// by all registered config providers of [overlayConfigs].
+func overlayConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
+	for f := range overlayConfigs.all() {
+		configs = append(configs, f(lnc, link))
+	}
+	return configs
+}
+
+func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, link netlink.Link) error {
 	if err := compileOverlay(ctx, logger); err != nil {
 		return fmt.Errorf("compiling overlay program: %w", err)
 	}
@@ -36,23 +50,9 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
 
-	cfg := config.NewBPFOverlay(config.NodeConfig(lnc))
-	cfg.InterfaceIfIndex = uint32(device.Attrs().Index)
-
-	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
-	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
-	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
-		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-
-	if option.Config.EnableVTEP {
-		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
-	}
-
-	cfg.EphemeralMin = lnc.EphemeralMin
-
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: cfg,
+		Constants: overlayConfiguration(lnc, link),
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 		},
@@ -65,14 +65,14 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	}
 	defer obj.Close()
 
-	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), device)
-	if err := attachSKBProgram(logger, device, obj.FromOverlay, symbolFromOverlay,
+	linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), link)
+	if err := attachSKBProgram(logger, link, obj.FromOverlay, symbolFromOverlay,
 		linkDir, netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
-		return fmt.Errorf("interface %s ingress: %w", device, err)
+		return fmt.Errorf("interface %s ingress: %w", link, err)
 	}
-	if err := attachSKBProgram(logger, device, obj.ToOverlay, symbolToOverlay,
+	if err := attachSKBProgram(logger, link, obj.ToOverlay, symbolToOverlay,
 		linkDir, netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
-		return fmt.Errorf("interface %s egress: %w", device, err)
+		return fmt.Errorf("interface %s egress: %w", link, err)
 	}
 
 	if err := commit(); err != nil {
