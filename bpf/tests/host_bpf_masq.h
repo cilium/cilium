@@ -32,6 +32,8 @@ static volatile const __u8 *server_mac = mac_two;
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = NODE_IP})
 ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, { .addr = v6_node_one_addr})
 
+ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
+
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 

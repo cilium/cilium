@@ -44,3 +44,5 @@ NODE_CONFIG(__u32, cluster_id_bits, "Number of bits of the identity reserved for
 #endif
 
 ASSIGN_CONFIG(__u32, cluster_id_bits, DEFAULT_CLUSTER_ID_BITS)
+
+NODE_CONFIG(bool, enable_conntrack_accounting, "Enable per flow (conntrack) statistics")

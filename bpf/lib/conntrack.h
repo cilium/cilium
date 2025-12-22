@@ -375,10 +375,11 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 
-#ifdef CONNTRACK_ACCOUNTING
-		__sync_fetch_and_add(&entry->packets, 1);
-		__sync_fetch_and_add(&entry->bytes, ctx_full_len(ctx));
-#endif
+		if (CONFIG(enable_conntrack_accounting)) {
+			__sync_fetch_and_add(&entry->packets, 1);
+			__sync_fetch_and_add(&entry->bytes, ctx_full_len(ctx));
+		}
+
 		switch (action) {
 		case ACTION_CREATE:
 			if (unlikely(ct_entry_closing(entry))) {
@@ -1106,10 +1107,10 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 			goto drop_err;
 	}
 
-#ifdef CONNTRACK_ACCOUNTING
-	entry.packets = 1;
-	entry.bytes = ctx_full_len(ctx);
-#endif
+	if (CONFIG(enable_conntrack_accounting)) {
+		entry.packets = 1;
+		entry.bytes = ctx_full_len(ctx);
+	}
 
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
@@ -1161,10 +1162,10 @@ static __always_inline int ct_create4(const void *map_main,
 			goto drop_err;
 	}
 
-#ifdef CONNTRACK_ACCOUNTING
-	entry.packets = 1;
-	entry.bytes = ctx_full_len(ctx);
-#endif
+	if (CONFIG(enable_conntrack_accounting)) {
+		entry.packets = 1;
+		entry.bytes = ctx_full_len(ctx);
+	}
 
 	/* Previous map update succeeded, we could delete it in case
 	 * the below throws an error, but we might as well just let
