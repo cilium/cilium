@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/hive/cell"
 
-	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
@@ -36,9 +35,10 @@ type k8sCiliumEndpointsWatcherParams struct {
 
 	Logger *slog.Logger
 
-	Resources         agentK8s.Resources
-	K8sResourceSynced *k8sSynced.Resources
-	K8sAPIGroups      *k8sSynced.APIGroups
+	CiliumSlimEndpoint  resource.Resource[*types.CiliumEndpoint]
+	CiliumEndpointSlice resource.Resource[*cilium_api_v2a1.CiliumEndpointSlice]
+	K8sResourceSynced   *k8sSynced.Resources
+	K8sAPIGroups        *k8sSynced.APIGroups
 
 	EndpointManager endpointmanager.EndpointManager
 	PolicyUpdater   *policy.Updater
@@ -49,15 +49,16 @@ type k8sCiliumEndpointsWatcherParams struct {
 
 func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCiliumEndpointsWatcher {
 	return &K8sCiliumEndpointsWatcher{
-		logger:            params.Logger,
-		k8sResourceSynced: params.K8sResourceSynced,
-		k8sAPIGroups:      params.K8sAPIGroups,
-		resources:         params.Resources,
-		endpointManager:   params.EndpointManager,
-		policyManager:     params.PolicyUpdater,
-		ipcache:           params.IPCache,
-		wgConfig:          params.WgConfig,
-		ipsecConfig:       params.IPSecConfig,
+		logger:              params.Logger,
+		k8sResourceSynced:   params.K8sResourceSynced,
+		k8sAPIGroups:        params.K8sAPIGroups,
+		ciliumEndpointSlice: params.CiliumEndpointSlice,
+		ciliumSlimEndpoint:  params.CiliumSlimEndpoint,
+		endpointManager:     params.EndpointManager,
+		policyManager:       params.PolicyUpdater,
+		ipcache:             params.IPCache,
+		wgConfig:            params.WgConfig,
+		ipsecConfig:         params.IPSecConfig,
 	}
 }
 
@@ -78,7 +79,8 @@ type K8sCiliumEndpointsWatcher struct {
 	wgConfig        wgTypes.WireguardConfig
 	ipsecConfig     datapath.IPsecConfig
 
-	resources agentK8s.Resources
+	ciliumSlimEndpoint  resource.Resource[*types.CiliumEndpoint]
+	ciliumEndpointSlice resource.Resource[*cilium_api_v2a1.CiliumEndpointSlice]
 }
 
 // initCiliumEndpointOrSlices initializes the ciliumEndpoints or ciliumEndpointSlice
@@ -95,12 +97,12 @@ func (k *K8sCiliumEndpointsWatcher) initCiliumEndpointOrSlices(ctx context.Conte
 
 // GetCiliumEndpointResource returns Resource[T] slim CEP object
 func (k *K8sCiliumEndpointsWatcher) GetCiliumEndpointResource() resource.Resource[*types.CiliumEndpoint] {
-	return k.resources.CiliumSlimEndpoint
+	return k.ciliumSlimEndpoint
 }
 
 // GetCiliumEndpointSliceResource returns Resource[T] slim CEP object
 func (k *K8sCiliumEndpointsWatcher) GetCiliumEndpointSliceResource() resource.Resource[*cilium_api_v2a1.CiliumEndpointSlice] {
-	return k.resources.CiliumEndpointSlice
+	return k.ciliumEndpointSlice
 }
 
 func (k *K8sCiliumEndpointsWatcher) ciliumEndpointsInit(ctx context.Context) {
@@ -115,7 +117,7 @@ func (k *K8sCiliumEndpointsWatcher) ciliumEndpointsInit(ctx context.Context) {
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEndpointV2)
 
 	go func() {
-		events := k.resources.CiliumSlimEndpoint.Events(ctx)
+		events := k.ciliumSlimEndpoint.Events(ctx)
 		cache := make(map[resource.Key]*types.CiliumEndpoint)
 		for event := range events {
 			switch event.Kind {
