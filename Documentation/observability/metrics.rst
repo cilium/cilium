@@ -255,15 +255,31 @@ To expose any metrics, invoke ``cilium-agent`` with the
 passing an empty IP (e.g. ``:9962``) will bind the server to all available
 interfaces (there is usually only one in a container).
 
-To customize ``cilium-agent`` metrics, configure the ``--metrics`` option with
-``"+metric_a -metric_b -metric_c"``, where ``+/-`` means to enable/disable
-the metric. For example, for really large clusters, users may consider to
-disable the following two metrics as they generate too much data:
+To customize metrics, use ``+/-`` prefix to enable/disable specific metrics.
+For large clusters, consider disabling high-cardinality metrics like
+``cilium_node_connectivity_status`` and ``cilium_node_connectivity_latency_seconds``.
 
-- ``cilium_node_connectivity_status``
-- ``cilium_node_connectivity_latency_seconds``
+.. tabs::
 
-You can then configure the agent with ``--metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"``.
+   .. group-tab:: Helm
+
+      Use the ``prometheus.metrics`` value:
+
+      .. code-block:: shell-session
+
+         helm install cilium cilium/cilium --version |CHART_VERSION| \
+             --namespace kube-system \
+             --set prometheus.enabled=true \
+             --set prometheus.metrics="{-cilium_node_connectivity_status,-cilium_node_connectivity_latency_seconds}"
+
+   .. group-tab:: CLI
+
+      Use the ``--metrics`` flag:
+
+      .. code-block:: shell-session
+
+         cilium-agent --prometheus-serve-addr=:9962 \
+             --metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"
 
 Feature Metrics
 ~~~~~~~~~~~~~~~
