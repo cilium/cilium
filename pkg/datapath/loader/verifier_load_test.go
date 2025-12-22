@@ -97,9 +97,12 @@ func wireguardLoadPermutations() iter.Seq[*config.BPFWireguard] {
 
 func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 	return func(yield func(*config.BPFXDP) bool) {
-		for range permute(0) {
+		for permutation := range permute(1) {
 			cfg := config.NewBPFXDP(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
+
+			cfg.EnableXDPPrefilter = permutation[0]
+
 			if !yield(cfg) {
 				return
 			}
