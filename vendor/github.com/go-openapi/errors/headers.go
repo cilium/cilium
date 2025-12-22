@@ -19,11 +19,13 @@ type Validation struct { //nolint: errname // changing the name to abide by the 
 	Values  []any
 }
 
+// Error implements the standard error interface.
 func (e *Validation) Error() string {
 	return e.message
 }
 
-// Code the error code.
+// Code returns the HTTP status code for this validation error.
+// Returns 422 (Unprocessable Entity) by default.
 func (e *Validation) Code() int32 {
 	return e.code
 }
