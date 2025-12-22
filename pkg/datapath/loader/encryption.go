@@ -19,6 +19,23 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+func init() {
+	encryptionConfigs.register(config.Encryption)
+}
+
+// encryptionConfigs holds functions that yield a BPF configuration object for
+// attaching instances of bpf_network.c to externally-facing network devices.
+var encryptionConfigs funcRegistry[func(*datapath.LocalNodeConfiguration) any]
+
+// encryptionConfiguration returns a slice of BPF configuration objects yielded
+// by all registered config providers of [encryptionConfigs].
+func encryptionConfiguration(lnc *datapath.LocalNodeConfiguration) (configs []any) {
+	for f := range encryptionConfigs.all() {
+		configs = append(configs, f(lnc))
+	}
+	return configs
+}
+
 func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, links []netlink.Link) error {
 	if err := compileNetwork(ctx, logger); err != nil {
 		return fmt.Errorf("compiling encrypt program: %w", err)
@@ -34,7 +51,7 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *da
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
-		Constants: config.NewBPFNetwork(config.NodeConfig(lnc)),
+		Constants: encryptionConfiguration(lnc),
 	})
 	if err != nil {
 		return err
