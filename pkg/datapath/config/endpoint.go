@@ -56,5 +56,8 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	// To support per-endpoint conntrack accountingm override it in node_config
+	cfg.EnableConntrackAccounting = ep.GetOptions().IsEnabled(option.ConntrackAccounting)
+
 	return cfg
 }

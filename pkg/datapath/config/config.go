@@ -45,5 +45,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
 
+	node.EnableConntrackAccounting = option.Config.Opts.IsEnabled(option.ConntrackAccounting)
+
 	return node
 }
