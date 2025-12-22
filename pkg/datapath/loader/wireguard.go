@@ -13,16 +13,32 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/config"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
+func init() {
+	wireguardConfigs.register(config.Wireguard)
+}
+
 const (
 	symbolToWireguard   = "cil_to_wireguard"
 	symbolFromWireguard = "cil_from_wireguard"
 )
+
+// wireguardConfigs holds functions that yield a BPF configuration object for
+// the wireguard network device.
+var wireguardConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
+
+// wireguardConfiguration returns a slice of BPF configuration objects yielded
+// by all registered config providers of [wireguardConfigs].
+func wireguardConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
+	for f := range wireguardConfigs.all() {
+		configs = append(configs, f(lnc, link))
+	}
+	return configs
+}
 
 func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, device netlink.Link) (err error) {
 	if err := compileWireguard(ctx, logger); err != nil {
@@ -34,18 +50,9 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		return fmt.Errorf("loading eBPF ELF %s: %w", wireguardObj, err)
 	}
 
-	cfg := config.NewBPFWireguard(config.NodeConfig(lnc))
-	cfg.InterfaceIfIndex = uint32(device.Attrs().Index)
-
-	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
-	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
-		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
-
-	cfg.EphemeralMin = lnc.EphemeralMin
-
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: cfg,
+		Constants: wireguardConfiguration(lnc, device),
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_wireguard_%d", device.Attrs().Index),
 		},
