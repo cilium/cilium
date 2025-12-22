@@ -297,16 +297,6 @@ func GetEndpointEncryptKeyIndex(localNode LocalNode, wgEnabled, ipsecEnabled boo
 	return 0
 }
 
-// WithTestLocalNodeStore sets the 'localNode' to a temporary instance and
-// runs the given test. Afterwards the 'localNode' is restored to nil.
-// This is a temporary workaround for tests until the LocalNodeStoreCell can be
-// used.
-func WithTestLocalNodeStore(runTest func()) {
-	SetTestLocalNodeStore()
-	defer UnsetTestLocalNodeStore()
-	runTest()
-}
-
 func SetTestLocalNodeStore() {
 	if localNode != nil {
 		panic("localNode already set")
