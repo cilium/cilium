@@ -4,15 +4,20 @@
 package cmd
 
 import (
+	"bytes"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 
+	"github.com/cilium/hive/shell"
 	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/tui"
 	"github.com/spf13/cobra"
 
 	clientPkg "github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/hive"
 )
 
 var StatedbCmd = &cobra.Command{
@@ -33,7 +38,26 @@ var StatedbCmd = &cobra.Command{
 	},
 }
 
+var statedbTuiCmd = &cobra.Command{
+	Use:   "tui",
+	Short: "StateDB TUI",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg := hive.DefaultShellConfig
+		if err := cfg.Parse(cmd.Flags()); err != nil {
+			return err
+		}
+		run := func(cmd string) (string, error) {
+			var buf bytes.Buffer
+			err := shell.ShellExchange(cfg, &buf, "%s", cmd)
+			return buf.String(), err
+		}
+		tui.Run(cmd.Context(), run, slog.Default())
+		return nil
+	},
+}
+
 func init() {
+	StatedbCmd.AddCommand(statedbTuiCmd)
 	RootCmd.AddCommand(StatedbCmd)
 }
 
