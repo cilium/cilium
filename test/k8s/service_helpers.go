@@ -221,11 +221,11 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 	ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.K8s2)
 	ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 
-	res := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, "cilium config  get ConntrackAccounting")
-	res.ExpectContains("Enabled")
+	res := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, "cilium config get BPFConntrackAccounting")
+	res.ExpectContains("true")
 
-	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, "cilium config  get ConntrackAccounting")
-	res.ExpectContains("Enabled")
+	res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, "cilium config get BPFConntrackAccounting")
+	res.ExpectContains("true")
 
 	_, dstPodIPK8s1 := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 1)
 	_, dstPodIPK8s2 := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 1)

@@ -27,6 +27,7 @@ static volatile const __u8 *server_mac = mac_two;
 ASSIGN_CONFIG(__u16, endpoint_id, 233)
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, true);
+ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

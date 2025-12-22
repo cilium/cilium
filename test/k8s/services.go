@@ -582,12 +582,10 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 		})
 
 		It("Supports IPv4 fragments", func() {
-			options := map[string]string{}
+			options := map[string]string{"bpf.ctAccounting": "true"}
 
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
-			cmd := fmt.Sprintf("cilium-dbg config %s=%s", helpers.OptionConntrackAccounting, helpers.OptionEnabled)
-			kubectl.CiliumExecMustSucceedOnAll(context.TODO(), cmd, "Unable to enable ConntrackAccounting option")
 			kubectl.CiliumPreFlightCheck()
 			testIPv4FragmentSupport(kubectl, ni)
 		})

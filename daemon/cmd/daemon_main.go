@@ -1035,7 +1035,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, option.Config.BPFEventsPolicyVerdictEnabled)
 	option.Config.Opts.SetBool(option.TraceNotify, option.Config.BPFEventsTraceEnabled)
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
-	option.Config.Opts.SetBool(option.ConntrackAccounting, option.Config.BPFConntrackAccounting)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
 	option.Config.Opts.SetBool(option.SourceIPVerification, option.Config.EnableSourceIPVerification)
 
