@@ -27,9 +27,26 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+func init() {
+	xdpConfigs.register(config.XDP)
+}
+
 const (
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 )
+
+// xdpConfigs holds functions that yield a BPF configuration object for
+// attaching instances of bpf_xdp.c to externally-facing network devices.
+var xdpConfigs funcRegistry[func(*datapath.LocalNodeConfiguration, netlink.Link) any]
+
+// xdpConfiguration returns a slice of BPF configuration objects yielded
+// by all registered config providers of [xdpConfigs].
+func xdpConfiguration(lnc *datapath.LocalNodeConfiguration, link netlink.Link) (configs []any) {
+	for f := range xdpConfigs.all() {
+		configs = append(configs, f(lnc, link))
+	}
+	return configs
+}
 
 func xdpConfigModeToFlag(xdpMode xdp.Mode) link.XDPAttachFlags {
 	switch xdpMode {
@@ -138,14 +155,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	cfg := config.NewBPFXDP(config.NodeConfig(lnc))
-	cfg.InterfaceIfIndex = uint32(iface.Attrs().Index)
-	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
-
-	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
-	cfg.EphemeralMin = lnc.EphemeralMin
-
-	if err := loadAssignAttach(logger, xdpDev, xdpMode, iface, spec, cfg); err != nil {
+	if err := loadAssignAttach(logger, xdpMode, iface, spec, lnc); err != nil {
 		// Usually, a jumbo MTU causes the invalid argument error, e.g.:
 		// "create link: invalid argument" or "update link: invalid argument"
 		if !errors.Is(err, unix.EINVAL) {
@@ -157,15 +167,15 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		for _, prog := range spec.Programs {
 			prog.Flags |= unix.BPF_F_XDP_HAS_FRAGS
 		}
-		return loadAssignAttach(logger, xdpDev, xdpMode, iface, spec, cfg)
+		return loadAssignAttach(logger, xdpMode, iface, spec, lnc)
 	}
 	return nil
 }
 
-func loadAssignAttach(logger *slog.Logger, xdpDev string, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, cfg *config.BPFXDP) error {
+func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration) error {
 	var obj xdpObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-		Constants: cfg,
+		Constants: xdpConfiguration(lnc, iface),
 		MapRenames: map[string]string{
 			"cilium_calls": fmt.Sprintf("cilium_calls_xdp_%d", iface.Attrs().Index),
 		},
@@ -180,7 +190,7 @@ func loadAssignAttach(logger *slog.Logger, xdpDev string, xdpMode xdp.Mode, ifac
 
 	if err := attachXDPProgram(logger, iface, obj.Entrypoint, symbolFromHostNetdevXDP,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), iface), xdpConfigModeToFlag(xdpMode)); err != nil {
-		return fmt.Errorf("interface %s: %w", xdpDev, err)
+		return fmt.Errorf("interface %s: %w", iface.Attrs().Name, err)
 	}
 
 	if err := commit(); err != nil {
