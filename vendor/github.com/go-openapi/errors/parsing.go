@@ -37,11 +37,12 @@ func NewParseError(name, in, value string, reason error) *ParseError {
 	}
 }
 
+// Error implements the standard error interface.
 func (e *ParseError) Error() string {
 	return e.message
 }
 
-// Code returns the http status code for this error.
+// Code returns 400 (Bad Request) as the HTTP status code for parsing errors.
 func (e *ParseError) Code() int32 {
 	return e.code
 }

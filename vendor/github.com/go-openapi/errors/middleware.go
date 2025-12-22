@@ -17,6 +17,7 @@ type APIVerificationFailed struct { //nolint: errname
 	MissingRegistration  []string `json:"missingRegistration,omitempty"`
 }
 
+// Error implements the standard error interface.
 func (v *APIVerificationFailed) Error() string {
 	buf := bytes.NewBuffer(nil)
 

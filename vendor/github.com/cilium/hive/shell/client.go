@@ -97,6 +97,7 @@ func ShellExchange(c Config, w io.Writer, format string, args ...any) error {
 			continue
 		}
 		line, ended := strings.CutSuffix(line, endMarker)
+		line, errored := strings.CutSuffix(line, errorMarker)
 		if isPrefix {
 			// Partial line, don't print \n yet.
 			_, err = fmt.Fprint(w, line)
@@ -109,6 +110,9 @@ func ShellExchange(c Config, w io.Writer, format string, args ...any) error {
 		if ended {
 			return nil
 		}
+		if errored {
+			return errors.New(line)
+		}
 	}
 }
 
@@ -117,6 +121,7 @@ func executeShell(cfg Config, prompt string, printGreeting func(io.Writer), args
 		err := ShellExchange(cfg, os.Stdout, "%s", strings.Join(args, " "))
 		if err != nil {
 			fmt.Fprintf(os.Stdout, "error: %s\n", err)
+			os.Exit(1)
 		}
 	} else {
 		os.Exit(interactiveShell(cfg, prompt, printGreeting))
