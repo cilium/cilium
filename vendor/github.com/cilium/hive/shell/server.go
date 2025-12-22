@@ -110,8 +110,8 @@ func (sh shell) listener(ctx context.Context, health cell.Health) error {
 }
 
 func (sh shell) handleConn(ctx context.Context, clientID int, conn net.Conn) {
-	sh.log.Info("Client connected", "id", clientID)
-	defer sh.log.Info("client disconnected", "id", clientID)
+	sh.log.Debug("Client connected", "id", clientID)
+	defer sh.log.Debug("client disconnected", "id", clientID)
 
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -173,15 +173,17 @@ func (sh shell) handleConn(ctx context.Context, clientID int, conn net.Conn) {
 		}
 		err = sh.engine.ExecuteLine(s, line, writer)
 		if err != nil {
-			_, err = fmt.Fprintln(writer, err)
+			// Send the error and the error marker
+			_, err = fmt.Fprintf(writer, "%s%s\n", err, errorMarker)
 			if err != nil {
 				break
 			}
-		}
-		// Send the "end of command output" marker
-		_, err = fmt.Fprintln(writer, endMarker)
-		if err != nil {
-			break
+		} else {
+			// Send the "end of command output" marker
+			_, err = fmt.Fprintln(writer, endMarker)
+			if err != nil {
+				break
+			}
 		}
 	}
 }

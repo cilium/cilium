@@ -28,10 +28,12 @@ type apiError struct {
 	message string
 }
 
+// Error implements the standard error interface.
 func (a *apiError) Error() string {
 	return a.message
 }
 
+// Code returns the HTTP status code associated with this error.
 func (a *apiError) Code() int32 {
 	return a.code
 }
@@ -78,11 +80,12 @@ type MethodNotAllowedError struct {
 	message string
 }
 
+// Error implements the standard error interface.
 func (m *MethodNotAllowedError) Error() string {
 	return m.message
 }
 
-// Code the error code.
+// Code returns 405 (Method Not Allowed) as the HTTP status code.
 func (m *MethodNotAllowedError) Code() int32 {
 	return m.code
 }
