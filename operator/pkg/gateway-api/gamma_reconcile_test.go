@@ -92,8 +92,8 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 					c := fake.NewClientBuilder().
 						WithScheme(testScheme()).
 						WithObjects(append(base, input...)...).
-						WithIndex(&gatewayv1.HTTPRoute{}, gammaHTTPRouteParentRefsIndex, indexers.IndexHTTPRouteByGammaService).
-						WithIndex(&gatewayv1.GRPCRoute{}, gammaGRPCRouteParentRefsIndex, indexers.IndexGRPCRouteByGammaService).
+						WithIndex(&gatewayv1.HTTPRoute{}, indexers.GammaHTTPRouteParentRefsIndex, indexers.IndexHTTPRouteByGammaService).
+						WithIndex(&gatewayv1.GRPCRoute{}, indexers.GammaGRPCRouteParentRefsIndex, indexers.IndexGRPCRouteByGammaService).
 						WithStatusSubresource(&corev1.Service{}).
 						WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 						WithStatusSubresource(&gatewayv1.GRPCRoute{}).

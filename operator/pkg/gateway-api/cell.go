@@ -303,6 +303,12 @@ func registerSecretSync(params secretSyncParams) secretsync.SecretSyncRegistrati
 			RefObjectCheckFunc:   IsReferencedByCiliumGateway,
 			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
 		},
+		ConfigMapSyncRegistration: &secretsync.ConfigMapSyncRegistration{
+			RefObject:            &gatewayv1.BackendTLSPolicy{},
+			RefObjectEnqueueFunc: EnqueueBackendTLSPolicyConfigMaps(params.CtrlRuntimeManager.GetClient(), params.Logger),
+			RefObjectCheckFunc:   ConfigMapIsReferencedInCiliumGateway,
+			SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
+		},
 	}
 }
 
