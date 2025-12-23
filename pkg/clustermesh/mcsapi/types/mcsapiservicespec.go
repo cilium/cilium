@@ -40,10 +40,18 @@ type MCSAPIServiceSpec struct {
 	Namespace string `json:"namespace"`
 
 	// Annotations contains the exported annotations
-	Annotations map[string]string
+	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// Labels contains the exported labels
-	Labels map[string]string
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// LegacyLabels contains the exported labels.
+	// Deprecated: Use Labels instead, this is kept for backward compatibility
+	LegacyLabels map[string]string `json:"Labels,omitempty"`
+
+	// LegacyAnnotations contains the exported annotations.
+	// Deprecated: Use Annotations instead, this is kept for backward compatibility
+	LegacyAnnotations map[string]string `json:"Annotations,omitempty"`
 
 	// ExportCreationTimestamp is the timestamp representing when the
 	// ServiceExport object was created. It is used for conflict resolution.
@@ -101,6 +109,9 @@ func (s *MCSAPIServiceSpec) NamespacedName() types.NamespacedName {
 
 // Marshal returns the MCS-API Service Spec object as JSON byte slice
 func (s *MCSAPIServiceSpec) Marshal() ([]byte, error) {
+	// Populate legacy fields for forward compatibility
+	s.LegacyAnnotations = s.Annotations
+	s.LegacyLabels = s.Labels
 	return json.Marshal(s)
 }
 
@@ -111,6 +122,16 @@ func (s *MCSAPIServiceSpec) Unmarshal(_ string, data []byte) error {
 	if err := json.Unmarshal(data, &newMCSAPIServiceSpec); err != nil {
 		return err
 	}
+
+	// Handle backward compatibility of old annotations/labels fields
+	if len(newMCSAPIServiceSpec.Annotations) == 0 {
+		newMCSAPIServiceSpec.Annotations = newMCSAPIServiceSpec.LegacyAnnotations
+	}
+	if len(newMCSAPIServiceSpec.Labels) == 0 {
+		newMCSAPIServiceSpec.Labels = newMCSAPIServiceSpec.LegacyLabels
+	}
+	newMCSAPIServiceSpec.LegacyAnnotations = nil
+	newMCSAPIServiceSpec.LegacyLabels = nil
 
 	if err := newMCSAPIServiceSpec.validate(); err != nil {
 		return err
