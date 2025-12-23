@@ -1,0 +1,36 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: nonexistent-ca-certificate-ref
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-nonexistent-ca-certificate-ref-test"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: "nonexistent-ca-certificate"
+    hostname: "abc.example.com"
+status:
+  ancestors:
+    - controllerName: io.cilium/gateway-controller
+      ancestorRef:
+        group: "gateway.networking.k8s.io"
+        kind: "Gateway"
+        namespace: gateway-conformance-infra
+        name: same-namespace
+      conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: "CA Certificate does not exist: gateway-conformance-infra/nonexistent-ca-certificate"
+          reason: NoValidCACertificate
+          status: "False"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: "CA Certificate does not exist: gateway-conformance-infra/nonexistent-ca-certificate"
+          reason: InvalidCACertificateRef
+          status: "False"
+          type: ResolvedRefs

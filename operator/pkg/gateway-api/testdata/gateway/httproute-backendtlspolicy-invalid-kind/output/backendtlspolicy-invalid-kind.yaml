@@ -1,0 +1,36 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: invalid-kind
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-invalid-kind-test"
+  validation:
+    caCertificateRefs:
+      - group: invalid.io
+        kind: InvalidKind
+        name: "invalid-kind"
+    hostname: "abc.example.com"
+status:
+  ancestors:
+    - controllerName: io.cilium/gateway-controller
+      ancestorRef:
+        group: "gateway.networking.k8s.io"
+        kind: "Gateway"
+        namespace: gateway-conformance-infra
+        name: same-namespace
+      conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: "Only ConfigMaps are supported for CA Certificate Refs"
+          reason: NoValidCACertificate
+          status: "False"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: "Only ConfigMaps are supported for CA Certificate Refs"
+          reason: InvalidKind
+          status: "False"
+          type: ResolvedRefs

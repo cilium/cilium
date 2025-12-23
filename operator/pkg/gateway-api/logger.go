@@ -15,5 +15,7 @@ const (
 	validGammaServices = "validGammaServices"
 	relevantHTTPRoutes = "relevantHTTPRoutes"
 	numRoutes          = "numRoutes"
+	policies           = "policies"
 	status             = "status"
+	backendTLSPolicy   = "BackendTLSPolicy"
 )

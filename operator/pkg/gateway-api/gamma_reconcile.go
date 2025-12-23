@@ -24,6 +24,7 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
@@ -68,7 +69,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	httpRouteList := &gatewayv1.HTTPRouteList{}
 	if err := r.Client.List(ctx, httpRouteList, &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(gammaHTTPRouteParentRefsIndex, client.ObjectKeyFromObject(svc).String()),
+		FieldSelector: fields.OneTermEqualSelector(indexers.GammaHTTPRouteParentRefsIndex, client.ObjectKeyFromObject(svc).String()),
 	}); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to list HTTPRoutes", logfields.Error, err)
 		return controllerruntime.Fail(err)
@@ -81,7 +82,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	grpcRouteList := &gatewayv1.GRPCRouteList{}
 	if err := r.Client.List(ctx, grpcRouteList, &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(gammaGRPCRouteParentRefsIndex, client.ObjectKeyFromObject(svc).String()),
+		FieldSelector: fields.OneTermEqualSelector(indexers.GammaGRPCRouteParentRefsIndex, client.ObjectKeyFromObject(svc).String()),
 	}); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to list GRPCRoutes", logfields.Error, err)
 		return controllerruntime.Fail(err)

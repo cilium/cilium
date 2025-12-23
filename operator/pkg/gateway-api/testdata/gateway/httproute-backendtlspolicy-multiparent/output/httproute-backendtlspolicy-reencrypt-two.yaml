@@ -1,27 +1,32 @@
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: httproute-listener-section-name-not-matching-port
+  name: backendtlspolicy-reencrypt-two
   namespace: gateway-conformance-infra
 spec:
   parentRefs:
-    - name: gateway-with-one-not-matching-port-and-section-name-route
+    - name: same-namespace
       namespace: gateway-conformance-infra
-      sectionName: http
-      # mismatched port value here (81 does not match gateway http listener's port) triggers NoMatchingParent reason
-      port: 81
+  hostnames:
+    - https-listener.org
   rules:
     - backendRefs:
-        - name: infra-backend-v1
+        - group: ""
           kind: Service
-          port: 8080
+          name: backendtlspolicy-test
+          port: 443
+      matches:
+        - path:
+            type: Exact
+            value: /backendtlspolicy
 status:
   parents:
     - conditions:
         - lastTransitionTime: "2025-07-01T14:19:43Z"
-          message: No matching listener with sectionName http1
-          reason: NoMatchingParent
-          status: "False"
+          message: Accepted HTTPRoute
+          reason: Accepted
+          status: "True"
           type: Accepted
         - lastTransitionTime: "2025-07-01T14:19:43Z"
           message: Service reference is valid
@@ -32,5 +37,3 @@ status:
       parentRef:
         name: same-namespace
         namespace: gateway-conformance-infra
-        port: 80
-        sectionName: http1
