@@ -37,7 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/nodediscovery"
+	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -99,7 +99,7 @@ type statusParams struct {
 	MaglevConfig     maglev.Config
 	MonitorAgent     monitoragent.Agent
 	NodeLocalStore   *node.LocalNodeStore
-	NodeDiscovery    *nodediscovery.NodeDiscovery
+	NodeManager      nodemanager.NodeManager
 	PolicyMapFactory policymap.Factory
 	TunnelConfig     tunnel.Config
 	WireguardAgent   wgTypes.WireguardAgent

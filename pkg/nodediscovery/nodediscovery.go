@@ -46,9 +46,7 @@ const (
 	backoffDuration = 500 * time.Millisecond
 )
 
-var (
-	localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
-)
+var localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
 
 type k8sGetters interface {
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
@@ -61,9 +59,9 @@ type GetNodeAddresses interface {
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
 	logger           *slog.Logger
-	Manager          nodemanager.NodeManager
-	Registrar        nodestore.NodeRegistrar
-	Registered       chan struct{}
+	manager          nodemanager.NodeManager
+	registrar        nodestore.NodeRegistrar
+	registered       chan struct{}
 	cniConfigManager cni.CNIConfigManager
 	k8sGetters       k8sGetters
 	localNodeStore   *node.LocalNodeStore
@@ -91,9 +89,9 @@ func NewNodeDiscovery(
 
 	return &NodeDiscovery{
 		logger:           logger,
-		Manager:          manager,
+		manager:          manager,
 		localNodeStore:   lns,
-		Registered:       make(chan struct{}),
+		registered:       make(chan struct{}),
 		cniConfigManager: cniConfigManager,
 		clientset:        clientset,
 		kvstoreClient:    kvstoreClient,
@@ -128,25 +126,25 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			logfields.Node, localNode.Name,
 		)
 		for {
-			if err := n.Registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.Manager); err != nil {
+			if err := n.registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.manager); err != nil {
 				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
 				time.Sleep(time.Second)
 			} else {
 				break
 			}
 		}
-		close(n.Registered)
+		close(n.registered)
 	}()
 
 	go func() {
 		select {
-		case <-n.Registered:
+		case <-n.registered:
 		case <-time.After(defaults.NodeInitTimeout):
 			logging.Fatal(n.logger, "Unable to initialize local node due to timeout")
 		}
 	}()
 
-	n.Manager.NodeUpdated(localNode.Node)
+	n.manager.NodeUpdated(localNode.Node)
 
 	n.updateLocalNode(ctx, &localNode)
 
@@ -157,7 +155,7 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			// This is particularly helpful when an IPSec key rotation occurs
 			// and the manager needs to evaluate the local node's EncryptionKey
 			// field.
-			n.Manager.NodeUpdated(ln.Node)
+			n.manager.NodeUpdated(ln.Node)
 			n.updateLocalNode(ctx, &ln)
 		}
 	}()
@@ -171,7 +169,7 @@ func (n *NodeDiscovery) WaitForKVStoreSync(ctx context.Context) error {
 	}
 
 	select {
-	case <-n.Registered:
+	case <-n.registered:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -188,12 +186,12 @@ func (n *NodeDiscovery) updateLocalNode(ctx context.Context, ln *node.LocalNode)
 				CancelDoFuncOnUpdate: true,
 				DoFunc: func(ctx context.Context) error {
 					select {
-					case <-n.Registered:
+					case <-n.registered:
 					case <-ctx.Done():
 						return nil
 					}
 
-					err := n.Registrar.UpdateLocalKeySync(ctx, &ln.Node)
+					err := n.registrar.UpdateLocalKeySync(ctx, &ln.Node)
 					if err != nil && !errors.Is(err, context.Canceled) {
 						n.logger.Error("Unable to propagate local node change to kvstore", logfields.Error, err)
 					}
