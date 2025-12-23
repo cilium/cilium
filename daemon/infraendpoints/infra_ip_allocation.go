@@ -51,7 +51,7 @@ type infraIPAllocatorParams struct {
 }
 
 type InfraIPAllocator interface {
-	AllocateIPs(ctx context.Context, router RestoredIPs) error
+	AllocateIPs(ctx context.Context) error
 	GetHealthEndpointRouting() *linuxrouting.RoutingInfo
 }
 
@@ -536,19 +536,20 @@ func (r *infraIPAllocator) allocateIngressIPs(oldV4IngressIP net.IP, oldV6Ingres
 	return nil
 }
 
-type RestoredIPs struct {
-	IPv4FromK8s, IPv4FromFS net.IP
-	IPv6FromK8s, IPv6FromFS net.IP
-}
-
-func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs RestoredIPs) error {
+func (r *infraIPAllocator) AllocateIPs(ctx context.Context) error {
 	// fetch local node. be aware that updating the local node via localNodeStore.Update doesn't update this instance!
 	localNode, err := r.localNodeStore.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get local node: %w", err)
 	}
 
-	if err := r.allocateRouterIPs(ctx, restoredRouterIPs); err != nil {
+	// Fetch the router (`cilium_host`) IPs in case they were set a priori from
+	// the Kubernetes or CiliumNode resource in the K8s subsystem.
+	restoredRouterIPIPv4FromK8s, restoredRouterIPv6FromK8s := localNode.GetCiliumInternalIP(false), localNode.GetCiliumInternalIP(true)
+	// Fetch the router IPs from the filesystem in case they were set a priori
+	restoredRouterIPIPv4FromFS, restoredRouterIPIPv6FromFS := r.extractCiliumHostIPFromFS()
+
+	if err := r.allocateRouterIPs(ctx, restoredRouterIPIPv4FromK8s, restoredRouterIPIPv4FromFS, restoredRouterIPv6FromK8s, restoredRouterIPIPv6FromFS); err != nil {
 		return fmt.Errorf("failed to allocate router IPs: %w", err)
 	}
 
@@ -565,6 +566,36 @@ func (r *infraIPAllocator) AllocateIPs(ctx context.Context, restoredRouterIPs Re
 	}
 
 	return nil
+}
+
+// ExtractCiliumHostIPFromFS returns the Cilium IPv4 gateway and router IPv6 address from
+// the node_config.h file if is present; or by deriving it from
+// defaults.HostDevice interface, on which only the IPv4 is possible to derive.
+func (r *infraIPAllocator) extractCiliumHostIPFromFS() (net.IP, net.IP) {
+	nodeConfig := r.daemonConfig.GetNodeConfigPath()
+	ipv4GW, ipv6Router := node.GetCiliumHostIPsFromFile(nodeConfig)
+	if ipv4GW != nil || ipv6Router != nil {
+		r.logger.Info(
+			"Restored router address from node_config",
+			logfields.IPv4, ipv4GW,
+			logfields.IPv6, ipv6Router,
+			logfields.File, nodeConfig,
+		)
+		return ipv4GW, ipv6Router
+	}
+
+	ipv4GW, ipv6Router = node.GetCiliumHostIPsFromNetDev(defaults.HostDevice)
+
+	if ipv4GW != nil || ipv6Router != nil {
+		r.logger.Info(
+			"Restored router address from device",
+			logfields.IPv4, ipv4GW,
+			logfields.IPv6, ipv6Router,
+			logfields.Device, defaults.HostDevice,
+		)
+	}
+
+	return ipv4GW, ipv6Router
 }
 
 func (r *infraIPAllocator) allocateServiceLoopbackIPs() error {
@@ -591,12 +622,12 @@ func (r *infraIPAllocator) allocateServiceLoopbackIPs() error {
 	return nil
 }
 
-func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouterIPs RestoredIPs) error {
+func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouterIPv4FromK8s net.IP, restoredRouterIPv4FromFS net.IP, restoredRouterIPv6FromK8s net.IP, restoredRouterIPv6FromFS net.IP) error {
 	var v4 net.IP
 	var v6 net.IP
 
 	if r.daemonConfig.EnableIPv4 {
-		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv4FromFS)
+		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPv4FromK8s, restoredRouterIPv4FromFS)
 		if err != nil {
 			return err
 		}
@@ -608,7 +639,7 @@ func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouter
 	}
 
 	if r.daemonConfig.EnableIPv6 {
-		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPs.IPv6FromK8s, restoredRouterIPs.IPv6FromFS)
+		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPv6FromK8s, restoredRouterIPv6FromFS)
 		if err != nil {
 			return err
 		}

@@ -332,7 +332,7 @@ func GetNodeAddressing(logger *slog.Logger) *models.NodeAddressing {
 	return a
 }
 
-func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
+func GetCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 	// ipLen is the length of the IP address stored in the node_config.h
 	// it has the same length for both IPv4 and IPv6.
 	const ipLen = net.IPv6len
@@ -392,24 +392,6 @@ func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
 		}
 	}
 	return ipv4GW, ipv6Router
-}
-
-// ExtractCiliumHostIPFromFS returns the Cilium IPv4 gateway and router IPv6 address from
-// the node_config.h file if is present; or by deriving it from
-// defaults.HostDevice interface, on which only the IPv4 is possible to derive.
-func ExtractCiliumHostIPFromFS(logger *slog.Logger) (ipv4GW, ipv6Router net.IP) {
-	nodeConfig := option.Config.GetNodeConfigPath()
-	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)
-	if ipv4GW != nil || ipv6Router != nil {
-		logger.Info(
-			"Restored router address from node_config",
-			logfields.IPv4, ipv4GW,
-			logfields.IPv6, ipv6Router,
-			logfields.File, nodeConfig,
-		)
-		return ipv4GW, ipv6Router
-	}
-	return getCiliumHostIPsFromNetDev(logger, defaults.HostDevice)
 }
 
 // GetEndpointHealthIPv4 returns the IPv4 cilium-health endpoint address.

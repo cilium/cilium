@@ -84,7 +84,7 @@ func Test_getCiliumHostIPsFromFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotIpv4GW, gotIpv6Router := getCiliumHostIPsFromFile(tt.args.nodeConfig)
+			gotIpv4GW, gotIpv6Router := GetCiliumHostIPsFromFile(tt.args.nodeConfig)
 			require.Equal(t, tt.wantIpv4GW, gotIpv4GW)
 			require.Equal(t, tt.wantIpv6Router, gotIpv6Router)
 		})
