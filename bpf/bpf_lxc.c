@@ -59,6 +59,15 @@
 #include "lib/vtep.h"
 #include "lib/subnet.h"
 
+#if defined(ENABLE_DSR)
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct dsr_nat_info);
+	__uint(max_entries, 1);
+} cilium_dsr_nat_buffer __section_maps_btf;
+#endif /* ENABLE_DSR */
+
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 static __always_inline int
 lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
@@ -173,6 +182,18 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	lb4_fill_key(&key, &tuple);
 
 	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+#if defined(ENABLE_DSR)
+	if (!svc) {
+		svc = lb4_wildcard_lookup_service(key);
+		if (svc) {
+			ct_state_new.src_sec_id = LXC_ID;
+			ct_state_new.node_port = 1;
+			ct_state_new.dsr_internal = 1;
+			ct_state_new.nat_addr.p4 = tuple.daddr;
+			ct_state_new.nat_port = tuple.sport;
+		}
+	}
+#endif /* ENABLE_DSR */
 	if (svc) {
 		const struct lb4_backend *backend;
 
@@ -246,6 +267,17 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
+#if defined(ENABLE_DSR)
+	if (ct_state_new.dsr_internal) {
+		struct dsr_nat_info nat_info = {};
+		__u32 zero = 0;
+
+		ipv6_addr_copy(&nat_info.nat_addr, &ct_state_new.nat_addr);
+		nat_info.nat_port = ct_state_new.nat_port;
+
+		map_update_elem(&cilium_dsr_nat_buffer, &zero, &nat_info, 0);
+	}
+#endif /* ENABLE_DSR */
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_EGRESS, ext_err);
 }
 #endif /* ENABLE_PER_PACKET_LB */
@@ -323,6 +355,18 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	 * state in the address.
 	 */
 	svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+#if defined(ENABLE_DSR)
+	if (!svc) {
+		svc = lb6_wildcard_lookup_service(key);
+		if (svc) {
+			ct_state_new.src_sec_id = LXC_ID;
+			ct_state_new.node_port = 1;
+			ct_state_new.dsr_internal = 1;
+			ipv6_addr_copy(&ct_state_new.nat_addr, &tuple.daddr);
+			ct_state_new.nat_port = tuple.sport;
+		}
+	}
+#endif /* ENABLE_DSR */
 	if (svc) {
 		const struct lb6_backend *backend;
 
@@ -378,6 +422,17 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
+#if defined(ENABLE_DSR)
+	if (ct_state_new.dsr_internal) {
+		struct dsr_nat_info nat_info = {};
+		__u32 zero = 0;
+
+		ipv6_addr_copy(&nat_info.nat_addr, &ct_state_new.nat_addr);
+		nat_info.nat_port = ct_state_new.nat_port;
+
+		map_update_elem(&cilium_dsr_nat_buffer, &zero, &nat_info, 0);
+	}
+#endif /* ENABLE_DSR */
 	return tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_EGRESS, ext_err);
 }
 #endif /* ENABLE_PER_PACKET_LB */
@@ -762,6 +817,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	struct dsr_nat_info *nat_info __maybe_unused;
 	bool __maybe_unused skip_tunnel = false;
 	bool hairpin_flow = false;
 	enum ct_status ct_status;
@@ -822,6 +878,16 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
+#if defined(ENABLE_DSR)
+	nat_info = map_lookup_elem(&cilium_dsr_nat_buffer, &zero);
+	if (nat_info) {
+		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
+		ct_state_new.nat_port = nat_info->nat_port;
+
+		memset(&nat_info->nat_addr, 0, sizeof(nat_info->nat_addr));
+		nat_info->nat_port = 0;
+	}
+#endif /* ENABLE_DSR */
 
 	/* Apply network policy: */
 	switch (ct_status) {
@@ -1291,6 +1357,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	struct dsr_nat_info *nat_info __maybe_unused;
 	bool __maybe_unused skip_tunnel = false;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1349,6 +1416,16 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
+#if defined(ENABLE_DSR)
+	nat_info = map_lookup_elem(&cilium_dsr_nat_buffer, &zero);
+	if (nat_info) {
+		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
+		ct_state_new.nat_port = nat_info->nat_port;
+
+		memset(&nat_info->nat_addr, 0, sizeof(nat_info->nat_addr));
+		nat_info->nat_port = 0;
+	}
+#endif /* ENABLE_DSR */
 
 	/* Apply network policy: */
 	switch (ct_status) {
@@ -1778,10 +1855,12 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		}
 
 		/* Reverse NAT applies to return traffic only. */
-		if (unlikely(ct_state->rev_nat_index)) {
+		if (unlikely(ct_state->rev_nat_index || ct_state->nat_port)) {
 			int ret2;
 
-			ret2 = lb6_rev_nat(ctx, l4_off, ct_state->rev_nat_index,
+			ret2 = lb6_rev_nat(ctx, l4_off,
+					   ct_state->rev_nat_index,
+					   &ct_state->nat_addr, ct_state->nat_port,
 					   ct_state->loopback,
 					   tuple,
 					   ipfrag_has_l4_header(fraginfo), CT_INGRESS);
@@ -2081,13 +2160,14 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		}
 
 		/* Reverse NAT applies to return traffic only. */
-		if (unlikely(ct_state->rev_nat_index)) {
+		if (unlikely(ct_state->rev_nat_index || ct_state->nat_port)) {
 			int ret2;
 
 			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
 					   ct_state->rev_nat_index,
-					   ct_state->loopback,
-					   tuple, ipfrag_has_l4_header(fraginfo));
+					   ct_state->nat_addr.p4, ct_state->nat_port,
+					   ct_state->loopback, tuple,
+					   ipfrag_has_l4_header(fraginfo));
 			if (IS_ERR(ret2))
 				return ret2;
 		}
