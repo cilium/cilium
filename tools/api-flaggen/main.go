@@ -65,9 +65,9 @@ func writeTable(wr io.Writer, spec *loads.Document) {
 	colWidth := 80
 	tabWriter := tabwriter.NewWriter(wr, flagWidth, 0, 1, ' ', tabwriter.TabIndent)
 
-	fmt.Fprintln(tabWriter, "=====================\t====================")
+	fmt.Fprintln(tabWriter, "=========================\t====================")
 	fmt.Fprintln(tabWriter, "Flag Name \tDescription")
-	fmt.Fprintln(tabWriter, "=====================\t====================")
+	fmt.Fprintln(tabWriter, "=========================\t====================")
 
 	pathSet := api.NewPathSet(spec)
 	for _, k := range slices.Sorted(maps.Keys(pathSet)) {
@@ -78,7 +78,7 @@ func writeTable(wr io.Writer, spec *loads.Document) {
 			fmt.Fprintln(tabWriter, " \t"+wrapped[i])
 		}
 	}
-	fmt.Fprintln(tabWriter, "=====================\t====================")
+	fmt.Fprintln(tabWriter, "=========================\t====================")
 	tabWriter.Flush()
 }
 

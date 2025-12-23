@@ -103,6 +103,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 
 		prefixesByResource: map[ipcachetypes.ResourceID][]netip.Prefix{},
 	}
+	pi.repo.GetSubjectSelectorCache().UpdateIdentities(ids, nil, nil)
 	pi.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 
 	writeRule := func(r *policyapi.Rule) uint64 {
