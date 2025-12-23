@@ -120,7 +120,9 @@ type ipamAPIHandlerParams struct {
 	cell.In
 
 	Logger          *slog.Logger
+	DaemonConfig    *option.DaemonConfig
 	IPAM            *ipam.IPAM
+	LocalNodeStore  *node.LocalNodeStore
 	EndpointManager endpointmanager.EndpointManager
 }
 
@@ -139,8 +141,10 @@ func newIPAMAPIHandler(params ipamAPIHandlerParams) ipamAPIHandlerOut {
 			EndpointManager: params.EndpointManager,
 		},
 		IpamPostIpamHandler: &ipamapi.IpamPostIpamHandler{
-			Logger: params.Logger,
-			IPAM:   params.IPAM,
+			DaemonConfig:   params.DaemonConfig,
+			Logger:         params.Logger,
+			IPAM:           params.IPAM,
+			LocalNodeStore: params.LocalNodeStore,
 		},
 		IpamPostIpamIPHandler: &ipamapi.IpamPostIpamIPHandler{
 			IPAM: params.IPAM,
