@@ -211,7 +211,7 @@ jobs:
           CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh stable)
           echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
-          L7_FILTER="((dns)|(fqdn)|(l7)|(client-egress-tls-sni))"
+          L7_FILTER="((dns)|(fqdn)|(l7)|(client-egress-tls-sni)|(host-firewall))"
 
           SEQUENTIAL_CONNECTIVITY_TESTS="seq-.*,!pod-to-world.*"
           CONCURRENT_CONNECTIVITY_TESTS="!seq-.*"
