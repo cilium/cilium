@@ -14,6 +14,8 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 		for permutation := range permute(7) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
+			cfg.Node.DebugLB = true
+
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
 			cfg.AllowICMPFragNeeded = permutation[1]
 			cfg.EnableICMPRule = permutation[2]
@@ -34,6 +36,8 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 		for permutation := range permute(7) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
+			cfg.Node.DebugLB = true
+
 			cfg.EnableRemoteNodeMasquerade = permutation[0]
 			if permutation[1] {
 				cfg.EthHeaderLength = 0
@@ -68,6 +72,8 @@ func overlayLoadPermutations() iter.Seq[*config.BPFOverlay] {
 		for permutation := range permute(1) {
 			cfg := config.NewBPFOverlay(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
+			cfg.Node.DebugLB = true
+
 			cfg.EnableConntrackAccounting = permutation[0]
 
 			if !yield(cfg) {
@@ -81,6 +87,8 @@ func sockLoadPermutations() iter.Seq[*config.BPFSock] {
 	return func(yield func(*config.BPFSock) bool) {
 		for permutation := range permute(1) {
 			cfg := config.NewBPFSock(*config.NewNode())
+			cfg.Node.DebugLB = true
+
 			cfg.EnableLRP = permutation[0]
 
 			if !yield(cfg) {
@@ -95,6 +103,8 @@ func wireguardLoadPermutations() iter.Seq[*config.BPFWireguard] {
 		for permutation := range permute(1) {
 			cfg := config.NewBPFWireguard(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
+			cfg.Node.DebugLB = true
+
 			cfg.EnableConntrackAccounting = permutation[0]
 
 			if !yield(cfg) {
@@ -109,6 +119,7 @@ func xdpLoadPermutations() iter.Seq[*config.BPFXDP] {
 		for permutation := range permute(2) {
 			cfg := config.NewBPFXDP(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
+			cfg.Node.DebugLB = true
 
 			cfg.EnableXDPPrefilter = permutation[0]
 			cfg.EnableConntrackAccounting = permutation[1]

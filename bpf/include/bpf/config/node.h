@@ -46,3 +46,5 @@ NODE_CONFIG(__u32, cluster_id_bits, "Number of bits of the identity reserved for
 ASSIGN_CONFIG(__u32, cluster_id_bits, DEFAULT_CLUSTER_ID_BITS)
 
 NODE_CONFIG(bool, enable_conntrack_accounting, "Enable per flow (conntrack) statistics")
+
+NODE_CONFIG(bool, debug_lb, "Enable debugging trace statements for load balancer")

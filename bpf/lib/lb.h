@@ -381,11 +381,11 @@ enum {
 #define LB_ALGORITHM_SHIFT	24
 #define AFFINITY_TIMEOUT_MASK	((1 << LB_ALGORITHM_SHIFT) - 1)
 
-#ifdef LB_DEBUG
-#define cilium_dbg_lb cilium_dbg
-#else
-#define cilium_dbg_lb(a, b, c, d)
-#endif
+static __always_inline void cilium_dbg_lb(struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2)
+{
+	if (CONFIG(debug_lb))
+		cilium_dbg(ctx, type, arg1, arg2);
+}
 
 #include "act.h"
 
