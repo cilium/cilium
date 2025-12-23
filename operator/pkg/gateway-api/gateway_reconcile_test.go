@@ -277,10 +277,10 @@ func Test_Conformance(t *testing.T) {
 			}
 
 			// Add any required indexes here
-			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, gatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
-			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, backendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
-			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, gatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
-			clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, gatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
+			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1alpha2.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
 
 			c := clientBuilder.Build()
 

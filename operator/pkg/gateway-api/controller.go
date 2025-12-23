@@ -25,43 +25,6 @@ import (
 const (
 	// controllerName is the gateway controller name used in cilium.
 	controllerName = "io.cilium/gateway-controller"
-
-	// Indexes HTTPRoutes by all the backend Services referenced in the object.
-	backendServiceHTTPRouteIndex = "backendServiceHTTPRouteIndex"
-
-	// Indexes HTTPRoutes by all the backend ServiceImports referenced in the object.
-	backendServiceImportHTTPRouteIndex = "backendServiceImportHTTPRouteIndex"
-
-	// Indexes HTTPRoutes by all the Gateway parents referenced in the object.
-	gatewayHTTPRouteIndex = "gatewayHTTPRouteIndex"
-
-	// Indexes Gateways and records if the Gateway is relevant for Cilium.
-	implementationGatewayIndex = "implementationGatewayIndex"
-
-	// Indexes TLSRoutes by all the backend Services referenced in the object.
-	backendServiceTLSRouteIndex = "backendServiceTLSRouteIndex"
-
-	// Indexes TLSRoutes by all the Gateway parents referenced in the object.
-	gatewayTLSRouteIndex = "gatewayTLSRouteIndex"
-
-	// Indexes GRPCRoutes by all the backend Services referenced in the object.
-	backendServiceGRPCRouteIndex = "backendServiceGRPCRouteIndex"
-
-	// Indexes GRPCRoutes by all the Gateway parents referenced in the object.
-	gatewayGRPCRouteIndex = "gatewayGRPCRouteIndex"
-
-	// Indexes BackendTLSPolicies by all the ConfigMaps referenced in the object.
-	backendTLSPolicyConfigMapIndex = "backendTLSPolicyConfigMaps"
-
-	// Indexes GAMMA HTTPRoutes by all the GAMMA parents of that HTTPRoute.
-	// This is then be used by the Service reconciler to only retrieve any HTTPRoutes that have that specific
-	// Service as a parent.
-	gammaHTTPRouteParentRefsIndex = "gammaHTTPRouteParentRefs"
-
-	// Indexes GAMMA GRPCRoutes by all the GAMMA parents of that GRPCRoute.
-	// This is then be used by the Service reconciler to only retrieve any GRPCRoutes that have that specific
-	// Service as a parent.
-	gammaGRPCRouteParentRefsIndex = "gammaGRPCRouteParentRefs"
 )
 
 func hasMatchingController(ctx context.Context, c client.Client, controllerName string, logger *slog.Logger) func(object client.Object) bool {
