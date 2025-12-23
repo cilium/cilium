@@ -15,10 +15,8 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
@@ -242,36 +240,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
-	if params.Clientset.IsEnabled() && params.DaemonConfig.AnnotateK8sNode {
-		bootstrapStats.k8sInit.Start()
-		params.Logger.Info("Annotating k8s node",
-			logfields.V4Prefix, node.GetIPv4AllocRange(params.Logger),
-			logfields.V6Prefix, node.GetIPv6AllocRange(params.Logger),
-			logfields.V4HealthIP, node.GetEndpointHealthIPv4(params.Logger),
-			logfields.V6HealthIP, node.GetEndpointHealthIPv6(params.Logger),
-			logfields.V4IngressIP, node.GetIngressIPv4(params.Logger),
-			logfields.V6IngressIP, node.GetIngressIPv6(params.Logger),
-			logfields.V4CiliumHostIP, node.GetInternalIPv4Router(params.Logger),
-			logfields.V6CiliumHostIP, node.GetIPv6Router(params.Logger),
-		)
-
-		latestLocalNode, err := params.LocalNodeStore.Get(ctx)
-		if err == nil {
-			_, err = k8s.AnnotateNode(
-				params.Logger,
-				params.Clientset,
-				nodeTypes.GetName(),
-				latestLocalNode.Node,
-				params.IPsecAgent.SPI())
-		}
-		if err != nil {
-			params.Logger.Warn("Cannot annotate k8s node with CIDR range", logfields.Error, err)
-		}
-
-		bootstrapStats.k8sInit.End(true)
-	} else if !params.DaemonConfig.AnnotateK8sNode {
-		params.Logger.Debug("Annotate k8s node is disabled.")
-	}
+	params.NodeDiscovery.AnnotateK8sNode(ctx)
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.

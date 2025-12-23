@@ -46,9 +46,7 @@ const (
 	backoffDuration = 500 * time.Millisecond
 )
 
-var (
-	localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
-)
+var localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
 
 type k8sGetters interface {
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
@@ -70,6 +68,7 @@ type NodeDiscovery struct {
 	clientset        client.Clientset
 	kvstoreClient    kvstore.Client
 	ctrlmgr          *controller.Manager
+	daemonConfig     *option.DaemonConfig
 	config           config
 }
 
@@ -82,6 +81,7 @@ func NewNodeDiscovery(
 	lns *node.LocalNodeStore,
 	cniConfigManager cni.CNIConfigManager,
 	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
+	daemonConfig *option.DaemonConfig,
 	c config,
 ) *NodeDiscovery {
 	if !option.Config.EnableCiliumNodeCRD {
@@ -99,6 +99,7 @@ func NewNodeDiscovery(
 		kvstoreClient:    kvstoreClient,
 		ctrlmgr:          controller.NewManager(),
 		k8sGetters:       k8sNodeWatcher,
+		daemonConfig:     daemonConfig,
 		config:           c,
 	}
 }
