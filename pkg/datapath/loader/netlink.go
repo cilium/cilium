@@ -14,6 +14,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -179,11 +180,14 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 
 // setupTunnelDevice ensures the cilium_{mode} device is created and
 // unused leftover devices are cleaned up in case mode changes.
-func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mode tunnel.EncapProtocol, port, srcPortLow, srcPortHigh uint16, mtu int) error {
+func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mode tunnel.EncapProtocol, port, srcPortLow, srcPortHigh uint16, mtu int, bigtcp *bigtcp.Configuration) error {
 	switch mode {
 	case tunnel.Geneve:
 		if err := setupGeneveDevice(logger, sysctl, port, srcPortLow, srcPortHigh, mtu); err != nil {
 			return fmt.Errorf("setting up geneve device: %w", err)
+		}
+		if err := setupTunnelGSOGRO(logger, defaults.GeneveDevice, bigtcp); err != nil {
+			return fmt.Errorf("setting up GSO/GRO on GENEVE netdev: %w", err)
 		}
 		if err := removeDevice(defaults.VxlanDevice); err != nil {
 			return fmt.Errorf("removing %s: %w", defaults.VxlanDevice, err)
@@ -192,6 +196,9 @@ func setupTunnelDevice(logger *slog.Logger, sysctl sysctl.Sysctl, mode tunnel.En
 	case tunnel.VXLAN:
 		if err := setupVxlanDevice(logger, sysctl, port, srcPortLow, srcPortHigh, mtu); err != nil {
 			return fmt.Errorf("setting up vxlan device: %w", err)
+		}
+		if err := setupTunnelGSOGRO(logger, defaults.VxlanDevice, bigtcp); err != nil {
+			return fmt.Errorf("setting up GSO/GRO on VXLAN netdev: %w", err)
 		}
 		if err := removeDevice(defaults.GeneveDevice); err != nil {
 			return fmt.Errorf("removing %s: %w", defaults.GeneveDevice, err)
@@ -318,6 +325,42 @@ func setupVxlanDevice(logger *slog.Logger, sysctl sysctl.Sysctl, port, srcPortLo
 			logfields.Range, fmt.Sprintf("(%d-%d)", vxlan.PortLow, vxlan.PortHigh),
 			logfields.Device, defaults.VxlanDevice,
 		)
+	}
+	return nil
+}
+
+func setupTunnelGSOGRO(logger *slog.Logger, device string, bigtcp *bigtcp.Configuration) error {
+	// IPv6 goes first, because {gso,gro}_ipv4_max_size gets auto-adjusted
+	// if the new size of {gso,gro}_max_size isn't greater than 64KB for
+	// backwards compatibility.
+	if bigtcp.GetGROIPv6MaxSize() != 0 && bigtcp.GetGSOIPv6MaxSize() != 0 {
+		logger.Info("Setting IPv6",
+			logfields.Device, device,
+			logfields.GsoMaxSize, bigtcp.GetGSOIPv6MaxSize(),
+			logfields.GroMaxSize, bigtcp.GetGROIPv6MaxSize(),
+		)
+		err = bigtcp.setGROGSOIPv6MaxSize(logger, bigtcp, device, bigtcp.GetGROIPv6MaxSize(), bigtcp.GetGSOIPv6MaxSize())
+		if err != nil {
+			logger.Warn("Could not modify IPv6 gro_max_size and gso_max_size",
+				logfields.Device, device,
+				logfields.Error, err)
+			return err
+		}
+	}
+	if bigtcp.GetGROIPv4MaxSize() != 0 && bigtcp.GetGSOIPv4MaxSize() != 0 {
+		logger.Info("Setting IPv4",
+			logfields.Device, device,
+			logfields.GsoMaxSize, bigtcp.GetGSOIPv4MaxSize(),
+			logfields.GroMaxSize, bigtcp.GetGROIPv4MaxSize(),
+		)
+		err = bigtcp.setGROGSOIPv4MaxSize(logger, bigtcp, device, bigtcp.GetGROIPv4MaxSize(), bigtcp.GetGSOIPv4MaxSize())
+		if err != nil {
+			logger.Warn("Could not modify IPv4 gro_ipv4_max_size and gso_ipv4_max_size",
+				logfields.Device, device,
+				logfields.Error, err,
+			)
+			return err
+		}
 	}
 	return nil
 }

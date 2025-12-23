@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -109,6 +110,7 @@ type Params struct {
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
 	EPRestorer         promise.Promise[endpointstate.Restorer]
+	BIGTCPConfig       *bigtcp.Configuration
 
 	// Force map initialisation before loader. You should not use these otherwise.
 	// Some of the entries in this slice may be nil.
