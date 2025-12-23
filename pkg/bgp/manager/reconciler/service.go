@@ -9,7 +9,10 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net"
+	"net/http"
 	"net/netip"
+	"path/filepath"
 	"slices"
 
 	"github.com/cilium/hive/cell"
@@ -62,6 +65,10 @@ type ServiceReconciler struct {
 	frontends                    statedb.Table[*loadbalancer.Frontend]
 	metadata                     map[string]ServiceReconcilerMetadata
 	routesConfig                 svcrouteconfig.RoutesConfig
+	envoySocketPath              string
+	// hasLocalEnvoyFunc is used to check if local Envoy is available.
+	// Can be overridden for testing.
+	hasLocalEnvoyFunc func() bool
 }
 
 // ServiceReconcilerMetadata holds per-instance reconciler state.
@@ -77,6 +84,7 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 	if !in.DaemonConfig.BGPControlPlaneEnabled() {
 		return ServiceReconcilerOut{}
 	}
+	envoySocketPath := filepath.Join(in.DaemonConfig.RunDir, "envoy", "sockets", "admin.sock")
 	r := &ServiceReconciler{
 		logger:                       in.Logger,
 		peerAdvert:                   in.PeerAdvert,
@@ -86,7 +94,10 @@ func NewServiceReconciler(in ServiceReconcilerIn) ServiceReconcilerOut {
 		frontends:                    in.Frontends,
 		metadata:                     make(map[string]ServiceReconcilerMetadata),
 		routesConfig:                 in.RoutesConfig,
+		envoySocketPath:              envoySocketPath,
 	}
+	// Default implementation checks for Envoy admin socket existence
+	r.hasLocalEnvoyFunc = r.checkEnvoySocket
 	in.JobGroup.Add(
 		job.OneShot("frontend-events", r.processFrontendEvents),
 	)
@@ -613,15 +624,43 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p ReconcileParams, svc *loadb
 		return desiredRoutes
 	}
 
+	// Check if this is a Gateway API or Ingress service by label.
+	// These services use dummy endpoints (192.192.192.192:9999) that are filtered out
+	// by the loadbalancer reflector, so we identify them by their label instead.
+	// Gateway API: io.cilium/gateway-api or io.cilium.gateway/owning-gateway
+	// Ingress: cilium.io/ingress
+	isGatewayOrIngressService := svc.Labels.HasLabelWithKey("io.cilium/gateway-api") ||
+		svc.Labels.HasLabelWithKey("io.cilium.gateway/owning-gateway") ||
+		svc.Labels.HasLabelWithKey("cilium.io/ingress")
+
+	// For Gateway/Ingress services, only advertise if local Envoy is available.
+	// This handles deployments where cilium-envoy has a nodeSelector that excludes some nodes.
+	localEnvoyAvailable := r.hasLocalEnvoy()
+
 	for _, fe := range frontends {
 		if fe.Type != loadbalancer.SVCTypeLoadBalancer {
 			continue
 		}
 
 		hasBackends, hasLocalBackends := hasBackends(p, fe)
-		// Ignore externalTrafficPolicy == Local && no local EPs or ignore when there are no backends and EnableNoServiceEndpointsRoutable == false.
-		if (fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends) || (!r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends) {
-			continue
+
+		// For services with real backends, respect externalTrafficPolicy: Local by skipping
+		// advertisement when there are no local endpoints.
+		// For Gateway API/Ingress services (identified by label), advertise if local Envoy
+		// is available, since traffic is handled by Envoy.
+		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends {
+			if !isGatewayOrIngressService || !localEnvoyAvailable {
+				continue
+			}
+		}
+
+		// Respect EnableNoServiceEndpointsRoutable for services with zero backends.
+		// However, Gateway API and Ingress services should be advertised even with
+		// zero backends (dummy endpoints are filtered), if local Envoy is available.
+		if !r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends {
+			if !isGatewayOrIngressService || !localEnvoyAvailable {
+				continue
+			}
 		}
 
 		addr := fe.Address.Addr()
@@ -705,4 +744,40 @@ func getServicePrefixLength(fe *loadbalancer.Frontend, advert v2.BGPAdvertisemen
 		length = int(*advert.Service.AggregationLengthIPv6)
 	}
 	return length
+}
+
+// hasLocalEnvoy checks if cilium-envoy is available on the local node.
+// Uses hasLocalEnvoyFunc which defaults to checkEnvoySocket but can be
+// overridden for testing.
+func (r *ServiceReconciler) hasLocalEnvoy() bool {
+	if r.hasLocalEnvoyFunc != nil {
+		return r.hasLocalEnvoyFunc()
+	}
+	return r.checkEnvoySocket()
+}
+
+// checkEnvoySocket verifies Envoy is running and ready by querying the admin
+// socket's /ready endpoint. This ensures Envoy is not just accepting connections
+// but actually healthy and ready to serve traffic.
+func (r *ServiceReconciler) checkEnvoySocket() bool {
+	if r.envoySocketPath == "" {
+		return false
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.DialTimeout("unix", r.envoySocketPath, 100*time.Millisecond)
+			},
+		},
+		Timeout: 200 * time.Millisecond,
+	}
+
+	resp, err := client.Get("http://localhost/ready")
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK
 }

@@ -2695,6 +2695,8 @@ func newServiceTestFixture(t *testing.T, config option.BGPConfig) *svcTestFixtur
 			cell.Invoke(func(p ServiceReconcilerIn) {
 				out := NewServiceReconciler(p)
 				f.svcReconciler = out.Reconciler.(*ServiceReconciler)
+				// In tests, assume local Envoy is always available
+				f.svcReconciler.hasLocalEnvoyFunc = func() bool { return true }
 			}),
 		),
 	)
