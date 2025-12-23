@@ -163,6 +163,12 @@ type Server struct {
 
 	updates               chan zdsUpdate // updates to send to ztunnel
 	initialSnapshotSeeded chan struct{}
+
+	// activeHandler tracks if there's an active connection handler processing updates.
+	// Protected by handlerMutex.
+	activeHandler   bool
+	handlerMutex    lock.Mutex
+	handlerShutdown chan struct{} // closed when handler exits to signal pending updates
 }
 
 type zdsUpdate struct {
@@ -183,6 +189,7 @@ func newZDSServer(p serverParams) serverOut {
 		updates:               make(chan zdsUpdate, 100),
 		endpointCache:         make(map[uint16]*endpoint.Endpoint),
 		initialSnapshotSeeded: make(chan struct{}),
+		handlerShutdown:       make(chan struct{}),
 	}
 
 	var wg sync.WaitGroup
@@ -270,10 +277,51 @@ func (s *Server) Serve(ctx context.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := s.handleConn(connCtx, zc); err != nil {
+			// Mark handler as active before starting
+			s.handlerMutex.Lock()
+			s.activeHandler = true
+			// Create a new shutdown channel for this handler
+			s.handlerShutdown = make(chan struct{})
+			s.handlerMutex.Unlock()
+
+			err := s.handleConn(connCtx, zc)
+
+			// Mark handler as inactive and drain pending updates
+			s.handlerMutex.Lock()
+			s.activeHandler = false
+			close(s.handlerShutdown)
+			s.handlerMutex.Unlock()
+
+			// Drain any pending updates and send connection errors
+			s.drainPendingUpdates(fmt.Errorf("ztunnel connection lost: %w", err))
+
+			if err != nil {
 				s.logger.Error("failed to handle connection", logfields.Error, err)
 			}
 		}()
+	}
+}
+
+// drainPendingUpdates drains all pending updates from the updates channel and
+// sends connection errors to their error channels. This prevents callers from
+// hanging indefinitely when the connection is lost.
+func (s *Server) drainPendingUpdates(connErr error) {
+	drained := 0
+	for {
+		select {
+		case update := <-s.updates:
+			if update.errCh != nil {
+				update.errCh <- connErr
+				close(update.errCh)
+			}
+			drained++
+		default:
+			// No more pending updates
+			if drained > 0 {
+				s.logger.Info("drained pending updates after connection loss", "count", drained)
+			}
+			return
+		}
 	}
 }
 
@@ -361,15 +409,43 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 		},
 	}
 
+	// Check if there's an active connection handler before sending update
+	s.handlerMutex.Lock()
+	hasActiveHandler := s.activeHandler
+	handlerShutdown := s.handlerShutdown
+	s.handlerMutex.Unlock()
+
+	if !hasActiveHandler {
+		return fmt.Errorf("no active ztunnel connection: cannot enroll endpoint")
+	}
+
 	update := zdsUpdate{
 		request:   req,
 		netnsPath: ep.GetContainerNetnsPath(),
 		errCh:     make(chan error, 1),
 	}
 
-	s.updates <- update
-	if err := <-update.errCh; err != nil {
-		return fmt.Errorf("sending update failed: %w", err)
+	// Send update with timeout protection: if handler shuts down, return error
+	// Check if handler shutdown channel is already closed (handler exited between check and send)
+	select {
+	case <-handlerShutdown:
+		return fmt.Errorf("no active ztunnel connection: cannot enroll endpoint")
+	default:
+	}
+
+	select {
+	case s.updates <- update:
+		// Update sent, wait for response
+		select {
+		case err := <-update.errCh:
+			if err != nil {
+				return fmt.Errorf("sending update failed: %w", err)
+			}
+		case <-handlerShutdown:
+			return fmt.Errorf("ztunnel connection lost while waiting for enrollment response")
+		}
+	case <-handlerShutdown:
+		return fmt.Errorf("no active ztunnel connection: cannot enroll endpoint")
 	}
 
 	// Only add to cache after successful enrollment
@@ -414,15 +490,43 @@ func (s *Server) DisenrollEndpoint(ep *endpoint.Endpoint) error {
 		},
 	}
 
+	// Check if there's an active connection handler before sending update
+	s.handlerMutex.Lock()
+	hasActiveHandler := s.activeHandler
+	handlerShutdown := s.handlerShutdown
+	s.handlerMutex.Unlock()
+
+	if !hasActiveHandler {
+		return fmt.Errorf("no active ztunnel connection: cannot disenroll endpoint")
+	}
+
 	update := zdsUpdate{
 		request:   req,
 		netnsPath: "",
 		errCh:     make(chan error, 1),
 	}
 
-	s.updates <- update
-	if err := <-update.errCh; err != nil {
-		return fmt.Errorf("sending update failed: %w", err)
+	// Send update with timeout protection: if handler shuts down, return error
+	// Check if handler shutdown channel is already closed (handler exited between check and send)
+	select {
+	case <-handlerShutdown:
+		return fmt.Errorf("no active ztunnel connection: cannot disenroll endpoint")
+	default:
+	}
+
+	select {
+	case s.updates <- update:
+		// Update sent, wait for response
+		select {
+		case err := <-update.errCh:
+			if err != nil {
+				return fmt.Errorf("sending update failed: %w", err)
+			}
+		case <-handlerShutdown:
+			return fmt.Errorf("ztunnel connection lost while waiting for disenrollment response")
+		}
+	case <-handlerShutdown:
+		return fmt.Errorf("no active ztunnel connection: cannot disenroll endpoint")
 	}
 
 	// Only remove from cache after successful disenrollment
