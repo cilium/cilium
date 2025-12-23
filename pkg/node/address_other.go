@@ -6,7 +6,6 @@
 package node
 
 import (
-	"log/slog"
 	"net"
 )
 
@@ -30,8 +29,8 @@ func initMasqueradeV6Addrs(masqAddrs map[string]net.IP, masqIPFromDevice string,
 	return nil
 }
 
-// getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
+// GetCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
 // it
-func getCiliumHostIPsFromNetDev(_ *slog.Logger, devName string) (ipv4GW, ipv6Router net.IP) {
+func GetCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 	return net.IP{}, net.IP{}
 }

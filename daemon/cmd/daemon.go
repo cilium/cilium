@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -192,15 +191,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	params.K8sWatcher.InitK8sSubsystem(ctx)
 	bootstrapStats.k8sInit.End(true)
 
-	// Fetch the router (`cilium_host`) IPs in case they were set a priori from
-	// the Kubernetes or CiliumNode resource in the K8s subsystem from call
-	// k8s.WaitForNodeInformation(). These will be used later after starting
-	// IPAM initialization to finish off the `cilium_host` IP restoration.
-	var restoredRouterIPs infraendpoints.RestoredIPs
-	restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv6FromK8s = node.GetInternalIPv4Router(params.Logger), node.GetIPv6Router(params.Logger)
-	// Fetch the router IPs from the filesystem in case they were set a priori
-	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS(params.Logger)
-
 	// Configure and start IPAM without using the configuration yet.
 	configureAndStartIPAM(ctx, params)
 
@@ -216,7 +206,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// We must do this after IPAM because we must wait until the
 	// K8s resources have been synced.
-	if err := params.InfraIPAllocator.AllocateIPs(ctx, restoredRouterIPs); err != nil {
+	if err := params.InfraIPAllocator.AllocateIPs(ctx); err != nil {
 		return err
 	}
 
