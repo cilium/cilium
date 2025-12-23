@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -118,7 +120,6 @@ func GenerateL3EgressRules(numRules int) (api.Rules, identity.IdentityMap) {
 	}
 	return rules, generateNumIdentities(3000)
 }
-
 func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	parseFooLabel := labels.ParseSelectLabel("k8s:foo")
 	fooSelector := api.NewESFromLabels(parseFooLabel)
@@ -129,6 +130,38 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 	for i := 1; i <= numRules; i++ {
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
+			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
+			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+		}
+		rule.Sanitize()
+		rules = append(rules, &rule)
+	}
+	return rules, generateCIDRIdentities(rules)
+}
+
+func GenerateUniqueRules(numRules int) (api.Rules, identity.IdentityMap) {
+	var rules api.Rules
+	uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
+	for i := 1; i <= numRules; i++ {
+		uniqSelector := api.NewESFromLabels(labels.NewLabel("k8s", "value", strconv.FormatInt(int64(i), 10)))
+		rule := api.Rule{
+			EndpointSelector: uniqSelector,
+			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
+			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+		}
+		rule.Sanitize()
+		rules = append(rules, &rule)
+	}
+	return rules, generateCIDRIdentities(rules)
+}
+
+func GenerateMatchAllRules(numRules int) (api.Rules, identity.IdentityMap) {
+	var rules api.Rules
+	uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
+	for i := 1; i <= numRules; i++ {
+		matchAll := api.NewESFromMatchRequirements(nil, []slim_metav1.LabelSelectorRequirement{{Key: "key", Operator: slim_metav1.LabelSelectorOpDoesNotExist}})
+		rule := api.Rule{
+			EndpointSelector: matchAll,
 			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
 			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 		}
@@ -199,6 +232,17 @@ func (td *testData) bootstrapRepo(ruleGenFunc func(int) (api.Rules, identity.Ide
 func BenchmarkResolveCIDRPolicyRules(b *testing.B) {
 	td := newTestData(b, hivetest.Logger(b))
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
+
+	b.ReportAllocs()
+	for b.Loop() {
+		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
+		ip.detach(true, 0)
+	}
+}
+
+func BenchmarkResolveNoMatchingRules(b *testing.B) {
+	td := newTestData(b, hivetest.Logger(b))
+	td.bootstrapRepo(GenerateUniqueRules, 20000, b)
 
 	b.ReportAllocs()
 	for b.Loop() {
