@@ -139,6 +139,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 	cfg.DeviceMTU = uint16(iface.Attrs().MTU)
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableXDPPrefilter = option.Config.EnableXDPPrefilter
 
 	if err := loadAssignAttach(logger, xdpDev, xdpMode, iface, spec, cfg); err != nil {
 		// Usually, a jumbo MTU causes the invalid argument error, e.g.:

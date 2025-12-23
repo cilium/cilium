@@ -264,10 +264,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_TPROXY"] = "1"
 	}
 
-	if option.Config.EnableXDPPrefilter {
-		cDefinesMap["ENABLE_PREFILTER"] = "1"
-	}
-
 	if option.Config.EnableEndpointRoutes {
 		cDefinesMap["ENABLE_ENDPOINT_ROUTES"] = "1"
 	}
