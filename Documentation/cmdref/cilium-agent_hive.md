@@ -273,6 +273,7 @@ cilium-agent hive [flags]
       --vtep-endpoint strings                                     List of VTEP IP addresses
       --vtep-mac strings                                          List of VTEP MAC addresses for forwarding traffic outside the cluster
       --vtep-sync-interval duration                               Interval for VTEP sync (default 1m0s)
+      --vtep-policy-reconciliation-trigger-interval duration      Time between triggers of vtep policy state reconciliations (default 1s)
       --wireguard-persistent-keepalive duration                   The Wireguard keepalive interval as a Go duration string
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready
       --ztunnel-zds-unix-addr string                              Unix address for zds server (default "/var/run/cilium/ztunnel.sock")

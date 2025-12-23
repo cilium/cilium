@@ -428,6 +428,9 @@ const (
 	// CiliumEgressGatewayPolicyName is the name of a CiliumEgressGatewayPolicy
 	CiliumEgressGatewayPolicyName = "ciliumEgressGatewayPolicyName"
 
+	// CiliumVtepPolicyName is the name of a CiliumVtepPolicy
+	CiliumVtepPolicyName = "ciliumVtepPolicyName"
+
 	// CiliumClusterwideEnvoyConfigName is the name of a CiliumClusterwideEnvoyConfig
 	CiliumClusterwideEnvoyConfigName = "ciliumClusterwideEnvoyConfigName"
 
@@ -844,6 +847,12 @@ const (
 
 	// GatewayIP is the gateway IP used in a given egress policy
 	GatewayIP = "gatewayIP"
+
+	// VtepIP is the ip address of remote Vxlan tunnel Endpoint
+	VtepIP = "vtepIP"
+
+	// VtepMAC is the mac address of remote vxlan tunnel Endpoint
+	VtepMAC = "vtepMAC"
 
 	// Number of Backends failed while restoration.
 	RestoredBackends = "restoredBackends"
