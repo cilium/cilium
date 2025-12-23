@@ -5,6 +5,7 @@ package helpers
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func IsConditionPresent(conds []metav1.Condition, condType string) bool {
@@ -47,4 +48,14 @@ func ConditionChanged(a, b metav1.Condition) bool {
 		a.Reason != b.Reason ||
 		a.Message != b.Message ||
 		a.ObservedGeneration != b.ObservedGeneration
+}
+
+func IsAccepted(conds []metav1.Condition) bool {
+	for _, cond := range conds {
+		if cond.Type == string(gatewayv1.GatewayConditionAccepted) && cond.Status == metav1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
 }
