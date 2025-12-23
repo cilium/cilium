@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -40,9 +41,9 @@ func NewDedicatedIngressTranslator(log *slog.Logger, cecTranslator translation.C
 	}
 }
 
-func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, error) {
+func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *ciliumv2alpha1.CiliumGatewayL4Config, *corev1.Service, error) {
 	if m == nil || (len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0) {
-		return nil, nil, fmt.Errorf("model source can't be empty")
+		return nil, nil, nil, fmt.Errorf("model source can't be empty")
 	}
 
 	var name string
@@ -71,7 +72,7 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	// (i.e. the HTTP listeners are just belonged to one Ingress resource).
 	cec, err := d.cecTranslator.Translate(namespace, name, m)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Set the name to avoid any breaking change during upgrade.
@@ -79,7 +80,7 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	dedicatedService := d.getService(sourceResource, modelService, tlsOnly)
 
-	return cec, dedicatedService, err
+	return cec, nil, dedicatedService, err
 }
 
 func (d *dedicatedIngressTranslator) getService(resource model.FullyQualifiedResource, service *model.Service, tlsOnly bool) *corev1.Service {

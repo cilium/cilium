@@ -40,4 +40,16 @@ const (
 	// This is then be used by the Service reconciler to only retrieve any GRPCRoutes that have that specific
 	// Service as a parent.
 	GammaGRPCRouteParentRefsIndex = "gammaGRPCRouteParentRefs"
+
+	// Indexes TCPRoutes by all the backend Services referenced in the object.
+	BackendServiceTCPRouteIndex = "backendServiceTCPRouteIndex"
+
+	// Indexes TCPRoutes by all the Gateway parents referenced in the object.
+	GatewayTCPRouteIndex = "gatewayTCPRouteIndex"
+
+	// Indexes UDPRoutes by all the backend Services referenced in the object.
+	BackendServiceUDPRouteIndex = "backendServiceUDPRouteIndex"
+
+	// Indexes UDPRoutes by all the Gateway parents referenced in the object.
+	GatewayUDPRouteIndex = "gatewayUDPRouteIndex"
 )

@@ -144,7 +144,7 @@ func (r *gammaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	setGammaServiceAccepted(svc, true, "Gamma Service has HTTPRoutes attached", CiliumGammaReasonAccepted)
 
-	cec, _, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
+	cec, _, _, err := r.translator.Translate(&model.Model{HTTP: httpListeners})
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, originalSvc, svc)
