@@ -6,12 +6,13 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4
-#define ENABLE_IPV6
-#define ENABLE_NODEPORT
-#define ENABLE_EGRESS_GATEWAY
-#define ENABLE_MASQUERADE_IPV4
-#define ENABLE_MASQUERADE_IPV6
+#define ENABLE_IPV4			1
+#define ENABLE_IPV6			1
+#define ENABLE_NODEPORT			1
+#define ENABLE_EGRESS_GATEWAY		1
+#define ENABLE_MASQUERADE_IPV4		1
+#define ENABLE_MASQUERADE_IPV6		1
+#define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX		42
 #define SECONDARY_IFACE_IFINDEX	44
 
@@ -90,6 +91,7 @@ int egressgw_snat1_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
 				  GATEWAY_NODE_IP, EGRESS_IP);
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -192,6 +194,7 @@ int egressgw_tuple_collision1_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
 				  GATEWAY_NODE_IP, EGRESS_IP);
+	ipcache_v4_add_entry(EGRESS_IP, 0, HOST_ID, 0, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -227,6 +230,7 @@ int egressgw_tuple_collision2_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
 				  GATEWAY_NODE_IP, EGRESS_IP3);
+	ipcache_v4_add_entry(EGRESS_IP3, 0, HOST_ID, 0, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -384,6 +388,7 @@ int egressgw_fib_redirect_setup(struct __ctx_buff *ctx)
 {
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24,
 				  GATEWAY_NODE_IP, EGRESS_IP2);
+	ipcache_v4_add_entry(EGRESS_IP2, 0, HOST_ID, 0, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -427,6 +432,7 @@ int egressgw_snat1_setup_v6(struct __ctx_buff *ctx)
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
 				     &egress_ip);
+	ipcache_v6_add_entry(&egress_ip, 0, HOST_ID, 0, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -538,6 +544,7 @@ int egressgw_tuple_collision1_setup_v6(struct __ctx_buff *ctx)
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
 				     &egress_ip);
+	ipcache_v6_add_entry(&egress_ip, 0, HOST_ID, 0, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -580,6 +587,7 @@ int egressgw_tuple_collision2_setup_v6(struct __ctx_buff *ctx)
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
 				     &egress_ip);
+	ipcache_v6_add_entry(&egress_ip, 0, HOST_ID, 0, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
@@ -750,6 +758,7 @@ int egressgw_fib_redirect_setup_v6(struct __ctx_buff *ctx)
 
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
 				     &egress_ip);
+	ipcache_v6_add_entry(&egress_ip, 0, HOST_ID, 0, 0);
 
 	/* Jump into the entrypoint */
 	set_identity_mark(ctx, CLIENT_IDENTITY, MARK_MAGIC_EGW_DONE);
