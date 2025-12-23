@@ -334,7 +334,7 @@ func Test_translator_Translate(t *testing.T) {
 			input := &model.Model{}
 			readInput(t, fmt.Sprintf("testdata/%s/input.yaml", tt.name), input)
 
-			cec, svc, ep, err := trans.Translate(input)
+			cec, _, svc, ep, err := trans.Translate(input)
 			require.Equal(t, tt.wantErr, err != nil, "Error mismatch")
 
 			output := &ciliumv2.CiliumEnvoyConfig{}

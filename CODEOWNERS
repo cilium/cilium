@@ -521,6 +521,7 @@ Makefile* @cilium/build
 /pkg/cgroups/ @cilium/sig-datapath
 /pkg/cidr/ @cilium/sig-agent
 /pkg/ciliumenvoyconfig/ @cilium/envoy @cilium/sig-servicemesh
+/pkg/gatewayl4/ @cilium/sig-servicemesh
 /pkg/cleanup/ @cilium/sig-agent
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh
