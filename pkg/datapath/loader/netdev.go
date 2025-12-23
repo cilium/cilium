@@ -18,44 +18,57 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
-func bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration) (masq4, masq6 netip.Addr) {
+// bpfMasqAddrs returns the IPv4 and IPv6 masquerade addresses to be used for
+// the given interface name according to the provided LocalNodeConfiguration.
+//
+// If no suitable address is found for the given interface, fall back to
+// searching for addresses on the wildcard device name.
+func bpfMasqAddrs(ifName string, cfg *datapath.LocalNodeConfiguration, enable4, enable6 bool) (masq4, masq6 netip.Addr) {
 	if cfg.DeriveMasqIPAddrFromDevice != "" {
 		ifName = cfg.DeriveMasqIPAddrFromDevice
 	}
 
-	find := func(devName string) bool {
-		for _, addr := range cfg.NodeAddresses {
-			if addr.DeviceName != devName {
-				continue
-			}
-			if !addr.Primary {
-				continue
-			}
-			if addr.Addr.Is4() && !masq4.IsValid() {
-				masq4 = addr.Addr
-			} else if addr.Addr.Is6() && !masq6.IsValid() {
-				masq6 = addr.Addr
-			}
-			done := (!option.Config.EnableIPv4Masquerade || masq4.IsValid()) &&
-				(!option.Config.EnableIPv6Masquerade || masq6.IsValid())
-			if done {
-				return true
-			}
+	if enable4 {
+		masq4 = primaryV4(ifName, cfg.NodeAddresses)
+		if !masq4.IsValid() {
+			masq4 = primaryV4(tables.WildcardDeviceName, cfg.NodeAddresses)
 		}
-		return false
 	}
 
-	// Try to find suitable masquerade address first from the given interface.
-	if !find(ifName) {
-		// No suitable masquerade addresses were found for this device. Try the fallback
-		// addresses.
-		find(tables.WildcardDeviceName)
+	if enable6 {
+		masq6 = primaryV6(ifName, cfg.NodeAddresses)
+		if !masq6.IsValid() {
+			masq6 = primaryV6(tables.WildcardDeviceName, cfg.NodeAddresses)
+		}
 	}
 
 	return
+}
+
+func primaryV4(ifName string, addrs []tables.NodeAddress) netip.Addr {
+	for _, addr := range addrs {
+		if !addr.Primary || addr.DeviceName != ifName {
+			continue
+		}
+		if addr.Addr.Is4() {
+			return addr.Addr
+		}
+	}
+	return netip.Addr{}
+}
+
+func primaryV6(ifName string, addrs []tables.NodeAddress) netip.Addr {
+	for _, addr := range addrs {
+		if !addr.Primary || addr.DeviceName != ifName {
+			continue
+		}
+		if addr.Addr.Is6() {
+			return addr.Addr
+		}
+	}
+	return netip.Addr{}
 }
 
 func isObsoleteDev(dev string, devices []string) bool {

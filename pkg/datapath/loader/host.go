@@ -230,7 +230,8 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 		}
 
 		linkDir := bpffsDeviceLinksDir(bpf.CiliumPath(), iface)
-		masq4, masq6 := bpfMasqAddrs(iface.Attrs().Name, lnc)
+		masq4, masq6 := bpfMasqAddrs(iface.Attrs().Name, lnc,
+			option.Config.EnableIPv4Masquerade, option.Config.EnableIPv6Masquerade)
 
 		var netdevObj hostNetdevObjects
 		commit, err := bpf.LoadAndAssign(logger, &netdevObj, spec, &bpf.CollectionOptions{
