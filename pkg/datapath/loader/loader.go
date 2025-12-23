@@ -287,6 +287,9 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
@@ -448,6 +451,9 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -537,6 +543,9 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
+
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -713,6 +722,9 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
@@ -832,6 +844,9 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
 	}
+
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
 	var obj overlayObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{

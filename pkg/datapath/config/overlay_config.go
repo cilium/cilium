@@ -14,6 +14,10 @@ type BPFOverlay struct {
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Enable IPv4 fragments tracking.
+	EnableIPv4Fragments bool `config:"enable_ipv4_fragments"`
+	// Enable IPv6 fragments tracking.
+	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
@@ -35,7 +39,7 @@ type BPFOverlay struct {
 }
 
 func NewBPFOverlay(node Node) *BPFOverlay {
-	return &BPFOverlay{0x5dc, false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFOverlay{0x5dc, false, false, false, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, node}

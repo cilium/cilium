@@ -18,6 +18,10 @@ type BPFHost struct {
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Apply Network Policy for ICMP packets.
 	EnableICMPRule bool `config:"enable_icmp_rule"`
+	// Enable IPv4 fragments tracking.
+	EnableIPv4Fragments bool `config:"enable_ipv4_fragments"`
+	// Enable IPv6 fragments tracking.
+	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable L2 Announcements.
 	EnableL2Announcements bool `config:"enable_l2_announcements"`
 	// Use netkit devices for pods.
@@ -54,9 +58,9 @@ type BPFHost struct {
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{false, 0x5dc, false, false, false, false, false, false, 0xe, 0x0,
-		0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0,
-		[4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{false, 0x5dc, false, false, false, false, false, false, false,
+		false, 0xe, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		0x0, 0x0, 0x0, 0x0, node}
 }
