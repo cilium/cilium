@@ -181,11 +181,11 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 
 			priority := l7Rules.GetPriority()
 			// Check if either rule takes precedence due to precedence level or deny.
-			if priority < newPriority || (priority == newPriority && l7Rules.GetDeny()) {
+			if priority < newPriority || (priority == newPriority && l7Rules.IsDeny()) {
 				// Later level newL7Rules has no effect.
 				// Same level deny takes takes precedence over any other rule.
 				continue
-			} else if priority > newPriority || (priority == newPriority && newL7Rules.GetDeny()) {
+			} else if priority > newPriority || (priority == newPriority && newL7Rules.IsDeny()) {
 				// Earlier level (or same level deny) newL7Rules takes precedence.
 				// Overwrite existing filter.
 				existingFilter.PerSelectorPolicies[cs] = newL7Rules
@@ -196,10 +196,10 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 
 			// One of the rules may be a nil rule, expand it to an empty non-nil rule
 			if l7Rules == nil {
-				l7Rules = &PerSelectorPolicy{}
+				l7Rules = &PerSelectorPolicy{Verdict: types.Allow}
 			}
 			if newL7Rules == nil {
-				newL7Rules = &PerSelectorPolicy{}
+				newL7Rules = &PerSelectorPolicy{Verdict: types.Allow}
 			}
 
 			// Merge Redirect
@@ -328,7 +328,7 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule api.Ports, p api.PortProtocol) (int, error) {
+func (resMap *L4PolicyMap) addFilter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule api.Ports, p api.PortProtocol) (int, error) {
 	// Create a new L4Filter
 	filterToMerge, err := createL4Filter(policyCtx, entry, portRule, p)
 	if err != nil {
@@ -339,10 +339,11 @@ func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, entry *types.Polic
 	if err != nil {
 		return 0, err
 	}
+	// TODO: do not return 1 if the filter was skipped due to priority!
 	return 1, err
 }
 
-func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (int, error) {
+func (resMap *L4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (int, error) {
 	found := 0
 
 	// short-circuit if no endpoint is selected
@@ -355,7 +356,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 		err error
 	)
 
-	// L3-only rule (with requirements folded into peerEndpoints).
+	// L3-only rule.
 	if rule.L4.Len() == 0 && len(rule.L3) > 0 {
 		cnt, err = resMap.addFilter(policyCtx, &rule.PolicyEntry, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny})
 		if err != nil {
@@ -366,7 +367,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 	found += cnt
 
 	err = rule.L4.Iterate(func(ports api.Ports) error {
-		if !rule.Deny {
+		if !rule.IsDeny() {
 			policyCtx.PolicyTrace("      Allows port %v\n", ports.GetPortProtocols())
 		} else {
 			policyCtx.PolicyTrace("      Denies port %v\n", ports.GetPortProtocols())
@@ -414,12 +415,18 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 	return found, err
 }
 
+func (pms *L4PolicyMaps) ensureTier(tier types.Tier) {
+	for len(*pms) <= int(tier) {
+		*pms = append(*pms, makeL4PolicyMap())
+	}
+}
+
 // resolveL4Policy analyzes the rule against the given SearchContext, and
 // merges it with any prior-generated policy within the provided L4Policy.
 //
 // If policyCtx.IsIngress() returns true, an ingress policy isresolved,
 // otherwise an egress policy is resolved.
-func (result *l4PolicyMap) resolveL4Policy(
+func (result *L4PolicyMaps) resolveL4Policy(
 	policyCtx PolicyContext,
 	state *traceState,
 	r *rule,
@@ -428,13 +435,13 @@ func (result *l4PolicyMap) resolveL4Policy(
 	found, foundDeny := 0, 0
 
 	policyCtx.SetOrigin(r.origin())
-
-	cnt, err := result.mergeL4Filter(policyCtx, r)
+	result.ensureTier(r.Tier)
+	cnt, err := (*result)[r.Tier].mergeL4Filter(policyCtx, r)
 	if err != nil {
 		return err
 	}
 	if cnt > 0 {
-		if r.Deny {
+		if r.IsDeny() {
 			foundDeny += cnt
 		} else {
 			found += cnt

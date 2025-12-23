@@ -5,6 +5,7 @@ package policy
 
 import (
 	"fmt"
+	"iter"
 	"net/netip"
 	"slices"
 	"testing"
@@ -43,8 +44,14 @@ func (e mapStateEntry) WithProxyPort(proxyPort uint16) mapStateEntry {
 	return e
 }
 
-func (e mapStateEntry) withLevel(level uint32) mapStateEntry {
-	e.MapStateEntry = e.MapStateEntry.WithLevel(level)
+func (e mapStateEntry) withLevel(priority types.Priority) mapStateEntry {
+	e.MapStateEntry = e.MapStateEntry.WithPriority(priority)
+	return e
+}
+
+func (e mapStateEntry) withPassPriority(priority, nextTierPriority types.Priority) mapStateEntry {
+	e.passPrecedence = priority.ToPassPrecedence()
+	e.nextTierPrecedence = nextTierPriority.ToPassPrecedence()
 	return e
 }
 
@@ -817,7 +824,7 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		})
 
 		entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil})
-		ms.insertWithChanges(tt.args.key, entry, denyRules, changes)
+		ms.insertWithChanges(types.Priority(0).ToPassPrecedence(), tt.args.key, entry, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
 		require.Equalf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
@@ -864,6 +871,10 @@ func TcpEgressKey(id identity.NumericIdentity) Key {
 
 func allowEntry() mapStateEntry {
 	return NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
+}
+
+func passEntry(priority, nextTierPriority types.Priority) mapStateEntry {
+	return PassEntry(priority, nextTierPriority, NilRuleOrigin).withLabels(labels.LabelArrayList{nil})
 }
 
 func proxyEntryHTTP(proxyPort uint16) mapStateEntry {
@@ -1205,8 +1216,12 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			value := newMapStateEntry(0, NilRuleOrigin, proxyPort, priority, x.deny, NoAuthRequirement)
-			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
+			verdict := types.Allow
+			if x.deny {
+				verdict = types.Deny
+			}
+			value := newMapStateEntry(0, types.MaxPriority, NilRuleOrigin, proxyPort, priority, verdict, NoAuthRequirement)
+			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
 		_, changes := policyMaps.consumeMapChanges(epPolicy, denyRules)
@@ -1238,7 +1253,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		redirect ListenerPriority
 		deny     bool
 		authReq  AuthRequirement
-		level    uint32
+		level    types.Priority
 	}
 	tests := []struct {
 		continued bool // Start from the end state of the previous test
@@ -1369,14 +1384,17 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 		deletes: Keys{},
 	}, {
 		continued: true,
-		name:      "test-4c - Later order delete suppressed",
+		name:      "test-4c - Later order deny all does not prevent allow",
 		args: []args{
-			{level: 1, cs: csFoo, adds: []int{}, deletes: []int{44}, port: 80, proto: 6, ingress: false, redirect: ListenerPriorityHTTP},
+			{level: 2, cs: nil, adds: []int{0}, deletes: []int{}, ingress: false, deny: true},
 		},
 		state: testMapState(t, mapStateMap{
+			AnyEgressKey():    denyEntry().withLevel(2),
 			HttpEgressKey(44): proxyEntryHTTP(1),
 		}),
-		adds:    Keys{},
+		adds: Keys{
+			AnyEgressKey(): {},
+		},
 		deletes: Keys{},
 	}, {
 		continued: true,
@@ -1385,6 +1403,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 1, cs: csFoo, adds: []int{44}, deletes: []int{}, port: 0, proto: 6, ingress: false, deny: true},
 		},
 		state: testMapState(t, mapStateMap{
+			AnyEgressKey():    denyEntry().withLevel(2),
 			TcpEgressKey(44):  denyEntry().withLevel(1),
 			HttpEgressKey(44): proxyEntryHTTP(1),
 		}),
@@ -1400,6 +1419,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 1, cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, deny: true},
 		},
 		state: testMapState(t, mapStateMap{
+			AnyEgressKey():    denyEntry().withLevel(2),
 			TcpEgressKey(44):  denyEntry().withLevel(1),
 			HttpEgressKey(43): denyEntry().withLevel(1),
 		}),
@@ -1416,6 +1436,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			{level: 0, cs: csFoo, adds: []int{43}, deletes: []int{}, port: 80, proto: 6, ingress: false, redirect: ListenerPriorityHTTP},
 		},
 		state: testMapState(t, mapStateMap{
+			AnyEgressKey():    denyEntry().withLevel(2),
 			TcpEgressKey(44):  denyEntry().withLevel(1),
 			HttpEgressKey(43): proxyEntryHTTP(1).withLevel(0),
 		}),
@@ -1743,8 +1764,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 				proxyPort = 1
 				priority = x.redirect
 			}
-			value := newMapStateEntry(x.level, NilRuleOrigin, proxyPort, priority, x.deny, x.authReq)
-			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
+			verdict := types.Allow
+			if x.deny {
+				verdict = types.Deny
+			}
+			value := newMapStateEntry(x.level, types.MaxPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
+			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
 		_, changes := policyMaps.consumeMapChanges(epPolicy, authRules|denyRules|redirectRules)
@@ -1782,8 +1807,12 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.authReq != NoAuthRequirement {
 				authFeatureUsed = true
 			}
-			value := newMapStateEntry(x.level, NilRuleOrigin, proxyPort, priority, x.deny, x.authReq)
-			policyMaps.AccumulateMapChanges(adds, deletes, []Key{key}, value)
+			verdict := types.Allow
+			if x.deny {
+				verdict = types.Deny
+			}
+			value := newMapStateEntry(x.level, types.MaxPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
+			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
 		features := denyRules | redirectRules
@@ -1838,11 +1867,11 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 	tests := []struct {
 		name             string
 		withAllowAll     withAllowAll
-		allowAllLevel    uint32
+		allowAllLevel    types.Priority
 		aIdentities      identity.NumericIdentitySlice
-		aLevel           uint32
+		aLevel           types.Priority
 		bIdentities      identity.NumericIdentitySlice
-		bLevel           uint32
+		bLevel           types.Priority
 		aIsDeny, bIsDeny bool
 		aPort            uint16
 		aProto           u8proto.U8proto
@@ -2161,15 +2190,15 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.insertWithChanges(aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), aKey, aEntry, allFeatures, changes)
 		}
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), bKey, bEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 
@@ -2180,14 +2209,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), bKey, bEntry, allFeatures, changes)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.insertWithChanges(aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), aKey, aEntry, allFeatures, changes)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s (in reverse) (MapState):\n%s\nExpected:\n%s\nObtained:\n%s\n", tt.name, outcomeKeys.diff(&expectedKeys), expectedKeys, outcomeKeys)
@@ -2228,14 +2257,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
-			outcomeKeys.insertWithChanges(anyEgressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.insertWithChanges(aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), aKey, aEntry, allFeatures, changes)
 		}
 		for _, bKey := range bKeys {
-			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), bKey, bEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
@@ -2244,14 +2273,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcomeKeys = emptyMapState(hivetest.Logger(t))
 
 		for _, bKey := range bKeys {
-			outcomeKeys.insertWithChanges(bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), bKey, bEntry, allFeatures, changes)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.insertWithChanges(aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), aKey, aEntry, allFeatures, changes)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(anyEgressKey, allowEntry, allFeatures, changes)
-			outcomeKeys.insertWithChanges(anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (in reverse) (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
@@ -2325,9 +2354,9 @@ func (obtained *mapState) diffMapState(expected mapStateMap) (res string) {
 	return res
 }
 
-type keyValue struct {
+type keyEntry struct {
 	key   Key
-	value mapStateEntry
+	entry mapStateEntry
 }
 
 func TestMapState_orderedMapStateValidation(t *testing.T) {
@@ -2352,20 +2381,16 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		found bool
 		entry MapStateEntry
 	}
-	type Entry struct {
-		key   Key
-		entry mapStateEntry
-	}
-	type LevelEntries struct {
-		level   uint32
-		entries []Entry
+	type TierEntries struct {
+		basePriority types.Priority
+		entries      []keyEntry
 	}
 	tests := []struct {
-		name           string               // test name
-		identities     identity.IdentityMap // Identities used in the test
-		orderedEntries []LevelEntries       // Explicitly ordered sets of implicitly ordered entries
-		want           mapStateMap          // expected MapState, optional
-		probes         []probe              // probes to test the policy, optional
+		name       string               // test name
+		identities identity.IdentityMap // Identities used in the test
+		tiers      []TierEntries        // Explicitly ordered sets of implicitly ordered entries
+		want       mapStateMap          // expected MapState, optional
+		probes     []probe              // probes to test the policy, optional
 	}{{
 		name: "allow one.one.one.one, deny everything else on port 80 TAKE 2",
 		// 1. allow 1.1.1.1:80
@@ -2376,9 +2401,9 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identity1100:  labels1100,
 			identityWorld: labelsWorld,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 1,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 1000,
+			entries: []keyEntry{
 				// allow port 80 on 1.1.1.1 for TCP
 				// - this would get overridden by the deny if the policy was not
 				//   ordered
@@ -2392,11 +2417,11 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		}},
 		want: mapStateMap{
 			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1 * 1000),
+			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1000),
 			// deny entries for line 1
-			egressKey(0, 6, 80, 15): denyEntry().withLevel(1*1000 + 1),
+			egressKey(0, 6, 80, 15): denyEntry().withLevel(1001),
 			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1*1000 + 2),
+			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1002),
 		},
 		probes: []probe{
 			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -2414,35 +2439,35 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identity1100:  labels1100,
 			identityWorld: labelsWorld,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 2,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 2000,
+			entries: []keyEntry{
 				// deny TCP port 80 on all destinations
 				// - wildcard L3
 				{key: egressKey(0, 6, 80, 16), entry: denyEntry()},
 			},
 		}, {
-			level: 1,
-			entries: []Entry{
+			basePriority: 1000,
+			entries: []keyEntry{
 				// allow port 80 on 1.1.1.1 for TCP
 				// - this would get overridden by the deny if the policy was not
 				//   ordered
 				{key: egressKey(identity1111, 6, 80, 15), entry: allowEntry()},
 			},
 		}, {
-			level: 3,
-			entries: []Entry{
+			basePriority: 3000,
+			entries: []keyEntry{
 				// allow all identities selected by 1.1.1.1/32 on any proto/port
 				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
 			},
 		}},
 		want: mapStateMap{
 			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1 * 1000),
+			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1000),
 			// deny entries for line 1
-			egressKey(0, 6, 80, 16): denyEntry().withLevel(2 * 1000),
+			egressKey(0, 6, 80, 16): denyEntry().withLevel(2000),
 			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(3 * 1000),
+			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(3000),
 		},
 		probes: []probe{
 			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -2460,9 +2485,9 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identity1100:  labels1100,
 			identityWorld: labelsWorld,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 1,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 1000,
+			entries: []keyEntry{
 				// allow port 80 on 1.1.1.1 for TCP
 				// - this would get overridden by the deny if the policy was not
 				//   ordered
@@ -2476,11 +2501,11 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		}},
 		want: mapStateMap{
 			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1 * 1000),
+			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1000),
 			// deny entries for line 1
-			egressKey(0, 6, 80, 16): denyEntry().withLevel(1*1000 + 1),
+			egressKey(0, 6, 80, 16): denyEntry().withLevel(1001),
 			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1*1000 + 2),
+			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1002),
 		},
 		probes: []probe{
 			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -2498,9 +2523,9 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identity1100:  labels1100,
 			identityWorld: labelsWorld,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 1,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 1000,
+			entries: []keyEntry{
 				// allow ports 80-81 on 1.1.1.1 for TCP
 				// - this would get overridden by the deny if the policy was not
 				//   ordered
@@ -2514,11 +2539,11 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		}},
 		want: mapStateMap{
 			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1 * 1000),
+			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1000),
 			// deny entries for line 1
-			egressKey(0, 6, 80, 10): denyEntry().withLevel(1*1000 + 1),
+			egressKey(0, 6, 80, 10): denyEntry().withLevel(1001),
 			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1*1000 + 2),
+			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1002),
 		},
 		probes: []probe{
 			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -2537,35 +2562,35 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identity1100:  labels1100,
 			identityWorld: labelsWorld,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 1,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 1000,
+			entries: []keyEntry{
 				// allow ports 80-81 on 1.1.1.1 for TCP
 				// - this would get overridden by the deny if the policy was not
 				//   ordered
 				{key: egressKey(identity1111, 6, 80, 15), entry: allowEntry()},
 			},
 		}, {
-			level: 2,
-			entries: []Entry{
+			basePriority: 2000,
+			entries: []keyEntry{
 				// deny TCP ports 80-143 on all destinations
 				// - wildcard L3
 				{key: egressKey(0, 6, 80, 15), entry: denyEntry()},
 			},
 		}, {
-			level: 3,
-			entries: []Entry{
+			basePriority: 3000,
+			entries: []keyEntry{
 				// allow all identities selected by 1.1.1.1/32 on any proto/port
 				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
 			},
 		}},
 		want: mapStateMap{
 			// allow entries for line 0
-			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1 * 1000),
+			egressKey(identity1111, 6, 80, 15): allowEntry().withLevel(1000),
 			// deny entries for line 1
-			egressKey(0, 6, 80, 15): denyEntry().withLevel(2 * 1000),
+			egressKey(0, 6, 80, 15): denyEntry().withLevel(2000),
 			// allow entries due to line 2
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(3 * 1000),
+			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(3000),
 		},
 		probes: []probe{
 			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -2584,9 +2609,9 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identity1100:  labels1100,
 			identityWorld: labelsWorld,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 1,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 1000,
+			entries: []keyEntry{
 				// allow port 80 on 1.1.1.1 for TCP and UDP
 				// - this would get overridden by the deny if the policy was not
 				//   ordered
@@ -2604,14 +2629,14 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		}},
 		want: mapStateMap{
 			// allow entries for lines 0-2
-			egressKey(identity1111, 6, 80, 0):  allowEntry().withLevel(1 * 1000),
-			egressKey(identity1111, 17, 80, 0): allowEntry().withLevel(1*1000 + 1),
+			egressKey(identity1111, 6, 80, 0):  allowEntry().withLevel(1000),
+			egressKey(identity1111, 17, 80, 0): allowEntry().withLevel(1001),
 			// deny entries for lines 3-5
-			egressKey(0, 6, 80, 0):  denyEntry().withLevel(1*1000 + 2),
-			egressKey(0, 17, 80, 0): denyEntry().withLevel(1*1000 + 3),
+			egressKey(0, 6, 80, 0):  denyEntry().withLevel(1002),
+			egressKey(0, 17, 80, 0): denyEntry().withLevel(1003),
 			// allow entries due to lines 6-7
-			egressKey(identity1100, 0, 0, 0): allowEntry().withLevel(1*1000 + 4),
-			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1*1000 + 5),
+			egressKey(identity1100, 0, 0, 0): allowEntry().withLevel(1004),
+			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(1005),
 		},
 		probes: []probe{
 			{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -2625,17 +2650,17 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identityFoo:   labelsFoo,
 			identityWorld: labelsWorld,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 1,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 1000,
+			entries: []keyEntry{
 				// port 80 with prefix length 15 covers ports 80-81
 				{key: ingressKey(identityFoo, 6, 80, 15), entry: allowEntry()},
 				{key: ingressKey(0, 6, 80, 0), entry: denyEntry()},
 			},
 		}},
 		want: mapStateMap{
-			ingressKey(identityFoo, 6, 80, 15): allowEntry().withLevel(1 * 1000),
-			ingressKey(0, 6, 80, 16):           denyEntry().withLevel(1*1000 + 1),
+			ingressKey(identityFoo, 6, 80, 15): allowEntry().withLevel(1000),
+			ingressKey(0, 6, 80, 16):           denyEntry().withLevel(1001),
 		},
 		probes: []probe{
 			{key: ingressKey(identityWorld, 17, 8080, 16), found: false, entry: DenyEntry},
@@ -2657,20 +2682,20 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identityFoo:   labelsFoo,
 			identityWorld: labelsWorld,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 1,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 1000,
+			entries: []keyEntry{
 				{key: ingressL3OnlyKey(identityFoo), entry: allowEntry()},
 			},
 		}, {
-			level: 2,
-			entries: []Entry{
+			basePriority: 2000,
+			entries: []keyEntry{
 				{key: ingressKey(0, 6, 80, 0), entry: denyEntry()},
 			},
 		}},
 		want: mapStateMap{
-			ingressL3OnlyKey(identityFoo): allowEntry().withLevel(1 * 1000),
-			ingressKey(0, 6, 80, 0):       denyEntry().withLevel(2 * 1000),
+			ingressL3OnlyKey(identityFoo): allowEntry().withLevel(1000),
+			ingressKey(0, 6, 80, 0):       denyEntry().withLevel(2000),
 		},
 		probes: []probe{
 			{key: ingressKey(identityWorld, 17, 8080, 16), found: false, entry: DenyEntry},
@@ -2686,20 +2711,20 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identityFoo:   labelsFoo,
 			identityWorld: labelsWorld,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 1,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 1000,
+			entries: []keyEntry{
 				{key: ingressL3OnlyKey(identityFoo), entry: denyEntry()},
 			},
 		}, {
-			level: 2,
-			entries: []Entry{
+			basePriority: 2000,
+			entries: []keyEntry{
 				{key: ingressKey(0, 6, 0, 0), entry: allowEntry()},
 			},
 		}},
 		want: mapStateMap{
-			ingressL3OnlyKey(identityFoo): denyEntry().withLevel(1 * 1000),
-			ingressKey(0, 6, 0, 0):        allowEntry().withLevel(2 * 1000),
+			ingressL3OnlyKey(identityFoo): denyEntry().withLevel(1000),
+			ingressKey(0, 6, 0, 0):        allowEntry().withLevel(2000),
 		},
 		probes: []probe{
 			{key: ingressKey(identityWorld, 17, 8080, 16), found: false, entry: DenyEntry},
@@ -2725,16 +2750,9 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			identitySubnet:   labelsSubnet,
 			identitySubnetIP: labelsSubnetIP,
 		},
-		orderedEntries: []LevelEntries{{
-			level: 99,
-			entries: []Entry{
-				{key: egressL3OnlyKey(0), entry: denyEntry()},
-				// Later order allow-all has no effect after earlier order deny all
-				{key: egressL3OnlyKey(0), entry: allowEntry()},
-			},
-		}, {
-			level: 42,
-			entries: []Entry{
+		tiers: []TierEntries{{
+			basePriority: 42000,
+			entries: []keyEntry{
 				// Allow egress to a UDP DNS server IP in a subnet
 				{key: egressKey(identitySubnetIP, 17, 53, 16), entry: allowEntry()},
 				// Deny all identities matching the world label
@@ -2744,14 +2762,21 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 				{key: egressL3OnlyKey(identityWorldIP), entry: denyEntry()},
 				{key: egressL3OnlyKey(identityWorld), entry: denyEntry()},
 			},
+		}, {
+			basePriority: 65000,
+			entries: []keyEntry{
+				{key: egressL3OnlyKey(0), entry: denyEntry()},
+				// Later order allow-all has no effect after earlier order deny all
+				{key: egressL3OnlyKey(0), entry: allowEntry()},
+			},
 		}},
 		want: mapStateMap{
-			egressKey(identitySubnetIP, 17, 53, 16): allowEntry().withLevel(42*1000 + 0),
-			egressL3OnlyKey(identitySubnetIP):       denyEntry().withLevel(42*1000 + 1),
-			egressL3OnlyKey(identitySubnet):         denyEntry().withLevel(42*1000 + 2),
-			egressL3OnlyKey(identityWorldIP):        denyEntry().withLevel(42*1000 + 3),
-			egressL3OnlyKey(identityWorld):          denyEntry().withLevel(42*1000 + 4),
-			egressL3OnlyKey(0):                      denyEntry().withLevel(99 * 1000),
+			egressKey(identitySubnetIP, 17, 53, 16): allowEntry().withLevel(42000),
+			egressL3OnlyKey(identitySubnetIP):       denyEntry().withLevel(42001),
+			egressL3OnlyKey(identitySubnet):         denyEntry().withLevel(42002),
+			egressL3OnlyKey(identityWorldIP):        denyEntry().withLevel(42003),
+			egressL3OnlyKey(identityWorld):          denyEntry().withLevel(42004),
+			egressL3OnlyKey(0):                      denyEntry().withLevel(65000),
 		},
 		probes: []probe{
 			{key: egressKey(identitySubnetIP, 6, 53, 16), found: true, entry: DenyEntry},
@@ -2777,34 +2802,123 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			{key: egressKey(identityWorldIP, 17, 80, 16), found: true, entry: DenyEntry},
 		},
 	}, {
-		name:           "ordered test-n",
-		identities:     identity.IdentityMap{},
-		orderedEntries: []LevelEntries{},
-		want:           mapStateMap{},
-		probes:         []probe{},
+		name: "deny 1.1.1.1",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		tiers: []TierEntries{{
+			basePriority: 0,
+			entries: []keyEntry{
+				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
+			},
+		}, {
+			basePriority: 1000,
+			entries: []keyEntry{
+				// HTTP allow 1.1.1.1, overruled by the deny
+				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
+			},
+		}},
+		want: mapStateMap{
+			egressKey(identity1111, 0, 0, 0): denyEntry().withLevel(0),
+		},
+		probes: []probe{},
+	}, {
+		name: "Allow 1.1.1.1",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		tiers: []TierEntries{{
+			basePriority: 0,
+			entries: []keyEntry{
+				// Allow verdict on 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: allowEntry()},
+				// deny 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
+			},
+		}, {
+			basePriority: 1000,
+			entries: []keyEntry{
+				// HTTP allow 1.1.1.1, shadowed by the allow above
+				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
+			},
+		}},
+		want: mapStateMap{
+			egressKey(identity1111, 0, 0, 0): allowEntry().withLevel(0),
+		},
+		probes: []probe{},
+	}, {
+		name: "PASS 1.1.1.1 over deny all",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		tiers: []TierEntries{{
+			basePriority: 0,
+			entries: []keyEntry{
+				// HTTP PASS verdict on 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(0, 1000)},
+				// deny 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
+			},
+		}, {
+			basePriority: 1000,
+			entries: []keyEntry{
+				// HTTP allow 1.1.1.1
+				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
+			},
+		}},
+		want: mapStateMap{
+			egressKey(identity1111, 0, 0, 0):  passEntry(0, 1000),
+			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(0).withPassPriority(0, 1000),
+		},
+		probes: []probe{},
 	}}
 
 	for _, tt := range tests {
 		t.Log(tt.name)
 
-		// create mapState
-		var entries []keyValue
-		for _, oe := range tt.orderedEntries {
-			for i, kv := range oe.entries {
-				entries = append(entries, keyValue{kv.key, kv.entry.withLevel(oe.level*1000 + uint32(i))})
+		// create tierEntries and permutations for each tier
+		var tierEntries [][]keyEntry
+		var tierPermutations [][][]int
+		var tierLimits []int
+		for _, tier := range tt.tiers {
+			entries := slices.Clone(tier.entries)
+			idx := make([]int, 0, len(entries))
+			for i := range entries {
+				entries[i].entry.MapStateEntry = entries[i].entry.MapStateEntry.WithPriority(tier.basePriority + types.Priority(i))
+				idx = append(idx, i)
+			}
+			tierEntries = append(tierEntries, entries)
+			perms := permutations(idx)
+			tierPermutations = append(tierPermutations, perms)
+			tierLimits = append(tierLimits, len(perms))
+		}
+
+		// iterate through all the combinations of permutations for each tier
+		combinations := func(limits []int) iter.Seq[[]int] {
+			return func(yield func([]int) bool) {
+				combo := make([]int, len(limits))
+				for {
+					if !yield(combo) {
+						return
+					}
+					//return
+					// get next combo
+					for i, limit := range limits {
+						if combo[i] >= limit-1 {
+							if i == len(combo)-1 {
+								return // done
+							}
+							continue
+						}
+						combo[i]++
+					}
+				}
 			}
 		}
-
-		// create permutations
-		idx := make([]int, len(entries))
-		for i := 0; i < len(entries); i++ {
-			idx[i] = i
-		}
-
-		for _, perm := range permutations(idx) {
-			name := fmt.Sprintf("%s permuation %v", tt.name, perm)
+		for tierPermutation := range combinations(tierLimits) {
+			name := fmt.Sprintf("%s combination %v (limits %v)", tt.name, tierPermutation, tierLimits)
 			t.Run(name, func(t *testing.T) {
-				t.Parallel()
+				//t.Parallel()
 				t.Log(name)
 				changes := ChangeState{
 					Adds:    make(Keys),
@@ -2814,15 +2928,19 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 
 				// create mapState
 				ms := emptyMapState(hivetest.Logger(t))
-				for _, i := range perm {
-					ms.insertWithChanges(entries[i].key, entries[i].value, orderedRules|denyRules, changes)
+
+				// insert entries tier-by-tier, using the given permutation on each tier
+				for tier, perm := range tierPermutation {
+					for _, i := range tierPermutations[tier][perm] {
+						tierBasePrecedence := tt.tiers[tier].basePriority.ToPassPrecedence()
+						ms.insertWithChanges(tierBasePrecedence, tierEntries[tier][i].key, tierEntries[tier][i].entry, orderedRules|denyRules, changes)
+					}
 				}
 
 				// validate mapState
 				ms.validatePortProto(t)
-				if len(tt.want) != 0 {
-					require.Truef(t, ms.equalsMapState(tt.want), "%s: MapState mismatch on permutation %v:\n%s", tt.name, perm, ms.diffMapState(tt.want))
-				}
+				require.Truef(t, ms.equalsMapState(tt.want), "%s: MapState mismatch on permutation %v:\n%s", tt.name, tierPermutation, ms.diffMapState(tt.want))
+
 				// run probes
 				for _, probe := range tt.probes {
 					v, found := ms.lookup(probe.key)
@@ -2834,6 +2952,197 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestMapState_passValidation(t *testing.T) {
+	// identities used in tests
+	identity1111 := localIdentity(1111)
+	labels1111 := labels.GetCIDRLabels(netip.MustParsePrefix(string(api.CIDR("1.1.1.1/32")))).LabelArray()
+
+	identityCache := identity.IdentityMap{
+		identity1111: labels1111,
+	}
+	selectorCache := testNewSelectorCache(t, hivetest.Logger(t), identityCache)
+
+	type probe struct {
+		key   Key
+		found bool
+		entry MapStateEntry
+	}
+	type TierEntries struct {
+		basePriority types.Priority
+		entries      []keyEntry
+	}
+	tests := []struct {
+		name       string               // test name
+		identities identity.IdentityMap // Identities used in the test
+		tiers      []TierEntries        // Explicitly ordered sets of implicitly ordered entries
+		want       mapStateMap          // expected MapState, optional
+		probes     []probe              // probes to test the policy, optional
+	}{{
+		name: "PASS 1.1.1.1 over deny all",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		tiers: []TierEntries{{
+			basePriority: 0,
+			entries: []keyEntry{
+				// PASS verdict on 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(0, 1000)},
+				// wildcard deny
+				{key: egressKey(0, 0, 0, 0), entry: denyEntry()},
+			},
+		}, {
+			basePriority: 1000,
+			entries: []keyEntry{
+				// HTTP allow 1.1.1.1
+				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
+			},
+		}},
+		want: mapStateMap{
+			egressKey(identity1111, 0, 0, 0):  passEntry(0, 1000),
+			egressKey(0, 0, 0, 0):             denyEntry().withLevel(100),
+			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(0).withPassPriority(0, 1000),
+		},
+		probes: []probe{},
+	}, {
+		name: "wildcard PASS over deny 1.1.1.1",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		tiers: []TierEntries{{
+			basePriority: 0,
+			entries: []keyEntry{
+				// wildcard PASS
+				{key: egressKey(0, 0, 0, 0), entry: passEntry(0, 1000)},
+				// deny 1.1.1.1 (should be shadowed by the pass entry above)
+				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
+			},
+		}, {
+			basePriority: 1000,
+			entries: []keyEntry{
+				// HTTP allow 1.1.1.1
+				{key: egressKey(identity1111, 6, 80, 0), entry: allowEntry()},
+			},
+		}},
+		want: mapStateMap{
+			egressKey(0, 0, 0, 0):             passEntry(0, 1000),
+			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(0).withPassPriority(0, 1000),
+		},
+		probes: []probe{},
+	}, {
+		name: "PASS 1.1.1.1 over deny all, with wildcard and probes",
+		identities: identity.IdentityMap{
+			identity1111: labels1111,
+		},
+		tiers: []TierEntries{{
+			basePriority: 0,
+			entries: []keyEntry{
+				// wildcard deny all TCP port 81
+				{key: egressKey(0, 6, 81, 0), entry: denyEntry()},
+			},
+		}, {
+			basePriority: 1000,
+			entries: []keyEntry{
+				// HTTP PASS verdict on 1.1.1.1
+				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(1000, 2000)},
+				// wildcard deny
+				{key: egressKey(0, 0, 0, 0), entry: denyEntry()},
+			},
+		}, {
+			basePriority: 2000,
+			entries: []keyEntry{
+				// HTTP deny 1.1.1.1 on TCP port 90
+				{key: egressKey(identity1111, 6, 90, 0), entry: denyEntry()},
+				// HTTP allow 1.1.1.1 on TCP port 80-95
+				{key: egressKey(identity1111, 6, 80, 12), entry: allowEntry()},
+			},
+		}},
+		want: mapStateMap{
+			egressKey(0, 6, 81, 0):             denyEntry().withLevel(0),
+			egressKey(identity1111, 0, 0, 0):   passEntry(1000, 2000),
+			egressKey(0, 0, 0, 0):              denyEntry().withLevel(1100),
+			egressKey(identity1111, 6, 90, 0):  denyEntry().withLevel(1000).withPassPriority(1000, 2000),
+			egressKey(identity1111, 6, 80, 12): allowEntry().withLevel(1001).withPassPriority(1000, 2000),
+		},
+		probes: []probe{
+			{key: egressKey(2, 6, 80, 16), found: true, entry: DenyEntry},
+			{key: egressKey(identity1111, 6, 79, 16), found: true, entry: DenyEntry},
+			{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 81, 16), found: true, entry: DenyEntry},
+			{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 89, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 90, 16), found: true, entry: DenyEntry},
+			{key: egressKey(identity1111, 6, 91, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 95, 16), found: true, entry: AllowEntry},
+			{key: egressKey(identity1111, 6, 96, 16), found: true, entry: DenyEntry},
+		},
+	}}
+
+	for _, tt := range tests {
+		t.Log(tt.name)
+
+		t.Run(tt.name, func(t *testing.T) {
+			epPolicy := &EndpointPolicy{
+				SelectorPolicy: &selectorPolicy{
+					SelectorCache: selectorCache,
+					L4Policy:      L4Policy{},
+				},
+				PolicyOwner:      DummyOwner{logger: hivetest.Logger(t)},
+				policyMapState:   emptyMapState(hivetest.Logger(t)),
+				policyMapChanges: MapChanges{logger: hivetest.Logger(t)},
+			}
+
+			for tier := range tt.tiers {
+				nPassEntries := types.Priority(0)
+				basePriority := tt.tiers[tier].basePriority
+				for i, kv := range tt.tiers[tier].entries {
+					key := kv.key
+					entry := kv.entry
+					if entry.IsValid() {
+						// In this test we leave a gap of 100 priorities after each
+						// PASS verdict
+						entry = entry.withLevel(basePriority + types.Priority(i) + nPassEntries*99)
+					}
+					if entry.IsPassEntry() {
+						nPassEntries++
+					}
+
+					adds := identity.NumericIdentitySlice{key.Identity}
+					keys := []Key{key}
+					epPolicy.policyMapChanges.AccumulateMapChanges(types.Tier(tier), basePriority, adds, nil, keys, entry)
+				}
+			}
+			epPolicy.policyMapChanges.SyncMapChanges(types.MockSelectorSnapshot())
+			_, changes := epPolicy.policyMapChanges.consumeMapChanges(epPolicy, denyRules|redirectRules)
+
+			// validate mapState
+			epPolicy.policyMapState.validatePortProto(t)
+			if len(tt.want) != 0 {
+				wantKeys := make(Keys)
+				for k := range epPolicy.policyMapState.entries {
+					wantKeys[k] = struct{}{}
+				}
+				require.Equal(t, wantKeys, changes.Adds, tt.name+" (adds)")
+				require.Equal(t, Keys{}, changes.Deletes, tt.name+" (deletes)")
+
+				require.Truef(t, epPolicy.policyMapState.equalsMapState(tt.want), "%s: MapState mismatch:\n%s", tt.name, epPolicy.policyMapState.diffMapState(tt.want))
+			}
+			// run probes
+			for i, probe := range tt.probes {
+				v, found := epPolicy.policyMapState.lookup(probe.key)
+				msg := "found"
+				if probe.found {
+					msg = "not found"
+				}
+				require.Equal(t, probe.found, found, "probe %d key %s: %v", i, msg, probe.key)
+				// Ignore and labels for precedence for probe test
+				v.Precedence = 0
+				probe.entry.Precedence = 0
+				require.Equalf(t, probe.entry, v.MapStateEntry, "%s: Verdict mismatch for key %s:\n- %s\n+ %s\n\nMapState:\n%s", tt.name, probe.key, probe.entry, v.MapStateEntry, epPolicy.policyMapState)
+			}
+		})
 	}
 }
 

@@ -474,6 +474,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							td.wildcardCachedSelector: &PerSelectorPolicy{
+								Verdict:          types.Allow,
 								L7Parser:         ParserTypeHTTP,
 								ListenerPriority: ListenerPriorityHTTP,
 								L7Rules: api.L7Rules{
@@ -562,6 +563,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 						PerSelectorPolicies: L7DataMap{
 							cachedSelectorHost: nil,
 							td.wildcardCachedSelector: &PerSelectorPolicy{
+								Verdict:          types.Allow,
 								L7Parser:         ParserTypeHTTP,
 								ListenerPriority: ListenerPriorityHTTP,
 								L7Rules: api.L7Rules{
@@ -791,6 +793,7 @@ func TestMapStateWithIngress(t *testing.T) {
 							cachedSelectorWorldV4: nil,
 							cachedSelectorWorldV6: nil,
 							cachedSelectorTest: &PerSelectorPolicy{
+								Verdict: types.Allow,
 								Authentication: &api.Authentication{
 									Mode: api.AuthenticationModeDisabled,
 								},
@@ -1057,7 +1060,7 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 
 	// test non-empty mapstate
 	p.policyMapState = emptyMapState(log).withState(mapStateMap{
-		key1: newMapStateEntry(0, makeSingleRuleOrigin(lbls, logstr), 0, 0, false, NoAuthRequirement),
+		key1: newMapStateEntry(0, types.MaxPriority, makeSingleRuleOrigin(lbls, logstr), 0, 0, types.Allow, NoAuthRequirement),
 	})
 
 	rm, err := p.GetRuleMeta(key1)

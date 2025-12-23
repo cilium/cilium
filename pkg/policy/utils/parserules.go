@@ -36,7 +36,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Node:           node,
 				Labels:         rule.Labels,
 				DefaultDeny:    defaultDeny,
-				Deny:           false,
+				Verdict:        types.Allow,
 				Ingress:        true,
 				L3:             l3,
 				L4:             l4,
@@ -66,7 +66,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Node:        node,
 				Labels:      rule.Labels,
 				DefaultDeny: defaultDeny,
-				Deny:        true,
+				Verdict:     types.Deny,
 				Ingress:     true,
 				L3:          l3,
 				L4:          l4,
@@ -95,7 +95,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Node:           node,
 				Labels:         rule.Labels,
 				DefaultDeny:    defaultDeny,
-				Deny:           false,
+				Verdict:        types.Allow,
 				Ingress:        false,
 				L3:             l3,
 				L4:             l4,
@@ -125,7 +125,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				Node:        node,
 				Labels:      rule.Labels,
 				DefaultDeny: defaultDeny,
-				Deny:        true,
+				Verdict:     types.Deny,
 				Ingress:     false,
 				L3:          l3,
 				L4:          l4,
@@ -139,6 +139,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 
 func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities api.EntitySlice, cidrSlice api.CIDRSlice, cidrRuleSlice api.CIDRRuleSlice, fqdns api.FQDNSelectorSlice) types.Selectors {
 	// Explicitly check for empty non-nil slices, it should not result in any identity being selected.
+	// Note that this works due to only one selector type being allowed in a single API rule.
 	if (endpoints != nil && len(endpoints) == 0) ||
 		(nodes != nil && len(nodes) == 0) ||
 		(entities != nil && len(entities) == 0) ||

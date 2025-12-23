@@ -163,6 +163,7 @@ func TestCreateL4Filter(t *testing.T) {
 	for _, es := range selectors {
 		eps := types.ToSelectors(es)
 		entry := &types.PolicyEntry{
+			Verdict: types.Allow,
 			L3:      eps,
 			Ingress: true,
 			L4:      []api.PortRule{*portrule},
@@ -217,6 +218,7 @@ func TestCreateL4FilterAuthRequired(t *testing.T) {
 	for _, es := range selectors {
 		eps := types.ToSelectors(es)
 		entry := &types.PolicyEntry{
+			Verdict:        types.Allow,
 			L3:             eps,
 			Ingress:        true,
 			L4:             []api.PortRule{*portrule},
@@ -315,6 +317,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 80, Protocol: api.ProtoTCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						Verdict:  types.Allow,
 						L7Parser: ParserTypeHTTP,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -327,6 +330,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 9090, Protocol: api.ProtoTCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						Verdict:  types.Allow,
 						L7Parser: "tester",
 						L7Rules: api.L7Rules{
 							L7Proto: "tester",
@@ -347,6 +351,7 @@ func TestJSONMarshal(t *testing.T) {
 				Port: 8080, Protocol: api.ProtoTCP,
 				PerSelectorPolicies: L7DataMap{
 					td.cachedFooSelector: &PerSelectorPolicy{
+						Verdict:  types.Allow,
 						L7Parser: ParserTypeHTTP,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{
@@ -356,6 +361,7 @@ func TestJSONMarshal(t *testing.T) {
 						},
 					},
 					td.wildcardCachedSelector: &PerSelectorPolicy{
+						Verdict: types.Allow,
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
@@ -475,7 +481,7 @@ func TestL4PolicyMapPortRangeOverlaps(t *testing.T) {
 	}
 	for i, portRange := range portRanges {
 		t.Run(fmt.Sprintf("%d-%d", portRange.startPort, portRange.endPort), func(tt *testing.T) {
-			l4Map := NewL4PolicyMap()
+			l4Map := makeL4PolicyMap()
 			startFilter := &L4Filter{
 				U8Proto:  u8proto.TCP,
 				Protocol: api.ProtoTCP,
@@ -614,7 +620,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 			b.StartTimer()
 
 			for _, filter := range testL4Filters {
-				filter.toMapState(logger, epPolicy, 0, ChangeState{})
+				filter.toMapState(logger, 0, types.MaxPriority, epPolicy, 0, ChangeState{})
 			}
 		}
 	})
@@ -635,7 +641,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 					psp := filter.PerSelectorPolicies
 					filter.PerSelectorPolicies = L7DataMap{ws: nil}
 
-					filter.toMapState(logger, epPolicy, 0, ChangeState{})
+					filter.toMapState(logger, 0, types.MaxPriority, epPolicy, 0, ChangeState{})
 					filter.PerSelectorPolicies = psp
 				}
 			}

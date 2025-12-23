@@ -1289,7 +1289,7 @@ func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, po
 
 func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, sel policy.CachedSelector, l7Rules *policy.PerSelectorPolicy, useFullTLSContext, useSDS bool, policySecretsNamespace string) (*cilium.PortNetworkPolicyRule, bool) {
 	r := &cilium.PortNetworkPolicyRule{
-		Deny: l7Rules.GetDeny(),
+		Deny: l7Rules.IsDeny(),
 	}
 
 	wildcard := sel.IsWildcard()
@@ -1314,7 +1314,7 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 
 	// Deny rules never have L7 rules and can not be short-circuited (i.e., rule evaluation
 	// after an allow rule must continue to find the possibly applicable deny rule).
-	if l7Rules.GetDeny() {
+	if l7Rules.IsDeny() {
 		return r, false
 	}
 
@@ -1406,7 +1406,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 		for sel, l7 := range selectors {
 			if sel.IsWildcard() {
 				return append(rules, &cilium.PortNetworkPolicyRule{
-					Deny: l7.GetDeny(),
+					Deny: l7.IsDeny(),
 				})
 			}
 			selections := sel.GetSelectionsAt(snapshot)
@@ -1415,7 +1415,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 				return nil
 			}
 			return append(rules, &cilium.PortNetworkPolicyRule{
-				Deny:           l7.GetDeny(),
+				Deny:           l7.IsDeny(),
 				RemotePolicies: selections.AsUint32Slice(),
 			})
 		}
@@ -1429,7 +1429,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 	var allowCount, denyCount int
 	for sel, l7 := range selectors {
 		if sel.IsWildcard() {
-			if l7.GetDeny() {
+			if l7.IsDeny() {
 				wildcardDenyFound = true
 				break
 			} else {
@@ -1448,7 +1448,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 		if len(selections) == 0 {
 			continue
 		}
-		if l7.GetDeny() {
+		if l7.IsDeny() {
 			denyCount += len(selections)
 			denySlices = append(denySlices, selections.AsUint32Slice())
 		} else {
@@ -1496,7 +1496,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 	return rules
 }
 
-func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, l4Policy policy.L4PolicyMap, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
+func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selectors policy.SelectorSnapshot, l4Policy policy.L4PolicyMaps, policyEnforced bool, useFullTLSContext, useSDS bool, dir string, policySecretsNamespace string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		// Always allow all ports
@@ -1558,18 +1558,20 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 		}
 	}
 
-	addWildcardRules(l4Policy.ExactLookup("0", 0, u8proto.ANY.String()))
-	addWildcardRules(l4Policy.ExactLookup("0", 0, u8proto.TCP.String()))
+	for i := range l4Policy {
+		addWildcardRules(l4Policy[i].ExactLookup("0", 0, u8proto.ANY.String()))
+		addWildcardRules(l4Policy[i].ExactLookup("0", 0, u8proto.TCP.String()))
+	}
 
 	if !wildcardDenyAll {
-		l4Policy.ForEach(func(l4 *policy.L4Filter) bool {
+		for l4 := range l4Policy.Filters() {
 			var protocol envoy_config_core.SocketAddress_Protocol
 			switch l4.U8Proto {
 			case u8proto.TCP, u8proto.ANY:
 				protocol = envoy_config_core.SocketAddress_TCP
 			default:
 				// Other protocol rules not sent to Envoy for now.
-				return true
+				continue
 			}
 
 			port := l4.Port
@@ -1580,7 +1582,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 			// Skip if a named port can not be resolved (yet)
 			// wildcard port already taken care of above
 			if port == 0 {
-				return true
+				continue
 			}
 
 			rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.PerSelectorPolicies))
@@ -1637,7 +1639,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 					logfields.TrafficDirection, dir,
 					logfields.Port, port,
 				)
-				return true
+				continue
 			}
 
 			// Short-circuit rules if a rule allows all and all other rules can be short-circuited
@@ -1648,7 +1650,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 						logfields.TrafficDirection, dir,
 						logfields.Port, port,
 					)
-					return true
+					continue
 				}
 				if allowAllRule != nil {
 					s.logger.Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention",
@@ -1667,8 +1669,7 @@ func (s *xdsServer) getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, selec
 				Protocol: protocol,
 				Rules:    envoypolicy.SortPortNetworkPolicyRules(rules),
 			})
-			return true
-		})
+		}
 	}
 	if len(PerPortPolicies) == 0 || len(PerPortPolicies) == 0 && wildcardAllowAll {
 		return nil
@@ -1687,8 +1688,8 @@ func (s *xdsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, selectors poli
 		ConntrackMapName: "global",
 	}
 
-	var ingressMap policy.L4PolicyMap
-	var egressMap policy.L4PolicyMap
+	var ingressMap policy.L4PolicyMaps
+	var egressMap policy.L4PolicyMaps
 	if l4Policy != nil {
 		ingressMap = l4Policy.Ingress.PortRules
 		egressMap = l4Policy.Egress.PortRules

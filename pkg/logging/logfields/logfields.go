@@ -1588,6 +1588,10 @@ const (
 
 	Pin = "pin"
 
+	Tier = "tier"
+
+	TierBasePriority = "tierBasePriority"
+
 	Priority = "priority"
 
 	Args = "args"

@@ -277,6 +277,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 
 	rules := append(ingresses, egresses...)
 	for _, r := range rules {
+		r.Verdict = types.Allow // all k8s Network Policies are allow rules
 		r.DefaultDeny = true
 		r.Subject = types.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector))
 		r.Labels = GetPolicyLabelsv1(logger, np)

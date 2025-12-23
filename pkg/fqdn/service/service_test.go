@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
@@ -740,17 +741,18 @@ func (sp *testSelectorPolicy) createSelectorCache() (policy.CachedSelector, *pol
 }
 
 // createPolicyIterator creates a common iterator for policy maps
-func (sp *testSelectorPolicy) createPolicyIterator(policyMap policy.L4PolicyMap) iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
+func createPolicyIterator(policyMaps policy.L4PolicyMaps) iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
 	return func(yield func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {
-		policyMap.ForEach(func(l4 *policy.L4Filter) bool {
+		for l4 := range policyMaps.Filters() {
 			for cs, perSelectorPolicy := range l4.PerSelectorPolicies {
-				return yield(l4, policy.PerSelectorPolicyTuple{
+				if !yield(l4, policy.PerSelectorPolicyTuple{
 					Policy:   perSelectorPolicy,
 					Selector: cs,
-				})
+				}) {
+					return
+				}
 			}
-			return true
-		})
+		}
 	}
 }
 
@@ -764,6 +766,7 @@ func (sp *testSelectorPolicy) createValidDNSPolicy() iter.Seq2[*policy.L4Filter,
 			Ingress:  false,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector: &policy.PerSelectorPolicy{
+					Verdict:  policytypes.Allow,
 					L7Parser: policy.ParserTypeDNS,
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{
@@ -778,7 +781,7 @@ func (sp *testSelectorPolicy) createValidDNSPolicy() iter.Seq2[*policy.L4Filter,
 		},
 	})
 
-	return sp.createPolicyIterator(expectedPolicy)
+	return createPolicyIterator(expectedPolicy)
 }
 
 func (sp *testSelectorPolicy) createValidNonDNSPolicy() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
@@ -793,6 +796,7 @@ func (sp *testSelectorPolicy) createValidNonDNSPolicy() iter.Seq2[*policy.L4Filt
 			Ingress:  false,
 			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector: &policy.PerSelectorPolicy{
+					Verdict:  policytypes.Allow,
 					L7Parser: policy.ParserTypeHTTP, // HTTP instead of DNS
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{
@@ -804,7 +808,7 @@ func (sp *testSelectorPolicy) createValidNonDNSPolicy() iter.Seq2[*policy.L4Filt
 		},
 	})
 
-	return sp.createPolicyIterator(expectedPolicy)
+	return createPolicyIterator(expectedPolicy)
 }
 
 func createSelectorPolicies(count int, policyType PolicyType) map[identity.NumericIdentity]policy.SelectorPolicy {
