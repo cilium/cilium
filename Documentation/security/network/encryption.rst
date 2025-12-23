@@ -54,19 +54,19 @@ addresses using ``toCIDR``, ``toCIDRSet`` and ``toFQDN`` rules.
 See :ref:`policy_examples` for more details about how to write network
 policies that restrict egress traffic to certain endpoints.
 
-Another way to mitigate this issue is to set ``encryption.strictMode.enabled``
-to ``true`` and the expected pod CIDR as ``encryption.strictMode.cidr``.
-This encryption strict mode enforces that traffic exiting a node
-to the set CIDR is always encrypted. Be aware that information
-about new pod endpoints must propagate to the node before the node can send
-traffic to them.
+Another way to mitigate this issue is to set
+``encryption.strictMode.egress.enabled`` to ``true`` and the expected pod
+CIDR as ``encryption.strictMode.egress.cidr``. This encryption strict mode
+egress enforces that traffic exiting a node to the set CIDR is always
+encrypted. Be aware that information about new pod endpoints must
+propagate to the node before the node can send traffic to them.
 
-Encryption strict mode has the following limitations:
+Encryption strict mode egress has the following limitations:
 
-- The pod CIDR and therefore the encryption strict mode CIDR must be IPv4.
-  IPv6 traffic is not protected by the strict mode and can be leaked.
+- The pod CIDR and therefore the encryption strict mode egress CIDR must be
+  IPv4. IPv6 traffic is not protected by the strict mode and can be leaked.
 - To disable all dynamic lookups, you must use direct routing mode and the
   node CIDR and pod CIDR must not overlap. Otherwise,
-  ``encryption.strictMode.allowRemoteNodeIdentities`` must be set to ``true``.
-  This allows unencrypted traffic sent from or to an IP address
+  ``encryption.strictMode.egress.allowRemoteNodeIdentities`` must be set to
+  ``true``. This allows unencrypted traffic sent from or to an IP address
   associated with a node identity.

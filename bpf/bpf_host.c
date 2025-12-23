@@ -1503,12 +1503,12 @@ skip_host_firewall:
 #endif /* ENABLE_WIREGUARD */
 
 #if (defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD)) &&		\
-     defined(ENCRYPTION_STRICT_MODE)
+     defined(ENCRYPTION_STRICT_MODE_EGRESS)
 	if (!strict_allow(ctx, proto)) {
 		ret = DROP_UNENCRYPTED_TRAFFIC;
 		goto drop_err;
 	}
-#endif /* ENCRYPTION_STRICT_MODE */
+#endif /* ENCRYPTION_STRICT_MODE_EGRESS */
 
 #ifdef ENABLE_HEALTH_CHECK
 	ret = lb_handle_health(ctx, proto);

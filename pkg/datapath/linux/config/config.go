@@ -234,12 +234,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
 	}
 
-	if option.Config.EnableEncryptionStrictMode {
-		cDefinesMap["ENCRYPTION_STRICT_MODE"] = "1"
+	if option.Config.EnableEncryptionStrictModeEgress {
+		cDefinesMap["ENCRYPTION_STRICT_MODE_EGRESS"] = "1"
 
 		// when parsing the user input we only accept ipv4 addresses
-		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictModeCIDR.Addr()))
-		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictModeCIDR.Bits())
+		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictEgressCIDR.Addr()))
+		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictEgressCIDR.Bits())
 
 		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(cfg.NodeIPv4))
 
@@ -248,11 +248,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			return fmt.Errorf("unable to parse node IPv4 address %s", cfg.NodeIPv4)
 		}
 
-		if option.Config.EncryptionStrictModeCIDR.Contains(ipv4Interface) {
-			if !option.Config.EncryptionStrictModeAllowRemoteNodeIdentities {
+		if option.Config.EncryptionStrictEgressCIDR.Contains(ipv4Interface) {
+			if !option.Config.EncryptionStrictEgressAllowRemoteNodeIdentities {
 				return fmt.Errorf(`encryption strict mode is enabled but the node's IPv4 address is within the strict CIDR range.
 				This will cause the node to drop all traffic.
-				Please either disable encryption or set --encryption-strict-mode-allow-dynamic-lookup=true`)
+				Please either disable encryption or set --encryption-strict-egress-allow-remote-node-identities=true`)
 			}
 			cDefinesMap["STRICT_IPV4_OVERLAPPING_CIDR"] = "1"
 		}

@@ -48,6 +48,14 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		}
 	}
 
+	if params.IPSecConfig.Enabled() && params.DaemonConfig.EnableEncryptionStrictModeIngress {
+		return fmt.Errorf("IPSec doesnt support strict ingress encryption.")
+	}
+
+	if params.DaemonConfig.EnableEncryptionStrictModeIngress && !params.DaemonConfig.TunnelingEnabled() {
+		return fmt.Errorf("Strict ingress encryption requires tunneling to be enabled.")
+	}
+
 	if params.DaemonConfig.EnableHostFirewall {
 		if params.IPSecConfig.Enabled() {
 			return fmt.Errorf("IPSec cannot be used with the host firewall.")
