@@ -113,7 +113,7 @@ func removeObsoleteNetdevPrograms(logger *slog.Logger, devices []string) error {
 		if err := bpf.Remove(bpffsPath); err != nil {
 			logger.Error("Failed to remove bpffs entry",
 				logfields.Error, err,
-				logfields.BPFSPath, bpffsPath,
+				logfields.BPFFSPath, bpffsPath,
 			)
 		}
 

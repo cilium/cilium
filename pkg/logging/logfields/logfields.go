@@ -1583,7 +1583,7 @@ const (
 
 	RssBytes = "rssBytes"
 
-	BPFSPath = "bpffsPath"
+	BPFFSPath = "bpffsPath"
 
 	ProgName = "progName"
 
