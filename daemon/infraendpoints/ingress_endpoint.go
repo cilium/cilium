@@ -30,6 +30,7 @@ type ingressEndpointCreatorParams struct {
 	EndpointCreator        endpointcreator.EndpointCreator
 	EndpointManager        endpointmanager.EndpointManager
 	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
+	LocalNodeStore         *node.LocalNodeStore
 }
 
 type ingressEndpointCreator struct {
@@ -37,6 +38,7 @@ type ingressEndpointCreator struct {
 	endpointCreator        endpointcreator.EndpointCreator
 	endpointManager        endpointmanager.EndpointManager
 	endpointRestorePromise promise.Promise[endpointstate.Restorer]
+	localNodeStore         *node.LocalNodeStore
 
 	ipv4Enabled bool
 	ipv6Enabled bool
@@ -52,6 +54,7 @@ func registerIngressEndpoint(params ingressEndpointCreatorParams) {
 		endpointCreator:        params.EndpointCreator,
 		endpointManager:        params.EndpointManager,
 		endpointRestorePromise: params.EndpointRestorePromise,
+		localNodeStore:         params.LocalNodeStore,
 		ipv4Enabled:            params.DaemonConfig.IPv4Enabled(),
 		ipv6Enabled:            params.DaemonConfig.IPv6Enabled(),
 	}
@@ -79,8 +82,13 @@ func (c *ingressEndpointCreator) createIngressEndpoint(ctx context.Context, heal
 
 	// Creating Ingress Endpoint depends on the Ingress IPs having been
 	// allocated first. This happens earlier in the agent bootstrap.
-	if (c.ipv4Enabled && len(node.GetIngressIPv4(c.logger)) == 0) ||
-		(c.ipv6Enabled && len(node.GetIngressIPv6(c.logger)) == 0) {
+	ln, err := c.localNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	if (c.ipv4Enabled && len(ln.IPv4IngressIP) == 0) ||
+		(c.ipv6Enabled && len(ln.IPv6IngressIP) == 0) {
 		msg := "Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected."
 		c.logger.Warn(msg)
 		health.Degraded(msg, nil)
