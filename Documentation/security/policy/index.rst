@@ -30,6 +30,7 @@ mechanisms:
 
    intro
    language
+   standalone-dns-proxy
    kubernetes
    lifecycle
    troubleshooting
