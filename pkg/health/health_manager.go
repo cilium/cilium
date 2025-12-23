@@ -68,6 +68,7 @@ type ciliumHealthManager struct {
 	ctrlMgr      *controller.Manager
 	ciliumHealth *CiliumHealth
 
+	daemonConfig *option.DaemonConfig
 	healthConfig healthconfig.CiliumHealthConfig
 }
 
@@ -88,6 +89,7 @@ type ciliumHealthParams struct {
 	K8sClientSet           k8sClient.Clientset
 	InfraIPAllocator       infraendpoints.InfraIPAllocator
 	LocalNodeStore         *node.LocalNodeStore
+	DaemonConfig           *option.DaemonConfig
 	Config                 healthconfig.CiliumHealthConfig
 }
 
@@ -105,6 +107,7 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 		k8sClientSet:     params.K8sClientSet,
 		infraIPAllocator: params.InfraIPAllocator,
 		localNodeStore:   params.LocalNodeStore,
+		daemonConfig:     params.DaemonConfig,
 		healthConfig:     params.Config,
 	}
 	if !params.Config.IsHealthCheckingEnabled() {

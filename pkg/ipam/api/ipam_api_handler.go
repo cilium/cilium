@@ -4,9 +4,11 @@
 package ipamapi
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"strings"
 
 	"github.com/go-openapi/runtime/middleware"
@@ -19,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -28,8 +31,10 @@ type IpamDeleteIpamIPHandler struct {
 }
 
 type IpamPostIpamHandler struct {
-	Logger *slog.Logger
-	IPAM   *ipam.IPAM
+	DaemonConfig   *option.DaemonConfig
+	Logger         *slog.Logger
+	IPAM           *ipam.IPAM
+	LocalNodeStore *node.LocalNodeStore
 }
 
 type IpamPostIpamIPHandler struct {
@@ -49,8 +54,13 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 		return api.Error(ipamapi.PostIpamFailureCode, err)
 	}
 
+	nodeRouterAddressing, err := r.getNodeRouterAddressing(params.HTTPRequest.Context())
+	if err != nil {
+		return api.Error(http.StatusInternalServerError, err)
+	}
+
 	resp := &models.IPAMResponse{
-		HostAddressing: node.GetNodeAddressing(r.Logger),
+		HostAddressing: nodeRouterAddressing,
 		Address:        &models.AddressPair{},
 	}
 
@@ -83,6 +93,33 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 	}
 
 	return ipamapi.NewPostIpamCreated().WithPayload(resp)
+}
+
+func (r *IpamPostIpamHandler) getNodeRouterAddressing(ctx context.Context) (*models.NodeAddressing, error) {
+	ln, err := r.LocalNodeStore.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	nodeRouterAddressing := &models.NodeAddressing{}
+
+	if r.DaemonConfig.EnableIPv6 {
+		nodeRouterAddressing.IPV6 = &models.NodeAddressingElement{
+			Enabled:    r.DaemonConfig.EnableIPv6,
+			IP:         ln.GetCiliumInternalIP(true).String(),
+			AllocRange: ln.IPv6AllocCIDR.String(),
+		}
+	}
+
+	if r.DaemonConfig.EnableIPv4 {
+		nodeRouterAddressing.IPV4 = &models.NodeAddressingElement{
+			Enabled:    r.DaemonConfig.EnableIPv4,
+			IP:         ln.GetCiliumInternalIP(false).String(),
+			AllocRange: ln.IPv4AllocCIDR.String(),
+		}
+	}
+
+	return nodeRouterAddressing, nil
 }
 
 // Handle incoming requests address allocation requests for the daemon.
