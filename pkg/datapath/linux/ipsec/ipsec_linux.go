@@ -1242,7 +1242,9 @@ func (a *Agent) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, 
 			// This will set addrs.ipsecKeyIdentity in the node
 			// package, and eventually trigger an update to
 			// publish the updated information to k8s/kvstore.
-			node.SetIPsecKeyIdentity(spi)
+			a.localNode.Update(func(ln *node.LocalNode) {
+				ln.EncryptionKey = spi
+			})
 
 			// AllNodeValidateImplementation will eventually call
 			// nodeUpdate(), which is responsible for updating the
