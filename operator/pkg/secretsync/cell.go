@@ -51,8 +51,9 @@ type secretSyncParams struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	CtrlRuntimeManager ctrlRuntime.Manager
-	Registrations      []*SecretSyncRegistration `group:"secretSyncRegistrations"`
+	CtrlRuntimeManager     ctrlRuntime.Manager
+	Registrations          []*SecretSyncRegistration    `group:"secretSyncRegistrations"`
+	ConfigMapRegistrations []*ConfigMapSyncRegistration `group:"configMapSyncRegistrations"`
 }
 
 // SecretSyncRegistrationOut can be used by other subsystems
@@ -61,7 +62,8 @@ type secretSyncParams struct {
 type SecretSyncRegistrationOut struct {
 	cell.Out
 
-	SecretSyncRegistration *SecretSyncRegistration `group:"secretSyncRegistrations"`
+	SecretSyncRegistration    *SecretSyncRegistration    `group:"secretSyncRegistrations"`
+	ConfigMapSyncRegistration *ConfigMapSyncRegistration `group:"configMapSyncRegistrations"`
 }
 
 func initSecretSyncReconciliation(params secretSyncParams) error {
@@ -70,17 +72,26 @@ func initSecretSyncReconciliation(params secretSyncParams) error {
 		return nil
 	}
 
-	params.Logger.Debug("Synchronized Secrets will resync", logfields.SyncInterval, resyncInterval)
+	params.Logger.Debug("Synchronized Secrets and Configmaps will resync", logfields.SyncInterval, resyncInterval)
 
 	reconciler := NewSecretSyncReconciler(params.CtrlRuntimeManager.GetClient(), params.Logger, params.Registrations, resyncInterval, jitterAmount)
 
-	if !reconciler.hasRegistrations() {
+	if reconciler.hasRegistrations() {
+		if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+			return fmt.Errorf("failed to setup secret sync reconciler: %w", err)
+		}
+	} else {
 		params.Logger.Debug("Skipping secret sync initialization as no registrations are available")
+	}
+
+	cfgMapReconciler := NewConfigMapSyncReconciler(params.CtrlRuntimeManager.GetClient(), params.Logger, params.ConfigMapRegistrations, resyncInterval, jitterAmount)
+	if !cfgMapReconciler.hasRegistrations() {
+		params.Logger.Debug("Skipping configmap sync initialization as no registrations are available")
 		return nil
 	}
 
-	if err := reconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
-		return fmt.Errorf("failed to setup secret sync reconciler: %w", err)
+	if err := cfgMapReconciler.SetupWithManager(params.CtrlRuntimeManager); err != nil {
+		return fmt.Errorf("failed to setup configmap sync reconciler: %w", err)
 	}
 
 	return nil
