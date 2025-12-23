@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
@@ -371,29 +370,6 @@ func SetIPv6Router(ip net.IP) {
 	localNode.Update(func(n *LocalNode) {
 		n.SetCiliumInternalIP(ip)
 	})
-}
-
-// GetNodeAddressing returns the NodeAddressing model for the local IPs.
-func GetNodeAddressing(logger *slog.Logger) *models.NodeAddressing {
-	a := &models.NodeAddressing{}
-
-	if option.Config.EnableIPv6 {
-		a.IPV6 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv6,
-			IP:         GetIPv6Router(logger).String(),
-			AllocRange: GetIPv6AllocRange(logger).String(),
-		}
-	}
-
-	if option.Config.EnableIPv4 {
-		a.IPV4 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv4,
-			IP:         GetInternalIPv4Router(logger).String(),
-			AllocRange: GetIPv4AllocRange(logger).String(),
-		}
-	}
-
-	return a
 }
 
 func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
