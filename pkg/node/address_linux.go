@@ -7,7 +7,6 @@ package node
 
 import (
 	"fmt"
-	"log/slog"
 	"net"
 	"sort"
 
@@ -16,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 func firstGlobalAddr(intf string, preferredIP net.IP, family int, preferPublic bool) (net.IP, error) {
@@ -166,9 +164,9 @@ func firstGlobalV6Addr(intf string, preferredIP net.IP, preferPublic bool) (net.
 	return firstGlobalAddr(intf, preferredIP, netlink.FAMILY_V6, preferPublic)
 }
 
-// getCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
+// GetCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
 // it
-func getCiliumHostIPsFromNetDev(logger *slog.Logger, devName string) (ipv4GW, ipv6Router net.IP) {
+func GetCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
 	hostDev, err := safenetlink.LinkByName(devName)
 	if err != nil {
 		return nil, nil
@@ -187,15 +185,6 @@ func getCiliumHostIPsFromNetDev(logger *slog.Logger, devName string) (ipv4GW, ip
 				ipv6Router = addr.IP
 			}
 		}
-	}
-
-	if ipv4GW != nil || ipv6Router != nil {
-		logger.Info(
-			"Restored router address from device",
-			logfields.IPv4, ipv4GW,
-			logfields.IPv6, ipv6Router,
-			logfields.Device, devName,
-		)
 	}
 
 	return ipv4GW, ipv6Router
