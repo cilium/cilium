@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -113,14 +112,14 @@ func newLocalNodeConfig(
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
 
-	ciliumHostLink, err := safenetlink.LinkByName(defaults.HostDevice)
-	if err != nil {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
+	deviceNameIndex := deviceNameIndexMap(txn, devices)
+	ciliumHostIfIndex, ok := deviceNameIndex[defaults.HostDevice]
+	if !ok {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
 	}
-
-	ciliumNetLink, err := safenetlink.LinkByName(defaults.SecondHostDevice)
-	if err != nil {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
+	ciliumNetIfIndex, ok := deviceNameIndex[defaults.SecondHostDevice]
+	if !ok {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
 	}
 
 	return datapath.LocalNodeConfiguration{
@@ -128,8 +127,8 @@ func newLocalNodeConfig(
 		NodeIPv6:                     localNode.GetNodeIP(true),
 		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
 		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
-		CiliumNetIfIndex:             uint32(ciliumNetLink.Attrs().Index),
-		CiliumHostIfIndex:            uint32(ciliumHostLink.Attrs().Index),
+		CiliumNetIfIndex:             uint32(ciliumNetIfIndex),
+		CiliumHostIfIndex:            uint32(ciliumHostIfIndex),
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
@@ -184,4 +183,12 @@ func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
 	}
 
 	return ephemeralPortMin, nil
+}
+
+func deviceNameIndexMap(txn statedb.ReadTxn, devices statedb.Table[*tables.Device]) map[string]int {
+	nameIndex := make(map[string]int)
+	for d := range devices.All(txn) {
+		nameIndex[d.Name] = d.Index
+	}
+	return nameIndex
 }
