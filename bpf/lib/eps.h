@@ -110,7 +110,8 @@ struct remote_endpoint_info {
 			flag_has_tunnel_ep:1,
 			flag_ipv6_tunnel_ep:1,
 			flag_remote_cluster:1,
-			pad2:4;
+			flag_unroutable:1,
+			pad2:3;
 };
 
 struct ipcache_key {

@@ -58,6 +58,10 @@ type Service struct {
 	// to the backend. If undefined the default mode is used (--bpf-lb-mode).
 	ForwardingMode SVCForwardingMode
 
+	// UnsupportedProtoAction controls whether we drop or forward traffic carrying
+	// unsupported transport protocols.
+	UnsupportedProtoAction annotation.UnsupportedProtoAction
+
 	// SessionAffinity if true will enable the client IP based session affinity.
 	SessionAffinity bool
 
@@ -241,6 +245,10 @@ func (svc *Service) TableRow() []string {
 
 	if svc.ForwardingMode != SVCForwardingModeUndef {
 		flags = append(flags, "ForwardingMode="+string(svc.ForwardingMode))
+	}
+
+	if svc.UnsupportedProtoAction != annotation.UnsupportedProtoActionUnspec {
+		flags = append(flags, "UnsupportedProtoAction="+string(svc.UnsupportedProtoAction))
 	}
 
 	if svc.TrafficDistribution != TrafficDistributionDefault {

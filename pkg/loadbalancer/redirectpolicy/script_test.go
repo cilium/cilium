@@ -24,8 +24,10 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
@@ -67,6 +69,15 @@ func TestScript(t *testing.T) {
 		ctx,
 		func(t testing.TB, args []string) *script.Engine {
 			log := hivetest.Logger(t, opts...)
+
+			// A fresh instance of ipcache is needed.
+			ipcacheConfig := &ipcache.Configuration{
+				Context: t.Context(),
+				Logger:  log,
+			}
+			ipc := ipcache.NewIPCache(ipcacheConfig)
+			t.Cleanup(func() { ipc.Shutdown() })
+
 			h := hive.New(
 				k8sClient.FakeClientCell(),
 				daemonk8s.ResourcesCell,
@@ -78,6 +89,14 @@ func TestScript(t *testing.T) {
 
 				node.LocalNodeStoreTestCell,
 				maglev.Cell,
+				cell.Provide(
+					regeneration.NewFence,
+					ipcache.NewLocalIPIdentityWatcher,
+					ipcache.NewIPIdentitySynchronizer,
+					func() *ipcache.IPCache {
+						return ipc
+					},
+				),
 				cell.Provide(
 					func() cmtypes.ClusterInfo { return cmtypes.ClusterInfo{} },
 					source.NewSources,
