@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -301,29 +300,6 @@ func GetIPv6(logger *slog.Logger) net.IP {
 func GetIPv6Router(logger *slog.Logger) net.IP {
 	n := getLocalNode(logger)
 	return clone(n.GetCiliumInternalIP(true))
-}
-
-// GetNodeAddressing returns the NodeAddressing model for the local IPs.
-func GetNodeAddressing(logger *slog.Logger) *models.NodeAddressing {
-	a := &models.NodeAddressing{}
-
-	if option.Config.EnableIPv6 {
-		a.IPV6 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv6,
-			IP:         GetIPv6Router(logger).String(),
-			AllocRange: GetIPv6AllocRange(logger).String(),
-		}
-	}
-
-	if option.Config.EnableIPv4 {
-		a.IPV4 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv4,
-			IP:         GetInternalIPv4Router(logger).String(),
-			AllocRange: GetIPv4AllocRange(logger).String(),
-		}
-	}
-
-	return a
 }
 
 // GetEndpointHealthIPv4 returns the IPv4 cilium-health endpoint address.
