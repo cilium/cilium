@@ -31,7 +31,7 @@ func (k *K8sCiliumEndpointsWatcher) ciliumEndpointSliceInit(ctx context.Context)
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEndpointSliceV2Alpha1)
 
 	go func() {
-		events := k.resources.CiliumEndpointSlice.Events(ctx)
+		events := k.ciliumEndpointSlice.Events(ctx)
 		cache := make(map[resource.Key]*cilium_api_v2a1.CiliumEndpointSlice)
 		for event := range events {
 			switch event.Kind {

@@ -12,12 +12,9 @@ import (
 	envoy "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -89,26 +86,3 @@ type LocalNodeResource resource.Resource[*slim_corev1.Node]
 // LocalCiliumNodeResource is a resource.Resource[*cilium_api_v2.CiliumNode] but one which will only stream updates for the
 // CiliumNode object associated with the node we are currently running on.
 type LocalCiliumNodeResource resource.Resource[*cilium_api_v2.CiliumNode]
-
-// Resources is a convenience struct to group all the agent k8s resources as cell constructor parameters.
-type Resources struct {
-	cell.In
-
-	LocalNode                        LocalNodeResource
-	LocalCiliumNode                  LocalCiliumNodeResource
-	NetworkPolicies                  resource.Resource[*slim_networkingv1.NetworkPolicy]
-	CiliumNetworkPolicies            resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]
-	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy]
-	CiliumCIDRGroups                 resource.Resource[*cilium_api_v2.CiliumCIDRGroup]
-	CiliumSlimEndpoint               resource.Resource[*types.CiliumEndpoint]
-	CiliumEndpointSlice              resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice]
-	CiliumNode                       resource.Resource[*cilium_api_v2.CiliumNode]
-}
-
-// LocalNodeResources is a convenience struct to group CiliumNode and Node resources as cell constructor parameters.
-type LocalNodeResources struct {
-	cell.In
-
-	LocalNode       LocalNodeResource
-	LocalCiliumNode LocalCiliumNodeResource
-}
