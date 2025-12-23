@@ -28,7 +28,6 @@ var (
 	}
 
 	specDebugLB = Option{
-		Define:      "LB_DEBUG",
 		Description: "Enable debugging trace statements for load balancer",
 	}
 
