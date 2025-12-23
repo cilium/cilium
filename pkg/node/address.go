@@ -424,14 +424,6 @@ func ExtractCiliumHostIPFromFS(logger *slog.Logger) (ipv4GW, ipv6Router net.IP) 
 	return getCiliumHostIPsFromNetDev(logger, defaults.HostDevice)
 }
 
-// SetIPsecKeyIdentity sets the IPsec key identity an opaque value used to
-// identity encryption keys used on the node.
-func SetIPsecKeyIdentity(id uint8) {
-	localNode.Update(func(n *LocalNode) {
-		n.EncryptionKey = id
-	})
-}
-
 func GetOptOutNodeEncryption(logger *slog.Logger) bool {
 	return getLocalNode(logger).Local.OptOutNodeEncryption
 }
