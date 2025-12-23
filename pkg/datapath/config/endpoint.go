@@ -56,5 +56,7 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.LbDebug = ep.GetOptions().IsEnabled(option.DebugLB)
+
 	return cfg
 }
