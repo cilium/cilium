@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +24,7 @@ import (
 )
 
 var (
-	PodPrefixLbl = labels.LabelSourceK8s + ":" + k8sConst.PodNamespaceLabel
+	podPrefixLbl = labels.LabelSourceK8s + ":" + k8sConst.PodNamespaceLabel
 )
 
 func CiliumSlimEndpointResource(params k8s.CiliumResourceParams, mp workqueue.MetricsProvider, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
@@ -103,13 +104,13 @@ func ciliumIdentityNamespaceIndexFunc(obj any) ([]string, error) {
 	switch t := obj.(type) {
 	case *cilium_api_v2.CiliumIdentity:
 		// Look for the namespace in security labels.
-		if namespace, exists := t.SecurityLabels[PodPrefixLbl]; exists {
+		if namespace, exists := t.SecurityLabels[podPrefixLbl]; exists {
 			return []string{namespace}, nil
 		}
 		// If no namespace found, return empty slice (no namespace association).
 		return []string{}, nil
 	}
-	return nil, fmt.Errorf("object is not a *cilium_api_v2.CiliumIdentity - got %T", obj)
+	return nil, fmt.Errorf("%w - found %T", errors.New("object is not a *cilium_api_v2.CiliumIdentity"), obj)
 }
 
 // ciliumEndpointSliceNamespaceIndexFunc extracts the namespace from CiliumEndpointSlice.
@@ -122,5 +123,5 @@ func ciliumEndpointSliceNamespaceIndexFunc(obj any) ([]string, error) {
 		}
 		return []string{}, nil
 	}
-	return nil, fmt.Errorf("object is not a *cilium_api_v2alpha1.CiliumEndpointSlice - got %T", obj)
+	return nil, fmt.Errorf("%w - found %T", errors.New("object is not a *cilium_api_v2alpha1.CiliumEndpointSlice"), obj)
 }

@@ -6,7 +6,6 @@ package clustermesh
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 
-	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -26,7 +25,7 @@ func (gn *GenericNamespacer[T]) ExtractNamespace(event resource.Event[T]) (names
 func newCiliumIdentityNamespacer() Namespacer[*cilium_api_v2.CiliumIdentity] {
 	return &GenericNamespacer[*cilium_api_v2.CiliumIdentity]{
 		extract: func(obj *cilium_api_v2.CiliumIdentity) string {
-			return obj.SecurityLabels[cmk8s.PodPrefixLbl]
+			return obj.SecurityLabels[podPrefixLbl]
 		},
 	}
 }
