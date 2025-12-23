@@ -27,6 +27,10 @@ const (
 	ReferenceGrantKind    string = "referencegrants"
 	TLSRouteKind          string = "tlsroutes"
 	TLSRouteListKind      string = "tlsroutelists"
+	TCPRouteKind          string = "tcproutes"
+	TCPRouteListKind      string = "tcproutelists"
+	UDPRouteKind          string = "udproutes"
+	UDPRouteListKind      string = "udproutelists"
 	ServiceImportKind     string = "serviceimports"
 	ServiceImportListKind string = "serviceimportlists"
 )
@@ -96,6 +100,14 @@ func GetConcreteObject(schemaType schema.GroupVersionKind) runtime.Object {
 		return &gatewayv1alpha2.TLSRoute{}
 	case TLSRouteListKind:
 		return &gatewayv1alpha2.TLSRouteList{}
+	case TCPRouteKind:
+		return &gatewayv1alpha2.TCPRoute{}
+	case TCPRouteListKind:
+		return &gatewayv1alpha2.TCPRouteList{}
+	case UDPRouteKind:
+		return &gatewayv1alpha2.UDPRoute{}
+	case UDPRouteListKind:
+		return &gatewayv1alpha2.UDPRouteList{}
 	case ServiceImportKind:
 		return &mcsapiv1alpha1.ServiceImport{}
 	case ServiceImportListKind:

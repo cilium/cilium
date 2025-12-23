@@ -103,6 +103,7 @@ rules:
   - ciliumendpoints
   - ciliumendpointslices
   - ciliumenvoyconfigs
+  - ciliumgatewayl4configs
   - ciliumidentities
   - ciliumlocalredirectpolicies
   - ciliumnetworkpolicies

@@ -41,6 +41,7 @@ import (
 	endpoint "github.com/cilium/cilium/pkg/endpoint/cell"
 	"github.com/cilium/cilium/pkg/envoy"
 	fqdn "github.com/cilium/cilium/pkg/fqdn/cell"
+	"github.com/cilium/cilium/pkg/gatewayl4"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/health"
 	"github.com/cilium/cilium/pkg/healthconfig"
@@ -198,6 +199,9 @@ var (
 
 		// StateDB tables for Kubernetes objects.
 		agentK8s.TablesCell,
+
+		// Gateway API L4 config table and reflector.
+		gatewayl4.Cell,
 
 		// Shared synchronization structures for waiting on K8s resources to
 		// be synced

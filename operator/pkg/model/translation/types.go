@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 // Translator is the interface to take the model and generate required CiliumEnvoyConfig,
@@ -16,7 +17,7 @@ import (
 //
 // Different use cases (e.g. Ingress, Gateway API) can provide its own generation logic.
 type Translator interface {
-	Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error)
+	Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *ciliumv2alpha1.CiliumGatewayL4Config, *corev1.Service, *discoveryv1.EndpointSlice, error)
 }
 
 // CECTranslator is the interface to take the model and generate required CiliumEnvoyConfig.
@@ -24,4 +25,10 @@ type Translator interface {
 type CECTranslator interface {
 	// Translate translates the model to CiliumEnvoyConfig.
 	Translate(namespace string, name string, model *model.Model) (*ciliumv2.CiliumEnvoyConfig, error)
+}
+
+// GL4CTranslator is the interface to take the model and generate required CiliumGatewayL4Config.
+type GL4CTranslator interface {
+	// Translate translates the model to CiliumGatewayL4Config.
+	Translate(namespace string, name string, model *model.Model) (*ciliumv2alpha1.CiliumGatewayL4Config, error)
 }

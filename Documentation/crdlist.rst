@@ -11,6 +11,7 @@
 - :ref:`CiliumEndpointSlice<CiliumEndpointSlice>`
 - CiliumEnvoyConfig
 - CiliumGatewayClassConfig
+- CiliumGatewayL4Config
 - CiliumIdentity
 - CiliumL2AnnouncementPolicy
 - CiliumLoadBalancerIPPool

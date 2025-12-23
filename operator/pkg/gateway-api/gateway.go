@@ -33,12 +33,14 @@ import (
 	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
 	// Deprecated: owningGatewayLabel will be removed later in favour of gatewayNameLabel
 	owningGatewayLabel = "io.cilium.gateway/owning-gateway"
+	gatewayNameLabel   = "gateway.networking.k8s.io/gateway-name"
 
 	lastTransitionTime = "LastTransitionTime"
 )
@@ -69,12 +71,16 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 // The reconciler will be triggered by Gateway, or any cilium-managed GatewayClass events
 func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Determine which optional CRDs are enabled
-	var tlsRouteEnabled, serviceImportEnabled bool
+	var tlsRouteEnabled, tcpRouteEnabled, udpRouteEnabled, serviceImportEnabled bool
 
 	for _, gvk := range r.installedCRDs {
 		switch gvk.Kind {
 		case helpers.TLSRouteKind:
 			tlsRouteEnabled = true
+		case helpers.TCPRouteKind:
+			tcpRouteEnabled = true
+		case helpers.UDPRouteKind:
+			udpRouteEnabled = true
 		case helpers.ServiceImportKind:
 			serviceImportEnabled = true
 		}
@@ -109,6 +115,30 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			gatewayTLSRouteIndex:        indexers.IndexTLSRouteByGateway,
 		} {
 			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TLSRoute{}, indexName, indexerFunc); err != nil {
+				return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+			}
+		}
+	}
+
+	// Add indexes for TCPRoutes
+	if tcpRouteEnabled {
+		for indexName, indexerFunc := range map[string]client.IndexerFunc{
+			backendServiceTCPRouteIndex: indexers.GenerateIndexerTCPRoutebyBackendService(r.Client, r.logger),
+			gatewayTCPRouteIndex:        indexers.IndexTCPRouteByGateway,
+		} {
+			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.TCPRoute{}, indexName, indexerFunc); err != nil {
+				return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
+			}
+		}
+	}
+
+	// Add indexes for UDPRoutes
+	if udpRouteEnabled {
+		for indexName, indexerFunc := range map[string]client.IndexerFunc{
+			backendServiceUDPRouteIndex: indexers.GenerateIndexerUDPRoutebyBackendService(r.Client, r.logger),
+			gatewayUDPRouteIndex:        indexers.IndexUDPRouteByGateway,
+		} {
+			if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1alpha2.UDPRoute{}, indexName, indexerFunc); err != nil {
 				return fmt.Errorf("failed to setup field indexer %q: %w", indexName, err)
 			}
 		}
@@ -151,12 +181,23 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&gatewayv1beta1.ReferenceGrant{}, r.enqueueRequestForReferenceGrant()).
 		// Watch created and owned resources
 		Owns(&ciliumv2.CiliumEnvoyConfig{}).
+		Owns(&ciliumv2alpha1.CiliumGatewayL4Config{}).
 		Owns(&corev1.Service{}).
 		Owns(&discoveryv1.EndpointSlice{})
 
 	if tlsRouteEnabled {
 		// Watch TLSRoute linked to Gateway
 		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1alpha2.TLSRoute{}, r.enqueueRequestForOwningTLSRoute(r.logger))
+	}
+
+	if tcpRouteEnabled {
+		// Watch TCPRoute linked to Gateway
+		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1alpha2.TCPRoute{}, r.enqueueRequestForOwningTCPRoute(r.logger))
+	}
+
+	if udpRouteEnabled {
+		// Watch UDPRoute linked to Gateway
+		gatewayBuilder = gatewayBuilder.Watches(&gatewayv1alpha2.UDPRoute{}, r.enqueueRequestForOwningUDPRoute(r.logger))
 	}
 
 	if serviceImportEnabled {
@@ -228,6 +269,32 @@ func (r *gatewayReconciler) enqueueRequestForOwningTLSRoute(logger *slog.Logger)
 	})
 }
 
+// enqueueRequestForOwningTCPRoute returns an event handler that, when passed a TCPRoute, returns reconcile.Requests
+// for any Cilium-relevant Gateways associated with that TCPRoute.
+func (r *gatewayReconciler) enqueueRequestForOwningTCPRoute(logger *slog.Logger) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		tr, ok := a.(*gatewayv1alpha2.TCPRoute)
+		if !ok {
+			return nil
+		}
+
+		return getGatewayReconcileRequestsForRoute(ctx, r.Client, a, tr.Spec.CommonRouteSpec, logger)
+	})
+}
+
+// enqueueRequestForOwningUDPRoute returns an event handler that, when passed a UDPRoute, returns reconcile.Requests
+// for any Cilium-relevant Gateways associated with that UDPRoute.
+func (r *gatewayReconciler) enqueueRequestForOwningUDPRoute(logger *slog.Logger) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+		ur, ok := a.(*gatewayv1alpha2.UDPRoute)
+		if !ok {
+			return nil
+		}
+
+		return getGatewayReconcileRequestsForRoute(ctx, r.Client, a, ur.Spec.CommonRouteSpec, logger)
+	})
+}
+
 // enqueueRequestForOwningGRPCRoute returns an event handler that, when passed a GRPCRoute, returns reconcile.Requests
 // for any Cilium-relevant Gateways associated with that GRPCRoute.
 func (r *gatewayReconciler) enqueueRequestForOwningGRPCRoute() handler.EventHandler {
@@ -271,11 +338,33 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 		if err := r.Client.List(ctx, tlsrList, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(backendServiceTLSRouteIndex, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
-			scopedLog.Error("Failed to get related HTTPRoutes", logfields.Error, err)
+			scopedLog.Error("Failed to get related TLSRoutes", logfields.Error, err)
 			return []reconcile.Request{}
 		}
 
+		// Then, fetch all TCPRoutes that reference this service, using the backendServiceIndex
+		tcprList := &gatewayv1alpha2.TCPRouteList{}
+
+		if err := r.Client.List(ctx, tcprList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(backendServiceTCPRouteIndex, client.ObjectKeyFromObject(o).String()),
+		}); err != nil {
+			scopedLog.Error("Failed to get related TCPRoutes", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+
+		// Then, fetch all UDPRoutes that reference this service, using the backendServiceIndex
+		udprList := &gatewayv1alpha2.UDPRouteList{}
+
+		if err := r.Client.List(ctx, udprList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(backendServiceUDPRouteIndex, client.ObjectKeyFromObject(o).String()),
+		}); err != nil {
+			scopedLog.Error("Failed to get related UDPRoutes", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+
+		// Then, fetch all GRPCRoutes that reference this service, using the backendServiceIndex
 		grpcRouteList := &gatewayv1.GRPCRouteList{}
+
 		if err := r.Client.List(ctx, grpcRouteList, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(backendServiceGRPCRouteIndex, client.ObjectKeyFromObject(o).String()),
 		}); err != nil {
@@ -314,7 +403,17 @@ func (r *gatewayReconciler) enqueueRequestForBackendService() handler.EventHandl
 			updateReconcileRequestsForParentRefs(tlsr.Spec.ParentRefs, tlsr.Namespace, allCiliumGatewaysSet, reconcileRequests)
 		}
 
-		// iterate through the TLSRoutes, update reconcileRequests for each Gateway that is relevant.
+		// iterate through the TCPRoutes, update reconcileRequests for each Gateway that is relevant.
+		for _, tcpr := range tcprList.Items {
+			updateReconcileRequestsForParentRefs(tcpr.Spec.ParentRefs, tcpr.Namespace, allCiliumGatewaysSet, reconcileRequests)
+		}
+
+		// iterate through the UDPRoutes, update reconcileRequests for each Gateway that is relevant.
+		for _, udpr := range udprList.Items {
+			updateReconcileRequestsForParentRefs(udpr.Spec.ParentRefs, udpr.Namespace, allCiliumGatewaysSet, reconcileRequests)
+		}
+
+		// iterate through the GRPCRoutes, update reconcileRequests for each Gateway that is relevant.
 		for _, grpcr := range grpcRouteList.Items {
 			updateReconcileRequestsForParentRefs(grpcr.Spec.ParentRefs, grpcr.Namespace, allCiliumGatewaysSet, reconcileRequests)
 		}

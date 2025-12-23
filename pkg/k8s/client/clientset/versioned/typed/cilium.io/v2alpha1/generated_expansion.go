@@ -21,6 +21,8 @@ type CiliumEndpointSliceExpansion interface{}
 
 type CiliumGatewayClassConfigExpansion interface{}
 
+type CiliumGatewayL4ConfigExpansion interface{}
+
 type CiliumL2AnnouncementPolicyExpansion interface{}
 
 type CiliumLoadBalancerIPPoolExpansion interface{}

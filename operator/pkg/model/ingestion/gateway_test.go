@@ -48,7 +48,7 @@ func TestHTTPGatewayAPI(t *testing.T) {
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
 			input := readGatewayInput(t, name)
-			listeners, _ := GatewayAPI(input)
+			listeners, _, _ := GatewayAPI(input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
@@ -67,7 +67,7 @@ func TestTLSGatewayAPI(t *testing.T) {
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
 			input := readGatewayInput(t, name)
-			_, listeners := GatewayAPI(input)
+			_, listeners, _ := GatewayAPI(input)
 
 			expected := []model.TLSPassthroughListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
@@ -85,7 +85,7 @@ func TestGRPCGatewayAPI(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			input := readGatewayInput(t, name)
 
-			listeners, _ := GatewayAPI(input)
+			listeners, _, _ := GatewayAPI(input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)

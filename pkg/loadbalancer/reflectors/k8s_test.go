@@ -9,10 +9,12 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/source"
@@ -67,4 +69,32 @@ func BenchmarkConvertEndpoints(b *testing.B) {
 		convertEndpoints(logger, benchmarkExternalConfig, eps.ServiceName, backends)
 	}
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "endpoints/sec")
+}
+
+func TestConvertServiceFrontends(t *testing.T) {
+	svc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "10.0.0.1",
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: slim_corev1.ProtocolTCP,
+				},
+				{
+					Name:     "udp",
+					Port:     8054,
+					Protocol: slim_corev1.ProtocolUDP,
+				},
+			},
+			Type: slim_corev1.ServiceTypeClusterIP,
+		},
+	}
+
+	_, fes := convertService(loadbalancer.DefaultConfig, benchmarkExternalConfig, slog.New(slog.DiscardHandler), nil, svc, source.Kubernetes)
+	require.Len(t, fes, 2)
 }
