@@ -129,21 +129,6 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 }
 
 func configureDaemon(ctx context.Context, params daemonParams) error {
-	var err error
-
-	bootstrapStats.restore.Start()
-	// fetch old endpoints before k8s is configured.
-	if err := params.EndpointRestorer.FetchOldEndpoints(ctx, params.DaemonConfig.StateDir); err != nil {
-		params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
-	}
-	bootstrapStats.restore.End(true)
-
-	// Load cached information from restored endpoints in to FQDN NameManager and DNS proxies
-	bootstrapStats.fqdn.Start()
-	params.DNSNameManager.RestoreCache(params.EndpointRestorer.GetState().possible)
-	params.DNSProxy.BootstrapFQDN(params.EndpointRestorer.GetState().possible)
-	bootstrapStats.fqdn.End(true)
-
 	if params.Clientset.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
@@ -223,7 +208,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	err = params.EndpointRestorer.RestoreOldEndpoints()
+	err := params.EndpointRestorer.RestoreOldEndpoints()
 	bootstrapStats.restore.EndError(err)
 	if err != nil {
 		return err

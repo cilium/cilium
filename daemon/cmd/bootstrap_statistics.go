@@ -15,7 +15,6 @@ type bootstrapStatistics struct {
 	k8sInit   spanstat.SpanStat
 	restore   spanstat.SpanStat
 	ipam      spanstat.SpanStat
-	fqdn      spanstat.SpanStat
 	kvstore   spanstat.SpanStat
 }
 
@@ -41,7 +40,6 @@ func (b *bootstrapStatistics) getMap() map[string]*spanstat.SpanStat {
 		"k8sInit":   &b.k8sInit,
 		"restore":   &b.restore,
 		"ipam":      &b.ipam,
-		"fqdn":      &b.fqdn,
 		"kvstore":   &b.kvstore,
 	}
 }
