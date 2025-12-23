@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -123,23 +122,25 @@ func newLocalNodeConfig(
 
 	hostEndpointID, _ := node.GetEndpointID()
 
-	ciliumHostLink, err := safenetlink.LinkByName(defaults.HostDevice)
-	if err != nil {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
+	ciliumHostDevice, _, hostWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
+	if !ok {
+		return datapath.LocalNodeConfiguration{}, hostWatch, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
 	}
+	watchChans = append(watchChans, hostWatch)
 
-	ciliumNetLink, err := safenetlink.LinkByName(defaults.SecondHostDevice)
-	if err != nil {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
+	ciliumNetDevice, _, netWatch, ok := devices.GetWatch(txn, tables.DeviceNameIndex.Query(defaults.SecondHostDevice))
+	if !ok {
+		return datapath.LocalNodeConfiguration{}, netWatch, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
 	}
+	watchChans = append(watchChans, netWatch)
 
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
 		NodeIPv6:                     localNode.GetNodeIP(true),
 		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
 		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
-		CiliumNetIfIndex:             uint32(ciliumNetLink.Attrs().Index),
-		CiliumHostIfIndex:            uint32(ciliumHostLink.Attrs().Index),
+		CiliumNetIfIndex:             uint32(ciliumNetDevice.Index),
+		CiliumHostIfIndex:            uint32(ciliumHostDevice.Index),
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
