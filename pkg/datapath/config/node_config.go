@@ -19,6 +19,8 @@ type Node struct {
 	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
 	// Number of timer ticks per second.
 	KernelHz uint32 `config:"kernel_hz"`
+	// Enable debugging trace statements for load balancer.
+	LbDebug bool `config:"lb_debug"`
 	// Enable ICMP responses for policy-denied traffic.
 	PolicyDenyResponseEnabled bool `config:"policy_deny_response_enabled"`
 	// Internal IPv6 router address assigned to the cilium_host interface.
@@ -38,7 +40,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0xff, 0x0, false, false, 0x0, false,
+	return &Node{0xff, 0x0, false, false, 0x0, false, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
