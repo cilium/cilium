@@ -148,18 +148,18 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("dst IP hasn't been NATed to remote backend IP");
 
 	if (opt->hdr.nexthdr != IPPROTO_TCP)
-		test_fatal("nexthdr in DSR extension is bad")
+		test_fatal("nexthdr in DSR extension is bad");
 	if (opt->hdr.hdrlen != DSR_IPV6_EXT_LEN)
-		test_fatal("length in DSR extension is bad")
+		test_fatal("length in DSR extension is bad");
 	if (opt->opt_type != DSR_IPV6_OPT_TYPE)
-		test_fatal("opt_type in DSR extension is bad")
+		test_fatal("opt_type in DSR extension is bad");
 	if (opt->opt_len != DSR_IPV6_OPT_LEN)
-		test_fatal("opt_len in DSR extension is bad")
+		test_fatal("opt_len in DSR extension is bad");
 
 	if (opt->port != FRONTEND_PORT)
-		test_fatal("port in DSR extension is bad")
+		test_fatal("port in DSR extension is bad");
 	if (!ipv6_addr_equals((union v6addr *)&opt->addr, &frontend_ip))
-		test_fatal("addr in DSR extension is bad")
+		test_fatal("addr in DSR extension is bad");
 
 	if (l4->source != CLIENT_PORT)
 		test_fatal("src port has changed");

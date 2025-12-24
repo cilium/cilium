@@ -171,9 +171,9 @@ int tc_nodeport_lb_terminating_backend_0_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("dst MAC is not the endpoint MAC");
 
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");
@@ -275,9 +275,9 @@ int tc_nodeport_lb_terminating_backend_1_check(const struct __ctx_buff *ctx)
 		test_fatal("l4 out of bounds");
 
 	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the node MAC")
+		test_fatal("src MAC is not the node MAC");
 	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the endpoint MAC")
+		test_fatal("dst MAC is not the endpoint MAC");
 
 	if (l3->saddr != CLIENT_IP)
 		test_fatal("src IP has changed");
