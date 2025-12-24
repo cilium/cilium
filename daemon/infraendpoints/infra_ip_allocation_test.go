@@ -121,35 +121,35 @@ func TestDaemon_reallocateDatapathIPs(t *testing.T) {
 	invalidFromK8s := net.ParseIP("172.16.0.41")
 
 	// no restoration needed
-	result := infraIPAllocator.reallocateDatapathIPs(nil, nil)
+	result := infraIPAllocator.reallocateOldRouterIPs(nil, nil)
 	assert.Nil(t, result)
 
 	// fromK8s if fromFS is not available
-	result = infraIPAllocator.reallocateDatapathIPs(fromK8s, nil)
+	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, nil)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromK8s)
 
 	// fromFS if fromK8s is not available
-	result = infraIPAllocator.reallocateDatapathIPs(nil, fromFS)
+	result = infraIPAllocator.reallocateOldRouterIPs(nil, fromFS)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromFS)
 
 	// fromFS should be preferred
-	result = infraIPAllocator.reallocateDatapathIPs(fromK8s, fromFS)
+	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, fromFS)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromFS)
 
 	// reject restoration if the IP is not in the allocation CIDR
-	result = infraIPAllocator.reallocateDatapathIPs(invalidFromFS, invalidFromK8s)
+	result = infraIPAllocator.reallocateOldRouterIPs(invalidFromFS, invalidFromK8s)
 	assert.Nil(t, result)
 
 	// fromFS with invalid fromK8s
-	result = infraIPAllocator.reallocateDatapathIPs(invalidFromK8s, fromFS)
+	result = infraIPAllocator.reallocateOldRouterIPs(invalidFromK8s, fromFS)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromFS)
 
 	// fromFS with invalid fromK8s
-	result = infraIPAllocator.reallocateDatapathIPs(fromK8s, invalidFromFS)
+	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, invalidFromFS)
 	assert.NotNil(t, result)
 	assert.Equal(t, result.IP, fromK8s)
 }

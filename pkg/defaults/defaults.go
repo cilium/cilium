@@ -289,12 +289,6 @@ const (
 	// connection tracking garbage collection
 	ConntrackGCStartingInterval = 5 * time.Minute
 
-	// ServiceLoopbackIPv4 is the default address for service loopback
-	ServiceLoopbackIPv4 = "169.254.42.1"
-
-	// ServiceLoopbackIPv6 is the default address for service loopback
-	ServiceLoopbackIPv6 = "fe80::1"
-
 	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
 	// It is disabled by default for backwards compatibility.
 	EnableEndpointRoutes = false
