@@ -1089,7 +1089,7 @@
      - bool
      - ``true``
    * - :spelling:ignore:`clustermesh.useAPIServer`
-     - Deploy clustermesh-apiserver for clustermesh. This option is typically used with ``clustermesh.config.enabled=true``. Refer to the  ``clustermesh.config.enabled=true``\ documentation for more information.
+     - Deploy clustermesh-apiserver for clustermesh. This option is typically used with ``clustermesh.config.enabled=true``. Refer to the ``clustermesh.config.enabled=true``\ documentation for more information.
      - bool
      - ``false``
    * - :spelling:ignore:`cni.binPath`
@@ -1151,7 +1151,7 @@
    * - :spelling:ignore:`cni.resources`
      - Specifies the resources for the cni initContainer
      - object
-     - ``{"requests":{"cpu":"100m","memory":"10Mi"}}``
+     - ``{"limits":{"cpu":1,"memory":"1Gi"},"requests":{"cpu":"100m","memory":"10Mi"}}``
    * - :spelling:ignore:`cni.uninstall`
      - Remove the CNI configuration and binary files on agent shutdown. Enable this if you're removing Cilium from the cluster. Disable this to prevent the CNI configuration file from being removed during agent upgrade, which can cause nodes to go unmanageable.
      - bool

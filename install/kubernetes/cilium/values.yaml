@@ -807,6 +807,9 @@ cni:
     requests:
       cpu: 100m
       memory: 10Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
   # -- Enable route MTU for pod netns when CNI chaining is used
   enableRouteMTUForCNIChaining: false
   # -- Enable the removal of iptables rules created by the AWS CNI VPC plugin.
@@ -3417,7 +3420,7 @@ enableCriticalPriorityClass: true
 #disableEnvoyVersionCheck: false
 clustermesh:
   # -- Deploy clustermesh-apiserver for clustermesh. This option is typically
-  # used with ``clustermesh.config.enabled=true``. Refer to the 
+  # used with ``clustermesh.config.enabled=true``. Refer to the
   # ``clustermesh.config.enabled=true``documentation for more information.
   useAPIServer: false
   # -- The maximum number of clusters to support in a ClusterMesh. This value
