@@ -79,7 +79,8 @@ func TestGCEnableDualStack(t *testing.T) {
 
 	reset()
 
-	feedSignals := func(ctx context.Context, sigs ...SignalData) {
+	feedSignals := func(ctx context.Context, done chan any, ch chan SignalData, sigs ...SignalData) {
+		defer close(done)
 		for {
 			select {
 			case <-ctx.Done():
@@ -88,7 +89,7 @@ func TestGCEnableDualStack(t *testing.T) {
 				return
 			case <-time.After(time.Millisecond * 50):
 				for _, s := range sigs {
-					gc.signalHandler.signals <- s
+					ch <- s
 				}
 			}
 		}
@@ -97,35 +98,43 @@ func TestGCEnableDualStack(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	// feed ipv4 signals to simulate high pressure on *one* ip family.
-	go feedSignals(ctx, SignalProtoV4)
+	done := make(chan any)
+	go feedSignals(ctx, done, gc.signalHandler.signals, SignalProtoV4)
 
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.NotZero(c, dualPasses.Load())
 	}, time.Second, time.Millisecond*10, "Despite high signal load, ipv6 should not be starved")
 
 	cancel()
+	<-done
 	reset()
 
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	// feed ipv4 signals to simulate high pressure on *one* ip family.
-	go feedSignals(ctx, SignalProtoV6)
+	done = make(chan any)
+	go feedSignals(ctx, done, gc.signalHandler.signals, SignalProtoV6)
 
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.NotZero(c, dualPasses.Load())
 	}, time.Second, time.Millisecond*10, "Despite high signal load, ipv4 should not be starved")
 
 	cancel()
+	<-done
 	reset()
 
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	// feed ipv4 signals to simulate high pressure on *one* ip family.
-	go feedSignals(ctx, SignalProtoV6, SignalProtoV4)
+	done = make(chan any)
+	go feedSignals(ctx, done, gc.signalHandler.signals, SignalProtoV6, SignalProtoV4)
 
 	assert.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.NotZero(c, dualPasses.Load())
 	}, time.Second, time.Millisecond*10, "Should start full pass")
+
+	cancel()
+	<-done
 }
 
 // TestGCEnableRatchet tests the behavior of low, then high, purge ratios
