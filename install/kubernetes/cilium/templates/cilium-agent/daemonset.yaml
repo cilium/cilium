@@ -551,9 +551,12 @@ spec:
           value: {{ .Values.cgroup.hostRoot }}
         - name: BIN_PATH
           value: {{ .Values.cni.binPath }}
-        {{- with .Values.cgroup.autoMount.resources }}
+        {{- if .Values.cgroup.autoMount.resources }}
         resources:
-          {{- toYaml . | trim | nindent 10 }}
+          {{- toYaml .Values.cgroup.autoMount.resources | trim | nindent 10 }}
+        {{- else if .Values.initResources }}
+        resources:
+          {{- toYaml .Values.initResources | trim | nindent 10 }}
         {{- end }}
         command:
         - sh
