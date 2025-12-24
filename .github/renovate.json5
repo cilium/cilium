@@ -46,6 +46,7 @@
     ".github/actions/ipsec/configs.yaml",
     ".github/workflows/**",
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
+    "Documentation/requirements-min/requirements.txt",
     "cilium-cli/**",
     "images/**",
     "examples/hubble/*",
@@ -109,6 +110,7 @@
     "^make -C install/kubernetes$",
     "^make -C Documentation update-helm-values$",
     "^make -C Documentation update-cmdref$",
+    "^make -C Documentation update-requirements$",
     "^make generate-k8s-api$",
     "^make manifests$",
     "^make GO='contrib/scripts/builder.sh go' generate-apis$"
@@ -602,6 +604,20 @@
         "fileFilters": [
           "Documentation/cmdref/cilium_install.md",
           "Documentation/cmdref/cilium_upgrade.md"
+        ],
+        "executionMode": "update"
+      }
+    },
+    {
+      "matchFileNames": [
+        "Documentation/requirements-min/requirements.txt"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "make -C Documentation update-requirements"
+        ],
+        "fileFilters": [
+          "Documentation/requirements.txt"
         ],
         "executionMode": "update"
       }
