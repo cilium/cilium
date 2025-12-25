@@ -375,7 +375,7 @@ ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 static __always_inline int
 ctx_redirect_to_proxy_host_egress(struct __ctx_buff *ctx, __be16 proxy_port)
 {
-	union macaddr mac = CILIUM_HOST_MAC;
+	union macaddr mac = CONFIG(cilium_host_mac);
 
 	ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
