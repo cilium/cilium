@@ -65,7 +65,9 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 # include "lib/endpoint.h"
 
 const union macaddr router_mac = { .addr = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00} };
+const union macaddr cilium_host_mac = { .addr = {0xce, 0x72, 0xa7, 0x03, 0x88, 0x56} };
 
+ASSIGN_CONFIG(union macaddr, cilium_host_mac, cilium_host_mac)
 ASSIGN_CONFIG(union macaddr, interface_mac, router_mac)
 #endif
 

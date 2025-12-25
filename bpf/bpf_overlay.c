@@ -50,7 +50,7 @@
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx)
 {
-	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr host_mac = CONFIG(cilium_host_mac);
 	union macaddr router_mac = CONFIG(interface_mac);
 	int ret;
 
@@ -194,7 +194,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
-	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr host_mac = CONFIG(cilium_host_mac);
 	union macaddr router_mac = CONFIG(interface_mac);
 	int ret;
 
