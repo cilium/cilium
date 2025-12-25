@@ -14,6 +14,7 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.ClusterIDMax = option.Config.MaxConnectedClusters
 
 	node.CiliumHostIfIndex = lnc.CiliumHostIfIndex
+	node.CiliumHostMAC = lnc.CiliumHostMAC.As8()
 	node.CiliumNetIfIndex = lnc.CiliumNetIfIndex
 
 	if lnc.ServiceLoopbackIPv4 != nil {
