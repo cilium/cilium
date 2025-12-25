@@ -4,7 +4,7 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
-#include <node_config.h>
+#include <bpf/config/node.h>
 
 #include <lib/policy.h>
 

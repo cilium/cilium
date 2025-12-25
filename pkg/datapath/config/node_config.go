@@ -13,6 +13,10 @@ type Node struct {
 	ClusterIDMax uint32 `config:"cluster_id_max"`
 	// Index of the interface used to connect nodes in the cluster.
 	DirectRoutingDevIfIndex uint32 `config:"direct_routing_dev_ifindex"`
+	// Enable_debug.
+	EnableDebug bool `config:"enable_debug"`
+	// Enable_debug_tagged.
+	EnableDebugTagged bool `config:"enable_debug_tagged"`
 	// Use jiffies (count of timer ticks since boot).
 	EnableJiffies bool `config:"enable_jiffies"`
 	// Enable hybrid mode routing based on subnet IDs.
@@ -38,7 +42,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0xff, 0x0, false, false, 0x0, false,
+	return &Node{0xff, 0x0, false, false, false, false, 0x0, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},

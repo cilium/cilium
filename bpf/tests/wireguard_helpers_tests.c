@@ -12,8 +12,8 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
+#include <bpf/config/node.h>
 
-#include "node_config.h"
 #include "lib/eps.h"
 #include "lib/common.h"
 #include "lib/wireguard.h"

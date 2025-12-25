@@ -57,10 +57,10 @@ long mock_fib_lookup(void *ctx __maybe_unused,
 	return 0;
 }
 
-#include "lib/dbg.h"
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>
 #include "lib/fib.h"
+#include "lib/dbg.h"
 
 ASSIGN_CONFIG(bool, supports_fib_lookup_skip_neigh, true)
 

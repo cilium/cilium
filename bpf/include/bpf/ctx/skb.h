@@ -118,7 +118,15 @@ ctx_wire_len(const struct __sk_buff *ctx)
 static __always_inline __maybe_unused void
 ctx_store_meta(struct __sk_buff *ctx, const __u32 off, __u32 data)
 {
-	ctx->cb[off] = data;
+	/* BPF verifier only accepts direct ctx accesses with constant offsets.
+	 * If LLVM turns this into "modified ctx ptr" (ctx + off) derefs, load
+	 * fails. The inline asm forces a constant-offset store; callers must pass
+	 * compile-time constant off values.
+	 */
+	asm volatile("*(u32 *)(%0 + %c1) = %2"
+		 :: "r"(ctx),
+		    "i"(offsetof(struct __sk_buff, cb) + 4 * off),
+		    "r"(data));
 }
 
 static __always_inline __maybe_unused __u32
