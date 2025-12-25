@@ -109,6 +109,9 @@ type LocalRedirectPolicy struct {
 	// SkipRedirectFromBackend is the flag that enables/disables redirection
 	// for traffic matching the policy frontend(s) from the backends selected by the policy
 	SkipRedirectFromBackend bool
+	// ForceRedirectOrDrop indicates whether traffic matching RedirectFrontend should be
+	// redirected/dropped even if no backends match LocalEndpointSelector.
+	ForceRedirectOrDrop bool
 }
 
 func (lrp *LocalRedirectPolicy) TableHeader() []string {
@@ -326,5 +329,6 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		FrontendType:            frontendType,
 		SkipRedirectFromBackend: spec.SkipRedirectFromBackend,
 		ID:                      lb.NewServiceName(namespace, name),
+		ForceRedirectOrDrop:     redirectTo.ForceRedirectOrDrop,
 	}, nil
 }
