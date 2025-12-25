@@ -93,7 +93,6 @@ func newControllerMetrics() controllerMetrics {
 			Subsystem: "localredirectpolicy",
 			Name:      "controller_duration_seconds",
 			Help:      "Histogram of LocalRedirectPolicy processing times",
-			Disabled:  true,
 			// Use buckets in the 0.5ms-1.0s range.
 			Buckets: []float64{.0005, .001, .0025, .005, .01, .025, .05, 0.1, 0.25, 0.5, 1.0},
 		}),
