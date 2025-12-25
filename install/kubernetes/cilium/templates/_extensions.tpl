@@ -139,18 +139,18 @@ Allow packagers to define set of ports for cilium-envoy container.
 The template needs to allow overriding ports spec not just adding.
 */}}
 {{- define "envoy.ports" -}}
-        {{- if .Values.envoy.prometheus.enabled }}
         ports:
+        {{- if .Values.envoy.prometheus.enabled }}
         - name: envoy-metrics
           containerPort: {{ .Values.envoy.prometheus.port }}
           hostPort: {{ .Values.envoy.prometheus.port }}
           protocol: TCP
+        {{- end }}
         {{- if and .Values.envoy.debug.admin.enabled .Values.envoy.debug.admin.port }}
         - name: envoy-admin
           containerPort: {{ .Values.envoy.debug.admin.port }}
           hostPort: {{ .Values.envoy.debug.admin.port }}
           protocol: TCP
-        {{- end }}
         {{- end }}
 {{- end }}
 
