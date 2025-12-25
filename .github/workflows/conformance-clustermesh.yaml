@@ -647,7 +647,7 @@ jobs:
       - name: Wait for cluster mesh status to be ready
         if: matrix.mode != 'external'
         run: |
-          cilium --context ${{ env.contextName1 }} status --wait --interactive=false
+          cilium --context ${{ env.contextName1 }} status --wait-duration=10m --wait --interactive=false
           cilium --context ${{ env.contextName2 }} status --wait --interactive=false
           cilium --context ${{ env.contextName1 }} clustermesh status --wait
           cilium --context ${{ env.contextName2 }} clustermesh status --wait
