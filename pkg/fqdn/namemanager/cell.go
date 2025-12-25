@@ -154,6 +154,7 @@ type apiHandlers struct {
 	PolicyGetFqdnCacheHandler    policyRestAPI.GetFqdnCacheHandler
 	PolicyGetFqdnCacheIDHandler  policyRestAPI.GetFqdnCacheIDHandler
 	PolicyGetFqdnNamesHandler    policyRestAPI.GetFqdnNamesHandler
+	PolicyGetFqdnGccacheHandler  policyRestAPI.GetFqdnGccacheHandler
 }
 
 func handlers(nm *manager) apiHandlers {
@@ -162,5 +163,6 @@ func handlers(nm *manager) apiHandlers {
 		PolicyGetFqdnCacheHandler:    &getFQDNCacheHandler{nm},
 		PolicyGetFqdnCacheIDHandler:  &getFQDNCacheIDHandler{nm},
 		PolicyGetFqdnNamesHandler:    &getFQDNNamesHandler{nm},
+		PolicyGetFqdnGccacheHandler:  &getFQDNGCCacheHandler{nm},
 	}
 }

@@ -842,6 +842,25 @@ func init() {
         }
       }
     },
+    "/fqdn/gccache": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "List recently garbage-collected FQDN entries",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/FQDNGCCacheEntry"
+              }
+            }
+          }
+        }
+      }
+    },
     "/fqdn/names": {
       "get": {
         "description": "Retrieves the list of DNS-related fields (names to poll, selectors and\ntheir corresponding regexes).\n",
@@ -3057,6 +3076,21 @@ func init() {
     },
     "Error": {
       "type": "string"
+    },
+    "FQDNGCCacheEntry": {
+      "description": "A recently garbage-collected FQDN entry",
+      "type": "object",
+      "properties": {
+        "fqdn": {
+          "description": "FQDN that was garbage collected",
+          "type": "string"
+        },
+        "garbage-collection-time": {
+          "description": "The time when this FQDN was garbage collected",
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     },
     "FrontendAddress": {
       "description": "Layer 4 address. The protocol is currently ignored, all services will\nbehave as if protocol any is specified. To restrict to a particular\nprotocol, use policy.\n",
@@ -6073,6 +6107,25 @@ func init() {
         }
       }
     },
+    "/fqdn/gccache": {
+      "get": {
+        "tags": [
+          "policy"
+        ],
+        "summary": "List recently garbage-collected FQDN entries",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/FQDNGCCacheEntry"
+              }
+            }
+          }
+        }
+      }
+    },
     "/fqdn/names": {
       "get": {
         "description": "Retrieves the list of DNS-related fields (names to poll, selectors and\ntheir corresponding regexes).\n",
@@ -8429,6 +8482,21 @@ func init() {
     },
     "Error": {
       "type": "string"
+    },
+    "FQDNGCCacheEntry": {
+      "description": "A recently garbage-collected FQDN entry",
+      "type": "object",
+      "properties": {
+        "fqdn": {
+          "description": "FQDN that was garbage collected",
+          "type": "string"
+        },
+        "garbage-collection-time": {
+          "description": "The time when this FQDN was garbage collected",
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     },
     "FrontendAddress": {
       "description": "Layer 4 address. The protocol is currently ignored, all services will\nbehave as if protocol any is specified. To restrict to a particular\nprotocol, use policy.\n",
