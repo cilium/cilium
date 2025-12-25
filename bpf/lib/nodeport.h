@@ -2335,7 +2335,7 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	__u32 src_sec_identity __maybe_unused = SECLABEL;
 	bool allow_neigh_map = true;
 	fraginfo_t fraginfo;
-	__u32 *vrf_id __maybe_unused = NULL;
+	const __u32 *vrf_id __maybe_unused = NULL;
 	__u32 monitor = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -2416,7 +2416,7 @@ skip_revdnat:
 redirect:
 #if defined(ENABLE_SRV6) && defined(IS_BPF_LXC)
 	if (vrf_id) {
-		union v6addr *sid;
+		const union v6addr *sid;
 		/* Do policy lookup if it belongs to a VRF */
 		sid = srv6_lookup_policy4(*vrf_id, ip4->daddr);
 		if (sid) {

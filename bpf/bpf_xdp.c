@@ -50,7 +50,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v4_fix __section_maps_btf;
 
 struct {
@@ -59,7 +59,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v4_dyn __section_maps_btf;
 
 struct {
@@ -68,7 +68,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v6_fix __section_maps_btf;
 
 struct {
@@ -77,7 +77,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v6_dyn __section_maps_btf;
 
 static __always_inline __maybe_unused int
