@@ -236,7 +236,7 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx, int l3_off)
 {
 	union macaddr router_mac = CONFIG(interface_mac);
-	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr host_mac = CONFIG(cilium_host_mac);
 	int ret;
 
 	ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, METRIC_INGRESS);
@@ -255,7 +255,7 @@ static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx, int l3_off
 static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, int l3_off, struct iphdr *ip4)
 {
 	union macaddr router_mac = CONFIG(interface_mac);
-	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr host_mac = CONFIG(cilium_host_mac);
 	int ret;
 
 	ret = ipv4_l3(ctx, l3_off, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, ip4);
