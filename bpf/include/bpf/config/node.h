@@ -17,6 +17,7 @@
 
 NODE_CONFIG(__u32, cilium_net_ifindex, "Interface index of the cilium_net device")
 NODE_CONFIG(__u32, cilium_host_ifindex, "Interface index of the cilium_host device")
+NODE_CONFIG(union macaddr, cilium_host_mac, "MAC address of the cilium_host device")
 
 NODE_CONFIG(union v4addr, service_loopback_ipv4, "IPv4 source address used for SNAT when a Pod talks to itself over a Service")
 NODE_CONFIG(union v6addr, service_loopback_ipv6,
