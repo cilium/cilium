@@ -45,5 +45,8 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
 
+	node.EnableDebug = option.Config.Opts.IsEnabled(option.Debug)
+	node.EnableDebugTagged = option.Config.Opts.IsEnabled(option.DebugTagged)
+
 	return node
 }

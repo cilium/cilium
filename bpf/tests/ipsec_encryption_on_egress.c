@@ -4,7 +4,7 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 #include "pktgen.h"
-#include "node_config.h"
+#include <bpf/config/node.h>
 #include "../lib/ipsec.h"
 
 /* we need to include bpf_host.c later for mocking of the IPsec hook to work

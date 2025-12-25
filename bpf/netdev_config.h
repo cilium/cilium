@@ -6,6 +6,3 @@
  * compilation without the full code generation engine backend.
  */
 #define DROP_NOTIFY
-#ifndef SKIP_DEBUG
-#define DEBUG
-#endif
