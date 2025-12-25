@@ -22,6 +22,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -112,12 +113,17 @@ func newLocalNodeConfig(
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
 
-	deviceNameIndex := deviceNameIndexMap(txn, devices)
-	ciliumHostIfIndex, ok := deviceNameIndex[defaults.HostDevice]
+	nameDevice := devicesMap(txn, devices)
+	ciliumHostDevice, ok := nameDevice[defaults.HostDevice]
 	if !ok {
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
 	}
-	ciliumNetIfIndex, ok := deviceNameIndex[defaults.SecondHostDevice]
+	ciliumHostMAC, err := mac.ParseMAC(ciliumHostDevice.HardwareAddr.String())
+	if err != nil {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.HostDevice, err)
+	}
+
+	ciliumNetDevice, ok := nameDevice[defaults.SecondHostDevice]
 	if !ok {
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
 	}
@@ -127,8 +133,9 @@ func newLocalNodeConfig(
 		NodeIPv6:                     localNode.GetNodeIP(true),
 		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
 		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
-		CiliumNetIfIndex:             uint32(ciliumNetIfIndex),
-		CiliumHostIfIndex:            uint32(ciliumHostIfIndex),
+		CiliumNetIfIndex:             uint32(ciliumNetDevice.Index),
+		CiliumHostIfIndex:            uint32(ciliumHostDevice.Index),
+		CiliumHostMAC:                ciliumHostMAC,
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
@@ -185,10 +192,10 @@ func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
 	return ephemeralPortMin, nil
 }
 
-func deviceNameIndexMap(txn statedb.ReadTxn, devices statedb.Table[*tables.Device]) map[string]int {
-	nameIndex := make(map[string]int)
+func devicesMap(txn statedb.ReadTxn, devices statedb.Table[*tables.Device]) map[string]*tables.Device {
+	nameDevice := make(map[string]*tables.Device)
 	for d := range devices.All(txn) {
-		nameIndex[d.Name] = d.Index
+		nameDevice[d.Name] = d
 	}
-	return nameIndex
+	return nameDevice
 }
