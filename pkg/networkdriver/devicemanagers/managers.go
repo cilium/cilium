@@ -15,6 +15,10 @@ import (
 func InitManagers(logger *slog.Logger, managerConfigs *v2alpha1.CiliumNetworkDriverDeviceManagerConfig) (map[types.DeviceManagerType]types.DeviceManager, error) {
 	result := make(map[types.DeviceManagerType]types.DeviceManager)
 
+	if managerConfigs == nil {
+		return nil, nil
+	}
+
 	if managerConfigs.SRIOV != nil && managerConfigs.SRIOV.Enabled {
 		sriovMgr, err := sriov.NewManager(logger, managerConfigs.SRIOV)
 		if err != nil {
