@@ -9,6 +9,14 @@ package config
 // instantiate directly! Always use [NewNode] to ensure the default values
 // configured in the ELF are honored.
 type Node struct {
+	// Interface index of the cilium_host device.
+	CiliumHostIfIndex uint32 `config:"cilium_host_ifindex"`
+	// MAC address of the cilium_host device.
+	CiliumHostMAC [8]byte `config:"cilium_host_mac"`
+	// Interface index of the cilium_net device.
+	CiliumNetIfIndex uint32 `config:"cilium_net_ifindex"`
+	// MAC address of the cilium_net device.
+	CiliumNetMAC [8]byte `config:"cilium_net_mac"`
 	// Max number of clusters that can be connected in Clustermesh.
 	ClusterIDMax uint32 `config:"cluster_id_max"`
 	// Index of the interface used to connect nodes in the cluster.
@@ -38,7 +46,8 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0xff, 0x0, false, false, 0x0, false,
+	return &Node{0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0xff, 0x0, false, false, 0x0, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
