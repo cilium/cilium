@@ -198,7 +198,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr __maybe_unused *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
 	int ret = 0;
-	union macaddr dst_mac = CILIUM_NET_MAC;
+	union macaddr dst_mac = CONFIG(cilium_net_mac);
 
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
