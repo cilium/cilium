@@ -19,6 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -197,6 +198,254 @@ func TestEndpointDatapathOptions(t *testing.T) {
 	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, option.OptionDisabled, e.Options.GetValue(option.SourceIPVerification))
+}
+
+// TestApplySourceIPVerificationFromAnnotation tests the ApplySourceIPVerificationFromAnnotation method
+// which handles pod annotation for source IP verification.
+// The method returns true if the option value was actually changed, false otherwise.
+func TestApplySourceIPVerificationFromAnnotation(t *testing.T) {
+	s := setupEndpointSuite(t)
+	logger := hivetest.Logger(t)
+
+	tests := []struct {
+		name                string
+		initialOptionValue  option.OptionSetting // The endpoint's initial SIP verification setting
+		annotations         map[string]string
+		expectedChanged     bool                 // Whether the value should change (return value)
+		expectedOptionValue option.OptionSetting // Expected option value after applying annotation
+	}{
+		{
+			name:                "annotation=true changes from enabled to disabled",
+			initialOptionValue:  option.OptionEnabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "annotation=true no change when already disabled",
+			initialOptionValue:  option.OptionDisabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "annotation=false changes from disabled to enabled",
+			initialOptionValue:  option.OptionDisabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "false"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "annotation=false no change when already enabled",
+			initialOptionValue:  option.OptionEnabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "false"},
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "annotation=1 disables (ParseBool accepts)",
+			initialOptionValue:  option.OptionEnabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "1"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "annotation=0 enables (ParseBool accepts)",
+			initialOptionValue:  option.OptionDisabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "0"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "annotation=TRUE disables (case insensitive)",
+			initialOptionValue:  option.OptionEnabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "TRUE"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "annotation=False enables (case insensitive)",
+			initialOptionValue:  option.OptionDisabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "False"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "annotation with spaces trimmed - changes value",
+			initialOptionValue:  option.OptionEnabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: " true "},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "no annotation - resets to global default (no change when same)",
+			initialOptionValue:  option.OptionEnabled, // Same as global default
+			annotations:         map[string]string{},
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "no annotation - resets to global default (changes when different)",
+			initialOptionValue:  option.OptionDisabled, // Different from global default
+			annotations:         map[string]string{},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled, // Resets to global default
+		},
+		{
+			name:                "empty annotation - resets to global default",
+			initialOptionValue:  option.OptionDisabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: ""},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "invalid annotation - resets to global default",
+			initialOptionValue:  option.OptionDisabled,
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "invalid"},
+			expectedChanged:     true,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:                "nil annotations map - resets to global default (no change when same)",
+			initialOptionValue:  option.OptionEnabled,
+			annotations:         nil,
+			expectedChanged:     false,
+			expectedOptionValue: option.OptionEnabled,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original global config and restore after test
+			originalValue := option.Config.Opts.GetValue(option.SourceIPVerification)
+			defer func() {
+				option.Config.Opts.SetValidated(option.SourceIPVerification, originalValue)
+			}()
+
+			// Set global default to Enabled for predictable testing
+			option.Config.Opts.SetValidated(option.SourceIPVerification, option.OptionEnabled)
+
+			// Create a minimal endpoint for testing
+			model := newTestEndpointModel(100, StateWaitingForIdentity)
+			ep, err := NewEndpointFromChangeModel(
+				t.Context(),
+				logger,
+				nil,
+				&MockEndpointBuildQueue{},
+				nil,
+				s.orchestrator,
+				nil,
+				nil,
+				nil,
+				identitymanager.NewIDManager(logger),
+				nil,
+				nil,
+				s.repo,
+				nil,
+				&FakeEndpointProxy{},
+				testidentity.NewMockIdentityAllocator(nil),
+				ctmap.NewFakeGCRunner(),
+				nil,
+				model,
+				fakeTypes.WireguardConfig{},
+				fakeTypes.IPsecConfig{},
+				nil,
+				nil,
+			)
+			require.NoError(t, err)
+
+			// Set the initial option value for this test case
+			ep.Options.SetValidated(option.SourceIPVerification, tt.initialOptionValue)
+
+			// Apply the annotation
+			changed := ep.ApplySourceIPVerificationFromAnnotation(tt.annotations)
+
+			// Verify the return value (whether value changed)
+			require.Equal(t, tt.expectedChanged, changed,
+				"Expected changed=%v, got %v", tt.expectedChanged, changed)
+
+			// Verify the option value after applying annotation
+			actualValue := ep.Options.GetValue(option.SourceIPVerification)
+			require.Equal(t, tt.expectedOptionValue, actualValue,
+				"Expected option=%v, got %v", tt.expectedOptionValue, actualValue)
+		})
+	}
+}
+
+// TestApplySourceIPVerificationResetsToGlobalDefault verifies that removing or setting
+// an invalid annotation resets the endpoint to the global default configuration.
+func TestApplySourceIPVerificationResetsToGlobalDefault(t *testing.T) {
+	s := setupEndpointSuite(t)
+	logger := hivetest.Logger(t)
+
+	// Save original global config and restore after test
+	originalValue := option.Config.Opts.GetValue(option.SourceIPVerification)
+	defer func() {
+		option.Config.Opts.SetValidated(option.SourceIPVerification, originalValue)
+	}()
+
+	// Set global default to Enabled
+	option.Config.Opts.SetValidated(option.SourceIPVerification, option.OptionEnabled)
+
+	// Create endpoint
+	model := newTestEndpointModel(100, StateWaitingForIdentity)
+	ep, err := NewEndpointFromChangeModel(
+		t.Context(),
+		logger,
+		nil,
+		&MockEndpointBuildQueue{},
+		nil,
+		s.orchestrator,
+		nil,
+		nil,
+		nil,
+		identitymanager.NewIDManager(logger),
+		nil,
+		nil,
+		s.repo,
+		nil,
+		&FakeEndpointProxy{},
+		testidentity.NewMockIdentityAllocator(nil),
+		ctmap.NewFakeGCRunner(),
+		nil,
+		model,
+		fakeTypes.WireguardConfig{},
+		fakeTypes.IPsecConfig{},
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+
+	// Step 1: Apply annotation to disable SIP verification (Enabled -> Disabled = change)
+	changed := ep.ApplySourceIPVerificationFromAnnotation(map[string]string{
+		annotation.DisableSourceIPVerification: "true",
+	})
+	require.True(t, changed, "Should return true when value changes from Enabled to Disabled")
+	require.Equal(t, option.OptionDisabled, ep.Options.GetValue(option.SourceIPVerification),
+		"Annotation should have disabled SIP verification")
+
+	// Step 2: Remove annotation - should reset to global default (Disabled -> Enabled = change)
+	changed = ep.ApplySourceIPVerificationFromAnnotation(map[string]string{})
+	require.True(t, changed, "Should return true when value changes from Disabled to Enabled (global default)")
+	require.Equal(t, option.OptionEnabled, ep.Options.GetValue(option.SourceIPVerification),
+		"Removing annotation should reset to global default (Enabled)")
+
+	// Step 3: Apply annotation again with invalid value - should reset to global default (no change since already Enabled)
+	changed = ep.ApplySourceIPVerificationFromAnnotation(map[string]string{
+		annotation.DisableSourceIPVerification: "invalid-value",
+	})
+	require.False(t, changed, "Should return false when value doesn't change (already Enabled)")
+	require.Equal(t, option.OptionEnabled, ep.Options.GetValue(option.SourceIPVerification),
+		"Invalid annotation should keep global default (Enabled)")
+
+	// Step 4: Set to disabled and then apply invalid - should reset to global default (change)
+	ep.Options.SetValidated(option.SourceIPVerification, option.OptionDisabled)
+	changed = ep.ApplySourceIPVerificationFromAnnotation(map[string]string{
+		annotation.DisableSourceIPVerification: "invalid-value",
+	})
+	require.True(t, changed, "Should return true when value changes from Disabled to Enabled (global default)")
+	require.Equal(t, option.OptionEnabled, ep.Options.GetValue(option.SourceIPVerification),
+		"Invalid annotation should reset to global default (Enabled)")
 }
 
 func TestEndpointUpdateLabels(t *testing.T) {
