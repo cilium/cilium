@@ -97,7 +97,7 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 	 * cilium_host (peer) to ensure the packet is being considered to be
 	 * addressed to the host (PACKET_HOST).
 	 */
-	union macaddr cilium_net_mac = CILIUM_NET_MAC;
+	union macaddr cilium_net_mac = CONFIG(cilium_net_mac);
 
 	/* Rewrite to destination MAC of cilium_net (remote peer) */
 	if (eth_store_daddr(ctx, (__u8 *) &cilium_net_mac.addr, 0) < 0)
