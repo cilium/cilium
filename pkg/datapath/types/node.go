@@ -59,6 +59,9 @@ type LocalNodeConfiguration struct {
 	// Interface index of the cilium_net device
 	CiliumNetIfIndex uint32
 
+	// MAC address of the cilium_net device.
+	CiliumNetMAC mac.MAC
+
 	// AllocCIDRIPv4 is the IPv4 allocation CIDR from which IP addresses for
 	// endpoints are allocated from.
 	// Immutable at runtime.

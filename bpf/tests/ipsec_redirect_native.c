@@ -73,7 +73,7 @@ int ipsec_redirect_setup(struct __ctx_buff *ctx, bool ipv4_inner, bool ipv4_oute
 static __always_inline
 int ipsec_redirect_checks(const struct __ctx_buff *ctx)
 {
-	union macaddr expected_l2_addr = CILIUM_NET_MAC;
+	union macaddr expected_l2_addr = CONFIG(cilium_net_mac);
 	__u32 *status_code;
 	struct ethhdr *l2;
 	int i;
