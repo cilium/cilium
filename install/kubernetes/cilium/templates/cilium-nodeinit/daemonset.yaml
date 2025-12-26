@@ -122,6 +122,8 @@ spec:
       {{- if .Values.serviceAccounts.nodeinit.enabled }}
       serviceAccountName: {{ .Values.serviceAccounts.nodeinit.name | quote }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.nodeinit.automount }}
+      {{- else }}
+      automountServiceAccountToken: false
       {{- end }}
       {{- with .Values.nodeinit.extraVolumes }}
       volumes:
