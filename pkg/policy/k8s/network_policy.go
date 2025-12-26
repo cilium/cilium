@@ -45,7 +45,7 @@ func (p *policyWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 		DoneChan: dc,
 	})
 
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueUpdateOperation, string(source.Kubernetes), metrics.LabelValueOutcomeSuccess).Inc()
 	p.log.Info(
 		"NetworkPolicy successfully added",
 		logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name,
@@ -78,7 +78,7 @@ func (p *policyWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.Networ
 		DoneChan: dc,
 	})
 
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueDeleteOperation, string(source.Kubernetes), metrics.LabelValueOutcomeSuccess).Inc()
 	p.log.Info(
 		"NetworkPolicy successfully removed",
 		logfields.K8sNetworkPolicyName, k8sNP.ObjectMeta.Name,
