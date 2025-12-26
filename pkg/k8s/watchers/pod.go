@@ -75,6 +75,7 @@ type k8sPodWatcherParams struct {
 	IPCache            *ipcache.IPCache
 	DB                 *statedb.DB
 	Pods               statedb.Table[agentK8s.LocalPod]
+	Namespaces         statedb.Table[agentK8s.Namespace]
 	NodeAddrs          statedb.Table[datapathTables.NodeAddress]
 	CGroupManager      cgroup.CGroupManager
 	LBConfig           loadbalancer.Config
@@ -97,6 +98,7 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		cgroupManager:      params.CGroupManager,
 		db:                 params.DB,
 		pods:               params.Pods,
+		namespaces:         params.Namespaces,
 		nodeAddrs:          params.NodeAddrs,
 		lbConfig:           params.LBConfig,
 		wgConfig:           params.WgConfig,
@@ -127,6 +129,7 @@ type K8sPodWatcher struct {
 	cgroupManager      cgroupManager
 	db                 *statedb.DB
 	pods               statedb.Table[agentK8s.LocalPod]
+	namespaces         statedb.Table[agentK8s.Namespace]
 	nodeAddrs          statedb.Table[datapathTables.NodeAddress]
 	lbConfig           loadbalancer.Config
 	wgConfig           wgTypes.WireguardConfig
@@ -331,7 +334,8 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno) || !k8s.AnnotationsEqual([]string{bandwidth.IngressBandwidth}, oldAnno, newAnno)
 	annoChangedPriority := !k8s.AnnotationsEqual([]string{bandwidth.Priority}, oldAnno, newAnno)
 	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack, annotation.NoTrackAlias}, oldAnno, newAnno)
-	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack
+	annoChangedDisableSIP := !k8s.AnnotationsEqual([]string{annotation.DisableSourceIPVerification}, oldAnno, newAnno)
+	annotationsChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack || annoChangedDisableSIP
 
 	// Check label updates too.
 	oldK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(oldK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
@@ -404,25 +408,72 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 					return value
 				}())
 			}
-			realizePodAnnotationUpdate(podEP)
+
+			// Handle source IP verification annotation and trigger appropriate regeneration.
+			needsDatapathRegen := false
+			if annoChangedDisableSIP {
+				// Get namespace annotations for permission check
+				nsAnno := k.getNamespaceAnnotations(newK8sPod.Namespace)
+				// ApplySourceIPVerificationFromAnnotation returns true only if the value actually changed
+				sipValueChanged := podEP.ApplySourceIPVerificationFromAnnotation(newAnno, nsAnno)
+				if sipValueChanged {
+					scopedLog.Warn(
+						"Source IP verification security control modified via annotation",
+						logfields.Value, newAnno[annotation.DisableSourceIPVerification],
+						logfields.K8sUID, newK8sPod.UID)
+					needsDatapathRegen = true
+				}
+			}
+
+			// Trigger datapath regeneration for any BPF-affecting annotation change.
+			// All these annotations (bandwidth, priority, notrack, SIP) affect the BPF datapath
+			// and require regeneration with datapath rebuild for the affected pod endpoint.
+			otherDatapathAnnosChanged := annoChangedBandwidth || annoChangedPriority || annoChangedNoTrack
+			if needsDatapathRegen || otherDatapathAnnosChanged {
+				reason := "annotations updated"
+				if needsDatapathRegen && !otherDatapathAnnosChanged {
+					reason = "source IP verification annotation updated"
+				}
+				triggerEndpointRegeneration(podEP, reason, true)
+			}
+			// If only SIP annotation changed but value didn't (e.g., "1" -> "true"), no regeneration needed
 		}
 	}
 
 	return err
 }
 
-func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
+// triggerEndpointRegeneration triggers endpoint regeneration for annotation updates.
+// If withDatapath is true, a full datapath rebuild is performed (required for BPF-affecting changes
+// like source IP verification). Otherwise, only policy regeneration is performed.
+func triggerEndpointRegeneration(podEP *endpoint.Endpoint, reason string, withDatapath bool) {
+	level := regeneration.RegenerateWithoutDatapath
+	if withDatapath {
+		level = regeneration.RegenerateWithDatapath
+	}
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "annotations updated",
-		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+		Reason:            reason,
+		RegenerationLevel: level,
 	}
 	// No need to log an error if the state transition didn't succeed,
 	// if it didn't succeed that means the endpoint is being deleted, or
 	// another regeneration has already been queued up for this endpoint.
-	regen, _ := podEP.SetRegenerateStateIfAlive(regenMetadata)
-	if regen {
+	if regen, _ := podEP.SetRegenerateStateIfAlive(regenMetadata); regen {
 		podEP.Regenerate(regenMetadata)
 	}
+}
+
+// getNamespaceAnnotations retrieves the annotations for a given namespace.
+// Returns nil if the namespace is not found or if namespaces table is not available.
+func (k *K8sPodWatcher) getNamespaceAnnotations(namespace string) map[string]string {
+	if k.namespaces == nil {
+		return nil
+	}
+	ns, _, found := k.namespaces.Get(k.db.ReadTxn(), agentK8s.NamespaceByName(namespace))
+	if !found {
+		return nil
+	}
+	return ns.Annotations
 }
 
 // updateCiliumEndpointLabels runs a controller associated with the endpoint that updates

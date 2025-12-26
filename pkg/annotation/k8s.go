@@ -185,6 +185,52 @@ const (
 	NoTrack      = PolicyPrefix + "/no-track-port"
 	NoTrackAlias = Prefix + ".no-track-port"
 
+	// AllowDisableSourceIPVerification is the namespace annotation that controls
+	// whether pods in this namespace are allowed to use the disable-source-ip-verification
+	// pod annotation. This is a security gate that must be explicitly enabled by
+	// cluster administrators before pods can modify source IP verification settings.
+	//
+	// Annotation: config.cilium.io/allow-disable-source-ip-verification
+	// Valid values: Any value accepted by strconv.ParseBool:
+	//   - Truthy: "1", "t", "T", "TRUE", "true", "True"
+	//   - Falsy:  "0", "f", "F", "FALSE", "false", "False"
+	//
+	// Behavior:
+	//   - Truthy value: Allows pods in this namespace to use the
+	//     disable-source-ip-verification pod annotation
+	//   - Falsy or omitted: Pods inherit global daemon configuration,
+	//     pod annotations are ignored
+	//
+	// SECURITY NOTE: This annotation should only be set by cluster administrators.
+	// Use Kubernetes RBAC to restrict namespace annotation modifications.
+	AllowDisableSourceIPVerification = ConfigPrefix + "/allow-disable-source-ip-verification"
+
+	// DisableSourceIPVerification controls source IP verification for the pod.
+	//
+	// Annotation: config.cilium.io/disable-source-ip-verification
+	// Valid values: Any value accepted by strconv.ParseBool:
+	//   - Truthy: "1", "t", "T", "TRUE", "true", "True"
+	//   - Falsy:  "0", "f", "F", "FALSE", "false", "False"
+	//
+	// Behavior:
+	//   - Truthy value: Disables source IP verification for this pod
+	//     (allows sending packets with different source IPs)
+	//   - Falsy value: Explicitly enables source IP verification
+	//     (overrides global config)
+	//   - Omitted or invalid: Inherits global daemon configuration
+	//
+	// IMPORTANT: This annotation is only effective when the namespace has the
+	// allow-disable-source-ip-verification annotation set to true. Without
+	// namespace permission, pod annotations are ignored and global config applies.
+	//
+	// Use cases: NAT gateways, proxies, load balancers, VPN endpoints,
+	// or any workload that needs to send packets with non-pod source IPs.
+	//
+	// SECURITY WARNING: Disabling source IP verification allows IP spoofing.
+	// Only use for trusted workloads. Changes to this annotation are logged
+	// at Warn level for audit purposes.
+	DisableSourceIPVerification = ConfigPrefix + "/disable-source-ip-verification"
+
 	// WireguardPubKey / WireguardPubKeyAlias is the annotation name used to store
 	// the WireGuard public key in the CiliumNode CRD that we need to use to encrypt
 	// traffic to that node.
