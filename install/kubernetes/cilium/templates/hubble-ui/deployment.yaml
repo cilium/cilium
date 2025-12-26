@@ -75,6 +75,10 @@ spec:
           httpGet:
             path: /healthz
             port: http
+        startupProbe:
+          httpGet:
+            path: /
+            port: http
         readinessProbe:
           httpGet:
             path: /
@@ -123,6 +127,9 @@ spec:
         {{- with .Values.hubble.ui.backend.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
+        startupProbe:
+          grpc:
+            port: grpc
         {{- if .Values.hubble.ui.backend.livenessProbe.enabled }}
         livenessProbe:
           httpGet:
