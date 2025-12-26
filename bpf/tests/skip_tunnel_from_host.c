@@ -19,11 +19,8 @@
  *
  * cil_from_host will lead us to handle_ipv{4,6}_cont,
  * which rewrites the destination mac address to
- * CIILUM_NET_MAC to send the packet to the
+ * cilium_net_mac to send the packet to the
  * cilium_net interface.
- *
- * CILIUM_NET_MAC is set in node_config.h, so below we pull
- * it into a format that pktgen can use.
  */
 #define SRC_MAC mac_one
 #define SRC_IPV4 v4_node_one
@@ -41,8 +38,7 @@
 #include "lib/bpf_host.h"
 
 #include "lib/eth.h"
-static volatile const union macaddr __cilium_net_mac = CILIUM_NET_MAC;
-#define DST_MAC __cilium_net_mac.addr
+#define DST_MAC CONFIG(cilium_net_mac).addr
 
 /*
  * Include test helpers
