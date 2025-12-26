@@ -180,6 +180,11 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 			received bool
 		)
 
+		if driver.configCRD == nil {
+			// disabled
+			return
+		}
+
 		for ev := range driver.configCRD.Events(ctx) {
 			ev.Done(nil)
 
@@ -236,7 +241,10 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			logfields.K8sAPIVersion, version.Version(),
 		)
 
-		cfg := <-driver.watchConfig(ctx)
+		cfg, ok := <-driver.watchConfig(ctx)
+		if !ok {
+			return nil
+		}
 
 		driver.config = &cfg
 
