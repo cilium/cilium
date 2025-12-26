@@ -106,6 +106,23 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.CiliumNetIfIndex != other.CiliumNetIfIndex {
 		return false
 	}
+	if ((in.CiliumNetMAC != nil) && (other.CiliumNetMAC != nil)) || ((in.CiliumNetMAC == nil) != (other.CiliumNetMAC == nil)) {
+		in, other := &in.CiliumNetMAC, &other.CiliumNetMAC
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if (in.AllocCIDRIPv4 == nil) != (other.AllocCIDRIPv4 == nil) {
 		return false
 	} else if in.AllocCIDRIPv4 != nil {
