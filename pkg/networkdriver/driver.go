@@ -5,8 +5,6 @@ package networkdriver
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
 	"path"
 
@@ -169,57 +167,54 @@ func (driver *Driver) publish(ctx context.Context) error {
 	})
 }
 
-// watchConfig blocks forever until a configuration is found (from the CRD).
-func (driver *Driver) watchConfig(ctx context.Context) error {
-	var (
-		errChannelClosed    = errors.New("channel closed")
-		errContextCancelled = errors.New("context cancelled")
-	)
+// watchConfig blocks until the first configuration is found (from the CRD). Update attempts are logged but not passed
+// to the channel
+func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNetworkDriverConfigSpec {
+	ch := make(chan v2alpha1.CiliumNetworkDriverConfigSpec)
 
-	if driver.configCRD == nil {
-		return nil
-	}
+	go func() {
+		defer close(ch)
 
-	configEvents := driver.configCRD.Events(ctx)
+		var (
+			synced   bool
+			received bool
+		)
 
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("%w: %w", errContextCancelled, ctx.Err())
-		case ev, ok := <-configEvents:
-			if !ok {
-				return errChannelClosed
-			}
-
-			switch ev.Kind {
-			case resource.Sync:
-				driver.logger.DebugContext(ctx, "configuration sync received")
-			case resource.Delete:
-				driver.logger.DebugContext(ctx, "configuration delete received")
-			case resource.Upsert:
-				driver.logger.DebugContext(ctx, "configuration upsert received")
-			}
-
-			if ev.Object != nil {
-				newConfig := ev.Object
-				if driver.config != nil {
-					// if we already have a config
-					driver.logger.DebugContext(
-						ctx, "config received, but we already have one",
-					)
-				} else {
-					driver.config = &newConfig.Spec
-				}
-
-				ev.Done(nil)
-
-				return nil
-			}
-
+		for ev := range driver.configCRD.Events(ctx) {
 			ev.Done(nil)
-		}
 
-	}
+			if ev.Kind == resource.Delete {
+				continue
+			}
+
+			if ev.Kind == resource.Sync {
+				synced = true
+				continue
+			}
+
+			// wait for sync before reading config updates
+			if !synced {
+				continue
+			}
+
+			// discard updates if we already received a config
+			if received {
+				driver.logger.InfoContext(
+					ctx, "config received, but we already have one",
+				)
+
+				continue
+			}
+
+			received = true
+
+			driver.logger.DebugContext(ctx, "network driver configuration found")
+
+			ch <- ev.Object.Spec
+		}
+	}()
+
+	return ch
 }
 
 // Start retrieves nadvalidates the configuration. If configuration is found and valid, it
@@ -241,10 +236,9 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			logfields.K8sAPIVersion, version.Version(),
 		)
 
-		err := driver.watchConfig(ctx)
-		if err != nil {
-			return err
-		}
+		cfg := <-driver.watchConfig(ctx)
+
+		driver.config = &cfg
 
 		if driver.config == nil {
 			// not found, we wont start the driver
