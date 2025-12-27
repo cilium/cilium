@@ -7,6 +7,8 @@
 NODE_CONFIG(__u32, cluster_id_max, "Max number of clusters that can be connected in Clustermesh")
 ASSIGN_CONFIG(__u32, cluster_id_max, 255)
 
+NODE_CONFIG(__u32, identity_length, "Identity length in bits")
+
 #ifndef get_cluster_id_max
 static __always_inline __u32
 get_cluster_id_max()
@@ -17,38 +19,24 @@ get_cluster_id_max()
 
 #define CLUSTER_ID_LOWER_MASK 0x000000FF
 
-#ifndef __CLUSTERMESH_HELPERS__
-#define __CLUSTERMESH_HELPERS__
-/* these macros allow us to override the values in tests */
-#define IDENTITY_LEN get_identity_len()
-#define IDENTITY_MAX get_max_identity()
-
+#ifndef get_identity_max
 static __always_inline __u32
-get_identity_len()
+get_identity_max()
 {
-	__u32 identity_len = CONFIG(identity_length);
-	return identity_len;
+	return (__u32)((1 << CONFIG(identity_length)) - 1);
 }
-
-static __always_inline __u32
-get_max_identity()
-{
-	return (__u32)((1 << IDENTITY_LEN) - 1);
-}
-
-#endif /* __CLUSTERMESH_HELPERS__ */
-
+#endif /* get_identity_max() */
 
 static __always_inline __u32
 extract_cluster_id_from_identity(__u32 identity)
 {
-	return (__u32)(identity >> IDENTITY_LEN);
+	return (__u32)(identity >> CONFIG(identity_length));
 }
 
 static __always_inline __maybe_unused __u32
 get_cluster_id_upper_mask()
 {
-	return (get_cluster_id_max() & ~CLUSTER_ID_LOWER_MASK) << (8 + IDENTITY_LEN);
+	return (get_cluster_id_max() & ~CLUSTER_ID_LOWER_MASK) << (8 + CONFIG(identity_length));
 }
 
 static __always_inline __maybe_unused __u32
@@ -63,7 +51,7 @@ ctx_get_cluster_id_mark(const struct __ctx_buff *ctx __maybe_unused)
 /* ctx->mark not available in XDP. */
 #if __ctx_is == __ctx_skb
 	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
-	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
+	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >> (8 + CONFIG(identity_length));
 
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_CLUSTER_ID)
 		return 0;
@@ -83,7 +71,7 @@ ctx_set_cluster_id_mark(struct __ctx_buff *ctx __maybe_unused, __u32 cluster_id 
 /* ctx->mark not available in XDP. */
 #if __ctx_is == __ctx_skb
 	__u32 cluster_id_lower = (cluster_id & 0xFF);
-	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN));
+	__u32 cluster_id_upper = ((cluster_id & 0xFFFFFF00) << (8 + CONFIG(identity_length)));
 
 	ctx->mark = cluster_id_lower | cluster_id_upper | MARK_MAGIC_CLUSTER_ID;
 #endif /* __ctx_is == __ctx_skb */
