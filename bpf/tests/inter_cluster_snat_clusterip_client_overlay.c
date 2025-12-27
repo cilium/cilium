@@ -6,8 +6,6 @@
 #include "mock_skb_metadata.h"
 #include "pktgen.h"
 
-#define IDENTITY_LEN 16
-
 /*
  * Datapath configurations
  */
@@ -105,6 +103,8 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 #include "lib/bpf_overlay.h"
 
 #include "lib/endpoint.h"
+
+ASSIGN_CONFIG(__u32, identity_length, 16)
 
 /*
  * Tests
