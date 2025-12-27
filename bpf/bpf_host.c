@@ -1702,6 +1702,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 		 */
 		traced = true;
 
+		barrier_data(ctx);
 		ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
 		ret = ctx_redirect_to_proxy_first(ctx, port);
 		goto out;
