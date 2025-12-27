@@ -19,6 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/annotation"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/eventqueue"
@@ -197,6 +198,106 @@ func TestEndpointDatapathOptions(t *testing.T) {
 	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, option.OptionDisabled, e.Options.GetValue(option.SourceIPVerification))
+}
+
+// TestApplySourceIPVerificationFromAnnotation tests the ApplySourceIPVerificationFromAnnotation method
+// which handles pod annotation for source IP verification.
+func TestApplySourceIPVerificationFromAnnotation(t *testing.T) {
+	s := setupEndpointSuite(t)
+	logger := hivetest.Logger(t)
+
+	tests := []struct {
+		name                string
+		annotations         map[string]string
+		expectedApplied     bool
+		expectedOptionValue option.OptionSetting
+	}{
+		{
+			name:                "annotation=true explicitly disables",
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "true"},
+			expectedApplied:     true,
+			expectedOptionValue: option.OptionDisabled,
+		},
+		{
+			name:                "annotation=false explicitly enables",
+			annotations:         map[string]string{annotation.DisableSourceIPVerification: "false"},
+			expectedApplied:     true,
+			expectedOptionValue: option.OptionEnabled,
+		},
+		{
+			name:            "no annotation - skip setting",
+			annotations:     map[string]string{},
+			expectedApplied: false,
+			// expectedOptionValue doesn't matter when expectedApplied=false
+		},
+		{
+			name:            "empty annotation - skip setting",
+			annotations:     map[string]string{annotation.DisableSourceIPVerification: ""},
+			expectedApplied: false,
+		},
+		{
+			name:            "invalid annotation - skip setting",
+			annotations:     map[string]string{annotation.DisableSourceIPVerification: "invalid"},
+			expectedApplied: false,
+		},
+		{
+			name:            "annotation with spaces - skip setting",
+			annotations:     map[string]string{annotation.DisableSourceIPVerification: " true "},
+			expectedApplied: false,
+		},
+		{
+			name:            "nil annotations map - skip setting",
+			annotations:     nil,
+			expectedApplied: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a minimal endpoint for testing
+			model := newTestEndpointModel(100, StateWaitingForIdentity)
+			ep, err := NewEndpointFromChangeModel(
+				t.Context(),
+				logger,
+				nil,
+				&MockEndpointBuildQueue{},
+				nil,
+				s.orchestrator,
+				nil,
+				nil,
+				nil,
+				identitymanager.NewIDManager(logger),
+				nil,
+				nil,
+				s.repo,
+				nil,
+				&FakeEndpointProxy{},
+				testidentity.NewMockIdentityAllocator(nil),
+				ctmap.NewFakeGCRunner(),
+				nil,
+				model,
+				fakeTypes.WireguardConfig{},
+				fakeTypes.IPsecConfig{},
+				nil,
+				nil,
+			)
+			require.NoError(t, err)
+
+			// Apply the annotation
+			applied := ep.ApplySourceIPVerificationFromAnnotation(tt.annotations)
+
+			// Verify the return value
+			require.Equal(t, tt.expectedApplied, applied,
+				"Expected applied=%v, got %v", tt.expectedApplied, applied)
+
+			// If annotation was applied, verify the option value was set correctly
+			if applied {
+				actualValue := ep.Options.GetValue(option.SourceIPVerification)
+				require.Equal(t, tt.expectedOptionValue, actualValue,
+					"Expected option=%v, got %v", tt.expectedOptionValue, actualValue)
+			}
+		})
+	}
 }
 
 func TestEndpointUpdateLabels(t *testing.T) {

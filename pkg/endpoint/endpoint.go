@@ -1787,6 +1787,46 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 //
 //   - resolveMetadata - the metadata resolver that will be used to retrieve this
 //     endpoint's metadata.
+
+// ApplySourceIPVerificationFromAnnotation applies source IP verification setting
+// from pod annotation to this endpoint. Returns true if annotation was set and applied.
+//
+// This method handles locking internally for thread safety.
+//
+// Logic:
+// - Annotation not exists: return false (keep existing value)
+// - Annotation has invalid value (empty, etc): return false (keep existing value)
+// - Annotation is "true": disable SIP verification and return true
+// - Annotation is "false": enable SIP verification and return true
+//
+// The existing value comes from SetDefaultOpts which uses the global configuration.
+func (e *Endpoint) ApplySourceIPVerificationFromAnnotation(annotations map[string]string) bool {
+	value, ok := annotations[annotation.DisableSourceIPVerification]
+	if !ok {
+		// Annotation not exists - keep existing value
+		return false
+	}
+
+	if value == "true" {
+		// Explicitly disable SIP verification
+		e.unconditionalLock()
+		defer e.unlock()
+		e.Options.SetValidated(option.SourceIPVerification, option.OptionDisabled)
+		return true
+	}
+
+	if value == "false" {
+		// Explicitly enable SIP verification
+		e.unconditionalLock()
+		defer e.unlock()
+		e.Options.SetValidated(option.SourceIPVerification, option.OptionEnabled)
+		return true
+	}
+
+	// Annotation exists but has invalid value - keep existing value
+	return false
+}
+
 func (e *Endpoint) metadataResolver(ctx context.Context,
 	restoredEndpoint, blocking bool,
 	baseLabels labels.Labels,
@@ -1848,6 +1888,12 @@ func (e *Endpoint) metadataResolver(ctx context.Context,
 		pod.Annotations[bandwidth.IngressBandwidth],
 		pod.Annotations[bandwidth.Priority],
 	)
+
+	// Handle DisableSourceIPVerification annotation
+	if e.ApplySourceIPVerificationFromAnnotation(pod.Annotations) {
+		e.Logger(resolveLabels).Info("Setting source IP verification from pod annotation")
+	}
+	// If annotation not set, keep the existing value from SetDefaultOpts (global config)
 
 	// If 'baseLabels' are not set then 'controllerBaseLabels' only contains
 	// labels from k8s. Thus, we should only replace the labels that have their
