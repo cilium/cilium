@@ -21,7 +21,6 @@ get_cluster_id_max()
 #define __CLUSTERMESH_HELPERS__
 /* these macros allow us to override the values in tests */
 #define IDENTITY_LEN get_identity_len()
-#define IDENTITY_MAX get_max_identity()
 
 static __always_inline __u32
 get_identity_len()
@@ -30,14 +29,15 @@ get_identity_len()
 	return identity_len;
 }
 
+#endif /* __CLUSTERMESH_HELPERS__ */
+
+#ifndef get_identity_max
 static __always_inline __u32
-get_max_identity()
+get_identity_max()
 {
 	return (__u32)((1 << IDENTITY_LEN) - 1);
 }
-
-#endif /* __CLUSTERMESH_HELPERS__ */
-
+#endif /* get_identity_max() */
 
 static __always_inline __u32
 extract_cluster_id_from_identity(__u32 identity)

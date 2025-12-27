@@ -4,10 +4,10 @@
 #ifndef __CLUSTERMESH_HELPERS__
 #define __CLUSTERMESH_HELPERS__
 #define IDENTITY_LEN 15
-#define IDENTITY_MAX 32767
 #endif
 
 #define get_cluster_id_max() 511
+#define get_identity_max() 32767
 
 #include <bpf/ctx/skb.h>
 #include <lib/overloadable.h>
