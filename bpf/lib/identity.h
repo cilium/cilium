@@ -64,7 +64,7 @@ set_identity_mark(struct __ctx_buff *ctx __maybe_unused, __u32 identity __maybe_
 #if __ctx_is == __ctx_skb
 	__u32 cluster_id = (identity >> IDENTITY_LEN) & get_cluster_id_max();
 
-	ctx_set_cluster_id(ctx, cluster_id);
+	ctx->mark = format_cluster_id_mark(cluster_id);
 	ctx->mark |= magic & MARK_MAGIC_KEY_MASK;
 	ctx->mark |= (identity & IDENTITY_MAX) << 16;
 #endif
