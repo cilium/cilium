@@ -713,6 +713,9 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
+	cfg.EnableDebug = ep.GetOptions().IsEnabled(option.Debug)
+	cfg.EnableDebugTagged = ep.GetOptions().IsEnabled(option.DebugTagged)
+
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.MapName, uint16(ep.GetID())),
