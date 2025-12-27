@@ -27,8 +27,7 @@ get_cluster_id_max()
 static __always_inline __u32
 get_identity_len()
 {
-	__u32 identity_len = CONFIG(identity_length);
-	return identity_len;
+	return CONFIG(identity_length);
 }
 
 #endif /* __CLUSTERMESH_HELPERS__ */
