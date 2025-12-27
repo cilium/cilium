@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#ifndef __CLUSTERMESH_HELPERS__
-#define __CLUSTERMESH_HELPERS__
 #define IDENTITY_LEN 15
-#endif
 
 #define get_cluster_id_max() 511
 #define get_identity_max() 32767
@@ -54,4 +51,3 @@ int check_ctx_get_cluster_id_mark(struct __ctx_buff *ctx)
 
 	test_finish();
 }
-

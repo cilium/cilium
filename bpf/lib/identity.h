@@ -5,10 +5,10 @@
 
 #include <bpf/config/node.h>
 
-#ifndef __CLUSTERMESH_HELPERS__
-#define __CLUSTERMESH_HELPERS__
-#define IDENTITY_LEN 16
-#endif
+#ifndef IDENTITY_LEN
+NODE_CONFIG(__u32, identity_length, "Identity length in bits")
+ASSIGN_CONFIG(__u32, identity_length, 16)
+#endif /* IDENTITY_LEN */
 
 #include "dbg.h"
 #include "clustermesh.h"
