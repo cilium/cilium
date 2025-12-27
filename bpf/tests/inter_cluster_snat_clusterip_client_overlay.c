@@ -6,6 +6,8 @@
 #include "mock_skb_metadata.h"
 #include "pktgen.h"
 
+#define IDENTITY_LEN 16
+
 /*
  * Datapath configurations
  */
