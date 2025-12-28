@@ -10,6 +10,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
+	"github.com/vishvananda/netns"
 
 	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/time"
@@ -19,6 +20,46 @@ const (
 	netlinkRetryInterval = 1 * time.Millisecond
 	netlinkRetryMax      = 30
 )
+
+// NewHandle wraps netlink.NewHandle with configurable options
+func NewHandle(opts ...Option) (*netlink.Handle, error) {
+	var cfg config
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	//nolint:forbidigo
+	handle, err := netlink.NewHandle(cfg.nlFamilies...)
+	if err != nil {
+		return nil, err
+	}
+
+	if !cfg.enableVFInfo {
+		handle.DisableVFInfoCollection()
+	}
+
+	return handle, nil
+}
+
+// NewHandleAt wraps netlink.NewHandleAt with configurable options
+func NewHandleAt(ns netns.NsHandle, opts ...Option) (*netlink.Handle, error) {
+	var cfg config
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	//nolint:forbidigo
+	handle, err := netlink.NewHandleAt(ns, cfg.nlFamilies...)
+	if err != nil {
+		return nil, err
+	}
+
+	if !cfg.enableVFInfo {
+		handle.DisableVFInfoCollection()
+	}
+
+	return handle, nil
+}
 
 // WithRetry runs the netlinkFunc. If netlinkFunc returns netlink.ErrDumpInterrupted, the function is retried.
 // If success or any other error is returned, WithRetry returns immediately, propagating the error.
