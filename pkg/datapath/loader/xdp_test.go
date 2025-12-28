@@ -28,7 +28,7 @@ func TestPrivilegedMaybeUnloadObsoleteXDPPrograms(t *testing.T) {
 	ns := netns.NewNetNS(t)
 
 	ns.Do(func() error {
-		h, err := netlink.NewHandle()
+		h, err := safenetlink.NewHandle(nil)
 		require.NoError(t, err)
 
 		veth0 := &netlink.Veth{

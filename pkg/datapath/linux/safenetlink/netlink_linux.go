@@ -20,6 +20,25 @@ const (
 	netlinkRetryMax      = 30
 )
 
+// NewHandle wraps netlink.NewHandle with HandleConfig
+func NewHandle(cfg *HandleConfig) (*netlink.Handle, error) {
+	if cfg == nil {
+		cfg = &HandleConfig{}
+	}
+
+	//nolint:forbidigo
+	handle, err := netlink.NewHandle(cfg.NLFamilies...)
+	if err != nil {
+		return nil, err
+	}
+
+	if !cfg.EnableVFInfo {
+		handle.DisableVFInfoCollection()
+	}
+
+	return handle, nil
+}
+
 // WithRetry runs the netlinkFunc. If netlinkFunc returns netlink.ErrDumpInterrupted, the function is retried.
 // If success or any other error is returned, WithRetry returns immediately, propagating the error.
 func WithRetry(netlinkFunc func() error) error {
