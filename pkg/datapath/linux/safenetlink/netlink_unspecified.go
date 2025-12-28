@@ -16,6 +16,14 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+type HandleOptions struct {
+	EnableVFInfo bool
+}
+
+func NewHandle(opts *HandleOptions, nlFamilies ...int) (*netlink.Handle, error) {
+	return nil, netlink.ErrNotImplemented
+}
+
 func AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
 	return nil, netlink.ErrNotImplemented
 }

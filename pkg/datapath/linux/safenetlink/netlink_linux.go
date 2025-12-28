@@ -20,6 +20,25 @@ const (
 	netlinkRetryMax      = 30
 )
 
+type HandleOptions struct {
+	EnableVFInfo bool
+}
+
+// NewHandle wraps netlink.NewHandle with VF info collection disabled by default.
+func NewHandle(opts *HandleOptions, nlFamilies ...int) (*netlink.Handle, error) {
+	//nolint:forbidigo
+	handle, err := netlink.NewHandle(nlFamilies...)
+	if err != nil {
+		return nil, err
+	}
+
+	if opts == nil || !opts.EnableVFInfo {
+		handle.DisableVFInfoCollection()
+	}
+
+	return handle, nil
+}
+
 // WithRetry runs the netlinkFunc. If netlinkFunc returns netlink.ErrDumpInterrupted, the function is retried.
 // If success or any other error is returned, WithRetry returns immediately, propagating the error.
 func WithRetry(netlinkFunc func() error) error {
