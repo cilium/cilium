@@ -718,7 +718,7 @@ type netlinkFuncs struct {
 // makeNetlinkFuncs returns a *netlinkFuncs containing netlink accessors to the
 // network namespace of the calling goroutine's OS thread.
 func makeNetlinkFuncs() (*netlinkFuncs, error) {
-	netlinkHandle, err := netlink.NewHandle(unix.NETLINK_ROUTE)
+	netlinkHandle, err := safenetlink.NewHandle(&safenetlink.HandleConfig{NLFamilies: []int{unix.NETLINK_ROUTE}})
 	if err != nil {
 		return nil, fmt.Errorf("creating netlink handle: %w", err)
 	}
