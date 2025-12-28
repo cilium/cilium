@@ -133599,6 +133599,19 @@ func awsEc2query_deserializeDocumentPlacementGroup(v **types.PlacementGroup, dec
 				sv.GroupName = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("linkedGroupId", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.LinkedGroupId = ptr.String(xtv)
+			}
+
 		case strings.EqualFold("partitionCount", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {

@@ -8,11 +8,21 @@
 [![Release][release-badge]][release-url] [![Go Report Card][gocard-badge]][gocard-url] [![CodeFactor Grade][codefactor-badge]][codefactor-url] [![License][license-badge]][license-url]
 <!-- Badges: documentation & support -->
 <!-- Badges: others & stats -->
-[![GoDoc][godoc-badge]][godoc-url] [![Slack Channel][slack-logo]![slack-badge]][slack-url] [![go version][goversion-badge]][goversion-url] ![Top language][top-badge] ![Commits since latest release][commits-badge]
+[![GoDoc][godoc-badge]][godoc-url] [![Discord Channel][discord-badge]][discord-url] [![go version][goversion-badge]][goversion-url] ![Top language][top-badge] ![Commits since latest release][commits-badge]
 
 ---
 
 The object model for OpenAPI v2 specification documents.
+
+## Announcements
+
+* **2025-12-19** : new community chat on discord
+  * a new discord community channel is available to be notified of changes and support users
+  * our venerable Slack channel remains open, and will be eventually discontinued on **2026-03-31**
+
+You may join the discord community by clicking the invite link on the discord badge (also above). [![Discord Channel][discord-badge]][discord-url]
+
+Or join our Slack channel: [![Slack Channel][slack-logo]![slack-badge]][slack-url]
 
 ## Status
 
@@ -125,6 +135,9 @@ Maintainers can cut a new release by either:
 [slack-logo]: https://a.slack-edge.com/e6a93c1/img/icons/favicon-32.png
 [slack-badge]: https://img.shields.io/badge/slack-blue?link=https%3A%2F%2Fgoswagger.slack.com%2Farchives%2FC04R30YM
 [slack-url]: https://goswagger.slack.com/archives/C04R30YMU
+[discord-badge]: https://img.shields.io/discord/1446918742398341256?logo=discord&label=discord&color=blue
+[discord-url]: https://discord.gg/DrafRmZx
+
 <!-- Badges: license & compliance -->
 [license-badge]: http://img.shields.io/badge/license-Apache%20v2-orange.svg
 [license-url]: https://github.com/go-openapi/spec/?tab=Apache-2.0-1-ov-file#readme

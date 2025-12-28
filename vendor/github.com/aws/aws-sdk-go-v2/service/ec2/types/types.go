@@ -16732,6 +16732,9 @@ type PlacementGroup struct {
 	// The name of the placement group.
 	GroupName *string
 
+	// Reserved for future use.
+	LinkedGroupId *string
+
 	// The number of partitions. Valid only if strategy is set to partition .
 	PartitionCount *int32
 
