@@ -7,12 +7,12 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.20.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7 v7.2.0
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7 v7.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v8 v8.0.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.107
 	github.com/aws/aws-sdk-go-v2 v1.41.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.6
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.16
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.278.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.279.0
 	github.com/aws/smithy-go v1.24.0
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
@@ -22,7 +22,7 @@ require (
 	github.com/cilium/ebpf v0.20.1-0.20251215101449-df5c3096bd8c
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
-	github.com/cilium/hive v0.0.0-20251219070844-89ccf807d9fb
+	github.com/cilium/hive cec36a6364db
 	github.com/cilium/lumberjack/v2 v2.4.1
 	github.com/cilium/proxy v0.0.0-20250623105955-2136f59a4ea1
 	github.com/cilium/statedb v0.5.6
@@ -44,7 +44,7 @@ require (
 	github.com/go-openapi/errors v0.22.6
 	github.com/go-openapi/loads v0.23.2
 	github.com/go-openapi/runtime v0.29.2
-	github.com/go-openapi/spec v0.22.2
+	github.com/go-openapi/spec v0.22.3
 	github.com/go-openapi/strfmt v0.25.0
 	github.com/go-openapi/swag v0.25.4
 	github.com/go-openapi/validate v0.25.1
@@ -120,8 +120,8 @@ require (
 	golang.org/x/time v0.14.0
 	golang.org/x/tools v0.40.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251213004720-97cd9d5aeac2
-	google.golang.org/grpc v1.77.0
+	google.golang.org/genproto/googleapis/rpc 0a764e51fe1b
+	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
 	helm.sh/helm/v3 v3.19.0
 	k8s.io/api v0.35.0
@@ -134,11 +134,11 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.35.0
 	k8s.io/metrics v0.35.0
-	k8s.io/utils v0.0.0-20251220205832-9d40a56c1308
+	k8s.io/utils 718f0e51e6d2
 	sigs.k8s.io/controller-runtime v0.22.4
 	sigs.k8s.io/gateway-api v1.4.0-rc.2
-	sigs.k8s.io/mcs-api v0.3.1-0.20251217171610-79faa199f7dd
-	sigs.k8s.io/mcs-api/controllers v0.0.0-20251217171610-79faa199f7dd
+	sigs.k8s.io/mcs-api f4767b9e5a04
+	sigs.k8s.io/mcs-api/controllers f4767b9e5a04
 	sigs.k8s.io/yaml v1.6.0
 )
 
