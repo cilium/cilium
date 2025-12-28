@@ -75,7 +75,7 @@ func newOps(
 	lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
 			var err error
-			ops.handle, err = netlink.NewHandle()
+			ops.handle, err = safenetlink.NewHandle(nil)
 			if err != nil {
 				return err
 			}
