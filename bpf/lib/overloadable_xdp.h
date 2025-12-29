@@ -210,7 +210,7 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 	}
 
 	udp->source = src_port;
-	udp->dest = bpf_htons(TUNNEL_PORT);
+	udp->dest = bpf_htons(CONFIG(tunnel_port));
 	udp->len = bpf_htons((__u16)(sizeof(*udp) + tunnel_hdr_len + opt_len + inner_len));
 	udp->check = 0; /* we use BPF_F_ZERO_CSUM_TX */
 

@@ -38,11 +38,19 @@ enum {
 		 (TUNNEL_PROTOCOL) == TUNNEL_PROTOCOL_GENEVE ? CLS_FLAG_GENEVE : \
 		 (__throw_build_bug(), 0))                        \
 	: (__throw_build_bug(), 0))
-#define is_tunnel_port(dport) (dport == bpf_htons(TUNNEL_PORT))
 #else
 #define CLS_FLAG_TUNNEL 0
-#define is_tunnel_port(dport) false
 #endif
+
+static __always_inline bool
+is_tunnel_port(__be16 dport __maybe_unused)
+{
+#ifdef HAVE_ENCAP
+	return dport == bpf_htons(CONFIG(tunnel_port));
+#else
+	return false;
+#endif
+}
 
 /**
  * can_observe_overlay_mark
@@ -100,7 +108,7 @@ can_observe_overlay_hdr(enum trace_point obs_point)
  * @proto: the layer 3 protocol (ETH_P_IP, ETH_P_IPV6).
  *
  * Returns true whether the packet carries Overlay traffic. This is true when the
- * outer L4 header is UDP and the destination port matches TUNNEL_PORT.
+ * outer L4 header is UDP and the destination port matches tunnel_port.
  */
 static __always_inline bool
 ctx_is_overlay_hdr(struct __ctx_buff *ctx, __be16 proto)

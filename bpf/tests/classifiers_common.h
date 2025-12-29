@@ -145,12 +145,12 @@ check(struct __ctx_buff *ctx, bool is_ipv4)
 	})
 
 	/*
-	 * Ensure CLS_FLAG_VXLAN is set with UDP and TUNNEL_PORT.
+	 * Ensure CLS_FLAG_VXLAN is set with UDP and tunnel_port.
 	 * Use TRACE_FROM_{NETWORK,CRYPTO} based on IS_BPF_{HOST,WIREGUARD}.
 	 */
 	TEST("overlay-by-headers", {
 		ctx->mark = 0;
-		udp->dest = bpf_htons(TUNNEL_PORT);
+		udp->dest = bpf_htons(CONFIG(tunnel_port));
 		obs_point = is_defined(IS_BPF_HOST) ? TRACE_FROM_NETWORK :
 			    is_defined(IS_BPF_WIREGUARD) ? TRACE_FROM_CRYPTO : TRACE_POINT_UNKNOWN;
 		flags = ctx_classify(ctx, proto, obs_point);

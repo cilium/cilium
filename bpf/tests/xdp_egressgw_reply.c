@@ -194,7 +194,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != CLIENT_NODE_IP)
 		test_fatal("outerDstIP is not correct")
 
-	if (l4->dest != bpf_htons(TUNNEL_PORT))
+	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
 		test_fatal("outerDstPort is not tunnel port")
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IP))
@@ -363,7 +363,7 @@ int egressgw_reply_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != CLIENT_NODE_IP)
 		test_fatal("outerDstIP is not correct")
 
-	if (l4->dest != bpf_htons(TUNNEL_PORT))
+	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
 		test_fatal("outerDstPort is not tunnel port")
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IPV6))

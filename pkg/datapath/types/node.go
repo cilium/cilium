@@ -141,6 +141,11 @@ type LocalNodeConfiguration struct {
 	// This field is immutable at runtime. The value will not change in
 	// subsequent calls to NodeConfigurationChanged().
 	EnableEncapsulation bool
+	// TunnelPort is the UDP port used by the tunnel protocol (0 if disabled).
+	//
+	// This field is immutable at runtime. The value will not change in
+	// subsequent calls to NodeConfigurationChanged().
+	TunnelPort uint16
 
 	// EnableAutoDirectRouting enables the use of direct routes for
 	// communication between nodes if two nodes have direct L2

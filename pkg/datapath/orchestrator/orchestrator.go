@@ -203,6 +203,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			option.Config,
 			localNode,
 			o.params.Sysctl,
+			o.params.TunnelConfig,
 			o.params.DB.ReadTxn(),
 			o.params.DirectRoutingDevice,
 			o.params.Devices,

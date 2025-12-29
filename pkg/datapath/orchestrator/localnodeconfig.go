@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -47,6 +48,7 @@ func newLocalNodeConfig(
 	config *option.DaemonConfig,
 	localNode node.LocalNode,
 	sysctlOps sysctl.Sysctl,
+	tunnelCfg tunnel.Config,
 	txn statedb.ReadTxn,
 	directRoutingDevTbl tables.DirectRoutingDevice,
 	devices statedb.Table[*tables.Device],
@@ -134,6 +136,7 @@ func newLocalNodeConfig(
 		EnableIPv4:                   config.EnableIPv4,
 		EnableIPv6:                   config.EnableIPv6,
 		EnableEncapsulation:          config.TunnelingEnabled(),
+		TunnelPort:                   tunnelCfg.Port(),
 		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
 		EphemeralMin:                 uint16(ephemeralMin),
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
