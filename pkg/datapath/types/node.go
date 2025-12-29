@@ -205,6 +205,9 @@ type LocalNodeConfiguration struct {
 	KPRConfig kpr.KPRConfig
 
 	SvcRouteConfig svcrouteconfig.RoutesConfig
+
+	// EnableBandwidthManager enables EDT-based pacing
+	EnableBandwidthManager bool
 }
 
 func (cfg *LocalNodeConfiguration) DeviceNames() []string {

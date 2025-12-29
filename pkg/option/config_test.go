@@ -22,8 +22,101 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/util"
 )
+
+func TestAreDevicesRequired(t *testing.T) {
+	type args struct {
+		kprCfg              kpr.KPRConfig
+		wireguardEnabled    bool
+		ipsecEnabled        bool
+		bandwidthManager    bool
+		bpfMasquerade       bool
+		hostFirewall        bool
+		l2Announcements     bool
+		forceDeviceRequired bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Default (all disabled)",
+			args: args{},
+			want: false,
+		},
+		{
+			name: "Enable Bandwidth Manager",
+			args: args{
+				bandwidthManager: true,
+			},
+			want: true,
+		},
+		{
+			name: "Enable Kube Proxy Replacement",
+			args: args{
+				kprCfg: kpr.KPRConfig{KubeProxyReplacement: true},
+			},
+			want: true,
+		},
+		{
+			name: "Enable BPF Masquerade",
+			args: args{
+				bpfMasquerade: true,
+			},
+			want: true,
+		},
+		{
+			name: "Enable Host Firewall",
+			args: args{
+				hostFirewall: true,
+			},
+			want: true,
+		},
+		{
+			name: "Enable Wireguard",
+			args: args{
+				wireguardEnabled: true,
+			},
+			want: true,
+		},
+		{
+			name: "Enable L2 Announcements",
+			args: args{
+				l2Announcements: true,
+			},
+			want: true,
+		},
+		{
+			name: "Force Device Required",
+			args: args{
+				forceDeviceRequired: true,
+			},
+			want: true,
+		},
+		{
+			name: "Enable IPsec",
+			args: args{
+				ipsecEnabled: true,
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &DaemonConfig{
+				EnableBPFMasquerade:   tt.args.bpfMasquerade,
+				EnableHostFirewall:    tt.args.hostFirewall,
+				EnableL2Announcements: tt.args.l2Announcements,
+				ForceDeviceRequired:   tt.args.forceDeviceRequired,
+			}
+			assert.Equal(t, tt.want, c.AreDevicesRequired(tt.args.kprCfg, tt.args.wireguardEnabled, tt.args.ipsecEnabled, tt.args.bandwidthManager))
+		})
+	}
+}
 
 func TestValidateIPv6ClusterAllocCIDR(t *testing.T) {
 	valid1 := &DaemonConfig{

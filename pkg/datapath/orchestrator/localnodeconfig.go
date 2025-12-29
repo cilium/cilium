@@ -56,6 +56,7 @@ func newLocalNodeConfig(
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgAgent wgTypes.WireguardAgent,
 	ipsecCfg datapath.IPsecConfig,
+	bwConfig datapath.BandwidthConfig,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -139,5 +140,6 @@ func newLocalNodeConfig(
 		KPRConfig:                    kprCfg,
 		SvcRouteConfig:               svcCfg,
 		MaglevConfig:                 maglevConfig,
+		EnableBandwidthManager:       bwConfig.EnableBandwidthManager,
 	}, common.MergeChannels(watchChans...), nil
 }

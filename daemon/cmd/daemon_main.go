@@ -1211,6 +1211,7 @@ type daemonConfigParams struct {
 	KPRConfig       kpr.KPRConfig
 	KPRInitializer  kprinitializer.KPRInitializer
 	IPSecConfig     datapath.IPsecConfig
+	BandwidthConfig datapath.BandwidthConfig
 	WireguardConfig wgTypes.WireguardConfig
 }
 
@@ -1249,6 +1250,7 @@ type daemonParams struct {
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
 	InfraIPAllocator    infraendpoints.InfraIPAllocator
+	BandwidthConfig     datapath.BandwidthConfig
 }
 
 func daemonConfigInitialization(params daemonConfigParams) legacy.DaemonConfigInitialization {
