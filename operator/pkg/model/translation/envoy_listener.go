@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -87,7 +88,7 @@ func withAlpn() ListenerMutator {
 	}
 }
 
-func withXffNumTrustedHops(xff uint32) ListenerMutator {
+func withXffNumTrustedHops(xff uint32, useRemoteAddress bool) ListenerMutator {
 	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
 		if xff == 0 {
 			return listener
@@ -107,6 +108,7 @@ func withXffNumTrustedHops(xff uint32) ListenerMutator {
 							continue
 						}
 						hcmConfig.XffNumTrustedHops = xff
+						hcmConfig.UseRemoteAddress = wrapperspb.Bool(useRemoteAddress)
 						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
 							TypedConfig: toAny(hcmConfig),
 						}
@@ -290,7 +292,7 @@ func (i *cecTranslator) listenerMutators(m *model.Model) []ListenerMutator {
 	}
 
 	if i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops > 0 {
-		res = append(res, withXffNumTrustedHops(i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops))
+		res = append(res, withXffNumTrustedHops(i.Config.OriginalIPDetectionConfig.XFFNumTrustedHops, i.Config.OriginalIPDetectionConfig.UseRemoteAddress))
 	}
 	return res
 }
