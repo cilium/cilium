@@ -66,6 +66,7 @@ cilium-operator-alibabacloud [flags]
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --gateway-api-secrets-namespace string                 Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
       --gateway-api-service-externaltrafficpolicy string     Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances. (default "Cluster")
+      --gateway-api-use-remote-address                       Use the remote address as the client IP address when determining the origin client's IP address.
       --gateway-api-xff-num-trusted-hops uint32              The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
       --gops-port uint16                                     Port for gops server to listen on (default 9891)
   -h, --help                                                 help for cilium-operator-alibabacloud
@@ -86,6 +87,7 @@ cilium-operator-alibabacloud [flags]
       --ingress-lb-annotation-prefixes strings               Annotations and labels which are needed to propagate from Ingress to the Load Balancer. (default [lbipam.cilium.io,service.beta.kubernetes.io,service.kubernetes.io,cloud.google.com])
       --ingress-secrets-namespace string                     Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
       --ingress-shared-lb-service-name string                Name of shared LB service name for Ingress. (default "cilium-ingress")
+      --ingress-use-remote-address                           Use the immediate client's IP address as the origin client's IP address.
       --instance-tags-filter map                             EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                                          Backend to use for IPAM (default "alibabacloud")
       --k8s-api-server-urls strings                          Kubernetes API server URLs

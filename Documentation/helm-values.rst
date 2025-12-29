@@ -1880,6 +1880,10 @@
      - Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
      - bool
      - ``true``
+   * - :spelling:ignore:`gatewayAPI.useRemoteAddress`
+     - Whether to ignore X-Forwarded-For header given by a client when envoy determines the trusted client address.
+     - bool
+     - ``false``
    * - :spelling:ignore:`gatewayAPI.xffNumTrustedHops`
      - The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
      - int
@@ -2716,6 +2720,14 @@
      - Service type for the shared LB service
      - string
      - ``"LoadBalancer"``
+   * - :spelling:ignore:`ingressController.useRemoteAddress`
+     - Whether to ignore X-Forwarded-For header given by a client when envoy determines the trusted client address.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`ingressController.xffNumTrustedHops`
+     - The number of additional proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
+     - int
+     - ``0``
    * - :spelling:ignore:`initResources`
      - resources & limits for the agent init containers
      - object

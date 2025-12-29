@@ -79,6 +79,10 @@ have Envoy use the ``n`` th value from the list, counting from the right.
 Envoy will also set the ``X-Envoy-External-Address`` header to the trusted client
 address, whatever that turns out to be, based on ``X-Forwarded-For``.
 
+When you cannot trust ``X-Forwarded-For`` provided by clients (for example, when not using
+cloud load balancers), you can force Envoy to ignore this header by
+setting ``useRemoteAddress`` to ``true`` in ``gatewayAPI`` or ``ingressController`` sections of values files.
+
 .. Note::
     
     Backends using Cilium ingress (whether via Ingress or Gateway API) should
