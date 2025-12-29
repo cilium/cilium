@@ -6,6 +6,7 @@
 #include <linux/icmp.h>
 
 #include "common.h"
+#include "classifiers.h"
 #include "dbg.h"
 
 DECLARE_CONFIG(bool, allow_icmp_frag_needed,
@@ -436,7 +437,7 @@ static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
 #ifdef HAVE_ENCAP
 static __always_inline bool is_encap(__be16 dport, __u8 proto)
 {
-	return proto == IPPROTO_UDP && dport == bpf_htons(TUNNEL_PORT);
+	return proto == IPPROTO_UDP && dport == bpf_htons(CONFIG(tunnel_port));
 }
 #endif
 

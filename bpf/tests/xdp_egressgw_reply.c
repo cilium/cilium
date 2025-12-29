@@ -15,7 +15,6 @@
 #define ENABLE_MASQUERADE_IPV4	1
 #define ENABLE_MASQUERADE_IPV6	1
 
-#define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_VXLAN
 #define ENCAP_IFINDEX		42
 
 /* Skip ingress policy checks */
@@ -39,6 +38,8 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
+
+ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
@@ -194,7 +195,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != CLIENT_NODE_IP)
 		test_fatal("outerDstIP is not correct")
 
-	if (l4->dest != bpf_htons(TUNNEL_PORT))
+	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
 		test_fatal("outerDstPort is not tunnel port")
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IP))
@@ -363,7 +364,7 @@ int egressgw_reply_check_v6(__maybe_unused const struct __ctx_buff *ctx)
 	if (l3->daddr != CLIENT_NODE_IP)
 		test_fatal("outerDstIP is not correct")
 
-	if (l4->dest != bpf_htons(TUNNEL_PORT))
+	if (l4->dest != bpf_htons(CONFIG(tunnel_port)))
 		test_fatal("outerDstPort is not tunnel port")
 
 	if (inner_l2->h_proto != bpf_htons(ETH_P_IPV6))
