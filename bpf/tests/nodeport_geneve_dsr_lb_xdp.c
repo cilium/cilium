@@ -15,7 +15,6 @@
 #define DSR_ENCAP_GENEVE	3
 #define DSR_ENCAP_MODE		DSR_ENCAP_GENEVE
 
-#define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_GENEVE
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE
 
@@ -83,6 +82,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+
+ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
@@ -323,7 +324,7 @@ int nodeport_geneve_dsr_lb_xdp_fwd_check(__maybe_unused const struct __ctx_buff 
 	if (l3->check != bpf_htons(0x5371))
 		test_fatal("L3 checksum is invalid: %x", bpf_htons(l3->check));
 
-	if (udp->dest != bpf_htons(TUNNEL_PORT))
+	if (udp->dest != bpf_htons(CONFIG(tunnel_port)))
 		test_fatal("outerDstPort is not tunnel port");
 
 	__be32 sec_id;
