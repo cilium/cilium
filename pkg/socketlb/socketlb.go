@@ -71,6 +71,9 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
+
 	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},

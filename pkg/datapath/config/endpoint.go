@@ -61,5 +61,8 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 		cfg.EnableARPResponder = !ep.RequireARPPassthrough()
 	}
 
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
+
 	return cfg
 }

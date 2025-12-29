@@ -57,6 +57,10 @@ type BPFLXC struct {
 	PolicyVerdictLogFilter uint32 `config:"policy_verdict_log_filter"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
+	// Port number used for the overlay network.
+	TunnelPort uint16 `config:"tunnel_port"`
+	// The identifier of the tunnel protocol used for the overlay network.
+	TunnelProtocol uint8 `config:"tunnel_protocol"`
 	// VXLAN tunnel endpoint network mask.
 	VTEPMask uint32 `config:"vtep_mask"`
 
@@ -70,5 +74,5 @@ func NewBPFLXC(node Node) *BPFLXC {
 		0x0, 0x0, 0x0, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		0x0, 0x0, 0x0, node}
+		0x0, 0x0, 0x0, 0x0, 0x0, node}
 }

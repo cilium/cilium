@@ -15,10 +15,14 @@ type BPFSock struct {
 	EnableLRP bool `config:"enable_lrp"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
+	// Port number used for the overlay network.
+	TunnelPort uint16 `config:"tunnel_port"`
+	// The identifier of the tunnel protocol used for the overlay network.
+	TunnelProtocol uint8 `config:"tunnel_protocol"`
 
 	Node
 }
 
 func NewBPFSock(node Node) *BPFSock {
-	return &BPFSock{false, false, false, node}
+	return &BPFSock{false, false, false, 0x0, 0x0, node}
 }
