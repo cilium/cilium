@@ -55,6 +55,9 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
+
 	return cfg
 }
 
@@ -94,6 +97,9 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
+
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
 
 	return cfg
 }
@@ -154,6 +160,9 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
+
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
 
 	return cfg
 }
