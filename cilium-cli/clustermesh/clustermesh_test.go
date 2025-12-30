@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"helm.sh/helm/v3/pkg/release"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -778,6 +780,133 @@ func TestGetClustersFromValues(t *testing.T) {
 			test.assertErr(t, err)
 			assert.Equal(t, test.expected, clusters)
 			assert.Equal(t, test.expectedDisabledClusters, disabledClusters)
+		})
+	}
+}
+
+func TestUpdateCABundleInValues(t *testing.T) {
+	ca1 := "-----BEGIN CERTIFICATE-----\nCA1\n-----END CERTIFICATE-----"
+	ca2 := "-----BEGIN CERTIFICATE-----\nCA2\n-----END CERTIFICATE-----"
+
+	tests := []struct {
+		name            string
+		releaseConfig   map[string]any
+		clustersCA      map[string]string
+		expectedContent string
+		expectErr       bool
+	}{
+		{
+			name: "empty clustersCA does not modify the bundle",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{
+					"caBundle": map[string]any{
+						"enabled": true,
+						"content": ca1,
+					},
+				},
+			},
+			clustersCA:      map[string]string{},
+			expectedContent: ca1,
+		},
+		{
+			name:            "add CA to empty bundle",
+			releaseConfig:   map[string]any{},
+			clustersCA:      map[string]string{"c2": ca2},
+			expectedContent: ca2,
+		},
+		{
+			name: "add CA to existing bundle",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{
+					"caBundle": map[string]any{
+						"enabled": true,
+						"content": ca1,
+					},
+				},
+			},
+			clustersCA:      map[string]string{"c2": ca2},
+			expectedContent: ca1 + "\n" + ca2,
+		},
+		{
+			name: "CA already in bundle",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{
+					"caBundle": map[string]any{
+						"enabled": true,
+						"content": ca1,
+					},
+				},
+			},
+			clustersCA:      map[string]string{"c1": ca1},
+			expectedContent: ca1,
+		},
+		{
+			name: "invalid caBundle content type",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{
+					"caBundle": map[string]any{"content": []any{"invalid"}},
+				},
+			},
+			clustersCA: map[string]string{"c1": ca1},
+			expectErr:  true,
+		},
+		{
+			name: "invalid caBundle type",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{"caBundle": "invalid"},
+			},
+			clustersCA: map[string]string{"c1": ca1},
+			expectErr:  true,
+		},
+		{
+			name:          "invalid tls type",
+			releaseConfig: map[string]any{"tls": "invalid"},
+			clustersCA:    map[string]string{"c1": ca1},
+			expectErr:     true,
+		},
+		{
+			name: "invalid ca bundle config (enabled but empty content)",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{
+					"caBundle": map[string]any{
+						"enabled": true,
+						"content": "",
+					},
+				},
+			},
+			clustersCA: map[string]string{"c1": ca1},
+			expectErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rel := &release.Release{Config: tt.releaseConfig}
+
+			initialContent, _, _ := unstructured.NestedString(rel.Config, "tls", "caBundle", "content")
+
+			err := updateCABundleInValues("cluster1", rel, tt.clustersCA)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			caBundleEnabled, _, err := unstructured.NestedBool(rel.Config, "tls", "caBundle", "enabled")
+			assert.NoError(t, err)
+			assert.True(t, caBundleEnabled)
+
+			caBundleContent, _, err := unstructured.NestedString(rel.Config, "tls", "caBundle", "content")
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedContent, caBundleContent)
+
+			if initialContent != tt.expectedContent {
+				restartAnnotation, found, err := unstructured.NestedString(rel.Config, "clustermesh", "apiserver", "podAnnotations", "cilium.io/caBundleChangeRestartedAt")
+				assert.NoError(t, err)
+				assert.True(t, found, "restart annotation should be set")
+				assert.NotEmpty(t, restartAnnotation, "restart annotation should have a value")
+			}
 		})
 	}
 }
