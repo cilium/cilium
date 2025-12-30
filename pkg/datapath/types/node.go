@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -141,6 +142,14 @@ type LocalNodeConfiguration struct {
 	// This field is immutable at runtime. The value will not change in
 	// subsequent calls to NodeConfigurationChanged().
 	EnableEncapsulation bool
+
+	// TunnelProtocol is the datapath ID of the encapsulation protocol
+	// (0 if disabled, 1 for VXLAN, 2 for Geneve).
+	//
+	// This field is immutable at runtime. The value will not change in
+	// subsequent calls to NodeConfigurationChanged().
+	TunnelProtocol tunnel.BPF_ENCAP_PROTOCOL
+
 	// TunnelPort is the UDP port used by the tunnel protocol (0 if disabled).
 	//
 	// This field is immutable at runtime. The value will not change in

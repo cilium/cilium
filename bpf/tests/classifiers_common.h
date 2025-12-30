@@ -6,7 +6,6 @@
 #define TUNNEL_MODE
 #define ENABLE_IPSEC 1
 #define ENCAP_IFINDEX   1
-#define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_VXLAN
 
 /* For testing L2/L3 devices, we make use of ETH_HLEN:
  * IS_BPF_WIREGUARD -> 0
@@ -24,6 +23,8 @@
 
 #include "common.h"
 #include "pktgen.h"
+
+ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 
 /* Assign lower values for testing, so that we don't need to craft big packet. */
 ASSIGN_CONFIG(__u32, trace_payload_len, 10UL);
@@ -243,7 +244,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 	 * overlay observation point.
 	 */
 	TEST("monitor-non-overlay-point", {
-		flags = CLS_FLAG_TUNNEL;
+		flags = cls_flag_tunnel();
 		monitor = 0;
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len));
@@ -255,7 +256,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 	 */
 	TEST("monitor-zero-overlay", {
 		obs_point = TRACE_POINT_UNKNOWN;
-		flags = CLS_FLAG_TUNNEL;
+		flags = cls_flag_tunnel();
 		monitor = 0;
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len_overlay));
@@ -267,7 +268,7 @@ int compute_capture_len_check(struct __ctx_buff *ctx)
 	 */
 	TEST("monitor-payloadlen-overlay", {
 		obs_point = TRACE_POINT_UNKNOWN;
-		flags = CLS_FLAG_TUNNEL;
+		flags = cls_flag_tunnel();
 		monitor = CONFIG(trace_payload_len);
 		cap_len = compute_capture_len(ctx, monitor, flags, obs_point);
 		assert(cap_len == CONFIG(trace_payload_len_overlay));

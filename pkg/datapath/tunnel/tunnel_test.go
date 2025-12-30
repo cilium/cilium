@@ -182,22 +182,16 @@ func TestConfigDatapathProvider(t *testing.T) {
 			name:  "vxlan",
 			proto: VXLAN,
 			expected: dpcfgdef.Map{
-				"TUNNEL_PROTOCOL_VXLAN":  "1",
-				"TUNNEL_PROTOCOL_GENEVE": "2",
-				"TUNNEL_PROTOCOL":        "1",
-				"TUNNEL_SRC_PORT_LOW":    "1",
-				"TUNNEL_SRC_PORT_HIGH":   "2",
+				"TUNNEL_SRC_PORT_LOW":  "1",
+				"TUNNEL_SRC_PORT_HIGH": "2",
 			},
 		},
 		{
 			name:  "geneve",
 			proto: Geneve,
 			expected: dpcfgdef.Map{
-				"TUNNEL_PROTOCOL_VXLAN":  "1",
-				"TUNNEL_PROTOCOL_GENEVE": "2",
-				"TUNNEL_PROTOCOL":        "2",
-				"TUNNEL_SRC_PORT_LOW":    "1",
-				"TUNNEL_SRC_PORT_HIGH":   "2",
+				"TUNNEL_SRC_PORT_LOW":  "1",
+				"TUNNEL_SRC_PORT_HIGH": "2",
 			},
 		},
 	}

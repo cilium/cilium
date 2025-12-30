@@ -177,7 +177,7 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 
 	memset(data, 0, sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len);
 
-	switch (TUNNEL_PROTOCOL) {
+	switch (CONFIG(tunnel_protocol)) {
 	case TUNNEL_PROTOCOL_GENEVE:
 		{
 			struct genevehdr *geneve = (void *)udp + sizeof(*udp);
@@ -205,8 +205,6 @@ ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 			memcpy(&vxlan->vx_vni, &seclabel, sizeof(__u32));
 		}
 		break;
-	default:
-		__throw_build_bug();
 	}
 
 	udp->source = src_port;

@@ -15,6 +15,10 @@
 /* Legacy node config rendered at agent runtime. */
 #include <node_config.h>
 
+#define TUNNEL_PROTOCOL_VXLAN 1
+#define TUNNEL_PROTOCOL_GENEVE 2
+NODE_CONFIG(__u8, tunnel_protocol, "Tunnel protocol")
+
 NODE_CONFIG(__u16, tunnel_port, "Tunnel port")
 
 NODE_CONFIG(union v4addr, service_loopback_ipv4, "IPv4 source address used for SNAT when a Pod talks to itself over a Service")

@@ -15,7 +15,6 @@
 #define DSR_ENCAP_GENEVE	3
 #define DSR_ENCAP_MODE		DSR_ENCAP_GENEVE
 
-#define TUNNEL_PROTOCOL		TUNNEL_PROTOCOL_GENEVE
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE
 
@@ -83,6 +82,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+
+ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
