@@ -20,3 +20,6 @@ DECLARE_CONFIG(__u32, security_label, "The endpoint's security label")
 #define SECLABEL_IPV6 SECLABEL
 
 DECLARE_CONFIG(__u16, host_ep_id, "The host endpoint ID")
+
+DECLARE_CONFIG(bool, enable_arp_responder,
+	       "Respond to ARP requests from local containers to resolve the default gateway")

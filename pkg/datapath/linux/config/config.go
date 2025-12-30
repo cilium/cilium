@@ -728,14 +728,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, cfg *datapath.L
 		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
 	}
 
-	if option.Config.IPv4Enabled() && (e.IsHost() || cfg.DatapathIsLayer2) {
-		if e.RequireARPPassthrough() {
-			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
-		} else {
-			fmt.Fprint(fw, "#define ENABLE_ARP_RESPONDER 1\n")
-		}
-	}
-
 	// Local delivery metrics should always be set for endpoint programs.
 	fmt.Fprint(fw, "#define LOCAL_DELIVERY_METRICS 1\n")
 

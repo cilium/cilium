@@ -11,7 +11,7 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(6) {
+		for permutation := range permute(7) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
@@ -20,6 +20,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 			cfg.EnableLRP = permutation[3]
 			cfg.HybridRoutingEnabled = permutation[4]
 			cfg.EnableConntrackAccounting = permutation[5]
+			cfg.EnableARPResponder = permutation[6]
 
 			if !yield(cfg) {
 				return
