@@ -11,6 +11,7 @@ cilium clustermesh connect [flags]
 ### Options
 
 ```
+      --allow-mismatching-ca           Allow connecting clusters with mismatching CA certificates by adding remote CAs to the CA bundle
       --connection-mode string         Connection mode: unicast, bidirectional or mesh (default "bidirectional")
       --destination-context strings    Comma separated list of Kubernetes configuration contexts of destination cluster
       --destination-endpoint strings   IP of ClusterMesh service of destination cluster
