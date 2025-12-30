@@ -387,6 +387,12 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 	nodeResource.Spec.BootID = ln.BootID
 
+	if c := n.cniConfigManager.GetCustomNetConf(); c != nil {
+		if len(c.IPAM.StaticIPTags) > 0 {
+			nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
+		}
+	}
+
 	switch option.Config.IPAM {
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
@@ -435,10 +441,6 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
-			}
-
-			if len(c.IPAM.StaticIPTags) > 0 {
-				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 
 			if c.ENI.FirstInterfaceIndex != nil {
@@ -511,9 +513,6 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 			}
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
-			}
-			if len(c.IPAM.StaticIPTags) > 0 {
-				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 			if c.Azure.InterfaceName != "" {
 				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
@@ -589,10 +588,6 @@ func (n *NodeDiscovery) mutateNodeResource(ctx context.Context, nodeResource *ci
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
-			}
-
-			if len(c.IPAM.StaticIPTags) > 0 {
-				nodeResource.Spec.IPAM.StaticIPTags = c.IPAM.StaticIPTags
 			}
 		}
 	}
