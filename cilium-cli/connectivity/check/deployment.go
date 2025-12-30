@@ -547,11 +547,14 @@ func newConnDisruptCNPForNSTraffic(ns string) *ciliumv2.CiliumNetworkPolicy {
 func newConnDisruptCNPForL7Traffic(ns string) *ciliumv2.CiliumNetworkPolicy {
 	selector := policyapi.EndpointSelector{
 		LabelSelector: &slimmetav1.LabelSelector{
-			MatchLabels: map[string]string{"kind": KindTestConnDisruptL7Traffic},
+			MatchLabels: map[string]string{
+				// Selects both client and server endpoints.
+				"kind": KindTestConnDisruptL7Traffic,
+			},
 		},
 	}
 
-	ports := []policyapi.PortRule{{
+	httpPortRule := policyapi.PortRule{
 		Ports: []policyapi.PortProtocol{{
 			Protocol: policyapi.ProtoTCP,
 			Port:     "8000",
@@ -562,24 +565,49 @@ func newConnDisruptCNPForL7Traffic(ns string) *ciliumv2.CiliumNetworkPolicy {
 				Method: "GET",
 			}},
 		},
-	}}
+	}
+
+	// Required in egress rule for DNS lookups(eg. for service names).
+	dnsPortRule := policyapi.PortRule{
+		Ports: []policyapi.PortProtocol{
+			{Protocol: policyapi.ProtoUDP, Port: "53"},
+		},
+	}
 
 	return &ciliumv2.CiliumNetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       ciliumv2.CNPKindDefinition,
 			APIVersion: ciliumv2.SchemeGroupVersion.String(),
 		},
-		ObjectMeta: metav1.ObjectMeta{Name: testConnDisruptL7TrafficCNPName, Namespace: ns},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testConnDisruptL7TrafficCNPName,
+			Namespace: ns,
+		},
 		Spec: &policyapi.Rule{
 			EndpointSelector: selector,
+			// Ingress policy enforcement happens for server pods.
 			Ingress: []policyapi.IngressRule{{
 				IngressCommonRule: policyapi.IngressCommonRule{
 					FromEntities: policyapi.EntitySlice{
-						policyapi.EntityCluster,
+						policyapi.EntityAll,
 					},
 				},
-				ToPorts: ports,
+				ToPorts: []policyapi.PortRule{httpPortRule},
 			}},
+			// Egress policy enforcement happens for client pods.
+			Egress: []policyapi.EgressRule{
+				{
+					EgressCommonRule: policyapi.EgressCommonRule{
+						ToEntities: policyapi.EntitySlice{
+							policyapi.EntityAll,
+						},
+					},
+					ToPorts: []policyapi.PortRule{
+						httpPortRule,
+						dnsPortRule,
+					},
+				},
+			},
 		},
 	}
 }
