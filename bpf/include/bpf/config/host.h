@@ -9,6 +9,8 @@
 
 #include <lib/static_data.h>
 
+DECLARE_CONFIG(bool, enable_bandwidth_manager, "Enable Bandwidth Manager")
+
 #include <linux/if_ether.h>
 /* Allow ETH_HLEN to be overridden from tests. Careful, lib/eth.h contains
  * another ifndef-guarded definition, so the one here needs to go first.

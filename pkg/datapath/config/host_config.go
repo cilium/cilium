@@ -11,6 +11,8 @@ package config
 type BPFHost struct {
 	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
 	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
+	// Enable Bandwidth Manager
+	EnableBandwidthManager bool `config:"enable_bandwidth_manager"`
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
@@ -54,7 +56,7 @@ type BPFHost struct {
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{false, 0x5dc, false, false, false, false, false, false, 0xe, 0x0,
+	return &BPFHost{false, false, 0x5dc, false, false, false, false, false, false, 0xe, 0x0,
 		0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0,
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},

@@ -137,6 +137,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IPV6_FRAGMENTS"] = "1"
 	}
 
+	if option.Config.EnableBandwidthManager {
+		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
+	}
+
+	if option.Config.CNIChainingMode == "generic-veth" {
+		cDefinesMap["ENABLE_CNI_CHAINING_GENERIC_VETH"] = "1"
+	}
+
 	cDefinesMap["CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
 
 	if option.Config.EnableIPv4 {
@@ -557,19 +565,26 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["TUNNEL_MODE"] = "1"
 	}
 
-	ciliumNetLink, err := safenetlink.LinkByName(defaults.SecondHostDevice)
-	if err != nil {
-		return fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
-	}
-	cDefinesMap["CILIUM_NET_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumNetLink.Attrs().HardwareAddr))
-	cDefinesMap["CILIUM_NET_IFINDEX"] = fmt.Sprintf("%d", ciliumNetLink.Attrs().Index)
+	if !option.Config.DryMode {
+		ciliumNetLink, err := safenetlink.LinkByName(defaults.SecondHostDevice)
+		if err != nil {
+			return fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
+		}
+		cDefinesMap["CILIUM_NET_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumNetLink.Attrs().HardwareAddr))
+		cDefinesMap["CILIUM_NET_IFINDEX"] = fmt.Sprintf("%d", ciliumNetLink.Attrs().Index)
 
-	ciliumHostLink, err := safenetlink.LinkByName(defaults.HostDevice)
-	if err != nil {
-		return fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
+		ciliumHostLink, err := safenetlink.LinkByName(defaults.HostDevice)
+		if err != nil {
+			return fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
+		}
+		cDefinesMap["CILIUM_HOST_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
+		cDefinesMap["CILIUM_HOST_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
+	} else {
+		cDefinesMap["CILIUM_NET_MAC"] = "{.addr={0,0,0,0,0,0}}"
+		cDefinesMap["CILIUM_NET_IFINDEX"] = "0"
+		cDefinesMap["CILIUM_HOST_MAC"] = "{.addr={0,0,0,0,0,0}}"
+		cDefinesMap["CILIUM_HOST_IFINDEX"] = "0"
 	}
-	cDefinesMap["CILIUM_HOST_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
-	cDefinesMap["CILIUM_HOST_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
 
 	ephemeralMin, err := getEphemeralPortRangeMin(h.sysctl)
 	if err != nil {
@@ -808,6 +823,10 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, cfg *datapath.LocalN
 func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []string, hostEndpointID uint64, e datapath.EndpointConfiguration, drd *tables.Device) error {
 	if e.RequireEgressProg() {
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
+	}
+
+	if option.Config.EnableBandwidthManager {
+		fmt.Fprintf(fw, "#ifndef ENABLE_BANDWIDTH_MANAGER\n# define ENABLE_BANDWIDTH_MANAGER 1\n#endif\n")
 	}
 
 	if e.RequireRouting() {

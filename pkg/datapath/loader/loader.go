@@ -265,6 +265,7 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	}
 
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableBandwidthManager = option.Config.EnableBandwidthManager
 	cfg.HostEPID = uint16(lnc.HostEndpointID)
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
