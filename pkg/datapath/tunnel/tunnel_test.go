@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 
-	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 )
@@ -163,52 +162,6 @@ func TestConfig(t *testing.T) {
 			assert.Equal(t, tt.port, out.Port())
 			assert.Equal(t, tt.deviceName, out.DeviceName())
 			assert.Equal(t, tt.shouldAdaptMTU, out.ShouldAdaptMTU())
-		})
-	}
-}
-
-func TestConfigDatapathProvider(t *testing.T) {
-	tests := []struct {
-		name     string
-		proto    EncapProtocol
-		expected dpcfgdef.Map
-	}{
-		{
-			name:     "disabled",
-			proto:    Disabled,
-			expected: dpcfgdef.Map{},
-		},
-		{
-			name:  "vxlan",
-			proto: VXLAN,
-			expected: dpcfgdef.Map{
-				"TUNNEL_SRC_PORT_LOW":  "1",
-				"TUNNEL_SRC_PORT_HIGH": "2",
-			},
-		},
-		{
-			name:  "geneve",
-			proto: Geneve,
-			expected: dpcfgdef.Map{
-				"TUNNEL_SRC_PORT_LOW":  "1",
-				"TUNNEL_SRC_PORT_HIGH": "2",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			out, _ := Config{
-				underlay:       "ipv4",
-				protocol:       tt.proto,
-				port:           1234,
-				srcPortLow:     1,
-				srcPortHigh:    2,
-				deviceName:     "device",
-				shouldAdaptMTU: false,
-			}.datapathConfigProvider()
-
-			assert.Equal(t, tt.expected, out.NodeDefines)
 		})
 	}
 }
