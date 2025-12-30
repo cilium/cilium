@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"helm.sh/helm/v3/pkg/release"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -778,6 +779,111 @@ func TestGetClustersFromValues(t *testing.T) {
 			test.assertErr(t, err)
 			assert.Equal(t, test.expected, clusters)
 			assert.Equal(t, test.expectedDisabledClusters, disabledClusters)
+		})
+	}
+}
+
+func TestUpdateCABundleInValues(t *testing.T) {
+	ca1 := "-----BEGIN CERTIFICATE-----\nCA1\n-----END CERTIFICATE-----"
+	ca2 := "-----BEGIN CERTIFICATE-----\nCA2\n-----END CERTIFICATE-----"
+	ca3 := "-----BEGIN CERTIFICATE-----\nCA3\n-----END CERTIFICATE-----"
+
+	tests := []struct {
+		name            string
+		releaseConfig   map[string]any
+		clustersCA      map[string]string
+		expectedContent string
+		expectErr       bool
+	}{
+		{
+			name:          "empty clustersCA",
+			releaseConfig: map[string]any{},
+			clustersCA:    map[string]string{},
+		},
+		{
+			name:            "add CA to empty bundle",
+			releaseConfig:   map[string]any{},
+			clustersCA:      map[string]string{"c1": ca1},
+			expectedContent: ca1,
+		},
+		{
+			name: "add CA to existing bundle",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{
+					"caBundle": map[string]any{"content": ca1},
+				},
+			},
+			clustersCA:      map[string]string{"c2": ca2},
+			expectedContent: ca1 + "\n" + ca2,
+		},
+		{
+			name: "CA already in bundle",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{
+					"caBundle": map[string]any{"content": ca1},
+				},
+			},
+			clustersCA: map[string]string{"c1": ca1},
+		},
+		{
+			name: "existing CAs are preserved",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{
+					"caBundle": map[string]any{"content": ca1 + "\n" + ca2},
+				},
+			},
+			clustersCA:      map[string]string{"c3": ca3},
+			expectedContent: ca1 + "\n" + ca2 + "\n" + ca3,
+		},
+		{
+			name: "invalid caBundle content type",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{
+					"caBundle": map[string]any{"content": []any{"invalid"}},
+				},
+			},
+			clustersCA: map[string]string{"c1": ca1},
+			expectErr:  true,
+		},
+		{
+			name: "invalid caBundle type",
+			releaseConfig: map[string]any{
+				"tls": map[string]any{"caBundle": "invalid"},
+			},
+			clustersCA: map[string]string{"c1": ca1},
+			expectErr:  true,
+		},
+		{
+			name:          "invalid tls type",
+			releaseConfig: map[string]any{"tls": "invalid"},
+			clustersCA:    map[string]string{"c1": ca1},
+			expectErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &k8s.Client{Clientset: fake.NewSimpleClientset()}
+			rel := &release.Release{Config: tt.releaseConfig}
+
+			err := updateCABundleInValues(client, rel, tt.clustersCA)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			if tt.expectedContent == "" {
+				return
+			}
+
+			tlsVal, ok := rel.Config["tls"].(map[string]any)
+			assert.True(t, ok)
+			caBundleVal, ok := tlsVal["caBundle"].(map[string]any)
+			assert.True(t, ok)
+			assert.Equal(t, true, caBundleVal["enabled"])
+			assert.Equal(t, tt.expectedContent, caBundleVal["content"])
 		})
 	}
 }
