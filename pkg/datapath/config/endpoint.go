@@ -56,5 +56,9 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 
+	if lnc.DatapathIsLayer2 {
+		cfg.EnableARPResponder = !ep.RequireARPPassthrough()
+	}
+
 	return cfg
 }
