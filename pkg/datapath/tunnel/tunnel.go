@@ -208,9 +208,6 @@ func (cfg Config) datapathConfigProvider() (dpcfgdef.NodeOut, dpcfgdef.NodeFnOut
 	definesFn := func() (dpcfgdef.Map, error) { return nil, nil }
 
 	if cfg.EncapProtocol() != Disabled {
-		defines["TUNNEL_SRC_PORT_LOW"] = fmt.Sprintf("%d", cfg.SrcPortLow())
-		defines["TUNNEL_SRC_PORT_HIGH"] = fmt.Sprintf("%d", cfg.SrcPortHigh())
-
 		definesFn = func() (dpcfgdef.Map, error) {
 			tunnelDev, err := safenetlink.LinkByName(cfg.DeviceName())
 			if err != nil {
