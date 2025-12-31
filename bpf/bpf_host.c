@@ -394,7 +394,7 @@ skip_tunnel:
 #endif
 
 	if (from_proxy) {
-		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+		set_identity_mark(ctx, secctx, MARK_MAGIC_SKIP_TPROXY);
 		return CTX_ACT_OK;
 	}
 
@@ -857,7 +857,7 @@ skip_tunnel:
 	 * routing).
 	 */
 	if (from_proxy) {
-		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+		set_identity_mark(ctx, secctx, MARK_MAGIC_SKIP_TPROXY);
 		return CTX_ACT_OK;
 	}
 
