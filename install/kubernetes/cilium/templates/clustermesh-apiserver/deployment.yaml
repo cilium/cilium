@@ -507,13 +507,4 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if and .Values.clustermesh.config.enabled .Values.clustermesh.apiserver.kvstoremesh.enabled }}
-      hostAliases:
-      {{- range $_, $cluster := (include "clustermesh-clusters" . | fromJson) }}
-      {{- range $ip := $cluster.ips }}
-      - ip: {{ $ip }}
-        hostnames: [ "{{ $cluster.name }}.{{ $.Values.clustermesh.config.domain }}" ]
-      {{- end }}
-      {{- end }}
-      {{- end }}
 {{- end }}

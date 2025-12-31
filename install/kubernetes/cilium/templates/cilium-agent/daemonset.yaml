@@ -852,15 +852,6 @@ spec:
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
-      {{- if and .Values.clustermesh.config.enabled (not (and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled )) }}
-      hostAliases:
-      {{- range $_, $cluster := (include "clustermesh-clusters" . | fromJson) }}
-      {{- range $ip := $cluster.ips }}
-      - ip: {{ $ip }}
-        hostnames: [ "{{ $cluster.name }}.{{ $.Values.clustermesh.config.domain }}" ]
-      {{- end }}
-      {{- end }}
-      {{- end }}
       volumes:
       {{- if $buildDaemonConfig }}
       # For sharing configuration between the "config" initContainer and the agent
