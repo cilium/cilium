@@ -394,7 +394,13 @@ func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock) kvstore.ExtraOp
 
 	// Allow to resolve service names without depending on the DNS. This prevents the need
 	// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
-	dialOpts = append(dialOpts, grpc.WithContextDialer(dial.NewContextDialer(rc.logger, rc.resolvers...)))
+	dialer := dial.NewContextDialer(rc.logger, rc.resolvers...)
+
+	if cfg := rc.ciliumCfg.ClusterMeshApiserverHost; cfg != nil {
+		dialer = dial.NewStaticContextDialerWithFallback(rc.logger, cfg.Hostname, cfg.IPs, dialer)
+	}
+
+	dialOpts = append(dialOpts, grpc.WithContextDialer(dialer))
 
 	return kvstore.ExtraOptions{
 		NoLockQuorumCheck:            true,
