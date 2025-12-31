@@ -85,6 +85,14 @@ func ParseCiliumConfig(path string) (CiliumEtcdConfig, error) {
 	return cfg, nil
 }
 
+func ConvertHostAliasesToPlainMap(hostAliases []HostAlias) map[string][]netip.Addr {
+	plainMap := make(map[string][]netip.Addr, len(hostAliases))
+	for _, ha := range hostAliases {
+		plainMap[ha.Hostname] = ha.IPs
+	}
+	return plainMap
+}
+
 // clusterLifecycle is the interface to implement in order to receive cluster
 // configuration lifecycle events. This is implemented by the ClusterMesh.
 type clusterLifecycle interface {

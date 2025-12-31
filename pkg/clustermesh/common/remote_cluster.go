@@ -139,7 +139,16 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.releaseOldConnection()
 
 				clusterLock := rc.clusterLockFactory()
-				extraOpts := rc.makeExtraOpts(clusterLock)
+
+				ciliumConfig, err := ParseCiliumConfig(rc.configPath)
+				if err != nil {
+					rc.logger.Error("Failed to parse Cilium config from etcd client config",
+						logfields.Error, err,
+					)
+					return err
+				}
+
+				extraOpts := rc.makeExtraOpts(clusterLock, ciliumConfig)
 				backend, errChan := rc.remoteClientFactory(ctx, rc.logger, rc.configPath, extraOpts)
 
 				// Block until either an error is returned or
@@ -147,7 +156,6 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				// connection
 				rc.logger.Debug("Waiting for connection to be established")
 
-				var err error
 				select {
 				case err = <-errChan:
 				case err = <-clusterLock.errors:
@@ -342,14 +350,24 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 	}
 }
 
-func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock) kvstore.ExtraOptions {
+func (rc *remoteCluster) makeExtraOpts(clusterLock *clusterLock, ciliumConfig CiliumEtcdConfig) kvstore.ExtraOptions {
 	var dialOpts []grpc.DialOption
 
 	dialOpts = append(dialOpts, grpc.WithStreamInterceptor(newStreamInterceptor(clusterLock)), grpc.WithUnaryInterceptor(newUnaryInterceptor(clusterLock)))
 
 	// Allow to resolve service names without depending on the DNS. This prevents the need
 	// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
-	dialOpts = append(dialOpts, grpc.WithContextDialer(dial.NewContextDialer(rc.logger, rc.resolvers...)))
+	dialer := dial.NewContextDialer(rc.logger, rc.resolvers...)
+
+	if len(ciliumConfig.HostAliases) > 0 {
+		dialer = dial.NewStaticContextDialerWithFallback(
+			rc.logger,
+			ConvertHostAliasesToPlainMap(ciliumConfig.HostAliases),
+			dialer,
+		)
+	}
+
+	dialOpts = append(dialOpts, grpc.WithContextDialer(dialer))
 
 	return kvstore.ExtraOptions{
 		NoLockQuorumCheck:            true,
