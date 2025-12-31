@@ -200,6 +200,14 @@ func (cm *clusterMesh) addLocked(name, path string) {
 		cm.clusters[name] = cluster
 	}
 
+	if err := parseCiliumConfig(path, &cluster.ciliumCfg); err != nil {
+		cm.conf.Logger.Error("Failed to parse Cilium config from etcd client config",
+			fieldClusterName, name,
+			logfields.Error, err,
+		)
+		return
+	}
+
 	cm.conf.Metrics.TotalRemoteClusters.Set(float64(len(cm.clusters)))
 
 	cluster.connect()
