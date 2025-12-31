@@ -1341,7 +1341,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 
 	if (magic == MARK_MAGIC_HOST || magic == MARK_MAGIC_OVERLAY || magic == MARK_MAGIC_ENCRYPT)
 		src_sec_identity = HOST_ID;
-	else if (magic == MARK_MAGIC_PROXY_EGRESS)
+	else if (magic == MARK_MAGIC_PROXY_EGRESS || magic == MARK_MAGIC_SKIP_TPROXY)
 		src_sec_identity = get_identity(ctx);
 #ifdef ENABLE_IDENTITY_MARK
 	else if (magic == MARK_MAGIC_IDENTITY)
