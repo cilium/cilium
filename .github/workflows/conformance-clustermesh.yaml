@@ -331,6 +331,7 @@ jobs:
             --helm-set=extraConfig.clustermesh-sync-timeout=5m \
             --helm-set=extraConfig.lb-init-wait-timeout=4m \
             --helm-set=clustermesh.defaultGlobalNamespace=${{ matrix.defaultGlobalNamespace }} \
+            --helm-set=clustermesh.disableKubernetesHostAliases=true \
             "
 
           CILIUM_INSTALL_TUNNEL=" \

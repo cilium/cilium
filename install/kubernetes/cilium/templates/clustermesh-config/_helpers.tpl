@@ -42,6 +42,12 @@ trusted-ca-file: /var/lib/cilium/clustermesh/common-etcd-client-ca.crt
 key-file: /var/lib/cilium/clustermesh/{{ $prefix }}etcd-client.key
 cert-file: /var/lib/cilium/clustermesh/{{ $prefix }}etcd-client.crt
 {{- end }}
+
+{{- if and (not $local_etcd) (eq $override "") ($cluster.ips) }}
+cilium-host-aliases:
+- hostname: {{ $cluster.name }}.{{ $domain }}
+  ips: {{ toYaml $cluster.ips | nindent 4 }}
+{{- end }}
 {{- end }}
 
 {{- define "clustermesh-clusters" }}
