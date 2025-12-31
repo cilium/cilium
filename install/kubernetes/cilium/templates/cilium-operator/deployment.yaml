@@ -310,6 +310,7 @@ spec:
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
+      {{/* TODO: remove hostAliases for the v1.21 release as this is now handled via a static dialer to avoid pod restart */}}
       {{- if and (or .Values.clustermesh.enableEndpointSliceSynchronization .Values.clustermesh.mcsapi.enabled .Values.clustermesh.enableMCSAPISupport) .Values.clustermesh.config.enabled (not (and .Values.clustermesh.useAPIServer .Values.clustermesh.apiserver.kvstoremesh.enabled )) }}
       hostAliases:
       {{- range $_, $cluster := (include "clustermesh-clusters" . | fromJson) }}
