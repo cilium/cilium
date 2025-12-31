@@ -156,6 +156,8 @@ const (
 	// the latter two, one can set the annotation with the value "LoadBalancer".
 	ServiceTypeExposure = ServicePrefix + "/type"
 
+	ServiceRaw = ServicePrefix + "/raw"
+
 	// ServiceSourceRangesPolicy is the annotation name used to specify the policy
 	// of the user-provided loadBalancerSourceRanges, meaning whether this CIDR
 	// list should act as an allow- or deny-list. Both "allow" or "deny" are

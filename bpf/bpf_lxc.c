@@ -56,6 +56,7 @@
 #include "lib/fib.h"
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
+#include "lib/crap.h"
 #include "lib/vtep.h"
 #include "lib/subnet.h"
 
@@ -1549,6 +1550,16 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	struct crap_key key;
+	struct crap_value *tv;
+
+	key.dst_ip = ip4->saddr;
+
+	tv = map_lookup_elem (&cilium_crap_map, &key);
+	if (tv) {
+		return CTX_ACT_OK;
+	}
 
 /* If IPv4 fragmentation is disabled
  * AND a IPv4 fragmented packet is received,

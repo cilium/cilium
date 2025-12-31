@@ -79,6 +79,7 @@ import (
 	policyK8s "github.com/cilium/cilium/pkg/policy/k8s"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/raw"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
@@ -358,6 +359,9 @@ var (
 
 		// Instantiates an xDS server used for zTunnel integration.
 		ztunnel.Cell,
+
+		// CRAP cell
+		raw.Cell,
 	)
 )
 
