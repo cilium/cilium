@@ -6,7 +6,9 @@ package common
 import (
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,6 +17,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -37,6 +41,48 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 var DefaultConfig = Config{
 	ClusterMeshConfig:   "",
 	ClusterMeshCacheTTL: 0,
+}
+
+type HostAlias struct {
+	Hostname string       `json:"hostname" yaml:"hostname"`
+	IPs      []netip.Addr `json:"ips" yaml:"ips"`
+}
+
+// CiliumEtcdConfig represents Cilium extensions to the etcd client config.
+// These fields are ignored by etcd but we are conveniently embedding those in
+// the etcd client config so that our config watcher can help retriggering the
+// connection if this change too.
+type CiliumEtcdConfig struct {
+	HostAliases []HostAlias `json:"cilium-host-aliases" yaml:"cilium-host-aliases"`
+}
+
+// ParseCiliumConfig reads Cilium specific fields from the etcd client config.
+func ParseCiliumConfig(path string) (CiliumEtcdConfig, error) {
+	cfg := CiliumEtcdConfig{}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return cfg, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if err := yaml.Unmarshal(b, &cfg); err != nil {
+		return cfg, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	seen := sets.Set[string]{}
+	for _, hostAlias := range cfg.HostAliases {
+		if hostAlias.Hostname == "" {
+			return CiliumEtcdConfig{}, fmt.Errorf("failed to parse config file: cilium-host-aliases entry has an empty hostname")
+		}
+		if len(hostAlias.IPs) == 0 {
+			return CiliumEtcdConfig{}, fmt.Errorf("failed to parse config file: cilium-host-aliases entry for hostname %q has no IPs", hostAlias.Hostname)
+		}
+		if seen.Has(hostAlias.Hostname) {
+			return CiliumEtcdConfig{}, fmt.Errorf("failed to parse config file: cilium-host-aliases has duplicate hostname %q", hostAlias.Hostname)
+		}
+		seen.Insert(hostAlias.Hostname)
+	}
+
+	return cfg, nil
 }
 
 // clusterLifecycle is the interface to implement in order to receive cluster
