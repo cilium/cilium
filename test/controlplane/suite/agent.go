@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/crap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/subnet"
@@ -95,6 +96,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		metrics.Cell,
 		store.Cell,
 		dial.ServiceResolverCell,
+		crap.Cell,
 		cmd.ControlPlane,
 		cell.Invoke(func(_ legacy.DaemonInitialization, nh *fakenode.Handler) {
 			// with dry-run enabled it's enough to depend on DaemonInitialization

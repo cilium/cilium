@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/maps/crap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -110,6 +111,9 @@ var Cell = cell.Module(
 
 	// Provides access to the subnet map.
 	subnet.Cell,
+
+	// CRAP provides direct public access
+	crap.Cell,
 )
 
 type mapApiHandlerOut struct {

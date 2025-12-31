@@ -41,6 +41,18 @@ type AuthKey struct {
 	Pad            uint8
 }
 
+// CrapKey is generated from the BPF C type crap_key.
+type CrapKey struct {
+	_     structs.HostLayout
+	DstIP uint32
+}
+
+// CrapValue is generated from the BPF C type crap_value.
+type CrapValue struct {
+	_     structs.HostLayout
+	PodIP uint32
+}
+
 // CTEntry is generated from the BPF C type ct_entry.
 type CTEntry struct {
 	_       structs.HostLayout

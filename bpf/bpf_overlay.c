@@ -43,6 +43,7 @@
 #include "lib/clustermesh.h"
 #include "lib/egress_gateway.h"
 #include "lib/tailcall.h"
+#include "lib/crap.h"
 #include "lib/vtep.h"
 #include "lib/arp.h"
 #include "lib/encap.h"
@@ -262,6 +263,24 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+#ifdef TUNNEL_MODE
+  struct crap_key key;
+  struct crap_value *tv;
+
+  key.dst_ip = ip4->daddr;
+
+  tv = map_lookup_elem (&cilium_crap_map, &key);
+  if (tv) {
+    ep = __lookup_ip4_endpoint(tv->pod_ip);
+    if (ep) {
+      int l3_off = ETH_HLEN;
+
+      return ipv4_local_delivery(ctx, l3_off, SECLABEL_IPV4, MARK_MAGIC_IDENTITY, ip4, ep,
+             METRIC_INGRESS, true, false, 0);
+    }
+  }
+#endif
 
 	/* If IPv4 fragmentation is disabled AND an IPv4 fragmented packet is
 	 * received, then drop the packet.

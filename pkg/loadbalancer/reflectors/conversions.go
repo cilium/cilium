@@ -63,6 +63,12 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		)
 	})
 
+	if _, ok := annotation.Get(svc, annotation.ServiceRaw); ok {
+		log().Warn("Ignoring annotation raw services",
+			logfields.Annotations, annotation.ServiceRaw,
+		)
+	}
+
 	name := loadbalancer.NewServiceName(svc.Namespace, svc.Name)
 	s = &loadbalancer.Service{
 		Name:                name,

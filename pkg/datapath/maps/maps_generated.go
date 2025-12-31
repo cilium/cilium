@@ -45,6 +45,7 @@ const (
 	CiliumCIDRV4Fix                     = "cilium_cidr_v4_fix"
 	CiliumCIDRV6Dyn                     = "cilium_cidr_v6_dyn"
 	CiliumCIDRV6Fix                     = "cilium_cidr_v6_fix"
+	CiliumCrapMap                       = "cilium_crap_map"
 	CiliumCT4Global                     = "cilium_ct4_global"
 	CiliumCT6Global                     = "cilium_ct6_global"
 	CiliumCTAny4Global                  = "cilium_ct_any4_global"
@@ -216,6 +217,20 @@ func newCiliumCIDRV6FixSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Value:      anyTypeByName(btf, "lpm_val"),
 		MaxEntries: 1024,
 		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Pinning:    ebpf.PinByName,
+	}
+}
+
+func newCiliumCrapMapSpec(btf *btf.Spec) *ebpf.MapSpec {
+	return &ebpf.MapSpec{
+		Name:       CiliumCrapMap,
+		Type:       ebpf.Hash,
+		KeySize:    4,
+		Key:        anyTypeByName(btf, "crap_key"),
+		ValueSize:  4,
+		Value:      anyTypeByName(btf, "crap_value"),
+		MaxEntries: 8192,
+		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}
 }
@@ -1303,6 +1318,7 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumCIDRV4FixSpec,
 	newCiliumCIDRV6DynSpec,
 	newCiliumCIDRV6FixSpec,
+	newCiliumCrapMapSpec,
 	newCiliumCT4GlobalSpec,
 	newCiliumCT6GlobalSpec,
 	newCiliumCTAny4GlobalSpec,
