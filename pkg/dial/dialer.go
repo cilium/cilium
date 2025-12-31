@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -56,3 +57,11 @@ func newContextDialer(log *slog.Logger, dialContext dialContextFn, resolvers ...
 		return dialContext(ctx, hostport)
 	}
 }
+
+// HostAlias configures IP addresses for a given hostname, similarly to
+// Kubernetes Pod HostAliases. This avoids Pod restarts on IP changes.
+type HostAlias struct {
+	IPs []netip.Addr `json:"ips" yaml:"ips"`
+}
+
+type HostAliases map[string]HostAlias
