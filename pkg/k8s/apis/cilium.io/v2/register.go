@@ -128,6 +128,17 @@ const (
 	// CECName is the full name of Cilium Envoy Config
 	CECName = CECPluralName + "." + CustomResourceDefinitionGroup
 
+	// Cilium Envoy Circuit Breaker (CECB)
+
+	// CECBPluralName is the plural name of Cilium Envoy Circuit Breaker
+	CECBPluralName = "ciliumenvoycircuitbreakers"
+
+	// CECBKindDefinition is the kind name of Cilium Envoy Circuit Breaker
+	CECBKindDefinition = "CiliumEnvoyCircuitBreaker"
+
+	// CECBName is the full name of Cilium Envoy Circuit Breaker
+	CECBName = CECBPluralName + "." + CustomResourceDefinitionGroup
+
 	// CiliumNodeConfig (CNC)
 
 	// CNCPluralName is the plural name of Cilium Node Config
@@ -241,6 +252,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumEnvoyConfigList{},
 		&CiliumClusterwideEnvoyConfig{},
 		&CiliumClusterwideEnvoyConfigList{},
+		&CiliumEnvoyCircuitBreaker{},
+		&CiliumEnvoyCircuitBreakerList{},
 		&CiliumBGPClusterConfig{},
 		&CiliumBGPClusterConfigList{},
 		&CiliumBGPPeerConfig{},

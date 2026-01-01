@@ -228,6 +228,12 @@ func (r *ingressReconciler) buildSharedResources(ctx context.Context) (*ciliumv2
 		}
 	}
 
+	// Enrich model with CircuitBreakers before translation
+	if err := ingestion.EnrichModelWithCircuitBreakers(ctx, r.client, r.logger, m); err != nil {
+		r.logger.ErrorContext(ctx, "Unable to enrich model with CircuitBreakers", logfields.Error, err)
+		return nil, fmt.Errorf("failed to enrich model with CircuitBreakers: %w", err)
+	}
+
 	return r.cecTranslator.Translate(r.ciliumNamespace, r.sharedResourcesName, m)
 }
 
@@ -252,6 +258,12 @@ func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress
 		m.TLSPassthrough = append(m.TLSPassthrough, ingestion.IngressPassthrough(nil, *ingress, passthroughPort)...)
 	} else {
 		m.HTTP = append(m.HTTP, ingestion.Ingress(nil, *ingress, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
+	}
+
+	// Enrich model with CircuitBreakers before translation
+	if err := ingestion.EnrichModelWithCircuitBreakers(ctx, r.client, scopedLog, m); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to enrich model with CircuitBreakers", logfields.Error, err)
+		return nil, nil, nil, fmt.Errorf("failed to enrich model with CircuitBreakers: %w", err)
 	}
 
 	cec, svc, ep, err := r.dedicatedTranslator.Translate(m)

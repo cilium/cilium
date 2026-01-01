@@ -26,6 +26,7 @@ CRDS_CILIUM_V2="ciliumnetworkpolicies \
                 ciliumegressgatewaypolicies \
                 ciliumenvoyconfigs \
                 ciliumclusterwideenvoyconfigs \
+                ciliumenvoycircuitbreakers \
                 ciliumnodeconfigs \
                 ciliumbgpclusterconfigs \
                 ciliumbgppeerconfigs \

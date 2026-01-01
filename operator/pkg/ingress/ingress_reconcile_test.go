@@ -29,6 +29,10 @@ import (
 	ingressTranslation "github.com/cilium/cilium/operator/pkg/model/translation/ingress"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+
+	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -1012,6 +1016,157 @@ func TestReconcile(t *testing.T) {
 
 		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &ciliumv2.CiliumEnvoyConfig{})
 		require.True(t, k8sApiErrors.IsNotFound(err), "CiliumEnvoyConfig should not be created")
+	})
+
+	t.Run("Reconcile of dedicated Cilium Ingress with circuit breaker annotation on Service should apply circuit breaker to cluster", func(t *testing.T) {
+		backendService := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backend",
+				Namespace: "test",
+				Annotations: map[string]string{
+					"cilium.io/circuit-breaker": "test-circuit-breaker",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{
+						Port: 80,
+					},
+				},
+			},
+		}
+
+		circuitBreaker := &ciliumv2.CiliumEnvoyCircuitBreaker{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-circuit-breaker",
+				Namespace: "test",
+			},
+			Spec: ciliumv2.CiliumEnvoyCircuitBreakerSpec{
+				Thresholds: []ciliumv2.CircuitBreakerThreshold{
+					{
+						Priority:           "DEFAULT",
+						MaxConnections:     ptr.To(uint32(1000)),
+						MaxPendingRequests: ptr.To(uint32(2000)),
+						MaxRequests:        ptr.To(uint32(3000)),
+						MaxRetries:         ptr.To(uint32(100)),
+					},
+					{
+						Priority:           "HIGH",
+						MaxConnections:     ptr.To(uint32(5000)),
+						MaxPendingRequests: ptr.To(uint32(10000)),
+						MaxRequests:        ptr.To(uint32(15000)),
+						MaxRetries:         ptr.To(uint32(500)),
+					},
+				},
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(testScheme()).
+			WithObjects(
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test",
+						Name:      "test",
+					},
+					Spec: networkingv1.IngressSpec{
+						IngressClassName: ptr.To("cilium"),
+						DefaultBackend: &networkingv1.IngressBackend{
+							Service: &networkingv1.IngressServiceBackend{
+								Name: "backend",
+								Port: networkingv1.ServiceBackendPort{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+				backendService,
+				circuitBreaker,
+			).
+			Build()
+
+		cecTranslator := translation.NewCECTranslator(cfg)
+		dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(logger, cecTranslator, false)
+
+		reconciler := newIngressReconciler(logger, fakeClient, cecTranslator, dedicatedIngressTranslator, testCiliumNamespace, []string{}, testDefaultLoadbalancingServiceName, "dedicated", testDefaultSecretNamespace, testDefaultSecretName, false, testIngressDefaultRequestTimeout, false, 0)
+
+		result, err := reconciler.Reconcile(t.Context(), reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "test",
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		cec := ciliumv2.CiliumEnvoyConfig{}
+		err = fakeClient.Get(t.Context(), types.NamespacedName{Namespace: "test", Name: "cilium-ingress-test-test"}, &cec)
+		require.NoError(t, err, "Dedicated CiliumEnvoyConfig should exist")
+
+		// Verify that circuit breaker is applied to the cluster
+		require.NotEmpty(t, cec.Spec.Resources, "CiliumEnvoyConfig should have resources")
+		
+		// Look for cluster in resources
+		var clusterFound bool
+		for _, resource := range cec.Spec.Resources {
+			if resource.TypeUrl == "type.googleapis.com/envoy.config.cluster.v3.Cluster" {
+				clusterFound = true
+				// Verify that the cluster has circuit breaker settings
+				// This is checked by the presence of circuitBreakers in the protobuf message
+				// For detailed verification, protobuf needs to be parsed, but basic check is that the resource is created
+				break
+			}
+		}
+		require.True(t, clusterFound, "Cluster resource should exist in CiliumEnvoyConfig")
+
+		// More detailed verification: look for circuit breaker settings in the cluster
+		// Use protobuf for verification
+		for _, resource := range cec.Spec.Resources {
+			if resource.TypeUrl == "type.googleapis.com/envoy.config.cluster.v3.Cluster" {
+				cluster := &envoy_config_cluster_v3.Cluster{}
+				err := proto.Unmarshal(resource.Value, cluster)
+				require.NoError(t, err, "Should be able to unmarshal cluster")
+				
+				// Verify presence of circuit breaker settings
+				require.NotNil(t, cluster.CircuitBreakers, "Cluster should have circuit breakers")
+				require.Len(t, cluster.CircuitBreakers.Thresholds, 2, "Should have 2 thresholds (DEFAULT and HIGH)")
+				
+				// Find thresholds by priority (order may vary)
+				var defaultThreshold, highThreshold *envoy_config_cluster_v3.CircuitBreakers_Thresholds
+				for _, threshold := range cluster.CircuitBreakers.Thresholds {
+					if threshold.Priority == envoy_config_core_v3.RoutingPriority_DEFAULT {
+						defaultThreshold = threshold
+					} else if threshold.Priority == envoy_config_core_v3.RoutingPriority_HIGH {
+						highThreshold = threshold
+					}
+				}
+				
+				// Verify DEFAULT threshold
+				require.NotNil(t, defaultThreshold, "DEFAULT threshold should exist")
+				require.NotNil(t, defaultThreshold.MaxConnections)
+				require.Equal(t, uint32(1000), defaultThreshold.MaxConnections.Value)
+				require.NotNil(t, defaultThreshold.MaxPendingRequests)
+				require.Equal(t, uint32(2000), defaultThreshold.MaxPendingRequests.Value)
+				require.NotNil(t, defaultThreshold.MaxRequests)
+				require.Equal(t, uint32(3000), defaultThreshold.MaxRequests.Value)
+				require.NotNil(t, defaultThreshold.MaxRetries)
+				require.Equal(t, uint32(100), defaultThreshold.MaxRetries.Value)
+				
+				// Verify HIGH threshold
+				require.NotNil(t, highThreshold, "HIGH threshold should exist")
+				require.NotNil(t, highThreshold.MaxConnections)
+				require.Equal(t, uint32(5000), highThreshold.MaxConnections.Value)
+				require.NotNil(t, highThreshold.MaxPendingRequests)
+				require.Equal(t, uint32(10000), highThreshold.MaxPendingRequests.Value)
+				require.NotNil(t, highThreshold.MaxRequests)
+				require.Equal(t, uint32(15000), highThreshold.MaxRequests.Value)
+				require.NotNil(t, highThreshold.MaxRetries)
+				require.Equal(t, uint32(500), highThreshold.MaxRetries.Value)
+				
+				break
+			}
+		}
 	})
 
 	t.Run("If create operations fail due to namespace termination, no error should be reported", func(t *testing.T) {

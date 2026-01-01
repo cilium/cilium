@@ -189,7 +189,18 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	setGatewayAccepted(gw, true, "Gateway successfully scheduled", gatewayv1.GatewayReasonAccepted)
 
 	// Step 3: Translate the listeners into Cilium model
-	cec, svc, ep, err := r.translator.Translate(&model.Model{HTTP: httpListeners, TLSPassthrough: tlsPassthroughListeners})
+	m := &model.Model{
+		HTTP:           httpListeners,
+		TLSPassthrough: tlsPassthroughListeners,
+	}
+
+	// Enrich model with CircuitBreakers before translation
+	if err := ingestion.EnrichModelWithCircuitBreakers(ctx, r.Client, scopedLog, m); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to enrich model with CircuitBreakers", logfields.Error, err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+
+	cec, svc, ep, err := r.translator.Translate(m)
 	if err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to translate resources", logfields.Error, err)
 		setGatewayAccepted(gw, false, "Unable to translate resources", gatewayv1.GatewayReasonNoResources)

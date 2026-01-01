@@ -21,6 +21,14 @@ const (
 	httpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
 )
 
+type CircuitBreakerThreshold struct {
+	Priority           string
+	MaxConnections     *uint32
+	MaxPendingRequests *uint32
+	MaxRequests        *uint32
+	MaxRetries         *uint32
+}
+
 type HTTPVersionType int
 
 const (
@@ -31,11 +39,14 @@ const (
 	HTTPVersion3          HTTPVersionType = 3
 )
 
-func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string) []ClusterMutator {
+func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string, thresholds []*CircuitBreakerThreshold, circuitBreakerName string) []ClusterMutator {
 	res := []ClusterMutator{
 		withIdleTimeout(i.Config.ClusterConfig.IdleTimeoutSeconds),
 		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		withOutlierDetection(true),
+	}
+	if thresholds != nil && len(thresholds) > 0 {
+		res = append(res, withCircuitBreaker(thresholds, circuitBreakerName))
 	}
 	if grpcService {
 		res = append(res, withProtocol(HTTPVersion2))
@@ -68,9 +79,23 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 				clusterName := getClusterName(ns, name, port)
 				clusterServiceName := getClusterServiceName(ns, name, port)
 				sortedClusterNames = append(sortedClusterNames, clusterName)
+
+				var thresholds []*CircuitBreakerThreshold
+				var circuitBreakerName string
+				if m.CircuitBreakers != nil {
+					key := fmt.Sprintf("%s/%s:%s", ns, name, port)
+					if cbInterface, ok := m.CircuitBreakers[key]; ok {
+						if cb, ok := cbInterface.(*ciliumv2.CiliumEnvoyCircuitBreaker); ok {
+							thresholds = convertCircuitBreakerToThresholds(cb)
+							circuitBreakerName = fmt.Sprintf("%s/%s", cb.GetNamespace(), cb.GetName())
+						}
+					}
+				}
+
 				envoyClusters[clusterName], _ = i.httpCluster(clusterName, clusterServiceName,
 					isGRPCService(m, ns, name, port),
-					getAppProtocol(m, ns, name, port))
+					getAppProtocol(m, ns, name, port),
+					thresholds, circuitBreakerName)
 			}
 		}
 	}
@@ -95,8 +120,26 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 	return res, nil
 }
 
+func convertCircuitBreakerToThresholds(cb *ciliumv2.CiliumEnvoyCircuitBreaker) []*CircuitBreakerThreshold {
+	if cb == nil || len(cb.Spec.Thresholds) == 0 {
+		return nil
+	}
+
+	var thresholds []*CircuitBreakerThreshold
+	for _, t := range cb.Spec.Thresholds {
+		thresholds = append(thresholds, &CircuitBreakerThreshold{
+			Priority:           t.Priority,
+			MaxConnections:     t.MaxConnections,
+			MaxPendingRequests: t.MaxPendingRequests,
+			MaxRequests:        t.MaxRequests,
+			MaxRetries:         t.MaxRetries,
+		})
+	}
+	return thresholds
+}
+
 // httpCluster creates a new Envoy cluster.
-func (i *cecTranslator) httpCluster(clusterName string, clusterServiceName string, isGRPCService bool, appProtocol string) (ciliumv2.XDSResource, error) {
+func (i *cecTranslator) httpCluster(clusterName string, clusterServiceName string, isGRPCService bool, appProtocol string, thresholds []*CircuitBreakerThreshold, circuitBreakerName string) (ciliumv2.XDSResource, error) {
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: clusterName,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
@@ -117,7 +160,7 @@ func (i *cecTranslator) httpCluster(clusterName string, clusterServiceName strin
 	}
 
 	// Apply mutation functions for customizing the cluster.
-	for _, fn := range i.clusterMutators(isGRPCService, appProtocol) {
+	for _, fn := range i.clusterMutators(isGRPCService, appProtocol, thresholds, circuitBreakerName) {
 		cluster = fn(cluster)
 	}
 
