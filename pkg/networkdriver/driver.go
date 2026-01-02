@@ -176,8 +176,11 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 		defer close(ch)
 
 		var (
+			cfg *v2alpha1.CiliumNetworkDriverConfigSpec
+
 			synced   bool
-			received bool
+			upserted bool
+			handled  bool
 		)
 
 		if driver.configCRD == nil {
@@ -188,34 +191,35 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 		for ev := range driver.configCRD.Events(ctx) {
 			ev.Done(nil)
 
-			if ev.Kind == resource.Delete {
+			switch ev.Kind {
+			case resource.Delete:
+				cfg = nil
+				upserted = false
 				continue
-			}
-
-			if ev.Kind == resource.Sync {
+			case resource.Sync:
 				synced = true
-				continue
+			case resource.Upsert:
+				cfg = ev.Object.Spec.DeepCopy()
+				upserted = true
 			}
 
-			// wait for sync before reading config updates
-			if !synced {
-				continue
-			}
-
-			// discard updates if we already received a config
-			if received {
+			// discard updates if we already handled a config
+			if handled {
 				driver.logger.InfoContext(
 					ctx, "config received, but we already have one",
 				)
-
 				continue
 			}
 
-			received = true
+			// wait for sync and upsert before reading the config
+			if !synced || !upserted {
+				continue
+			}
 
 			driver.logger.DebugContext(ctx, "network driver configuration found")
 
-			ch <- ev.Object.Spec
+			handled = true
+			ch <- *cfg
 		}
 	}()
 
