@@ -138,16 +138,16 @@ nextLabel:
 //
 // The key can be of source "any", in which case the source is
 // ignored. The inverse, however, is not true.
-// ["k8s.foo=bar"].Has("any.foo") => true
-// ["any.foo=bar"].Has("k8s.foo") => false
+// ["k8s:foo=bar"].Has("any:foo") => true
+// ["any:foo=bar"].Has("k8s:foo") => false
 //
 // If the key is of source "cidr", this will also match
 // broader keys.
-// ["cidr:1.1.1.1/32"].Has("cidr.1.0.0.0/8") => true
-// ["cidr:1.0.0.0/8"].Has("cidr.1.1.1.1/32") => false
+// ["cidr:1.1.1.1/32"].Has("cidr:1.0.0.0/8") => true
+// ["cidr:1.0.0.0/8"].Has("cidr:1.1.1.1/32") => false
 func (ls LabelArray) Has(key string) bool {
 	// The key is submitted in the form of `source.key=value`
-	keyLabel := ParseSelectDotLabel(key)
+	keyLabel := ParseSelectLabel(key)
 	_, exists := ls.LookupLabel(&keyLabel)
 	return exists
 }
@@ -158,21 +158,21 @@ func (ls LabelArray) Has(key string) bool {
 //
 // The key can be of source "any", in which case the source is
 // ignored. The inverse, however, is not true.
-// ["k8s.foo=bar"].Get("any.foo") => "bar"
-// ["any.foo=bar"].Get("k8s.foo") => ""
+// ["k8s:foo=bar"].Get("any:foo") => "bar"
+// ["any:foo=bar"].Get("k8s:foo") => ""
 //
 // Note that Get is not useful for labels that have no values,
 // as then Get will return an empty string whether or not key
 // matches any label in the array.
 func (ls LabelArray) Get(key string) string {
-	keyLabel := ParseSelectDotLabel(key)
+	keyLabel := ParseSelectLabel(key)
 	value, _ := ls.LookupLabel(&keyLabel)
 	return value
 }
 
 func (ls LabelArray) Lookup(label string) (value string, exists bool) {
-	// The label is submitted in the form of `source.key=value`
-	keyLabel := ParseSelectDotLabel(label)
+	// The label is submitted in the form of `source:key=value`
+	keyLabel := ParseSelectLabel(label)
 	return ls.LookupLabel(&keyLabel)
 }
 
@@ -275,7 +275,7 @@ func Map2LabelArray(m map[string]string, source string) LabelArray {
 func (ls LabelArray) StringMap() map[string]string {
 	o := make(map[string]string, len(ls))
 	for i := range ls {
-		o[ls[i].Source+":"+ls[i].Key] = ls[i].Value
+		o[ls[i].Source+SourceDelimiter+ls[i].Key] = ls[i].Value
 	}
 	return o
 }

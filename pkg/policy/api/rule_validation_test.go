@@ -578,6 +578,7 @@ func TestHTTPRuleRegexes(t *testing.T) {
 // Test the validation of CIDR rule prefix definitions
 func TestCIDRsanitize(t *testing.T) {
 	sel := EndpointSelector{LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{"foo": "bar"}}}
+	expectedSel := NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, sel.LabelSelector)
 
 	cidr := CIDRRule{}
 	err := cidr.sanitize()
@@ -612,6 +613,7 @@ func TestCIDRsanitize(t *testing.T) {
 	cidr = CIDRRule{Cidr: "", CIDRGroupSelector: sel}
 	err = cidr.sanitize()
 	require.NoError(t, err)
+	require.Equal(t, expectedSel, cidr.CIDRGroupSelector)
 
 	cidr = CIDRRule{Cidr: "", CIDRGroupRef: "foo", CIDRGroupSelector: sel}
 	err = cidr.sanitize()

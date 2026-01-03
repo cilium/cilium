@@ -27,8 +27,8 @@ func Test_namespacesAreValid(t *testing.T) {
 }
 
 func Test_ParseToCiliumRule(t *testing.T) {
-	role := fmt.Sprintf("%s.role", labels.LabelSourceAny)
-	namespace := fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel)
+	role := fmt.Sprintf("%s:role", labels.LabelSourceAny)
+	namespace := fmt.Sprintf("%s:%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel)
 	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
 	type args struct {
 		namespace      string
@@ -200,7 +200,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						nil,
 						[]slim_metav1.LabelSelectorRequirement{
 							{
-								Key:      "reserved.init",
+								Key:      "reserved:init",
 								Operator: slim_metav1.LabelSelectorOpDoesNotExist,
 							},
 						},
@@ -225,7 +225,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
-							Key:      "reserved.init",
+							Key:      "reserved:init",
 							Operator: slim_metav1.LabelSelectorOpDoesNotExist,
 						},
 					},
