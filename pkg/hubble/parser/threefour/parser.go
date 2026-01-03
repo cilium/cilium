@@ -565,9 +565,35 @@ func decodeSCTP(sctp *layers.SCTP) (l4 *pb.Layer4, src, dst uint16) {
 			SCTP: &pb.SCTP{
 				SourcePort:      uint32(sctp.SrcPort),
 				DestinationPort: uint32(sctp.DstPort),
+				ChunkType:       decodeSCTPChunkType(sctp.Payload),
 			},
 		},
 	}, uint16(sctp.SrcPort), uint16(sctp.DstPort)
+}
+
+func decodeSCTPChunkType(payload []byte) pb.SCTPChunkType {
+
+	var chunktype pb.SCTPChunkType
+
+	if len(payload) != 0 {
+		switch layers.SCTPChunkType(payload[0]) {
+		case layers.SCTPChunkTypeInit:
+			chunktype = pb.SCTPChunkType_INIT
+		case layers.SCTPChunkTypeInitAck:
+			chunktype = pb.SCTPChunkType_INIT_ACK
+		case layers.SCTPChunkTypeShutdown:
+			chunktype = pb.SCTPChunkType_SHUTDOWN
+		case layers.SCTPChunkTypeShutdownAck:
+			chunktype = pb.SCTPChunkType_SHUTDOWN_ACK
+		case layers.SCTPChunkTypeShutdownComplete:
+			chunktype = pb.SCTPChunkType_SHUTDOWN_COMPLETE
+		case layers.SCTPChunkTypeAbort:
+			chunktype = pb.SCTPChunkType_ABORT
+		default:
+			chunktype = pb.SCTPChunkType_UNSUPPORTED
+		}
+	}
+	return chunktype
 }
 
 func decodeUDP(udp *layers.UDP) (l4 *pb.Layer4, src, dst uint16) {
