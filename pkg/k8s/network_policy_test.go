@@ -1588,13 +1588,13 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 			want: getSelectorPointer(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						"k8s.foo":                          "bar",
-						"k8s.io.kubernetes.pod.namespace":  "foo-namespace",
-						"k8s.io.cilium.k8s.policy.cluster": "cluster1",
+						"k8s:foo":                          "bar",
+						"k8s:io.kubernetes.pod.namespace":  "foo-namespace",
+						"k8s:io.cilium.k8s.policy.cluster": "cluster1",
 					},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
-							Key:      "k8s.foo",
+							Key:      "k8s:foo",
 							Operator: slim_metav1.LabelSelectorOpIn,
 							Values:   []string{"bar", "baz"},
 						},
@@ -1642,16 +1642,16 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 			want: getSelectorPointer(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						"k8s.foo": "bar",
-						"k8s.io.cilium.k8s.namespace.labels.ns-foo": "ns-bar",
+						"k8s:foo": "bar",
+						"k8s:io.cilium.k8s.namespace.labels.ns-foo": "ns-bar",
 					},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
-							Key:      "k8s.io.cilium.k8s.namespace.labels.ns-foo-expression",
+							Key:      "k8s:io.cilium.k8s.namespace.labels.ns-foo-expression",
 							Operator: slim_metav1.LabelSelectorOpExists,
 						},
 						{
-							Key:      "k8s.foo",
+							Key:      "k8s:foo",
 							Operator: slim_metav1.LabelSelectorOpIn,
 							Values:   []string{"bar", "baz"},
 						},
@@ -1680,11 +1680,11 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 			want: getSelectorPointer(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						"k8s.io.cilium.k8s.namespace.labels.ns-foo": "ns-bar",
+						"k8s:io.cilium.k8s.namespace.labels.ns-foo": "ns-bar",
 					},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
-							Key:      "k8s.io.cilium.k8s.namespace.labels.ns-foo-expression",
+							Key:      "k8s:io.cilium.k8s.namespace.labels.ns-foo-expression",
 							Operator: slim_metav1.LabelSelectorOpExists,
 						},
 					},
@@ -1704,7 +1704,7 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 					map[string]string{},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
-							Key:      fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel),
+							Key:      fmt.Sprintf("%s:%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel),
 							Operator: slim_metav1.LabelSelectorOpExists,
 						},
 					},
@@ -1734,13 +1734,13 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 			want: getSelectorPointer(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						"k8s.foo":                          "bar",
-						"k8s.io.cilium.k8s.policy.cluster": "cluster1",
-						"k8s.io.kubernetes.pod.namespace":  "foo-namespace",
+						"k8s:foo":                          "bar",
+						"k8s:io.cilium.k8s.policy.cluster": "cluster1",
+						"k8s:io.kubernetes.pod.namespace":  "foo-namespace",
 					},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
-							Key:      "k8s.foo",
+							Key:      "k8s:foo",
 							Operator: slim_metav1.LabelSelectorOpIn,
 							Values:   []string{"bar", "baz"},
 						},
@@ -1765,9 +1765,9 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 			want: getSelectorPointer(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						"k8s.foo":                          "bar",
-						"k8s.io.kubernetes.pod.namespace":  "foo-namespace",
-						"k8s.io.cilium.k8s.policy.cluster": "cluster2",
+						"k8s:foo":                          "bar",
+						"k8s:io.kubernetes.pod.namespace":  "foo-namespace",
+						"k8s:io.cilium.k8s.policy.cluster": "cluster2",
 					},
 					nil,
 				),
@@ -1793,11 +1793,11 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 			want: getSelectorPointer(
 				api.NewESFromMatchRequirements(
 					map[string]string{
-						"k8s.io.kubernetes.pod.namespace": "foo-namespace",
+						"k8s:io.kubernetes.pod.namespace": "foo-namespace",
 					},
 					[]slim_metav1.LabelSelectorRequirement{
 						{
-							Key:      "k8s.io.cilium.k8s.policy.cluster",
+							Key:      "k8s:io.cilium.k8s.policy.cluster",
 							Operator: slim_metav1.LabelSelectorOpIn,
 							Values:   []string{"bar", "baz"},
 						},
