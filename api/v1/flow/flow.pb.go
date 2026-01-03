@@ -365,6 +365,67 @@ func (L7FlowType) EnumDescriptor() ([]byte, []int) {
 	return file_flow_flow_proto_rawDescGZIP(), []int{4}
 }
 
+type SCTPChunkType int32
+
+const (
+	SCTPChunkType_UNSUPPORTED       SCTPChunkType = 0
+	SCTPChunkType_INIT              SCTPChunkType = 1
+	SCTPChunkType_INIT_ACK          SCTPChunkType = 2
+	SCTPChunkType_SHUTDOWN          SCTPChunkType = 3
+	SCTPChunkType_SHUTDOWN_ACK      SCTPChunkType = 4
+	SCTPChunkType_SHUTDOWN_COMPLETE SCTPChunkType = 5
+	SCTPChunkType_ABORT             SCTPChunkType = 6
+)
+
+// Enum value maps for SCTPChunkType.
+var (
+	SCTPChunkType_name = map[int32]string{
+		0: "UNSUPPORTED",
+		1: "INIT",
+		2: "INIT_ACK",
+		3: "SHUTDOWN",
+		4: "SHUTDOWN_ACK",
+		5: "SHUTDOWN_COMPLETE",
+		6: "ABORT",
+	}
+	SCTPChunkType_value = map[string]int32{
+		"UNSUPPORTED":       0,
+		"INIT":              1,
+		"INIT_ACK":          2,
+		"SHUTDOWN":          3,
+		"SHUTDOWN_ACK":      4,
+		"SHUTDOWN_COMPLETE": 5,
+		"ABORT":             6,
+	}
+)
+
+func (x SCTPChunkType) Enum() *SCTPChunkType {
+	p := new(SCTPChunkType)
+	*p = x
+	return p
+}
+
+func (x SCTPChunkType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SCTPChunkType) Descriptor() protoreflect.EnumDescriptor {
+	return file_flow_flow_proto_enumTypes[5].Descriptor()
+}
+
+func (SCTPChunkType) Type() protoreflect.EnumType {
+	return &file_flow_flow_proto_enumTypes[5]
+}
+
+func (x SCTPChunkType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SCTPChunkType.Descriptor instead.
+func (SCTPChunkType) EnumDescriptor() ([]byte, []int) {
+	return file_flow_flow_proto_rawDescGZIP(), []int{5}
+}
+
 type IPVersion int32
 
 const (
@@ -398,11 +459,11 @@ func (x IPVersion) String() string {
 }
 
 func (IPVersion) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[5].Descriptor()
+	return file_flow_flow_proto_enumTypes[6].Descriptor()
 }
 
 func (IPVersion) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[5]
+	return &file_flow_flow_proto_enumTypes[6]
 }
 
 func (x IPVersion) Number() protoreflect.EnumNumber {
@@ -411,7 +472,7 @@ func (x IPVersion) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use IPVersion.Descriptor instead.
 func (IPVersion) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{5}
+	return file_flow_flow_proto_rawDescGZIP(), []int{6}
 }
 
 type Verdict int32
@@ -476,11 +537,11 @@ func (x Verdict) String() string {
 }
 
 func (Verdict) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[6].Descriptor()
+	return file_flow_flow_proto_enumTypes[7].Descriptor()
 }
 
 func (Verdict) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[6]
+	return &file_flow_flow_proto_enumTypes[7]
 }
 
 func (x Verdict) Number() protoreflect.EnumNumber {
@@ -489,7 +550,7 @@ func (x Verdict) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Verdict.Descriptor instead.
 func (Verdict) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{6}
+	return file_flow_flow_proto_rawDescGZIP(), []int{7}
 }
 
 // These values are shared with pkg/monitor/api/drop.go and bpf/lib/common.h.
@@ -764,11 +825,11 @@ func (x DropReason) String() string {
 }
 
 func (DropReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[7].Descriptor()
+	return file_flow_flow_proto_enumTypes[8].Descriptor()
 }
 
 func (DropReason) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[7]
+	return &file_flow_flow_proto_enumTypes[8]
 }
 
 func (x DropReason) Number() protoreflect.EnumNumber {
@@ -777,7 +838,7 @@ func (x DropReason) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DropReason.Descriptor instead.
 func (DropReason) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{7}
+	return file_flow_flow_proto_rawDescGZIP(), []int{8}
 }
 
 type TrafficDirection int32
@@ -813,11 +874,11 @@ func (x TrafficDirection) String() string {
 }
 
 func (TrafficDirection) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[8].Descriptor()
+	return file_flow_flow_proto_enumTypes[9].Descriptor()
 }
 
 func (TrafficDirection) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[8]
+	return &file_flow_flow_proto_enumTypes[9]
 }
 
 func (x TrafficDirection) Number() protoreflect.EnumNumber {
@@ -826,7 +887,7 @@ func (x TrafficDirection) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TrafficDirection.Descriptor instead.
 func (TrafficDirection) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{8}
+	return file_flow_flow_proto_rawDescGZIP(), []int{9}
 }
 
 // These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h.
@@ -881,11 +942,11 @@ func (x DebugCapturePoint) String() string {
 }
 
 func (DebugCapturePoint) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[9].Descriptor()
+	return file_flow_flow_proto_enumTypes[10].Descriptor()
 }
 
 func (DebugCapturePoint) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[9]
+	return &file_flow_flow_proto_enumTypes[10]
 }
 
 func (x DebugCapturePoint) Number() protoreflect.EnumNumber {
@@ -894,7 +955,7 @@ func (x DebugCapturePoint) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DebugCapturePoint.Descriptor instead.
 func (DebugCapturePoint) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{9}
+	return file_flow_flow_proto_rawDescGZIP(), []int{10}
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
@@ -933,11 +994,11 @@ func (x EventType) String() string {
 }
 
 func (EventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[10].Descriptor()
+	return file_flow_flow_proto_enumTypes[11].Descriptor()
 }
 
 func (EventType) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[10]
+	return &file_flow_flow_proto_enumTypes[11]
 }
 
 func (x EventType) Number() protoreflect.EnumNumber {
@@ -946,7 +1007,7 @@ func (x EventType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EventType.Descriptor instead.
 func (EventType) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{10}
+	return file_flow_flow_proto_rawDescGZIP(), []int{11}
 }
 
 type LostEventSource int32
@@ -993,11 +1054,11 @@ func (x LostEventSource) String() string {
 }
 
 func (LostEventSource) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[11].Descriptor()
+	return file_flow_flow_proto_enumTypes[12].Descriptor()
 }
 
 func (LostEventSource) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[11]
+	return &file_flow_flow_proto_enumTypes[12]
 }
 
 func (x LostEventSource) Number() protoreflect.EnumNumber {
@@ -1006,7 +1067,7 @@ func (x LostEventSource) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LostEventSource.Descriptor instead.
 func (LostEventSource) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{11}
+	return file_flow_flow_proto_rawDescGZIP(), []int{12}
 }
 
 // AgentEventType is the type of agent event. These values are shared with type
@@ -1073,11 +1134,11 @@ func (x AgentEventType) String() string {
 }
 
 func (AgentEventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[12].Descriptor()
+	return file_flow_flow_proto_enumTypes[13].Descriptor()
 }
 
 func (AgentEventType) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[12]
+	return &file_flow_flow_proto_enumTypes[13]
 }
 
 func (x AgentEventType) Number() protoreflect.EnumNumber {
@@ -1086,7 +1147,7 @@ func (x AgentEventType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AgentEventType.Descriptor instead.
 func (AgentEventType) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{12}
+	return file_flow_flow_proto_rawDescGZIP(), []int{13}
 }
 
 // This mirrors enum xlate_point in bpf/lib/trace_sock.h
@@ -1129,11 +1190,11 @@ func (x SocketTranslationPoint) String() string {
 }
 
 func (SocketTranslationPoint) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[13].Descriptor()
+	return file_flow_flow_proto_enumTypes[14].Descriptor()
 }
 
 func (SocketTranslationPoint) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[13]
+	return &file_flow_flow_proto_enumTypes[14]
 }
 
 func (x SocketTranslationPoint) Number() protoreflect.EnumNumber {
@@ -1142,7 +1203,7 @@ func (x SocketTranslationPoint) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SocketTranslationPoint.Descriptor instead.
 func (SocketTranslationPoint) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{13}
+	return file_flow_flow_proto_rawDescGZIP(), []int{14}
 }
 
 // These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h.
@@ -1377,11 +1438,11 @@ func (x DebugEventType) String() string {
 }
 
 func (DebugEventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[14].Descriptor()
+	return file_flow_flow_proto_enumTypes[15].Descriptor()
 }
 
 func (DebugEventType) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[14]
+	return &file_flow_flow_proto_enumTypes[15]
 }
 
 func (x DebugEventType) Number() protoreflect.EnumNumber {
@@ -1390,7 +1451,7 @@ func (x DebugEventType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DebugEventType.Descriptor instead.
 func (DebugEventType) EnumDescriptor() ([]byte, []int) {
-	return file_flow_flow_proto_rawDescGZIP(), []int{14}
+	return file_flow_flow_proto_rawDescGZIP(), []int{15}
 }
 
 type Tunnel_Protocol int32
@@ -1426,11 +1487,11 @@ func (x Tunnel_Protocol) String() string {
 }
 
 func (Tunnel_Protocol) Descriptor() protoreflect.EnumDescriptor {
-	return file_flow_flow_proto_enumTypes[15].Descriptor()
+	return file_flow_flow_proto_enumTypes[16].Descriptor()
 }
 
 func (Tunnel_Protocol) Type() protoreflect.EnumType {
-	return &file_flow_flow_proto_enumTypes[15]
+	return &file_flow_flow_proto_enumTypes[16]
 }
 
 func (x Tunnel_Protocol) Number() protoreflect.EnumNumber {
@@ -2896,6 +2957,7 @@ type SCTP struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	SourcePort      uint32                 `protobuf:"varint,1,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
 	DestinationPort uint32                 `protobuf:"varint,2,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty"`
+	ChunkType       SCTPChunkType          `protobuf:"varint,3,opt,name=chunk_type,json=chunkType,proto3,enum=flow.SCTPChunkType" json:"chunk_type,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -2942,6 +3004,13 @@ func (x *SCTP) GetDestinationPort() uint32 {
 		return x.DestinationPort
 	}
 	return 0
+}
+
+func (x *SCTP) GetChunkType() SCTPChunkType {
+	if x != nil {
+		return x.ChunkType
+	}
+	return SCTPChunkType_UNSUPPORTED
 }
 
 type ICMPv4 struct {
@@ -5564,11 +5633,13 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x03UDP\x12\x1f\n" +
 	"\vsource_port\x18\x01 \x01(\rR\n" +
 	"sourcePort\x12)\n" +
-	"\x10destination_port\x18\x02 \x01(\rR\x0fdestinationPort\"R\n" +
+	"\x10destination_port\x18\x02 \x01(\rR\x0fdestinationPort\"\x86\x01\n" +
 	"\x04SCTP\x12\x1f\n" +
 	"\vsource_port\x18\x01 \x01(\rR\n" +
 	"sourcePort\x12)\n" +
-	"\x10destination_port\x18\x02 \x01(\rR\x0fdestinationPort\"0\n" +
+	"\x10destination_port\x18\x02 \x01(\rR\x0fdestinationPort\x122\n" +
+	"\n" +
+	"chunk_type\x18\x03 \x01(\x0e2\x13.flow.SCTPChunkTypeR\tchunkType\"0\n" +
 	"\x06ICMPv4\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\rR\x04type\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\rR\x04code\"0\n" +
@@ -5821,7 +5892,15 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\aREQUEST\x10\x01\x12\f\n" +
 	"\bRESPONSE\x10\x02\x12\n" +
 	"\n" +
-	"\x06SAMPLE\x10\x03*0\n" +
+	"\x06SAMPLE\x10\x03*z\n" +
+	"\rSCTPChunkType\x12\x0f\n" +
+	"\vUNSUPPORTED\x10\x00\x12\b\n" +
+	"\x04INIT\x10\x01\x12\f\n" +
+	"\bINIT_ACK\x10\x02\x12\f\n" +
+	"\bSHUTDOWN\x10\x03\x12\x10\n" +
+	"\fSHUTDOWN_ACK\x10\x04\x12\x15\n" +
+	"\x11SHUTDOWN_COMPLETE\x10\x05\x12\t\n" +
+	"\x05ABORT\x10\x06*0\n" +
 	"\tIPVersion\x12\x0f\n" +
 	"\vIP_NOT_USED\x10\x00\x12\b\n" +
 	"\x04IPv4\x10\x01\x12\b\n" +
@@ -6049,7 +6128,7 @@ func file_flow_flow_proto_rawDescGZIP() []byte {
 	return file_flow_flow_proto_rawDescData
 }
 
-var file_flow_flow_proto_enumTypes = make([]protoimpl.EnumInfo, 16)
+var file_flow_flow_proto_enumTypes = make([]protoimpl.EnumInfo, 17)
 var file_flow_flow_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
 var file_flow_flow_proto_goTypes = []any{
 	(FlowType)(0),                         // 0: flow.FlowType
@@ -6057,160 +6136,162 @@ var file_flow_flow_proto_goTypes = []any{
 	(TraceObservationPoint)(0),            // 2: flow.TraceObservationPoint
 	(TraceReason)(0),                      // 3: flow.TraceReason
 	(L7FlowType)(0),                       // 4: flow.L7FlowType
-	(IPVersion)(0),                        // 5: flow.IPVersion
-	(Verdict)(0),                          // 6: flow.Verdict
-	(DropReason)(0),                       // 7: flow.DropReason
-	(TrafficDirection)(0),                 // 8: flow.TrafficDirection
-	(DebugCapturePoint)(0),                // 9: flow.DebugCapturePoint
-	(EventType)(0),                        // 10: flow.EventType
-	(LostEventSource)(0),                  // 11: flow.LostEventSource
-	(AgentEventType)(0),                   // 12: flow.AgentEventType
-	(SocketTranslationPoint)(0),           // 13: flow.SocketTranslationPoint
-	(DebugEventType)(0),                   // 14: flow.DebugEventType
-	(Tunnel_Protocol)(0),                  // 15: flow.Tunnel.Protocol
-	(*Flow)(nil),                          // 16: flow.Flow
-	(*Emitter)(nil),                       // 17: flow.Emitter
-	(*FileInfo)(nil),                      // 18: flow.FileInfo
-	(*Layer4)(nil),                        // 19: flow.Layer4
-	(*Layer7)(nil),                        // 20: flow.Layer7
-	(*TraceContext)(nil),                  // 21: flow.TraceContext
-	(*TraceParent)(nil),                   // 22: flow.TraceParent
-	(*Endpoint)(nil),                      // 23: flow.Endpoint
-	(*Workload)(nil),                      // 24: flow.Workload
-	(*TCP)(nil),                           // 25: flow.TCP
-	(*IP)(nil),                            // 26: flow.IP
-	(*Ethernet)(nil),                      // 27: flow.Ethernet
-	(*TCPFlags)(nil),                      // 28: flow.TCPFlags
-	(*UDP)(nil),                           // 29: flow.UDP
-	(*SCTP)(nil),                          // 30: flow.SCTP
-	(*ICMPv4)(nil),                        // 31: flow.ICMPv4
-	(*ICMPv6)(nil),                        // 32: flow.ICMPv6
-	(*VRRP)(nil),                          // 33: flow.VRRP
-	(*IGMP)(nil),                          // 34: flow.IGMP
-	(*Tunnel)(nil),                        // 35: flow.Tunnel
-	(*Policy)(nil),                        // 36: flow.Policy
-	(*EventTypeFilter)(nil),               // 37: flow.EventTypeFilter
-	(*CiliumEventType)(nil),               // 38: flow.CiliumEventType
-	(*FlowFilter)(nil),                    // 39: flow.FlowFilter
-	(*DNS)(nil),                           // 40: flow.DNS
-	(*HTTPHeader)(nil),                    // 41: flow.HTTPHeader
-	(*HTTP)(nil),                          // 42: flow.HTTP
-	(*Kafka)(nil),                         // 43: flow.Kafka
-	(*Service)(nil),                       // 44: flow.Service
-	(*IPTraceID)(nil),                     // 45: flow.IPTraceID
-	(*LostEvent)(nil),                     // 46: flow.LostEvent
-	(*AgentEvent)(nil),                    // 47: flow.AgentEvent
-	(*AgentEventUnknown)(nil),             // 48: flow.AgentEventUnknown
-	(*TimeNotification)(nil),              // 49: flow.TimeNotification
-	(*PolicyUpdateNotification)(nil),      // 50: flow.PolicyUpdateNotification
-	(*EndpointRegenNotification)(nil),     // 51: flow.EndpointRegenNotification
-	(*EndpointUpdateNotification)(nil),    // 52: flow.EndpointUpdateNotification
-	(*IPCacheNotification)(nil),           // 53: flow.IPCacheNotification
-	(*ServiceUpsertNotificationAddr)(nil), // 54: flow.ServiceUpsertNotificationAddr
-	(*ServiceUpsertNotification)(nil),     // 55: flow.ServiceUpsertNotification
-	(*ServiceDeleteNotification)(nil),     // 56: flow.ServiceDeleteNotification
-	(*NetworkInterface)(nil),              // 57: flow.NetworkInterface
-	(*DebugEvent)(nil),                    // 58: flow.DebugEvent
-	(*Aggregate)(nil),                     // 59: flow.Aggregate
-	(*FlowFilter_Experimental)(nil),       // 60: flow.FlowFilter.Experimental
-	(*timestamppb.Timestamp)(nil),         // 61: google.protobuf.Timestamp
-	(*wrapperspb.BoolValue)(nil),          // 62: google.protobuf.BoolValue
-	(*anypb.Any)(nil),                     // 63: google.protobuf.Any
-	(*wrapperspb.Int32Value)(nil),         // 64: google.protobuf.Int32Value
-	(*wrapperspb.UInt32Value)(nil),        // 65: google.protobuf.UInt32Value
+	(SCTPChunkType)(0),                    // 5: flow.SCTPChunkType
+	(IPVersion)(0),                        // 6: flow.IPVersion
+	(Verdict)(0),                          // 7: flow.Verdict
+	(DropReason)(0),                       // 8: flow.DropReason
+	(TrafficDirection)(0),                 // 9: flow.TrafficDirection
+	(DebugCapturePoint)(0),                // 10: flow.DebugCapturePoint
+	(EventType)(0),                        // 11: flow.EventType
+	(LostEventSource)(0),                  // 12: flow.LostEventSource
+	(AgentEventType)(0),                   // 13: flow.AgentEventType
+	(SocketTranslationPoint)(0),           // 14: flow.SocketTranslationPoint
+	(DebugEventType)(0),                   // 15: flow.DebugEventType
+	(Tunnel_Protocol)(0),                  // 16: flow.Tunnel.Protocol
+	(*Flow)(nil),                          // 17: flow.Flow
+	(*Emitter)(nil),                       // 18: flow.Emitter
+	(*FileInfo)(nil),                      // 19: flow.FileInfo
+	(*Layer4)(nil),                        // 20: flow.Layer4
+	(*Layer7)(nil),                        // 21: flow.Layer7
+	(*TraceContext)(nil),                  // 22: flow.TraceContext
+	(*TraceParent)(nil),                   // 23: flow.TraceParent
+	(*Endpoint)(nil),                      // 24: flow.Endpoint
+	(*Workload)(nil),                      // 25: flow.Workload
+	(*TCP)(nil),                           // 26: flow.TCP
+	(*IP)(nil),                            // 27: flow.IP
+	(*Ethernet)(nil),                      // 28: flow.Ethernet
+	(*TCPFlags)(nil),                      // 29: flow.TCPFlags
+	(*UDP)(nil),                           // 30: flow.UDP
+	(*SCTP)(nil),                          // 31: flow.SCTP
+	(*ICMPv4)(nil),                        // 32: flow.ICMPv4
+	(*ICMPv6)(nil),                        // 33: flow.ICMPv6
+	(*VRRP)(nil),                          // 34: flow.VRRP
+	(*IGMP)(nil),                          // 35: flow.IGMP
+	(*Tunnel)(nil),                        // 36: flow.Tunnel
+	(*Policy)(nil),                        // 37: flow.Policy
+	(*EventTypeFilter)(nil),               // 38: flow.EventTypeFilter
+	(*CiliumEventType)(nil),               // 39: flow.CiliumEventType
+	(*FlowFilter)(nil),                    // 40: flow.FlowFilter
+	(*DNS)(nil),                           // 41: flow.DNS
+	(*HTTPHeader)(nil),                    // 42: flow.HTTPHeader
+	(*HTTP)(nil),                          // 43: flow.HTTP
+	(*Kafka)(nil),                         // 44: flow.Kafka
+	(*Service)(nil),                       // 45: flow.Service
+	(*IPTraceID)(nil),                     // 46: flow.IPTraceID
+	(*LostEvent)(nil),                     // 47: flow.LostEvent
+	(*AgentEvent)(nil),                    // 48: flow.AgentEvent
+	(*AgentEventUnknown)(nil),             // 49: flow.AgentEventUnknown
+	(*TimeNotification)(nil),              // 50: flow.TimeNotification
+	(*PolicyUpdateNotification)(nil),      // 51: flow.PolicyUpdateNotification
+	(*EndpointRegenNotification)(nil),     // 52: flow.EndpointRegenNotification
+	(*EndpointUpdateNotification)(nil),    // 53: flow.EndpointUpdateNotification
+	(*IPCacheNotification)(nil),           // 54: flow.IPCacheNotification
+	(*ServiceUpsertNotificationAddr)(nil), // 55: flow.ServiceUpsertNotificationAddr
+	(*ServiceUpsertNotification)(nil),     // 56: flow.ServiceUpsertNotification
+	(*ServiceDeleteNotification)(nil),     // 57: flow.ServiceDeleteNotification
+	(*NetworkInterface)(nil),              // 58: flow.NetworkInterface
+	(*DebugEvent)(nil),                    // 59: flow.DebugEvent
+	(*Aggregate)(nil),                     // 60: flow.Aggregate
+	(*FlowFilter_Experimental)(nil),       // 61: flow.FlowFilter.Experimental
+	(*timestamppb.Timestamp)(nil),         // 62: google.protobuf.Timestamp
+	(*wrapperspb.BoolValue)(nil),          // 63: google.protobuf.BoolValue
+	(*anypb.Any)(nil),                     // 64: google.protobuf.Any
+	(*wrapperspb.Int32Value)(nil),         // 65: google.protobuf.Int32Value
+	(*wrapperspb.UInt32Value)(nil),        // 66: google.protobuf.UInt32Value
 }
 var file_flow_flow_proto_depIdxs = []int32{
-	61, // 0: flow.Flow.time:type_name -> google.protobuf.Timestamp
-	17, // 1: flow.Flow.emitter:type_name -> flow.Emitter
-	6,  // 2: flow.Flow.verdict:type_name -> flow.Verdict
+	62, // 0: flow.Flow.time:type_name -> google.protobuf.Timestamp
+	18, // 1: flow.Flow.emitter:type_name -> flow.Emitter
+	7,  // 2: flow.Flow.verdict:type_name -> flow.Verdict
 	1,  // 3: flow.Flow.auth_type:type_name -> flow.AuthType
-	27, // 4: flow.Flow.ethernet:type_name -> flow.Ethernet
-	26, // 5: flow.Flow.IP:type_name -> flow.IP
-	19, // 6: flow.Flow.l4:type_name -> flow.Layer4
-	35, // 7: flow.Flow.tunnel:type_name -> flow.Tunnel
-	23, // 8: flow.Flow.source:type_name -> flow.Endpoint
-	23, // 9: flow.Flow.destination:type_name -> flow.Endpoint
+	28, // 4: flow.Flow.ethernet:type_name -> flow.Ethernet
+	27, // 5: flow.Flow.IP:type_name -> flow.IP
+	20, // 6: flow.Flow.l4:type_name -> flow.Layer4
+	36, // 7: flow.Flow.tunnel:type_name -> flow.Tunnel
+	24, // 8: flow.Flow.source:type_name -> flow.Endpoint
+	24, // 9: flow.Flow.destination:type_name -> flow.Endpoint
 	0,  // 10: flow.Flow.Type:type_name -> flow.FlowType
-	20, // 11: flow.Flow.l7:type_name -> flow.Layer7
-	38, // 12: flow.Flow.event_type:type_name -> flow.CiliumEventType
-	44, // 13: flow.Flow.source_service:type_name -> flow.Service
-	44, // 14: flow.Flow.destination_service:type_name -> flow.Service
-	8,  // 15: flow.Flow.traffic_direction:type_name -> flow.TrafficDirection
+	21, // 11: flow.Flow.l7:type_name -> flow.Layer7
+	39, // 12: flow.Flow.event_type:type_name -> flow.CiliumEventType
+	45, // 13: flow.Flow.source_service:type_name -> flow.Service
+	45, // 14: flow.Flow.destination_service:type_name -> flow.Service
+	9,  // 15: flow.Flow.traffic_direction:type_name -> flow.TrafficDirection
 	2,  // 16: flow.Flow.trace_observation_point:type_name -> flow.TraceObservationPoint
 	3,  // 17: flow.Flow.trace_reason:type_name -> flow.TraceReason
-	18, // 18: flow.Flow.file:type_name -> flow.FileInfo
-	45, // 19: flow.Flow.ip_trace_id:type_name -> flow.IPTraceID
-	7,  // 20: flow.Flow.drop_reason_desc:type_name -> flow.DropReason
-	62, // 21: flow.Flow.is_reply:type_name -> google.protobuf.BoolValue
-	9,  // 22: flow.Flow.debug_capture_point:type_name -> flow.DebugCapturePoint
-	57, // 23: flow.Flow.interface:type_name -> flow.NetworkInterface
-	21, // 24: flow.Flow.trace_context:type_name -> flow.TraceContext
-	13, // 25: flow.Flow.sock_xlate_point:type_name -> flow.SocketTranslationPoint
-	63, // 26: flow.Flow.extensions:type_name -> google.protobuf.Any
-	36, // 27: flow.Flow.egress_allowed_by:type_name -> flow.Policy
-	36, // 28: flow.Flow.ingress_allowed_by:type_name -> flow.Policy
-	36, // 29: flow.Flow.egress_denied_by:type_name -> flow.Policy
-	36, // 30: flow.Flow.ingress_denied_by:type_name -> flow.Policy
-	59, // 31: flow.Flow.aggregate:type_name -> flow.Aggregate
-	25, // 32: flow.Layer4.TCP:type_name -> flow.TCP
-	29, // 33: flow.Layer4.UDP:type_name -> flow.UDP
-	31, // 34: flow.Layer4.ICMPv4:type_name -> flow.ICMPv4
-	32, // 35: flow.Layer4.ICMPv6:type_name -> flow.ICMPv6
-	30, // 36: flow.Layer4.SCTP:type_name -> flow.SCTP
-	33, // 37: flow.Layer4.VRRP:type_name -> flow.VRRP
-	34, // 38: flow.Layer4.IGMP:type_name -> flow.IGMP
+	19, // 18: flow.Flow.file:type_name -> flow.FileInfo
+	46, // 19: flow.Flow.ip_trace_id:type_name -> flow.IPTraceID
+	8,  // 20: flow.Flow.drop_reason_desc:type_name -> flow.DropReason
+	63, // 21: flow.Flow.is_reply:type_name -> google.protobuf.BoolValue
+	10, // 22: flow.Flow.debug_capture_point:type_name -> flow.DebugCapturePoint
+	58, // 23: flow.Flow.interface:type_name -> flow.NetworkInterface
+	22, // 24: flow.Flow.trace_context:type_name -> flow.TraceContext
+	14, // 25: flow.Flow.sock_xlate_point:type_name -> flow.SocketTranslationPoint
+	64, // 26: flow.Flow.extensions:type_name -> google.protobuf.Any
+	37, // 27: flow.Flow.egress_allowed_by:type_name -> flow.Policy
+	37, // 28: flow.Flow.ingress_allowed_by:type_name -> flow.Policy
+	37, // 29: flow.Flow.egress_denied_by:type_name -> flow.Policy
+	37, // 30: flow.Flow.ingress_denied_by:type_name -> flow.Policy
+	60, // 31: flow.Flow.aggregate:type_name -> flow.Aggregate
+	26, // 32: flow.Layer4.TCP:type_name -> flow.TCP
+	30, // 33: flow.Layer4.UDP:type_name -> flow.UDP
+	32, // 34: flow.Layer4.ICMPv4:type_name -> flow.ICMPv4
+	33, // 35: flow.Layer4.ICMPv6:type_name -> flow.ICMPv6
+	31, // 36: flow.Layer4.SCTP:type_name -> flow.SCTP
+	34, // 37: flow.Layer4.VRRP:type_name -> flow.VRRP
+	35, // 38: flow.Layer4.IGMP:type_name -> flow.IGMP
 	4,  // 39: flow.Layer7.type:type_name -> flow.L7FlowType
-	40, // 40: flow.Layer7.dns:type_name -> flow.DNS
-	42, // 41: flow.Layer7.http:type_name -> flow.HTTP
-	43, // 42: flow.Layer7.kafka:type_name -> flow.Kafka
-	22, // 43: flow.TraceContext.parent:type_name -> flow.TraceParent
-	24, // 44: flow.Endpoint.workloads:type_name -> flow.Workload
-	28, // 45: flow.TCP.flags:type_name -> flow.TCPFlags
-	5,  // 46: flow.IP.ipVersion:type_name -> flow.IPVersion
-	15, // 47: flow.Tunnel.protocol:type_name -> flow.Tunnel.Protocol
-	26, // 48: flow.Tunnel.IP:type_name -> flow.IP
-	19, // 49: flow.Tunnel.l4:type_name -> flow.Layer4
-	24, // 50: flow.FlowFilter.source_workload:type_name -> flow.Workload
-	24, // 51: flow.FlowFilter.destination_workload:type_name -> flow.Workload
-	8,  // 52: flow.FlowFilter.traffic_direction:type_name -> flow.TrafficDirection
-	6,  // 53: flow.FlowFilter.verdict:type_name -> flow.Verdict
-	7,  // 54: flow.FlowFilter.drop_reason_desc:type_name -> flow.DropReason
-	57, // 55: flow.FlowFilter.interface:type_name -> flow.NetworkInterface
-	37, // 56: flow.FlowFilter.event_type:type_name -> flow.EventTypeFilter
-	41, // 57: flow.FlowFilter.http_header:type_name -> flow.HTTPHeader
-	28, // 58: flow.FlowFilter.tcp_flags:type_name -> flow.TCPFlags
-	5,  // 59: flow.FlowFilter.ip_version:type_name -> flow.IPVersion
-	60, // 60: flow.FlowFilter.experimental:type_name -> flow.FlowFilter.Experimental
-	41, // 61: flow.HTTP.headers:type_name -> flow.HTTPHeader
-	11, // 62: flow.LostEvent.source:type_name -> flow.LostEventSource
-	64, // 63: flow.LostEvent.cpu:type_name -> google.protobuf.Int32Value
-	61, // 64: flow.LostEvent.first:type_name -> google.protobuf.Timestamp
-	61, // 65: flow.LostEvent.last:type_name -> google.protobuf.Timestamp
-	12, // 66: flow.AgentEvent.type:type_name -> flow.AgentEventType
-	48, // 67: flow.AgentEvent.unknown:type_name -> flow.AgentEventUnknown
-	49, // 68: flow.AgentEvent.agent_start:type_name -> flow.TimeNotification
-	50, // 69: flow.AgentEvent.policy_update:type_name -> flow.PolicyUpdateNotification
-	51, // 70: flow.AgentEvent.endpoint_regenerate:type_name -> flow.EndpointRegenNotification
-	52, // 71: flow.AgentEvent.endpoint_update:type_name -> flow.EndpointUpdateNotification
-	53, // 72: flow.AgentEvent.ipcache_update:type_name -> flow.IPCacheNotification
-	55, // 73: flow.AgentEvent.service_upsert:type_name -> flow.ServiceUpsertNotification
-	56, // 74: flow.AgentEvent.service_delete:type_name -> flow.ServiceDeleteNotification
-	61, // 75: flow.TimeNotification.time:type_name -> google.protobuf.Timestamp
-	65, // 76: flow.IPCacheNotification.old_identity:type_name -> google.protobuf.UInt32Value
-	54, // 77: flow.ServiceUpsertNotification.frontend_address:type_name -> flow.ServiceUpsertNotificationAddr
-	54, // 78: flow.ServiceUpsertNotification.backend_addresses:type_name -> flow.ServiceUpsertNotificationAddr
-	14, // 79: flow.DebugEvent.type:type_name -> flow.DebugEventType
-	23, // 80: flow.DebugEvent.source:type_name -> flow.Endpoint
-	65, // 81: flow.DebugEvent.hash:type_name -> google.protobuf.UInt32Value
-	65, // 82: flow.DebugEvent.arg1:type_name -> google.protobuf.UInt32Value
-	65, // 83: flow.DebugEvent.arg2:type_name -> google.protobuf.UInt32Value
-	65, // 84: flow.DebugEvent.arg3:type_name -> google.protobuf.UInt32Value
-	64, // 85: flow.DebugEvent.cpu:type_name -> google.protobuf.Int32Value
-	86, // [86:86] is the sub-list for method output_type
-	86, // [86:86] is the sub-list for method input_type
-	86, // [86:86] is the sub-list for extension type_name
-	86, // [86:86] is the sub-list for extension extendee
-	0,  // [0:86] is the sub-list for field type_name
+	41, // 40: flow.Layer7.dns:type_name -> flow.DNS
+	43, // 41: flow.Layer7.http:type_name -> flow.HTTP
+	44, // 42: flow.Layer7.kafka:type_name -> flow.Kafka
+	23, // 43: flow.TraceContext.parent:type_name -> flow.TraceParent
+	25, // 44: flow.Endpoint.workloads:type_name -> flow.Workload
+	29, // 45: flow.TCP.flags:type_name -> flow.TCPFlags
+	6,  // 46: flow.IP.ipVersion:type_name -> flow.IPVersion
+	5,  // 47: flow.SCTP.chunk_type:type_name -> flow.SCTPChunkType
+	16, // 48: flow.Tunnel.protocol:type_name -> flow.Tunnel.Protocol
+	27, // 49: flow.Tunnel.IP:type_name -> flow.IP
+	20, // 50: flow.Tunnel.l4:type_name -> flow.Layer4
+	25, // 51: flow.FlowFilter.source_workload:type_name -> flow.Workload
+	25, // 52: flow.FlowFilter.destination_workload:type_name -> flow.Workload
+	9,  // 53: flow.FlowFilter.traffic_direction:type_name -> flow.TrafficDirection
+	7,  // 54: flow.FlowFilter.verdict:type_name -> flow.Verdict
+	8,  // 55: flow.FlowFilter.drop_reason_desc:type_name -> flow.DropReason
+	58, // 56: flow.FlowFilter.interface:type_name -> flow.NetworkInterface
+	38, // 57: flow.FlowFilter.event_type:type_name -> flow.EventTypeFilter
+	42, // 58: flow.FlowFilter.http_header:type_name -> flow.HTTPHeader
+	29, // 59: flow.FlowFilter.tcp_flags:type_name -> flow.TCPFlags
+	6,  // 60: flow.FlowFilter.ip_version:type_name -> flow.IPVersion
+	61, // 61: flow.FlowFilter.experimental:type_name -> flow.FlowFilter.Experimental
+	42, // 62: flow.HTTP.headers:type_name -> flow.HTTPHeader
+	12, // 63: flow.LostEvent.source:type_name -> flow.LostEventSource
+	65, // 64: flow.LostEvent.cpu:type_name -> google.protobuf.Int32Value
+	62, // 65: flow.LostEvent.first:type_name -> google.protobuf.Timestamp
+	62, // 66: flow.LostEvent.last:type_name -> google.protobuf.Timestamp
+	13, // 67: flow.AgentEvent.type:type_name -> flow.AgentEventType
+	49, // 68: flow.AgentEvent.unknown:type_name -> flow.AgentEventUnknown
+	50, // 69: flow.AgentEvent.agent_start:type_name -> flow.TimeNotification
+	51, // 70: flow.AgentEvent.policy_update:type_name -> flow.PolicyUpdateNotification
+	52, // 71: flow.AgentEvent.endpoint_regenerate:type_name -> flow.EndpointRegenNotification
+	53, // 72: flow.AgentEvent.endpoint_update:type_name -> flow.EndpointUpdateNotification
+	54, // 73: flow.AgentEvent.ipcache_update:type_name -> flow.IPCacheNotification
+	56, // 74: flow.AgentEvent.service_upsert:type_name -> flow.ServiceUpsertNotification
+	57, // 75: flow.AgentEvent.service_delete:type_name -> flow.ServiceDeleteNotification
+	62, // 76: flow.TimeNotification.time:type_name -> google.protobuf.Timestamp
+	66, // 77: flow.IPCacheNotification.old_identity:type_name -> google.protobuf.UInt32Value
+	55, // 78: flow.ServiceUpsertNotification.frontend_address:type_name -> flow.ServiceUpsertNotificationAddr
+	55, // 79: flow.ServiceUpsertNotification.backend_addresses:type_name -> flow.ServiceUpsertNotificationAddr
+	15, // 80: flow.DebugEvent.type:type_name -> flow.DebugEventType
+	24, // 81: flow.DebugEvent.source:type_name -> flow.Endpoint
+	66, // 82: flow.DebugEvent.hash:type_name -> google.protobuf.UInt32Value
+	66, // 83: flow.DebugEvent.arg1:type_name -> google.protobuf.UInt32Value
+	66, // 84: flow.DebugEvent.arg2:type_name -> google.protobuf.UInt32Value
+	66, // 85: flow.DebugEvent.arg3:type_name -> google.protobuf.UInt32Value
+	65, // 86: flow.DebugEvent.cpu:type_name -> google.protobuf.Int32Value
+	87, // [87:87] is the sub-list for method output_type
+	87, // [87:87] is the sub-list for method input_type
+	87, // [87:87] is the sub-list for extension type_name
+	87, // [87:87] is the sub-list for extension extendee
+	0,  // [0:87] is the sub-list for field type_name
 }
 
 func init() { file_flow_flow_proto_init() }
@@ -6247,7 +6328,7 @@ func file_flow_flow_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flow_flow_proto_rawDesc), len(file_flow_flow_proto_rawDesc)),
-			NumEnums:      16,
+			NumEnums:      17,
 			NumMessages:   45,
 			NumExtensions: 0,
 			NumServices:   0,

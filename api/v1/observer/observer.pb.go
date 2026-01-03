@@ -97,6 +97,19 @@ const L7FlowType_SAMPLE = flow.L7FlowType_SAMPLE
 var L7FlowType_name = flow.L7FlowType_name
 var L7FlowType_value = flow.L7FlowType_value
 
+type SCTPChunkType = flow.SCTPChunkType
+
+const SCTPChunkType_UNSUPPORTED = flow.SCTPChunkType_UNSUPPORTED
+const SCTPChunkType_INIT = flow.SCTPChunkType_INIT
+const SCTPChunkType_INIT_ACK = flow.SCTPChunkType_INIT_ACK
+const SCTPChunkType_SHUTDOWN = flow.SCTPChunkType_SHUTDOWN
+const SCTPChunkType_SHUTDOWN_ACK = flow.SCTPChunkType_SHUTDOWN_ACK
+const SCTPChunkType_SHUTDOWN_COMPLETE = flow.SCTPChunkType_SHUTDOWN_COMPLETE
+const SCTPChunkType_ABORT = flow.SCTPChunkType_ABORT
+
+var SCTPChunkType_name = flow.SCTPChunkType_name
+var SCTPChunkType_value = flow.SCTPChunkType_value
+
 type IPVersion = flow.IPVersion
 
 const IPVersion_IP_NOT_USED = flow.IPVersion_IP_NOT_USED

@@ -357,6 +357,17 @@ message UDP {
 message SCTP {
     uint32 source_port = 1;
     uint32 destination_port = 2;
+    SCTPChunkType chunk_type = 3;
+}
+
+enum SCTPChunkType {
+    UNSUPPORTED = 0;
+    INIT = 1;
+    INIT_ACK = 2;
+    SHUTDOWN = 3;
+    SHUTDOWN_ACK = 4;
+    SHUTDOWN_COMPLETE = 5;
+    ABORT = 6;
 }
 
 message ICMPv4 {

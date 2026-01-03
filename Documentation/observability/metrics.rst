@@ -1368,6 +1368,20 @@ Options
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
+``sctp``
+~~~~~~~~
+
+================================ ======================================== ========== ==================================================
+Name                             Labels                                   Default    Description
+================================ ======================================== ========== ==================================================
+``sctp_chunk_types_total``       ``chunk_type``, ``family``               Disabled   SCTP chunk type occurrences
+================================ ======================================== ========== ==================================================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
 dynamic_exporter_exporters_total
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
