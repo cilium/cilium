@@ -324,8 +324,8 @@ func TestUpdateLocalNode(t *testing.T) {
 	// Verify that .4 now has just kube-apiserver and world
 	idIs(inClusterPrefix, identity.IdentityScopeLocal) // the first CIDR identity
 	id := s.PolicyHandler.identities[identity.IdentityScopeLocal]
-	assert.True(t, id.Has("reserved.kube-apiserver"))
-	assert.True(t, id.Has("reserved.world-ipv4"), "labels: %s", id.String())
+	assert.True(t, id.Has("reserved:kube-apiserver"))
+	assert.True(t, id.Has("reserved:world-ipv4"), "labels: %s", id.String())
 
 	// verify that id 1 is now just reserved:host
 	idIs(inClusterPrefix2, identity.ReservedIdentityHost)

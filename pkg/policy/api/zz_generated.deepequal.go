@@ -406,9 +406,6 @@ func (in *EndpointSelector) DeepEqual(other *EndpointSelector) bool {
 	if in.Generated != other.Generated {
 		return false
 	}
-	if in.sanitized != other.sanitized {
-		return false
-	}
 
 	return true
 }
@@ -1426,9 +1423,6 @@ func (in *ServiceSelector) DeepEqual(other *ServiceSelector) bool {
 		return false
 	}
 	if in.Generated != other.Generated {
-		return false
-	}
-	if in.sanitized != other.sanitized {
 		return false
 	}
 

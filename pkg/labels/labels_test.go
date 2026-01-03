@@ -28,7 +28,7 @@ var (
 		`%`:      NewLabel(`%`, `%ed`, LabelSourceUnspec),
 	}
 
-	DefaultLabelSourceKeyPrefix = LabelSourceAny + "."
+	DefaultLabelSourceKeyPrefix = LabelSourceAny + SourceDelimiter
 )
 
 func TestNewFrom(t *testing.T) {
@@ -273,35 +273,6 @@ func TestLabelCompare(t *testing.T) {
 	require.False(t, a1.Equals(&c1))
 	require.False(t, a1.Equals(&d1))
 	require.False(t, b1.Equals(&c1))
-}
-
-func TestLabelParseKey(t *testing.T) {
-	tests := []struct {
-		str string
-		out string
-	}{
-		{"source0:key0=value1", "source0.key0"},
-		{"source3:key1", "source3.key1"},
-		{"source4:key1==value1", "source4.key1"},
-		{"source::key1=value1", "source.:key1"},
-		{"4blah=:foo=", "4blah=.foo"},
-		{"5blah::foo=", "5blah.:foo"},
-		{"source2.key1=value1", DefaultLabelSourceKeyPrefix + "source2.key1"},
-		{"1foo", DefaultLabelSourceKeyPrefix + "1foo"},
-		{":2foo", DefaultLabelSourceKeyPrefix + "2foo"},
-		{":3foo=", DefaultLabelSourceKeyPrefix + "3foo"},
-		{"6foo==", DefaultLabelSourceKeyPrefix + "6foo"},
-		{"7foo=bar", DefaultLabelSourceKeyPrefix + "7foo"},
-		{"cilium.key1=value1", DefaultLabelSourceKeyPrefix + "cilium.key1"},
-		{"key1=value1", DefaultLabelSourceKeyPrefix + "key1"},
-		{"value1", DefaultLabelSourceKeyPrefix + "value1"},
-		{"$world=value1", LabelSourceReservedKeyPrefix + "world"},
-		{"k8s:foo=bar:", LabelSourceK8sKeyPrefix + "foo"},
-	}
-	for _, test := range tests {
-		lbl := GetExtendedKeyFrom(test.str)
-		require.Equal(t, test.out, lbl)
-	}
 }
 
 func TestLabelsCompare(t *testing.T) {

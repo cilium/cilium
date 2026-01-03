@@ -6,17 +6,16 @@ package types
 import (
 	"iter"
 	"net/netip"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/container/set"
-	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 )
 
 // Version of k8sLbls.Requirement where the key is pre-parsed and values are stored as a Set optimal
@@ -61,33 +60,54 @@ func (rs Requirements) WriteString(sb *strings.Builder) {
 	sb.WriteRune(']')
 }
 
+func (rs Requirements) Len() int      { return len(rs) }
+func (rs Requirements) Swap(i, j int) { rs[i], rs[j] = rs[j], rs[i] }
+func (rs Requirements) Less(i, j int) bool {
+	return rs[i].key.GetExtendedKey() < rs[j].key.GetExtendedKey()
+}
+
 // LabelSelectorToRequirements turns a kubernetes Selector into a slice of
 // requirements equivalent to the selector. These are cached internally in the
 // EndpointSelector to speed up Matches().
 //
-// This validates the labels, which can be expensive (and may fail..)
-// If there's an error, the selector will be nil and the Matches()
-// implementation will refuse to match any labels.
+// This helper is a trimmed down version of slim_metav1.LabelSelectorAsSelector
+// and assumes that the provided LabelSelector is validated beforehand.
 func LabelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) Requirements {
-	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
-	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
-		logging.DefaultSlogLogger.Error(
-			"unable to construct selector in label selector",
-			logfields.LogSubsys, "policy-api",
-			logfields.Error, err,
-			logfields.EndpointLabelSelector, labelSelector,
-		)
+	if labelSelector == nil {
 		return nil
 	}
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
-	k8sReqs, selectable := selector.Requirements()
-	if !selectable {
-		return nil
+	reqsCount := len(labelSelector.MatchLabels) + len(labelSelector.MatchExpressions)
+	requirements := make(Requirements, 0, reqsCount)
+
+	if reqsCount == 0 {
+		return requirements
 	}
-	return RequirementsFromK8s(k8sReqs)
+
+	for k, v := range labelSelector.MatchLabels {
+		requirements = append(requirements, NewRequirement(k, selection.Equals, []string{v}))
+	}
+	for _, expr := range labelSelector.MatchExpressions {
+		var op selection.Operator
+		switch expr.Operator {
+		case slim_metav1.LabelSelectorOpIn:
+			op = selection.In
+		case slim_metav1.LabelSelectorOpNotIn:
+			op = selection.NotIn
+		case slim_metav1.LabelSelectorOpExists:
+			op = selection.Exists
+		case slim_metav1.LabelSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		default:
+			// If the Endpoint selector is prevalidated this is unreachable.
+			continue
+		}
+		requirements = append(requirements, NewRequirement(expr.Key, op, expr.Values))
+	}
+
+	// TODO: Probably not required to sort here but retaining old behavior for now.
+	sort.Sort(requirements)
+	return requirements
 }
 
 func NewExistRequirement(lbl labels.Label) Requirement {
@@ -121,7 +141,7 @@ func NewEqualsRequirement(lbl labels.Label) Requirement {
 
 func NewRequirement(key string, op selection.Operator, values []string) Requirement {
 	return Requirement{
-		key:      labels.ParseSelectDotLabel(key),
+		key:      labels.ParseSelectLabel(key),
 		operator: op,
 		values:   set.NewSet(values...),
 	}
@@ -137,18 +157,6 @@ func (r *Requirement) HasKeySource(source string) bool {
 
 func (r *Requirement) HasValue(value string) bool {
 	return r.values.Has(value)
-}
-
-func RequirementsFromK8s(k8sReqs k8sLbls.Requirements) Requirements {
-	reqs := make(Requirements, 0, len(k8sReqs))
-	for _, req := range k8sReqs {
-		reqs = append(reqs, Requirement{
-			key:      labels.ParseSelectDotLabel(req.Key()),
-			operator: req.Operator(),
-			values:   set.NewSet[string](req.ShallowValues()...),
-		})
-	}
-	return reqs
 }
 
 // Matches returns true if the Requirement matches the input Labels.
