@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
+	"github.com/cilium/statedb/part"
 
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
 )
@@ -591,12 +592,22 @@ func (d *DNSServerIdentity) IsNone() bool {
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetSelections() identity.NumericIdentitySlice {
+func (d *DNSServerIdentity) GetSelections() part.Set[identity.NumericIdentity] {
+	return part.NewSet[identity.NumericIdentity](d.Identities...)
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) GetSelectionsAt(types.SelectorSnapshot) part.Set[identity.NumericIdentity] {
+	return part.NewSet[identity.NumericIdentity](d.Identities...)
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) GetSortedSelections() identity.NumericIdentitySlice {
 	return d.Identities
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
+func (d *DNSServerIdentity) GetSortedSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
 	return d.Identities
 }
 

@@ -13,6 +13,7 @@ import (
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/statedb/part"
 )
 
 // ruleKey is a synthetic unique identifier for a Rule
@@ -469,9 +470,9 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 	return r.subjectSelector.Selects(securityIdentity.ID)
 }
 
-func (r *rule) getSubjects() []identity.NumericIdentity {
+func (r *rule) getSubjects() part.Set[identity.NumericIdentity] {
 	if r.Node {
-		return []identity.NumericIdentity{identity.ReservedIdentityHost}
+		return part.NewSet(identity.ReservedIdentityHost)
 	}
 
 	return r.subjectSelector.GetSelections()

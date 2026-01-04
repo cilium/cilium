@@ -594,7 +594,7 @@ func (s *FQDNDataServer) buildDNSPolicyFromL4Filter(l4Filter *policy.L4Filter, p
 
 // buildDNSServers creates the list of DNS servers from L4 filter and cache selector
 func (s *FQDNDataServer) buildDNSServers(l4Filter *policy.L4Filter, cacheSelector policy.CachedSelector) []*pb.DNSServer {
-	if cacheSelector == nil || len(cacheSelector.GetSelections()) == 0 {
+	if cacheSelector == nil || cacheSelector.GetSelections().Len() == 0 {
 		// No cache selector - return single server without identity
 		return []*pb.DNSServer{
 			{
@@ -603,7 +603,7 @@ func (s *FQDNDataServer) buildDNSServers(l4Filter *policy.L4Filter, cacheSelecto
 			},
 		}
 	}
-	selections := cacheSelector.GetSelections()
+	selections := cacheSelector.GetSortedSelections()
 	dnsServers := make([]*pb.DNSServer, 0, len(selections))
 
 	for _, selection := range selections {

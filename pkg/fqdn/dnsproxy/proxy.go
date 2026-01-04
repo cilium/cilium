@@ -302,7 +302,7 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 			}
 			ips := make(map[restore.RuleIPOrCIDR]struct{})
 			count := 0
-			nids := selRegex.cs.GetSelections()
+			nids := selRegex.cs.GetSortedSelections()
 		Loop:
 			for _, nid := range nids {
 				// Note: p.RLock must not be held during this call to IPCache

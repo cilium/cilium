@@ -379,21 +379,10 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 
 	rulesIngress = []*rule{}
 	rulesEgress = []*rule{}
-	// Match cluster-wide rules
-	for rKey := range p.rulesByNamespace[""] {
-		r := p.rules[rKey]
-		if r.matchesSubject(securityIdentity) {
-			if r.Ingress {
-				rulesIngress = append(rulesIngress, r)
-			} else {
-				rulesEgress = append(rulesEgress, r)
-			}
-		}
-	}
-	// Match namespace-specific rules
-	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
-	if namespace != "" {
-		for rKey := range p.rulesByNamespace[namespace] {
+
+	if subjectIsNode := securityIdentity.ID == identity.ReservedIdentityHost; subjectIsNode {
+		// Match cluster-wide rules
+		for rKey := range p.rulesByNamespace[""] {
 			r := p.rules[rKey]
 			if r.matchesSubject(securityIdentity) {
 				if r.Ingress {
@@ -403,8 +392,29 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 				}
 			}
 		}
+		// Match namespace-specific rules
+		namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
+		if namespace != "" {
+			for rKey := range p.rulesByNamespace[namespace] {
+				r := p.rules[rKey]
+				if r.matchesSubject(securityIdentity) {
+					if r.Ingress {
+						rulesIngress = append(rulesIngress, r)
+					} else {
+						rulesEgress = append(rulesEgress, r)
+					}
+				}
+			}
+		}
+	} else {
+		for r := range GetUsersOfType[*rule](p.selectorCache, securityIdentity.ID) {
+			if r.Ingress {
+				rulesIngress = append(rulesIngress, r)
+			} else {
+				rulesEgress = append(rulesEgress, r)
+			}
+		}
 	}
-
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
 	// If the endpoint has the reserved:init label, i.e. if it has not yet
@@ -520,7 +530,7 @@ func (p *Repository) ReplaceByResource(rules types.PolicyEntries, resource ipcac
 	oldRules := maps.Clone(p.rulesByResource[resource]) // need to clone as `p.del()` mutates this
 
 	for key, oldRule := range oldRules {
-		for _, subj := range oldRule.getSubjects() {
+		for subj := range oldRule.getSubjects().All() {
 			affectedIDs.Insert(subj)
 		}
 		p.del(key)
@@ -532,7 +542,7 @@ func (p *Repository) ReplaceByResource(rules types.PolicyEntries, resource ipcac
 			newRule := p.newRule(*r, ruleKey{resource: resource, idx: uint(i)})
 			p.insert(newRule)
 
-			for _, subj := range newRule.getSubjects() {
+			for subj := range newRule.getSubjects().All() {
 				affectedIDs.Insert(subj)
 			}
 		}
