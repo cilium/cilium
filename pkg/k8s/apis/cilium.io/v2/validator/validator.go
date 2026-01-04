@@ -153,7 +153,7 @@ func checkInitLabelsPolicy(logger *slog.Logger, cnp *unstructured.Unstructured) 
 		}
 		podInitLbl := labels.LabelSourceReservedKeyPrefix + labels.IDNameInit
 
-		if err := spec.EndpointSelector.Sanitize(); err != nil {
+		if err := spec.EndpointSelector.Validate(); err != nil {
 			return err
 		}
 		if spec.EndpointSelector.HasKey(podInitLbl) {

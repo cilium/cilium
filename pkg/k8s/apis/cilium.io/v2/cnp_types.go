@@ -5,7 +5,6 @@ package v2
 
 import (
 	"fmt"
-	"log/slog"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -205,62 +204,6 @@ func (r *CiliumNetworkPolicy) Validate() error {
 	}
 
 	return nil
-}
-
-// Parse parses a CiliumNetworkPolicy and returns a list of cilium policy
-// rules.
-func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
-	if r.ObjectMeta.Name == "" {
-		return nil, NewErrParse("CiliumNetworkPolicy must have name")
-	}
-
-	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
-	// Temporary fix for CCNPs. See #12834.
-	// TL;DR. CCNPs are converted into SlimCNPs and end up here so we need to
-	// convert them back to CCNPs to allow proper parsing.
-	if namespace == "" {
-		ccnp := CiliumClusterwideNetworkPolicy{
-			TypeMeta:   r.TypeMeta,
-			ObjectMeta: r.ObjectMeta,
-			Spec:       r.Spec,
-			Specs:      r.Specs,
-			Status:     r.Status,
-		}
-		return ccnp.Parse(logger, clusterName)
-	}
-	name := r.ObjectMeta.Name
-	uid := r.ObjectMeta.UID
-
-	retRules := api.Rules{}
-
-	if r.Spec == nil && r.Specs == nil {
-		return nil, ErrEmptyCNP
-	}
-
-	if r.Spec != nil {
-		if err := r.Spec.Sanitize(); err != nil {
-			return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
-		}
-		if r.Spec.NodeSelector.LabelSelector != nil {
-			return nil, NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
-		}
-		cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, r.Spec)
-		retRules = append(retRules, cr)
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			if err := rule.Sanitize(); err != nil {
-				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
-			}
-			if rule.NodeSelector.LabelSelector != nil {
-				return nil, NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
-			}
-			cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, rule)
-			retRules = append(retRules, cr)
-		}
-	}
-
-	return retRules, nil
 }
 
 // GetIdentityLabels returns all rule labels in the CiliumNetworkPolicy.

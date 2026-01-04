@@ -313,7 +313,7 @@ func (td *testData) policyInvalid(t *testing.T, errStr string, rules ...*api.Rul
 		if r.EndpointSelector.LabelSelector == nil {
 			r.EndpointSelector = endpointSelectorA
 		}
-		require.NoError(t, r.Sanitize())
+		require.NoError(t, r.Validate())
 	}
 	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 
@@ -330,7 +330,7 @@ func (td *testData) policyValid(t *testing.T, rules ...*api.Rule) {
 		if r.EndpointSelector.LabelSelector == nil {
 			r.EndpointSelector = endpointSelectorA
 		}
-		require.NoError(t, r.Sanitize())
+		require.NoError(t, r.Validate())
 	}
 	td.repo.ReplaceByResource(utils.RulesToPolicyEntries(rules), "dummy-resource")
 

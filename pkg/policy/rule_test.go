@@ -56,7 +56,7 @@ func TestL4Policy(t *testing.T) {
 	}
 
 	// Transform to PolicyEntries and set priority level to 0.5
-	require.NoError(t, rule1.Sanitize())
+	require.NoError(t, rule1.Validate())
 	entries := utils.RulesToPolicyEntries(api.Rules{rule1})
 	require.Len(t, entries, 2)
 	for i := range entries {
@@ -754,7 +754,7 @@ func TestRuleWithNoEndpointSelector(t *testing.T) {
 		},
 	}
 
-	err := apiRule1.Sanitize()
+	err := apiRule1.Validate()
 	require.Error(t, err)
 }
 
@@ -791,7 +791,7 @@ func TestL3Policy(t *testing.T) {
 		},
 	}
 
-	err := apiRule1.Sanitize()
+	err := apiRule1.Validate()
 	require.NoError(t, err)
 
 	// Must be parsable, make sure Validate fails when not.
@@ -802,7 +802,7 @@ func TestL3Policy(t *testing.T) {
 				FromCIDR: []api.CIDR{"10.0.1..0/24"},
 			},
 		}},
-	}).Sanitize()
+	}).Validate()
 	require.Error(t, err)
 
 	// Test CIDRRule with no provided CIDR or ExceptionCIDR.
@@ -814,7 +814,7 @@ func TestL3Policy(t *testing.T) {
 				FromCIDRSet: []api.CIDRRule{{Cidr: "", ExceptCIDRs: nil}},
 			},
 		}},
-	}).Sanitize()
+	}).Validate()
 	require.Error(t, err)
 
 	// Test CIDRRule with only CIDR provided; should not fail, as ExceptionCIDR
@@ -826,7 +826,7 @@ func TestL3Policy(t *testing.T) {
 				FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.1.0/24", ExceptCIDRs: nil}},
 			},
 		}},
-	}).Sanitize()
+	}).Validate()
 	require.NoError(t, err)
 
 	// Cannot provide just an IP to a CIDRRule; Cidr must be of format
@@ -838,7 +838,7 @@ func TestL3Policy(t *testing.T) {
 				FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.1.32", ExceptCIDRs: nil}},
 			},
 		}},
-	}).Sanitize()
+	}).Validate()
 	require.Error(t, err)
 
 	// Cannot exclude a range that is not part of the CIDR.
@@ -849,7 +849,7 @@ func TestL3Policy(t *testing.T) {
 				FromCIDRSet: []api.CIDRRule{{Cidr: "10.0.0.0/10", ExceptCIDRs: []api.CIDR{"10.64.0.0/11"}}},
 			},
 		}},
-	}).Sanitize()
+	}).Validate()
 	require.Error(t, err)
 
 	// Must have a contiguous mask, make sure Validate fails when not.
@@ -860,7 +860,7 @@ func TestL3Policy(t *testing.T) {
 				FromCIDR: []api.CIDR{"10.0.1.0/128.0.0.128"},
 			},
 		}},
-	}).Sanitize()
+	}).Validate()
 	require.Error(t, err)
 
 	// Prefix length must be in range for the address, make sure
@@ -872,7 +872,7 @@ func TestL3Policy(t *testing.T) {
 				FromCIDR: []api.CIDR{"10.0.1.0/34"},
 			},
 		}},
-	}).Sanitize()
+	}).Validate()
 	require.Error(t, err)
 }
 
@@ -1111,7 +1111,7 @@ func TestEgressRuleRestrictions(t *testing.T) {
 		},
 	}
 
-	err := apiRule1.Sanitize()
+	err := apiRule1.Validate()
 	require.Error(t, err)
 }
 
@@ -1126,15 +1126,15 @@ func TestPolicyEntityValidationEgress(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, r.Sanitize())
+	require.NoError(t, r.Validate())
 	require.Len(t, r.Egress[0].ToEntities, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{api.EntityHost}
-	require.NoError(t, r.Sanitize())
+	require.NoError(t, r.Validate())
 	require.Len(t, r.Egress[0].ToEntities, 1)
 
 	r.Egress[0].ToEntities = []api.Entity{"trololo"}
-	require.Error(t, r.Sanitize())
+	require.Error(t, r.Validate())
 }
 
 func TestPolicyEntityValidationIngress(t *testing.T) {
@@ -1148,15 +1148,15 @@ func TestPolicyEntityValidationIngress(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, r.Sanitize())
+	require.NoError(t, r.Validate())
 	require.Len(t, r.Ingress[0].FromEntities, 1)
 
 	r.Ingress[0].FromEntities = []api.Entity{api.EntityHost}
-	require.NoError(t, r.Sanitize())
+	require.NoError(t, r.Validate())
 	require.Len(t, r.Ingress[0].FromEntities, 1)
 
 	r.Ingress[0].FromEntities = []api.Entity{"trololo"}
-	require.Error(t, r.Sanitize())
+	require.Error(t, r.Validate())
 }
 
 func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
@@ -1177,7 +1177,7 @@ func TestPolicyEntityValidationEntitySelectorsFill(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, r.Sanitize())
+	require.NoError(t, r.Validate())
 	require.Len(t, r.Ingress[0].FromEntities, 2)
 	require.Len(t, r.Egress[0].ToEntities, 2)
 }

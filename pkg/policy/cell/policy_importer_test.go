@@ -108,7 +108,7 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	writeRule := func(r *policyapi.Rule) uint64 {
 		t.Helper()
 
-		require.NoError(t, r.Sanitize())
+		require.NoError(t, r.Validate())
 
 		dc := make(chan uint64, 1)
 		pi.processUpdates(context.Background(), []*policytypes.PolicyUpdate{

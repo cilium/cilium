@@ -222,7 +222,7 @@ func (n *EndpointSelector) IsWildcard() bool {
 func (n *EndpointSelector) Validate() error {
 	errList := labels.ValidateLabelSelector(n.LabelSelector, labels.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, nil)
 	if len(errList) > 0 {
-		return fmt.Errorf("invalid endpoint selector: %w", errList.ToAggregate())
+		return fmt.Errorf("invalid label selector: %w", errList.ToAggregate())
 	}
 	return nil
 }
