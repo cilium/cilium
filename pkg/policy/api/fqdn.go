@@ -95,7 +95,7 @@ func (s *FQDNSelector) IdentityLabel() labels.Label {
 // sanitize for FQDNSelector is a little wonky. While we do more processing
 // when using MatchName the basic requirement is that is a valid regexp. We
 // test that it can compile here.
-func (s *FQDNSelector) sanitize() error {
+func (s *FQDNSelector) Validate() error {
 	if len(s.MatchName) > 0 && len(s.MatchPattern) > 0 {
 		return fmt.Errorf("only one of MatchName or MatchPattern is allowed in an FQDNSelector")
 	}
@@ -131,9 +131,9 @@ type PortRuleDNS FQDNSelector
 // +deepequal-gen:unordered-array=true
 type PortRulesDNS []PortRuleDNS
 
-// Sanitize checks that the matchName in the portRule can be compiled as a
+// Validate checks that the matchName in the portRule can be compiled as a
 // regex. It does not check that a DNS name is a valid DNS name.
-func (r *PortRuleDNS) Sanitize() error {
+func (r *PortRuleDNS) Validate() error {
 	if len(r.MatchName) > 0 && !allowedMatchNameChars.MatchString(r.MatchName) {
 		return fmt.Errorf("Invalid characters in MatchName: \"%s\". Only 0-9, a-z, A-Z and . and - characters are allowed", r.MatchName)
 	}

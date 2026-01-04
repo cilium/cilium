@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/validation"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -218,10 +219,25 @@ func (n *EndpointSelector) IsWildcard() bool {
 		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
 }
 
-func (n *EndpointSelector) Sanitize() error {
+func (n *EndpointSelector) Validate() error {
 	errList := labels.ValidateLabelSelector(n.LabelSelector, labels.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, nil)
 	if len(errList) > 0 {
+		return fmt.Errorf("invalid endpoint selector: %w", errList.ToAggregate())
+	}
+	return nil
+}
+
+func (n *EndpointSelector) ValidateAsK8sLabelSelector() error {
+	errList := validation.ValidateLabelSelector(n.LabelSelector, validation.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, nil)
+	if len(errList) > 0 {
 		return fmt.Errorf("invalid label selector: %w", errList.ToAggregate())
+	}
+	return nil
+}
+
+func (n *EndpointSelector) Sanitize() error {
+	if err := n.Validate(); err != nil {
+		return err
 	}
 
 	es := NewESFromK8sLabelSelector(labels.LabelSourceAnyKeyPrefix, n.LabelSelector)

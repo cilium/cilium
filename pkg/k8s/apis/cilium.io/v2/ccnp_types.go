@@ -81,6 +81,31 @@ type CiliumClusterwideNetworkPolicyList struct {
 	Items []CiliumClusterwideNetworkPolicy `json:"items"`
 }
 
+func (r *CiliumClusterwideNetworkPolicy) Validate() error {
+	if r.ObjectMeta.Name == "" {
+		return NewErrParse("CiliumClusterwideNetworkPolicy must have name")
+	}
+
+	if r.Spec == nil && r.Specs == nil {
+		return ErrEmptyCCNP
+	}
+
+	if r.Spec != nil {
+		if err := r.Spec.Validate(); err != nil {
+			return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err))
+		}
+	}
+	if r.Specs != nil {
+		for _, rule := range r.Specs {
+			if err := rule.Validate(); err != nil {
+				return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err))
+			}
+		}
+	}
+
+	return nil
+}
+
 // Parse parses a CiliumClusterwideNetworkPolicy and returns a list of cilium
 // policy rules.
 func (r *CiliumClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
