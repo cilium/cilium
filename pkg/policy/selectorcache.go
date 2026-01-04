@@ -308,7 +308,7 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 
 	// iterating selectors requires read lock
 	for key, sel := range sc.selectors.All() {
-		selections := sel.GetSelectionsAt(version)
+		selections := sel.GetSortedSelectionsAt(version)
 		ids := make([]int64, 0, len(selections))
 		for i := range selections {
 			ids = append(ids, int64(selections[i]))
@@ -344,8 +344,8 @@ func (sc *SelectorCache) Stats() selectorStats {
 
 		selections := sel.GetSelectionsAt(version)
 		class := sel.source.MetricsClass()
-		if result.maxCardinalityByClass[class] < len(selections) {
-			result.maxCardinalityByClass[class] = len(selections)
+		if result.maxCardinalityByClass[class] < selections.Len() {
+			result.maxCardinalityByClass[class] = selections.Len()
 		}
 	}
 	result.selectors = sc.selectors.Len()
@@ -592,11 +592,11 @@ func (sc *SelectorCache) addSelectorLocked(lbls stringLabels, key string, source
 
 	// Scan the cached set of IDs to determine any new matchers
 	for nid := range sc.idCache.selections(sel) {
-		sel.cachedSelections[nid] = struct{}{}
+		sel.cachedSelections = sel.cachedSelections.Set(nid)
 	}
 
 	// Note: No notifications are sent for the existing
-	// identities. Caller must use GetSelections() to get the
+	// identities. Caller must use GetSortedSelections() to get the
 	// current selections after adding a selector. This way the
 	// behavior is the same between the two cases here (selector
 	// is already cached, or is a new one).
@@ -711,18 +711,18 @@ func (sc *SelectorCache) CanSkipUpdate(added, deleted identity.IdentityMap) bool
 func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.NumericIdentitySlice, deleted identity.IdentityMap, wg *sync.WaitGroup) (updated, mutated bool) {
 	var adds, dels []identity.NumericIdentity
 	for numericID := range deleted {
-		if _, exists := sel.cachedSelections[numericID]; exists {
+		if exists := sel.cachedSelections.Has(numericID); exists {
 			dels = append(dels, numericID)
-			delete(sel.cachedSelections, numericID)
+			sel.cachedSelections = sel.cachedSelections.Delete(numericID)
 		}
 	}
 	for _, numericID := range added {
 		identity, _ := sc.idCache.find(numericID)
 		matches := sel.source.Matches(identity.lbls)
-		_, exists := sel.cachedSelections[numericID]
+		exists := sel.cachedSelections.Has(identity.NID)
 		if matches && !exists {
 			adds = append(adds, numericID)
-			sel.cachedSelections[numericID] = struct{}{}
+			sel.cachedSelections = sel.cachedSelections.Set(numericID)
 		} else if !matches && exists {
 			// Identity was mutated and no longer matches, the
 			// identity is deleted from the cached selections,
@@ -732,7 +732,7 @@ func (sc *SelectorCache) updateSelections(sel *identitySelector, added identity.
 			// recompute the policy as if the mutated identity
 			// was never selected by the affected selector.
 			mutated = true
-			delete(sel.cachedSelections, numericID)
+			sel.cachedSelections = sel.cachedSelections.Delete(numericID)
 		}
 	}
 	if len(dels)+len(adds) > 0 {

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/cilium/statedb/part"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
@@ -199,11 +200,19 @@ type MockCachedSelector struct {
 	key string
 }
 
-func (m MockCachedSelector) GetSelections() identity.NumericIdentitySlice {
+func (m MockCachedSelector) GetSelections() part.Set[identity.NumericIdentity] {
+	return part.NewSet[identity.NumericIdentity]()
+}
+
+func (m MockCachedSelector) GetSelectionsAt(types.SelectorSnapshot) part.Set[identity.NumericIdentity] {
+	return part.NewSet[identity.NumericIdentity]()
+}
+
+func (m MockCachedSelector) GetSortedSelections() identity.NumericIdentitySlice {
 	return nil
 }
 
-func (m MockCachedSelector) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
+func (m MockCachedSelector) GetSortedSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
 	return nil
 }
 

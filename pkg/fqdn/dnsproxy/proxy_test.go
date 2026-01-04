@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb/part"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -1421,11 +1422,19 @@ type selectorMock struct {
 	key string
 }
 
-func (t selectorMock) GetSelections() identity.NumericIdentitySlice {
+func (t selectorMock) GetSelections() part.Set[identity.NumericIdentity] {
 	panic("implement me")
 }
 
-func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
+func (t selectorMock) GetSelectionsAt(types.SelectorSnapshot) part.Set[identity.NumericIdentity] {
+	panic("implement me")
+}
+
+func (t selectorMock) GetSortedSelections() identity.NumericIdentitySlice {
+	panic("implement me")
+}
+
+func (t selectorMock) GetSortedSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
 	panic("implement me")
 }
 

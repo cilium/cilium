@@ -1297,7 +1297,7 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
-		selections := sel.GetSelectionsAt(selectors)
+		selections := sel.GetSortedSelectionsAt(selectors)
 
 		// No remote policies would match this rule. Discard it.
 		if len(selections) == 0 {
@@ -1409,7 +1409,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 					Deny: l7.GetDeny(),
 				})
 			}
-			selections := sel.GetSelectionsAt(snapshot)
+			selections := sel.GetSortedSelectionsAt(snapshot)
 			if len(selections) == 0 {
 				// No remote policies would match this rule. Discard it.
 				return nil
@@ -1444,7 +1444,7 @@ func (s *xdsServer) getWildcardNetworkPolicyRules(snapshot policy.SelectorSnapsh
 			s.logger.Warn("L3-only rule for selector surprisingly requires proxy redirection!", logfields.Selector, sel)
 		}
 
-		selections := sel.GetSelectionsAt(snapshot)
+		selections := sel.GetSortedSelectionsAt(snapshot)
 		if len(selections) == 0 {
 			continue
 		}
