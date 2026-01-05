@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
+	"github.com/cilium/cilium/pkg/maps/devicesmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
@@ -43,6 +44,9 @@ var Cell = cell.Module(
 
 	// ConfigMap stores runtime configuration state for the Cilium datapath.
 	configmap.Cell,
+
+	// Provides the device map which stores device properties for datapath usage.
+	devicesmap.Cell,
 
 	// Receives datapath signals for GC fill-up events
 	// Note that we can't import this from ctmap package, as gc needs to import ctmap.
