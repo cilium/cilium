@@ -33,10 +33,12 @@ import (
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
 
@@ -130,6 +132,8 @@ func TestPrivilegedScript(t *testing.T) {
 			// LB cell to populate LB tables from k8s services / endpoints
 			lbcell.Cell,
 			maglev.Cell,
+			lbipamconfig.Cell,
+			nodeipamconfig.Cell,
 			cell.Provide(source.NewSources),
 			cell.Config(loadbalancer.TestConfig{}),
 			cell.Provide(
