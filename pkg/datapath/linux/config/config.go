@@ -17,7 +17,6 @@ import (
 	"net/netip"
 	"slices"
 	"strconv"
-	"strings"
 	"text/template"
 
 	"github.com/vishvananda/netlink"
@@ -640,26 +639,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	return fw.Flush()
-}
-
-// GetEphemeralPortRangeMin returns the minimum ephemeral port from
-// net.ipv4.ip_local_port_range.
-func GetEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
-	ephemeralPortRangeStr, err := sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
-	if err != nil {
-		return 0, fmt.Errorf("unable to read net.ipv4.ip_local_port_range: %w", err)
-	}
-	ephemeralPortRange := strings.Split(ephemeralPortRangeStr, "\t")
-	if len(ephemeralPortRange) != 2 {
-		return 0, fmt.Errorf("invalid ephemeral port range: %s", ephemeralPortRangeStr)
-	}
-	ephemeralPortMin, err := strconv.Atoi(ephemeralPortRange[0])
-	if err != nil {
-		return 0, fmt.Errorf("unable to parse min port value %s for ephemeral range: %w",
-			ephemeralPortRange[0], err)
-	}
-
-	return ephemeralPortMin, nil
 }
 
 // vlanFilterMacros generates VLAN_FILTER macros which
