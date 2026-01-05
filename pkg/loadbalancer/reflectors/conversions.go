@@ -33,19 +33,7 @@ import (
 var (
 	zeroV4 = cmtypes.MustParseAddrCluster("0.0.0.0")
 	zeroV6 = cmtypes.MustParseAddrCluster("::")
-
-	ingressDummyAddress = cmtypes.MustParseAddrCluster("192.192.192.192")
-	ingressDummyPort    = uint16(9999)
 )
-
-func isIngressDummyEndpoint(l3n4Addr loadbalancer.L3n4Addr) bool {
-	// The ingress and gateway-api controllers (operator/pkg/model/translation/{gateway-api,ingress}) create
-	// a dummy endpoint to force Cilium to reconcile the service. This is no longer required with this new
-	// control-plane, but due to rolling upgrades we cannot remove it immediately. Hence we have the
-	// special handling here to just ignore this endpoint to avoid populating the tables with unnecessary
-	// data.
-	return l3n4Addr.AddrCluster() == ingressDummyAddress && l3n4Addr.Port() == ingressDummyPort
-}
 
 func getAnnotationServiceForwardingMode(cfg loadbalancer.Config, svc *slim_corev1.Service) (loadbalancer.SVCForwardingMode, error) {
 	if value, ok := annotation.Get(svc, annotation.ServiceForwardingMode); ok {
@@ -415,9 +403,6 @@ func convertEndpoints(rawlog *slog.Logger, cfg loadbalancer.ExternalConfig, svcN
 					l4Addr.Port,
 					loadbalancer.ScopeExternal,
 				)
-				if isIngressDummyEndpoint(l3n4Addr) {
-					continue
-				}
 
 				// Filter out the unnamed port, if present
 				if idx := slices.Index(portNames, ""); idx != -1 {

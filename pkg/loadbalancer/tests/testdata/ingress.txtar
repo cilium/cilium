@@ -1,7 +1,5 @@
 #! --lb-test-fault-probability=0.0
 # Test the handling for the ingress service created by the operator.
-# The control-plane should ignore the dummy ingress endpoint (192.192.192.192:9999), but
-# still process the service.
 # An extended version of this test that include CiliumEnvoyConfig processing can be found
 # from pkg/ciliumenvoyconfig/testdata/ingress.yaml.
 # Based on https://docs.cilium.io/en/stable/network/servicemesh/http/
@@ -78,11 +76,7 @@ status:
 -- eps-ingress.yaml --
 addressType: IPv4
 apiVersion: discovery.k8s.io/v1
-endpoints:
-- addresses:
-  - 192.192.192.192
-  conditions:
-    ready: true
+endpoints: []
 kind: EndpointSlice
 metadata:
   creationTimestamp: "2025-03-25T10:13:20Z"
@@ -103,9 +97,4 @@ metadata:
     uid: 9465c03a-ea0e-42bf-bd8d-56aabc86fcc2
   resourceVersion: "126851"
   uid: d93afa57-70a6-4b66-8906-16e53df84b3f
-ports:
-- name: ""
-  port: 9999
-  protocol: TCP
-
-
+ports: []
