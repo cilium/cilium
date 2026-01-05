@@ -20,9 +20,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 )
 
 var (
+	nodeSvcLBClass                 = nodeipamconfig.NodeSvcLBClass
+	nodeSvcLBMatchLabelsAnnotation = nodeipamconfig.NodeSvcLBMatchLabelsAnnotation
+
 	nodeSvcLbFixtures = []client.Object{
 		&corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
