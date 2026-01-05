@@ -540,18 +540,28 @@ type ExternalConfig struct {
 	BPFSocketLBHostnsOnly                  bool
 	EnableSocketLB                         bool
 	EnableSocketLBPodConnectionTermination bool
+	DefaultLBServiceIPAM                   string
+	EnableLBIPAM                           bool
+	EnableNodeIPAM                         bool
+}
+
+type externalConfigParams struct {
+	cell.In
+
+	DaemonConfig *option.DaemonConfig
+	KprConfig    kpr.KPRConfig
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
-func NewExternalConfig(cfg *option.DaemonConfig, kprCfg kpr.KPRConfig) ExternalConfig {
+func NewExternalConfig(p externalConfigParams) ExternalConfig {
 	return ExternalConfig{
-		ZoneMapper:                             cfg,
-		EnableIPv4:                             cfg.EnableIPv4,
-		EnableIPv6:                             cfg.EnableIPv6,
-		KubeProxyReplacement:                   kprCfg.KubeProxyReplacement,
-		BPFSocketLBHostnsOnly:                  cfg.BPFSocketLBHostnsOnly,
-		EnableSocketLB:                         kprCfg.EnableSocketLB,
-		EnableSocketLBPodConnectionTermination: cfg.EnableSocketLBPodConnectionTermination,
+		ZoneMapper:                             p.DaemonConfig,
+		EnableIPv4:                             p.DaemonConfig.EnableIPv4,
+		EnableIPv6:                             p.DaemonConfig.EnableIPv6,
+		KubeProxyReplacement:                   p.KprConfig.KubeProxyReplacement,
+		BPFSocketLBHostnsOnly:                  p.DaemonConfig.BPFSocketLBHostnsOnly,
+		EnableSocketLB:                         p.KprConfig.EnableSocketLB,
+		EnableSocketLBPodConnectionTermination: p.DaemonConfig.EnableSocketLBPodConnectionTermination,
 	}
 }
 
