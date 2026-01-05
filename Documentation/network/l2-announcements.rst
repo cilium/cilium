@@ -12,6 +12,10 @@ L2 Announcements / L2 Aware LB (Beta)
 
 .. include:: ../beta.rst
 
+.. note::
+   IPv6 is not currently supported for L2 announcements. Only ARP (IPv4)
+   messages are sent; Neighbor Discovery (IPv6) is not implemented.
+
 L2 Announcements is a feature which makes services visible and reachable on 
 the local area network. This feature is primarily intended for on-premises
 deployments within networks without BGP based routing such as office or 
