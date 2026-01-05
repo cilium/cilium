@@ -172,6 +172,9 @@ type LocalNodeConfiguration struct {
 	// device and to cilium_wg0.
 	EnableWireguard bool
 
+	// Ephemeral port range minimun.
+	EphemeralMin uint16
+
 	// Index of the cilium_wg0 interface if enabled.
 	WireguardIfIndex uint32
 

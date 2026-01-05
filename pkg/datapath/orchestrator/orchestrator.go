@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -98,6 +99,7 @@ type orchestratorParams struct {
 	DB                  *statedb.DB
 	Devices             statedb.Table[*tables.Device]
 	NodeAddresses       statedb.Table[tables.NodeAddress]
+	Sysctl              sysctl.Sysctl
 	DirectRoutingDevice tables.DirectRoutingDevice
 	LocalNodeStore      *node.LocalNodeStore
 	NodeDiscovery       *nodediscovery.NodeDiscovery
@@ -200,6 +202,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			ctx,
 			option.Config,
 			localNode,
+			o.params.Sysctl,
 			o.params.DB.ReadTxn(),
 			o.params.DirectRoutingDevice,
 			o.params.Devices,
