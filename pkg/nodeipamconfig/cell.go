@@ -6,6 +6,8 @@ package nodeipamconfig
 import (
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/annotation"
 )
 
 var Cell = cell.Module(
@@ -31,3 +33,8 @@ type NodeIPAMConfig interface {
 func (r nodeIpamConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-node-ipam", r.EnableNodeIPAM, "Enable Node IPAM")
 }
+
+const (
+	NodeSvcLBClass                 = annotation.Prefix + "/node"
+	NodeSvcLBMatchLabelsAnnotation = annotation.Prefix + ".nodeipam" + "/match-node-labels"
+)
