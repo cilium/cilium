@@ -171,6 +171,11 @@ Users (Alphabetically)
       U: CNI, CiliumClusterWideNetworkpolicy, CiliumNetworkPolicy, Hubble, network visibility
       L: https://www.youtube.com/watch?v=hwOpCKBaJ-w
 
+    * N: Celonis
+      D: Celonis has standardized on Cilium as the primary CNI across its entire global cluster fleet.
+      U: CNI, Hubble, CiliumNetworkPolicies, Network Visibility, Transparent Encryption
+      L: https://www.celonis.com
+
     * N: CENGN - Centre of Excellence in Next Generation Networks
       D: CENGN is using Cilium in multiple clusters including production and development clusters (self-hosted k8s, On-premises)
       U: L3/L4/L7 network policies, Monitoring via Prometheus metrics & Hubble
