@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-set -e
+set -ex
 set -o pipefail
 
 FUZZER_BUILD="test/fuzzing/oss-fuzz-build.sh"
 
-fuzz_files="$(grep -Rl 'func Fuzz.*' pkg/)"
+fuzz_files="$(grep --exclude-dir='testdata' -Rl 'func Fuzz.*' pkg/)"
 
 result=0
 for f in $fuzz_files; do
