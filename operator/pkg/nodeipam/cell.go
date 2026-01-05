@@ -10,8 +10,8 @@ import (
 	"github.com/cilium/hive/cell"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
-	"github.com/cilium/cilium/operator/pkg/lbipam"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
 )
 
@@ -30,7 +30,7 @@ type nodeipamCellParams struct {
 	Clientset          k8sClient.Clientset
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Config             nodeipamconfig.NodeIPAMConfig
-	SharedConfig       lbipam.SharedConfig
+	SharedConfig       lbipamconfig.SharedConfig
 }
 
 func registerNodeSvcLBReconciler(params nodeipamCellParams) error {
@@ -41,7 +41,7 @@ func registerNodeSvcLBReconciler(params nodeipamCellParams) error {
 	if err := newNodeSvcLBReconciler(
 		params.CtrlRuntimeManager,
 		params.Logger,
-		params.SharedConfig.DefaultLBServiceIPAM == lbipam.DefaultLBClassNodeIPAM,
+		params.SharedConfig.DefaultLBServiceIPAM == lbipamconfig.DefaultLBClassNodeIPAM,
 	).SetupWithManager(params.CtrlRuntimeManager); err != nil {
 		return fmt.Errorf("Failed to register NodeSvcLBReconciler: %w", err)
 	}
