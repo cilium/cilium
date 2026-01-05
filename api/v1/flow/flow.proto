@@ -524,6 +524,8 @@ enum DropReason {
     DROP_NO_EGRESS_IP = 204;
     // Punt packet to a user space proxy.
     DROP_PUNT_PROXY = 205;
+    // A BPF program failed to look up information for a network device.
+    DROP_NO_DEVICE = 206;
 }
 
 enum TrafficDirection {
