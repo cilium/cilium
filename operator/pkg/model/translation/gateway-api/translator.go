@@ -327,19 +327,8 @@ func (t *gatewayAPITranslator) desiredEndpointSlice(owner *model.FullyQualifiedR
 			},
 		},
 		AddressType: discoveryv1.AddressTypeIPv4,
-		Endpoints: []discoveryv1.Endpoint{
-			{
-				// This dummy endpoint is required as agent refuses to push service entry
-				// to the lb map when the service has no backends.
-				// Related github issue https://github.com/cilium/cilium/issues/19262
-				Addresses: []string{"192.192.192.192"}, // dummy
-			},
-		},
-		Ports: []discoveryv1.EndpointPort{
-			{
-				Port: ptr.To[int32](9999), // dummy
-			},
-		},
+		Endpoints:   nil,
+		Ports:       nil,
 	}
 }
 
