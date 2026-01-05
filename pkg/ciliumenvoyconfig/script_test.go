@@ -46,6 +46,7 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/lock"
@@ -53,6 +54,7 @@ import (
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
@@ -83,6 +85,9 @@ func TestScript(t *testing.T) {
 			cell.Config(CECConfig{}),
 			cell.Config(envoyCfg.SecretSyncConfig{}),
 			cell.Config(envoyCfg.ProxyConfig{}),
+
+			lbipamconfig.Cell,
+			nodeipamconfig.Cell,
 
 			lbcell.Cell,
 

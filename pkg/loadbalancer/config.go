@@ -15,6 +15,8 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -548,8 +550,10 @@ type ExternalConfig struct {
 type externalConfigParams struct {
 	cell.In
 
-	DaemonConfig *option.DaemonConfig
-	KprConfig    kpr.KPRConfig
+	DaemonConfig   *option.DaemonConfig
+	KprConfig      kpr.KPRConfig
+	NodeIPAMConfig nodeipamconfig.NodeIPAMConfig
+	LBIPAMConfig   lbipamconfig.Config
 }
 
 // NewExternalConfig maps the daemon config to [ExternalConfig].
@@ -562,6 +566,9 @@ func NewExternalConfig(p externalConfigParams) ExternalConfig {
 		BPFSocketLBHostnsOnly:                  p.DaemonConfig.BPFSocketLBHostnsOnly,
 		EnableSocketLB:                         p.KprConfig.EnableSocketLB,
 		EnableSocketLBPodConnectionTermination: p.DaemonConfig.EnableSocketLBPodConnectionTermination,
+		DefaultLBServiceIPAM:                   p.LBIPAMConfig.GetDefaultLBServiceIPAM(),
+		EnableLBIPAM:                           p.LBIPAMConfig.IsEnabled(),
+		EnableNodeIPAM:                         p.NodeIPAMConfig.IsEnabled(),
 	}
 }
 
