@@ -29,19 +29,19 @@ type nodeipamCellParams struct {
 	Logger             *slog.Logger
 	Clientset          k8sClient.Clientset
 	CtrlRuntimeManager ctrlRuntime.Manager
-	Config             nodeipamconfig.NodeIPAMConfig
-	SharedConfig       lbipamconfig.SharedConfig
+	NodeIPAMConfig     nodeipamconfig.NodeIPAMConfig
+	LBIPAMConfig       lbipamconfig.Config
 }
 
 func registerNodeSvcLBReconciler(params nodeipamCellParams) error {
-	if !params.Clientset.IsEnabled() || !params.Config.IsEnabled() {
+	if !params.Clientset.IsEnabled() || !params.NodeIPAMConfig.IsEnabled() {
 		return nil
 	}
 
 	if err := newNodeSvcLBReconciler(
 		params.CtrlRuntimeManager,
 		params.Logger,
-		params.SharedConfig.DefaultLBServiceIPAM == lbipamconfig.DefaultLBClassNodeIPAM,
+		params.LBIPAMConfig.GetDefaultLBServiceIPAM() == lbipamconfig.DefaultLBClassNodeIPAM,
 	).SetupWithManager(params.CtrlRuntimeManager); err != nil {
 		return fmt.Errorf("Failed to register NodeSvcLBReconciler: %w", err)
 	}

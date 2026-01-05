@@ -51,8 +51,7 @@ type lbipamCellParams struct {
 
 	Metrics *ipamMetrics
 
-	Config       lbipamconfig.Config
-	SharedConfig lbipamconfig.SharedConfig
+	Config lbipamconfig.Config
 
 	TestCounters *testCounters `optional:"true"`
 }
@@ -83,7 +82,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		svcClient:    params.Clientset.Slim().CoreV1(),
 		jobGroup:     params.JobGroup,
 		config:       params.Config,
-		defaultIPAM:  params.SharedConfig.DefaultLBServiceIPAM == lbipamconfig.DefaultLBClassLBIPAM,
+		defaultIPAM:  params.Config.GetDefaultLBServiceIPAM() == lbipamconfig.DefaultLBClassLBIPAM,
 		testCounters: params.TestCounters,
 	})
 
