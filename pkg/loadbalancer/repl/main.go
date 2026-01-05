@@ -18,11 +18,13 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -88,6 +90,8 @@ var Hive = hive.New(
 	maglev.Cell,
 	node.LocalNodeStoreTestCell,
 	metrics.Cell,
+	lbipamconfig.Cell,
+	nodeipamconfig.Cell,
 	cell.Config(loadbalancer.TestConfig{}),
 	cell.Config(envoyCfg.SecretSyncConfig{}),
 	cell.Provide(
