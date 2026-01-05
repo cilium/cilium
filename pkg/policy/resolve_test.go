@@ -86,7 +86,7 @@ func GenerateL3IngressRules(numRules int) (api.Rules, identity.IdentityMap) {
 			Ingress:          []api.IngressRule{ingRule},
 			Labels:           utils.GetPolicyLabels("default", "l3-ingress", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 		}
-		rule.Sanitize()
+		rule.Validate()
 		rules = append(rules, &rule)
 	}
 	return rules, generateNumIdentities(3000)
@@ -113,7 +113,7 @@ func GenerateL3EgressRules(numRules int) (api.Rules, identity.IdentityMap) {
 			Egress:           []api.EgressRule{egRule},
 			Labels:           utils.GetPolicyLabels("default", "l3-egress", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 		}
-		rule.Sanitize()
+		rule.Validate()
 		rules = append(rules, &rule)
 	}
 	return rules, generateNumIdentities(3000)
@@ -132,7 +132,7 @@ func GenerateCIDRRules(numRules int) (api.Rules, identity.IdentityMap) {
 			Egress:           []api.EgressRule{generateCIDREgressRule(i)},
 			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 		}
-		rule.Sanitize()
+		rule.Validate()
 		rules = append(rules, &rule)
 	}
 	return rules, generateCIDRIdentities(rules)
@@ -286,7 +286,7 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 		},
 	}
 
-	rule1.Sanitize()
+	rule1.Validate()
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
@@ -364,7 +364,7 @@ func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
 		},
 	}
 
-	rule1.Sanitize()
+	rule1.Validate()
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
@@ -446,7 +446,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 		},
 	}
 
-	rule1.Sanitize()
+	rule1.Validate()
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
@@ -530,7 +530,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 		},
 	}
 
-	rule1.Sanitize()
+	rule1.Validate()
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
@@ -614,7 +614,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 		},
 	}
 
-	rule1.Sanitize()
+	rule1.Validate()
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 
@@ -727,7 +727,7 @@ func TestMapStateWithIngress(t *testing.T) {
 		},
 	}
 
-	rule1.Sanitize()
+	rule1.Validate()
 	_, _, err := repo.mustAdd(rule1)
 	require.NoError(t, err)
 

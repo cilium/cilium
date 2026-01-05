@@ -5,7 +5,6 @@ package v2
 
 import (
 	"fmt"
-	"log/slog"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -161,11 +160,9 @@ func (r *CiliumNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string
 	r.Status.DerivativePolicies[derivativePolicyName] = status
 }
 
-// Parse parses a CiliumNetworkPolicy and returns a list of cilium policy
-// rules.
-func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
+func (r *CiliumNetworkPolicy) Validate() error {
 	if r.ObjectMeta.Name == "" {
-		return nil, NewErrParse("CiliumNetworkPolicy must have name")
+		return NewErrParse("CiliumNetworkPolicy must have name")
 	}
 
 	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
@@ -180,41 +177,33 @@ func (r *CiliumNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (ap
 			Specs:      r.Specs,
 			Status:     r.Status,
 		}
-		return ccnp.Parse(logger, clusterName)
+		return ccnp.Validate()
 	}
-	name := r.ObjectMeta.Name
-	uid := r.ObjectMeta.UID
-
-	retRules := api.Rules{}
 
 	if r.Spec == nil && r.Specs == nil {
-		return nil, ErrEmptyCNP
+		return ErrEmptyCNP
 	}
 
 	if r.Spec != nil {
-		if err := r.Spec.Sanitize(); err != nil {
-			return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
+		if err := r.Spec.Validate(); err != nil {
+			return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
 		}
 		if r.Spec.NodeSelector.LabelSelector != nil {
-			return nil, NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+			return NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 		}
-		cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, r.Spec)
-		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
-			if err := rule.Sanitize(); err != nil {
-				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
+			if err := rule.Validate(); err != nil {
+				return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
 			}
 			if rule.NodeSelector.LabelSelector != nil {
-				return nil, NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+				return NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 			}
-			cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, namespace, name, uid, rule)
-			retRules = append(retRules, cr)
 		}
 	}
 
-	return retRules, nil
+	return nil
 }
 
 // GetIdentityLabels returns all rule labels in the CiliumNetworkPolicy.

@@ -15,6 +15,31 @@ import (
 )
 
 const (
+	// podPrefixLbl is the value the prefix used in the label selector to
+	// represent pods on the default namespace.
+	podPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel
+
+	// podAnyPrefixLbl is the value of the prefix used in the label selector to
+	// represent pods in the default namespace for any source type.
+	podAnyPrefixLbl = labels.LabelSourceAnyKeyPrefix + k8sConst.PodNamespaceLabel
+
+	// podK8SNamespaceLabelsPrefix is the prefix use in the label selector for namespace labels.
+	podK8SNamespaceLabelsPrefix = labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceMetaLabelsPrefix
+	// podAnyNamespaceLabelsPrefix is the prefix use in the label selector for namespace labels
+	// for any source type.
+	podAnyNamespaceLabelsPrefix = labels.LabelSourceAnyKeyPrefix + k8sConst.PodNamespaceMetaLabelsPrefix
+
+	// clusterPrefixLbl is the prefix use in the label selector for cluster name.
+	clusterPrefixLbl = labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelCluster
+
+	// clusterAnyPrefixLbl is the prefix use in the label selector for cluster name
+	// for any source type.
+	clusterAnyPrefixLbl = labels.LabelSourceAnyKeyPrefix + k8sConst.PolicyLabelCluster
+
+	// podInitLbl is the label used in a label selector to match on
+	// initializing pods.
+	podInitLbl = labels.LabelSourceReservedKeyPrefix + labels.IDNameInit
+
 	// ResourceTypeCiliumNetworkPolicy is the resource type used for the
 	// PolicyLabelDerivedFrom label
 	ResourceTypeCiliumNetworkPolicy = "CiliumNetworkPolicy"

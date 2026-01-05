@@ -14,7 +14,6 @@ import (
 )
 
 func TestParseToCiliumLabels(t *testing.T) {
-
 	uuid := types.UID("11bba160-ddca-11e8-b697-0800273b04ff")
 	type args struct {
 		namespace string

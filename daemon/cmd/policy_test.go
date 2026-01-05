@@ -273,7 +273,7 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 		},
 	}
 	for i := range rules {
-		rules[i].Sanitize()
+		rules[i].Validate()
 	}
 
 	ds.envoyXdsServer.RemoveAllNetworkPolicies()
@@ -453,7 +453,7 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 		},
 	}
 	for i := range rules {
-		rules[i].Sanitize()
+		rules[i].Validate()
 	}
 
 	ds.envoyXdsServer.RemoveAllNetworkPolicies()
@@ -544,7 +544,7 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 		},
 	}
 	for i := range rules {
-		rules[i].Sanitize()
+		rules[i].Validate()
 	}
 
 	ds.envoyXdsServer.RemoveAllNetworkPolicies()
@@ -636,7 +636,7 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 		},
 	}
 	for i := range rules {
-		rules[i].Sanitize()
+		rules[i].Validate()
 	}
 
 	ds.envoyXdsServer.RemoveAllNetworkPolicies()
@@ -731,7 +731,7 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 		},
 	}
 	for i := range rules {
-		rules[i].Sanitize()
+		rules[i].Validate()
 	}
 
 	ds.envoyXdsServer.RemoveAllNetworkPolicies()
@@ -800,7 +800,7 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 		},
 	}
 	for i := range rules {
-		rules[i].Sanitize()
+		rules[i].Validate()
 	}
 
 	ds.envoyXdsServer.RemoveAllNetworkPolicies()

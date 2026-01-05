@@ -52,12 +52,21 @@ func createDerivativeCNP(ctx context.Context, logger *slog.Logger, clusterName s
 		err   error
 	)
 
-	rules, err = cnp.Parse(logger, clusterName)
+	err = cnp.Validate()
 	if err != nil {
 		// We return a valid pointer for derivative policy here instead of nil.
 		// This object is used to get generated name for the derivative policy
 		// when updating the status of the network policy.
 		return derivativeCNP, fmt.Errorf("cannot parse CNP: %w", err)
+	}
+
+	// TODO(fristonio): We might still need old parsing logic for creating
+	// derivative CNPs.
+	if cnp.Spec != nil {
+		rules = append(rules, cnp.Spec)
+	}
+	for _, rule := range cnp.Specs {
+		rules = append(rules, rule)
 	}
 
 	derivativeCNP.Specs, err = createAPIRules(ctx, rules)
@@ -99,12 +108,21 @@ func createDerivativeCCNP(ctx context.Context, logger *slog.Logger, clusterName 
 		err   error
 	)
 
-	rules, err = ccnp.Parse(logger, clusterName)
+	err = ccnp.Validate()
 	if err != nil {
 		// We return a valid pointer for derivative policy here instead of nil.
 		// This object is used to get generated name for the derivative policy
 		// when updating the status of the network policy.
 		return derivativeCCNP, fmt.Errorf("cannot parse CCNP: %w", err)
+	}
+
+	// TODO(fristonio): We might still need old parsing logic for creating
+	// derivative CNPs.
+	if ccnp.Spec != nil {
+		rules = append(rules, cnp.Spec)
+	}
+	for _, rule := range ccnp.Specs {
+		rules = append(rules, rule)
 	}
 
 	derivativeCCNP.Specs, err = createAPIRules(ctx, rules)

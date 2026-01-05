@@ -18,11 +18,11 @@ type PortRuleL7 map[string]string
 // +deepequal-gen:unordered-array=true
 type PortRulesL7 []PortRuleL7
 
-// Sanitize sanitizes key-value pair rules. It makes sure keys are present.
-func (rule *PortRuleL7) Sanitize() error {
+// Validate validates key-value pair rules. It makes sure keys are present.
+func (rule *PortRuleL7) Validate() error {
 	for k := range *rule {
 		if k == "" {
-			return fmt.Errorf("Empty key not allowed")
+			return fmt.Errorf("empty key not allowed")
 		}
 	}
 	return nil

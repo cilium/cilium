@@ -389,7 +389,7 @@ func TestJSONMarshal(t *testing.T) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any:foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "http": [
           {
             "path": "/",
@@ -405,7 +405,7 @@ func TestJSONMarshal(t *testing.T) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any:foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "l7proto": "tester",
         "l7": [
           {
@@ -426,7 +426,7 @@ func TestJSONMarshal(t *testing.T) {
   "protocol": "TCP",
   "l7-rules": [
     {
-      "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
+      "\u0026LabelSelector{MatchLabels:map[string]string{any:foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
         "http": [
           {
             "path": "/",

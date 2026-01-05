@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
-	policyutils "github.com/cilium/cilium/pkg/policy/utils"
+	"github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -141,10 +141,10 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		p.metricsManager.AddCNP(cnp.CiliumNetworkPolicy)
 	}
 
-	rules, err := cnp.Parse(scopedLog, cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName))
+	entries, err := utils.ParseCiliumNetworkPolicy(scopedLog, cmtypes.LocalClusterNameForPolicies(p.clusterMeshPolicyConfig, p.config.ClusterName), cnp.CiliumNetworkPolicy)
 	if err != nil {
 		scopedLog.Warn(
-			"Unable to add CiliumNetworkPolicy",
+			"Unable to parse CiliumNetworkPolicy",
 			logfields.Error, err,
 		)
 		return fmt.Errorf("failed to parse CiliumNetworkPolicy %s/%s: %w", cnp.ObjectMeta.Namespace, cnp.ObjectMeta.Name, err)
@@ -157,7 +157,7 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(cnp *types.SlimCNP, initialR
 		}
 	}
 	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
-		Rules:               policyutils.RulesToPolicyEntries(rules),
+		Rules:               entries,
 		Source:              source.CustomResource,
 		ProcessingStartTime: initialRecvTime,
 		Resource:            resourceID,

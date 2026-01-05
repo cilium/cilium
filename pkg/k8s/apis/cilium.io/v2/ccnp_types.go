@@ -5,11 +5,9 @@ package v2
 
 import (
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -58,6 +56,15 @@ func (in *CiliumClusterwideNetworkPolicy) DeepEqual(other *CiliumClusterwideNetw
 	return objectMetaDeepEqual(in.ObjectMeta, other.ObjectMeta) && in.deepEqual(other)
 }
 
+func (ccnp *CiliumClusterwideNetworkPolicy) ToCiliumNetworkPolicySpec() *CiliumNetworkPolicy {
+	return &CiliumNetworkPolicy{
+		TypeMeta:   ccnp.TypeMeta,
+		ObjectMeta: ccnp.ObjectMeta,
+		Spec:       ccnp.Spec,
+		Specs:      ccnp.Specs,
+	}
+}
+
 // SetDerivedPolicyStatus set the derivative policy status for the given
 // derivative policy name.
 func (r *CiliumClusterwideNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string, status CiliumNetworkPolicyNodeStatus) {
@@ -81,38 +88,27 @@ type CiliumClusterwideNetworkPolicyList struct {
 	Items []CiliumClusterwideNetworkPolicy `json:"items"`
 }
 
-// Parse parses a CiliumClusterwideNetworkPolicy and returns a list of cilium
-// policy rules.
-func (r *CiliumClusterwideNetworkPolicy) Parse(logger *slog.Logger, clusterName string) (api.Rules, error) {
+func (r *CiliumClusterwideNetworkPolicy) Validate() error {
 	if r.ObjectMeta.Name == "" {
-		return nil, NewErrParse("CiliumClusterwideNetworkPolicy must have name")
+		return NewErrParse("CiliumClusterwideNetworkPolicy must have name")
 	}
 
-	name := r.ObjectMeta.Name
-	uid := r.ObjectMeta.UID
-
-	retRules := api.Rules{}
-
 	if r.Spec == nil && r.Specs == nil {
-		return nil, ErrEmptyCCNP
+		return ErrEmptyCCNP
 	}
 
 	if r.Spec != nil {
-		if err := r.Spec.Sanitize(); err != nil {
-			return nil, NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err))
+		if err := r.Spec.Validate(); err != nil {
+			return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err))
 		}
-		cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, "", name, uid, r.Spec)
-		retRules = append(retRules, cr)
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
-			if err := rule.Sanitize(); err != nil {
-				return nil, NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err))
+			if err := rule.Validate(); err != nil {
+				return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err))
 			}
-			cr := k8sCiliumUtils.ParseToCiliumRule(logger, clusterName, "", name, uid, rule)
-			retRules = append(retRules, cr)
 		}
 	}
 
-	return retRules, nil
+	return nil
 }

@@ -231,7 +231,7 @@ func (p *Repository) releaseRule(r *rule) {
 // unit-testing purposes only. Panics if the rule is invalid
 func (p *Repository) MustAddList(rules api.Rules) (ruleSlice, uint64) {
 	for i := range rules {
-		err := rules[i].Sanitize()
+		err := rules[i].Validate()
 		if err != nil {
 			panic(err)
 		}
