@@ -188,7 +188,10 @@
       ],
       "groupName": "all-dependencies",
       "matchPackageNames": [
-        "!quay.io/goswagger/swagger"
+        "!quay.io/goswagger/swagger",
+        // cilium-envoy is excluded because it has its own grouping rule that
+        // combines updates from both dockerfile and regex managers into a single PR.
+        "!quay.io/cilium/cilium-envoy"
       ]
     },
     {
@@ -321,6 +324,11 @@
       "groupSlug": "all-external-images-deps-stable",
       "matchFileNames": [
         "install/kubernetes/Makefile.values"
+      ],
+      "matchPackageNames": [
+        // cilium-envoy is excluded because it has its own grouping rule that
+        // combines updates from both dockerfile and regex managers into a single PR.
+        "!quay.io/cilium/cilium-envoy"
       ],
       // This is required as otherwise patch version updates into stable branches
       // are also skipped if a minor version update is available at the same time.
@@ -716,7 +724,13 @@
       ]
     },
     {
+      // cilium-envoy is referenced in both images/cilium/Dockerfile and
+      // install/kubernetes/Makefile.values. Without explicit grouping,
+      // Renovate creates separate PRs for each manager. The groupSlug ensures
+      // both updates use the same branch name and get combined into a single
+      // PR.
       "groupName": "cilium-envoy",
+      "groupSlug": "cilium-envoy",
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
@@ -729,7 +743,13 @@
       ]
     },
     {
+      // cilium-envoy is referenced in both images/cilium/Dockerfile and
+      // install/kubernetes/Makefile.values. Without explicit grouping,
+      // Renovate creates separate PRs for each manager. The groupSlug ensures
+      // both updates use the same branch name and get combined into a single
+      // PR.
       "groupName": "cilium-envoy",
+      "groupSlug": "cilium-envoy",
       "matchDepNames": [
         "quay.io/cilium/cilium-envoy"
       ],
