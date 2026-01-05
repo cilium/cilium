@@ -9,13 +9,13 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-	"github.com/spf13/pflag"
 
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -23,39 +23,16 @@ import (
 var Cell = cell.Module(
 	"lbipam",
 	"LB-IPAM",
+
+	lbipamconfig.Cell,
+
 	// Provide LBIPAM so instances of it can be used while testing
-	cell.Provide(
-		newLBIPAMCell,
-		func(c lbipamConfig) Config { return c },
-	),
+	cell.Provide(newLBIPAMCell),
 	// Invoke an empty function which takes an LBIPAM to force its construction.
 	cell.Invoke(func(*LBIPAM) {}),
 	// Provide LB-IPAM related metrics
 	metrics.Metric(newMetrics),
-	// Register configuration flags
-	cell.Config(lbipamConfig{
-		EnableLBIPAM: true,
-	}),
-	cell.Config(SharedConfig{
-		DefaultLBServiceIPAM: DefaultLBClassLBIPAM,
-	}),
 )
-
-type lbipamConfig struct {
-	EnableLBIPAM bool
-}
-
-func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
-	flags.BoolVar(&lc.EnableLBIPAM, "enable-lb-ipam", lc.EnableLBIPAM, "Enable LB IPAM")
-}
-
-func (lc lbipamConfig) IsEnabled() bool {
-	return lc.EnableLBIPAM
-}
-
-type Config interface {
-	IsEnabled() bool
-}
 
 type lbipamCellParams struct {
 	cell.In
@@ -74,14 +51,14 @@ type lbipamCellParams struct {
 
 	Metrics *ipamMetrics
 
-	Config       lbipamConfig
-	SharedConfig SharedConfig
+	Config       lbipamconfig.Config
+	SharedConfig lbipamconfig.SharedConfig
 
 	TestCounters *testCounters `optional:"true"`
 }
 
 func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
-	if !params.Clientset.IsEnabled() || !params.Config.EnableLBIPAM {
+	if !params.Clientset.IsEnabled() || !params.Config.IsEnabled() {
 		return nil
 	}
 
@@ -106,7 +83,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 		svcClient:    params.Clientset.Slim().CoreV1(),
 		jobGroup:     params.JobGroup,
 		config:       params.Config,
-		defaultIPAM:  params.SharedConfig.DefaultLBServiceIPAM == DefaultLBClassLBIPAM,
+		defaultIPAM:  params.SharedConfig.DefaultLBServiceIPAM == lbipamconfig.DefaultLBClassLBIPAM,
 		testCounters: params.TestCounters,
 	})
 
@@ -118,24 +95,4 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 	)
 
 	return lbIPAM
-}
-
-const (
-	DefaultLBClassLBIPAM   = "lbipam"
-	DefaultLBClassNodeIPAM = "nodeipam"
-)
-
-// SharedConfig contains the configuration that is shared between
-// this module and others.
-// It is a temporary solution meant to avoid polluting this module with a direct
-// dependency on global operator configurations.
-type SharedConfig struct {
-	// DefaultLBServiceIPAM indicate the default LoadBalancer Service IPAM
-	DefaultLBServiceIPAM string
-}
-
-func (sc SharedConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringVar(&sc.DefaultLBServiceIPAM, "default-lb-service-ipam", sc.DefaultLBServiceIPAM,
-		"Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set."+
-			"Applicable values: lbipam, nodeipam, none")
 }
