@@ -286,6 +286,7 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
+	cfg.EphemeralMin = lnc.EphemeralMin
 
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
@@ -447,6 +448,7 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
+	cfg.EphemeralMin = lnc.EphemeralMin
 
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
@@ -537,6 +539,7 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
+	cfg.EphemeralMin = lnc.EphemeralMin
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -712,6 +715,7 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
+	cfg.EphemeralMin = lnc.EphemeralMin
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.
@@ -828,6 +832,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+	cfg.EphemeralMin = lnc.EphemeralMin
 
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPv4ToHost32(net.IP(option.Config.VtepCidrMask))
@@ -881,6 +886,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = option.Config.DatapathMode == datapathOption.DatapathModeNetkit ||
 		option.Config.DatapathMode == datapathOption.DatapathModeNetkitL2
+	cfg.EphemeralMin = lnc.EphemeralMin
 
 	var obj wireguardObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{

@@ -406,7 +406,7 @@ int host_bpf_masq_v4_4_icmp_echo_pktgen(struct __ctx_buff *ctx)
 	if (!icmp)
 		return TEST_ERROR;
 
-	icmp->un.echo.id = bpf_htons(NAT_MIN_EGRESS - 1);
+	icmp->un.echo.id = bpf_htons(nat_min_egress() - 1);
 
 	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
@@ -445,7 +445,7 @@ int host_bpf_masq_v4_4_icmp_echo_check(const struct __ctx_buff *ctx)
 		.daddr   = NODE_IP,
 		.saddr   = SERVER_IP,
 		.dport   = 0,
-		.sport   = bpf_htons(NAT_MIN_EGRESS - 1),
+		.sport   = bpf_htons(nat_min_egress() - 1),
 		.nexthdr = IPPROTO_ICMP,
 		.flags = TUPLE_F_OUT,
 	};
@@ -475,7 +475,7 @@ int host_bpf_masq_v6_4_icmp_echo_pktgen(struct __ctx_buff *ctx)
 	if (!icmp)
 		return TEST_ERROR;
 
-	icmp->icmp6_dataun.u_echo.identifier = bpf_htons(NAT_MIN_EGRESS - 1);
+	icmp->icmp6_dataun.u_echo.identifier = bpf_htons(nat_min_egress() - 1);
 
 	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
@@ -512,7 +512,7 @@ int host_bpf_masq_v6_4_icmp_echo_check(const struct __ctx_buff *ctx)
 	/* Check whether BPF MASQ created a CT entry */
 	struct ipv6_ct_tuple tuple = {
 		.dport   = 0,
-		.sport   = bpf_htons(NAT_MIN_EGRESS - 1),
+		.sport   = bpf_htons(nat_min_egress() - 1),
 		.nexthdr = IPPROTO_ICMPV6,
 		.flags = TUPLE_F_OUT,
 	};

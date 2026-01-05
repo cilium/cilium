@@ -27,12 +27,7 @@
 DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
-
-#ifdef ENABLE_NODEPORT
-#define NAT_MIN_EGRESS		NODEPORT_PORT_MIN_NAT
-#else
-#define NAT_MIN_EGRESS		EPHEMERAL_MIN
-#endif
+DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -49,6 +44,15 @@ struct nat_entry {
 #define SNAT_SIGNAL_THRES		(SNAT_COLLISION_RETRIES / 2)
 
 #define snat_v4_needs_masquerade_hook(ctx, target) 0
+
+static __always_inline __u16
+nat_min_egress()
+{
+#ifdef ENABLE_NODEPORT
+	return NODEPORT_PORT_MIN_NAT;
+#endif
+	return CONFIG(ephemeral_min);
+}
 
 /* Clamp a port to the range [start, end].
  *
@@ -539,7 +543,7 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target,
 		return false;
 #endif
 
-	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
+	return (!target->from_local_endpoint && sport < nat_min_egress());
 }
 
 static __always_inline bool
@@ -1608,7 +1612,7 @@ snat_v6_nat_can_skip(const struct ipv6_nat_target *target,
 		return false;
 #endif
 
-	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
+	return (!target->from_local_endpoint && sport < nat_min_egress());
 }
 
 static __always_inline bool

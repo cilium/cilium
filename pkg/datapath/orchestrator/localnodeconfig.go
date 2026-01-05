@@ -12,6 +12,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
+	linuxconfig "github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
@@ -43,6 +45,7 @@ func newLocalNodeConfig(
 	ctx context.Context,
 	config *option.DaemonConfig,
 	localNode node.LocalNode,
+	sysctlOps sysctl.Sysctl,
 	txn statedb.ReadTxn,
 	directRoutingDevTbl tables.DirectRoutingDevice,
 	devices statedb.Table[*tables.Device],
@@ -102,6 +105,11 @@ func newLocalNodeConfig(
 		}
 	}
 
+	ephemeralMin, err := linuxconfig.GetEphemeralPortRangeMin(sysctlOps)
+	if err != nil {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
+	}
+
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
 		NodeIPv6:                     localNode.GetNodeIP(true),
@@ -126,6 +134,7 @@ func newLocalNodeConfig(
 		EnableIPv6:                   config.EnableIPv6,
 		EnableEncapsulation:          config.TunnelingEnabled(),
 		EnableAutoDirectRouting:      config.EnableAutoDirectRouting,
+		EphemeralMin:                 uint16(ephemeralMin),
 		DirectRoutingSkipUnreachable: config.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         config.EnableLocalNodeRoute && config.IPAM != ipamOption.IPAMENI && config.IPAM != ipamOption.IPAMAzure && config.IPAM != ipamOption.IPAMAlibabaCloud,
 		EnableWireguard:              wgAgent.Enabled(),
