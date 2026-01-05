@@ -66,9 +66,6 @@ metadata:
     {{- toYaml .Values.ingressController.service.annotations | nindent 4 }}
   {{- end }}
 addressType: IPv4
-endpoints:
-- addresses:
-  - "192.192.192.192"
-ports:
-- port: 9999
+endpoints: []
+ports: []
 {{- end }}
