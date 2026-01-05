@@ -571,12 +571,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CILIUM_HOST_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
 	cDefinesMap["CILIUM_HOST_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
 
-	ephemeralMin, err := getEphemeralPortRangeMin(h.sysctl)
-	if err != nil {
-		return fmt.Errorf("getting ephemeral port range minimun: %w", err)
-	}
-	cDefinesMap["EPHEMERAL_MIN"] = fmt.Sprintf("%d", ephemeralMin)
-
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	if err := cDefinesMap.Merge(h.nodeExtraDefines); err != nil {
@@ -648,7 +642,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	return fw.Flush()
 }
 
-func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
+// GetEphemeralPortRangeMin returns the minimum ephemeral port from
+// net.ipv4.ip_local_port_range.
+func GetEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
 	ephemeralPortRangeStr, err := sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
 	if err != nil {
 		return 0, fmt.Errorf("unable to read net.ipv4.ip_local_port_range: %w", err)
