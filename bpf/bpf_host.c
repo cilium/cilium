@@ -1702,6 +1702,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 		 */
 		traced = true;
 
+		barrier_data(ctx);
 		ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
 		ret = ctx_redirect_to_proxy_first(ctx, port);
 		goto out;
@@ -1905,7 +1906,7 @@ int cil_host_policy(struct __ctx_buff *ctx __maybe_unused)
 		ret = tail_call_policy(ctx, (__u16)lxc_id);
 	} else {
 		bool use_tailcall = (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) ||
-				    is_defined(DEBUG);
+			CONFIG(enable_debug);
 
 		ret = host_ingress_policy(ctx, proto, src_sec_identity,
 					  true, use_tailcall, &ext_err);

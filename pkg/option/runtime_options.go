@@ -31,7 +31,6 @@ var (
 	}
 
 	specDebug = Option{
-		Define:      "DEBUG",
 		Description: "Enable debugging trace statements",
 	}
 
@@ -46,7 +45,6 @@ var (
 	}
 
 	specDebugTagged = Option{
-		Define:      "DEBUG_TAGGED",
 		Description: "Enable debugging trace statements for tagged packets",
 	}
 

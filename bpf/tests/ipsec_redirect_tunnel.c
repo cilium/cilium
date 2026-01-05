@@ -5,7 +5,7 @@
 
 #include "ipsec_redirect_generic.h"
 
-#include "node_config.h"
+#include <bpf/config/node.h>
 
 /* must define `HAVE_ENCAP 1` before including 'lib/ipsec.h'.
  * lib/ipsec.h eventually imports overloadable_skb.h which exposes
