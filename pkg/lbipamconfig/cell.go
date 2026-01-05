@@ -18,45 +18,41 @@ var Cell = cell.Module(
 
 	// Register configuration flags
 	cell.Config(lbipamConfig{
-		EnableLBIPAM: true,
-	}),
-	cell.Config(SharedConfig{
+		EnableLBIPAM:         true,
 		DefaultLBServiceIPAM: DefaultLBClassLBIPAM,
 	}),
 )
 
 type lbipamConfig struct {
+	// EnableIPAM indicates if LB-IPAM is enabled
 	EnableLBIPAM bool
+
+	// DefaultLBServiceIPAM indicate the default LoadBalancer Service IPAM
+	DefaultLBServiceIPAM string
 }
 
 func (lc lbipamConfig) Flags(flags *pflag.FlagSet) {
 	flags.BoolVar(&lc.EnableLBIPAM, "enable-lb-ipam", lc.EnableLBIPAM, "Enable LB IPAM")
+
+	flags.StringVar(&lc.DefaultLBServiceIPAM, "default-lb-service-ipam", lc.DefaultLBServiceIPAM,
+		"Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set."+
+			"Applicable values: lbipam, nodeipam, none")
 }
 
 func (lc lbipamConfig) IsEnabled() bool {
 	return lc.EnableLBIPAM
 }
 
+func (lc lbipamConfig) GetDefaultLBServiceIPAM() string {
+	return lc.DefaultLBServiceIPAM
+}
+
 type Config interface {
 	IsEnabled() bool
+	GetDefaultLBServiceIPAM() string
 }
 
 const (
 	DefaultLBClassLBIPAM   = "lbipam"
 	DefaultLBClassNodeIPAM = "nodeipam"
 )
-
-// SharedConfig contains the configuration that is shared between
-// this module and others.
-// It is a temporary solution meant to avoid polluting this module with a direct
-// dependency on global operator configurations.
-type SharedConfig struct {
-	// DefaultLBServiceIPAM indicate the default LoadBalancer Service IPAM
-	DefaultLBServiceIPAM string
-}
-
-func (sc SharedConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringVar(&sc.DefaultLBServiceIPAM, "default-lb-service-ipam", sc.DefaultLBServiceIPAM,
-		"Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set."+
-			"Applicable values: lbipam, nodeipam, none")
-}
