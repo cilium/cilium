@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
+	"github.com/cilium/cilium/pkg/maps/netdev"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/ratelimitmap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
@@ -93,6 +94,7 @@ var (
 		"debug_capture_msg":       {monitor.DebugCapture{}},
 		"policy_verdict_notify":   {monitor.PolicyVerdictNotify{}},
 		"trace_sock_notify":       {monitor.TraceSockNotify{}},
+		"device_state":            {netdev.DeviceState{}},
 	}
 	toCheckSizes = map[string][]any{
 		"__u16": {

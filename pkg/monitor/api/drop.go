@@ -105,6 +105,7 @@ var errors = map[uint8]string{
 	203: "Endpoint policy program not available",
 	204: "No Egress IP configured",
 	205: "Punt to proxy",
+	206: "No device",
 }
 
 func extendedReason(extError int8) string {
