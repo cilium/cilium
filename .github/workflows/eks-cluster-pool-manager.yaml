@@ -119,9 +119,16 @@ jobs:
             fi
           done
 
-          # List all EKS clusters with the usage tag and fetch all needed information at once
-          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --query clusters --output text | \
-            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json 2>/dev/null || echo "[]")
+          # List all EKS clusters and fetch all needed information at once
+          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --output json | jq -r '.clusters[]' | \
+            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} \
+              --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json | \
+            jq -s '.')
+
+          if [ -z "${CLUSTERS_JSON}" ] || [ "${CLUSTERS_JSON}" = "[]" ]; then
+            echo "No EKS clusters found in region ${REGION}"
+            exit 0
+          fi
 
           # Filter clusters by usage tag and extract needed information
           FILTERED_CLUSTERS=$(echo "${CLUSTERS_JSON}" | jq -r --arg tag_value "${{ github.repository_owner }}-${{ github.event.repository.name }}" \
@@ -542,8 +549,10 @@ jobs:
 
           # List all running clusters with our usage tag
           echo "Running EKS clusters:"
-          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --query clusters --output text | \
-            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json 2>/dev/null || echo "[]")
+          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --output json | jq -r '.clusters[]' | \
+            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} \
+              --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json | \
+            jq -s '.')
 
           # Filter and display clusters by usage tag
           FILTERED_CLUSTERS=$(echo "${CLUSTERS_JSON}" | jq -r --arg tag_value "${{ github.repository_owner }}-${{ github.event.repository.name }}" \
