@@ -262,10 +262,11 @@ func TestOrderedPolicyValidation(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string                // test name
-		entries  types.PolicyEntries   // starts at level 1, level increments for each rule
-		expected map[Key]mapStateEntry // expected MapState, optional
-		probes   []probe               // probes to test the policy, optional
+		name            string                // test name
+		skipDefaultDeny bool                  // skip setting DefaultDeny on 'entries'
+		entries         types.PolicyEntries   // starts at level 1, level increments for each rule
+		expected        map[Key]mapStateEntry // expected MapState, optional
+		probes          []probe               // probes to test the policy, optional
 	}{
 		{
 			name: "allow all",
@@ -426,7 +427,7 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				//{key: egressKey(identityWorld, 6, 82, 16), found: true, entry: AllowEntry},
 			},
 		}, {
-			name: "PASS 1.1.1.1 over denyz",
+			name: "PASS 1.1.1.1 over deny",
 			entries: types.PolicyEntries{
 				&types.PolicyEntry{
 					Tier:     0,
@@ -453,6 +454,39 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				ingressKey(0, 0, 0, 0):            newAllowEntryWithLabels(LabelsAllowAnyIngress),
 				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 1000),
 				egressKey(identity1111, 6, 80, 0): allowEntry.withLevel(0).withPassPriority(0, 1000),
+			},
+			probes: []probe{},
+		}, {
+			name:            "PASS 1.1.1.1 over deny with default allow",
+			skipDefaultDeny: true,
+			entries: types.PolicyEntries{
+				&types.PolicyEntry{
+					Tier:     0,
+					Priority: 0,
+					L3:       selectors1111,
+					Verdict:  types.Pass,
+				},
+				&types.PolicyEntry{
+					Tier:     0,
+					Priority: 1,
+					L3:       selectors1111,
+					Verdict:  types.Deny,
+				},
+				&types.PolicyEntry{
+					Tier:     1,
+					Priority: 0,
+					L3:       selectors1111,
+					L4:       port80,
+					Verdict:  types.Allow,
+				},
+			},
+			expected: mapStateMap{
+				// default allow ingress
+				ingressKey(0, 0, 0, 0):            newAllowEntryWithLabels(LabelsAllowAnyIngress),
+				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 1000),
+				egressKey(identity1111, 6, 80, 0): allowEntry.withLevel(0).withPassPriority(0, 1000),
+				// default allow egress
+				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(2000),
 			},
 			probes: []probe{},
 		}, {
@@ -962,7 +996,9 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			repo := newPolicyDistillery(t, selectorCache)
 			for _, entry := range tt.entries {
 				entry.Subject = wildcardSubject
-				entry.DefaultDeny = true
+				if !tt.skipDefaultDeny {
+					entry.DefaultDeny = true
+				}
 			}
 			repo.MustAddPolicyEntries(tt.entries)
 			expected := testMapState(t, tt.expected)
