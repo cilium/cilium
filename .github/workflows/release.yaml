@@ -177,23 +177,62 @@ jobs:
             exit 1
           fi
 
-          # Wait for checks to complete
-          echo "⏳ Waiting for PR checks to complete..."
-          sleep 30  # Initial wait to allow checks to start
-          if ! gh pr checks $PR_NUMBER --repo cilium/charts --fail-fast --required --watch; then
-            echo "❌ PR #$PR_NUMBER has failed checks"
-            echo "📋 Failed workflow details:"
-            gh pr checks $PR_NUMBER --repo cilium/charts --json name,state,link | jq -r '.[] | select(.state == "FAILURE") | "  - \(.name): \(.state) (\(.link // "No URL"))"'
-            exit 1
-          fi
-
-          echo "✅ All required checks passed for PR #$PR_NUMBER"
-
-          # Merge the PR
           echo "Merging PR #$PR_NUMBER..."
-          if gh pr merge $PR_NUMBER --repo cilium/charts --rebase --delete-branch; then
-            echo "✅ Successfully merged PR #$PR_NUMBER"
-          else
-            echo "❌ Failed to merge PR #$PR_NUMBER"
+          MERGE_ATTEMPTS=0
+          MAX_MERGE_ATTEMPTS=3
+          MERGE_SUCCESS=false
+
+          while [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; do
+            MERGE_ATTEMPTS=$((MERGE_ATTEMPTS + 1))
+            echo "🔄 Attempt $MERGE_ATTEMPTS of $MAX_MERGE_ATTEMPTS"
+
+            # Wait for checks to complete
+            echo "⏳ Waiting for PR checks to complete..."
+            sleep 30  # Initial wait to allow checks to start
+            if ! gh pr checks $PR_NUMBER --repo cilium/charts --fail-fast --required --watch; then
+              echo "❌ PR #$PR_NUMBER has failed checks on attempt $MERGE_ATTEMPTS"
+              echo "📋 Failed workflow details:"
+              gh pr checks $PR_NUMBER --repo cilium/charts --json name,state,link | jq -r '.[] | select(.state == "FAILURE") | "  - \(.name): \(.state) (\(.link // "No URL"))"'
+              if [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; then
+                echo "⚠️ Retrying..."
+                continue
+              else
+                exit 1
+              fi
+            fi
+
+            echo "✅ All required checks passed for PR #$PR_NUMBER"
+
+            # Attempt to merge
+            echo "Merging PR #$PR_NUMBER..."
+            if gh pr merge $PR_NUMBER --repo cilium/charts --rebase --delete-branch; then
+              echo "✅ Successfully merged PR #$PR_NUMBER"
+              MERGE_SUCCESS=true
+              break
+            else
+              echo "⚠️ Merge attempt $MERGE_ATTEMPTS failed"
+              if [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; then
+                echo "🔄 Re-running release tool to update PR..."
+                # Re-run the release tool (step from line 127)
+                cd ../release
+                ./release start \
+                  --force \
+                  --release-tool-dir "$(pwd)" \
+                  --charts-repo-dir "$(pwd)/../charts" \
+                  --repo-dir "$(pwd)/../cilium" \
+                  --repo ${{ github.repository }} \
+                  --target-version $VERSION \
+                  --steps ${{ inputs.step }} \
+                  --exclude-labels "cilium-cli-exclusive"
+                cd -
+              else
+                echo "❌ Failed to merge PR #$PR_NUMBER after $MAX_MERGE_ATTEMPTS attempts"
+                exit 1
+              fi
+            fi
+          done
+
+          if [ "$MERGE_SUCCESS" = false ]; then
+            echo "❌ Failed to merge PR #$PR_NUMBER after $MAX_MERGE_ATTEMPTS attempts"
             exit 1
           fi
