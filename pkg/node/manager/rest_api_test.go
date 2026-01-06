@@ -16,6 +16,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	fakeTypes "github.com/cilium/cilium/pkg/datapath/fake/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -35,7 +36,7 @@ func setupGetNodesSuite(tb testing.TB) *GetNodesSuite {
 	option.Config.IPv6ServiceRange = "auto"
 
 	h, _ := cell.NewSimpleHealth()
-	nm, err := New(logger, fakeConfig, tunnel.Config{}, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{})
+	nm, err := New(logger, fakeConfig, tunnel.Config{}, nil, &fakeTypes.IPSet{}, nil, NewNodeMetrics(), h, nil, nil, nil, fakeTypes.WireguardConfig{}, node.NewTestLocalNodeStore(node.LocalNode{}))
 	require.NoError(tb, err)
 
 	g := &GetNodesSuite{

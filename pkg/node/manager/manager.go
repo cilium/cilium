@@ -63,9 +63,7 @@ const (
 	nodeCheckpointMinInterval = time.Minute
 )
 
-var (
-	baseBackgroundSyncInterval = time.Minute
-)
+var baseBackgroundSyncInterval = time.Minute
 
 type nodeEntry struct {
 	// mutex serves two purposes:
@@ -178,6 +176,8 @@ type manager struct {
 
 	// wireguard configuration used when calling endpointEncryptionKey.
 	wgConfig types.WireguardConfig
+
+	localNodeStore *node.LocalNodeStore
 }
 
 // Subscribe subscribes the given node handler to node events.
@@ -275,6 +275,7 @@ func New(
 	db *statedb.DB,
 	devices statedb.Table[*tables.Device],
 	wgCfg types.WireguardConfig,
+	localNodeStore *node.LocalNodeStore,
 ) (*manager, error) {
 	if ipsetFilter == nil {
 		ipsetFilter = func(*nodeTypes.Node) bool { return false }
@@ -299,6 +300,7 @@ func New(
 		devices:                devices,
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 		wgConfig:               wgCfg,
+		localNodeStore:         localNodeStore,
 	}
 
 	return m, nil
@@ -586,6 +588,12 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 }
 
 func (m *manager) nodeAddressHasEncryptKey() bool {
+	ln, err := m.localNodeStore.Get(context.Background())
+	if err != nil {
+		m.logger.Error("Failed to retrieve local node", logfields.Error, err)
+		return false
+	}
+
 	// If we are doing encryption, but not node based encryption, then do not
 	// add a key to the nodeIPs so that we avoid a trip through stack and attempting
 	// to encrypt something we know does not have an encryption policy installed
@@ -594,7 +602,7 @@ func (m *manager) nodeAddressHasEncryptKey() bool {
 	return m.conf.NodeEncryptionEnabled() &&
 		// Also ignore any remote node's key if the local node opted to not perform
 		// node-to-node encryption
-		!node.GetOptOutNodeEncryption(m.logger)
+		!ln.Local.OptOutNodeEncryption
 }
 
 // endpointEncryptionKey returns the encryption key index to use for the health

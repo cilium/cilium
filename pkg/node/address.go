@@ -412,10 +412,6 @@ func ExtractCiliumHostIPFromFS(logger *slog.Logger) (ipv4GW, ipv6Router net.IP) 
 	return getCiliumHostIPsFromNetDev(logger, defaults.HostDevice)
 }
 
-func GetOptOutNodeEncryption(logger *slog.Logger) bool {
-	return getLocalNode(logger).Local.OptOutNodeEncryption
-}
-
 // GetEndpointHealthIPv4 returns the IPv4 cilium-health endpoint address.
 func GetEndpointHealthIPv4(logger *slog.Logger) net.IP {
 	return getLocalNode(logger).IPv4HealthIP
