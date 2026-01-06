@@ -473,6 +473,12 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 		// User the lowest tier and priority
 		lastRule := rulesEgress[len(rulesEgress)-1]
 		tier, priority := lastRule.Tier, lastRule.Priority
+		// Keep the tier and priority as zeroes for backwards compatibility if the last rule
+		// is at tier and priority 0.
+		if tier > 0 || priority > 0 {
+			tier++
+			priority = 0
+		}
 		p.logger.Debug("Only default-allow policies, synthesizing egress wildcard-allow rule",
 			logfields.Identity, securityIdentity,
 			logfields.Tier, tier,
