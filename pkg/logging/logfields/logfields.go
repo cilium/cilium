@@ -114,6 +114,9 @@ const (
 	// PolicyEntry is a policy map value
 	PolicyEntry = "policyEntry"
 
+	// PolicyPrecedence is the datapath precedence for a policy Entry
+	PolicyPrecedence = "policyPrecedence"
+
 	// PolicyRevision is the revision of the policy in the repository or of
 	// the object in question
 	PolicyRevision = "policyRevision"

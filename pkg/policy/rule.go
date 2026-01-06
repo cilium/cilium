@@ -339,7 +339,9 @@ func (resMap *L4PolicyMap) addFilter(policyCtx PolicyContext, entry *types.Polic
 	if err != nil {
 		return 0, err
 	}
-	// TODO: do not return 1 if the filter was skipped due to priority!
+
+	// Currently we return '1' here even if all of the filterToMerge was skipped due to priority
+	// in mergePortProto called by addL4Filter.
 	return 1, err
 }
 

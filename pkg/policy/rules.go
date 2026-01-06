@@ -15,9 +15,16 @@ import (
 // 2^24 distinct priorities for a given direction; the datapath cannot support more than that.
 var ErrTooManyPriorityLevels = errors.New("endpoint policy direction has more than 2^24 distinct priorities")
 
+// ErrUnorderedTiers is returned if tiers of policy entries are unordered when they are expected to
+// be ordered.
+var ErrUnorderedTiers = errors.New("Unordered policy entry tiers")
+
+// ErrUnorderedRules is returned if prioritites of policy entries are unordered when they are
+// expected to be ordered.
+var ErrUnorderedRules = errors.New("Unordered policy entry priorities")
+
 // ruleSlice is a wrapper around a slice of *rule, which allows for functions
 // to be written with []*rule as a receiver.
-// XXX: Make this by tier?
 type ruleSlice []*rule
 
 func roundUp(n int, to int) int {
@@ -56,7 +63,7 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 		for _, r := range rules {
 			if r.Tier != lastTier {
 				if r.Tier < lastTier {
-					panic("unordered tiers")
+					return result, ErrUnorderedTiers
 				}
 				// Keep the needed priority levels for the previous tier,
 				// rounding up to next 10 to reduce policy map churn.
@@ -71,7 +78,7 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 				levels = 1
 			} else if r.Priority != lastPrio {
 				if r.Priority < lastPrio {
-					panic("unordered rules")
+					return result, ErrUnorderedRules
 				}
 				levels++
 				lastPrio = r.Priority

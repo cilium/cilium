@@ -303,7 +303,11 @@ func (ms *mapState) LPMAncestors(key Key) iter.Seq2[Key, mapStateEntry] {
 func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 	// Validate that the search key has no wildcards
 	if key.Identity == 0 || key.Nexthdr == 0 || key.DestPort == 0 || key.EndPort() != key.DestPort {
-		panic("invalid key for Lookup")
+		ms.logger.Error(
+			"invalid key for Lookup",
+			logfields.Stacktrace, hclog.Stacktrace(),
+			logfields.PolicyKey, key,
+		)
 	}
 	var l3key, l4key Key
 	var l3entry, l4entry mapStateEntry
@@ -761,17 +765,6 @@ func (ms *mapState) revertChanges(changes ChangeState) {
 // The given passPrecedence is also stored in e.passPrecedence so this entry can safely overwrite
 // the pass entry with the same key.
 func (e *mapStateEntry) InheritPassPrecedence(passEntry mapStateEntry) {
-	// TODO: remove panics before merging
-	if passEntry.passPrecedence <= passEntry.nextTierPrecedence {
-		panic("invalid pass entry")
-	}
-	if passEntry.passPrecedence&0xff != 0xff {
-		panic("invalid passPrecedence")
-	}
-	if passEntry.nextTierPrecedence&0xff != 0xff {
-		panic("invalid nextTierPrecedence")
-	}
-
 	// Both passPrecedence and nextTierPrcedence have the low 8 bits all set, so those bits
 	// cancel out and the deny and proxy port precedence bits are retained intact.
 	e.Precedence -= passEntry.nextTierPrecedence
@@ -823,7 +816,13 @@ func (e *mapStateEntry) InheritPassPrecedence(passEntry mapStateEntry) {
 // Incremental changes performed are recorded in 'changes'.
 func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
 	if tierPrecedence&0xff != 0xff {
-		panic("invalid tierPrecedence")
+		ms.logger.Error(
+			"invalid tierPrecedence",
+			logfields.Stacktrace, hclog.Stacktrace(),
+			logfields.PolicyKey, newKey,
+			logfields.PolicyEntry, newEntry,
+			logfields.PolicyPrecedence, tierPrecedence,
+		)
 	}
 
 	if newEntry.IsPassEntry() {
