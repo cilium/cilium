@@ -28,9 +28,3 @@ func initMasqueradeV4Addrs(masqAddrs map[string]net.IP, masqIPFromDevice string,
 func initMasqueradeV6Addrs(masqAddrs map[string]net.IP, masqIPFromDevice string, devices []string, logfield string) error {
 	return nil
 }
-
-// GetCiliumHostIPsFromNetDev returns the first IPv4 link local and returns
-// it
-func GetCiliumHostIPsFromNetDev(devName string) (ipv4GW, ipv6Router net.IP) {
-	return net.IP{}, net.IP{}
-}
