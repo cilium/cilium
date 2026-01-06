@@ -11,6 +11,11 @@
 
 #define IS_BPF_HOST 1
 
+#ifdef ENABLE_BANDWIDTH_MANAGER
+#undef ENABLE_BANDWIDTH_MANAGER
+#endif
+#define ENABLE_BANDWIDTH_MANAGER CONFIG(enable_bandwidth_manager)
+
 #define EFFECTIVE_EP_ID CONFIG(host_ep_id)
 #define EVENT_SOURCE CONFIG(host_ep_id)
 

@@ -15,6 +15,9 @@
 #if defined(ENABLE_BANDWIDTH_MANAGER) && __ctx_is == __ctx_skb
 static __always_inline int accept(struct __ctx_buff *ctx, __u32 ep_id)
 {
+	if (!ENABLE_BANDWIDTH_MANAGER)
+		return CTX_ACT_OK;
+
 	__u64 tokens, now, t_last, elapsed_time, bps;
 	struct edt_id aggregate = {};
 	struct edt_info *info;

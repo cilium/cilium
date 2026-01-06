@@ -172,6 +172,48 @@ func TestPrivilegedWriteNodeConfig(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPrivilegedWriteNodeConfig_BandwidthManager(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
+	setupCiliumDummyDevices(t, ns)
+
+	oldVal := option.Config.EnableBandwidthManager
+	option.Config.EnableBandwidthManager = true
+	t.Cleanup(func() { option.Config.EnableBandwidthManager = oldVal })
+
+	err := ns.Do(func() error {
+		setupConfigSuite(t)
+
+		var buf bytes.Buffer
+		h := hive.New(
+			provideNodemap,
+			tables.DirectRoutingDeviceCell,
+			maglev.Cell,
+			cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
+			cell.Provide(
+				fakeTypes.NewNodeAddressing,
+				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
+				NewHeaderfileWriter,
+				func() datapath.IPsecConfig { return fakeTypes.IPsecConfig{} },
+			),
+			kpr.Cell,
+			cell.Invoke(func(dp datapath.ConfigWriter) {
+				dp.WriteNodeConfig(&buf, &dummyNodeCfg)
+			}),
+		)
+
+		tlog := hivetest.Logger(t)
+		if err := h.Start(tlog, context.TODO()); err != nil {
+			return err
+		}
+		t.Cleanup(func() { require.NoError(t, h.Stop(tlog, context.TODO())) })
+
+		require.Contains(t, buf.String(), "#define ENABLE_BANDWIDTH_MANAGER 1")
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func TestPrivilegedWriteNetdevConfig(t *testing.T) {
 	setupConfigSuite(t)
 	writeConfig(t, "netdev", func(w io.Writer, dp datapath.ConfigWriter) error {
@@ -472,3 +514,59 @@ func TestPrivilegedNewHeaderfileWriter(t *testing.T) {
 var provideNodemap = cell.Provide(func() nodemap.MapV2 {
 	return fake.NewFakeNodeMapV2()
 })
+
+type fakeSysctlMock struct{}
+
+func (f *fakeSysctlMock) Disable(name []string) error                     { return nil }
+func (f *fakeSysctlMock) Enable(name []string) error                      { return nil }
+func (f *fakeSysctlMock) Write(name []string, val string) error           { return nil }
+func (f *fakeSysctlMock) WriteInt(name []string, val int64) error         { return nil }
+func (f *fakeSysctlMock) ApplySettings(sysSettings []tables.Sysctl) error { return nil }
+func (f *fakeSysctlMock) Read(name []string) (string, error) {
+	if len(name) == 3 && name[0] == "net" && name[1] == "ipv4" && name[2] == "ip_local_port_range" {
+		return "32768\t60999", nil
+	}
+	return "", nil
+}
+func (f *fakeSysctlMock) ReadInt(name []string) (int64, error) { return 0, nil }
+
+func TestWriteNodeConfig_CNIChaining(t *testing.T) {
+	// Setup
+	oldBM := option.Config.EnableBandwidthManager
+	oldMode := option.Config.CNIChainingMode
+	oldDryMode := option.Config.DryMode
+	option.Config.EnableBandwidthManager = true
+	option.Config.CNIChainingMode = "generic-veth"
+	option.Config.DryMode = true
+	option.Config.EnableIPv4 = true
+	defer func() {
+		option.Config.EnableBandwidthManager = oldBM
+		option.Config.CNIChainingMode = oldMode
+		option.Config.DryMode = oldDryMode
+	}()
+
+	fakeNodeMap := fake.NewFakeNodeMapV2()
+	params := WriterParams{
+		Log:            hivetest.Logger(t),
+		LBConfig:       loadbalancer.Config{},
+		NodeMap:        fakeNodeMap,
+		NodeAddressing: nil,
+		Sysctl:         &fakeSysctlMock{},
+		KPRConfig:      kpr.KPRConfig{},
+	}
+
+	writer, err := NewHeaderfileWriter(params)
+	require.NoError(t, err)
+
+	nodeCfg := &datapath.LocalNodeConfiguration{
+		CiliumInternalIPv4: netip.MustParseAddr("10.0.0.1").AsSlice(),
+	}
+
+	buf := &bytes.Buffer{}
+	err = writer.WriteNodeConfig(buf, nodeCfg)
+	require.NoError(t, err)
+
+	output := buf.String()
+	require.Contains(t, output, "#define ENABLE_BANDWIDTH_MANAGER 1")
+	require.Contains(t, output, "#define ENABLE_CNI_CHAINING_GENERIC_VETH 1")
+}
