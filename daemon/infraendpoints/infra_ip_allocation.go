@@ -584,7 +584,7 @@ func (r *infraIPAllocator) extractCiliumHostIPFromFS() (net.IP, net.IP) {
 		return ipv4GW, ipv6Router
 	}
 
-	ipv4GW, ipv6Router = node.GetCiliumHostIPsFromNetDev(defaults.HostDevice)
+	ipv4GW, ipv6Router = getCiliumHostIPsFromNetDev(defaults.HostDevice)
 
 	if ipv4GW != nil || ipv6Router != nil {
 		r.logger.Info(
