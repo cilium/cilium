@@ -63,6 +63,7 @@ type ciliumHealthManager struct {
 	endpointManager  endpointmanager.EndpointManager
 	k8sClientSet     k8sClient.Clientset
 	infraIPAllocator infraendpoints.InfraIPAllocator
+	localNodeStore   *node.LocalNodeStore
 
 	ctrlMgr      *controller.Manager
 	ciliumHealth *CiliumHealth
@@ -86,6 +87,7 @@ type ciliumHealthParams struct {
 	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
 	K8sClientSet           k8sClient.Clientset
 	InfraIPAllocator       infraendpoints.InfraIPAllocator
+	LocalNodeStore         *node.LocalNodeStore
 	Config                 healthconfig.CiliumHealthConfig
 }
 
@@ -102,6 +104,7 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 		endpointManager:  params.EndpointManager,
 		k8sClientSet:     params.K8sClientSet,
 		infraIPAllocator: params.InfraIPAllocator,
+		localNodeStore:   params.LocalNodeStore,
 		healthConfig:     params.Config,
 	}
 	if !params.Config.IsHealthCheckingEnabled() {
@@ -141,7 +144,7 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 func (h *ciliumHealthManager) init(ctx context.Context) error {
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	h.logger.Info("Launching Cilium health daemon")
-	ch, err := h.launchCiliumNodeHealth(h.healthSpec, h.loader.HostDatapathInitialized())
+	ch, err := h.launchCiliumNodeHealth(ctx, h.healthSpec, h.loader.HostDatapathInitialized())
 	if err != nil {
 		return fmt.Errorf("failed to start cilium health: %w", err)
 	}
