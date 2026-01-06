@@ -465,7 +465,7 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 			logfields.Tier, tier,
 			logfields.Priority, priority,
 		)
-		rulesIngress = append(rulesIngress, wildcardRule(securityIdentity.LabelArray, true /*ingress*/, tier, priority))
+		rulesIngress = append(rulesIngress, wildcardRule(securityIdentity, LabelsAllowAnyIngress, true /*ingress*/, tier, priority))
 	}
 
 	// Same for egress -- synthesize a wildcard rule
@@ -484,22 +484,23 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 			logfields.Tier, tier,
 			logfields.Priority, priority,
 		)
-		rulesEgress = append(rulesEgress, wildcardRule(securityIdentity.LabelArray, false /*egress*/, tier, priority))
+		rulesEgress = append(rulesEgress, wildcardRule(securityIdentity, LabelsAllowAnyEgress, false /*egress*/, tier, priority))
 	}
 
 	return
 }
 
-// wildcardRule generates a wildcard rule that only selects the given identity.
-func wildcardRule(lbls labels.LabelArray, ingress bool, tier types.Tier, priority float64) *rule {
+// wildcardRule generates a wildcard rule that only selects the given subject identity.
+func wildcardRule(subject *identity.Identity, lbls labels.LabelArray, ingress bool, tier types.Tier, priority float64) *rule {
 	return &rule{
 		PolicyEntry: types.PolicyEntry{
 			Tier:     tier,
 			Priority: priority,
 			Verdict:  types.Allow,
 			Ingress:  ingress,
-			Subject:  types.NewLabelSelectorFromLabels(lbls...),
+			Subject:  types.NewLabelSelectorFromLabels(subject.LabelArray...),
 			L3:       types.WildcardSelectors,
+			Labels:   lbls,
 		},
 	}
 }
