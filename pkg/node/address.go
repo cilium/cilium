@@ -4,19 +4,13 @@
 package node
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
 	"net"
-	"os"
-	"strconv"
-	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
@@ -330,68 +324,6 @@ func GetNodeAddressing(logger *slog.Logger) *models.NodeAddressing {
 	}
 
 	return a
-}
-
-func GetCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
-	// ipLen is the length of the IP address stored in the node_config.h
-	// it has the same length for both IPv4 and IPv6.
-	const ipLen = net.IPv6len
-
-	var hasIPv4, hasIPv6 bool
-	f, err := os.Open(nodeConfig)
-	switch {
-	case err != nil:
-	default:
-		defer f.Close()
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			txt := scanner.Text()
-			switch {
-			case !hasIPv6 && strings.Contains(txt, defaults.RestoreV6Addr):
-				defineLine := strings.Split(txt, defaults.RestoreV6Addr)
-				if len(defineLine) != 2 {
-					continue
-				}
-				ipv6 := common.C2GoArray(defineLine[1])
-				if len(ipv6) != ipLen {
-					continue
-				}
-				ipv6Router = net.IP(ipv6)
-				hasIPv6 = true
-			case !hasIPv4 && strings.Contains(txt, defaults.RestoreV4Addr):
-				defineLine := strings.Split(txt, defaults.RestoreV4Addr)
-				if len(defineLine) != 2 {
-					continue
-				}
-				ipv4 := common.C2GoArray(defineLine[1])
-				if len(ipv4) != ipLen {
-					continue
-				}
-				ipv4GW = net.IP(ipv4)
-				hasIPv4 = true
-
-			// Legacy cases based on the header defines:
-			case !hasIPv4 && strings.Contains(txt, "IPV4_GATEWAY"):
-				// #define IPV4_GATEWAY 0xee1c000a
-				defineLine := strings.Split(txt, " ")
-				if len(defineLine) != 3 {
-					continue
-				}
-				ipv4GWHex := strings.TrimPrefix(defineLine[2], "0x")
-				ipv4GWUint64, err := strconv.ParseUint(ipv4GWHex, 16, 32)
-				if err != nil {
-					continue
-				}
-				if ipv4GWUint64 != 0 {
-					bs := make([]byte, net.IPv4len)
-					byteorder.Native.PutUint32(bs, uint32(ipv4GWUint64))
-					ipv4GW = net.IPv4(bs[0], bs[1], bs[2], bs[3])
-					hasIPv4 = true
-				}
-			}
-		}
-	}
-	return ipv4GW, ipv6Router
 }
 
 // GetEndpointHealthIPv4 returns the IPv4 cilium-health endpoint address.
