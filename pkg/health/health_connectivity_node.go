@@ -4,6 +4,7 @@
 package health
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -39,7 +40,7 @@ const (
 )
 
 // launchCiliumNodeHealth starts the cilium-health server and returns a handle to obtain its status
-func (h *ciliumHealthManager) launchCiliumNodeHealth(spec *healthApi.Spec, initialized <-chan struct{}) (*CiliumHealth, error) {
+func (h *ciliumHealthManager) launchCiliumNodeHealth(ctx context.Context, spec *healthApi.Spec, initialized <-chan struct{}) (*CiliumHealth, error) {
 	var (
 		err error
 		ch  = &CiliumHealth{
@@ -56,7 +57,12 @@ func (h *ciliumHealthManager) launchCiliumNodeHealth(spec *healthApi.Spec, initi
 		HealthAPISpec: spec,
 	}
 
-	ch.server, err = server.NewServer(h.logger, config, h.healthConfig.IsActiveHealthCheckingEnabled())
+	ln, err := h.localNodeStore.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	ch.server, err = server.NewServer(h.logger, config, h.healthConfig.IsActiveHealthCheckingEnabled(), ln)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate cilium-health server: %w", err)
 	}
