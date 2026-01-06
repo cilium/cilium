@@ -35,9 +35,20 @@ import (
 // Intended to be used with [cell.Invoke] and the module's job group.
 // See [ExampleRegisterReflector] for example usage.
 func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, cfg ReflectorConfig[Obj]) error {
+	r, err := newReflector[Obj](db, cfg)
+	if err != nil {
+		return err
+	}
+	jobGroup.Add(job.OneShot(
+		r.ReflectorConfig.JobName(),
+		r.run))
+	return nil
+}
+
+func newReflector[Obj any](db *statedb.DB, cfg ReflectorConfig[Obj]) (*k8sReflector[Obj], error) {
 	cfg = cfg.withDefaults()
 	if err := cfg.validate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	var source stream.Observable[CacheStoreEvent]
@@ -60,12 +71,46 @@ func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, cfg Reflecto
 	r.initDone = targetTable.RegisterInitializer(wtxn, r.ReflectorConfig.Name)
 	wtxn.Commit()
 
-	jobGroup.Add(job.OneShot(
-		r.ReflectorConfig.JobName(),
-		r.run))
+	return r, nil
+}
 
+type onDemandReflector[Obj any] struct {
+	jg      job.Group
+	db      *statedb.DB
+	cfg     ReflectorConfig[Obj]
+	cancel  context.CancelFunc
+	stopped chan struct{}
+}
+
+func (o *onDemandReflector[Obj]) Start(cell.HookContext) error {
+	r, err := newReflector[Obj](o.db, o.cfg)
+	if err != nil {
+		return err
+	}
+	run := func(ctx context.Context, health cell.Health) error {
+		ctx, cancel := context.WithCancel(ctx)
+		o.cancel = cancel
+		o.stopped = make(chan struct{})
+		defer close(o.stopped)
+		return r.run(ctx, health)
+
+	}
+	o.jg.Add(job.OneShot(
+		r.ReflectorConfig.JobName(),
+		run))
 	return nil
 }
+
+func (o *onDemandReflector[Obj]) Stop(ctx cell.HookContext) error {
+	o.cancel()
+	select {
+	case <-ctx.Done():
+	case <-o.stopped:
+	}
+	return ctx.Err()
+}
+
+var _ cell.HookInterface = &onDemandReflector[bool]{}
 
 // OnDemandTable provides an "on-demand" table of Kubernetes-derived objects.
 // The table is not populated until it is first acquired.
@@ -74,25 +119,15 @@ func RegisterReflector[Obj any](jobGroup job.Group, db *statedb.DB, cfg Reflecto
 //
 // Intended to be used with [cell.Provide].
 // See [ExampleOnDemand] for example usage.
-func OnDemandTable[Obj any](jobs job.Registry, health cell.Health, log *slog.Logger, db *statedb.DB, cfg ReflectorConfig[Obj]) (hive.OnDemand[statedb.Table[Obj]], error) {
-	lc := &cell.DefaultLifecycle{}
-	// Job group for the reflector that will be started when the table
-	// is acquired.
-	jg := jobs.NewGroup(
-		health,
-		lc,
-		job.WithLogger(log),
-	)
-
-	err := RegisterReflector(jg, db, cfg)
-	if err != nil {
-		return nil, err
-	}
-
+func OnDemandTable[Obj any](jg job.Group, log *slog.Logger, db *statedb.DB, cfg ReflectorConfig[Obj]) (hive.OnDemand[statedb.Table[Obj]], error) {
 	return hive.NewOnDemand(
 		log,
 		cfg.Table.ToTable(),
-		lc,
+		&onDemandReflector[Obj]{
+			jg:  jg,
+			db:  db,
+			cfg: cfg,
+		},
 	), nil
 }
 

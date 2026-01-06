@@ -6,8 +6,6 @@ package hive_test
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -22,14 +20,14 @@ type testResource struct {
 	err   error
 }
 
-func (t *testResource) Start(*slog.Logger, context.Context) error {
+func (t *testResource) Start(cell.HookContext) error {
 	if t.err != nil {
 		return t.err
 	}
 	t.start++
 	return nil
 }
-func (t *testResource) Stop(*slog.Logger, context.Context) error {
+func (t *testResource) Stop(cell.HookContext) error {
 	if t.err != nil {
 		return t.err
 	}
@@ -37,10 +35,7 @@ func (t *testResource) Stop(*slog.Logger, context.Context) error {
 	return nil
 }
 
-func (t *testResource) Append(cell.HookInterface) {}
-func (t *testResource) PrintHooks(io.Writer)      {}
-
-var _ cell.Lifecycle = &testResource{}
+var _ cell.HookInterface = &testResource{}
 
 func TestOnDemand(t *testing.T) {
 	ctx := context.TODO()

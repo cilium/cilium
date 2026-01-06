@@ -305,7 +305,7 @@ github.com/cilium/endpointslice-controller/util/endpointslice
 # github.com/cilium/fake v0.7.0
 ## explicit; go 1.22
 github.com/cilium/fake
-# github.com/cilium/hive v0.0.0-20251219070844-89ccf807d9fb
+# github.com/cilium/hive v0.0.0-20251222091955-cec36a6364db
 ## explicit; go 1.23.0
 github.com/cilium/hive
 github.com/cilium/hive/cell
