@@ -1128,8 +1128,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 identity,
 								CTX_ACT_OK, METRIC_INGRESS);
 #endif /* ENABLE_IPV4 */
 	case bpf_htons(ETH_P_ARP):
-		if (is_defined(ENABLE_ARP_PASSTHROUGH) ||
-		    is_defined(ENABLE_ARP_RESPONDER) ||
+		if (CONFIG(enable_arp_responder) ||
+		    CONFIG(enable_arp_passthrough) ||
 		    CONFIG(enable_l2_announcements)) {
 			if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
 				ret = DROP_INVALID;
@@ -1395,11 +1395,12 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	}
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
+		if (!(CONFIG(enable_arp_passthrough) || CONFIG(enable_arp_responder)))
+			goto drop_unknown_l3;
+
 		ret = CTX_ACT_OK;
 		break;
-# endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		ret = handle_to_netdev_ipv6(ctx, src_sec_identity,
@@ -1413,6 +1414,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		break;
 	}
 # endif
+drop_unknown_l3:
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
@@ -1610,11 +1612,12 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 	int ret;
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
+		if (!(CONFIG(enable_arp_passthrough) || CONFIG(enable_arp_responder)))
+			goto drop_unknown_l3;
+
 		ret = CTX_ACT_OK;
 		break;
-# endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (use_tailcall) {
@@ -1643,6 +1646,7 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 
 		break;
 # endif
+drop_unknown_l3:
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
@@ -1813,11 +1817,12 @@ from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 	struct ipv6hdr *ip6 __maybe_unused;
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
 	case bpf_htons(ETH_P_ARP):
+		if (!(CONFIG(enable_arp_passthrough) || CONFIG(enable_arp_responder)))
+			goto drop_unknown_l3;
+
 		ret = CTX_ACT_OK;
 		break;
-# endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -1840,6 +1845,7 @@ from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, ip4, &trace, ext_err);
 		break;
 # endif
+drop_unknown_l3:
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;

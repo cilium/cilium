@@ -287,6 +287,10 @@ func netdevRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeCo
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
+	// only one of the enable_arp_* options must be true.
+	cfg.EnableArpPassthrough = ep.RequireARPPassthrough()
+	cfg.EnableArpResponder = !ep.RequireARPPassthrough()
+
 	renames := map[string]string{
 		// Rename the calls map to include the device's ifindex.
 		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifindex)),
@@ -448,6 +452,10 @@ func ciliumHostRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNo
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
+	// only one of the enable_arp_* options must be true.
+	cfg.EnableArpPassthrough = ep.RequireARPPassthrough()
+	cfg.EnableArpResponder = !ep.RequireARPPassthrough()
+
 	renames := map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -537,6 +545,10 @@ func ciliumNetRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNod
 
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
+
+	// only one of the enable_arp_* options must be true.
+	cfg.EnableArpPassthrough = ep.RequireARPPassthrough()
+	cfg.EnableArpResponder = !ep.RequireARPPassthrough()
 
 	renames := map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
@@ -712,6 +724,12 @@ func endpointRewrites(ep datapath.EndpointConfiguration, lnc *datapath.LocalNode
 	cfg.AllowICMPFragNeeded = option.Config.AllowICMPFragNeeded
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
+
+	if option.Config.DatapathMode != datapathOption.DatapathModeNetkit {
+		// only one of the enable_arp_* options must be true.
+		cfg.EnableArpPassthrough = ep.RequireARPPassthrough()
+		cfg.EnableArpResponder = !ep.RequireARPPassthrough()
+	}
 
 	renames := map[string]string{
 		// Rename the calls and policy maps to include the endpoint's id.

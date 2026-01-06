@@ -113,6 +113,10 @@ func (*templateCfg) GetPropertyValue(key string) any {
 	return nil
 }
 
+func (*templateCfg) RequireARPPassthrough() bool {
+	return false
+}
+
 // wrap takes an endpoint configuration and optional stats tracker and wraps
 // it inside a templateCfg which hides static data from callers that wish to
 // generate header files based on the configuration, substituting it for
