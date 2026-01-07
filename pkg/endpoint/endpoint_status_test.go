@@ -16,6 +16,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/node"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
@@ -39,7 +40,7 @@ func TestGetCiliumEndpointStatus(t *testing.T) {
 			"k8s:name=probe",
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
+	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, node.NewTestLocalNodeStore(node.LocalNode{}))
 	require.NoError(t, err)
 
 	status := e.GetCiliumEndpointStatus()
@@ -83,7 +84,7 @@ func TestGetCiliumEndpointStatusWithServiceAccount(t *testing.T) {
 			"k8s:name=probe",
 		},
 		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
+	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, node.NewTestLocalNodeStore(node.LocalNode{}))
 	require.NoError(t, err)
 
 	// Create a mock pod with ServiceAccount

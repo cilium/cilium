@@ -186,6 +186,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.ipsecConfig,
 		c.policyLogger(),
 		c.lxcMap,
+		c.localNodeStore,
 	)
 }
 
@@ -212,6 +213,7 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 		c.wgConfig,
 		c.ipsecConfig,
 		c.lxcMap,
+		c.localNodeStore,
 	)
 }
 
@@ -248,6 +250,7 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.ipsecConfig,
 		c.policyLogger(),
 		c.lxcMap,
+		c.localNodeStore,
 		ingressIPv4,
 		ingressIPv6,
 	)
@@ -287,6 +290,7 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.ipsecConfig,
 		c.policyLogger(),
 		c.lxcMap,
+		c.localNodeStore,
 	)
 	if err != nil {
 		return err
