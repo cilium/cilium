@@ -4,9 +4,12 @@
 package accesslog
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -28,6 +31,7 @@ type proxyAccessLogger struct {
 
 	notifier             LogRecordNotifier
 	endpointInfoRegistry EndpointInfoRegistry
+	localNodeStore       *node.LocalNodeStore
 	metadata             []string
 }
 
@@ -41,11 +45,12 @@ type LogRecordNotifier interface {
 	NewProxyLogRecord(l *LogRecord) error
 }
 
-func NewProxyAccessLogger(logger *slog.Logger, config ProxyAccessLoggerConfig, notifier LogRecordNotifier, endpointInfoRegistry EndpointInfoRegistry) ProxyAccessLogger {
+func NewProxyAccessLogger(logger *slog.Logger, config ProxyAccessLoggerConfig, notifier LogRecordNotifier, endpointInfoRegistry EndpointInfoRegistry, localNodeStore *node.LocalNodeStore) ProxyAccessLogger {
 	return &proxyAccessLogger{
 		logger:               logger,
 		notifier:             notifier,
 		endpointInfoRegistry: endpointInfoRegistry,
+		localNodeStore:       localNodeStore,
 		metadata:             config.AgentLabels,
 	}
 }
@@ -67,11 +72,16 @@ func (r *proxyAccessLogger) NewLogRecord(t FlowType, ingress bool, tags ...LogTa
 		NodeAddressInfo:   NodeAddressInfo{},
 	}
 
-	if ip := node.GetIPv4(r.logger); ip != nil {
+	ln, err := r.localNodeStore.Get(context.TODO())
+	if err != nil {
+		logging.Fatal(r.logger, "getLocalNode: unexpected error", logfields.Error, err)
+	}
+
+	if ip := ln.GetNodeIP(false); ip != nil {
 		lr.NodeAddressInfo.IPv4 = ip.String()
 	}
 
-	if ip := node.GetIPv6(r.logger); ip != nil {
+	if ip := ln.GetNodeIP(true); ip != nil {
 		lr.NodeAddressInfo.IPv6 = ip.String()
 	}
 
