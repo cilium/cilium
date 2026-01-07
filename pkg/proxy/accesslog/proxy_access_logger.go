@@ -5,11 +5,10 @@ package accesslog
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -19,7 +18,7 @@ type ProxyAccessLogger interface {
 	//
 	// Example:
 	// NewLogRecord(flowType, observationPoint, logger.LogTags.Timestamp(time.Now()))
-	NewLogRecord(t FlowType, ingress bool, tags ...LogTag) *LogRecord
+	NewLogRecord(ctx context.Context, t FlowType, ingress bool, tags ...LogTag) (*LogRecord, error)
 
 	// Log logs the given log record to the flow log (if flow debug logging is enabled)
 	// and sends it of to the monitor agent via notifier.
@@ -55,7 +54,7 @@ func NewProxyAccessLogger(logger *slog.Logger, config ProxyAccessLoggerConfig, n
 	}
 }
 
-func (r *proxyAccessLogger) NewLogRecord(t FlowType, ingress bool, tags ...LogTag) *LogRecord {
+func (r *proxyAccessLogger) NewLogRecord(ctx context.Context, t FlowType, ingress bool, tags ...LogTag) (*LogRecord, error) {
 	var observationPoint ObservationPoint
 	if ingress {
 		observationPoint = Ingress
@@ -72,9 +71,9 @@ func (r *proxyAccessLogger) NewLogRecord(t FlowType, ingress bool, tags ...LogTa
 		NodeAddressInfo:   NodeAddressInfo{},
 	}
 
-	ln, err := r.localNodeStore.Get(context.TODO())
+	ln, err := r.localNodeStore.Get(ctx)
 	if err != nil {
-		logging.Fatal(r.logger, "getLocalNode: unexpected error", logfields.Error, err)
+		return nil, fmt.Errorf("failed to get local node: %w", err)
 	}
 
 	if ip := ln.GetNodeIP(false); ip != nil {
@@ -89,7 +88,7 @@ func (r *proxyAccessLogger) NewLogRecord(t FlowType, ingress bool, tags ...LogTa
 		tagFn(&lr, r.endpointInfoRegistry)
 	}
 
-	return &lr
+	return &lr, nil
 }
 
 func (r *proxyAccessLogger) Log(lr *LogRecord) {
