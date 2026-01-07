@@ -381,6 +381,7 @@ jobs:
         id: run-tests
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --debug \
           --test "seq-.*" \
           --junit-file "cilium-junits/${{ env.job_name }}-sequential-clear (${{ join(matrix.*, ', ') }}).xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
@@ -388,6 +389,7 @@ jobs:
       - name: Run concurrent connectivity test (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+          --debug \
           --test-concurrency=${{ env.test_concurrency }} \
           --test "!seq-.*" \
           --junit-file "cilium-junits/${{ env.job_name }}-concurrent-clear (${{ join(matrix.*, ', ') }}).xml" \
