@@ -2,6 +2,7 @@ name: Conformance Ztunnel (ci-ztunnel)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request: {}
   workflow_dispatch:
     inputs:
       PR-number:
@@ -44,6 +45,7 @@ concurrency:
   # - Workflow name
   # - Event type
   # - A unique identifier depending on event type:
+  #   - pull_request: PR number
   #   - schedule: SHA
   #   - workflow_dispatch: PR number
   #
@@ -54,6 +56,7 @@ concurrency:
     ${{ github.workflow }}
     ${{ github.event_name }}
     ${{
+      (github.event_name == 'pull_request' && github.event.pull_request.number) ||
       (github.event_name == 'push' && github.sha) ||
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
@@ -77,7 +80,7 @@ jobs:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
-          sha: ${{ inputs.SHA || github.sha }}
+          sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
 
   wait-for-images:
     name: Wait for images
@@ -87,13 +90,13 @@ jobs:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          ref: ${{ inputs.context-ref || github.sha }}
+          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA || github.sha }}
+          SHA: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
           images: cilium-ci operator-generic-ci hubble-relay-ci
 
   conformance-aks-ztunnel:
@@ -102,9 +105,9 @@ jobs:
     uses: ./.github/workflows/conformance-aks.yaml
     secrets: inherit
     with:
-      PR-number: ${{ inputs.PR-number || github.ref_name }}
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      SHA: ${{ inputs.SHA || github.sha }}
+      PR-number: ${{ inputs.PR-number || github.event.pull_request.number || github.ref_name }}
+      context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+      SHA: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
       extra-args: '{"ztunnel": true}'
 
   conformance-eks-ztunnel:
@@ -113,9 +116,9 @@ jobs:
     uses: ./.github/workflows/conformance-eks.yaml
     secrets: inherit
     with:
-      PR-number: ${{ inputs.PR-number || github.ref_name }}
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      SHA: ${{ inputs.SHA || github.sha }}
+      PR-number: ${{ inputs.PR-number || github.event.pull_request.number || github.ref_name }}
+      context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+      SHA: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
       extra-args: '{"ztunnel": true}'
 
   conformance-gke-ztunnel:
@@ -124,9 +127,9 @@ jobs:
     uses: ./.github/workflows/conformance-gke.yaml
     secrets: inherit
     with:
-      PR-number: ${{ inputs.PR-number || github.ref_name }}
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      SHA: ${{ inputs.SHA || github.sha }}
+      PR-number: ${{ inputs.PR-number || github.event.pull_request.number || github.ref_name }}
+      context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+      SHA: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
       extra-args: '{"ztunnel": true}'
 
   merge-upload-and-status:
@@ -136,6 +139,6 @@ jobs:
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      sha: ${{ inputs.SHA || github.sha }}
+      context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+      sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
       success: ${{ (needs.conformance-aks-ztunnel.result == 'success' && needs.conformance-eks-ztunnel.result == 'success' && needs.conformance-gke-ztunnel.result == 'success') }}

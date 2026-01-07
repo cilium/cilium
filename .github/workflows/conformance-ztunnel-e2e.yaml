@@ -2,6 +2,7 @@ name: Conformance ZTunnel E2E (ci-ztunnel-e2e)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  pull_request: {}
   workflow_dispatch:
     inputs:
       PR-number:
@@ -38,6 +39,7 @@ concurrency:
   # - Workflow name
   # - Event type
   # - A unique identifier depending on event type:
+  #   - pull_request: PR number
   #   - workflow_dispatch: PR number
   #
   # This structure ensures a unique concurrency group name is generated for each
@@ -46,6 +48,7 @@ concurrency:
     ${{ github.workflow }}
     ${{ github.event_name }}
     ${{
+      (github.event_name == 'pull_request' && github.event.pull_request.number) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
     }}
   cancel-in-progress: true
@@ -67,7 +70,7 @@ jobs:
       - name: Set initial commit status
         uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
         with:
-          sha: ${{ inputs.SHA || github.sha }}
+          sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
 
   wait-for-images:
     name: Wait for images
@@ -77,12 +80,12 @@ jobs:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
-          ref: ${{ inputs.context-ref || github.sha }}
+          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA || github.sha }}
+          SHA: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
 
   setup-and-test:
     needs: [wait-for-images]
@@ -115,7 +118,7 @@ jobs:
       - name: Checkout context ref (trusted)
         uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
-          ref: ${{ inputs.context-ref || github.sha }}
+          ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
@@ -129,6 +132,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SHA="${{ inputs.SHA }}"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            SHA="${{ github.event.pull_request.head.sha }}"
           else
             SHA="${{ github.sha }}"
           fi
@@ -243,6 +248,6 @@ jobs:
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
     with:
-      context-ref: ${{ inputs.context-ref || github.sha }}
-      sha: ${{ inputs.SHA || github.sha }}
+      context-ref: ${{ inputs.context-ref || github.event.pull_request.head.sha || github.sha }}
+      sha: ${{ inputs.SHA || github.event.pull_request.head.sha || github.sha }}
       success: ${{ needs.setup-and-test.result == 'success' }}
