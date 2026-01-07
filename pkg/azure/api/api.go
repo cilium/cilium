@@ -719,7 +719,7 @@ func (c *Client) AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vm
 	}
 
 	if primaryIPConfig.Properties.PublicIPAddressConfiguration != nil {
-		if isPublicIPProvisionFailedVMSS(vm.Properties.InstanceView.Statuses) {
+		if isPublicIPProvisionFailed(vm.Properties.InstanceView.Statuses) {
 			// In certain cases, Azure will succeed to configure a VM with a certain prefix even if it is out of IP addresses.
 			// This leads to the VM failing to provision properly. In this case, we need to delete the erroneous public IP address configuration
 			// and configure it again.
@@ -862,7 +862,16 @@ func (c *Client) AssignPublicIPAddressesVM(ctx context.Context, instanceID strin
 	}
 
 	if primaryIPConfig.Properties.PublicIPAddress != nil {
-		return "", fmt.Errorf("public IP address already assigned to primary IP configuration for interface %s", interfaceName)
+		if isPublicIPProvisionFailed(vm.Properties.InstanceView.Statuses) {
+			// In certain cases, Azure will succeed to configure a VM with a certain prefix even if it is out of IP addresses.
+			// This leads to the VM failing to provision properly. In this case, we need to delete the erroneous public IP address configuration
+			// and configure it again.
+			if err := c.deletePublicIPAddressConfigurationVM(ctx, interfaceName, vmName, &iface, primaryIPConfig); err != nil {
+				return "", fmt.Errorf("failed to delete public IP address configuration for interface %s for VM %s: %w", interfaceName, vmName, err)
+			}
+		} else {
+			return "", fmt.Errorf("public IP address already assigned to primary IP configuration for interface %s", interfaceName)
+		}
 	}
 
 	// Find a public IP prefix with the given tags
@@ -935,6 +944,32 @@ func (c *Client) deletePublicIPAddressConfigurationVMSS(ctx context.Context, ins
 	c.metricsAPI.ObserveAPICall(virtualMachineScaleSetVMsUpdate, deriveStatus(err), sinceStart.Seconds())
 	if err != nil {
 		return fmt.Errorf("error while waiting for virtualMachineScaleSetVMs Update to complete: %w", err)
+	}
+
+	return nil
+}
+
+// deletePublicIPAddressConfigurationVM deletes the public IP address configuration from a VM instance
+func (c *Client) deletePublicIPAddressConfigurationVM(ctx context.Context, interfaceName, vmName string, iface *armnetwork.InterfacesClientGetResponse, primaryIPConfig *armnetwork.InterfaceIPConfiguration) error {
+	// Delete the public IP address configuration
+	if primaryIPConfig.Properties.PublicIPAddress != nil {
+		primaryIPConfig.Properties.PublicIPAddress = nil
+	}
+
+	// Update the interface
+	c.limiter.Limit(ctx, interfacesCreateOrUpdate)
+	sinceStart := spanstat.Start()
+
+	poller, err := c.interfaces.BeginCreateOrUpdate(ctx, c.resourceGroup, interfaceName, iface.Interface, nil)
+	if err != nil {
+		c.metricsAPI.ObserveAPICall(interfacesCreateOrUpdate, deriveStatus(err), sinceStart.Seconds())
+		return fmt.Errorf("unable to update interface %s for VM %s: %w", interfaceName, vmName, err)
+	}
+
+	_, err = poller.PollUntilDone(ctx, nil)
+	c.metricsAPI.ObserveAPICall(interfacesCreateOrUpdate, deriveStatus(err), sinceStart.Seconds())
+	if err != nil {
+		return fmt.Errorf("error while waiting for interface CreateOrUpdate to complete for VM %s: %w", vmName, err)
 	}
 
 	return nil
@@ -1034,8 +1069,8 @@ func findPublicIPPrefixByTags(prefixes []*armnetwork.PublicIPPrefix, searchTags 
 	return "", false
 }
 
-// isPublicIPProvisionFailedVMSS checks if the public IP address configuration failed to provision for a VMSS instance
-func isPublicIPProvisionFailedVMSS(instanceViewStatuses []*armcompute.InstanceViewStatus) bool {
+// isPublicIPProvisionFailed checks if the public IP address configuration failed to provision
+func isPublicIPProvisionFailed(instanceViewStatuses []*armcompute.InstanceViewStatus) bool {
 	for _, status := range instanceViewStatuses {
 		if status.Code != nil && *status.Code == "ProvisioningState/failed/PublicIpPrefixOutOfIpAddressesForVMScaleSet" {
 			return true
