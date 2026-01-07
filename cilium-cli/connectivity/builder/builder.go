@@ -310,6 +310,7 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		echoIngressMutualAuthSpiffe{},
 		podToIngressService{},
 		outsideToIngressService{},
+		serviceLoopback{},
 		l7LB{},
 		dnsOnly{},
 		toFqdns{},
