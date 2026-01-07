@@ -42,6 +42,7 @@ $(YQ) ea '. as $$item ireduce ({}; . * $$item )' $(1) | envsubst >> $(2)
 endef
 
 COMMON_LABELS_EXCLUSIONS := --exclude validate.yaml
+CRD_FILES := $(shell find $(ROOT_DIR)/examples/crds/*/ -type f -name "*.yaml")
 
 all: update-versions check-values-yaml docs lint
 
@@ -74,7 +75,6 @@ cilium/values.schema.json: cilium/values.yaml
 
 update-versions: update-chart cilium/values.yaml # Update the Helm values file to point to the current version.
 
-CRD_FILES := $(shell find $(ROOT_DIR)/examples/crds/*/ -type f)
 CRDS := $(foreach path,$(patsubst %.yaml,%,$(CRD_FILES)),$(shell basename $(path)))
 RAND_FILES := $(shell grep -R -l -e "rand" -e "shuffle" -e "genPrivateKey" -e "genCA" -e "genSignedCert" -e "UUID" -e "cilium.ca.setup" --include="*.yaml" $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates)
 RAND_SECRETS := $(foreach rand_file,$(RAND_FILES),$(shell grep -l -e 'kind: Secret' $(rand_file)))
