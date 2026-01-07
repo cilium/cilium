@@ -83,6 +83,7 @@ type ConnectivityTest struct {
 	echoExternalServices map[string]Service
 	ingressService       map[string]Service
 	l7LBService          map[string]Service
+	l7LBNonL7Service     map[string]Service
 	k8sService           Service
 	lrpClientPods        map[string]Pod
 	lrpBackendPods       map[string]Pod
@@ -246,6 +247,7 @@ func NewConnectivityTest(
 		echoExternalServices:     make(map[string]Service),
 		ingressService:           make(map[string]Service),
 		l7LBService:              make(map[string]Service),
+		l7LBNonL7Service:         make(map[string]Service),
 		hostNetNSPodsByNode:      make(map[string]Pod),
 		secondaryNetworkNodeIPv4: make(map[string]string),
 		secondaryNetworkNodeIPv6: make(map[string]string),
@@ -1211,6 +1213,10 @@ func (ct *ConnectivityTest) IngressService() map[string]Service {
 
 func (ct *ConnectivityTest) L7LBService() map[string]Service {
 	return ct.l7LBService
+}
+
+func (ct *ConnectivityTest) L7LBNonL7Service() map[string]Service {
+	return ct.l7LBNonL7Service
 }
 
 func (ct *ConnectivityTest) K8sService() Service {
