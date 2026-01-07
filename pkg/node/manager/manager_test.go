@@ -249,16 +249,7 @@ func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) erro
 	return n.NodeValidateImplementationEventError
 }
 
-func setup(tb testing.TB) {
-	node.SetTestLocalNodeStore()
-
-	tb.Cleanup(func() {
-		node.UnsetTestLocalNodeStore()
-	})
-}
-
 func TestNodeLifecycle(t *testing.T) {
-	setup(t)
 	logger := hivetest.Logger(t)
 
 	dp := newSignalNodeHandler()
@@ -340,7 +331,6 @@ func TestNodeLifecycle(t *testing.T) {
 }
 
 func TestMultipleSources(t *testing.T) {
-	setup(t)
 	logger := hivetest.Logger(t)
 
 	dp := newSignalNodeHandler()
@@ -451,7 +441,6 @@ func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
 }
 
 func TestClusterSizeDependantInterval(t *testing.T) {
-	setup(t)
 	logger := hivetest.Logger(t)
 
 	ipcacheMock := newIPcacheMock()
@@ -738,7 +727,6 @@ func TestIpcacheHealthIP(t *testing.T) {
 }
 
 func TestNodeEncryption(t *testing.T) {
-	setup(t)
 	logger := hivetest.Logger(t)
 
 	ipcacheMock := newIPcacheMock()
