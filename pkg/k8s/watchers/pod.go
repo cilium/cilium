@@ -81,6 +81,7 @@ type k8sPodWatcherParams struct {
 	WgConfig           wgTypes.WireguardConfig
 	IPSecConfig        datapath.IPsecConfig
 	HostNetworkManager datapath.IptablesManager
+	LocalNodeStore     *node.LocalNodeStore
 }
 
 func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
@@ -101,6 +102,7 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		wgConfig:           params.WgConfig,
 		ipsecConfig:        params.IPSecConfig,
 		hostNetworkManager: params.HostNetworkManager,
+		localNodeStore:     params.LocalNodeStore,
 
 		controllersStarted: make(chan struct{}),
 	}
@@ -130,6 +132,7 @@ type K8sPodWatcher struct {
 	wgConfig           wgTypes.WireguardConfig
 	ipsecConfig        datapath.IPsecConfig
 	hostNetworkManager hostNetworkManager
+	localNodeStore     *node.LocalNodeStore
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -165,9 +168,9 @@ func (k *K8sPodWatcher) podsInit(ctx context.Context) {
 				if !change.Deleted {
 					oldPod := pods[name]
 					if oldPod == nil {
-						k.addK8sPodV1(pod)
+						k.addK8sPodV1(ctx, pod)
 					} else {
-						k.updateK8sPodV1(oldPod, pod)
+						k.updateK8sPodV1(ctx, oldPod, pod)
 					}
 					k.k8sResourceSynced.SetEventTimestamp(podApiGroup)
 					pods[name] = pod
@@ -189,7 +192,7 @@ func (k *K8sPodWatcher) podsInit(ctx context.Context) {
 	k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
 }
 
-func (k *K8sPodWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
+func (k *K8sPodWatcher) addK8sPodV1(ctx context.Context, pod *slim_corev1.Pod) error {
 	var err error
 
 	scopedLog := k.logger.With(
@@ -253,7 +256,7 @@ func (k *K8sPodWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	if len(podIPs) > 0 {
-		err = k.updatePodHostData(nil, pod, nil, podIPs)
+		err = k.updatePodHostData(ctx, nil, pod, nil, podIPs)
 	}
 
 	k.cgroupManager.OnAddPod(pod)
@@ -266,7 +269,7 @@ func (k *K8sPodWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 	return err
 }
 
-func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error {
+func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod *slim_corev1.Pod) error {
 	var err error
 
 	if oldK8sPod == nil || newK8sPod == nil {
@@ -316,7 +319,7 @@ func (k *K8sPodWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) er
 	oldPodIPs := k8sUtils.ValidIPs(oldK8sPod.Status)
 	newPodIPs := k8sUtils.ValidIPs(newK8sPod.Status)
 	if len(oldPodIPs) != 0 || len(newPodIPs) != 0 {
-		err = k.updatePodHostData(oldK8sPod, newK8sPod, oldPodIPs, newPodIPs)
+		err = k.updatePodHostData(ctx, oldK8sPod, newK8sPod, oldPodIPs, newPodIPs)
 		if err != nil {
 			scopedLog.Warn("Unable to update ipcache map entry on pod update", logfields.Error, err)
 		}
@@ -526,7 +529,7 @@ func (k *K8sPodWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	return err
 }
 
-func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice) error {
+func (k *K8sPodWatcher) updatePodHostData(ctx context.Context, oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice) error {
 	if newPod.Spec.HostNetwork {
 		k.logger.Debug("Pod is using host networking",
 			logfields.K8sPodName, newPod.ObjectMeta.Name,
@@ -578,7 +581,12 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 		return fmt.Errorf("no/invalid HostIP: %s", newPod.Status.HostIP)
 	}
 
-	hostKey := node.GetEndpointEncryptKeyIndex(k.logger, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
+	ln, err := k.localNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	hostKey := node.GetEndpointEncryptKeyIndexWithNode(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
 
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,
