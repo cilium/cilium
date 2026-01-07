@@ -405,8 +405,10 @@ healthz
 helloworld
 herokuapp
 hexData
+hostNetwork
 hostPath
 hostPort
+hostUsers
 hostname
 hostnames
 hostns

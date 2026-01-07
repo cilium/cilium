@@ -4836,6 +4836,9 @@
         "hostNetwork": {
           "type": "boolean"
         },
+        "hostUsers": {
+          "type": "boolean"
+        },
         "identityGCInterval": {
           "type": "string"
         },

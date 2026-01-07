@@ -44,6 +44,9 @@ spec:
         {{- end }}
     spec:
       hostNetwork: true
+      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+      hostUsers: true
+      {{- end }}
       automountServiceAccountToken: {{ .Values.standaloneDnsProxy.automountServiceAccountToken }}
       {{- with .Values.standaloneDnsProxy.nodeSelector }}
       nodeSelector:

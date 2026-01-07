@@ -3200,6 +3200,10 @@
      - HostNetwork setting
      - bool
      - ``true``
+   * - :spelling:ignore:`operator.hostUsers`
+     - HostUsers setting (must be true if hostNetwork is true)
+     - bool
+     - ``true``
    * - :spelling:ignore:`operator.identityGCInterval`
      - Interval for identity garbage collection.
      - string
