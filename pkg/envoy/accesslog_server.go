@@ -163,7 +163,11 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			)
 		}
 
-		r := s.logRecord(ctx, &pblog)
+		r, err := s.logRecord(ctx, &pblog)
+		if err != nil {
+			s.logger.Error("Envoy: Failed to log access log message", logfields.Error, err)
+			continue
+		}
 
 		// Update proxy stats for the endpoint if it still exists
 		localEndpoint := s.localEndpointStore.getLocalEndpoint(pblog.PolicyName)
@@ -180,7 +184,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 	}
 }
 
-func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry) *accesslog.LogRecord {
+func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry) (*accesslog.LogRecord, error) {
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
@@ -234,12 +238,16 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 		addrInfo.DstIPPort = pblog.DestinationAddress
 		addrInfo.DstIdentity = identity.NumericIdentity(pblog.DestinationSecurityId)
 	}
-	r := s.accessLogger.NewLogRecord(flowType, pblog.IsIngress,
+	r, err := s.accessLogger.NewLogRecord(ctx, flowType, pblog.IsIngress,
 		accesslog.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		accesslog.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
 		accesslog.LogTags.Addressing(ctx, addrInfo),
 		l7tags,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create log record: %w", err)
+	}
+
 	s.accessLogger.Log(r)
 
 	// Each kafka topic needs to be logged separately, log the rest if any
@@ -248,5 +256,5 @@ func (s *AccessLogServer) logRecord(ctx context.Context, pblog *cilium.LogEntry)
 		s.accessLogger.Log(r)
 	}
 
-	return r
+	return r, nil
 }

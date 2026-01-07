@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/dns"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -27,8 +28,9 @@ import (
 
 // mockLogRecord is a log entry similar to the one used in fqdn.go for
 // DNS related events notification.
-func mockLogRecord(accessLogger ProxyAccessLogger) *LogRecord {
+func mockLogRecord(ctx context.Context, accessLogger ProxyAccessLogger) (*LogRecord, error) {
 	return accessLogger.NewLogRecord(
+		ctx,
 		TypeResponse,
 		false,
 		func(lr *LogRecord, _ EndpointInfoRegistry) {
@@ -162,7 +164,8 @@ var benchCases = []struct {
 
 func benchWithoutListeners(b *testing.B, notifier LogRecordNotifier) {
 	accessLogger := NewProxyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier, nil, nil)
-	record := mockLogRecord(accessLogger)
+	record, err := mockLogRecord(b.Context(), accessLogger)
+	require.NoError(b, err)
 	for _, bm := range benchCases {
 		b.Run(bm.name, func(b *testing.B) {
 			b.ReportAllocs()
@@ -184,7 +187,8 @@ func benchWithoutListeners(b *testing.B, notifier LogRecordNotifier) {
 }
 
 func benchWithListeners(accessLogger ProxyAccessLogger, listener *MockMonitorListener, b *testing.B) {
-	record := mockLogRecord(accessLogger)
+	record, err := mockLogRecord(b.Context(), accessLogger)
+	require.NoError(b, err)
 	for _, bm := range benchCases {
 		b.Run(bm.name, func(b *testing.B) {
 			ctx, cancel := context.WithCancel(context.Background())

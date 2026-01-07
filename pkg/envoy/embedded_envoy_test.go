@@ -250,7 +250,7 @@ func TestEnvoyNACK(t *testing.T) {
 
 type proxyAccessLoggerMock struct{}
 
-func (p *proxyAccessLoggerMock) NewLogRecord(t accesslog.FlowType, ingress bool, tags ...accesslog.LogTag) *accesslog.LogRecord {
+func (p *proxyAccessLoggerMock) NewLogRecord(ctx context.Context, t accesslog.FlowType, ingress bool, tags ...accesslog.LogTag) (*accesslog.LogRecord, error) {
 	panic("unimplemented")
 }
 
