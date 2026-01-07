@@ -27,6 +27,7 @@ static volatile const __u8 *dst_mac2 = mac_four;
 #include "lib/policy.h"
 
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, true);
+ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 
 /* Send an IGMP packet from host to IGMP destination (allow all egress policy).
  *
