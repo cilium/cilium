@@ -586,7 +586,7 @@ func (k *K8sPodWatcher) updatePodHostData(ctx context.Context, oldPod, newPod *s
 		return fmt.Errorf("failed to get local node: %w", err)
 	}
 
-	hostKey := node.GetEndpointEncryptKeyIndexWithNode(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
+	hostKey := node.GetEndpointEncryptKeyIndex(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
 
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,
