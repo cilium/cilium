@@ -325,24 +325,13 @@ func GetIngressIPv6(logger *slog.Logger) net.IP {
 }
 
 // GetEndpointEncryptKeyIndex returns the encryption key value for an endpoint
-// owned by the local node.
-// With IPSec encryption, this is the ID of the currently loaded key.
-// With WireGuard, this returns a non-zero static value.
-// Note that the key index returned by this function is only valid for _endpoints_
-// of the local node. If you want to obtain the key index of the local node itself,
-// access the `EncryptionKey` field via the LocalNodeStore.
-func GetEndpointEncryptKeyIndex(logger *slog.Logger, wgEnabled, ipsecEnabled bool) uint8 {
-	return GetEndpointEncryptKeyIndexWithNode(getLocalNode(logger), wgEnabled, ipsecEnabled)
-}
-
-// GetEndpointEncryptKeyIndexWithNode returns the encryption key value for an endpoint
 // owned by the given local node.
 // With IPSec encryption, this is the ID of the currently loaded key.
 // With WireGuard, this returns a non-zero static value.
 // Note that the key index returned by this function is only valid for _endpoints_
 // of the local node. If you want to obtain the key index of the local node itself,
 // access the `EncryptionKey` field via the LocalNodeStore.
-func GetEndpointEncryptKeyIndexWithNode(localNode LocalNode, wgEnabled, ipsecEnabled bool) uint8 {
+func GetEndpointEncryptKeyIndex(localNode LocalNode, wgEnabled, ipsecEnabled bool) uint8 {
 	switch {
 	case ipsecEnabled:
 		return localNode.EncryptionKey
