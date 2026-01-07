@@ -46,6 +46,9 @@ triggers:
   /ci-ipsec-e2e:
     workflows:
     - conformance-ipsec-e2e.yaml
+  /ci-ztunnel:
+    workflows:
+    - conformance-ztunnel.yaml
   /ci-ztunnel-e2e:
     workflows:
     - conformance-ztunnel-e2e.yaml
@@ -175,4 +178,6 @@ workflows:
   hubble-cli-integration-test.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
   conformance-ztunnel-e2e.yaml:
+    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
+  conformance-ztunnel.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
