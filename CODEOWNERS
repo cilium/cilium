@@ -356,6 +356,7 @@ Makefile* @cilium/build
 /cilium-cli/connectivity/builder/pod_to_ingress_service.go @cilium/sig-servicemesh
 /cilium-cli/connectivity/builder/pod_to_pod_encryption.go @cilium/sig-encryption
 /cilium-cli/connectivity/builder/pod_to_pod_encryption_v2.go @cilium/sig-encryption
+/cilium-cli/connectivity/builder/service_loopback.go @cilium/sig-lb
 /cilium-cli/connectivity/perf/** @cilium/sig-scalability
 /cilium-cli/connectivity/tests/bgp.go @cilium/sig-bgp
 /cilium-cli/connectivity/tests/clustermesh-endpointslice-sync.go @cilium/sig-clustermesh
