@@ -367,12 +367,3 @@ func SetTestLocalNodeStore() {
 func UnsetTestLocalNodeStore() {
 	localNode = nil
 }
-
-// UpdateLocalNodeInTest provides access to modifying the local node
-// information from tests that are not yet using hive and the LocalNodeStoreCell.
-func UpdateLocalNodeInTest(mod func(n *LocalNode)) {
-	if localNode == nil {
-		panic("localNode not set, use node.LocalNodeStoreCell or WithTestLocalNodeStore()?")
-	}
-	localNode.Update(mod)
-}
