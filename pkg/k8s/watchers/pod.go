@@ -590,7 +590,7 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 		logging.Fatal(k.logger, "getLocalNode: unexpected error", logfields.Error, err)
 	}
 
-	hostKey := node.GetEndpointEncryptKeyIndexWithNode(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
+	hostKey := node.GetEndpointEncryptKeyIndex(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
 
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,
