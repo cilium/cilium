@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -162,68 +161,60 @@ var benchCases = []struct {
 }
 
 func benchWithoutListeners(b *testing.B, notifier LogRecordNotifier) {
-	accessLogger := NewProxyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier, nil)
-	node.WithTestLocalNodeStore(func() {
-		record := mockLogRecord(accessLogger)
-		for _, bm := range benchCases {
-			b.Run(bm.name, func(b *testing.B) {
-				b.ReportAllocs()
-				for b.Loop() {
-					// Each goroutine will deliver a single notification concurrently.
-					// This is done to simulate what happens when a high rate of DNS
-					// related events trigger one `notifyOnDNSMsg` callback each and
-					// consequently the event logging.
-					var wg sync.WaitGroup
-					for range bm.nRecords {
-						wg.Add(1)
-						go func() {
-							defer wg.Done()
-							accessLogger.Log(record)
-						}()
-					}
-					wg.Wait()
+	accessLogger := NewProxyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier, nil, nil)
+	record := mockLogRecord(accessLogger)
+	for _, bm := range benchCases {
+		b.Run(bm.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				// Each goroutine will deliver a single notification concurrently.
+				// This is done to simulate what happens when a high rate of DNS
+				// related events trigger one `notifyOnDNSMsg` callback each and
+				// consequently the event logging.
+				var wg sync.WaitGroup
+				for range bm.nRecords {
+					wg.Go(func() {
+						accessLogger.Log(record)
+					})
 				}
-			})
-		}
-	})
+				wg.Wait()
+			}
+		})
+	}
 }
 
 func benchWithListeners(accessLogger ProxyAccessLogger, listener *MockMonitorListener, b *testing.B) {
-	node.WithTestLocalNodeStore(func() {
-		record := mockLogRecord(accessLogger)
-		for _, bm := range benchCases {
-			b.Run(bm.name, func(b *testing.B) {
-				ctx, cancel := context.WithCancel(context.Background())
+	record := mockLogRecord(accessLogger)
+	for _, bm := range benchCases {
+		b.Run(bm.name, func(b *testing.B) {
+			ctx, cancel := context.WithCancel(context.Background())
 
-				var wg sync.WaitGroup
-				wg.Add(1)
-				listener.Drain(ctx, &wg)
+			var wg sync.WaitGroup
+			wg.Add(1)
+			listener.Drain(ctx, &wg)
 
-				b.ReportAllocs()
-				b.ResetTimer()
-				for b.Loop() {
-					// Each goroutine will deliver a single notification concurrently.
-					// This is done to simulate what happens when a high rate of DNS
-					// related events trigger one `notifyOnDNSMsg` callback each and
-					// consequently the event logging.
-					var logWg sync.WaitGroup
-					for range bm.nRecords {
-						logWg.Add(1)
-						go func() {
-							defer logWg.Done()
-							accessLogger.Log(record)
-						}()
-					}
-					logWg.Wait()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for b.Loop() {
+				// Each goroutine will deliver a single notification concurrently.
+				// This is done to simulate what happens when a high rate of DNS
+				// related events trigger one `notifyOnDNSMsg` callback each and
+				// consequently the event logging.
+				var logWg sync.WaitGroup
+				for range bm.nRecords {
+					logWg.Go(func() {
+						accessLogger.Log(record)
+					})
 				}
-				b.StopTimer()
+				logWg.Wait()
+			}
+			b.StopTimer()
 
-				// wait for listener cleanup
-				cancel()
-				wg.Wait()
-			})
-		}
-	})
+			// wait for listener cleanup
+			cancel()
+			wg.Wait()
+		})
+	}
 }
 
 func BenchmarkLogNotifierWithNoListeners(b *testing.B) {
@@ -261,7 +252,7 @@ func BenchmarkLogNotifierWithListeners(b *testing.B) {
 		listener := NewMockMonitorListener(cfg.MonitorQueueSize)
 		notifier := NewMockLogNotifier(monitor)
 		notifier.RegisterNewListener(listener)
-		accessLogger := NewProxyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier, nil)
+		accessLogger := NewProxyAccessLogger(hivetest.Logger(b), ProxyAccessLoggerConfig{}, notifier, nil, nil)
 
 		lc.Append(cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
