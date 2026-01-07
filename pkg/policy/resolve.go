@@ -297,7 +297,9 @@ func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
 // removeUser removes a user from the L4Policy so the EndpointPolicy
 // can be freed when not needed any more
 func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
-	p.L4Policy.removeUser(user)
+	if p.L4Policy.removeUser(user) {
+		p.detach(true, 0)
+	}
 }
 
 func (p *selectorPolicy) Detach() {
