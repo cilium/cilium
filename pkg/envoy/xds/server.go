@@ -437,8 +437,10 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 
 		default: // Pending watch response.
 			state := &typeStates[chosen]
-			state.pendingWatchCancel()
-			state.pendingWatchCancel = nil
+			if state.pendingWatchCancel != nil {
+				state.pendingWatchCancel()
+				state.pendingWatchCancel = nil
+			}
 
 			if !recvOK {
 				// chosen channel was closed. If context has an error (e.g.,
