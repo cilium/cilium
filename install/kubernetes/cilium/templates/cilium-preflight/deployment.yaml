@@ -92,6 +92,9 @@ spec:
       {{- toYaml . | trim | nindent 6 }}
       {{- end }}
       hostNetwork: true
+      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+      hostUsers: true
+      {{- end }}
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-cluster-critical") }}
       serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
