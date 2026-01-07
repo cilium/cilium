@@ -110,6 +110,8 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 
 	var services resource.Resource[*slim_corev1.Service]
 	var serviceExports resource.Resource[*mcsapiv1alpha1.ServiceExport]
+	var namespaces resource.Resource[*slim_corev1.Namespace]
+	var namespaceManager cmnamespace.Manager
 	hive := hive.New(
 		k8sFakeClient.FakeClientCell(),
 		cell.Group( // k8s resources (importing 'operator/k8s' would cause a cycle)
@@ -117,6 +119,7 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 			cell.Provide(k8s.DefaultServiceWatchConfig),
 			cell.Provide(
 				k8s.ServiceResource,
+				k8s.NamespaceResource,
 			),
 		),
 		cell.Config(envoyCfg.SecretSyncConfig{}),
@@ -124,12 +127,17 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		cell.Provide(func() mcsapitypes.MCSAPIConfig {
 			return mcsapitypes.MCSAPIConfig{EnableMCSAPI: true}
 		}),
+		cmnamespace.Cell,
 		cell.Invoke(func(
 			svc resource.Resource[*slim_corev1.Service],
 			svcExport resource.Resource[*mcsapiv1alpha1.ServiceExport],
+			ns resource.Resource[*slim_corev1.Namespace],
+			nsMgr cmnamespace.Manager,
 		) {
 			services = svc
 			serviceExports = svcExport
+			namespaces = ns
+			namespaceManager = nsMgr
 		}),
 	)
 	tlog := hivetest.Logger(t)
@@ -142,6 +150,16 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 	require.NoError(t, err)
 	serviceExportStore, err := serviceExports.Store(ctx)
 	require.NoError(t, err)
+	namespaceStore, err := namespaces.Store(ctx)
+	require.NoError(t, err)
+
+	// Create the default namespace (global by default)
+	defaultNs := &slim_corev1.Namespace{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name: "default",
+		},
+	}
+	require.NoError(t, namespaceStore.CacheStore().Add(defaultNs))
 
 	// Create initial state
 	for _, svc := range serviceFixtures {
@@ -171,12 +189,14 @@ func Test_mcsServiceExportSync_Reconcile(t *testing.T) {
 		ExportCreationTimestamp: exportTime,
 	}))
 	go (&serviceExportSync{
-		logger:         hivetest.Logger(t),
-		clusterName:    clusterName,
-		enabled:        true,
-		store:          kvs,
-		serviceExports: serviceExports,
-		services:       services,
+		logger:           hivetest.Logger(t),
+		clusterName:      clusterName,
+		enabled:          true,
+		store:            kvs,
+		serviceExports:   serviceExports,
+		services:         services,
+		namespaceManager: namespaceManager,
+		namespaces:       namespaces,
 	}).loop(ctx)
 
 	t.Run("Test basic case", func(t *testing.T) {
