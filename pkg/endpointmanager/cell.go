@@ -242,6 +242,7 @@ type endpointSynchronizerParams struct {
 	Clientset           client.Clientset
 	CiliumEndpoint      resource.Resource[*types.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+	LocalNodeStore      *node.LocalNodeStore
 }
 
 func newEndpointSynchronizer(p endpointSynchronizerParams) EndpointResourceSynchronizer {
@@ -249,5 +250,6 @@ func newEndpointSynchronizer(p endpointSynchronizerParams) EndpointResourceSynch
 		Clientset:           p.Clientset,
 		CiliumEndpoint:      p.CiliumEndpoint,
 		CiliumEndpointSlice: p.CiliumEndpointSlice,
+		localNodeStore:      p.LocalNodeStore,
 	}
 }
