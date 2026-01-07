@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -51,6 +52,7 @@ type networkDriverParams struct {
 	Configs        resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
 	ResourceClaims resource.Resource[*resourceapi.ResourceClaim]
 	Pods           resource.Resource[*corev1.Pod]
+	LocalNodeStore *node.LocalNodeStore
 }
 
 func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, daemonCfg *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverConfig] {
