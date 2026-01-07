@@ -25,6 +25,7 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -464,7 +465,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	}
 
 	// Create temporary endpoint directory if it does not exist yet
-	if err := os.MkdirAll(tmpDir, 0777); err != nil {
+	if err := os.MkdirAll(tmpDir, 0o777); err != nil {
 		stats.prepareBuild.End(false)
 		return fmt.Errorf("Failed to create endpoint directory: %w", err)
 	}
@@ -1044,13 +1045,18 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				}
 				logger := e.getLogger()
 
+				ln, err := e.localNodeStore.Get(ctx)
+				if err != nil {
+					logging.Fatal(logger, "getLocalNode: unexpected error", logfields.Error, err)
+				}
+
 				ID := e.SecurityIdentity.ID
 				hostIP, err := netip.ParseAddr(node.GetCiliumEndpointNodeIP(logger))
 				if err != nil {
 					e.runlock()
 					return controller.NewExitReason("Failed to get node IP")
 				}
-				key := node.GetEndpointEncryptKeyIndex(logger, e.wgConfig.Enabled(), e.ipsecConfig.Enabled())
+				key := node.GetEndpointEncryptKeyIndexWithNode(ln, e.wgConfig.Enabled(), e.ipsecConfig.Enabled())
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName
