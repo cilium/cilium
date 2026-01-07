@@ -1,0 +1,149 @@
+#! --cluster-id=3 --cluster-name=cluster3 --clustermesh-enable-mcs-api --clustermesh-default-global-namespace=false
+
+# First, register the ServiceExport CRD so the sync doesn't skip
+k8s/add serviceexport-crd.yaml
+
+hive/start
+
+# Add two namespaces - ns-alpha (annotated as global), ns-beta (not global)
+k8s/add namespace-alpha.yaml namespace-beta.yaml
+
+# Add services (required for ServiceExport to work)
+k8s/add service-alpha.yaml service-beta.yaml
+
+# Add ServiceExports for both services
+k8s/add serviceexport-alpha.yaml serviceexport-beta.yaml
+
+# Assert that the synced key gets created
+kvstore/list -o plain cilium/synced synced.actual
+* grep -q '^# cilium/synced/cluster3/cilium/state/serviceexports/v1$' synced.actual
+
+# Wait for synchronization. Only serviceexport in ns-alpha should be synced
+# The serviceexport in ns-beta should NOT be synced
+kvstore/list -o plain cilium/state/serviceexports exports-1.actual
+* cmp exports-1.actual exports-1.expected
+
+# Annotate ns-beta as global
+k8s/update namespace-beta-annotated.yaml
+
+# Wait for synchronization. Now both serviceexports should be synced
+kvstore/list -o plain cilium/state/serviceexports exports-1+2.actual
+* cmp exports-1+2.actual exports-1+2.expected
+
+# Remove global annotation from ns-beta
+k8s/update namespace-beta.yaml
+
+# Wait for synchronization. Only serviceexport in ns-alpha should remain synced
+kvstore/list -o plain cilium/state/serviceexports exports-1.actual
+* cmp exports-1.actual exports-1.expected
+
+# Delete the serviceexport in ns-alpha
+k8s/delete serviceexport-alpha.yaml
+
+# Wait for synchronization. No serviceexports should remain synced
+kvstore/list -o plain cilium/state/serviceexports exports-empty.actual
+* empty exports-empty.actual
+
+# ---
+
+-- serviceexport-crd.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: serviceexports.multicluster.x-k8s.io
+spec:
+  group: multicluster.x-k8s.io
+  names:
+    kind: ServiceExport
+    listKind: ServiceExportList
+    plural: serviceexports
+    singular: serviceexport
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+-- namespace-alpha.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-alpha
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- namespace-beta.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-beta
+
+-- namespace-beta-annotated.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-beta
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- service-alpha.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+  namespace: ns-alpha
+spec:
+  clusterIP: 10.96.0.10
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  selector:
+    app: echo
+  type: ClusterIP
+  sessionAffinity: None
+
+-- service-beta.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+  namespace: ns-beta
+spec:
+  clusterIP: 10.96.0.20
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  selector:
+    app: echo
+  type: ClusterIP
+  sessionAffinity: None
+
+-- serviceexport-alpha.yaml --
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: echo-service
+  namespace: ns-alpha
+  creationTimestamp: "2024-01-01T00:00:00Z"
+
+-- serviceexport-beta.yaml --
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: echo-service
+  namespace: ns-beta
+  creationTimestamp: "2024-01-01T00:00:00Z"
+
+-- exports-1.expected --
+# cilium/state/serviceexports/v1/cluster3/ns-alpha/echo-service
+{"cluster":"cluster3","name":"echo-service","namespace":"ns-alpha","exportCreationTimestamp":"2024-01-01T00:00:00Z","ports":[{"name":"http","protocol":"TCP","port":80}],"type":"ClusterSetIP","sessionAffinity":"None"}
+-- exports-1+2.expected --
+# cilium/state/serviceexports/v1/cluster3/ns-alpha/echo-service
+{"cluster":"cluster3","name":"echo-service","namespace":"ns-alpha","exportCreationTimestamp":"2024-01-01T00:00:00Z","ports":[{"name":"http","protocol":"TCP","port":80}],"type":"ClusterSetIP","sessionAffinity":"None"}
+# cilium/state/serviceexports/v1/cluster3/ns-beta/echo-service
+{"cluster":"cluster3","name":"echo-service","namespace":"ns-beta","exportCreationTimestamp":"2024-01-01T00:00:00Z","ports":[{"name":"http","protocol":"TCP","port":80}],"type":"ClusterSetIP","sessionAffinity":"None"}
