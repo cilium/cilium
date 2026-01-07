@@ -117,6 +117,9 @@ spec:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
       hostPID: true
+      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+      hostUsers: true
+      {{- end }}
       hostNetwork: true
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.nodeinit.priorityClassName "system-node-critical") }}
       {{- if .Values.serviceAccounts.nodeinit.enabled }}

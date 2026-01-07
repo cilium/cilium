@@ -3108,6 +3108,8 @@ operator:
   annotations: {}
   # -- HostNetwork setting
   hostNetwork: true
+  # -- HostUsers setting (must be true if hostNetwork is true)
+  hostUsers: true
   # -- Security context to be added to cilium-operator pods
   podSecurityContext:
     seccompProfile:

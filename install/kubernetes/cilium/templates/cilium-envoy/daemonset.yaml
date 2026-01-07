@@ -218,6 +218,9 @@ spec:
       automountServiceAccountToken: {{ .Values.serviceAccounts.envoy.automount }}
       terminationGracePeriodSeconds: {{ .Values.envoy.terminationGracePeriodSeconds }}
       hostNetwork: true
+      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+      hostUsers: true
+      {{- end }}
       {{- if .Values.envoy.dnsPolicy }}
       dnsPolicy: {{ .Values.envoy.dnsPolicy }}
       {{- end }}
