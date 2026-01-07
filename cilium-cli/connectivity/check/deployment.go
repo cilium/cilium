@@ -1524,7 +1524,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, loadbalancerL7DeploymentName, metav1.GetOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), echoOtherNodeDeploymentName)
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), loadbalancerL7DeploymentName)
 			svc := newService(
 				loadbalancerL7DeploymentName,
 				map[string]string{"name": loadbalancerL7DeploymentName},
