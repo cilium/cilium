@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v7"
 	"github.com/stretchr/testify/require"
 
@@ -107,4 +108,37 @@ func TestFindPublicIPPrefixByTags(t *testing.T) {
 		"env": "test",
 	})
 	require.False(t, found)
+}
+
+func TestIsPublicIPProvisionFailedVMSS(t *testing.T) {
+	tests := []struct {
+		name                 string
+		instanceViewStatuses []*armcompute.InstanceViewStatus
+		expected             bool
+	}{
+		{
+			name: "success",
+			instanceViewStatuses: []*armcompute.InstanceViewStatus{
+				{
+					Code: to.Ptr("ProvisioningState/succeeded"),
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "failure",
+			instanceViewStatuses: []*armcompute.InstanceViewStatus{
+				{
+					Code: to.Ptr("ProvisioningState/failed/PublicIpPrefixOutOfIpAddressesForVMScaleSet"),
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.expected, isPublicIPProvisionFailedVMSS(test.instanceViewStatuses))
+		})
+	}
 }
