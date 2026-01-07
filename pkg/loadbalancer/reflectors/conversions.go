@@ -221,53 +221,56 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 	}
 
 	// NodePort
-	if (svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) &&
-		expType.CanExpose(slim_corev1.ServiceTypeNodePort) {
+	// Do not reflect if KubeProxyReplacement is disabled, as it has no use and can affect NodePort service reachability.
+	if extCfg.KubeProxyReplacement {
+		if (svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer) &&
+			expType.CanExpose(slim_corev1.ServiceTypeNodePort) {
 
-		for _, scope := range scopes {
-			for _, family := range getIPFamilies(svc) {
-				if (!extCfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
-					(!extCfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
-					log().Debug(
-						"Skipping NodePort due to disabled IP family",
-						logfields.IPv4, extCfg.EnableIPv4,
-						logfields.IPv6, extCfg.EnableIPv6,
-						logfields.Family, family,
-					)
-					continue
-				}
-				for _, port := range svc.Spec.Ports {
-					if port.NodePort == 0 {
+			for _, scope := range scopes {
+				for _, family := range getIPFamilies(svc) {
+					if (!extCfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
+						(!extCfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
+						log().Debug(
+							"Skipping NodePort due to disabled IP family",
+							logfields.IPv4, extCfg.EnableIPv4,
+							logfields.IPv6, extCfg.EnableIPv6,
+							logfields.Family, family,
+						)
 						continue
 					}
+					for _, port := range svc.Spec.Ports {
+						if port.NodePort == 0 {
+							continue
+						}
 
-					fe := loadbalancer.FrontendParams{
-						Type:        loadbalancer.SVCTypeNodePort,
-						PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
-						ServiceName: name,
-						ServicePort: uint16(port.Port),
+						fe := loadbalancer.FrontendParams{
+							Type:        loadbalancer.SVCTypeNodePort,
+							PortName:    loadbalancer.FEPortName(cache.Strings.Get(port.Name)),
+							ServiceName: name,
+							ServicePort: uint16(port.Port),
+						}
+
+						switch family {
+						case slim_corev1.IPv4Protocol:
+							fe.Address = loadbalancer.NewL3n4Addr(
+								loadbalancer.L4Type(port.Protocol),
+								zeroV4,
+								uint16(port.NodePort),
+								scope,
+							)
+						case slim_corev1.IPv6Protocol:
+							fe.Address = loadbalancer.NewL3n4Addr(
+								loadbalancer.L4Type(port.Protocol),
+								zeroV6,
+								uint16(port.NodePort),
+								scope,
+							)
+						default:
+							continue
+						}
+
+						fes = append(fes, fe)
 					}
-
-					switch family {
-					case slim_corev1.IPv4Protocol:
-						fe.Address = loadbalancer.NewL3n4Addr(
-							loadbalancer.L4Type(port.Protocol),
-							zeroV4,
-							uint16(port.NodePort),
-							scope,
-						)
-					case slim_corev1.IPv6Protocol:
-						fe.Address = loadbalancer.NewL3n4Addr(
-							loadbalancer.L4Type(port.Protocol),
-							zeroV6,
-							uint16(port.NodePort),
-							scope,
-						)
-					default:
-						continue
-					}
-
-					fes = append(fes, fe)
 				}
 			}
 		}
