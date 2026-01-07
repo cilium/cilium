@@ -372,6 +372,24 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						Value: mdl,
 					},
 				}
+				// When a StatefulSet pod is recreated, it retains the same name
+				// but receives a new UID. If this controller adopts a CEP from
+				// a previous pod instance, the ownerReference must be updated to
+				// reflect the new pod's UID. This ensures the Kubernetes garbage
+				// collector does not delete the CEP due to a stale owner reference.
+				if pod := e.GetPod(); pod != nil {
+					ownerRef := meta_v1.OwnerReference{
+						APIVersion: "v1",
+						Kind:       "Pod",
+						Name:       pod.GetObjectMeta().GetName(),
+						UID:        pod.GetObjectMeta().GetUID(),
+					}
+					replaceCEPStatus = append(replaceCEPStatus, k8s.JSONPatch{
+						OP:    "replace",
+						Path:  "/metadata/ownerReferences",
+						Value: []meta_v1.OwnerReference{ownerRef},
+					})
+				}
 				var createStatusPatch []byte
 				createStatusPatch, err = json.Marshal(replaceCEPStatus)
 				if err != nil {
