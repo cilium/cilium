@@ -10,15 +10,21 @@ set -eu
 
 
 ln -s "$SRC"/cilium/pkg/policy/distillery_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/l4_filter_deny_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/l4_filter_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/l4_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/mapstate_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/origin_test{,_fuzz}.go
+ln -s "$SRC"/cilium/pkg/policy/repository_deny_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/repository_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/resolve_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/resolve_deny_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/rule_test{,_fuzz}.go
 ln -s "$SRC"/cilium/pkg/policy/selectorcache_test{,_fuzz}.go
 
+# Allow Go to download dependencies not present in the vendor directory.
+# This is needed for go-118-fuzz-build/testing which is required by compile_native_go_fuzzer.
+export GOFLAGS="-mod=mod"
 
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/container/bitlpm FuzzUint8 FuzzUint8
 compile_native_go_fuzzer github.com/cilium/cilium/pkg/fqdn/matchpattern FuzzMatchpatternValidate FuzzMatchpatternValidate
