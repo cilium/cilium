@@ -426,8 +426,10 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 		default: // Pending watch response.
 			state := &typeStates[chosen]
-			state.pendingWatchCancel()
-			state.pendingWatchCancel = nil
+			if state.pendingWatchCancel != nil {
+				state.pendingWatchCancel()
+				state.pendingWatchCancel = nil
+			}
 
 			if !recvOK {
 				streamLog.WithField(logfields.XDSTypeURL, state.typeURL).
