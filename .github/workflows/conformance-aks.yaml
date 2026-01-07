@@ -282,6 +282,14 @@ jobs:
               --helm-set encryption.type=ipsec"
           fi
 
+          # Check if ztunnel is requested via extra-args
+          ZTUNNEL=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ztunnel"] // false')
+          if [[ "$ZTUNNEL" == "true" ]]; then
+            echo "::notice::Ztunnel enabled - setting ztunnel=true for all matrix entries"
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true \
+              --helm-set encryption.type=ztunnel"
+          fi
+
           CONNECTIVITY_TEST_DEFAULTS="${{ steps.e2e_config.outputs.test_flags }}"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
@@ -289,6 +297,7 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
           echo ipsec=${IPSEC} >> $GITHUB_OUTPUT
+          echo ztunnel=${ZTUNNEL} >> $GITHUB_OUTPUT
 
       - name: Login to Azure
         uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
@@ -326,6 +335,15 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
+      - name: Create custom IPsec secret
+        if: ${{ steps.vars.outputs.ipsec == 'true' }}
+        run: |
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+
+      - name: Generate ztunnel certificates
+        if: ${{ steps.vars.outputs.ztunnel == 'true' }}
+        uses: ./.github/actions/ztunnel-certs
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -336,11 +354,6 @@ jobs:
           path: untrusted
           sparse-checkout: |
             install/kubernetes/cilium
-
-      - name: Create custom IPsec secret
-        if: ${{ steps.vars.outputs.ipsec == 'true' }}
-        run: |
-          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
       - name: Install Cilium
         id: install-cilium
@@ -354,6 +367,11 @@ jobs:
       - name: Wait for Cilium status to be ready
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
+
+      - name: Wait for ztunnel DaemonSet
+        if: ${{ steps.vars.outputs.ztunnel == 'true' }}
+        run: |
+          kubectl -n kube-system rollout status daemonset/ztunnel-cilium --timeout=300s
 
       - name: Make JUnit report directory
         run: |

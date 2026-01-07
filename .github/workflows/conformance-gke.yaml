@@ -155,6 +155,7 @@ jobs:
           # other stable branches -> PR-number starting with v (e.g. v1.14)
           VERSIONS=$(echo ${{ inputs.extra-args }} | awk -F'=' '{print $2}')
           IPSEC=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
+          ZTUNNEL=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ztunnel"] // false')
 
           # shellcheck disable=SC2193
           if [[ "${{ github.event_name }}" == "schedule" || "${{ inputs.PR-number }}" == v* || "$VERSIONS" == "all" ]];then
@@ -175,6 +176,23 @@ jobs:
                 .["cilium-install-opts"] += " --helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
               else
                 .["cilium-install-opts"] = "--helm-set=encryption.enabled=true --helm-set=encryption.type=ipsec"
+              end
+            )' /tmp/matrix.json > /tmp/matrix.json.tmp
+            mv /tmp/matrix.json.tmp /tmp/matrix.json
+          fi
+
+          # Add Ztunnel options to all configurations if ztunnel is true
+          if [[ "$ZTUNNEL" == "true" ]]; then
+            echo "::notice::Ztunnel enabled - setting ztunnel=true for all matrix entries"
+            echo "Adding Ztunnel encryption options to all configurations"
+            jq '.config |= map(
+              # Add -ztunnel suffix to type unless it already contains ztunnel
+              .type = (if (.type | test("ztunnel")) then .type else .type + "-ztunnel" end) |
+              # Add Ztunnel helm options to cilium-install-opts
+              if .["cilium-install-opts"] then
+                .["cilium-install-opts"] += " --helm-set=encryption.enabled=true --helm-set=encryption.type=ztunnel"
+              else
+                .["cilium-install-opts"] = "--helm-set=encryption.enabled=true --helm-set=encryption.type=ztunnel"
               end
             )' /tmp/matrix.json > /tmp/matrix.json.tmp
             mv /tmp/matrix.json.tmp /tmp/matrix.json
@@ -385,6 +403,15 @@ jobs:
           release-version: ${{ env.CILIUM_CLI_VERSION }}
           kubeconfig: ${{ steps.gen-kubeconfig.outputs.kubeconfig_path }}
 
+      - name: Create custom IPsec secret
+        if: ${{ contains(fromJSON('["no-tunnel-ipsec", "tunnel-ipsec", "tunnel-ingress-controller-ipsec"]'), matrix.config.type) }}
+        run: |
+          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
+
+      - name: Generate ztunnel certificates
+        if: ${{ contains(matrix.config.type, 'ztunnel') }}
+        uses: ./.github/actions/ztunnel-certs
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -396,11 +423,6 @@ jobs:
           sparse-checkout: |
             install/kubernetes/cilium
 
-      - name: Create custom IPsec secret
-        if: ${{ contains(fromJSON('["no-tunnel-ipsec", "tunnel-ipsec", "tunnel-ingress-controller-ipsec"]'), matrix.config.type) }}
-        run: |
-          cilium encrypt create-key --auth-algo rfc4106-gcm-aes
-
       - name: Install Cilium
         id: install-cilium
         run: |
@@ -411,6 +433,11 @@ jobs:
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods -n kube-system
+
+      - name: Wait for ztunnel DaemonSet
+        if: ${{ contains(matrix.config.type, 'ztunnel') }}
+        run: |
+          kubectl -n kube-system rollout status daemonset/ztunnel-cilium --timeout=300s
 
       - name: Make JUnit report directory
         run: |
