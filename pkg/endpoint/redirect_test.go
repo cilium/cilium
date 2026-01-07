@@ -192,7 +192,7 @@ func (s *RedirectSuite) AddRules(rules api.Rules) uint64 {
 	orig := repo.GetRevision()
 	slice, rev := repo.MustAddList(rules)
 	affected := slice.AllIdentitySelections()
-	s.do.fetcher.UpdatePolicy(&affected, orig, rev)
+	s.do.fetcher.UpdatePolicy(affected, orig, rev)
 	return rev
 }
 
