@@ -719,15 +719,24 @@ func (c *Client) AssignPublicIPAddressesVMSS(ctx context.Context, instanceID, vm
 	}
 
 	if primaryIPConfig.Properties.PublicIPAddressConfiguration != nil {
-		netIfName := "<unknown>"
-		if primaryNetIfConfig.Name != nil {
-			netIfName = *primaryNetIfConfig.Name
+		if isPublicIPProvisionFailedVMSS(vm.Properties.InstanceView.Statuses) {
+			// In certain cases, Azure will succeed to configure a VM with a certain prefix even if it is out of IP addresses.
+			// This leads to the VM failing to provision properly. In this case, we need to delete the erroneous public IP address configuration
+			// and configure it again.
+			if err := c.deletePublicIPAddressConfigurationVMSS(ctx, instanceNum, vmssName, &vm, primaryIPConfig); err != nil {
+				return "", fmt.Errorf("failed to delete public IP address configuration for VM %s from VMSS %s: %w", instanceID, vmssName, err)
+			}
+		} else {
+			netIfName := "<unknown>"
+			if primaryNetIfConfig.Name != nil {
+				netIfName = *primaryNetIfConfig.Name
+			}
+			return "", fmt.Errorf("public IP address already assigned to primary IP configuration for network configuration %s from VM %s from VMSS %s",
+				netIfName,
+				instanceID,
+				vmssName,
+			)
 		}
-		return "", fmt.Errorf("public IP address already assigned to primary IP configuration for network configuration %s from VM %s from VMSS %s",
-			netIfName,
-			instanceID,
-			vmssName,
-		)
 	}
 
 	// Find a public IP prefix with the given tags
@@ -894,6 +903,43 @@ func (c *Client) AssignPublicIPAddressesVM(ctx context.Context, instanceID strin
 	return publicIPPrefixID, nil
 }
 
+// deletePublicIPAddressConfigurationVMSS deletes the public IP address configuration from a VMSS instance
+func (c *Client) deletePublicIPAddressConfigurationVMSS(ctx context.Context, instanceNum, vmssName string, vm *armcompute.VirtualMachineScaleSetVMsClientGetResponse, primaryIPConfig *armcompute.VirtualMachineScaleSetIPConfiguration) error {
+	// Delete the public IP address configuration
+	if primaryIPConfig.Properties.PublicIPAddressConfiguration != nil {
+		primaryIPConfig.Properties.PublicIPAddressConfiguration = nil
+	}
+
+	// Update the VMSS instance
+
+	// Unset imageReference, because if this contains a reference to an image from the
+	// Azure Compute Gallery, including this reference in an update to the VMSS instance
+	// will cause a permissions error, because the reference includes an Azure-managed
+	// subscription ID.
+	// Removing the image reference indicates to the API that we don't want to change it.
+	// See https://github.com/Azure/AKS/issues/1819.
+	if vm.Properties.StorageProfile != nil {
+		vm.Properties.StorageProfile.ImageReference = nil
+	}
+
+	c.limiter.Limit(ctx, virtualMachineScaleSetVMsUpdate)
+	sinceStart := spanstat.Start()
+
+	poller, err := c.virtualMachineScaleSetVMs.BeginUpdate(ctx, c.resourceGroup, vmssName, instanceNum, vm.VirtualMachineScaleSetVM, nil)
+	if err != nil {
+		c.metricsAPI.ObserveAPICall(virtualMachineScaleSetVMsUpdate, deriveStatus(err), sinceStart.Seconds())
+		return fmt.Errorf("unable to update virtualMachineScaleSetVMs: %w", err)
+	}
+
+	_, err = poller.PollUntilDone(ctx, nil)
+	c.metricsAPI.ObserveAPICall(virtualMachineScaleSetVMsUpdate, deriveStatus(err), sinceStart.Seconds())
+	if err != nil {
+		return fmt.Errorf("error while waiting for virtualMachineScaleSetVMs Update to complete: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Client) getPublicIPPrefixIDByTags(ctx context.Context, searchTags ipamTypes.Tags) (string, error) {
 	c.limiter.Limit(ctx, publicIPPrefixesList)
 	sinceStart := spanstat.Start()
@@ -986,4 +1032,14 @@ func findPublicIPPrefixByTags(prefixes []*armnetwork.PublicIPPrefix, searchTags 
 	}
 
 	return "", false
+}
+
+// isPublicIPProvisionFailedVMSS checks if the public IP address configuration failed to provision for a VMSS instance
+func isPublicIPProvisionFailedVMSS(instanceViewStatuses []*armcompute.InstanceViewStatus) bool {
+	for _, status := range instanceViewStatuses {
+		if status.Code != nil && *status.Code == "ProvisioningState/failed/PublicIpPrefixOutOfIpAddressesForVMScaleSet" {
+			return true
+		}
+	}
+	return false
 }
