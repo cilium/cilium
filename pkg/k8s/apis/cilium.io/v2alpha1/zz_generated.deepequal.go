@@ -1290,6 +1290,14 @@ func (in *CiliumNetworkDriverConfigSpec) DeepEqual(other *CiliumNetworkDriverCon
 		return false
 	}
 
+	if (in.NodeSelector == nil) != (other.NodeSelector == nil) {
+		return false
+	} else if in.NodeSelector != nil {
+		if !in.NodeSelector.DeepEqual(other.NodeSelector) {
+			return false
+		}
+	}
+
 	if in.DraRegistrationRetryIntervalSeconds != other.DraRegistrationRetryIntervalSeconds {
 		return false
 	}

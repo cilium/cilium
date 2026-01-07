@@ -9,6 +9,8 @@ import (
 	"slices"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // validateFilters ensures that we do not have more than one filter matching the same device.
@@ -67,4 +69,46 @@ func validateConfig(c *v2alpha1.CiliumNetworkDriverConfigSpec) error {
 	}
 
 	return nil
+}
+
+func labelsMatch(config *v2alpha1.CiliumNetworkDriverConfig, nodeLabels map[string]string) (bool, error) {
+	l := labels.Set(nodeLabels)
+
+	selector, err := metav1.LabelSelectorAsSelector(config.Spec.NodeSelector)
+	if err != nil {
+		return false, err
+	}
+
+	return selector.Matches(l), nil
+}
+
+func needsUpdate(one, other *v2alpha1.CiliumNetworkDriverConfig) bool {
+	// newly selected config is nil.
+	// send nil back if driver has a valid config
+	if one == nil {
+		if other != nil {
+			return true
+		}
+
+		return false
+	}
+
+	if other == nil {
+		// we do not have a config, and just
+		// got one non-nil config
+		// send it back
+		return true
+	}
+
+	// if we got here, we do have a configuration
+	// in the driver and we got an upsert with a config.
+	// now we need to check whether it needs updating or not.
+	// if there are no changes, we dont need to send a configuration
+	// back
+	// we did nil checks for both above.
+	if !one.Spec.DeepEqual(&other.Spec) {
+		return true
+	}
+
+	return false
 }
