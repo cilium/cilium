@@ -211,6 +211,14 @@ jobs:
             mv /tmp/result.json.tmp /tmp/result.json
           fi
 
+          # Check if ztunnel is requested via extra-args
+          ZTUNNEL=$(echo '${{ inputs.extra-args }}' | sed 's/^""$/{}/' | jq -r '.["ztunnel"] // false')
+          if [[ "$ZTUNNEL" == "true" ]]; then
+            echo "::notice::Ztunnel enabled - setting ztunnel=true for all matrix entries"
+            jq '.include |= map(. + {"ztunnel": true})' /tmp/result.json > /tmp/result.json.tmp
+            mv /tmp/result.json.tmp /tmp/result.json
+          fi
+
           # Check if KPR is requested via extra-args
           KPR=$(echo '${{ inputs.extra-args }}' | jq -r '.["kpr"] // false')
           if [[ "$KPR" == "true" ]]; then
@@ -333,6 +341,9 @@ jobs:
           if [[ "${{ matrix.ipsec }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ipsec"
           fi
+          if [[ "${{ matrix.ztunnel }}" == "true" ]]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set encryption.enabled=true --helm-set encryption.type=ztunnel"
+          fi
           if [[ "${{ matrix.kpr }}" == "true" ]]; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set kubeProxyReplacement=true"
           fi
@@ -414,6 +425,10 @@ jobs:
         run: |
           cilium encrypt create-key --auth-algo rfc4106-gcm-aes
 
+      - name: Generate ztunnel certificates
+        if: ${{ matrix.ztunnel == true }}
+        uses: ./.github/actions/ztunnel-certs
+
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
@@ -445,6 +460,11 @@ jobs:
         run: |
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods -n kube-system
+
+      - name: Wait for ztunnel DaemonSet
+        if: ${{ matrix.ztunnel == true }}
+        run: |
+          kubectl -n kube-system rollout status daemonset/ztunnel-cilium --timeout=300s
 
       - name: Check that AWS leftover iptables chains have been removed
         run: |
