@@ -110,7 +110,7 @@ func TestFindPublicIPPrefixByTags(t *testing.T) {
 	require.False(t, found)
 }
 
-func TestIsPublicIPProvisionFailedVMSS(t *testing.T) {
+func TestIsPublicIPProvisionFailed(t *testing.T) {
 	tests := []struct {
 		name                 string
 		instanceViewStatuses []*armcompute.InstanceViewStatus
@@ -138,7 +138,7 @@ func TestIsPublicIPProvisionFailedVMSS(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.expected, isPublicIPProvisionFailedVMSS(test.instanceViewStatuses))
+			require.Equal(t, test.expected, isPublicIPProvisionFailed(test.instanceViewStatuses))
 		})
 	}
 }
