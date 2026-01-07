@@ -185,7 +185,7 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 	}
 
 	// default to the standard key
-	encryptionKey := node.GetEndpointEncryptKeyIndexWithNode(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
+	encryptionKey := node.GetEndpointEncryptKeyIndex(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
 
 	if endpoint.Encryption != nil {
 		encryptionKey = uint8(endpoint.Encryption.Key)
