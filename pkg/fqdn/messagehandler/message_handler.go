@@ -232,7 +232,7 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	// requests because an identity isn't in the local cache yet.
 	logContext, lcncl := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer lcncl()
-	record := h.proxyAccessLogger.NewLogRecord(flowType, false,
+	record, err := h.proxyAccessLogger.NewLogRecord(logContext, flowType, false,
 		func(lr *accesslog.LogRecord, _ accesslog.EndpointInfoRegistry) {
 			lr.TransportProtocol = accesslog.TransportProtocol(protoID)
 		},
@@ -249,6 +249,10 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 			AnswerTypes:       recordTypes,
 		}),
 	)
+	if err != nil {
+		return fmt.Errorf("failed create log record: %w", err)
+	}
+
 	h.proxyAccessLogger.Log(record)
 
 	return nil
