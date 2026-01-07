@@ -4,12 +4,15 @@
 package endpoint
 
 import (
+	"context"
 	"log/slog"
 	"slices"
 
 	"github.com/cilium/cilium/api/v1/models"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -72,13 +75,18 @@ func (e *Endpoint) GetCiliumEndpointStatus() *cilium_v2.EndpointStatus {
 		svcAccount = pod.Spec.ServiceAccountName
 	}
 
+	ln, err := e.localNodeStore.Get(context.TODO())
+	if err != nil {
+		logging.Fatal(logger, "getLocalNode: unexpected error", logfields.Error, err)
+	}
+
 	status := &cilium_v2.EndpointStatus{
 		ID:                  int64(e.ID),
 		ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
 		Identity:            getEndpointIdentity(identitymodel.CreateModel(e.SecurityIdentity)),
 		Networking:          getEndpointNetworking(logger, e.getModelNetworkingRLocked()),
 		State:               compressEndpointState(e.getModelCurrentStateRLocked()),
-		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndex(logger, e.wgConfig.Enabled(), e.ipsecConfig.Enabled()))},
+		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetEndpointEncryptKeyIndexWithNode(ln, e.wgConfig.Enabled(), e.ipsecConfig.Enabled()))},
 		NamedPorts:          e.getNamedPortsModel(),
 		ServiceAccount:      svcAccount,
 	}
