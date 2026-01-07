@@ -226,17 +226,14 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		logfields.PolicyRevision, datapathRegenCtxt.policyRevisionToWaitFor,
 	)
 	var (
-		pcr                       *compute.Result
-		selectorPolicy, oldPolicy policy.SelectorPolicy
+		pcr            *compute.Result
+		selectorPolicy policy.SelectorPolicy
 	)
 	pcr, err = e.waitForPolicyComputationResult(datapathRegenCtxt, securityIdentity, result)
 	if err != nil {
 		return fmt.Errorf("failed waiting for policy computation result: %w", err)
 	} else if pcr != nil {
 		selectorPolicy = pcr.NewPolicy
-		if pcr.NeedsRelease {
-			oldPolicy = pcr.OldPolicy
-		}
 		result.policyRevision = pcr.Revision
 		err = pcr.Err
 	}
@@ -255,6 +252,8 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	if err != nil {
 		return err
 	}
+
+	selectorPolicy.AddHold()
 	// Ingress endpoint needs no redirects
 	if !e.isProperty(PropertySkipBPFPolicy) {
 		stats.proxyConfiguration.Start()
@@ -281,9 +280,6 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
 	stats.endpointPolicyCalculation.Start()
 	result.endpointPolicy = selectorPolicy.DistillPolicy(e.getLogger(), e, desiredRedirects)
-	if pcr.NeedsRelease {
-		oldPolicy.Detach()
-	}
 	stats.endpointPolicyCalculation.End(true)
 
 	datapathRegenCtxt.policyResult = result

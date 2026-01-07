@@ -286,15 +286,8 @@ func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
 }
 
 // setPolicy updates the reference to the SelectorPolicy that is cached.
-// Calls Detach() on the old policy, if any. It passes the endpointID of
-// the endpoint that initiated the old selector policy detach. Since detach
-// can trigger endpoint regenerations of all it users, this ensures
-// that endpoints do not continuously update themselves.
+// Callers are responsible for detaching the old policy as appropriate.
 func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) *selectorPolicy {
 	oldPolicy := cip.policy.Swap(policy)
-	if oldPolicy != nil {
-		// Release the references the previous policy holds on the selector cache.
-		oldPolicy.detach(false, endpointID)
-	}
 	return oldPolicy
 }

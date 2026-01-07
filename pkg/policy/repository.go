@@ -569,8 +569,11 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 	stats.SelectorPolicyCalculation().Start()
 	// This may call back in to the (locked) repository to generate the
 	// selector policy
-	sp, _, updated, err := r.policyCache.updateSelectorPolicy(id, endpointID)
+	sp, old, updated, err := r.policyCache.updateSelectorPolicy(id, endpointID)
 	stats.SelectorPolicyCalculation().EndError(err)
+	if old != nil {
+		old.detach(false, endpointID)
+	}
 
 	// If we hit cache, reset the statistics.
 	if !updated {
