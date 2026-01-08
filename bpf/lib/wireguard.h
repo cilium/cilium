@@ -7,6 +7,7 @@
 #include <bpf/api.h>
 
 #include "common.h"
+#include "lib/encrypt.h"
 #include "overloadable.h"
 #include "identity.h"
 
@@ -20,44 +21,74 @@ DECLARE_CONFIG(__u16, wg_port, "Port for the WireGuard interface.")
 
 #ifdef ENABLE_WIREGUARD
 
-/* ctx_is_wireguard is used to check whether ctx is a WireGuard network packet.
- * This function returns true in case all the following conditions are satisfied:
+/* wg_do_decrypt is used to mark encrypted network packets for decryption.
+ * A packet is marked in case all the following conditions are satisfied:
  *
  * - ctx is a UDP packet;
  * - L4 dport == CONFIG(wg_port);
  * - L4 sport == dport;
  * - valid identity in cluster.
  */
-static __always_inline bool
-ctx_is_wireguard(struct __ctx_buff *ctx, int l4_off, __u8 protocol, __u32 identity)
+static __always_inline int
+wg_do_decrypt(struct __ctx_buff *ctx, __be16 proto, __u32 identity)
 {
+	void *data __maybe_unused, *data_end __maybe_unused;
+	struct ipv6hdr __maybe_unused *ip6;
+	struct iphdr __maybe_unused *ip4;
 	struct {
 		__be16 sport;
 		__be16 dport;
 	} l4;
+	__u8 protocol;
+	int hdrlen;
+
+	switch (proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			goto out;
+		protocol = ip6->nexthdr;
+		hdrlen = ipv6_hdrlen(ctx, &protocol);
+		if (unlikely(hdrlen <= 0))
+			goto out;
+		break;
+#endif
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			goto out;
+		protocol = ip4->protocol;
+		hdrlen = ipv4_hdrlen(ip4);
+		break;
+#endif
+	default:
+		goto out;
+	}
 
 	/* Non-UDP packets. */
 	if (protocol != IPPROTO_UDP)
-		return false;
+		goto out;
 
 	/* Unable to retrieve L4 ports. */
-	if (l4_load_ports(ctx, l4_off + UDP_SPORT_OFF, &l4.sport) < 0)
-		return false;
+	if (l4_load_ports(ctx, ETH_HLEN + hdrlen + UDP_SPORT_OFF, &l4.sport) < 0)
+		goto out;
 
 	/* Packet is not for cilium@WireGuard.*/
 	if (l4.dport != bpf_htons(CONFIG(wg_port)))
-		return false;
+		goto out;
 
 	/* Packet does not come from cilium@WireGuard. */
 	if (l4.sport != l4.dport)
-		return false;
+		goto out;
 
 	/* Identity not in cluster. */
 	if (!identity_is_cluster(identity))
-		return false;
+		goto out;
 
-	/* Cilium-related WireGuard packet to be traced as encrypted. */
-	return true;
+	/* Cilium-related WireGuard packet, let's set decrypt mark. */
+	set_decrypt_mark(ctx, 0);
+out:
+	return CTX_ACT_OK;
 }
 
 static __always_inline int

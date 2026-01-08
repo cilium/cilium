@@ -24,21 +24,30 @@
 ASSIGN_CONFIG(__u32, wg_ifindex, 42)
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 
-PKTGEN("tc", "ctx_is_wireguard_success")
 static __always_inline int
-pktgen_wireguard_mock_check1(struct __ctx_buff *ctx) {
+ctx_is_wireguard_pktgen(struct __ctx_buff *ctx, bool is_ipv4) {
 	struct pktgen builder;
 	struct udphdr *l4;
 
 	pktgen__init(&builder, ctx);
 
-	l4 = pktgen__push_ipv4_udp_packet(&builder,
-					  (__u8 *)mac_one,
-					  (__u8 *)mac_two,
-					  v4_node_one,
-					  v4_node_two,
-					  bpf_htons(CONFIG(wg_port)),
-					  bpf_htons(CONFIG(wg_port)));
+	if (is_ipv4)
+		l4 = pktgen__push_ipv4_udp_packet(&builder,
+						  (__u8 *)mac_one,
+						  (__u8 *)mac_two,
+						  v4_node_one,
+						  v4_node_two,
+						  bpf_htons(CONFIG(wg_port)),
+						  bpf_htons(CONFIG(wg_port)));
+	else
+		l4 = pktgen__push_ipv6_udp_packet(&builder,
+						  (__u8 *)mac_one,
+						  (__u8 *)mac_two,
+						  (__u8 *)v6_node_one,
+						  (__u8 *)v6_node_two,
+						  bpf_htons(CONFIG(wg_port)),
+						  bpf_htons(CONFIG(wg_port)));
+
 	if (!l4)
 		return TEST_ERROR;
 
@@ -47,44 +56,85 @@ pktgen_wireguard_mock_check1(struct __ctx_buff *ctx) {
 	return 0;
 }
 
-CHECK("tc", "ctx_is_wireguard_success")
-int check1(struct __ctx_buff *ctx)
+int ctx_is_wireguard_check(struct __ctx_buff *ctx, bool is_ipv4)
 {
 	test_init();
 
 	void *data, *data_end = NULL;
-	struct iphdr *ipv4 = NULL;
+	struct iphdr *ip4 = NULL;
+	struct ipv6hdr *ip6 = NULL;
 	struct udphdr *udp = NULL;
-	int l4_off = 0;
-	__u8 protocol = 0;
+	__be16 proto = is_ipv4 ? bpf_htons(ETH_P_IP) : bpf_htons(ETH_P_IPV6);
 
-	assert(revalidate_data(ctx, &data, &data_end, &ipv4));
+	TEST("wg-encrypted-valid", {
+		wg_do_decrypt(ctx, proto, CLUSTER_IDENTITY);
+		assert(ctx_is_decrypt(ctx));
+	})
 
-	udp = (void *)ipv4 + sizeof(struct iphdr);
+	/* Restore mark for subsequent tests. */
+	ctx->mark = 0;
 
-	assert((void *)udp + sizeof(struct udphdr) <= data_end)
+	TEST("wg-encrypted-invalid-identity", {
+		wg_do_decrypt(ctx, proto, CIDR_IDENTITY_RANGE_START);
+		assert(!ctx_is_decrypt(ctx));
+	})
 
-	l4_off = ETH_LEN + ipv4_hdrlen(ipv4);
-	protocol = ipv4->protocol;
+	TEST("wg-encrypted-invalid-proto", {
+		if (is_ipv4) {
+			assert(revalidate_data(ctx, &data, &data_end, &ip4));
+			ip4->protocol = IPPROTO_TCP;
+		} else {
+			assert(revalidate_data(ctx, &data, &data_end, &ip6));
+			ip6->nexthdr = IPPROTO_TCP;
+		}
+		wg_do_decrypt(ctx, proto, CLUSTER_IDENTITY);
+		assert(!ctx_is_decrypt(ctx));
+		/* Restore protocol for subsequent tests. */
+		if (is_ipv4)
+			ip4->protocol = IPPROTO_UDP;
+		else
+			ip6->nexthdr = IPPROTO_UDP;
+	})
 
-	/* Valid Wireguard packet. */
-	assert(ctx_is_wireguard(ctx, l4_off, protocol, CLUSTER_IDENTITY));
-
-	/* Invalid identity within CIDR. */
-	assert(!ctx_is_wireguard(ctx, l4_off, protocol, CIDR_IDENTITY_RANGE_START));
-
-	/* Invalid protocol TCP. */
-	assert(!ctx_is_wireguard(ctx, l4_off, IPPROTO_TCP, CLUSTER_IDENTITY));
-
-	/* Invalid L4 offset. */
-	assert(!ctx_is_wireguard(ctx, l4_off + 2, protocol, CLUSTER_IDENTITY));
-
-	udp->source += 1;
-
-	/* Invalid L4 ports mismatching. */
-	assert(!ctx_is_wireguard(ctx, l4_off, protocol, CLUSTER_IDENTITY));
+	TEST("wg-encrypted-invalid-ports", {
+		if (is_ipv4) {
+			assert(revalidate_data(ctx, &data, &data_end, &ip4));
+			udp = (void *)ip4 + sizeof(struct iphdr);
+		} else {
+			assert(revalidate_data(ctx, &data, &data_end, &ip6));
+			udp = (void *)ip6 + sizeof(struct ipv6hdr);
+		}
+		assert((void *)udp + sizeof(struct udphdr) <= data_end)
+		udp->source += 1;
+		wg_do_decrypt(ctx, proto, CLUSTER_IDENTITY);
+		assert(!ctx_is_decrypt(ctx));
+	})
 
 	test_finish();
+}
+
+PKTGEN("tc", "ctx_is_wireguard_ipv4")
+static __always_inline int
+ctx_is_wireguard_ipv4_pktgen(struct __ctx_buff *ctx) {
+	return ctx_is_wireguard_pktgen(ctx, true);
+}
+
+CHECK("tc", "ctx_is_wireguard_ipv4")
+int ctx_is_wireguard_ipv4_check(struct __ctx_buff *ctx)
+{
+	return ctx_is_wireguard_check(ctx, true);
+}
+
+PKTGEN("tc", "ctx_is_wireguard_ipv6")
+static __always_inline int
+ctx_is_wireguard_ipv6_pktgen(struct __ctx_buff *ctx) {
+	return ctx_is_wireguard_pktgen(ctx, false);
+}
+
+CHECK("tc", "ctx_is_wireguard_ipv6")
+int ctx_is_wireguard_ipv6_check(struct __ctx_buff *ctx)
+{
+	return ctx_is_wireguard_check(ctx, false);
 }
 
 CHECK("tc", "ctx_is_encrypt_success")
