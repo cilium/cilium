@@ -212,9 +212,9 @@ func GetIPv4(logger *slog.Logger) net.IP {
 func GetCiliumEndpointNodeIP(logger *slog.Logger) string {
 	n := getLocalNode(logger)
 	if option.Config.EnableIPv4 && n.Local.UnderlayProtocol == tunnel.IPv4 {
-		return GetIPv4(logger).String()
+		return n.GetNodeIP(false).String()
 	}
-	return GetIPv6(logger).String()
+	return n.GetNodeIP(true).String()
 }
 
 // GetInternalIPv4Router returns the cilium internal IPv4 node address. This must not be conflated with
@@ -258,11 +258,13 @@ func SetIPv6NodeRange(net *cidr.CIDR) {
 func AutoComplete(logger *slog.Logger, directRoutingDevice string) error {
 	initDefaultPrefix(logger, directRoutingDevice)
 
-	if option.Config.EnableIPv6 && GetIPv6AllocRange(logger) == nil {
+	ln := getLocalNode(logger)
+
+	if option.Config.EnableIPv6 && ln.IPv6AllocCIDR == nil {
 		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specify --%s", option.IPv6Range)
 	}
 
-	if option.Config.EnableIPv4 && GetIPv4AllocRange(logger) == nil {
+	if option.Config.EnableIPv4 && ln.IPv4AllocCIDR == nil {
 		return fmt.Errorf("IPv4 allocation CIDR is not configured. Please specify --%s", option.IPv4Range)
 	}
 
@@ -272,17 +274,19 @@ func AutoComplete(logger *slog.Logger, directRoutingDevice string) error {
 // ValidatePostInit validates the entire addressing setup and completes it as
 // required
 func ValidatePostInit(logger *slog.Logger) error {
+	ln := getLocalNode(logger)
+
 	if option.Config.EnableIPv4 {
-		if GetIPv4(logger) == nil {
+		if ln.GetNodeIP(false) == nil {
 			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
 		}
 	}
 
-	if option.Config.TunnelingEnabled() && GetIPv4(logger) == nil && GetIPv6(logger) == nil {
+	if option.Config.TunnelingEnabled() && ln.GetNodeIP(false) == nil && ln.GetNodeIP(true) == nil {
 		return fmt.Errorf("external node address could not be derived, please configure via --ipv4-node or --ipv6-node")
 	}
 
-	if option.Config.EnableIPv4 && GetInternalIPv4Router(logger) == nil {
+	if option.Config.EnableIPv4 && ln.GetCiliumInternalIP(false) == nil {
 		return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
 	}
 
