@@ -9,7 +9,11 @@ inputs:
     required: false
   sbom_name:
     description: 'Name for the SBOM artifact and file (e.g., "cilium_v1.2.3")'
-    required: true
+    required: false
+  attach_sbom:
+    description: 'Attach SBOM'
+    required: false
+    default: 'true'
   generate_sbom:
     description: 'Generate SBOM'
     required: false
@@ -78,6 +82,7 @@ runs:
         sign_with_retry "${{ inputs.image }}"
 
     - name: Attach SBOM Attestation
+      if: ${{ inputs.attach_sbom == 'true' }}
       shell: bash
       run: |
         # Function to retry cosign attestation with exponential backoff
