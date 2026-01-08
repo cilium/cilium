@@ -588,7 +588,7 @@ func (ec *elfCode) relocateInstruction(ins *asm.Instruction, rel elf.Symbol) err
 
 			switch typ {
 			case elf.STT_NOTYPE, elf.STT_FUNC:
-				if bind != elf.STB_GLOBAL {
+				if bind != elf.STB_GLOBAL && bind != elf.STB_WEAK {
 					return fmt.Errorf("call: %s: %w: %s", name, errUnsupportedBinding, bind)
 				}
 
