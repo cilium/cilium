@@ -44,6 +44,76 @@ concurrency:
 jobs:
   release:
     name: Release
+    if: ${{ inputs.step != '5-publish-helm' }}
+    environment: release-tool
+    timeout-minutes: 40
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.25.5
+
+      - name: Get token
+        id: get_token
+        uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
+        with:
+          APP_PEM: ${{ secrets.CILIUM_RELEASE_BOT_PEM }}
+          APP_ID: ${{ secrets.CILIUM_RELEASE_BOT_APP_ID }}
+
+      - name: Authenticate with GH CLI
+        run: |
+          gh auth login --with-token <<< "${{ steps.get_token.outputs.app_token }}"
+
+      - name: Checkout release tool
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+          repository: cilium/release
+          path: "./release"
+
+      - name: Move release source code to upper directory
+        run: mv release ../
+
+      - name: Checkout cilium source code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Build release tool
+        shell: bash
+        run: |
+          cd ../release
+          make
+
+      - name: Set-up git
+        run: |
+          git config user.name "Cilium Release Bot"
+          git config user.email "noreply@cilium.io"
+          git remote set-url origin https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.repository }}.git
+
+      - name: Run release tool
+        shell: bash
+        env:
+          GITHUB_TOKEN: "${{ steps.get_token.outputs.app_token }}"
+          ORG: "${{ github.repository_owner }}"
+        run: |
+          cd ../release
+          ./release start \
+            --force \
+            --release-tool-dir "$(pwd)" \
+            --charts-repo-dir "$(pwd)/../charts" \
+            --repo-dir "$(pwd)/../cilium" \
+            --repo ${{ github.repository }} \
+            --target-version ${{ inputs.version }} \
+            --steps ${{ inputs.step }} \
+            --exclude-labels "cilium-cli-exclusive"
+
+  release-helm:
+    name: Release Helm
+    if: ${{ inputs.step == '5-publish-helm' }}
     environment: release-tool
     timeout-minutes: 40
     runs-on: ubuntu-24.04
@@ -55,7 +125,6 @@ jobs:
           go-version: 1.25.5
 
       - name: Install helm
-        if: ${{ inputs.step == '5-publish-helm' }}
         shell: bash
         run: |
           # We don't want renovate to update this version, because we want to
@@ -88,7 +157,6 @@ jobs:
         run: mv release ../
 
       - name: Checkout helm chart
-        if: ${{ inputs.step == '5-publish-helm' }}
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
@@ -96,7 +164,6 @@ jobs:
           path: "./cilium-charts"
 
       - name: Set up charts repository git configuration
-        if: ${{ inputs.step == '5-publish-helm' }}
         shell: bash
         run: |
           mv cilium-charts ../charts
@@ -142,7 +209,6 @@ jobs:
             --exclude-labels "cilium-cli-exclusive"
 
       - name: Wait for helm chart PR checks and merge
-        if: ${{ inputs.step == '5-publish-helm' }}
         shell: bash
         env:
           GITHUB_TOKEN: "${{ steps.get_token.outputs.app_token }}"
