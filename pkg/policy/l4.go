@@ -367,13 +367,12 @@ type ListenerPriority = types.ListenerPriority
 // MapStateEntry stores this reverted in 'ProxyPortPriority' where higher numbers have higher
 // precedence
 const (
-	ListenerPriorityNone     ListenerPriority = 0
-	ListenerPriorityHTTP     ListenerPriority = 101
-	ListenerPriorityKafka    ListenerPriority = 106
-	ListenerPriorityProxylib ListenerPriority = 111
-	ListenerPriorityTLS      ListenerPriority = 116
-	ListenerPriorityDNS      ListenerPriority = 121
-	ListenerPriorityCRD      ListenerPriority = 126
+	ListenerPriorityNone  ListenerPriority = 0
+	ListenerPriorityHTTP  ListenerPriority = 101
+	ListenerPriorityKafka ListenerPriority = 106
+	ListenerPriorityTLS   ListenerPriority = 116
+	ListenerPriorityDNS   ListenerPriority = 121
+	ListenerPriorityCRD   ListenerPriority = 126
 )
 
 // defaultPriority maps the parser type to an "API listener priority"
@@ -392,8 +391,8 @@ func (l7 L7ParserType) defaultPriority() ListenerPriority {
 	case ParserTypeCRD:
 		// CRD type can have an explicit higher priority in range 1-100
 		return ListenerPriorityCRD
-	default: // proxylib parsers
-		return ListenerPriorityProxylib
+	default:
+		return ListenerPriorityNone
 	}
 }
 
@@ -405,9 +404,6 @@ const (
 	redirectTypeDNS redirectTypes = 1 << iota
 	// redirectTypeEnvoy bit is set when policy contains a redirection to Envoy
 	redirectTypeEnvoy
-	// redirectTypeProxylib bits are set when policy contains a redirection to Proxylib (via
-	// Envoy)
-	redirectTypeProxylib redirectTypes = 1<<iota | redirectTypeEnvoy
 
 	// redirectTypeNone represents the case where there is no proxy redirect
 	redirectTypeNone redirectTypes = redirectTypes(0)
@@ -1186,8 +1182,7 @@ func (sp *PerSelectorPolicy) redirectType() redirectTypes {
 	case ParserTypeHTTP, ParserTypeTLS, ParserTypeCRD:
 		return redirectTypeEnvoy
 	default:
-		// all other (non-empty) values are used for proxylib redirects
-		return redirectTypeProxylib
+		return redirectTypeNone
 	}
 }
 
@@ -1744,11 +1739,6 @@ func (l4 *L4Policy) HasRedirect() bool {
 // HasEnvoyRedirect returns true if the L4 policy contains at least one port redirection to Envoy
 func (l4 *L4Policy) HasEnvoyRedirect() bool {
 	return l4 != nil && l4.redirectTypes&redirectTypeEnvoy == redirectTypeEnvoy
-}
-
-// HasProxylibRedirect returns true if the L4 policy contains at least one port redirection to Proxylib
-func (l4 *L4Policy) HasProxylibRedirect() bool {
-	return l4 != nil && l4.redirectTypes&redirectTypeProxylib == redirectTypeProxylib
 }
 
 // GetModel returns the API model of the L4 policy.

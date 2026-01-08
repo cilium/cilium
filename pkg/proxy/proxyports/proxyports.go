@@ -172,11 +172,11 @@ func defaultProxyPortMap() proxyPortsMap {
 			ProxyType: types.ProxyTypeDNS,
 			Ingress:   false,
 		},
-		"cilium-proxylib-egress": {
+		"cilium-generic-egress": {
 			ProxyType: types.ProxyTypeAny,
 			Ingress:   false,
 		},
-		"cilium-proxylib-ingress": {
+		"cilium-generic-ingress": {
 			ProxyType: types.ProxyTypeAny,
 			Ingress:   true,
 		},
@@ -499,10 +499,6 @@ func (p *ProxyPorts) FindByTypeWithReference(l7Type types.ProxyType, listener st
 	case types.ProxyTypeDNS, types.ProxyTypeHTTP:
 		// Look up by the given type
 	default:
-		// "Unknown" parsers are assumed to be Proxylib (TCP) parsers, which
-		// is registered with an empty string.
-		// This works also for explicit TCP and TLS parser types, which are backed by the
-		// TCP Proxy filter chain.
 		portType = types.ProxyTypeAny
 	}
 	// proxyPorts is small enough to not bother indexing it.

@@ -243,8 +243,7 @@ func (e MapStateEntry) WithDeny(isDeny bool) MapStateEntry {
 // 100 - lowest (non-default) listener priority
 // 101 - priority for HTTP parser type
 // 106 - priority for the Kafka parser type
-// 111 - priority for the proxylib parsers
-// 116 - priority for TLS interception parsers (can be promoted to HTTP/Kafka/proxylib)
+// 116 - priority for TLS interception parsers (can be promoted to HTTP/Kafka)
 // 121 - priority for DNS parser type
 // 126 - default priority for CRD parser type
 // 127 - reserved (listener priority passed as 0)
