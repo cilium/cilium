@@ -8,6 +8,8 @@
 #include <linux/ip.h>
 #include "ipv6.h"
 
+DECLARE_CONFIG(bool, hybrid_routing_enabled, "Enable hybrid mode routing based on subnet IDs")
+
 #define SUBNET_MAP_SIZE 1024
 
 struct subnet_key {
