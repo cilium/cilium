@@ -1240,7 +1240,7 @@ func (resMap *L4PolicyMap) addL4Filter(policyCtx PolicyContext, filterToMerge *L
 func makeL4PolicyMap() L4PolicyMap {
 	return L4PolicyMap{
 		NamedPortMap: make(map[string]*L4Filter),
-		RangePortMap: make(map[portProtoKey]*L4Filter),
+		RangePortMap: make(rangePortMap),
 	}
 }
 
@@ -1306,7 +1306,43 @@ type L4PolicyMap struct {
 	NamedPortMap map[string]*L4Filter
 	// RangePortMap is a map of all L4Filters indexed by their port-
 	// protocol.
-	RangePortMap map[portProtoKey]*L4Filter
+	RangePortMap rangePortMap
+}
+
+type rangePortMap map[portProtoKey]*L4Filter
+
+func (r rangePortMap) MarshalJSON() ([]byte, error) {
+	if len(r) == 0 {
+		return []byte{'{', '}'}, nil
+	}
+
+	first := true
+	buffer := bytes.NewBufferString("{")
+	for ppk, filter := range r {
+		if !first {
+			buffer.WriteRune(',')
+		}
+		first = false
+
+		buffer.WriteRune('"')
+		buffer.WriteString(strconv.FormatUint(uint64(ppk.Port), 10))
+		buffer.WriteRune('-')
+		buffer.WriteString(strconv.FormatUint(uint64(ppk.EndPort), 10))
+		buffer.WriteRune('/')
+		buffer.WriteString(strconv.FormatUint(uint64(ppk.Proto), 10))
+		buffer.WriteRune('"')
+
+		buffer.WriteRune(':')
+
+		b, err := json.Marshal(filter)
+		if err != nil {
+			return nil, err
+		}
+		buffer.Write(b)
+	}
+	buffer.WriteRune('}')
+
+	return buffer.Bytes(), nil
 }
 
 // upsert L4Filter adds an L4Filter indexed by protocol/port-endPort.
