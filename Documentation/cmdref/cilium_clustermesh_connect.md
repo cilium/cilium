@@ -11,12 +11,13 @@ cilium clustermesh connect [flags]
 ### Options
 
 ```
-      --connection-mode string         Connection mode: unicast, bidirectional or mesh (default "bidirectional")
-      --destination-context strings    Comma separated list of Kubernetes configuration contexts of destination cluster
-      --destination-endpoint strings   IP of ClusterMesh service of destination cluster
-  -h, --help                           help for connect
-      --parallel int                   Number of parallel connection of destination cluster (default 1)
-      --source-endpoint strings        IP of ClusterMesh service of source cluster
+      --connection-mode string             Connection mode: unicast, bidirectional or mesh (default "bidirectional")
+      --destination-context strings        Comma separated list of Kubernetes configuration contexts of destination cluster
+      --destination-endpoint strings       IP of ClusterMesh service of destination cluster
+  -h, --help                               help for connect
+      --parallel int                       Number of parallel connection of destination cluster (default 1)
+      --source-endpoint strings            IP of ClusterMesh service of source cluster
+      --wait-duration-ca-bundle duration   Maximum time to wait for the CA bundle update operation to complete (default 15m0s)
 ```
 
 ### Options inherited from parent commands

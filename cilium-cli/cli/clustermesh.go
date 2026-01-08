@@ -223,4 +223,5 @@ func addCommonConnectFlags(cmd *cobra.Command, params *clustermesh.Parameters) {
 	cmd.Flags().StringSliceVar(&params.DestinationEndpoints, "destination-endpoint", []string{}, "IP of ClusterMesh service of destination cluster")
 	cmd.Flags().StringSliceVar(&params.SourceEndpoints, "source-endpoint", []string{}, "IP of ClusterMesh service of source cluster")
 	cmd.Flags().IntVar(&params.Parallel, "parallel", 1, "Number of parallel connection of destination cluster")
+	cmd.Flags().DurationVar(&params.CABundleWaitDuration, "wait-duration-ca-bundle", 15*time.Minute, "Maximum time to wait for the CA bundle update operation to complete")
 }

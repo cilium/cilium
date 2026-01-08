@@ -68,7 +68,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning, ciliumNodeConfigDeprecation,
 		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
-		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn}
+		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn, cepInformerDelay}
 
 	if ciliumVersion.LT(semver.MustParse("1.18.0")) {
 		errorLogExceptions = append(errorLogExceptions, linkNotFound)
@@ -464,7 +464,8 @@ const (
 	k8sEndpointDeprecatedWarn stringMatcher = "v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice" // cf. https://github.com/cilium/cilium/issues/39105
 	proxylibDeprecatedWarn    stringMatcher = "The support for Envoy Go Extensions (proxylib) has been deprecated"          // cf. https://github.com/cilium/cilium/issues/38224
 
-	certloaderInitialLoadWarn stringMatcher = certloader.InitialLoadWarn // Expected when certificates are not yet mounted.
+	certloaderInitialLoadWarn stringMatcher = certloader.InitialLoadWarn                                                       // Expected when certificates are not yet mounted.
+	cepInformerDelay          stringMatcher = "CEP was deleted externally or there is a significant delay on the CEP informer" // Transient warning that can happen if the local clustermesh-apiserver restart
 
 	// Logs messages that should not be in the cilium-envoy DS logs
 	envoyErrorMessage    = "[error]"

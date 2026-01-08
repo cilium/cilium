@@ -8,7 +8,6 @@ import (
 	"cmp"
 	"context"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -101,6 +100,7 @@ type Parameters struct {
 	ConnectionMode       string
 	Wait                 bool
 	WaitDuration         time.Duration
+	CABundleWaitDuration time.Duration
 	DestinationEndpoints []string
 	SourceEndpoints      []string
 	Parallel             int
@@ -133,6 +133,14 @@ type notConnectedError struct{ error }
 func (p Parameters) waitTimeout() time.Duration {
 	if p.WaitDuration != time.Duration(0) {
 		return p.WaitDuration
+	}
+
+	return time.Minute * 15
+}
+
+func (p Parameters) caBundleWaitTimeout() time.Duration {
+	if p.CABundleWaitDuration != time.Duration(0) {
+		return p.CABundleWaitDuration
 	}
 
 	return time.Minute * 15
@@ -185,8 +193,6 @@ type accessInformation struct {
 	ClusterID            string             `json:"cluster_id,omitempty"`
 	ClusterName          string             `json:"cluster_name,omitempty"`
 	CA                   []byte             `json:"ca,omitempty"`
-	ClientCert           []byte             `json:"client_cert,omitempty"`
-	ClientKey            []byte             `json:"client_key,omitempty"`
 	Tunnel               string             `json:"tunnel,omitempty"`
 	MaxConnectedClusters int                `json:"max_connected_clusters,omitempty"`
 }
@@ -305,19 +311,10 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		return nil, fmt.Errorf("unable to get client secret to access clustermesh service: %w", err)
 	}
 
-	clientKey, ok := meshSecret.Data[corev1.TLSPrivateKeyKey]
-	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", meshSecret.Name, corev1.TLSPrivateKeyKey)
-	}
-
-	clientCert, ok := meshSecret.Data[corev1.TLSCertKey]
-	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain key %q", meshSecret.Name, corev1.TLSCertKey)
-	}
-
 	caCert, err := k.getCACert(ctx, client)
 	// We failed to retrieve the CA from its own secret, let's fallback to the ca.crt certificate inside the mesh secret.
 	if err != nil {
+		var ok bool
 		caCert, ok = meshSecret.Data[defaults.CASecretCertName]
 		if !ok {
 			return nil, fmt.Errorf("unable to retrieve the CA certificate: %w", err)
@@ -336,8 +333,6 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		ClusterID:            clusterID,
 		ClusterName:          clusterName,
 		CA:                   caCert,
-		ClientKey:            clientKey,
-		ClientCert:           clientCert,
 		ServiceType:          svc.Spec.Type,
 		ServiceIPs:           []string{},
 		Tunnel:               tunnelProtocol,
@@ -1160,6 +1155,7 @@ type ClusterState struct {
 	localOldClusters          map[string]any            // current enabled clusters values
 	localDisabledClusters     map[string]any            // current disabled clusters values
 	localNewClusters          map[string]any            // new clusters values
+	clustersCA                map[string]string         // map of cluster name to CA certificate
 	remoteClustersMesh        map[string]map[string]any // Clusters values for all remote cluster in mesh mode
 	remoteClustersBD          map[string]map[string]any // Clusters values for all remote cluster bidirectional mode
 	remoteClients             map[string]*k8s.Client    // Map of remoteClients to apply remoteClustersMesh or remoteClustersBD
@@ -1176,6 +1172,7 @@ func processLocalClient(localRelease *release.Release) (*ClusterState, error) {
 		localOldClusters:          make(map[string]any),
 		localDisabledClusters:     make(map[string]any),
 		localNewClusters:          make(map[string]any),
+		clustersCA:                make(map[string]string),
 		remoteClustersMesh:        make(map[string]map[string]any),
 		remoteClustersBD:          make(map[string]map[string]any),
 		remoteClients:             make(map[string]*k8s.Client),
@@ -1210,11 +1207,28 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	if err != nil {
 		return err
 	} else if !match {
-		k.Log("⚠️ Cilium CA certificates do not match between clusters. Multicluster features will be limited!")
+		k.Log("⚠️ Cilium CA certificates do not match between clusters. Remote cluster CA will be trusted in CA bundle")
 	}
 
+	localCA := string(aiLocal.CA)
+	remoteCA := string(aiRemote.CA)
+	if match {
+		// Try to reduce duplication by reusing existing CA certificate if possible
+		ca := localCA
+		if existingCA, ok := state.clustersCA[aiLocal.ClusterName]; ok {
+			ca = existingCA
+		}
+		if existingCA, ok := state.clustersCA[aiRemote.ClusterName]; ok {
+			ca = existingCA
+		}
+		localCA = ca
+		remoteCA = ca
+	}
+	state.clustersCA[aiLocal.ClusterName] = localCA
+	state.clustersCA[aiRemote.ClusterName] = remoteCA
+
 	// Expand those clusters to include the clustermesh configuration
-	newClusterName, newCluster := getCluster(aiRemote, !match)
+	newClusterName, newCluster := getCluster(aiRemote)
 	if _, ok := state.localNewClusters[newClusterName]; ok {
 		return fmt.Errorf("Multiple remote clusters have the same name '%s'", newClusterName)
 	}
@@ -1234,7 +1248,7 @@ func (k *K8sClusterMesh) processSingleRemoteClient(ctx context.Context, remoteCl
 	state.remoteOldClustersAll[aiRemote.ClusterName] = remoteOldClusters
 	state.remoteOldDisabledClusters[aiRemote.ClusterName] = remoteDisabledClusters
 
-	state.remoteNewClusterName, state.remoteNewCluster = getCluster(aiLocal, !match)
+	state.remoteNewClusterName, state.remoteNewCluster = getCluster(aiLocal)
 	remoteClusters, err := mergeClusters(remoteOldClusters, map[string]any{state.remoteNewClusterName: state.remoteNewCluster}, "")
 	if err != nil {
 		return err
@@ -1321,6 +1335,91 @@ func setClustersInValues(release *release.Release, client *k8s.Client, clusters 
 	return nil
 }
 
+func updateCABundleInValues(client *k8s.Client, release *release.Release, clustersCA map[string]string) (bool, error) {
+	caBundleRaw, found, err := unstructured.NestedFieldCopy(release.Config, "tls", "caBundle")
+	if err != nil {
+		return false, fmt.Errorf("existing clustermesh.config is invalid")
+	}
+	if !found || caBundleRaw == nil {
+		caBundleRaw = map[string]any{}
+	}
+	caBundle, ok := caBundleRaw.(map[string]any)
+	if !ok {
+		return false, fmt.Errorf("existing tls.caBundle values are invalid for cluster %s", client.ClusterName())
+	}
+	content := ""
+	if contentRaw, ok := caBundle["content"]; ok {
+		content, ok = contentRaw.(string)
+		if !ok {
+			return false, fmt.Errorf("existing tls.caBundle.content values are invalid for cluster %s", client.ClusterName())
+		}
+	}
+	content = strings.TrimSpace(content)
+
+	newContent := content
+	for _, clusterCA := range clustersCA {
+		if strings.Contains(newContent, clusterCA) {
+			continue
+		}
+		newContent += "\n" + clusterCA
+	}
+
+	newContent = strings.TrimSpace(newContent)
+	if content == newContent {
+		return false, nil
+	}
+
+	if _, ok := release.Config["tls"]; !ok {
+		release.Config["tls"] = map[string]any{}
+	}
+	tlsValues, ok := release.Config["tls"].(map[string]any)
+	if !ok {
+		return false, fmt.Errorf("existing tls values are invalid for cluster %s", client.ClusterName())
+	}
+
+	if _, ok := tlsValues["caBundle"]; !ok {
+		tlsValues["caBundle"] = map[string]any{}
+	}
+	caBundleValues, ok := tlsValues["caBundle"].(map[string]any)
+	if !ok {
+		return false, fmt.Errorf("existing tls.caBundle values are invalid for cluster %s", client.ClusterName())
+	}
+
+	caBundleValues["enabled"] = true
+	caBundleValues["content"] = newContent
+	return true, nil
+}
+
+func (k *K8sClusterMesh) helmUpgradeCABundleOnly(ctx context.Context, client *k8s.Client, clustersCA map[string]string) (bool, error) {
+	release, err := getRelease(client, k.params)
+	if err != nil {
+		return false, err
+	}
+
+	modified, err := updateCABundleInValues(client, release, clustersCA)
+	if err != nil {
+		return false, err
+	}
+	if !modified {
+		return false, nil
+	}
+
+	upgradeParams := helm.UpgradeParameters{
+		Namespace:    k.params.Namespace,
+		Name:         k.params.HelmReleaseName,
+		Values:       release.Config,
+		ResetValues:  false,
+		ReuseValues:  false,
+		Wait:         true,
+		WaitDuration: k.params.caBundleWaitTimeout(),
+	}
+	_, err = helm.Upgrade(ctx, client.HelmActionConfig, upgradeParams)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Client, clusters, disabledClusters map[string]any) error {
 	release, err := getRelease(client, k.params)
 	if err != nil {
@@ -1362,6 +1461,32 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 		return err
 	}
 	return nil
+}
+
+func (k *K8sClusterMesh) updateAllClustersCABundle(ctx context.Context, localClient *k8s.Client, state *ClusterState) error {
+	allClients := []*k8s.Client{localClient}
+	allClients = append(allClients, slices.Collect(maps.Values(state.remoteClients))...)
+
+	var wg sync.WaitGroup
+	var mu lock.Mutex
+	var firstErr error
+
+	for _, client := range allClients {
+		wg.Go(func() {
+			k.Log("ℹ️ Updating CA bundle on cluster %s", client.ClusterName())
+			_, err := k.helmUpgradeCABundleOnly(ctx, client, state.clustersCA)
+			if err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = fmt.Errorf("failed to update CA bundle on cluster %s: %w", client.ClusterName(), err)
+				}
+				mu.Unlock()
+			}
+		})
+	}
+
+	wg.Wait()
+	return firstErr
 }
 
 func (k *K8sClusterMesh) checkConnectionMode() error {
@@ -1414,6 +1539,13 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 
 	err = processRemoteHelmClustersMesh(clusterState)
 	if err != nil {
+		return err
+	}
+
+	// First update CA bundle on all clusters before actually connecting.
+	// This helps avoiding potential errors due to CA not being trusted yet when
+	// connecting clusters.
+	if err := k.updateAllClustersCABundle(ctx, localClient, clusterState); err != nil {
 		return err
 	}
 
@@ -1709,24 +1841,11 @@ func getClustersFromValues(values map[string]any) (map[string]any, map[string]an
 	return separateEnabledClusters(clusters)
 }
 
-func getCluster(ai *accessInformation, configTLS bool) (string, map[string]any) {
+func getCluster(ai *accessInformation) (string, map[string]any) {
 	remoteCluster := map[string]any{
 		"ips":  ai.ServiceIPs,
 		"port": ai.ServicePort,
 	}
-
-	// Only add TLS configuration if requested (probably because CA
-	// certs do not match among clusters). Note that this is a DEGRADED
-	// mode of operation in which client certificates will not be
-	// renewed automatically and cross-cluster Hubble does not operate.
-	if configTLS {
-		remoteCluster["tls"] = map[string]any{
-			"cert":   base64.StdEncoding.EncodeToString(ai.ClientCert),
-			"key":    base64.StdEncoding.EncodeToString(ai.ClientKey),
-			"caCert": base64.StdEncoding.EncodeToString(ai.CA),
-		}
-	}
-
 	return ai.ClusterName, remoteCluster
 }
 
