@@ -127,15 +127,15 @@ jobs:
           #   - On schedule (direct trigger, not workflow_call): include all configs (with L3/L4 AND L7)
           #   - Otherwise: include only test-l7: false configs (L3/L4 only)
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
-            jq '[.[] | select(.["test-l7"] == "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+            jq '[.[] | select(.["test-l7"] == "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Filtering matrix to test-l7: true configurations only (${CONFIG_COUNT} configs for L7-only testing)"
           elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" = "false" ]; then
-            jq '[.[] | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+            jq '[.[] | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
           else
-            jq '[.[] | select(.["test-l7"] != "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}]] | flatten' configs.json > matrix.json
+            jq '[.[] | select(.["test-l7"] != "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including only test-l7: false configurations (${CONFIG_COUNT} configs - L3/L4 testing only)"
           fi
