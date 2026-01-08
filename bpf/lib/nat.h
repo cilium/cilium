@@ -1815,7 +1815,7 @@ struct {
 	__type(value, struct ipv6_nat_target);
 } nat_target_storage __section_maps_btf;
 
-static __always_inline int
+__attribute__((noinline)) __attribute__((__weak__)) int
 snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 fraginfo_t fraginfo __maybe_unused,
 			 int l4_off __maybe_unused)
