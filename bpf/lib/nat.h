@@ -1684,9 +1684,9 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 }
 
 static __always_inline int
-snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
-			 fraginfo_t fraginfo, int l4_off,
-			 struct ipv6_nat_target *target)
+__snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
+			   fraginfo_t fraginfo, int l4_off,
+			   struct ipv6_nat_target *target)
 {
 	union v6addr masq_addr = CONFIG(nat_ipv6_masquerade);
 	const struct remote_endpoint_info *remote_ep;
@@ -1800,6 +1800,43 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	}
 
 	return NAT_PUNT_TO_STACK;
+}
+
+/* Store struct ipv6_ct_tuple and struct ipv6_nat_target objects in maps to
+ * optimize stack usage.
+ */
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct ipv6_ct_tuple);
+} ct_tuple_storage __section_maps_btf;
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct ipv6_nat_target);
+} nat_target_storage __section_maps_btf;
+
+static __always_inline int
+snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
+			 fraginfo_t fraginfo __maybe_unused,
+			 int l4_off __maybe_unused)
+{
+	struct ipv6_nat_target *target;
+	struct ipv6_ct_tuple *tuple;
+	int ret, zero = 0;
+
+	tuple = map_lookup_elem(&ct_tuple_storage, &zero);
+	if (!tuple)
+		return DROP_INVALID;
+	target = map_lookup_elem(&nat_target_storage, &zero);
+	if (!target)
+		return DROP_INVALID;
+
+	ret = __snat_v6_needs_masquerade(ctx, tuple, fraginfo, l4_off, target);
+
+	return ret;
 }
 
 static __always_inline __maybe_unused int
