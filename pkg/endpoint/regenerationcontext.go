@@ -14,13 +14,92 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 )
 
+// regenerationFailureReason indicates the reason of regeneration failure.
+type regenerationFailureReason int
+
+const (
+	// regenerationFailureReasonNone represents a successful regeneration
+	regenerationFailureReasonNone regenerationFailureReason = iota
+	regenerationFailureReasonEndpointNotAlive
+	regenerationFailureReasonEndpointStateInvalid
+	regenerationFailureReasonPrepareBuildError
+	regenerationFailureReasonUpdateRealizedStateError
+	regenerationFailureReasonDatapathOrchestrationError
+	regenerationFailureReasonBPFError
+	regenerationFailureReasonProxyPolicyError
+	regenerationFailureReasonPolicyBPFError
+	regenerationFailureReasonEndpointPolicyUpdateError
+	regenerationFailureReasonPolicyRegenerationError
+	regenerationFailureReasonUnknown
+)
+
+func (r regenerationFailureReason) String() string {
+	switch r {
+	case regenerationFailureReasonEndpointNotAlive:
+		return "EndpointNotAlive"
+	case regenerationFailureReasonEndpointStateInvalid:
+		return "EndpointStateInvalid"
+	case regenerationFailureReasonPrepareBuildError:
+		return "PrepareBuildError"
+	case regenerationFailureReasonUpdateRealizedStateError:
+		return "UpdateRealizedStateError"
+	case regenerationFailureReasonDatapathOrchestrationError:
+		return "DatapathOrchestrationError"
+	case regenerationFailureReasonBPFError:
+		return "BPFError"
+	case regenerationFailureReasonProxyPolicyError:
+		return "ProxyPolicyError"
+	case regenerationFailureReasonPolicyBPFError:
+		return "PolicyBPFError"
+	case regenerationFailureReasonEndpointPolicyUpdateError:
+		return "EndpointPolicyUpdateError"
+	case regenerationFailureReasonPolicyRegenerationError:
+		return "PolicyRegenerationError"
+	case regenerationFailureReasonUnknown:
+		return "Unknown"
+	default:
+		return ""
+	}
+}
+
+func (r regenerationFailureReason) IsPolicyFailure() bool {
+	return r == regenerationFailureReasonPolicyRegenerationError ||
+		r == regenerationFailureReasonEndpointPolicyUpdateError ||
+		r == regenerationFailureReasonPolicyBPFError ||
+		r == regenerationFailureReasonProxyPolicyError
+}
+
+type regenerationError struct {
+	reason regenerationFailureReason
+	err    error
+}
+
+func newRegenerationError(reason regenerationFailureReason, err error) *regenerationError {
+	return &regenerationError{
+		reason: reason,
+		err:    err,
+	}
+}
+
+func (re *regenerationError) GetReason() regenerationFailureReason {
+	return re.reason
+}
+
+func (re *regenerationError) Error() string {
+	return re.err.Error()
+}
+
+func (re *regenerationError) Unwrap() error {
+	return re.err
+}
+
 // RegenerationContext provides context to regenerate() calls to determine
 // the caller, and which specific aspects to regeneration are necessary to
 // update the datapath to implement the new behavior.
 type regenerationContext struct {
 	// Reason provides context to source for the regeneration, which is
 	// used to generate useful log messages.
-	Reason string
+	Reason regeneration.Reason
 
 	// Stats are collected during the endpoint regeneration and provided
 	// back to the caller

@@ -94,6 +94,9 @@ const (
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
 
+	// LabelReason indicates the reason that triggered the operation.
+	LabelReason = "reason"
+
 	// LabelAttempts is the number of attempts it took to complete the operation
 	LabelAttempts = "attempts"
 
@@ -155,7 +158,7 @@ const (
 	// LabelPolicyEnforcement is the label used to see the enforcement status
 	LabelPolicyEnforcement = "enforcement"
 
-	// LabelPolicySource is the label used to see the enforcement status
+	// LabelPolicySource is the label used to see the source of policy.
 	LabelPolicySource = "source"
 
 	LabelSource = "source"
@@ -247,6 +250,9 @@ const (
 	LabelReachable          = "reachable"
 	LabelUnreachable        = "unreachable"
 	LabelUnknown            = "unknown"
+
+	LabelValueUpdateOperation = "update"
+	LabelValueDeleteOperation = "delete"
 )
 
 var (
@@ -292,6 +298,10 @@ var (
 	// EndpointStateCount is the total count of the endpoints in various states.
 	EndpointStateCount = NoOpGaugeVec
 
+	// EndpointComponentStatus is the metric to indicate number of endpoints in particular state of
+	// configured components.
+	EndpointComponentStatus = NoOpGaugeVec
+
 	// EndpointRegenerationTimeStats is the total time taken to regenerate
 	// endpoints, labeled by span name and status ("success" or "failure")
 	EndpointRegenerationTimeStats = NoOpObserverVec
@@ -312,8 +322,11 @@ var (
 	// "failure")
 	PolicyChangeTotal = NoOpCounterVec
 
-	// PolicyEndpointStatus is the number of endpoints with policy labeled by enforcement type
-	PolicyEndpointStatus = NoOpGaugeVec
+	// PolicyEndpointEnforcementStatus is the number of endpoints with policy labeled by enforcement type
+	PolicyEndpointEnforcementStatus = NoOpGaugeVec
+
+	// Total number of proxy redirects missing when calculating endpoint policies.
+	PolicyMissingRedirects = NoOpGaugeVec
 
 	// PolicyImplementationDelay is a distribution of times taken from adding a
 	// policy (and incrementing the policy revision) to seeing it in the datapath
@@ -624,12 +637,14 @@ type LegacyMetrics struct {
 	Endpoint                         metric.GaugeFunc
 	EndpointRegenerationTotal        metric.Vec[metric.Counter]
 	EndpointStateCount               metric.Vec[metric.Gauge]
+	EndpointComponentStatus          metric.Vec[metric.Gauge]
 	EndpointRegenerationTimeStats    metric.Vec[metric.Observer]
 	EndpointPropagationDelay         metric.Vec[metric.Observer]
 	Policy                           metric.Gauge
 	PolicyRevision                   metric.Gauge
 	PolicyChangeTotal                metric.Vec[metric.Counter]
-	PolicyEndpointStatus             metric.Vec[metric.Gauge]
+	PolicyEndpointEnforcementStatus  metric.Vec[metric.Gauge]
+	PolicyMissingRedirects           metric.Vec[metric.Gauge]
 	PolicyImplementationDelay        metric.Vec[metric.Observer]
 	PolicyIncrementalUpdateDuration  metric.Vec[metric.Observer]
 	Identity                         metric.Vec[metric.Gauge]
@@ -712,18 +727,13 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Duration of processed API calls labeled by path, method and return code.",
 		}, []string{LabelPath, LabelMethod, LabelAPIReturnCode}),
 
-		EndpointRegenerationTotal: metric.NewCounterVecWithLabels(metric.CounterOpts{
+		EndpointRegenerationTotal: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_endpoint_regenerations_total",
 
 			Namespace: Namespace,
 			Name:      "endpoint_regenerations_total",
 			Help:      "Count of all endpoint regenerations that have completed, tagged by outcome",
-		}, metric.Labels{
-			{
-				Name:   LabelOutcome,
-				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFail),
-			},
-		}),
+		}, []string{LabelReason, LabelOutcome, LabelError}),
 
 		EndpointStateCount: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_endpoint_state",
@@ -732,6 +742,15 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Count of all endpoints, tagged by different endpoint states",
 		},
 			[]string{"endpoint_state"},
+		),
+
+		EndpointComponentStatus: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_endpoint_component_status",
+			Namespace:  Namespace,
+			Name:       "endpoint_component_status",
+			Help:       "Count of all endpoints, tagged by different endpoint components status",
+		},
+			[]string{LabelType, LabelStatus},
 		),
 
 		EndpointRegenerationTimeStats: metric.NewHistogramVec(metric.HistogramOpts{
@@ -761,21 +780,37 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 			Namespace: Namespace,
 			Name:      "policy_change_total",
-			Help:      "Number of policy changes by outcome",
+			Help:      "Number of policy changes by source, operation and outcome",
 		}, metric.Labels{
+			{
+				Name:   LabelOperation,
+				Values: metric.NewValues(LabelValueUpdateOperation, LabelValueDeleteOperation),
+			},
+			{
+				Name:   LabelPolicySource,
+				Values: metric.NewValues(string(source.Kubernetes), string(source.CustomResource), string(source.Directory)),
+			},
 			{
 				Name:   LabelOutcome,
 				Values: metric.NewValues(LabelValueOutcomeSuccess, LabelValueOutcomeFailure),
 			},
 		}),
 
-		PolicyEndpointStatus: metric.NewGaugeVec(metric.GaugeOpts{
+		PolicyEndpointEnforcementStatus: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: Namespace + "_policy_endpoint_enforcement_status",
 
 			Namespace: Namespace,
 			Name:      "policy_endpoint_enforcement_status",
 			Help:      "Number of endpoints labeled by policy enforcement status",
 		}, []string{LabelPolicyEnforcement}),
+
+		PolicyMissingRedirects: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_policy_missing_redirects",
+
+			Namespace: Namespace,
+			Name:      "policy_missing_redirects",
+			Help:      "Total number of redirects missing in the calculated endpoint policy.",
+		}, []string{}),
 
 		PolicyImplementationDelay: metric.NewHistogramVecWithLabels(metric.HistogramOpts{
 			ConfigName: Namespace + "_policy_implementation_delay",
@@ -1274,12 +1309,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 	Endpoint = lm.Endpoint
 	EndpointRegenerationTotal = lm.EndpointRegenerationTotal
 	EndpointStateCount = lm.EndpointStateCount
+	EndpointComponentStatus = lm.EndpointComponentStatus
 	EndpointRegenerationTimeStats = lm.EndpointRegenerationTimeStats
 	EndpointPropagationDelay = lm.EndpointPropagationDelay
 	Policy = lm.Policy
 	PolicyRevision = lm.PolicyRevision
 	PolicyChangeTotal = lm.PolicyChangeTotal
-	PolicyEndpointStatus = lm.PolicyEndpointStatus
+	PolicyEndpointEnforcementStatus = lm.PolicyEndpointEnforcementStatus
+	PolicyMissingRedirects = lm.PolicyMissingRedirects
 	PolicyImplementationDelay = lm.PolicyImplementationDelay
 	PolicyIncrementalUpdateDuration = lm.PolicyIncrementalUpdateDuration
 	Identity = lm.Identity
