@@ -32,6 +32,14 @@ on:
         required: true
       CILIUM_RELEASE_BOT_APP_ID:
         required: true
+      DOCKER_HUB_RELEASE_USERNAME:
+        required: false
+      DOCKER_HUB_RELEASE_PASSWORD:
+        required: false
+      QUAY_USERNAME_RELEASE_USERNAME:
+        required: false
+      QUAY_PASSWORD_RELEASE_PASSWORD:
+        required: false
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -114,7 +122,7 @@ jobs:
   release-helm:
     name: Release Helm
     if: ${{ inputs.step == '5-publish-helm' }}
-    environment: release-tool
+    environment: release
     timeout-minutes: 40
     runs-on: ubuntu-24.04
     steps:
@@ -190,6 +198,20 @@ jobs:
           git config user.name "Cilium Release Bot"
           git config user.email "noreply@cilium.io"
           git remote set-url origin https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.repository }}.git
+
+      - name: Login to Helm registries
+        shell: bash
+        env:
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_RELEASE_USERNAME }}
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_RELEASE_PASSWORD }}
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
+          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+        run: |
+          echo "Logging into Docker Hub..."
+          echo "${DOCKER_HUB_PASSWORD}" | helm registry login docker.io --username "${DOCKER_HUB_USERNAME}" --password-stdin
+
+          echo "Logging into Quay.io..."
+          echo "${QUAY_PASSWORD}" | helm registry login quay.io --username "${QUAY_USERNAME}" --password-stdin
 
       - name: Run release tool
         shell: bash
@@ -302,3 +324,46 @@ jobs:
             echo "❌ Failed to merge PR #$PR_NUMBER after $MAX_MERGE_ATTEMPTS attempts"
             exit 1
           fi
+
+      - name: Get Helm Chart Digests
+        id: helm_digests
+        shell: bash
+        run: |
+          # Extract version without 'v' prefix for Helm chart tag
+          VERSION="${{ inputs.version }}"
+          CHART_VERSION="${VERSION#v}"
+
+          # Read digests from the file created by release tool
+          DIGEST_FILE="../release/helm-digests-${CHART_VERSION}.txt"
+
+          if [ ! -f "$DIGEST_FILE" ]; then
+            echo "❌ Digest file not found: $DIGEST_FILE"
+            exit 1
+          fi
+
+          echo "⏳ Reading digests from $DIGEST_FILE"
+          cat "$DIGEST_FILE"
+
+          # Extract digest for quay.io
+          QUAY_DIGEST=$(grep "quay.io/cilium" "$DIGEST_FILE" | awk '{print $2}')
+          echo "quay_digest=${QUAY_DIGEST}" >> $GITHUB_OUTPUT
+          echo "✅ Quay.io digest: ${QUAY_DIGEST}"
+
+          # Extract digest for docker.io
+          DOCKER_DIGEST=$(grep "docker.io/cilium" "$DIGEST_FILE" | awk '{print $2}')
+          echo "docker_digest=${DOCKER_DIGEST}" >> $GITHUB_OUTPUT
+          echo "✅ Docker.io digest: ${DOCKER_DIGEST}"
+
+      - name: Sign quay.io OCI helm chart
+        uses: ./.github/actions/cosign
+        with:
+          image: "quay.io/${{ github.repository_owner }}/cilium@${{ steps.helm_digests.outputs.quay_digest }}"
+          generate_sbom: 'false'
+          attach_sbom: 'false'
+
+      - name: Sign docker.io OCI helm chart
+        uses: ./.github/actions/cosign
+        with:
+          image: "docker.io/${{ github.repository_owner }}/cilium@${{ steps.helm_digests.outputs.docker_digest }}"
+          generate_sbom: 'false'
+          attach_sbom: 'false'
