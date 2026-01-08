@@ -19,8 +19,6 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-const preferPublicIP bool = true
-
 var (
 	addrs addresses
 
@@ -80,7 +78,7 @@ func setDefaultPrefix(logger *slog.Logger, cfg *option.DaemonConfig, device stri
 	if cfg.EnableIPv4 {
 		isIPv6 := false
 
-		ip, err := firstGlobalV4Addr(device, node.GetCiliumInternalIP(isIPv6), preferPublicIP)
+		ip, err := firstGlobalV4Addr(device, node.GetCiliumInternalIP(isIPv6))
 		if err != nil {
 			return
 		}
@@ -129,7 +127,7 @@ func setDefaultPrefix(logger *slog.Logger, cfg *option.DaemonConfig, device stri
 
 		if node.GetNodeIP(isIPv6) == nil {
 			// Find a IPv6 node address first
-			addr, _ := firstGlobalV6Addr(device, node.GetCiliumInternalIP(isIPv6), preferPublicIP)
+			addr, _ := firstGlobalV6Addr(device, node.GetCiliumInternalIP(isIPv6))
 			if addr == nil {
 				addr = makeIPv6HostIP(logger)
 			}

@@ -28,7 +28,6 @@ func TestPrivilegedFirstGlobalV4Addr(t *testing.T) {
 		name           string
 		ipsOnInterface []string
 		preferredIP    string
-		preferPublic   bool
 		want           string
 	}{
 		{
@@ -37,21 +36,8 @@ func TestPrivilegedFirstGlobalV4Addr(t *testing.T) {
 			want:           "21.0.0.1",
 		},
 		{
-			name:           "prefer IP when not preferPublic",
+			name:           "prefer public IP over preferred IP",
 			ipsOnInterface: []string{"192.168.0.1", "21.0.0.1"},
-			preferredIP:    "192.168.0.1",
-			want:           "192.168.0.1",
-		},
-		{
-			name:           "preferPublic when not prefer IP",
-			ipsOnInterface: []string{"192.168.0.1", "21.0.0.1"},
-			preferPublic:   true,
-			want:           "21.0.0.1",
-		},
-		{
-			name:           "preferPublic when prefer IP",
-			ipsOnInterface: []string{"192.168.0.1", "21.0.0.1"},
-			preferPublic:   true,
 			preferredIP:    "192.168.0.1",
 			want:           "21.0.0.1",
 		},
@@ -60,13 +46,19 @@ func TestPrivilegedFirstGlobalV4Addr(t *testing.T) {
 			ipsOnInterface: []string{"192.168.0.2", "192.168.0.1"},
 			want:           "192.168.0.2",
 		},
+		{
+			name:           "preferred IP if defined",
+			ipsOnInterface: []string{"192.168.0.2", "192.168.0.1"},
+			preferredIP:    "192.168.0.1",
+			want:           "192.168.0.1",
+		},
 	}
 	const ifName = "dummy_iface"
 	for _, tc := range testCases {
 		err := setupDummyDevice(ifName, tc.ipsOnInterface...)
 		require.NoError(t, err)
 
-		got, err := firstGlobalV4Addr(ifName, net.ParseIP(tc.preferredIP), tc.preferPublic)
+		got, err := firstGlobalV4Addr(ifName, net.ParseIP(tc.preferredIP))
 		require.NoError(t, err)
 		require.Equal(t, tc.want, got.String())
 		removeDevice(ifName)

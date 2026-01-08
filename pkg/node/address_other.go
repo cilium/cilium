@@ -9,15 +9,15 @@ import (
 	"net"
 )
 
-func firstGlobalAddr(intf string, preferredIP net.IP, family int, preferPublic bool) (net.IP, error) {
+func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error) {
 	return net.IP{}, nil
 }
 
-func firstGlobalV4Addr(intf string, preferredIP net.IP, preferPublic bool) (net.IP, error) {
+func firstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
 	return net.IP{}, nil
 }
 
-func firstGlobalV6Addr(intf string, preferredIP net.IP, preferPublic bool) (net.IP, error) {
+func firstGlobalV6Addr(intf string, preferredIP net.IP) (net.IP, error) {
 	return net.IP{}, nil
 }
 
