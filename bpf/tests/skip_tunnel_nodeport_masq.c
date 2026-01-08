@@ -149,7 +149,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 
 	entry = map_lookup_elem(&cilium_metrics, &key);
 	if (!entry)
-		test_fatal("metrics entry not found")
+		test_fatal("metrics entry not found");
 
 	__u64 count = 1;
 
@@ -158,19 +158,19 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 	l2 = data + sizeof(*status_code);
 
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds")
+		test_fatal("l2 out of bounds");
 
 	if (v4 && l2->h_proto != bpf_htons(ETH_P_IP))
-		test_fatal("l2 proto hasn't been set to ETH_P_IP")
+		test_fatal("l2 proto hasn't been set to ETH_P_IP");
 
 	if (!v4 && l2->h_proto != bpf_htons(ETH_P_IPV6))
-		test_fatal("l2 proto hasn't been set to ETH_P_IPV6")
+		test_fatal("l2 proto hasn't been set to ETH_P_IPV6");
 
 	if (memcmp(l2->h_source, (__u8 *)SRC_MAC, ETH_ALEN) != 0)
 		test_fatal("src mac was changed");
 
 	if (memcmp(l2->h_dest, (__u8 *)DST_MAC, ETH_ALEN) != 0)
-		test_fatal("dst mac has changed")
+		test_fatal("dst mac has changed");
 
 	if (v4) {
 		struct iphdr *l3;
@@ -236,7 +236,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 		test_fatal("payload out of bounds");
 
 	if (memcmp(payload, default_data, sizeof(default_data)) != 0)
-		test_fatal("tcp payload was changed")
+		test_fatal("tcp payload was changed");
 
 	test_finish();
 }
