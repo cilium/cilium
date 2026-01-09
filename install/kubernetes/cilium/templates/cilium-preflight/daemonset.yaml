@@ -224,6 +224,9 @@ spec:
           terminationMessagePolicy: FallbackToLogsOnError
         {{- end }}
       hostNetwork: true
+      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+      hostUsers: true
+      {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-node-critical") }}

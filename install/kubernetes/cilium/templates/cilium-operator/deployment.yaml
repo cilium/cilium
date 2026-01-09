@@ -278,6 +278,9 @@ spec:
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: {{ .Values.operator.hostNetwork }}
+      {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
+      hostUsers: {{ .Values.operator.hostUsers }}
+      {{- end }}
       {{- if .Values.operator.dnsPolicy }}
       dnsPolicy: {{ .Values.operator.dnsPolicy }}
       {{- end }}
