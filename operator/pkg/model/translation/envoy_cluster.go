@@ -31,11 +31,12 @@ const (
 	HTTPVersion3          HTTPVersionType = 3
 )
 
-func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string) []ClusterMutator {
+func (i *cecTranslator) clusterMutators(grpcService bool, appProtocol string, tls *model.BackendTLSOrigination) []ClusterMutator {
 	res := []ClusterMutator{
 		withIdleTimeout(i.Config.ClusterConfig.IdleTimeoutSeconds),
 		withClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		withOutlierDetection(true),
+		withTLSOrigination(tls),
 	}
 	if grpcService {
 		res = append(res, withProtocol(HTTPVersion2))
@@ -70,7 +71,8 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 				sortedClusterNames = append(sortedClusterNames, clusterName)
 				envoyClusters[clusterName], _ = i.httpCluster(clusterName, clusterServiceName,
 					isGRPCService(m, ns, name, port),
-					getAppProtocol(m, ns, name, port))
+					getAppProtocol(m, ns, name, port),
+					getTLSOrigination(m, ns, name, port))
 			}
 		}
 	}
@@ -96,7 +98,7 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 }
 
 // httpCluster creates a new Envoy cluster.
-func (i *cecTranslator) httpCluster(clusterName string, clusterServiceName string, isGRPCService bool, appProtocol string) (ciliumv2.XDSResource, error) {
+func (i *cecTranslator) httpCluster(clusterName string, clusterServiceName string, isGRPCService bool, appProtocol string, tls *model.BackendTLSOrigination) (ciliumv2.XDSResource, error) {
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name: clusterName,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
@@ -117,7 +119,7 @@ func (i *cecTranslator) httpCluster(clusterName string, clusterServiceName strin
 	}
 
 	// Apply mutation functions for customizing the cluster.
-	for _, fn := range i.clusterMutators(isGRPCService, appProtocol) {
+	for _, fn := range i.clusterMutators(isGRPCService, appProtocol, tls) {
 		cluster = fn(cluster)
 	}
 

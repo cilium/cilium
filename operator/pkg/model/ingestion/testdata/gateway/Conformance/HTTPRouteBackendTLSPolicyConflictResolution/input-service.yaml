@@ -1,0 +1,41 @@
+- metadata:
+    name: backendtlspolicy-not-conflicted-test
+    namespace: gateway-conformance-infra
+  spec:
+    selector:
+      app: tls-backend
+    ports:
+      - name: "https-1"
+        protocol: TCP
+        port: 443
+        targetPort: 8443
+      - name: "https-2"
+        protocol: TCP
+        port: 8443
+        targetPort: 8443
+- metadata:
+    name: backendtlspolicy-conflicted-without-section-name-test
+    namespace: gateway-conformance-infra
+  spec:
+    selector:
+      app: tls-backend
+    ports:
+      - name: "https"
+        protocol: TCP
+        port: 443
+        targetPort: 8443
+- metadata:
+    name: backendtlspolicy-conflicted-with-section-name-test
+    namespace: gateway-conformance-infra
+  spec:
+    selector:
+      app: tls-backend
+    ports:
+      - name: "https-1"
+        protocol: TCP
+        port: 443
+        targetPort: 8443
+      - name: "https-2"
+        protocol: TCP
+        port: 8443
+        targetPort: 8443

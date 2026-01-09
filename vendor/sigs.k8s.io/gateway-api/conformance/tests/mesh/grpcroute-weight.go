@@ -58,20 +58,21 @@ var MeshGRPCRouteWeight = suite.ConformanceTest{
 				"echo-v2": 0.3,
 			}
 
-			sender := weight.NewFunctionBasedSender(func() (string, error) {
-				uniqueExpected := expected
-				if err := http.AddEntropy(&uniqueExpected); err != nil {
-					return "", fmt.Errorf("error adding entropy: %w", err)
-				}
-				_, cRes, err := client.CaptureRequestResponseAndCompare(t, uniqueExpected)
+			sender := weight.NewBatchFunctionBasedSender(func(count int) ([]string, error) {
+				responses, err := client.RequestBatch(t, expected, count)
 				if err != nil {
-					return "", fmt.Errorf("failed gRPC mesh request: %w", err)
+					return nil, fmt.Errorf("failed batch gRPC mesh request: %w", err)
 				}
-				return cRes.Hostname, nil
+
+				hostnames := make([]string, len(responses))
+				for i, resp := range responses {
+					hostnames[i] = resp.Hostname
+				}
+				return hostnames, nil
 			})
 
 			for i := 0; i < weight.MaxTestRetries; i++ {
-				if err := weight.TestWeightedDistribution(sender, expectedWeights); err != nil {
+				if err := weight.TestWeightedDistributionBatch(sender, expectedWeights); err != nil {
 					t.Logf("Traffic distribution test failed (%d/%d): %s", i+1, weight.MaxTestRetries, err)
 				} else {
 					return

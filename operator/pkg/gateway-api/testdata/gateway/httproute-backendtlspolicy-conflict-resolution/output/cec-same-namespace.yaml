@@ -118,6 +118,16 @@ spec:
       name: gateway-conformance-infra:backendtlspolicy-conflicted-with-section-name-test:443
       outlierDetection:
         splitExternalLocalOriginErrors: true
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          commonTlsContext:
+            combinedValidationContext:
+              defaultValidationContext: {}
+              validationContextSdsSecretConfig:
+                name: cilium-secrets/gateway-conformance-infra-cfgmap-tls-checks-ca-certificate
+          sni: other.example.com
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -132,6 +142,16 @@ spec:
       name: gateway-conformance-infra:backendtlspolicy-conflicted-without-section-name-test:443
       outlierDetection:
         splitExternalLocalOriginErrors: true
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          commonTlsContext:
+            combinedValidationContext:
+              defaultValidationContext: {}
+              validationContextSdsSecretConfig:
+                name: cilium-secrets/gateway-conformance-infra-cfgmap-tls-checks-ca-certificate
+          sni: other.example.com
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -146,6 +166,16 @@ spec:
       name: gateway-conformance-infra:backendtlspolicy-not-conflicted-test:443
       outlierDetection:
         splitExternalLocalOriginErrors: true
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          commonTlsContext:
+            combinedValidationContext:
+              defaultValidationContext: {}
+              validationContextSdsSecretConfig:
+                name: cilium-secrets/gateway-conformance-infra-cfgmap-tls-checks-ca-certificate
+          sni: other.example.com
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -160,6 +190,16 @@ spec:
       name: gateway-conformance-infra:backendtlspolicy-not-conflicted-test:8443
       outlierDetection:
         splitExternalLocalOriginErrors: true
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          commonTlsContext:
+            combinedValidationContext:
+              defaultValidationContext: {}
+              validationContextSdsSecretConfig:
+                name: cilium-secrets/gateway-conformance-infra-cfgmap-tls-checks-ca-certificate
+          sni: abc.example.com
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:

@@ -92,6 +92,16 @@ spec:
       name: gateway-conformance-infra:backendtlspolicy-test:443
       outlierDetection:
         splitExternalLocalOriginErrors: true
+      transportSocket:
+        name: envoy.transport_sockets.tls
+        typedConfig:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          commonTlsContext:
+            combinedValidationContext:
+              defaultValidationContext: {}
+              validationContextSdsSecretConfig:
+                name: cilium-secrets/gateway-conformance-infra-cfgmap-tls-checks-ca-certificate
+          sni: abc.example.com
       type: EDS
       typedExtensionProtocolOptions:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
