@@ -21,6 +21,12 @@ import (
 
 // AllocatorAzure is an implementation of IPAM allocator interface for Azure
 type AllocatorAzure struct {
+	AzureSubscriptionID         string
+	AzureResourceGroup          string
+	AzureUserAssignedIdentityID string
+	AzureUsePrimaryAddress      bool
+	ParallelAllocWorkers        int64
+
 	rootLogger *slog.Logger
 	logger     *slog.Logger
 }

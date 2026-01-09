@@ -20,6 +20,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(newNodeWatcherJobFactory),
 
 	cell.Group(
+		azureCell,
 		clusterPoolCell,
 		multiPoolCell,
 		alibabaCloudCell,
