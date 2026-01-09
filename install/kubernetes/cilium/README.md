@@ -594,6 +594,9 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.relay.image | object | `{"digest":"sha256:5a44c7c37329e97e92da7674a9ae266b9763288df9a55466ace74b184b7499de","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.19.0-rc.0","useDigest":true}` | Hubble-relay container image. |
 | hubble.relay.listenHost | string | `""` | Host to listen to. Specify an empty string to bind to all the interfaces. |
 | hubble.relay.listenPort | string | `"4245"` | Port to listen to. |
+| hubble.relay.logOptions | object | `{"format":null,"level":null}` | Logging configuration for hubble-relay. |
+| hubble.relay.logOptions.format | string | text-ts | Log format for hubble-relay. Valid values are: text, text-ts, json, json-ts. |
+| hubble.relay.logOptions.level | string | info | Log level for hubble-relay. Valid values are: debug, info, warn, error. |
 | hubble.relay.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | hubble.relay.podAnnotations | object | `{}` | Annotations to be added to hubble-relay pods |
 | hubble.relay.podDisruptionBudget.enabled | bool | `false` | enable PodDisruptionBudget ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
