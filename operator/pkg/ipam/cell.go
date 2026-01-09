@@ -18,6 +18,7 @@ var Cell = cell.Module(
 
 	cell.Group(
 		clusterPoolCell,
+		multiPoolCell,
 	),
 )
 
