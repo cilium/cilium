@@ -16,23 +16,29 @@ type EndpointCheckerFunc func(*endpoint.Endpoint) error
 // markAndSweep performs a two-phase garbage collection of endpoints using the
 // configured EndpointChecker.
 //
-// 1) Mark all endpoints that require GC. Do not GC these endpoints this round.
-// 2) Sweep all endpoints marked as requiring GC during the previous iteration.
+// 1) Sweep all endpoints marked as requiring GC during the previous iteration.
+// 2) Mark all endpoints that require GC. Do not GC these endpoints this round.
 //
 // This way, if there is a temporary condition that will be resolved by other
 // components in the system, then we will not flag warnings about the system
-// getting out-of-sync.
+// getting out-of-sync. Additionally, by sweeping first and then marking, we
+// avoid the issue where endpoint IDs get reused between mark and sweep phases,
+// which could lead to accidentally deleting newly created healthy endpoints.
 func (mgr *endpointManager) markAndSweep(ctx context.Context) error {
-	marked := mgr.markEndpoints()
-
-	mgr.mutex.Lock()
+	mgr.mutex.RLock()
 	toSweep := mgr.markedEndpoints
-	mgr.markedEndpoints = marked
-	mgr.mutex.Unlock()
+	mgr.mutex.RUnlock()
 
 	// Avoid returning an error which would cause the calling controller to
 	// re-run the garbage collection more frequently than the RunInterval.
 	mgr.sweepEndpoints(toSweep)
+
+	marked := mgr.markEndpoints()
+
+	mgr.mutex.Lock()
+	mgr.markedEndpoints = marked
+	mgr.mutex.Unlock()
+
 	return nil
 }
 
