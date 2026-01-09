@@ -88,18 +88,16 @@ Deploy Cilium
 
 Deploy Cilium release via Helm:
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set cni.chainingMode=generic-veth \\
-     --set cni.customConf=true \\
-     --set cni.exclusive=false \\
-     --set nodeinit.enabled=true \\
-     --set cni.configMap=cni-configuration \\
-     --set routingMode=native \\
-     --set enableIPv4Masquerade=false \\
-     --set endpointRoutes.enabled=true
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: cni.chainingMode=generic-veth
+         cni.customConf=true
+         cni.exclusive=false
+         nodeinit.enabled=true
+         cni.configMap=cni-configuration
+         routingMode=native
+         enableIPv4Masquerade=false
+         endpointRoutes.enabled=true
 
 This will create both the main cilium daemonset, as well as the cilium-node-init daemonset, which handles tasks like mounting the eBPF filesystem and updating the
 existing Azure CNI plugin to run in 'transparent' mode.

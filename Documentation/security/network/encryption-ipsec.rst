@@ -124,12 +124,10 @@ Enable Encryption in Cilium
        If you are deploying Cilium with Helm by following
        :ref:`k8s_install_helm`, pass the following options:
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set encryption.enabled=true \\
-             --set encryption.type=ipsec
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: encryption.enabled=true
+                encryption.type=ipsec
 
        ``encryption.enabled`` enables encryption of the traffic between
        Cilium-managed pods. ``encryption.type`` specifies the encryption method

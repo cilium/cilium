@@ -63,14 +63,12 @@ cluster. Also, ensure the version of the plugin is up-to-date as per the above.
 
 Deploy Cilium via Helm:
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set cni.chainingMode=aws-cni \\
-     --set cni.exclusive=false \\
-     --set enableIPv4Masquerade=false \\
-     --set routingMode=native
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: cni.chainingMode=aws-cni
+         cni.exclusive=false
+         enableIPv4Masquerade=false
+         routingMode=native
 
 This will enable chaining with the AWS VPC CNI plugin. It will also disable
 tunneling, as it's not required since ENI IP addresses can be directly routed

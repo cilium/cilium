@@ -61,18 +61,14 @@ to ``nodeipam`` to use this feature on a Service that doesn't specify a loadBala
 Cilium's node IPAM is disabled by default.
 To install Cilium with the node IPAM, run:
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set nodeIPAM.enabled=true
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: nodeIPAM.enabled=true
 
 To enable node IPAM on an existing installation, run:
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --reuse-values \\
-     --set nodeIPAM.enabled=true
-   kubectl -n kube-system rollout restart deployment/cilium-operator
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: nodeIPAM.enabled=true
+   :post-commands: kubectl -n kube-system rollout restart deployment/cilium-operator

@@ -49,21 +49,19 @@ To enable the main settings:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set routingMode=native \\
-             --set bpf.datapathMode=netkit \\
-             --set bpf.masquerade=true \\
-             --set bpf.distributedLRU.enabled=true \\
-             --set bpf.mapDynamicSizeRatio=0.08 \\
-             --set ipv6.enabled=true \\
-             --set enableIPv6BIGTCP=true \\
-             --set ipv4.enabled=true \\
-             --set enableIPv4BIGTCP=true \\
-             --set kubeProxyReplacement=true \\
-             --set bpfClockProbe=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: routingMode=native
+                bpf.datapathMode=netkit
+                bpf.masquerade=true
+                bpf.distributedLRU.enabled=true
+                bpf.mapDynamicSizeRatio=0.08
+                ipv6.enabled=true
+                enableIPv6BIGTCP=true
+                ipv4.enabled=true
+                enableIPv4BIGTCP=true
+                kubeProxyReplacement=true
+                bpfClockProbe=true
 
 For enabling BBR congestion control in addition, consider adding the following
 settings to the above Helm install:
@@ -132,14 +130,12 @@ To enable netkit device mode with eBPF host-routing:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set routingMode=native \\
-             --set bpf.datapathMode=netkit \\
-             --set bpf.masquerade=true \\
-             --set kubeProxyReplacement=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: routingMode=native
+                bpf.datapathMode=netkit
+                bpf.masquerade=true
+                kubeProxyReplacement=true
 
 .. _eBPF_Host_Routing:
 
@@ -180,12 +176,10 @@ To enable eBPF Host-Routing:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set bpf.masquerade=true \\
-             --set kubeProxyReplacement=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: bpf.masquerade=true
+                kubeProxyReplacement=true
 
 **Known limitations:**
 
@@ -248,15 +242,13 @@ To enable IPv6 BIG TCP:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set routingMode=native \\
-             --set bpf.masquerade=true \\
-             --set ipv6.enabled=true \\
-             --set enableIPv6BIGTCP=true \\
-             --set kubeProxyReplacement=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: routingMode=native
+                bpf.masquerade=true
+                ipv6.enabled=true
+                enableIPv6BIGTCP=true
+                kubeProxyReplacement=true
 
 Note that after toggling the IPv6 BIG TCP option the Kubernetes Pods must be
 restarted for the changes to take effect.
@@ -315,15 +307,13 @@ To enable IPv4 BIG TCP:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set routingMode=native \\
-             --set bpf.masquerade=true \\
-             --set ipv4.enabled=true \\
-             --set enableIPv4BIGTCP=true \\
-             --set kubeProxyReplacement=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: routingMode=native
+                bpf.masquerade=true
+                ipv4.enabled=true
+                enableIPv4BIGTCP=true
+                kubeProxyReplacement=true
 
 Note that after toggling the IPv4 BIG TCP option the Kubernetes Pods
 must be restarted for the changes to take effect.
@@ -361,12 +351,10 @@ To enable the iptables connection-tracking bypass:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set installNoConntrackIptablesRules=true \\
-             --set kubeProxyReplacement=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: installNoConntrackIptablesRules=true
+                kubeProxyReplacement=true
 
 If a Pod has the ``hostNetwork`` flag enabled, the ports for which connection tracking should be skipped
 must be explicitly listed using the ``network.cilium.io/no-track-host-ports`` annotation:
@@ -431,11 +419,9 @@ increase the memory usage by up to five Megabytes.
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set hubble.eventQueueSize=32768
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: hubble.eventQueueSize=32768
 
     .. group-tab:: Per-Node
 
@@ -496,11 +482,9 @@ The following will set the aggregation interval to 10 seconds.
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set bpf.events.monitorInterval="10s"
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: bpf.events.monitorInterval="10s"
 
 Rate Limit Events
 -----------------
@@ -538,12 +522,10 @@ To enable eBPF Event Rate Limiting with a rate limit of 10,000 and a burst limit
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set bpf.events.default.rateLimit=10000 \\
-             --set bpf.events.default.burstLimit=50000
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: bpf.events.default.rateLimit=10000
+                bpf.events.default.burstLimit=50000
 
 You can also choose to stop exposing event types in which you
 are not interested. For instance if you are mainly interested in
@@ -560,11 +542,9 @@ the overall CPU consumption of the agent.
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set bpf.events.trace.enabled=false
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: bpf.events.trace.enabled=false
 
 .. warning::
 
@@ -586,11 +566,9 @@ you can disable Hubble:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set hubble.enabled=false
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: hubble.enabled=false
 
 MTU
 ===
@@ -642,12 +620,10 @@ To enable the Bandwidth Manager:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set bandwidthManager.enabled=true \\
-             --set kubeProxyReplacement=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: bandwidthManager.enabled=true
+                kubeProxyReplacement=true
 
 To validate whether your installation is running with Bandwidth Manager,
 run ``cilium status`` in any of the Cilium pods and look for the line
@@ -701,13 +677,11 @@ To enable the Bandwidth Manager with BBR for Pods:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set bandwidthManager.enabled=true \\
-             --set bandwidthManager.bbr=true \\
-             --set kubeProxyReplacement=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: bandwidthManager.enabled=true
+                bandwidthManager.bbr=true
+                kubeProxyReplacement=true
 
 To validate whether your installation is running with BBR for Pods,
 run ``cilium status`` in any of the Cilium pods and look for the line
@@ -759,13 +733,11 @@ sizing which can be done via ``bpf.mapDynamicSizeRatio``:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set kubeProxyReplacement=true \\
-             --set bpf.distributedLRU.enabled=true \\
-             --set bpf.mapDynamicSizeRatio=0.08
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: kubeProxyReplacement=true
+                bpf.distributedLRU.enabled=true
+                bpf.mapDynamicSizeRatio=0.08
 
 Note that ``bpf.distributedLRU.enabled`` is off by default in Cilium for
 legacy reasons given enabling this setting on-the-fly is disruptive for
@@ -802,12 +774,10 @@ be set:
 
     .. group-tab:: Helm
 
-       .. parsed-literal::
-
-           helm install cilium |CHART_RELEASE| \\
-             --namespace kube-system \\
-             --set kubeProxyReplacement=true \\
-             --set bpfClockProbe=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: kubeProxyReplacement=true
+                bpfClockProbe=true
 
 Note that ``bpfClockProbe`` is off by default in Cilium for legacy reasons
 given enabling this setting on-the-fly means that previous stored CT map

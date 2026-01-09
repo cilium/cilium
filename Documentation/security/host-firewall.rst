@@ -26,12 +26,10 @@ Enable the Host Firewall in Cilium
 
 Deploy Cilium release via Helm:
 
-.. parsed-literal::
-
-    helm install cilium |CHART_RELEASE|        \\
-      --namespace kube-system                  \\
-      --set hostFirewall.enabled=true          \\
-      --set devices='{ethX,ethY}'
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: hostFirewall.enabled=true
+         devices='{ethX,ethY}'
 
 The ``devices`` flag refers to the network devices Cilium is configured on,
 such as ``eth0``. If you omit this option, Cilium auto-detects what interfaces

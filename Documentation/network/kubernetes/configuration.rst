@@ -337,10 +337,8 @@ If you want to use CRIO, use the instructions below.
    The Helm flag ``--set bpf.autoMount.enabled=false`` might not be
    required for your setup. For more info see :ref:`crio-known-issues`.
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system
+.. cilium-helm-install::
+   :namespace: kube-system
 
 Since CRI-O does not automatically detect that a new CNI plugin has been
 installed, you will need to restart the CRI-O daemon for it to pick up the

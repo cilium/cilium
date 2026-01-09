@@ -52,16 +52,13 @@ Installation
         Cilium Gateway API Controller can be enabled with helm flag ``gatewayAPI.enabled``
         set as true. Please refer to :ref:`k8s_install_helm` for a fresh installation.
 
-        .. parsed-literal::
-
-            $ helm upgrade cilium |CHART_RELEASE| \\
-                --namespace kube-system \\
-                --reuse-values \\
-                --set kubeProxyReplacement=true \\
-                --set gatewayAPI.enabled=true
-
-            $ kubectl -n kube-system rollout restart deployment/cilium-operator
-            $ kubectl -n kube-system rollout restart ds/cilium
+        .. cilium-helm-upgrade::
+           :namespace: kube-system
+           :extra-args: --reuse-values
+           :set: kubeProxyReplacement=true
+                 gatewayAPI.enabled=true
+           :post-commands: kubectl -n kube-system rollout restart deployment/cilium-operator
+                           kubectl -n kube-system rollout restart ds/cilium
 
         Next you can check the status of the Cilium agent and operator:
 
