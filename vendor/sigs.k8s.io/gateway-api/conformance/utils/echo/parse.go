@@ -210,6 +210,29 @@ func ParseResponse(output string) Response {
 	return out
 }
 
+// parseMultipleResponses parses output containing multiple responses separated by blank lines
+func parseMultipleResponses(output string) []Response {
+	// Split by double newline which typically separates individual responses
+	// in batch mode output
+	responseSections := strings.Split(output, "\n\n")
+
+	var responses []Response
+	for _, section := range responseSections {
+		section = strings.TrimSpace(section)
+		if section == "" {
+			continue
+		}
+		// Parse each section as a separate response
+		resp := ParseResponse(section)
+		// Only add responses that have meaningful content (at least a hostname or code)
+		if resp.Hostname != "" || resp.Code != "" {
+			responses = append(responses, resp)
+		}
+	}
+
+	return responses
+}
+
 // HeaderType is a helper enum for retrieving Headers from a Response.
 type HeaderType string
 
