@@ -23,12 +23,23 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-aws"}
 
 // AllocatorAWS is an implementation of IPAM allocator interface for AWS ENI
 type AllocatorAWS struct {
+	AWSReleaseExcessIPs          bool
+	ExcessIPReleaseDelay         int
+	AWSEnablePrefixDelegation    bool
+	ENITags                      map[string]string
+	ENIGarbageCollectionTags     map[string]string
+	ENIGarbageCollectionInterval time.Duration
+	AWSUsePrimaryAddress         bool
+	EC2APIEndpoint               string
+	ParallelAllocWorkers         int64
+
 	rootLogger *slog.Logger
 	logger     *slog.Logger
 	client     *ec2shim.Client
