@@ -1213,7 +1213,7 @@
      - string
      - ``nil``
    * - :spelling:ignore:`defaultLBServiceIPAM`
-     - defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none @schema type: [string] @schema
+     - defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
      - string
      - ``"lbipam"``
    * - :spelling:ignore:`directRoutingSkipUnreachable`

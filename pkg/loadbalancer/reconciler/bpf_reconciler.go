@@ -25,12 +25,14 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -1145,8 +1147,23 @@ func (ops *BPFOps) useWildcard(fe *loadbalancer.Frontend) bool {
 	switch fe.Type {
 	case loadbalancer.SVCTypeLoadBalancer,
 		loadbalancer.SVCTypeClusterIP:
+
 		// Only external scoped entries can parent wildcard entries
-		return fe.Address.Scope() == loadbalancer.ScopeExternal
+		if fe.Address.Scope() != loadbalancer.ScopeExternal {
+			return false
+		}
+
+		// We only want to program wildcard entries if LB-IPAM has allocated
+		// the VIP, otherwise we risk programming Node internal IPs into the
+		// datapath and causing connectivity faults.
+		lbClass := fe.Service.LoadBalancerClass
+		if lbClass == nil {
+			return ops.extCfg.DefaultLBServiceIPAM == lbipamconfig.DefaultLBClassLBIPAM
+		}
+
+		// The service has a loadBalancerClass, so we expicitly exclude the
+		// nodeipam annotation here.
+		return *lbClass != nodeipamconfig.NodeSvcLBClass
 	}
 	return false
 }

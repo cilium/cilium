@@ -35,6 +35,7 @@ import (
 	slim_meta "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/api/meta"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	client_typed_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -86,7 +87,7 @@ type lbIPAMParams struct {
 
 	metrics *ipamMetrics
 
-	config      lbipamConfig
+	config      lbipamconfig.Config
 	defaultIPAM bool
 
 	testCounters *testCounters

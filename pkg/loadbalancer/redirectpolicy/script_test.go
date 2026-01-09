@@ -30,6 +30,7 @@ import (
 	k8sTestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -40,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -74,6 +76,8 @@ func TestScript(t *testing.T) {
 				daemonk8s.TablesCell,
 				metrics.Cell,
 
+				lbipamconfig.Cell,
+				nodeipamconfig.Cell,
 				lbcell.Cell,
 
 				node.LocalNodeStoreTestCell,

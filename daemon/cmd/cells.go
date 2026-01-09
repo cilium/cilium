@@ -58,6 +58,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
+	"github.com/cilium/cilium/pkg/lbipamconfig"
 	loadbalancer_cell "github.com/cilium/cilium/pkg/loadbalancer/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -73,6 +74,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
 	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
+	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"
 	policyDirectory "github.com/cilium/cilium/pkg/policy/directory"
@@ -231,6 +233,12 @@ var (
 
 		// Maglev table computtations
 		maglev.Cell,
+
+		// LB-IPAM configuration
+		lbipamconfig.Cell,
+
+		// Node-IPAM configuration
+		nodeipamconfig.Cell,
 
 		// Control-plane for configuring service load-balancing
 		loadbalancer_cell.Cell,
