@@ -18,7 +18,7 @@ status:
   parents:
     - conditions:
         - lastTransitionTime: "2025-08-15T00:36:04Z"
-          message: Accepted HTTPRoute
+          message: Accepted TLSRoute
           reason: Accepted
           status: "True"
           type: Accepted
