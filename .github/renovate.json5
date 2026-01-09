@@ -353,8 +353,9 @@
         "!main",
       ],
       "matchDepNames": [
-        // Explicitly allow certgen updates.
+        // Explicitly allow certgen and cilium-envoy updates.
         "!quay.io/cilium/certgen",
+        "!quay.io/cilium/cilium-envoy"
       ]
     },
     {
