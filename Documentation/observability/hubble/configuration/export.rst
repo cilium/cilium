@@ -28,12 +28,10 @@ until you set a file path value for ``hubble-export-file-path``.
 
 You can use helm to install cilium with hubble exporter enabled:
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-      --set hubble.enabled=true \\
-      --set hubble.export.static.enabled=true \\
-      --set hubble.export.static.filePath=/var/run/cilium/hubble/events.log
+.. cilium-helm-install::
+   :set: hubble.enabled=true
+         hubble.export.static.enabled=true
+         hubble.export.static.filePath=/var/run/cilium/hubble/events.log
 
 Wait for ``cilium`` pod to become ready:
 
@@ -115,12 +113,10 @@ Config Map:
 Or use helm chart to update your cilium installation setting value flag
 ``hubble.export.static.allowList``.
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-      --set hubble.enabled=true \\
-      --set hubble.export.static.enabled=true \\
-      --set hubble.export.static.allowList[0]='{"verdict":["DROPPED","ERROR"]}'
+.. cilium-helm-upgrade::
+   :set: hubble.enabled=true
+         hubble.export.static.enabled=true
+         hubble.export.static.allowList[0]='{"verdict":["DROPPED","ERROR"]}'
 
 
 You can do the same to selectively filter data. For example, to filter all flows in the
@@ -146,13 +142,11 @@ Map:
 Or use helm chart to update your cilium installation setting value flag
 ``hubble.export.static.denyList``.
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-      --set hubble.enabled=true \\
-      --set hubble.export.static.enabled=true \\
-      --set hubble.export.static.denyList[0]='{"source_pod":["kube-system/"]}' \\
-      --set hubble.export.static.denyList[1]='{"destination_pod":["kube-system/"]}'
+.. cilium-helm-upgrade::
+   :set: hubble.enabled=true
+         hubble.export.static.enabled=true
+         hubble.export.static.denyList[0]='{"source_pod":["kube-system/"]}'
+         hubble.export.static.denyList[1]='{"destination_pod":["kube-system/"]}'
 
 Field mask
 ----------
@@ -180,16 +174,14 @@ The following is a complete example of configuring Hubble Exporter.
 
  - Configuration:
 
-   .. parsed-literal::
-
-       helm upgrade cilium |CHART_RELEASE| \\
-          --set hubble.enabled=true \\
-          --set hubble.export.static.enabled=true \\
-          --set hubble.export.static.filePath=/var/run/cilium/hubble/events.log \\
-          --set hubble.export.static.allowList[0]='{"verdict":["DROPPED","ERROR"]}'
-          --set hubble.export.static.denyList[0]='{"source_pod":["kube-system/"]}' \\
-          --set hubble.export.static.denyList[1]='{"destination_pod":["kube-system/"]}' \\
-          --set "hubble.export.static.fieldMask={time,source.namespace,source.pod_name,destination.namespace,destination.pod_name,l4,IP,node_name,is_reply,verdict,drop_reason_desc}"
+   .. cilium-helm-upgrade::
+      :set: hubble.enabled=true
+            hubble.export.static.enabled=true
+            hubble.export.static.filePath=/var/run/cilium/hubble/events.log
+            hubble.export.static.allowList[0]='{"verdict":["DROPPED","ERROR"]}'
+            hubble.export.static.denyList[0]='{"source_pod":["kube-system/"]}'
+            hubble.export.static.denyList[1]='{"destination_pod":["kube-system/"]}'
+            "hubble.export.static.fieldMask={time,source.namespace,source.pod_name,destination.namespace,destination.pod_name,l4,IP,node_name,is_reply,verdict,drop_reason_desc}"
 
  - Command:
 
@@ -218,11 +210,9 @@ until you set a file path value for ``hubble-flowlogs-config-path``.
 
 Install cilium with dynamic exporter enabled:
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-      --set hubble.enabled=true \\
-      --set hubble.export.dynamic.enabled=true
+.. cilium-helm-install::
+   :set: hubble.enabled=true
+         hubble.export.dynamic.enabled=true
 
 Wait for ``cilium`` pod to become ready:
 
@@ -233,15 +223,13 @@ Wait for ``cilium`` pod to become ready:
 You can change flow log settings without a need for pod to be restarted
 (changes should be reflected within 60s because of configmap propagation delay):
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-      --set hubble.enabled=true \\
-      --set hubble.export.dynamic.enabled=true \\
-      --set hubble.export.dynamic.config.content[0].name=system \\
-      --set hubble.export.dynamic.config.content[0].filePath=/var/run/cilium/hubble/events-system.log \\
-      --set hubble.export.dynamic.config.content[0].includeFilters[0].source_pod[0]='kube_system/' \\
-      --set hubble.export.dynamic.config.content[0].includeFilters[1].destination_pod[0]='kube_system/'
+.. cilium-helm-upgrade::
+   :set: hubble.enabled=true
+         hubble.export.dynamic.enabled=true
+         hubble.export.dynamic.config.content[0].name=system
+         hubble.export.dynamic.config.content[0].filePath=/var/run/cilium/hubble/events-system.log
+         hubble.export.dynamic.config.content[0].includeFilters[0].source_pod[0]='kube_system/'
+         hubble.export.dynamic.config.content[0].includeFilters[1].destination_pod[0]='kube_system/'
 
 
 Dynamic flow logs can be configured with ``end`` property which means that it will

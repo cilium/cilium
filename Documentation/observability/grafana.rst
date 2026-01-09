@@ -72,15 +72,13 @@ Refer to :ref:`metrics` for more details about the individual metrics.
 
 Deploy Cilium via Helm as follows to enable all metrics:
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set prometheus.enabled=true \\
-      --set operator.prometheus.enabled=true \\
-      --set hubble.enabled=true \\
-      --set hubble.metrics.enableOpenMetrics=true \\
-      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: prometheus.enabled=true
+         operator.prometheus.enabled=true
+         hubble.enabled=true
+         hubble.metrics.enableOpenMetrics=true
+         hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
 
 .. note::
 
