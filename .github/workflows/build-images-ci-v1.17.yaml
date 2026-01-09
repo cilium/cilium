@@ -419,9 +419,15 @@ jobs:
          github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
         }}
     steps:
+      - name: Generate Github App Token
+        uses: actions/create-github-app-token@7e473efe3cb98aa54f8d4bac15400b15fad77d94 # v2.2.0
+        id: generate-token
+        with:
+          app-id: ${{ secrets.AUTO_COMMENT_BOT_APP_ID }}
+          private-key: ${{ secrets.AUTO_COMMENT_BOT_PEM }}
       - name: Post /test comment
         env:
-          TOKEN: ${{ secrets.AUTO_COMMENT_TOKEN }}
+          TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
         run: |
