@@ -29,3 +29,17 @@ func (s *FunctionBasedSender) SendRequest() (string, error) {
 func NewFunctionBasedSender(sendFunc func() (string, error)) RequestSender {
 	return &FunctionBasedSender{sendFunc: sendFunc}
 }
+
+// BatchFunctionBasedSender implements BatchRequestSender using a function
+type BatchFunctionBasedSender struct {
+	sendBatchFunc func(count int) ([]string, error)
+}
+
+func (s *BatchFunctionBasedSender) SendBatchRequest(count int) ([]string, error) {
+	return s.sendBatchFunc(count)
+}
+
+// NewBatchFunctionBasedSender creates a BatchRequestSender from a function
+func NewBatchFunctionBasedSender(sendBatchFunc func(count int) ([]string, error)) BatchRequestSender {
+	return &BatchFunctionBasedSender{sendBatchFunc: sendBatchFunc}
+}

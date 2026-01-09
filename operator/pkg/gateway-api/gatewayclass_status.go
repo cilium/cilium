@@ -22,10 +22,12 @@ var supportedFeatures = features.AllFeatures
 
 var gatewayClassSupportedFeatures = getSupportedFeatures()
 
+// This lists the features we do _not_ support, so that we can skip
+// them in the supportedFeatures list in the GatewayClass.
 var exemptFeatures = []features.Feature{
 	features.HTTPRouteParentRefPortFeature,
 	features.MeshConsumerRouteFeature,
-	features.BackendTLSPolicyFeature,
+	features.BackendTLSPolicySanValidationFeature,
 	features.HTTPRouteCORS,
 }
 

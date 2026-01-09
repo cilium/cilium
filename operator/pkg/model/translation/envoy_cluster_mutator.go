@@ -5,10 +5,14 @@ package translation
 
 import (
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	"github.com/cilium/cilium/operator/pkg/model"
 )
 
 type ClusterMutator func(*envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster
@@ -99,6 +103,58 @@ func withProtocol(protocolVersion HTTPVersionType) ClusterMutator {
 
 		cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			httpProtocolOptionsType: toAny(options),
+		}
+		return cluster
+	}
+}
+
+func withTLSOrigination(tls *model.BackendTLSOrigination) ClusterMutator {
+	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
+		// This mutator should not get added to the list if this is the case, but just to be safe.
+		if tls == nil {
+			return cluster
+		}
+
+		// If there is no SNI set, we should not originate TLS.
+		if tls.SNI == "" {
+			return cluster
+		}
+
+		if tls.CACertRef == nil || tls.CACertRef.Name == "" || tls.CACertRef.Namespace == "" {
+			return cluster
+		}
+
+		tlsContext := &envoy_config_tls.UpstreamTlsContext{
+			Sni: tls.SNI,
+			CommonTlsContext: &envoy_config_tls.CommonTlsContext{
+				ValidationContextType: &envoy_config_tls.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &envoy_config_tls.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &envoy_config_tls.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &envoy_config_tls.SdsSecretConfig{
+							// This secret is synchronized by the secretsyncer Cell, with the Secret being copied
+							// out of the relevant ConfigMap by the ConfigMap sync Reconcile function there, which itself
+							// watches for ConfigMaps referenced in BackendTLSPolicy objects.
+							//
+							// That is, the flow is:
+							//
+							// * BackendTLSPolicy references ConfigMap
+							// * SecretSync sees ConfigMap reference
+							// * SecretSync copies ConfigMap into Secret in cilium-secrets namespace, using the below
+							//   naming format
+							// * This translation references that Secret
+							// * The Cilium Agent reads the Secret directly and suppies it to Envoy via SDS.
+							Name: "cilium-secrets" + "/" + tls.CACertRef.Namespace + "-cfgmap-" + tls.CACertRef.Name,
+						},
+					},
+				},
+			},
+		}
+
+		cluster.TransportSocket = &envoy_config_core_v3.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+				TypedConfig: toAny(tlsContext),
+			},
 		}
 		return cluster
 	}

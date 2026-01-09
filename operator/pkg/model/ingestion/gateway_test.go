@@ -5,11 +5,14 @@ package ingestion
 
 import (
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/hive/hivetest"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
@@ -20,37 +23,40 @@ const (
 
 func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
-		"basic http":                                             {},
-		"basic http nodeport service":                            {},
-		"basic http external traffic policy":                     {},
-		"basic http load balancer":                               {},
-		"multiple parentRefs":                                    {},
-		"Conformance/HTTPRouteSimpleSameNamespace":               {},
-		"Conformance/HTTPRouteCrossNamespace":                    {},
-		"Conformance/HTTPExactPathMatching":                      {},
-		"Conformance/HTTPRouteHeaderMatching":                    {},
-		"Conformance/HTTPRouteHostnameIntersection":              {},
-		"Conformance/HTTPRouteListenerHostnameMatching":          {},
-		"Conformance/HTTPRouteMatchingAcrossRoutes":              {},
-		"Conformance/HTTPRouteMatching":                          {},
-		"Conformance/HTTPRouteMethodMatching":                    {},
-		"Conformance/HTTPRouteQueryParamMatching":                {},
-		"Conformance/HTTPRouteRequestHeaderModifier":             {},
-		"Conformance/HTTPRouteBackendRefsRequestHeaderModifier":  {},
-		"Conformance/HTTPRouteRequestRedirect":                   {},
-		"Conformance/HTTPRouteResponseHeaderModifier":            {},
-		"Conformance/HTTPRouteBackendRefsResponseHeaderModifier": {},
-		"Conformance/HTTPRouteRewriteHost":                       {},
-		"Conformance/HTTPRouteRewritePath":                       {},
-		"Conformance/HTTPRouteRequestMirror":                     {},
-		"Conformance/HTTPRouteBackendTLSPolicy":                  {},
-		"Conformance/HTTPRouteBackendTLSPolicySystemCA":          {},
+		"basic http":                                              {},
+		"basic http nodeport service":                             {},
+		"basic http external traffic policy":                      {},
+		"basic http load balancer":                                {},
+		"multiple parentRefs":                                     {},
+		"Conformance/HTTPRouteSimpleSameNamespace":                {},
+		"Conformance/HTTPRouteCrossNamespace":                     {},
+		"Conformance/HTTPExactPathMatching":                       {},
+		"Conformance/HTTPRouteHeaderMatching":                     {},
+		"Conformance/HTTPRouteHostnameIntersection":               {},
+		"Conformance/HTTPRouteListenerHostnameMatching":           {},
+		"Conformance/HTTPRouteMatchingAcrossRoutes":               {},
+		"Conformance/HTTPRouteMatching":                           {},
+		"Conformance/HTTPRouteMethodMatching":                     {},
+		"Conformance/HTTPRouteQueryParamMatching":                 {},
+		"Conformance/HTTPRouteRequestHeaderModifier":              {},
+		"Conformance/HTTPRouteBackendRefsRequestHeaderModifier":   {},
+		"Conformance/HTTPRouteRequestRedirect":                    {},
+		"Conformance/HTTPRouteResponseHeaderModifier":             {},
+		"Conformance/HTTPRouteBackendRefsResponseHeaderModifier":  {},
+		"Conformance/HTTPRouteRewriteHost":                        {},
+		"Conformance/HTTPRouteRewritePath":                        {},
+		"Conformance/HTTPRouteRequestMirror":                      {},
+		"Conformance/HTTPRouteBackendTLSPolicy":                   {},
+		"Conformance/HTTPRouteBackendTLSPolicySystemCA":           {},
+		"Conformance/HTTPRouteBackendTLSPolicyConflictResolution": {},
 	}
 
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
 			input := readGatewayInput(t, name)
-			listeners, _ := GatewayAPI(input)
+			listeners, _ := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
@@ -68,8 +74,10 @@ func TestTLSGatewayAPI(t *testing.T) {
 
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
 			input := readGatewayInput(t, name)
-			_, listeners := GatewayAPI(input)
+			_, listeners := GatewayAPI(logger, input)
 
 			expected := []model.TLSPassthroughListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
@@ -85,9 +93,11 @@ func TestGRPCGatewayAPI(t *testing.T) {
 
 	for name := range tests {
 		t.Run(name, func(t *testing.T) {
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
 			input := readGatewayInput(t, name)
 
-			listeners, _ := GatewayAPI(input)
+			listeners, _ := GatewayAPI(logger, input)
 
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)

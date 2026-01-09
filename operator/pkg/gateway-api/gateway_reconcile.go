@@ -175,7 +175,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(err)
 	}
 
-	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
+	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(scopedLog, ingestion.Input{
 		GatewayClass:        *gwc,
 		GatewayClassConfig:  r.getGatewayClassConfig(ctx, gwc),
 		Gateway:             *gw,

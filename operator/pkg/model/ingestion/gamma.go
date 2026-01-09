@@ -176,7 +176,7 @@ func toGammaHTTPRoutes(
 				}
 				res.Gamma = true
 				emptyBackendTLSPolicyMap := make(helpers.BackendTLSPolicyServiceMap)
-				res.Routes = append(res.Routes, extractRoutes(int32(portVal), []string{res.Hostname}, hr, services, []mcsapiv1alpha1.ServiceImport{}, grants, emptyBackendTLSPolicyMap)...)
+				res.Routes = append(res.Routes, extractRoutes(log, int32(portVal), []string{res.Hostname}, hr, services, []mcsapiv1alpha1.ServiceImport{}, grants, emptyBackendTLSPolicyMap)...)
 				resHTTP = append(resHTTP, res)
 			}
 

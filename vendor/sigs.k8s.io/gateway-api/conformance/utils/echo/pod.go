@@ -79,6 +79,10 @@ func (m *MeshPod) MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T,
 }
 
 func makeRequest(t *testing.T, exp *http.ExpectedResponse) []string {
+	return makeRequestWithCount(t, exp, 0)
+}
+
+func makeRequestWithCount(t *testing.T, exp *http.ExpectedResponse, count int) []string {
 	if exp.Request.Host == "" {
 		exp.Request.Host = "echo"
 	}
@@ -111,6 +115,9 @@ func makeRequest(t *testing.T, exp *http.ExpectedResponse) []string {
 	}
 	for k, v := range r.Headers {
 		args = append(args, "-H", fmt.Sprintf("%v:%v", k, v))
+	}
+	if count > 0 {
+		args = append(args, fmt.Sprintf("--count=%d", count))
 	}
 	return args
 }
@@ -274,4 +281,25 @@ func (m *MeshPod) CaptureRequestResponseAndCompare(t *testing.T, exp http.Expect
 		return []string{}, Response{}, err
 	}
 	return req, resp, nil
+}
+
+// RequestBatch executes a batch of requests using the --count flag and returns all responses
+func (m *MeshPod) RequestBatch(t *testing.T, exp http.ExpectedResponse, count int) ([]Response, error) {
+	req := makeRequestWithCount(t, &exp, count)
+
+	resp, err := m.request(req)
+	if err != nil {
+		return nil, fmt.Errorf("batch request failed: %w", err)
+	}
+
+	// Split the output by response boundaries
+	// Each response is separated by a blank line in the output
+	responses := parseMultipleResponses(resp.RawContent)
+
+	tlog.Logf(t, "Processed %d requests", len(responses))
+	if len(responses) != count {
+		return nil, fmt.Errorf("expected %d responses but got %d", count, len(responses))
+	}
+
+	return responses, nil
 }
