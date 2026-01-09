@@ -293,71 +293,9 @@ type OperatorConfig struct {
 
 	// AWS options
 
-	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
-	ENITags map[string]string
-
-	// ENIGarbageCollectionTags is a tag that will be added to every ENI
-	// created by the AWS ENI IPAM.
-	// Any stale and unattached ENIs with this tag will be garbage
-	// collected by the operator.
-	ENIGarbageCollectionTags map[string]string
-
-	// ENIGarbageCollectionInterval defines the interval of ENI GC
-	ENIGarbageCollectionInterval time.Duration
-
-	// ParallelAllocWorkers specifies the number of parallel workers to be used for accessing cloud provider APIs .
-	ParallelAllocWorkers int64
-
-	// AWSReleaseExcessIps allows releasing excess free IP addresses from ENI.
-	// Enabling this option reduces waste of IP addresses but may increase
-	// the number of API calls to AWS EC2 service.
-	AWSReleaseExcessIPs bool
-
-	// AWSEnablePrefixDelegation allows operator to allocate prefixes to ENIs on nitro instances instead of individual
-	// IP addresses. Allows for increased pod density on nodes.
-	AWSEnablePrefixDelegation bool
-
-	// AWSUsePrimaryAddress specifies whether an interface's primary address should be available for allocations on
-	// node
-	AWSUsePrimaryAddress bool
-
-	// ExcessIPReleaseDelay controls how long operator would wait before an IP previously marked as excess is released.
-	// Defaults to 180 secs
-	ExcessIPReleaseDelay int
-
-	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
-	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
-	EC2APIEndpoint string
-
 	// AWSMaxResultsPerCall is the maximum number of results per AWS API call for DescribeNetworkInterfaces
 	// and DescribeSecurityGroups. Set to 0 to let AWS determine the optimal page size.
 	AWSMaxResultsPerCall int32
-
-	// Azure options
-
-	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
-	AzureSubscriptionID string
-
-	// AzureResourceGroup is the resource group of the nodes used for the cluster
-	AzureResourceGroup string
-
-	// AzureUserAssignedIdentityID is the id of the user assigned identity used
-	// for retrieving Azure API credentials
-	AzureUserAssignedIdentityID string
-
-	// AzureUsePrimaryAddress specify wether we should use or ignore the interface's
-	// primary IPConfiguration
-	AzureUsePrimaryAddress bool
-
-	// AlibabaCloud options
-
-	// AlibabaCloudVPCID allow user to specific vpc
-	AlibabaCloudVPCID string
-
-	// AlibabaCloudReleaseExcessIPs allows releasing excess free IP addresses from ENI.
-	// Enabling this option reduces waste of IP addresses but may increase
-	// the number of API calls to AlibabaCloud ECS service.
-	AlibabaCloudReleaseExcessIPs bool
 
 	// EnableGatewayAPI enables support of Gateway API
 	EnableGatewayAPI bool
@@ -439,19 +377,11 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	c.IPAMAPIQPSLimit = vp.GetFloat64(IPAMAPIQPSLimit)
 	c.IPAMAPIBurst = vp.GetInt(IPAMAPIBurst)
-	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
 
 	// Gateways and Ingress
 	c.KubeProxyReplacement = vp.GetBool(KubeProxyReplacement)
 
 	// AWS options
-
-	c.AWSReleaseExcessIPs = vp.GetBool(AWSReleaseExcessIPs)
-	c.AWSEnablePrefixDelegation = vp.GetBool(AWSEnablePrefixDelegation)
-	c.AWSUsePrimaryAddress = vp.GetBool(AWSUsePrimaryAddress)
-	c.EC2APIEndpoint = vp.GetString(EC2APIEndpoint)
-	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
-	c.ENIGarbageCollectionInterval = vp.GetDuration(ENIGarbageCollectionInterval)
 
 	// Handle AWSMaxResultsPerCall with backwards compat for deprecated AWSPaginationEnabled flag
 	c.AWSMaxResultsPerCall = int32(vp.GetInt(AWSMaxResultsPerCall))
@@ -459,18 +389,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	if vp.IsSet(AWSPaginationEnabled) && !vp.GetBool(AWSPaginationEnabled) {
 		c.AWSMaxResultsPerCall = 0
 	}
-
-	// Azure options
-
-	c.AzureSubscriptionID = vp.GetString(AzureSubscriptionID)
-	c.AzureResourceGroup = vp.GetString(AzureResourceGroup)
-	c.AzureUsePrimaryAddress = vp.GetBool(AzureUsePrimaryAddress)
-	c.AzureUserAssignedIdentityID = vp.GetString(AzureUserAssignedIdentityID)
-
-	// AlibabaCloud options
-
-	c.AlibabaCloudVPCID = vp.GetString(AlibabaCloudVPCID)
-	c.AlibabaCloudReleaseExcessIPs = vp.GetBool(AlibabaCloudReleaseExcessIPs)
 
 	// Option maps and slices
 
@@ -490,18 +408,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.IPAMInstanceTags = m
 	}
 
-	if m, err := command.GetStringMapStringE(vp, ENITags); err != nil {
-		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", ENITags, err))
-	} else {
-		c.ENITags = m
-	}
-
-	if m, err := command.GetStringMapStringE(vp, ENIGarbageCollectionTags); err != nil {
-		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", ENIGarbageCollectionTags, err))
-	} else {
-		c.ENIGarbageCollectionTags = m
-	}
-
 	if m, err := command.GetStringMapStringE(vp, IPAMAutoCreateCiliumPodIPPools); err != nil {
 		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err))
 	} else {
@@ -515,6 +421,4 @@ var Config = &OperatorConfig{
 	IPAMSubnetsTags:                make(map[string]string),
 	IPAMInstanceTags:               make(map[string]string),
 	IPAMAutoCreateCiliumPodIPPools: make(map[string]string),
-	ENITags:                        make(map[string]string),
-	ENIGarbageCollectionTags:       make(map[string]string),
 }

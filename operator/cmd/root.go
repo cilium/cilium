@@ -42,6 +42,7 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
+	"github.com/cilium/cilium/operator/pkg/ipam"
 	"github.com/cilium/cilium/operator/pkg/kvstore/locksweeper"
 	"github.com/cilium/cilium/operator/pkg/kvstore/nodesgc"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
@@ -63,7 +64,6 @@ import (
 	"github.com/cilium/cilium/pkg/dial"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -263,6 +263,7 @@ var (
 			endpointslicesync.Cell,
 			mcsapi.Cell,
 			locksweeper.Cell,
+			ipam.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
@@ -635,51 +636,7 @@ func (legacy *legacyOnLeader) onStop(_ cell.HookContext) error {
 func (legacy *legacyOnLeader) onStart(ctx cell.HookContext) error {
 	isLeader.Store(true)
 
-	legacy.logger.InfoContext(ctx,
-		"Initializing IPAM",
-		logfields.Mode, option.Config.IPAM,
-	)
 	watcherLogger := legacy.logger.With(logfields.LogSubsys, "watchers")
-
-	switch ipamMode := option.Config.IPAM; ipamMode {
-	case ipamOption.IPAMAzure,
-		ipamOption.IPAMENI,
-		ipamOption.IPAMClusterPool,
-		ipamOption.IPAMMultiPool,
-		ipamOption.IPAMAlibabaCloud:
-		alloc, providerBuiltin := allocatorProviders[ipamMode]
-		if !providerBuiltin {
-			logging.Fatal(legacy.logger, fmt.Sprintf("%s allocator is not supported by this version of %s", ipamMode, binaryName))
-		}
-
-		if err := alloc.Init(legacy.ctx, legacy.logger, legacy.metricsRegistry); err != nil {
-			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to init %s allocator", ipamMode), logfields.Error, err)
-		}
-
-		if pooledAlloc, ok := alloc.(operatorWatchers.PooledAllocatorProvider); ok {
-			// The following operation will block until all pools are restored, thus it
-			// is safe to continue starting node allocation right after return.
-			operatorWatchers.StartIPPoolAllocator(legacy.ctx, legacy.clientset, pooledAlloc, legacy.resources.CiliumPodIPPools,
-				watcherLogger)
-		}
-
-		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset}, legacy.metricsRegistry)
-		if err != nil {
-			logging.Fatal(legacy.logger, fmt.Sprintf("Unable to start %s allocator", ipamMode), logfields.Error, err)
-		}
-
-		legacy.wg.Go(func() {
-			// The NodeEventHandler uses operatorWatchers.PodStore for IPAM surge allocation.
-			podStore, err := legacy.resources.Pods.Store(legacy.ctx)
-			if err != nil {
-				logging.Fatal(legacy.logger, "Unable to retrieve Pod store from Pod resource watcher", logfields.Error, err)
-			}
-			operatorWatchers.PodStore = podStore.CacheStore()
-
-			withResync := option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMMultiPool
-			watchCiliumNodes(legacy.ctx, legacy.resources.CiliumNodes, nm, withResync)
-		})
-	}
 
 	if legacy.clientset.IsEnabled() &&
 		(operatorOption.Config.RemoveCiliumNodeTaints || operatorOption.Config.SetCiliumIsUpCondition) {

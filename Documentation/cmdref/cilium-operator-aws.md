@@ -67,8 +67,8 @@ cilium-operator-aws [flags]
       --enable-ztunnel                                       Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
       --eni-gc-interval duration                             Interval for garbage collection of unattached ENIs. Set to 0 to disable (default 5m0s)
-      --eni-gc-tags map                                      Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected
-      --eni-tags map                                         ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)
+      --eni-gc-tags stringToString                           Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected (default [])
+      --eni-tags stringToString                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default [])
       --excess-ip-release-delay int                          Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'

@@ -174,7 +174,7 @@ func TestIpamPreAllocate8(t *testing.T) {
 	instances.Resync(t.Context())
 
 	k8sapi := newK8sMock()
-	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -237,7 +237,7 @@ func TestIpamMinAllocate10(t *testing.T) {
 	instances.Resync(t.Context())
 
 	k8sapi := newK8sMock()
-	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -300,7 +300,7 @@ func TestIpamManyNodes(t *testing.T) {
 
 			k8sapi := newK8sMock()
 			metrics := metricsmock.NewMockMetrics()
-			mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metrics, int64(test.concurrency), false, false)
+			mngr, err := ipam.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metrics, int64(test.concurrency), false, 0, false)
 			require.NoError(t, err)
 			require.NotNil(t, mngr)
 
@@ -375,7 +375,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 
 	k8sapi := newK8sMock()
 	metrics := metricsmock.NewMockMetrics()
-	mngr, err := ipam.NewNodeManager(hivetest.Logger(b), instances, k8sapi, metrics, workers, false, false)
+	mngr, err := ipam.NewNodeManager(hivetest.Logger(b), instances, k8sapi, metrics, workers, false, 0, false)
 	require.NoError(b, err)
 	require.NotNil(b, mngr)
 

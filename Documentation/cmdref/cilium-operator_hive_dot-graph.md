@@ -17,6 +17,15 @@ cilium-operator hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
+      --alibaba-cloud-release-excess-ips                     Enable releasing excess free IP addresses from Alibaba Cloud ENI.
+      --alibaba-cloud-vpc-id string                          Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
+      --aws-enable-prefix-delegation                         Allows operator to allocate prefixes to ENIs instead of individual IP addresses
+      --aws-release-excess-ips                               Enable releasing excess free IP addresses from AWS ENI.
+      --aws-use-primary-address                              Allows for using primary address of the ENI for allocations on the node
+      --azure-resource-group string                          Resource group to use for Azure IPAM
+      --azure-subscription-id string                         Subscription ID to access Azure API
+      --azure-use-primary-address                            Use Azure IP address from interface's primary IPConfigurations
+      --azure-user-assigned-identity-id string               ID of the user assigned identity used to auth with the Azure API
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --cluster-id uint32                                    Unique identifier of the cluster
@@ -33,6 +42,7 @@ cilium-operator hive dot-graph [flags]
       --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --default-lb-service-ipam string                       Indicates the default LoadBalancer Service IPAM when no LoadBalancer class is set.Applicable values: lbipam, nodeipam, none (default "lbipam")
       --double-write-metric-reporter-interval duration       Refresh interval for the Double Write Metric Reporter (default 1m0s)
+      --ec2-api-endpoint string                              AWS API endpoint for the EC2 service
       --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-gateway-api-alpn                              Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API
       --enable-gateway-api-app-protocol                      Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol
@@ -49,6 +59,10 @@ cilium-operator hive dot-graph [flags]
       --enable-policy-secrets-sync                           Enables fan-in TLS secrets sync from multiple namespaces to singular namespace (specified by policy-secrets-namespace flag)
       --enable-ztunnel                                       Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https                                Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
+      --eni-gc-interval duration                             Interval for garbage collection of unattached ENIs. Set to 0 to disable (default 5m0s)
+      --eni-gc-tags stringToString                           Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected (default [])
+      --eni-tags stringToString                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default [])
+      --excess-ip-release-delay int                          Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
       --gateway-api-hostnetwork-enabled                      Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string     Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --gateway-api-secrets-namespace string                 Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
@@ -104,6 +118,7 @@ cilium-operator hive dot-graph [flags]
       --operator-prometheus-tls-cert-file string             Path to TLS certificate file for prometheus server. The file must contain PEM encoded data
       --operator-prometheus-tls-client-ca-files strings      Path to one or more TLS client CA certificates files to use for TLS with mutual authentication (mTLS) for prometheus server. The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
       --operator-prometheus-tls-key-file string              Path to TLS private key file for prometheus server. The file must contain PEM encoded data.
+      --parallel-alloc-workers int                           Maximum number of parallel IPAM workers (default 50)
       --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                      Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --shell-sock-path string                               Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")

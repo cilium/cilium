@@ -48,8 +48,8 @@ type AllocatorAWS struct {
 
 func (a *AllocatorAWS) initENIGarbageCollectionTags(ctx context.Context, cfg aws.Config) (eniTags map[string]string) {
 	// Use user-provided tags if available
-	if len(operatorOption.Config.ENIGarbageCollectionTags) != 0 {
-		return operatorOption.Config.ENIGarbageCollectionTags
+	if len(a.ENIGarbageCollectionTags) != 0 {
+		return a.ENIGarbageCollectionTags
 	}
 
 	eniTags = map[string]string{
@@ -101,15 +101,15 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, reg *metri
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
 
-	eniCreationTags := operatorOption.Config.ENITags
-	if operatorOption.Config.ENIGarbageCollectionInterval > 0 {
+	eniCreationTags := a.ENITags
+	if a.ENIGarbageCollectionInterval > 0 {
 		a.eniGCTags = a.initENIGarbageCollectionTags(ctx, cfg)
 		// Make sure GC tags are also used for ENI creation
 		eniCreationTags = ec2shim.MergeTags(eniCreationTags, a.eniGCTags)
 	}
 
 	optionsFunc := func(options *ec2.Options) {}
-	if ec2APIEndpoint := operatorOption.Config.EC2APIEndpoint; len(ec2APIEndpoint) > 0 {
+	if ec2APIEndpoint := a.EC2APIEndpoint; len(ec2APIEndpoint) > 0 {
 		a.logger.Debug(
 			"Using custom API endpoint for service",
 			logfields.Endpoint, ec2APIEndpoint,
@@ -122,7 +122,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, reg *metri
 
 	a.client = ec2shim.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
 		operatorOption.Config.IPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
-		operatorOption.Config.AWSUsePrimaryAddress, operatorOption.Config.AWSMaxResultsPerCall)
+		a.AWSUsePrimaryAddress, operatorOption.Config.AWSMaxResultsPerCall)
 
 	return nil
 }
@@ -149,8 +149,8 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		return nil, fmt.Errorf("unable to initialize ENI instances manager: %w", err)
 	}
 	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
-		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AWSReleaseExcessIPs,
-		operatorOption.Config.AWSEnablePrefixDelegation)
+		a.ParallelAllocWorkers, a.AWSReleaseExcessIPs, a.ExcessIPReleaseDelay,
+		a.AWSEnablePrefixDelegation)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize ENI node manager: %w", err)
 	}
@@ -159,9 +159,9 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		return nil, err
 	}
 
-	if operatorOption.Config.ENIGarbageCollectionInterval > 0 {
+	if a.ENIGarbageCollectionInterval > 0 {
 		eni.StartENIGarbageCollector(ctx, a.rootLogger, a.client, eni.GarbageCollectionParams{
-			RunInterval:    operatorOption.Config.ENIGarbageCollectionInterval,
+			RunInterval:    a.ENIGarbageCollectionInterval,
 			MaxPerInterval: defaults.ENIGarbageCollectionMaxPerInterval,
 			ENITags:        a.eniGCTags,
 		})
