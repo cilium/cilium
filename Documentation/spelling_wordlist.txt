@@ -379,6 +379,7 @@ fs
 func
 gRPC
 gVisor
+gapped
 gcc
 gcp
 geneve
