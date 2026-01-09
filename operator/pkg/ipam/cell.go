@@ -23,6 +23,7 @@ var Cell = cell.Module(
 		clusterPoolCell,
 		multiPoolCell,
 		alibabaCloudCell,
+		awsCell,
 	),
 )
 
