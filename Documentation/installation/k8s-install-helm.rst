@@ -15,6 +15,110 @@ This guide will show you how to install Cilium using `Helm
 the :ref:`k8s_quick_install` and requires you to manually select the best
 datapath and IPAM mode for your particular environment.
 
+Helm Installation Methods
+==========================
+
+Cilium can be installed using Helm in two ways:
+
+1. **OCI Registry (Recommended)** — Install directly from OCI registries without adding a Helm repository
+2. **Traditional Repository** — Use the classic ``https://helm.cilium.io/`` repository
+
+Using OCI Registries (Recommended)
+-----------------------------------
+
+Cilium Helm charts are available directly from OCI container registries,
+eliminating the need for a separate Helm repository.
+
+.. tip::
+
+   No ``helm repo add`` required! Just reference the chart directly with
+   ``oci://quay.io/cilium/charts/cilium``.
+
+**Why OCI Registries?**
+
+Storing Helm charts in OCI registries alongside container images offers
+several advantages:
+
+* **Signed charts** — All charts are signed with cosign for verification
+* **Simpler setup** — No repository configuration needed
+* **Digest pinning** — Reference exact chart versions by SHA for reproducibility
+* **Unified tooling** — Use the same registry infrastructure for images and charts
+
+**Quick Start with OCI:**
+
+.. only:: stable
+
+   .. parsed-literal::
+
+      helm install cilium oci://quay.io/cilium/charts/cilium \\
+        --version |CHART_VERSION| \\
+        --namespace kube-system
+
+.. only:: not stable
+
+   .. code-block:: shell-session
+
+      helm install cilium oci://quay.io/cilium/charts/cilium \\
+        --version <VERSION> \\
+        --namespace kube-system
+
+   Replace ``<VERSION>`` with the desired version (e.g., ``1.15.0``).
+
+**Finding Available Versions:**
+
+OCI registries don't support ``helm search``. Here's how to find available
+versions:
+
+.. important::
+
+   **Version format matters**: Helm chart versions follow SemVer 2.0 *without*
+   the "v" prefix (e.g., ``1.15.0``). Container image tags *include* the "v"
+   (e.g., ``v1.15.0``). Use versions without the "v" for Helm commands.
+
+* **Browse the registry:** `Quay.io tags <https://quay.io/repository/cilium/cilium?tab=tags>`_
+* **Query via CLI:**
+
+  .. code-block:: shell-session
+
+     # Using crane
+     crane ls quay.io/cilium/charts/cilium
+
+* **Check releases:** https://github.com/cilium/cilium/releases
+
+**Verifying Chart Signatures:**
+
+All charts are signed with cosign. Verify before installing:
+
+.. code-block:: shell-session
+
+   cosign verify \
+     --certificate-identity-regexp='https://github.com/cilium/cilium/.*' \
+     --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+     quay.io/cilium/charts/cilium:<VERSION>
+
+See https://docs.sigstore.dev/cosign/installation/ for cosign installation.
+
+**Pinning by Digest:**
+
+For reproducible deployments, pin charts by digest instead of tag:
+
+.. code-block:: shell-session
+
+   # Get the digest
+   helm pull oci://quay.io/cilium/charts/cilium --version <VERSION>
+
+   # Install with digest
+   helm install cilium oci://quay.io/cilium/charts/cilium@sha256:<DIGEST> \
+     --namespace kube-system
+
+This guarantees the exact same chart every time.
+
+Using Traditional Helm Repository
+----------------------------------
+
+You can also install Cilium using the traditional Helm repository method.
+Both installation methods are fully supported.
+
 Install Cilium
 ==============
 
@@ -151,7 +255,7 @@ Install Cilium
             2. Flush iptables rules added by VPC CNI
 
                .. code-block:: shell-session
-               
+
                   iptables -t nat -F AWS-SNAT-CHAIN-0 \\
                      && iptables -t nat -F AWS-SNAT-CHAIN-1 \\
                      && iptables -t nat -F AWS-CONNMARK-CHAIN-0 \\
@@ -216,6 +320,88 @@ Install Cilium
   :class: attention
 
   If you'd like to learn more about Cilium Helm values, check out `eCHO episode 117: A Tour of the Cilium Helm Values <https://www.youtube.com/watch?v=ni0Uw4WLHYo>`__.
+
+Upgrading
+=========
+
+Using OCI Registry
+------------------
+
+.. only:: stable
+
+   .. parsed-literal::
+
+      helm upgrade cilium oci://quay.io/cilium/charts/cilium \\
+        --version |CHART_VERSION| \\
+        --namespace kube-system
+
+.. only:: not stable
+
+   .. code-block:: shell-session
+
+      helm upgrade cilium oci://quay.io/cilium/charts/cilium \\
+        --version <NEW_VERSION> \\
+        --namespace kube-system
+
+Migrating from Traditional Repository to OCI
+---------------------------------------------
+
+If you're using the traditional repository (``https://helm.cilium.io/``),
+switching to OCI is straightforward as the charts are identical:
+
+.. only:: stable
+
+   .. parsed-literal::
+
+      helm upgrade cilium oci://quay.io/cilium/charts/cilium \\
+        --version |CHART_VERSION| \\
+        --namespace kube-system \\
+        --reuse-values
+
+.. only:: not stable
+
+   .. code-block:: shell-session
+
+      helm upgrade cilium oci://quay.io/cilium/charts/cilium \\
+        --version <VERSION> \\
+        --namespace kube-system \\
+        --reuse-values
+
+The ``--reuse-values`` flag preserves your existing configuration.
+
+OCI vs Traditional Repository
+==============================
+
++---------------------+---------------------------+---------------------------+
+| Feature             | OCI Registry              | Traditional Repository    |
++=====================+===========================+===========================+
+| Setup               | None                      | ``helm repo add``         |
++---------------------+---------------------------+---------------------------+
+| Chart signing       | Yes (cosign)              | No                        |
++---------------------+---------------------------+---------------------------+
+| Digest pinning      | Yes                       | Limited                   |
++---------------------+---------------------------+---------------------------+
+| Air-gapped install  | Standard OCI mirror tools | Separate chart mirror     |
++---------------------+---------------------------+---------------------------+
+
+Both methods remain fully supported.
+
+Troubleshooting
+===============
+
+"failed to authorize: failed to fetch anonymous token"
+------------------------------------------------------
+
+This usually means network or registry connectivity issues. Test access:
+
+.. code-block:: shell-session
+
+   curl https://quay.io/v2/
+
+"chart not found"
+-----------------
+
+Double-check your version number. Remember: no "v" prefix for Helm versions.
 
 .. include:: k8s-install-restart-pods.rst
 
