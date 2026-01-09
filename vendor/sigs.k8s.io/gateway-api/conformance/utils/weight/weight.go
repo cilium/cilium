@@ -55,6 +55,11 @@ func extractBackendName(podName string) string {
 	return strings.Join(parts[:len(parts)-2], "-")
 }
 
+// BatchRequestSender defines an interface for sending batch requests
+type BatchRequestSender interface {
+	SendBatchRequest(count int) ([]string, error)
+}
+
 // TestWeightedDistribution tests that requests are distributed according to expected weights
 func TestWeightedDistribution(sender RequestSender, expectedWeights map[string]float64) error {
 	const (
@@ -94,6 +99,75 @@ func TestWeightedDistribution(sender RequestSender, expectedWeights map[string]f
 
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("error while sending requests: %w", err)
+	}
+
+	// Count how many backends should receive traffic (weight > 0)
+	expectedActiveBackends := 0
+	for _, weight := range expectedWeights {
+		if weight > 0.0 {
+			expectedActiveBackends++
+		}
+	}
+
+	var errs []error
+	if len(seen) != expectedActiveBackends {
+		errs = append(errs, fmt.Errorf("expected %d backends to receive traffic, but got %d", expectedActiveBackends, len(seen)))
+	}
+
+	for wantBackend, wantPercent := range expectedWeights {
+		gotCount, ok := seen[wantBackend]
+
+		if !ok && wantPercent != 0.0 {
+			errs = append(errs, fmt.Errorf("expect traffic to hit backend %q - but none was received", wantBackend))
+			continue
+		}
+
+		gotPercent := gotCount / float64(totalRequests)
+
+		if math.Abs(gotPercent-wantPercent) > tolerancePercentage {
+			errs = append(errs, fmt.Errorf("backend %q weighted traffic of %v not within tolerance %v (+/-%f)",
+				wantBackend,
+				gotPercent,
+				wantPercent,
+				tolerancePercentage,
+			))
+		}
+	}
+
+	slices.SortFunc(errs, func(a, b error) int {
+		return cmp.Compare(a.Error(), b.Error())
+	})
+	return errors.Join(errs...)
+}
+
+// TestWeightedDistributionBatch tests that requests are distributed according to expected weights
+// using batch request execution for improved performance
+func TestWeightedDistributionBatch(sender BatchRequestSender, expectedWeights map[string]float64) error {
+	const (
+		tolerancePercentage = 0.05
+		totalRequests       = 500
+	)
+
+	// Execute all requests in a single batch
+	podNames, err := sender.SendBatchRequest(totalRequests)
+	if err != nil {
+		return fmt.Errorf("error while sending batch request: %w", err)
+	}
+
+	if len(podNames) != totalRequests {
+		return fmt.Errorf("expected %d responses but got %d", totalRequests, len(podNames))
+	}
+
+	// Count the distribution
+	seen := make(map[string]float64, len(expectedWeights))
+	for _, podName := range podNames {
+		backendName := extractBackendName(podName)
+
+		if _, exists := expectedWeights[backendName]; exists {
+			seen[backendName]++
+		} else {
+			return fmt.Errorf("request was handled by an unexpected pod %q (extracted backend: %q)", podName, backendName)
+		}
 	}
 
 	// Count how many backends should receive traffic (weight > 0)

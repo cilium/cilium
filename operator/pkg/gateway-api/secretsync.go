@@ -92,7 +92,7 @@ func EnqueueBackendTLSPolicyConfigMaps(c client.Client, logger *slog.Logger) han
 				Name:      string(certRef.Name),
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: c})
-			scopedLog.DebugContext(ctx, "Enqueued configmap for backendtlspolicy", logfields.ConfigMap, c)
+			scopedLog.DebugContext(ctx, "Enqueued configmap for backendtlspolicy", logfields.ConfigMapName, c)
 		}
 		return reqs
 	})

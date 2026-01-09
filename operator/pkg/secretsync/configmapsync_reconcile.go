@@ -5,7 +5,6 @@ package secretsync
 
 import (
 	"context"
-	"encoding/base64"
 	"log/slog"
 	"math/rand/v2"
 	"time"
@@ -145,15 +144,11 @@ func configMapToSyncSecret(secretsNamespace string, original *corev1.ConfigMap) 
 	s.Labels[OwningConfigMapNamespace] = original.Namespace
 	s.Labels[OwningConfigMapName] = original.Name
 	s.Immutable = original.Immutable
-	// We have to decode the ConfigMap data so that it gets encoded correctly
-	// when it gets applied to the Secret.
+	// ConfigMap data is not base64 encoded, so we apply it to the
+	// Data field, not the StringData field.
 	s.Data = make(map[string][]byte)
 	for key, value := range original.Data {
-		valueBytes, err := base64.StdEncoding.DecodeString(value)
-		if err != nil {
-			return s, err
-		}
-		s.Data[key] = valueBytes
+		s.Data[key] = []byte(value)
 	}
 
 	s.Type = corev1.SecretTypeOpaque

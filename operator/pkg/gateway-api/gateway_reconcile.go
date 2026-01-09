@@ -175,7 +175,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return controllerruntime.Fail(err)
 	}
 
-	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
+	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(scopedLog, ingestion.Input{
 		GatewayClass:        *gwc,
 		GatewayClassConfig:  r.getGatewayClassConfig(ctx, gwc),
 		Gateway:             *gw,
@@ -1058,7 +1058,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 
 				input := &policychecks.BackendTLSPolicyInput{
 					Ctx:              ctx,
-					Logger:           scopedLog.With(logfields.BackendTLSPolicy, client.ObjectKeyFromObject(original)),
+					Logger:           scopedLog.With(logfields.BackendTLSPolicyName, client.ObjectKeyFromObject(original)),
 					Client:           r.Client,
 					BackendTLSPolicy: btlsp,
 				}
@@ -1099,7 +1099,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 				}
 				input := &policychecks.BackendTLSPolicyInput{
 					Ctx:              ctx,
-					Logger:           scopedLog.With(logfields.BackendTLSPolicy, client.ObjectKeyFromObject(original)),
+					Logger:           scopedLog.With(logfields.BackendTLSPolicyName, client.ObjectKeyFromObject(original)),
 					Client:           r.Client,
 					BackendTLSPolicy: btlsp,
 				}
@@ -1139,7 +1139,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 			// The validators will mutate the BackendTLSPolicy as required, setting its status correctly.
 			input := &policychecks.BackendTLSPolicyInput{
 				Ctx:              ctx,
-				Logger:           scopedLog.With(logfields.BackendTLSPolicy, client.ObjectKeyFromObject(btlsp)),
+				Logger:           scopedLog.With(logfields.BackendTLSPolicyName, client.ObjectKeyFromObject(btlsp)),
 				Client:           r.Client,
 				BackendTLSPolicy: btlsp,
 			}
@@ -1193,7 +1193,7 @@ func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
 			// The validators will mutate the BackendTLSPolicy as required, setting its status correctly.
 			input := &policychecks.BackendTLSPolicyInput{
 				Ctx:              ctx,
-				Logger:           scopedLog.With(logfields.BackendTLSPolicy, client.ObjectKeyFromObject(btlsp)),
+				Logger:           scopedLog.With(logfields.BackendTLSPolicyName, client.ObjectKeyFromObject(btlsp)),
 				Client:           r.Client,
 				BackendTLSPolicy: btlsp,
 			}

@@ -1860,7 +1860,7 @@ const (
 
 	ExtendedMessage = "extendedMessage"
 
-	BackendTLSPolicy = "BackendTLSPolicy"
+	BackendTLSPolicyName = "backendTLSPolicyName"
 
-	ConfigMap = "ConfigMap"
+	ConfigMapName = "configMapName"
 )

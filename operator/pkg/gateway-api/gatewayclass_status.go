@@ -25,7 +25,8 @@ var gatewayClassSupportedFeatures = getSupportedFeatures()
 var exemptFeatures = []features.Feature{
 	features.HTTPRouteParentRefPortFeature,
 	features.MeshConsumerRouteFeature,
-	features.BackendTLSPolicyFeature,
+	// features.BackendTLSPolicyFeature,
+	features.BackendTLSPolicySanValidationFeature,
 	features.HTTPRouteCORS,
 }
 
