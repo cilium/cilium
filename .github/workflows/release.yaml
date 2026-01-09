@@ -32,13 +32,9 @@ on:
         required: true
       CILIUM_RELEASE_BOT_APP_ID:
         required: true
-      DOCKER_HUB_RELEASE_USERNAME:
+      QUAY_USERNAME_HELM_RELEASE_USERNAME:
         required: false
-      DOCKER_HUB_RELEASE_PASSWORD:
-        required: false
-      QUAY_USERNAME_RELEASE_USERNAME:
-        required: false
-      QUAY_PASSWORD_RELEASE_PASSWORD:
+      QUAY_PASSWORD_HELM_RELEASE_PASSWORD:
         required: false
 
 permissions:
@@ -122,7 +118,7 @@ jobs:
   release-helm:
     name: Release Helm
     if: ${{ inputs.step == '5-publish-helm' }}
-    environment: release
+    environment: release-helm
     timeout-minutes: 40
     runs-on: ubuntu-24.04
     steps:
@@ -202,14 +198,9 @@ jobs:
       - name: Login to Helm registries
         shell: bash
         env:
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_RELEASE_USERNAME }}
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_RELEASE_PASSWORD }}
-          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME_RELEASE_USERNAME }}
-          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD_RELEASE_PASSWORD }}
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME_HELM_RELEASE_USERNAME }}
+          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD_HELM_RELEASE_PASSWORD }}
         run: |
-          echo "Logging into Docker Hub..."
-          echo "${DOCKER_HUB_PASSWORD}" | helm registry login docker.io --username "${DOCKER_HUB_USERNAME}" --password-stdin
-
           echo "Logging into Quay.io..."
           echo "${QUAY_PASSWORD}" | helm registry login quay.io --username "${QUAY_USERNAME}" --password-stdin
 
@@ -349,21 +340,9 @@ jobs:
           echo "quay_digest=${QUAY_DIGEST}" >> $GITHUB_OUTPUT
           echo "✅ Quay.io digest: ${QUAY_DIGEST}"
 
-          # Extract digest for docker.io
-          DOCKER_DIGEST=$(grep "docker.io/cilium" "$DIGEST_FILE" | awk '{print $2}')
-          echo "docker_digest=${DOCKER_DIGEST}" >> $GITHUB_OUTPUT
-          echo "✅ Docker.io digest: ${DOCKER_DIGEST}"
-
       - name: Sign quay.io OCI helm chart
         uses: ./.github/actions/cosign
         with:
-          image: "quay.io/${{ github.repository_owner }}/cilium@${{ steps.helm_digests.outputs.quay_digest }}"
-          generate_sbom: 'false'
-          attach_sbom: 'false'
-
-      - name: Sign docker.io OCI helm chart
-        uses: ./.github/actions/cosign
-        with:
-          image: "docker.io/${{ github.repository_owner }}/cilium@${{ steps.helm_digests.outputs.docker_digest }}"
+          image: "quay.io/${{ github.repository_owner }}/charts/cilium@${{ steps.helm_digests.outputs.quay_digest }}"
           generate_sbom: 'false'
           attach_sbom: 'false'
