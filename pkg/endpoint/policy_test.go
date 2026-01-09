@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/compute"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
@@ -45,9 +46,11 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 	defer policy.SetPolicyEnabled(pe)
 
 	idcache := make(identity.IdentityMap, testfactor)
+	logger := hivetest.Logger(t)
 	fakeAllocator := testidentity.NewMockIdentityAllocator(idcache)
 	idManager := identitymanager.NewIDManager(hivetest.Logger(t))
-	repo := policy.NewPolicyRepository(hivetest.Logger(t), fakeAllocator.GetIdentityCache(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
+	repo := policy.NewPolicyRepository(logger, fakeAllocator.GetIdentityCache(), nil, nil, idManager, testpolicy.NewPolicyMetricsNoop())
+	polComputer := compute.InstantiateCellForTesting(t, logger, "endpoint-policy_test", "TestIncrementalUpdatesDuringPolicyGeneration", repo, idManager)
 
 	addIdentity := func(labelKeys ...string) *identity.Identity {
 		t.Helper()
@@ -73,6 +76,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	ep := Endpoint{
 		policyRepo:       repo,
+		policyFetcher:    polComputer,
 		desiredPolicy:    policy.NewEndpointPolicy(hivetest.Logger(t), repo),
 		labels:           labels.NewOpLabels(),
 		SecurityIdentity: podID,
@@ -112,7 +116,8 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		},
 	}
 
-	repo.MustAddList(api.Rules{egressDenyRule})
+	_, rev := repo.MustAddList(api.Rules{egressDenyRule})
+	computePolicyForEPAndWait(t, &ep, polComputer, rev)
 
 	// Track all IDs we allocate so we can validate later that we never miss any
 	checkMutex := lock.Mutex{}
@@ -139,6 +144,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 
 	stats := new(regenerationStatistics)
 	datapathRegenCtxt := new(datapathRegenerationContext)
+	datapathRegenCtxt.policyRevisionToWaitFor = rev
 	// Continuously compute policy for the pod and ensure we never missed an incremental update.
 	for {
 		t.Log("Calculating policy...")
@@ -180,4 +186,13 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 			break
 		}
 	}
+}
+
+func computePolicyForEPAndWait(t *testing.T, ep *Endpoint, fetcher compute.PolicyRecomputer, rev uint64) {
+	t.Helper()
+
+	computedPolicyCh, err := fetcher.RecomputeIdentityPolicy(ep.SecurityIdentity, rev)
+	assert.NoError(t, err)
+	assert.NotNil(t, computedPolicyCh)
+	<-computedPolicyCh
 }

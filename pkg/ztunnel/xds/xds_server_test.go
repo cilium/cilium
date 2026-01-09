@@ -168,6 +168,10 @@ func (m *MockEndpointManager) TriggerRegenerateAllEndpoints() {
 	panic("MockEndpointManager.TriggerRegenerateAllEndpoints not implemented")
 }
 
+func (m *MockEndpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
+	panic("MockEndpointManager.WaitForEndpointsAtPolicyRev not implemented")
+}
+
 func (m *MockEndpointManager) OverrideEndpointOpts(om option.OptionMap) {
 	panic("MockEndpointManager.OverrideEndpointOpts not implemented")
 }

@@ -8,6 +8,8 @@ import (
 	"errors"
 	"slices"
 
+	"github.com/cilium/cilium/pkg/container/set"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
@@ -195,6 +197,16 @@ func (rules ruleSlice) AsPolicyEntries() types.PolicyEntries {
 		policyRules = append(policyRules, &r.PolicyEntry)
 	}
 	return policyRules
+}
+
+func (rules ruleSlice) AllIdentitySelections() set.Set[identity.NumericIdentity] {
+	ids := set.NewSet[identity.NumericIdentity]()
+	for _, r := range rules {
+		for _, id := range r.getSubjects() {
+			ids.Insert(id)
+		}
+	}
+	return ids
 }
 
 // traceState is an internal structure used to collect information
