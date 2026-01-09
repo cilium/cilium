@@ -38,9 +38,6 @@ triggers:
   /ci-delegated-ipam:
     workflows:
     - conformance-delegated-ipam.yaml
-  /ci-ipsec-upgrade:
-    workflows:
-    - tests-ipsec-upgrade.yaml
   /ci-ipsec:
     workflows:
     - conformance-ipsec.yaml
@@ -165,8 +162,6 @@ workflows:
   tests-datapath-verifier.yaml:
     paths-regex: (bpf|test/verifier|vendor|images|.github/actions/cl2-modules|pkg/datapath/loader)/
   tests-e2e-upgrade.yaml:
-    paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
-  tests-ipsec-upgrade.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   hubble-cli-integration-test.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md)$)
