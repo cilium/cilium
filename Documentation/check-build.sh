@@ -166,7 +166,7 @@ run_linter() {
         --report-level info \
         --ignore-languages "bash,c" \
         --ignore-messages "${ignored_messages}" \
-        --ignore-directives "tabs,openapi" \
+        --ignore-directives "tabs,openapi,cilium-helm-install,cilium-helm-upgrade,cilium-helm-template" \
         --ignore-roles "${CONF_PY_ROLES},spelling:ignore,spelling:word" \
         --ignore-substitutions "${CONF_PY_SUBSTITUTIONS}" \
        -r . ../README.rst 2>&1 | \
