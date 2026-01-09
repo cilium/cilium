@@ -85,7 +85,7 @@ type endpointManager struct {
 	// This is configured via WithPeriodicEndpointGC() and will mark
 	// endpoints for removal on one run of the controller, then in the
 	// subsequent controller run will remove the endpoints.
-	markedEndpoints []uint16
+	markedEndpoints map[uint16]struct{}
 
 	// controllers associated with the endpoint manager.
 	controllers *controller.Manager
