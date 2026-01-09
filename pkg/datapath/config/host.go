@@ -55,6 +55,9 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
+
 	return cfg
 }
 
@@ -93,6 +96,9 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
 	return cfg
 }
@@ -152,6 +158,9 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4 && option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking
 
 	return cfg
 }
