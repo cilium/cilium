@@ -100,6 +100,9 @@ jobs:
           - kernel: '6.12'
             kernel-name: '612'
             ci-kernel: '61'
+          - kernel: '6.18'
+            kernel-name: '618'
+            ci-kernel: '61'
           - kernel: 'bpf-next'
             kernel-name: 'bpf-next'
             ci-kernel: 'netnext'
@@ -143,6 +146,8 @@ jobs:
             "6.6") FULL_KERNEL="6.6-20260105.013422" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "6.12") FULL_KERNEL="6.12-20260105.013422" ;;
+            # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
+            "6.18") FULL_KERNEL="6.18-20260109.091250" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
             "bpf-next") FULL_KERNEL="bpf-next-20260105.013422" ;;
             *) FULL_KERNEL="$KERNEL" ;;
