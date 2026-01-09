@@ -64,6 +64,7 @@ get started and experiment with Cilium.
 
    installation/taints
    installation/k8s-install-helm
+   installation/k8s-install-helm-oci
    installation/k8s-install-migration
    installation/k8s-toc
    installation/external-toc
