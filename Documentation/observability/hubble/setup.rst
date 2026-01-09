@@ -60,12 +60,10 @@ Enable Hubble in Cilium
         If you installed Cilium via ``helm install``, Hubble is enabled by default.
         You may enable Hubble Relay with the following command:
 
-        .. parsed-literal::
-
-           helm upgrade cilium |CHART_RELEASE| \\
-              --namespace kube-system \\
-              --reuse-values \\
-              --set hubble.relay.enabled=true
+        .. cilium-helm-upgrade::
+           :namespace: kube-system
+           :extra-args: --reuse-values
+           :set: hubble.relay.enabled=true
 
 Run ``cilium status`` to validate that Hubble is enabled and running:
 

@@ -136,14 +136,12 @@ connect to the AlibabaCloud API.
 
 Install Cilium release via Helm:
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set alibabacloud.enabled=true \\
-     --set ipam.mode=alibabacloud \\
-     --set enableIPv4Masquerade=false \\
-     --set routingMode=native
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: alibabacloud.enabled=true
+         ipam.mode=alibabacloud
+         enableIPv4Masquerade=false
+         routingMode=native
 
 .. note::
 

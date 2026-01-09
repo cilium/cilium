@@ -108,15 +108,13 @@ The following example configures Cilium to:
 * Use index 1 as the first interface for pod IP allocation.
 * Set the minimum number of IPs to allocate to 10.
 
-.. parsed-literal::
-
-  helm upgrade cilium |CHART_RELEASE| \\
-    --namespace kube-system \\
-    --reuse-values \\
-    --set eni.enabled=true \\
-    --set eni.nodeSpec.subnetTags={foo=bar} \\
-    --set eni.nodeSpec.firstInterfaceIndex=1 \\
-    --set ipam.nodeSpec.ipamMinAllocate=10
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: eni.enabled=true
+         eni.nodeSpec.subnetTags={foo=bar}
+         eni.nodeSpec.firstInterfaceIndex=1
+         ipam.nodeSpec.ipamMinAllocate=10
 
 The full list of available options can be found in the :ref:`helm_reference`
 section in the ``eni.nodeSpec`` and ``ipam.nodeSpec`` sections.

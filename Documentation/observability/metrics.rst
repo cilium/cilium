@@ -40,12 +40,10 @@ You can enable metrics for ``cilium-agent`` (including Envoy) with the Helm valu
 ``prometheus.enabled=true``. ``cilium-operator`` metrics are enabled by default,
 if you want to disable them, set Helm value ``operator.prometheus.enabled=false``.
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set prometheus.enabled=true \\
-     --set operator.prometheus.enabled=true
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: prometheus.enabled=true
+         operator.prometheus.enabled=true
 
 Cilium Metrics Scraping
 -----------------------
@@ -135,15 +133,13 @@ Hubble with ``hubble.enabled=true`` and provide a set of Hubble metrics you want
 enable via ``hubble.metrics.enabled``.
 
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set prometheus.enabled=true \\
-     --set operator.prometheus.enabled=true \\
-     --set hubble.enabled=true \\
-     --set hubble.metrics.enableOpenMetrics=true \\
-     --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: prometheus.enabled=true
+         operator.prometheus.enabled=true
+         hubble.enabled=true
+         hubble.metrics.enableOpenMetrics=true
+         hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
 
 
 Installation with a dynamic metrics exporter
@@ -240,18 +236,16 @@ Deploy the :term:`ConfigMap`:
 
    kubectl apply -f dynamic-metrics.yaml
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set prometheus.enabled=true \\
-     --set operator.prometheus.enabled=true \\
-     --set hubble.enabled=true \\
-     --set hubble.metrics.enableOpenMetrics=true \\
-     --set hubble.metrics.enabled=[] \\
-     --set hubble.metrics.dynamic.enabled=true \\
-     --set hubble.metrics.dynamic.config.configMapName=cilium-dynamic-metrics-config \\
-     --set hubble.metrics.dynamic.config.createConfigMap=false
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: prometheus.enabled=true
+         operator.prometheus.enabled=true
+         hubble.enabled=true
+         hubble.metrics.enableOpenMetrics=true
+         hubble.metrics.enabled=[]
+         hubble.metrics.dynamic.enabled=true
+         hubble.metrics.dynamic.config.configMapName=cilium-dynamic-metrics-config
+         hubble.metrics.dynamic.config.createConfigMap=false
 
 Hubble Metrics Scraping
 -----------------------
@@ -352,14 +346,12 @@ setting the following values:
 * kvstoremesh: ``clustermesh.apiserver.metrics.kvstoremesh.enabled=true``
 * sidecar etcd instance: ``clustermesh.apiserver.metrics.etcd.enabled=true``
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set clustermesh.useAPIServer=true \\
-     --set clustermesh.apiserver.metrics.enabled=true \\
-     --set clustermesh.apiserver.metrics.kvstoremesh.enabled=true \\
-     --set clustermesh.apiserver.metrics.etcd.enabled=true
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: clustermesh.useAPIServer=true
+         clustermesh.apiserver.metrics.enabled=true
+         clustermesh.apiserver.metrics.kvstoremesh.enabled=true
+         clustermesh.apiserver.metrics.etcd.enabled=true
 
 You can figure the ports by way of ``clustermesh.apiserver.metrics.port``,
 ``clustermesh.apiserver.metrics.kvstoremesh.port`` and
