@@ -1320,6 +1320,10 @@
      - Enable Non-Default-Deny policies
      - bool
      - ``true``
+   * - :spelling:ignore:`enableTunnelBIGTCP`
+     - Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels
+     - bool
+     - ``false``
    * - :spelling:ignore:`enableXTSocketFallback`
      - Enables the fallback compatibility solution for when the xt_socket kernel module is missing and it is needed for the datapath L7 redirection to work properly. See documentation for details on when this can be disabled: https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
      - bool

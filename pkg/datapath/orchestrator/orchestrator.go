@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -114,6 +115,7 @@ type orchestratorParams struct {
 	MaglevConfig        maglev.Config
 	WgAgent             wgTypes.WireguardAgent
 	IPsecConfig         datapath.IPsecConfig
+	BIGTCPConfig        *bigtcp.Configuration
 }
 
 func newOrchestrator(params orchestratorParams) *orchestrator {
@@ -285,6 +287,7 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		o.params.TunnelConfig,
 		o.params.IPTablesManager,
 		o.params.Proxy,
+		o.params.BIGTCPConfig,
 	)
 	if err != nil {
 		if req.errChan != nil {

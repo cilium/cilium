@@ -31,6 +31,25 @@ var lo = &netlink.GenericLink{
 	LinkType:  "loopback",
 }
 
+type mockBigTCP struct {
+}
+
+func (c mockBigTCP) GetGROIPv6MaxSize() int {
+	return 65536
+}
+
+func (c mockBigTCP) GetGSOIPv6MaxSize() int {
+	return 65536
+}
+
+func (c mockBigTCP) GetGROIPv4MaxSize() int {
+	return 65536
+}
+
+func (c mockBigTCP) GetGSOIPv4MaxSize() int {
+	return 65536
+}
+
 func mustXDPProgram(t *testing.T, name string) *ebpf.Program {
 	p, err := ebpf.NewProgram(&ebpf.ProgramSpec{
 		Type: ebpf.XDP,
@@ -118,7 +137,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 		ns := netns.NewNetNS(t)
 
 		ns.Do(func() error {
-			err := setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu)
+			err := setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err := safenetlink.LinkByName(defaults.GeneveDevice)
@@ -140,10 +159,10 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 		ns := netns.NewNetNS(t)
 
 		ns.Do(func() error {
-			err := setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu)
+			err := setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
-			err = setupTunnelDevice(logger, sysctl, tunnel.Geneve, 12345, 0, 0, mtu)
+			err = setupTunnelDevice(logger, sysctl, tunnel.Geneve, 12345, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err := safenetlink.LinkByName(defaults.GeneveDevice)
@@ -165,7 +184,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 		ns := netns.NewNetNS(t)
 
 		ns.Do(func() error {
-			err := setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu)
+			err := setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err := safenetlink.LinkByName(defaults.GeneveDevice)
@@ -174,7 +193,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			// Ensure the ifindex does not change when specifying a different MTU.
 			ifindex := link.Attrs().Index
 
-			err = setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu-1)
+			err = setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu-1, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err = safenetlink.LinkByName(defaults.GeneveDevice)
@@ -194,7 +213,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 		ns := netns.NewNetNS(t)
 
 		ns.Do(func() error {
-			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu)
+			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err := safenetlink.LinkByName(defaults.VxlanDevice)
@@ -216,10 +235,10 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 		ns := netns.NewNetNS(t)
 
 		ns.Do(func() error {
-			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu)
+			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
-			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, 12345, 0, 0, mtu)
+			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, 12345, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err := safenetlink.LinkByName(defaults.VxlanDevice)
@@ -253,10 +272,10 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			err = netlink.LinkSetUp(externallyMangedVxlan)
 			require.NoError(t, err)
 
-			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu)
+			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu, mockBigTCP{})
 			require.Error(t, err)
 
-			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, 12345, 0, 0, mtu)
+			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, 12345, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err := safenetlink.LinkByName(defaults.VxlanDevice)
@@ -278,7 +297,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 		ns := netns.NewNetNS(t)
 
 		ns.Do(func() error {
-			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu)
+			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err := safenetlink.LinkByName(defaults.VxlanDevice)
@@ -287,7 +306,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			// Ensure the ifindex does not change when specifying a different MTU.
 			ifindex := link.Attrs().Index
 
-			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu-1)
+			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu-1, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err = safenetlink.LinkByName(defaults.VxlanDevice)
@@ -310,7 +329,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			srcMin := uint16(1000)
 			srcMax := uint16(2000)
 
-			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, 4567, srcMin, srcMax, mtu)
+			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, 4567, srcMin, srcMax, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err := safenetlink.LinkByName(defaults.VxlanDevice)
@@ -337,7 +356,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			srcMin := uint16(1000)
 			srcMax := uint16(2000)
 
-			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu)
+			err := setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err := safenetlink.LinkByName(defaults.VxlanDevice)
@@ -348,7 +367,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			require.Equal(t, 0, vxlan.PortLow)
 			require.Equal(t, 0, vxlan.PortHigh)
 
-			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, srcMin, srcMax, mtu)
+			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, srcMin, srcMax, mtu, mockBigTCP{})
 			require.NoError(t, err)
 
 			link, err = safenetlink.LinkByName(defaults.VxlanDevice)
@@ -372,7 +391,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 
 		ns.Do(func() error {
 			// Start with a Geneve tunnel.
-			err := setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu)
+			err := setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 			_, err = safenetlink.LinkByName(defaults.GeneveDevice)
 			require.NoError(t, err)
@@ -380,7 +399,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			require.Error(t, err)
 
 			// Switch to vxlan mode.
-			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu)
+			err = setupTunnelDevice(logger, sysctl, tunnel.VXLAN, defaults.TunnelPortVXLAN, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 			_, err = safenetlink.LinkByName(defaults.GeneveDevice)
 			require.Error(t, err)
@@ -388,7 +407,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			require.NoError(t, err)
 
 			// Switch back to Geneve.
-			err = setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu)
+			err = setupTunnelDevice(logger, sysctl, tunnel.Geneve, defaults.TunnelPortGeneve, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 			_, err = safenetlink.LinkByName(defaults.GeneveDevice)
 			require.NoError(t, err)
@@ -396,7 +415,7 @@ func TestPrivilegedSetupTunnelDevice(t *testing.T) {
 			require.Error(t, err)
 
 			// Disable tunneling.
-			err = setupTunnelDevice(logger, sysctl, tunnel.Disabled, 0, 0, 0, mtu)
+			err = setupTunnelDevice(logger, sysctl, tunnel.Disabled, 0, 0, 0, mtu, mockBigTCP{})
 			require.NoError(t, err)
 			_, err = safenetlink.LinkByName(defaults.VxlanDevice)
 			require.Error(t, err)

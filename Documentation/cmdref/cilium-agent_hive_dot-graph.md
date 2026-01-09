@@ -102,6 +102,7 @@ cilium-agent hive dot-graph [flags]
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-standalone-dns-proxy                               Enables standalone DNS proxy
+      --enable-tunnel-big-tcp                                     Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
       --enable-wireguard                                          Enable WireGuard
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
