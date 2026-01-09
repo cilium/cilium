@@ -40,7 +40,7 @@ var BackendTLSPolicyFeature = Feature{
 // SubjectAltName Validation feature.
 var BackendTLSPolicySanValidationFeature = Feature{
 	Name:    SupportBackendTLSPolicySANValidation,
-	Channel: FeatureChannelExperimental,
+	Channel: FeatureChannelStandard,
 }
 
 // BackendTLSPolicyCoreFeatures includes all the supported features for the
