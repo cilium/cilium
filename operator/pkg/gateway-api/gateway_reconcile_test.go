@@ -171,6 +171,20 @@ func Test_Conformance(t *testing.T) {
 				{FullName: types.NamespacedName{Name: "unresolved-gateway-with-one-attached-unresolved-route", Namespace: "gateway-conformance-infra"}, wantErr: true},
 			},
 		},
+		{
+			name: "gateway-multiple-listeners",
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-multiple-listeners",
+					Namespace: "gateway-conformance-infra"}},
+			},
+		},
+		{
+			name: "gateway-omit-sectionName-listeners",
+			gateway: []gwDetails{
+				{FullName: types.NamespacedName{Name: "gateway-omit-sectionName-listeners",
+					Namespace: "gateway-conformance-infra-label"}},
+			},
+		},
 		{name: "grpcroute-exact-method-matching", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "grpcroute-header-matching", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "grpcroute-listener-hostname-matching", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "grpcroute-listener-hostname-matching", Namespace: "gateway-conformance-infra"}}}},
@@ -241,6 +255,7 @@ func Test_Conformance(t *testing.T) {
 					clientBuilder := fake.NewClientBuilder().
 						WithObjects(append(base, input...)...).
 						WithStatusSubresource(&corev1.Service{}).
+						WithStatusSubresource(&corev1.Namespace{}).
 						WithStatusSubresource(&gatewayv1.GRPCRoute{}).
 						WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 						WithStatusSubresource(&gatewayv1alpha2.TLSRoute{}).
@@ -266,7 +281,6 @@ func Test_Conformance(t *testing.T) {
 						translator: gatewayAPITranslator,
 						logger:     logger,
 					}
-
 					// Reconcile all related HTTPRoute objects
 					hrList := &gatewayv1.HTTPRouteList{}
 					err := c.List(t.Context(), hrList)
