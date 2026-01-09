@@ -87,21 +87,17 @@ you may need to enable this.
 This feature is currently disabled by default via a feature flag.
 To install Cilium with EndpointSlice Cluster Mesh synchronization, run:
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set clustermesh.enableEndpointSliceSynchronization=true
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: clustermesh.enableEndpointSliceSynchronization=true
 
 To enable EndpointSlice Cluster Mesh synchronization on an existing Cilium installation, run:
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --reuse-values \\
-     --set clustermesh.enableEndpointSliceSynchronization=true
-   kubectl -n kube-system rollout restart deployment/cilium-operator
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :set: clustermesh.enableEndpointSliceSynchronization=true
+   :extra-args: --reuse-values
+   :post-commands: kubectl -n kube-system rollout restart deployment/cilium-operator
 
 Known Limitations
 -----------------
@@ -219,12 +215,10 @@ services are repopulated, and load-balancing to its backends resumes.
 The default value is ``"0s"``, which disables this feature and means caches are never revoked. To
 enable it, set ``clustermesh.cacheTTL`` to a duration greater than zero (e.g., ``"15m"``).
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --reuse-values \\
-     --set clustermesh.cacheTTL="15m"
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: clustermesh.cacheTTL="15m"
 
 Limitations
 ###########

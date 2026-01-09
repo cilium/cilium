@@ -68,17 +68,15 @@ the Kubernetes API in a convenient way, which solely relies on host networking w
 using an external loadbalancer. This KubePrism_ endpoint can be accessed from every
 Talos Linux node on ``localhost:7445``.
 
-.. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-      --namespace $CILIUM_NAMESPACE \\
-      --set=ipam.mode=kubernetes \\
-      --set=kubeProxyReplacement=true \\
-      --set=securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}" \\
-      --set=securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}" \\
-      --set=cgroup.autoMount.enabled=false \\
-      --set=cgroup.hostRoot=/sys/fs/cgroup \\
-      --set=k8sServiceHost=localhost \\
-      --set=k8sServicePort=7445
+.. cilium-helm-install::
+   :namespace: $CILIUM_NAMESPACE
+   :set: ipam.mode=kubernetes
+         kubeProxyReplacement=true
+         securityContext.capabilities.ciliumAgent="{CHOWN,KILL,NET_ADMIN,NET_RAW,IPC_LOCK,SYS_ADMIN,SYS_RESOURCE,DAC_OVERRIDE,FOWNER,SETGID,SETUID}"
+         securityContext.capabilities.cleanCiliumState="{NET_ADMIN,SYS_ADMIN,SYS_RESOURCE}"
+         cgroup.autoMount.enabled=false
+         cgroup.hostRoot=/sys/fs/cgroup
+         k8sServiceHost=localhost
+         k8sServicePort=7445
 
 .. _KubePrism: https://www.talos.dev/v1.6/kubernetes-guides/configuration/kubeprism/

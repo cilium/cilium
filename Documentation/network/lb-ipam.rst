@@ -403,12 +403,10 @@ load balancer class by setting the following configuration in the Helm chart or 
 .. tabs::
     .. group-tab:: Helm
 
-        .. parsed-literal::
-
-            $ helm upgrade cilium |CHART_RELEASE| \\
-               --namespace kube-system \\
-               --reuse-values \\
-               --set defaultLBServiceIPAM=none
+        .. cilium-helm-upgrade::
+           :namespace: kube-system
+           :extra-args: --reuse-values
+           :set: defaultLBServiceIPAM=none
 
     .. group-tab:: ConfigMap
 

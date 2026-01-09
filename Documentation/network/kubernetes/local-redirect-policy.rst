@@ -42,13 +42,10 @@ Prerequisites
 
 Enable the feature by setting the ``localRedirectPolicies.enabled`` value to ``true``.
 
-.. parsed-literal::
-
-   helm upgrade cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --reuse-values \\
-     --set localRedirectPolicies.enabled=true
-
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: localRedirectPolicies.enabled=true
 
 Rollout the operator and agent pods to make the changes effective:
 

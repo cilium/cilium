@@ -147,10 +147,8 @@ Install Cilium
 
        Deploy Cilium release via Helm:
 
-       .. parsed-literal::
-
-          helm install cilium |CHART_RELEASE| \\
-            --namespace kube-system
+       .. cilium-helm-install::
+          :namespace: kube-system
 
     .. group-tab:: GKE
 
@@ -167,17 +165,15 @@ Install Cilium
 
        Deploy Cilium release via Helm:
 
-       .. parsed-literal::
-
-          helm install cilium |CHART_RELEASE| \\
-            --namespace kube-system \\
-            --set nodeinit.enabled=true \\
-            --set nodeinit.reconfigureKubelet=true \\
-            --set nodeinit.removeCbrBridge=true \\
-            --set cni.binPath=/home/kubernetes/bin \\
-            --set gke.enabled=true \\
-            --set ipam.mode=kubernetes \\
-            --set ipv4NativeRoutingCIDR=$NATIVE_CIDR
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: nodeinit.enabled=true
+                nodeinit.reconfigureKubelet=true
+                nodeinit.removeCbrBridge=true
+                cni.binPath=/home/kubernetes/bin
+                gke.enabled=true
+                ipam.mode=kubernetes
+                ipv4NativeRoutingCIDR=$NATIVE_CIDR
 
        The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
        to the cluster. The NodeInit DaemonSet will perform the following actions:
@@ -193,11 +189,9 @@ Install Cilium
 
        Deploy Cilium release via Helm:
 
-       .. parsed-literal::
-
-          helm install cilium |CHART_RELEASE| \\
-            --namespace kube-system \\
-            --set aksbyocni.enabled=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: aksbyocni.enabled=true
 
        .. note::
 
@@ -221,11 +215,9 @@ Install Cilium
 
        Deploy Cilium release via Helm:
 
-       .. parsed-literal::
-
-          helm install cilium |CHART_RELEASE| \\
-            --namespace kube-system \\
-            --set eni.enabled=true
+       .. cilium-helm-install::
+          :namespace: kube-system
+          :set: eni.enabled=true
 
        .. note::
 
@@ -281,11 +273,9 @@ Install Cilium
 
        **Install Cilium:**
 
-       .. parsed-literal::
-
-          helm install cilium |CHART_RELEASE| \\
-             --namespace $CILIUM_NAMESPACE \\
-             --set operator.replicas=1
+       .. cilium-helm-install::
+          :namespace: $CILIUM_NAMESPACE
+          :set: operator.replicas=1
 
     .. group-tab:: Rancher Desktop
 
@@ -298,12 +288,10 @@ Install Cilium
 
        **Install Cilium:**
 
-       .. parsed-literal::
-
-          helm install cilium |CHART_RELEASE| \\
-             --namespace $CILIUM_NAMESPACE \\
-             --set operator.replicas=1 \\
-             --set cni.binPath=/usr/libexec/cni
+       .. cilium-helm-install::
+          :namespace: $CILIUM_NAMESPACE
+          :set: operator.replicas=1
+                cni.binPath=/usr/libexec/cni
 
     .. group-tab:: Talos Linux
 

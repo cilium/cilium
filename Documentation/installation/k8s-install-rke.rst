@@ -72,12 +72,8 @@ Deploy Cilium
 
         Install Cilium via ``helm install``:
 
-        .. parsed-literal::
-
-           helm repo add cilium https://helm.cilium.io
-           helm repo update
-           helm install cilium |CHART_RELEASE| \\
-              --namespace $CILIUM_NAMESPACE
+        .. cilium-helm-install::
+           :namespace: $CILIUM_NAMESPACE
 
     .. group-tab:: Cilium CLI
 

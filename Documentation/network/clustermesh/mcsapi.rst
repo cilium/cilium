@@ -22,20 +22,16 @@ Make sure you are running CoreDNS 1.12.2 or later (installed by default from Kub
 
 To install Cilium with MCS-API support, run:
 
-   .. parsed-literal::
-
-      helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set clustermesh.mcsapi.enabled=true
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: clustermesh.mcsapi.enabdled=true
 
 To enable MCS-API support on an existing Cilium installation, run:
 
-   .. parsed-literal::
-
-      helm upgrade cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --reuse-values \\
-      --set clustermesh.mcsapi.enabled=true
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :set: clustermesh.mcsapi.enabled=true
+   :extra-args: --reuse-values
 
 Also checkout the :ref:`EndpointSlice synchronization <endpointslicesync>` feature
 if you need Headless Services support.

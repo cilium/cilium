@@ -238,11 +238,9 @@ works as intended.  However, if HTTP or Kafka enforcement policies are
 never used, this behavior can be turned off by adding the following to
 the helm configuration command line:
 
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     ...
-     --set enableXTSocketFallback=false
+.. cilium-helm-install::
+   :set: enableXTSocketFallback=false
+   :extra-args: ...
 
 .. _features_kernel_matrix:
 
