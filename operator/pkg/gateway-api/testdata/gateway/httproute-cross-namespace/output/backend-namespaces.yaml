@@ -30,7 +30,7 @@ status:
       status: "False"
       type: Programmed
   listeners:
-    - attachedRoutes: 0
+    - attachedRoutes: 1
       conditions:
         - lastTransitionTime: "2025-07-01T14:29:32Z"
           message: Resolved Refs
