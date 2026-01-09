@@ -32,6 +32,10 @@ var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-alibaba-cloud"}
 
 // AllocatorAlibabaCloud is an implementation of IPAM allocator interface for AlibabaCloud ENI
 type AllocatorAlibabaCloud struct {
+	AlibabaCloudVPCID            string
+	AlibabaCloudReleaseExcessIPs bool
+	ParallelAllocWorkers         int64
+
 	rootLogger *slog.Logger
 	logger     *slog.Logger
 	client     *openapi.Client
