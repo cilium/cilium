@@ -56,5 +56,6 @@ runs:
           --node-count ${{ inputs.node_count }} \
           --ip-families ipv4,ipv6 \
           ${{ inputs.taints }} \
-          --generate-ssh-keys
+          --generate-ssh-keys \
+          --api-server-authorized-ip-ranges $(curl api.ipify.org)/32
 
