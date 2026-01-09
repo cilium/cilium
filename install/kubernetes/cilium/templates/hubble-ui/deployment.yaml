@@ -127,13 +127,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8090
+            port: grpc
         {{- end }}
         {{- if .Values.hubble.ui.backend.readinessProbe.enabled }}
         readinessProbe:
           httpGet:
             path: /healthz
-            port: 8090
+            port: grpc
         {{- end }}
         ports:
         - name: grpc
