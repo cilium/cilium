@@ -14,7 +14,16 @@ import (
 	"net"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 )
+
+func NewHandle(opts ...Option) (*netlink.Handle, error) {
+	return nil, netlink.ErrNotImplemented
+}
+
+func NewHandleAt(ns netns.NsHandle, opts ...Option) (*netlink.Handle, error) {
+	return nil, netlink.ErrNotImplemented
+}
 
 func AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
 	return nil, netlink.ErrNotImplemented
