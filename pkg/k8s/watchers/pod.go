@@ -51,7 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
-
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -69,7 +68,6 @@ type k8sPodWatcherParams struct {
 	K8sEventReporter *K8sEventReporter
 
 	Clientset          k8sClient.Clientset
-	Resources          agentK8s.Resources
 	K8sResourceSynced  *k8sSynced.Resources
 	K8sAPIGroups       *k8sSynced.APIGroups
 	EndpointManager    endpointmanager.EndpointManager
@@ -96,7 +94,6 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		policyManager:      params.PolicyUpdater,
 		ipcache:            params.IPCache,
 		cgroupManager:      params.CGroupManager,
-		resources:          params.Resources,
 		db:                 params.DB,
 		pods:               params.Pods,
 		nodeAddrs:          params.NodeAddrs,
@@ -126,7 +123,6 @@ type K8sPodWatcher struct {
 	policyManager      policyManager
 	ipcache            ipcacheManager
 	cgroupManager      cgroupManager
-	resources          agentK8s.Resources
 	db                 *statedb.DB
 	pods               statedb.Table[agentK8s.LocalPod]
 	nodeAddrs          statedb.Table[datapathTables.NodeAddress]
