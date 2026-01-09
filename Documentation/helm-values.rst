@@ -1952,6 +1952,18 @@
      - Port to listen to.
      - string
      - ``"4245"``
+   * - :spelling:ignore:`hubble.relay.logOptions`
+     - Logging configuration for hubble-relay.
+     - object
+     - ``{"format":null,"level":null}``
+   * - :spelling:ignore:`hubble.relay.logOptions.format`
+     - Log format for hubble-relay. Valid values are: text, text-ts, json, json-ts.
+     - string
+     - text-ts
+   * - :spelling:ignore:`hubble.relay.logOptions.level`
+     - Log level for hubble-relay. Valid values are: debug, info, warn, error.
+     - string
+     - info
    * - :spelling:ignore:`hubble.relay.nodeSelector`
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object

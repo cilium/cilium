@@ -44,4 +44,10 @@ data:
     disable-client-tls: true
     {{- end }}
     {{- include "hubble-relay.config.tls" . | nindent 4 }}
+    {{- if .Values.hubble.relay.logOptions.format }}
+    log-format: {{ .Values.hubble.relay.logOptions.format }}
+    {{- end }}
+    {{- if .Values.hubble.relay.logOptions.level }}
+    log-level: {{ .Values.hubble.relay.logOptions.level }}
+    {{- end }}
 {{- end }}
