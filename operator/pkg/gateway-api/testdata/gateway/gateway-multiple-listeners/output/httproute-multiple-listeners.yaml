@@ -2,16 +2,21 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: cross-namespace
-  namespace: gateway-conformance-web-backend
-  resourceVersion: "1000"
+  name: multiple-listeners 
+  namespace: gateway-conformance-infra
 spec:
   parentRefs:
-  - name: backend-namespaces
+  - name: gateway-multiple-listeners
     namespace: gateway-conformance-infra
+    kind: Gateway
+    group: gateway.networking.k8s.io
   rules:
-  - backendRefs:
-    - name: web-backend
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: infra-backend-v1
       port: 8080
 status:
   parents:
@@ -28,5 +33,8 @@ status:
       type: ResolvedRefs
     controllerName: io.cilium/gateway-controller
     parentRef:
-      name: backend-namespaces
+      name: gateway-multiple-listeners
       namespace: gateway-conformance-infra
+      group: gateway.networking.k8s.io
+      Kind: Gateway
+
