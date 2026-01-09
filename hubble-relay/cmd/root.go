@@ -19,6 +19,12 @@ import (
 // configFilePath defines where the hubble-relay config file should be found.
 const configFilePath = "/etc/hubble-relay/config.yaml"
 
+// Log option keys for reading from config file.
+const (
+	keyLogFormat = "log-format"
+	keyLogLevel  = "log-level"
+)
+
 // New creates a new hubble-relay command.
 func New() *cobra.Command {
 	vp := newViper()
@@ -30,7 +36,15 @@ func New() *cobra.Command {
 		SilenceUsage: true,
 		Version:      v.GetCiliumVersion().Version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if err := logging.SetupLogging(nil, map[string]string{}, "hubble-relay", vp.GetBool(option.DebugArg)); err != nil {
+			// Build log options from config file values
+			logOpts := make(map[string]string)
+			if format := vp.GetString(keyLogFormat); format != "" {
+				logOpts[logging.FormatOpt] = format
+			}
+			if level := vp.GetString(keyLogLevel); level != "" {
+				logOpts[logging.LevelOpt] = level
+			}
+			if err := logging.SetupLogging(nil, logOpts, "hubble-relay", vp.GetBool(option.DebugArg)); err != nil {
 				// slogloggercheck: log fatal errors using the default logger before it's initialized.
 				logging.Fatal(logging.DefaultSlogLogger, "Unable to set up logging", logfields.Error, err)
 			}
