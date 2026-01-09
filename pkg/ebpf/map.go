@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	ciliumebpf "github.com/cilium/ebpf"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -123,8 +124,7 @@ func (m *Map) OpenOrCreate() error {
 		PinPath: bpf.TCGlobalsPath(),
 	}
 
-	m.spec.Flags |= bpf.GetMapMemoryFlags(m.spec.Type)
-
+	memoryFlags := bpf.GetMapMemoryFlags(m.spec.Type)
 	path := bpf.MapPath(m.logger, m.spec.Name)
 
 	if m.spec.Pinning == ciliumebpf.PinByName {
@@ -139,7 +139,31 @@ func (m *Map) OpenOrCreate() error {
 				}
 			}
 		}
+
+		// Handle BPF_F_RDONLY_PROG flag specially for upgrade/downgrade compatibility.
+		// On upgrade (no flag -> flag): remove flag from spec to avoid recreation,
+		// since datapath functions with a more privileged map.
+		// On downgrade (flag -> no flag): keep spec as is to trigger recreation.
+		if existing, err := ciliumebpf.LoadPinnedMap(path, nil); err == nil {
+			if info, err := existing.Info(); err == nil {
+				const bpfFRdonlyProg = unix.BPF_F_RDONLY_PROG
+				existingHasRdonly := (info.Flags & bpfFRdonlyProg) != 0
+				specHasRdonly := (m.spec.Flags & bpfFRdonlyProg) != 0
+
+				// Upgrade case: spec wants RDONLY but existing doesn't have it.
+				// Remove RDONLY from spec to avoid recreation.
+				if specHasRdonly && !existingHasRdonly {
+					m.spec.Flags = m.spec.Flags &^ bpfFRdonlyProg
+				}
+				// Downgrade case: existing has RDONLY but spec doesn't.
+				// Keep spec as is - this will trigger recreation to remove the flag.
+			}
+			existing.Close()
+		}
 	}
+
+	// Add memory flags after compatibility check
+	m.spec.Flags |= memoryFlags
 
 	newMap, err := ciliumebpf.NewMapWithOptions(m.spec, opts)
 	if err != nil {
