@@ -25,5 +25,6 @@ Manage security policies
 * [cilium-dbg](cilium-dbg.md)	 - CLI
 * [cilium-dbg policy get](cilium-dbg_policy_get.md)	 - Display policy node information (deprecated)
 * [cilium-dbg policy selectors](cilium-dbg_policy_selectors.md)	 - Display cached information about selectors
+* [cilium-dbg policy subject-selectors](cilium-dbg_policy_subject-selectors.md)	 - Display cached information about subject selectors
 * [cilium-dbg policy wait](cilium-dbg_policy_wait.md)	 - Wait for all endpoints to have updated to a given policy revision
 
