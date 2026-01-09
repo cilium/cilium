@@ -299,33 +299,6 @@ func GetIPv6(logger *slog.Logger) net.IP {
 	return clone(n.GetNodeIP(true))
 }
 
-// GetIPv6Router returns the IPv6 address of the router, e.g. address
-// of cilium_host device.
-func GetIPv6Router(logger *slog.Logger) net.IP {
-	n := getLocalNode(logger)
-	return clone(n.GetCiliumInternalIP(true))
-}
-
-// GetEndpointHealthIPv4 returns the IPv4 cilium-health endpoint address.
-func GetEndpointHealthIPv4(logger *slog.Logger) net.IP {
-	return getLocalNode(logger).IPv4HealthIP
-}
-
-// GetEndpointHealthIPv6 returns the IPv6 cilium-health endpoint address.
-func GetEndpointHealthIPv6(logger *slog.Logger) net.IP {
-	return getLocalNode(logger).IPv6HealthIP
-}
-
-// GetIngressIPv4 returns the local IPv4 source address for Cilium Ingress.
-func GetIngressIPv4(logger *slog.Logger) net.IP {
-	return getLocalNode(logger).IPv4IngressIP
-}
-
-// GetIngressIPv6 returns the local IPv6 source address for Cilium Ingress.
-func GetIngressIPv6(logger *slog.Logger) net.IP {
-	return getLocalNode(logger).IPv6IngressIP
-}
-
 // GetEndpointEncryptKeyIndex returns the encryption key value for an endpoint
 // owned by the local node.
 // With IPSec encryption, this is the ID of the currently loaded key.

@@ -68,6 +68,7 @@ type NodeDiscovery struct {
 	clientset        client.Clientset
 	kvstoreClient    kvstore.Client
 	ctrlmgr          *controller.Manager
+	daemonConfig     *option.DaemonConfig
 	config           config
 }
 
@@ -80,6 +81,7 @@ func NewNodeDiscovery(
 	lns *node.LocalNodeStore,
 	cniConfigManager cni.CNIConfigManager,
 	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
+	daemonConfig *option.DaemonConfig,
 	c config,
 ) *NodeDiscovery {
 	if !option.Config.EnableCiliumNodeCRD {
@@ -97,6 +99,7 @@ func NewNodeDiscovery(
 		kvstoreClient:    kvstoreClient,
 		ctrlmgr:          controller.NewManager(),
 		k8sGetters:       k8sNodeWatcher,
+		daemonConfig:     daemonConfig,
 		config:           c,
 	}
 }
