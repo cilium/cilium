@@ -47,6 +47,7 @@ type EndpointSynchronizer struct {
 	Clientset           client.Clientset
 	CiliumEndpoint      resource.Resource[*k8sTypes.CiliumEndpoint]
 	CiliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+	localNodeStore      *node.LocalNodeStore
 }
 
 // RunK8sCiliumEndpointSync starts a controller that synchronizes the endpoint
@@ -252,7 +253,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						// Backfill the CEP UID as we need to do if the CEP was
 						// created on an agent version that did not yet store the
 						// UID at CEP create time.
-						if err := updateCEPUID(scopedLog, e, localCEP); err != nil {
+						if err := epSync.updateCEPUID(ctx, scopedLog, e, localCEP); err != nil {
 							scopedLog.Warn("could not take ownership of existing ciliumendpoint", logfields.Error, err)
 							return err
 						}
@@ -325,7 +326,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						// Backfill the CEP UID as we need to do if the CEP was
 						// created on an agent version that did not yet store the
 						// UID at CEP create time.
-						if err := updateCEPUID(scopedLog, e, localCEP); err != nil {
+						if err := epSync.updateCEPUID(ctx, scopedLog, e, localCEP); err != nil {
 							scopedLog.Warn("could not take ownership of existing ciliumendpoint", logfields.Error, err)
 							return err
 						}
@@ -432,7 +433,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 // that this is a temporary state where either the local/remote agent managing the CEP
 // is shutting down and will delete the CEP, or the CEP is stale and needs to be cleaned
 // up by the operator.
-func updateCEPUID(scopedLog *slog.Logger, e *endpoint.Endpoint, localCEP *cilium_v2.CiliumEndpoint) error {
+func (epSync *EndpointSynchronizer) updateCEPUID(ctx context.Context, scopedLog *slog.Logger, e *endpoint.Endpoint, localCEP *cilium_v2.CiliumEndpoint) error {
 	// It's possible we already own this CEP, as in the case of a restore after restart.
 	// If the Endpoint already owns the CEP (by holding the matching CEP UID reference) then we don't have to
 	// worry about other ownership checks.
@@ -465,10 +466,16 @@ func updateCEPUID(scopedLog *slog.Logger, e *endpoint.Endpoint, localCEP *cilium
 	if podHostIP == "" {
 		return fmt.Errorf("endpoint sync cannot take ownership of CEP: no pod HostIP")
 	}
-	if nodeIP := node.GetIPv4(scopedLog).String(); podHostIP != nodeIP {
+
+	ln, err := epSync.localNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	if nodeIP := ln.GetNodeIP(false).String(); podHostIP != nodeIP {
 		// Also checking node ipv6 for k8s dual stack with ipv6 preference where
 		// podHostIP is gonna be node ipv6
-		if nodeIPV6 := node.GetIPv6(scopedLog).String(); podHostIP != nodeIPV6 {
+		if nodeIPV6 := ln.GetNodeIP(true).String(); podHostIP != nodeIPV6 {
 			return fmt.Errorf("endpoint sync cannot take ownership of CEP that is not local: CEP's pod %q, pod's hostIP %q, cilium nodeIP %q)",
 				e.GetK8sPodName(), podHostIP, nodeIP)
 		}
