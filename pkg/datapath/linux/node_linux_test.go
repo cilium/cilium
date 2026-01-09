@@ -715,7 +715,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaksSubnetMode(t *testi
 	_, err := setupDummyDevice(externalNodeDevice, net.ParseIP("1.1.1.1"), net.ParseIP("face::1"))
 	require.NoError(t, err)
 	defer removeDevice(externalNodeDevice)
-	option.Config.EncryptInterface = []string{externalNodeDevice}
+	option.Config.UnsafeDaemonConfigOption.EncryptInterface = []string{externalNodeDevice}
 	option.Config.RoutingMode = option.RoutingModeNative
 
 	// Cover the XFRM configuration for subnet encryption: IPAM modes AKS and EKS.

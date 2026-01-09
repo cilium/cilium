@@ -1151,8 +1151,37 @@ func (c *HiveConfig) Populate(vp *viper.Viper) {
 	c.LogThreshold = vp.GetDuration(HiveLogThreshold)
 }
 
+// UnsafeDaemonConfig contains configuration that may be changed during runtime.
+// It is safe to use it ONLY after waiting on DaemonConfig promise.
+type UnsafeDaemonConfig struct {
+	EnableSocketLBTracing bool
+	EnableSocketLBPeer    bool
+	// EnableHealthDatapath enables IPIP health probes data path
+	EnableHealthDatapath bool
+	// EnableSocketLBPodConnectionTermination enables the termination of connections from pods
+	// to deleted service backends when socket-LB is enabled
+	EnableSocketLBPodConnectionTermination bool
+	// EnableHostLegacyRouting enables the old routing path via stack.
+	EnableHostLegacyRouting bool
+	LoadBalancerRSSv4       net.IPNet
+	LoadBalancerRSSv6       net.IPNet
+
+	// EnableIPIPDevices enables the creation of IPIP devices for IPv4 and IPv6
+	EnableIPIPDevices bool
+
+	BPFSocketLBHostnsOnly bool
+
+	EncryptInterface []string // Set of network facing interface to encrypt over
+
+	// AllowLocalhost defines when to allows the local stack to local endpoints
+	// values: { auto | always | policy }
+	AllowLocalhost string
+}
+
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
+	UnsafeDaemonConfigOption UnsafeDaemonConfig
+
 	// Private sum of the config written to file. Used to check that the config is not changed
 	// after.
 	shaSum [32]byte
@@ -1176,10 +1205,6 @@ type DaemonConfig struct {
 	RestoreState bool
 
 	KeepConfig bool // Keep configuration of existing endpoints when starting up.
-
-	// AllowLocalhost defines when to allows the local stack to local endpoints
-	// values: { auto | always | policy }
-	AllowLocalhost string
 
 	// StateDir is the directory where runtime state of endpoints is stored
 	StateDir string
@@ -1376,15 +1401,12 @@ type DaemonConfig struct {
 	// CLI options
 
 	BPFRoot                       string
-	BPFSocketLBHostnsOnly         bool
 	CGroupRoot                    string
 	BPFCompileDebug               string
 	ConfigFile                    string
 	ConfigDir                     string
 	Debug                         bool
 	DebugVerbose                  []string
-	EnableSocketLBTracing         bool
-	EnableSocketLBPeer            bool
 	EnablePolicy                  string
 	EnableTracing                 bool
 	EnableIPIPTermination         bool
@@ -1551,15 +1573,6 @@ type DaemonConfig struct {
 	// Specifies whether to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
 
-	// EnableHealthDatapath enables IPIP health probes data path
-	EnableHealthDatapath bool
-
-	// EnableIPIPDevices enables the creation of IPIP devices for IPv4 and IPv6
-	EnableIPIPDevices bool
-
-	// EnableHostLegacyRouting enables the old routing path via stack.
-	EnableHostLegacyRouting bool
-
 	// NodePortNat46X64 indicates whether NAT46 / NAT64 can be used.
 	NodePortNat46X64 bool
 
@@ -1568,11 +1581,9 @@ type DaemonConfig struct {
 
 	// LoadBalancerRSSv4CIDR defines the outer source IPv4 prefix for DSR/IPIP
 	LoadBalancerRSSv4CIDR string
-	LoadBalancerRSSv4     net.IPNet
 
 	// LoadBalancerRSSv4CIDR defines the outer source IPv6 prefix for DSR/IPIP
 	LoadBalancerRSSv6CIDR string
-	LoadBalancerRSSv6     net.IPNet
 
 	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
 	// replies to the client (when needed).
@@ -1817,10 +1828,6 @@ type DaemonConfig struct {
 	// EnableNodeSelectorLabels)
 	NodeLabels []string
 
-	// EnableSocketLBPodConnectionTermination enables the termination of connections from pods
-	// to deleted service backends when socket-LB is enabled
-	EnableSocketLBPodConnectionTermination bool
-
 	// EnableNonDefaultDenyPolicies allows policies to define whether they are operating in default-deny mode
 	EnableNonDefaultDenyPolicies bool
 
@@ -1934,7 +1941,7 @@ func (c *DaemonConfig) GetGlobalsDir() string {
 // AlwaysAllowLocalhost returns true if the daemon has the option set that
 // localhost can always reach local endpoints
 func (c *DaemonConfig) AlwaysAllowLocalhost() bool {
-	switch c.AllowLocalhost {
+	switch c.UnsafeDaemonConfigOption.AllowLocalhost {
 	case AllowLocalhostAlways:
 		return true
 	case AllowLocalhostAuto, AllowLocalhostPolicy:
@@ -2105,7 +2112,7 @@ func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
 func (c *DaemonConfig) DirectRoutingDeviceRequired(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
-	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
+	BPFHostRoutingEnabled := !c.UnsafeDaemonConfigOption.EnableHostLegacyRouting
 
 	// XDP needs IPV4_DIRECT_ROUTING when building tunnel headers:
 	if kprCfg.KubeProxyReplacement && c.NodePortAcceleration != NodePortAccelerationDisabled {
@@ -2365,7 +2372,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	c.ClusterHealthPort = vp.GetInt(ClusterHealthPort)
 	c.AllowICMPFragNeeded = vp.GetBool(AllowICMPFragNeeded)
-	c.AllowLocalhost = vp.GetString(AllowLocalhost)
+	c.UnsafeDaemonConfigOption.AllowLocalhost = vp.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = vp.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = vp.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFRoot = vp.GetString(BPFRoot)
@@ -2390,9 +2397,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableTCX = vp.GetBool(EnableTCX)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
-	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
-	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
-	c.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
+	c.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
+	c.UnsafeDaemonConfigOption.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
+	c.UnsafeDaemonConfigOption.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
 	c.DirectRoutingSkipUnreachable = vp.GetBool(DirectRoutingSkipUnreachableName)
@@ -2405,9 +2412,9 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableL7Proxy = vp.GetBool(EnableL7Proxy)
 	c.EnableTracing = vp.GetBool(EnableTracing)
 	c.EnableIPIPTermination = vp.GetBool(EnableIPIPTermination)
-	c.EnableIPIPDevices = c.EnableIPIPTermination
+	c.UnsafeDaemonConfigOption.EnableIPIPDevices = c.EnableIPIPTermination
 	c.EnableUnreachableRoutes = vp.GetBool(EnableUnreachableRoutes)
-	c.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
+	c.UnsafeDaemonConfigOption.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
 	c.NodePortNat46X64 = vp.GetBool(LoadBalancerNat46X64)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
@@ -2415,7 +2422,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
 	c.EnableHostFirewall = vp.GetBool(EnableHostFirewall)
 	c.EnableLocalRedirectPolicy = vp.GetBool(EnableLocalRedirectPolicy)
-	c.EncryptInterface = vp.GetStringSlice(EncryptInterface)
+	c.UnsafeDaemonConfigOption.EncryptInterface = vp.GetStringSlice(EncryptInterface)
 	c.EncryptNode = vp.GetBool(EncryptNode)
 	c.IdentityChangeGracePeriod = vp.GetDuration(IdentityChangeGracePeriod)
 	c.CiliumIdentityMaxJitter = vp.GetDuration(CiliumIdentityMaxJitter)
@@ -3278,7 +3285,7 @@ func (c *DaemonConfig) checksum() [32]byte {
 	sumConfig := *c
 	// Ignore variable parts
 	sumConfig.Opts = nil
-	sumConfig.EncryptInterface = nil
+	sumConfig.UnsafeDaemonConfigOption.EncryptInterface = nil
 	cBytes, err := json.Marshal(&sumConfig)
 	if err != nil {
 		return [32]byte{}

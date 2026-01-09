@@ -141,9 +141,9 @@ func TestParserTypeMerge(t *testing.T) {
 
 func TestCreateL4Filter(t *testing.T) {
 	// disable allow local host to simplify the this test
-	oldLocalhostOpt := option.Config.AllowLocalhost
-	option.Config.AllowLocalhost = option.AllowLocalhostPolicy
-	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
+	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
+	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostPolicy
+	defer func() { option.Config.UnsafeDaemonConfigOption.AllowLocalhost = oldLocalhostOpt }()
 
 	td := newTestData(t, hivetest.Logger(t))
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
@@ -196,9 +196,9 @@ func TestCreateL4Filter(t *testing.T) {
 
 func TestCreateL4FilterAuthRequired(t *testing.T) {
 	// disable allow local host to simplify the this test
-	oldLocalhostOpt := option.Config.AllowLocalhost
-	option.Config.AllowLocalhost = option.AllowLocalhostPolicy
-	defer func() { option.Config.AllowLocalhost = oldLocalhostOpt }()
+	oldLocalhostOpt := option.Config.UnsafeDaemonConfigOption.AllowLocalhost
+	option.Config.UnsafeDaemonConfigOption.AllowLocalhost = option.AllowLocalhostPolicy
+	defer func() { option.Config.UnsafeDaemonConfigOption.AllowLocalhost = oldLocalhostOpt }()
 
 	td := newTestData(t, hivetest.Logger(t))
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}

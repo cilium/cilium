@@ -34,7 +34,7 @@ type cgroupManagerParams struct {
 }
 
 func newCGroupManager(params cgroupManagerParams) CGroupManager {
-	if !params.KPRConfig.EnableSocketLB || !params.AgentConfig.EnableSocketLBTracing {
+	if !params.KPRConfig.EnableSocketLB || !params.AgentConfig.UnsafeDaemonConfigOption.EnableSocketLBTracing {
 		return &noopCGroupManager{}
 	}
 

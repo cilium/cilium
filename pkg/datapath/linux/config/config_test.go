@@ -64,7 +64,7 @@ func setupConfigSuite(tb testing.TB) {
 
 	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to remove memory limits")
 
-	option.Config.EnableHostLegacyRouting = true // Disable obtaining direct routing device.
+	option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = true // Disable obtaining direct routing device.
 }
 
 type badWriter struct{}
