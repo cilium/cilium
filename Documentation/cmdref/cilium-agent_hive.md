@@ -32,6 +32,7 @@ cilium-agent hive [flags]
       --bpf-lb-mode-annotation                                    Enable service-level annotation for configuring BPF load balancing mode
       --bpf-lb-sock                                               Enable socket-based LB for E/W traffic
       --bpf-lb-source-range-all-types                             Propagate loadbalancerSourceRanges to all corresponding service types
+      --bpf-lb-unsupported-protocol-action string                 BPF unsupported protocol action ("forward", "drop") (default "forward")
       --bpf-node-map-max uint32                                   Sets size of node bpf map which will be the max number of unique Node IPs in the cluster (default 16384)
       --bpf-policy-map-max int                                    Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-policy-map-pressure-metrics-threshold float           Sets threshold for emitting pressure metrics of policy maps (default 0.1)

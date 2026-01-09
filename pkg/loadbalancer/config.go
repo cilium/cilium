@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -72,6 +73,10 @@ const (
 	// pushing packets to backends under DSR ("opt", "ipip", "geneve")
 	LoadBalancerDSRDispatchName = "bpf-lb-dsr-dispatch"
 
+	// LBUnsupportedProtoActionName is the config option for setting the action we
+	// take when processing unsupported transport protocols ("drop, forward")
+	LBUnsupportedProtoActionName = "bpf-lb-unsupported-protocol-action"
+
 	// ExternalClusterIPName is the name of the option to enable
 	// cluster external access to ClusterIP services.
 	ExternalClusterIPName = "bpf-lb-external-clusterip"
@@ -126,6 +131,12 @@ const (
 
 	// DSR dispatch mode to encapsulate to Geneve
 	DSRDispatchGeneve = "geneve"
+
+	// Unsupported Protocol Action is to forward as normal
+	LBUnsupportedProtoActionForward = string(annotation.UnsupportedProtoActionForward)
+
+	// Unsupported Protocol Action is to drop
+	LBUnsupportedProtoActionDrop = string(annotation.UnsupportedProtoActionDrop)
 )
 
 // UserConfig is the configuration provided by the user that has not been processed.
@@ -181,6 +192,9 @@ type UserConfig struct {
 	// DSRDispatch indicates the method for pushing packets to
 	// backends under DSR ("opt", "ipip", "geneve")
 	DSRDispatch string `mapstructure:"bpf-lb-dsr-dispatch"`
+
+	// LBUnsupportedProtocAction indicates how we handle unsupported transport protocols
+	LBUnsupportedProtoAction string `mapstructure:"bpf-lb-unsupported-protocol-action"`
 
 	// ExternalClusterIP enables routing to ClusterIP services from outside
 	// the cluster. This mirrors the behaviour of kube-proxy.
@@ -318,6 +332,9 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 
 	flags.String(LoadBalancerDSRDispatchName, def.DSRDispatch, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\", \"geneve\")")
 
+	flags.String(LBUnsupportedProtoActionName, def.LBUnsupportedProtoAction, fmt.Sprintf("BPF unsupported protocol action (\"%s\", \"%s\")",
+		LBUnsupportedProtoActionForward, LBUnsupportedProtoActionDrop))
+
 	flags.Bool(ExternalClusterIPName, def.ExternalClusterIP, "Enable external access to ClusterIP services (default false)")
 
 	flags.Bool(AlgorithmAnnotationName, def.AlgorithmAnnotation, "Enable service-level annotation for configuring BPF load balancing algorithm")
@@ -450,6 +467,12 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, deprecatedConfig Depreca
 		return Config{}, fmt.Errorf("The value --%s=%s is not supported as default under annotation mode", LoadBalancerModeName, cfg.LBMode)
 	}
 
+	switch cfg.LBUnsupportedProtoAction {
+	case LBUnsupportedProtoActionDrop, LBUnsupportedProtoActionForward:
+	default:
+		return Config{}, fmt.Errorf("Invalid value for --%s: %s", LBUnsupportedProtoActionName, cfg.LBUnsupportedProtoAction)
+	}
+
 	/* FIXME:
 
 	if cfg.NodePortMode == option.NodePortModeDSR &&
@@ -497,6 +520,8 @@ var DefaultUserConfig = UserConfig{
 	LBMode: LBModeSNAT,
 
 	DSRDispatch: DSRDispatchOption,
+
+	LBUnsupportedProtoAction: LBUnsupportedProtoActionForward,
 
 	// Defaults to false to retain prior behaviour to not route external packets
 	// to ClusterIP services.

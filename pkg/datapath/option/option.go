@@ -19,3 +19,14 @@ const (
 	// L2 mode.
 	DatapathModeNetkitL2 = "netkit-l2"
 )
+
+// Available options for Unsupported Protocol Actions
+const (
+	// UnsupportedProtoActionDrop specifies that traffic carrying unsupported
+	// protocol types should be dropped in the datapath.
+	UnsupportedProtoActionDrop = "drop"
+
+	// UnsupportedProtoActionForward specifies that traffic carrying unsupported
+	// protocol types should be forwarded to the host for processing.
+	UnsupportedProtoActionForward = "forward"
+)

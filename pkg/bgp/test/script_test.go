@@ -30,8 +30,10 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/test/commands"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
@@ -103,6 +105,14 @@ func TestPrivilegedScript(t *testing.T) {
 			}
 		}
 
+		// A fresh instance of ipcache is needed for LoadBalancer
+		ipcacheConfig := &ipcache.Configuration{
+			Context: t.Context(),
+			Logger:  hivetest.Logger(t),
+		}
+		ipc := ipcache.NewIPCache(ipcacheConfig)
+		t.Cleanup(func() { ipc.Shutdown() })
+
 		h := ciliumhive.New(
 			metrics.Cell,
 
@@ -131,6 +141,14 @@ func TestPrivilegedScript(t *testing.T) {
 			lbcell.Cell,
 			maglev.Cell,
 			cell.Provide(source.NewSources),
+			cell.Provide(
+				regeneration.NewFence,
+				ipcache.NewLocalIPIdentityWatcher,
+				ipcache.NewIPIdentitySynchronizer,
+				func() *ipcache.IPCache {
+					return ipc
+				},
+			),
 			cell.Config(loadbalancer.TestConfig{}),
 			cell.Provide(
 				func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg }, // newLBMaps expects *TestConfig
