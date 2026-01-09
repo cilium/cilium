@@ -4,7 +4,6 @@
 package iptables
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -407,11 +406,7 @@ func deleteLoopbackRoute(ipv4Enabled, ipv6Enabled bool) error {
 		}
 
 		if err := route.Delete(ciliumRoute); err != nil {
-			// Ignore ESRCH (no such process) and ENOENT (no such file or directory) errors,
-			// which indicate the route was already deleted
-			if !errors.Is(err, unix.ESRCH) && !errors.Is(err, unix.ENOENT) {
-				return fmt.Errorf("failed to delete route (%+v): %w", ciliumRoute, err)
-			}
+			return fmt.Errorf("failed to delete route (%+v): %w", ciliumRoute, err)
 		}
 	}
 	return nil

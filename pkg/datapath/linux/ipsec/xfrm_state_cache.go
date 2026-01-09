@@ -45,7 +45,7 @@ func (c *xfrmStateListCache) XfrmStateList() ([]netlink.XfrmState, error) {
 
 func (c *xfrmStateListCache) XfrmStateDel(state *netlink.XfrmState) error {
 	c.invalidate()
-	return netlink.XfrmStateDel(state)
+	return safenetlink.XfrmStateDel(state)
 }
 
 func (c *xfrmStateListCache) XfrmStateUpdate(state *netlink.XfrmState) error {

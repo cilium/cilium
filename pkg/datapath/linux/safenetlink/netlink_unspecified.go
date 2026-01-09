@@ -143,3 +143,15 @@ func XfrmPolicyList(family int) ([]netlink.XfrmPolicy, error) {
 func XfrmStateList(family int) ([]netlink.XfrmState, error) {
 	return nil, netlink.ErrNotImplemented
 }
+
+func XfrmPolicyDel(policy *netlink.XfrmPolicy) error {
+	return netlink.ErrNotImplemented
+}
+
+func XfrmStateDel(state *netlink.XfrmState) error {
+	return netlink.ErrNotImplemented
+}
+
+func RouteDel(route *netlink.Route) error {
+	return netlink.ErrNotImplemented
+}
