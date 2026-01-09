@@ -343,7 +343,7 @@ static __always_inline __maybe_unused int
 ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)
 {
 	if ((__u32)ifindex == ctx->ingress_ifindex)
-		return XDP_TX;
+		return CTX_ACT_TX;
 
 	return redirect(ifindex, flags);
 }
