@@ -6,7 +6,7 @@ include:
     # renovate: datasource=docker
     kube-image: "quay.io/cilium/kindest-node:v1.35.0@sha256:a36285a50bb7ee33d44b6d7938dca10e34f8a9294873ae4b0b04f9d21619d44c"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "6.12-20260105.013422"
+    kernel: "6.18-20260109.091250"
     kernel-type: "latest"
 
   - k8s-version: "1.34"
