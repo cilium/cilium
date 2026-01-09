@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	metricsmock "github.com/cilium/cilium/pkg/ipam/metrics/mock"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -196,7 +195,7 @@ func (n *nodeOperationsMock) IsPrefixDelegated() bool {
 func TestGetNodeNames(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -222,7 +221,7 @@ func TestGetNodeNames(t *testing.T) {
 func TestNodeManagerGet(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -241,7 +240,7 @@ func TestNodeManagerDelete(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	metrics := metricsmock.NewMockMetrics()
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metrics, 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metrics, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -340,7 +339,7 @@ func reachedAddressesNeeded(mngr *NodeManager, nodeName string, needed int) (suc
 func TestNodeManagerDefaultAllocation(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -371,7 +370,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 func TestNodeManagerMinAllocate20(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -411,7 +410,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -457,10 +456,9 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 // - PreAllocate 4
 // - MaxAboveWatermark 4
 func TestNodeManagerReleaseAddress(t *testing.T) {
-	operatorOption.Config.ExcessIPReleaseDelay = testExcessIPReleaseDelay
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, testExcessIPReleaseDelay, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -528,10 +526,9 @@ func TestNodeManagerReleaseAddress(t *testing.T) {
 // being resolved
 func TestNodeManagerAbortRelease(t *testing.T) {
 	var wg sync.WaitGroup
-	operatorOption.Config.ExcessIPReleaseDelay = testExcessIPReleaseDelay
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, testExcessIPReleaseDelay, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -605,11 +602,9 @@ func TestNodeManagerAbortRelease(t *testing.T) {
 // 3. Before being removed from status.ipam.release-ips, the same IP is reassigned to the pool (ie. AWS ENI in the case of AWS ENI IPAM)
 // 4. The IP is no longer considered excess, so the release handshake is aborted and the IP is deleted from status.ipam.release-ips
 func TestNodeManagerAbortReleaseIPReassignment(t *testing.T) {
-	operatorOption.Config.ExcessIPReleaseDelay = testExcessIPReleaseDelay
-
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, true, testExcessIPReleaseDelay, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -783,7 +778,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
 	metricsapi := metricsmock.NewMockMetrics()
-	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsapi, 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -827,7 +822,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	am := newAllocationImplementationMock()
 	require.NotNil(b, am)
-	mngr, err := NewNodeManager(hivetest.Logger(b), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, false)
+	mngr, err := NewNodeManager(hivetest.Logger(b), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
 	require.NoError(b, err)
 	require.NotNil(b, mngr)
 

@@ -109,7 +109,7 @@ func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater ipam.Ci
 	}
 	instances := eni.NewInstancesManager(a.rootLogger, a.client)
 	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
-		operatorOption.Config.ParallelAllocWorkers, operatorOption.Config.AlibabaCloudReleaseExcessIPs, false)
+		a.ParallelAllocWorkers, a.AlibabaCloudReleaseExcessIPs, 0, false)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize AlibabaCloud node manager: %w", err)
 	}

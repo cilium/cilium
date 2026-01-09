@@ -356,18 +356,12 @@ const (
 	// ENIGarbageCollectionTagClusterValue is part of the ENIGarbageCollectionTags default tag set
 	ENIGarbageCollectionTagClusterValue = ClusterName
 
-	// ENIGarbageCollectionInterval is the default interval for the ENIGarbageCollectionInterval operator flag
-	ENIGarbageCollectionInterval = 5 * time.Minute
-
 	// ENIGarbageCollectionMaxPerInterval is the maximum number of ENIs which might be garbage collected
 	// per GC interval
 	ENIGarbageCollectionMaxPerInterval = 25
 
 	// AWSResultsPerApiCall is the maximum number of objects to fetch per paginated API call
 	AWSResultsPerApiCall = 1000
-
-	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
-	ParallelAllocWorkers = 50
 
 	// IPAMAPIBurst is the default burst value when rate limiting access to external APIs
 	IPAMAPIBurst = 20
