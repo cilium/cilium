@@ -12,6 +12,12 @@ struct vtep_key {
 	__u32 vtep_ip;
 };
 
+struct vtep_policy_key {
+	__u32 prefixlen;
+	__u32 src_ip;
+	__u32 dst_ip;
+};
+
 struct vtep_value {
 	__u64 vtep_mac;
 	__u32 tunnel_endpoint;
@@ -26,6 +32,15 @@ struct {
 	__uint(max_entries, VTEP_MAP_SIZE);
 	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_vtep_map __section_maps_btf;
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct vtep_policy_key);
+	__type(value, struct vtep_value);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, VTEP_POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_vtep_policy_map __section_maps_btf;
 #endif /* ENABLE_VTEP */
 
 DECLARE_CONFIG(__u32, vtep_mask, "VXLAN tunnel endpoint network mask")

@@ -43,4 +43,5 @@ Direct access to local BPF maps
 * [cilium-dbg bpf socknat](cilium-dbg_bpf_socknat.md)	 - Socket NAT operations
 * [cilium-dbg bpf srv6](cilium-dbg_bpf_srv6.md)	 - Manage the SRv6 routing rules
 * [cilium-dbg bpf vtep](cilium-dbg_bpf_vtep.md)	 - Manage the VTEP mappings for IP/CIDR <-> VTEP MAC/IP
+* [cilium-dbg bpf vtep-policy](cilium-dbg_bpf_vtep-policy.md)	 - Manage the VTEP Policy mappings
 

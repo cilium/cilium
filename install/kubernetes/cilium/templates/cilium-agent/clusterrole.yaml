@@ -111,6 +111,7 @@ rules:
   - ciliumcidrgroups
   - ciliuml2announcementpolicies
   - ciliumpodippools
+  - ciliumvteppolicies
   verbs:
   - list
   - watch
