@@ -460,6 +460,32 @@ is enabled.
 Exported Metrics
 ^^^^^^^^^^^^^^^^
 
+Configuring Metrics with Helm
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can selectively enable or disable specific metrics using the
+``prometheus.metrics`` Helm value. Use ``+`` prefix to enable and ``-``
+prefix to disable metrics.
+
+.. code-block:: shell-session
+
+    # Enable specific metrics (+) and disable others (-)
+    helm install cilium cilium/cilium --version |CHART_VERSION| \
+        --namespace kube-system \
+        --set prometheus.enabled=true \
+        --set prometheus.metrics="{+cilium_bpf_map_pressure,-cilium_node_connectivity_status}"
+
+For large clusters, consider disabling high-cardinality metrics:
+
+.. code-block:: shell-session
+
+    helm upgrade cilium cilium/cilium \
+        --namespace kube-system \
+        --reuse-values \
+        --set prometheus.metrics="{-cilium_node_connectivity_status,-cilium_node_connectivity_latency_seconds}"
+
+See :ref:`helm_reference` for the complete list of Helm options.
+
 Endpoint
 ~~~~~~~~
 
