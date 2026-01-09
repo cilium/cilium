@@ -92,10 +92,13 @@ spec:
           resources:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
+          ports:
+          - name: http
+            containerPort: 4251
           livenessProbe:
             httpGet:
               path: /live
-              port: 4251
+              port: http
             failureThreshold: 2
             initialDelaySeconds: 15
             periodSeconds: 60
@@ -103,7 +106,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /ready
-              port: 4251
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 5
       {{- with .Values.authentication.mutual.spire.install.agent.affinity }}
