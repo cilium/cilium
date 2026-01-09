@@ -141,6 +141,7 @@ func newLocalNodeConfig(
 		EnableWireguard:              wgAgent.Enabled(),
 		WireguardIfIndex:             wgIndex,
 		EnableIPSec:                  ipsecCfg.Enabled(),
+		EnableHostFirewall:           config.EnableHostFirewall,
 		EncryptNode:                  config.EncryptNode,
 		IPv4PodSubnets:               cidr.NewCIDRSlice(config.IPv4PodSubnets),
 		IPv6PodSubnets:               cidr.NewCIDRSlice(config.IPv6PodSubnets),
