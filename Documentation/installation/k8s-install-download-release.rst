@@ -8,9 +8,21 @@
 
    Setup Helm repository:
 
-   .. code-block:: shell-session
+   .. tabs::
 
-      helm repo add cilium https://helm.cilium.io/
+      .. group-tab:: Helm Repository
+
+         .. code-block:: shell-session
+
+            helm repo add cilium https://helm.cilium.io/
+
+      .. group-tab:: OCI Registry
+
+         Cilium charts are also available via OCI registries (Quay.io and Docker Hub).
+         No setup required - you can install directly using ``oci://`` URLs.
+
+         See :ref:`k8s_install_helm_oci` for more information on using OCI registries,
+         including chart signing verification and digest-based installations.
 
 .. only:: not stable
 

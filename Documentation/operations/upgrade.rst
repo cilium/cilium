@@ -34,51 +34,45 @@ file.
 .. tabs::
   .. group-tab:: kubectl
 
-    .. parsed-literal::
-
-      helm template |CHART_RELEASE| \\
-        --namespace=kube-system \\
-        --set preflight.enabled=true \\
-        --set agent=false \\
-        --set operator.enabled=false \\
-        > cilium-preflight.yaml
-      kubectl create -f cilium-preflight.yaml
+    .. cilium-helm-template::
+       :namespace: kube-system
+       :set: preflight.enabled=true
+             agent=false
+             operator.enabled=false
+       :post-helm-commands: > cilium-preflight.yaml
+       :post-commands: kubectl create -f cilium-preflight.yaml
 
   .. group-tab:: Helm
 
-    .. parsed-literal::
-
-      helm install cilium-preflight |CHART_RELEASE| \\
-        --namespace=kube-system \\
-        --set preflight.enabled=true \\
-        --set agent=false \\
-        --set operator.enabled=false
+    .. cilium-helm-install::
+       :name: cilium-preflight
+       :namespace: kube-system
+       :set: preflight.enabled=true
+             agent=false
+             operator.enabled=false
 
   .. group-tab:: kubectl (kubeproxy-free)
 
-    .. parsed-literal::
-
-      helm template |CHART_RELEASE| \\
-        --namespace=kube-system \\
-        --set preflight.enabled=true \\
-        --set agent=false \\
-        --set operator.enabled=false \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT \\
-        > cilium-preflight.yaml
-      kubectl create -f cilium-preflight.yaml
+    .. cilium-helm-template::
+       :namespace: kube-system
+       :set: preflight.enabled=true
+             agent=false
+             operator.enabled=false
+             k8sServiceHost=API_SERVER_IP
+             k8sServicePort=API_SERVER_PORT
+       :post-helm-commands: > cilium-preflight.yaml
+       :post-commands: kubectl create -f cilium-preflight.yaml
 
   .. group-tab:: Helm (kubeproxy-free)
 
-    .. parsed-literal::
-
-      helm install cilium-preflight |CHART_RELEASE| \\
-        --namespace=kube-system \\
-        --set preflight.enabled=true \\
-        --set agent=false \\
-        --set operator.enabled=false \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT
+    .. cilium-helm-install::
+       :name: cilium-preflight
+       :namespace: kube-system
+       :set: preflight.enabled=true
+             agent=false
+             operator.enabled=false
+             k8sServiceHost=API_SERVER_IP
+             k8sServicePort=API_SERVER_PORT
 
 After applying the ``cilium-preflight.yaml``, ensure that the number of READY
 pods is the same number of Cilium pods running.
@@ -169,23 +163,19 @@ version which was installed in this cluster.
 
     Generate the required YAML file and deploy it:
 
-    .. parsed-literal::
-
-      helm template |CHART_RELEASE| \\
-        --set upgradeCompatibility=1.X \\
-        --namespace kube-system \\
-        > cilium.yaml
-      kubectl apply -f cilium.yaml
+    .. cilium-helm-template::
+       :namespace: kube-system
+       :set: upgradeCompatibility=1.X
+       :post-helm-commands: > cilium.yaml
+       :post-commands: kubectl apply -f cilium.yaml
 
   .. group-tab:: Helm
 
     Deploy Cilium release via Helm:
 
-    .. parsed-literal::
-
-      helm upgrade cilium |CHART_RELEASE| \\
-        --namespace=kube-system \\
-        --set upgradeCompatibility=1.X
+    .. cilium-helm-upgrade::
+       :namespace: kube-system
+       :set: upgradeCompatibility=1.X
 
 .. note::
 
@@ -208,11 +198,9 @@ version which was installed in this cluster.
 
    You can then upgrade using this values file by running:
 
-   .. parsed-literal::
-
-      helm upgrade cilium |CHART_RELEASE| \\
-        --namespace=kube-system \\
-        -f my-values.yaml
+   .. cilium-helm-upgrade::
+      :namespace: kube-system
+      :extra-args: -f my-values.yaml
 
 When upgrading from one minor release to another minor release using
 ``helm upgrade``, do *not* use Helm's ``--reuse-values`` flag.
@@ -575,18 +563,16 @@ allocating identities in a way that conflicts with older ones in the kvstore.
 
 The cilium preflight manifest requires etcd support and can be built with:
 
-.. code-block:: shell-session
-
-    helm template cilium \
-      --namespace=kube-system \
-      --set preflight.enabled=true \
-      --set agent=false \
-      --set config.enabled=false \
-      --set operator.enabled=false \
-      --set etcd.enabled=true \
-      --set etcd.ssl=true \
-      > cilium-preflight.yaml
-    kubectl create -f cilium-preflight.yaml
+.. cilium-helm-template::
+   :namespace: kube-system
+   :set: preflight.enabled=true
+         agent=false
+         config.enabled=false
+         operator.enabled=false
+         etcd.enabled=true
+         etcd.ssl=true
+   :post-helm-commands: > cilium-preflight.yaml
+   :post-commands: kubectl create -f cilium-preflight.yaml
 
 
 Example migration
