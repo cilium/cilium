@@ -76,6 +76,10 @@ func readInput(t *testing.T, file string) []client.Object {
 		_, kind, err := getResourceKind(o)
 		require.NoError(t, err, "failed to get resource kind from input YAML")
 		switch kind {
+		case "Namespace":
+			obj := &corev1.Namespace{}
+			fromYaml(t, o, obj)
+			res = append(res, obj)
 		case "Service":
 			obj := &corev1.Service{}
 			fromYaml(t, o, obj)
