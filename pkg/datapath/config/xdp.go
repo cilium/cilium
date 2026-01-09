@@ -21,5 +21,7 @@ func XDP(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.EnableXDPPrefilter = option.Config.EnableXDPPrefilter
+
 	return cfg
 }

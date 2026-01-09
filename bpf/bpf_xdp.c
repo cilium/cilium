@@ -6,6 +6,7 @@
 
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>
+#include <bpf/config/xdp.h>
 #include <netdev_config.h>
 #include <filter_config.h>
 
@@ -211,8 +212,7 @@ static __always_inline int check_v4_lb(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_NODEPORT_ACCELERATION */
 
-#ifdef ENABLE_PREFILTER
-static __always_inline int check_v4(struct __ctx_buff *ctx)
+static __always_inline int prefilter_v4(struct __ctx_buff *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
@@ -230,18 +230,13 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 	if (map_lookup_elem(&cilium_cidr_v4_dyn, &pfx))
 		return CTX_ACT_DROP;
 #endif /* CIDR4_LPM_PREFILTER */
-	return map_lookup_elem(&cilium_cidr_v4_fix, &pfx) ?
-		CTX_ACT_DROP : check_v4_lb(ctx);
-#else
-	return check_v4_lb(ctx);
+
+	if (map_lookup_elem(&cilium_cidr_v4_fix, &pfx))
+		return CTX_ACT_DROP;
 #endif /* CIDR4_FILTER */
+
+	return 0;
 }
-#else
-static __always_inline int check_v4(struct __ctx_buff *ctx)
-{
-	return check_v4_lb(ctx);
-}
-#endif /* ENABLE_PREFILTER */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
@@ -289,8 +284,7 @@ static __always_inline int check_v6_lb(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_NODEPORT_ACCELERATION */
 
-#ifdef ENABLE_PREFILTER
-static __always_inline int check_v6(struct __ctx_buff *ctx)
+static __always_inline int prefilter_v6(struct __ctx_buff *ctx)
 {
 	void *data_end = ctx_data_end(ctx);
 	void *data = ctx_data(ctx);
@@ -308,18 +302,13 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 	if (map_lookup_elem(&cilium_cidr_v6_dyn, &pfx))
 		return CTX_ACT_DROP;
 #endif /* CIDR6_LPM_PREFILTER */
-	return map_lookup_elem(&cilium_cidr_v6_fix, &pfx) ?
-		CTX_ACT_DROP : check_v6_lb(ctx);
-#else
-	return check_v6_lb(ctx);
+
+	if (map_lookup_elem(&cilium_cidr_v6_fix, &pfx))
+		return CTX_ACT_DROP;
 #endif /* CIDR6_FILTER */
+
+	return 0;
 }
-#else
-static __always_inline int check_v6(struct __ctx_buff *ctx)
-{
-	return check_v6_lb(ctx);
-}
-#endif /* ENABLE_PREFILTER */
 #endif /* ENABLE_IPV6 */
 
 #ifndef xdp_early_hook
@@ -344,12 +333,24 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = check_v4(ctx);
+		if (CONFIG(enable_xdp_prefilter)) {
+			ret = prefilter_v4(ctx);
+			if (ret == CTX_ACT_DROP)
+				return ret;
+		}
+
+		ret = check_v4_lb(ctx);
 		break;
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = check_v6(ctx);
+		if (CONFIG(enable_xdp_prefilter)) {
+			ret = prefilter_v6(ctx);
+			if (ret == CTX_ACT_DROP)
+				return ret;
+		}
+
+		ret = check_v6_lb(ctx);
 		break;
 #endif /* ENABLE_IPV6 */
 	default:
