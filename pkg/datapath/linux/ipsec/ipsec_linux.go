@@ -811,7 +811,7 @@ func (a *Agent) ipsecDeleteXfrmPolicy(nodeID uint16) error {
 	errs := resiliency.NewErrorSet("failed to delete xfrm policies", len(xfrmPolicyList))
 	for _, p := range xfrmPolicyList {
 		if matchesOnNodeID(p.Mark) && ipsec.GetNodeIDFromXfrmMark(p.Mark) == nodeID {
-			if err := netlink.XfrmPolicyDel(&p); err != nil {
+			if err := safenetlink.XfrmPolicyDel(&p); err != nil {
 				errs.Add(fmt.Errorf("unable to delete xfrm policy %s: %w", p.String(), err))
 			}
 		}
@@ -979,7 +979,7 @@ policy:
 		// if so, delete the policy.
 		for _, tmpl := range p.Tmpls {
 			if reqID == AllReqID || tmpl.Reqid == reqID {
-				if err := netlink.XfrmPolicyDel(&p); err != nil {
+				if err := safenetlink.XfrmPolicyDel(&p); err != nil {
 					ee.Add(err)
 				}
 				continue policy
@@ -1027,7 +1027,7 @@ func (a *Agent) deleteXfrmPolicyOutFamily(nodeID uint16, dst *net.IPNet, family 
 		if !matchesOnNodeID(p.Mark) || ipsec.GetNodeIDFromXfrmMark(p.Mark) != nodeID || !matchesOnDst(p.Dst, dst) {
 			continue
 		}
-		if err := netlink.XfrmPolicyDel(&p); err != nil {
+		if err := safenetlink.XfrmPolicyDel(&p); err != nil {
 			errs.Add(fmt.Errorf("unable to delete xfrm out policy %s: %w", p.String(), err))
 		}
 	}
@@ -1213,7 +1213,7 @@ func (a *Agent) deleteIPsecEncryptRoute() {
 		}
 
 		for _, rt := range routes {
-			if err := netlink.RouteDel(&rt); err != nil {
+			if err := safenetlink.RouteDel(&rt); err != nil {
 				a.log.Warn("Unable to delete ipsec encrypt route",
 					logfields.Route, rt,
 					logfields.Error, err,
@@ -1378,7 +1378,7 @@ func (a *Agent) deleteStaleXfrmPolicies(reclaimTimestamp time.Time) error {
 			logfields.TrafficDirection, getDirFromXfrmMark(p.Mark),
 			logfields.NodeID, getNodeIDAsHexFromXfrmMark(p.Mark),
 		)
-		if err := netlink.XfrmPolicyDel(&p); err != nil {
+		if err := safenetlink.XfrmPolicyDel(&p); err != nil {
 			errs.Add(fmt.Errorf("failed to delete stale xfrm policy spi (%d): %w", policySPI, err))
 		}
 	}
