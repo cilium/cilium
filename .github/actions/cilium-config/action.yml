@@ -38,7 +38,7 @@ inputs:
     description: 'Enable node-to-node encryption (WireGuard only)'
     default: 'false'
   encryption-strict-egress:
-    description: 'Enable strict mode egress encryption (WireGuard only)'
+    description: 'Enable strict mode egress encryption'
     default: ''
   encryption-strict-ingress:
     description: 'Enable strict mode ingress encryption (WireGuard only)'
