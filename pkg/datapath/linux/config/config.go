@@ -533,7 +533,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
 	}
 
-	if option.Config.EnableVTEP {
+	if option.Config.IPv4Enabled() && option.Config.EnableVTEP {
 		cDefinesMap["ENABLE_VTEP"] = "1"
 	}
 
@@ -794,7 +794,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 		fmt.Fprintf(fw, "#define HOST_ENDPOINT 1\n")
 	}
 
-	if e.IsHost() || option.Config.DatapathMode != datapathOption.DatapathModeNetkit {
+	if option.Config.IPv4Enabled() && (e.IsHost() || option.Config.DatapathMode != datapathOption.DatapathModeNetkit) {
 		if e.RequireARPPassthrough() {
 			fmt.Fprint(fw, "#define ENABLE_ARP_PASSTHROUGH 1\n")
 		} else {
