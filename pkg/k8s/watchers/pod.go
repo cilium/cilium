@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -51,7 +52,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
-
 	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -83,6 +83,7 @@ type k8sPodWatcherParams struct {
 	WgConfig           wgTypes.WireguardConfig
 	IPSecConfig        datapath.IPsecConfig
 	HostNetworkManager datapath.IptablesManager
+	LocalNodeStore     *node.LocalNodeStore
 }
 
 func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
@@ -104,6 +105,7 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		wgConfig:           params.WgConfig,
 		ipsecConfig:        params.IPSecConfig,
 		hostNetworkManager: params.HostNetworkManager,
+		localNodeStore:     params.LocalNodeStore,
 
 		controllersStarted: make(chan struct{}),
 	}
@@ -134,6 +136,7 @@ type K8sPodWatcher struct {
 	wgConfig           wgTypes.WireguardConfig
 	ipsecConfig        datapath.IPsecConfig
 	hostNetworkManager hostNetworkManager
+	localNodeStore     *node.LocalNodeStore
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -582,7 +585,12 @@ func (k *K8sPodWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPo
 		return fmt.Errorf("no/invalid HostIP: %s", newPod.Status.HostIP)
 	}
 
-	hostKey := node.GetEndpointEncryptKeyIndex(k.logger, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
+	ln, err := k.localNodeStore.Get(context.TODO())
+	if err != nil {
+		logging.Fatal(k.logger, "getLocalNode: unexpected error", logfields.Error, err)
+	}
+
+	hostKey := node.GetEndpointEncryptKeyIndex(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
 
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,

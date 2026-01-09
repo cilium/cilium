@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -45,6 +46,7 @@ type k8sCiliumEndpointsWatcherParams struct {
 	IPCache         *ipcache.IPCache
 	WgConfig        wgTypes.WireguardConfig
 	IPSecConfig     datapath.IPsecConfig
+	LocalNodeStore  *node.LocalNodeStore
 }
 
 func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCiliumEndpointsWatcher {
@@ -58,6 +60,7 @@ func newK8sCiliumEndpointsWatcher(params k8sCiliumEndpointsWatcherParams) *K8sCi
 		ipcache:           params.IPCache,
 		wgConfig:          params.WgConfig,
 		ipsecConfig:       params.IPSecConfig,
+		localNodeStore:    params.LocalNodeStore,
 	}
 }
 
@@ -77,6 +80,7 @@ type K8sCiliumEndpointsWatcher struct {
 	ipcache         ipcacheManager
 	wgConfig        wgTypes.WireguardConfig
 	ipsecConfig     datapath.IPsecConfig
+	localNodeStore  *node.LocalNodeStore
 
 	resources agentK8s.Resources
 }
@@ -173,16 +177,21 @@ func (k *K8sCiliumEndpointsWatcher) endpointUpdated(oldEndpoint, endpoint *types
 		}()
 	}
 
+	ln, err := k.localNodeStore.Get(context.TODO())
+	if err != nil {
+		logging.Fatal(k.logger, "getLocalNode: unexpected error", logfields.Error, err)
+	}
+
 	// default to the standard key
-	encryptionKey := node.GetEndpointEncryptKeyIndex(k.logger, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
+	encryptionKey := node.GetEndpointEncryptKeyIndex(ln, k.wgConfig.Enabled(), k.ipsecConfig.Enabled())
+
+	if endpoint.Encryption != nil {
+		encryptionKey = uint8(endpoint.Encryption.Key)
+	}
 
 	id := identity.ReservedIdentityUnmanaged
 	if endpoint.Identity != nil {
 		id = identity.NumericIdentity(endpoint.Identity.ID)
-	}
-
-	if endpoint.Encryption != nil {
-		encryptionKey = uint8(endpoint.Encryption.Key)
 	}
 
 	if endpoint.Networking == nil || endpoint.Networking.NodeIP == "" {
