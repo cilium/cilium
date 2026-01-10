@@ -11,13 +11,14 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(4) {
+		for permutation := range permute(5) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
 			cfg.AllowICMPFragNeeded = permutation[1]
 			cfg.EnableICMPRule = permutation[2]
 			cfg.EnableLRP = permutation[3]
+			cfg.HybridRoutingEnabled = permutation[4]
 
 			if !yield(cfg) {
 				return
@@ -28,7 +29,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(5) {
+		for permutation := range permute(6) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.EnableRemoteNodeMasquerade = permutation[0]
@@ -40,6 +41,7 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 			cfg.EnableL2Announcements = permutation[2]
 			cfg.AllowICMPFragNeeded = permutation[3]
 			cfg.EnableICMPRule = permutation[4]
+			cfg.HybridRoutingEnabled = permutation[5]
 
 			if !yield(cfg) {
 				return
