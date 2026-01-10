@@ -69,15 +69,16 @@ var Synchronization = cell.Module(
 	"clustermesh-synchronization",
 	"Synchronize information from Kubernetes to KVStore",
 
-	// Provide the namespace manager.
+	// Provide the namespace manager and config for namespace filtering.
 	cmnamespace.Cell,
 
 	cell.Group(
 		cell.Provide(
-			func(syncState syncstate.SyncState) operatorWatchers.ServiceSyncConfig {
+			func(syncState syncstate.SyncState, nsCfg cmnamespace.Config) operatorWatchers.ServiceSyncConfig {
 				return operatorWatchers.ServiceSyncConfig{
-					Enabled: true,
-					Synced:  syncState.WaitForResource(),
+					Enabled:                   true,
+					Synced:                    syncState.WaitForResource(),
+					NamespaceFilteringEnabled: !nsCfg.GlobalNamespacesByDefault,
 				}
 			},
 		),
@@ -88,6 +89,11 @@ var Synchronization = cell.Module(
 		cell.Provide(
 			func(syncState syncstate.SyncState) mcsapi.ServiceExportSyncCallback {
 				return syncState.WaitForResource()
+			},
+			func(nsCfg cmnamespace.Config) mcsapi.ServiceExportSyncConfig {
+				return mcsapi.ServiceExportSyncConfig{
+					NamespaceFilteringEnabled: !nsCfg.GlobalNamespacesByDefault,
+				}
 			},
 		),
 		mcsapi.ServiceExportSyncCell,

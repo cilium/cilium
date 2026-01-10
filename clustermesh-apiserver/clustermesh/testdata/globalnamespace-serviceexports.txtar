@@ -1,0 +1,149 @@
+#! --cluster-id=3 --cluster-name=cluster3 --clustermesh-enable-mcs-api --clustermesh-default-global-namespace=false
+
+# First, register the ServiceExport CRD so the sync doesn't skip
+k8s/add serviceexport-crd.yaml
+
+hive/start
+
+# Add two namespaces - one global, one non-global
+k8s/add namespace-global.yaml namespace-local.yaml
+
+# Add services (required for ServiceExport to work)
+k8s/add service-global.yaml service-local.yaml
+
+# Add ServiceExports for both services
+k8s/add serviceexport-global.yaml serviceexport-local.yaml
+
+# Assert that the synced key gets created
+kvstore/list -o plain cilium/synced synced.actual
+* grep -q '^# cilium/synced/cluster3/cilium/state/serviceexports/v1$' synced.actual
+
+# Wait for synchronization. Only serviceexport in global-ns should be synced
+# The serviceexport in local-ns should NOT be synced
+kvstore/list -o plain cilium/state/serviceexports exports-1.actual
+* cmp exports-1.actual exports-1.expected
+
+# Annotate local-ns as global
+k8s/update namespace-local-annotated.yaml
+
+# Wait for synchronization. Now both serviceexports should be synced
+kvstore/list -o plain cilium/state/serviceexports exports-1+2.actual
+* cmp exports-1+2.actual exports-1+2.expected
+
+# Annotate local-ns as non-global again
+k8s/update namespace-local.yaml
+
+# Wait for synchronization. Only serviceexport in global-ns should remain synced
+kvstore/list -o plain cilium/state/serviceexports exports-1.actual
+* cmp exports-1.actual exports-1.expected
+
+# Delete the serviceexport in the global namespace
+k8s/delete serviceexport-global.yaml
+
+# Wait for synchronization. No serviceexports should remain synced
+kvstore/list -o plain cilium/state/serviceexports exports-empty.actual
+* empty exports-empty.actual
+
+# ---
+
+-- serviceexport-crd.yaml --
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: serviceexports.multicluster.x-k8s.io
+spec:
+  group: multicluster.x-k8s.io
+  names:
+    kind: ServiceExport
+    listKind: ServiceExportList
+    plural: serviceexports
+    singular: serviceexport
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+
+-- namespace-global.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: global-ns
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- namespace-local.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: local-ns
+
+-- namespace-local-annotated.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: local-ns
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- service-global.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+  namespace: global-ns
+spec:
+  clusterIP: 10.96.0.10
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  selector:
+    app: echo
+  type: ClusterIP
+  sessionAffinity: None
+
+-- service-local.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+  namespace: local-ns
+spec:
+  clusterIP: 10.96.0.20
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  selector:
+    app: echo
+  type: ClusterIP
+  sessionAffinity: None
+
+-- serviceexport-global.yaml --
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: echo-service
+  namespace: global-ns
+  creationTimestamp: "2024-01-01T00:00:00Z"
+
+-- serviceexport-local.yaml --
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: echo-service
+  namespace: local-ns
+  creationTimestamp: "2024-01-01T00:00:00Z"
+
+-- exports-1.expected --
+# cilium/state/serviceexports/v1/cluster3/global-ns/echo-service
+{"cluster":"cluster3","name":"echo-service","namespace":"global-ns","exportCreationTimestamp":"2024-01-01T00:00:00Z","ports":[{"name":"http","protocol":"TCP","port":80}],"type":"ClusterSetIP","sessionAffinity":"None"}
+-- exports-1+2.expected --
+# cilium/state/serviceexports/v1/cluster3/global-ns/echo-service
+{"cluster":"cluster3","name":"echo-service","namespace":"global-ns","exportCreationTimestamp":"2024-01-01T00:00:00Z","ports":[{"name":"http","protocol":"TCP","port":80}],"type":"ClusterSetIP","sessionAffinity":"None"}
+# cilium/state/serviceexports/v1/cluster3/local-ns/echo-service
+{"cluster":"cluster3","name":"echo-service","namespace":"local-ns","exportCreationTimestamp":"2024-01-01T00:00:00Z","ports":[{"name":"http","protocol":"TCP","port":80}],"type":"ClusterSetIP","sessionAffinity":"None"}

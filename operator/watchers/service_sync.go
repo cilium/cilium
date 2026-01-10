@@ -12,9 +12,11 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -35,6 +37,10 @@ type ServiceSyncConfig struct {
 	// used by clustermesh-apiserver to further wait for its resources to be
 	// processed.
 	Synced func(context.Context)
+
+	// NamespaceFilteringEnabled indicates whether namespace-based filtering should be applied.
+	// When true, only services in global namespaces will be synced.
+	NamespaceFilteringEnabled bool
 }
 
 // ServiceSyncCell implements synchronization of Kubernetes services and endpoints
@@ -64,6 +70,13 @@ type ServiceSyncParams struct {
 	Endpoints               resource.Resource[*k8s.Endpoints]
 	StoreFactory            store.Factory
 	ClusterServiceConverter ClusterServiceConverter
+
+	// NamespaceManager is used to determine if a namespace is global.
+	// Required when Config.NamespaceFilteringEnabled is true.
+	NamespaceManager cmnamespace.Manager `optional:"true"`
+	// Namespaces is the resource for watching namespace events.
+	// Required when Config.NamespaceFilteringEnabled is true.
+	Namespaces resource.Resource[*slim_corev1.Namespace] `optional:"true"`
 }
 
 type serviceSync struct {
@@ -121,6 +134,28 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 	serviceEvents := s.Services.Events(ctx)
 	endpointEvents := s.Endpoints.Events(ctx)
 
+	// Setup namespace events channel if namespace filtering is enabled
+	var namespaceEvents <-chan resource.Event[*slim_corev1.Namespace]
+	if s.Config.NamespaceFilteringEnabled {
+		s.Log.Debug("Namespace filtering is enabled for service sync")
+		namespaceEvents = s.Namespaces.Events(ctx)
+	} else {
+		s.Log.Debug("Namespace filtering is disabled for service sync")
+	}
+
+	// isNamespaceGlobal checks if the namespace is global. If namespace filtering
+	// is disabled, all namespaces are considered global.
+	isNamespaceGlobal := func(namespace string) (bool, error) {
+		if !s.Config.NamespaceFilteringEnabled || s.NamespaceManager == nil {
+			return true, nil
+		}
+		isGlobal, err := s.NamespaceManager.IsGlobalNamespaceByName(namespace)
+		if err != nil {
+			return false, err
+		}
+		return isGlobal, nil
+	}
+
 	upsert := func(cs *serviceStore.ClusterService) {
 		if err := s.store.UpsertKey(ctx, cs); err != nil {
 			// An error is triggered only in case it concerns service marshaling,
@@ -131,6 +166,29 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 				logfields.K8sNamespace, cs.Namespace,
 			)
 		}
+	}
+
+	// syncService handles upserting or deleting a service based on namespace global status.
+	// For non-global namespaces, the service is skipped - cleanup is handled by namespace events.
+	syncService := func(svc *slim_corev1.Service, forceDelete bool) {
+		cs, toUpsert := converter.Convert(svc, getEndpoints)
+		if !toUpsert || forceDelete {
+			s.store.DeleteKey(ctx, cs)
+			return
+		}
+		isGlobal, err := isNamespaceGlobal(svc.Namespace)
+		if err != nil {
+			s.Log.Warn("Failed to determine if namespace is global",
+				logfields.Error, err,
+				logfields.K8sSvcName, svc.Name,
+				logfields.K8sNamespace, svc.Namespace,
+			)
+			return
+		}
+		if !isGlobal {
+			return
+		}
+		upsert(cs)
 	}
 
 	for serviceEvents != nil || endpointEvents != nil {
@@ -151,13 +209,7 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 					s.store.Synced(ctx)
 				}
 			case resource.Upsert:
-				svc := ev.Object
-				cs, toUpsert := converter.Convert(svc, getEndpoints)
-				if toUpsert {
-					upsert(cs)
-				} else {
-					s.store.DeleteKey(ctx, cs)
-				}
+				syncService(ev.Object, false)
 			case resource.Delete:
 				s.store.DeleteKey(ctx, converter.ForDeletion(ev.Object))
 			}
@@ -182,9 +234,55 @@ func (s *serviceSync) loop(ctx context.Context, health cell.Health) error {
 				continue
 			}
 
-			if cs, toUpsert := converter.Convert(svc, getEndpoints); toUpsert {
-				upsert(cs)
+			syncService(svc, false)
+
+		case ev, ok := <-namespaceEvents:
+			if !ok {
+				s.Log.Info("Namespace event channel closed, ignoring future namespace events")
+				namespaceEvents = nil
+				continue
 			}
+
+			if ev.Kind == resource.Sync {
+				ev.Done(nil)
+				continue
+			}
+
+			// Handle namespace changes - resync all services in this namespace
+			if ev.Object == nil {
+				ev.Done(nil)
+				continue
+			}
+
+			nsName := ev.Key.Name
+			isGlobal := s.NamespaceManager.IsGlobalNamespaceByObject(ev.Object)
+
+			s.Log.Debug("Namespace global status changed, resyncing services",
+				logfields.K8sNamespace, nsName,
+				logfields.IsGlobalNamespace, isGlobal,
+			)
+
+			// Get all services in this namespace and resync them
+			svcs, err := services.ByIndex(cache.NamespaceIndex, nsName)
+			if err != nil {
+				s.Log.Warn("Failed to list services for namespace update",
+					logfields.Error, err,
+					logfields.K8sNamespace, nsName,
+				)
+				ev.Done(err)
+				continue
+			}
+
+			for _, svc := range svcs {
+				if ev.Kind == resource.Delete || !isGlobal {
+					// Namespace deleted or no longer global - delete service from kvstore
+					s.store.DeleteKey(ctx, converter.ForDeletion(svc))
+				} else {
+					// Namespace became global - upsert service
+					syncService(svc, false)
+				}
+			}
+			ev.Done(nil)
 		}
 	}
 

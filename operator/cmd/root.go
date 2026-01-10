@@ -332,6 +332,11 @@ var (
 			operatorWatchers.ServiceSyncCell,
 
 			// Synchronizes K8s ServiceExports to KVStore
+			cell.Provide(func() mcsapi.ServiceExportSyncConfig {
+				return mcsapi.ServiceExportSyncConfig{
+					NamespaceFilteringEnabled: false,
+				}
+			}),
 			mcsapi.ServiceExportSyncCell,
 
 			// Cilium L7 LoadBalancing with Envoy.
