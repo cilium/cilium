@@ -375,7 +375,7 @@ ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 static __always_inline int
 ctx_redirect_to_proxy_host_egress(struct __ctx_buff *ctx, __be16 proxy_port)
 {
-	union macaddr mac = CILIUM_HOST_MAC;
+	union macaddr mac = CONFIG(cilium_host_mac);
 
 	ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
@@ -384,7 +384,7 @@ ctx_redirect_to_proxy_host_egress(struct __ctx_buff *ctx, __be16 proxy_port)
 	if (eth_store_daddr(ctx, (__u8 *)&mac, 0) < 0)
 		return DROP_WRITE_ERROR;
 
-	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
+	return ctx_redirect(ctx, CONFIG(cilium_host_ifindex), BPF_F_INGRESS);
 }
 
 /**

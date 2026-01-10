@@ -18,9 +18,11 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -111,11 +113,34 @@ func newLocalNodeConfig(
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
 
+	nameDevice := devicesMap(txn, devices)
+	ciliumHostDevice, ok := nameDevice[defaults.HostDevice]
+	if !ok {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
+	}
+	ciliumHostMAC, err := mac.ParseMAC(ciliumHostDevice.HardwareAddr.String())
+	if err != nil {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.HostDevice, err)
+	}
+
+	ciliumNetDevice, ok := nameDevice[defaults.SecondHostDevice]
+	if !ok {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
+	}
+	ciliumNetMAC, err := mac.ParseMAC(ciliumNetDevice.HardwareAddr.String())
+	if err != nil {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.SecondHostDevice, err)
+	}
+
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
 		NodeIPv6:                     localNode.GetNodeIP(true),
 		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
 		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
+		CiliumNetIfIndex:             uint32(ciliumNetDevice.Index),
+		CiliumNetMAC:                 ciliumNetMAC,
+		CiliumHostIfIndex:            uint32(ciliumHostDevice.Index),
+		CiliumHostMAC:                ciliumHostMAC,
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
@@ -170,4 +195,12 @@ func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
 	}
 
 	return ephemeralPortMin, nil
+}
+
+func devicesMap(txn statedb.ReadTxn, devices statedb.Table[*tables.Device]) map[string]*tables.Device {
+	nameDevice := make(map[string]*tables.Device)
+	for d := range devices.All(txn) {
+		nameDevice[d.Name] = d
+	}
+	return nameDevice
 }
