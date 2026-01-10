@@ -1354,7 +1354,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPSEC
 	if (magic == MARK_MAGIC_ENCRYPT)
 		send_trace_notify(ctx, TRACE_FROM_STACK,
-				  ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY), UNKNOWN_ID,
+				  get_encrypt_identity_meta(ctx), UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
 				  TRACE_REASON_ENCRYPTED, 0, proto);
 #endif /* ENABLE_IPSEC */
@@ -1705,7 +1705,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPSEC
 	else if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
 		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
-		src_id = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
+		src_id = get_encrypt_identity_meta(ctx);
 	}
 #endif
 
