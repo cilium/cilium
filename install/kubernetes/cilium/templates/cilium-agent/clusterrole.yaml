@@ -40,7 +40,6 @@ rules:
   - namespaces
   - services
   - pods
-  - endpoints
   - nodes
 {{- if not $readSecretsOnlyFromSecretsNamespace }}
   - secrets
