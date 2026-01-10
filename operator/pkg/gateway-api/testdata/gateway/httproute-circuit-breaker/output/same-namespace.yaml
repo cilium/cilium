@@ -1,0 +1,55 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+  name: same-namespace
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: Same
+      name: http
+      port: 80
+      protocol: HTTP
+status:
+  addresses:
+    - type: IPAddress
+      value: 172.18.255.196
+  conditions:
+    - lastTransitionTime: "2025-08-18T04:34:43Z"
+      message: Gateway successfully scheduled
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-08-18T04:35:05Z"
+      message: Gateway Programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+  listeners:
+    - attachedRoutes: 1
+      conditions:
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
+          type: Programmed
+      name: http
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute
+
