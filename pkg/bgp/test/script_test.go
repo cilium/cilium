@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"net/http"
 	"net/netip"
 	"os"
 	"testing"
@@ -34,8 +35,9 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
-	"github.com/cilium/cilium/pkg/maglev"
+	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
@@ -95,6 +97,30 @@ func TestPrivilegedScript(t *testing.T) {
 		noEndpointsRoutable := flags.Bool(enableNoEndpointsRoutableFlag, true, "")
 		require.NoError(t, flags.Parse(args), "Error parsing test flags")
 
+		// Create a temp RunDir with a mock Envoy admin server for Gateway/Ingress service tests.
+		// The BGP reconciler checks Envoy readiness by querying the /ready endpoint.
+		runDir := t.TempDir()
+		envoySocketDir := runDir + "/envoy/sockets"
+		require.NoError(t, os.MkdirAll(envoySocketDir, 0755))
+		envoySocket := envoySocketDir + "/admin.sock"
+
+		// Start mock Envoy admin server
+		listener, err := net.Listen("unix", envoySocket)
+		require.NoError(t, err)
+		mockEnvoyServer := &http.Server{
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/ready" {
+					w.WriteHeader(http.StatusOK)
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}),
+		}
+		go mockEnvoyServer.Serve(listener)
+		t.Cleanup(func() {
+			mockEnvoyServer.Close()
+		})
+
 		if *probeTCPMD5 {
 			available, err := TCPMD5SigAvailable()
 			require.NoError(t, err)
@@ -127,14 +153,16 @@ func TestPrivilegedScript(t *testing.T) {
 			node.LocalNodeStoreTestCell,
 			cell.Config(envoyCfg.SecretSyncConfig{}),
 
-			// LB cell to populate LB tables from k8s services / endpoints
-			lbcell.Cell,
-			maglev.Cell,
-			cell.Provide(source.NewSources),
-			cell.Config(loadbalancer.TestConfig{}),
-			cell.Provide(
-				func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg }, // newLBMaps expects *TestConfig
-			),
+			// Load-balancer writer (provides Frontend table) and reflectors (populate from K8s services)
+			loadbalancer.ConfigCell,
+			writer.Cell,
+			reflectors.Cell,
+
+			// Provide source.Sources for loadbalancer writer
+			cell.Provide(func() source.Sources { return source.Sources{} }),
+
+			// Provide BPF stubs for loadbalancer dependencies
+			cell.Provide(func() lbmaps.HaveNetNSCookieSupport { return func() bool { return false } }),
 
 			cell.Provide(
 				func() *option.DaemonConfig {
@@ -145,6 +173,7 @@ func TestPrivilegedScript(t *testing.T) {
 						IPAM:                      *ipam,
 						EnableIPv4:                true,
 						EnableIPv6:                true,
+						RunDir:                    runDir,
 					}
 					return option.Config
 				},
