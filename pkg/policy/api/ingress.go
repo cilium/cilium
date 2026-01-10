@@ -31,6 +31,11 @@ type IngressCommonRule struct {
 	// +kubebuilder:validation:Optional
 	FromEndpoints []EndpointSelector `json:"fromEndpoints,omitempty"`
 
+	// Deprecated.
+	//
+	// +kubebuilder:validation:MaxItems=0
+	FromRequires []string `json:"fromRequires,omitempty"`
+
 	// FromCIDR is a list of IP blocks which the endpoint subject to the
 	// rule is allowed to receive connections from. Only connections which
 	// do *not* originate from the cluster or from the local host are subject

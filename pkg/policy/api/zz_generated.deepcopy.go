@@ -163,6 +163,11 @@ func (in *EgressCommonRule) DeepCopyInto(out *EgressCommonRule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ToRequires != nil {
+		in, out := &in.ToRequires, &out.ToRequires
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.ToCIDR != nil {
 		in, out := &in.ToCIDR, &out.ToCIDR
 		*out = make(CIDRSlice, len(*in))
@@ -518,6 +523,11 @@ func (in *IngressCommonRule) DeepCopyInto(out *IngressCommonRule) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.FromRequires != nil {
+		in, out := &in.FromRequires, &out.FromRequires
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.FromCIDR != nil {
 		in, out := &in.FromCIDR, &out.FromCIDR
