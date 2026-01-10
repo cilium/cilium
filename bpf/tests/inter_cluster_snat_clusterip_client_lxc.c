@@ -45,10 +45,6 @@
 /* Import map definitions and some default values */
 #include <bpf/config/node.h>
 
-/* Overwrite (local) CLUSTER_ID defined in node_config.h */
-#undef CLUSTER_ID
-#define CLUSTER_ID 1
-
 /* Need to undef EVENT_SOURCE here since it is defined in
  * both of common.h and bpf_lxc.c.
  */
@@ -57,8 +53,13 @@
 /* Include an actual datapath code */
 #include "lib/bpf_lxc.h"
 
+/* Overwrite (local) cluster_id defined in clustermesh.h */
+ASSIGN_CONFIG(__u32, cluster_id, 1)
+
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = CLIENT_IP})
+
+ASSIGN_CONFIG(__u32, security_label, 0x10042)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -143,7 +144,8 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(BACKEND_IP, BACKEND_CLUSTER_ID, BACKEND_IDENTITY,
 			     BACKEND_NODE_IP, 0);
 
-	policy_add_egress_allow_entry(BACKEND_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
+	policy_add_egress_allow_l3_l4_entry(BACKEND_IDENTITY, IPPROTO_TCP,
+					    BACKEND_PORT, 0);
 
 	return pod_send_packet(ctx);
 }
@@ -158,6 +160,7 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	struct iphdr *l3;
 	struct ipv4_ct_tuple tuple;
 	struct ct_entry *entry;
+	__u32 cluster_id;
 
 	test_init();
 
@@ -231,6 +234,11 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
 	if (!entry)
 		test_fatal("couldn't find egress conntrack entry");
+
+	cluster_id = ctx_get_cluster_id_mark(ctx);
+	if (cluster_id != BACKEND_CLUSTER_ID)
+		test_fatal("ctx->mark cluster_id should be %u, got %u",
+			   BACKEND_CLUSTER_ID, cluster_id);
 
 	test_finish();
 }

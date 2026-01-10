@@ -63,10 +63,12 @@ type ciliumHealthManager struct {
 	endpointManager  endpointmanager.EndpointManager
 	k8sClientSet     k8sClient.Clientset
 	infraIPAllocator infraendpoints.InfraIPAllocator
+	localNodeStore   *node.LocalNodeStore
 
 	ctrlMgr      *controller.Manager
 	ciliumHealth *CiliumHealth
 
+	daemonConfig *option.DaemonConfig
 	healthConfig healthconfig.CiliumHealthConfig
 }
 
@@ -86,6 +88,8 @@ type ciliumHealthParams struct {
 	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
 	K8sClientSet           k8sClient.Clientset
 	InfraIPAllocator       infraendpoints.InfraIPAllocator
+	LocalNodeStore         *node.LocalNodeStore
+	DaemonConfig           *option.DaemonConfig
 	Config                 healthconfig.CiliumHealthConfig
 }
 
@@ -102,6 +106,8 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 		endpointManager:  params.EndpointManager,
 		k8sClientSet:     params.K8sClientSet,
 		infraIPAllocator: params.InfraIPAllocator,
+		localNodeStore:   params.LocalNodeStore,
+		daemonConfig:     params.DaemonConfig,
 		healthConfig:     params.Config,
 	}
 	if !params.Config.IsHealthCheckingEnabled() {
@@ -141,7 +147,7 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 func (h *ciliumHealthManager) init(ctx context.Context) error {
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	h.logger.Info("Launching Cilium health daemon")
-	ch, err := h.launchCiliumNodeHealth(h.healthSpec, h.loader.HostDatapathInitialized())
+	ch, err := h.launchCiliumNodeHealth(ctx, h.healthSpec, h.loader.HostDatapathInitialized())
 	if err != nil {
 		return fmt.Errorf("failed to start cilium health: %w", err)
 	}
@@ -194,7 +200,9 @@ func (h *ciliumHealthManager) init(ctx context.Context) error {
 				// client
 				if time.Since(lastSuccessfulPing) > successfulPingTimeout {
 					h.logger.Debug("Restart health endpoint after timeout")
-					h.cleanupHealthEndpoint()
+					if err := h.cleanupHealthEndpoint(ctx); err != nil {
+						return err
+					}
 
 					client, err = h.launchAsEndpoint(ctx, h.endpointCreator, h.endpointManager, h.mtuConfig, h.bigTCPConfig, h.sysctl)
 					if err == nil {
@@ -211,8 +219,7 @@ func (h *ciliumHealthManager) init(ctx context.Context) error {
 			},
 			StopFunc: func(ctx context.Context) error {
 				h.logger.Info("Stopping health endpoint")
-				h.cleanupHealthEndpoint()
-				return err
+				return h.cleanupHealthEndpoint(ctx)
 			},
 			RunInterval: controllerInterval,
 			Context:     ctx,
@@ -222,14 +229,19 @@ func (h *ciliumHealthManager) init(ctx context.Context) error {
 	return nil
 }
 
-func (h *ciliumHealthManager) cleanupHealthEndpoint() {
+func (h *ciliumHealthManager) cleanupHealthEndpoint(ctx context.Context) error {
 	var ep *endpoint.Endpoint
 
 	h.logger.Info("Cleaning up Cilium health endpoint")
 
+	ln, err := h.localNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get local node: %w", err)
+	}
+
 	// Clean up agent resources
-	healthIPv4 := node.GetEndpointHealthIPv4(h.logger)
-	healthIPv6 := node.GetEndpointHealthIPv6(h.logger)
+	healthIPv4 := ln.IPv4HealthIP
+	healthIPv6 := ln.IPv6HealthIP
 	if healthIPv4 != nil {
 		ep = h.endpointManager.LookupIPv4(healthIPv4.String())
 	}
@@ -255,6 +267,7 @@ func (h *ciliumHealthManager) cleanupHealthEndpoint() {
 
 	// Remove health endpoint devices
 	h.cleanupEndpoint()
+	return nil
 }
 
 func (h *ciliumHealthManager) GetStatus() *models.Status {

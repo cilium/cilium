@@ -51,10 +51,6 @@ func (n *manager) doGC(ctx context.Context) error {
 	namesToClean := make(sets.Set[string])
 	initialNames := n.cache.DumpNames()
 
-	// Take a snapshot of the *entire* reverse cache, so we can compute the set of
-	// IPs that have been completely removed and safely delete their metadata.
-	maybeStaleIPs := n.cache.GetIPs()
-
 	allEndpointNames := make(sets.Set[string])
 
 	// Cleanup each endpoint cache, deferring deletions via DNSZombies.
@@ -136,7 +132,9 @@ func (n *manager) doGC(ctx context.Context) error {
 
 	namesToCleanSlice := namesToClean.UnsortedList()
 
-	n.cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
+	// Take a snapshot of the *entire* reverse cache, so we can compute the set of
+	// IPs that have been completely removed and safely delete their metadata.
+	maybeStaleIPs := n.cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
 
 	metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToCleanSlice)))
 	namesCount := len(namesToCleanSlice)
@@ -159,12 +157,12 @@ func (n *manager) doGC(ctx context.Context) error {
 	return nil
 }
 
-// RestoreCache loads cache state from the restored system:
+// RestorationNotify implements endpointstate.RestorationNotifier and loads cache state from the restored system:
 // - adds any pre-cached DNS entries
 // - repopulates the cache from the (persisted) endpoint DNS cache and zombies
-func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
+func (n *manager) RestorationNotify(possibleEndpoints map[uint16]*endpoint.Endpoint) {
 	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
-	// TODO: remove this; it was neeeded for the v1.3-v1.4 upgrade
+	// TODO: remove this; it was needed for the v1.3-v1.4 upgrade
 	preCachePath := option.Config.ToFQDNsPreCache
 	if preCachePath != "" {
 		n.logger.Info("Reading toFQDNs pre-cache data")
@@ -177,7 +175,7 @@ func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
 			// We do not stop the agent here. It is safer to continue with best effort
 			// than to enter crash backoffs when this file is broken.
 		} else {
-			n.cache.UpdateFromCache(precache, nil)
+			n.cache.UpdateFromCache(precache)
 		}
 	}
 
@@ -187,10 +185,10 @@ func (n *manager) RestoreCache(eps map[uint16]*endpoint.Endpoint) {
 	// Note: This is TTL aware, and expired data will not be used (e.g. when
 	// restoring after a long delay).
 	now := time.Now()
-	for _, possibleEP := range eps {
+	for _, possibleEP := range possibleEndpoints {
 		// Upgrades from old ciliums have this nil
 		if possibleEP.DNSHistory != nil {
-			n.cache.UpdateFromCache(possibleEP.DNSHistory, []string{})
+			n.cache.UpdateFromCache(possibleEP.DNSHistory)
 			if names, ips := possibleEP.DNSHistory.Count(); names > 0 {
 				n.logger.Info("restored DNS history from endpoint",
 					logfields.EndpointID, possibleEP.ID,

@@ -42,6 +42,7 @@ Filters Flags:
       --cel-expression filter               Filter flows using the given CEL expression
       --cluster filter                      Show all flows which match the cluster names (e.g. "test-cluster", "prod-*")
       --drop-reason-desc filter             Show only flows which match this drop reason describe (e.g. "POLICY_DENIED", "UNSUPPORTED_L3_PROTOCOL")
+      --encrypted filter[=true]             Show only encrypted flows (WireGuard/IPsec)
       --fqdn filter                         Show all flows related to the given fully qualified domain name (e.g. "*.cilium.io").
       --from-all-namespaces filter[=true]   Show flows originating in any Kubernetes namespace.
       --from-cluster filter                 Show all flows originating from endpoints known to be in the given cluster name
@@ -111,6 +112,7 @@ Filters Flags:
                                                              to-stack
                                                              to-crypto
                                             trace-sock       n/a
+      --unencrypted filter[=true]           Show only unencrypted flows
       --uuid filter                         Show the only flow matching this unique flow identifier, if any
       --verdict filter                      Show only flows with this verdict [FORWARDED, DROPPED, AUDIT, REDIRECTED, ERROR, TRACED, TRANSLATED]
       --workload filter                     Show all flows related to an endpoint with the given workload

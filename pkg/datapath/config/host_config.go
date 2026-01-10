@@ -10,14 +10,14 @@ package config
 // values configured in the ELF are honored.
 type BPFHost struct {
 	// Allow ICMP_FRAG_NEEDED messages when applying Network Policy.
-	AllowIcmpFragNeeded bool `config:"allow_icmp_frag_needed"`
+	AllowICMPFragNeeded bool `config:"allow_icmp_frag_needed"`
 	// MTU of the device the bpf program is attached to (default: MTU set in
 	// node_config.h by agent).
 	DeviceMTU uint16 `config:"device_mtu"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Apply Network Policy for ICMP packets.
-	EnableIcmpRule bool `config:"enable_icmp_rule"`
+	EnableICMPRule bool `config:"enable_icmp_rule"`
 	// Enable L2 Announcements.
 	EnableL2Announcements bool `config:"enable_l2_announcements"`
 	// Use netkit devices for pods.
@@ -26,13 +26,15 @@ type BPFHost struct {
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
+	// Ephemeral port range minimun.
+	EphemeralMin uint16 `config:"ephemeral_min"`
 	// Length of the Ethernet header on this device. May be set to zero on L2-less
 	// devices. (default __ETH_HLEN).
 	EthHeaderLength uint8 `config:"eth_header_length"`
 	// The host endpoint ID.
-	HostEpID uint16 `config:"host_ep_id"`
+	HostEPID uint16 `config:"host_ep_id"`
 	// Ifindex of the interface the bpf program is attached to.
-	InterfaceIfindex uint32 `config:"interface_ifindex"`
+	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
 	// If the agent is down for longer than the lease duration, stop responding.
@@ -41,24 +43,22 @@ type BPFHost struct {
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
-	// Pull security context from IP cache.
-	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 	// VXLAN tunnel endpoint network mask.
-	VtepMask uint32 `config:"vtep_mask"`
+	VTEPMask uint32 `config:"vtep_mask"`
 	// Index of the WireGuard interface.
-	WgIfindex uint32 `config:"wg_ifindex"`
+	WGIfIndex uint32 `config:"wg_ifindex"`
 	// Port for the WireGuard interface.
-	WgPort uint16 `config:"wg_port"`
+	WGPort uint16 `config:"wg_port"`
 
 	Node
 }
 
 func NewBPFHost(node Node) *BPFHost {
-	return &BPFHost{false, 0x5dc, false, false, false, false, false, false, 0xe, 0x0,
-		0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}, 0x0,
-		[4]byte{0x0, 0x0, 0x0, 0x0},
+	return &BPFHost{false, 0x5dc, false, false, false, false, false, false, 0x0, 0xe,
+		0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+		0x0, [4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, 0x0, 0x0, 0x0, 0x0, node}
+		0x0, 0x0, 0x0, 0x0, node}
 }

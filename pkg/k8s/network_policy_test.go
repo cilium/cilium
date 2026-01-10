@@ -204,13 +204,12 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
-				L3: policytypes.PeerSelectorSlice{
-					api.NewESFromLabels(
-						labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
-						labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
-						labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
-					),
-				},
+				Verdict:     policytypes.Allow,
+				L3: policytypes.ToSelectors(api.NewESFromLabels(
+					labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
+					labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+					labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+				)),
 				L4: api.PortRules{{
 					Ports: []api.PortProtocol{{
 						Port:     "80",
@@ -238,7 +237,8 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
-				L3:          policytypes.PeerSelectorSlice{api.NewESFromLabels()},
+				Verdict:     policytypes.Allow,
+				L3:          policytypes.ToSelectors(api.NewESFromLabels()),
 				L4: api.PortRules{{
 					Ports: []api.PortProtocol{{
 						Port:     "80",
@@ -281,13 +281,12 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
-				L3: policytypes.PeerSelectorSlice{
-					api.NewESFromLabels(
-						labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
-						labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
-						labels.NewLabel("io.cilium.k8s.namespace.labels.nsfoo", "nsbar", labels.LabelSourceK8s),
-					),
-				},
+				Verdict:     policytypes.Allow,
+				L3: policytypes.ToSelectors(api.NewESFromLabels(
+					labels.NewLabel("foo3", "bar3", labels.LabelSourceK8s),
+					labels.NewLabel("foo4", "bar4", labels.LabelSourceK8s),
+					labels.NewLabel("io.cilium.k8s.namespace.labels.nsfoo", "nsbar", labels.LabelSourceK8s),
+				)),
 				L4: api.PortRules{{
 					Ports: []api.PortProtocol{{
 						Port:     "80",
@@ -304,6 +303,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
+				Verdict:     policytypes.Allow,
 			},
 		},
 		{
@@ -314,7 +314,8 @@ func TestParseNetworkPolicy(t *testing.T) {
 			out: policytypes.PolicyEntry{
 				Ingress:     true,
 				DefaultDeny: true,
-				L3:          policytypes.PeerSelectorSlice{api.NewESFromLabels()},
+				Verdict:     policytypes.Allow,
+				L3:          policytypes.ToSelectors(api.NewESFromLabels()),
 			},
 		},
 	} {
@@ -337,7 +338,7 @@ func TestParseNetworkPolicy(t *testing.T) {
 					"foo2": "bar2",
 				}}
 
-			tc.out.Subject = api.NewESFromLabels(
+			tc.out.Subject = policytypes.NewLabelSelectorFromLabels(
 				labels.NewLabel(k8sConst.PodNamespaceLabel, slim_metav1.NamespaceDefault, labels.LabelSourceK8s),
 				labels.NewLabel("foo1", "bar1", labels.LabelSourceK8s),
 				labels.NewLabel("foo2", "bar2", labels.LabelSourceK8s),
@@ -488,22 +489,22 @@ func TestParseNetworkPolicyNoSelectors(t *testing.T) {
 		labels.NewLabel("role", "backend", labels.LabelSourceK8s),
 	}
 
-	epSelector := api.NewESFromLabels(fromEndpoints...)
+	epSelector := policytypes.NewLabelSelectorFromLabels(fromEndpoints...)
 	np := slim_networkingv1.NetworkPolicy{}
 	err := json.Unmarshal(ex1, &np)
 	require.NoError(t, err)
 
-	cidrRuleSlice := api.CIDRRuleSlice{{
+	cidrRule := api.CIDRRule{
 		Cidr: api.CIDR("10.0.0.0/8"),
 		ExceptCIDRs: []api.CIDR{
 			"10.96.0.0/12",
 		},
-	}}
-	l3 := policytypes.ToPeerSelectorSlice(cidrRuleSlice.GetAsEndpointSelectors())
-	l3 = append(l3, policytypes.ToPeerSelectorSlice(cidrRuleSlice)...)
+	}
+	l3 := policytypes.ToSelectors(cidrRule)
 	expectedRule := &policytypes.PolicyEntry{
 		Ingress:     true,
 		DefaultDeny: true,
+		Verdict:     policytypes.Allow,
 		Subject:     epSelector,
 		L3:          l3,
 		Labels: labels.ParseLabelArray(
@@ -1449,8 +1450,8 @@ func TestCIDRPolicyExamples(t *testing.T) {
 	require.Nil(t, rules[0].L3)
 
 	require.False(t, rules[1].Ingress)
-	require.Len(t, rules[1].L3, 2)
-	cidrRules := policytypes.FromPeerSelectorSlice[api.CIDRRule](rules[1].L3)
+	require.Len(t, rules[1].L3, 1)
+	cidrRules := rules[1].L3.CIDRRules()
 	require.Equal(t, api.CIDR("10.0.0.0/8"), cidrRules[0].Cidr)
 
 	expectedCIDRs := []api.CIDR{"10.96.0.0/12", "10.255.255.254/32"}
@@ -1459,8 +1460,8 @@ func TestCIDRPolicyExamples(t *testing.T) {
 	}
 
 	require.False(t, rules[2].Ingress)
-	require.Len(t, rules[2].L3, 2)
-	cidrRules = policytypes.FromPeerSelectorSlice[api.CIDRRule](rules[2].L3)
+	require.Len(t, rules[2].L3, 1)
+	cidrRules = rules[2].L3.CIDRRules()
 	require.Equal(t, api.CIDR("11.0.0.0/8"), cidrRules[0].Cidr)
 
 	expectedCIDRs = []api.CIDR{"11.96.0.0/12", "11.255.255.254/32"}
@@ -1469,8 +1470,8 @@ func TestCIDRPolicyExamples(t *testing.T) {
 	}
 }
 
-func getSelectorPointer(sel api.EndpointSelector) *api.EndpointSelector {
-	return &sel
+func getSelectorPointer(es api.EndpointSelector) policytypes.Selector {
+	return policytypes.NewLabelSelector(es)
 }
 
 func TestParseNetworkPolicyClusterLabel(t *testing.T) {
@@ -1501,14 +1502,15 @@ func TestParseNetworkPolicyClusterLabel(t *testing.T) {
 		labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s),
 		labels.NewLabel("foo", "bar", labels.LabelSourceK8s),
 	}
-	epSelector := api.NewESFromLabels(fromEndpoints...)
+	epSelector := policytypes.NewLabelSelectorFromLabels(fromEndpoints...)
 
 	expectedRules := policytypes.PolicyEntries{
 		{
+			Verdict:     policytypes.Allow,
 			Subject:     epSelector,
 			Ingress:     true,
 			DefaultDeny: true,
-			L3: policytypes.PeerSelectorSlice{api.NewESFromK8sLabelSelector(
+			L3: policytypes.ToSelectors(api.NewESFromK8sLabelSelector(
 				labels.LabelSourceK8sKeyPrefix,
 				&slim_metav1.LabelSelector{
 					MatchLabels: map[string]string{
@@ -1516,7 +1518,7 @@ func TestParseNetworkPolicyClusterLabel(t *testing.T) {
 						"io.kubernetes.pod.namespace":  "default",
 					},
 				},
-			)},
+			)),
 			Labels: labels.ParseLabelArray(
 				"k8s:"+k8sConst.PolicyLabelName+"=",
 				"k8s:"+k8sConst.PolicyLabelUID+"=",
@@ -1524,10 +1526,11 @@ func TestParseNetworkPolicyClusterLabel(t *testing.T) {
 				"k8s:"+k8sConst.PolicyLabelDerivedFrom+"="+resourceTypeNetworkPolicy,
 			),
 		}, {
+			Verdict:     policytypes.Allow,
 			Subject:     epSelector,
 			Ingress:     false,
 			DefaultDeny: true,
-			L3: policytypes.PeerSelectorSlice{api.NewESFromK8sLabelSelector(
+			L3: policytypes.ToSelectors(api.NewESFromK8sLabelSelector(
 				labels.LabelSourceK8sKeyPrefix,
 				&slim_metav1.LabelSelector{
 					MatchLabels: map[string]string{
@@ -1535,7 +1538,7 @@ func TestParseNetworkPolicyClusterLabel(t *testing.T) {
 						"io.kubernetes.pod.namespace":  "default",
 					},
 				},
-			)},
+			)),
 			Labels: labels.ParseLabelArray(
 				"k8s:"+k8sConst.PolicyLabelName+"=",
 				"k8s:"+k8sConst.PolicyLabelUID+"=",
@@ -1560,7 +1563,7 @@ func Test_parseNetworkPolicyPeer(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *api.EndpointSelector
+		want policytypes.Selector
 	}{
 		{
 			name: "peer-with-pod-selector",

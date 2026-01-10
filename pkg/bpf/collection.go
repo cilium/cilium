@@ -221,8 +221,8 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("resolving tail calls: %w", err)
 	}
 
-	keep, err := removeUnusedMaps(spec, opts.Keep, reach)
-	if err != nil {
+	fixed := fixedResources(spec, opts.Keep)
+	if err := removeUnusedMaps(spec, fixed, reach, logger); err != nil {
 		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
 	}
 
@@ -251,15 +251,9 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, err
 	}
 
-	if logger.Enabled(context.Background(), slog.LevelDebug) {
-		if err := verifyUnusedMaps(coll, keep); err != nil {
-			if !errors.Is(err, ebpf.ErrRestrictedKernel) {
-				return nil, nil, fmt.Errorf("verifying unused maps: %w", err)
-			}
-		} else {
-			logger.Debug("Verified no unused maps after loading Collection")
-		}
-	}
+	// In debug mode, check that no maps were freed by the kernel after loading
+	// the Collection.
+	logFreedMaps(logger, coll, fixed)
 
 	// Collect Maps that need their bpffs pins replaced. Pull out Map objects
 	// before returning the Collection, since commit() still needs to work when
@@ -298,7 +292,7 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 		return nil
 	}
 
-	constants, err := config.StructToMap(obj)
+	constants, err := config.Map(obj)
 	if err != nil {
 		return fmt.Errorf("converting struct to map: %w", err)
 	}
@@ -311,8 +305,8 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 			return fmt.Errorf("can't set non-existent Variable %s", name)
 		}
 
-		if v.MapName() != config.Section {
-			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.MapName(), name)
+		if v.SectionName != config.Section {
+			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.SectionName, name)
 		}
 
 		if err := v.Set(value); err != nil {
@@ -321,4 +315,29 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 	}
 
 	return nil
+}
+
+// logFreedMaps checks that no maps were freed by the kernel after loading
+// the given Collection.
+//
+// Only runs in debug mode due to its runtime cost.
+func logFreedMaps(logger *slog.Logger, coll *ebpf.Collection, fixed *set.Set[string]) {
+	if !logger.Enabled(context.TODO(), slog.LevelDebug) {
+		return
+	}
+
+	freed, err := freedMaps(coll, fixed)
+	if errors.Is(err, ebpf.ErrRestrictedKernel) {
+		logger.Debug("Cannot detect freed maps due to restricted kernel")
+		return
+	}
+	if err != nil {
+		logger.Debug("Error detecting freed maps", logfields.Error, err)
+	}
+
+	if len(freed) > 0 {
+		logger.Debug("Maps freed by the kernel after dead code elimination", logfields.Maps, freed)
+	}
+
+	logger.Debug("No freed maps found after loading Collection")
 }

@@ -18,6 +18,9 @@ message Bundle {
 
     // The sequence number of the bundle.
     uint64 sequence_number = 5;
+
+    // WIT authorities for authenticating WIT-SVIDs.
+    repeated WITKey wit_authorities = 6;
 }
 
 message X509Certificate {
@@ -29,6 +32,21 @@ message X509Certificate {
 }
 
 message JWTKey {
+    // The PKIX encoded public key.
+    bytes public_key = 1;
+
+    // The key identifier.
+    string key_id = 2;
+
+    // When the key expires (seconds since Unix epoch). If zero, the key does
+    // not expire.
+    int64 expires_at = 3;
+
+    // This authority is no longer secure and must not be used
+    bool tainted = 4;
+}
+
+message WITKey {
     // The PKIX encoded public key.
     bytes public_key = 1;
 
@@ -55,4 +73,7 @@ message BundleMask {
 
     // sequence_number field mask.
     bool sequence_number = 5;
+
+    // wit_authorities field mask.
+    bool wit_authorities = 6;
 }

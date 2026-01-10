@@ -64,7 +64,14 @@ func newPeerConfigTestFixture(t *testing.T, ctx context.Context, enableStatusRep
 			w := action.(k8sTesting.WatchAction)
 			gvr := w.GetResource()
 			ns := w.GetNamespace()
-			watch, err := tracker.Watch(gvr, ns)
+
+			// Extract ListOptions for WatchList semantics (SendInitialEvents)
+			var opts []meta_v1.ListOptions
+			if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
+				opts = append(opts, watchAction.ListOptions)
+			}
+
+			watch, err := tracker.Watch(gvr, ns, opts...)
 			if err != nil {
 				return false, nil, err
 			}

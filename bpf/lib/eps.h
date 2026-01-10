@@ -31,7 +31,11 @@ struct endpoint_key {
 
 #define ENDPOINT_F_HOST			1 /* Special endpoint representing local host */
 #define ENDPOINT_F_ATHOSTNS		2 /* Endpoint located at the host networking namespace */
+#define ENDPOINT_F_NO_SNAT_V4	4 /* Endpoint should not be masqueraded for IPv4 */
+#define ENDPOINT_F_NO_SNAT_V6	8 /* Endpoint should not be masqueraded for IPv6 */
 #define ENDPOINT_MASK_HOST_DELIVERY	(ENDPOINT_F_HOST | ENDPOINT_F_ATHOSTNS)
+#define ENDPOINT_MASK_SKIP_MASQ_V4 (ENDPOINT_F_HOST | ENDPOINT_F_NO_SNAT_V4)
+#define ENDPOINT_MASK_SKIP_MASQ_V6 (ENDPOINT_F_HOST | ENDPOINT_F_NO_SNAT_V6)
 
 /* Value of endpoint map */
 struct endpoint_info {
@@ -132,7 +136,7 @@ struct {
 	__type(value, struct remote_endpoint_info);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, IPCACHE_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipcache_v2 __section_maps_btf;
 
 /* IPCACHE_STATIC_PREFIX gets sizeof non-IP, non-prefix part of ipcache_key */

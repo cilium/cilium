@@ -23,6 +23,11 @@ type IngressCommonRule struct {
 	// Any endpoint with the label "role=backend" can be consumed by any
 	// endpoint carrying the label "role=frontend".
 	//
+	// Note that while an empty non-nil FromEndpoints does not select anything,
+	// nil FromEndpoints is implicitly treated as a wildcard selector if ToPorts
+	// are also specified.
+	// To select everything, use one EndpointSelector without any match requirements.
+	//
 	// +kubebuilder:validation:Optional
 	FromEndpoints []EndpointSelector `json:"fromEndpoints,omitempty"`
 

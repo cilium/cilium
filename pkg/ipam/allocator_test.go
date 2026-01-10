@@ -60,7 +60,16 @@ var mtuMock = fakeMTU{}
 func TestAllocatedIPDump(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil)
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    testConfiguration,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: localNodeStore,
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+	})
 	ipam.ConfigureAllocator()
 
 	allocv4, allocv6, status := ipam.Dump()
@@ -81,7 +90,16 @@ func TestExpirationTimer(t *testing.T) {
 
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, nil, nil, nil)
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    testConfiguration,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: localNodeStore,
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+	})
 	ipam.ConfigureAllocator()
 
 	err := ipam.AllocateIP(ip, "foo", PoolDefault())
@@ -149,7 +167,17 @@ func TestAllocateNextWithExpiration(t *testing.T) {
 	fakeAddressing := fakeTypes.NewNodeAddressing()
 	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	fakeMetadata := fakeMetadataFunc(func(owner string, family Family) (pool string, err error) { return "some-pool", nil })
-	ipam := NewIPAM(hivetest.Logger(t), fakeAddressing, testConfiguration, &ownerMock{}, localNodeStore, &ownerMock{}, &resourceMock{}, &mtuMock, nil, fakeMetadata, nil, nil)
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    testConfiguration,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: localNodeStore,
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+		Metadata:       fakeMetadata,
+	})
 	ipam.ConfigureAllocator()
 
 	// Allocate IPs and test expiration timer. 'pool' is empty in order to test

@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"syscall"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,11 +29,13 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
+	"github.com/cilium/cilium/pkg/backoff"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell manages the Gateway API related controllers.
@@ -52,6 +56,10 @@ var Cell = cell.Module(
 		GatewayAPIHostnetworkNodelabelselector: "",
 	}),
 
+	// Private provider for preconditions - consumed by both initGatewayAPIController
+	// and registerSecretSync to ensure consistent behavior
+	cell.ProvidePrivate(newGatewayAPIPreconditions),
+
 	cell.Invoke(initGatewayAPIController),
 	cell.Provide(registerSecretSync),
 )
@@ -67,6 +75,95 @@ var requiredGVKs = []schema.GroupVersionKind{
 var optionalGVKs = []schema.GroupVersionKind{
 	gatewayv1alpha2.SchemeGroupVersion.WithKind(helpers.TLSRouteKind),
 	mcsapiv1alpha1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind),
+}
+
+// gatewayAPIPreconditions holds the result of Gateway API precondition checks.
+// This is provided privately and consumed by both initGatewayAPIController
+// and registerSecretSync to ensure consistent behavior.
+type gatewayAPIPreconditions struct {
+	// Enabled indicates all preconditions are met for Gateway API
+	Enabled bool
+	// InstalledKinds contains the GVKs of installed Gateway API CRDs
+	InstalledKinds []schema.GroupVersionKind
+}
+
+// preconditionParams contains dependencies for checking Gateway API preconditions.
+type preconditionParams struct {
+	cell.In
+
+	Logger           *slog.Logger
+	K8sClient        k8sClient.Clientset
+	Health           cell.Health
+	OperatorConfig   *operatorOption.OperatorConfig
+	GatewayApiConfig gatewayApiConfig
+}
+
+// newGatewayAPIPreconditions checks all Gateway API preconditions and returns
+// the result. This includes config checks, kube-proxy-replacement check,
+// external traffic policy validation, and CRD discovery with retry logic.
+func newGatewayAPIPreconditions(params preconditionParams) (*gatewayAPIPreconditions, error) {
+	if !operatorOption.Config.EnableGatewayAPI {
+		return &gatewayAPIPreconditions{Enabled: false}, nil
+	}
+
+	if !params.OperatorConfig.KubeProxyReplacement {
+		params.Logger.Warn("Gateway API support requires kube-proxy-replacement enabled")
+		return &gatewayAPIPreconditions{Enabled: false}, nil
+	}
+
+	if err := validateExternalTrafficPolicy(params.GatewayApiConfig, params.Logger); err != nil {
+		return nil, err
+	}
+
+	params.Logger.Info(
+		"Checking for required and optional GatewayAPI resources",
+		logfields.RequiredGVK, requiredGVKs,
+		logfields.OptionalGVK, optionalGVKs,
+	)
+
+	// Configure exponential backoff for CRD discovery.
+	// This allows the operator to recover if API server is temporarily unavailable at startup.
+	bo := backoff.Exponential{
+		Logger: params.Logger,
+		Min:    200 * time.Millisecond,
+		Max:    5 * time.Second,
+		Factor: 2.0,
+		Jitter: true,
+		Name:   "gateway-api-crd-discovery",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	for {
+		installedKinds, err := checkCRDs(ctx, params.K8sClient, params.Logger, requiredGVKs, optionalGVKs)
+		if err == nil {
+			params.Health.OK("Gateway API CRDs discovered")
+			return &gatewayAPIPreconditions{
+				Enabled:        true,
+				InstalledKinds: installedKinds,
+			}, nil
+		}
+
+		if !isTransientError(err) {
+			params.Logger.Error(
+				"Required GatewayAPI resources are not found, please refer to docs for installation instructions",
+				logfields.Error, err,
+			)
+			params.Health.Degraded("Gateway API CRDs not installed", err)
+			return &gatewayAPIPreconditions{Enabled: false}, nil
+		}
+
+		params.Logger.Warn(
+			"Failed to check GatewayAPI CRDs due to transient error, will retry",
+			logfields.Error, err,
+		)
+		params.Health.Degraded("Gateway API initialization pending - API server unreachable", err)
+
+		if err := bo.Wait(ctx); err != nil {
+			return nil, err
+		}
+	}
 }
 
 type gatewayApiConfig struct {
@@ -98,7 +195,6 @@ type gatewayAPIParams struct {
 	cell.In
 
 	Logger             *slog.Logger
-	K8sClient          k8sClient.Clientset
 	CtrlRuntimeManager ctrlRuntime.Manager
 	Scheme             *runtime.Scheme
 
@@ -106,32 +202,19 @@ type gatewayAPIParams struct {
 	OperatorConfig   *operatorOption.OperatorConfig
 	MCSAPIConfig     mcsapitypes.MCSAPIConfig
 	GatewayApiConfig gatewayApiConfig
+
+	// Preconditions is injected from private provider
+	Preconditions *gatewayAPIPreconditions
 }
 
 func initGatewayAPIController(params gatewayAPIParams) error {
-	if !operatorOption.Config.EnableGatewayAPI {
+	if !params.Preconditions.Enabled {
 		return nil
 	}
 
-	if !params.OperatorConfig.KubeProxyReplacement {
-		params.Logger.Warn("Gateway API support requires kube-proxy-replacement enabled")
-		return nil
-	}
+	installedKinds := params.Preconditions.InstalledKinds
 
-	if err := validateExternalTrafficPolicy(params); err != nil {
-		return err
-	}
-
-	params.Logger.Info(
-		"Checking for required and optional GatewayAPI resources",
-		logfields.RequiredGVK, requiredGVKs,
-		logfields.OptionalGVK, optionalGVKs,
-	)
-	installedKinds, err := checkCRDs(context.Background(), params.K8sClient, params.Logger, requiredGVKs, optionalGVKs)
-	if err != nil {
-		params.Logger.Error("Required GatewayAPI resources are not found, please refer to docs for installation instructions", logfields.Error, err)
-		return nil
-	}
+	// Handle MCS API CRDs
 	if params.MCSAPIConfig.ShouldInstallMCSAPICrds() && !slices.Contains(installedKinds, mcsapiv1alpha1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind)) {
 		// We can just assume ServiceImport are installed if we are going to install it
 		installedKinds = append(installedKinds, mcsapiv1alpha1.SchemeGroupVersion.WithKind(helpers.ServiceImportKind))
@@ -190,15 +273,26 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 	return nil
 }
 
+// secretSyncParams contains dependencies for secret synchronization registration.
+type secretSyncParams struct {
+	cell.In
+
+	Logger             *slog.Logger
+	CtrlRuntimeManager ctrlRuntime.Manager
+	GatewayApiConfig   gatewayApiConfig
+
+	// Preconditions is injected from private provider
+	Preconditions *gatewayAPIPreconditions
+}
+
 // registerSecretSync registers the Gateway API for secret synchronization based on TLS secrets referenced
 // by a Cilium Gateway resource.
-func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrationOut {
-	// In this case, we don't care about optional CRDs, so we ignore the second parameter.
-	if _, err := checkCRDs(context.Background(), params.K8sClient, params.Logger, requiredGVKs, optionalGVKs); err != nil {
+func registerSecretSync(params secretSyncParams) secretsync.SecretSyncRegistrationOut {
+	if !params.Preconditions.Enabled {
 		return secretsync.SecretSyncRegistrationOut{}
 	}
 
-	if !operatorOption.Config.EnableGatewayAPI || !params.GatewayApiConfig.EnableGatewayAPISecretsSync {
+	if !params.GatewayApiConfig.EnableGatewayAPISecretsSync {
 		return secretsync.SecretSyncRegistrationOut{}
 	}
 
@@ -212,15 +306,43 @@ func registerSecretSync(params gatewayAPIParams) secretsync.SecretSyncRegistrati
 	}
 }
 
-func validateExternalTrafficPolicy(params gatewayAPIParams) error {
-	if params.GatewayApiConfig.GatewayAPIHostnetworkEnabled && params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy != "" {
-		params.Logger.Warn("Gateway API host networking is enabled, externalTrafficPolicy will be ignored.")
+func validateExternalTrafficPolicy(cfg gatewayApiConfig, logger *slog.Logger) error {
+	if cfg.GatewayAPIHostnetworkEnabled && cfg.GatewayAPIServiceExternalTrafficPolicy != "" {
+		logger.Warn("Gateway API host networking is enabled, externalTrafficPolicy will be ignored.")
 		return nil
-	} else if params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyCluster) ||
-		params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyLocal) {
+	} else if cfg.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyCluster) ||
+		cfg.GatewayAPIServiceExternalTrafficPolicy == string(corev1.ServiceExternalTrafficPolicyLocal) {
 		return nil
 	}
-	return fmt.Errorf("invalid externalTrafficPolicy: %s", params.GatewayApiConfig.GatewayAPIServiceExternalTrafficPolicy)
+	return fmt.Errorf("invalid externalTrafficPolicy: %s", cfg.GatewayAPIServiceExternalTrafficPolicy)
+}
+
+// isTransientError returns true if the error is temporary and retryable
+// (network issues, API server overload), vs permanent errors (CRD not installed).
+// This is used to determine whether to retry Gateway API CRD discovery.
+func isTransientError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for Kubernetes API server errors that are transient
+	if k8serrors.IsServerTimeout(err) ||
+		k8serrors.IsServiceUnavailable(err) ||
+		k8serrors.IsTooManyRequests(err) ||
+		k8serrors.IsTimeout(err) {
+		return true
+	}
+
+	// Check for network-level errors (connection refused, reset, host unreachable)
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		switch errno {
+		case syscall.ECONNREFUSED, syscall.ECONNRESET, syscall.EHOSTUNREACH, syscall.ENETUNREACH:
+			return true
+		}
+	}
+
+	return false
 }
 
 func checkCRD(ctx context.Context, clientset k8sClient.Clientset, gvk schema.GroupVersionKind) error {

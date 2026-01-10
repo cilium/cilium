@@ -53,7 +53,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 	errorLogExceptions := []logMatcher{
 		stringMatcher("Error in delegate stream, restarting"),
 		failedToUpdateLock, failedToReleaseLock,
-		failedToListCRDs, removeInexistentID, knownIssueWireguardCollision, nilDetailsForService}
+		failedToListCRDs, knownIssueWireguardCollision, nilDetailsForService}
 
 	envoyExternalTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalTarget))}
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
@@ -80,7 +80,6 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, external
 		panicMessage:         nil,
 		deadLockHeader:       nil,
 		RunInitFailed:        nil,
-		emptyBPFInitArg:      nil,
 		RemovingMapMsg:       {stringMatcher("globals/cilium_policy")},
 		symbolSubstitution:   nil,
 		uninitializedRegen:   nil,
@@ -410,14 +409,12 @@ const (
 
 	// errors
 	panicMessage                       = "panic:"
-	deadLockHeader                     = "POTENTIAL DEADLOCK:"                                  // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	RunInitFailed                      = "JoinEP: "                                             // from https://github.com/cilium/cilium/pull/5052
-	emptyBPFInitArg                    = "empty argument passed to bpf/init.sh"                 // from https://github.com/cilium/cilium/issues/10228
-	RemovingMapMsg                     = "Removing map to allow for property upgrade"           // from https://github.com/cilium/cilium/pull/10626
-	symbolSubstitution                 = "Skipping symbol substitution"                         //
-	uninitializedRegen                 = "Uninitialized regeneration level"                     // from https://github.com/cilium/cilium/pull/10949
-	unstableStat                       = "BUG: stat() has unstable behavior"                    // from https://github.com/cilium/cilium/pull/11028
-	removeInexistentID   stringMatcher = "removing identity not added to the identity manager!" // from https://github.com/cilium/cilium/issues/16419
+	deadLockHeader                     = "POTENTIAL DEADLOCK:"                        // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	RunInitFailed                      = "JoinEP: "                                   // from https://github.com/cilium/cilium/pull/5052
+	RemovingMapMsg                     = "Removing map to allow for property upgrade" // from https://github.com/cilium/cilium/pull/10626
+	symbolSubstitution                 = "Skipping symbol substitution"               //
+	uninitializedRegen                 = "Uninitialized regeneration level"           // from https://github.com/cilium/cilium/pull/10949
+	unstableStat                       = "BUG: stat() has unstable behavior"          // from https://github.com/cilium/cilium/pull/11028
 	missingIptablesWait                = "Missing iptables wait arg (-w):"
 	localIDRestoreFail                 = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
 	routerIPMismatch                   = "Mismatch of router IPs found during restoration"

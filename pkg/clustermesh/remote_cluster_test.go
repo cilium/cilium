@@ -10,13 +10,18 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
+	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	serviceStore "github.com/cilium/cilium/pkg/clustermesh/store"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -26,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
@@ -60,11 +64,10 @@ func (f *fakeIPCache) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcach
 }
 
 func TestRemoteClusterRun(t *testing.T) {
-	testutils.IntegrationTest(t)
-
-	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
-		// Explicitly set higher QPS than the default to speedup the test
-		map[string]string{kvstore.EtcdRateLimitOption: "100"},
+	var (
+		db     = statedb.New()
+		local  = kvstore.NewInMemoryClient(db, "__local__")
+		remote = kvstore.NewInMemoryClient(db, "__remote__")
 	)
 
 	tests := []struct {
@@ -136,19 +139,18 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			// The nils are only used by k8s CRD identities. We default to kvstore.
 			allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
-			<-allocator.InitIdentityAllocator(nil, client)
+			<-allocator.InitIdentityAllocator(nil, local)
 
 			t.Cleanup(func() {
 				cancel()
 				wg.Wait()
 
 				allocator.Close()
-				require.NoError(t, client.DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			// Populate the kvstore with the appropriate KV pairs
 			for key, value := range tt.kvs {
-				require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+				require.NoErrorf(t, remote.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 			}
 
 			var ipc fakeIPCache
@@ -172,7 +174,7 @@ func TestRemoteClusterRun(t *testing.T) {
 			ready := make(chan error)
 
 			remoteClient := &remoteEtcdClientWrapper{
-				BackendOperations: client,
+				BackendOperations: remote,
 				name:              "foo",
 			}
 
@@ -245,16 +247,15 @@ func (o *fakeObserver) Delete(string, source.Source) bool {
 
 func TestRemoteClusterClusterIDChange(t *testing.T) {
 	const cid1, cid2, cid3 = 10, 20, 30
-	testutils.IntegrationTest(t)
 
-	client := kvstore.SetupDummyWithConfigOpts(t, "etcd",
-		// Explicitly set higher QPS than the default to speedup the test
-		map[string]string{kvstore.EtcdRateLimitOption: "100"},
+	var (
+		db     = statedb.New()
+		local  = kvstore.NewInMemoryClient(db, "__local__")
+		remote = kvstore.NewInMemoryClient(db, "__remote__")
+		extra  = fakeCMObserver{name: "extra"}
 	)
 
 	id := func(clusterID uint32) identity.NumericIdentity { return identity.NumericIdentity(clusterID<<16 + 9999) }
-	// Use the KVStoreMesh API to prevent the allocator from thinking that the
-	// identity belongs to the local cluster.
 	kvs := func(clusterID uint32) map[string]string {
 		return map[string]string{
 			"cilium/cache/nodes/v1/foo/bar":        fmt.Sprintf(`{"name": "bar", "cluster": "foo", "clusterID": %d}`, clusterID),
@@ -277,7 +278,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	allocator := cache.NewCachingIdentityAllocator(logger, &testidentity.IdentityAllocatorOwnerMock{}, cache.NewTestAllocatorConfig())
-	<-allocator.InitIdentityAllocator(nil, client)
+	<-allocator.InitIdentityAllocator(nil, local)
 
 	t.Cleanup(allocator.Close)
 
@@ -294,6 +295,10 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 			FeatureMetrics:        NewClusterMeshMetricsNoop(),
 			Logger:                logger,
+
+			ObserverFactories: []observer.Factory{
+				func(string, func()) observer.Observer { return &extra },
+			},
 		},
 		FeatureMetrics: NewClusterMeshMetricsNoop(),
 		globalServices: common.NewGlobalServiceCache(logger),
@@ -312,7 +317,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			cfg := types.CiliumClusterConfig{ID: id, Capabilities: types.CiliumClusterConfigCapabilities{Cached: true}}
-			rc.Run(ctx, client, cfg, ready)
+			rc.Run(ctx, remote, cfg, ready)
 			wg.Done()
 		}()
 
@@ -324,7 +329,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 
 		// Populate the kvstore with the appropriate KV pairs
 		for key, value := range kvs(cid1) {
-			require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+			require.NoErrorf(t, remote.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -332,6 +337,8 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			assert.EqualValues(c, 0, obs.deletes.Load(), "Deletions not observed correctly")
 			assert.NotNil(c, allocator.LookupIdentityByID(ctx, id(cid1)), "Identity upsertion not observed correctly")
 		}, timeout, tick)
+
+		require.False(t, extra.drained.Swap(false), "Extra observers should not have been drained")
 	})
 
 	// Reconnect the cluster with a different ID, and assert that a synthetic
@@ -349,7 +356,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 		// Update the kvstore pairs with the new ClusterID
 		obs.reset()
 		for key, value := range kvs(cid2) {
-			require.NoErrorf(t, client.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
+			require.NoErrorf(t, remote.Update(ctx, key, []byte(value), false), "Failed to set %s=%s", key, value)
 		}
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -357,6 +364,8 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			assert.EqualValues(c, 0, obs.deletes.Load(), "Deletions not observed correctly")
 			assert.NotNil(c, allocator.LookupIdentityByID(ctx, id(cid2)), "Identity upsertion not observed correctly")
 		}, timeout, tick)
+
+		require.True(t, extra.drained.Swap(false), "Extra observers should have been drained")
 	})
 
 	// Reconnect the cluster with yet another different ID, that is already reserved.
@@ -372,6 +381,181 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 			assert.EqualValues(c, 8, obs.deletes.Load(), "Deletions not observed correctly")
 			assert.Nil(c, allocator.LookupIdentityByID(ctx, id(cid2)), "Identity deletion not observed correctly")
 		}, timeout, tick)
+
+		require.True(t, extra.drained.Swap(false), "Extra observers should have been drained")
+	})
+}
+
+type fakeCMObserver struct {
+	name       observer.Name
+	onRegister func(store.WatchStoreManager, kvstore.BackendOperations, types.CiliumClusterConfig)
+	enabled    bool
+
+	cluster string
+	onSync  func()
+
+	synced     atomic.Bool
+	registered atomic.Bool
+	revoked    atomic.Bool
+	drained    atomic.Bool
+}
+
+func (f *fakeCMObserver) Name() observer.Name { return f.name }
+func (f *fakeCMObserver) Revoke()             { f.revoked.Store(true) }
+func (f *fakeCMObserver) Drain()              { f.drained.Store(true) }
+
+func (f *fakeCMObserver) Register(mgr store.WatchStoreManager, backend kvstore.BackendOperations, cfg types.CiliumClusterConfig) {
+	f.registered.Store(true)
+	if f.onRegister != nil {
+		f.onRegister(mgr, backend, cfg)
+	}
+}
+
+func (f *fakeCMObserver) Status() observer.Status {
+	return observer.Status{Enabled: f.enabled, Synced: f.synced.Load()}
+}
+
+func TestRemoteClusterExtraObservers(t *testing.T) {
+	var (
+		logger = hivetest.Logger(t)
+		remote = kvstore.NewInMemoryClient(statedb.New(), "__remote__")
+
+		cfg = types.CiliumClusterConfig{
+			ID: 10, Capabilities: types.CiliumClusterConfigCapabilities{
+				MaxConnectedClusters: 123, ServiceExportsEnabled: ptr.To(true),
+			},
+		}
+
+		onRegister = func(mgr store.WatchStoreManager, backend kvstore.BackendOperations, got types.CiliumClusterConfig) {
+			require.NotNil(t, mgr, "Received invalid [store.WatchStoreManager]")
+			require.NotNil(t, backend, "Received invalid [kvstore.BackendOperations]")
+			require.Equal(t, cfg, got, "Received mismatching [types.CiliumClusterConfig]")
+		}
+
+		fooobs = fakeCMObserver{name: "foo", onRegister: onRegister, enabled: true}
+		barobs = fakeCMObserver{name: "bar", onRegister: onRegister, enabled: false}
+
+		factory = func(obs *fakeCMObserver) observer.Factory {
+			return func(cluster string, onSync func()) observer.Observer {
+				obs.cluster = cluster
+				obs.onSync = func() {
+					onSync()
+					obs.synced.Store(true)
+				}
+				return obs
+			}
+		}
+	)
+
+	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(func() {
+		cancel()
+		wg.Wait()
+	})
+
+	cm := ClusterMesh{
+		conf: Configuration{
+			ClusterIDsManager:     NewClusterMeshUsedIDs(localClusterID),
+			ServiceMerger:         &fakeObserver{},
+			RemoteIdentityWatcher: cache.NewNoopIdentityAllocator(logger),
+			ObserverFactories:     []observer.Factory{factory(&fooobs), factory(&barobs)},
+			Metrics:               NewMetrics(),
+			StoreFactory:          store.NewFactory(logger, store.MetricsProvider()),
+			ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
+			FeatureMetrics:        NewClusterMeshMetricsNoop(),
+			Logger:                logger,
+		},
+		FeatureMetrics: NewClusterMeshMetricsNoop(),
+		globalServices: common.NewGlobalServiceCache(logger),
+	}
+
+	rc := cm.NewRemoteCluster("foo", func() *models.RemoteCluster {
+		return &models.RemoteCluster{Ready: true}
+	}).(*remoteCluster)
+
+	require.False(t, rc.Status().Ready, "Status should not be ready before [Run] is invoked")
+
+	ready := make(chan error)
+	wg.Go(func() { rc.Run(ctx, remote, cfg, ready) })
+
+	require.NoError(t, <-ready, "rc.Run() failed")
+
+	// Wait for the main observers to synchronize.
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, &models.RemoteClusterSynced{
+			Endpoints:  true,
+			Identities: true,
+			Nodes:      true,
+			Services:   true,
+		}, rc.Status().Synced)
+	}, timeout, tick)
+
+	require.True(t, fooobs.registered.Swap(false), "[Register] should have been invoked")
+	require.True(t, barobs.registered.Swap(false), "[Register] should have been invoked")
+	require.False(t, fooobs.revoked.Load(), "[Revoke] should not have been invoked")
+	require.False(t, fooobs.drained.Load(), "[Drain] should not have been invoked")
+
+	require.False(t, rc.Status().Ready, "Status should not be ready before all enabled observers are synced")
+	fooobs.onSync()
+	require.True(t, rc.Status().Ready, "Status should be ready once all enabled observers are synced")
+
+	cancel()
+	wg.Wait()
+
+	rc.RevokeCache(ctx)
+	require.True(t, fooobs.revoked.Swap(false), "[Revoke] should have been invoked")
+	require.True(t, barobs.revoked.Swap(false), "[Revoke] should have been invoked")
+	require.False(t, fooobs.registered.Load(), "[Register] should not have been invoked")
+	require.False(t, fooobs.drained.Load(), "[Drain] should not have been invoked")
+
+	rc.Remove(ctx)
+	require.True(t, fooobs.drained.Swap(false), "[Drain] should have been invoked")
+	require.True(t, barobs.drained.Swap(false), "[Drain] should have been invoked")
+	require.False(t, fooobs.registered.Load(), "[Register] should not have been invoked")
+	require.False(t, fooobs.revoked.Load(), "[Revoke] should not have been invoked")
+}
+
+func TestRemoteClusterExtraObserversSynced(t *testing.T) {
+	// Make use of synctest to leverage [synctest.Wait], which allows waiting
+	// until all goroutines are durably blocked, which is not otherwise possible.
+	synctest.Test(t, func(t *testing.T) {
+		var (
+			obs    = fakeCMObserver{name: "foo"}
+			logger = hivetest.Logger(t)
+		)
+
+		cm := ClusterMesh{
+			conf: Configuration{
+				StoreFactory: store.NewFactory(logger, store.MetricsProvider()),
+				ObserverFactories: []observer.Factory{
+					func(cluster string, onSync func()) observer.Observer {
+						obs.onSync = onSync
+						return &obs
+					},
+				},
+				ServiceMerger: &fakeObserver{},
+				Logger:        logger,
+				Metrics:       NewMetrics(),
+			},
+		}
+
+		rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
+
+		var ch = make(chan error, 1)
+
+		ctx, cancel := context.WithCancel(t.Context())
+		go func() { ch <- rc.synced.Observer(ctx, obs.name) }()
+
+		synctest.Wait()
+		cancel()
+
+		require.ErrorIs(t, <-ch, context.Canceled, "The observer should not be synced")
+
+		obs.onSync()
+		require.NoError(t, rc.synced.Observer(t.Context(), obs.name), "The observer should be now synced")
+
+		require.ErrorIs(t, rc.synced.Observer(ctx, "non-existing"), ErrObserverNotRegistered)
 	})
 }
 

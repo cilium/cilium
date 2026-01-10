@@ -4982,6 +4982,19 @@ const (
 	InstanceTypeR8a48xlarge        InstanceType = "r8a.48xlarge"
 	InstanceTypeR8aMetal24xl       InstanceType = "r8a.metal-24xl"
 	InstanceTypeR8aMetal48xl       InstanceType = "r8a.metal-48xl"
+	InstanceTypeP6B30048xlarge     InstanceType = "p6-b300.48xlarge"
+	InstanceTypeC8aMedium          InstanceType = "c8a.medium"
+	InstanceTypeC8aLarge           InstanceType = "c8a.large"
+	InstanceTypeC8aXlarge          InstanceType = "c8a.xlarge"
+	InstanceTypeC8a2xlarge         InstanceType = "c8a.2xlarge"
+	InstanceTypeC8a4xlarge         InstanceType = "c8a.4xlarge"
+	InstanceTypeC8a8xlarge         InstanceType = "c8a.8xlarge"
+	InstanceTypeC8a12xlarge        InstanceType = "c8a.12xlarge"
+	InstanceTypeC8a16xlarge        InstanceType = "c8a.16xlarge"
+	InstanceTypeC8a24xlarge        InstanceType = "c8a.24xlarge"
+	InstanceTypeC8a48xlarge        InstanceType = "c8a.48xlarge"
+	InstanceTypeC8aMetal24xl       InstanceType = "c8a.metal-24xl"
+	InstanceTypeC8aMetal48xl       InstanceType = "c8a.metal-48xl"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -6075,6 +6088,19 @@ func (InstanceType) Values() []InstanceType {
 		"r8a.48xlarge",
 		"r8a.metal-24xl",
 		"r8a.metal-48xl",
+		"p6-b300.48xlarge",
+		"c8a.medium",
+		"c8a.large",
+		"c8a.xlarge",
+		"c8a.2xlarge",
+		"c8a.4xlarge",
+		"c8a.8xlarge",
+		"c8a.12xlarge",
+		"c8a.16xlarge",
+		"c8a.24xlarge",
+		"c8a.48xlarge",
+		"c8a.metal-24xl",
+		"c8a.metal-48xl",
 	}
 }
 
@@ -7907,6 +7933,12 @@ const (
 	MetricSpotAvgRunTimeBeforeInterruptionInst  Metric = "spot-avg-run-time-before-interruption-inst"
 	MetricSpotMaxRunTimeBeforeInterruptionInst  Metric = "spot-max-run-time-before-interruption-inst"
 	MetricSpotMinRunTimeBeforeInterruptionInst  Metric = "spot-min-run-time-before-interruption-inst"
+	MetricSpotTotalInterruptionsInst            Metric = "spot-total-interruptions-inst"
+	MetricSpotTotalInterruptionsVcpu            Metric = "spot-total-interruptions-vcpu"
+	MetricSpotTotalCountInst                    Metric = "spot-total-count-inst"
+	MetricSpotTotalCountVcpu                    Metric = "spot-total-count-vcpu"
+	MetricSpotInterruptionRateInst              Metric = "spot-interruption-rate-inst"
+	MetricSpotInterruptionRateVcpu              Metric = "spot-interruption-rate-vcpu"
 )
 
 // Values returns all known values for Metric. Note that this can be expanded in
@@ -7958,6 +7990,12 @@ func (Metric) Values() []Metric {
 		"spot-avg-run-time-before-interruption-inst",
 		"spot-max-run-time-before-interruption-inst",
 		"spot-min-run-time-before-interruption-inst",
+		"spot-total-interruptions-inst",
+		"spot-total-interruptions-vcpu",
+		"spot-total-count-inst",
+		"spot-total-count-vcpu",
+		"spot-interruption-rate-inst",
+		"spot-interruption-rate-vcpu",
 	}
 }
 
@@ -8083,6 +8121,72 @@ func (NatGatewayAddressStatus) Values() []NatGatewayAddressStatus {
 		"disassociating",
 		"succeeded",
 		"failed",
+	}
+}
+
+type NatGatewayApplianceModifyState string
+
+// Enum values for NatGatewayApplianceModifyState
+const (
+	NatGatewayApplianceModifyStateModifying NatGatewayApplianceModifyState = "modifying"
+	NatGatewayApplianceModifyStateCompleted NatGatewayApplianceModifyState = "completed"
+	NatGatewayApplianceModifyStateFailed    NatGatewayApplianceModifyState = "failed"
+)
+
+// Values returns all known values for NatGatewayApplianceModifyState. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (NatGatewayApplianceModifyState) Values() []NatGatewayApplianceModifyState {
+	return []NatGatewayApplianceModifyState{
+		"modifying",
+		"completed",
+		"failed",
+	}
+}
+
+type NatGatewayApplianceState string
+
+// Enum values for NatGatewayApplianceState
+const (
+	NatGatewayApplianceStateAttaching    NatGatewayApplianceState = "attaching"
+	NatGatewayApplianceStateAttached     NatGatewayApplianceState = "attached"
+	NatGatewayApplianceStateDetaching    NatGatewayApplianceState = "detaching"
+	NatGatewayApplianceStateDetached     NatGatewayApplianceState = "detached"
+	NatGatewayApplianceStateAttachFailed NatGatewayApplianceState = "attach-failed"
+	NatGatewayApplianceStateDetachFailed NatGatewayApplianceState = "detach-failed"
+)
+
+// Values returns all known values for NatGatewayApplianceState. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (NatGatewayApplianceState) Values() []NatGatewayApplianceState {
+	return []NatGatewayApplianceState{
+		"attaching",
+		"attached",
+		"detaching",
+		"detached",
+		"attach-failed",
+		"detach-failed",
+	}
+}
+
+type NatGatewayApplianceType string
+
+// Enum values for NatGatewayApplianceType
+const (
+	NatGatewayApplianceTypeNetworkFirewallProxy NatGatewayApplianceType = "network-firewall-proxy"
+)
+
+// Values returns all known values for NatGatewayApplianceType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (NatGatewayApplianceType) Values() []NatGatewayApplianceType {
+	return []NatGatewayApplianceType{
+		"network-firewall-proxy",
 	}
 }
 

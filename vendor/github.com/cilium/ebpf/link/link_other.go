@@ -25,6 +25,7 @@ const (
 	UprobeMultiType   = sys.BPF_LINK_TYPE_UPROBE_MULTI
 	NetfilterType     = sys.BPF_LINK_TYPE_NETFILTER
 	NetkitType        = sys.BPF_LINK_TYPE_NETKIT
+	StructOpsType     = sys.BPF_LINK_TYPE_STRUCT_OPS
 )
 
 // AttachRawLink creates a raw link.
@@ -102,6 +103,8 @@ func wrapRawLink(raw *RawLink) (_ Link, err error) {
 		return &netkitLink{*raw}, nil
 	case XDPType:
 		return &xdpLink{*raw}, nil
+	case StructOpsType:
+		return &structOpsLink{*raw}, nil
 	default:
 		return raw, nil
 	}

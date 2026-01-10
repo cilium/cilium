@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	"github.com/cilium/cilium/pkg/clustermesh/observer"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/wait"
 	"github.com/cilium/cilium/pkg/dial"
@@ -57,7 +58,10 @@ type clusterMeshParams struct {
 	StoreFactory  store.Factory
 
 	// ServiceResolver, if not nil, is used to create a custom dialer for service resolution.
-	ServiceResolver *dial.ServiceResolver
+	ServiceResolver dial.Resolver
+
+	// ObserverFactories is the list of factories to instantiate additional observers.
+	ObserverFactories []observer.Factory `group:"clustermesh-observers"`
 }
 
 // ClusterMeshConfig contains the configuration for ClusterMesh inside the operator.

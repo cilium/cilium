@@ -5,7 +5,9 @@ package creator
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/lumberjack/v2"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/api/v1/models"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -23,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
@@ -73,6 +77,8 @@ type endpointCreator struct {
 	wgConfig       wgTypes.WireguardConfig
 	ipsecConfig    datapath.IPsecConfig
 	policyLogger   func() *lumberjack.Logger
+	lxcMap         lxcmap.Map
+	localNodeStore *node.LocalNodeStore
 }
 
 var _ EndpointCreator = &endpointCreator{}
@@ -100,6 +106,8 @@ type endpointManagerParams struct {
 	KVStoreSynchronizer *ipcache.IPIdentitySynchronizer
 	WgConfig            wgTypes.WireguardConfig
 	IPSecConfig         datapath.IPsecConfig
+	LXCMap              lxcmap.Map
+	LocalNodeStore      *node.LocalNodeStore
 }
 
 func newEndpointCreator(p endpointManagerParams) EndpointCreator {
@@ -125,6 +133,8 @@ func newEndpointCreator(p endpointManagerParams) EndpointCreator {
 		wgConfig:         p.WgConfig,
 		ipsecConfig:      p.IPSecConfig,
 		policyLogger:     sync.OnceValue(policyDebugLogger),
+		lxcMap:           p.LXCMap,
+		localNodeStore:   p.LocalNodeStore,
 	}
 }
 
@@ -175,6 +185,7 @@ func (c *endpointCreator) NewEndpointFromChangeModel(ctx context.Context, base *
 		c.wgConfig,
 		c.ipsecConfig,
 		c.policyLogger(),
+		c.lxcMap,
 	)
 }
 
@@ -200,10 +211,21 @@ func (c *endpointCreator) ParseEndpoint(epJSON []byte) (*endpoint.Endpoint, erro
 		epJSON,
 		c.wgConfig,
 		c.ipsecConfig,
+		c.lxcMap,
 	)
 }
 
 func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
+	ln, err := c.localNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	// Node.IPv4IngressIP has been parsed with net.ParseIP() and may be in IPv4 mapped IPv6
+	// address format. Use netipx.FromStdIP() to make sure we get a plain IPv4 address.
+	ingressIPv4, _ := netipx.FromStdIP(ln.IPv4IngressIP)
+	ingressIPv6, _ := netip.AddrFromSlice(ln.IPv6IngressIP)
+
 	ep, err := endpoint.CreateIngressEndpoint(
 		c.logger,
 		c.dnsRulesAPI,
@@ -225,6 +247,9 @@ func (c *endpointCreator) AddIngressEndpoint(ctx context.Context) error {
 		c.wgConfig,
 		c.ipsecConfig,
 		c.policyLogger(),
+		c.lxcMap,
+		ingressIPv4,
+		ingressIPv6,
 	)
 	if err != nil {
 		return err
@@ -261,6 +286,7 @@ func (c *endpointCreator) AddHostEndpoint(ctx context.Context) error {
 		c.wgConfig,
 		c.ipsecConfig,
 		c.policyLogger(),
+		c.lxcMap,
 	)
 	if err != nil {
 		return err

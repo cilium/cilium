@@ -19,12 +19,13 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	ciliumLabels "github.com/cilium/cilium/pkg/labels"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -60,7 +61,7 @@ type lrpControllerParams struct {
 	Pods               statedb.Table[daemonk8s.LocalPod]
 	DesiredSkipLB      statedb.RWTable[*desiredSkipLB]
 	Writer             *writer.Writer
-	NetNSCookieSupport lbmaps.HaveNetNSCookieSupport
+	NetNSCookieSupport reflectors.HaveNetNSCookieSupport
 	Metrics            controllerMetrics
 	LRPMetrics         LRPMetrics `optional:"true"`
 }
@@ -276,7 +277,10 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 			// Stop when we hit a different namespace, e.g. prefix search hit a longer name.
 			break
 		}
-		if lrp.BackendSelector.Matches(labels.Set(pod.Labels)) {
+		if k8sUtils.GetLatestPodReadiness(pod.Status) != slim_corev1.ConditionTrue {
+			continue
+		}
+		if types.Matches(lrp.BackendSelector, ciliumLabels.K8sSet(pod.Labels)) {
 			matchingPods = append(matchingPods, getPodInfo(pod))
 		}
 	}
@@ -337,7 +341,7 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 						Type:        lb.SVCTypeLocalRedirect,
 						ServiceName: lrpServiceName,
 						ServicePort: feM.feAddr.Port(),
-						//if we only have one frontend mapping, we dont need the frontend port name so it will not check the port name in the backend ports
+						// if we only have one frontend mapping, we dont need the frontend port name so it will not check the port name in the backend ports
 						PortName: func() lb.FEPortName {
 							if len(lrp.FrontendMappings) > 1 {
 								return feM.fePort

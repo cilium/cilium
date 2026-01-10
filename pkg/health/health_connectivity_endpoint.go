@@ -35,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/time"
@@ -60,11 +59,16 @@ const (
 	LaunchTime = 30 * time.Second
 )
 
-func (h *ciliumHealthManager) getHealthRoutes(addressing *models.NodeAddressing, mtuConfig mtu.MTU) ([]route.Route, error) {
+func (h *ciliumHealthManager) getHealthRoutes(ctx context.Context, mtuConfig mtu.MTU) ([]route.Route, error) {
+	na, err := h.getNodeRouterAddressing(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node router addressing: %w", err)
+	}
+
 	routes := []route.Route{}
 
 	if option.Config.EnableIPv4 {
-		v4Routes, err := connector.IPv4Routes(addressing, mtuConfig.GetRouteMTU())
+		v4Routes, err := connector.IPv4Routes(na, mtuConfig.GetRouteMTU())
 		if err == nil {
 			routes = append(routes, v4Routes...)
 		} else {
@@ -73,7 +77,7 @@ func (h *ciliumHealthManager) getHealthRoutes(addressing *models.NodeAddressing,
 	}
 
 	if option.Config.EnableIPv6 {
-		v6Routes, err := connector.IPv6Routes(addressing, mtuConfig.GetRouteMTU())
+		v6Routes, err := connector.IPv6Routes(na, mtuConfig.GetRouteMTU())
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get IPv6 routes")
 		}
@@ -81,6 +85,33 @@ func (h *ciliumHealthManager) getHealthRoutes(addressing *models.NodeAddressing,
 	}
 
 	return routes, nil
+}
+
+func (h *ciliumHealthManager) getNodeRouterAddressing(ctx context.Context) (*models.NodeAddressing, error) {
+	ln, err := h.localNodeStore.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	nodeRouterAddressing := &models.NodeAddressing{}
+
+	if h.daemonConfig.EnableIPv6 {
+		nodeRouterAddressing.IPV6 = &models.NodeAddressingElement{
+			Enabled:    h.daemonConfig.EnableIPv6,
+			IP:         ln.GetCiliumInternalIP(true).String(),
+			AllocRange: ln.IPv6AllocCIDR.String(),
+		}
+	}
+
+	if h.daemonConfig.EnableIPv4 {
+		nodeRouterAddressing.IPV4 = &models.NodeAddressingElement{
+			Enabled:    h.daemonConfig.EnableIPv4,
+			IP:         ln.GetCiliumInternalIP(false).String(),
+			AllocRange: ln.IPv4AllocCIDR.String(),
+		}
+	}
+
+	return nodeRouterAddressing, nil
 }
 
 // configureHealthRouting is meant to be run inside the health service netns
@@ -226,13 +257,18 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		ip4Address, ip6Address *net.IPNet
 	)
 
-	if healthIPv6 := node.GetEndpointHealthIPv6(h.logger); healthIPv6 != nil {
+	ln, err := h.localNodeStore.Get(baseCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	if healthIPv6 := ln.IPv6HealthIP; healthIPv6 != nil {
 		info.Addressing.IPV6 = healthIPv6.String()
 		info.Addressing.IPV6PoolName = ipam.PoolDefault().String()
 		ip6Address = &net.IPNet{IP: healthIPv6, Mask: defaults.ContainerIPv6Mask}
 		healthIP = healthIPv6
 	}
-	if healthIPv4 := node.GetEndpointHealthIPv4(h.logger); healthIPv4 != nil {
+	if healthIPv4 := ln.IPv4HealthIP; healthIPv4 != nil {
 		info.Addressing.IPV4 = healthIPv4.String()
 		info.Addressing.IPV4PoolName = ipam.PoolDefault().String()
 		ip4Address = &net.IPNet{IP: healthIPv4, Mask: defaults.ContainerIPv4Mask}
@@ -341,7 +377,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	}
 
 	// Set up the endpoint routes.
-	routes, err := h.getHealthRoutes(node.GetNodeAddressing(h.logger), mtuConfig)
+	routes, err := h.getHealthRoutes(baseCtx, mtuConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error while getting routes for containername %q: %w", info.ContainerName, err)
 	}

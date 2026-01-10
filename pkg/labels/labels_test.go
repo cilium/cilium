@@ -73,11 +73,11 @@ func TestSortMap(t *testing.T) {
 func TestLabelArraySorted(t *testing.T) {
 	lblsString := strings.Join(lblsArray, ";")
 	lblsString += ";"
-	str := ""
+	var str strings.Builder
 	for _, l := range lbls.LabelArray() {
-		str += fmt.Sprintf(`%s:%s=%s;`, l.Source, l.Key, l.Value)
+		fmt.Fprintf(&str, `%s:%s=%s;`, l.Source, l.Key, l.Value)
 	}
-	require.Equal(t, lblsString, str)
+	require.Equal(t, lblsString, str.String())
 }
 
 func TestMap2Labels(t *testing.T) {
@@ -451,9 +451,8 @@ func TestLabels_GetFromSource(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.l.GetFromSource(tt.args.source); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Labels.GetFromSource() = %v, want %v", got, tt.want)
-			}
+			got := tt.l.GetFromSource(tt.args.source)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

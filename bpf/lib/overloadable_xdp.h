@@ -35,33 +35,10 @@ ctx_load_meta_ipv6(const struct xdp_md *ctx __maybe_unused,
 	build_bug_on((off + 4) * sizeof(__u32) > META_PIVOT);
 }
 
-static __always_inline __maybe_unused int
-get_identity(struct xdp_md *ctx __maybe_unused)
-{
-	return 0;
-}
-
-static __always_inline __maybe_unused void
-set_identity_mark(struct xdp_md *ctx __maybe_unused, __u32 identity __maybe_unused,
-		  __u32 magic __maybe_unused)
-{
-}
-
 static __always_inline __maybe_unused void
 set_identity_meta(struct xdp_md *ctx __maybe_unused,
 		__u32 identity __maybe_unused)
 {
-}
-
-static __always_inline __maybe_unused void
-ctx_set_cluster_id_mark(struct xdp_md *ctx __maybe_unused, __u32 cluster_id __maybe_unused)
-{
-}
-
-static __always_inline __maybe_unused __u32
-ctx_get_cluster_id_mark(struct __sk_buff *ctx __maybe_unused)
-{
-	return 0;
 }
 
 static __always_inline __maybe_unused int

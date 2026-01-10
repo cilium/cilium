@@ -33,23 +33,29 @@ db/cmp frontends frontends.table
 k8s/delete service.yaml
 k8s/add service2.yaml
 k8s/update service2.yaml
+db/cmp frontends frontends2.table
 k8s/delete service2.yaml
 k8s/add service.yaml
 k8s/update service.yaml
+db/cmp frontends frontends.table
 
 k8s/delete service.yaml
 k8s/add service2.yaml
 k8s/update service2.yaml
+db/cmp frontends frontends2.table
 k8s/delete service2.yaml
 k8s/add service.yaml
 k8s/update service.yaml
+db/cmp frontends frontends.table
 
 k8s/delete service.yaml
 k8s/add service2.yaml
 k8s/update service2.yaml
+db/cmp frontends frontends2.table
 k8s/delete service2.yaml
 k8s/add service.yaml
 k8s/update service.yaml
+db/cmp frontends frontends.table
 
 # One last time to end up with test/echo2.
 k8s/delete service.yaml

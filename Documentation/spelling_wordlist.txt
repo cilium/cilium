@@ -160,6 +160,7 @@ allocator
 allocators
 allowedConfigOverrides
 allowlist
+allowRemoteNodeIdentities
 amd
 ansible
 api
@@ -171,6 +172,7 @@ ariane
 arithmetics
 artii
 asm
+assignees
 atlantic
 au
 auth
@@ -312,6 +314,7 @@ distro
 distros
 dmesg
 dns
+dnsProxy
 dockerd
 dockerhub
 dpaa
@@ -328,6 +331,7 @@ effectful
 egressing
 elfutils
 ena
+enableDnsCompression
 enableSourceIPVerification
 enablement
 endPort
@@ -674,6 +678,7 @@ prometheus
 proto
 protobuf
 proxied
+proxyPort
 proxying
 proxylib
 qdisc
@@ -760,6 +765,7 @@ statefulset
 statsd
 stdout
 stmmac
+strictMode
 structs
 subclasses
 subcommand
@@ -805,6 +811,7 @@ tiefighter
 tls
 toCIDR
 toCIDRSet
+toFQDN
 toFQDNs
 toGroups
 tofqdns
@@ -839,6 +846,7 @@ unlabel
 unmanaged
 unmarshalled
 unmigrated
+unpaginated
 unselect
 unsettable
 untriaged

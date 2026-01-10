@@ -647,7 +647,8 @@ type AssumeRoleCredentialProvider struct {
 
 	// The ARN of the role to assume.
 	RoleArn string `protobuf:"bytes,1,opt,name=role_arn,json=roleArn,proto3" json:"role_arn,omitempty"`
-	// Optional string value to use as the role session name
+	// An optional role session name, used when identifying the role in subsequent AWS API calls. If not provided, the role session name will default
+	// to the current timestamp.
 	RoleSessionName string `protobuf:"bytes,2,opt,name=role_session_name,json=roleSessionName,proto3" json:"role_session_name,omitempty"`
 	// Optional string value to use as the externalId
 	ExternalId string `protobuf:"bytes,3,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`

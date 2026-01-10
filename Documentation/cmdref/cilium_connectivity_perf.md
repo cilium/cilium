@@ -24,7 +24,7 @@ cilium connectivity perf [flags]
       --node-selector-client map         Node selector for the other-node client pod
       --node-selector-server map         Node selector for the server pod (and client same-node)
       --other-node                       Run tests in which the client and the server are hosted on difference nodes (default true)
-      --performance-image string         Image path to use for performance (default "quay.io/cilium/network-perf:1762337009-58a912e@sha256:a63b50b3f3e8bd690c9966838e4d616c623419c85d5ef8e2b62324f443ec3f9a")
+      --performance-image string         Image path to use for performance (default "quay.io/cilium/network-perf:3.19-1764664744-8340907@sha256:8dce3fcab1a4c22f28fc53020079e6686d5548173f337cf07514e9d13213394d")
       --pod-net                          Test pod network (default true)
       --pod-to-host                      Test pod-to-host traffic
       --print-image-artifacts            Prints the used image artifacts

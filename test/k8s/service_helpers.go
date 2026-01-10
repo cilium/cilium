@@ -237,7 +237,7 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 	// packets.
 
 	// Field #7 is "Packets=<n>"
-	cmdIn := "cilium-dbg bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
+	cmdIn := "cilium-dbg bpf ct list | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
 
 	endpointK8s1 := net.JoinHostPort(dstPodIPK8s1, fmt.Sprintf("%d", dstPodPort))
 	patternInK8s1 := fmt.Sprintf("UDP IN [^:]+:%d -> %s", srcPort, endpointK8s1)
@@ -252,7 +252,7 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 	countInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 
 	// Field #7 is "Packets=<n>"
-	cmdOut := "cilium-dbg bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
+	cmdOut := "cilium-dbg bpf ct list | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
 
 	if !hasDNAT {
 		// If kube-proxy is enabled, we see packets in ctmap with the
@@ -590,7 +590,7 @@ func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, _, ch
 
 		// Clear CT tables on all Cilium nodes
 		kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
-			"cilium-dbg bpf ct flush global", "Unable to flush CT maps")
+			"cilium-dbg bpf ct flush", "Unable to flush CT maps")
 	}
 }
 
@@ -859,7 +859,7 @@ func testMaglev(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	for _, label := range []string{helpers.K8s1, helpers.K8s2} {
 		pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
 		ExpectWithOffset(1, err).Should(BeNil(), "cannot get cilium pod name %s", label)
-		kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium-dbg bpf ct flush global", "Unable to flush CT maps")
+		kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium-dbg bpf ct flush", "Unable to flush CT maps")
 	}
 
 	for _, port := range []int{60000, 61000, 62000} {

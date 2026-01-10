@@ -4,11 +4,9 @@
 package policy
 
 import (
-	"cmp"
 	"encoding/json"
 	"log/slog"
 	"maps"
-	"slices"
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -216,7 +214,9 @@ func (p *Repository) newRule(policyEntry types.PolicyEntry, key ruleKey) *rule {
 		PolicyEntry: policyEntry,
 		key:         key,
 	}
-	r.subjectSelector, _ = p.selectorCache.AddIdentitySelector(r, makeStringLabels(r.Labels), r.Subject)
+	css, _ := p.selectorCache.AddSelectors(r, makeStringLabels(r.Labels), r.Subject)
+	r.subjectSelector = css[0]
+
 	return r
 }
 
@@ -304,11 +304,13 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// protocol layer, which is quite costly in terms of performance.
 	ingressEnabled, egressEnabled,
 		hasIngressDefaultDeny, hasEgressDefaultDeny,
-		matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
+		rulesIngress, rulesEgress := p.computePolicyEnforcementAndRules(securityIdentity)
+
+	sc := p.GetSelectorCache()
 
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
-		SelectorCache:        p.GetSelectorCache(),
+		SelectorCache:        sc,
 		L4Policy:             NewL4Policy(p.GetRevision()),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
@@ -324,43 +326,47 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	}
 
 	if ingressEnabled {
-		policyCtx.SetIngress(true)
-		newL4IngressPolicy, err := matchingRules.resolveL4Policy(&policyCtx)
+		policyCtx.PolicyTrace("resolving ingress policy")
+		newL4IngressPolicy, err := rulesIngress.resolveL4Policy(&policyCtx)
 		if err != nil {
 			return nil, err
 		}
-		calculatedPolicy.L4Policy.Ingress.PortRules = newL4IngressPolicy
+		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy
 	}
 
 	if egressEnabled {
-		policyCtx.SetIngress(false)
-		newL4EgressPolicy, err := matchingRules.resolveL4Policy(&policyCtx)
+		policyCtx.PolicyTrace("resolving egress policy")
+		newL4EgressPolicy, err := rulesEgress.resolveL4Policy(&policyCtx)
 		if err != nil {
 			return nil, err
 		}
-		calculatedPolicy.L4Policy.Egress.PortRules = newL4EgressPolicy
+		calculatedPolicy.L4Policy.Egress = newL4EgressPolicy
 	}
 
 	// Make the calculated policy ready for incremental updates
 	calculatedPolicy.Attach(&policyCtx)
 
+	// Commit selector changes
+	sc.Commit()
+
 	return calculatedPolicy, nil
 }
 
 // computePolicyEnforcementAndRules returns whether policy applies at ingress or ingress
-// for the given security identity, as well as a list of any rules which select
+// for the given security identity, as well as a sorted list of any rules which select
 // the set of labels of the given security identity.
 //
 // Must be called with repo mutex held for reading.
 func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (
-	ingress, egress, hasIngressDefaultDeny, hasEgressDefaultDeny bool,
-	matchingRules ruleSlice,
+	hasIngress, hasEgress,
+	hasIngressDefaultDeny, hasEgressDefaultDeny bool,
+	rulesIngress, rulesEgress ruleSlice,
 ) {
 	lbls := securityIdentity.LabelArray
 
 	// Check if policy enforcement should be enabled at the daemon level.
 	if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
-		return false, false, false, false, nil
+		return false, false, false, false, nil, nil
 	}
 
 	policyMode := GetPolicyEnabled()
@@ -368,46 +374,47 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// enforcement for the endpoint. We don't care about returning any
 	// rules that match.
 	if policyMode == option.NeverEnforce {
-		return false, false, false, false, nil
+		return false, false, false, false, nil, nil
 	}
 
-	matchingRules = []*rule{}
+	rulesIngress = []*rule{}
+	rulesEgress = []*rule{}
 	// Match cluster-wide rules
 	for rKey := range p.rulesByNamespace[""] {
 		r := p.rules[rKey]
 		if r.matchesSubject(securityIdentity) {
-			matchingRules = append(matchingRules, r)
+			if r.Ingress {
+				rulesIngress = append(rulesIngress, r)
+			} else {
+				rulesEgress = append(rulesEgress, r)
+			}
 		}
 	}
 	// Match namespace-specific rules
-	namespace := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel)
+	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
 	if namespace != "" {
 		for rKey := range p.rulesByNamespace[namespace] {
 			r := p.rules[rKey]
 			if r.matchesSubject(securityIdentity) {
-				matchingRules = append(matchingRules, r)
+				if r.Ingress {
+					rulesIngress = append(rulesIngress, r)
+				} else {
+					rulesEgress = append(rulesEgress, r)
+				}
 			}
 		}
 	}
 
-	// Always sort matched rules to get a stable policy order.
-	// It's not the order per se that is important, just that it's always in the same order when the
-	// elements are the same. In most cases this should be a small list so the overhead should be pretty minimal.
-	// This is very useful for subsystems like the dnsproxy that can reuse the same regex during recompilation
-	// if the list of FQDNs is the same.
-	slices.SortFunc(matchingRules, func(a, b *rule) int {
-		if sign := cmp.Compare(a.key.resource, b.key.resource); sign != 0 {
-			return sign
-		}
-		return cmp.Compare(a.key.idx, b.key.idx)
-	})
+	// sort rules (in place) by priority
+	rulesIngress.sort()
+	rulesEgress.sort()
 
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
 	// If the endpoint has the reserved:init label, i.e. if it has not yet
 	// received any labels, always enforce policy (default deny).
 	if policyMode == option.AlwaysEnforce || lbls.Has(labels.IDNameInit) {
-		return true, true, true, true, matchingRules
+		return true, true, true, true, rulesIngress, rulesEgress
 	}
 
 	// Determine the default policy for each direction.
@@ -426,45 +433,74 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// 3: Only non-default-deny rules are present. Then, policy is enabled, but we must insert
 	//    an additional allow-all rule. We must do this, even if all traffic is allowed, because
 	//    rules may have additional effects such as enabling L7 proxy.
-	for _, r := range matchingRules {
-		if r.Ingress {
-			ingress = true
-			if r.DefaultDeny {
-				hasIngressDefaultDeny = true
-			}
-		} else {
-			egress = true
-			if r.DefaultDeny {
-				hasEgressDefaultDeny = true
-			}
+	//    The wildcard rule is inserted to the last tier and priority.
+	for _, r := range rulesIngress {
+		hasIngress = true
+		if r.DefaultDeny {
+			hasIngressDefaultDeny = true
+			break
 		}
-		if ingress && egress && hasIngressDefaultDeny && hasEgressDefaultDeny {
+	}
+	for _, r := range rulesEgress {
+		hasEgress = true
+		if r.DefaultDeny {
+			hasEgressDefaultDeny = true
 			break
 		}
 	}
 
 	// If there only ingress default-allow rules, then insert a wildcard rule
-	if !hasIngressDefaultDeny && ingress {
-		p.logger.Debug("Only default-allow policies, synthesizing ingress wildcard-allow rule", logfields.Identity, securityIdentity)
-		matchingRules = append(matchingRules, wildcardRule(securityIdentity.LabelArray, true /*ingress*/))
+	if !hasIngressDefaultDeny && hasIngress {
+		// User the lowest tier and priority
+		lastRule := rulesIngress[len(rulesIngress)-1]
+		tier, priority := lastRule.Tier, lastRule.Priority
+		// Keep the tier and priority as zeroes for backwards compatibility if the last rule
+		// is at tier and priority 0.
+		if tier > 0 || priority > 0 {
+			tier++
+			priority = 0
+		}
+		p.logger.Debug("Only default-allow policies, synthesizing ingress wildcard-allow rule",
+			logfields.Identity, securityIdentity,
+			logfields.Tier, tier,
+			logfields.Priority, priority,
+		)
+		rulesIngress = append(rulesIngress, wildcardRule(securityIdentity, LabelsAllowAnyIngress, true /*ingress*/, tier, priority))
 	}
 
 	// Same for egress -- synthesize a wildcard rule
-	if !hasEgressDefaultDeny && egress {
-		p.logger.Debug("Only default-allow policies, synthesizing egress wildcard-allow rule", logfields.Identity, securityIdentity)
-		matchingRules = append(matchingRules, wildcardRule(securityIdentity.LabelArray, false /*egress*/))
+	if !hasEgressDefaultDeny && hasEgress {
+		// User the lowest tier and priority
+		lastRule := rulesEgress[len(rulesEgress)-1]
+		tier, priority := lastRule.Tier, lastRule.Priority
+		// Keep the tier and priority as zeroes for backwards compatibility if the last rule
+		// is at tier and priority 0.
+		if tier > 0 || priority > 0 {
+			tier++
+			priority = 0
+		}
+		p.logger.Debug("Only default-allow policies, synthesizing egress wildcard-allow rule",
+			logfields.Identity, securityIdentity,
+			logfields.Tier, tier,
+			logfields.Priority, priority,
+		)
+		rulesEgress = append(rulesEgress, wildcardRule(securityIdentity, LabelsAllowAnyEgress, false /*egress*/, tier, priority))
 	}
 
 	return
 }
 
-// wildcardRule generates a wildcard rule that only selects the given identity.
-func wildcardRule(lbls labels.LabelArray, ingress bool) *rule {
+// wildcardRule generates a wildcard rule that only selects the given subject identity.
+func wildcardRule(subject *identity.Identity, lbls labels.LabelArray, ingress bool, tier types.Tier, priority float64) *rule {
 	return &rule{
 		PolicyEntry: types.PolicyEntry{
-			Ingress: ingress,
-			Subject: api.NewESFromLabels(lbls...),
-			L3:      types.PeerSelectorSlice{api.WildcardEndpointSelector},
+			Tier:     tier,
+			Priority: priority,
+			Verdict:  types.Allow,
+			Ingress:  ingress,
+			Subject:  types.NewLabelSelectorFromLabels(subject.LabelArray...),
+			L3:       types.WildcardSelectors,
+			Labels:   lbls,
 		},
 	}
 }

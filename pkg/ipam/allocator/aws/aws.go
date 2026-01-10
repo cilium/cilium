@@ -111,7 +111,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, reg *metri
 
 	a.client = ec2shim.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
 		operatorOption.Config.IPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
-		operatorOption.Config.AWSUsePrimaryAddress)
+		operatorOption.Config.AWSUsePrimaryAddress, operatorOption.Config.AWSMaxResultsPerCall)
 
 	return nil
 }

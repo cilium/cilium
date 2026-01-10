@@ -1,0 +1,186 @@
+name: Docs-builder Image Build
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request_target:
+    branches:
+      - v1.17
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - Documentation/Dockerfile
+      - Documentation/requirements.txt
+
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: Build and Push Image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: docs-builder
+    outputs:
+      tag: ${{ steps.docs-builder-tag.outputs.tag }}
+      digest: ${{ steps.docker-build-docs-builder.outputs.digest }}
+    steps:
+      - name: Checkout default branch (trusted)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Set environment variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Generate image tag for docs-builder
+        id: docs-builder-tag
+        run: |
+          echo tag="$(git ls-tree --full-tree HEAD -- ./Documentation | awk '{ print $3 }')" >> $GITHUB_OUTPUT
+
+      - name: Check if tag for docs-builder already exists
+        id: docs-builder-tag-in-repositories
+        shell: bash
+        run: |
+          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docs-builder:${{ steps.docs-builder-tag.outputs.tag }} &>/dev/null; then
+            echo exists="true" >> $GITHUB_OUTPUT
+          else
+            echo exists="false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Login to quay.io
+        if: ${{ steps.docs-builder-tag-in-repositories.outputs.exists == 'false' }}
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_DOCS_BUILDER_USERNAME }}
+          password: ${{ secrets.QUAY_DOCS_BUILDER_PASSWORD }}
+          logout: true
+
+      - name: Build docs-builder image
+        if: ${{ steps.docs-builder-tag-in-repositories.outputs.exists == 'false' }}
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        id: docker-build-docs-builder
+        with:
+          provenance: false
+          context: ./Documentation
+          file: ./Documentation/Dockerfile
+          push: true
+          tags: |
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docs-builder:${{ steps.docs-builder-tag.outputs.tag }}
+
+  # Use a separate job for the steps below, to ensure we're no longer logged
+  # into Quay.io.
+  update-pr:
+    name: Update Pull Request with new image reference
+    needs: build-and-push
+    if: needs.build-and-push.outputs.digest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: docs-builder
+    steps:
+      - name: Checkout default branch (trusted)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set environment variables
+        uses: ./.github/actions/set-env-variables
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up git
+        run: |
+          git config user.name "Cilium Imagebot"
+          git config user.email "noreply@cilium.io"
+
+      - name: Update docs-builder image reference in CI workflow
+        run: |
+          NEW_IMAGE="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docs-builder:${{ needs.build-and-push.outputs.tag }}@${{ needs.build-and-push.outputs.digest }}"
+          # Run in Docker to prevent the script from accessing the environment.
+          docker run --rm -v $PWD:/cilium -w /cilium "${NEW_IMAGE}" \
+              bash -c "git config --global --add safe.directory /cilium && \
+                       /cilium/Documentation/update-docs-builder-image.sh ${NEW_IMAGE}"
+          git commit -sam "ci: update docs-builder"
+
+      - name: Get token
+        id: get_token
+        uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
+        with:
+          APP_PEM: ${{ secrets.AUTO_COMMITTER_PEM_202411 }}
+          APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID_202411 }}
+
+      - name: Push changes into PR
+        env:
+          REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git diff HEAD^
+          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git HEAD:"$REF"
+
+  image-digest:
+    name: Retrieve and display image digest
+    needs: build-and-push
+    if: needs.build-and-push.outputs.digest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout default branch (trusted)
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set environment variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Retrieve image digest
+        shell: bash
+        run: |
+          NEW_IMAGE="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/docs-builder:${{ needs.build-and-push.outputs.tag }}@${{ needs.build-and-push.outputs.digest }}"
+          mkdir -p image-digest/
+          echo "## docs-builder" > image-digest/docs-builder.txt
+          echo "" >> image-digest/docs-builder.txt
+          echo "\`${NEW_IMAGE}\`" >> image-digest/docs-builder.txt
+          echo "" >> image-digest/docs-builder.txt
+
+      - name: Upload artifact digests
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: image-digest docs-builder
+          path: image-digest
+          retention-days: 1
+
+      - name: Output image digest
+        shell: bash
+        run: |
+          cd image-digest/
+          find -type f | sort | xargs -d '\n' cat

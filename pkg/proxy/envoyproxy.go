@@ -33,6 +33,9 @@ type envoyProxyIntegration struct {
 	adminClient     *envoy.EnvoyAdminClient
 	xdsServer       envoy.XDSServer
 	iptablesManager datapath.IptablesManager
+	// Controls if an L7 proxy can use POD's original source address and port in
+	// the upstream connection.
+	proxyUseOriginalSourceAddress bool
 }
 
 // createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
@@ -50,8 +53,7 @@ func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGr
 		xdsServer:    p.xdsServer,
 		adminClient:  p.adminClient,
 	}
-
-	mayUseOriginalSourceAddr := p.iptablesManager.SupportsOriginalSourceAddr()
+	mayUseOriginalSourceAddr := p.proxyUseOriginalSourceAddress && p.iptablesManager.SupportsOriginalSourceAddr()
 	// Only use original source address for egress
 	if l.Ingress {
 		mayUseOriginalSourceAddr = false
@@ -65,11 +67,11 @@ func (p *envoyProxyIntegration) changeLogLevel(level slog.Level) error {
 	return p.adminClient.ChangeLogLevel(level)
 }
 
-func (p *envoyProxyIntegration) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
-	return p.xdsServer.UpdateNetworkPolicy(ep, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
+func (p *envoyProxyIntegration) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, func() error) {
+	return p.xdsServer.UpdateNetworkPolicy(ep, policy, wg)
 }
 
-func (p *envoyProxyIntegration) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup) {
+func (p *envoyProxyIntegration) UseCurrentNetworkPolicy(ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) {
 	p.xdsServer.UseCurrentNetworkPolicy(ep, policy, wg)
 }
 

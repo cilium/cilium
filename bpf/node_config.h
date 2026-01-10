@@ -14,8 +14,6 @@
  */
 #include <lib/static_data.h>
 
-#define CLUSTER_ID 0
-
 #define CILIUM_NET_IFINDEX 1
 #define CILIUM_HOST_IFINDEX 1
 #define NATIVE_DEV_MAC_BY_IFINDEX(_) { .addr = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 } }
@@ -62,8 +60,6 @@
 #ifndef CT_REPORT_FLAGS
 # define CT_REPORT_FLAGS		0xff
 #endif
-
-#define KERNEL_HZ 250   /* warp: 0 jiffies */
 
 #define ENABLE_IDENTITY_MARK 1
 
@@ -145,7 +141,6 @@
 #define MONITOR_AGGREGATION 5
 #endif
 #define MTU 1500
-#define EPHEMERAL_MIN 32768
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_NAT_46X64)
 #define CONNTRACK_ACCOUNTING
 #define POLICY_ACCOUNTING
@@ -186,7 +181,7 @@
 # define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
-#ifdef ENCRYPTION_STRICT_MODE
+#ifdef ENCRYPTION_STRICT_MODE_EGRESS
 #  ifndef STRICT_IPV4_NET
 #   define STRICT_IPV4_NET	0
 #  endif
@@ -222,11 +217,6 @@ return false;
 # define NAT_46X64_PREFIX_1 0
 # define NAT_46X64_PREFIX_2 0
 # define NAT_46X64_PREFIX_3 0
-#endif
-
-#ifndef __CLUSTERMESH_IDENTITY__
-#define __CLUSTERMESH_IDENTITY__
-#define CLUSTER_ID_MAX 255
 #endif
 
 #ifndef __CLUSTERMESH_HELPERS__

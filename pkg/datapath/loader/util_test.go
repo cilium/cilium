@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	statedbReconciler "github.com/cilium/statedb/reconciler"
 	"github.com/spf13/afero"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -71,6 +72,9 @@ func newTestLoader(tb testing.TB) *loader {
 		Cell,
 
 		routeReconciler.TableCell,
+		cell.Provide(func() (_ statedbReconciler.Reconciler[*routeReconciler.DesiredRoute]) {
+			return nil
+		}),
 		cell.Provide(tables.NewDeviceTable), cell.Provide(statedb.RWTable[*tables.Device].ToTable),
 		cell.Provide(func() (
 			sysctl.Sysctl,

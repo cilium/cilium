@@ -18,10 +18,16 @@ import (
 // *cilium.io. -> "([a-zA-Z0-9]+[.])?cilium[.]io[.]
 func TestAnchoredMatchPatternREConversion(t *testing.T) {
 	for source, target := range map[string]string{
-		"cilium.io.":   "^cilium[.]io[.]$",
-		"*.cilium.io.": "^" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]$",
-		"*":            "(^(" + allowedDNSCharsREGroup + "+[.])+$)|(^[.]$)",
-		".":            "^[.]$",
+		"cilium.io.":         "^cilium[.]io[.]$",
+		"*.cilium.io.":       "^" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]$",
+		"test.*.cilium.io.":  "^test[.]" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]$",
+		"test.**.cilium.io.": "^test[.]" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]$",
+		"**.cilium.io.":      "^" + dnsWildcardREGroup + "cilium[.]io[.]$",
+		"***.cilium.io.":     "^" + dnsWildcardREGroup + "cilium[.]io[.]$",
+		"*":                  "(^(" + allowedDNSCharsREGroup + "+[.])+$)|(^[.]$)",
+		"**":                 "(^(" + allowedDNSCharsREGroup + "+[.])+$)|(^[.]$)",
+		"***.":               "(^(" + allowedDNSCharsREGroup + "+[.])+$)|(^[.]$)",
+		".":                  "^[.]$",
 	} {
 		reStr := ToAnchoredRegexp(source)
 		_, err := regexp.Compile(reStr)
@@ -32,10 +38,16 @@ func TestAnchoredMatchPatternREConversion(t *testing.T) {
 
 func TestUnAnchoredMatchPatternREConversion(t *testing.T) {
 	for source, target := range map[string]string{
-		"cilium.io.":   "cilium[.]io[.]",
-		"*.cilium.io.": allowedDNSCharsREGroup + "*[.]cilium[.]io[.]",
-		"*":            MatchAllUnAnchoredPattern,
-		".":            "[.]",
+		"cilium.io.":         "cilium[.]io[.]",
+		"*.cilium.io.":       allowedDNSCharsREGroup + "*[.]cilium[.]io[.]",
+		"test.*.cilium.io.":  "test[.]" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]",
+		"test.**.cilium.io.": "test[.]" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]",
+		"**.cilium.io.":      dnsWildcardREGroup + "cilium[.]io[.]",
+		"***.cilium.io.":     dnsWildcardREGroup + "cilium[.]io[.]",
+		"*":                  MatchAllUnAnchoredPattern,
+		"**":                 MatchAllUnAnchoredPattern,
+		"***.":               MatchAllUnAnchoredPattern,
+		".":                  "[.]",
 	} {
 		reStr := ToUnAnchoredRegexp(source)
 		_, err := regexp.Compile(reStr)
@@ -71,7 +83,17 @@ func TestAnchoredMatchPatternMatching(t *testing.T) {
 			reject:  []string{"", "cilium.io."},
 		},
 		{
+			pattern: "*.ci**.io.",
+			accept:  []string{"anysub.cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
+			reject:  []string{"", "cilium.io."},
+		},
+		{
 			pattern: "*",
+			accept:  []string{".", "io.", "cilium.io.", "svc.cluster.local.", "service.namesace.svc.cluster.local.", "_foobar._tcp.cilium.io."}, // the last is for SRV RFC-2782 and DNS-SD RFC6763
+			reject:  []string{"", ".io.", ".cilium.io.", ".svc.cluster.local.", "cilium.io"},                                                    // note no final . on this last one
+		},
+		{
+			pattern: "**",
 			accept:  []string{".", "io.", "cilium.io.", "svc.cluster.local.", "service.namesace.svc.cluster.local.", "_foobar._tcp.cilium.io."}, // the last is for SRV RFC-2782 and DNS-SD RFC6763
 			reject:  []string{"", ".io.", ".cilium.io.", ".svc.cluster.local.", "cilium.io"},                                                    // note no final . on this last one
 		},
@@ -92,6 +114,28 @@ func TestAnchoredMatchPatternMatching(t *testing.T) {
 			accept:  []string{"_foobar._tcp.cilium.io."},
 			reject:  []string{""},
 		},
+
+		// dns Subdomain wildcarding
+		{
+			pattern: "**.cilium.io.",
+			accept:  []string{"test.cilium.io.", "test.app.cilium.io.", "test.app.new.cilium.io."},
+			reject:  []string{"", "cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
+		},
+		{
+			pattern: "***.cilium.io.",
+			accept:  []string{"test.cilium.io.", "test.app.cilium.io.", "test.app.new.cilium.io."},
+			reject:  []string{"", "cilium.io.", "anysub.ci.io.", "anysub.ciliumandmore.io."},
+		},
+		{
+			pattern: "**.*.cilium.io.",
+			accept:  []string{"_foobar._tcp.cilium.io.", "_foo._bar._tcp.cilium.io."},
+			reject:  []string{"", "cilium.io.", "foo.cilium.io."},
+		},
+		{
+			pattern: "**.ci*.io.",
+			accept:  []string{"foo.bar.cilium.io.", "anysub.cilium.io.", "anysub.ci.io.", "_foo._bar.ciliumandmore.io."},
+			reject:  []string{"", "cilium.io.", "test.calium.io."},
+		},
 	} {
 		reStr := ToAnchoredRegexp(testCase.pattern)
 		re, err := regexp.Compile(reStr)
@@ -108,9 +152,13 @@ func TestAnchoredMatchPatternMatching(t *testing.T) {
 // TestMatchPatternSanitize tests that Sanitize handles any special cases
 func TestMatchPatternSanitize(t *testing.T) {
 	for source, target := range map[string]string{
-		"*":     "*",
-		"*.":    "*.",
-		"*.com": "*.com.",
+		"*":       "*",
+		"*.":      "*.",
+		"*.com":   "*.com.",
+		"**":      "**",
+		"***.":    "***.",
+		"**.com":  "**.com.",
+		"***.com": "***.com.",
 	} {
 		sanitized := Sanitize(source)
 		require.Equal(t, target, sanitized, "matchPattern: %s not sanitized correctly", source)

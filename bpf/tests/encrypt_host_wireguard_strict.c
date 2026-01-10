@@ -2,6 +2,6 @@
 /* Copyright Authors of Cilium */
 
 #define ENABLE_WIREGUARD	1
-#define ENCRYPTION_STRICT_MODE	1
+#define ENCRYPTION_STRICT_MODE_EGRESS	1
 
 #include "encrypt_host.h"

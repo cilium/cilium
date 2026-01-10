@@ -33,6 +33,10 @@ func (m *mockConnHandler) StartConnection() {}
 
 func (m *mockConnHandler) StopConnection() {}
 
+func (m *mockConnHandler) IsConnected() bool {
+	return true
+}
+
 func newTestHandler(t *testing.T) (*messageHandler, *mockConnHandler, *endpoint.Endpoint) {
 	t.Helper()
 

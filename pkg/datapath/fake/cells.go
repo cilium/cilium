@@ -28,12 +28,12 @@ import (
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	fakeencryptmap "github.com/cilium/cilium/pkg/maps/encrypt/fake"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
-	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -56,6 +56,7 @@ var Cell = cell.Module(
 		func() encrypt.EncryptMap { return fakeencryptmap.NewFakeEncryptMap() },
 		func() *egressmap.PolicyMap4 { return nil },
 		func() *egressmap.PolicyMap6 { return nil },
+		func() lxcmap.Map { return nil },
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 		func() types.IptablesManager { return &fakeTypes.FakeIptablesManager{} },
 		func() ipset.Manager { return &fakeTypes.IPSet{} },
@@ -69,12 +70,8 @@ var Cell = cell.Module(
 		func() types.Orchestrator { return &fakeTypes.FakeOrchestrator{} },
 		loader.NewCompilationLock,
 		func() sysctl.Sysctl { return &Sysctl{} },
-		func() (promise.Promise[nat.NatMap4], promise.Promise[nat.NatMap6]) {
-			r4, p4 := promise.New[nat.NatMap4]()
-			r6, p6 := promise.New[nat.NatMap6]()
-			r4.Reject(nat.ErrMapDisabled)
-			r6.Reject(nat.ErrMapDisabled)
-			return p4, p6
+		func() (nat.NatMap4, nat.NatMap6) {
+			return nil, nil
 		},
 
 		tables.NewDeviceTable,

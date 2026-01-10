@@ -591,5 +591,5 @@ func (s *SSHMeta) RestartCilium() error {
 
 // FlushGlobalConntrackTable flushes the global connection tracking table.
 func (s *SSHMeta) FlushGlobalConntrackTable() *CmdRes {
-	return s.ExecCilium("bpf ct flush global")
+	return s.ExecCilium("bpf ct flush")
 }

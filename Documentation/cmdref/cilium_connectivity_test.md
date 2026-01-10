@@ -49,6 +49,7 @@ cilium connectivity test [flags]
       --hubble-server string                                  Address of the Hubble endpoint for flow validation (default "localhost:4245")
       --include-conn-disrupt-test                             Include conn disrupt test
       --include-conn-disrupt-test-egw                         Include conn disrupt test for Egress Gateway
+      --include-conn-disrupt-test-l7-traffic                  Include conn disrupt test for L7 traffic
       --include-conn-disrupt-test-ns-traffic                  Include conn disrupt test for NS traffic
       --ip-families strings                                   Restrict test actions to specific IP families (default [ipv4,ipv6])
       --json-mock-image string                                Image path to use for json mock (default "quay.io/cilium/json-mock:v1.3.9@sha256:c98b26177a5a60020e5aa404896d55f0ab573d506f42acfb4aa4f5705a5c6f56")
@@ -69,7 +70,7 @@ cilium connectivity test [flags]
       --secondary-network-iface string                        Secondary network iface name (e.g., to test NodePort BPF on multiple networks)
       --service-type string                                   Type of Kubernetes Services created for connectivity tests (default "NodePort")
       --single-node                                           Limit to tests able to run on a single node
-      --socat-image string                                    Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.0.3@sha256:8370cf9b250bfae9d67a5309750bfdf882ca8b7053b6c88c943d230eca92e762")
+      --socat-image string                                    Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.0.3@sha256:7a52df0b80a62fc9e624bd6c6f3990a842f4632690c76d6ff351587bc8fbde2f")
       --sysdump-cilium-bugtool-flags stringArray              Optional set of flags to pass to cilium-bugtool command.
       --sysdump-cilium-daemon-set-label-selector string       The labels used to target Cilium daemon set (default "k8s-app=cilium")
       --sysdump-cilium-envoy-label-selector string            The labels used to target Cilium Envoy pods (default "k8s-app=cilium-envoy")
@@ -112,7 +113,7 @@ cilium connectivity test [flags]
                                                               NOTE: There is a lower bound requirement on the number of workers for the sysdump operation to be effective. Therefore, for low values, the actual number of workers may be adjusted upwards. Defaults to the number of available CPUs. (default 20)
       --test strings                                          Run tests that match one of the given regular expressions, skip tests by starting the expression with '!', target Scenarios with e.g. '/pod-to-cidr'
       --test-concurrency int                                  Count of namespaces to perform the connectivity tests in parallel (value <= 0 will be treated as 1) (default 1)
-      --test-conn-disrupt-image string                        Image path to use for connection disruption tests (default "quay.io/cilium/test-connection-disruption:v0.0.16@sha256:e8e3257b2c89543dc49a2d820f2d2d69c1fe60eaf1036fc1f1f7375bad8e6232")
+      --test-conn-disrupt-image string                        Image path to use for connection disruption tests (default "quay.io/cilium/test-connection-disruption:v0.0.17@sha256:62374cfd0e87e6541244331ccf477a21c527c3eefa9d841b97af79996939be0c")
       --test-namespace string                                 Namespace to perform the connectivity in (always suffixed with a sequence number to be compliant with test-concurrency param, e.g.: cilium-test-1) (default "cilium-test")
       --timeout duration                                      Maximum time to allow the connectivity test suite to take
   -t, --timestamp                                             Show timestamp in messages

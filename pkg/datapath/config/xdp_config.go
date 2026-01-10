@@ -18,23 +18,23 @@ type BPFXDP struct {
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
+	// Ephemeral port range minimun.
+	EphemeralMin uint16 `config:"ephemeral_min"`
 	// Ifindex of the interface the bpf program is attached to.
-	InterfaceIfindex uint32 `config:"interface_ifindex"`
+	InterfaceIfIndex uint32 `config:"interface_ifindex"`
 	// MAC address of the interface the bpf program is attached to.
 	InterfaceMAC [8]byte `config:"interface_mac"`
 	// Masquerade address for IPv4 traffic.
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
-	// Pull security context from IP cache.
-	SecctxFromIPCache bool `config:"secctx_from_ipcache"`
 
 	Node
 }
 
 func NewBPFXDP(node Node) *BPFXDP {
-	return &BPFXDP{0x5dc, false, false, false, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	return &BPFXDP{0x5dc, false, false, false, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		false, node}
+		node}
 }

@@ -4,11 +4,11 @@
 package labelsfilter
 
 import (
-	"reflect"
 	"regexp"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -244,9 +244,8 @@ func TestFilterLabelsByRegex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := FilterLabelsByRegex(tt.args.excludePatterns, tt.args.labels); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("FilterLabelsByRegex() = %v, want %v", got, tt.want)
-			}
+			got := FilterLabelsByRegex(tt.args.excludePatterns, tt.args.labels)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

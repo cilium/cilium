@@ -28,7 +28,7 @@ type CommonGeoipProviderConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Configuration for geolocation headers to add to request.
+	// Configuration for geolocation headers to add to the request.
 	GeoHeadersToAdd *CommonGeoipProviderConfig_GeolocationHeadersToAdd `protobuf:"bytes,1,opt,name=geo_headers_to_add,json=geoHeadersToAdd,proto3" json:"geo_headers_to_add,omitempty"`
 }
 
@@ -71,8 +71,8 @@ func (x *CommonGeoipProviderConfig) GetGeoHeadersToAdd() *CommonGeoipProviderCon
 	return nil
 }
 
-// The set of geolocation headers to add to request. If any of the configured headers is present
-// in the incoming request, it will be overridden by the :ref:`Geoip filter <config_http_filters_geoip>`.
+// The set of geolocation headers to add to the request. If any of the configured headers is present
+// in the incoming request, it will be overridden by the :ref:`GeoIP filter <config_http_filters_geoip>`.
 // [#next-free-field: 13]
 type CommonGeoipProviderConfig_GeolocationHeadersToAdd struct {
 	state         protoimpl.MessageState
@@ -84,33 +84,33 @@ type CommonGeoipProviderConfig_GeolocationHeadersToAdd struct {
 	// If set, the header will be used to populate the city associated with the IP address.
 	City string `protobuf:"bytes,2,opt,name=city,proto3" json:"city,omitempty"`
 	// If set, the header will be used to populate the region ISO code associated with the IP address.
-	// The least specific subdivision will be selected as region value.
+	// The least specific subdivision will be selected as the region value.
 	Region string `protobuf:"bytes,3,opt,name=region,proto3" json:"region,omitempty"`
 	// If set, the header will be used to populate the ASN associated with the IP address.
 	Asn string `protobuf:"bytes,4,opt,name=asn,proto3" json:"asn,omitempty"`
-	// This field is being deprecated, use “anon“ instead.
+	// This field is deprecated; use “anon“ instead.
 	//
 	// Deprecated: Marked as deprecated in envoy/extensions/geoip_providers/common/v3/common.proto.
 	IsAnon string `protobuf:"bytes,5,opt,name=is_anon,json=isAnon,proto3" json:"is_anon,omitempty"`
-	// If set, the IP address will be checked if it belongs to any type of anonymization network (e.g. VPN, public proxy etc)
-	// and header will be populated with the check result. Header value will be set to either "true" or "false" depending on the check result.
+	// If set, the IP address will be checked if it belongs to any type of anonymization network (e.g., VPN, public proxy).
+	// The header will be populated with the check result. Header value will be set to either “true“ or “false“ depending on the check result.
 	Anon string `protobuf:"bytes,12,opt,name=anon,proto3" json:"anon,omitempty"`
-	// If set, the IP address will be checked if it belongs to a VPN and header will be populated with the check result.
-	// Header value will be set to either "true" or "false" depending on the check result.
+	// If set, the IP address will be checked if it belongs to a VPN and the header will be populated with the check result.
+	// Header value will be set to either “true“ or “false“ depending on the check result.
 	AnonVpn string `protobuf:"bytes,6,opt,name=anon_vpn,json=anonVpn,proto3" json:"anon_vpn,omitempty"`
-	// If set, the IP address will be checked if it belongs to a hosting provider and header will be populated with the check result.
-	// Header value will be set to either "true" or "false" depending on the check result.
+	// If set, the IP address will be checked if it belongs to a hosting provider and the header will be populated with the check result.
+	// Header value will be set to either “true“ or “false“ depending on the check result.
 	AnonHosting string `protobuf:"bytes,7,opt,name=anon_hosting,json=anonHosting,proto3" json:"anon_hosting,omitempty"`
-	// If set, the IP address will be checked if it belongs to a TOR exit node and header will be populated with the check result.
-	// Header value will be set to either "true" or "false" depending on the check result.
+	// If set, the IP address will be checked if it belongs to a TOR exit node and the header will be populated with the check result.
+	// Header value will be set to either “true“ or “false“ depending on the check result.
 	AnonTor string `protobuf:"bytes,8,opt,name=anon_tor,json=anonTor,proto3" json:"anon_tor,omitempty"`
-	// If set, the IP address will be checked if it belongs to a public proxy and header will be populated with the check result.
-	// Header value will be set to either "true" or "false" depending on the check result.
+	// If set, the IP address will be checked if it belongs to a public proxy and the header will be populated with the check result.
+	// Header value will be set to either “true“ or “false“ depending on the check result.
 	AnonProxy string `protobuf:"bytes,9,opt,name=anon_proxy,json=anonProxy,proto3" json:"anon_proxy,omitempty"`
 	// If set, the header will be used to populate the ISP associated with the IP address.
 	Isp string `protobuf:"bytes,10,opt,name=isp,proto3" json:"isp,omitempty"`
-	// If set, the IP address will be checked if it belongs to the ISP named iCloud Private Relay and header will be populated with the check result.
-	// Header value will be set to either "true" or "false" depending on the check result.
+	// If set, the IP address will be checked if it belongs to the ISP named iCloud Private Relay and the header will be populated with the check result.
+	// Header value will be set to either “true“ or “false“ depending on the check result.
 	ApplePrivateRelay string `protobuf:"bytes,11,opt,name=apple_private_relay,json=applePrivateRelay,proto3" json:"apple_private_relay,omitempty"`
 }
 

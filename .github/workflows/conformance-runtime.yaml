@@ -63,7 +63,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go-version: 1.25.4
+  go-version: 1.25.5
 
 jobs:
   echo-inputs:
@@ -91,7 +91,7 @@ jobs:
     name: Build Ginkgo Runtime
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -113,7 +113,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -123,7 +123,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ginkgo runtime from GH cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -134,7 +134,7 @@ jobs:
         uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.4
+          go-version: 1.25.5
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -180,7 +180,7 @@ jobs:
       job_name: "Runtime Test (${{matrix.focus}})"
     strategy:
       fail-fast: false
-      max-parallel: 3
+      max-parallel: 2
       matrix:
         focus:
           - "datapath"
@@ -196,21 +196,28 @@ jobs:
           - focus: "datapath"
             cliFocus: "RuntimeDatapathMonitorTest"
             # TODO: not updated by by renovate, investigate why the tests fail on newer images
+            #  see https://github.com/cilium/cilium/issues/38058
             lvhImage: "6.12-20241218.004849"
 
           - focus: "privileged"
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            lvhImage: "6.12-20250807.134150"
+            lvhImage: "6.18-20260109.091250"
 
     timeout-minutes: 50
     steps:
+      - name: Set commit status to pending
+        uses: myrotvorets/set-commit-status-action@3730c0a348a2ace3c110851bed53331bc6406e9f # v2.0.1
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: pending
+
       - name: Collect Workflow Telemetry
         uses: catchpoint/workflow-telemetry-action@94c3c3d9567a0205de6da68a76c428ce4e769af1 # v2.0.0
         with:
           comment_on_pr: false
 
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -235,7 +242,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -255,7 +262,7 @@ jobs:
 
       # Load Ginkgo build from GitHub
       - name: Load ${{ matrix.focus }} Ginkgo build from GitHub
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         id: cache
         with:
           path: /tmp/.ginkgo-build/
@@ -267,7 +274,7 @@ jobs:
         with:
           cache: false
           # renovate: datasource=golang-version depName=go
-          go-version: 1.25.4
+          go-version: 1.25.5
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -304,7 +311,7 @@ jobs:
       # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
         if: ${{ matrix.focus == 'privileged' }}
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -477,7 +484,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() && matrix.focus == 'datapath' }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cilium-sysdumps-${{ matrix.focus }}
           path: |
@@ -498,14 +505,14 @@ jobs:
 
       - name: Upload JUnits [junit]
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: cilium-junits-${{ matrix.focus }}
           path: cilium-junits/*.xml
 
       - name: Upload features tested
         if: ${{ always() && matrix.focus == 'datapath' }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: features-tested-${{ matrix.focus }}
           path: features-tested-${{ env.job_name }}*.json
@@ -523,7 +530,7 @@ jobs:
     needs: setup-and-test
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false

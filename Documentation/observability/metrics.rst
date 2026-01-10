@@ -550,7 +550,7 @@ eBPF
 Name                                       Labels                                                                Default    Description
 ========================================== ===================================================================== ========== ========================================================
 ``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                                            Disabled   Duration of eBPF system call performed
-``bpf_map_ops_total``                      ``mapName`` (deprecated), ``map_name``, ``operation``, ``outcome``    Enabled    Number of eBPF map operations performed. ``mapName`` is deprecated and will be removed in 1.10. Use ``map_name`` instead.
+``bpf_map_ops_total``                      ``map_name``, ``operation``, ``outcome``                              Enabled    Number of eBPF map operations performed.
 ``bpf_map_pressure``                       ``map_name``                                                          Enabled    Map pressure is defined as a ratio of the required map size compared to its configured size. Values < 1.0 indicate the map's utilization, while values >= 1.0 indicate that the map is full. Policy map pressure metrics are emitted only when map utilization exceeds the threshold set by ``policyMapPressureMetricsThreshold`` helm value, which defaults to 0.1 (10% full).
 ``bpf_map_capacity``                       ``map_group``                                                         Enabled    Maximum size of eBPF maps by group of maps (type of map that have the same max capacity size). Map types with size of 65536 are not emitted, missing map types can be assumed to be 65536.
 ``bpf_maps_virtual_memory_max_bytes``                                                                            Enabled    Max memory used by eBPF maps installed in the system
@@ -584,8 +584,6 @@ Policy
 Name                                       Labels                                             Default    Description
 ========================================== ================================================== ========== ========================================================
 ``policy``                                                                                    Enabled    Number of policies currently loaded
-``policy_regeneration_total``                                                                 Enabled    Deprecated, will be removed in Cilium 1.17 - use ``endpoint_regenerations_total`` instead. Total number of policies regenerated successfully
-``policy_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Deprecated, will be removed in Cilium 1.17 - use ``endpoint_regeneration_time_stats_seconds`` instead. Policy regeneration time stats labeled by the scope
 ``policy_max_revision``                                                                       Enabled    Highest policy revision number in the agent
 ``policy_change_total``                                                                       Enabled    Number of policy changes by outcome
 ``policy_endpoint_enforcement_status``                                                        Enabled    Number of endpoints labeled by policy enforcement status
@@ -733,7 +731,7 @@ Agent
 ================================ ================================ ========== ========================================================
 Name                             Labels                           Default    Description
 ================================ ================================ ========== ========================================================
-``agent_bootstrap_seconds``      ``scope``, ``outcome``           Enabled    Duration of various bootstrap phases
+``agent_bootstrap_seconds``      ``scope``, ``outcome``           Enabled    Deprecated, will be removed in Cilium 1.20 - use ``cilium_hive_jobs_oneshot_last_run_duration_seconds`` of respective job instead. Duration of various bootstrap phases
 ``api_process_time_seconds``                                      Enabled    Processing time of all the API calls made to the cilium-agent, labeled by API method, API path and returned HTTP code.
 ================================ ================================ ========== ========================================================
 
@@ -753,14 +751,17 @@ Name                               Labels                           Default     
 Jobs
 ~~~~
 
-================================== ================================ ============ ========================================================
-Name                               Labels                           Default      Description
-================================== ================================ ============ ========================================================
-``jobs_errors_total``              ``job``                          Enabled      Number of jobs runs that returned an error
-``jobs_one_shot_run_seconds``      ``job``                          Enabled      Histogram of one shot job run duration
-``jobs_timer_run_seconds``         ``job``                          Enabled      Histogram of timer job run duration
-``jobs_observer_run_seconds``      ``job``                          Enabled      Histogram of observer job run duration
-================================== ================================ ============ ========================================================
+=================================================== ================================ ============ ========================================================
+Name                                                Labels                           Default      Description
+=================================================== ================================ ============ ========================================================
+``hive_jobs_runs_total``                            ``module``, ``job_name``         Enabled      Total number of jobs runs
+``hive_jobs_runs_failed``                           ``module``, ``job_name``         Enabled      Number of jobs runs that returned an error
+``hive_jobs_oneshot_last_run_duration_seconds``     ``module``, ``job_name``         Enabled      Duration of last one shot job run
+``hive_jobs_observer_last_run_duration_seconds``    ``module``, ``job_name``         Enabled      Duration of last observer job run
+``hive_jobs_observer_run_duration_seconds``         ``module``, ``job_name``         Enabled      Histogram of observer job run duration
+``hive_jobs_timer_last_run_duration_seconds``       ``module``, ``job_name``         Enabled      Duration of last timer job run
+``hive_jobs_timer_run_duration_seconds``            ``module``, ``job_name``         Enabled      Histogram of timer job run duration
+=================================================== ================================ ============ ========================================================
 
 CIDRGroups
 ~~~~~~~~~~
@@ -1641,3 +1642,15 @@ Given a Node forwarding one or more such egress-IP and remote endpoint tuples, t
 This metric is especially useful when using the egress gateway feature where it's possible to overload a Node if many connections are all going to the same endpoint.
 In general, this metric should normally be fairly low.
 A high number here may indicate that a Node is reaching its limit for connections to one or more external endpoints.
+
+Local Redirect Policy (control plane)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. _local_redirect_policy_metrics:
+
+============================================= ======================================== ========== ==========================================================================================================================================
+Name                                          Labels                                    Default    Description
+============================================= ======================================== ========== ==========================================================================================================================================
+``controller_duration_seconds``                                                         Enabled    Histogram of processing times for local redirect policies
+============================================= ======================================== ========== ==========================================================================================================================================
+

@@ -141,9 +141,6 @@ var (
 		// Provides cilium_bpf_ratelimit_dropped_total Prometheus metric.
 		ratelimitmap.Cell,
 
-		// Provide option.Config via hive so cells can depend on the agent config.
-		cell.Provide(func() *option.DaemonConfig { return option.Config }),
-
 		// Cilium API served over UNIX sockets. Accessed by the 'cilium' utility (not cilium-cli).
 		server.Cell,
 		cell.Invoke(configureAPIServer),
@@ -178,6 +175,12 @@ var (
 
 		// IP allocation and creation of agents infrastructure endpoints (host, health & ingress)
 		infraendpoints.Cell,
+
+		// Syncs local host entries to the lxc/endpoints BPF map and IPCache
+		hostIPSyncCell,
+
+		// Endpoint restoration at agent startup
+		endpointRestoreCell,
 
 		// LocalNodeStore holds onto the information about the local node and allows
 		// observing changes to it.
@@ -222,6 +225,9 @@ var (
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
+
+		// daemonConfigCell wraps legacy daemonconfig initialization and provides *option.DaemonConfig and Promise[*option.DaemonConfig]
+		daemonConfigCell,
 
 		// Maglev table computtations
 		maglev.Cell,
@@ -405,9 +411,6 @@ func allResourceGroups(logger *slog.Logger, cfg watchers.WatcherConfiguration) (
 		// Pods can contain labels which are essential for endpoints
 		// being restored to have the right identity.
 		resources.K8sAPIGroupPodV1Core,
-		// To perform the service translation and have the BPF LB datapath
-		// with the right service -> backend (k8s endpoints) translation.
-		resources.K8sAPIGroupEndpointSliceOrEndpoint,
 	}
 
 	if cfg.K8sNetworkPolicyEnabled() {
@@ -432,7 +435,7 @@ func kvstoreExtraOptions(in struct {
 
 	NodeManager nodeManager.NodeManager
 	ClientSet   k8sClient.Clientset
-	Resolver    *dial.ServiceResolver
+	Resolver    dial.Resolver
 },
 ) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
 	goopts := kvstore.ExtraOptions{

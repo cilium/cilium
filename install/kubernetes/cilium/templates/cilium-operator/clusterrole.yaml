@@ -413,10 +413,10 @@ rules:
   - patch
   - delete
 {{- end }}
-{{- end }}
 - apiGroups:
   - cilium.io
   resources:
   - ciliumendpointslices
   verbs:
   - deletecollection
+{{- end }}

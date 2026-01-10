@@ -54,7 +54,7 @@ ipv6_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 }
 
 static __always_inline int
-__ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused,
+__ipv6_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id,
 			  struct ipv6hdr *ip6, struct ct_buffer6 *ct_buffer,
 			  struct trace_ctx *trace, __s8 *ext_err)
 {
@@ -325,7 +325,7 @@ ipv4_host_policy_egress_lookup(struct __ctx_buff *ctx, __u32 src_sec_identity,
 }
 
 static __always_inline int
-__ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused,
+__ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id,
 			  struct iphdr *ip4, struct ct_buffer4 *ct_buffer,
 			  struct trace_ctx *trace, __s8 *ext_err)
 {

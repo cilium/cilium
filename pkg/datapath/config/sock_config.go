@@ -11,6 +11,8 @@ package config
 type BPFSock struct {
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Enable support for Local Redirect Policy.
+	EnableLRP bool `config:"enable_lrp"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 
@@ -18,5 +20,5 @@ type BPFSock struct {
 }
 
 func NewBPFSock(node Node) *BPFSock {
-	return &BPFSock{false, false, node}
+	return &BPFSock{false, false, false, node}
 }

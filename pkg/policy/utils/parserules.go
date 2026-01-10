@@ -12,7 +12,9 @@ import (
 func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 	entries := types.PolicyEntries{}
 	for _, rule := range rules {
-		es, node := getSelector(rule)
+		ls, node := getSelector(rule)
+
+		subjectSelector := types.NewLabelSelector(ls)
 
 		for _, iRule := range rule.Ingress {
 			defaultDeny := rule.EnableDefaultDeny.Ingress == nil || *rule.EnableDefaultDeny.Ingress
@@ -30,11 +32,11 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				Subject:        es,
+				Subject:        subjectSelector,
 				Node:           node,
 				Labels:         rule.Labels,
 				DefaultDeny:    defaultDeny,
-				Deny:           false,
+				Verdict:        types.Allow,
 				Ingress:        true,
 				L3:             l3,
 				L4:             l4,
@@ -60,11 +62,11 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(iRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				Subject:     es,
+				Subject:     subjectSelector,
 				Node:        node,
 				Labels:      rule.Labels,
 				DefaultDeny: defaultDeny,
-				Deny:        true,
+				Verdict:     types.Deny,
 				Ingress:     true,
 				L3:          l3,
 				L4:          l4,
@@ -89,11 +91,11 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				Subject:        es,
+				Subject:        subjectSelector,
 				Node:           node,
 				Labels:         rule.Labels,
 				DefaultDeny:    defaultDeny,
-				Deny:           false,
+				Verdict:        types.Allow,
 				Ingress:        false,
 				L3:             l3,
 				L4:             l4,
@@ -119,11 +121,11 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)
 
 			entry := &types.PolicyEntry{
-				Subject:     es,
+				Subject:     subjectSelector,
 				Node:        node,
 				Labels:      rule.Labels,
 				DefaultDeny: defaultDeny,
-				Deny:        true,
+				Verdict:     types.Deny,
 				Ingress:     false,
 				L3:          l3,
 				L4:          l4,
@@ -135,8 +137,9 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 	return entries
 }
 
-func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities api.EntitySlice, cidrSlice api.CIDRSlice, cidrRuleSlice api.CIDRRuleSlice, fqdns api.FQDNSelectorSlice) types.PeerSelectorSlice {
+func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities api.EntitySlice, cidrSlice api.CIDRSlice, cidrRuleSlice api.CIDRRuleSlice, fqdns api.FQDNSelectorSlice) types.Selectors {
 	// Explicitly check for empty non-nil slices, it should not result in any identity being selected.
+	// Note that this works due to only one selector type being allowed in a single API rule.
 	if (endpoints != nil && len(endpoints) == 0) ||
 		(nodes != nil && len(nodes) == 0) ||
 		(entities != nil && len(entities) == 0) ||
@@ -144,13 +147,13 @@ func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities
 		(cidrRuleSlice != nil && len(cidrRuleSlice) == 0) {
 		return nil
 	}
-	l3 := make(types.PeerSelectorSlice, 0, len(endpoints)+len(nodes)+len(entities)+len(cidrSlice)+len(cidrRuleSlice)+len(fqdns))
-	l3 = append(l3, types.ToPeerSelectorSlice(endpoints)...)
-	l3 = append(l3, types.ToPeerSelectorSlice(nodes)...)
-	l3 = append(l3, types.ToPeerSelectorSlice(entities.GetAsEndpointSelectors())...)
-	l3 = append(l3, types.ToPeerSelectorSlice(cidrSlice)...)
-	l3 = append(l3, types.ToPeerSelectorSlice(cidrRuleSlice)...)
-	l3 = append(l3, types.ToPeerSelectorSlice(fqdns)...)
+	l3 := make(types.Selectors, 0, len(endpoints)+len(nodes)+len(entities)+len(cidrSlice)+len(cidrRuleSlice)+len(fqdns))
+	l3 = append(l3, types.ToSelectors(endpoints...)...)
+	l3 = append(l3, types.ToSelectors(nodes...)...)
+	l3 = append(l3, types.ToSelectors(entities.GetAsEndpointSelectors()...)...)
+	l3 = append(l3, types.ToSelectors(cidrSlice...)...)
+	l3 = append(l3, types.ToSelectors(cidrRuleSlice...)...)
+	l3 = append(l3, types.ToSelectors(fqdns...)...)
 	return l3
 }
 

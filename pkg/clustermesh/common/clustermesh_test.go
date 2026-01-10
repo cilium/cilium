@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -52,6 +51,10 @@ func (f *fakeRemoteCluster) Remove(ctx context.Context) {
 	if f.onRemove != nil {
 		f.onRemove(ctx)
 	}
+}
+
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
 }
 
 func TestClusterMesh(t *testing.T) {
@@ -200,14 +203,7 @@ func TestClusterMesh(t *testing.T) {
 }
 
 func TestClusterMeshMultipleAddRemove(t *testing.T) {
-	var (
-		client  = kvstore.NewInMemoryClient(statedb.New(), "__all__")
-		factory = func(context.Context, *slog.Logger, string, kvstore.ExtraOptions) (kvstore.BackendOperations, chan error) {
-			errch := make(chan error)
-			close(errch)
-			return client, errch
-		}
-	)
+	var client = kvstore.NewInMemoryClient(statedb.New(), "__all__")
 
 	baseDir := t.TempDir()
 	path := func(name string) string { return filepath.Join(baseDir, name) }
@@ -234,7 +230,7 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 		Logger:              hivetest.Logger(t),
 		Config:              Config{ClusterMeshConfig: baseDir},
 		ClusterInfo:         types.ClusterInfo{ID: 255, Name: "local"},
-		RemoteClientFactory: factory,
+		RemoteClientFactory: fakeRemoteClusterFactory(client),
 		NewRemoteCluster: func(name string, _ StatusFunc) RemoteCluster {
 			return &fakeRemoteCluster{
 				onRun: func(context.Context) { ready.Store(name, true) },
@@ -308,4 +304,5 @@ func TestClusterMeshMultipleAddRemove(t *testing.T) {
 	// Never unblock the cluster removal, and assert that the stop hook terminates
 	// regardless due to the context being closed.
 	cm.remove("cluster4")
+	gcm.Stop(t.Context())
 }

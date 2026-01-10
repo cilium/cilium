@@ -229,7 +229,7 @@ int egressgw_redirect_setup_v6(struct __ctx_buff *ctx)
 	union v6addr client_ip = CLIENT_IP_V6;
 	union v6addr egress_ip = EGRESS_IP_V6;
 
-	ipcache_v6_add_entry(&ext_svc_ip, 0, WORLD_IPV6_ID, 0, 0);
+	ipcache_v6_add_world_entry();
 	create_ct_entry_v6(ctx, client_port(TEST_REDIRECT));
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
 				     &egress_ip, 0);
@@ -271,7 +271,7 @@ int egressgw_skip_excluded_cidr_redirect_setup_v6(struct __ctx_buff *ctx)
 	union v6addr client_ip = CLIENT_IP_V6;
 	union v6addr egress_ip = EGRESS_IP_V6;
 
-	ipcache_v6_add_entry(&ext_svc_ip, 0, WORLD_IPV6_ID, 0, 0);
+	ipcache_v6_add_world_entry();
 	create_ct_entry_v6(ctx, client_port(TEST_REDIRECT_EXCL_CIDR));
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, IPV6_SUBNET_PREFIX, GATEWAY_NODE_IP,
 				     &egress_ip, 0);
@@ -322,7 +322,7 @@ int egressgw_skip_no_gateway_redirect_setup_v6(struct __ctx_buff *ctx)
 	union v6addr client_ip = CLIENT_IP_V6;
 	union v6addr egress_ip = EGRESS_IP_V6;
 
-	ipcache_v6_add_entry(&ext_svc_ip, 0, WORLD_IPV6_ID, 0, 0);
+	ipcache_v6_add_world_entry();
 	create_ct_entry_v6(ctx, client_port(TEST_REDIRECT_SKIP_NO_GATEWAY));
 	add_egressgw_policy_entry_v6(&client_ip, &ext_svc_ip, 128, EGRESS_GATEWAY_NO_GATEWAY,
 				     &egress_ip, 0);
@@ -384,7 +384,7 @@ int egressgw_drop_no_egress_ip_setup_v6(struct __ctx_buff *ctx)
 	union v6addr ext_svc_ip = EXTERNAL_SVC_IP_V6;
 	union v6addr client_ip = CLIENT_IP_V6;
 
-	ipcache_v6_add_entry(&ext_svc_ip, 0, WORLD_IPV6_ID, 0, 0);
+	ipcache_v6_add_world_entry();
 	endpoint_v4_add_entry(GATEWAY_NODE_IP, 0, 0, ENDPOINT_F_HOST, 0, 0, NULL, NULL);
 
 	create_ct_entry_v6(ctx, client_port(TEST_DROP_NO_EGRESS_IP));

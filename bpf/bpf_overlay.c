@@ -6,6 +6,7 @@
 
 #include <bpf/config/node.h>
 #include <bpf/config/global.h>
+#include <bpf/config/overlay.h>
 #include <netdev_config.h>
 
 #define IS_BPF_OVERLAY 1
@@ -47,15 +48,29 @@
 #include "lib/encap.h"
 
 #ifdef ENABLE_IPV6
+static __always_inline int ipv6_host_delivery(struct __ctx_buff *ctx)
+{
+	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
+	int ret;
+
+	ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, METRIC_INGRESS);
+	if (ret != CTX_ACT_OK)
+		return ret;
+
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
+	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
+}
+
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
 {
-	int ret, l3_off = ETH_HLEN;
+	int ret __maybe_unused, l3_off = ETH_HLEN;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	const struct endpoint_info *ep;
-	bool __maybe_unused is_dsr = false;
+	bool is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
@@ -108,12 +123,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			*identity = info->sec_identity;
 	}
 
-#ifdef ENABLE_IPSEC
-	if (ip6->nexthdr != IPPROTO_ESP)
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_PLAINTEXT);
-#endif
-
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
 		__u32 egress_ifindex = 0;
@@ -162,18 +171,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
-	if (1) {
-		union macaddr host_mac = CILIUM_HOST_MAC;
-		union macaddr router_mac = CONFIG(interface_mac);
-
-		ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
-			      (__u8 *)&host_mac.addr, METRIC_INGRESS);
-		if (ret != CTX_ACT_OK)
-			return ret;
-
-		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
-		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
-	}
+	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
+	return ipv6_host_delivery(ctx);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_FROM_OVERLAY)
@@ -195,19 +194,16 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 static __always_inline int ipv4_host_delivery(struct __ctx_buff *ctx, struct iphdr *ip4)
 {
-	if (1) {
-		union macaddr host_mac = CILIUM_HOST_MAC;
-		union macaddr router_mac = CONFIG(interface_mac);
-		int ret;
+	union macaddr host_mac = CILIUM_HOST_MAC;
+	union macaddr router_mac = CONFIG(interface_mac);
+	int ret;
 
-		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr,
-			      (__u8 *)&host_mac.addr, ip4);
-		if (ret != CTX_ACT_OK)
-			return ret;
+	ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac.addr, (__u8 *)&host_mac.addr, ip4);
+	if (ret != CTX_ACT_OK)
+		return ret;
 
-		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_NET_IFINDEX);
-		return ctx_redirect(ctx, CILIUM_NET_IFINDEX, 0);
-	}
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, CILIUM_HOST_IFINDEX);
+	return ctx_redirect(ctx, CILIUM_HOST_IFINDEX, BPF_F_INGRESS);
 }
 
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
@@ -288,7 +284,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	void *data_end, *data;
 	struct iphdr *ip4;
 	const struct endpoint_info *ep;
-	bool __maybe_unused is_dsr = false;
+	bool is_dsr = false;
 	fraginfo_t fraginfo __maybe_unused;
 	int ret __maybe_unused;
 
@@ -339,7 +335,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 #ifdef ENABLE_VTEP
 	{
 		struct vtep_key vkey = {};
-		struct vtep_value *vtep;
+		const struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->saddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
@@ -365,7 +361,7 @@ skip_vtep:
 		 * logic in-line.
 		 */
 		if (cluster_id_from_identity != 0 &&
-		    cluster_id_from_identity != CLUSTER_ID &&
+		    cluster_id_from_identity != CONFIG(cluster_id) &&
 		    ip4->daddr == IPV4_INTER_CLUSTER_SNAT) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, *identity);
 			return tail_call_internal(ctx,
@@ -384,12 +380,6 @@ skip_vtep:
 		if (info)
 			*identity = info->sec_identity;
 	}
-
-#ifdef ENABLE_IPSEC
-	if (ip4->protocol != IPPROTO_ESP)
-		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-			       REASON_PLAINTEXT);
-#endif
 
 #if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	{
@@ -438,9 +428,7 @@ skip_vtep:
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
-
 	set_identity_mark(ctx, *identity, MARK_MAGIC_IDENTITY);
-
 	return ipv4_host_delivery(ctx, ip4);
 }
 
@@ -478,7 +466,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	int ret;
 	struct bpf_tunnel_key key = {};
 	struct vtep_key vkey = {};
-	struct vtep_value *info;
+	const struct vtep_value *info;
 	__u32 key_size;
 
 	key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
@@ -542,6 +530,21 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		ret = CTX_ACT_OK;
 		goto out;
 	}
+
+#if defined(ENABLE_WIREGUARD) && defined(ENABLE_IDENTITY_MARK)
+	/* When wireguard is enabled we should drop any traffic coming through the tunnel
+	 * that previously wasn't marked as decrypted by cilium.
+	 */
+	if (CONFIG(encryption_strict_ingress) && !ctx_is_decrypt(ctx)) {
+		ret = DROP_UNENCRYPTED_TRAFFIC;
+		goto out;
+	}
+	/* We only needed the mark to decide if we need to drop the packet here.
+	 * To not cause any further collision with the `decrypted` variable,
+	 * clear the decrypted bit.
+	 */
+	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
+#endif
 
 	switch (proto) {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)

@@ -19,8 +19,14 @@ var bpfMetricsFlushCmd = &cobra.Command{
 	Short: "Clear BPF datapath traffic metrics (test purpose only)",
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf metrics flush")
-		metricsmap.InitMap(log)
-		flushMetrics(&metricsmap.Metrics)
+
+		mm, err := metricsmap.LoadMetricsMap(log)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error loading BPF metrics map: %v\n", err)
+			os.Exit(1)
+		}
+
+		flushMetrics(mm)
 	},
 }
 

@@ -299,8 +299,8 @@ func TestLabelArray_Has(t *testing.T) {
 		NewLabel("foo1", "bar1", "any"), // not valid, but good to capture
 		NewLabel("kube-apiserver", "", "reserved"),
 	}
-	lbls = append(lbls, GetCIDRLabels(netip.MustParsePrefix("10.1.2.0/24")).LabelArray()...)
-	lbls = append(lbls, GetCIDRLabels(netip.MustParsePrefix("2001:db8:cafe::/54")).LabelArray()...)
+	lbls = append(lbls, GetCIDRLabelArray(netip.MustParsePrefix("10.1.2.0/24"))...)
+	lbls = append(lbls, GetCIDRLabelArray(netip.MustParsePrefix("2001:db8:cafe::/54"))...)
 	lbls.Sort()
 
 	for key, expected := range map[string]bool{
@@ -375,7 +375,7 @@ func TestLabelArray_Intersects(t *testing.T) {
 	}
 
 	// Test a careful CIDR case that catches naive sorting
-	la := GetCIDRLabels(netip.MustParsePrefix("11.11.11.11/32")).LabelArray()
+	la := GetCIDRLabelArray(netip.MustParsePrefix("11.11.11.11/32"))
 	lb := ParseLabelArray("cidr:110.0.0.0/8", "cidr:8.0.0.0/5")
 	assert.True(t, la.Intersects(lb))
 

@@ -22,9 +22,12 @@ type CiliumBGPNodeConfigOverride struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is the specification of the desired behavior of the CiliumBGPNodeConfigOverride.
+	//
+	// +kubebuilder:validation:Required
 	Spec CiliumBGPNodeConfigOverrideSpec `json:"spec"`
 }
 

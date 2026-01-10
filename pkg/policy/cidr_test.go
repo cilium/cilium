@@ -16,18 +16,16 @@ import (
 
 func TestGetCIDRPrefixes(t *testing.T) {
 	rules := types.PolicyEntries{{
-		Subject: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Subject: types.NewLabelSelectorFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: true,
-		L3: types.ToPeerSelectorSlice(api.CIDRSlice{
-			"192.0.2.0/24",
-		}),
+		L3:      types.ToSelectors(api.CIDR("192.0.2.0/24")),
 	}, {
-		Subject: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Subject: types.NewLabelSelectorFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: false,
-		L3: types.ToPeerSelectorSlice(api.CIDRSlice{
+		L3: types.ToSelectors(api.CIDRSlice{
 			"192.0.2.0/24",
 			"192.0.3.0/24",
-		}),
+		}...),
 	}}
 
 	// We have three CIDR instances in the ruleset, check that all exist
@@ -44,20 +42,16 @@ func TestGetCIDRPrefixes(t *testing.T) {
 
 	// Now, test with CIDRSets.
 	rules = types.PolicyEntries{{
-		Subject: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+		Subject: types.NewLabelSelectorFromLabels(labels.ParseSelectLabel("bar")),
 		Ingress: true,
-		L3: types.ToPeerSelectorSlice(api.CIDRRuleSlice{
-			{
-				Cidr:        "192.0.2.0/24",
-				ExceptCIDRs: []api.CIDR{"192.0.2.128/25"},
-			},
+		L3: types.ToSelectors(api.CIDRRule{
+			Cidr:        "192.0.2.0/24",
+			ExceptCIDRs: []api.CIDR{"192.0.2.128/25"},
 		}),
 	}, {
-		L3: types.ToPeerSelectorSlice(api.CIDRRuleSlice{
-			{
-				Cidr:        "10.0.0.0/8",
-				ExceptCIDRs: []api.CIDR{"10.0.0.0/16"},
-			},
+		L3: types.ToSelectors(api.CIDRRule{
+			Cidr:        "10.0.0.0/8",
+			ExceptCIDRs: []api.CIDR{"10.0.0.0/16"},
 		}),
 	}}
 

@@ -296,12 +296,12 @@ func Test_NodeLabels(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), TestTimeout)
-	defer cancel()
-
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			req := require.New(t)
+
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			defer cancel()
 
 			f, watcherReady := newFixture(t, ctx, req, defaultDaemonConfig)
 

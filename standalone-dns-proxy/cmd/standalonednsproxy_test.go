@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -44,7 +44,13 @@ func TestStandaloneDNSProxy(t *testing.T) {
 
 	// Enable L7 proxy for the standalone DNS proxy
 	option.Config.EnableL7Proxy = true
-	h := hive.New(StandaloneDNSProxyCell)
+	var connHandler client.ConnectionHandler
+	h := hive.New(
+		StandaloneDNSProxyCell,
+		cell.Invoke(func(ch client.ConnectionHandler) {
+			connHandler = ch
+		}),
+	)
 
 	hive.AddConfigOverride(
 		h,
@@ -54,6 +60,7 @@ func TestStandaloneDNSProxy(t *testing.T) {
 
 	err := h.Populate(hivetest.Logger(t))
 	assert.NoError(t, err, "Populate()")
+	connHandler.StopConnection()
 }
 
 func setupTestEnv(t *testing.T) *StandaloneDNSProxy {
@@ -112,6 +119,7 @@ func addDataToDNSTable(t *testing.T, sdp *StandaloneDNSProxy, epID uint32, pp re
 	}
 	dnsRule := make(policy.L7DataMap)
 	dnsRule[&client.DNSServerIdentity{Identities: serverID}] = &policy.PerSelectorPolicy{
+		Verdict: types.Allow,
 		L7Rules: api.L7Rules{
 			DNS: pat,
 		},
@@ -144,7 +152,7 @@ func TestUpdateDNSRules(t *testing.T) {
 	// single pattern single server allow/deny other ep
 	addDataToDNSTable(t, sdp, epID1, dstPort53UDP, identity.NumericIdentitySlice{dstID1}, []string{"cilium.io."})
 	err := testutils.WaitUntilWithSleep(func() bool {
-		rules, err := sdp.dnsProxier.GetRules(versioned.Latest(), uint16(epID1))
+		rules, err := sdp.dnsProxier.GetRules(uint16(epID1))
 		return err == nil && len(rules) != 0
 	}, 5*time.Second, time.Millisecond*500)
 	require.NoError(t, err, "failed to get rules for endpoint")
@@ -157,7 +165,7 @@ func TestUpdateDNSRules(t *testing.T) {
 	// No patterns means allow all
 	addDataToDNSTable(t, sdp, epID2, dstPort53UDP, identity.NumericIdentitySlice{dstID1}, []string{})
 	err = testutils.WaitUntilWithSleep(func() bool {
-		rules, err := sdp.dnsProxier.GetRules(versioned.Latest(), uint16(epID2))
+		rules, err := sdp.dnsProxier.GetRules(uint16(epID2))
 		return err == nil && len(rules) != 0
 	}, 5*time.Second, time.Millisecond*500)
 	require.NoError(t, err, "failed to get rules for endpoint")
@@ -168,7 +176,7 @@ func TestUpdateDNSRules(t *testing.T) {
 	// multiple patterns single server
 	addDataToDNSTable(t, sdp, epID3, dstPort53UDP, identity.NumericIdentitySlice{dstID1}, []string{"example.*", "cilium.io."})
 	err = testutils.WaitUntilWithSleep(func() bool {
-		rules, err := sdp.dnsProxier.GetRules(versioned.Latest(), uint16(epID3))
+		rules, err := sdp.dnsProxier.GetRules(uint16(epID3))
 		return err == nil && len(rules) != 0
 	}, 5*time.Second, time.Millisecond*500)
 	require.NoError(t, err, "failed to get rules for endpoint")

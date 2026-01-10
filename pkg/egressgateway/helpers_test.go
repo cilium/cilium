@@ -21,6 +21,7 @@ import (
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy/api"
+	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 )
 
 type fakeResource[T runtime.Object] chan resource.Event[T]
@@ -114,12 +115,12 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 		},
 		dstCIDRs:      parsedDestinationCIDRs,
 		excludedCIDRs: parsedExcludedCIDRs,
-		endpointSelectors: []api.EndpointSelector{
-			{
+		endpointSelectors: []*policyTypes.LabelSelector{
+			policyTypes.NewLabelSelector(api.EndpointSelector{
 				LabelSelector: &slimv1.LabelSelector{
 					MatchLabels: params.endpointLabels,
 				},
-			},
+			}),
 		},
 	}
 	for _, gwParams := range params.policyGwParams {
@@ -129,30 +130,30 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 			egressIP: addr,
 		}
 		if len(gwParams.nodeLabels) != 0 {
-			pwc.nodeSelector = api.EndpointSelector{
+			pwc.nodeSelector = policyTypes.NewLabelSelector(api.EndpointSelector{
 				LabelSelector: &slimv1.LabelSelector{
 					MatchLabels: gwParams.nodeLabels,
 				},
-			}
+			})
 		}
 		policy.policyGwConfigs = append(policy.policyGwConfigs, pwc)
 	}
 	if len(params.nodeSelectors) != 0 {
-		policy.nodeSelectors = []api.EndpointSelector{
-			{
+		policy.nodeSelectors = []*policyTypes.LabelSelector{
+			policyTypes.NewLabelSelector(api.EndpointSelector{
 				LabelSelector: &slimv1.LabelSelector{
 					MatchLabels: params.nodeSelectors,
 				},
-			},
+			}),
 		}
 	}
 	if len(params.endpointLabels) != 0 {
-		policy.endpointSelectors = []api.EndpointSelector{
-			{
+		policy.endpointSelectors = []*policyTypes.LabelSelector{
+			policyTypes.NewLabelSelector(api.EndpointSelector{
 				LabelSelector: &slimv1.LabelSelector{
 					MatchLabels: params.endpointLabels,
 				},
-			},
+			}),
 		}
 	}
 

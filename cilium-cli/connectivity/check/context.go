@@ -106,6 +106,7 @@ type ConnectivityTest struct {
 	ciliumNodes        map[NodeIdentity]*ciliumv2.CiliumNode
 
 	testConnDisruptClientNSTrafficDeploymentNames []string
+	testConnDisruptClientL7TrafficDeploymentNames []string
 }
 
 // NodeIdentity uniquely identifies a Node by Cluster and Name.
@@ -489,7 +490,7 @@ func (ct *ConnectivityTest) PrintReport(ctx context.Context) error {
 
 		wg.Add(len(ct.CiliumPods()))
 		for _, ciliumPod := range ct.CiliumPods() {
-			cmd := strings.Split("cilium bpf ct flush global", " ")
+			cmd := strings.Split("cilium bpf ct flush", " ")
 			go func(ctx context.Context, pod Pod) {
 				defer wg.Done()
 
@@ -1345,6 +1346,13 @@ func (ct *ConnectivityTest) ShouldRunConnDisruptNSTraffic() bool {
 		ct.Features[features.NodeWithoutCilium].Enabled &&
 		(ct.Params().MultiCluster == "" || ct.Features[features.KPR].Enabled) &&
 		!ct.Features[features.KPRNodePortAcceleration].Enabled
+}
+
+func (ct *ConnectivityTest) ShouldRunConnDisruptL7Traffic() bool {
+	return ct.params.IncludeConnDisruptTestL7Traffic &&
+		ct.Features[features.CNP].Enabled &&
+		ct.Features[features.L7Proxy].Enabled &&
+		ct.Features[features.ExternalEnvoyProxy].Enabled
 }
 
 func (ct *ConnectivityTest) ShouldRunConnDisruptEgressGateway() bool {

@@ -22,7 +22,7 @@ permissions:
 
 env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.217.0
+  eksctl_version: v0.221.0
 
 jobs:
   generate-cleanup-matrix:
@@ -34,7 +34,7 @@ jobs:
       empty: ${{ steps.set-matrix.outputs.empty }}
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -62,7 +62,7 @@ jobs:
           echo "empty=false" >> $GITHUB_OUTPUT
 
   cleanup-old-clusters:
-    name: Cleanup clusters older than 3 hours
+    name: Cleanup clusters older than 6 hours
     runs-on: ubuntu-24.04
     needs: generate-cleanup-matrix
     if: ${{ needs.generate-cleanup-matrix.outputs.empty == 'false' }}
@@ -72,7 +72,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -83,7 +83,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -91,7 +91,7 @@ jobs:
       - name: List and delete old clusters
         env:
           REGION: ${{ matrix.region }}
-          MAX_AGE_HOURS: 3
+          MAX_AGE_HOURS: 6
         run: |
           set -e
 
@@ -119,9 +119,16 @@ jobs:
             fi
           done
 
-          # List all EKS clusters with the usage tag and fetch all needed information at once
-          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --query clusters --output text | \
-            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json 2>/dev/null || echo "[]")
+          # List all EKS clusters and fetch all needed information at once
+          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --output json | jq -r '.clusters[]' | \
+            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} \
+              --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json | \
+            jq -s '.')
+
+          if [ -z "${CLUSTERS_JSON}" ] || [ "${CLUSTERS_JSON}" = "[]" ]; then
+            echo "No EKS clusters found in region ${REGION}"
+            exit 0
+          fi
 
           # Filter clusters by usage tag and extract needed information
           FILTERED_CLUSTERS=$(echo "${CLUSTERS_JSON}" | jq -r --arg tag_value "${{ github.repository_owner }}-${{ github.event.repository.name }}" \
@@ -187,7 +194,7 @@ jobs:
       empty: ${{ steps.set-matrix.outputs.empty }}
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -247,7 +254,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -314,7 +321,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -325,7 +332,7 @@ jobs:
           rm "eksctl_$(uname -s)_amd64.tar.gz"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -337,9 +344,18 @@ jobs:
           VERSION: ${{ matrix.version }}
           ADDONS: ${{ matrix.addons }}
           ZONES: ${{ matrix.zones }}
-          DESIRED_COUNT: ${{ inputs.min_cluster_per_region || '2' }}
         run: |
           set -e
+
+          # Set desired count based on addon configuration
+          # Buffer of 3x the number of clusters needed per PR:
+          # - coredns kube-proxy: 4 clusters/PR × 3 = 12
+          # - coredns kube-proxy vpc-cni: 1 cluster/PR × 3 = 3
+          if [[ "${ADDONS}" == "coredns kube-proxy vpc-cni" ]]; then
+            DESIRED_COUNT=3
+          else
+            DESIRED_COUNT=12
+          fi
 
           # Compute SHA256 hash of addons and zones to differentiate pools by configuration
           ADDONS_HASH=$(echo -n "${ADDONS} ${ZONES}" | sha256sum | cut -c1-8)
@@ -502,7 +518,7 @@ jobs:
       matrix: ${{ fromJson(needs.generate-cleanup-matrix.outputs.matrix) }}
     steps:
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8 # v5.1.0
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ matrix.region }}
@@ -533,8 +549,10 @@ jobs:
 
           # List all running clusters with our usage tag
           echo "Running EKS clusters:"
-          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --query clusters --output text | \
-            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json 2>/dev/null || echo "[]")
+          CLUSTERS_JSON=$(aws eks list-clusters --region ${REGION} --output json | jq -r '.clusters[]' | \
+            xargs -I {} aws eks describe-cluster --region ${REGION} --name {} \
+              --query 'cluster.{name:name, tags:tags, createdAt:createdAt}' --output json | \
+            jq -s '.')
 
           # Filter and display clusters by usage tag
           FILTERED_CLUSTERS=$(echo "${CLUSTERS_JSON}" | jq -r --arg tag_value "${{ github.repository_owner }}-${{ github.event.repository.name }}" \

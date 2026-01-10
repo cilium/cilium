@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -195,7 +194,7 @@ func TestEndpointDatapathOptions(t *testing.T) {
 		DatapathConfiguration: &models.EndpointDatapathConfiguration{
 			DisableSipVerification: true,
 		},
-	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	}, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, option.OptionDisabled, e.Options.GetValue(option.SourceIPVerification))
 }
@@ -205,7 +204,7 @@ func TestEndpointUpdateLabels(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	e, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	e, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 
 	e.Start(uint16(model.ID))
@@ -252,7 +251,7 @@ func TestEndpointState(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	e, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	e, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 	e.Start(uint16(model.ID))
 	t.Cleanup(e.Stop)
@@ -588,9 +587,8 @@ func TestEndpoint_GetK8sPodLabels(t *testing.T) {
 				mutex:  lock.RWMutex{},
 				labels: tt.labels,
 			}
-			if got := e.getK8sPodLabels(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Endpoint.getK8sPodLabels() = %v, want %v", got, tt.want)
-			}
+			got := e.getK8sPodLabels()
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -640,7 +638,7 @@ func TestEndpointEventQueueDeadlockUponStop(t *testing.T) {
 	}()
 
 	model := newTestEndpointModel(12345, StateReady)
-	ep, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	ep, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -722,7 +720,7 @@ func BenchmarkEndpointGetModel(b *testing.B) {
 	logger := hivetest.Logger(b)
 
 	model := newTestEndpointModel(100, StateWaitingForIdentity)
-	e, err := NewEndpointFromChangeModel(b.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+	e, err := NewEndpointFromChangeModel(b.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 	require.NoError(b, err)
 
 	e.Start(uint16(model.ID))
@@ -801,7 +799,7 @@ func TestMetadataResolver(t *testing.T) {
 			t.Run(fmt.Sprintf("%s (restored=%t)", tt.name, restored), func(t *testing.T) {
 				model := newTestEndpointModel(100, StateWaitingForIdentity)
 				kvstoreSync := ipcache.NewIPIdentitySynchronizer(logger, kvstore.SetupDummy(t, kvstore.DisabledBackendName))
-				ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, &fakeTypes.BandwidthManager{}, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), kvstoreSync, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil)
+				ep, err := NewEndpointFromChangeModel(t.Context(), logger, nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, &fakeTypes.BandwidthManager{}, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), kvstoreSync, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil)
 				require.NoError(t, err)
 
 				ep.K8sNamespace, ep.K8sPodName, ep.K8sUID = "bar", "foo", "uid"

@@ -1,3 +1,34 @@
+# v1.279.0 (2025-12-22)
+
+* **Feature**: Adds support for linkedGroupId on the CreatePlacementGroup and DescribePlacementGroups APIs. The linkedGroupId parameter is reserved for future use.
+
+# v1.278.0 (2025-12-18)
+
+* **Feature**: This release adds AvailabilityZoneId support for CreateFleet, ModifyFleet, DescribeFleets, RequestSpotFleet, ModifySpotFleetRequests and DescribeSpotFleetRequests APIs.
+
+# v1.277.0 (2025-12-15)
+
+* **Feature**: EC2 Capacity Manager now supports SpotTotalCount, SpotTotalInterruptions and SpotInterruptionRate metrics for both vCPU and instance units.
+
+# v1.276.1 (2025-12-09)
+
+* No change notes available for this release.
+
+# v1.276.0 (2025-12-08)
+
+* **Feature**: Amazon EC2 P6-B300 instances provide 8x NVIDIA Blackwell Ultra GPUs with 2.1 TB high bandwidth GPU memory, 6.4 Tbps EFA networking, 300 Gbps dedicated ENA throughput, and 4 TB of system memory. Amazon EC2 C8a instances are powered by 5th Gen AMD EPYC processors with a maximum frequency of 4.5 GHz.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.275.1 (2025-12-02)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.24.0. Notably this version of the library reduces the allocation footprint of the middleware system. We observe a ~10% reduction in allocations per SDK call with this change.
+
+# v1.275.0 (2025-11-25)
+
+* **Feature**: This release adds support to view Network firewall proxy appliances attached to an existing NAT Gateway via DescribeNatGateways API NatGatewayAttachedAppliance structure.
+* **Bug Fix**: Add error check for endpoint param binding during auth scheme resolution to fix panic reported in #3234
+
 # v1.274.0 (2025-11-21)
 
 * **Feature**: This release adds a new capability to create and manage interruptible EC2 Capacity Reservations.

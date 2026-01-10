@@ -114,6 +114,9 @@ const (
 	// PolicyEntry is a policy map value
 	PolicyEntry = "policyEntry"
 
+	// PolicyPrecedence is the datapath precedence for a policy Entry
+	PolicyPrecedence = "policyPrecedence"
+
 	// PolicyRevision is the revision of the policy in the repository or of
 	// the object in question
 	PolicyRevision = "policyRevision"
@@ -1288,6 +1291,8 @@ const (
 
 	PrefixCount = "prefixCount"
 
+	MaxResults = "maxResults"
+
 	LenEIPS = "lenEIPS"
 
 	EIP = "eip"
@@ -1514,8 +1519,6 @@ const (
 
 	EgressAlive = "egressAlive"
 
-	CTMapIPVersion = "ctMapIPVersion"
-
 	ExpectedPrevInterval = "expectedPrevInterval"
 
 	ActualPrevInterval = "actualPrevInterval"
@@ -1534,7 +1537,11 @@ const (
 
 	Cmd = "cmd"
 
+	Maps = "maps"
+
 	Prog = "prog"
+
+	Programs = "programs"
 
 	Table = "table"
 
@@ -1583,6 +1590,10 @@ const (
 	Range = "range"
 
 	Pin = "pin"
+
+	Tier = "tier"
+
+	TierBasePriority = "tierBasePriority"
 
 	Priority = "priority"
 

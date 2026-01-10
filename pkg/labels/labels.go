@@ -180,6 +180,15 @@ type Label struct {
 	cidr *netip.Prefix `json:"-"`
 }
 
+// GetCIDRPrefix returns the cidr of of the Label, or nil if none.
+func (l *Label) GetCIDRPrefix() *netip.Prefix {
+	return l.cidr
+}
+
+func (in *Label) DeepCopyInto(out *Label) {
+	*out = *in
+}
+
 // Labels is a map of labels where the map's key is the same as the label's key.
 type Labels map[string]Label
 
@@ -243,7 +252,7 @@ func (l Labels) GetPrintableModel() (res []string) {
 	res = make([]string, 0, len(l))
 	for _, v := range l {
 		if v.Source == LabelSourceCIDR {
-			prefix, err := LabelToPrefix(v.Key)
+			prefix, err := keyToPrefix(v.Key)
 			if err != nil {
 				res = append(res, v.String())
 			} else {
@@ -325,7 +334,7 @@ func NewLabel(key string, value string, source string) Label {
 		Source: cache.Strings.Get(source),
 	}
 	if l.Source == LabelSourceCIDR {
-		c, err := LabelToPrefix(l.Key)
+		c, err := keyToPrefix(l.Key)
 		if err != nil {
 			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
@@ -382,14 +391,14 @@ func (l *Label) HasKey(target *Label) bool {
 	if target.Source == LabelSourceCIDR && l.Source == LabelSourceCIDR {
 		tc := target.cidr
 		if tc == nil {
-			v, err := LabelToPrefix(target.Key)
+			v, err := keyToPrefix(target.Key)
 			if err == nil {
 				tc = &v
 			}
 		}
 		lc := l.cidr
 		if lc == nil {
-			v, err := LabelToPrefix(l.Key)
+			v, err := keyToPrefix(l.Key)
 			if err == nil {
 				lc = &v
 			}
@@ -478,7 +487,7 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	}
 
 	if l.Source == LabelSourceCIDR {
-		c, err := LabelToPrefix(l.Key)
+		c, err := keyToPrefix(l.Key)
 		if err == nil {
 			l.cidr = &c
 		} else {
@@ -742,12 +751,25 @@ func (l Labels) IsReserved() bool {
 
 // Has returns true if l contains the given label.
 func (l Labels) Has(label Label) bool {
+	_, exists := l.LookupLabel(&label)
+	return exists
+}
+
+func (l Labels) LookupLabel(label *Label) (value string, exists bool) {
+	if label.Source != LabelSourceCIDR {
+		lbl, ok := l[label.Key]
+		if ok && lbl.Has(label) {
+			return lbl.Value, true
+		}
+		return "", false
+	}
+
 	for _, lbl := range l {
-		if lbl.Has(&label) {
-			return true
+		if lbl.Has(label) {
+			return lbl.Value, true
 		}
 	}
-	return false
+	return "", false
 }
 
 // HasSource returns true if l contains the given label source.
@@ -833,7 +855,7 @@ func parseLabel(str string, delim byte) (lbl Label) {
 				logfields.Label, lbl,
 			)
 		}
-		c, err := LabelToPrefix(lbl.Key)
+		c, err := keyToPrefix(lbl.Key)
 		if err != nil {
 			// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
 			logging.DefaultSlogLogger.Error("Failed to parse CIDR label: invalid prefix.",
@@ -851,6 +873,12 @@ func parseLabel(str string, delim byte) (lbl Label) {
 // LabelSourceAny
 func ParseSelectLabel(str string) Label {
 	return parseSelectLabel(str, ':')
+}
+
+// ParseSelectDotLabel returns a selecting label representation of the given
+// string. Unlike ParseSelectLabel it expects the source separator to be '.'.
+func ParseSelectDotLabel(str string) Label {
+	return parseSelectLabel(str, '.')
 }
 
 // parseSelectLabel returns a selecting label representation of the given

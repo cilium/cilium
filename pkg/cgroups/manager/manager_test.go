@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/cilium/hive/cell"
 	"github.com/stretchr/testify/require"
 
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -128,8 +129,7 @@ func newCgroupManagerTest(t testing.TB, pMock providerMock, cg cgroup, events ch
 
 	tcm.podEventsDone = events
 
-	go tcm.processPodEvents()
-	t.Cleanup(tcm.Close)
+	go tcm.processPodEvents(t.Context(), &cell.SimpleHealth{})
 
 	return tcm
 }

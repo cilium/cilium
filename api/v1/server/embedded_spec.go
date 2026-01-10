@@ -2538,7 +2538,8 @@ func init() {
           "enum": [
             "Disabled",
             "IPsec",
-            "Wireguard"
+            "Wireguard",
+            "Ztunnel"
           ]
         },
         "msg": {
@@ -2599,6 +2600,10 @@ func init() {
         },
         "container-name": {
           "description": "Name assigned to container",
+          "type": "string"
+        },
+        "container-netns-path": {
+          "description": "Path of Container Netns",
           "type": "string"
         },
         "datapath-configuration": {
@@ -3213,6 +3218,10 @@ func init() {
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",
           "type": "string"
+        },
+        "skip-masquerade": {
+          "description": "SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.\n",
+          "type": "boolean"
         }
       }
     },
@@ -7901,7 +7910,8 @@ func init() {
           "enum": [
             "Disabled",
             "IPsec",
-            "Wireguard"
+            "Wireguard",
+            "Ztunnel"
           ]
         },
         "msg": {
@@ -7962,6 +7972,10 @@ func init() {
         },
         "container-name": {
           "description": "Name assigned to container",
+          "type": "string"
+        },
+        "container-netns-path": {
+          "description": "Path of Container Netns",
           "type": "string"
         },
         "datapath-configuration": {
@@ -8599,6 +8613,10 @@ func init() {
         "master-mac": {
           "description": "MAC of master interface if address is a slave/secondary of a master interface",
           "type": "string"
+        },
+        "skip-masquerade": {
+          "description": "SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP.\n",
+          "type": "boolean"
         }
       }
     },

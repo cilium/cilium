@@ -16,9 +16,8 @@ struct arp_eth {
 } __packed;
 
 /* Check if packet is ARP request for IP */
-static __always_inline int arp_check(struct ethhdr *eth,
-				     const struct arphdr *arp,
-				     union macaddr *mac)
+static __always_inline bool
+arp_check(struct ethhdr *eth, const struct arphdr *arp, union macaddr *mac)
 {
 	union macaddr *dmac = (union macaddr *) &eth->h_dest;
 

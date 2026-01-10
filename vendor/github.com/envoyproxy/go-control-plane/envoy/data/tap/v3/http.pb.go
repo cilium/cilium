@@ -35,6 +35,8 @@ type HttpBufferedTrace struct {
 	Response *HttpBufferedTrace_Message `protobuf:"bytes,2,opt,name=response,proto3" json:"response,omitempty"`
 	// downstream connection
 	DownstreamConnection *Connection `protobuf:"bytes,3,opt,name=downstream_connection,json=downstreamConnection,proto3" json:"downstream_connection,omitempty"`
+	// upstream connection
+	UpstreamConnection *Connection `protobuf:"bytes,4,opt,name=upstream_connection,json=upstreamConnection,proto3" json:"upstream_connection,omitempty"`
 }
 
 func (x *HttpBufferedTrace) Reset() {
@@ -86,6 +88,13 @@ func (x *HttpBufferedTrace) GetResponse() *HttpBufferedTrace_Message {
 func (x *HttpBufferedTrace) GetDownstreamConnection() *Connection {
 	if x != nil {
 		return x.DownstreamConnection
+	}
+	return nil
+}
+
+func (x *HttpBufferedTrace) GetUpstreamConnection() *Connection {
+	if x != nil {
+		return x.UpstreamConnection
 	}
 	return nil
 }
@@ -337,7 +346,7 @@ var file_envoy_data_tap_v3_http_proto_rawDesc = []byte{
 	0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x2e, 0x70, 0x72, 0x6f,
 	0x74, 0x6f, 0x1a, 0x21, 0x75, 0x64, 0x70, 0x61, 0x2f, 0x61, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74,
 	0x69, 0x6f, 0x6e, 0x73, 0x2f, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x69, 0x6e, 0x67, 0x2e,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0xe8, 0x04, 0x0a, 0x11, 0x48, 0x74, 0x74, 0x70, 0x42, 0x75,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0xb8, 0x05, 0x0a, 0x11, 0x48, 0x74, 0x74, 0x70, 0x42, 0x75,
 	0x66, 0x66, 0x65, 0x72, 0x65, 0x64, 0x54, 0x72, 0x61, 0x63, 0x65, 0x12, 0x46, 0x0a, 0x07, 0x72,
 	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x2c, 0x2e, 0x65,
 	0x6e, 0x76, 0x6f, 0x79, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x74, 0x61, 0x70, 0x2e, 0x76, 0x33,
@@ -353,6 +362,11 @@ var file_envoy_data_tap_v3_http_proto_rawDesc = []byte{
 	0x6e, 0x76, 0x6f, 0x79, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x74, 0x61, 0x70, 0x2e, 0x76, 0x33,
 	0x2e, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x14, 0x64, 0x6f, 0x77,
 	0x6e, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f,
+	0x6e, 0x12, 0x4e, 0x0a, 0x13, 0x75, 0x70, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x5f, 0x63, 0x6f,
+	0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d,
+	0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x74, 0x61, 0x70, 0x2e,
+	0x76, 0x33, 0x2e, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x12, 0x75,
+	0x70, 0x73, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x69, 0x6f,
 	0x6e, 0x1a, 0xbb, 0x02, 0x0a, 0x07, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x3b, 0x0a,
 	0x07, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x21,
 	0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2e, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x63, 0x6f,
@@ -450,21 +464,22 @@ var file_envoy_data_tap_v3_http_proto_depIdxs = []int32{
 	2,  // 0: envoy.data.tap.v3.HttpBufferedTrace.request:type_name -> envoy.data.tap.v3.HttpBufferedTrace.Message
 	2,  // 1: envoy.data.tap.v3.HttpBufferedTrace.response:type_name -> envoy.data.tap.v3.HttpBufferedTrace.Message
 	3,  // 2: envoy.data.tap.v3.HttpBufferedTrace.downstream_connection:type_name -> envoy.data.tap.v3.Connection
-	4,  // 3: envoy.data.tap.v3.HttpStreamedTraceSegment.request_headers:type_name -> envoy.config.core.v3.HeaderMap
-	5,  // 4: envoy.data.tap.v3.HttpStreamedTraceSegment.request_body_chunk:type_name -> envoy.data.tap.v3.Body
-	4,  // 5: envoy.data.tap.v3.HttpStreamedTraceSegment.request_trailers:type_name -> envoy.config.core.v3.HeaderMap
-	4,  // 6: envoy.data.tap.v3.HttpStreamedTraceSegment.response_headers:type_name -> envoy.config.core.v3.HeaderMap
-	5,  // 7: envoy.data.tap.v3.HttpStreamedTraceSegment.response_body_chunk:type_name -> envoy.data.tap.v3.Body
-	4,  // 8: envoy.data.tap.v3.HttpStreamedTraceSegment.response_trailers:type_name -> envoy.config.core.v3.HeaderMap
-	6,  // 9: envoy.data.tap.v3.HttpBufferedTrace.Message.headers:type_name -> envoy.config.core.v3.HeaderValue
-	5,  // 10: envoy.data.tap.v3.HttpBufferedTrace.Message.body:type_name -> envoy.data.tap.v3.Body
-	6,  // 11: envoy.data.tap.v3.HttpBufferedTrace.Message.trailers:type_name -> envoy.config.core.v3.HeaderValue
-	7,  // 12: envoy.data.tap.v3.HttpBufferedTrace.Message.headers_received_time:type_name -> google.protobuf.Timestamp
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	3,  // 3: envoy.data.tap.v3.HttpBufferedTrace.upstream_connection:type_name -> envoy.data.tap.v3.Connection
+	4,  // 4: envoy.data.tap.v3.HttpStreamedTraceSegment.request_headers:type_name -> envoy.config.core.v3.HeaderMap
+	5,  // 5: envoy.data.tap.v3.HttpStreamedTraceSegment.request_body_chunk:type_name -> envoy.data.tap.v3.Body
+	4,  // 6: envoy.data.tap.v3.HttpStreamedTraceSegment.request_trailers:type_name -> envoy.config.core.v3.HeaderMap
+	4,  // 7: envoy.data.tap.v3.HttpStreamedTraceSegment.response_headers:type_name -> envoy.config.core.v3.HeaderMap
+	5,  // 8: envoy.data.tap.v3.HttpStreamedTraceSegment.response_body_chunk:type_name -> envoy.data.tap.v3.Body
+	4,  // 9: envoy.data.tap.v3.HttpStreamedTraceSegment.response_trailers:type_name -> envoy.config.core.v3.HeaderMap
+	6,  // 10: envoy.data.tap.v3.HttpBufferedTrace.Message.headers:type_name -> envoy.config.core.v3.HeaderValue
+	5,  // 11: envoy.data.tap.v3.HttpBufferedTrace.Message.body:type_name -> envoy.data.tap.v3.Body
+	6,  // 12: envoy.data.tap.v3.HttpBufferedTrace.Message.trailers:type_name -> envoy.config.core.v3.HeaderValue
+	7,  // 13: envoy.data.tap.v3.HttpBufferedTrace.Message.headers_received_time:type_name -> google.protobuf.Timestamp
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_envoy_data_tap_v3_http_proto_init() }

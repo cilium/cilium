@@ -171,7 +171,9 @@ func (us *usersManager) sync(ctx context.Context) error {
 			logfields.Error, err,
 			logfields.Path, us.ClusterUsersConfigPath,
 		)
-		return err
+		// We don't have to return an error to retry here since the filewatcher
+		// will notify us and we would be able to retry on actual file changes
+		return nil
 	}
 
 	// Mark all users as stale

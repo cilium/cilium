@@ -9,7 +9,6 @@ import (
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -39,7 +38,7 @@ type rule struct {
 func (r *rule) IdentitySelectionUpdated(logger *slog.Logger, selector types.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
-func (d *rule) IdentitySelectionCommit(*slog.Logger, *versioned.Tx) {
+func (d *rule) IdentitySelectionCommit(*slog.Logger, SelectorSnapshot) {
 }
 
 func (r *rule) IsPeerSelector() bool {
@@ -47,7 +46,7 @@ func (r *rule) IsPeerSelector() bool {
 }
 
 func (r *rule) String() string {
-	return r.Subject.String()
+	return r.Subject.Key()
 }
 
 func (r *rule) origin() ruleOrigin {
@@ -104,8 +103,8 @@ func (l7Rules *PerSelectorPolicy) takesListenerPrecedenceOver(other *PerSelector
 
 	// decrement by one to wrap the undefined value (0) to be the highest numerical
 	// value of the uint16, which is the lowest possible priority
-	priority = l7Rules.Priority - 1
-	otherPriority = other.Priority - 1
+	priority = l7Rules.ListenerPriority - 1
+	otherPriority = other.ListenerPriority - 1
 
 	return priority < otherPriority
 }
@@ -122,7 +121,7 @@ func (l7Rules *PerSelectorPolicy) mergeRedirect(newL7Rules *PerSelectorPolicy) e
 	if l7Parser != l7Rules.L7Parser {
 		// Also copy over the listener priority
 		l7Rules.L7Parser = l7Parser
-		l7Rules.Priority = newL7Rules.Priority
+		l7Rules.ListenerPriority = newL7Rules.ListenerPriority
 	}
 
 	// Nothing to do if 'newL7Rules' has no listener reference
@@ -131,7 +130,7 @@ func (l7Rules *PerSelectorPolicy) mergeRedirect(newL7Rules *PerSelectorPolicy) e
 	}
 
 	// Nothing to do if the listeners are already the same and have the same priority
-	if newL7Rules.Listener == l7Rules.Listener && l7Rules.Priority == newL7Rules.Priority {
+	if newL7Rules.Listener == l7Rules.Listener && l7Rules.ListenerPriority == newL7Rules.ListenerPriority {
 		return nil
 	}
 
@@ -143,12 +142,12 @@ func (l7Rules *PerSelectorPolicy) mergeRedirect(newL7Rules *PerSelectorPolicy) e
 	// override if 'l7Rules' has no listener or 'newL7Rules' takes precedence
 	if l7Rules.Listener == "" || newL7Rules.takesListenerPrecedenceOver(l7Rules) {
 		l7Rules.Listener = newL7Rules.Listener
-		l7Rules.Priority = newL7Rules.Priority
+		l7Rules.ListenerPriority = newL7Rules.ListenerPriority
 		return nil
 	}
 
 	// otherwise error on conflict
-	return fmt.Errorf("cannot merge conflicting CiliumEnvoyConfig Listeners (%v/%v) with the same priority (%d)", newL7Rules.Listener, l7Rules.Listener, l7Rules.Priority)
+	return fmt.Errorf("cannot merge conflicting CiliumEnvoyConfig Listeners (%v/%v) with the same priority (%d)", newL7Rules.Listener, l7Rules.Listener, l7Rules.ListenerPriority)
 }
 
 // mergePortProto merges the L7-related data from the filter to merge
@@ -157,6 +156,8 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 	selectorCache := policyCtx.GetSelectorCache()
 
 	for cs, newL7Rules := range filterToMerge.PerSelectorPolicies {
+		newPriority := newL7Rules.GetPriority()
+
 		// 'cs' will be merged or moved (see below), either way it needs
 		// to be removed from the map it is in now.
 		delete(filterToMerge.PerSelectorPolicies, cs)
@@ -178,24 +179,27 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 				continue // identical rules need no merging
 			}
 
-			// Merge two non-identical sets of non-nil rules
-			if l7Rules.GetDeny() {
-				// If existing rule is deny then it's a no-op
-				// Denies takes priority over any rule.
+			priority := l7Rules.GetPriority()
+			// Check if either rule takes precedence due to precedence level or deny.
+			if priority < newPriority || (priority == newPriority && l7Rules.IsDeny()) {
+				// Later level newL7Rules has no effect.
+				// Same level deny takes takes precedence over any other rule.
 				continue
-			} else if newL7Rules.GetDeny() {
-				// Overwrite existing filter if the new rule is a deny case
-				// Denies takes priority over any rule.
+			} else if priority > newPriority || (priority == newPriority && newL7Rules.IsDeny()) {
+				// Earlier level (or same level deny) newL7Rules takes precedence.
+				// Overwrite existing filter.
 				existingFilter.PerSelectorPolicies[cs] = newL7Rules
 				continue
 			}
 
+			// Merge two non-identical sets of allow rules on the same precedence level
+
 			// One of the rules may be a nil rule, expand it to an empty non-nil rule
 			if l7Rules == nil {
-				l7Rules = &PerSelectorPolicy{}
+				l7Rules = &PerSelectorPolicy{Verdict: types.Allow}
 			}
 			if newL7Rules == nil {
-				newL7Rules = &PerSelectorPolicy{}
+				newL7Rules = &PerSelectorPolicy{Verdict: types.Allow}
 			}
 
 			// Merge Redirect
@@ -324,10 +328,9 @@ func (existingFilter *L4Filter) mergePortProto(policyCtx PolicyContext, filterTo
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, endpoints types.PeerSelectorSlice, auth *api.Authentication,
-	r api.Ports, p api.PortProtocol) (int, error) {
+func (resMap *L4PolicyMap) addFilter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule api.Ports, p api.PortProtocol) (int, error) {
 	// Create a new L4Filter
-	filterToMerge, err := createL4Filter(policyCtx, endpoints, auth, r, p)
+	filterToMerge, err := createL4Filter(policyCtx, entry, portRule, p)
 	if err != nil {
 		return 0, err
 	}
@@ -336,17 +339,17 @@ func (resMap *l4PolicyMap) addFilter(policyCtx PolicyContext, endpoints types.Pe
 	if err != nil {
 		return 0, err
 	}
+
+	// Currently we return '1' here even if all of the filterToMerge was skipped due to priority
+	// in mergePortProto called by addL4Filter.
 	return 1, err
 }
 
-func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (int, error) {
+func (resMap *L4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (int, error) {
 	found := 0
 
-	peerEndpoints := rule.L3
-	auth := rule.Authentication
-
 	// short-circuit if no endpoint is selected
-	if peerEndpoints == nil {
+	if rule.L3 == nil {
 		return found, nil
 	}
 
@@ -355,9 +358,9 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 		err error
 	)
 
-	// L3-only rule (with requirements folded into peerEndpoints).
-	if rule.L4.Len() == 0 && len(peerEndpoints) > 0 {
-		cnt, err = resMap.addFilter(policyCtx, peerEndpoints, auth, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny})
+	// L3-only rule.
+	if rule.L4.Len() == 0 && len(rule.L3) > 0 {
+		cnt, err = resMap.addFilter(policyCtx, &rule.PolicyEntry, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny})
 		if err != nil {
 			return found, err
 		}
@@ -366,13 +369,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 	found += cnt
 
 	err = rule.L4.Iterate(func(ports api.Ports) error {
-		// For L4 Policy, an empty slice of EndpointSelector indicates that the
-		// rule allows all at L3 - explicitly specify this by creating a slice
-		// with the WildcardEndpointSelector.
-		if len(peerEndpoints) == 0 {
-			peerEndpoints = types.PeerSelectorSlice{api.WildcardEndpointSelector}
-		}
-		if !policyCtx.IsDeny() {
+		if !rule.IsDeny() {
 			policyCtx.PolicyTrace("      Allows port %v\n", ports.GetPortProtocols())
 		} else {
 			policyCtx.PolicyTrace("      Denies port %v\n", ports.GetPortProtocols())
@@ -407,7 +404,7 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 			}
 			for _, protocol := range protocols {
 				p.Protocol = protocol
-				cnt, err := resMap.addFilter(policyCtx, peerEndpoints, auth, ports, p)
+				cnt, err := resMap.addFilter(policyCtx, &rule.PolicyEntry, ports, p)
 				if err != nil {
 					return err
 				}
@@ -420,12 +417,18 @@ func (resMap *l4PolicyMap) mergeL4Filter(policyCtx PolicyContext, rule *rule) (i
 	return found, err
 }
 
+func (pms *L4PolicyMaps) ensureTier(tier types.Tier) {
+	for len(*pms) <= int(tier) {
+		*pms = append(*pms, makeL4PolicyMap())
+	}
+}
+
 // resolveL4Policy analyzes the rule against the given SearchContext, and
 // merges it with any prior-generated policy within the provided L4Policy.
 //
 // If policyCtx.IsIngress() returns true, an ingress policy isresolved,
 // otherwise an egress policy is resolved.
-func (result *l4PolicyMap) resolveL4Policy(
+func (result *L4PolicyMaps) resolveL4Policy(
 	policyCtx PolicyContext,
 	state *traceState,
 	r *rule,
@@ -434,35 +437,16 @@ func (result *l4PolicyMap) resolveL4Policy(
 	found, foundDeny := 0, 0
 
 	policyCtx.SetOrigin(r.origin())
-
-	if r.Ingress != policyCtx.IsIngress() {
-		msg := "    No egress rules\n"
-		if policyCtx.IsIngress() {
-			msg = "    No ingress rules\n"
-		}
-		policyCtx.PolicyTrace(msg)
-		return nil
+	result.ensureTier(r.Tier)
+	cnt, err := (*result)[r.Tier].mergeL4Filter(policyCtx, r)
+	if err != nil {
+		return err
 	}
-
-	policyCtx.SetDeny(false)
-	if !r.Deny {
-		cnt, err := result.mergeL4Filter(policyCtx, r)
-		if err != nil {
-			return err
-		}
-		if cnt > 0 {
-			found += cnt
-		}
-	}
-
-	policyCtx.SetDeny(true)
-	if r.Deny {
-		cnt, err := result.mergeL4Filter(policyCtx, r)
-		if err != nil {
-			return err
-		}
-		if cnt > 0 {
+	if cnt > 0 {
+		if r.IsDeny() {
 			foundDeny += cnt
+		} else {
+			found += cnt
 		}
 	}
 
@@ -491,7 +475,7 @@ func (r *rule) matchesSubject(securityIdentity *identity.Identity) bool {
 		return r.Subject.Matches(securityIdentity.LabelArray)
 	}
 
-	return r.subjectSelector.Selects(versioned.Latest(), securityIdentity.ID)
+	return r.subjectSelector.Selects(securityIdentity.ID)
 }
 
 func (r *rule) getSubjects() []identity.NumericIdentity {
@@ -499,5 +483,5 @@ func (r *rule) getSubjects() []identity.NumericIdentity {
 		return []identity.NumericIdentity{identity.ReservedIdentityHost}
 	}
 
-	return r.subjectSelector.GetSelections(versioned.Latest())
+	return r.subjectSelector.GetSelections()
 }

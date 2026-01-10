@@ -36,6 +36,22 @@
      - Enable AlibabaCloud ENI integration
      - bool
      - ``false``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.securityGroupTags`
+     - 
+     - list
+     - ``[]``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.securityGroups`
+     - 
+     - list
+     - ``[]``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.vSwitchTags`
+     - 
+     - list
+     - ``[]``
+   * - :spelling:ignore:`alibabacloud.nodeSpec.vSwitches`
+     - 
+     - list
+     - ``[]``
    * - :spelling:ignore:`annotateK8sNode`
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
@@ -143,7 +159,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:e3652a00a2fabd16ce889f0aa32c38eec347b997e73bd09e69c962ec7f8732ee","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
+     - ``{"digest":"sha256:d80cd694d3e9467884fcb94b8ca1e20437d8a501096cdf367a5a1918a34fc2fd","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.37.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -256,6 +272,10 @@
      - Enable Azure integration. Note that this is incompatible with AKS clusters created in BYOCNI mode: use AKS BYOCNI integration (\ ``aksbyocni.enabled``\ ) instead.
      - bool
      - ``false``
+   * - :spelling:ignore:`azure.nodeSpec.azureInterfaceName`
+     - 
+     - string
+     - ``""``
    * - :spelling:ignore:`bandwidthManager`
      - Enable bandwidth manager to optimize TCP and UDP workloads and allow for rate-limiting traffic from individual Pods with EDT (Earliest Departure Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
      - object
@@ -887,7 +907,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.authMode`
      - Configure the clustermesh authentication mode. Supported values: - legacy:     All clusters access remote clustermesh instances with the same               username (i.e., remote). The "remote" certificate must be               generated with CN=remote if provided manually. - migration:  Intermediate mode required to upgrade from legacy to cluster               (and vice versa) with no disruption. Specifically, it enables               the creation of the per-cluster usernames, while still using               the common one for authentication. The "remote" certificate must               be generated with CN=remote if provided manually (same as legacy). - cluster:    Each cluster accesses remote etcd instances with a username               depending on the local cluster name (i.e., remote-\ :raw-html-m2r:`<cluster-name>`\ ).               The "remote" certificate must be generated with CN=remote-\ :raw-html-m2r:`<cluster-name>`               if provided manually. Cluster mode is meaningful only when the same               CA is shared across all clusters part of the mesh.
      - string
-     - ``"legacy"``
+     - ``"migration"``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto`
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
@@ -969,7 +989,7 @@
      - string
      - ``"mesh.cilium.io"``
    * - :spelling:ignore:`clustermesh.config.enabled`
-     - Enable the Clustermesh explicit configuration. If set to false, you need to provide the following secrets yourself: - cilium-clustermesh (used by cilium-agent/cilium-operator to connect to   the local etcd instance if KVStoreMesh is enabled or the remote clusters   if KVStoreMesh is disabled) - cilium-kvstoremesh (used by KVStoreMesh to connect to the remote clusters)
+     - Enable the Clustermesh explicit configuration. If set to false, you need to provide the following resources yourself: - (Secret) cilium-clustermesh (used by cilium-agent/cilium-operator to connect to   the local etcd instance if KVStoreMesh is enabled or the remote clusters   if KVStoreMesh is disabled) - (Secret) cilium-kvstoremesh (used by KVStoreMesh to connect to the remote clusters) - (ConfigMap) clustermesh-remote-users (used to create one etcd user per remote cluster   if clustermesh-apiserver is used and ``clustermesh.apiserver.tls.authMode`` is not   set to ``legacy``\ )
      - bool
      - ``false``
    * - :spelling:ignore:`clustermesh.enableEndpointSliceSynchronization`
@@ -1069,7 +1089,7 @@
      - bool
      - ``true``
    * - :spelling:ignore:`clustermesh.useAPIServer`
-     - Deploy clustermesh-apiserver for clustermesh
+     - Deploy clustermesh-apiserver for clustermesh. This option is typically used with ``clustermesh.config.enabled=true``. Refer to the ``clustermesh.config.enabled=true``\ documentation for more information.
      - bool
      - ``false``
    * - :spelling:ignore:`cni.binPath`
@@ -1131,7 +1151,7 @@
    * - :spelling:ignore:`cni.resources`
      - Specifies the resources for the cni initContainer
      - object
-     - ``{"requests":{"cpu":"100m","memory":"10Mi"}}``
+     - ``{"limits":{"cpu":1,"memory":"1Gi"},"requests":{"cpu":"100m","memory":"10Mi"}}``
    * - :spelling:ignore:`cni.uninstall`
      - Remove the CNI configuration and binary files on agent shutdown. Enable this if you're removing Cilium from the cluster. Disable this to prevent the CNI configuration file from being removed during agent upgrade, which can cause nodes to go unmanageable.
      - bool
@@ -1343,17 +1363,33 @@
    * - :spelling:ignore:`encryption.strictMode`
      - Configure the Encryption Pod2Pod strict mode.
      - object
-     - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false}``
+     - ``{"allowRemoteNodeIdentities":false,"cidr":"","egress":{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false},"enabled":false,"ingress":{"enabled":false}}``
    * - :spelling:ignore:`encryption.strictMode.allowRemoteNodeIdentities`
-     - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+     - Allow dynamic lookup of remote node identities. (deprecated: please use encryption.strictMode.egress.allowRemoteNodeIdentities) This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode.cidr`
-     - CIDR for the Encryption Pod2Pod strict mode.
+     - CIDR for the Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.cidr)
      - string
      - ``""``
+   * - :spelling:ignore:`encryption.strictMode.egress.allowRemoteNodeIdentities`
+     - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`encryption.strictMode.egress.cidr`
+     - CIDR for the Encryption Pod2Pod strict egress mode.
+     - string
+     - ``""``
+   * - :spelling:ignore:`encryption.strictMode.egress.enabled`
+     - Enable strict egress encryption.
+     - bool
+     - ``false``
    * - :spelling:ignore:`encryption.strictMode.enabled`
-     - Enable Encryption Pod2Pod strict mode.
+     - Enable Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.enabled)
+     - bool
+     - ``false``
+   * - :spelling:ignore:`encryption.strictMode.ingress.enabled`
+     - Enable strict ingress encryption. When enabled, all unencrypted overlay ingress traffic will be dropped. This option is only applicable when WireGuard and tunneling are enabled.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.type`
@@ -1412,6 +1448,46 @@
      - Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances are going to be used to create new ENIs
      - list
      - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec`
+     - NodeSpec configuration for the ENI
+     - object
+     - ``{"deleteOnTermination":null,"disablePrefixDelegation":false,"excludeInterfaceTags":[],"firstInterfaceIndex":null,"securityGroupTags":[],"securityGroups":[],"subnetIDs":[],"subnetTags":[],"usePrimaryAddress":false}``
+   * - :spelling:ignore:`eni.nodeSpec.deleteOnTermination`
+     - Delete ENI on termination @schema type: [null, boolean] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`eni.nodeSpec.disablePrefixDelegation`
+     - Disable prefix delegation for IP allocation
+     - bool
+     - ``false``
+   * - :spelling:ignore:`eni.nodeSpec.excludeInterfaceTags`
+     - Exclude interface tags to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.firstInterfaceIndex`
+     - First interface index to use for IP allocation @schema type: [null, integer] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`eni.nodeSpec.securityGroupTags`
+     - Security group tags to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.securityGroups`
+     - Security groups to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.subnetIDs`
+     - Subnet IDs to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.subnetTags`
+     - Subnet tags to use for IP allocation
+     - list
+     - ``[]``
+   * - :spelling:ignore:`eni.nodeSpec.usePrimaryAddress`
+     - Use primary address for IP allocation
+     - bool
+     - ``false``
    * - :spelling:ignore:`eni.subnetIDsFilter`
      - Filter via subnet IDs which will dictate which subnets are going to be used to create new ENIs Important note: This requires that each instance has an ENI with a matching subnet attached when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium, use the CNI configuration file settings (cni.customConf) instead.
      - list
@@ -1436,6 +1512,14 @@
      - ADVANCED OPTION: Bring your own custom Envoy bootstrap ConfigMap. Provide the name of a ConfigMap with a ``bootstrap-config.json`` key. When specified, Envoy will use this ConfigMap instead of the default provided by the chart. WARNING: Use of this setting has the potential to prevent cilium-envoy from starting up, and can cause unexpected behavior (e.g. due to syntax error or semantically incorrect configuration). Before submitting an issue, please ensure you have disabled this feature, as support cannot be provided for custom Envoy bootstrap configs. @schema type: [null, string] @schema
      - string
      - ``nil``
+   * - :spelling:ignore:`envoy.clusterMaxConnections`
+     - Maximum number of connections on Envoy clusters
+     - int
+     - ``1024``
+   * - :spelling:ignore:`envoy.clusterMaxRequests`
+     - Maximum number of requests on Envoy clusters
+     - int
+     - ``1024``
    * - :spelling:ignore:`envoy.connectTimeoutSeconds`
      - Time in seconds after which a TCP connection attempt times out
      - int
@@ -1499,7 +1583,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:24d8c3f2ee34472155f41c178004d44f02bb9d4b888340b0e10a337b053fdc39","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1763805254-768d5a2892ffd7012014681e8a7547124e57fc53","useDigest":true}``
+     - ``{"digest":"sha256:81398e449f2d3d0a6a70527e4f641aaa685d3156bea0bb30712fae3fd8822b86","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767794330-db497dd19e346b39d81d7b5c0dedf6c812bcc5c9","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -1548,6 +1632,10 @@
      - Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
      - int
      - ``0``
+   * - :spelling:ignore:`envoy.maxGlobalDownstreamConnections`
+     - Maximum number of global downstream connections
+     - int
+     - ``50000``
    * - :spelling:ignore:`envoy.maxRequestsPerConnection`
      - ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
      - int
@@ -1680,6 +1768,10 @@
      - cilium-envoy update strategy ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#updating-a-daemonset
      - object
      - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
+   * - :spelling:ignore:`envoy.useOriginalSourceAddress`
+     - For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter to use the original source address when extracting the metadata for a request.
+     - bool
+     - ``true``
    * - :spelling:ignore:`envoy.xffNumTrustedHopsL7PolicyEgress`
      - Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
      - int
@@ -2668,6 +2760,26 @@
      - Pre-allocation settings for IPAM in Multi-Pool mode
      - string
      - ``""``
+   * - :spelling:ignore:`ipam.nodeSpec`
+     - NodeSpec configuration for the IPAM
+     - object
+     - ``{"ipamMaxAllocate":null,"ipamMinAllocate":null,"ipamPreAllocate":null,"ipamStaticIPTags":[]}``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamMaxAllocate`
+     - IPAM max allocate @schema type: [null, integer] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamMinAllocate`
+     - IPAM min allocate @schema type: [null, integer] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamPreAllocate`
+     - IPAM pre allocate @schema type: [null, integer] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`ipam.nodeSpec.ipamStaticIPTags`
+     - IPAM static IP tags (currently only works with AWS and Azure)
+     - list
+     - ``[]``
    * - :spelling:ignore:`ipam.operator.autoCreateCiliumPodIPPools`
      - IP pools to auto-create in multi-pool IPAM mode.
      - object
@@ -3052,6 +3164,10 @@
      - node-init update strategy
      - object
      - ``{"type":"RollingUpdate"}``
+   * - :spelling:ignore:`nodeinit.waitForCloudInit`
+     - wait for Cloud init to finish on the host and assume the node has cloud init installed
+     - bool
+     - ``false``
    * - :spelling:ignore:`operator.affinity`
      - Affinity for cilium-operator
      - object
@@ -3343,7 +3459,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:24d8c3f2ee34472155f41c178004d44f02bb9d4b888340b0e10a337b053fdc39","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.3-1763805254-768d5a2892ffd7012014681e8a7547124e57fc53","useDigest":true}``
+     - ``{"digest":"sha256:81398e449f2d3d0a6a70527e4f641aaa685d3156bea0bb30712fae3fd8822b86","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767794330-db497dd19e346b39d81d7b5c0dedf6c812bcc5c9","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
@@ -3532,6 +3648,10 @@
      - Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
      - object
      - ``{}``
+   * - :spelling:ignore:`secretsNamespaceLabels`
+     - Labels to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
+     - object
+     - ``{}``
    * - :spelling:ignore:`securityContext.allowPrivilegeEscalation`
      - disable privilege escalation
      - bool
@@ -3596,6 +3716,50 @@
      - Enable socket LB
      - bool
      - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy`
+     - Standalone DNS Proxy Configuration Note: The standalone DNS proxy uses the agent's dnsProxy.* configuration for DNS settings (proxyPort, enableDnsCompression) to ensure consistency.
+     - object
+     - ``{"annotations":{},"automountServiceAccountToken":false,"debug":false,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"rollOutPods":false,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}``
+   * - :spelling:ignore:`standaloneDnsProxy.annotations`
+     - Standalone DNS proxy annotations
+     - object
+     - ``{}``
+   * - :spelling:ignore:`standaloneDnsProxy.automountServiceAccountToken`
+     - Standalone DNS proxy auto mount service account token
+     - bool
+     - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy.debug`
+     - Standalone DNS proxy debug mode
+     - bool
+     - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy.enabled`
+     - Enable standalone DNS proxy (alpha feature)
+     - bool
+     - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy.image`
+     - Standalone DNS proxy image
+     - object
+     - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"","tag":"","useDigest":false}``
+   * - :spelling:ignore:`standaloneDnsProxy.nodeSelector`
+     - Standalone DNS proxy Node Selector
+     - object
+     - ``{"kubernetes.io/os":"linux"}``
+   * - :spelling:ignore:`standaloneDnsProxy.rollOutPods`
+     - Roll out Standalone DNS proxy automatically when configmap is updated.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`standaloneDnsProxy.serverPort`
+     - Standalone DNS proxy server port
+     - int
+     - ``10095``
+   * - :spelling:ignore:`standaloneDnsProxy.tolerations`
+     - Standalone DNS proxy tolerations
+     - list
+     - ``[]``
+   * - :spelling:ignore:`standaloneDnsProxy.updateStrategy`
+     - Standalone DNS proxy update strategy
+     - object
+     - ``{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}``
    * - :spelling:ignore:`startupProbe.failureThreshold`
      - failure threshold of startup probe. Allow Cilium to take up to 600s to start up (300 attempts with 2s between attempts).
      - int

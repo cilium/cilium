@@ -33,7 +33,6 @@ to learn how to level up through the project.
  * [Kornilios Kourtis] (Isovalent)
  * [Laurent Bernaille] (Datadog)
  * [Liz Rice] (Isovalent)
- * [Lorenz Bauer] (Isovalent)
  * [Louis DeLosSantos] (Isovalent)
  * [Maciej Kwiek] (Isovalent)
  * [Marcel Zięba] (Isovalent)
@@ -66,6 +65,7 @@ We would like to acknowledge previous committers and their huge contributions to
  * [Eloy Coto] (Red Hat)
  * [Ian Vernon]
  * [Ilya Dmitrichenko] (Docker)
+ * [Lorenz Bauer]
  * [Michal Rostecki] (Anza)
  * [Ray Bejjani]
  * [Tom Payne]

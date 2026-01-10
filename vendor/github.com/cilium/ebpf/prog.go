@@ -745,6 +745,11 @@ type RunOptions struct {
 	// CPU to run Program on. Optional field.
 	// Note not all program types support this field.
 	CPU uint32
+	// BatchSize (default 64) affects the kernel's packet buffer allocation behaviour when running
+	// programs with BPF_F_TEST_XDP_LIVE_FRAMES and a non-zero [RunOptions.Repeat] value.
+	// For more details, see the kernel documentation on BPF_PROG_RUN:
+	// https://docs.kernel.org/bpf/bpf_prog_run.html#running-xdp-programs-in-live-frame-mode
+	BatchSize uint32
 	// Called whenever the syscall is interrupted, and should be set to testing.B.ResetTimer
 	// or similar. Typically used during benchmarking. Optional field.
 	//
@@ -911,6 +916,7 @@ func (p *Program) run(opts *RunOptions) (uint32, time.Duration, error) {
 		CtxOut:      sys.SlicePointer(ctxOut),
 		Flags:       opts.Flags,
 		Cpu:         opts.CPU,
+		BatchSize:   opts.BatchSize,
 	}
 
 	if p.Type() == Syscall && ctxIn != nil && ctxOut != nil {

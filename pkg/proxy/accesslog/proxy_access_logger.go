@@ -4,6 +4,8 @@
 package accesslog
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -16,7 +18,7 @@ type ProxyAccessLogger interface {
 	//
 	// Example:
 	// NewLogRecord(flowType, observationPoint, logger.LogTags.Timestamp(time.Now()))
-	NewLogRecord(t FlowType, ingress bool, tags ...LogTag) *LogRecord
+	NewLogRecord(ctx context.Context, t FlowType, ingress bool, tags ...LogTag) (*LogRecord, error)
 
 	// Log logs the given log record to the flow log (if flow debug logging is enabled)
 	// and sends it of to the monitor agent via notifier.
@@ -28,6 +30,7 @@ type proxyAccessLogger struct {
 
 	notifier             LogRecordNotifier
 	endpointInfoRegistry EndpointInfoRegistry
+	localNodeStore       *node.LocalNodeStore
 	metadata             []string
 }
 
@@ -41,16 +44,17 @@ type LogRecordNotifier interface {
 	NewProxyLogRecord(l *LogRecord) error
 }
 
-func NewProxyAccessLogger(logger *slog.Logger, config ProxyAccessLoggerConfig, notifier LogRecordNotifier, endpointInfoRegistry EndpointInfoRegistry) ProxyAccessLogger {
+func NewProxyAccessLogger(logger *slog.Logger, config ProxyAccessLoggerConfig, notifier LogRecordNotifier, endpointInfoRegistry EndpointInfoRegistry, localNodeStore *node.LocalNodeStore) ProxyAccessLogger {
 	return &proxyAccessLogger{
 		logger:               logger,
 		notifier:             notifier,
 		endpointInfoRegistry: endpointInfoRegistry,
+		localNodeStore:       localNodeStore,
 		metadata:             config.AgentLabels,
 	}
 }
 
-func (r *proxyAccessLogger) NewLogRecord(t FlowType, ingress bool, tags ...LogTag) *LogRecord {
+func (r *proxyAccessLogger) NewLogRecord(ctx context.Context, t FlowType, ingress bool, tags ...LogTag) (*LogRecord, error) {
 	var observationPoint ObservationPoint
 	if ingress {
 		observationPoint = Ingress
@@ -67,11 +71,16 @@ func (r *proxyAccessLogger) NewLogRecord(t FlowType, ingress bool, tags ...LogTa
 		NodeAddressInfo:   NodeAddressInfo{},
 	}
 
-	if ip := node.GetIPv4(r.logger); ip != nil {
+	ln, err := r.localNodeStore.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get local node: %w", err)
+	}
+
+	if ip := ln.GetNodeIP(false); ip != nil {
 		lr.NodeAddressInfo.IPv4 = ip.String()
 	}
 
-	if ip := node.GetIPv6(r.logger); ip != nil {
+	if ip := ln.GetNodeIP(true); ip != nil {
 		lr.NodeAddressInfo.IPv6 = ip.String()
 	}
 
@@ -79,7 +88,7 @@ func (r *proxyAccessLogger) NewLogRecord(t FlowType, ingress bool, tags ...LogTa
 		tagFn(&lr, r.endpointInfoRegistry)
 	}
 
-	return &lr
+	return &lr, nil
 }
 
 func (r *proxyAccessLogger) Log(lr *LogRecord) {

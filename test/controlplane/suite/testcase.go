@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -394,7 +395,9 @@ func (fw *filteringWatcher) ResultChan() <-chan watch.Event {
 	selector := fw.restrictions.Fields
 	go func() {
 		for event := range fw.parent.ResultChan() {
-			if matchFieldSelector(event.Object, selector) {
+			// Always allow Bookmark events through - they're used for WatchList
+			// semantics and don't have the fields that selectors match against.
+			if event.Type == watch.Bookmark || matchFieldSelector(event.Object, selector) {
 				fw.events <- event
 			}
 		}
@@ -499,7 +502,14 @@ func augmentTracker[T fakeWithTracker](f T, t *testing.T, watchers *lock.Map[str
 			w := action.(k8sTesting.WatchAction)
 			gvr := w.GetResource()
 			ns := w.GetNamespace()
-			watch, err := o.Watch(gvr, ns)
+
+			// Extract ListOptions for WatchList semantics (SendInitialEvents)
+			var opts []metav1.ListOptions
+			if watchAction, ok := action.(k8sTesting.WatchActionImpl); ok {
+				opts = append(opts, watchAction.ListOptions)
+			}
+
+			watch, err := o.Watch(gvr, ns, opts...)
 			if err != nil {
 				return false, nil, err
 			}

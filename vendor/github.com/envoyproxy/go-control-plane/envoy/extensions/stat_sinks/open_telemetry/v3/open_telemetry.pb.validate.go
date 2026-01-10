@@ -156,6 +156,35 @@ func (m *SinkConfig) validate(all bool) error {
 
 	// no validation rules for Prefix
 
+	if all {
+		switch v := interface{}(m.GetCustomMetricConversions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SinkConfigValidationError{
+					field:  "CustomMetricConversions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SinkConfigValidationError{
+					field:  "CustomMetricConversions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCustomMetricConversions()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return SinkConfigValidationError{
+				field:  "CustomMetricConversions",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	oneofProtocolSpecifierPresent := false
 	switch v := m.ProtocolSpecifier.(type) {
 	case *SinkConfig_GrpcService:
@@ -301,3 +330,142 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = SinkConfigValidationError{}
+
+// Validate checks the field values on SinkConfig_ConversionAction with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *SinkConfig_ConversionAction) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SinkConfig_ConversionAction with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// SinkConfig_ConversionActionMultiError, or nil if none found.
+func (m *SinkConfig_ConversionAction) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SinkConfig_ConversionAction) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for MetricName
+
+	for idx, item := range m.GetStaticMetricLabels() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SinkConfig_ConversionActionValidationError{
+						field:  fmt.Sprintf("StaticMetricLabels[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SinkConfig_ConversionActionValidationError{
+						field:  fmt.Sprintf("StaticMetricLabels[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return SinkConfig_ConversionActionValidationError{
+					field:  fmt.Sprintf("StaticMetricLabels[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return SinkConfig_ConversionActionMultiError(errors)
+	}
+
+	return nil
+}
+
+// SinkConfig_ConversionActionMultiError is an error wrapping multiple
+// validation errors returned by SinkConfig_ConversionAction.ValidateAll() if
+// the designated constraints aren't met.
+type SinkConfig_ConversionActionMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SinkConfig_ConversionActionMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SinkConfig_ConversionActionMultiError) AllErrors() []error { return m }
+
+// SinkConfig_ConversionActionValidationError is the validation error returned
+// by SinkConfig_ConversionAction.Validate if the designated constraints
+// aren't met.
+type SinkConfig_ConversionActionValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e SinkConfig_ConversionActionValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e SinkConfig_ConversionActionValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e SinkConfig_ConversionActionValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e SinkConfig_ConversionActionValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e SinkConfig_ConversionActionValidationError) ErrorName() string {
+	return "SinkConfig_ConversionActionValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e SinkConfig_ConversionActionValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sSinkConfig_ConversionAction.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = SinkConfig_ConversionActionValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = SinkConfig_ConversionActionValidationError{}

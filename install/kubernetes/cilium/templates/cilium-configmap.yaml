@@ -587,6 +587,35 @@ data:
 {{- end }}
   ec2-api-endpoint: {{ .Values.eni.ec2APIEndpoint | quote }}
   eni-tags: {{ .Values.eni.eniTags | toRawJson | quote }}
+{{- if .Values.eni.nodeSpec }}
+  {{- if ne .Values.eni.nodeSpec.firstInterfaceIndex nil }}
+  eni-first-interface-index: {{ .Values.eni.nodeSpec.firstInterfaceIndex | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.subnetIDs }}
+  eni-subnet-ids: {{ .Values.eni.nodeSpec.subnetIDs | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.subnetTags }}
+  eni-subnet-tags: {{ .Values.eni.nodeSpec.subnetTags | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.securityGroups }}
+  eni-security-groups: {{ .Values.eni.nodeSpec.securityGroups | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.securityGroupTags }}
+  eni-security-group-tags: {{ .Values.eni.nodeSpec.securityGroupTags | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.excludeInterfaceTags }}
+  eni-exclude-interface-tags: {{ .Values.eni.nodeSpec.excludeInterfaceTags | join "," | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.usePrimaryAddress }}
+  eni-use-primary-address: "true"
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.disablePrefixDelegation }}
+  eni-disable-prefix-delegation: "true"
+  {{- end }}
+  {{- if ne .Values.eni.nodeSpec.deleteOnTermination nil }}
+  eni-delete-on-termination: {{ .Values.eni.nodeSpec.deleteOnTermination | quote }}
+  {{- end }}
+{{- end }}
 {{- if .Values.eni.subnetIDsFilter }}
   subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}
 {{- end }}
@@ -612,15 +641,37 @@ data:
 {{- end }}
   azure-use-primary-address: {{ $azureUsePrimaryAddress | quote }}
 {{- end }}
+{{- if .Values.azure.nodeSpec.azureInterfaceName }}
+  azure-interface-name: {{ .Values.azure.nodeSpec.azureInterfaceName | quote }}
+{{- end }}
 
 {{- if .Values.alibabacloud.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
 {{- end }}
+{{- if .Values.alibabacloud.nodeSpec.vSwitches }}
+  alibabacloud-vswitches: {{ .Values.alibabacloud.nodeSpec.vSwitches | join "," | quote }}
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.vSwitchTags }}
+  alibabacloud-vswitch-tags: {{ .Values.alibabacloud.nodeSpec.vSwitchTags | join "," | quote }}
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.securityGroups }}
+  alibabacloud-security-groups: {{ .Values.alibabacloud.nodeSpec.securityGroups | join "," | quote }}
+{{- end }}
+{{- if .Values.alibabacloud.nodeSpec.securityGroupTags }}
+  alibabacloud-security-group-tags: {{ .Values.alibabacloud.nodeSpec.securityGroupTags | join "," | quote }}
+{{- end }}
 
 {{- if hasKey .Values "l7Proxy" }}
   # Enables L7 proxy for L7 policy enforcement and visibility
   enable-l7-proxy: {{ .Values.l7Proxy | quote }}
+{{- end }}
+
+{{- if hasKey .Values "standaloneDnsProxy" }}
+  {{- if .Values.standaloneDnsProxy.enabled }}
+  enable-standalone-dns-proxy: {{ .Values.standaloneDnsProxy.enabled | quote }}
+  standalone-dns-proxy-server-port: {{ .Values.standaloneDnsProxy.serverPort | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if ne $cniChainingMode "none" }}
@@ -708,11 +759,20 @@ data:
 {{- end }}
 
 {{- if .Values.encryption.strictMode.enabled }}
-  enable-encryption-strict-mode: {{ .Values.encryption.strictMode.enabled | quote }}
+  # --- DEPRECATED: Please use encryption.strictMode.egress.enabled instead
+  enable-encryption-strict-mode-egress: {{ .Values.encryption.strictMode.enabled | quote }}
+  encryption-strict-egress-cidr: {{ .Values.encryption.strictMode.cidr | quote }}
+  encryption-strict-egress-allow-remote-node-identities: {{ .Values.encryption.strictMode.allowRemoteNodeIdentities | quote }}
+{{- end }}
 
-  encryption-strict-mode-cidr: {{ .Values.encryption.strictMode.cidr | quote }}
+{{- if .Values.encryption.strictMode.ingress.enabled }}
+  enable-encryption-strict-mode-ingress: {{ .Values.encryption.strictMode.ingress.enabled | quote }}
+{{- end }}
 
-  encryption-strict-mode-allow-remote-node-identities: {{ .Values.encryption.strictMode.allowRemoteNodeIdentities | quote }}
+{{- if .Values.encryption.strictMode.egress.enabled }}
+  enable-encryption-strict-mode-egress: {{ .Values.encryption.strictMode.egress.enabled | quote }}
+  encryption-strict-egress-cidr: {{ .Values.encryption.strictMode.egress.cidr | quote }}
+  encryption-strict-egress-allow-remote-node-identities: {{ .Values.encryption.strictMode.egress.allowRemoteNodeIdentities | quote }}
 {{- end }}
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
@@ -1105,6 +1165,20 @@ data:
 {{- else }}
   ipam: {{ $ipam | quote }}
 {{- end }}
+{{- if .Values.ipam.nodeSpec }}
+  {{- if ne .Values.ipam.nodeSpec.ipamMinAllocate nil }}
+  ipam-min-allocate: {{ .Values.ipam.nodeSpec.ipamMinAllocate | quote }}
+  {{- end }}
+  {{- if ne .Values.ipam.nodeSpec.ipamPreAllocate nil }}
+  ipam-pre-allocate: {{ .Values.ipam.nodeSpec.ipamPreAllocate | quote }}
+  {{- end }}
+  {{- if ne .Values.ipam.nodeSpec.ipamMaxAllocate nil }}
+  ipam-max-allocate: {{ .Values.ipam.nodeSpec.ipamMaxAllocate | quote }}
+  {{- end }}
+  {{- if .Values.ipam.nodeSpec.ipamStaticIPTags }}
+  ipam-static-ip-tags: {{ .Values.ipam.nodeSpec.ipamStaticIPTags | join "," | quote }}
+  {{- end }}
+{{- end }}
 {{- if .Values.ipam.multiPoolPreAllocation }}
   ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation | quote }}
 {{- end }}
@@ -1306,7 +1380,12 @@ data:
 {{- end }}
 
 {{- if .Values.operator.unmanagedPodWatcher.restart }}
-  unmanaged-pod-watcher-interval: {{ .Values.operator.unmanagedPodWatcher.intervalSeconds | quote }}
+  {{- $interval := .Values.operator.unmanagedPodWatcher.intervalSeconds }}
+  {{- if kindIs "float64" $interval }}
+  unmanaged-pod-watcher-interval: {{ printf "%ds" (int $interval) | quote }}
+  {{- else }}
+  unmanaged-pod-watcher-interval: {{ $interval | quote }}
+  {{- end }}
 {{- else }}
   unmanaged-pod-watcher-interval: "0"
 {{- end }}
@@ -1384,10 +1463,14 @@ data:
   proxy-xff-num-trusted-hops-egress: {{ .Values.envoy.xffNumTrustedHopsL7PolicyEgress | quote }}
   proxy-connect-timeout: {{ .Values.envoy.connectTimeoutSeconds | quote }}
   proxy-initial-fetch-timeout: {{ .Values.envoy.initialFetchTimeoutSeconds | quote }}
+  proxy-max-active-downstream-connections: {{ .Values.envoy.maxGlobalDownstreamConnections | quote }}
   proxy-max-requests-per-connection: {{ .Values.envoy.maxRequestsPerConnection | quote }}
   proxy-max-connection-duration-seconds: {{ .Values.envoy.maxConnectionDurationSeconds | quote }}
   proxy-idle-timeout-seconds: {{ .Values.envoy.idleTimeoutDurationSeconds | quote }}
   proxy-max-concurrent-retries: {{ .Values.envoy.maxConcurrentRetries | quote }}
+  proxy-use-original-source-address: {{ .Values.envoy.useOriginalSourceAddress | quote }}
+  proxy-cluster-max-connections: {{ .Values.envoy.clusterMaxConnections | quote }}
+  proxy-cluster-max-requests: {{ .Values.envoy.clusterMaxRequests | quote }}
   http-retry-count: {{ .Values.envoy.httpRetryCount | quote }}
   http-stream-idle-timeout: {{ .Values.envoy.streamIdleTimeoutDurationSeconds | quote }}
 

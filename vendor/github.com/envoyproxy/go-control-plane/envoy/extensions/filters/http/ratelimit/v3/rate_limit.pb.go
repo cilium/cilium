@@ -323,8 +323,6 @@ type RateLimit struct {
 	//	2. :ref:`dynamic metadata <envoy_v3_api_field_config.route.v3.RateLimit.Action.dynamic_metadata>`.
 	//	3. :ref:`disable_key <envoy_v3_api_field_config.route.v3.RateLimit.disable_key>`.
 	//	4. :ref:`override limit <envoy_v3_api_field_config.route.v3.RateLimit.limit>`.
-	//	5. :ref:`hits_addend <envoy_v3_api_field_config.route.v3.RateLimit.hits_addend>`.
-	//	6. :ref:`apply_on_stream_done <envoy_v3_api_field_config.route.v3.RateLimit.apply_on_stream_done>`.
 	RateLimits []*v33.RateLimit `protobuf:"bytes,17,rep,name=rate_limits,json=rateLimits,proto3" json:"rate_limits,omitempty"`
 }
 

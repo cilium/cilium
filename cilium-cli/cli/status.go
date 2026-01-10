@@ -50,7 +50,7 @@ func newCmdStatus() *cobra.Command {
 				fmt.Print(s.Format())
 			}
 
-			if err == nil && len(s.CollectionErrors) > 0 {
+			if len(s.CollectionErrors) > 0 {
 				errs := make([]string, 0, len(s.CollectionErrors))
 				for _, e := range s.CollectionErrors {
 					errs = append(errs, e.Error())

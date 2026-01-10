@@ -96,6 +96,14 @@ func (a Afi) String() string {
 	}
 }
 
+func (a Afi) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + a.String() + "\""), nil
+}
+
+func (a Afi) MarshalYAML() (any, error) {
+	return a.String(), nil
+}
+
 // ParseAfi parses s as an address family identifier.
 // If s is unknown, AfiUnknown is returned.
 func ParseAfi(s string) Afi {
@@ -217,6 +225,14 @@ func (s Safi) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+func (s Safi) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + s.String() + "\""), nil
+}
+
+func (s Safi) MarshalYAML() (any, error) {
+	return s.String(), nil
 }
 
 // ParseSafi parses s as a subsequent address family identifier.

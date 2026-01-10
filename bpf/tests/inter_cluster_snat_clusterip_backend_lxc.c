@@ -42,10 +42,6 @@
 /* Import map definitions and some default values */
 #include <bpf/config/node.h>
 
-/* Overwrite (local) CLUSTER_ID defined in node_config.h */
-#undef CLUSTER_ID
-#define CLUSTER_ID 1
-
 /* Need to undef EVENT_SOURCE here since it is defined in
  * both of common.h and bpf_lxc.c.
  */
@@ -53,6 +49,9 @@
 
 /* Include an actual datapath code */
 #include "lib/bpf_lxc.h"
+
+/* Overwrite (local) cluster_id defined in clustermesh.h */
+ASSIGN_CONFIG(__u32, cluster_id, 1)
 
 /* Set the LXC source address to be the address of the backend pod */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = BACKEND_IP})
@@ -135,7 +134,8 @@ int overlay_to_lxc_syn_setup(struct __ctx_buff *ctx)
 	 * Apply policy based on the remote "real"
 	 * identity instead of remote-node identity.
 	 */
-	policy_add_ingress_allow_entry(CLIENT_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
+	policy_add_ingress_allow_l3_l4_entry(CLIENT_IDENTITY, IPPROTO_TCP,
+					     BACKEND_PORT, 0);
 
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
 	local_delivery_fill_meta(ctx, CLIENT_IDENTITY, true, false, true, 0);

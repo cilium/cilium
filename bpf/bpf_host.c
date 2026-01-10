@@ -24,6 +24,8 @@
 # define VLAN_FILTER(ifindex, vlan_id) return false;
 #endif
 
+#define	NODEPORT_USE_NAT_46x64		1
+
 #include "lib/common.h"
 #include "lib/config_map.h"
 #include "lib/edt.h"
@@ -141,16 +143,14 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    __u32 ipcache_srcid __maybe_unused,
-	    const bool from_host __maybe_unused,
+	    const bool from_host,
 	    bool *punt_to_stack __maybe_unused,
-	    __s8 *ext_err __maybe_unused)
+	    __s8 *ext_err)
 {
-#ifdef ENABLE_HOST_FIREWALL
-	struct ct_buffer6 ct_buffer = {};
-	bool need_hostfw = false;
-	bool is_host_id = false;
-	bool skip_host_firewall = false;
-#endif /* ENABLE_HOST_FIREWALL */
+	struct ct_buffer6 __maybe_unused ct_buffer = {};
+	bool __maybe_unused need_hostfw = false;
+	bool __maybe_unused is_host_id = false;
+	bool __maybe_unused skip_host_firewall = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	fraginfo_t fraginfo __maybe_unused;
@@ -597,11 +597,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
-#ifdef ENABLE_HOST_FIREWALL
-	struct ct_buffer4 ct_buffer = {};
-	bool need_hostfw = false;
-	bool is_host_id = false;
-#endif /* ENABLE_HOST_FIREWALL */
+	struct ct_buffer4 __maybe_unused ct_buffer = {};
+	bool __maybe_unused need_hostfw = false;
+	bool __maybe_unused is_host_id = false;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo __maybe_unused;
@@ -626,13 +624,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 			int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, secctx, punt_to_stack,
 					       ext_err, &is_dsr);
-#ifdef ENABLE_IPV6
-			if (ret == NAT_46X64_RECIRC) {
-				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
-				return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
-							  ext_err);
-			}
-#endif
+
 			/* nodeport_lb4() returns with TC_ACT_REDIRECT for
 			 * traffic to L7 LB. Policy enforcement needs to take
 			 * place after L7 LB has processed the packet, so we
@@ -782,9 +774,9 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			if (l2_hdr_required) {
 				/* l2 header is added */
 				l3_off += __ETH_HLEN;
-				if (!____revalidate_data_pull(ctx, &data, &data_end,
-							      (void **)&ip4, sizeof(*ip4),
-							      false, l3_off))
+				if (!__revalidate_data_pull(ctx, &data, &data_end,
+							    (void **)&ip4, l3_off,
+							    sizeof(*ip4), false))
 					return DROP_INVALID;
 			}
 		}
@@ -807,7 +799,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	{
 		struct remote_endpoint_info fake_info = {0};
 		struct vtep_key vkey = {};
-		struct vtep_value *vtep;
+		const struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->daddr & CONFIG(vtep_mask);
 		vtep = map_lookup_elem(&cilium_vtep_map, &vkey);
@@ -1020,7 +1012,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #endif /* ENABLE_IPV4 */
 
 static __always_inline int
-do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
+do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 identity,
 	  enum trace_point obs_point,  const bool __maybe_unused from_host)
 {
 	struct trace_ctx trace = {
@@ -1274,7 +1266,6 @@ int cil_from_host(struct __ctx_buff *ctx)
 {
 	enum trace_point obs_point = TRACE_FROM_HOST;
 	__u32 identity = UNKNOWN_ID;
-	int ret __maybe_unused;
 	__be16 proto = 0;
 	__u32 magic;
 
@@ -1307,6 +1298,7 @@ int cil_from_host(struct __ctx_buff *ctx)
 #if defined(ENABLE_L7_LB)
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		__u16 lxc_id = get_epid(ctx);
+		int ret;
 
 		ctx->mark = 0;
 		ret = tail_call_egress_policy(ctx, lxc_id);
@@ -1507,12 +1499,12 @@ skip_host_firewall:
 #endif /* ENABLE_WIREGUARD */
 
 #if (defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD)) &&		\
-     defined(ENCRYPTION_STRICT_MODE)
+     defined(ENCRYPTION_STRICT_MODE_EGRESS)
 	if (!strict_allow(ctx, proto)) {
 		ret = DROP_UNENCRYPTED_TRAFFIC;
 		goto drop_err;
 	}
-#endif /* ENCRYPTION_STRICT_MODE */
+#endif /* ENCRYPTION_STRICT_MODE_EGRESS */
 
 #ifdef ENABLE_HEALTH_CHECK
 	ret = lb_handle_health(ctx, proto);

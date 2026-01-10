@@ -6254,8 +6254,18 @@ type FleetLaunchTemplateConfigRequest struct {
 // Describes overrides for a launch template.
 type FleetLaunchTemplateOverrides struct {
 
-	// The Availability Zone in which to launch the instances.
+	// The Availability Zone in which to launch the instances. For example, us-east-2a .
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified in the request,
+	// but not both.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone in which to launch the instances. For example,
+	// use2-az1 .
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified in the request,
+	// but not both.
+	AvailabilityZoneId *string
 
 	// The block device mappings, which define the EBS volumes and instance store
 	// volumes to attach to the instance at launch.
@@ -6369,8 +6379,18 @@ type FleetLaunchTemplateOverrides struct {
 // Describes overrides for a launch template.
 type FleetLaunchTemplateOverridesRequest struct {
 
-	// The Availability Zone in which to launch the instances.
+	// The Availability Zone in which to launch the instances. For example, us-east-2a .
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified in the request,
+	// but not both.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone in which to launch the instances. For example,
+	// use2-az1 .
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified in the request,
+	// but not both.
+	AvailabilityZoneId *string
 
 	// The block device mappings, which define the EBS volumes and instance store
 	// volumes to attach to the instance at launch.
@@ -13439,8 +13459,18 @@ type LaunchTemplateNetworkPerformanceOptionsRequest struct {
 // Describes overrides for a launch template.
 type LaunchTemplateOverrides struct {
 
-	// The Availability Zone in which to launch the instances.
+	// The Availability Zone in which to launch the instances. For example, us-east-2a .
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified in the request,
+	// but not both.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone in which to launch the instances. For example,
+	// use2-az1 .
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified in the request,
+	// but not both.
+	AvailabilityZoneId *string
 
 	// The instance requirements. When you specify instance requirements, Amazon EC2
 	// will identify instance types with the provided requirements, and then use your
@@ -14923,6 +14953,10 @@ type MovingAddressStatus struct {
 // Describes a NAT gateway.
 type NatGateway struct {
 
+	// The proxy appliances attached to the NAT Gateway for filtering and inspecting
+	// traffic to prevent data exfiltration.
+	AttachedAppliances []NatGatewayAttachedAppliance
+
 	// For regional NAT gateways only: Indicates whether Amazon Web Services
 	// automatically manages AZ coverage. When enabled, the NAT gateway associates EIPs
 	// in all AZs where your VPC has subnets to handle outbound NAT traffic, expands to
@@ -15085,6 +15119,38 @@ type NatGatewayAddress struct {
 
 	// The address status.
 	Status NatGatewayAddressStatus
+
+	noSmithyDocumentSerde
+}
+
+// Information about an appliance attached to a NAT Gateway, providing managed
+// security solutions for traffic filtering and inspection.
+type NatGatewayAttachedAppliance struct {
+
+	// The Amazon Resource Name (ARN) of the attached appliance, identifying the
+	// specific proxy or security appliance resource.
+	ApplianceArn *string
+
+	// The current attachment state of the appliance.
+	AttachmentState NatGatewayApplianceState
+
+	// The failure code if the appliance attachment or modification operation failed.
+	FailureCode *string
+
+	// A descriptive message explaining the failure if the appliance attachment or
+	// modification operation failed.
+	FailureMessage *string
+
+	// The current modification state of the appliance.
+	ModificationState NatGatewayApplianceModifyState
+
+	// The type of appliance attached to the NAT Gateway. For network firewall proxy
+	// functionality, this will be "network-firewall-proxy".
+	Type NatGatewayApplianceType
+
+	// The VPC endpoint ID used to route traffic from application VPCs to the proxy
+	// for inspection and filtering.
+	VpcEndpointId *string
 
 	noSmithyDocumentSerde
 }
@@ -16665,6 +16731,9 @@ type PlacementGroup struct {
 
 	// The name of the placement group.
 	GroupName *string
+
+	// Reserved for future use.
+	LinkedGroupId *string
 
 	// The number of partitions. Valid only if strategy is set to partition .
 	PartitionCount *int32
@@ -21083,11 +21152,23 @@ type SpotOptionsRequest struct {
 // Describes Spot Instance placement.
 type SpotPlacement struct {
 
-	// The Availability Zone.
+	// The Availability Zone. For example, us-east-2a .
 	//
 	// [Spot Fleet only] To specify multiple Availability Zones, separate them using
-	// commas; for example, "us-west-2a, us-west-2b".
+	// commas; for example, " us-east-2a , us-east-2b ".
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified in the request,
+	// but not both.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone. For example, use2-az1 .
+	//
+	// [Spot Fleet only] To specify multiple Availability Zones, separate them using
+	// commas; for example, " use2-az1 , use2-bz1 ".
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified in the request,
+	// but not both.
+	AvailabilityZoneId *string
 
 	// The name of the placement group.
 	GroupName *string

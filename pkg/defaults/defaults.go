@@ -20,14 +20,8 @@ const (
 )
 
 const (
-	// AgentHealthPort is the default value for option.AgentHealthPort
-	AgentHealthPort = 9879
-
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
-
-	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
-	ClusterMeshHealthPort = 80
 
 	// EnableGops is the default value for option.EnableGops
 	EnableGops = true
@@ -295,12 +289,6 @@ const (
 	// connection tracking garbage collection
 	ConntrackGCStartingInterval = 5 * time.Minute
 
-	// ServiceLoopbackIPv4 is the default address for service loopback
-	ServiceLoopbackIPv4 = "169.254.42.1"
-
-	// ServiceLoopbackIPv6 is the default address for service loopback
-	ServiceLoopbackIPv6 = "fe80::1"
-
 	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
 	// It is disabled by default for backwards compatibility.
 	EnableEndpointRoutes = false
@@ -351,6 +339,10 @@ const (
 	// ENIDisableNodeLevelPD  is the default value for
 	// CiliumNode.Spec.ENI.DisablePrefixDelegation if no value is set.
 	ENIDisableNodeLevelPD = false
+
+	// ENIDeleteOnTermination is the default value for
+	// CiliumNode.Spec.ENI.DeleteOnTermination if no value is set.
+	ENIDeleteOnTermination = true
 
 	// ENIGarbageCollectionTagManagedName is part of the ENIGarbageCollectionTags default tag set
 	ENIGarbageCollectionTagManagedName = "io.cilium/cilium-managed"
@@ -435,11 +427,6 @@ const (
 	// EnableIdentityMark enables setting identity in mark field of packet
 	// for local traffic
 	EnableIdentityMark = true
-
-	// K8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
-	// for the support of Leases in Kubernetes when there is an error in discovering
-	// API groups using Discovery API.
-	K8sEnableLeasesFallbackDiscovery = false
 
 	// InstallNoConntrackRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod traffic.
 	InstallNoConntrackIptRules = false

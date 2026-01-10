@@ -44,7 +44,7 @@ type policyImporterParams struct {
 
 	Repo            policy.PolicyRepository
 	EndpointManager endpointmanager.EndpointManager
-	IPCache         *ipcache.IPCache
+	IPCache         IPCacher
 	MonitorAgent    agent.Agent
 }
 
@@ -52,7 +52,7 @@ type policyImporter struct {
 	log          *slog.Logger
 	repo         policy.PolicyRepository
 	epm          epmanager
-	ipc          ipcacher
+	ipc          IPCacher
 	monitorAgent agent.Agent
 
 	// prefixesByResources is the list of prefixes
@@ -63,10 +63,14 @@ type policyImporter struct {
 	q chan *policytypes.PolicyUpdate
 }
 
-type ipcacher interface {
+type IPCacher interface {
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	WaitForRevision(ctx context.Context, rev uint64) error
+}
+
+func newIPCacher(ipc *ipcache.IPCache) IPCacher {
+	return ipc
 }
 
 type epmanager interface {
@@ -177,7 +181,7 @@ func (i *policyImporter) updatePrefixes(ctx context.Context, updates []*policyty
 
 	// Batch the set of updates to the ipcache.
 	if len(ipcUpdates) > 0 {
-		i.log.Info("inserting ipcache metadata for CIDR prefixes from policy", logfields.Count, len(ipcUpdates))
+		i.log.Debug("inserting ipcache metadata for CIDR prefixes from policy", logfields.Count, len(ipcUpdates))
 		nextIPCRev := i.ipc.UpsertMetadataBatch(ipcUpdates...)
 
 		// If the ipcache has already started, then we should wait for our update to commit.
@@ -216,7 +220,7 @@ func (i *policyImporter) prunePrefixes(prunePrefixes map[ipcachetypes.ResourceID
 		}
 	}
 	if len(ipcUpdates) > 0 {
-		i.log.Info("pruning stale policy CIDR prefix ipcache metadata entries", logfields.Count, len(ipcUpdates))
+		i.log.Debug("pruning stale policy CIDR prefix ipcache metadata entries", logfields.Count, len(ipcUpdates))
 		// No need to wait for completion.
 		i.ipc.RemoveMetadataBatch(ipcUpdates...)
 	}
@@ -233,7 +237,7 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 		return nil
 	}
 
-	i.log.Info("Processing policy updates", logfields.Count, len(updates))
+	i.log.Debug("Processing policy updates", logfields.Count, len(updates))
 
 	// First, allocate local identities for all prefixes referenced by policies.
 	//
@@ -266,13 +270,13 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 		idsToRegen.Merge(*regen)
 
 		if len(upd.Rules) == 0 {
-			i.log.Info("Deleted policy from repository",
+			i.log.Debug("Deleted policy from repository",
 				logfields.Resource, upd.Resource,
 				logfields.PolicyRevision, endRevision,
 				logfields.DeletedRules, oldRuleCnt,
 				logfields.Identity, slices.Collect(truncate(regen.Members(), 100)))
 		} else {
-			i.log.Info("Upserted policy to repository",
+			i.log.Debug("Upserted policy to repository",
 				logfields.Resource, upd.Resource,
 				logfields.PolicyRevision, endRevision,
 				logfields.DeletedRules, oldRuleCnt,
@@ -311,7 +315,7 @@ func (i *policyImporter) processUpdates(ctx context.Context, updates []*policyty
 
 	// All policy updates have been applied; regenerate all affected endpoints.
 	// Unaffected endpoints can merely have their policy revision set.
-	i.log.Info("Policy repository updates complete, triggering endpoint updates",
+	i.log.Debug("Policy repository updates complete, triggering endpoint updates",
 		logfields.PolicyRevision, endRevision)
 	if i.epm != nil {
 		i.epm.UpdatePolicy(idsToRegen, startRevision, endRevision)

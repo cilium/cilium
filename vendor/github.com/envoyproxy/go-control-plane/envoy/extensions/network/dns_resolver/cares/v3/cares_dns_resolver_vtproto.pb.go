@@ -8,6 +8,7 @@ package caresv3
 
 import (
 	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
+	durationpb "github.com/planetscale/vtprotobuf/types/known/durationpb"
 	wrapperspb "github.com/planetscale/vtprotobuf/types/known/wrapperspb"
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -49,6 +50,26 @@ func (m *CaresDnsResolverConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int,
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.MaxUdpChannelDuration != nil {
+		size, err := (*durationpb.Duration)(m.MaxUdpChannelDuration).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.Edns0MaxPayloadSize != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.Edns0MaxPayloadSize).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x4a
 	}
 	if m.RotateNameservers {
 		i--
@@ -207,6 +228,14 @@ func (m *CaresDnsResolverConfig) SizeVT() (n int) {
 	}
 	if m.RotateNameservers {
 		n += 2
+	}
+	if m.Edns0MaxPayloadSize != nil {
+		l = (*wrapperspb.UInt32Value)(m.Edns0MaxPayloadSize).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.MaxUdpChannelDuration != nil {
+		l = (*durationpb.Duration)(m.MaxUdpChannelDuration).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

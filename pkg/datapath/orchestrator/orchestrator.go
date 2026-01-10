@@ -5,7 +5,6 @@ package orchestrator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,6 +16,7 @@ import (
 	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -99,6 +99,7 @@ type orchestratorParams struct {
 	DB                  *statedb.DB
 	Devices             statedb.Table[*tables.Device]
 	NodeAddresses       statedb.Table[tables.NodeAddress]
+	Sysctl              sysctl.Sysctl
 	DirectRoutingDevice tables.DirectRoutingDevice
 	LocalNodeStore      *node.LocalNodeStore
 	NodeDiscovery       *nodediscovery.NodeDiscovery
@@ -199,9 +200,9 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	for {
 		localNodeConfig, localNodeConfigWatch, err := newLocalNodeConfig(
 			ctx,
-			o.params.Log,
 			option.Config,
 			localNode,
+			o.params.Sysctl,
 			o.params.DB.ReadTxn(),
 			o.params.DirectRoutingDevice,
 			o.params.Devices,
@@ -278,15 +279,22 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		ctx = req.ctx
 	}
 
-	var errs []error
-	if err := o.params.Loader.Reinitialize(
+	err := o.params.Loader.Reinitialize(
 		ctx,
 		localNodeConfig,
 		o.params.TunnelConfig,
 		o.params.IPTablesManager,
 		o.params.Proxy,
-	); err != nil {
-		errs = append(errs, err)
+	)
+	if err != nil {
+		if req.errChan != nil {
+			select {
+			case req.errChan <- err:
+			default:
+			}
+			close(req.errChan)
+		}
+		return err
 	}
 
 	// Store the latest local node configuration before triggering the regeneration and
@@ -309,17 +317,7 @@ func (o *orchestrator) reinitialize(ctx context.Context, req reinitializeRequest
 		ParentContext:     ctx,
 	}
 	o.params.EndpointManager.RegenerateAllEndpoints(regenRequest).Wait()
-
-	err := errors.Join(errs...)
-	if req.errChan != nil {
-		select {
-		case req.errChan <- err:
-		default:
-		}
-		close(req.errChan)
-	}
-
-	return err
+	return nil
 }
 
 func (o *orchestrator) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) (string, error) {

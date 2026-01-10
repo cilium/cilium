@@ -59,21 +59,22 @@ const (
 	BPF_F_INGRESS                              = 1
 	BPF_F_INNER_MAP                            = 4096
 	BPF_F_INVALIDATE_HASH                      = 2
+	BPF_F_IPV6                                 = 128
 	BPF_F_KPROBE_MULTI_RETURN                  = 1
 	BPF_F_LINK                                 = 8192
 	BPF_F_LOCK                                 = 4
 	BPF_F_MARK_ENFORCE                         = 64
 	BPF_F_MARK_MANGLED_0                       = 32
 	BPF_F_MMAPABLE                             = 1024
-	BPF_F_NEIGH                                = 2
-	BPF_F_NEXTHOP                              = 8
+	BPF_F_NEIGH                                = 65536
+	BPF_F_NEXTHOP                              = 262144
 	BPF_F_NO_COMMON_LRU                        = 2
 	BPF_F_NO_PREALLOC                          = 1
 	BPF_F_NO_TUNNEL_KEY                        = 16
 	BPF_F_NO_USER_CONV                         = 262144
 	BPF_F_NUMA_NODE                            = 4
 	BPF_F_PATH_FD                              = 16384
-	BPF_F_PEER                                 = 4
+	BPF_F_PEER                                 = 131072
 	BPF_F_PRESERVE_ELEMS                       = 2048
 	BPF_F_PSEUDO_HDR                           = 16
 	BPF_F_RDONLY                               = 8
@@ -101,6 +102,7 @@ const (
 	BPF_LOAD_HDR_OPT_TCP_SYN                   = 1
 	BPF_LOCAL_STORAGE_GET_F_CREATE             = 1
 	BPF_MAX_LOOPS                              = 8388608
+	BPF_MAX_TIMED_LOOPS                        = 65535
 	BPF_MAX_TRAMP_LINKS                        = 38
 	BPF_NOEXIST                                = 1
 	BPF_RB_AVAIL_DATA                          = 0
@@ -152,6 +154,11 @@ const (
 	BPF_SOCK_OPS_TCP_CONNECT_CB                = 3
 	BPF_SOCK_OPS_TCP_LISTEN_CB                 = 11
 	BPF_SOCK_OPS_TIMEOUT_INIT                  = 1
+	BPF_SOCK_OPS_TSTAMP_ACK_CB                 = 19
+	BPF_SOCK_OPS_TSTAMP_SCHED_CB               = 16
+	BPF_SOCK_OPS_TSTAMP_SENDMSG_CB             = 20
+	BPF_SOCK_OPS_TSTAMP_SND_HW_CB              = 18
+	BPF_SOCK_OPS_TSTAMP_SND_SW_CB              = 17
 	BPF_SOCK_OPS_VOID                          = 0
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB              = 15
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB_FLAG         = 64
@@ -244,7 +251,8 @@ const (
 	BPF_NETKIT_PRIMARY                 AttachType = 54
 	BPF_NETKIT_PEER                    AttachType = 55
 	BPF_TRACE_KPROBE_SESSION           AttachType = 56
-	__MAX_BPF_ATTACH_TYPE              AttachType = 57
+	BPF_TRACE_UPROBE_SESSION           AttachType = 57
+	__MAX_BPF_ATTACH_TYPE              AttachType = 58
 )
 
 type Cmd uint32
@@ -1450,7 +1458,7 @@ type ProgLoadAttr struct {
 	CoreReloRecSize    uint32
 	LogTrueSize        uint32
 	ProgTokenFd        int32
-	_                  [4]byte
+	FdArrayCnt         uint32
 }
 
 func ProgLoad(attr *ProgLoadAttr) (*FD, error) {

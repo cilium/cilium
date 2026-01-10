@@ -56,6 +56,10 @@ func (mb *mockBackend) UpdateIfDifferent(_ context.Context, key string, value []
 	return true, nil
 }
 
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
+}
+
 func TestGetSetClusterConfig(t *testing.T) {
 	ctx := context.Background()
 	mb := mockBackend{}
@@ -94,8 +98,6 @@ func TestGetSetClusterConfig(t *testing.T) {
 }
 
 func TestEnforceClusterConfig(t *testing.T) {
-	defer testutils.GoleakVerifyNone(t)
-
 	// Configure a short run interval for testing purposes
 	defer func(orig time.Duration) { runInterval = orig }(runInterval)
 	runInterval = 25 * time.Millisecond

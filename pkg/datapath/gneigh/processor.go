@@ -163,10 +163,10 @@ func (gp *processor) send(ep *endpoint.Endpoint, ip netip.Addr, iface Interface)
 	)
 
 	if ip.Is4() {
-		err = gp.params.Sender.SendArp(iface, ip)
+		err = gp.params.Sender.SendArp(iface, ip, iface.HardwareAddr())
 		proto = "ARP"
 	} else {
-		err = gp.params.Sender.SendNd(iface, ip)
+		err = gp.params.Sender.SendNd(iface, ip, iface.HardwareAddr())
 		proto = "ND"
 	}
 

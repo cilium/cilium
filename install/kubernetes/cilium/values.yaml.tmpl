@@ -446,9 +446,16 @@ azure:
   # clientID: 00000000-0000-0000-0000-000000000000
   # clientSecret: 00000000-0000-0000-0000-000000000000
   # userAssignedIdentityID: 00000000-0000-0000-0000-000000000000
+  nodeSpec:
+    azureInterfaceName: ""
 alibabacloud:
   # -- Enable AlibabaCloud ENI integration
   enabled: false
+  nodeSpec:
+    vSwitches: []
+    vSwitchTags: []
+    securityGroups: []
+    securityGroupTags: []
 # -- Enable bandwidth manager to optimize TCP and UDP workloads and allow
 # for rate-limiting traffic from individual Pods with EDT (Earliest Departure
 # Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
@@ -804,6 +811,9 @@ cni:
     requests:
       cpu: 100m
       memory: 10Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
   # -- Enable route MTU for pod netns when CNI chaining is used
   enableRouteMTUForCNIChaining: false
   # -- Enable the removal of iptables rules created by the AWS CNI VPC plugin.
@@ -1087,13 +1097,26 @@ encryption:
   nodeEncryption: false
   # -- Configure the Encryption Pod2Pod strict mode.
   strictMode:
-    # -- Enable Encryption Pod2Pod strict mode.
+    # -- Enable Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.enabled)
     enabled: false
-    # -- CIDR for the Encryption Pod2Pod strict mode.
+    # -- CIDR for the Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.cidr)
     cidr: ""
-    # -- Allow dynamic lookup of remote node identities.
+    # -- Allow dynamic lookup of remote node identities. (deprecated: please use encryption.strictMode.egress.allowRemoteNodeIdentities)
     # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
     allowRemoteNodeIdentities: false
+    egress:
+      # -- Enable strict egress encryption.
+      enabled: false
+      # -- CIDR for the Encryption Pod2Pod strict egress mode.
+      cidr: ""
+      # -- Allow dynamic lookup of remote node identities.
+      # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+      allowRemoteNodeIdentities: false
+    ingress:
+      # -- Enable strict ingress encryption.
+      # When enabled, all unencrypted overlay ingress traffic will be dropped.
+      # This option is only applicable when WireGuard and tunneling are enabled.
+      enabled: false
   ipsec:
     # -- Name of the key file inside the Kubernetes secret configured via secretName.
     keyFile: keys
@@ -1165,6 +1188,33 @@ eni:
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
   instanceTagsFilter: []
+  # -- NodeSpec configuration for the ENI
+  nodeSpec:
+    # -- First interface index to use for IP allocation
+    # @schema
+    # type: [null, integer]
+    # @schema
+    firstInterfaceIndex: ~
+    # -- Subnet IDs to use for IP allocation
+    subnetIDs: []
+    # -- Subnet tags to use for IP allocation
+    subnetTags: []
+    # -- Security groups to use for IP allocation
+    securityGroups: []
+    # -- Security group tags to use for IP allocation
+    securityGroupTags: []
+    # -- Exclude interface tags to use for IP allocation
+    excludeInterfaceTags: []
+    # -- Use primary address for IP allocation
+    usePrimaryAddress: false
+    # -- Disable prefix delegation for IP allocation
+    disablePrefixDelegation: false
+    # -- Delete ENI on termination
+    # @schema
+    # type: [null, boolean]
+    # @schema
+    deleteOnTermination: ~
+
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:
@@ -2114,6 +2164,25 @@ ipam:
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
     externalAPILimitQPS: ~
+  # -- NodeSpec configuration for the IPAM
+  nodeSpec:
+    # -- IPAM min allocate
+    # @schema
+    # type: [null, integer]
+    # @schema
+    ipamMinAllocate: ~
+    # -- IPAM pre allocate
+    # @schema
+    # type: [null, integer]
+    # @schema
+    ipamPreAllocate: ~
+    # -- IPAM max allocate
+    # @schema
+    # type: [null, integer]
+    # @schema
+    ipamMaxAllocate: ~
+    # -- IPAM static IP tags (currently only works with AWS and Azure)
+    ipamStaticIPTags: []
 # -- defaultLBServiceIPAM indicates the default LoadBalancer Service IPAM when
 # no LoadBalancer class is set. Applicable values: lbipam, nodeipam, none
 # @schema
@@ -2520,6 +2589,12 @@ envoy:
   initialFetchTimeoutSeconds: 30
   # -- Maximum number of concurrent retries on Envoy clusters
   maxConcurrentRetries: 128
+  # -- Maximum number of connections on Envoy clusters
+  clusterMaxConnections: 1024
+  # -- Maximum number of requests on Envoy clusters
+  clusterMaxRequests: 1024
+  # -- Maximum number of global downstream connections
+  maxGlobalDownstreamConnections: 50000
   # -- Maximum number of retries for each HTTP request
   httpRetryCount: 3
   # -- ProxyMaxRequestsPerConnection specifies the max_requests_per_connection setting for Envoy
@@ -2536,6 +2611,9 @@ envoy:
   xffNumTrustedHopsL7PolicyIngress: 0
   # -- Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
   xffNumTrustedHopsL7PolicyEgress: 0
+  # -- For cases when CiliumEnvoyConfig is not used directly (Ingress, Gateway), configures Cilium BPF Metadata listener filter
+  # to use the original source address when extracting the metadata for a request.
+  useOriginalSourceAddress: true
   # @schema
   # type: [null, string]
   # @schema
@@ -2791,6 +2869,8 @@ resourceQuotas:
 
 # -- Annotations to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
 secretsNamespaceAnnotations: {}
+# -- Labels to be added to all cilium-secret namespaces (resources under templates/cilium-secrets-namespace)
+secretsNamespaceLabels: {}
 
 # -- Do not run Cilium agent when running with clean mode. Useful to completely
 # uninstall Cilium as it will stop Cilium from starting and create artifacts
@@ -3245,6 +3325,8 @@ nodeinit:
   # -- bootstrapFile is the location of the file where the bootstrap timestamp is
   # written by the node-init DaemonSet
   bootstrapFile: "/tmp/cilium-bootstrap.d/cilium-bootstrap-time"
+  # -- wait for Cloud init to finish on the host and assume the node has cloud init installed
+  waitForCloudInit: false
   # -- startup offers way to customize startup nodeinit script (pre and post position)
   startup:
     preScript: ""
@@ -3378,7 +3460,9 @@ enableCriticalPriorityClass: true
 # on AArch64 as the images do not currently ship a version of Envoy.
 #disableEnvoyVersionCheck: false
 clustermesh:
-  # -- Deploy clustermesh-apiserver for clustermesh
+  # -- Deploy clustermesh-apiserver for clustermesh. This option is typically
+  # used with ``clustermesh.config.enabled=true``. Refer to the
+  # ``clustermesh.config.enabled=true``documentation for more information.
   useAPIServer: false
   # -- The maximum number of clusters to support in a ClusterMesh. This value
   # cannot be changed on running clusters, and all clusters in a ClusterMesh
@@ -3404,11 +3488,14 @@ clustermesh:
   # -- Clustermesh explicit configuration.
   config:
     # -- Enable the Clustermesh explicit configuration.
-    # If set to false, you need to provide the following secrets yourself:
-    # - cilium-clustermesh (used by cilium-agent/cilium-operator to connect to
+    # If set to false, you need to provide the following resources yourself:
+    # - (Secret) cilium-clustermesh (used by cilium-agent/cilium-operator to connect to
     #   the local etcd instance if KVStoreMesh is enabled or the remote clusters
     #   if KVStoreMesh is disabled)
-    # - cilium-kvstoremesh (used by KVStoreMesh to connect to the remote clusters)
+    # - (Secret) cilium-kvstoremesh (used by KVStoreMesh to connect to the remote clusters)
+    # - (ConfigMap) clustermesh-remote-users (used to create one etcd user per remote cluster
+    #   if clustermesh-apiserver is used and `clustermesh.apiserver.tls.authMode` is not
+    #   set to `legacy`)
     enabled: false
     # -- Default dns domain for the Clustermesh API servers
     # This is used in the case cluster addresses are not provided
@@ -3789,7 +3876,7 @@ clustermesh:
       #               The "remote" certificate must be generated with CN=remote-<cluster-name>
       #               if provided manually. Cluster mode is meaningful only when the same
       #               CA is shared across all clusters part of the mesh.
-      authMode: legacy
+      authMode: migration
       # -- (deprecated) Allow users to provide their own certificates
       # Users may need to provide their certificates using
       # a mechanism that requires they provide their own secrets.
@@ -4217,3 +4304,41 @@ authentication:
 enableInternalTrafficPolicy: true
 # -- Enable LoadBalancer IP Address Management
 enableLBIPAM: true
+# -- Standalone DNS Proxy Configuration
+# Note: The standalone DNS proxy uses the agent's dnsProxy.* configuration
+# for DNS settings (proxyPort, enableDnsCompression) to ensure consistency.
+standaloneDnsProxy:
+  # -- Enable standalone DNS proxy (alpha feature)
+  enabled: false
+  # -- Roll out Standalone DNS proxy automatically when configmap is updated.
+  rollOutPods: false
+  # -- Standalone DNS proxy annotations
+  annotations: {}
+  # -- Standalone DNS proxy debug mode
+  debug: false
+  # -- Standalone DNS proxy server port
+  serverPort: 10095
+  # -- Standalone DNS proxy Node Selector
+  nodeSelector:
+    kubernetes.io/os: linux
+  # -- Standalone DNS proxy tolerations
+  tolerations: []
+  # -- Standalone DNS proxy auto mount service account token
+  automountServiceAccountToken: false
+  # -- Standalone DNS proxy update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  # -- Standalone DNS proxy image
+  image:
+    # @schema
+    # type: [null, string]
+    # @schema
+    override: ~
+    repository: "${STANDALONE_DNS_PROXY_REPO}"
+    tag: "${STANDALONE_DNS_PROXY_VERSION}"
+    digest: "${STANDALONE_DNS_PROXY_DIGEST}"
+    useDigest: ${USE_DIGESTS}
+    pullPolicy: "${PULL_POLICY}"

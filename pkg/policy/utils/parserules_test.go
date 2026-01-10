@@ -17,7 +17,10 @@ import (
 func TestRulesToPolicyEntries(t *testing.T) {
 	lbls := labels.LabelArray{labels.NewLabel("foo", "bar", labels.LabelSourceK8s)}
 	es := api.NewESFromLabels(labels.ParseSelectLabel("foo=bar"))
-	nodeSelector := api.NewESFromLabels(labels.ParseSelectLabel("node=selector"))
+	ls := types.NewLabelSelector(es)
+	nodeEndpointSelector := api.NewESFromLabels(labels.ParseSelectLabel("node=selector"))
+	nodeSelector := types.NewLabelSelector(nodeEndpointSelector)
+
 	trueBool := true
 	falseBool := false
 
@@ -56,14 +59,15 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
+					Verdict:     types.Allow,
 					Ingress:     true,
-					L3: types.PeerSelectorSlice{
+					L3: types.ToSelectors([]types.APISelector{
 						api.NewESFromLabels(labels.ParseSelectLabel("from=endpoint")),
 						api.CIDR("192.168.1.0/24"),
-					},
+					}...),
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -98,14 +102,14 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
-					Deny:        true,
+					Verdict:     types.Deny,
 					Ingress:     true,
-					L3: types.PeerSelectorSlice{
+					L3: types.ToSelectors(
 						api.NewESFromLabels(labels.ParseSelectLabel("from=endpoint")),
-					},
+					),
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -141,14 +145,15 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
+					Verdict:     types.Allow,
 					Ingress:     false,
-					L3: types.PeerSelectorSlice{
+					L3: types.ToSelectors([]types.APISelector{
 						api.NewESFromLabels(labels.ParseSelectLabel("to=endpoint")),
 						api.CIDRRule{Cidr: "10.0.0.0/8"},
-					},
+					}...),
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -183,14 +188,14 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
-					Deny:        true,
+					Verdict:     types.Deny,
 					Ingress:     false,
-					L3: types.PeerSelectorSlice{
+					L3: types.ToSelectors(
 						api.NewESFromLabels(labels.ParseSelectLabel("to=endpoint")),
-					},
+					),
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -205,7 +210,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			name: "node selector",
 			rules: api.Rules{
 				{
-					NodeSelector: nodeSelector,
+					NodeSelector: nodeEndpointSelector,
 					Labels:       lbls,
 					Ingress: []api.IngressRule{
 						{
@@ -226,8 +231,9 @@ func TestRulesToPolicyEntries(t *testing.T) {
 					Node:        true,
 					Labels:      lbls,
 					DefaultDeny: true,
+					Verdict:     types.Allow,
 					Ingress:     true,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4: []api.PortRule{
 						{
 							Ports: []api.PortProtocol{
@@ -254,19 +260,21 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
+					Verdict:     types.Allow,
 					Ingress:     true,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4:          api.PortRules{},
 				},
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
+					Verdict:     types.Allow,
 					Ingress:     false,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4:          api.PortRules{},
 				},
 			},
@@ -287,19 +295,21 @@ func TestRulesToPolicyEntries(t *testing.T) {
 			},
 			want: types.PolicyEntries{
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: true,
+					Verdict:     types.Allow,
 					Ingress:     true,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4:          api.PortRules{},
 				},
 				{
-					Subject:     es,
+					Subject:     ls,
 					Labels:      lbls,
 					DefaultDeny: false,
+					Verdict:     types.Allow,
 					Ingress:     false,
-					L3:          types.PeerSelectorSlice{},
+					L3:          types.Selectors{},
 					L4:          api.PortRules{},
 				},
 			},
@@ -330,41 +340,41 @@ func TestMergeEndpointSelectors(t *testing.T) {
 		cidrSlice     api.CIDRSlice
 		cidrRuleSlice api.CIDRRuleSlice
 		fqdns         api.FQDNSelectorSlice
-		want          types.PeerSelectorSlice
+		want          types.Selectors
 	}{
 		{
 			name: "all nil",
-			want: types.PeerSelectorSlice{},
+			want: types.Selectors{},
 		},
 		{
 			name:      "only endpoints",
 			endpoints: endpoints,
-			want:      types.ToPeerSelectorSlice(endpoints),
+			want:      types.ToSelectors(endpoints...),
 		},
 		{
 			name:  "only nodes",
 			nodes: nodes,
-			want:  types.ToPeerSelectorSlice(nodes),
+			want:  types.ToSelectors(nodes...),
 		},
 		{
 			name:     "only entities",
 			entities: entities,
-			want:     types.ToPeerSelectorSlice(entities.GetAsEndpointSelectors()),
+			want:     types.ToSelectors(entities.GetAsEndpointSelectors()...),
 		},
 		{
 			name:      "only cidrSlice",
 			cidrSlice: cidrSlice,
-			want:      types.ToPeerSelectorSlice(cidrSlice),
+			want:      types.ToSelectors(cidrSlice...),
 		},
 		{
 			name:          "only cidrRuleSlice",
 			cidrRuleSlice: cidrRuleSlice,
-			want:          types.ToPeerSelectorSlice(cidrRuleSlice),
+			want:          types.ToSelectors(cidrRuleSlice...),
 		},
 		{
 			name:  "only fqdns",
 			fqdns: fqdns,
-			want:  types.ToPeerSelectorSlice(fqdns),
+			want:  types.ToSelectors(fqdns...),
 		},
 		{
 			name:          "all present",
@@ -374,14 +384,14 @@ func TestMergeEndpointSelectors(t *testing.T) {
 			cidrSlice:     cidrSlice,
 			cidrRuleSlice: cidrRuleSlice,
 			fqdns:         fqdns,
-			want: types.PeerSelectorSlice{
+			want: types.ToSelectors([]types.APISelector{
 				endpoints[0],
 				nodes[0],
 				entities.GetAsEndpointSelectors()[0],
 				cidrSlice[0],
 				cidrRuleSlice[0],
 				fqdns[0],
-			},
+			}...),
 		},
 		{
 			name:      "empty non-nil endpoints",

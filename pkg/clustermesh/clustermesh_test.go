@@ -57,6 +57,10 @@ func (o *testObserver) NodeDeleted(no nodeTypes.Node) {
 	o.nodesMutex.Unlock()
 }
 
+func TestMain(m *testing.M) {
+	testutils.GoleakVerifyTestMain(m)
+}
+
 func TestClusterMesh(t *testing.T) {
 	testutils.IntegrationTest(t)
 	logger := hivetest.Logger(t)

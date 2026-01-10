@@ -74,14 +74,12 @@ func isPodSelectorSelectingCluster(podSelector *slim_metav1.LabelSelector) bool 
 	return false
 }
 
-func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networkingv1.NetworkPolicyPeer) *api.EndpointSelector {
+func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networkingv1.NetworkPolicyPeer) types.Selector {
 	if peer == nil {
 		return nil
 	}
 
-	// peer should not be nutated in this function
-
-	var retSel *api.EndpointSelector
+	// peer should not be mutated in this function
 	podSelector := peer.PodSelector.DeepCopy()
 
 	// The PodSelector should only reflect to the configured cluster unless the selector
@@ -127,15 +125,15 @@ func parseNetworkPolicyPeer(clusterName, namespace string, peer *slim_networking
 			namespaceSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
 		}
 
-		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, namespaceSelector, podSelector)
-		retSel = &selector
+		es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, namespaceSelector, podSelector)
+		return types.NewLabelSelector(es)
 	} else if podSelector != nil {
 		podSelector = parsePodSelector(podSelector, namespace)
-		selector := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)
-		retSel = &selector
+		es := api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)
+		return types.NewLabelSelector(es)
 	}
 
-	return retSel
+	return nil
 }
 
 func hasV1PolicyType(pTypes []slim_networkingv1.PolicyType, typ slim_networkingv1.PolicyType) bool {
@@ -165,7 +163,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 				endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
 
 				if endpointSelector != nil {
-					ingress.L3 = append(ingress.L3, *endpointSelector)
+					ingress.L3 = append(ingress.L3, endpointSelector)
 				} else {
 					// No label-based selectors were in NetworkPolicyPeer.
 					logger.Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector", logfields.K8sNetworkPolicyName, np.Name)
@@ -173,9 +171,8 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 
 				// Parse CIDR-based parts of rule.
 				if rule.IPBlock != nil {
-					cidrRules := api.CIDRRuleSlice{ipBlockToCIDRRule(rule.IPBlock)}
-					ingress.L3 = append(ingress.L3, types.ToPeerSelectorSlice(cidrRules.GetAsEndpointSelectors())...)
-					ingress.L3 = append(ingress.L3, types.ToPeerSelectorSlice(cidrRules)...)
+					cidrRule := ipBlockToCIDRRule(rule.IPBlock)
+					ingress.L3 = append(ingress.L3, types.ToSelectors(cidrRule)...)
 				}
 
 				fromRules = append(fromRules, ingress)
@@ -186,7 +183,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   If this field is empty or missing, this rule matches all
 			//   sources (traffic not restricted by source).
 			ingress := &types.PolicyEntry{Ingress: true}
-			ingress.L3 = append(ingress.L3, api.WildcardEndpointSelector)
+			ingress.L3 = append(ingress.L3, types.WildcardSelector)
 
 			fromRules = append(fromRules, ingress)
 		}
@@ -215,7 +212,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 					endpointSelector := parseNetworkPolicyPeer(clusterName, namespace, &rule)
 
 					if endpointSelector != nil {
-						egress.L3 = append(egress.L3, *endpointSelector)
+						egress.L3 = append(egress.L3, endpointSelector)
 					} else {
 						logger.Debug("NetworkPolicyPeer does not have PodSelector or NamespaceSelector", logfields.K8sNetworkPolicyName, np.Name)
 					}
@@ -223,9 +220,8 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 
 				// Parse CIDR-based parts of rule.
 				if rule.IPBlock != nil {
-					cidrRules := api.CIDRRuleSlice{ipBlockToCIDRRule(rule.IPBlock)}
-					egress.L3 = append(egress.L3, types.ToPeerSelectorSlice(cidrRules.GetAsEndpointSelectors())...)
-					egress.L3 = append(egress.L3, types.ToPeerSelectorSlice(cidrRules)...)
+					cidrRule := ipBlockToCIDRRule(rule.IPBlock)
+					egress.L3 = append(egress.L3, types.ToSelector(cidrRule))
 				}
 
 				toRules = append(toRules, egress)
@@ -236,7 +232,7 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 			//   If this field is empty or missing, this rule matches all
 			//   destinations (traffic not restricted by destination)
 			egress := &types.PolicyEntry{Ingress: false}
-			egress.L3 = append(egress.L3, api.WildcardEndpointSelector)
+			egress.L3 = append(egress.L3, types.WildcardSelector)
 
 			toRules = append(toRules, egress)
 		}
@@ -281,8 +277,9 @@ func ParseNetworkPolicy(logger *slog.Logger, clusterName string, np *slim_networ
 
 	rules := append(ingresses, egresses...)
 	for _, r := range rules {
+		r.Verdict = types.Allow // all k8s Network Policies are allow rules
 		r.DefaultDeny = true
-		r.Subject = api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector)
+		r.Subject = types.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, podSelector))
 		r.Labels = GetPolicyLabelsv1(logger, np)
 	}
 

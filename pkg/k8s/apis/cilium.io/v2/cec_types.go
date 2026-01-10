@@ -33,9 +33,11 @@ type CiliumEnvoyConfig struct {
 	metav1.TypeMeta `json:",inline"`
 	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// +k8s:openapi-gen=false
+	// +kubebuilder:validation:Optional
 	Spec CiliumEnvoyConfigSpec `json:"spec,omitempty"`
 }
 
@@ -98,7 +100,7 @@ type Service struct {
 	// In CiliumEnvoyConfig namespace defaults to the namespace of the CEC,
 	// In CiliumClusterwideEnvoyConfig namespace defaults to "default".
 	// +kubebuilder:validation:Optional
-	Namespace string `json:"namespace"`
+	Namespace string `json:"namespace,omitempty"`
 
 	// Ports is a set of port numbers, which can be used for filtering in case of underlying
 	// is exposing multiple port numbers.
@@ -122,7 +124,7 @@ type ServiceListener struct {
 	// In CiliumEnvoyConfig namespace this is overridden to the namespace of the CEC,
 	// In CiliumClusterwideEnvoyConfig namespace defaults to "default".
 	// +kubebuilder:validation:Optional
-	Namespace string `json:"namespace"`
+	Namespace string `json:"namespace,omitempty"`
 
 	// Ports is a set of service's frontend ports that should be redirected to the Envoy
 	// listener. By default all frontend ports of the service are redirected.
@@ -139,7 +141,7 @@ type ServiceListener struct {
 	// used.
 	//
 	// +kubebuilder:validation:Optional
-	Listener string `json:"listener"`
+	Listener string `json:"listener,omitempty"`
 }
 
 func (l *ServiceListener) ServiceName() loadbalancer.ServiceName {

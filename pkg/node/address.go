@@ -4,26 +4,17 @@
 package node
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
 	"net"
-	"net/netip"
-	"os"
-	"strconv"
-	"strings"
 
-	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -43,11 +34,14 @@ var (
 )
 
 func getLocalNode(logger *slog.Logger) LocalNode {
+	// Only expecting errors if we're called after LocalNodeStore has stopped, e.g.
+	// we have a component that uses the legacy getters and setters here and does
+	// not depend on LocalNodeStore.
+	if localNode == nil {
+		logging.Fatal(logger, "getLocalNode called for nil localNode")
+	}
 	n, err := localNode.Get(context.TODO())
 	if err != nil {
-		// Only expecting errors if we're called after LocalNodeStore has stopped, e.g.
-		// we have a component that uses the legacy getters and setters here and does
-		// not depend on LocalNodeStore.
 		logging.Fatal(logger, "getLocalNode: unexpected error", logfields.Error, err)
 	}
 	return n
@@ -192,30 +186,6 @@ func clone(ip net.IP) net.IP {
 	return dup
 }
 
-// GetServiceLoopbackIPv4 returns the service loopback IPv4 address of this node.
-func GetServiceLoopbackIPv4(logger *slog.Logger) net.IP {
-	return getLocalNode(logger).Local.ServiceLoopbackIPv4
-}
-
-// GetServiceLoopbackIPv6 returns the service loopback IPv6 address of this node.
-func GetServiceLoopbackIPv6(logger *slog.Logger) net.IP {
-	return getLocalNode(logger).Local.ServiceLoopbackIPv6
-}
-
-// SetIPv4Loopback sets the service loopback IPv4 address of this node.
-func SetServiceLoopbackIPv4(ip net.IP) {
-	localNode.Update(func(n *LocalNode) {
-		n.Local.ServiceLoopbackIPv4 = ip
-	})
-}
-
-// SetServiceLoopbackIPv6 sets the service loopback IPv6 address of this node.
-func SetServiceLoopbackIPv6(ip net.IP) {
-	localNode.Update(func(n *LocalNode) {
-		n.Local.ServiceLoopbackIPv6 = ip
-	})
-}
-
 // GetIPv4AllocRange returns the IPv4 allocation prefix of this node
 func GetIPv4AllocRange(logger *slog.Logger) *cidr.CIDR {
 	return getLocalNode(logger).IPv4AllocCIDR.DeepCopy()
@@ -224,14 +194,6 @@ func GetIPv4AllocRange(logger *slog.Logger) *cidr.CIDR {
 // GetIPv6AllocRange returns the IPv6 allocation prefix of this node
 func GetIPv6AllocRange(logger *slog.Logger) *cidr.CIDR {
 	return getLocalNode(logger).IPv6AllocCIDR.DeepCopy()
-}
-
-// IsNodeIP determines if addr is one of the node's IP addresses,
-// and returns which type of address it is. "" is returned if addr
-// is not one of the node's IP addresses.
-func IsNodeIP(logger *slog.Logger, addr netip.Addr) addressing.AddressType {
-	n := getLocalNode(logger)
-	return n.IsNodeIP(addr)
 }
 
 // GetIPv4 returns one of the IPv4 node address available with the following
@@ -245,36 +207,14 @@ func GetIPv4(logger *slog.Logger) net.IP {
 	return clone(n.GetNodeIP(false))
 }
 
-// GetInternalIPv4 returns node internal ipv4 address else return nil.
-func GetInternalIPv4(logger *slog.Logger) net.IP {
-	n := getLocalNode(logger)
-	return clone(n.GetNodeInternalIPv4())
-}
-
-// GetInternalIPv6 returns node internal ipv6 address else return nil.
-func GetInternalIPv6(logger *slog.Logger) net.IP {
-	n := getLocalNode(logger)
-	return clone(n.GetNodeInternalIPv6())
-}
-
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
 func GetCiliumEndpointNodeIP(logger *slog.Logger) string {
 	n := getLocalNode(logger)
 	if option.Config.EnableIPv4 && n.Local.UnderlayProtocol == tunnel.IPv4 {
-		return GetIPv4(logger).String()
+		return n.GetNodeIP(false).String()
 	}
-	return GetIPv6(logger).String()
-}
-
-// SetInternalIPv4Router sets the cilium internal IPv4 node address, it is allocated from the node prefix.
-// This must not be conflated with k8s internal IP as this IP address is only relevant within the
-// Cilium-managed network (this means within the node for direct routing mode and on the overlay
-// for tunnel mode).
-func SetInternalIPv4Router(ip net.IP) {
-	localNode.Update(func(n *LocalNode) {
-		n.SetCiliumInternalIP(ip)
-	})
+	return n.GetNodeIP(true).String()
 }
 
 // GetInternalIPv4Router returns the cilium internal IPv4 node address. This must not be conflated with
@@ -318,11 +258,13 @@ func SetIPv6NodeRange(net *cidr.CIDR) {
 func AutoComplete(logger *slog.Logger, directRoutingDevice string) error {
 	initDefaultPrefix(logger, directRoutingDevice)
 
-	if option.Config.EnableIPv6 && GetIPv6AllocRange(logger) == nil {
+	ln := getLocalNode(logger)
+
+	if option.Config.EnableIPv6 && ln.IPv6AllocCIDR == nil {
 		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specify --%s", option.IPv6Range)
 	}
 
-	if option.Config.EnableIPv4 && GetIPv4AllocRange(logger) == nil {
+	if option.Config.EnableIPv4 && ln.IPv4AllocCIDR == nil {
 		return fmt.Errorf("IPv4 allocation CIDR is not configured. Please specify --%s", option.IPv4Range)
 	}
 
@@ -332,17 +274,19 @@ func AutoComplete(logger *slog.Logger, directRoutingDevice string) error {
 // ValidatePostInit validates the entire addressing setup and completes it as
 // required
 func ValidatePostInit(logger *slog.Logger) error {
+	ln := getLocalNode(logger)
+
 	if option.Config.EnableIPv4 {
-		if GetIPv4(logger) == nil {
+		if ln.GetNodeIP(false) == nil {
 			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
 		}
 	}
 
-	if option.Config.TunnelingEnabled() && GetIPv4(logger) == nil && GetIPv6(logger) == nil {
+	if option.Config.TunnelingEnabled() && ln.GetNodeIP(false) == nil && ln.GetNodeIP(true) == nil {
 		return fmt.Errorf("external node address could not be derived, please configure via --ipv4-node or --ipv6-node")
 	}
 
-	if option.Config.EnableIPv4 && GetInternalIPv4Router(logger) == nil {
+	if option.Config.EnableIPv4 && ln.GetCiliumInternalIP(false) == nil {
 		return fmt.Errorf("BUG: Internal IPv4 node address was not configured")
 	}
 
@@ -362,146 +306,9 @@ func GetIPv6Router(logger *slog.Logger) net.IP {
 	return clone(n.GetCiliumInternalIP(true))
 }
 
-// SetIPv6Router sets the IPv6 address of the router address, e.g. address
-// of cilium_host device.
-func SetIPv6Router(ip net.IP) {
-	localNode.Update(func(n *LocalNode) {
-		n.SetCiliumInternalIP(ip)
-	})
-}
-
-// GetNodeAddressing returns the NodeAddressing model for the local IPs.
-func GetNodeAddressing(logger *slog.Logger) *models.NodeAddressing {
-	a := &models.NodeAddressing{}
-
-	if option.Config.EnableIPv6 {
-		a.IPV6 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv6,
-			IP:         GetIPv6Router(logger).String(),
-			AllocRange: GetIPv6AllocRange(logger).String(),
-		}
-	}
-
-	if option.Config.EnableIPv4 {
-		a.IPV4 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv4,
-			IP:         GetInternalIPv4Router(logger).String(),
-			AllocRange: GetIPv4AllocRange(logger).String(),
-		}
-	}
-
-	return a
-}
-
-func getCiliumHostIPsFromFile(nodeConfig string) (ipv4GW, ipv6Router net.IP) {
-	// ipLen is the length of the IP address stored in the node_config.h
-	// it has the same length for both IPv4 and IPv6.
-	const ipLen = net.IPv6len
-
-	var hasIPv4, hasIPv6 bool
-	f, err := os.Open(nodeConfig)
-	switch {
-	case err != nil:
-	default:
-		defer f.Close()
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			txt := scanner.Text()
-			switch {
-			case !hasIPv6 && strings.Contains(txt, defaults.RestoreV6Addr):
-				defineLine := strings.Split(txt, defaults.RestoreV6Addr)
-				if len(defineLine) != 2 {
-					continue
-				}
-				ipv6 := common.C2GoArray(defineLine[1])
-				if len(ipv6) != ipLen {
-					continue
-				}
-				ipv6Router = net.IP(ipv6)
-				hasIPv6 = true
-			case !hasIPv4 && strings.Contains(txt, defaults.RestoreV4Addr):
-				defineLine := strings.Split(txt, defaults.RestoreV4Addr)
-				if len(defineLine) != 2 {
-					continue
-				}
-				ipv4 := common.C2GoArray(defineLine[1])
-				if len(ipv4) != ipLen {
-					continue
-				}
-				ipv4GW = net.IP(ipv4)
-				hasIPv4 = true
-
-			// Legacy cases based on the header defines:
-			case !hasIPv4 && strings.Contains(txt, "IPV4_GATEWAY"):
-				// #define IPV4_GATEWAY 0xee1c000a
-				defineLine := strings.Split(txt, " ")
-				if len(defineLine) != 3 {
-					continue
-				}
-				ipv4GWHex := strings.TrimPrefix(defineLine[2], "0x")
-				ipv4GWUint64, err := strconv.ParseUint(ipv4GWHex, 16, 32)
-				if err != nil {
-					continue
-				}
-				if ipv4GWUint64 != 0 {
-					bs := make([]byte, net.IPv4len)
-					byteorder.Native.PutUint32(bs, uint32(ipv4GWUint64))
-					ipv4GW = net.IPv4(bs[0], bs[1], bs[2], bs[3])
-					hasIPv4 = true
-				}
-			}
-		}
-	}
-	return ipv4GW, ipv6Router
-}
-
-// ExtractCiliumHostIPFromFS returns the Cilium IPv4 gateway and router IPv6 address from
-// the node_config.h file if is present; or by deriving it from
-// defaults.HostDevice interface, on which only the IPv4 is possible to derive.
-func ExtractCiliumHostIPFromFS(logger *slog.Logger) (ipv4GW, ipv6Router net.IP) {
-	nodeConfig := option.Config.GetNodeConfigPath()
-	ipv4GW, ipv6Router = getCiliumHostIPsFromFile(nodeConfig)
-	if ipv4GW != nil || ipv6Router != nil {
-		logger.Info(
-			"Restored router address from node_config",
-			logfields.IPv4, ipv4GW,
-			logfields.IPv6, ipv6Router,
-			logfields.File, nodeConfig,
-		)
-		return ipv4GW, ipv6Router
-	}
-	return getCiliumHostIPsFromNetDev(logger, defaults.HostDevice)
-}
-
-// SetIPsecKeyIdentity sets the IPsec key identity an opaque value used to
-// identity encryption keys used on the node.
-func SetIPsecKeyIdentity(id uint8) {
-	localNode.Update(func(n *LocalNode) {
-		n.EncryptionKey = id
-	})
-}
-
-func GetOptOutNodeEncryption(logger *slog.Logger) bool {
-	return getLocalNode(logger).Local.OptOutNodeEncryption
-}
-
-// SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.
-func SetEndpointHealthIPv4(ip net.IP) {
-	localNode.Update(func(n *LocalNode) {
-		n.IPv4HealthIP = ip
-	})
-}
-
 // GetEndpointHealthIPv4 returns the IPv4 cilium-health endpoint address.
 func GetEndpointHealthIPv4(logger *slog.Logger) net.IP {
 	return getLocalNode(logger).IPv4HealthIP
-}
-
-// SetEndpointHealthIPv6 sets the IPv6 cilium-health endpoint address.
-func SetEndpointHealthIPv6(ip net.IP) {
-	localNode.Update(func(n *LocalNode) {
-		n.IPv6HealthIP = ip
-	})
 }
 
 // GetEndpointHealthIPv6 returns the IPv6 cilium-health endpoint address.
@@ -509,23 +316,9 @@ func GetEndpointHealthIPv6(logger *slog.Logger) net.IP {
 	return getLocalNode(logger).IPv6HealthIP
 }
 
-// SetIngressIPv4 sets the local IPv4 source address for Cilium Ingress.
-func SetIngressIPv4(ip net.IP) {
-	localNode.Update(func(n *LocalNode) {
-		n.IPv4IngressIP = ip
-	})
-}
-
 // GetIngressIPv4 returns the local IPv4 source address for Cilium Ingress.
 func GetIngressIPv4(logger *slog.Logger) net.IP {
 	return getLocalNode(logger).IPv4IngressIP
-}
-
-// SetIngressIPv6 sets the local IPv6 source address for Cilium Ingress.
-func SetIngressIPv6(ip net.IP) {
-	localNode.Update(func(n *LocalNode) {
-		n.IPv6IngressIP = ip
-	})
 }
 
 // GetIngressIPv6 returns the local IPv6 source address for Cilium Ingress.

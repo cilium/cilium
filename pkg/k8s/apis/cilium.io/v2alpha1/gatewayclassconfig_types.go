@@ -10,7 +10,6 @@ import (
 )
 
 // +genclient
-// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumgatewayclassconfig",path="ciliumgatewayclassconfigs",scope="Namespaced",shortName={cgcc}
 // +kubebuilder:printcolumn:name="Accepted",type=string,JSONPath=`.status.conditions[?(@.type=="Accepted")].status`
@@ -25,6 +24,7 @@ type CiliumGatewayClassConfig struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Required
 	metav1.ObjectMeta `json:"metadata"`
 
 	// Spec is a human-readable of a GatewayClass configuration.
@@ -36,7 +36,7 @@ type CiliumGatewayClassConfig struct {
 	//
 	// +deepequal-gen=false
 	// +kubebuilder:validation:Optional
-	Status CiliumGatewayClassConfigStatus `json:"status"`
+	Status CiliumGatewayClassConfigStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -71,52 +71,53 @@ type ServiceConfig struct {
 	//
 	// +kubebuilder:validation:Enum=LoadBalancer;NodePort
 	// +kubebuilder:default="LoadBalancer"
+	// +kubebuilder:validation:Optional
 	Type corev1.ServiceType `json:"type,omitempty"`
 
 	// Sets the Service.Spec.ExternalTrafficPolicy in generated Service objects to the given value.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="Cluster"
 	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicy `json:"externalTrafficPolicy,omitempty"`
 
 	// Sets the Service.Spec.LoadBalancerClass in generated Service objects to the given value.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	LoadBalancerClass *string `json:"loadBalancerClass,omitempty"`
 
 	// Sets the Service.Spec.IPFamilies in generated Service objects to the given value.
 	//
 	// +listType=atomic
-	// +optional
+	// +kubebuilder:validation:Optional
 	IPFamilies []corev1.IPFamily `json:"ipFamilies,omitempty"`
 
 	// Sets the Service.Spec.IPFamilyPolicy in generated Service objects to the given value.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	IPFamilyPolicy *corev1.IPFamilyPolicy `json:"ipFamilyPolicy,omitempty"`
 
 	// Sets the Service.Spec.AllocateLoadBalancerNodePorts in generated Service objects to the given value.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	AllocateLoadBalancerNodePorts *bool `json:"allocateLoadBalancerNodePorts,omitempty"`
 
 	// Sets the Service.Spec.LoadBalancerSourceRanges in generated Service objects to the given value.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	// +listType=atomic
 	LoadBalancerSourceRanges []string `json:"loadBalancerSourceRanges,omitempty"`
 
 	// LoadBalancerSourceRangesPolicy defines the policy for the LoadBalancerSourceRanges if the incoming traffic
 	// is allowed or denied.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=Allow;Deny
 	// +kubebuilder:default="Allow"
 	LoadBalancerSourceRangesPolicy LoadBalancerSourceRangesPolicyType `json:"loadBalancerSourceRangesPolicy,omitempty"`
 
 	// Sets the Service.Spec.TrafficDistribution in generated Service objects to the given value.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	TrafficDistribution *string `json:"trafficDistribution,omitempty"`
 }
 
@@ -141,7 +142,7 @@ type CiliumGatewayClassConfigSpec struct {
 // CiliumGatewayClassConfigStatus contains the status of a CiliumGatewayClassConfig.
 type CiliumGatewayClassConfigStatus struct {
 	// Current service state
-	// +optional
+	// +kubebuilder:validation:Optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +listType=map

@@ -1,0 +1,115 @@
+#
+# Validate reflection and indexing of Table[LocalPodIPPool]
+#
+
+hive start
+
+# Start state: empty table
+db/empty podippools
+
+# Add pool object
+k8s/add pool.yaml
+
+# Validate table contents and reflector health
+db/cmp podippools pools.table
+db/cmp --grep=reflector-podippools health health.table
+
+# Verify JSON & YAML exports
+db/show --format=json --out=actual.json podippools
+cmp expected.json actual.json
+
+db/show --format=yaml --out=actual.yaml podippools
+cmp expected.yaml actual.yaml
+
+# Verify name index
+db/get --index=name --columns=Name --out=actual.table podippools pool1
+cmp pools_name.table actual.table
+
+-- health.table --
+Module                  Component                                        Level      Message
+ipam-podippool-table    job-k8s-reflector-podippools-daemon-k8s          OK         1 upserted, 0 deleted, 1 total objects
+-- empty.table --
+Name   v4CIDRs   v4MaskSize   v6CIDRs   v6MaskSize   Flags
+-- pools.table --
+Name   v4CIDRs      v4MaskSize   v6CIDRs    v6MaskSize   Flags
+pool1  10.0.0.0/24  28           fd00::/112 120          SkipMasquerade=true
+-- pools_name.table --
+Name
+pool1
+-- expected.json --
+{
+  "kind": "CiliumPodIPPool",
+  "apiVersion": "cilium.io/v2alpha1",
+  "metadata": {
+    "name": "pool1",
+    "resourceVersion": "1",
+    "annotations": {
+      "ipam.cilium.io/skip-masquerade": "true"
+    }
+  },
+  "spec": {
+    "ipv4": {
+      "cidrs": [
+        "10.0.0.0/24"
+      ],
+      "maskSize": 28
+    },
+    "ipv6": {
+      "cidrs": [
+        "fd00::/112"
+      ],
+      "maskSize": 120
+    }
+  },
+  "updatedAt": "2000-01-01T10:30:00Z"
+}
+-- expected.yaml --
+ciliumpodippool:
+    typemeta:
+        kind: CiliumPodIPPool
+        apiversion: cilium.io/v2alpha1
+    objectmeta:
+        name: pool1
+        generatename: ""
+        namespace: ""
+        selflink: ""
+        uid: ""
+        resourceversion: "1"
+        generation: 0
+        creationtimestamp: "0001-01-01T00:00:00Z"
+        deletiontimestamp: null
+        deletiongraceperiodseconds: null
+        labels: {}
+        annotations:
+            ipam.cilium.io/skip-masquerade: "true"
+        ownerreferences: []
+        finalizers: []
+        managedfields: []
+    spec:
+        ipv4:
+            cidrs:
+                - 10.0.0.0/24
+            masksize: 28
+        ipv6:
+            cidrs:
+                - fd00::/112
+            masksize: 120
+        podselector: null
+        namespaceselector: null
+updatedAt: 2000-01-01T10:30:00Z
+-- pool.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumPodIPPool
+metadata:
+  name: pool1
+  annotations:
+    ipam.cilium.io/skip-masquerade: "true"
+spec:
+  ipv4:
+    cidrs:
+      - 10.0.0.0/24
+    maskSize: 28
+  ipv6:
+    cidrs:
+      - fd00::/112
+    maskSize: 120

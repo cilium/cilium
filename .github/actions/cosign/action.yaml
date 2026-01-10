@@ -9,7 +9,11 @@ inputs:
     required: false
   sbom_name:
     description: 'Name for the SBOM artifact and file (e.g., "cilium_v1.2.3")'
-    required: true
+    required: false
+  attach_sbom:
+    description: 'Attach SBOM'
+    required: false
+    default: 'true'
   generate_sbom:
     description: 'Generate SBOM'
     required: false
@@ -40,7 +44,7 @@ runs:
 
     - name: Generate SBOM
       if: ${{ inputs.generate_sbom == 'true' }}
-      uses: anchore/sbom-action@fbfd9c6c189226748411491745178e0c2017392d # v0.20.10
+      uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a # v0.21.0
       with:
         artifact-name: sbom_${{ inputs.sbom_name }}.spdx.json
         output-file: ./sbom_${{ inputs.sbom_name }}.spdx.json
@@ -78,6 +82,7 @@ runs:
         sign_with_retry "${{ inputs.image }}"
 
     - name: Attach SBOM Attestation
+      if: ${{ inputs.attach_sbom == 'true' }}
       shell: bash
       run: |
         # Function to retry cosign attestation with exponential backoff

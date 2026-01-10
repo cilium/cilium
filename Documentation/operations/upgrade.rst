@@ -341,6 +341,20 @@ communicating via the proxy must reconnect to re-establish connections.
   (previously this was a RHEL8.6-compatible kernel).
 * The previously deprecated ``FromRequires`` and ``ToRequires`` fields of the `CiliumNetworkPolicy` and `CiliumClusterwideNetworkPolicy` CRDs have been removed.
 * This release introduces enabling packet layer path MTU discovery by default on CNI Pod endpoints, this is controlled via the ``enable-endpoint-packet-layer-pmtud`` flag.
+* The ``clustermesh.apiserver.tls.authMode`` option is set by default to ``migration`` as
+  a first step to transition to ``cluster`` in a future release. If you are using
+  ``clustermesh.useAPIServer=true``  and ``clustermesh.config.enabled=false``
+  you should either create the ``clustermesh-remote-users`` ConfigMap in addition
+  to the existing ClusterMesh secrets or set ``clustermesh.apiserver.tls.authMode=legacy``.
+  If you have a different configuration, you are not expected to take any action and the
+  transition to ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
+* The Socket LB tracing message format has been updated, you might briefly see parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
+* The Cilium MCS-API implementation now raise a port conflict when any exported
+  Service has ports that do not exactly match the oldest exported Service.
+* DNS Policies match pattern now support a wildcard prefix(``**.``) to match multilevel subdomains as pattern prefix. For usage see :ref:`DNS based` policies.
+  This change introduces a difference in behavior for existing policies with ``**.`` wildcard prefix in match patterns.
+  This pattern now selects all cascaded subdomains in prefix as opposed to just a single level. For example: ``**.cilium.io`` now selects both ``app.cilium.io`` and ``test.app.cilium.io`` as
+  opposed to just ``app.cilium.io`` previously.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -366,6 +380,18 @@ Deprecated Options
 * The ``--enable-ipsec-encrypted-overlay`` flag has no effect and will be removed in Cilium 1.20. Starting from
   Cilium 1.18 the IPsec encryption is always applied after overlay encapsulation, and therefore this special opt-in
   flag is no longer needed.
+* The ``--aws-pagination-enabled`` flag for cilium-operator is now deprecated in favor of the more flexible
+  ``--aws-max-results-per-call`` flag. The new flag defaults to ``0`` (unpaginated, letting AWS determine optimal
+  page size), which provides better performance in most environments. If AWS returns an ``OperationNotPermitted``
+  error indicating too many results, the operator will automatically switch to paginated requests
+  (``MaxResults=1000``) for all future API calls. Users with very large AWS accounts can set
+  ``--aws-max-results-per-call=1000`` upfront to force pagination from the start. The deprecated flag still works
+  during the deprecation period (``true`` maps to ``1000``, ``false`` maps to ``0``) and will be removed in Cilium 1.20.
+* The flags ``--enable-encryption-strict-mode``, ``--encryption-strict-mode-cidr`` and
+  ``--encryption-strict-mode-allow-remote-node-identities`` have been deprecated and will be removed in
+  Cilium 1.20. Use the egress-specific options ``--enable-encryption-strict-mode-egress``,
+  ``--encryption-strict-egress-cidr`` and ``--encryption-strict-egress-allow-remote-node-identities``
+  instead.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -376,10 +402,37 @@ Helm Options
   Cilium ClusterMesh without Cilium CLI and could allow you to organize your clusters definition
   in multiple Helm value files. See the Cilium Helm chart documentation or value file for more details.
 
+* The Helm options ``encryption.strictMode.enabled``, ``encryption.strictMode.cidr`` and
+  ``encryption.strictMode.allowRemoteNodeIdentities`` have been deprecated and will be removed in
+  Cilium 1.20. Use the egress-specific options ``encryption.strictMode.egress.enabled``,
+  ``encryption.strictMode.egress.cidr`` and ``encryption.strictMode.egress.allowRemoteNodeIdentities``
+  instead.
 
 Agent Options
 ~~~~~~~~~~~~~
+* The new agent flag ``encryption-strict-mode-ingress`` allows dropping any pod-to-pod traffic that hasn't been encrypted. It
+  is only available when WireGuard and tunneling are enabled as well. It should be noted that enabling this feature directly
+  with the upgrade can lead to intermittent packet drops.
 
+Operator Options
+~~~~~~~~~~~~~~~~
+
+* The ``--unmanaged-pod-watcher-interval`` flag type has been changed from ``int`` (seconds)
+  to ``time.Duration`` for improved usability and consistency with other Cilium configuration
+  options. If you have this flag explicitly configured, update your configuration to use
+  duration format (e.g., ``15s``, ``1m``, ``90s``). The default value remains 15 seconds.
+
+  .. code-block:: bash
+
+      # Before (deprecated):
+      --unmanaged-pod-watcher-interval=15
+
+      # After:
+      --unmanaged-pod-watcher-interval=15s
+
+  Note: When using Helm, the ``operator.unmanagedPodWatcher.intervalSeconds`` value now
+  accepts both integers (for backward compatibility) and duration strings. Numeric values
+  will be automatically converted to duration strings (e.g., ``15`` becomes ``"15s"``).
 
 Cluster Mesh API Server Options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -446,6 +499,7 @@ The following metrics no longer reports a ``source_cluster`` and a ``source_node
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
+* ``cilium_agent_bootstrap_seconds`` is now deprecated. Please use ``cilium_hive_jobs_oneshot_last_run_duration_seconds`` of respective job instead.
 
 Advanced
 ========

@@ -36,15 +36,11 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
-	"github.com/cilium/cilium/pkg/fqdn/namemanager"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
-	identityrestoration "github.com/cilium/cilium/pkg/identity/restoration"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -156,9 +152,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	hive.RegisterFlags(vp, flags)
 
-	flags.Int(option.AgentHealthPort, defaults.AgentHealthPort, "TCP port for agent health status API")
-	option.BindEnv(vp, option.AgentHealthPort)
-
 	flags.Int(option.ClusterHealthPort, defaults.ClusterHealthPort, "TCP port for cluster-wide network connectivity health API")
 	option.BindEnv(vp, option.ClusterHealthPort)
 
@@ -192,12 +185,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(vp, option.ConfigDir)
 
-	flags.Duration(option.ConntrackGCInterval, time.Duration(0), "Overwrite the connection-tracking garbage collection interval")
-	option.BindEnv(vp, option.ConntrackGCInterval)
-
-	flags.Duration(option.ConntrackGCMaxInterval, time.Duration(0), "Set the maximum interval for the connection-tracking garbage collection")
-	option.BindEnv(vp, option.ConntrackGCMaxInterval)
-
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(vp, option.DebugArg)
 
@@ -211,9 +198,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(vp, option.EnableEndpointRoutes)
-
-	flags.Bool(option.AgentHealthRequireK8sConnectivity, true, "Require Kubernetes connectivity in agent health endpoint")
-	option.BindEnv(vp, option.AgentHealthRequireK8sConnectivity)
 
 	flags.Int(option.HealthCheckICMPFailureThreshold, defaults.HealthCheckICMPFailureThreshold, "Number of ICMP requests sent for each run of the health checker. If at least one ICMP response is received, the node or endpoint is marked as healthy.")
 	option.BindEnv(vp, option.HealthCheckICMPFailureThreshold)
@@ -343,13 +327,28 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.L2AnnouncerRetryPeriod)
 
 	flags.Bool(option.EnableEncryptionStrictMode, false, "Enable encryption strict mode")
+	flags.MarkDeprecated(option.EnableEncryptionStrictMode, "Please use --enable-encryption-strict-mode-egress instead. This option will be removed in v1.19")
 	option.BindEnv(vp, option.EnableEncryptionStrictMode)
 
-	flags.String(option.EncryptionStrictModeCIDR, "", "In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped")
+	flags.String(option.EncryptionStrictModeCIDR, "", "In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped.")
+	flags.MarkDeprecated(option.EncryptionStrictModeCIDR, "Please use --encryption-strict-egress-cidr instead. This option will be removed in v1.19")
 	option.BindEnv(vp, option.EncryptionStrictModeCIDR)
 
 	flags.Bool(option.EncryptionStrictModeAllowRemoteNodeIdentities, false, "Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.")
+	flags.MarkDeprecated(option.EncryptionStrictModeAllowRemoteNodeIdentities, "Please use --encryption-strict-egress-allow-remote-node-identities instead. This option will be removed in v1.19")
 	option.BindEnv(vp, option.EncryptionStrictModeAllowRemoteNodeIdentities)
+
+	flags.Bool(option.EnableEncryptionStrictModeEgress, false, "Enable strict mode encryption enforcement for egress traffic")
+	option.BindEnv(vp, option.EnableEncryptionStrictModeEgress)
+
+	flags.String(option.EncryptionStrictEgressCIDR, "", "In strict-mode-egress encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped.")
+	option.BindEnv(vp, option.EncryptionStrictEgressCIDR)
+
+	flags.Bool(option.EncryptionStrictEgressAllowRemoteNodeIdentities, false, "Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.")
+	option.BindEnv(vp, option.EncryptionStrictEgressAllowRemoteNodeIdentities)
+
+	flags.Bool(option.EnableEncryptionStrictModeIngress, false, "Enable strict mode encryption enforcement for ingress traffic")
+	option.BindEnv(vp, option.EnableEncryptionStrictModeIngress)
 
 	flags.Var(option.NewMapOptions(&option.Config.FixedIdentityMapping, option.Config.FixedIdentityMappingValidator),
 		option.FixedIdentityMapping, "Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns")
@@ -492,14 +491,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.LogSystemLoadConfigName, false, "Enable periodic logging of system load")
 	option.BindEnv(vp, option.LogSystemLoadConfigName)
-
-	flags.String(option.ServiceLoopbackIPv4, defaults.ServiceLoopbackIPv4, "IPv4 source address to use for SNAT "+
-		"when a Pod talks to itself over a Service.")
-	option.BindEnv(vp, option.ServiceLoopbackIPv4)
-
-	flags.String(option.ServiceLoopbackIPv6, defaults.ServiceLoopbackIPv6, "IPv6 source address to use for SNAT "+
-		"when a Pod talks to itself over a Service.")
-	option.BindEnv(vp, option.ServiceLoopbackIPv6)
 
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv4Masquerade)
@@ -1189,14 +1180,26 @@ var daemonCell = cell.Module(
 	"daemon",
 	"Legacy Daemon",
 
+	cell.Provide(daemonLegacyInitialization),
+	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force initialization.
+)
+
+// daemonConfigCell provides the DaemonConfig that contains properties
+// that haven't yet been refactored to use module specific configs.
+var daemonConfigCell = cell.Module(
+	"daemonconfig",
+	"Provides and initializes global DaemonConfig",
+
 	cell.Provide(
+		// Initialize unsafe daemonconfig properties that depend on values of other configs.
 		daemonConfigInitialization,
-		daemonLegacyInitialization,
+		// Provide promise that can be used to await initialization of unsafe daemonconfig properties.
 		promise.New[*option.DaemonConfig],
-		newSyncHostIPs,
+		// Provide option.Config via hive so cells can depend on the agent config.
+		// It's not safe to access unsafe daemonconfig properties. Either use the promise or depend on legacy.DaemonConfigInitialization.
+		func() *option.DaemonConfig { return option.Config },
 	),
-	cell.Invoke(func(_ legacy.DaemonInitialization) {}), // Force instantiation.
-	endpointRestoreCell,
+	cell.Invoke(func(_ legacy.DaemonConfigInitialization) {}), // Force initialization.
 )
 
 type daemonConfigParams struct {
@@ -1226,7 +1229,6 @@ type daemonParams struct {
 	Logger    *slog.Logger
 	Lifecycle cell.Lifecycle
 
-	MetricsRegistry     *metrics.Registry
 	Clientset           k8sClient.Clientset
 	KVStoreClient       kvstore.Client
 	WGAgent             wgTypes.WireguardAgent
@@ -1237,20 +1239,16 @@ type daemonParams struct {
 	EndpointManager     endpointmanager.EndpointManager
 	EndpointRestorer    *endpointRestorer
 	IdentityAllocator   identitycell.CachingIdentityAllocator
-	IdentityRestorer    *identityrestoration.LocalIdentityRestorer
 	Policy              policy.PolicyRepository
 	MonitorAgent        monitorAgent.Agent
 	DB                  *statedb.DB
 	Devices             statedb.Table[*datapathTables.Device]
 	DirectRoutingDevice datapathTables.DirectRoutingDevice
-	IPIdentityWatcher   *ipcache.LocalIPIdentityWatcher
 	IPsecAgent          datapath.IPsecAgent
 	SyncHostIPs         *syncHostIPs
 	NodeDiscovery       *nodediscovery.NodeDiscovery
 	IPAM                *ipam.IPAM
 	CRDSyncPromise      promise.Promise[k8sSynced.CRDSync]
-	DNSProxy            bootstrap.FQDNProxyBootstrapper
-	DNSNameManager      namemanager.NameManager
 	KPRConfig           kpr.KPRConfig
 	KPRInitializer      kprinitializer.KPRInitializer
 	InfraIPAllocator    infraendpoints.InfraIPAllocator
@@ -1336,7 +1334,6 @@ func daemonLegacyInitialization(params daemonParams) legacy.DaemonInitialization
 
 func initClockSourceOption(logger *slog.Logger) {
 	option.Config.ClockSource = option.ClockSourceKtime
-	option.Config.KernelHz = 1 // Known invalid non-zero to avoid div by zero.
 	hz, err := probes.KernelHZ()
 	if err != nil {
 		logger.Info(

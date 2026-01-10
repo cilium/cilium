@@ -25,15 +25,10 @@ const (
 	// MapNameSnat6Global represents global IPv6 NAT table.
 	MapNameSnat6Global = "cilium_snat_v6_external"
 
-	// MinPortSnatDefault represents default min port from range.
-	MinPortSnatDefault = 1024
-	// MaxPortSnatDefault represents default max port from range.
-	MaxPortSnatDefault = 65535
-
-	// MapNameSnat4AllocRetries represents the histogram of IPv4 NAT port allocation retries.
-	MapNameSnat4AllocRetries = "cilium_snat_v4_alloc_retries"
-	// MapNameSnat6AllocRetries represents the histogram of IPv6 NAT port allocation retries.
-	MapNameSnat6AllocRetries = "cilium_snat_v6_alloc_retries"
+	// mapNameSnat4AllocRetries represents the histogram of IPv4 NAT port allocation retries.
+	mapNameSnat4AllocRetries = "cilium_snat_v4_alloc_retries"
+	// mapNameSnat6AllocRetries represents the histogram of IPv6 NAT port allocation retries.
+	mapNameSnat6AllocRetries = "cilium_snat_v6_alloc_retries"
 
 	// SnatCollisionRetries represents the maximum number of port allocation retries.
 	SnatCollisionRetries = 32
@@ -117,7 +112,8 @@ type RetriesKey struct {
 	Key uint32
 }
 
-func (k *RetriesKey) String() string  { return fmt.Sprintf("%d", k.Key) }
+func (k *RetriesKey) String() string { return fmt.Sprintf("%d", k.Key) }
+
 func (k *RetriesKey) New() bpf.MapKey { return &RetriesKey{} }
 
 type RetriesValue struct {
@@ -126,24 +122,15 @@ type RetriesValue struct {
 
 type RetriesValues []RetriesValue
 
-func (k *RetriesValue) String() string    { return fmt.Sprintf("%d", k.Value) }
+func (k *RetriesValue) String() string { return fmt.Sprintf("%d", k.Value) }
+
 func (k *RetriesValue) New() bpf.MapValue { return &RetriesValue{} }
-func (k *RetriesValue) NewSlice() any     { return &RetriesValues{} }
+
+func (k *RetriesValue) NewSlice() any { return &RetriesValues{} }
 
 type RetriesMapRecord struct {
 	Key   *RetriesKey
 	Value *RetriesValue
-}
-
-func NewRetriesMap(name string) *bpf.Map {
-	return bpf.NewMap(
-		name,
-		ebpf.PerCPUArray,
-		&RetriesKey{},
-		&RetriesValue{},
-		SnatCollisionRetries+1,
-		0,
-	)
 }
 
 // DumpBatch4 uses batch iteration to walk the map and applies fn for each batch of entries.
@@ -388,10 +375,7 @@ func DeleteSwappedMapping6(m *Map, tk tuple.TupleKey) error {
 }
 
 // GlobalMaps returns all global NAT maps.
-func GlobalMaps(registry *metrics.Registry, ipv4, ipv6, natRequired bool) (ipv4Map, ipv6Map *Map) {
-	if !natRequired {
-		return
-	}
+func GlobalMaps(registry *metrics.Registry, ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map) {
 	if ipv4 {
 		ipv4Map = NewMap(registry, MapNameSnat4Global, IPv4, maxEntries())
 	}
@@ -425,32 +409,61 @@ func maxEntries() int {
 	return option.LimitTableMax
 }
 
-// RetriesMaps returns the maps that contain the histograms of the number of retries.
-func RetriesMaps(ipv4, ipv6, natRequired bool) (ipv4RetriesMap, ipv6RetriesMap RetriesMap) {
-	if !natRequired {
-		return
-	}
-	if ipv4 {
-		ipv4RetriesMap = NewRetriesMap(MapNameSnat4AllocRetries)
-	}
-	if ipv6 {
-		ipv6RetriesMap = NewRetriesMap(MapNameSnat6AllocRetries)
-	}
-	return
+type natRetriesMap struct {
+	bpfMapV4 *bpf.Map
+	bpfMapV6 *bpf.Map
 }
 
-func CreateRetriesMaps(ipv4, ipv6 bool) error {
-	if ipv4 {
-		ipv4Map := NewRetriesMap(MapNameSnat4AllocRetries)
-		if err := ipv4Map.OpenOrCreate(); err != nil {
-			return err
+func newNATRetriesMap(ipv4Enabled bool, ipv6Enabled bool) *natRetriesMap {
+	m := &natRetriesMap{}
+
+	if ipv4Enabled {
+		m.bpfMapV4 = newRetriesMap(mapNameSnat4AllocRetries)
+	}
+
+	if ipv6Enabled {
+		m.bpfMapV6 = newRetriesMap(mapNameSnat6AllocRetries)
+	}
+
+	return m
+}
+
+func (m *natRetriesMap) init() error {
+	if m.bpfMapV4 != nil {
+		if err := m.bpfMapV4.Create(); err != nil {
+			return fmt.Errorf("failed to create nat retries v4 bpf map: %w", err)
 		}
+	}
+
+	if m.bpfMapV6 != nil {
+		if err := m.bpfMapV6.Create(); err != nil {
+			return fmt.Errorf("failed to create nat retries v6 bpf map: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func newRetriesMap(name string) *bpf.Map {
+	return bpf.NewMap(
+		name,
+		ebpf.PerCPUArray,
+		&RetriesKey{},
+		&RetriesValue{},
+		SnatCollisionRetries+1,
+		0,
+	)
+}
+
+// RetriesMaps returns the maps that contain the histograms of the number of retries.
+// This should only be used from components which aren't capable of using hive - mainly the cilium-dbg.
+// It needs to initialized beforehand via the Cilium Agent.
+func RetriesMaps(ipv4 bool, ipv6 bool) (ipv4RetriesMap, ipv6RetriesMap RetriesMap) {
+	if ipv4 {
+		ipv4RetriesMap = newRetriesMap(mapNameSnat4AllocRetries)
 	}
 	if ipv6 {
-		ipv6Map := NewRetriesMap(MapNameSnat6AllocRetries)
-		if err := ipv6Map.OpenOrCreate(); err != nil {
-			return err
-		}
+		ipv6RetriesMap = newRetriesMap(mapNameSnat6AllocRetries)
 	}
-	return nil
+	return
 }

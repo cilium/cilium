@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"log/slog"
 	"math/bits"
 	"sort"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
@@ -127,6 +127,26 @@ type PerSelectorPolicy struct {
 	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
 
+	// Priority is the priority level for this rule. Defaults to 0. Rules with lower priority
+	// values take precedence over rules with later priority values.
+	Priority types.Priority `json:"priority,omitempty"`
+
+	// PolicyVerdict specifies if traffic matching this policy should be allowed, denied, or if
+	// the verdict should be determined by lower priority rules (pass).
+	Verdict types.Verdict `json:"verdict,omitempty"`
+
+	// ListenerPriority of the listener used when multiple listeners would apply to the same
+	// MapStateEntry.
+	// Lower numbers indicate higher priority. Except for the default 0, which indicates the
+	// lowest priority.  If higher priority desired, a low unique number like 1, 2, or 3 should
+	// be explicitly specified here.
+	ListenerPriority ListenerPriority `json:"listenerPriority,omitempty"`
+
+	// Listener is an optional fully qualified name of a Envoy Listner defined in a
+	// CiliumEnvoyConfig CRD that should be used for this traffic instead of the default
+	// listener
+	Listener string `json:"listener,omitempty"`
+
 	// TerminatingTLS is the TLS context for the connection terminated by
 	// the L7 proxy.  For egress policy this specifies the server-side TLS
 	// parameters to be applied on the connections originated from the local
@@ -148,18 +168,6 @@ type PerSelectorPolicy struct {
 	// TLS handshake.
 	ServerNames StringSet `json:"serverNames,omitempty"`
 
-	// Listener is an optional fully qualified name of a Envoy Listner defined in a
-	// CiliumEnvoyConfig CRD that should be used for this traffic instead of the default
-	// listener
-	Listener string `json:"listener,omitempty"`
-
-	// Priority of the proxy redirect used when multiple proxy ports would apply to the same
-	// MapStateEntry.
-	// Lower numbers indicate higher priority. Except for the default 0, which indicates the
-	// lowest priority.  If higher priority desired, a low unique number like 1, 2, or 3 should
-	// be explicitly specified here.
-	Priority ListenerPriority `json:"priority,omitempty"`
-
 	// Pre-computed HTTP rules, computed after rule merging is complete
 	envoyHTTPRules *cilium.HttpNetworkPolicyRules `json:"-"`
 
@@ -172,9 +180,6 @@ type PerSelectorPolicy struct {
 	// Authentication is the kind of cryptographic authentication required for the traffic to be
 	// allowed at L3, if any.
 	Authentication *api.Authentication `json:"auth,omitempty"`
-
-	// IsDeny is set if this L4Filter contains should be denied
-	IsDeny bool `json:",omitempty"`
 }
 
 // CanShortCircuit returns true if EnvoyHTTPRules enforcement can take the first match as the final
@@ -196,9 +201,9 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
 		a.ServerNames.Equal(b.ServerNames) &&
 		a.Listener == b.Listener &&
-		a.Priority == b.Priority &&
+		a.ListenerPriority == b.ListenerPriority &&
 		(a.Authentication == nil && b.Authentication == nil || a.Authentication != nil && a.Authentication.DeepEqual(b.Authentication)) &&
-		a.IsDeny == b.IsDeny &&
+		a.Verdict == b.Verdict &&
 		a.L7Rules.DeepEqual(&b.L7Rules)
 }
 
@@ -210,8 +215,16 @@ func (a *PerSelectorPolicy) GetListener() string {
 	return a.Listener
 }
 
-// GetPriority returns the pritority of the listener of the PerSelectorPolicy.
-func (a *PerSelectorPolicy) GetPriority() ListenerPriority {
+// GetListenerPriority returns the pritority of the listener of the PerSelectorPolicy.
+func (a *PerSelectorPolicy) GetListenerPriority() ListenerPriority {
+	if a == nil {
+		return 0
+	}
+	return a.ListenerPriority
+}
+
+// GetPriority returns the priority of the PerSelectorPolicy.
+func (a *PerSelectorPolicy) GetPriority() types.Priority {
 	if a == nil {
 		return 0
 	}
@@ -258,8 +271,15 @@ func (sp *PerSelectorPolicy) HasL7Rules() bool {
 	return sp != nil && !sp.L7Rules.IsEmpty()
 }
 
-func (a *PerSelectorPolicy) GetDeny() bool {
-	return a != nil && a.IsDeny
+func (a *PerSelectorPolicy) GetVerdict() types.Verdict {
+	if a == nil {
+		return types.Allow
+	}
+	return a.Verdict
+}
+
+func (a *PerSelectorPolicy) IsDeny() bool {
+	return a.GetVerdict() == types.Deny
 }
 
 // L7DataMap contains a map of L7 rules per endpoint where key is a CachedSelector
@@ -513,16 +533,17 @@ func ensureWildcard(rules *api.L7Rules, parserType L7ParserType) *api.L7Rules {
 // specified in terms of selectors that are mapped to security identities via
 // the selector cache.
 type L4Filter struct {
+	Tier types.Tier `json:"tier,omitempty"`
+	// U8Proto is the Protocol in numeric format, or 0 for NONE
+	U8Proto u8proto.U8proto `json:"-"`
 	// Port is the destination port to allow. Port 0 indicates that all traffic
 	// is allowed at L4.
 	Port uint16 `json:"port"`
 	// EndPort is zero for a singular port
-	EndPort  uint16 `json:"endPort,omitempty"`
-	PortName string `json:"port-name,omitempty"`
+	EndPort uint16 `json:"endPort,omitempty"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
-	// U8Proto is the Protocol in numeric format, or 0 for NONE
-	U8Proto u8proto.U8proto `json:"-"`
+	PortName string      `json:"port-name,omitempty"`
 	// wildcard is the cached selector representing a wildcard in this filter, if any.
 	// This is nil the wildcard selector in not in 'PerSelectorPolicies'.
 	// When the wildcard selector is in 'PerSelectorPolicies' this is set to that
@@ -623,21 +644,20 @@ func (c *ChangeState) Size() int {
 }
 
 // generateWildcardMapStateEntry creates map state entry for wildcard selector in the filter.
-func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16) mapStateEntry {
-	wildcardEntry := mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
-
+func (l4 *L4Filter) generateWildcardMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, nextTierPriority types.Priority) mapStateEntry {
 	if l4.wildcard != nil {
 		currentRule := l4.PerSelectorPolicies[l4.wildcard]
 		cs := l4.wildcard
 
-		wildcardEntry = l4.makeMapStateEntry(logger, p, port, cs, currentRule)
+		return l4.makeMapStateEntry(logger, p, port, cs, currentRule, nextTierPriority)
 	}
 
-	return wildcardEntry
+	return makeInvalidEntry()
+
 }
 
 // makeMapStateEntry creates a mapStateEntry for the given selector and policy for the Endpoint.
-func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, cs CachedSelector, currentRule *PerSelectorPolicy) mapStateEntry {
+func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, port uint16, cs CachedSelector, currentRule *PerSelectorPolicy, nextTierPriority types.Priority) mapStateEntry {
 	var proxyPort uint16
 	if currentRule.IsRedirect() {
 		var err error
@@ -651,15 +671,17 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 				logfields.Error, err,
 				logfields.EndpointSelector, cs,
 			)
-			return mapStateEntry{MapStateEntry: MapStateEntry{Invalid: true}}
+			return makeInvalidEntry()
 		}
 	}
 
 	return newMapStateEntry(
+		currentRule.GetPriority(),
+		nextTierPriority,
 		l4.RuleOrigin[cs],
 		proxyPort,
-		currentRule.GetPriority(),
-		currentRule.GetDeny(),
+		currentRule.GetListenerPriority(),
+		currentRule.GetVerdict(),
 		currentRule.getAuthRequirement(),
 	)
 }
@@ -671,7 +693,7 @@ func (l4 *L4Filter) makeMapStateEntry(logger *slog.Logger, p *EndpointPolicy, po
 // 'p.PolicyMapState' using insertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
 // 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
-func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features policyFeatures, changes ChangeState) {
+func (l4 *L4Filter) toMapState(logger *slog.Logger, basePriority, nextTierPriority types.Priority, p *EndpointPolicy, features policyFeatures, changes ChangeState) {
 	port := l4.Port
 	proto := l4.U8Proto
 
@@ -699,68 +721,54 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 		}
 	}
 
+	basePrecedence := basePriority.ToPassPrecedence()
+
 	var keysToAdd []Key
 	for _, mp := range PortRangeToMaskedPorts(port, l4.EndPort) {
 		keysToAdd = append(keysToAdd,
 			KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 	}
 
-	// Compute and insert the wildcard entry, if present.
-	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port)
-	if !wildcardEntry.Invalid {
-		for _, keyToAdd := range keysToAdd {
-			keyToAdd.Identity = 0
-			p.policyMapState.insertWithChanges(keyToAdd, wildcardEntry, features, changes)
+	// Compute the wildcard entry, if present.
+	wildcardEntry := l4.generateWildcardMapStateEntry(scopedLog, p, port, nextTierPriority)
+	haveWildcard := wildcardEntry.IsValid() || wildcardEntry.IsPassEntry()
 
-			if port == 0 {
-				// Allow-all
-				scopedLog.Debug(
-					"ToMapState: allow all",
-					logfields.EndpointSelector, l4.wildcard,
-				)
-			} else {
-				// L4 allow
-				scopedLog.Debug(
-					"ToMapState: L4 allow all",
-					logfields.EndpointSelector, l4.wildcard,
-				)
-			}
-		}
-	}
-
+	var idents identity.NumericIdentitySlice
+	var entry mapStateEntry
 	for cs, currentRule := range l4.PerSelectorPolicies {
-		// is this wildcard? If so, we already added it above
-		if cs == l4.wildcard {
-			continue
+		// is this wildcard? If so, we already created it above
+		if haveWildcard && cs == l4.wildcard {
+			entry = wildcardEntry
+			// wildcard identity
+			idents = identity.NumericIdentitySlice{0}
+		} else {
+			entry = l4.makeMapStateEntry(logger, p, port, cs, currentRule, nextTierPriority)
+			if !entry.IsValid() && !entry.IsPassEntry() {
+				continue
+			}
+
+			// If this entry is identical to the wildcard's entry, we can elide it.
+			// Do not elide for port wildcards. TODO: This is probably too
+			// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
+			if wildcardEntry.IsValid() && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
+				scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
+				continue
+			}
+			idents = cs.GetSelectionsAt(p.selectors)
 		}
 
-		// create MapStateEntry
-		entry := l4.makeMapStateEntry(logger, p, port, cs, currentRule)
-		if entry.Invalid {
-			continue
-		}
-
-		// If this entry is identical to the wildcard's entry, we can elide it.
-		// Do not elide for port wildcards. TODO: This is probably too
-		// conservative, determine if it's safe to elide l3 entry when no l4 specifier is present.
-		if !wildcardEntry.Invalid && port != 0 && entry.MapStateEntry == wildcardEntry.MapStateEntry {
-			scopedLog.Debug("ToMapState: Skipping L3/L4 key due to existing identical L4-only key", logfields.EndpointSelector, cs)
-			continue
-		}
-
-		idents := cs.GetSelections(p.VersionHandle)
 		if option.Config.Debug {
 			if entry.IsDeny() {
 				scopedLog.Debug(
 					"ToMapState: Denied remote IDs",
-					logfields.Version, p.VersionHandle,
+					logfields.Version, p.selectors,
 					logfields.EndpointSelector, cs,
 					logfields.PolicyID, idents,
 				)
 			} else {
 				scopedLog.Debug(
 					"ToMapState: Allowed remote IDs",
-					logfields.Version, p.VersionHandle,
+					logfields.Version, p.selectors,
 					logfields.EndpointSelector, cs,
 					logfields.PolicyID, idents,
 				)
@@ -769,7 +777,7 @@ func (l4 *L4Filter) toMapState(logger *slog.Logger, p *EndpointPolicy, features 
 		for _, id := range idents {
 			for _, keyToAdd := range keysToAdd {
 				keyToAdd.Identity = id
-				p.policyMapState.insertWithChanges(keyToAdd, entry, features, changes)
+				p.policyMapState.insertWithChanges(basePrecedence, keyToAdd, entry, features, changes)
 			}
 		}
 	}
@@ -814,7 +822,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(logger *slog.Logger, cs types.Cache
 	}
 }
 
-func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn *versioned.Tx) {
+func (l4 *L4Filter) IdentitySelectionCommit(logger *slog.Logger, txn SelectorSnapshot) {
 	logger.Debug(
 		"identity selection updates done",
 		logfields.NewVersion, txn,
@@ -835,29 +843,7 @@ func (l4 *L4Filter) IsPeerSelector() bool {
 }
 
 func (l4 *L4Filter) cacheIdentitySelector(sel api.EndpointSelector, lbls stringLabels, selectorCache *SelectorCache) CachedSelector {
-	cs, added := selectorCache.AddIdentitySelector(l4, lbls, sel)
-	if added {
-		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
-	}
-	return cs
-}
-
-func (l4 *L4Filter) cacheIdentitySelectors(selectors api.EndpointSelectorSlice, meta ruleOrigin, selectorCache *SelectorCache) {
-	lbls := meta.stringLabels()
-	for _, sel := range selectors {
-		l4.cacheIdentitySelector(sel, lbls, selectorCache)
-	}
-}
-
-func (l4 *L4Filter) cacheFQDNSelectors(selectors api.FQDNSelectorSlice, meta ruleOrigin, selectorCache *SelectorCache) {
-	lbls := meta.stringLabels()
-	for _, fqdnSel := range selectors {
-		l4.cacheFQDNSelector(fqdnSel, lbls, selectorCache)
-	}
-}
-
-func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls stringLabels, selectorCache *SelectorCache) types.CachedSelector {
-	cs, added := selectorCache.AddFQDNSelector(l4, lbls, sel)
+	cs, added := selectorCache.AddIdentitySelectorForTest(l4, lbls, sel)
 	if added {
 		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
 	}
@@ -865,17 +851,18 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, lbls stringLabels, s
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, deny bool, sni []string, listener string, priority ListenerPriority) {
+func (l7 L7DataMap) addPolicyForSelector(l7Parser L7ParserType, rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Authentication, verdict types.Verdict, sni []string, listener string, listenerPriority ListenerPriority, priority types.Priority) {
 	for epsel := range l7 {
 		l7policy := &PerSelectorPolicy{
-			L7Parser:       l7Parser,
-			TerminatingTLS: terminatingTLS,
-			OriginatingTLS: originatingTLS,
-			Authentication: auth,
-			IsDeny:         deny,
-			ServerNames:    NewStringSet(sni),
-			Listener:       listener,
-			Priority:       priority,
+			Priority:         priority,
+			L7Parser:         l7Parser,
+			TerminatingTLS:   terminatingTLS,
+			OriginatingTLS:   originatingTLS,
+			Authentication:   auth,
+			Verdict:          verdict,
+			ServerNames:      NewStringSet(sni),
+			Listener:         listener,
+			ListenerPriority: listenerPriority,
 		}
 		if rules != nil {
 			l7policy.L7Rules = *rules
@@ -943,11 +930,11 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSlice, auth *api.Authentication, rule api.Ports, port api.PortProtocol) (*L4Filter, error) {
+func createL4Filter(policyCtx PolicyContext, entry *types.PolicyEntry, portRule api.Ports, port api.PortProtocol) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 	logger := policyCtx.GetLogger()
 	origin := policyCtx.Origin()
-	ingress := policyCtx.IsIngress()
+	tier, priority := policyCtx.Priority()
 
 	portName := ""
 	p := uint64(0)
@@ -963,6 +950,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 	u8p, _ := u8proto.ParseProtocol(string(port.Protocol))
 
 	l4 := &L4Filter{
+		Tier:                tier,
 		Port:                uint16(p),            // 0 for L3-only rules and named ports
 		EndPort:             uint16(port.EndPort), // 0 for a single port, >= 'Port' for a range
 		PortName:            portName,             // non-"" for named ports
@@ -970,16 +958,23 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),
 		RuleOrigin:          make(map[CachedSelector]ruleOrigin), // Filled in below.
-		Ingress:             ingress,
+		Ingress:             entry.Ingress,
 	}
 
-	es := peerEndpoints.GetAsEndpointSelectors()
-	if es.SelectsAllEndpoints() {
-		l4.wildcard = l4.cacheIdentitySelector(api.WildcardEndpointSelector, origin.stringLabels(), selectorCache)
-	} else {
-		l4.cacheIdentitySelectors(es, origin, selectorCache)
-		fqdns := types.FromPeerSelectorSlice[api.FQDNSelector](peerEndpoints)
-		l4.cacheFQDNSelectors(fqdns, origin, selectorCache)
+	peerEndpoints := entry.L3
+	// For L4 Policy, an empty slice of EndpointSelector indicates that the
+	// rule allows all at L3 - explicitly specify this by creating a slice
+	// with the WildcardEndpointSelector.
+	if len(entry.L3) == 0 {
+		peerEndpoints = types.WildcardSelectors
+	}
+
+	css, _ := selectorCache.AddSelectorsTxn(l4, origin.stringLabels(), peerEndpoints...)
+	for _, cs := range css {
+		if cs.IsWildcard() {
+			l4.wildcard = cs
+		}
+		l4.PerSelectorPolicies[cs] = nil // no per-selector policy (yet)
 	}
 
 	var l7Parser L7ParserType
@@ -988,9 +983,9 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 	var rules *api.L7Rules
 	var sni []string
 	listener := ""
-	var priority ListenerPriority
+	var listenerPriority ListenerPriority
 
-	pr := rule.GetPortRule()
+	pr := portRule.GetPortRule()
 	if pr != nil {
 		rules = pr.Rules
 		sni = pr.GetServerNames()
@@ -1036,7 +1031,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 		}
 
 		// Map parser type to default priority for the given parser type
-		priority = l7Parser.defaultPriority()
+		listenerPriority = l7Parser.defaultPriority()
 
 		// Override the parser type and possibly priority for CRD is applicable.
 		if pr.Listener != nil {
@@ -1060,12 +1055,12 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 			}
 			listener, _ = api.ResourceQualifiedName(ns, resource.Name, pr.Listener.Name, api.ForceNamespace)
 			if pr.Listener.Priority != 0 {
-				priority = ListenerPriority(pr.Listener.Priority)
+				listenerPriority = ListenerPriority(pr.Listener.Priority)
 			}
 		}
 	}
 
-	if l7Parser != ParserTypeNone || auth != nil || policyCtx.IsDeny() {
+	if l7Parser != ParserTypeNone || entry.Authentication != nil || !entry.IsAllow() || priority != 0 {
 		modifiedRules := rules
 
 		// If we have L7 rules and default deny is disabled (EnableDefaultDeny=false), we should ensure those rules
@@ -1075,18 +1070,18 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints types.PeerSelectorSli
 		// 2. Default deny is disabled for this direction
 		// 3. This is a positive policy (not a deny policy)
 		hasL7Rules := !rules.IsEmpty()
-		isDefaultDenyDisabled := (ingress && !policyCtx.DefaultDenyIngress()) || (!ingress && !policyCtx.DefaultDenyEgress())
-		isAllowPolicy := !policyCtx.IsDeny()
+		isDefaultDenyDisabled := (entry.Ingress && !policyCtx.DefaultDenyIngress()) || (!entry.Ingress && !policyCtx.DefaultDenyEgress())
+		isAllowPolicy := entry.IsAllow() // note: L7 rules cannot be deny
 
 		if hasL7Rules && isDefaultDenyDisabled && isAllowPolicy {
 			logger.Debug("Adding wildcard L7 rules for default-allow policy",
 				logfields.L7Parser, l7Parser,
-				logfields.Ingress, ingress)
+				logfields.Ingress, entry.Ingress)
 
 			modifiedRules = ensureWildcard(rules, l7Parser)
 		}
 
-		l4.PerSelectorPolicies.addPolicyForSelector(l7Parser, modifiedRules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, listener, priority)
+		l4.PerSelectorPolicies.addPolicyForSelector(l7Parser, modifiedRules, terminatingTLS, originatingTLS, entry.Authentication, entry.Verdict, sni, listener, listenerPriority, priority)
 	}
 
 	for cs := range l4.PerSelectorPolicies {
@@ -1119,8 +1114,6 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 	var redirectTypes redirectTypes
 	var features policyFeatures
 
-	allowLocalhost := ctx.AllowLocalhost()
-
 	// Daemon options may induce L3 ingress allows for host. If a filter would apply
 	// proxy redirection for the Host, when we should accept everything from host, then
 	// wildcard Host at L7 (which is taken care of at the mapstate level).
@@ -1128,11 +1121,8 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 	for cs, sp := range l4.PerSelectorPolicies {
 		if sp != nil {
 			// Allow localhost if requested and this is a redirect that selects the host
-			//
-			// Identities with a reserved:host label are never changed incrementally, so
-			// it is correct to use the latest version here. In case the host identity
-			// is mutated, the whole policy is recomputed.
-			if allowLocalhost && sp.IsRedirect() && cs.Selects(versioned.Latest(), identity.ReservedIdentityHost) {
+			if ctx.AllowLocalhost() && l4.Ingress && sp.IsRedirect() && cs.Selects(identity.ReservedIdentityHost) {
+				// Make sure host selector is in the selector cache.
 				host := api.ReservedEndpointSelectors[labels.IDNameHost]
 				// Add the cached host selector to the PerSelectorPolicies, if not
 				// already there. Use empty string labels due to this selector being
@@ -1147,7 +1137,11 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 				features.setFeature(redirectRules)
 			}
 
-			if sp.IsDeny {
+			if sp.Priority > 0 {
+				features.setFeature(orderedRules)
+			}
+
+			if sp.Verdict == types.Deny {
 				features.setFeature(denyRules)
 			}
 
@@ -1222,7 +1216,7 @@ func (l4 *L4Filter) String() string {
 // addL4Filter adds 'filterToMerge' into the 'resMap'. Returns an error if it
 // the 'filterToMerge' can't be merged with an existing filter for the same
 // port and proto.
-func (resMap *l4PolicyMap) addL4Filter(policyCtx PolicyContext,
+func (resMap *L4PolicyMap) addL4Filter(policyCtx PolicyContext,
 	p api.PortProtocol, filterToMerge *L4Filter,
 ) error {
 	existingFilter := resMap.ExactLookup(p.Port, uint16(p.EndPort), string(p.Protocol))
@@ -1250,39 +1244,55 @@ func (resMap *l4PolicyMap) addL4Filter(policyCtx PolicyContext,
 	return nil
 }
 
-// L4PolicyMap is a list of L4 filters indexable by port/endport/protocol
-type L4PolicyMap interface {
-	Upsert(port string, endPort uint16, protocol string, l4 *L4Filter)
-	Delete(port string, endPort uint16, protocol string)
-	ExactLookup(port string, endPort uint16, protocol string) *L4Filter
-	Detach(selectorCache *SelectorCache)
-	ForEach(func(l4 *L4Filter) bool)
-	Len() int
-}
-
-// NewL4PolicyMap creates an new L4PolicMap.
-func NewL4PolicyMap() *l4PolicyMap {
-	return &l4PolicyMap{
+// makeL4PolicyMap creates an new L4PolicMap.
+func makeL4PolicyMap() L4PolicyMap {
+	return L4PolicyMap{
 		NamedPortMap:   make(map[string]*L4Filter),
 		RangePortMap:   make(map[portProtoKey]*L4Filter),
 		RangePortIndex: bitlpm.NewUintTrie[uint32, map[portProtoKey]struct{}](),
+	}
+}
+
+// L4PolicyMaps is a slice of L4PolicyMap, one for each tier in the policy
+type L4PolicyMaps []L4PolicyMap
+
+func (ls L4PolicyMaps) Len() int {
+	length := 0
+	for i := range ls {
+		length += ls[i].Len()
+	}
+	return length
+}
+
+func (ls L4PolicyMaps) Filters() iter.Seq[*L4Filter] {
+	return func(yield func(*L4Filter) bool) {
+		done := false
+		for i := range ls {
+			ls[i].ForEach(func(l4 *L4Filter) bool {
+				ok := yield(l4)
+				if !ok {
+					done = true
+				}
+				return ok
+			})
+			if done {
+				break
+			}
+		}
 	}
 }
 
 // NewL4PolicyMapWithValues creates an new L4PolicMap, with an initial
 // set of values. The initMap argument does not support port ranges.
-func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMap {
-	l4M := &l4PolicyMap{
-		NamedPortMap:   make(map[string]*L4Filter),
-		RangePortMap:   make(map[portProtoKey]*L4Filter),
-		RangePortIndex: bitlpm.NewUintTrie[uint32, map[portProtoKey]struct{}](),
-	}
+func NewL4PolicyMapWithValues(initMap map[string]*L4Filter) L4PolicyMaps {
+	l4M := L4PolicyMaps{makeL4PolicyMap()}
 	for k, v := range initMap {
+		l4M.ensureTier(v.Tier)
 		portProtoSlice := strings.Split(k, "/")
 		if len(portProtoSlice) < 2 {
 			continue
 		}
-		l4M.Upsert(portProtoSlice[0], 0, portProtoSlice[1], v)
+		l4M[v.Tier].Upsert(portProtoSlice[0], 0, portProtoSlice[1], v)
 	}
 	return l4M
 }
@@ -1292,8 +1302,8 @@ type portProtoKey struct {
 	Proto         uint8
 }
 
-// l4PolicyMap is the implementation of L4PolicyMap
-type l4PolicyMap struct {
+// L4PolicyMap is the implementation of L4PolicyMap
+type L4PolicyMap struct {
 	// NamedPortMap represents the named ports (a Kubernetes feature)
 	// that map to an L4Filter. They must be tracked at the selection
 	// level, because they can only be resolved at the endpoint/identity
@@ -1324,7 +1334,7 @@ func makePolicyMapKey(port, mask uint16, proto uint8) uint32 {
 }
 
 // Upsert L4Filter adds an L4Filter indexed by protocol/port-endPort.
-func (l4M *l4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 *L4Filter) {
+func (l4M *L4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 *L4Filter) {
 	if iana.IsSvcName(port) {
 		l4M.NamedPortMap[port+"/"+protocol] = l4
 		return
@@ -1355,7 +1365,7 @@ func (l4M *l4PolicyMap) Upsert(port string, endPort uint16, protocol string, l4 
 }
 
 // Delete an L4Filter from the index by protocol/port-endPort
-func (l4M *l4PolicyMap) Delete(port string, endPort uint16, protocol string) {
+func (l4M *L4PolicyMap) Delete(port string, endPort uint16, protocol string) {
 	if iana.IsSvcName(port) {
 		delete(l4M.NamedPortMap, port+"/"+protocol)
 		return
@@ -1387,7 +1397,7 @@ func (l4M *l4PolicyMap) Delete(port string, endPort uint16, protocol string) {
 }
 
 // ExactLookup looks up an L4Filter by protocol/port-endPort and looks for an exact match.
-func (l4M *l4PolicyMap) ExactLookup(port string, endPort uint16, protocol string) *L4Filter {
+func (l4M *L4PolicyMap) ExactLookup(port string, endPort uint16, protocol string) *L4Filter {
 	if iana.IsSvcName(port) {
 		return l4M.NamedPortMap[port+"/"+protocol]
 	}
@@ -1402,7 +1412,7 @@ func (l4M *l4PolicyMap) ExactLookup(port string, endPort uint16, protocol string
 }
 
 // ForEach iterates over all L4Filters in the l4PolicyMap.
-func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
+func (l4M *L4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 	for _, f := range l4M.NamedPortMap {
 		if !fn(f) {
 			return
@@ -1416,7 +1426,7 @@ func (l4M *l4PolicyMap) ForEach(fn func(l4 *L4Filter) bool) {
 }
 
 // Len returns the number of entries in the map.
-func (l4M *l4PolicyMap) Len() int {
+func (l4M *L4PolicyMap) Len() int {
 	if l4M == nil {
 		return 0
 	}
@@ -1428,7 +1438,12 @@ type policyFeatures uint8
 const (
 	denyRules policyFeatures = 1 << iota
 	redirectRules
+	orderedRules
 	authRules
+
+	// if any of the precedenceFeatures is set, then we need to scan for policy overrides due to
+	// precedence differences between rules.
+	precedenceFeatures policyFeatures = denyRules | redirectRules | orderedRules
 
 	allFeatures policyFeatures = ^policyFeatures(0)
 )
@@ -1442,31 +1457,37 @@ func (pf policyFeatures) contains(feature policyFeatures) bool {
 }
 
 type L4DirectionPolicy struct {
-	PortRules L4PolicyMap
+	PortRules L4PolicyMaps
+
+	// TierBasePriority stores the starting priority for each tier.
+	// For tier 0 this is always 0, for later tiers this should be a priority lower (numerically
+	// higher) than any rule's priority on the preceding tiers.
+	tierBasePriority []types.Priority
 
 	// features tracks properties of PortRules to skip code when features are not used
 	features policyFeatures
 }
 
+// newL4DirectionPolicy creates a new L4DirectionPolicy with slices initialized for one tier for
+// legacy compatibility as testing code assumes indexing by '0' works in all situations.
 func newL4DirectionPolicy() L4DirectionPolicy {
 	return L4DirectionPolicy{
-		PortRules: NewL4PolicyMap(),
+		PortRules:        L4PolicyMaps{makeL4PolicyMap()},
+		tierBasePriority: make([]types.Priority, 1),
 	}
+}
+
+func (l4 L4DirectionPolicy) Filters() iter.Seq[*L4Filter] {
+	return l4.PortRules.Filters()
 }
 
 // Detach removes the cached selectors held by L4PolicyMap from the
 // selectorCache, allowing the map to be garbage collected when there
 // are no more references to it.
 func (l4 L4DirectionPolicy) Detach(selectorCache *SelectorCache) {
-	l4.PortRules.Detach(selectorCache)
-}
-
-// detach is used directly from tracing and testing functions
-func (l4M *l4PolicyMap) Detach(selectorCache *SelectorCache) {
-	l4M.ForEach(func(l4 *L4Filter) bool {
-		l4.detach(selectorCache)
-		return true
-	})
+	for f := range l4.Filters() {
+		f.detach(selectorCache)
+	}
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
@@ -1476,12 +1497,12 @@ func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redir
 	var redirectTypes redirectTypes
 	var features policyFeatures
 
-	l4.PortRules.ForEach(func(f *L4Filter) bool {
+	for f := range l4.Filters() {
 		feat, redir := f.attach(ctx, l4Policy)
 		features |= feat
 		redirectTypes |= redir
-		return true
-	})
+	}
+
 	l4.features = features
 	return redirectTypes
 }
@@ -1571,15 +1592,24 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 	derivedFrom := l4.RuleOrigin[cs]
 
 	direction := trafficdirection.Egress
+	directionPolicy := &l4Policy.Egress
 	if l4.Ingress {
 		direction = trafficdirection.Ingress
+		directionPolicy = &l4Policy.Ingress
 	}
 	perSelectorPolicy := l4.PerSelectorPolicies[cs]
 	redirect := perSelectorPolicy.IsRedirect()
 	listener := perSelectorPolicy.GetListener()
-	priority := perSelectorPolicy.GetPriority()
+	listenerPriority := perSelectorPolicy.GetListenerPriority()
 	authReq := perSelectorPolicy.getAuthRequirement()
-	isDeny := perSelectorPolicy.GetDeny()
+	verdict := perSelectorPolicy.GetVerdict()
+	tier := l4.Tier
+	priority := perSelectorPolicy.GetPriority()
+	basePriority := directionPolicy.tierBasePriority[tier]
+	nextTierPriority := types.MaxPriority
+	if len(directionPolicy.tierBasePriority) > int(tier)+1 {
+		nextTierPriority = directionPolicy.tierBasePriority[tier+1]
+	}
 
 	// Can hold rlock here as neither GetNamedPort() nor LookupRedirectPort() no longer
 	// takes the Endpoint lock below.
@@ -1606,9 +1636,10 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 					logfields.Port, port,
 					logfields.Protocol, proto,
 					logfields.TrafficDirection, direction,
+					logfields.Priority, priority,
 					logfields.IsRedirect, redirect,
 					logfields.Listener, listener,
-					logfields.ListenerPriority, priority,
+					logfields.ListenerPriority, listenerPriority,
 				)
 				continue
 			}
@@ -1618,12 +1649,14 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 			keysToAdd = append(keysToAdd,
 				KeyForDirection(direction).WithPortProtoPrefix(proto, mp.port, uint8(bits.LeadingZeros16(^mp.mask))))
 		}
-		value := newMapStateEntry(derivedFrom, proxyPort, priority, isDeny, authReq)
+
+		value := newMapStateEntry(priority, nextTierPriority, derivedFrom, proxyPort, listenerPriority, verdict, authReq)
 
 		// If the entry is identical to wildcard map entry, we can elide it.
 		// See comment in L4Filter.toMapState()
-		wildcardMapEntry := l4.generateWildcardMapStateEntry(logger, epPolicy, port)
-		if !wildcardMapEntry.Invalid && port != 0 && value.MapStateEntry == wildcardMapEntry.MapStateEntry {
+		wildcardMapEntry := l4.generateWildcardMapStateEntry(logger, epPolicy, port, nextTierPriority)
+
+		if wildcardMapEntry.IsValid() && port != 0 && value.MapStateEntry == wildcardMapEntry.MapStateEntry {
 			logger.Debug(
 				"AccumulateMapChanges: Skipping L3/L4 key due to existing identical L4-only key",
 				logfields.EndpointSelector, cs)
@@ -1646,15 +1679,18 @@ func (l4Policy *L4Policy) AccumulateMapChanges(logger *slog.Logger, l4 *L4Filter
 				logfields.IsRedirect, redirect,
 				logfields.AuthType, authString,
 				logfields.Listener, listener,
-				logfields.ListenerPriority, priority,
+				logfields.ListenerPriority, listenerPriority,
+				logfields.Tier, tier,
+				logfields.TierBasePriority, basePriority,
+				logfields.Priority, priority,
 			)
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, keysToAdd, value)
+		epPolicy.policyMapChanges.AccumulateMapChanges(tier, basePriority, adds, deletes, keysToAdd, value)
 	}
 }
 
 // SyncMapChanges marks earlier updates as completed
-func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn *versioned.Tx) {
+func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn SelectorSnapshot) {
 	// SelectorCache may not be called into while holding this lock!
 	l4Policy.mutex.RLock()
 
@@ -1722,7 +1758,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	}
 
 	ingress := []*models.PolicyRule{}
-	l4.Ingress.PortRules.ForEach(func(v *L4Filter) bool {
+	for v := range l4.Ingress.Filters() {
 		rulesBySelector := map[string][][]string{}
 		derivedFrom := labels.LabelArrayList{}
 		for sel, rules := range v.RuleOrigin {
@@ -1735,11 +1771,10 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 			DerivedFromRules: derivedFrom.GetModel(),
 			RulesBySelector:  rulesBySelector,
 		})
-		return true
-	})
+	}
 
 	egress := []*models.PolicyRule{}
-	l4.Egress.PortRules.ForEach(func(v *L4Filter) bool {
+	for v := range l4.Egress.Filters() {
 		// TODO: Add RulesBySelector field like for ingress above?
 		derivedFrom := labels.LabelArrayList{}
 		for _, rules := range v.RuleOrigin {
@@ -1750,8 +1785,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 			Rule:             v.Marshal(),
 			DerivedFromRules: derivedFrom.GetModel(),
 		})
-		return true
-	})
+	}
 
 	return &models.L4Policy{
 		Ingress: ingress,
@@ -1766,7 +1800,7 @@ func (l4 *L4Policy) GetRuleOriginModel() *models.L4Policy {
 	}
 
 	ingress := []*models.PolicyRule{}
-	l4.Ingress.PortRules.ForEach(func(v *L4Filter) bool {
+	for v := range l4.Ingress.Filters() {
 		derivedFrom := labels.LabelArrayList{}
 		for _, rules := range v.RuleOrigin {
 			lal := rules.GetLabelArrayList()
@@ -1775,11 +1809,10 @@ func (l4 *L4Policy) GetRuleOriginModel() *models.L4Policy {
 		ingress = append(ingress, &models.PolicyRule{
 			DerivedFromRules: derivedFrom.GetModel(),
 		})
-		return true
-	})
+	}
 
 	egress := []*models.PolicyRule{}
-	l4.Egress.PortRules.ForEach(func(v *L4Filter) bool {
+	for v := range l4.Egress.Filters() {
 		derivedFrom := labels.LabelArrayList{}
 		for _, rules := range v.RuleOrigin {
 			lal := rules.GetLabelArrayList()
@@ -1788,8 +1821,7 @@ func (l4 *L4Policy) GetRuleOriginModel() *models.L4Policy {
 		egress = append(egress, &models.PolicyRule{
 			DerivedFromRules: derivedFrom.GetModel(),
 		})
-		return true
-	})
+	}
 
 	return &models.L4Policy{
 		Ingress: ingress,

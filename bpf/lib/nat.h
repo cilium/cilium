@@ -27,12 +27,7 @@
 DECLARE_CONFIG(union v4addr, nat_ipv4_masquerade, "Masquerade address for IPv4 traffic")
 DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 traffic")
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
-
-#ifdef ENABLE_NODEPORT
-#define NAT_MIN_EGRESS		NODEPORT_PORT_MIN_NAT
-#else
-#define NAT_MIN_EGRESS		EPHEMERAL_MIN
-#endif
+DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimun")
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -49,6 +44,15 @@ struct nat_entry {
 #define SNAT_SIGNAL_THRES		(SNAT_COLLISION_RETRIES / 2)
 
 #define snat_v4_needs_masquerade_hook(ctx, target) 0
+
+static __always_inline __u16
+nat_min_egress()
+{
+#ifdef ENABLE_NODEPORT
+	return NODEPORT_PORT_MIN_NAT;
+#endif
+	return CONFIG(ephemeral_min);
+}
 
 /* Clamp a port to the range [start, end].
  *
@@ -175,7 +179,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 16384);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipmasq_v4 __section_maps_btf;
 
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
@@ -183,7 +187,7 @@ static __always_inline void *
 get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+	if (cluster_id != 0 && cluster_id != CONFIG(cluster_id))
 		return map_lookup_elem(&cilium_per_cluster_snat_v4_external, &cluster_id);
 #endif
 	return &cilium_snat_v4_external;
@@ -539,7 +543,7 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target,
 		return false;
 #endif
 
-	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
+	return (!target->from_local_endpoint && sport < nat_min_egress());
 }
 
 static __always_inline bool
@@ -626,7 +630,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 # if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	if (target->cluster_id != 0 &&
-	    target->cluster_id != CLUSTER_ID) {
+	    target->cluster_id != CONFIG(cluster_id)) {
 		target->addr = IPV4_INTER_CLUSTER_SNAT;
 		target->from_local_endpoint = true;
 
@@ -719,8 +723,10 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		return NAT_PUNT_TO_STACK;
 #endif
 
-	/* if this is a localhost endpoint, no SNAT is needed */
-	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
+	/* Do not SNAT if this is a localhost endpoint or
+	 * endpoint explicitly disallows it (normally multi-pool IPAM endpoints)
+	 */
+	if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V4))
 		return NAT_PUNT_TO_STACK;
 
 	/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
@@ -1268,7 +1274,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 16384);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipmasq_v6 __section_maps_btf;
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
@@ -1276,7 +1282,7 @@ static __always_inline void *
 get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
-	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+	if (cluster_id != 0 && cluster_id != CONFIG(cluster_id))
 		return map_lookup_elem(&cilium_per_cluster_snat_v6_external, &cluster_id);
 #endif
 	return &cilium_snat_v6_external;
@@ -1606,7 +1612,7 @@ snat_v6_nat_can_skip(const struct ipv6_nat_target *target,
 		return false;
 #endif
 
-	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
+	return (!target->from_local_endpoint && sport < nat_min_egress());
 }
 
 static __always_inline bool
@@ -1727,7 +1733,11 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	}
 # endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
 
-	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
+	/* Do not SNAT if this is a localhost endpoint or
+	 * endpoint explicitly disallows it (normally multi-pool IPAM endpoints)
+	 */
+	 /*if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V6))*/
+	if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V6))
 		return NAT_PUNT_TO_STACK;
 
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6

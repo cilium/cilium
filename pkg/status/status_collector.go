@@ -700,7 +700,7 @@ func (d *statusCollector) getProbes() []Probe {
 				// 2048  | 1m15s
 				// 8192  | 1m30s
 				// 16384 | 1m32s
-				return d.statusParams.NodeDiscovery.Manager.ClusterSizeDependantInterval(10 * time.Second)
+				return d.statusParams.NodeManager.ClusterSizeDependantInterval(10 * time.Second)
 			},
 			Probe: func(ctx context.Context) (any, error) {
 				return d.getK8sStatus(), nil
@@ -913,6 +913,10 @@ func (d *statusCollector) getProbes() []Probe {
 						Mode:      models.EncryptionStatusModeWireguard,
 						Msg:       msg,
 						Wireguard: status,
+					}, nil
+				case d.statusParams.ZtunnelConfig.EnableZTunnel:
+					return &models.EncryptionStatus{
+						Mode: models.EncryptionStatusModeZtunnel,
 					}, nil
 				default:
 					return &models.EncryptionStatus{

@@ -357,7 +357,7 @@ enum {
 	SVC_FLAG_TWO_SCOPES        = (1 << 5),	/* Two sets of backends are used for external/internal connections */
 	SVC_FLAG_QUARANTINED       = (1 << 6),	/* Backend slot (key: backend_slot > 0) is quarantined */
 	SVC_FLAG_SOURCE_RANGE_DENY = (1 << 6),	/* Master slot: LoadBalancer source range check is inverted */
-	SVC_FLAG_FWD_MODE_DSR      = (1 << 7),	/* If bit is set, use DSR instead of SNAT in annotation mode */
+	SVC_FLAG_FWD_MODE_DSR      = (1 << 7),	/* If bit is set, use DSR instead of SNAT */
 };
 
 /* Backend flags (lb{4,6}_backends->flags) */
@@ -524,7 +524,6 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 	return __lb_svc_is_routable(svc->flags);
 }
 
-#ifdef ENABLE_LOCAL_REDIRECT_POLICY
 static __always_inline
 bool lb4_svc_is_localredirect(const struct lb4_service *svc)
 {
@@ -536,7 +535,6 @@ bool lb6_svc_is_localredirect(const struct lb6_service *svc)
 {
 	return svc->flags2 & SVC_FLAG_LOCALREDIRECT;
 }
-#endif /* ENABLE_LOCAL_REDIRECT_POLICY */
 
 static __always_inline
 bool __lb4_svc_is_l7_loadbalancer(const struct lb4_service *svc __maybe_unused)

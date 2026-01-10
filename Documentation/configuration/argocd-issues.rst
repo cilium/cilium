@@ -13,20 +13,18 @@ Troubleshooting Cilium deployed with Argo CD
 There have been reports from users hitting issues with Argo CD. This documentation 
 page outlines some of the known issues and their solutions.
 
-Argo CD deletes CustomResourceDefinitions
-=========================================
+Argo CD deletes Cilium custom resources
+=======================================
 
 When deploying Cilium with Argo CD, some users have reported that Cilium-generated custom resources disappear,
-causing one or more of the following issues:
+causing the following issues:
 
 - ``ciliumid`` not found (:gh-issue:`17614`)
-- Argo CD Out-of-sync issues for hubble-generate-certs (:gh-issue:`14550`)
-- Out-of-sync issues for Cilium using Argo CD (:gh-issue:`18298`)
 
 Solution
 --------
 
-To prevent these issues, declare resource exclusions in the Argo CD ``ConfigMap`` by following `these instructions <https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#resource-exclusioninclusion>`__.
+To prevent this issue, declare resource exclusions in the Argo CD ``ConfigMap`` by following `these instructions <https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#resource-exclusioninclusion>`__.
 
 Here is an example snippet:
 
@@ -40,9 +38,27 @@ Here is an example snippet:
        clusters:
          - "*"
 
+Argo CD show resources permanently out-of-sync
+==============================================
 
-Also, it has been reported that the problem may affect all workloads you deploy with Argo CD in a cluster running Cilium, not just Cilium itself.
-If so, you will need the following exclusions in your Argo CD application definition to avoid getting “out of sync” when Hubble rotates its certificates.
+- Argo CD Out-of-sync issues for hubble-generate-certs (:gh-issue:`14550`)
+- Out-of-sync issues for Cilium using Argo CD (:gh-issue:`18298`)
+
+Solution
+--------
+
+You may pick one of the following approaches.
+
+The ``argocd.argoproj.io/compare-options: IgnoreExtraneous`` annotation can be added to resources, which use non-idempotent helm generators to avoid this issue.
+The helm value ``nonIdempotentAnnotations`` is available for the purpose and can be set in your values file.
+
+.. code-block:: yaml
+
+    nonIdempotentAnnotations:
+      argocd.argoproj.io/compare-options: IgnoreExtraneous
+
+Exclusions can be set in your Argo CD application definition to avoid getting “out of sync” when certificates get regenerated.
+The example below is for Hubble, similar secrets exist however for clustermesh as well. They are all labeled with ``cilium.io/helm-template-non-idempotent: "true"``.
 
 .. code-block:: yaml
 

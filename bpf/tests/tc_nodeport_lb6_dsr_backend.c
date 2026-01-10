@@ -12,8 +12,6 @@
 #define DSR_ENCAP_GENEVE	3
 #define ENABLE_HOST_ROUTING
 
-#define ENABLE_SKIP_FIB		1
-
 #define CLIENT_IP	{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #define CLIENT_PORT	__bpf_htons(111)
 
@@ -22,6 +20,9 @@
 
 #define BACKEND_IP	{ .addr = { 0x3, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #define BACKEND_PORT	__bpf_htons(8080)
+
+#define DEFAULT_IFACE		24
+#define BACKEND_IFACE		25
 
 #define BACKEND_EP_ID		127
 
@@ -54,10 +55,40 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 	tail_call(ctx, &mock_policy_call_map, slot);
 }
 
+#define fib_lookup mock_fib_lookup
+static __always_inline __maybe_unused long
+mock_fib_lookup(void *ctx __maybe_unused, struct bpf_fib_lookup *params __maybe_unused,
+		int plen __maybe_unused, __u32 flags __maybe_unused);
+
+#define ctx_redirect mock_ctx_redirect
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
+		  int ifindex __maybe_unused, __u32 flags __maybe_unused);
+
 #include "lib/bpf_host.h"
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
+
+ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+
+long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
+		     __maybe_unused int plen, __maybe_unused __u32 flags)
+{
+	params->ifindex = DEFAULT_IFACE;
+
+	return BPF_FIB_LKUP_RET_SUCCESS;
+}
+
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
+		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+{
+	if (ifindex == BACKEND_IFACE)
+		return CTX_ACT_REDIRECT;
+
+	return CTX_ACT_DROP;
+}
 
 /* Test that a remote node
  * - doesn't touch a DSR request,
@@ -122,7 +153,7 @@ int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 	union v6addr backend_ip = BACKEND_IP;
 
 	/* add local backend */
-	endpoint_v6_add_entry(&backend_ip, 0, BACKEND_EP_ID, 0, 0,
+	endpoint_v6_add_entry(&backend_ip, BACKEND_IFACE, BACKEND_EP_ID, 0, 0,
 			      (__u8 *)backend_mac, (__u8 *)node_mac);
 
 	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
@@ -351,6 +382,41 @@ int nodeport_dsr_backend_reply_reply_setup(struct __ctx_buff *ctx)
 
 CHECK("tc", "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_reply_check(const struct __ctx_buff *ctx)
+{
+	return check_reply(ctx);
+}
+
+/* Test that the backend node revDNATs a reply from the
+ * DSR backend, and sends the reply back to the client.
+ * Even without the NAT entry.
+ */
+PKTGEN("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
+int nodeport_dsr_backend_reply2_no_nat_entry_pktgen(struct __ctx_buff *ctx)
+{
+	return build_reply(ctx);
+}
+
+SETUP("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
+int nodeport_dsr_backend_reply2_no_nat_entry_setup(struct __ctx_buff *ctx)
+{
+	struct ipv6_ct_tuple tuple = {
+		.daddr = CLIENT_IP,
+		.saddr = BACKEND_IP,
+		.dport = CLIENT_PORT,
+		.sport = BACKEND_PORT,
+		.nexthdr = IPPROTO_TCP,
+		.flags = CT_EGRESS,
+	};
+
+	/* Delete the NAT entry, fall back to the NAT info in the CT entry. */
+	if (map_delete_elem(&cilium_snat_v6_external, &tuple))
+		return TEST_ERROR;
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
+int nodeport_dsr_backend_reply2_no_nat_entry_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
 }

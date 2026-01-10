@@ -116,8 +116,17 @@ func LoadCollectionSpecFromReader(rd io.ReaderAt) (*CollectionSpec, error) {
 		case sec.Type == elf.SHT_REL:
 			// Store relocations under the section index of the target
 			relSections[elf.SectionIndex(sec.Info)] = sec
-		case sec.Type == elf.SHT_PROGBITS && (sec.Flags&elf.SHF_EXECINSTR) != 0 && sec.Size > 0:
-			sections[idx] = newElfSection(sec, programSection)
+		case sec.Type == elf.SHT_PROGBITS && sec.Size > 0:
+			if (sec.Flags&elf.SHF_EXECINSTR) != 0 && sec.Size > 0 {
+				sections[idx] = newElfSection(sec, programSection)
+			} else if sec.Name == structOpsLinkSec {
+				// classification based on sec names so that struct_ops-specific
+				// sections (.struct_ops.link) is correctly recognized
+				// as non-executable PROGBITS, allowing value placement and link metadata to be loaded.
+				sections[idx] = newElfSection(sec, structOpsSection)
+			} else if sec.Name == structOpsSec {
+				return nil, fmt.Errorf("section %q: got '.struct_ops' section: %w", sec.Name, ErrNotSupported)
+			}
 		}
 	}
 
@@ -186,6 +195,11 @@ func LoadCollectionSpecFromReader(rd io.ReaderAt) (*CollectionSpec, error) {
 		return nil, fmt.Errorf("load programs: %w", err)
 	}
 
+	// assiociate members in structs with ProgramSpecs using relo
+	if err := ec.associateStructOpsRelocs(progs); err != nil {
+		return nil, fmt.Errorf("load struct_ops: %w", err)
+	}
+
 	return &CollectionSpec{
 		ec.maps,
 		progs,
@@ -239,6 +253,7 @@ const (
 	btfMapSection
 	programSection
 	dataSection
+	structOpsSection
 )
 
 type elfSection struct {
@@ -1210,14 +1225,15 @@ func (ec *elfCode) loadDataSections() error {
 			mapSpec.Flags = sys.BPF_F_RDONLY_PROG
 		}
 
+		var data []byte
 		switch sec.Type {
 		// Only open the section if we know there's actual data to be read.
 		case elf.SHT_PROGBITS:
-			data, err := sec.Data()
+			var err error
+			data, err = sec.Data()
 			if err != nil {
 				return fmt.Errorf("data section %s: can't get contents: %w", sec.Name, err)
 			}
-			mapSpec.Contents = []MapKV{{uint32(0), data}}
 
 		case elf.SHT_NOBITS:
 			// NOBITS sections like .bss contain only zeroes and are not allocated in
@@ -1225,11 +1241,13 @@ func (ec *elfCode) loadDataSections() error {
 			// them. Don't attempt reading zeroes from the ELF, instead allocate the
 			// zeroed memory to support getting and setting VariableSpecs for sections
 			// like .bss.
-			mapSpec.Contents = []MapKV{{uint32(0), make([]byte, sec.Size)}}
+			data = make([]byte, sec.Size)
 
 		default:
 			return fmt.Errorf("data section %s: unknown section type %s", sec.Name, sec.Type)
 		}
+
+		mapSpec.Contents = []MapKV{{uint32(0), data}}
 
 		for off, sym := range sec.symbols {
 			// Skip symbols marked with the 'hidden' attribute.
@@ -1259,11 +1277,19 @@ func (ec *elfCode) loadDataSections() error {
 				continue
 			}
 
+			if off+sym.Size > uint64(len(data)) {
+				return fmt.Errorf("data section %s: variable %s exceeds section bounds", sec.Name, sym.Name)
+			}
+
+			if off > math.MaxUint32 {
+				return fmt.Errorf("data section %s: variable %s offset %d exceeds maximum", sec.Name, sym.Name, off)
+			}
+
 			ec.vars[sym.Name] = &VariableSpec{
-				name:   sym.Name,
-				offset: off,
-				size:   sym.Size,
-				m:      mapSpec,
+				SectionName: sec.Name,
+				Name:        sym.Name,
+				Offset:      uint32(off),
+				Value:       slices.Clone(data[off : off+sym.Size]),
 			}
 		}
 
@@ -1294,17 +1320,17 @@ func (ec *elfCode) loadDataSections() error {
 						continue
 					}
 
-					if uint64(v.Offset) != ev.offset {
-						return fmt.Errorf("data section %s: variable %s datasec offset (%d) doesn't match ELF symbol offset (%d)", sec.Name, name, v.Offset, ev.offset)
+					if v.Offset != ev.Offset {
+						return fmt.Errorf("data section %s: variable %s datasec offset (%d) doesn't match ELF symbol offset (%d)", sec.Name, name, v.Offset, ev.Offset)
 					}
 
-					if uint64(v.Size) != ev.size {
-						return fmt.Errorf("data section %s: variable %s size in datasec (%d) doesn't match ELF symbol size (%d)", sec.Name, name, v.Size, ev.size)
+					if v.Size != ev.Size() {
+						return fmt.Errorf("data section %s: variable %s size in datasec (%d) doesn't match ELF symbol size (%d)", sec.Name, name, v.Size, ev.Size())
 					}
 
 					// Decouple the Var in the VariableSpec from the underlying DataSec in
 					// the MapSpec to avoid modifications from affecting map loads later on.
-					ev.t = btf.Copy(vt).(*btf.Var)
+					ev.Type = btf.Copy(vt).(*btf.Var)
 				}
 			}
 		}
@@ -1379,6 +1405,91 @@ func (ec *elfCode) loadKsymsSection() error {
 	return nil
 }
 
+// associateStructOpsRelocs handles `.struct_ops.link`
+// and associates the target function with the correct struct member in the map.
+func (ec *elfCode) associateStructOpsRelocs(progs map[string]*ProgramSpec) error {
+	for _, sec := range ec.sections {
+		if sec.kind != structOpsSection {
+			continue
+		}
+
+		userData, err := sec.Data()
+		if err != nil {
+			return fmt.Errorf("failed to read section data: %w", err)
+		}
+
+		// Resolve the BTF datasec describing variables in this section.
+		var ds *btf.Datasec
+		if err := ec.btf.TypeByName(sec.Name, &ds); err != nil {
+			return fmt.Errorf("datasec %s: %w", sec.Name, err)
+		}
+
+		// Set flags for .struct_ops.link (BPF_F_LINK).
+		flags := uint32(0)
+		if sec.Name == structOpsLinkSec {
+			flags = sys.BPF_F_LINK
+		}
+
+		for _, vsi := range ds.Vars {
+			userSt, baseOff, err := ec.createStructOpsMap(vsi, userData, flags)
+			if err != nil {
+				return err
+			}
+
+			if err := structOpsSetAttachTo(sec, baseOff, userSt, progs); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// createStructOpsMap() creates and registers a MapSpec for a struct_ops
+func (ec *elfCode) createStructOpsMap(vsi btf.VarSecinfo, userData []byte, flags uint32) (*btf.Struct, uint32, error) {
+	varType, ok := btf.As[*btf.Var](vsi.Type)
+	if !ok {
+		return nil, 0, fmt.Errorf("vsi: expect var, got %T", vsi.Type)
+	}
+
+	mapName := varType.Name
+
+	userSt, ok := btf.As[*btf.Struct](varType.Type)
+	if !ok {
+		return nil, 0, fmt.Errorf("var %s: expect struct, got %T", varType.Name, varType.Type)
+	}
+
+	userSize := userSt.Size
+	baseOff := vsi.Offset
+	if baseOff+userSize > uint32(len(userData)) {
+		return nil, 0, fmt.Errorf("%s exceeds section", mapName)
+	}
+
+	// Register the MapSpec for this struct_ops instance if doesn't exist
+	if _, exists := ec.maps[mapName]; exists {
+		return nil, 0, fmt.Errorf("struct_ops map %s: already exists", mapName)
+	}
+
+	ec.maps[mapName] = &MapSpec{
+		Name:       mapName,
+		Type:       StructOpsMap,
+		Key:        &btf.Int{Size: 4},
+		KeySize:    structOpsKeySize,
+		ValueSize:  userSize, // length of the user-struct type
+		Value:      userSt,
+		Flags:      flags,
+		MaxEntries: 1,
+		Contents: []MapKV{
+			{
+				Key:   uint32(0),
+				Value: append([]byte(nil), userData[baseOff:baseOff+userSize]...),
+			},
+		},
+	}
+
+	return userSt, baseOff, nil
+}
+
 type libbpfElfSectionDef struct {
 	pattern     string
 	programType sys.ProgType
@@ -1419,6 +1530,9 @@ func init() {
 		// This has been in the library since the beginning of time. Not sure
 		// where it came from.
 		{"seccomp", sys.BPF_PROG_TYPE_SOCKET_FILTER, 0, _SEC_NONE},
+		// Override libbpf definition because we want ignoreExtra.
+		{"struct_ops+", sys.BPF_PROG_TYPE_STRUCT_OPS, 0, _SEC_NONE | ignoreExtra},
+		{"struct_ops.s+", sys.BPF_PROG_TYPE_STRUCT_OPS, 0, _SEC_SLEEPABLE | ignoreExtra},
 	}, elfSectionDefs...)
 }
 

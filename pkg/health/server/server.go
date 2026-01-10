@@ -415,7 +415,7 @@ func (s *Server) newServer(logger *slog.Logger, spec *healthApi.Spec) *healthApi
 }
 
 // NewServer creates a server to handle health requests.
-func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool) (*Server, error) {
+func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool, localNode node.LocalNode) (*Server, error) {
 	server := &Server{
 		logger:             logger,
 		startTime:          time.Now(),
@@ -433,18 +433,18 @@ func NewServer(logger *slog.Logger, config Config, enableActiveChecks bool) (*Se
 	server.Client = cl
 	server.Server = *server.newServer(logger, config.HealthAPISpec)
 
-	server.httpPathServer = responder.NewServers(getAddresses(logger), config.HTTPPathPort)
+	server.httpPathServer = responder.NewServers(getAddresses(localNode), config.HTTPPathPort)
 
 	return server, nil
 }
 
 // Get internal node ipv4/ipv6 addresses based on config enabled.
 // If it fails to get either of internal node address, it returns "0.0.0.0" if ipv4 or "::" if ipv6.
-func getAddresses(logger *slog.Logger) []string {
+func getAddresses(localNode node.LocalNode) []string {
 	addresses := make([]string, 0, 2)
 
 	if option.Config.EnableIPv4 {
-		if ip := node.GetInternalIPv4(logger); ip != nil {
+		if ip := localNode.GetNodeInternalIPv4(); ip != nil {
 			addresses = append(addresses, ip.String())
 		} else {
 			// if Get ipv4 fails, then listen on all addresses.
@@ -453,7 +453,7 @@ func getAddresses(logger *slog.Logger) []string {
 	}
 
 	if option.Config.EnableIPv6 {
-		if ip := node.GetInternalIPv6(logger); ip != nil {
+		if ip := localNode.GetNodeInternalIPv6(); ip != nil {
 			addresses = append(addresses, ip.String())
 		} else {
 			// if Get ipv6 fails, then listen on all addresses.

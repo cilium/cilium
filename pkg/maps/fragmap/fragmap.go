@@ -17,14 +17,84 @@ import (
 )
 
 const (
-	// MapNameIPv4 is the name of the map used to retrieve L4 ports
+	// mapNameIPv4 is the name of the map used to retrieve L4 ports
 	// associated to the datagram to which an IPv4 belongs.
-	MapNameIPv4 = "cilium_ipv4_frag_datagrams"
+	mapNameIPv4 = "cilium_ipv4_frag_datagrams"
 
-	// MapNameIPv6 is the name of the map used to retrieve L4 ports
+	// mapNameIPv6 is the name of the map used to retrieve L4 ports
 	// associated to the datagram to which an IPv6 belongs.
-	MapNameIPv6 = "cilium_ipv6_frag_datagrams"
+	mapNameIPv6 = "cilium_ipv6_frag_datagrams"
 )
+
+// Map is a marker interface for the fragments map.
+// It doesn't provide any functionality to the Cilium Agent because
+// the bpf map is only created by the Cilium Agent for the datapath.
+// It's still provided to be picked up as dependency by the Loader
+// and initialized at startup.
+type Map any
+
+type fragMap struct {
+	bpfMapV4 *bpf.Map
+	bpfMapV6 *bpf.Map
+}
+
+func newMap(registry *metrics.Registry, maxMapEntries int, getEventBufferConfig func(name string) option.BPFEventBufferConfig) *fragMap {
+	m := &fragMap{}
+
+	if option.Config.EnableIPv4FragmentsTracking {
+		m.bpfMapV4 = bpf.NewMap(mapNameIPv4,
+			ebpf.LRUHash,
+			&FragmentKey4{},
+			&FragmentValue4{},
+			maxMapEntries,
+			0,
+		).WithEvents(getEventBufferConfig(mapNameIPv4)).
+			WithPressureMetric(registry)
+	}
+
+	if option.Config.EnableIPv6FragmentsTracking {
+		m.bpfMapV6 = bpf.NewMap(mapNameIPv6,
+			ebpf.LRUHash,
+			&FragmentKey6{},
+			&FragmentValue6{},
+			maxMapEntries,
+			0,
+		).WithEvents(getEventBufferConfig(mapNameIPv6)).
+			WithPressureMetric(registry)
+	}
+
+	return m
+}
+
+// OpenMap4 opens the pre-initialized IPv4 fragments map for access.
+// This should only be used from components which aren't capable of using hive - mainly the cilium-dbg.
+// It needs to initialized beforehand via the Cilium Agent.
+func OpenMap4(logger *slog.Logger) (*bpf.Map, error) {
+	return bpf.OpenMap(bpf.MapPath(logger, mapNameIPv4), &FragmentKey4{}, &FragmentValue4{})
+}
+
+// OpenMap6 opens the pre-initialized IPv6 fragments map for access.
+// This should only be used from components which aren't capable of using hive - mainly the cilium-dbg.
+// It needs to initialized beforehand via the Cilium Agent.
+func OpenMap6(logger *slog.Logger) (*bpf.Map, error) {
+	return bpf.OpenMap(bpf.MapPath(logger, mapNameIPv6), &FragmentKey6{}, &FragmentValue6{})
+}
+
+func (m *fragMap) init() error {
+	if option.Config.EnableIPv4FragmentsTracking {
+		if err := m.bpfMapV4.Create(); err != nil {
+			return fmt.Errorf("failed to create fragments v4 bpf map: %w", err)
+		}
+	}
+
+	if option.Config.EnableIPv6FragmentsTracking {
+		if err := m.bpfMapV6.Create(); err != nil {
+			return fmt.Errorf("failed to create fragments v6 bpf map: %w", err)
+		}
+	}
+
+	return nil
+}
 
 // FragmentKey4 must match 'struct ipv4_frag_id' in "bpf/lib/ipv4.h".
 type FragmentKey4 struct {
@@ -57,23 +127,6 @@ func (v *FragmentValue4) String() string {
 
 func (v *FragmentValue4) New() bpf.MapValue { return &FragmentValue4{} }
 
-// InitMap4 creates the IPv4 fragments map in the kernel.
-func InitMap4(registry *metrics.Registry, mapEntries int) error {
-	fragMap := bpf.NewMap(MapNameIPv4,
-		ebpf.LRUHash,
-		&FragmentKey4{},
-		&FragmentValue4{},
-		mapEntries,
-		0,
-	).WithEvents(option.Config.GetEventBufferConfig(MapNameIPv4)).WithPressureMetric(registry)
-	return fragMap.Create()
-}
-
-// OpenMap4 opens the pre-initialized IPv4 fragments map for access.
-func OpenMap4(logger *slog.Logger) (*bpf.Map, error) {
-	return bpf.OpenMap(bpf.MapPath(logger, MapNameIPv4), &FragmentKey4{}, &FragmentValue4{})
-}
-
 // FragmentKey6 must match 'struct ipv6_frag_id' in "bpf/lib/ipv6.h".
 type FragmentKey6 struct {
 	ID         uint32     `align:"id"`
@@ -104,20 +157,3 @@ func (v *FragmentValue6) String() string {
 }
 
 func (v *FragmentValue6) New() bpf.MapValue { return &FragmentValue6{} }
-
-// InitMap6 creates the IPv6 fragments map in the kernel.
-func InitMap6(registry *metrics.Registry, mapEntries int) error {
-	fragMap := bpf.NewMap(MapNameIPv6,
-		ebpf.LRUHash,
-		&FragmentKey6{},
-		&FragmentValue6{},
-		mapEntries,
-		0,
-	).WithEvents(option.Config.GetEventBufferConfig(MapNameIPv6)).WithPressureMetric(registry)
-	return fragMap.Create()
-}
-
-// OpenMap6 opens the pre-initialized IPv6 fragments map for access.
-func OpenMap6(logger *slog.Logger) (*bpf.Map, error) {
-	return bpf.OpenMap(bpf.MapPath(logger, MapNameIPv6), &FragmentKey6{}, &FragmentValue6{})
-}

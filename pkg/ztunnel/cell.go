@@ -10,7 +10,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
+	"github.com/cilium/cilium/pkg/ztunnel/reconciler"
 	"github.com/cilium/cilium/pkg/ztunnel/xds"
+	"github.com/cilium/cilium/pkg/ztunnel/zds"
 )
 
 // Cell starts ztunnel related control-plane components.
@@ -22,6 +24,10 @@ var Cell = cell.Module(
 
 	// XDS control plane for ztunnel
 	xds.Cell,
+
+	// ZDS server for ztunnel
+	zds.Cell,
+	reconciler.Cell,
 )
 
 type ztunnelParams struct {

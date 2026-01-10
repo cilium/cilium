@@ -6,6 +6,7 @@ package config
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -16,7 +17,6 @@ import (
 	"net/netip"
 	"slices"
 	"strconv"
-	"strings"
 	"text/template"
 
 	"github.com/vishvananda/netlink"
@@ -37,7 +37,6 @@ import (
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/configmap"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
@@ -93,7 +92,6 @@ func writeIncludes(w io.Writer) (int, error) {
 // https://docs.cilium.io/en/latest/contributing/development/datapath_config
 // will guide you through adding new configuration.
 func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
-
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	extraMacrosMap := make(dpdef.Map)
@@ -133,8 +131,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, cfg.CiliumInternalIPv4))
 	fmt.Fprintf(fw, " */\n\n")
-
-	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
 
 	if option.Config.EnableIPv6 && option.Config.EnableIPv6FragmentsTracking {
 		cDefinesMap["ENABLE_IPV6_FRAGMENTS"] = "1"
@@ -237,12 +233,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
 	}
 
-	if option.Config.EnableEncryptionStrictMode {
-		cDefinesMap["ENCRYPTION_STRICT_MODE"] = "1"
+	if option.Config.EnableEncryptionStrictModeEgress {
+		cDefinesMap["ENCRYPTION_STRICT_MODE_EGRESS"] = "1"
 
 		// when parsing the user input we only accept ipv4 addresses
-		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictModeCIDR.Addr()))
-		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictModeCIDR.Bits())
+		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictEgressCIDR.Addr()))
+		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictEgressCIDR.Bits())
 
 		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(cfg.NodeIPv4))
 
@@ -251,11 +247,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			return fmt.Errorf("unable to parse node IPv4 address %s", cfg.NodeIPv4)
 		}
 
-		if option.Config.EncryptionStrictModeCIDR.Contains(ipv4Interface) {
-			if !option.Config.EncryptionStrictModeAllowRemoteNodeIdentities {
+		if option.Config.EncryptionStrictEgressCIDR.Contains(ipv4Interface) {
+			if !option.Config.EncryptionStrictEgressAllowRemoteNodeIdentities {
 				return fmt.Errorf(`encryption strict mode is enabled but the node's IPv4 address is within the strict CIDR range.
 				This will cause the node to drop all traffic.
-				Please either disable encryption or set --encryption-strict-mode-allow-dynamic-lookup=true`)
+				Please either disable encryption or set --encryption-strict-egress-allow-remote-node-identities=true`)
 			}
 			cDefinesMap["STRICT_IPV4_OVERLAPPING_CIDR"] = "1"
 		}
@@ -306,10 +302,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.EnableLocalRedirectPolicy {
-		cDefinesMap["ENABLE_LOCAL_REDIRECT_POLICY"] = "1"
-	}
-
 	cDefinesMap["NAT_46X64_PREFIX_0"] = "0"
 	cDefinesMap["NAT_46X64_PREFIX_1"] = "0"
 	cDefinesMap["NAT_46X64_PREFIX_2"] = "0"
@@ -356,10 +348,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if option.Config.EnablePMTUDiscovery {
 				cDefinesMap["ENABLE_DSR_ICMP_ERRORS"] = "1"
 			}
-			if cfg.LBConfig.LBMode == loadbalancer.LBModeHybrid {
-				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
-			} else if cfg.LBConfig.LBModeAnnotation {
-				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
+			if cfg.LBConfig.LBMode == loadbalancer.LBModeHybrid || cfg.LBConfig.LBModeAnnotation {
 				cDefinesMap["ENABLE_DSR_BYUSER"] = "1"
 			}
 			if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchOption {
@@ -509,8 +498,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 
 			if excludeCIDR != nil {
-				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
-					fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(excludeCIDR.IP))
+				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(excludeCIDR.IP))
 				ones, _ := excludeCIDR.Mask.Size()
 				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
 			}
@@ -538,11 +526,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
-	ctmap.WriteBPFMacros(fw)
-
-	if option.Config.ClockSource == option.ClockSourceJiffies {
-		cDefinesMap["ENABLE_JIFFIES"] = "1"
-	}
+	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", cmp.Or(option.Config.CTMapEntriesGlobalTCP, option.CTMapEntriesGlobalTCPDefault))
+	fmt.Fprintf(fw, "#define CT_MAP_SIZE_ANY %d\n", cmp.Or(option.Config.CTMapEntriesGlobalAny, option.CTMapEntriesGlobalAnyDefault))
 
 	if option.Config.EnableIdentityMark {
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
@@ -585,12 +570,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CILIUM_HOST_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
 	cDefinesMap["CILIUM_HOST_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
 
-	ephemeralMin, err := getEphemeralPortRangeMin(h.sysctl)
-	if err != nil {
-		return fmt.Errorf("getting ephemeral port range minimun: %w", err)
-	}
-	cDefinesMap["EPHEMERAL_MIN"] = fmt.Sprintf("%d", ephemeralMin)
-
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	if err := cDefinesMap.Merge(h.nodeExtraDefines); err != nil {
@@ -628,9 +607,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENCAP6_IFINDEX"] = "0"
 	}
 
-	// Write Identity and ClusterID related macros.
-	cDefinesMap["CLUSTER_ID_MAX"] = fmt.Sprintf("%d", option.Config.MaxConnectedClusters)
-
+	// Write Identity related macros.
 	fmt.Fprint(fw, declareConfig("identity_length", identity.GetClusterIDShift(), "Identity length in bits"))
 	fmt.Fprint(fw, assignConfig("identity_length", identity.GetClusterIDShift()))
 
@@ -662,24 +639,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	return fw.Flush()
-}
-
-func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
-	ephemeralPortRangeStr, err := sysctl.Read([]string{"net", "ipv4", "ip_local_port_range"})
-	if err != nil {
-		return 0, fmt.Errorf("unable to read net.ipv4.ip_local_port_range: %w", err)
-	}
-	ephemeralPortRange := strings.Split(ephemeralPortRangeStr, "\t")
-	if len(ephemeralPortRange) != 2 {
-		return 0, fmt.Errorf("invalid ephemeral port range: %s", ephemeralPortRangeStr)
-	}
-	ephemeralPortMin, err := strconv.Atoi(ephemeralPortRange[0])
-	if err != nil {
-		return 0, fmt.Errorf("unable to parse min port value %s for ephemeral range: %w",
-			ephemeralPortRange[0], err)
-	}
-
-	return ephemeralPortMin, nil
 }
 
 // vlanFilterMacros generates VLAN_FILTER macros which
@@ -828,12 +787,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, devices []strin
 
 	if e.RequireRouting() {
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
-	}
-
-	if !option.Config.EnableHostLegacyRouting && drd != nil && len(devices) == 1 {
-		if e.IsHost() || !option.Config.EnforceLXCFibLookup() {
-			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
-		}
 	}
 
 	if e.IsHost() {

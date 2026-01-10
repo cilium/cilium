@@ -7,6 +7,10 @@ on:
       - opened
       - synchronize
       - reopened
+    branches-ignore:
+      - v1.18
+      - v1.17
+      - v1.16
   push:
     branches:
       - main
@@ -90,7 +94,7 @@ jobs:
 
     steps:
       - name: Checkout base or default branch (trusted)
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           # We first check if base_ref exist, meaning we're in pull_request_target context, and if not we just use default_branch
           ref: ${{ github.base_ref || github.event.repository.default_branch }}
@@ -130,7 +134,7 @@ jobs:
           sudo systemctl start docker
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
         # Disable GC entirely to avoid buildkit from GC caches.
         with:
           buildkitd-config-inline: |
@@ -190,7 +194,7 @@ jobs:
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           ref: ${{ steps.tag.outputs.sha }}
@@ -211,7 +215,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Restore Golang cache build from GitHub
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         id: go-cache
         with:
           path: /tmp/.cache/go
@@ -352,7 +356,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: ${{ steps.check.outputs.build != '' }}
         with:
           name: image-digest ${{ matrix.name }}
@@ -377,7 +381,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           path: image-digest/
           pattern: "*image-digest *"
@@ -426,9 +430,15 @@ jobs:
          github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
         }}
     steps:
+      - name: Generate Github App Token
+        uses: actions/create-github-app-token@7e473efe3cb98aa54f8d4bac15400b15fad77d94 # v2.2.0
+        id: generate-token
+        with:
+          app-id: ${{ secrets.AUTO_COMMENT_BOT_APP_ID }}
+          private-key: ${{ secrets.AUTO_COMMENT_BOT_PEM }}
       - name: Post /test comment
         env:
-          TOKEN: ${{ secrets.AUTO_COMMENT_TOKEN }}
+          TOKEN: ${{ steps.generate-token.outputs.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
         run: |

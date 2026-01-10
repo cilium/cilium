@@ -192,7 +192,7 @@ type Node struct {
 	IPv4AllocCIDR *cidr.CIDR
 
 	// IPv4SecondaryAllocCIDRs contains additional IPv4 CIDRs from which this
-	//node allocates IPs for its local endpoints from
+	// node allocates IPs for its local endpoints from
 	IPv4SecondaryAllocCIDRs []*cidr.CIDR
 
 	// IPv6AllocCIDR if set, is the IPv6 address pool out of which the node
@@ -380,6 +380,9 @@ func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {
 
 // SetCiliumInternalIP sets the CiliumInternalIP e.g. the IP associated
 // with cilium_host on the node.
+// This must not be conflated with k8s internal IP as this IP address is only relevant within the
+// Cilium-managed network (this means within the node for direct routing mode and on the overlay
+// for tunnel mode).
 func (n *Node) SetCiliumInternalIP(newAddr net.IP) {
 	n.setAddress(addressing.NodeCiliumInternalIP, newAddr)
 }
@@ -430,7 +433,6 @@ func (n *Node) setAddress(typ addressing.AddressType, newIP net.IP) {
 		return
 	}
 	n.IPAddresses = append(n.IPAddresses, newAddr)
-
 }
 
 func (n *Node) GetIPByType(addrType addressing.AddressType, ipv6 bool) net.IP {

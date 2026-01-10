@@ -81,7 +81,7 @@ build-container-hubble-relay:
 
 build-container-clustermesh-apiserver: ## Builds components required for the clustermesh-apiserver container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_CLUSTERMESH_APISERVER_CONTAINER) all
- 
+
 build-container-standalone-dns-proxy: ## Builds components required for standalone dns proxy container.
 	$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR_STANDALONE_DNS_PROXY_CONTAINER) all
 
@@ -278,7 +278,7 @@ generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and ser
 		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
+	$(QUIET)$(GO) tool golang.org/x/tools/cmd/goimports -w ./api/v1/client ./api/v1/models ./api/v1/server
 
 generate-health-api: api/v1/health/openapi.yaml ## Generate cilium-health client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/health/openapi.yaml
@@ -296,7 +296,7 @@ generate-health-api: api/v1/health/openapi.yaml ## Generate cilium-health client
 		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/health
+	$(QUIET)$(GO) tool golang.org/x/tools/cmd/goimports -w ./api/v1/health
 
 generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/operator/openapi.yaml
@@ -314,7 +314,7 @@ generate-operator-api: api/v1/operator/openapi.yaml ## Generate cilium-operator 
 		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/operator
+	$(QUIET)$(GO) tool golang.org/x/tools/cmd/goimports -w ./api/v1/operator
 
 generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremesh client, model and server code from openapi spec.
 	@$(ECHO_GEN)api/v1/kvstoremesh/openapi.yaml
@@ -332,12 +332,12 @@ generate-kvstoremesh-api: api/v1/kvstoremesh/openapi.yaml ## Generate kvstoremes
 		-C api/v1/cilium-client.yml \
 		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
-	$(QUIET)$(GO) run golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
+	$(QUIET)$(GO) tool golang.org/x/tools/cmd/goimports -w ./api/v1/kvstoremesh
 
 generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observer/observer.proto api/v1/relay/relay.proto ## Generate hubble proto Go sources.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
-generate-ztunnel-api: pkg/ztunnel/pb/ca_ztunnel.proto pkg/ztunnel/pb/workload_ztunnel.proto
+generate-ztunnel-api: pkg/ztunnel/pb/ca_ztunnel.proto pkg/ztunnel/pb/workload_ztunnel.proto pkg/ztunnel/pb/zds_ztunnel.proto
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C pkg/ztunnel/pb
 
 generate-sdp-api: api/v1/standalone-dns-proxy/standalone-dns-proxy.proto
@@ -346,7 +346,7 @@ generate-sdp-api: api/v1/standalone-dns-proxy/standalone-dns-proxy.proto
 define generate_k8s_protobuf
 	$(GO) install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo && \
 	$(GO) install golang.org/x/tools/cmd/goimports && \
-	$(GO) run k8s.io/code-generator/cmd/go-to-protobuf \
+	$(GO) tool k8s.io/code-generator/cmd/go-to-protobuf \
 		--apimachinery-packages='-k8s.io/apimachinery/pkg/util/intstr,$\
                                 -k8s.io/apimachinery/pkg/api/resource,$\
                                 -k8s.io/apimachinery/pkg/runtime/schema,$\
@@ -423,9 +423,9 @@ custom-lint: ## Run extra local linters
 golangci-lint: ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION:v%=%),$(GOLANGCILINT_VERSION)))
 	@$(ECHO_CHECK) golangci-lint $(GOLANGCI_LINT_ARGS)
-	$(QUIET) golangci-lint run $(GOLANGCI_LINT_ARGS)
+	$(QUIET) GOLANGCI_LINT_ARGS="$(GOLANGCI_LINT_ARGS)" ./contrib/scripts/golangci-lint.sh
 else
-	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) golangci-lint run $(GOLANGCI_LINT_ARGS)
+	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app -e GOLANGCI_LINT_ARGS="$(GOLANGCI_LINT_ARGS)" docker.io/golangci/golangci-lint:$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) ./contrib/scripts/golangci-lint.sh
 endif
 
 golangci-lint-fix: ## Run golangci-lint to automatically fix warnings
@@ -577,7 +577,7 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"dev-docker-operator-*-image-debug","Build platform specific cilium-operator debug images(alibabacloud, aws, azure, generic)")
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 	$(call print_help_line,"docker-standalone-dns-proxy-image","Build standalone DNS proxy docker image")
-	
+
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance
 force :;
 
@@ -598,7 +598,8 @@ BPF_TEST_VERBOSE ?= 0
 
 run_bpf_tests: ## Build and run the BPF unit tests using the cilium-builder container image.
 	DOCKER_ARGS="--privileged -v /sys:/sys" RUN_AS_ROOT=1 contrib/scripts/builder.sh \
-		$(MAKE) $(SUBMAKEOPTS) -j$(shell nproc) -C bpf/tests/ run \
+		env MAKEFLAGS="$(filter-out --jobserver-auth=% --jobserver-fds=%,$(MAKEFLAGS))" \
+		make $(SUBMAKEOPTS) -C bpf/tests/ run \
 			"BPF_TEST=$(BPF_TEST)" \
 			"BPF_TEST_DUMP_CTX=$(BPF_TEST_DUMP_CTX)" \
 			"LOG_CODEOWNERS=$(LOG_CODEOWNERS)" \

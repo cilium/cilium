@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
@@ -17,7 +16,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -30,17 +28,6 @@ const (
 	// AutoCIDR indicates that a CIDR should be allocated
 	AutoCIDR = "auto"
 )
-
-func initNodeLocalRoutingRule(params daemonParams) error {
-	if !params.DaemonConfig.DryMode {
-		if params.DaemonConfig.EnableL7Proxy {
-			if err := linuxdatapath.NodeEnsureLocalRoutingRule(); err != nil {
-				return fmt.Errorf("ensuring local routing rule: %w", err)
-			}
-		}
-	}
-	return nil
-}
 
 func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	// WireGuard and IPSec are mutually exclusive.
@@ -58,6 +45,14 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		if err := ipsec.ProbeXfrmStateOutputMask(); err != nil {
 			return fmt.Errorf("IPSec with tunneling requires support for xfrm state output masks (Linux 4.19 or later): %w", err)
 		}
+	}
+
+	if params.IPSecConfig.Enabled() && params.DaemonConfig.EnableEncryptionStrictModeIngress {
+		return fmt.Errorf("IPSec doesnt support strict ingress encryption.")
+	}
+
+	if params.DaemonConfig.EnableEncryptionStrictModeIngress && !params.DaemonConfig.TunnelingEnabled() {
+		return fmt.Errorf("Strict ingress encryption requires tunneling to be enabled.")
 	}
 
 	if params.DaemonConfig.EnableHostFirewall {
@@ -141,45 +136,6 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 }
 
 func configureDaemon(ctx context.Context, params daemonParams) error {
-	var err error
-
-	bootstrapStats.daemonInit.Start()
-
-	ctmap.InitMapInfo(params.MetricsRegistry, params.DaemonConfig.EnableIPv4, params.DaemonConfig.EnableIPv6, params.KPRConfig.KubeProxyReplacement || params.DaemonConfig.EnableBPFMasquerade)
-
-	// Collect CIDR identities from the "old" bpf ipcache and restore them
-	// in to the metadata layer.
-	if params.DaemonConfig.RestoreState && !params.DaemonConfig.DryMode {
-		// this *must* be called before initMaps(), which will "hide"
-		// the "old" ipcache.
-		if err := params.IdentityRestorer.RestoreLocalIdentities(); err != nil {
-			params.Logger.Warn("Failed to restore existing identities from the previous ipcache. This may cause policy interruptions during restart.", logfields.Error, err)
-		}
-	}
-
-	bootstrapStats.daemonInit.End(true)
-
-	// Open or create BPF maps.
-	bootstrapStats.mapsInit.Start()
-	err = initMaps(params)
-	bootstrapStats.mapsInit.EndError(err)
-	if err != nil {
-		return fmt.Errorf("error while opening/creating BPF maps: %w", err)
-	}
-
-	bootstrapStats.restore.Start()
-	// fetch old endpoints before k8s is configured.
-	if err := params.EndpointRestorer.FetchOldEndpoints(ctx, params.DaemonConfig.StateDir); err != nil {
-		params.Logger.Error("Unable to read existing endpoints", logfields.Error, err)
-	}
-	bootstrapStats.restore.End(true)
-
-	// Load cached information from restored endpoints in to FQDN NameManager and DNS proxies
-	bootstrapStats.fqdn.Start()
-	params.DNSNameManager.RestoreCache(params.EndpointRestorer.GetState().possible)
-	params.DNSProxy.BootstrapFQDN(params.EndpointRestorer.GetState().possible)
-	bootstrapStats.fqdn.End(true)
-
 	if params.Clientset.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
@@ -243,22 +199,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	params.K8sWatcher.InitK8sSubsystem(ctx)
 	bootstrapStats.k8sInit.End(true)
 
-	bootstrapStats.cleanup.Start()
-	err = clearCiliumVeths(params.Logger)
-	bootstrapStats.cleanup.EndError(err)
-	if err != nil {
-		params.Logger.Warn("Unable to clean stale endpoint interfaces", logfields.Error, err)
-	}
-
-	// Fetch the router (`cilium_host`) IPs in case they were set a priori from
-	// the Kubernetes or CiliumNode resource in the K8s subsystem from call
-	// k8s.WaitForNodeInformation(). These will be used later after starting
-	// IPAM initialization to finish off the `cilium_host` IP restoration.
-	var restoredRouterIPs infraendpoints.RestoredIPs
-	restoredRouterIPs.IPv4FromK8s, restoredRouterIPs.IPv6FromK8s = node.GetInternalIPv4Router(params.Logger), node.GetIPv6Router(params.Logger)
-	// Fetch the router IPs from the filesystem in case they were set a priori
-	restoredRouterIPs.IPv4FromFS, restoredRouterIPs.IPv6FromFS = node.ExtractCiliumHostIPFromFS(params.Logger)
-
 	// Configure and start IPAM without using the configuration yet.
 	configureAndStartIPAM(ctx, params)
 
@@ -266,7 +206,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	err = params.EndpointRestorer.RestoreOldEndpoints()
+	err := params.EndpointRestorer.RestoreOldEndpoints()
 	bootstrapStats.restore.EndError(err)
 	if err != nil {
 		return err
@@ -274,7 +214,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// We must do this after IPAM because we must wait until the
 	// K8s resources have been synced.
-	if err := params.InfraIPAllocator.AllocateIPs(ctx, restoredRouterIPs); err != nil { // will log errors/fatal internally
+	if err := params.InfraIPAllocator.AllocateIPs(ctx); err != nil {
 		return err
 	}
 
@@ -318,12 +258,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 	// Trigger refresh and update custom resource in the apiserver with all restored endpoints.
 	// Trigger after nodeDiscovery.StartDiscovery to avoid custom resource update conflict.
-	if params.DaemonConfig.EnableIPv6 {
-		params.IPAM.IPv6Allocator.RestoreFinished()
-	}
-	if params.DaemonConfig.EnableIPv4 {
-		params.IPAM.IPv4Allocator.RestoreFinished()
-	}
+	params.IPAM.RestoreFinished()
 
 	// This needs to be done after the node addressing has been configured
 	// as the node address is required as suffix.
@@ -339,29 +274,10 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		realIdentityAllocator.InitIdentityAllocator(params.Clientset, params.KVStoreClient)
 	}
 
-	// Must be done at least after initializing BPF LB-related maps
-	// (lbmap.Init()).
-	bootstrapStats.bpfBase.Start()
-	err = initNodeLocalRoutingRule(params)
-	bootstrapStats.bpfBase.EndError(err)
-	if err != nil {
-		return fmt.Errorf("error while initializing daemon: %w", err)
-	}
-
 	// Start the host IP synchronization. Blocks until the initial synchronization
 	// has finished.
 	if err := params.SyncHostIPs.StartAndWaitFirst(ctx); err != nil {
 		return err
-	}
-
-	// Start watcher for endpoint IP --> identity mappings in key-value store.
-	// this needs to be done *after* that the ipcache map has been recreated
-	// by initMaps.
-	if params.IPIdentityWatcher.IsEnabled() {
-		go func() {
-			params.Logger.Info("Starting IP identity watcher")
-			params.IPIdentityWatcher.Watch(ctx)
-		}()
 	}
 
 	if err := params.IPsecAgent.StartBackgroundJobs(params.NodeHandler); err != nil {
@@ -383,10 +299,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 
 func unloadDNSPolicies(params daemonParams) {
 	if params.DaemonConfig.DNSPolicyUnloadOnShutdown {
-		// Stop k8s watchers
-		params.Logger.Info("Stopping k8s watcher")
-		params.K8sWatcher.StopWatcher()
-
 		params.Logger.Info("Unload DNS policies")
 
 		// Iterate over the policy repository and remove L7 DNS part

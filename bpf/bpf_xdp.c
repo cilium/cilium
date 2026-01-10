@@ -37,6 +37,8 @@
  */
 #undef ENABLE_HEALTH_CHECK
 
+#define	NODEPORT_USE_NAT_46x64		1
+
 #include "lib/common.h"
 #include "lib/drop.h"
 #include "lib/eps.h"
@@ -50,7 +52,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v4_fix __section_maps_btf;
 
 struct {
@@ -59,7 +61,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v4_dyn __section_maps_btf;
 
 struct {
@@ -68,7 +70,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_HMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v6_fix __section_maps_btf;
 
 struct {
@@ -77,7 +79,7 @@ struct {
 	__type(value, struct lpm_val);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CIDR4_LMAP_ELEMS);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_cidr_v6_dyn __section_maps_btf;
 
 static __always_inline __maybe_unused int
@@ -102,14 +104,14 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 		int l3_off = ETH_HLEN;
 		void *data, *data_end;
 		struct iphdr *ip4;
-		bool __maybe_unused is_dsr = false;
+		bool is_dsr = false;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 			ret = DROP_INVALID;
 			goto out;
 		}
 
-#if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+#if defined(ENABLE_DSR) && !defined(ENABLE_DSR_BYUSER) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 		{
 			int l4_off, inner_l2_off;
 			struct genevehdr geneve;
@@ -181,12 +183,9 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 			}
 		}
 no_encap:
-#endif /* ENABLE_DSR && !ENABLE_DSR_HYBRID && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
+#endif /* ENABLE_DSR && !ENABLE_DSR_BYUSER && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE */
 
 		ret = nodeport_lb4(ctx, ip4, l3_off, UNKNOWN_ID, &punt_to_stack, &ext_err, &is_dsr);
-		if (ret == NAT_46X64_RECIRC)
-			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
-						 &ext_err);
 	}
 
 out:

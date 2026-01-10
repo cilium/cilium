@@ -4,24 +4,34 @@
 package client
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"maps"
 	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 
-	"github.com/cilium/cilium/pkg/container/versioned"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	pb "github.com/cilium/cilium/api/v1/standalone-dns-proxy"
@@ -53,6 +63,15 @@ type IPtoEndpointInfo struct {
 	ID       uint64
 	Identity identity.NumericIdentity
 }
+
+var (
+	// Keepalive parameters for gRPC connections
+	kap = keepalive.ClientParameters{
+		Time:                10 * time.Second,
+		Timeout:             1 * time.Second,
+		PermitWithoutStream: true,
+	}
+)
 
 var (
 	DNSRulesIndex = statedb.Index[DNSRules, uint64]{
@@ -94,6 +113,17 @@ var (
 			return index.NetIPPrefix(key)
 		},
 		FromString: index.NetIPPrefixString,
+		Unique:     false,
+	}
+	IdentityToPrefixIndex = statedb.Index[PrefixToIdentity, identity.NumericIdentity]{
+		Name: "id",
+		FromObject: func(p PrefixToIdentity) index.KeySet {
+			return index.NewKeySet(index.Uint32(p.Identity.Uint32()))
+		},
+		FromKey: func(key identity.NumericIdentity) index.Key {
+			return index.Uint32(key.Uint32())
+		},
+		FromString: index.Uint32String,
 		Unique:     true,
 	}
 )
@@ -105,17 +135,17 @@ func (p DNSRules) TableHeader() []string {
 
 // TableRow implements statedb.TableWritable.
 func (p DNSRules) TableRow() []string {
-	var dnsRules string
+	var dnsRules strings.Builder
 	for _, sel := range p.DNSRule {
 		if sel != nil && sel.L7Rules.DNS != nil {
-			dnsRules += fmt.Sprintf("%v|", sel.L7Rules.DNS)
+			fmt.Fprintf(&dnsRules, "%v|", sel.L7Rules.DNS)
 		}
 
 	}
 	return []string{
 		fmt.Sprintf("%d", p.EndpointID),
 		p.PortProto.String(),
-		dnsRules,
+		dnsRules.String(),
 	}
 }
 
@@ -149,14 +179,26 @@ func (i PrefixToIdentity) TableHeader() []string {
 	}
 }
 
+type dialClient interface {
+	CreateClient(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
+}
+
+// defaultDialClient implements dialClient by using grpc.NewClient.
+type defaultDialClient struct{}
+
+func (d *defaultDialClient) CreateClient(target string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	return grpc.NewClient(target, opts...)
+}
+
+var _ dialClient = &defaultDialClient{}
+
+func newDefaultDialClient() dialClient {
+	return &defaultDialClient{}
+}
+
 // ConnectionHandler defines the interface for standalone DNS proxy connection handler
 type ConnectionHandler interface {
-	// StartConnection starts the gRPC connection through a hive/job
-	// It is responsible for establishing the connection with the Cilium agent.
-	// This method is called when the standalone DNS proxy starts.
-	StartConnection()
-
-	// StopConnection stops the gRPC connection and removes all hive/job
+	// StopConnection stops the gRPC connection
 	// It is responsible for closing the connection with the Cilium agent.
 	StopConnection()
 
@@ -165,6 +207,11 @@ type ConnectionHandler interface {
 	// It is responsible for sending the DNS message to the Cilium agent for further processing.
 	// Note: This method is intentionally left empty for now. And will be implemented in future PRs.
 	NotifyOnMsg(msg *pb.FQDNMapping) error
+
+	// IsConnected returns the current connection status
+	// connected is a cheap, in-memory flag that indicates whether the client has installed a gRPC connection.
+	// DNS proxy can read this deterministically without causing network probes or races with gRPC internals.
+	IsConnected() bool
 }
 
 // GRPCClient  is a gRPC connection handler for standalone DNS proxy communication with Cilium agent
@@ -175,34 +222,157 @@ type GRPCClient struct {
 	dnsRulesTable         statedb.RWTable[DNSRules]
 	ipToEndpointTable     statedb.RWTable[IPtoEndpointInfo]
 	prefixToIdentityTable statedb.RWTable[PrefixToIdentity]
+
+	// port is the port on which the Cilium agent is listening for gRPC connections
+	port    uint16
+	address string
+
+	// dialClient is used to create gRPC client connections
+	dialClient dialClient
+
+	// connected indicates whether a gRPC connection has been established
+	connected atomic.Bool
+
+	// grpc client connection to the Cilium agent
+	client *grpc.ClientConn
 }
 
 // createGRPCClient creates a new gRPC connection handler client for standalone DNS proxy
-func createGRPCClient(logger *slog.Logger, db *statedb.DB, dnsRulesTable statedb.RWTable[DNSRules], ipToEndpointTable statedb.RWTable[IPtoEndpointInfo], prefixToIdentityTable statedb.RWTable[PrefixToIdentity]) *GRPCClient {
+func createGRPCClient(params clientParams) *GRPCClient {
 	return &GRPCClient{
-		logger:                logger,
-		db:                    db,
-		dnsRulesTable:         dnsRulesTable,
-		ipToEndpointTable:     ipToEndpointTable,
-		prefixToIdentityTable: prefixToIdentityTable,
+		logger:                params.Logger,
+		port:                  uint16(params.FQDNConfig.StandaloneDNSProxyServerPort),
+		dialClient:            params.DialClient,
+		address:               fmt.Sprintf("localhost:%d", uint16(params.FQDNConfig.StandaloneDNSProxyServerPort)),
+		db:                    params.DB,
+		dnsRulesTable:         params.DNSRulesTable,
+		ipToEndpointTable:     params.IPtoEndpointTable,
+		prefixToIdentityTable: params.PrefixToIdentityTable,
 	}
 }
 
-func (c *GRPCClient) StartConnection() {
-	c.logger.Info("Starting gRPC connection for standalone DNS proxy")
-	// Here we would typically start the gRPC connection to the Cilium agent.
-	// This is a placeholder for the actual implementation.
-	// Adding a dummy call to updatePolicyState to avoid unused method warning.
-	c.updatePolicyState(&pb.PolicyState{})
+// InitClient creates a new gRPC client
+func (c *GRPCClient) InitClient() error {
+	conn, err := c.dialClient.CreateClient(
+		c.address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithKeepaliveParams(kap),
+	)
+	if err != nil {
+		c.logger.Error("Client creation failed", logfields.Error, err)
+		return err
+	}
+
+	c.client = conn
+	c.logger.Info("gRPC client created")
+	return nil
+}
+
+// createPolicyStream starts the policy stream to receive DNS policy updates from the Cilium agent
+// if the policy stream is not already established.
+func (c *GRPCClient) createPolicyStream(ctx context.Context) error {
+	if !c.IsConnected() {
+		defer func() {
+			c.connected.Store(false)
+		}()
+
+		fqdnClient := pb.NewFQDNDataClient(c.client)
+		stream, err := fqdnClient.StreamPolicyState(context.Background())
+		if err != nil {
+			c.logger.Error("Failed to open policy stream", logfields.Error, err)
+			return err
+		}
+		defer stream.CloseSend()
+
+		c.logger.Info("Policy state stream established")
+
+		for {
+			state, err := stream.Recv()
+			if err != nil {
+				c.logger.Error("Policy stream recv failed", logfields.Error, err)
+				return err
+			}
+			response := &pb.PolicyStateResponse{
+				Response: pb.ResponseCode_RESPONSE_CODE_NO_ERROR,
+			}
+			err = c.updatePolicyState(state)
+			if err != nil {
+				//Note: We need to update the response code based on the error type
+				// Will be implemented in future PRs with updatePolicyState implementation
+				c.logger.Error("Failed to update policy state", logfields.Error, err)
+			}
+			if sendErr := stream.Send(response); sendErr != nil {
+				c.logger.Error("Policy stream ACK send failed", logfields.Error, sendErr)
+				return sendErr
+			}
+			c.connected.Store(true)
+		}
+	} else {
+		c.logger.Debug("Already connected, skipping policy stream start")
+	}
+	return nil
+}
+
+// IsConnected returns the current connection status
+func (c *GRPCClient) IsConnected() bool {
+	return c.connected.Load()
 }
 
 func (c *GRPCClient) StopConnection() {
+	// Close the connection if it exists
+	if c.client != nil {
+		err := c.client.Close()
+		if err != nil {
+			c.logger.Error("Failed to close connection", logfields.Error, err)
+		}
+	}
+
+	c.connected.Store(false)
+	c.logger.Info("Stopped gRPC connection")
 }
 
-// Note: This method is intentionally left empty for now. Will be implemented in future PRs.
+// NotifyOnMsg is called by the DNS proxy when it receives a DNS message.
 func (c *GRPCClient) NotifyOnMsg(msg *pb.FQDNMapping) error {
-	c.logger.Info("DNS message received")
-	return nil
+	client := pb.NewFQDNDataClient(c.client)
+
+	_, err := client.UpdateMappingRequest(context.Background(), msg)
+	if err != nil && isConnectionError(err) {
+		c.logger.Error("Connection error during UpdateMappingRequest", logfields.Error, err)
+		// Return nil as standalone dns proxy can still continue to handle the DNS requests
+		return nil
+	}
+	return err
+}
+
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	switch {
+	case errors.Is(err, io.EOF):
+		return true
+	case errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded):
+		// Per-RPC deadline: do not nuke the connection
+		return false
+	}
+
+	st, ok := status.FromError(err)
+	if !ok {
+		// Non-status error: could be a net/transport error; be conservative and keep connection unless EOF already caught.
+		return false
+	}
+
+	switch st.Code() {
+	case codes.Unavailable:
+		return true
+	case codes.Internal, codes.Unknown:
+		return true
+	case codes.Canceled, codes.DeadlineExceeded:
+		return false
+	default:
+		return false
+	}
 }
 
 // newDNSRulesTable creates a new table for storing the DNS rules and registers it with the database.
@@ -230,6 +400,7 @@ func NewPrefixToIdentityTable(db *statedb.DB) (statedb.RWTable[PrefixToIdentity]
 	return statedb.NewTable(
 		db,
 		PrefixToIdentityTableName,
+		IdentityToPrefixIndex,
 		PrefixToIdentityIndex,
 	)
 }
@@ -286,6 +457,7 @@ func (c *GRPCClient) updateDNSRules(rules []*pb.DNSPolicy) error {
 
 			} else {
 				cs[&DNSServerIdentity{Identities: identities}] = &policy.PerSelectorPolicy{
+					Verdict: types.Allow,
 					L7Rules: api.L7Rules{
 						DNS: dnsRulesSlice,
 					},
@@ -397,7 +569,7 @@ type DNSServerIdentity struct {
 	Identities identity.NumericIdentitySlice
 }
 
-func (d *DNSServerIdentity) Selects(_ *versioned.VersionHandle, identity identity.NumericIdentity) bool {
+func (d *DNSServerIdentity) Selects(identity identity.NumericIdentity) bool {
 	return slices.Contains(d.Identities, identity)
 }
 
@@ -420,7 +592,12 @@ func (d *DNSServerIdentity) IsNone() bool {
 }
 
 // Not being used in the standalone dns proxy path
-func (d *DNSServerIdentity) GetSelections(_ *versioned.VersionHandle) identity.NumericIdentitySlice {
+func (d *DNSServerIdentity) GetSelections() identity.NumericIdentitySlice {
+	return d.Identities
+}
+
+// Not being used in the standalone dns proxy path
+func (d *DNSServerIdentity) GetSelectionsAt(types.SelectorSnapshot) identity.NumericIdentitySlice {
 	return d.Identities
 }
 

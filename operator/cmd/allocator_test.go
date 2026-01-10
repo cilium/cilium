@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 )
 
@@ -57,7 +56,11 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 	// Create a mock APIServer client where we have 2 existing nodes, one with a PodCIDR and one without.
 	// When List'ed from the client, first node-a is returned then node-b
 
-	fakeClient := cilium_fake.NewSimpleClientset(&cilium_api_v2.CiliumNode{
+	// Use NewFakeClientset to get proper WatchList semantics support
+	fakeSet, _ := k8sClient.NewFakeClientset(hivetest.Logger(t))
+
+	// Add the initial nodes to the tracker
+	nodeA := &cilium_api_v2.CiliumNode{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "node-a",
 		},
@@ -66,7 +69,8 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 				PodCIDRs: []string{},
 			},
 		},
-	}, &cilium_api_v2.CiliumNode{
+	}
+	nodeB := &cilium_api_v2.CiliumNode{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "node-b",
 		},
@@ -77,12 +81,9 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 				},
 			},
 		},
-	})
-
-	// Make a set out of the fake cilium client.
-	fakeSet := &k8sClient.FakeClientset{
-		CiliumFakeClientset: fakeClient,
 	}
+	require.NoError(t, fakeSet.CiliumFakeClientset.Tracker().Add(nodeA))
+	require.NoError(t, fakeSet.CiliumFakeClientset.Tracker().Add(nodeB))
 
 	ciliumNodes, err := operatorK8s.CiliumNodeResource(hivetest.Lifecycle(t), fakeSet, nil)
 	require.NoError(t, err)
@@ -99,14 +100,14 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		// Get node A from the mock APIServer
-		nodeAInt, err := fakeClient.Tracker().Get(ciliumnodesResource, "", "node-a")
+		nodeAInt, err := fakeSet.CiliumFakeClientset.Tracker().Get(ciliumnodesResource, "", "node-a")
 		if !assert.NoError(c, err) {
 			return
 		}
 		nodeA := nodeAInt.(*cilium_api_v2.CiliumNode)
 
 		// Get node B from the mock APIServer
-		nodeBInt, err := fakeClient.Tracker().Get(ciliumnodesResource, "", "node-b")
+		nodeBInt, err := fakeSet.CiliumFakeClientset.Tracker().Get(ciliumnodesResource, "", "node-b")
 		if !assert.NoError(c, err) {
 			return
 		}

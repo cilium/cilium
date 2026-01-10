@@ -131,10 +131,14 @@ func HasTool(tool string) error {
 		}
 
 	case "diff":
-		// Check that diff is the GNU version, needed for the -u argument and
+		// Check that diff is the GNU or Apple version, needed for the -u argument and
 		// to report missing newlines at the end of files.
 		out, err := exec.Command(tool, "-version").Output()
 		if err != nil {
+			out, _ = exec.Command(tool, "--version").Output()
+			if bytes.Contains(out, []byte("Apple diff")) {
+				return nil
+			}
 			return err
 		}
 		if !bytes.Contains(out, []byte("GNU diffutils")) {

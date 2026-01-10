@@ -30,7 +30,7 @@ type EncryptionStatus struct {
 	Ipsec *IPsecStatus `json:"ipsec,omitempty"`
 
 	// mode
-	// Enum: ["Disabled","IPsec","Wireguard"]
+	// Enum: ["Disabled","IPsec","Wireguard","Ztunnel"]
 	Mode string `json:"mode,omitempty"`
 
 	// Human readable error/warning message
@@ -89,7 +89,7 @@ var encryptionStatusTypeModePropEnum []any
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["Disabled","IPsec","Wireguard"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["Disabled","IPsec","Wireguard","Ztunnel"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -107,6 +107,9 @@ const (
 
 	// EncryptionStatusModeWireguard captures enum value "Wireguard"
 	EncryptionStatusModeWireguard string = "Wireguard"
+
+	// EncryptionStatusModeZtunnel captures enum value "Ztunnel"
+	EncryptionStatusModeZtunnel string = "Ztunnel"
 )
 
 // prop value enum

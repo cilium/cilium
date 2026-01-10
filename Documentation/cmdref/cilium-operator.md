@@ -14,7 +14,7 @@ cilium-operator [flags]
       --alibaba-cloud-vpc-id string                          Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
       --auto-create-cilium-pod-ip-pools map                  Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)
       --aws-enable-prefix-delegation                         Allows operator to allocate prefixes to ENIs instead of individual IP addresses
-      --aws-pagination-enabled                               Enable pagination for AWS EC2 API requests. The default page size is 1000 items. (default true)
+      --aws-max-results-per-call int32                       Maximum results per AWS API call for DescribeNetworkInterfaces and DescribeSecurityGroups. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests
       --aws-release-excess-ips                               Enable releasing excess free IP addresses from AWS ENI.
       --aws-use-primary-address                              Allows for using primary address of the ENI for allocations on the node
       --azure-resource-group string                          Resource group to use for Azure IPAM
@@ -157,7 +157,7 @@ cilium-operator [flags]
       --synchronize-k8s-nodes                                Perform GC of stale node entries from the KVStore (default true)
       --synchronize-k8s-services                             Synchronize Kubernetes services to kvstore (default true)
       --taint-sync-workers int                               Number of workers used to synchronize node tains and conditions (default 10)
-      --unmanaged-pod-watcher-interval int                   Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
+      --unmanaged-pod-watcher-interval duration              Interval to check for unmanaged kube-dns pods (0 to disable) (default 15s)
       --validate-network-policy                              Whether to enable or disable the informational network policy validator (default true)
       --version                                              Print version information
 ```

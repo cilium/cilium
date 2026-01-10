@@ -131,6 +131,8 @@ func (m *TlsInspector) validate(all bool) error {
 
 	}
 
+	// no validation rules for CloseConnectionOnClientHelloParsingErrors
+
 	if len(errors) > 0 {
 		return TlsInspectorMultiError(errors)
 	}

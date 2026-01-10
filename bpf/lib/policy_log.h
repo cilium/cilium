@@ -20,6 +20,11 @@ DECLARE_CONFIG(__u32, policy_verdict_log_filter, "The log level for policy verdi
 #define POLICY_VERDICT_LOG_FILTER CONFIG(policy_verdict_log_filter)
 #endif
 
+#ifndef POLICY_VERDICT_EXTENSION
+#define POLICY_VERDICT_EXTENSION
+#define policy_verdict_extension_hook(ctx, msg) do {} while (0)
+#endif
+
 struct policy_verdict_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32	remote_label;
@@ -30,11 +35,12 @@ struct policy_verdict_notify {
 		ipv6:1,
 		match_type:3,
 		audited:1,
-		pad0:1;
+		l3:1;
 	__u8	auth_type;
 	__u8	pad1[3]; /* align with 64 bits */
 	__u32	cookie;
 	__u32	pad2; /* align with 64 bits */
+	POLICY_VERDICT_EXTENSION
 };
 
 #ifdef POLICY_VERDICT_NOTIFY
@@ -107,8 +113,10 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 		.audited	= is_audited,
 		.auth_type      = auth_type,
 		.cookie		= cookie,
+		.l3		= THIS_IS_L3_DEV,
 	};
 
+	policy_verdict_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));

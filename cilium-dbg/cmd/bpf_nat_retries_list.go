@@ -28,7 +28,7 @@ var bpfNatRetriesListCmd = &cobra.Command{
 		}
 
 		ipv4, ipv6 := getIpEnableStatuses()
-		ipv4Map, ipv6Map := nat.RetriesMaps(ipv4, ipv6, true)
+		ipv4Map, ipv6Map := nat.RetriesMaps(ipv4, ipv6)
 		if ipv4Map != nil {
 			dumpRetries(ipv4Map)
 		}

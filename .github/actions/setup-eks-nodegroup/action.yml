@@ -51,7 +51,6 @@ runs:
           privateNetworking: true
           volumeType: "gp3"
           volumeSize: 25
-          maxPodsPerNode: 110
           taints:
            - key: "node.cilium.io/agent-not-ready"
              value: "true"
@@ -64,7 +63,6 @@ runs:
           privateNetworking: true
           volumeType: "gp3"
           volumeSize: 25
-          maxPodsPerNode: 110
           taints:
            - key: "node.cilium.io/agent-not-ready"
              value: "true"
@@ -138,7 +136,6 @@ runs:
           privateNetworking: true
           volumeType: "gp3"
           volumeSize: 20
-          maxPodsPerNode: 110
           taints:
            - key: "cilium.io/no-schedule"
              value: "true"

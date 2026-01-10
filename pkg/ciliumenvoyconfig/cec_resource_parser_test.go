@@ -600,6 +600,8 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 		logger:                      hivetest.Logger(t),
 		portAllocator:               NewMockPortAllocator(),
 		defaultMaxConcurrentRetries: 128,
+		defaultMaxConnections:       2048,
+		defaultMaxRequests:          4096,
 	}
 
 	jsonBytes, err := yaml.YAMLToJSON([]byte(ciliumEnvoyConfigMulti))
@@ -673,6 +675,8 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	assert.NotNil(t, cb)
 	assert.Len(t, cb.Thresholds, 1)
 	assert.Equal(t, uint32(128), cb.Thresholds[0].MaxRetries.Value)
+	assert.Equal(t, uint32(2048), cb.Thresholds[0].MaxConnections.Value)
+	assert.Equal(t, uint32(4096), cb.Thresholds[0].MaxRequests.Value)
 	//
 	// Check that missing EDS config source is automatically filled in
 	//

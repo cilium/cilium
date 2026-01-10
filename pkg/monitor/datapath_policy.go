@@ -37,29 +37,47 @@ const (
 	// corresponds to whether the traffic was allowed due to the audit mode
 	PolicyVerdictNotifyFlagIsAudited = 0x40
 
+	// PolicyVerdictNotifyFlagIsL3 is the bit mask in Flags that
+	// corresponds to whether the traffic is from a L3 device or not
+	PolicyVerdictNotifyFlagIsL3 = 0x80
+
 	// PolicyVerdictNotifyFlagMatchTypeBitOffset is the bit offset in Flags that
 	// corresponds to the policy match type
 	PolicyVerdictNotifyFlagMatchTypeBitOffset = 3
 )
 
+const PolicyVerdictExtensionDisabled = 0
+
+var (
+	// Downstream projects should register introduced extensions length so that
+	// the upstream parsing code still works even if the DP events contain
+	// additional fields.
+	policyVerdictExtensionLengthFromVersion = map[uint8]uint{
+		// The PolicyVerdictExtension is intended for downstream extensions and
+		// should not be used in the upstream project.
+		PolicyVerdictExtensionDisabled: 0,
+	}
+)
+
 // PolicyVerdictNotify is the message format of a policy verdict notification in the bpf ring buffer
 type PolicyVerdictNotify struct {
-	Type        uint8
-	SubType     uint8
-	Source      uint16
-	Hash        uint32
-	OrigLen     uint32
-	CapLen      uint16
-	Version     uint16
-	RemoteLabel identity.NumericIdentity
-	Verdict     int32
-	DstPort     uint16
-	Proto       uint8
-	Flags       uint8
-	AuthType    uint8
-	_           [3]uint8
-	Cookie      uint32
-	_           uint32
+	Type        uint8                    `align:"type"`
+	SubType     uint8                    `align:"subtype"`
+	Source      uint16                   `align:"source"`
+	Hash        uint32                   `align:"hash"`
+	OrigLen     uint32                   `align:"len_orig"`
+	CapLen      uint16                   `align:"len_cap"`
+	Version     uint8                    `align:"version"`
+	ExtVersion  uint8                    `align:"ext_version"`
+	RemoteLabel identity.NumericIdentity `align:"remote_label"`
+	Verdict     int32                    `align:"verdict"`
+	DstPort     uint16                   `align:"dst_port"`
+	Proto       uint8                    `align:"proto"`
+	Flags       uint8                    `align:"dir"`
+	AuthType    uint8                    `align:"auth_type"`
+	_           [3]uint8                 `align:"pad1"`
+	Cookie      uint32                   `align:"cookie"`
+	_           uint32                   `align:"pad2"`
 	// data
 }
 
@@ -92,7 +110,8 @@ func (n *PolicyVerdictNotify) Decode(data []byte) error {
 	n.Hash = byteorder.Native.Uint32(data[4:8])
 	n.OrigLen = byteorder.Native.Uint32(data[8:12])
 	n.CapLen = byteorder.Native.Uint16(data[12:14])
-	n.Version = byteorder.Native.Uint16(data[14:16])
+	n.Version = data[14]
+	n.ExtVersion = data[15]
 	n.RemoteLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
 	n.Verdict = int32(byteorder.Native.Uint32(data[20:24]))
 	n.DstPort = byteorder.Native.Uint16(data[24:26])
@@ -114,6 +133,11 @@ func (n *PolicyVerdictNotify) IsTrafficIPv6() bool {
 	return (n.Flags&PolicyVerdictNotifyFlagIsIPv6 > 0)
 }
 
+// IsTrafficL3Device returns true if this notify is from a L3 device
+func (n *PolicyVerdictNotify) IsTrafficL3Device() bool {
+	return (n.Flags&PolicyVerdictNotifyFlagIsL3 > 0)
+}
+
 // GetPolicyMatchType returns how the traffic matched the policy
 func (n *PolicyVerdictNotify) GetPolicyMatchType() api.PolicyMatchType {
 	return api.PolicyMatchType((n.Flags & PolicyVerdictNotifyFlagMatchType) >>
@@ -124,6 +148,12 @@ func (n *PolicyVerdictNotify) GetPolicyMatchType() api.PolicyMatchType {
 // was allowed due to the audit mode
 func (n *PolicyVerdictNotify) IsTrafficAudited() bool {
 	return (n.Flags&PolicyVerdictNotifyFlagIsAudited > 0)
+}
+
+// DataOffset returns the offset from the beginning of PolicyVerdictNotify where the
+// notification data begins.
+func (n *PolicyVerdictNotify) DataOffset() uint {
+	return PolicyVerdictNotifyLen + policyVerdictExtensionLengthFromVersion[n.ExtVersion]
 }
 
 // GetPolicyActionString returns the action string corresponding to the action
@@ -161,5 +191,5 @@ func (n *PolicyVerdictNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric a
 	fmt.Fprintf(buf, ", proto %d, %s, action %s, auth: %s, match %s, %s\n", n.Proto, dir,
 		GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
 		n.GetAuthType(), n.GetPolicyMatchType(),
-		GetConnectionSummary(data[PolicyVerdictNotifyLen:], nil))
+		GetConnectionSummary(data[n.DataOffset():], &decodeOpts{IsL3Device: n.IsTrafficL3Device(), IsIPv6: n.IsTrafficIPv6()}))
 }
