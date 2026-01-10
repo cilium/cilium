@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 )
 
-func firstGlobalAddr(intf string, preferredIP net.IP, family int, preferPublic bool) (net.IP, error) {
+func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error) {
 	var link netlink.Link
 	var ipLen int
 	var err error
@@ -80,10 +80,6 @@ retryScope:
 		}
 	}
 
-	if hasPreferred && !preferPublic {
-		return preferredIP, nil
-	}
-
 	if len(ipsPublic) != 0 {
 		if hasPreferred && ip.IsPublicAddr(preferredIP) {
 			return preferredIP, nil
@@ -139,8 +135,8 @@ retryScope:
 // IPs belonging to that interface are considered.
 //
 // If preferredIP is present in the IP list it is returned irrespective of
-// the sort order. However, if preferPublic is true and preferredIP is a
-// private IP, a public IP will be returned if it is assigned to the intf
+// the sort order. However, if preferredIP is a private IP, a public IP will
+// be returned if it is assigned to the intf
 //
 // Passing intf and preferredIP will only return preferredIP if it is in
 // the IPs that belong to intf.
@@ -154,12 +150,12 @@ retryScope:
 // universe scope again (and then falling back to reduced scope).
 //
 // In case none of the above helped, we bail out with error.
-func firstGlobalV4Addr(intf string, preferredIP net.IP, preferPublic bool) (net.IP, error) {
-	return firstGlobalAddr(intf, preferredIP, netlink.FAMILY_V4, preferPublic)
+func firstGlobalV4Addr(intf string, preferredIP net.IP) (net.IP, error) {
+	return firstGlobalAddr(intf, preferredIP, netlink.FAMILY_V4)
 }
 
 // firstGlobalV6Addr returns first IPv6 global IP of an interface, see
 // firstGlobalV4Addr for more details.
-func firstGlobalV6Addr(intf string, preferredIP net.IP, preferPublic bool) (net.IP, error) {
-	return firstGlobalAddr(intf, preferredIP, netlink.FAMILY_V6, preferPublic)
+func firstGlobalV6Addr(intf string, preferredIP net.IP) (net.IP, error) {
+	return firstGlobalAddr(intf, preferredIP, netlink.FAMILY_V6)
 }
