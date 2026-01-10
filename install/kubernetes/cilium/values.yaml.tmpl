@@ -374,6 +374,8 @@ securityContext:
       - SETGID
       # Allow to execute program that changes UID (e.g. required for package installation)
       - SETUID
+      # Allow to read dmesg and get kernel pointers when kptr_restrict=1
+      - SYSLOG
     # -- Capabilities for the `mount-cgroup` init container
     mountCgroup:
       # Only used for 'mount' cgroup
