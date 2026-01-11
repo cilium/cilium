@@ -87,16 +87,19 @@ func TestGetClusterIDShift(t *testing.T) {
 		name                   string
 		maxConnectedClusters   uint32
 		expectedClusterIDShift uint32
+		expectedClusterIDLen   uint32
 	}{
 		{
 			name:                   "clustermesh255",
 			maxConnectedClusters:   255,
 			expectedClusterIDShift: 16,
+			expectedClusterIDLen:   8,
 		},
 		{
 			name:                   "clustermesh511",
 			maxConnectedClusters:   511,
 			expectedClusterIDShift: 15,
+			expectedClusterIDLen:   9,
 		},
 	}
 
@@ -109,6 +112,7 @@ func TestGetClusterIDShift(t *testing.T) {
 			cinfo := cmtypes.ClusterInfo{MaxConnectedClusters: tt.maxConnectedClusters}
 			cinfo.InitClusterIDMax()
 			assert.Equal(t, tt.expectedClusterIDShift, GetClusterIDShift())
+			assert.Equal(t, tt.expectedClusterIDLen, GetClusterIDLen())
 
 			// ensure we cannot change the clusterIDShift after it has been initialized
 			for _, tc := range tests {
@@ -119,6 +123,7 @@ func TestGetClusterIDShift(t *testing.T) {
 				newCinfo := cmtypes.ClusterInfo{MaxConnectedClusters: tc.maxConnectedClusters}
 				newCinfo.InitClusterIDMax()
 				assert.NotEqual(t, tc.expectedClusterIDShift, GetClusterIDShift())
+				assert.NotEqual(t, tc.expectedClusterIDLen, GetClusterIDLen())
 			}
 		})
 	}

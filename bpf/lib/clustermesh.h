@@ -6,50 +6,31 @@
 
 NODE_CONFIG(__u32, cluster_id, "Cluster ID")
 
-NODE_CONFIG(__u32, cluster_id_max, "Max number of clusters that can be connected in Clustermesh")
-ASSIGN_CONFIG(__u32, cluster_id_max, 255)
+/* Allow to override the assigned value in tests */
+#ifndef DEFAULT_CLUSTER_ID_BITS
+#define DEFAULT_CLUSTER_ID_BITS 8
+#endif
 
-#ifndef get_cluster_id_max
-static __always_inline __u32
-get_cluster_id_max()
-{
-	return CONFIG(cluster_id_max);
-}
-#endif /* get_cluster_id_max() */
+NODE_CONFIG(__u32, cluster_id_bits, "Number of bits of the identity reserved for the Cluster ID")
+ASSIGN_CONFIG(__u32, cluster_id_bits, DEFAULT_CLUSTER_ID_BITS)
+
+#define CLUSTER_ID_MAX (__u32)((1 << CONFIG(cluster_id_bits)) - 1)
+
+#define IDENTITY_LOCAL_BITS (24 - CONFIG(cluster_id_bits))
+#define IDENTITY_LOCAL_MAX (__u32)((1 << IDENTITY_LOCAL_BITS) - 1)
 
 #define CLUSTER_ID_LOWER_MASK 0x000000FF
-
-#ifndef __CLUSTERMESH_HELPERS__
-#define __CLUSTERMESH_HELPERS__
-/* these macros allow us to override the values in tests */
-#define IDENTITY_LEN get_identity_len()
-#define IDENTITY_MAX get_max_identity()
-
-static __always_inline __u32
-get_identity_len()
-{
-	return CONFIG(identity_length);
-}
-
-static __always_inline __u32
-get_max_identity()
-{
-	return (__u32)((1 << IDENTITY_LEN) - 1);
-}
-
-#endif /* __CLUSTERMESH_HELPERS__ */
-
 
 static __always_inline __u32
 extract_cluster_id_from_identity(__u32 identity)
 {
-	return (__u32)(identity >> IDENTITY_LEN);
+	return (__u32)(identity >> IDENTITY_LOCAL_BITS);
 }
 
 static __always_inline __maybe_unused __u32
 get_cluster_id_upper_mask()
 {
-	return (get_cluster_id_max() & ~CLUSTER_ID_LOWER_MASK) << (8 + IDENTITY_LEN);
+	return (CLUSTER_ID_MAX & ~CLUSTER_ID_LOWER_MASK) << (8 + IDENTITY_LOCAL_BITS);
 }
 
 static __always_inline __maybe_unused __u32
@@ -64,12 +45,13 @@ ctx_get_cluster_id_mark(const struct __ctx_buff *ctx __maybe_unused)
 /* ctx->mark not available in XDP. */
 #if __ctx_is == __ctx_skb
 	__u32 cluster_id_lower = ctx->mark & CLUSTER_ID_LOWER_MASK;
-	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >> (8 + IDENTITY_LEN);
+	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >>
+				      (8 + IDENTITY_LOCAL_BITS);
 
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_CLUSTER_ID)
 		return 0;
 
-	return (cluster_id_upper | cluster_id_lower) & get_cluster_id_max();
+	return (cluster_id_upper | cluster_id_lower) & CLUSTER_ID_MAX;
 #else /* __ctx_is == __ctx_xdp */
 	return 0;
 #endif /* __ctx_is == __ctx_xdp */
@@ -82,7 +64,7 @@ static __always_inline __maybe_unused __u32
 format_cluster_id_mark(__u32 cluster_id)
 {
 	__u32 cluster_id_lower = cluster_id & 0xFF;
-	__u32 cluster_id_upper = (cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LEN);
+	__u32 cluster_id_upper = (cluster_id & 0xFFFFFF00) << (8 + IDENTITY_LOCAL_BITS);
 
 	return cluster_id_lower | cluster_id_upper;
 }

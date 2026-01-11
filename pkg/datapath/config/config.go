@@ -6,12 +6,13 @@ package config
 import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node := *NewNode()
-	node.ClusterIDMax = option.Config.MaxConnectedClusters
+	node.ClusterIDBits = identity.GetClusterIDLen()
 
 	if lnc.ServiceLoopbackIPv4 != nil {
 		node.ServiceLoopbackIPv4 = [4]byte(lnc.ServiceLoopbackIPv4.To4())

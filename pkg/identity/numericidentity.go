@@ -87,6 +87,10 @@ var (
 	// set once, and only if we haven't used either value elsewhere already.
 	clusterIDInit sync.Once
 
+	// clusterIDLen is the number of bits that represent a cluster ID in a
+	// numeric identity
+	clusterIDLen uint32
+
 	// clusterIDShift is the number of bits to shift a cluster ID in a numeric
 	// identity and is equal to the number of bits that represent a cluster-local identity.
 	clusterIDShift uint32
@@ -328,11 +332,18 @@ func GetClusterIDShift() uint32 {
 	return clusterIDShift
 }
 
+// GetClusterIDLen returns the number of bits that represent a cluster ID in a numeric identity
+// A sync.Once is used to ensure we only initialize clusterIDLen once.
+func GetClusterIDLen() uint32 {
+	clusterIDInit.Do(initClusterIDShift)
+	return clusterIDLen
+}
+
 // initClusterIDShift sets variables that control the bit allocation of cluster
 // ID in a numeric identity.
 func initClusterIDShift() {
 	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
-	clusterIDLen := uint32(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
+	clusterIDLen = uint32(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
 	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric identity
 	clusterIDShift = NumericIdentityBitlength - clusterIDLen
 }
