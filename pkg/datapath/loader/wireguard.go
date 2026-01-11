@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
@@ -25,6 +26,8 @@ func init() {
 const (
 	symbolToWireguard   = "cil_to_wireguard"
 	symbolFromWireguard = "cil_from_wireguard"
+
+	wireguardConfig = wireguardPrefix + ".json"
 )
 
 // wireguardConfigs holds functions that yield a BPF configuration object for
@@ -59,6 +62,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, lnc *dat
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		ConfigPath: filepath.Join(option.Config.StateDir, "dp_config", "devices", device.Attrs().Name, wireguardConfig),
 	})
 	if err != nil {
 		return err

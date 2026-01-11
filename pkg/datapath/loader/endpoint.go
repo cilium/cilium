@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"net/netip"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
@@ -37,6 +38,8 @@ func init() {
 const (
 	symbolFromEndpoint = "cil_from_container"
 	symbolToEndpoint   = "cil_to_container"
+
+	endpointConfig = endpointPrefix + ".json"
 )
 
 // epConfigs holds functions that yield a BPF configuration object for
@@ -188,6 +191,7 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 		},
 		Constants:  endpointConfiguration(ep, lnc),
 		MapRenames: endpointMapRenames(ep),
+		ConfigPath: filepath.Join(ep.StateDir(), endpointConfig),
 	})
 	if err != nil {
 		return err

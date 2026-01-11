@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
@@ -25,6 +26,8 @@ func init() {
 const (
 	symbolFromOverlay = "cil_from_overlay"
 	symbolToOverlay   = "cil_to_overlay"
+
+	overlayConfig = overlayPrefix + ".json"
 )
 
 // overlayConfigs holds functions that yield a BPF configuration object for
@@ -59,6 +62,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, lnc *datap
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
+		ConfigPath: filepath.Join(option.Config.StateDir, "dp_config", "devices", link.Attrs().Name, overlayConfig),
 	})
 	if err != nil {
 		return err
