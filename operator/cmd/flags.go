@@ -47,9 +47,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 			"Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)")
 	option.BindEnv(vp, operatorOption.IPAMAutoCreateCiliumPodIPPools)
 
-	flags.Int64(operatorOption.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
-	option.BindEnv(vp, operatorOption.ParallelAllocWorkers)
-
 	// Operator-specific flags
 	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	option.BindEnv(vp, option.ConfigFile)

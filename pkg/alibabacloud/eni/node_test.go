@@ -68,7 +68,7 @@ func TestCreateInterface(t *testing.T) {
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(t.Context())
 
-	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -122,7 +122,7 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(t.Context())
 
-	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 	// Set PreAllocate as 1
@@ -154,7 +154,7 @@ func TestPrepareIPAllocation(t *testing.T) {
 	alibabaAPI.UpdateENIs(primaryENIs)
 	instances.Resync(t.Context())
 
-	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, false)
+	mngr, err := ipam.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 	mngr.SetInstancesAPIReadiness(false) // to avoid the manager background jobs starting and racing us.

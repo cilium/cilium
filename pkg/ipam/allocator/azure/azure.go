@@ -21,6 +21,12 @@ import (
 
 // AllocatorAzure is an implementation of IPAM allocator interface for Azure
 type AllocatorAzure struct {
+	AzureSubscriptionID         string
+	AzureResourceGroup          string
+	AzureUserAssignedIdentityID string
+	AzureUsePrimaryAddress      bool
+	ParallelAllocWorkers        int64
+
 	rootLogger *slog.Logger
 	logger     *slog.Logger
 }
@@ -48,7 +54,7 @@ func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNod
 		return nil, fmt.Errorf("unable to retrieve Azure cloud name: %w", err)
 	}
 
-	subscriptionID := operatorOption.Config.AzureSubscriptionID
+	subscriptionID := a.AzureSubscriptionID
 	if subscriptionID == "" {
 		a.logger.Debug("SubscriptionID was not specified via CLI, retrieving it via Azure IMS")
 		subID, err := azureAPI.GetSubscriptionID(ctx, a.rootLogger)
@@ -59,7 +65,7 @@ func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNod
 		a.logger.Debug("Detected subscriptionID via Azure IMS", logfields.SubscriptionID, subscriptionID)
 	}
 
-	resourceGroupName := operatorOption.Config.AzureResourceGroup
+	resourceGroupName := a.AzureResourceGroup
 	if resourceGroupName == "" {
 		a.logger.Debug("ResourceGroupName was not specified via CLI, retrieving it via Azure IMS")
 		rgName, err := azureAPI.GetResourceGroupName(ctx, a.rootLogger)
@@ -78,12 +84,12 @@ func (a *AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNod
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
 
-	azureClient, err := azureAPI.NewClient(azureCloudName, subscriptionID, resourceGroupName, operatorOption.Config.AzureUserAssignedIdentityID, azMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, operatorOption.Config.AzureUsePrimaryAddress)
+	azureClient, err := azureAPI.NewClient(azureCloudName, subscriptionID, resourceGroupName, a.AzureUserAssignedIdentityID, azMetrics, operatorOption.Config.IPAMAPIQPSLimit, operatorOption.Config.IPAMAPIBurst, a.AzureUsePrimaryAddress)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Azure client: %w", err)
 	}
 	instances := azureIPAM.NewInstancesManager(a.rootLogger, azureClient)
-	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics, operatorOption.Config.ParallelAllocWorkers, false, false)
+	nodeManager, err := ipam.NewNodeManager(a.logger, instances, getterUpdater, iMetrics, a.ParallelAllocWorkers, false, 0, false)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize Azure node manager: %w", err)
 	}
