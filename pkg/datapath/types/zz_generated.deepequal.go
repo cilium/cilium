@@ -256,6 +256,9 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.EncryptNode != other.EncryptNode {
 		return false
 	}
+	if in.EnablePolicyAccounting != other.EnablePolicyAccounting {
+		return false
+	}
 	if ((in.IPv4PodSubnets != nil) && (other.IPv4PodSubnets != nil)) || ((in.IPv4PodSubnets == nil) != (other.IPv4PodSubnets == nil)) {
 		in, other := &in.IPv4PodSubnets, &other.IPv4PodSubnets
 		if other == nil {

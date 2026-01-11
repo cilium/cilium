@@ -11,6 +11,9 @@
 DECLARE_CONFIG(bool, allow_icmp_frag_needed,
 	       "Allow ICMP_FRAG_NEEDED messages when applying Network Policy")
 DECLARE_CONFIG(bool, enable_icmp_rule, "Apply Network Policy for ICMP packets")
+DECLARE_CONFIG(bool, enable_policy_accounting,
+	       "Maintain packet and byte counters for every policy entry")
+
 
 #ifndef EFFECTIVE_EP_ID
 #define EFFECTIVE_EP_ID 0
@@ -323,9 +326,9 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 check_policy:
 	cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id, dport << 16 | proto);
 	p_len = policy->lpm_prefix_length;
-#ifdef POLICY_ACCOUNTING
-	__policy_account(remote_id, key.egress, proto, dport, p_len, ctx_full_len(ctx));
-#endif
+	if (CONFIG(enable_policy_accounting))
+		__policy_account(remote_id, key.egress, proto, dport, p_len, ctx_full_len(ctx));
+
 	*match_type =
 		p_len > LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_L3_L4 :	/* 1. id/proto/port */
 		p_len > 0 ? POLICY_MATCH_L3_PROTO :			/* 3. id/proto/ANY */
@@ -334,9 +337,9 @@ check_policy:
 
 check_l4_policy:
 	p_len = l4policy->lpm_prefix_length;
-#ifdef POLICY_ACCOUNTING
-	__policy_account(0, key.egress, proto, dport, p_len, ctx_full_len(ctx));
-#endif
+	if (CONFIG(enable_policy_accounting))
+		__policy_account(0, key.egress, proto, dport, p_len, ctx_full_len(ctx));
+
 	*match_type =
 		p_len == 0 ? POLICY_MATCH_ALL :					/* 6. ANY/ANY/ANY */
 		p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :	/* 4. ANY/proto/ANY */
