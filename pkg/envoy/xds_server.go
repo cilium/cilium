@@ -1343,7 +1343,7 @@ func (s *xdsServer) getPortNetworkPolicyRule(ep endpoint.EndpointUpdater, select
 	if len(l7Rules.ServerNames) > 0 {
 		r.ServerNames = make([]string, 0, len(l7Rules.ServerNames))
 		for sni := range l7Rules.ServerNames {
-			r.ServerNames = append(r.ServerNames, sni)
+			r.ServerNames = append(r.ServerNames, sanitizeServerNamePattern(sni))
 		}
 		slices.Sort(r.ServerNames)
 	}
