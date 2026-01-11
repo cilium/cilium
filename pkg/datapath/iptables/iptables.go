@@ -590,7 +590,7 @@ func (m *Manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, 
 	return prog.runProg(rule)
 }
 
-func (m *Manager) installStaticProxyRules() error {
+func (m *Manager) installStaticProxyRules(ifName, localDeliveryInterface string) error {
 	// match traffic to a proxy (upper 16 bits has the proxy port, which is masked out)
 	matchToProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkHostMask)
 	// proxy return traffic has 0 ID in the mask
@@ -624,61 +624,63 @@ func (m *Manager) installStaticProxyRules() error {
 			return err
 		}
 
-		// No conntrack for proxy return traffic that is heading to lxc+
-		if err := ip4tables.runProg([]string{
-			"-t", "raw",
-			"-A", ciliumOutputRawChain,
-			"-o", "lxc+",
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-			"-j", "CT", "--notrack"}); err != nil {
-			return err
-		}
-
-		// No conntrack for proxy return traffic that is heading to cilium_host
-		if err := ip4tables.runProg([]string{
-			"-t", "raw",
-			"-A", ciliumOutputRawChain,
-			"-o", defaults.HostDevice,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-			"-j", "CT", "--notrack"}); err != nil {
-			return err
-		}
-
-		// No conntrack for proxy forward traffic that is heading to cilium_host
-		if option.Config.EnableIPSec {
+		if ifName != localDeliveryInterface {
+			// No conntrack for proxy return traffic that is heading to local interfaces(lxc+).
 			if err := ip4tables.runProg([]string{
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,
-				"-o", defaults.HostDevice,
-				"-m", "mark", "--mark", matchProxyForward,
-				"-m", "comment", "--comment", "cilium: NOTRACK for proxy forward traffic",
+				"-o", localDeliveryInterface,
+				"-m", "mark", "--mark", matchProxyReply,
+				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+				"-j", "CT", "--notrack"}); err != nil {
+				return err
+			}
+
+			// No conntrack for proxy upstream traffic that is heading to local interfaces(lxc+).
+			if err := ip4tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", localDeliveryInterface,
+				"-m", "mark", "--mark", matchL7ProxyUpstream,
+				"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
 				"-j", "CT", "--notrack"}); err != nil {
 				return err
 			}
 		}
 
-		// No conntrack for proxy upstream traffic that is heading to lxc+
+		// No conntrack for proxy return traffic that is heading to host interface(cilium_host).
 		if err := ip4tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
-			"-o", "lxc+",
+			"-o", ifName,
+			"-m", "mark", "--mark", matchProxyReply,
+			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
+		}
+
+		// No conntrack for proxy upstream traffic that is heading to host interface(cilium_host).
+		if err := ip4tables.runProg([]string{
+			"-t", "raw",
+			"-A", ciliumOutputRawChain,
+			"-o", ifName,
 			"-m", "mark", "--mark", matchL7ProxyUpstream,
 			"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
 			"-j", "CT", "--notrack"}); err != nil {
 			return err
 		}
 
-		// No conntrack for proxy upstream traffic that is heading to cilium_host
-		if err := ip4tables.runProg([]string{
-			"-t", "raw",
-			"-A", ciliumOutputRawChain,
-			"-o", defaults.HostDevice,
-			"-m", "mark", "--mark", matchL7ProxyUpstream,
-			"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
-			"-j", "CT", "--notrack"}); err != nil {
-			return err
+		// No conntrack for proxy forward traffic that is heading to host interface(cilium_host).
+		if option.Config.EnableIPSec {
+			if err := ip4tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", ifName,
+				"-m", "mark", "--mark", matchProxyForward,
+				"-m", "comment", "--comment", "cilium: NOTRACK for proxy forward traffic",
+				"-j", "CT", "--notrack"}); err != nil {
+				return err
+			}
 		}
 
 		// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
@@ -712,7 +714,7 @@ func (m *Manager) installStaticProxyRules() error {
 	}
 
 	if m.sharedCfg.EnableIPv6 {
-		// No conntrack for traffic to ingress proxy
+		// No conntrack for traffic to proxy
 		if err := ip6tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumPreRawChain,
@@ -733,61 +735,63 @@ func (m *Manager) installStaticProxyRules() error {
 			return err
 		}
 
-		// No conntrack for proxy return traffic that is heading to lxc+
-		if err := ip6tables.runProg([]string{
-			"-t", "raw",
-			"-A", ciliumOutputRawChain,
-			"-o", "lxc+",
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-			"-j", "CT", "--notrack"}); err != nil {
-			return err
-		}
-
-		// No conntrack for proxy return traffic that is heading to cilium_host
-		if err := ip6tables.runProg([]string{
-			"-t", "raw",
-			"-A", ciliumOutputRawChain,
-			"-o", defaults.HostDevice,
-			"-m", "mark", "--mark", matchProxyReply,
-			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
-			"-j", "CT", "--notrack"}); err != nil {
-			return err
-		}
-
-		// No conntrack for proxy forward traffic that is heading to cilium_host
-		if option.Config.EnableIPSec {
+		if ifName != localDeliveryInterface {
+			// No conntrack for proxy return traffic that is heading to local interfaces(lxc+).
 			if err := ip6tables.runProg([]string{
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,
-				"-o", defaults.HostDevice,
-				"-m", "mark", "--mark", matchProxyForward,
-				"-m", "comment", "--comment", "cilium: NOTRACK for proxy forward traffic",
+				"-o", localDeliveryInterface,
+				"-m", "mark", "--mark", matchProxyReply,
+				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+				"-j", "CT", "--notrack"}); err != nil {
+				return err
+			}
+
+			// No conntrack for proxy upstream traffic that is heading to local interfaces(lxc+).
+			if err := ip6tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", localDeliveryInterface,
+				"-m", "mark", "--mark", matchL7ProxyUpstream,
+				"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
 				"-j", "CT", "--notrack"}); err != nil {
 				return err
 			}
 		}
 
-		// No conntrack for proxy upstream traffic that is heading to lxc+
+		// No conntrack for proxy return traffic that is heading to host interface(cilium_host).
 		if err := ip6tables.runProg([]string{
 			"-t", "raw",
 			"-A", ciliumOutputRawChain,
-			"-o", "lxc+",
+			"-o", ifName,
+			"-m", "mark", "--mark", matchProxyReply,
+			"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+			"-j", "CT", "--notrack"}); err != nil {
+			return err
+		}
+
+		// No conntrack for proxy upstream traffic that is heading to host interface(cilium_host).
+		if err := ip6tables.runProg([]string{
+			"-t", "raw",
+			"-A", ciliumOutputRawChain,
+			"-o", ifName,
 			"-m", "mark", "--mark", matchL7ProxyUpstream,
 			"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
 			"-j", "CT", "--notrack"}); err != nil {
 			return err
 		}
 
-		// No conntrack for proxy upstream traffic that is heading to cilium_host
-		if err := ip6tables.runProg([]string{
-			"-t", "raw",
-			"-A", ciliumOutputRawChain,
-			"-o", defaults.HostDevice,
-			"-m", "mark", "--mark", matchL7ProxyUpstream,
-			"-m", "comment", "--comment", "cilium: NOTRACK for L7 proxy upstream traffic",
-			"-j", "CT", "--notrack"}); err != nil {
-			return err
+		// No conntrack for proxy forward traffic that is heading to host interface(cilium_host).
+		if option.Config.EnableIPSec {
+			if err := ip6tables.runProg([]string{
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				"-o", ifName,
+				"-m", "mark", "--mark", matchProxyForward,
+				"-m", "comment", "--comment", "cilium: NOTRACK for proxy forward traffic",
+				"-j", "CT", "--notrack"}); err != nil {
+				return err
+			}
 		}
 
 		// Explicit ACCEPT for the proxy return traffic. Needed when the OUTPUT defaults to DROP.
@@ -1550,6 +1554,8 @@ func (m *Manager) doInstallRules(state desiredState, firstInit bool) error {
 // installRules installs iptables rules for Cilium in specific use-cases
 // (most specifically, interaction with kube-proxy).
 func (m *Manager) installRules(state desiredState) error {
+	localDeliveryInterface := m.getDeliveryInterface(defaults.HostDevice)
+
 	// Install new rules
 	for _, c := range ciliumChains {
 		if err := c.add(m.sharedCfg.EnableIPv4, m.sharedCfg.EnableIPv6); err != nil {
@@ -1566,15 +1572,13 @@ func (m *Manager) installRules(state desiredState) error {
 		}
 	}
 
-	if err := m.installStaticProxyRules(); err != nil {
+	if err := m.installStaticProxyRules(defaults.HostDevice, localDeliveryInterface); err != nil {
 		return fmt.Errorf("cannot install static proxy rules: %w", err)
 	}
 
 	if err := m.addCiliumAcceptXfrmRules(); err != nil {
 		return fmt.Errorf("cannot install xfrm rules: %w", err)
 	}
-
-	localDeliveryInterface := m.getDeliveryInterface(defaults.HostDevice)
 
 	if err := m.installForwardChainRules(defaults.HostDevice, localDeliveryInterface, ciliumForwardChain); err != nil {
 		return fmt.Errorf("cannot install forward chain rules to %s: %w", ciliumForwardChain, err)
