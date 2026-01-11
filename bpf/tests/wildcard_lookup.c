@@ -41,11 +41,9 @@ enum {
 
 #define DONT_CARE(x) x
 
-enum {
-	NODEPORT_EXISTS = NODEPORT_PORT_MIN + 1,
-	HOSTPORT_EXISTS = NODEPORT_PORT_MIN - 1,
-	HOSTPORT_EXISTS_LOCALHOST = NODEPORT_PORT_MIN - 2,
-};
+static __u16 nodeport_exists;
+static __u16 hostport_exists;
+static __u16 hostport_exists_localhost;
 
 #define SVC_KEY_VALUE(ADDR, PORT, FLAGS, FLAGS2) {	\
 	.key = {					\
@@ -75,19 +73,27 @@ enum {
 	HOST_IP = 0x12345678,
 };
 
+#define INIT_PORTS() do {						\
+	nodeport_exists = CONFIG(nodeport_port_min) + 1;		\
+	hostport_exists = CONFIG(nodeport_port_min) - 1;		\
+	hostport_exists_localhost = CONFIG(nodeport_port_min) - 2;	\
+} while (0)
+
 static inline void __setup_v4(void)
 {
+	INIT_PORTS();
+
 	struct { struct lb4_key key; struct lb4_service value; } services[] = {
 		/* Nodeport on HOST_IP */
-		SVC_KEY_VALUE(0, NODEPORT_EXISTS, SVC_FLAG_NODEPORT, 0),
-		SVC_KEY_VALUE(HOST_IP, NODEPORT_EXISTS, SVC_FLAG_NODEPORT, 0),
+		SVC_KEY_VALUE(0, nodeport_exists, SVC_FLAG_NODEPORT, 0),
+		SVC_KEY_VALUE(HOST_IP, nodeport_exists, SVC_FLAG_NODEPORT, 0),
 
 		/* Hostport on HOST_IP */
-		SVC_KEY_VALUE(0, HOSTPORT_EXISTS, SVC_FLAG_HOSTPORT, 0),
-		SVC_KEY_VALUE(HOST_IP, HOSTPORT_EXISTS, SVC_FLAG_HOSTPORT, 0),
+		SVC_KEY_VALUE(0, hostport_exists, SVC_FLAG_HOSTPORT, 0),
+		SVC_KEY_VALUE(HOST_IP, hostport_exists, SVC_FLAG_HOSTPORT, 0),
 
 		/* Hostport on 127.0.0.1 */
-		SVC_KEY_VALUE(0, HOSTPORT_EXISTS_LOCALHOST, SVC_FLAG_HOSTPORT, SVC_FLAG_LOOPBACK),
+		SVC_KEY_VALUE(0, hostport_exists_localhost, SVC_FLAG_HOSTPORT, SVC_FLAG_LOOPBACK),
 	};
 	unsigned long i;
 
@@ -127,7 +133,7 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 		assert(!ret);
 
 		/* fail: dport is inside the nodeport range, but we want a hostport */
-		key.dport = bpf_htons((NODEPORT_PORT_MIN + NODEPORT_PORT_MAX) / 2);
+		key.dport = bpf_htons((CONFIG(nodeport_port_min) + CONFIG(nodeport_port_max)) / 2);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, DONT_CARE(0));
 		assert(!ret);
 	});
@@ -135,25 +141,25 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 	TEST("nodeport", {
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), NODEPORT_LOOKUP, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), NODEPORT_LOOKUP, OTHER_NS);
 		assert(!ret);
 
 		/* pass: get a service by host address [we're in the root namespace] */
 		key.address = bpf_htonl(HOST_IP);
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), NODEPORT_LOOKUP, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by host address [we're not in the root namespace] */
 		key.address = bpf_htonl(HOST_IP);
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), NODEPORT_LOOKUP, OTHER_NS);
 		assert(ret);
 	});
@@ -161,25 +167,25 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 	TEST("hostport", {
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, OTHER_NS);
 		assert(!ret);
 
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock4_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, OTHER_NS);
 		assert(!ret);
 	});
@@ -189,25 +195,25 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 	TEST("nodeport-full", {
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock4_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock4_wildcard_lookup_full(&key, OTHER_NS);
 		assert(!ret);
 
 		/* pass: get a service by host address [we're in the root namespace] */
 		key.address = bpf_htonl(HOST_IP);
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock4_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* pass: get a service by host address [we're in the root namespace] */
 		key.address = bpf_htonl(HOST_IP);
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock4_wildcard_lookup_full(&key, OTHER_NS);
 		assert(ret);
 	});
@@ -215,25 +221,25 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 	TEST("hostport-full", {
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock4_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock4_wildcard_lookup_full(&key, OTHER_NS);
 		assert(!ret);
 
 		/* pass: get a service by host address [we're in the root namespace] */
 		key.address = bpf_htonl(HOST_IP);
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock4_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* pass: get a service by host address [we're not in the root namespace] */
 		key.address = bpf_htonl(HOST_IP);
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock4_wildcard_lookup_full(&key, OTHER_NS);
 		assert(ret);
 	});
@@ -241,25 +247,25 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 	TEST("hostport-full-loopback", {
 		/* pass: get a loopback service by loopback address [we're in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock4_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* fail: get a loopback service by loopback address [we're not in the root namespace] */
 		key.address = bpf_htonl(INADDR_LOOPBACK);
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock4_wildcard_lookup_full(&key, OTHER_NS);
 		assert(!ret);
 
 		/* fail: get a loopback service by host address [we're in the root namespace] */
 		key.address = bpf_htonl(HOST_IP);
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock4_wildcard_lookup_full(&key, HOST_NS);
 		assert(!ret);
 
 		/* fail: get a loopback service by host address [we're not in the root namespace] */
 		key.address = bpf_htonl(HOST_IP);
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock4_wildcard_lookup_full(&key, OTHER_NS);
 		assert(!ret);
 	});
@@ -277,8 +283,8 @@ static inline void __setup_v6_nodeport(const union v6addr *HOST_IP6)
 	union v6addr ZERO = {};
 	struct { struct lb6_key key; struct lb6_service value; } services[] = {
 		/* Nodeport on HOST_IP6 */
-		SVC_KEY_VALUE_V6(&ZERO, NODEPORT_EXISTS, SVC_FLAG_NODEPORT, 0),
-		SVC_KEY_VALUE_V6(HOST_IP6, NODEPORT_EXISTS, SVC_FLAG_NODEPORT, 0),
+		SVC_KEY_VALUE_V6(&ZERO, nodeport_exists, SVC_FLAG_NODEPORT, 0),
+		SVC_KEY_VALUE_V6(HOST_IP6, nodeport_exists, SVC_FLAG_NODEPORT, 0),
 	};
 	unsigned long i;
 
@@ -292,11 +298,11 @@ static inline void __setup_v6_hostport(const union v6addr *HOST_IP6)
 	union v6addr ZERO = {};
 	struct { struct lb6_key key; struct lb6_service value; } services[] = {
 		/* Hostport on HOST_IP6 */
-		SVC_KEY_VALUE_V6(&ZERO, HOSTPORT_EXISTS, SVC_FLAG_HOSTPORT, 0),
-		SVC_KEY_VALUE_V6(HOST_IP6, HOSTPORT_EXISTS, SVC_FLAG_HOSTPORT, 0),
+		SVC_KEY_VALUE_V6(&ZERO, hostport_exists, SVC_FLAG_HOSTPORT, 0),
+		SVC_KEY_VALUE_V6(HOST_IP6, hostport_exists, SVC_FLAG_HOSTPORT, 0),
 
 		/* Hostport on ::1 */
-		SVC_KEY_VALUE_V6(&ZERO, HOSTPORT_EXISTS_LOCALHOST,
+		SVC_KEY_VALUE_V6(&ZERO, hostport_exists_localhost,
 				 SVC_FLAG_HOSTPORT, SVC_FLAG_LOOPBACK),
 	};
 	unsigned long i;
@@ -327,6 +333,7 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 	 * Split to multiple functions, as we are using stack to init values,
 	 * and it doesn't fit inside one function
 	 */
+	INIT_PORTS();
 	__setup_v6_ipcache(&HOST_IP6);
 	__setup_v6_nodeport(&HOST_IP6);
 	__setup_v6_hostport(&HOST_IP6);
@@ -345,7 +352,7 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 		assert(!ret);
 
 		/* fail: dport is inside the nodeport range, but we want a hostport */
-		key.dport = bpf_htons((NODEPORT_PORT_MIN + NODEPORT_PORT_MAX) / 2);
+		key.dport = bpf_htons((CONFIG(nodeport_port_min) + CONFIG(nodeport_port_max)) / 2);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, DONT_CARE(0));
 		assert(!ret);
 	});
@@ -353,25 +360,25 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 	TEST("nodeport", {
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), NODEPORT_LOOKUP, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), NODEPORT_LOOKUP, OTHER_NS);
 		assert(!ret);
 
 		/* pass: get a service by host address [we're in the root namespace] */
 		memcpy(&key.address, &HOST_IP6, sizeof(HOST_IP6));
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), NODEPORT_LOOKUP, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by host address [we're not in the root namespace] */
 		memcpy(&key.address, &HOST_IP6, sizeof(HOST_IP6));
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), NODEPORT_LOOKUP, OTHER_NS);
 		assert(ret);
 	});
@@ -379,25 +386,25 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 	TEST("hostport", {
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, OTHER_NS);
 		assert(!ret);
 
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock6_wildcard_lookup(&key, DONT_CARE(0), HOSTPORT_LOOKUP, OTHER_NS);
 		assert(!ret);
 	});
@@ -407,25 +414,25 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 	TEST("nodeport-full", {
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock6_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock6_wildcard_lookup_full(&key, OTHER_NS);
 		assert(!ret);
 
 		/* pass: get a service by host address [we're in the root namespace] */
 		memcpy(&key.address, &HOST_IP6, sizeof(HOST_IP6));
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock6_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* pass: get a service by host address [we're in the root namespace] */
 		memcpy(&key.address, &HOST_IP6, sizeof(HOST_IP6));
-		key.dport = bpf_htons(NODEPORT_EXISTS);
+		key.dport = bpf_htons(nodeport_exists);
 		ret = sock6_wildcard_lookup_full(&key, OTHER_NS);
 		assert(ret);
 	});
@@ -433,25 +440,25 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 	TEST("hostport-full", {
 		/* pass: get a service by loopback address [we're in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock6_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* fail: get a service by loopback address [we're not in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock6_wildcard_lookup_full(&key, OTHER_NS);
 		assert(!ret);
 
 		/* pass: get a service by host address [we're in the root namespace] */
 		memcpy(&key.address, &HOST_IP6, sizeof(HOST_IP6));
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock6_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* pass: get a service by host address [we're not in the root namespace] */
 		memcpy(&key.address, &HOST_IP6, sizeof(HOST_IP6));
-		key.dport = bpf_htons(HOSTPORT_EXISTS);
+		key.dport = bpf_htons(hostport_exists);
 		ret = sock6_wildcard_lookup_full(&key, OTHER_NS);
 		assert(ret);
 	});
@@ -459,25 +466,25 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 	TEST("hostport-full-loopback", {
 		/* pass: get a loopback service by loopback address [we're in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock6_wildcard_lookup_full(&key, HOST_NS);
 		assert(ret);
 
 		/* fail: get a loopback service by loopback address [we're not in the root namespace] */
 		memcpy(&key.address, &LOOPBACK, sizeof(LOOPBACK));
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock6_wildcard_lookup_full(&key, OTHER_NS);
 		assert(!ret);
 
 		/* fail: get a loopback service by host address [we're in the root namespace] */
 		memcpy(&key.address, &HOST_IP6, sizeof(HOST_IP6));
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock6_wildcard_lookup_full(&key, HOST_NS);
 		assert(!ret);
 
 		/* fail: get a loopback service by host address [we're not in the root namespace] */
 		memcpy(&key.address, &HOST_IP6, sizeof(HOST_IP6));
-		key.dport = bpf_htons(HOSTPORT_EXISTS_LOCALHOST);
+		key.dport = bpf_htons(hostport_exists_localhost);
 		ret = sock6_wildcard_lookup_full(&key, OTHER_NS);
 		assert(!ret);
 	});

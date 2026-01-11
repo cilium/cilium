@@ -66,8 +66,8 @@ int test_nat4_remote_node_masquerade_skipped(__maybe_unused struct __ctx_buff *c
 
     /* Setup NAT target structure */
     struct ipv4_nat_target target = {
-    .min_port            = NODEPORT_PORT_MIN_NAT, /* Standard min port */
-    .max_port            = NODEPORT_PORT_MAX_NAT, /* Standard max port */
+    .min_port            = CONFIG(nodeport_port_min_nat), /* Standard min port */
+    .max_port            = CONFIG(nodeport_port_max_nat), /* Standard max port */
     .addr                = 0,
     .from_local_endpoint = false,
     .egress_gateway      = false,

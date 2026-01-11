@@ -1155,8 +1155,8 @@ static __always_inline
 int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
 	struct ipv6_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
+		.min_port = CONFIG(nodeport_port_min_nat),
+		.max_port = CONFIG(nodeport_port_max_nat),
 	};
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_CT_REPLY,
@@ -1236,8 +1236,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		},
 	};
 	struct ipv6_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
+		.min_port = CONFIG(nodeport_port_min_nat),
+		.max_port = CONFIG(nodeport_port_max_nat),
 		.addr = IPV6_DIRECT_ROUTING,
 	};
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
@@ -2512,8 +2512,8 @@ static __always_inline
 int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 {
 	struct ipv4_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
+		.min_port = CONFIG(nodeport_port_min_nat),
+		.max_port = CONFIG(nodeport_port_max_nat),
 	};
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -2608,8 +2608,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		},
 	};
 	struct ipv4_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
+		.min_port = CONFIG(nodeport_port_min_nat),
+		.max_port = CONFIG(nodeport_port_max_nat),
 		/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
 		 * So we need to assume that the direct routing device is going to be
 		 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
