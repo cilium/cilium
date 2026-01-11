@@ -91,13 +91,12 @@ The following example configures Cilium to:
 * Use the interface ``eth0`` for pod IP allocation.
 * Set the minimum number of IPs to allocate to 10.
 
-.. parsed-literal::
-  helm upgrade cilium |CHART_RELEASE| \\
-    --namespace kube-system \\
-    --reuse-values \\
-    --set azure.enabled=true \\
-    --set azure.nodeSpec.azureInterfaceName=eth0 \\
-    --set ipam.nodeSpec.ipamMinAllocate=10
+.. cilium-helm-upgrade::
+   :namespace: kube-system
+   :extra-args: --reuse-values
+   :set: azure.enabled=true
+         azure.nodeSpec.azureInterfaceName=eth0
+         ipam.nodeSpec.ipamMinAllocate=10
 
 The full list of available options can be found in the :ref:`helm_reference`
 section in the ``azure.nodeSpec`` and ``ipam.nodeSpec`` sections.

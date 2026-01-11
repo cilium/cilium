@@ -60,14 +60,12 @@ configured in the ConfigMap. Download the base YAML and configure it with
 
 Deploy Cilium release via Helm:
 
-.. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set etcd.enabled=true \\
-      --set "etcd.endpoints[0]=http://etcd-endpoint1:2379" \\
-      --set "etcd.endpoints[1]=http://etcd-endpoint2:2379" \\
-      --set "etcd.endpoints[2]=http://etcd-endpoint3:2379"
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: etcd.enabled=true
+         "etcd.endpoints[0]=http://etcd-endpoint1:2379"
+         "etcd.endpoints[1]=http://etcd-endpoint2:2379"
+         "etcd.endpoints[2]=http://etcd-endpoint3:2379"
 
 If you do not want Cilium to store state in Kubernetes custom resources (CRDs),
 consider setting ``identityAllocationMode``::
@@ -91,15 +89,13 @@ key and certificate of etcd:
 Adjust the helm template generation to enable SSL for etcd and use https instead
 of http for the etcd endpoint URLs:
 
-.. parsed-literal::
-
-    helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set etcd.enabled=true \\
-      --set etcd.ssl=true \\
-      --set "etcd.endpoints[0]=https://etcd-endpoint1:2379" \\
-      --set "etcd.endpoints[1]=https://etcd-endpoint2:2379" \\
-      --set "etcd.endpoints[2]=https://etcd-endpoint3:2379"
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: etcd.enabled=true
+         etcd.ssl=true
+         "etcd.endpoints[0]=https://etcd-endpoint1:2379"
+         "etcd.endpoints[1]=https://etcd-endpoint2:2379"
+         "etcd.endpoints[2]=https://etcd-endpoint3:2379"
 
 .. include:: k8s-install-validate.rst
 

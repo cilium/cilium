@@ -44,16 +44,14 @@ as part of the configuration.
         If you installed Cilium via ``helm install``, you may enable
         the VTEP support with the following command:
 
-        .. parsed-literal::
-
-           helm upgrade cilium |CHART_RELEASE| \
-              --namespace kube-system \
-              --reuse-values \
-              --set vtep.enabled="true" \
-              --set vtep.endpoint="10.169.72.236 10.169.72.238" \
-              --set vtep.cidr="10.1.1.0/24   10.1.2.0/24" \
-              --set vtep.mask="255.255.255.0" \
-              --set vtep.mac="82:36:4c:98:2e:56 82:36:4c:98:2e:58" \
+        .. cilium-helm-upgrade::
+           :namespace: kube-system
+           :extra-args: --reuse-values
+           :set: vtep.enabled="true"
+                 vtep.endpoint="10.169.72.236 10.169.72.238"
+                 vtep.cidr="10.1.1.0/24   10.1.2.0/24"
+                 vtep.mask="255.255.255.0"
+                 vtep.mac="82:36:4c:98:2e:56 82:36:4c:98:2e:58"
 
     .. group-tab:: ConfigMap
 
