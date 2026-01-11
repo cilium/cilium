@@ -5,10 +5,14 @@ package translation
 
 import (
 	envoy_config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	"github.com/cilium/cilium/operator/pkg/model"
 )
 
 type ClusterMutator func(*envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster
@@ -99,6 +103,63 @@ func withProtocol(protocolVersion HTTPVersionType) ClusterMutator {
 
 		cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			httpProtocolOptionsType: toAny(options),
+		}
+		return cluster
+	}
+}
+
+func withTLSOrigination(tls *model.BackendTLSOrigination) ClusterMutator {
+	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
+		// This mutator should not get added to the list if this is the case, but just to be safe.
+		if tls == nil {
+			return cluster
+		}
+
+		// If there is no SNI set, we should not originate TLS.
+		if tls.SNI == "" {
+			return cluster
+		}
+
+		if tls.CACertRef == nil || tls.CACertRef.Name == "" || tls.CACertRef.Namespace == "" {
+			return cluster
+		}
+
+		tlsContext := &envoy_config_tls.UpstreamTlsContext{
+			Sni: tls.SNI,
+			CommonTlsContext: &envoy_config_tls.CommonTlsContext{
+				ValidationContextType: &envoy_config_tls.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &envoy_config_tls.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &envoy_config_tls.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &envoy_config_tls.SdsSecretConfig{
+							Name: "cilium-secrets" + "/" + tls.CACertRef.Namespace + "-cfgmap-" + tls.CACertRef.Name,
+							// SdsConfig: &envoy_config_core_v3.ConfigSource{
+							// 	ResourceApiVersion: envoy_config_core.ApiVersion_V3,
+							// 	ConfigSourceSpecifier: &envoy_config_core_v3.ConfigSource_ApiConfigSource{
+							// 		ApiConfigSource: &envoy_config_core_v3.ApiConfigSource{
+							// 			ApiType: envoy_config_core.ApiConfigSource_AGGREGATED_GRPC,
+							// 			GrpcServices: []*envoy_config_core_v3.GrpcService{
+							// 				{
+							// 					TargetSpecifier: &envoy_config_core_v3.GrpcService_EnvoyGrpc_{
+							// 						EnvoyGrpc: &envoy_config_core_v3.GrpcService_EnvoyGrpc{
+							// 							ClusterName: "xds-grpc-cilium",
+							// 						},
+							// 					},
+							// 				},
+							// 			},
+							// 		},
+							// 	},
+							// },
+						},
+					},
+				},
+			},
+		}
+
+		cluster.TransportSocket = &envoy_config_core_v3.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+				TypedConfig: toAny(tlsContext),
+			},
 		}
 		return cluster
 	}

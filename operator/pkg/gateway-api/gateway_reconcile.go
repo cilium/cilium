@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -29,6 +30,8 @@ import (
 
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/indexers"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/policychecks"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/ingestion"
@@ -86,7 +89,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	httpRouteList := &gatewayv1.HTTPRouteList{}
 	if err := r.Client.List(ctx, httpRouteList, &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(gatewayHTTPRouteIndex, client.ObjectKeyFromObject(original).String()),
+		FieldSelector: fields.OneTermEqualSelector(indexers.GatewayHTTPRouteIndex, client.ObjectKeyFromObject(original).String()),
 	}); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to list HTTPRoutes", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
@@ -94,7 +97,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	grpcRouteList := &gatewayv1.GRPCRouteList{}
 	if err := r.Client.List(ctx, grpcRouteList, &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(gatewayGRPCRouteIndex, client.ObjectKeyFromObject(original).String()),
+		FieldSelector: fields.OneTermEqualSelector(indexers.GatewayGRPCRouteIndex, client.ObjectKeyFromObject(original).String()),
 	}); err != nil {
 		scopedLog.ErrorContext(ctx, "Unable to list GRPCRoutes", logfields.Error, err)
 		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
@@ -103,12 +106,19 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	tlsRouteList := &gatewayv1alpha2.TLSRouteList{}
 	if helpers.HasTLSRouteSupport(r.Client.Scheme()) {
 		if err := r.Client.List(ctx, tlsRouteList, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(gatewayTLSRouteIndex, client.ObjectKeyFromObject(original).String()),
+			FieldSelector: fields.OneTermEqualSelector(indexers.GatewayTLSRouteIndex, client.ObjectKeyFromObject(original).String()),
 		}); err != nil {
 			scopedLog.ErrorContext(ctx, "Unable to list TLSRoutes", logfields.Error, err)
 			return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
 		}
 	}
+
+	btlspList := &gatewayv1.BackendTLSPolicyList{}
+	if err := r.Client.List(ctx, btlspList); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to list BackendTLSPolicies", logfields.Error, err)
+		return r.handleReconcileErrorWithStatus(ctx, err, original, gw)
+	}
+	btlspMap := helpers.BuildBackendTLSPolicyLookup(btlspList)
 
 	// TODO(tam): Only list the services / ServiceImports used by accepted Routes
 	servicesList := &corev1.ServiceList{}
@@ -160,16 +170,22 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items)
 	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items)
 
-	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
-		GatewayClass:       *gwc,
-		GatewayClassConfig: r.getGatewayClassConfig(ctx, gwc),
-		Gateway:            *gw,
-		HTTPRoutes:         httpRoutes,
-		TLSRoutes:          tlsRoutes,
-		GRPCRoutes:         grpcRoutes,
-		Services:           servicesList.Items,
-		ServiceImports:     serviceImportsList.Items,
-		ReferenceGrants:    grants.Items,
+	if err := r.setBackendTLSPolicyStatuses(scopedLog, ctx, httpRoutes, btlspMap, req.NamespacedName); err != nil {
+		scopedLog.ErrorContext(ctx, "Unable to update BackendTLSPolicy Status", logfields.Error, err)
+		return controllerruntime.Fail(err)
+	}
+
+	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(scopedLog, ingestion.Input{
+		GatewayClass:        *gwc,
+		GatewayClassConfig:  r.getGatewayClassConfig(ctx, gwc),
+		Gateway:             *gw,
+		HTTPRoutes:          httpRoutes,
+		TLSRoutes:           tlsRoutes,
+		GRPCRoutes:          grpcRoutes,
+		Services:            servicesList.Items,
+		ServiceImports:      serviceImportsList.Items,
+		ReferenceGrants:     grants.Items,
+		BackendTLSPolicyMap: btlspMap,
 	})
 
 	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList)
@@ -946,6 +962,282 @@ func (r *gatewayReconciler) setGRPCRouteStatuses(scopedLog *slog.Logger, ctx con
 	return nil
 }
 
+func (r *gatewayReconciler) setBackendTLSPolicyStatuses(scopedLog *slog.Logger,
+	ctx context.Context,
+	httpRoutes []gatewayv1.HTTPRoute,
+	btlspMap helpers.BackendTLSPolicyServiceMap,
+	gatewayName types.NamespacedName,
+) error {
+	scopedLog.Debug("Updating BackendTLSPolicy statuses for Gateway", policies, len(btlspMap))
+
+	currentGatewayRef := gatewayv1.ParentReference{
+		Group:     ptr.To[gatewayv1.Group]("gateway.networking.k8s.io"),
+		Kind:      ptr.To[gatewayv1.Kind]("Gateway"),
+		Namespace: (*gatewayv1.Namespace)(&gatewayName.Namespace),
+		Name:      gatewayv1.ObjectName(gatewayName.Name),
+	}
+
+	// TODO(youngnick): There's currently a corner case error in the design upstream,
+	// as there is no way to solve for the case that:
+	// * A BackendTLSPolicy has multiple targetRefs
+	// * the multiple targetRefs point to backends used in HTTPRoutes that roll up to the same
+	//   Gateway
+	// * Some of the targetRefs exist and some do not.
+	//
+	// What happens in this case is currently undefined upstream, as we only namespace the BackendTLSPolicy
+	// status by Gateway.
+	//
+	// This code currently errs on the side of marking the BackendTLSPolicy as Accepted,
+	// with ResolvedRefs: False, as long as at least one targetRef is valid, and there are
+	// other targetRefs that are not valid.
+
+	// confirmedValidBTLSPs maintains a set of all BackendTLSPolicies that
+	// have at least one targetRef that is valid for the currentGatewayRef.
+	//
+	// This map will only be populated if at least one of the targetRefs in that
+	// Policy passes all the checks and is valid.
+	//
+	// This is then used both as a flag to see if other targetRefs in the same
+	// Policy should create status updates or not.
+	confirmedValidBTLSPs := make(map[types.NamespacedName]struct{})
+
+	// svcNames have already had the conflict-resolution rules applied to build the btlspMap.
+	// So, we can rely both on them being correct, and being referenced in the BackendTLSPolicy.
+	// For each svcName, check if that service rolls up to a relevant Gateway
+	// and run any required Policy checks, like if the Service exists.
+	for svcName, collection := range btlspMap {
+		// We have to find if BackendTLSPolicy is used in the current Gateway, so we can set the
+		// status.
+
+		// First, we get all the HTTPRoutes that have the targetRef service as a backend
+		hrList := &gatewayv1.HTTPRouteList{}
+
+		if err := r.Client.List(ctx, hrList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceHTTPRouteIndex, svcName.String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Failed to get related HTTPRoutes", logfields.Error, err)
+			return err
+		}
+
+		found, err := ContainsCommonHTTPRoute(hrList.Items, httpRoutes)
+		if err != nil {
+			// There was a common HTTPRoute found, but the generation was different, error out from this.
+			return err
+		}
+		if !found {
+			// This service is not used in the current Gateway, so we can skip it.
+			continue
+		}
+
+		scopedLog.Debug("collection", policies, collection)
+		// next thing, see if the referenced service exists. If not, we can just reject all the
+		// BackendTLSPolicies regardless of which one got accepted.
+		obj := &corev1.Service{}
+		err = r.Client.Get(ctx, svcName, obj)
+		if err != nil {
+			if !k8serrors.IsNotFound(err) {
+				// if it is not just a not found error, we should return the error as something is bad
+				return fmt.Errorf("error while checking Backend Service: %w", err)
+			}
+			// If the Service does not exist, all referenced BackendTLSPolicies must be
+			// Accepted: False, with reason Conflicted.
+			for _, original := range collection.Valid {
+				btlspFullName := types.NamespacedName{
+					Name:      original.GetName(),
+					Namespace: original.GetNamespace(),
+				}
+
+				if _, ok := confirmedValidBTLSPs[btlspFullName]; ok {
+					// If the BackendTLSPolicy is already listed in the btlspStatus,
+					// then we've already confirmed it's valid, so we need to skip updating
+					// the status with errors.
+					continue
+				}
+
+				btlsp := original.DeepCopy()
+
+				input := &policychecks.BackendTLSPolicyInput{
+					Ctx:              ctx,
+					Logger:           scopedLog.With(logfields.BackendTLSPolicy, client.ObjectKeyFromObject(original)),
+					Client:           r.Client,
+					BackendTLSPolicy: btlsp,
+				}
+				input.SetAncestorCondition(currentGatewayRef, metav1.Condition{
+					Type:    string(gatewayv1.PolicyConditionAccepted),
+					Status:  metav1.ConditionFalse,
+					Reason:  string(gatewayv1.PolicyReasonInvalid),
+					Message: fmt.Sprintf("TargetRef does not exist: %s", svcName),
+				})
+				input.SetAncestorCondition(currentGatewayRef, metav1.Condition{
+					Type:    string(gatewayv1.RouteConditionResolvedRefs),
+					Status:  metav1.ConditionFalse,
+					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
+					Message: fmt.Sprintf("TargetRef does not exist: %s", svcName),
+				})
+				// Checks finished, apply the status to the actual objects.
+				if err := r.updateBackendTLSPolicyStatus(ctx, scopedLog, original, btlsp); err != nil {
+					return fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
+				}
+				// Update the original with the updated status
+				original.Status = btlsp.Status
+			}
+
+			// Second, for any Conflicted BackendTLSPolicies, we can set them to Conflicted and move on.
+			for _, original := range collection.Conflicted {
+				btlspFullName := types.NamespacedName{
+					Name:      original.GetName(),
+					Namespace: original.GetNamespace(),
+				}
+
+				btlsp := original.DeepCopy()
+
+				if _, ok := confirmedValidBTLSPs[btlspFullName]; ok {
+					// If the BackendTLSPolicy is already listed in the btlspStatus,
+					// then we've already confirmed it's valid, so we need to skip updating
+					// the status with errors.
+					continue
+				}
+				input := &policychecks.BackendTLSPolicyInput{
+					Ctx:              ctx,
+					Logger:           scopedLog.With(logfields.BackendTLSPolicy, client.ObjectKeyFromObject(original)),
+					Client:           r.Client,
+					BackendTLSPolicy: btlsp,
+				}
+				input.SetAncestorCondition(currentGatewayRef, metav1.Condition{
+					Type:    string(gatewayv1.PolicyConditionAccepted),
+					Status:  metav1.ConditionFalse,
+					Reason:  string(gatewayv1.PolicyReasonInvalid),
+					Message: fmt.Sprintf("TargetRef does not exist: %s", svcName),
+				})
+				input.SetAncestorCondition(currentGatewayRef, metav1.Condition{
+					Type:    string(gatewayv1.RouteConditionResolvedRefs),
+					Status:  metav1.ConditionFalse,
+					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
+					Message: fmt.Sprintf("TargetRef does not exist: %s", svcName),
+				})
+				// Checks finished, apply the status to the actual objects.
+				if err := r.updateBackendTLSPolicyStatus(ctx, scopedLog, original, btlsp); err != nil {
+					return fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
+				}
+				// Update the original with the updated status
+				original.Status = btlsp.Status
+			}
+			// Continue, because this Service doesn't exist
+			continue
+		}
+
+		// Lastly, pull out any valid BackendTLSPolicies, then check them.
+		// The SectionName logic has already deduplicated them, so we don't actually need to track
+		// the sectionName here.
+
+		validBTLSPs := collection.Valid
+		for _, original := range validBTLSPs {
+
+			btlsp := original.DeepCopy()
+
+			// input for the validators
+			// The validators will mutate the BackendTLSPolicy as required, setting its status correctly.
+			input := &policychecks.BackendTLSPolicyInput{
+				Ctx:              ctx,
+				Logger:           scopedLog.With(logfields.BackendTLSPolicy, client.ObjectKeyFromObject(btlsp)),
+				Client:           r.Client,
+				BackendTLSPolicy: btlsp,
+			}
+
+			// Now, we run the Policy checks against it, which will update the status correctly.
+
+			// So we can update the status of that BackendTLSPolicy with the name of the current Gateway.
+
+			// set Accepted to okay, this will be overwritten in checks if needed
+			input.SetAncestorCondition(currentGatewayRef, metav1.Condition{
+				Type:    string(gatewayv1.PolicyConditionAccepted),
+				Status:  metav1.ConditionTrue,
+				Reason:  string(gatewayv1.PolicyReasonAccepted),
+				Message: "Accepted BackendTLSPolicy",
+			})
+
+			// set ResolvedRefs to okay, this wil be overwritten in checks if needed
+			input.SetAncestorCondition(currentGatewayRef, metav1.Condition{
+				Type:    string(gatewayv1.RouteConditionResolvedRefs),
+				Status:  metav1.ConditionTrue,
+				Reason:  string(gatewayv1.RouteReasonResolvedRefs),
+				Message: "All references are valid",
+			})
+			input.Logger.Debug("Validating BackendTLSPolicy spec")
+			valid, err := input.ValidateSpec(currentGatewayRef)
+			if err != nil {
+				return fmt.Errorf("failed to validate BackendTLSPolicy spec: %w", err)
+			}
+			if valid {
+				// This BackendTLSPolicy is valid, so we can add the original status to the btlspStatus
+				// lookup map. It's okay to do this multiple times, since the original status will be the same.
+				confirmedValidBTLSPs[types.NamespacedName{
+					Name:      btlsp.GetName(),
+					Namespace: btlsp.GetNamespace(),
+				}] = struct{}{}
+			}
+
+			// Checks finished, apply the status to the actual objects.
+			if err := r.updateBackendTLSPolicyStatus(ctx, scopedLog, original, btlsp); err != nil {
+				return fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
+			}
+			// Update the original with the updated status
+			original.Status = btlsp.Status
+		}
+
+		// We can set Conflicted BTLSPs conditions now.
+		for _, original := range collection.Conflicted {
+			btlsp := original.DeepCopy()
+
+			// input for the validators
+			// The validators will mutate the BackendTLSPolicy as required, setting its status correctly.
+			input := &policychecks.BackendTLSPolicyInput{
+				Ctx:              ctx,
+				Logger:           scopedLog.With(logfields.BackendTLSPolicy, client.ObjectKeyFromObject(btlsp)),
+				Client:           r.Client,
+				BackendTLSPolicy: btlsp,
+			}
+
+			input.SetAncestorCondition(currentGatewayRef, metav1.Condition{
+				Type:    string(gatewayv1.PolicyConditionAccepted),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(gatewayv1.PolicyReasonConflicted),
+				Message: "BackendTLSPolicy conflicts with another",
+			})
+			// Checks finished, apply the status to the actual objects.
+			if err := r.updateBackendTLSPolicyStatus(ctx, scopedLog, original, btlsp); err != nil {
+				return fmt.Errorf("failed to update BackendTLSPolicy status: %w", err)
+			}
+			// Update the original with the updated status
+			original.Status = btlsp.Status
+
+		}
+	}
+	return nil
+}
+
+// ContainsCommonHTTPRoute checks to see if the two slices of HTTPRoutes contain
+// at least one identical HTTPRoute. If so, returns true.
+//
+// Returns an error if the two lists contain a HTTPRoute that is the same object
+// with a different generation; this means there has been a HTTPRoute update
+// between when the two lists were generated, and the whole reconciliation must be
+// restarted.
+func ContainsCommonHTTPRoute(a, b []gatewayv1.HTTPRoute) (bool, error) {
+	for _, hrA := range a {
+		for _, hrB := range b {
+			same, err := helpers.ObjectsEqual(&hrA, &hrB)
+			if err != nil {
+				return true, err
+			}
+			if same {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 func (r *gatewayReconciler) handleHTTPRouteReconcileErrorWithStatus(ctx context.Context, scopedLog *slog.Logger, reconcileErr error, original *gatewayv1.HTTPRoute, modified *gatewayv1.HTTPRoute) error {
 	if err := r.updateHTTPRouteStatus(ctx, scopedLog, original, modified); err != nil {
 		return fmt.Errorf("failed to update Gateway status while handling the reconcile error: %w: %w", reconcileErr, err)
@@ -997,5 +1289,16 @@ func (r *gatewayReconciler) updateGRPCRouteStatus(ctx context.Context, scopedLog
 		return nil
 	}
 	scopedLog.Debug("Updating GRPCRoute status", tlsRoute, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
+	return r.Client.Status().Update(ctx, new)
+}
+
+func (r *gatewayReconciler) updateBackendTLSPolicyStatus(ctx context.Context, scopedLog *slog.Logger, original *gatewayv1.BackendTLSPolicy, new *gatewayv1.BackendTLSPolicy) error {
+	oldStatus := original.Status.DeepCopy()
+	newStatus := new.Status.DeepCopy()
+
+	if cmp.Equal(oldStatus, newStatus, cmpopts.IgnoreFields(metav1.Condition{}, lastTransitionTime)) {
+		return nil
+	}
+	scopedLog.Debug("BackendTLSPolicy status", backendTLSPolicy, types.NamespacedName{Name: original.Name, Namespace: original.Namespace})
 	return r.Client.Status().Update(ctx, new)
 }

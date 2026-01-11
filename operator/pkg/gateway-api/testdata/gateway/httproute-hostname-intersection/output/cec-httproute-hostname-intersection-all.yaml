@@ -3,17 +3,22 @@ metadata:
   annotations:
     cec.cilium.io/use-original-source-address: "false"
   labels:
-    gateway.networking.k8s.io/gateway-name: same-namespace
-  name: cilium-gateway-same-namespace
+    gateway.networking.k8s.io/gateway-name: httproute-hostname-intersection-all
+  name: cilium-gateway-httproute-hostname-intersection-all
   namespace: gateway-conformance-infra
   ownerReferences:
     - apiVersion: gateway.networking.k8s.io/v1
       controller: true
       kind: Gateway
-      name: same-namespace
+      name: httproute-hostname-intersection-all
       uid: ""
   resourceVersion: "1"
 spec:
+  backendServices:
+    - name: infra-backend-v2
+      namespace: gateway-conformance-infra
+      number:
+        - "8080"
   resources:
     - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
       filterChains:
@@ -69,9 +74,68 @@ spec:
           name: "6"
     - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
       name: listener-insecure
+      virtualHosts:
+        - domains:
+            - "first.com"
+            - "first.com:*"
+          name: "first.com"
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: gateway-conformance-infra:infra-backend-v2:8080
+                maxStreamDuration:
+                  maxStreamDuration: 0s
+        - domains:
+            - "second.com"
+            - "second.com:*"
+          name: "second.com"
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: gateway-conformance-infra:infra-backend-v2:8080
+                maxStreamDuration:
+                  maxStreamDuration: 0s
+        - domains:
+            - "sub.first.com"
+            - "sub.first.com:*"
+          name: "sub.first.com"
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: gateway-conformance-infra:infra-backend-v2:8080
+                maxStreamDuration:
+                  maxStreamDuration: 0s
+        - domains:
+            - "sub.second.com"
+            - "sub.second.com:*"
+          name: "sub.second.com"
+          routes:
+            - match:
+                prefix: /
+              route:
+                cluster: gateway-conformance-infra:infra-backend-v2:8080
+                maxStreamDuration:
+                  maxStreamDuration: 0s
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      edsClusterConfig:
+        serviceName: gateway-conformance-infra/infra-backend-v2:8080
+      name: gateway-conformance-infra:infra-backend-v2:8080
+      outlierDetection:
+        splitExternalLocalOriginErrors: true
+      type: EDS
+      typedExtensionProtocolOptions:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          commonHttpProtocolOptions:
+            idleTimeout: 60s
+          useDownstreamProtocolConfig:
+            http2ProtocolOptions: {}
   services:
     - listener: ""
-      name: cilium-gateway-same-namespace
+      name: cilium-gateway-httproute-hostname-intersection-all
       namespace: gateway-conformance-infra
       ports:
         - 80

@@ -179,7 +179,7 @@ func (g *GRPCRouteInput) mergeStatusConditions(parentRef gatewayv1.ParentReferen
 		}
 	}
 	if index != -1 {
-		g.GRPCRoute.Status.RouteStatus.Parents[index].Conditions = merge(g.GRPCRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
+		g.GRPCRoute.Status.RouteStatus.Parents[index].Conditions = helpers.MergeConditions(g.GRPCRoute.Status.RouteStatus.Parents[index].Conditions, updates...)
 		return
 	}
 	g.GRPCRoute.Status.RouteStatus.Parents = append(g.GRPCRoute.Status.RouteStatus.Parents, gatewayv1.RouteParentStatus{

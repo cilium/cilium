@@ -24,6 +24,7 @@ import (
 
 // +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:deprecatedversion:warning="The v1alpha3 version of BackendTLSPolicy has been deprecated and will be removed in a future release of the API. Please upgrade to v1."
 type BackendTLSPolicy v1.BackendTLSPolicy
 

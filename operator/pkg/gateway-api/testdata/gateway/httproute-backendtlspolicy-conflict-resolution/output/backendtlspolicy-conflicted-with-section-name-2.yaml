@@ -1,0 +1,34 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: conflicted-with-section-name-2
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-conflicted-with-section-name-test"
+      sectionName: "https-1"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        # This ConfigMap is generated dynamically by the test suite.
+        # It contains the CA certificate used to sign the tls-backend serving certificate.
+        name: "tls-checks-ca-certificate"
+    hostname: "abc.example.com"
+status:
+  ancestors:
+    - controllerName: io.cilium/gateway-controller
+      ancestorRef:
+        group: "gateway.networking.k8s.io"
+        kind: "Gateway"
+        namespace: gateway-conformance-infra
+        name: same-namespace
+      conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: BackendTLSPolicy conflicts with another
+          reason: Conflicted
+          status: "False"
+          type: Accepted

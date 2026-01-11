@@ -136,7 +136,7 @@ require (
 	k8s.io/metrics v0.35.0
 	k8s.io/utils v0.0.0-20251222233032-718f0e51e6d2
 	sigs.k8s.io/controller-runtime v0.22.4
-	sigs.k8s.io/gateway-api v1.4.0-rc.2
+	sigs.k8s.io/gateway-api v1.4.1
 	sigs.k8s.io/mcs-api v0.3.1-0.20251224112231-f4767b9e5a04
 	sigs.k8s.io/mcs-api/controllers v0.0.0-20251224112231-f4767b9e5a04
 	sigs.k8s.io/yaml v1.6.0
