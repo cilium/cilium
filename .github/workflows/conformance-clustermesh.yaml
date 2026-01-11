@@ -330,7 +330,8 @@ jobs:
             CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
               --helm-set=autoDirectNodeRoutes=true \
               --helm-set=ipv4NativeRoutingCIDR=10.240.0.0/12 \
-              --helm-set=ipv6NativeRoutingCIDR=fd00:10:240::/44"
+              --helm-set=ipv6NativeRoutingCIDR=fd00:10:240::/44 \
+              --helm-set=underlayProtocol=${{ matrix.ipFamily == 'ipv6' && 'ipv6' || 'ipv4' }}"
           fi
 
           case "${{ matrix.ipFamily }}" in
