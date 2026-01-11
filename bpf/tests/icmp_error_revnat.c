@@ -34,7 +34,7 @@
  *
  * Flow:
  * 1. Simulate an outgoing connection: endpoint (10.0.10.1:3030) -> pod (192.168.0.2:80)
- *    This gets SNATed to: pod (192.168.0.1:NODEPORT_PORT_MIN_NAT) -> pod (192.168.0.2:80)
+ *    This gets SNATed to: pod (192.168.0.1:nodeport_port_min_nat) -> pod (192.168.0.2:80)
  * 2. Pod sends back ICMP Frag Needed error about the SNATed packet
  * 3. snat_v4_rev_nat() should reverse the NAT in both outer and inner (embedded) packets
  * 4. Result: ICMP error should be addressed to endpoint (10.0.10.1)
@@ -73,8 +73,8 @@ int nat4_icmp_error_tcp_snat_revnat_setup(struct __ctx_buff *ctx)
 	/* NAT target: translate to pod IP */
 	struct ipv4_nat_target target = {
 		.addr = bpf_htonl(IP_HOST),  /* 192.168.0.1 */
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MIN_NAT,
+		.min_port = CONFIG(nodeport_port_min_nat),
+		.max_port = CONFIG(nodeport_port_min_nat),
 	};
 
 	struct ipv4_nat_entry state;
@@ -97,7 +97,7 @@ int nat4_icmp_error_tcp_snat_revnat_setup(struct __ctx_buff *ctx)
 	 * It should:
 	 * 1. Reverse NAT the outer IP dst: pod -> endpoint
 	 * 2. Reverse NAT the embedded IP src: pod -> endpoint
-	 * 3. Restore the embedded TCP sport: NODEPORT_PORT_MIN_NAT -> 3030
+	 * 3. Restore the embedded TCP sport: nodeport_port_min_nat -> 3030
 	 */
 	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	if (ret != 0)

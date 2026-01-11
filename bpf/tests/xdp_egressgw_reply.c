@@ -22,7 +22,7 @@
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
 #define IPV4_DIRECT_ROUTING	v4_node_one /* gateway node */
-#define MASQ_PORT		__bpf_htons(NODEPORT_PORT_MIN_NAT + 1)
+#define MASQ_PORT		__bpf_htons(CONFIG(nodeport_port_min_nat) + 1)
 #define DIRECT_ROUTING_IFINDEX	25
 
 #define ctx_redirect mock_ctx_redirect

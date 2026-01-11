@@ -194,8 +194,8 @@ sock4_wildcard_lookup(struct lb4_key *key, const bool include_remote_hosts,
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
-	if ((service_port < NODEPORT_PORT_MIN ||
-	     service_port > NODEPORT_PORT_MAX) ^ inv_match)
+	if ((service_port < CONFIG(nodeport_port_min) ||
+	     service_port > CONFIG(nodeport_port_max)) ^ inv_match)
 		return NULL;
 
 	/* When connecting to node port services in our cluster that
@@ -736,8 +736,8 @@ sock6_wildcard_lookup(struct lb6_key *key, const bool include_remote_hosts,
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
-	if ((service_port < NODEPORT_PORT_MIN ||
-	     service_port > NODEPORT_PORT_MAX) ^ inv_match)
+	if ((service_port < CONFIG(nodeport_port_min) ||
+	     service_port > CONFIG(nodeport_port_max)) ^ inv_match)
 		return NULL;
 
 	/* When connecting to node port services in our cluster that

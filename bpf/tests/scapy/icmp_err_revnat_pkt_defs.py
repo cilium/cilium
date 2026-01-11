@@ -12,7 +12,7 @@ icmp4_err_frag_needed_for_revnat = (
     IP(src=v4_pod_two, dst=v4_pod_one) /
     ICMP(type=3, code=4, nexthopmtu=1500) /
     IP(src=v4_pod_one, dst=v4_pod_two, flags="DF") /
-    TCP(sport=32768, dport=80)  # NODEPORT_PORT_MIN_NAT (SNAT'd port)
+    TCP(sport=32768, dport=80)  # nodeport_port_min_nat (SNAT'd port)
 )
 
 

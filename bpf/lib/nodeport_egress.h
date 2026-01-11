@@ -55,8 +55,8 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  __s8 *ext_err)
 {
 	struct ipv6_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
+		.min_port = CONFIG(nodeport_port_min_nat),
+		.max_port = CONFIG(nodeport_port_max_nat),
 	};
 	struct ipv6_ct_tuple tuple = {};
 	int hdrlen, l4_off, ret;
@@ -319,8 +319,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 						  __s8 *ext_err)
 {
 	struct ipv4_nat_target target = {
-		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = NODEPORT_PORT_MAX_NAT,
+		.min_port = CONFIG(nodeport_port_min_nat),
+		.max_port = CONFIG(nodeport_port_max_nat),
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 		.cluster_id = cluster_id,
 #endif
@@ -702,9 +702,9 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 		break;
 #endif /* ENABLE_IPV6 */
 	default:
-		build_bug_on(!(NODEPORT_PORT_MIN_NAT <= NODEPORT_PORT_MAX_NAT));
-		build_bug_on(!(NODEPORT_PORT_MIN     <= NODEPORT_PORT_MAX));
-		build_bug_on(!(NODEPORT_PORT_MAX     <= NODEPORT_PORT_MIN_NAT));
+		build_bug_on(!(CONFIG(nodeport_port_min_nat) <= CONFIG(nodeport_port_max_nat)));
+		build_bug_on(!(CONFIG(nodeport_port_min)     <= CONFIG(nodeport_port_max)));
+		build_bug_on(!(CONFIG(nodeport_port_max)     <= CONFIG(nodeport_port_min_nat)));
 		break;
 	}
 	return ret;
