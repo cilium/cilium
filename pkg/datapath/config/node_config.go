@@ -21,6 +21,14 @@ type Node struct {
 	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
 	// Number of timer ticks per second.
 	KernelHz uint32 `config:"kernel_hz"`
+	// Nodeport maximum port value.
+	NodeportPortMax uint16 `config:"nodeport_port_max"`
+	// Nodeport NAT maximum port value.
+	NodeportPortMaxNAT uint16 `config:"nodeport_port_max_nat"`
+	// Nodeport minimum port value.
+	NodeportPortMin uint16 `config:"nodeport_port_min"`
+	// Nodeport NAT minimum port value.
+	NodeportPortMinNAT uint16 `config:"nodeport_port_min_nat"`
 	// Enable ICMP responses for policy-denied traffic.
 	PolicyDenyResponseEnabled bool `config:"policy_deny_response_enabled"`
 	// Internal IPv6 router address assigned to the cilium_host interface.
@@ -40,7 +48,8 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0, 0xff, 0x0, false, false, 0x0, false,
+	return &Node{0x0, 0xff, 0x0, false, false, 0x0, 0x7fff, 0xffff, 0x7530, 0x8000,
+		false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
