@@ -1809,6 +1809,20 @@ hubble:
       mutexProfileFraction: 0
       # -- Enable goroutine blocking profiling for hubble-relay and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
       blockProfileRate: 0
+    # -- Logging configuration for hubble-relay.
+    logOptions:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Log format for hubble-relay. Valid values are: text, text-ts, json, json-ts.
+      # @default -- text-ts
+      format: ~
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Log level for hubble-relay. Valid values are: debug, info, warn, error.
+      # @default -- info
+      level: ~
   ui:
     # -- Whether to enable the Hubble UI.
     enabled: false

@@ -3272,6 +3272,23 @@
             "listenPort": {
               "type": "string"
             },
+            "logOptions": {
+              "properties": {
+                "format": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "level": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              },
+              "type": "object"
+            },
             "nodeSelector": {
               "properties": {
                 "kubernetes.io/os": {
