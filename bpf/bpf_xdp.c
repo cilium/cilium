@@ -133,7 +133,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 				goto out;
 			}
 
-			if (dport != bpf_htons(TUNNEL_PORT))
+			if (dport != bpf_htons(CONFIG(tunnel_port)))
 				goto no_encap;
 
 			/* Cilium uses BPF_F_ZERO_CSUM_TX for its tunnel traffic.

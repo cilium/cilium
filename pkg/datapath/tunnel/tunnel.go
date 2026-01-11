@@ -5,7 +5,6 @@ package tunnel
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -37,14 +36,22 @@ const (
 
 func (tp EncapProtocol) String() string { return string(tp) }
 
-func (tp EncapProtocol) toDpID() string {
+type BPF_ENCAP_PROTOCOL = uint8
+
+const (
+	BPF_ENCAP_NONE   BPF_ENCAP_PROTOCOL = 0
+	BPF_ENCAP_VXLAN  BPF_ENCAP_PROTOCOL = 1
+	BPF_ENCAP_GENEVE BPF_ENCAP_PROTOCOL = 2
+)
+
+func (tp EncapProtocol) ToDpID() BPF_ENCAP_PROTOCOL {
 	switch tp {
 	case VXLAN:
-		return "1"
+		return BPF_ENCAP_VXLAN
 	case Geneve:
-		return "2"
+		return BPF_ENCAP_GENEVE
 	default:
-		return ""
+		return BPF_ENCAP_NONE
 	}
 }
 
@@ -201,13 +208,6 @@ func (cfg Config) datapathConfigProvider() (dpcfgdef.NodeOut, dpcfgdef.NodeFnOut
 	definesFn := func() (dpcfgdef.Map, error) { return nil, nil }
 
 	if cfg.EncapProtocol() != Disabled {
-		defines[fmt.Sprintf("TUNNEL_PROTOCOL_%s", strings.ToUpper(VXLAN.String()))] = VXLAN.toDpID()
-		defines[fmt.Sprintf("TUNNEL_PROTOCOL_%s", strings.ToUpper(Geneve.String()))] = Geneve.toDpID()
-		defines["TUNNEL_PROTOCOL"] = cfg.EncapProtocol().toDpID()
-		defines["TUNNEL_PORT"] = fmt.Sprintf("%d", cfg.Port())
-		defines["TUNNEL_SRC_PORT_LOW"] = fmt.Sprintf("%d", cfg.SrcPortLow())
-		defines["TUNNEL_SRC_PORT_HIGH"] = fmt.Sprintf("%d", cfg.SrcPortHigh())
-
 		definesFn = func() (dpcfgdef.Map, error) {
 			tunnelDev, err := safenetlink.LinkByName(cfg.DeviceName())
 			if err != nil {
