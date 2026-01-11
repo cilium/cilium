@@ -66,7 +66,7 @@ func init() {
 
 	RootCmd.AddCommand(PreflightCmd)
 
-	PreflightCmd.AddCommand(checkConfigmapCmd())
+	PreflightCmd.AddCommand(validateConfigmapCmd())
 
 }
 
