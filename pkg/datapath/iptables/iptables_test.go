@@ -24,6 +24,7 @@ type mockIptables struct {
 	ipset        string
 	expectations []expectation
 	index        int
+	mode         string
 }
 
 func (ipt *mockIptables) getProg() string {
@@ -32,6 +33,10 @@ func (ipt *mockIptables) getProg() string {
 
 func (ipt *mockIptables) getIpset() string {
 	return ipt.ipset
+}
+
+func (ipt *mockIptables) getMode() string {
+	return ipt.mode
 }
 
 func (ipt *mockIptables) runProgOutput(args []string) (out string, err error) {
