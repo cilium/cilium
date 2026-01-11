@@ -185,6 +185,28 @@ const (
 	NoTrack      = PolicyPrefix + "/no-track-port"
 	NoTrackAlias = Prefix + ".no-track-port"
 
+	// DisableSourceIPVerification controls source IP verification for the pod.
+	//
+	// Annotation: config.cilium.io/disable-source-ip-verification
+	// Valid values: Any value accepted by strconv.ParseBool:
+	//   - Truthy: "1", "t", "T", "TRUE", "true", "True"
+	//   - Falsy:  "0", "f", "F", "FALSE", "false", "False"
+	//
+	// Behavior:
+	//   - Truthy value: Disables source IP verification for this pod
+	//     (allows sending packets with different source IPs)
+	//   - Falsy value: Explicitly enables source IP verification
+	//     (overrides global config)
+	//   - Omitted or invalid: Inherits global daemon configuration
+	//
+	// Use cases: NAT gateways, proxies, load balancers, VPN endpoints,
+	// or any workload that needs to send packets with non-pod source IPs.
+	//
+	// SECURITY WARNING: Disabling source IP verification allows IP spoofing.
+	// Only use for trusted workloads. Changes to this annotation are logged
+	// at Warn level for audit purposes.
+	DisableSourceIPVerification = ConfigPrefix + "/disable-source-ip-verification"
+
 	// WireguardPubKey / WireguardPubKeyAlias is the annotation name used to store
 	// the WireGuard public key in the CiliumNode CRD that we need to use to encrypt
 	// traffic to that node.
