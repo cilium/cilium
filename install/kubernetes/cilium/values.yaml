@@ -1809,6 +1809,11 @@ hubble:
       mutexProfileFraction: 0
       # -- Enable goroutine blocking profiling for hubble-relay and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
       blockProfileRate: 0
+    # -- Network policy configuration for hubble-relay
+    networkPolicy:
+      # -- Enable default CiliumNetworkPolicy for hubble-relay.
+      # This restricts network access to only the necessary connections.
+      enabled: false
   ui:
     # -- Whether to enable the Hubble UI.
     enabled: false
@@ -2009,6 +2014,11 @@ hubble:
     # emptyDir:
     #   # sizeLimit: "100Mi"
     #   # medium: "Memory"
+    # -- Network policy configuration for hubble-ui
+    networkPolicy:
+      # -- Enable default CiliumNetworkPolicy for hubble-ui.
+      # This restricts network access to only the necessary connections.
+      enabled: false
   # -- Hubble flows export.
   export:
     # --- Static exporter configuration.

@@ -2172,6 +2172,14 @@
      - Port to listen to.
      - string
      - ``"4245"``
+   * - :spelling:ignore:`hubble.relay.networkPolicy`
+     - Network policy configuration for hubble-relay
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`hubble.relay.networkPolicy.enabled`
+     - Enable default CiliumNetworkPolicy for hubble-relay. This restricts network access to only the necessary connections.
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.relay.nodeSelector`
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -2508,6 +2516,14 @@
      - Additional labels to be added to 'hubble-ui' deployment object
      - object
      - ``{}``
+   * - :spelling:ignore:`hubble.ui.networkPolicy`
+     - Network policy configuration for hubble-ui
+     - object
+     - ``{"enabled":false}``
+   * - :spelling:ignore:`hubble.ui.networkPolicy.enabled`
+     - Enable default CiliumNetworkPolicy for hubble-ui. This restricts network access to only the necessary connections.
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.ui.nodeSelector`
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
