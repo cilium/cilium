@@ -49,7 +49,7 @@ static __always_inline __u16
 nat_min_egress()
 {
 #ifdef ENABLE_NODEPORT
-	return NODEPORT_PORT_MIN_NAT;
+	return CONFIG(nodeport_port_min_nat);
 #endif
 	return CONFIG(ephemeral_min);
 }

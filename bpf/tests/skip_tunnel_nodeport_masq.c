@@ -221,7 +221,7 @@ check_ctx(const struct __ctx_buff *ctx, bool v4, bool snat)
 	if (snat) {
 		__be16 p = bpf_ntohs(l4->source);
 
-		if (p < NODEPORT_PORT_MIN_NAT || p > NODEPORT_PORT_MAX_NAT)
+		if (p < CONFIG(nodeport_port_min_nat) || p > CONFIG(nodeport_port_max_nat))
 			test_fatal("src port was not snatted");
 	} else {
 		if (l4->source != SRC_PORT)

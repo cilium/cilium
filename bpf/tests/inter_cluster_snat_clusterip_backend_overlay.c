@@ -28,18 +28,13 @@
 /* Inter-cluster SNAT is mandatory for overlapping PodCIDR support for now */
 #define ENABLE_INTER_CLUSTER_SNAT
 
-/* Import map definitions and some default values */
-#include <bpf/config/node.h>
-
-/* Overwrite the default port range defined in node_config.h
+/* Overwrite the default port range defined in node.h
  * to have deterministic source port selection.
  */
-#undef NODEPORT_PORT_MAX
-#undef NODEPORT_PORT_MIN_NAT
-#undef NODEPORT_PORT_MAX_NAT
-#define NODEPORT_PORT_MAX 32767
-#define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
-#define NODEPORT_PORT_MAX_NAT (NODEPORT_PORT_MIN_NAT)
+#define NODEPORT_PORT_MAX_NAT_OVERRIDE 32768
+
+/* Import map definitions and some default values */
+#include <bpf/config/node.h>
 
 /*
  * Test configurations
@@ -58,8 +53,8 @@
 #undef IPV4_INTER_CLUSTER_SNAT
 #define IPV4_INTER_CLUSTER_SNAT BACKEND_NODE_IP
 
-/* SNAT should always select NODEPORT_PORT_MIN_NAT as a source */
-#define CLIENT_INTER_CLUSTER_SNAT_PORT __bpf_htons(NODEPORT_PORT_MIN_NAT)
+/* SNAT should always select nodeport_port_min_nat as a source */
+#define CLIENT_INTER_CLUSTER_SNAT_PORT __bpf_htons(CONFIG(nodeport_port_min_nat))
 
 /* Mock out get_tunnel_key to emulate input from tunnel device */
 #define skb_get_tunnel_key mock_skb_get_tunnel_key
