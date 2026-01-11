@@ -28,6 +28,14 @@ type HookInterface interface {
 	Stop(HookContext) error
 }
 
+// HookDescriptiveInterface extends HookInterface with the HookInfo
+// method for logging more details about what was started or stopped.
+// This will be used instead of just showing the function name and module.
+type HookDescriptiveInterface interface {
+	HookInterface
+	HookInfo() string
+}
+
 // Hook is a pair of start and stop callbacks. Both are optional.
 // They're paired up to make sure that on failed start all corresponding
 // stop hooks are executed.
@@ -106,7 +114,8 @@ func (lc *DefaultLifecycle) Start(log *slog.Logger, ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	for i, hook := range lc.hooks {
+	from := lc.numStarted
+	for i, hook := range lc.hooks[from:] {
 		fnName, exists := getHookFuncName(hook, true)
 
 		if !exists {
@@ -116,9 +125,13 @@ func (lc *DefaultLifecycle) Start(log *slog.Logger, ctx context.Context) error {
 		}
 
 		l := log.With("function", fnName)
+		desc, ok := hook.HookInterface.(HookDescriptiveInterface)
+		if ok {
+			l = l.With("detail", desc.HookInfo())
+		}
 
 		// Do not attempt to start already started hooks.
-		if i < lc.numStarted {
+		if from+i < lc.numStarted {
 			l.Error("Hook appears to be running. Skipping")
 			continue
 		}
@@ -161,7 +174,13 @@ func (lc *DefaultLifecycle) Stop(log *slog.Logger, ctx context.Context) error {
 		if !exists {
 			continue
 		}
+
 		l := log.With("function", fnName)
+		desc, ok := hook.HookInterface.(HookDescriptiveInterface)
+		if ok {
+			l = l.With("detail", desc.HookInfo())
+		} else {
+		}
 		l.Debug("Executing stop hook")
 		t0 := time.Now()
 		if err := hook.Stop(ctx); err != nil {
