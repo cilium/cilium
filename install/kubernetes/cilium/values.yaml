@@ -2367,9 +2367,10 @@ loadBalancer:
   # Geneve Class Option (geneve) used to pass a service IP and port to remote backend
   # dsrDispatch: opt
 
-  # -- serviceTopology enables K8s Topology Aware Hints -based service
-  # endpoints filtering
-  # serviceTopology: false
+  # -- Enables Kubernetes Topology Aware routing. When enabled, Cilium will
+  # filter Service endpoints based on topology hints, preferring endpoints in
+  # the same zone. For more details check: https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/
+  serviceTopology: false
 
   # -- L7 LoadBalancer
   l7:
