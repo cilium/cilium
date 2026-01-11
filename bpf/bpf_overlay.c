@@ -219,8 +219,8 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	__u32 cluster_id_from_identity =
 		extract_cluster_id_from_identity(src_sec_identity);
 	const struct ipv4_nat_target target = {
-	       .min_port = NODEPORT_PORT_MIN_NAT,
-	       .max_port = NODEPORT_PORT_MAX_NAT,
+	       .min_port = CONFIG(nodeport_port_min_nat),
+	       .max_port = CONFIG(nodeport_port_max_nat),
 	       .cluster_id = cluster_id_from_identity,
 	};
 	struct trace_ctx trace;
