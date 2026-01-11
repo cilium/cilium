@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/devicesmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
@@ -93,6 +94,7 @@ var (
 		"debug_capture_msg":       {monitor.DebugCapture{}},
 		"policy_verdict_notify":   {monitor.PolicyVerdictNotify{}},
 		"trace_sock_notify":       {monitor.TraceSockNotify{}},
+		"device_state":            {devicesmap.DeviceState{}},
 	}
 	toCheckSizes = map[string][]any{
 		"__u16": {
