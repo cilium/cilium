@@ -1,3 +1,7 @@
+# v1.279.1 (2026-01-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.279.0 (2025-12-22)
 
 * **Feature**: Adds support for linkedGroupId on the CreatePlacementGroup and DescribePlacementGroups APIs. The linkedGroupId parameter is reserved for future use.
