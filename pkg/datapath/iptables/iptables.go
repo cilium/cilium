@@ -25,6 +25,7 @@ import (
 	"k8s.io/utils/clock"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -1423,6 +1424,13 @@ func (m *Manager) installMasqueradeRules(
 	localDeliveryInterface, snatDstExclusionCIDR, allocRange, hostMasqueradeIP string,
 ) error {
 	devices := nativeDevices
+
+	// Resolve AWS patterns in masqueradeInterfaces if present
+	if len(m.sharedCfg.MasqueradeInterfaces) > 0 {
+		ctx := context.Background()
+		eniLister := metadata.NewENILister()
+		m.sharedCfg.MasqueradeInterfaces = metadata.ResolvePatterns(ctx, m.logger, m.sharedCfg.MasqueradeInterfaces, eniLister)
+	}
 
 	if m.sharedCfg.NodeIpsetNeeded {
 		cmds := nodeIpsetNATCmds(allocRange, prog.getIpset(), m.sharedCfg.MasqueradeInterfaces)
