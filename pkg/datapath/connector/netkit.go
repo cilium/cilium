@@ -108,11 +108,6 @@ func setupNetkitPair(defaultLogger *slog.Logger, cfg types.LinkConfig, l2Mode bo
 		return nil, nil, fmt.Errorf("netkit validation failed: %w", err)
 	}
 
-	err = configurePair(netkit, peer, cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	return netkit, peer, nil
 }
 
