@@ -38,6 +38,7 @@ type AllocatorAWS struct {
 	ENIGarbageCollectionInterval time.Duration
 	AWSUsePrimaryAddress         bool
 	EC2APIEndpoint               string
+	AWSMaxResultsPerCall         int32
 	ParallelAllocWorkers         int64
 
 	rootLogger *slog.Logger
@@ -122,7 +123,7 @@ func (a *AllocatorAWS) Init(ctx context.Context, logger *slog.Logger, reg *metri
 
 	a.client = ec2shim.NewClient(a.rootLogger, ec2.NewFromConfig(cfg, optionsFunc), aMetrics, operatorOption.Config.IPAMAPIQPSLimit,
 		operatorOption.Config.IPAMAPIBurst, subnetsFilters, instancesFilters, eniCreationTags,
-		a.AWSUsePrimaryAddress, operatorOption.Config.AWSMaxResultsPerCall)
+		a.AWSUsePrimaryAddress, a.AWSMaxResultsPerCall)
 
 	return nil
 }
