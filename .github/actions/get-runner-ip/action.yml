@@ -1,0 +1,131 @@
+
+ name: Get Runner IP
+ description: Fetch the runner public IP from a source and return it as an output.
+ inputs:
+   source:
+     description: URL to fetch the runner public IP from.
+     required: true
+   parsing:
+     description: Parsing mode for the fetched response. Supported values are 'text' and 'json'.
+     required: false
+     default: text
+   json-key:
+     description: Optional JSON key (dot-separated) to extract the IP from when parsing is 'json'. If not set, common keys are tried.
+     required: false
+ outputs:
+   ip:
+     description: The parsed and validated runner public IP address.
+     value: ${{ steps.get-ip.outputs.ip }}
+   mask:
+     description: The parsed and validated runner public IP mask.
+     value: ${{ steps.get-ip.outputs.mask }}
+   cidr:
+     description: The parsed and validated runner public IP in CIDR notation.
+     value: ${{ steps.get-ip.outputs.cidr }}
+ runs:
+   using: composite
+   steps:
+     - name: Get runner public IP
+       id: get-ip
+       uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+       with:
+         script: |
+           const source = core.getInput('source', { required: true }).trim();
+           const parsing = (core.getInput('parsing') || 'text').trim().toLowerCase();
+           const jsonKey = (core.getInput('json-key') || '').trim();
+           const net = require('node:net');
+
+           if (!source) {
+             core.setFailed("Input 'source' must be a non-empty URL");
+             return;
+           }
+
+           const isLikelyIp = (value) => {
+             if (typeof value !== 'string') return false;
+             const v = value.trim();
+             if (!v) return false;
+             return net.isIP(v) !== 0;
+           };
+
+           const getByDotPath = (obj, path) => {
+             if (!path) return undefined;
+             return path.split('.').reduce((acc, key) => (acc && typeof acc === 'object' ? acc[key] : undefined), obj);
+           };
+
+           let response;
+           const timeoutMs = 15000;
+           const controller = new AbortController();
+           const timeout = setTimeout(() => {
+             controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+           }, timeoutMs);
+           try {
+             response = await fetch(source, {
+               signal: controller.signal,
+               headers: {
+                 'User-Agent': 'actions/github-script get-runner-ip',
+                 'Accept': parsing === 'json' ? 'application/json,*/*' : '*/*',
+               },
+             });
+           } catch (e) {
+             core.setFailed(`Failed to fetch '${source}': ${e?.message || e}`);
+             return;
+           } finally {
+             clearTimeout(timeout);
+           }
+
+           if (!response.ok) {
+             const body = await response.text().catch(() => '');
+             core.setFailed(`Fetch '${source}' failed: HTTP ${response.status} ${response.statusText}${body ? `; body: ${body.slice(0, 200)}` : ''}`);
+             return;
+           }
+
+           const rawText = await response.text();
+           const trimmed = (rawText || '').trim();
+
+           let ip;
+           if (parsing === 'text') {
+             ip = trimmed;
+           } else if (parsing === 'json') {
+             let data;
+             try {
+               data = JSON.parse(trimmed);
+             } catch (e) {
+               core.setFailed(`Failed to parse JSON from '${source}': ${e?.message || e}; body starts with: ${trimmed.slice(0, 200)}`);
+               return;
+             }
+
+             const candidates = [];
+             if (jsonKey) {
+               candidates.push(getByDotPath(data, jsonKey));
+             }
+             // Common response shapes from IP endpoints
+             candidates.push(data?.ip);
+             candidates.push(data?.origin);
+             candidates.push(data?.query);
+             candidates.push(data?.address);
+             candidates.push(data?.data?.ip);
+             candidates.push(data?.data?.address);
+
+             ip = candidates.find((c) => typeof c === 'string' && c.trim().length > 0);
+             if (typeof ip === 'string') {
+               ip = ip.trim();
+             }
+           } else {
+             core.setFailed(`Unsupported parsing mode '${parsing}'. Use 'text' or 'json'.`);
+             return;
+           }
+
+           if (!ip || typeof ip !== 'string') {
+             core.setFailed(`No IP address found in response from '${source}'.`);
+             return;
+           }
+
+           if (!isLikelyIp(ip)) {
+             core.setFailed(`Parsed value is not a valid IP address: '${ip}'`);
+             return;
+           }
+
+           core.setOutput('ip', ip);
+           const mask = net.isIPv6(ip) ? "128" : "32";
+           core.setOutput('mask', mask);
+           core.setOutput('cidr', `${ip}/${mask}`);
