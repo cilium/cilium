@@ -2310,11 +2310,11 @@ func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgent
 // you think it does.
 func removeTopDirectory(path string) (string, error) {
 	// file separator hardcoded because sysdump always created on Linux OS
-	index := strings.IndexByte(path, '/')
-	if index < 0 {
+	_, after, found := strings.Cut(path, "/")
+	if !found {
 		return "", fmt.Errorf("invalid path %q", path)
 	}
-	return path[index+1:], nil
+	return after, nil
 }
 
 func untar(src string, dst string) error {

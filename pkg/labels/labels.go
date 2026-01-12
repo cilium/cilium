@@ -528,9 +528,8 @@ func GetExtendedKeyFrom(str string) string {
 		src = LabelSourceAny
 	}
 	// Remove an eventually value
-	i := strings.IndexByte(next, '=')
-	if i >= 0 {
-		return src + PathDelimiter + next[:i]
+	if before, _, found := strings.Cut(next, "="); found {
+		return src + PathDelimiter + before
 	}
 	return src + PathDelimiter + next
 }
