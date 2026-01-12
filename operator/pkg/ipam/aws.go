@@ -39,6 +39,7 @@ type AWSConfig struct {
 	ENIGarbageCollectionInterval time.Duration     `mapstructure:"eni-gc-interval"`
 	AWSUsePrimaryAddress         bool
 	EC2APIEndpoint               string
+	AWSMaxResultsPerCall         int32
 }
 
 var awsDefaultConfig = AWSConfig{
@@ -50,6 +51,7 @@ var awsDefaultConfig = AWSConfig{
 	ENIGarbageCollectionInterval: 5 * time.Minute,
 	AWSUsePrimaryAddress:         false,
 	EC2APIEndpoint:               "",
+	AWSMaxResultsPerCall:         0,
 }
 
 func (cfg AWSConfig) Flags(flags *pflag.FlagSet) {
@@ -64,6 +66,7 @@ func (cfg AWSConfig) Flags(flags *pflag.FlagSet) {
 		"Interval for garbage collection of unattached ENIs. Set to 0 to disable")
 	flags.Bool(operatorOption.AWSUsePrimaryAddress, awsDefaultConfig.AWSUsePrimaryAddress, "Allows for using primary address of the ENI for allocations on the node")
 	flags.String(operatorOption.EC2APIEndpoint, awsDefaultConfig.EC2APIEndpoint, "AWS API endpoint for the EC2 service")
+	flags.Int32(operatorOption.AWSMaxResultsPerCall, awsDefaultConfig.AWSMaxResultsPerCall, "Maximum results per AWS API call for DescribeNetworkInterfaces and DescribeSecurityGroups. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests")
 }
 
 type awsParams struct {
@@ -95,6 +98,7 @@ func startAWSAllocator(p awsParams) {
 		ENIGarbageCollectionInterval: p.AwsCfg.ENIGarbageCollectionInterval,
 		AWSUsePrimaryAddress:         p.AwsCfg.AWSUsePrimaryAddress,
 		EC2APIEndpoint:               p.AwsCfg.EC2APIEndpoint,
+		AWSMaxResultsPerCall:         p.AwsCfg.AWSMaxResultsPerCall,
 		ParallelAllocWorkers:         p.Cfg.ParallelAllocWorkers,
 	}
 
