@@ -16,6 +16,7 @@ jobs:
       matrix:
         include:
           - branch: main
+          - branch: v1.19
           - branch: v1.18
           - branch: v1.17
           - branch: v1.16

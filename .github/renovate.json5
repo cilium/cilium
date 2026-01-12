@@ -92,6 +92,7 @@
   "pruneStaleBranches": true,
   "baseBranchPatterns": [
     "main",
+    "v1.19",
     "v1.18",
     "v1.17",
     "v1.16"
@@ -379,6 +380,7 @@
       ],
       "allowedVersions": "24.04",
       "matchBaseBranches": [
+        "v1.19",
         "v1.18",
         "v1.17",
         "main"
@@ -398,11 +400,30 @@
         "docker.io/library/golang",
         "go"
       ],
+      "allowedVersions": "<1.26",
+      "matchBaseBranches": [
+        "v1.19"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
       "allowedVersions": "<1.25",
       "matchBaseBranches": [
         "v1.18",
         "v1.17",
         "v1.16"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.24",
+      "matchBaseBranches": [
+        "v1.19"
       ]
     },
     {
@@ -784,6 +805,7 @@
       "allowedVersions": "/^v1\\.35\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "main",
+        "v1.19",
         "v1.18"
       ]
     },

@@ -29,6 +29,8 @@ jobs:
             hourModulo: 2
           - branch: 'v1.18'
             hourModulo: 3
+          - branch: 'v1.19'
+            hourModulo: 4
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout branch
