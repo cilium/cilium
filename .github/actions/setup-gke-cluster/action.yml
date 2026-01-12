@@ -35,6 +35,20 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - id: runner-ip
+      shell: bash
+      run: |
+        RUNNER_IP=$(curl -sf https://ipinfo.io/ip | tr -d '[:space:]')
+        if [[ -z "${RUNNER_IP}" ]]; then
+          echo "::error::Failed to fetch runner's public IP address"
+          exit 1
+        fi
+        if ! [[ "${RUNNER_IP}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::Invalid IP address format: ${RUNNER_IP}"
+          exit 1
+        fi
+        echo "runner_ip=${RUNNER_IP}" >> $GITHUB_OUTPUT
+
     - id: create-cluster
       shell: bash
       run: |
@@ -66,6 +80,8 @@ runs:
           --disk-type pd-standard \
           --disk-size 20GB \
           --no-enable-insecure-kubelet-readonly-port \
+          --enable-master-authorized-networks \
+          --master-authorized-networks "${{ steps.runner-ip.outputs.runner_ip }}/32" \
           $VERSION \
           $LABELS \
           $TAINTS
