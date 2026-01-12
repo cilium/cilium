@@ -4446,6 +4446,14 @@
       },
       "type": "object"
     },
+    "networkDriver": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "nodeIPAM": {
       "properties": {
         "enabled": {
