@@ -318,7 +318,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IDENTITY_MARK
 	/* mark packet as decrypted by wireguard */
-	ctx->mark |= MARK_MAGIC_DECRYPT;
+	set_decrypt_mark(ctx, 0);
 #endif
 
 #if defined(TUNNEL_MODE) && !(defined(ENABLE_NODEPORT) && defined(ENABLE_NODE_ENCRYPTION))
