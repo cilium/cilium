@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/dial"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -81,6 +82,14 @@ func TestScript(t *testing.T) {
 		storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
 		configDir := t.TempDir()
 
+		// A fresh instance of ipcache is needed.
+		ipcacheConfig := &ipcache.Configuration{
+			Context: t.Context(),
+			Logger:  log,
+		}
+		ipc := ipcache.NewIPCache(ipcacheConfig)
+		t.Cleanup(func() { ipc.Shutdown() })
+
 		h := hive.New(
 			k8sClient.FakeClientCell(),
 			daemonk8s.ResourcesCell,
@@ -94,6 +103,15 @@ func TestScript(t *testing.T) {
 			ipset.Cell,
 			dial.ServiceResolverCell,
 			metrics.Cell,
+
+			cell.Provide(
+				regeneration.NewFence,
+				ipcache.NewLocalIPIdentityWatcher,
+				ipcache.NewIPIdentitySynchronizer,
+				func() *ipcache.IPCache {
+					return ipc
+				},
+			),
 
 			cell.Config(cmtypes.DefaultClusterInfo),
 			cell.Invoke(cmtypes.ClusterInfo.InitClusterIDMax, cmtypes.ClusterInfo.Validate),
@@ -126,9 +144,6 @@ func TestScript(t *testing.T) {
 				},
 				func(log *slog.Logger) nodemanager.NodeManager {
 					return dummyNodeManager{log}
-				},
-				func() *ipcache.IPCache {
-					return nil
 				},
 			),
 

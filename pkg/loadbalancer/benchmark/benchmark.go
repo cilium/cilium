@@ -26,7 +26,9 @@ import (
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -111,7 +113,7 @@ func RunBenchmark(testSize int, iterations int, loglevel slog.Level, validate bo
 		db     *statedb.DB
 		bo     *lbreconciler.BPFOps
 	)
-	h := testHive(maps, services, endpoints, &writer, &db, &bo)
+	h := testHive(log, maps, services, endpoints, &writer, &db, &bo)
 
 	if err := h.Start(log, context.TODO()); err != nil {
 		panic(err)
@@ -509,7 +511,9 @@ var (
 	}
 )
 
-func testHive(maps lbmaps.LBMaps,
+func testHive(
+	log *slog.Logger,
+	maps lbmaps.LBMaps,
 	services chan resource.Event[*slim_corev1.Service],
 	endpoints chan resource.Event[*k8s.Endpoints],
 	writerPtr **writer.Writer,
@@ -522,6 +526,13 @@ func testHive(maps lbmaps.LBMaps,
 		EnableIPv6: true,
 	}
 
+	// A fresh instance of ipcache is needed.
+	ipcacheConfig := &ipcache.Configuration{
+		Context: context.TODO(),
+		Logger:  log,
+	}
+	ipc := ipcache.NewIPCache(ipcacheConfig)
+
 	return hive.New(
 		cell.Module(
 			"loadbalancer-test",
@@ -529,7 +540,14 @@ func testHive(maps lbmaps.LBMaps,
 
 			k8sClient.FakeClientCell(),
 			node.LocalNodeStoreTestCell,
-
+			cell.Provide(
+				regeneration.NewFence,
+				ipcache.NewLocalIPIdentityWatcher,
+				ipcache.NewIPIdentitySynchronizer,
+				func() *ipcache.IPCache {
+					return ipc
+				},
+			),
 			cell.Provide(
 				func() cmtypes.ClusterInfo {
 					return cmtypes.ClusterInfo{}
