@@ -34,7 +34,7 @@ func InitManagers(logger *slog.Logger, managerConfigs *v2alpha1.CiliumNetworkDri
 			return nil, err
 		}
 
-		result[types.DeviceManagerTypeSRIOV] = dummyMgr
+		result[types.DeviceManagerTypeDummy] = dummyMgr
 	}
 
 	return result, nil
