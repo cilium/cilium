@@ -17,10 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 )
 
-// SetupVethWithNames sets up the net interface, the peer interface and fills up some endpoint
-// fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
-// veth, a pointer for the peer link and error if something fails.
-func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg types.LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, error) {
+// setupVethPair sets up the host-facing interface, the peer interface and fills
+// up some endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer
+// for the created veth, a pointer for the peer link and error if something fails.
+func setupVethPair(defaultLogger *slog.Logger, cfg types.LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, error) {
 	logger := defaultLogger.With(logfields.LogSubsys, "endpoint-connector")
 	// systemd 242+ tries to set a "persistent" MAC addr for any virtual device
 	// by default (controlled by MACAddressPolicy). As setting happens
@@ -41,11 +41,11 @@ func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string
 
 	veth := &netlink.Veth{
 		LinkAttrs: netlink.LinkAttrs{
-			Name:         lxcIfName,
+			Name:         cfg.HostIfName,
 			HardwareAddr: net.HardwareAddr(epHostMAC),
 			TxQLen:       1000,
 		},
-		PeerName:         peerIfName,
+		PeerName:         cfg.PeerIfName,
 		PeerHardwareAddr: net.HardwareAddr(epLXCMAC),
 	}
 
@@ -64,18 +64,18 @@ func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string
 	}()
 
 	logger.Debug("Created veth pair",
-		logfields.VethPair, []string{veth.PeerName, lxcIfName},
+		logfields.VethPair, []string{veth.PeerName, cfg.HostIfName},
 	)
 
 	// Disable reverse path filter on the host side veth peer to allow
 	// container addresses to be used as source address when the linux
 	// stack performs routing.
-	err = DisableRpFilter(sysctl, lxcIfName)
+	err = DisableRpFilter(sysctl, cfg.HostIfName)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	peer, err := safenetlink.LinkByName(peerIfName)
+	peer, err := safenetlink.LinkByName(cfg.PeerIfName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %w", err)
 	}

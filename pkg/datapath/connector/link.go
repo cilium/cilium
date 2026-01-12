@@ -44,28 +44,22 @@ func NewLinkPair(
 
 	switch mode {
 	case types.ConnectorModeVeth:
-		hostLink, peerLink, err = SetupVethWithNames(
+		hostLink, peerLink, err = setupVethPair(
 			log,
-			cfg.HostIfName,
-			cfg.PeerIfName,
 			cfg,
 			sysctl,
 		)
 
 	case types.ConnectorModeNetkit:
-		hostLink, peerLink, err = SetupNetkitWithNames(
+		hostLink, peerLink, err = setupNetkitPair(
 			log,
-			cfg.HostIfName,
-			cfg.PeerIfName,
 			cfg,
 			false,
 			sysctl,
 		)
 	case types.ConnectorModeNetkitL2:
-		hostLink, peerLink, err = SetupNetkitWithNames(
+		hostLink, peerLink, err = setupNetkitPair(
 			log,
-			cfg.HostIfName,
-			cfg.PeerIfName,
 			cfg,
 			true,
 			sysctl,
