@@ -17,22 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 )
 
-// SetupVeth sets up the net interface, the temporary interface and fills up some endpoint
-// fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
-// veth, a pointer for the temporary link, the name of the temporary link and error if
-// something fails.
-func SetupVeth(defaultLogger *slog.Logger, id string, cfg types.LinkConfig, sysctl sysctl.Sysctl) (*netlink.Veth, netlink.Link, string, error) {
-	if id == "" {
-		return nil, nil, "", fmt.Errorf("invalid: empty ID")
-	}
-
-	lxcIfName := Endpoint2IfName(id)
-	tmpIfName := Endpoint2TempIfName(id)
-
-	veth, link, err := SetupVethWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, sysctl)
-	return veth, link, tmpIfName, err
-}
-
 // SetupVethWithNames sets up the net interface, the peer interface and fills up some endpoint
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the peer link and error if something fails.

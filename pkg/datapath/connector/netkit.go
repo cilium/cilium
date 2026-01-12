@@ -17,22 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 )
 
-// SetupNetkit sets up the net interface, the temporary interface and fills up some
-// endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
-// created netkit, a pointer for the temporary link, the name of the temporary link
-// and error if something fails.
-func SetupNetkit(defaultLogger *slog.Logger, id string, cfg types.LinkConfig, l2Mode bool, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, string, error) {
-	if id == "" {
-		return nil, nil, "", fmt.Errorf("invalid: empty ID")
-	}
-
-	lxcIfName := Endpoint2IfName(id)
-	tmpIfName := Endpoint2TempIfName(id)
-
-	netkit, peer, err := SetupNetkitWithNames(defaultLogger, lxcIfName, tmpIfName, cfg, l2Mode, sysctl)
-	return netkit, peer, tmpIfName, err
-}
-
 // SetupNetkitWithNames sets up the net interface, the peer interface and fills up some
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the peer link and error if something fails.
