@@ -26,7 +26,9 @@ static volatile const __u8 *dst_mac2 = mac_four;
 #include "lib/ipcache.h"
 #include "lib/policy.h"
 
+#ifdef TEST_EXTENDED_PROTOCOLS
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, true);
+#endif
 
 /* Send an IGMP packet from host to IGMP destination (allow all egress policy).
  *
@@ -81,6 +83,7 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
+#ifdef TEST_EXTENDED_PROTOCOLS
 	assert(*status_code == CTX_ACT_OK);
 
 	/* Check for egress CT entry */
@@ -98,6 +101,9 @@ int hostfw_igmp_egress_check(const struct __ctx_buff *ctx)
 		test_fatal("no CT entry found");
 
 	assert(ct_entry->packets == 1);
+#else
+	assert(*status_code == CTX_ACT_DROP);
+#endif
 
 	policy_delete_egress_all_entry();
 
@@ -152,6 +158,7 @@ int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
+#ifdef TEST_EXTENDED_PROTOCOLS
 	assert(*status_code == CTX_ACT_OK);
 
 	/* Check whether this packet hits the existing egress entry */
@@ -169,6 +176,9 @@ int hostfw_igmp_ingress_check(const struct __ctx_buff *ctx)
 		test_fatal("no CT entry found");
 
 	assert(ct_entry->packets == 2);
+#else
+	assert(*status_code == CTX_ACT_DROP);
+#endif
 
 	test_finish();
 }
@@ -228,6 +238,7 @@ int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 
 	status_code = data;
 
+#ifdef TEST_EXTENDED_PROTOCOLS
 	assert(*status_code == CTX_ACT_OK);
 
 	/* Check for egress CT entry */
@@ -243,6 +254,9 @@ int hostfw_igmp_egress_policy_check(const struct __ctx_buff *ctx)
 
 	if (!ct_entry)
 		test_fatal("no CT entry found");
+#else
+	assert(*status_code == CTX_ACT_DROP);
+#endif
 
 	policy_delete_egress_all_entry();
 	test_finish();
