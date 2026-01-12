@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -32,13 +33,14 @@ error is printed and the command exits with a non-zero status code.`,
 
 	cmd.Flags().StringVar(&filename, "filename", "", "Path to the cilium-configmap.yaml")
 	cmd.Run = func(cmd *cobra.Command, args []string) {
-		validateUnrecognizedKeys(filename)
-
+		if err := validateUnrecognizedKeys(filename); err != nil {
+			Fatalf(err.Error())
+		}
 	}
 	return cmd
 }
 
-func validateUnrecognizedKeys(filename string) {
+func validateUnrecognizedKeys(filename string) error {
 	var cm corev1.ConfigMap
 	dh := hive.New(daemonCmd.Agent)
 	oh := hive.New(operatorCmd.Operator)
@@ -46,12 +48,12 @@ func validateUnrecognizedKeys(filename string) {
 
 	file, err := os.Open(filename)
 	if err != nil {
-		Fatalf("open %q failed: %v", filename, err)
+		return fmt.Errorf("open %q failed: %v", filename, err)
 	}
 	defer file.Close()
 
 	if err := yaml.NewYAMLOrJSONDecoder(file, 4096).Decode(&cm); err != nil {
-		Fatalf("decode %q failed: %v", filename, err)
+		return fmt.Errorf("decode %q failed: %v", filename, err)
 	}
 
 	daemonCmd.InitGlobalFlags(logging.DefaultSlogLogger, &cobra.Command{}, dh.Viper())
@@ -76,12 +78,12 @@ func validateUnrecognizedKeys(filename string) {
 
 	if len(unrecognized) == 0 {
 		fmt.Println("All keys are recognized.")
-		return
+		return nil
 	}
 
 	sort.Strings(unrecognized)
-	fmt.Println("Warning: unrecognized keys detected:")
-	for _, key := range unrecognized {
-		fmt.Printf("  - %s\n", key)
-	}
+	return fmt.Errorf(
+		"unrecognized keys detected:\n  - %s",
+		strings.Join(unrecognized, "\n  - "),
+	)
 }
