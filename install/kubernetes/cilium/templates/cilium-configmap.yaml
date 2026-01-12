@@ -1512,6 +1512,9 @@ data:
 {{- if hasKey .Values.daemon "enableSourceIPVerification" }}
   enable-source-ip-verification: {{ .Values.daemon.enableSourceIPVerification | quote }}
 {{- end }}
+{{- with .Values.networkDriver }}
+  enable-cilium-network-driver: {{ .enabled | quote }}
+{{- end }}
 
 {{- if has (kindOf .Values.connectivityProbeFrequencyRatio) (list "int64" "float64") }}
   connectivity-probe-frequency-ratio: {{ .Values.connectivityProbeFrequencyRatio | quote }}
