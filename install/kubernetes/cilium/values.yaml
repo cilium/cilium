@@ -1856,10 +1856,10 @@ hubble:
       # -- Additional hubble-ui backend volumeMounts.
       extraVolumeMounts: []
       livenessProbe:
-        # -- Enable gRPC liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
+        # -- Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
         enabled: false
       readinessProbe:
-        # -- Enable gRPC readiness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
+        # -- Enable readiness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
         enabled: false
       # -- Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
       resources: {}
