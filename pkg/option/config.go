@@ -1000,6 +1000,9 @@ const (
 
 	// EnablePacketizationLayerPMTUD enables kernel plpmtud discovery on Pod netns.
 	EnablePacketizationLayerPMTUD = "enable-packetization-layer-pmtud"
+
+	// EnableCiliumNetworkDriver enables the Cilium Network Driver functionality.
+	EnableCiliumNetworkDriver = "enable-cilium-network-driver"
 )
 
 // Default string arguments
@@ -1901,6 +1904,9 @@ type DaemonConfig struct {
 
 	// EnablePacketizationLayerPMTUD enables kernel packetization layer path mtu discovery on Pod netns.
 	EnablePacketizationLayerPMTUD bool
+
+	// EnableCiliumNetworkDriver enables the Cilium Network Driver functionality.
+	EnableCiliumNetworkDriver bool
 }
 
 var (
@@ -2596,6 +2602,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableExtendedIPProtocols = vp.GetBool(EnableExtendedIPProtocols)
 	c.IPTracingOptionType = vp.GetUint(IPTracingOptionType)
 	c.EnablePacketizationLayerPMTUD = vp.GetBool(EnablePacketizationLayerPMTUD)
+	c.EnableCiliumNetworkDriver = vp.GetBool(EnableCiliumNetworkDriver)
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
 	case ServiceNoBackendResponseReject, ServiceNoBackendResponseDrop:
