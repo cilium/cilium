@@ -27,6 +27,11 @@ import (
 	"github.com/cilium/cilium/pkg/ztunnel/pb"
 )
 
+const (
+	// defaultZDSUnixAddress is the default Unix socket address for the ZDS server.
+	defaultZDSUnixAddress = "/var/run/cilium/ztunnel.sock"
+)
+
 type ztunnelConn struct {
 	conn *net.UnixConn
 }
@@ -137,6 +142,11 @@ type serverParams struct {
 	Config    config.Config
 
 	EndpointManager endpointmanager.EndpointManager
+
+	// ZDSUnixAddr overrides the default ZDS unix socket address.
+	// If empty, config.DefaultZtunnelUnixAddress is used.
+	// This field is intended for testing purposes only.
+	ZDSUnixAddr string `optional:"true"`
 }
 
 type serverOut struct {
@@ -185,21 +195,26 @@ func newZDSServer(p serverParams) serverOut {
 		initialSnapshotSeeded: make(chan struct{}),
 	}
 
+	zdsUnixAddr := defaultZDSUnixAddress
+	if p.ZDSUnixAddr != "" {
+		zdsUnixAddr = p.ZDSUnixAddr
+	}
+
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	p.Lifecycle.Append(cell.Hook{
 		OnStart: func(hc cell.HookContext) error {
-			err := os.RemoveAll(p.Config.ZDSUnixAddr)
+			err := os.RemoveAll(zdsUnixAddr)
 			if err != nil {
 				return err
 			}
 
-			// if we need to create the basedir for the ZDSUnixAddr, do it
-			if err := os.MkdirAll(path.Dir(p.Config.ZDSUnixAddr), 0755); err != nil {
+			// if we need to create the basedir for the zdsUnixAddr, do it
+			if err := os.MkdirAll(path.Dir(zdsUnixAddr), 0755); err != nil {
 				return fmt.Errorf("failed to create ztunnel unix addr directory: %w", err)
 			}
 
-			resolvedAddr, err := net.ResolveUnixAddr("unixpacket", p.Config.ZDSUnixAddr)
+			resolvedAddr, err := net.ResolveUnixAddr("unixpacket", zdsUnixAddr)
 			if err != nil {
 				return fmt.Errorf("failed to resolve ztunnel unix addr: %w", err)
 			}
