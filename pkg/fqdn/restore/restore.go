@@ -136,11 +136,11 @@ func (ip *RuleIPOrCIDR) UnmarshalText(b []byte) (err error) {
 	if b == nil {
 		return errors.New("cannot unmarshal nil into RuleIPOrCIDR")
 	}
-	if i := bytes.IndexByte(b, byte('@')); i >= 0 {
-		if i == len(b)-1 {
+	if before, after, found := bytes.Cut(b, []byte{'@'}); found {
+		if len(after) == 0 {
 			return errors.New("unexpected trailing @")
 		}
-		clusterIDStr := string(b[i+1:])
+		clusterIDStr := string(after)
 		clusterID, err := strconv.ParseUint(clusterIDStr, 10, 32)
 		if err != nil {
 			return fmt.Errorf("unable to parse clusterID: %w", err)
@@ -148,9 +148,9 @@ func (ip *RuleIPOrCIDR) UnmarshalText(b []byte) (err error) {
 		if clusterID != 0 {
 			return ErrRemoteClusterAddr
 		}
-		b = b[:i]
+		b = before
 	}
-	if i := bytes.IndexByte(b, byte('/')); i < 0 {
+	if !bytes.Contains(b, []byte{'/'}) {
 		var addr netip.Addr
 		if err = addr.UnmarshalText(b); err == nil {
 			*ip = RuleIPOrCIDR(netip.PrefixFrom(addr, 0xff))
