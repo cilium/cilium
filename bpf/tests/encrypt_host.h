@@ -20,7 +20,7 @@
 
 #define ENCRYPT_KEY			0xFF
 
-#ifdef ENCRYPTION_STRICT_MODE
+#ifdef ENCRYPTION_STRICT_MODE_EGRESS
 #define STRICT_IPV4_NET			IPV4(192, 168, 0, 0)
 #define STRICT_IPV4_NET_SIZE		16
 #endif
@@ -161,7 +161,7 @@ int encrypt_v4_3_no_src_mark_check(const struct __ctx_buff *ctx)
 	void *data;
 	void *data_end;
 	__u32 *status_code;
-	__u32 expected_result = is_defined(ENCRYPTION_STRICT_MODE) ? CTX_ACT_DROP :
+	__u32 expected_result = is_defined(ENCRYPTION_STRICT_MODE_EGRESS) ? CTX_ACT_DROP :
 								     CTX_ACT_OK;
 
 	test_init();

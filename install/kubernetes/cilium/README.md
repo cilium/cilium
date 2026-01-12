@@ -390,10 +390,14 @@ contributors across the globe, there is almost always someone available to help.
 | encryption.ipsec.mountPath | string | `"/etc/ipsec"` | Path to mount the secret inside the Cilium pod. |
 | encryption.ipsec.secretName | string | `"cilium-ipsec-keys"` | Name of the Kubernetes secret containing the encryption keys. |
 | encryption.nodeEncryption | bool | `false` | Enable encryption for pure node to node traffic. This option is only effective when encryption.type is set to "wireguard". |
-| encryption.strictMode | object | `{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false}` | Configure the Encryption Pod2Pod strict mode. |
-| encryption.strictMode.allowRemoteNodeIdentities | bool | `false` | Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap. |
-| encryption.strictMode.cidr | string | `""` | CIDR for the Encryption Pod2Pod strict mode. |
-| encryption.strictMode.enabled | bool | `false` | Enable Encryption Pod2Pod strict mode. |
+| encryption.strictMode | object | `{"allowRemoteNodeIdentities":false,"cidr":"","egress":{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false},"enabled":false,"ingress":{"enabled":false}}` | Configure the Encryption Pod2Pod strict mode. |
+| encryption.strictMode.allowRemoteNodeIdentities | bool | `false` | Allow dynamic lookup of remote node identities. (deprecated: please use encryption.strictMode.egress.allowRemoteNodeIdentities) This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap. |
+| encryption.strictMode.cidr | string | `""` | CIDR for the Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.cidr) |
+| encryption.strictMode.egress.allowRemoteNodeIdentities | bool | `false` | Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap. |
+| encryption.strictMode.egress.cidr | string | `""` | CIDR for the Encryption Pod2Pod strict egress mode. |
+| encryption.strictMode.egress.enabled | bool | `false` | Enable strict egress encryption. |
+| encryption.strictMode.enabled | bool | `false` | Enable Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.enabled) |
+| encryption.strictMode.ingress.enabled | bool | `false` | Enable strict ingress encryption. When enabled, all unencrypted overlay ingress traffic will be dropped. This option is only applicable when WireGuard and tunneling are enabled. |
 | encryption.type | string | `"ipsec"` | Encryption method. Can be one of ipsec, wireguard or ztunnel. |
 | encryption.wireguard.persistentKeepalive | string | `"0s"` | Controls WireGuard PersistentKeepalive option. Set 0s to disable. |
 | endpointHealthChecking.enabled | bool | `true` | Enable connectivity health checking between virtual endpoints. |
@@ -441,7 +445,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.httpRetryCount | int | `3` | Maximum number of retries for each HTTP request |
 | envoy.httpUpstreamLingerTimeout | string | `nil` | Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:ba7726fb1f25b70bf1350e4c18f578b5a266603c5cf49b42df21b109db087945","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767266827-16c1066defb6f3be5c2090fb17e878573ea6039f","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:81398e449f2d3d0a6a70527e4f641aaa685d3156bea0bb30712fae3fd8822b86","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767794330-db497dd19e346b39d81d7b5c0dedf6c812bcc5c9","useDigest":true}` | Envoy container image. |
 | envoy.initContainers | list | `[]` | Init containers added to the cilium Envoy DaemonSet. |
 | envoy.initialFetchTimeoutSeconds | int | `30` | Time in seconds after which the initial fetch on an xDS stream is considered timed out |
 | envoy.livenessProbe.enabled | bool | `true` | Enable liveness probe for cilium-envoy |
@@ -910,7 +914,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-preflight |
 | preflight.annotations | object | `{}` | Annotations to be added to all top-level preflight objects (resources under templates/cilium-preflight) |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
-| preflight.envoy.image | object | `{"digest":"sha256:ba7726fb1f25b70bf1350e4c18f578b5a266603c5cf49b42df21b109db087945","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767266827-16c1066defb6f3be5c2090fb17e878573ea6039f","useDigest":true}` | Envoy pre-flight image. |
+| preflight.envoy.image | object | `{"digest":"sha256:81398e449f2d3d0a6a70527e4f641aaa685d3156bea0bb30712fae3fd8822b86","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767794330-db497dd19e346b39d81d7b5c0dedf6c812bcc5c9","useDigest":true}` | Envoy pre-flight image. |
 | preflight.extraEnv | list | `[]` | Additional preflight environment variables. |
 | preflight.extraVolumeMounts | list | `[]` | Additional preflight volumeMounts. |
 | preflight.extraVolumes | list | `[]` | Additional preflight volumes. |

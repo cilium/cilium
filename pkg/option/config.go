@@ -697,6 +697,23 @@ const (
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities = "encryption-strict-mode-allow-remote-node-identities"
 
+	// EnableEncryptionStrictModeEgress enables strict mode encryption enforcement for egress traffic.
+	// When enabled, all unencrypted pod-to-pod egress traffic will be dropped.
+	EnableEncryptionStrictModeEgress = "enable-encryption-strict-mode-egress"
+
+	// EncryptionStrictEgressCIDR is the CIDR in which the strict egress encryption mode should be enforced.
+	EncryptionStrictEgressCIDR = "encryption-strict-egress-cidr"
+
+	// EncryptionStrictEgressAllowRemoteNodeIdentities allows dynamic lookup of remote node identities.
+	// This is required when tunneling is used
+	// or direct routing is used and the node CIDR and pod CIDR overlap.
+	EncryptionStrictEgressAllowRemoteNodeIdentities = "encryption-strict-egress-allow-remote-node-identities"
+
+	// EnableEncryptionStrictModeIngress enables strict mode encryption enforcement for ingress traffic.
+	// When enabled, all unencrypted pod-to-pod ingress traffic will be dropped.
+	// This option is only applicable when encryption and tunneling is enabled.
+	EnableEncryptionStrictModeIngress = "enable-encryption-strict-mode-ingress"
+
 	// KVstoreLeaseTTL is the time-to-live for lease in kvstore.
 	KVstoreLeaseTTL = "kvstore-lease-ttl"
 
@@ -1329,16 +1346,22 @@ type DaemonConfig struct {
 	// BootIDFile is the file containing the boot ID of the node
 	BootIDFile string
 
-	// EnableEncryptionStrictMode enables strict mode for encryption
-	EnableEncryptionStrictMode bool
+	// EnableEncryptionStrictModeEgress enables strict mode for egress traffic.
+	// When enabled, all unencrypted pod-to-pod egress traffic will be dropped.
+	EnableEncryptionStrictModeEgress bool
 
-	// EncryptionStrictModeCIDR is the CIDR to use for strict mode
-	EncryptionStrictModeCIDR netip.Prefix
+	// EncryptionStrictEgressCIDR is the CIDR to use for strict mode egress
+	EncryptionStrictEgressCIDR netip.Prefix
 
-	// EncryptionStrictModeAllowRemoteNodeIdentities allows dynamic lookup of node identities.
+	// EncryptionStrictEgressAllowRemoteNodeIdentities allows dynamic lookup of node identities.
 	// This is required when tunneling is used
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
-	EncryptionStrictModeAllowRemoteNodeIdentities bool
+	EncryptionStrictEgressAllowRemoteNodeIdentities bool
+
+	// EnableEncryptionStrictModeIngress enables strict mode encryption for ingress traffic.
+	// When enabled, all unencrypted pod-to-pod ingress traffic will be dropped.
+	// This option is only applicable when wireguard encryption and tunneling is enabled.
+	EnableEncryptionStrictModeIngress bool
 
 	// EnableL2Announcements enables L2 announcement of service IPs
 	EnableL2Announcements bool
@@ -1937,35 +1960,6 @@ func (c *DaemonConfig) AreDevicesRequired(kprCfg kpr.KPRConfig, wireguardEnabled
 		c.EnableL2Announcements || c.ForceDeviceRequired || ipsecEnabled
 }
 
-// NeedIngressOnWireGuardDevice returns true if the agent needs to attach
-// cil_from_wireguard on the Ingress of Cilium's WireGuard device
-func (c *DaemonConfig) NeedIngressOnWireGuardDevice(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
-	if !wireguardEnabled {
-		return false
-	}
-
-	// In native routing mode we want to deliver packets to local endpoints
-	// straight from BPF, without passing through the stack.
-	// This matches overlay mode (where bpf_overlay would handle the delivery)
-	// and native routing mode without encryption (where bpf_host at the native
-	// device would handle the delivery).
-	if !c.TunnelingEnabled() {
-		return true
-	}
-
-	// When WG & encrypt-node are on, a NodePort BPF to-be forwarded request
-	// to a remote node running a selected service endpoint must be encrypted.
-	// To make the NodePort's rev-{S,D}NAT translations to happen for a reply
-	// from the remote node, we need to attach bpf_host to the Cilium's WG
-	// netdev (otherwise, the WG netdev after decrypting the reply will pass
-	// it to the stack which drops the packet).
-	if kprCfg.KubeProxyReplacement && c.EncryptNode {
-		return true
-	}
-
-	return false
-}
-
 // NeedEgressOnWireGuardDevice returns true if the agent needs to attach
 // cil_to_wireguard on the Egress of Cilium's WireGuard device
 func (c *DaemonConfig) NeedEgressOnWireGuardDevice(kprCfg kpr.KPRConfig, wireguardEnabled bool) bool {
@@ -2553,6 +2547,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		}
 	}
 
+	// This code block is for deprecated options and will be removed in Cilium 1.20.
 	encryptionStrictModeEnabled := vp.GetBool(EnableEncryptionStrictMode)
 	if encryptionStrictModeEnabled {
 		if c.EnableIPv6 {
@@ -2560,18 +2555,40 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		}
 
 		strictCIDR := vp.GetString(EncryptionStrictModeCIDR)
-		c.EncryptionStrictModeCIDR, err = netip.ParsePrefix(strictCIDR)
+		c.EncryptionStrictEgressCIDR, err = netip.ParsePrefix(strictCIDR)
 		if err != nil {
 			logging.Fatal(logger, fmt.Sprintf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictModeCIDR), logfields.Error, err)
 		}
 
-		if !c.EncryptionStrictModeCIDR.Addr().Is4() {
+		if !c.EncryptionStrictEgressCIDR.Addr().Is4() {
 			logging.Fatal(logger, fmt.Sprintf("%s must be an IPv4 CIDR", EncryptionStrictModeCIDR))
 		}
 
-		c.EncryptionStrictModeAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictModeAllowRemoteNodeIdentities)
-		c.EnableEncryptionStrictMode = encryptionStrictModeEnabled
+		c.EncryptionStrictEgressAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictModeAllowRemoteNodeIdentities)
+		c.EnableEncryptionStrictModeEgress = encryptionStrictModeEnabled
 	}
+
+	encryptionStrictModeEgressEnabled := vp.GetBool(EnableEncryptionStrictModeEgress)
+	if encryptionStrictModeEgressEnabled {
+		if c.EnableIPv6 {
+			logger.Info("Encryption strict mode only supports IPv4. IPv6 traffic is not protected and can be leaked.")
+		}
+
+		strictCIDR := vp.GetString(EncryptionStrictEgressCIDR)
+		c.EncryptionStrictEgressCIDR, err = netip.ParsePrefix(strictCIDR)
+		if err != nil {
+			logging.Fatal(logger, fmt.Sprintf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictEgressCIDR), logfields.Error, err)
+		}
+
+		if !c.EncryptionStrictEgressCIDR.Addr().Is4() {
+			logging.Fatal(logger, fmt.Sprintf("%s must be an IPv4 CIDR", EncryptionStrictEgressCIDR))
+		}
+
+		c.EncryptionStrictEgressAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictEgressAllowRemoteNodeIdentities)
+		c.EnableEncryptionStrictModeEgress = encryptionStrictModeEgressEnabled
+	}
+
+	c.EnableEncryptionStrictModeIngress = vp.GetBool(EnableEncryptionStrictModeIngress)
 
 	ipv4NativeRoutingCIDR := vp.GetString(IPv4NativeRoutingCIDR)
 

@@ -1363,17 +1363,33 @@
    * - :spelling:ignore:`encryption.strictMode`
      - Configure the Encryption Pod2Pod strict mode.
      - object
-     - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false}``
+     - ``{"allowRemoteNodeIdentities":false,"cidr":"","egress":{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false},"enabled":false,"ingress":{"enabled":false}}``
    * - :spelling:ignore:`encryption.strictMode.allowRemoteNodeIdentities`
-     - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+     - Allow dynamic lookup of remote node identities. (deprecated: please use encryption.strictMode.egress.allowRemoteNodeIdentities) This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.strictMode.cidr`
-     - CIDR for the Encryption Pod2Pod strict mode.
+     - CIDR for the Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.cidr)
      - string
      - ``""``
+   * - :spelling:ignore:`encryption.strictMode.egress.allowRemoteNodeIdentities`
+     - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`encryption.strictMode.egress.cidr`
+     - CIDR for the Encryption Pod2Pod strict egress mode.
+     - string
+     - ``""``
+   * - :spelling:ignore:`encryption.strictMode.egress.enabled`
+     - Enable strict egress encryption.
+     - bool
+     - ``false``
    * - :spelling:ignore:`encryption.strictMode.enabled`
-     - Enable Encryption Pod2Pod strict mode.
+     - Enable Encryption Pod2Pod strict mode. (deprecated: please use encryption.strictMode.egress.enabled)
+     - bool
+     - ``false``
+   * - :spelling:ignore:`encryption.strictMode.ingress.enabled`
+     - Enable strict ingress encryption. When enabled, all unencrypted overlay ingress traffic will be dropped. This option is only applicable when WireGuard and tunneling are enabled.
      - bool
      - ``false``
    * - :spelling:ignore:`encryption.type`
@@ -1567,7 +1583,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:ba7726fb1f25b70bf1350e4c18f578b5a266603c5cf49b42df21b109db087945","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767266827-16c1066defb6f3be5c2090fb17e878573ea6039f","useDigest":true}``
+     - ``{"digest":"sha256:81398e449f2d3d0a6a70527e4f641aaa685d3156bea0bb30712fae3fd8822b86","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767794330-db497dd19e346b39d81d7b5c0dedf6c812bcc5c9","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -3443,7 +3459,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:ba7726fb1f25b70bf1350e4c18f578b5a266603c5cf49b42df21b109db087945","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767266827-16c1066defb6f3be5c2090fb17e878573ea6039f","useDigest":true}``
+     - ``{"digest":"sha256:81398e449f2d3d0a6a70527e4f641aaa685d3156bea0bb30712fae3fd8822b86","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767794330-db497dd19e346b39d81d7b5c0dedf6c812bcc5c9","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
