@@ -361,8 +361,6 @@ var (
 
 	binaryName = filepath.Base(os.Args[0])
 
-	FlagsHooks []ProviderFlagsHooks
-
 	leaderElectionResourceLockName = "cilium-operator-resource-lock"
 
 	// Use a Go context so we can tell the leaderelection code when we
@@ -416,9 +414,6 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 
 	// slogloggercheck: using default logger for configuration initialization
 	InitGlobalFlags(logging.DefaultSlogLogger, cmd, h.Viper())
-	for _, hook := range FlagsHooks {
-		hook.RegisterProviderFlag(cmd, h.Viper())
-	}
 
 	// slogloggercheck: using default logger for configuration initialization
 	cobra.OnInitialize(option.InitConfig(logging.DefaultSlogLogger, cmd, "Cilium-Operator", "cilium-operators", h.Viper()))
