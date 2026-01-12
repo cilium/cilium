@@ -408,6 +408,7 @@ spec:
           readOnly: true
         {{- end }}
         {{- if semverCompare ">=1.34.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
+        {{- if .Values.networkDriver.enabled }}
         - name: device-plugin
           mountPath: /var/lib/kubelet/plugins
         - name: plugin-registry
@@ -418,6 +419,7 @@ spec:
           mountPath: /host/sys/bus/pci/devices
         - name: host-sys-devices
           mountPath: /host/sys/devices
+        {{- end }}
         {{- end }}
         {{- range .Values.extraHostPathMounts }}
         - name: {{ .name }}
@@ -1073,6 +1075,7 @@ spec:
           path: /etc/containerd
           type: Directory
       {{- if semverCompare ">=1.34.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor) }}
+        {{- if .Values.networkDriver.enabled }}
       - name: host-sys-bus-pci-devices
         hostPath:
           path: /sys/bus/pci/devices
@@ -1093,6 +1096,7 @@ spec:
         hostPath:
           path: /var/run/nri
           type: Directory
+        {{- end }}
       {{- end }}
       {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
       - name: hubble-tls

@@ -3090,6 +3090,9 @@ policyDenyResponse: none
 MTU: 0
 # -- Disable the usage of CiliumEndpoint CRD.
 disableEndpointCRD: false
+# -- Enables Cilium Network Driver functionality. Requires K8s v1.34 or greater.
+networkDriver:
+  enabled: false
 wellKnownIdentities:
   # -- Enable the use of well-known identities.
   enabled: false
