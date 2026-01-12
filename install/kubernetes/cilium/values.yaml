@@ -1864,6 +1864,10 @@ hubble:
       # -- Hubble-ui backend security context.
       securityContext:
         allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
       # -- Additional hubble-ui backend volumes.
@@ -1899,6 +1903,10 @@ hubble:
       # -- Hubble-ui frontend security context.
       securityContext:
         allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
       # -- Additional hubble-ui frontend volumes.
@@ -1975,9 +1983,12 @@ hubble:
         maxUnavailable: 1
     # -- Security context to be added to Hubble UI pods
     securityContext:
+      runAsNonRoot: true
       runAsUser: 1001
       runAsGroup: 1001
       fsGroup: 1001
+      seccompProfile:
+        type: RuntimeDefault
     # -- hubble-ui service configuration.
     service:
       # -- Annotations to be added for the Hubble UI service
