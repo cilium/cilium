@@ -512,6 +512,13 @@ Makefile* @cilium/build
 /operator/pkg/controller-runtime @cilium/envoy @cilium/sig-servicemesh
 /operator/pkg/gateway-api @cilium/sig-servicemesh
 /operator/pkg/ingress @cilium/sig-servicemesh
+/operator/pkg/ipam @cilium/sig-ipam
+/operator/pkg/ipam/alibabacloud.go @cilium/sig-ipam @cilium/alibabacloud
+/operator/pkg/ipam/alibabacloud_placeholder.go @cilium/sig-ipam @cilium/alibabacloud
+/operator/pkg/ipam/aws.go @cilium/sig-ipam @cilium/aws
+/operator/pkg/ipam/aws_placeholder.go @cilium/sig-ipam @cilium/aws
+/operator/pkg/ipam/azure.go @cilium/sig-ipam @cilium/azure
+/operator/pkg/ipam/azure_placeholder.go @cilium/sig-ipam @cilium/azure
 /operator/pkg/lbipam @cilium/sig-lb
 /operator/pkg/model @cilium/sig-servicemesh
 /operator/pkg/networkpolicy @cilium/sig-policy
