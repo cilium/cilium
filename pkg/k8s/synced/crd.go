@@ -118,6 +118,7 @@ func GatewayAPIResourceNames() []string {
 	}
 	return []string{
 		CRDResourceName(v2alpha1.CGCCName),
+		CRDResourceName(v2alpha1.CGL4CName),
 	}
 }
 

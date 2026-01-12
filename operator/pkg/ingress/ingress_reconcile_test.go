@@ -29,6 +29,7 @@ import (
 	ingressTranslation "github.com/cilium/cilium/operator/pkg/model/translation/ingress"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 const (
@@ -1171,10 +1172,11 @@ type fakeDedicatedIngressTranslator struct {
 	model *model.Model
 }
 
-func (r *fakeDedicatedIngressTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *discoveryv1.EndpointSlice, error) {
+func (r *fakeDedicatedIngressTranslator) Translate(model *model.Model) (*ciliumv2.CiliumEnvoyConfig, *ciliumv2alpha1.CiliumGatewayL4Config, *corev1.Service, *discoveryv1.EndpointSlice, error) {
 	r.model = model
 
 	return &ciliumv2.CiliumEnvoyConfig{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}},
+		nil,
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}},
 		&discoveryv1.EndpointSlice{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test"}},
 		nil

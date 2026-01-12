@@ -28,10 +28,23 @@ var testHTTPListener2 = HTTPListener{
 	Port: 80,
 }
 
+var testL4Listener = L4Listener{
+	Name:     "test-l4-listener",
+	Port:     8080,
+	Protocol: L4ProtocolTCP,
+}
+
+var testL4Listener2 = L4Listener{
+	Name:     "test-l4-listener2",
+	Port:     8081,
+	Protocol: L4ProtocolUDP,
+}
+
 func TestModel_GetListeners(t *testing.T) {
 	type fields struct {
 		HTTP []HTTPListener
 		TLS  []TLSPassthroughListener
+		L4   []L4Listener
 	}
 	tests := []struct {
 		name   string
@@ -43,8 +56,9 @@ func TestModel_GetListeners(t *testing.T) {
 			fields: fields{
 				HTTP: []HTTPListener{testHTTPListener, testHTTPListener2},
 				TLS:  []TLSPassthroughListener{testTLSListener, testTLSListener2},
+				L4:   []L4Listener{testL4Listener, testL4Listener2},
 			},
-			want: []Listener{&testHTTPListener, &testHTTPListener2, &testTLSListener, &testTLSListener2},
+			want: []Listener{&testHTTPListener, &testHTTPListener2, &testTLSListener, &testTLSListener2, &testL4Listener, &testL4Listener2},
 		},
 		{
 			name: "Only HTTP listeners",
@@ -61,6 +75,13 @@ func TestModel_GetListeners(t *testing.T) {
 			want: []Listener{&testTLSListener, &testTLSListener2},
 		},
 		{
+			name: "Only L4 listeners",
+			fields: fields{
+				L4: []L4Listener{testL4Listener, testL4Listener2},
+			},
+			want: []Listener{&testL4Listener, &testL4Listener2},
+		},
+		{
 			name:   "No listeners",
 			fields: fields{},
 			want:   nil,
@@ -71,6 +92,7 @@ func TestModel_GetListeners(t *testing.T) {
 			m := &Model{
 				HTTP:           tt.fields.HTTP,
 				TLSPassthrough: tt.fields.TLS,
+				L4:             tt.fields.L4,
 			}
 			if got := m.GetListeners(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Model.GetListeners() = %v, want %v", got, tt.want)
