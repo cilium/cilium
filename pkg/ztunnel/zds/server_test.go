@@ -36,9 +36,10 @@ func setupZDSTestSuite(t *testing.T) *Server {
 	logger := hivetest.Logger(t)
 
 	server := newZDSServer(serverParams{
-		Config:    config.Config{EnableZTunnel: true, ZDSUnixAddr: zdsTestUnixAddress},
-		Lifecycle: hivetest.Lifecycle(t),
-		Logger:    logger,
+		Config:      config.Config{EnableZTunnel: true},
+		ZDSUnixAddr: zdsTestUnixAddress,
+		Lifecycle:   hivetest.Lifecycle(t),
+		Logger:      logger,
 	})
 	require.NotNil(t, server.Server)
 	require.NotNil(t, server.Server.l, "server listener should be initialized")

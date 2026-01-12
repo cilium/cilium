@@ -286,7 +286,6 @@ cilium-agent hive dot-graph [flags]
       --vtep-sync-interval duration                               Interval for VTEP sync (default 1m0s)
       --wireguard-persistent-keepalive duration                   The Wireguard keepalive interval as a Go duration string
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready
-      --ztunnel-zds-unix-addr string                              Unix address for zds server (default "/var/run/cilium/ztunnel.sock")
 ```
 
 ### SEE ALSO
