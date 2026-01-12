@@ -1,5 +1,48 @@
 # Changelog
 
+## v1.17.12
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* Publish Helm charts to OCI registries (Backport PR cilium/cilium#43687, Upstream PR cilium/cilium#43624, @aanm)
+
+**Bugfixes:**
+* Fix an issue in proxy NOTRACK iptables rule for aws-cni chaining mode which causes proxy->upstream(outside cluster) traffic not being SNAT'd. (Backport PR cilium/cilium#43677, Upstream PR cilium/cilium#43566, @fristonio)
+* ipcache: Fix leak in CIDR metadata consolidation logic (Backport PR cilium/cilium#43426, Upstream PR cilium/cilium#43074, @christarazi)
+* iptables: Fix IPv6 SNAT for L7 proxy upstream traffic (Backport PR cilium/cilium#43677, Upstream PR cilium/cilium#41034, @gentoo-root)
+* xds: fix nil-pointer in `processRequestStream` (Backport PR cilium/cilium#43613, Upstream PR cilium/cilium#43609, @mhofstetter)
+
+**CI Changes:**
+* chore: comment job to use generated token instead of PAT (Backport PR cilium/cilium#43613, Upstream PR cilium/cilium#43148, @sekhar-isovalent)
+* ci: Use newer lvh image for privileged tests (Backport PR cilium/cilium#43489, Upstream PR cilium/cilium#41082, @rastislavs)
+* workflows/eks: Reduce test concurrency to 2 (cilium/cilium#43223, @smagnani96)
+
+**Misc Changes:**
+* Add documentation and examples for using the egressDeny field in CiliumNetworkPolicy (Backport PR cilium/cilium#43426, Upstream PR cilium/cilium#40272, @syedazeez337)
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#43469, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.17) (cilium/cilium#43669, @cilium-renovate[bot])
+* chore(deps): update anchore/sbom-action action to v0.21.0 (v1.17) (cilium/cilium#43513, @cilium-renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.18.9 (v1.17) (cilium/cilium#43186, @cilium-renovate[bot])
+* chore(deps): update dependency protocolbuffers/protobuf to v33.3 (v1.17) (cilium/cilium#43668, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.37.0 docker digest to 2383baa (v1.17) (cilium/cilium#43666, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.11 docker digest to 54528d1 (v1.17) (cilium/cilium#43417, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/golang:1.24.11 docker digest to a61b432 (v1.17) (cilium/cilium#43544, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.34.12-1767177245-7935d4d711cb6f8020385a50c996b90896e16a71 (v1.17) (cilium/cilium#43545, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#43468, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#43547, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#43572, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.17) (patch) (cilium/cilium#43667, @cilium-renovate[bot])
+* release: change OCI registry (Backport PR cilium/cilium#43687, Upstream PR cilium/cilium#43646, @aanm)
+* route: install ingress proxy routes with WireGuard and L7Proxy (Backport PR cilium/cilium#43435, Upstream PR cilium/cilium#42835, @smagnani96)
+
+**Other Changes:**
+* [v1.17] bpf:hubble: support policy verdict from L3 devices (cilium/cilium#43382, @smagnani96)
+* [v1.17] deps: bump CNI plugins version to v1.9.0 (cilium/cilium#43592, @diyi0926)
+* [v1.17] ipcache: Fix leak in CIDR metadata consolidation logic (cilium/cilium#43355, @christarazi)
+* install: Update image digests for v1.17.11 (cilium/cilium#43399, @cilium-release-bot[bot])
+
 ## v1.17.11
 
 Summary of Changes
