@@ -13,14 +13,12 @@
 #include "lib/ipv4.h"
 #include "lib/identity.h"
 
-#if defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD)
 static __always_inline void
 set_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 {
 	/* Decrypt "key" is determined by SPI and originating node */
 	ctx->mark = MARK_MAGIC_DECRYPT | node_id << 16;
 }
-#endif /* defined(ENABLE_IPSEC) || defined(ENABLE_WIREGUARD) */
 
 #ifdef ENCRYPTION_STRICT_MODE_EGRESS
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
