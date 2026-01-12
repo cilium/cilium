@@ -4487,6 +4487,10 @@ func init() {
           "description": "string form of selector",
           "type": "string"
         },
+        "usage": {
+          "description": "usage of selector",
+          "type": "string"
+        },
         "users": {
           "description": "number of users of this selector in the cache",
           "type": "integer"
@@ -10226,6 +10230,10 @@ func init() {
         },
         "selector": {
           "description": "string form of selector",
+          "type": "string"
+        },
+        "usage": {
+          "description": "usage of selector",
           "type": "string"
         },
         "users": {
