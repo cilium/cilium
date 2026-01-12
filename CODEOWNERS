@@ -611,6 +611,7 @@ Makefile* @cilium/build
 /pkg/l2announcer/ @cilium/sig-agent
 /pkg/labels @cilium/sig-policy @cilium/api
 /pkg/labelsfilter @cilium/sig-policy
+/pkg/lbipamconfig @cilium/sig-lb
 /pkg/loadbalancer @cilium/sig-lb
 /pkg/loadinfo/ @cilium/sig-agent
 /pkg/lock @cilium/sig-agent
@@ -640,6 +641,7 @@ Makefile* @cilium/build
 /pkg/node @cilium/sig-agent
 /pkg/node/neighbordiscovery @cilium/sig-agent @cilium/sig-datapath
 /pkg/nodediscovery/ @cilium/sig-agent
+/pkg/nodeipamconfig @cilium/sig-ipam
 /pkg/option @cilium/sig-agent @cilium/cli
 /pkg/pidfile @cilium/sig-agent
 /pkg/policy @cilium/sig-policy
