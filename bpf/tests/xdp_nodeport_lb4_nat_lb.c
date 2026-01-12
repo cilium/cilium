@@ -466,3 +466,113 @@ int nodeport_nat_fwd_reply_no_fib_check(__maybe_unused const struct __ctx_buff *
 {
 	return check_reply(ctx);
 }
+
+/* Test that a L7 delegate SVC request
+ * - gets passed up from XDP to TC without DNAT,
+ * - does have XFER_PKT_NO_SVC flag set so that TC does not process it again
+ * if the backend is a local backend
+ */
+PKTGEN("xdp", "xdp_nodeport_l7delegate_local")
+int nodeport_l7delegate_local_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_LOCAL,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP("xdp", "xdp_nodeport_l7delegate_local")
+int nodeport_l7delegate_local_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 2;
+
+	lb_v4_add_service_with_flags(FRONTEND_IP_LOCAL, FRONTEND_PORT,
+				     IPPROTO_TCP, 1, revnat_id,
+				     SVC_FLAG_ROUTABLE | SVC_FLAG_LOADBALANCER,
+				     SVC_FLAG_L7_DELEGATE);
+
+	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 124,
+			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, 0, 0, ENDPOINT_F_HOST, 1,
+			      0, NULL, NULL);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("xdp", "xdp_nodeport_l7delegate_local")
+int nodeport_l7delegate_local_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	__u32 *meta;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	status_code = data;
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	meta = (void *)status_code + sizeof(__u32);
+	if ((void *)meta + sizeof(__u32) > data_end)
+		test_fatal("meta out of bounds");
+
+	l2 = (void *)meta + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	assert(*status_code == CTX_ACT_OK);
+
+	assert((*meta & XFER_PKT_NO_SVC) == XFER_PKT_NO_SVC);
+
+	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the client MAC")
+	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not the LB MAC")
+
+	if (l3->saddr != CLIENT_IP)
+		test_fatal("src IP has changed");
+
+	if (l3->daddr != FRONTEND_IP_LOCAL)
+		test_fatal("dst IP has changed");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed");
+
+	if (l4->dest != FRONTEND_PORT)
+		test_fatal("dst port has changed");
+
+	test_finish();
+}
