@@ -621,6 +621,7 @@
       "matchFileNames": [
         "Documentation/requirements-min/requirements.txt"
       ],
+      "pinDigests": false,
       "postUpgradeTasks": {
         "commands": [
           "make -C Documentation update-requirements"
