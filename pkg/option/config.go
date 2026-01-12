@@ -990,6 +990,9 @@ const (
 
 	// EnableDatapathPlugins is the name of the option to enable datapath plugins.
 	EnableDatapathPlugins = "enable-datapath-plugins"
+
+	// EnableCiliumNetworkDriver enables the Cilium Network Driver functionality.
+	EnableCiliumNetworkDriver = "enable-cilium-network-driver"
 )
 
 // Default string arguments
@@ -1886,6 +1889,9 @@ type DaemonConfig struct {
 
 	// Enables datapath plugins features.
 	EnableDatapathPlugins bool
+
+	// EnableCiliumNetworkDriver enables the Cilium Network Driver functionality.
+	EnableCiliumNetworkDriver bool
 }
 
 var (
@@ -2549,6 +2555,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.BootIDFile = vp.GetString(BootIDFilename)
 	c.EnableExtendedIPProtocols = vp.GetBool(EnableExtendedIPProtocols)
 	c.IPTracingOptionType = vp.GetUint(IPTracingOptionType)
+	c.EnableCiliumNetworkDriver = vp.GetBool(EnableCiliumNetworkDriver)
 	c.ServiceNoBackendResponse = vp.GetString(ServiceNoBackendResponse)
 	switch c.ServiceNoBackendResponse {
 	case ServiceNoBackendResponseReject, ServiceNoBackendResponseDrop:
