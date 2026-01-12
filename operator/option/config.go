@@ -210,10 +210,6 @@ const (
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	// default values: k8s-app=kube-dns
 	PodRestartSelector = "pod-restart-selector"
-
-	// Deprecated: AWSPaginationEnabled is deprecated in v1.19 in favor of AWSMaxResultsPerCall.
-	// It will be removed in v1.20. During deprecation: true maps to 1000, false maps to 0.
-	AWSPaginationEnabled = "aws-pagination-enabled"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -290,12 +286,6 @@ type OperatorConfig struct {
 	// KubeProxyReplacement is required to implement cluster
 	// Ingress (or equivalent Gateway API functionality)
 	KubeProxyReplacement bool
-
-	// AWS options
-
-	// AWSMaxResultsPerCall is the maximum number of results per AWS API call for DescribeNetworkInterfaces
-	// and DescribeSecurityGroups. Set to 0 to let AWS determine the optimal page size.
-	AWSMaxResultsPerCall int32
 
 	// EnableGatewayAPI enables support of Gateway API
 	EnableGatewayAPI bool
@@ -380,15 +370,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 
 	// Gateways and Ingress
 	c.KubeProxyReplacement = vp.GetBool(KubeProxyReplacement)
-
-	// AWS options
-
-	// Handle AWSMaxResultsPerCall with backwards compat for deprecated AWSPaginationEnabled flag
-	c.AWSMaxResultsPerCall = int32(vp.GetInt(AWSMaxResultsPerCall))
-	// If the deprecated flag is explicitly set to false, map it to 0 (let AWS decide page size)
-	if vp.IsSet(AWSPaginationEnabled) && !vp.GetBool(AWSPaginationEnabled) {
-		c.AWSMaxResultsPerCall = 0
-	}
 
 	// Option maps and slices
 
