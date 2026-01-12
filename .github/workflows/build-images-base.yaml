@@ -11,7 +11,6 @@ on:
       - images/runtime/**
       - images/builder/**
     branches-ignore:
-      - v1.18
       - v1.17
       - v1.16
   # This workflow can be reused so that renovate can execute this workflow_dispatch:

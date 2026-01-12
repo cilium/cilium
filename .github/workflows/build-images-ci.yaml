@@ -8,7 +8,6 @@ on:
       - synchronize
       - reopened
     branches-ignore:
-      - v1.18
       - v1.17
       - v1.16
   push:
