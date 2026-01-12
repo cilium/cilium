@@ -36,7 +36,7 @@ var policyCacheGetCmd = &cobra.Command{
 			sort.Slice(resp, func(i, j int) bool {
 				return resp[i].Selector < resp[j].Selector
 			})
-			fmt.Fprintf(w, "SELECTOR\tLABELS\tUSERS\tIDENTITIES\n")
+			fmt.Fprintf(w, "SELECTOR\tLABELS\tUSAGE\tUSERS\tIDENTITIES\n")
 
 			for _, mapping := range resp {
 				lbls := constructLabelsArrayFromAPIType(mapping.Labels)
@@ -52,6 +52,7 @@ var policyCacheGetCmd = &cobra.Command{
 				} else {
 					fmt.Fprintf(w, "\t%s", getNameAndNamespaceFromLabels(lbls))
 				}
+				fmt.Fprintf(w, "\t%s", mapping.Usage)
 				fmt.Fprintf(w, "\t%d", mapping.Users)
 				if len(mapping.Identities) == 0 {
 					fmt.Fprintf(w, "\t\n")
@@ -61,7 +62,7 @@ var policyCacheGetCmd = &cobra.Command{
 						fmt.Fprintf(w, "\t%d\t\n", idty)
 						first = false
 					} else {
-						fmt.Fprintf(w, "\t\t\t%d\t\n", idty)
+						fmt.Fprintf(w, "\t\t\t\t%d\t\n", idty)
 					}
 				}
 			}
