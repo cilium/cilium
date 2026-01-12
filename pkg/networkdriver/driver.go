@@ -242,11 +242,6 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			return nil
 		}
 
-		driver.logger.DebugContext(
-			ctx, "Starting network driver...",
-			logfields.K8sAPIVersion, version.Version(),
-		)
-
 		cfg, ok := <-driver.watchConfig(ctx)
 		if !ok {
 			return nil
@@ -264,7 +259,8 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 		}
 
 		driver.logger.DebugContext(
-			ctx, "network driver configuration found",
+			ctx, "Starting network driver...",
+			logfields.K8sAPIVersion, version.Version(),
 			logfields.DriverName, driver.config.DriverName,
 		)
 

@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Cell implements the Cilium Network Driver for exposing
@@ -39,8 +40,8 @@ type networkDriverParams struct {
 	Configs   resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
 }
 
-func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider) resource.Resource[*v2alpha1.CiliumNetworkDriverConfig] {
-	if !cs.IsEnabled() {
+func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, daemonCfg *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverConfig] {
+	if !cs.IsEnabled() || !daemonCfg.EnableCiliumNetworkDriver {
 		return nil
 	}
 

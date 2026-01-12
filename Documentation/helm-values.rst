@@ -3136,6 +3136,10 @@
      - Enable RFC6052-prefixed translation
      - bool
      - ``false``
+   * - :spelling:ignore:`networkDriver`
+     - Enables Cilium Network Driver functionality. Requires K8s v1.34 or greater.
+     - object
+     - ``{"enabled":false}``
    * - :spelling:ignore:`nodeIPAM.enabled`
      - Configure Node IPAM ref: https://docs.cilium.io/en/stable/network/node-ipam/
      - bool
