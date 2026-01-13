@@ -23,12 +23,14 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var multiPoolCell = cell.Module(
-	"multipool-ipam-allocator",
-	"Multi Pool IP Allocator",
+func init() {
+	allocators = append(allocators, cell.Module(
+		"multipool-ipam-allocator",
+		"Multi Pool IP Allocator",
 
-	cell.Invoke(startMultiPoolAllocator),
-)
+		cell.Invoke(startMultiPoolAllocator),
+	))
+}
 
 type multiPoolParams struct {
 	cell.In

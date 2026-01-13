@@ -21,13 +21,15 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var azureCell = cell.Module(
-	"azure-ipam-allocator",
-	"Azure IP Allocator",
+func init() {
+	allocators = append(allocators, cell.Module(
+		"azure-ipam-allocator",
+		"Azure IP Allocator",
 
-	cell.Config(azureDefaultConfig),
-	cell.Invoke(startAzureAllocator),
-)
+		cell.Config(azureDefaultConfig),
+		cell.Invoke(startAzureAllocator),
+	))
+}
 
 type AzureConfig struct {
 	AzureSubscriptionID         string

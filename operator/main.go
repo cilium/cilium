@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	operatorHive := hive.New(cmd.Operator)
+	operatorHive := hive.New(cmd.Operator())
 
 	cmd.Execute(cmd.NewOperatorCmd(operatorHive))
 }

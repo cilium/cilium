@@ -22,13 +22,15 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-var awsCell = cell.Module(
-	"aws-ipam-allocator",
-	"AWS IP Allocator",
+func init() {
+	allocators = append(allocators, cell.Module(
+		"aws-ipam-allocator",
+		"AWS IP Allocator",
 
-	cell.Config(awsDefaultConfig),
-	cell.Invoke(startAWSAllocator),
-)
+		cell.Config(awsDefaultConfig),
+		cell.Invoke(startAWSAllocator),
+	))
+}
 
 type AWSConfig struct {
 	AWSReleaseExcessIPs          bool
