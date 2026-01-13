@@ -363,6 +363,14 @@ jobs:
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo "test default: ${CONNECTIVITY_TEST_DEFAULTS}"
 
+          # Determine if L7 traffic testing should be enabled for conn-disrupt-test
+          # Only enable when test-l7-only is true or on scheduled runs
+          INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC="false"
+          if [ "${{ inputs.test-l7-only }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC="true"
+          fi
+          echo include_conn_disrupt_test_l7_traffic=${INCLUDE_CONN_DISRUPT_TEST_L7_TRAFFIC} >> $GITHUB_OUTPUT
+
       - name: Setup bootid file
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: cilium/little-vm-helper@ad43ff511dd5365a0011ae9f864ec959c36daebf # v0.0.28
@@ -549,7 +557,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-setup
         with:
           # cilium-agent only restart should not result in L7 traffic failures.
-          include-conn-disrupt-test-l7-traffic: true
+          include-conn-disrupt-test-l7-traffic: ${{ steps.vars-conn.outputs.include_conn_disrupt_test_l7_traffic }}
 
       - name: Restart Cilium Agent
         if: ${{ matrix.skip-upgrade != 'true' }}
@@ -569,7 +577,7 @@ jobs:
           job-name: cilium-restart-${{ matrix.name }}-precheck
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
           skip-include-conn-disrupt-test-ns-traffic: ${{ matrix.skip-include-conn-disrupt-test-ns-traffic }}
-          include-conn-disrupt-test-l7-traffic: true
+          include-conn-disrupt-test-l7-traffic: ${{ steps.vars-conn.outputs.include_conn_disrupt_test_l7_traffic }}
 
       - name: Features tested before downgrade
         uses: ./.github/actions/feature-status
