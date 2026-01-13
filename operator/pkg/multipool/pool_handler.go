@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package watchers
+package multipool
 
 import (
 	"context"
@@ -22,6 +22,13 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+const (
+	poolKeyIPv4CIDRs    = "ipv4-cidrs"
+	poolKeyIPv4MaskSize = "ipv4-mask-size"
+	poolKeyIPv6CIDRs    = "ipv6-cidrs"
+	poolKeyIPv6MaskSize = "ipv6-mask-size"
+)
+
 // PooledAllocatorProvider defines the functions of IPAM provider front-end which additionally allow
 // definition of IP pools at runtime.
 // This is implemented by e.g. pkg/ipam/allocator/multipool
@@ -29,13 +36,6 @@ type PooledAllocatorProvider interface {
 	UpsertPool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error
 	DeletePool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error
 }
-
-const (
-	poolKeyIPv4CIDRs    = "ipv4-cidrs"
-	poolKeyIPv4MaskSize = "ipv4-mask-size"
-	poolKeyIPv6CIDRs    = "ipv6-cidrs"
-	poolKeyIPv6MaskSize = "ipv6-mask-size"
-)
 
 // parsePoolSpec parses a pool spec string in the form
 // "ipv4-cidrs:172.16.0.0/16,172.17.0.0/16;ipv4-mask-size:24".
