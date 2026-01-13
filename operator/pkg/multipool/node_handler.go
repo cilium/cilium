@@ -14,37 +14,51 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
+	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
 
+type PoolsFromResourceFunc func(*v2.CiliumNode) *types.IPAMPoolSpec
+
 type NodeHandler struct {
 	logger *slog.Logger
 	mutex  lock.Mutex
 
-	poolManager *PoolAllocator
-	nodeUpdater ipam.CiliumNodeGetterUpdater
+	poolManager       *PoolAllocator
+	nodeUpdater       ipam.CiliumNodeGetterUpdater
+	poolsFromResource PoolsFromResourceFunc
+
+	name string
 
 	nodesPendingAllocation map[string]*v2.CiliumNode
 	restoreFinished        bool
 
 	controllerManager                *controller.Manager
+	controllerGroup                  controller.Group
 	controllerErrorRetryBaseDuration time.Duration // only set in unit tests
 }
 
-var ipamMultipoolSyncControllerGroup = controller.NewGroup("ipam-multi-pool-sync")
-
 var _ allocator.NodeEventHandler = (*NodeHandler)(nil)
 
-func NewNodeHandler(logger *slog.Logger, manager *PoolAllocator, nodeUpdater ipam.CiliumNodeGetterUpdater) *NodeHandler {
+func NewNodeHandler(
+	name string,
+	logger *slog.Logger,
+	manager *PoolAllocator,
+	nodeUpdater ipam.CiliumNodeGetterUpdater,
+	poolsFromResource PoolsFromResourceFunc,
+) *NodeHandler {
 	return &NodeHandler{
 		logger:                 logger,
 		poolManager:            manager,
 		nodeUpdater:            nodeUpdater,
+		poolsFromResource:      poolsFromResource,
+		name:                   name,
 		nodesPendingAllocation: map[string]*v2.CiliumNode{},
 		controllerManager:      controller.NewManager(),
+		controllerGroup:        controller.NewGroup(name),
 	}
 }
 
@@ -70,7 +84,7 @@ func (n *NodeHandler) Delete(resource *v2.CiliumNode) {
 	delete(n.nodesPendingAllocation, resource.Name)
 
 	// Make sure any pending update controller is stopped
-	n.controllerManager.RemoveController(controllerName(resource.Name))
+	n.controllerManager.RemoveController(controllerName(n.name, resource.Name))
 }
 
 func (n *NodeHandler) Resync(context.Context, time.Time) {
@@ -89,7 +103,8 @@ func (n *NodeHandler) Resync(context.Context, time.Time) {
 func (n *NodeHandler) upsertLocked(resource *v2.CiliumNode) {
 	if !n.restoreFinished {
 		n.nodesPendingAllocation[resource.Name] = resource
-		_ = n.poolManager.AllocateToNode(resource)
+		pools := n.poolsFromResource(resource)
+		_ = n.poolManager.AllocateToNode(resource.Name, pools)
 		return
 	}
 
@@ -101,8 +116,8 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 	// 1. It will retry allocations upon failure, e.g. if a pool does not exist yet.
 	// 2. Will try to synchronize the allocator's state with the CiliumNode CRD in k8s.
 	refetchNode := false
-	n.controllerManager.UpdateController(controllerName(resource.Name), controller.ControllerParams{
-		Group:                  ipamMultipoolSyncControllerGroup,
+	n.controllerManager.UpdateController(controllerName(n.name, resource.Name), controller.ControllerParams{
+		Group:                  controller.NewGroup(n.name),
 		ErrorRetryBaseDuration: n.controllerErrorRetryBaseDuration,
 		DoFunc: func(ctx context.Context) error {
 			// errorMessage is written to the resource status
@@ -119,23 +134,25 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 				refetchNode = false
 			}
 
-			err := n.poolManager.AllocateToNode(resource)
+			pools := n.poolsFromResource(resource)
+			err := n.poolManager.AllocateToNode(resource.Name, pools)
 			if err != nil {
 				n.logger.Warn(
-					"Failed to allocate PodCIDRs to node",
+					"Failed to allocate CIDRs to node",
 					logfields.Error, err,
 					logfields.NodeName, resource.Name,
 				)
-				errorMessage = err.Error()
+				errorMessage = fmt.Sprintf("%s allocation failed: %s", n.name, err.Error())
 				controllerErr = err
 			}
 
 			newResource := resource.DeepCopy()
 			newResource.Status.IPAM.OperatorStatus.Error = errorMessage
 
-			newResource.Spec.IPAM.Pools.Allocated = n.poolManager.AllocatedPools(newResource.Name)
+			newPools := n.poolsFromResource(newResource)
+			newPools.Allocated = n.poolManager.AllocatedPools(newResource.Name)
 
-			if !newResource.Spec.IPAM.Pools.DeepEqual(&resource.Spec.IPAM.Pools) {
+			if !newPools.DeepEqual(pools) {
 				_, err = n.nodeUpdater.Update(resource, newResource)
 				if err != nil {
 					controllerErr = errors.Join(controllerErr, fmt.Errorf("failed to update spec: %w", err))
@@ -160,6 +177,6 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 	})
 }
 
-func controllerName(nodeName string) string {
-	return "ipam-multi-pool-sync-" + nodeName
+func controllerName(prefix string, nodeName string) string {
+	return prefix + nodeName
 }
