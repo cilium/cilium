@@ -22,8 +22,8 @@ on:
         default: '{}'
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.19
+      - ft/v1.19/**
     paths-ignore:
       - 'Documentation/**'
       - 'test/**'
@@ -196,7 +196,7 @@ jobs:
           wait: 0 # The control-plane never becomes ready, since no CNI is present
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e875161a362b9092ff3e1110eccf52a9fdb17c0a # v0.18.9
+        uses: cilium/cilium-cli@eb32911890466ddec93da63cf83f5bcb2ae23e26 # v0.19.0
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
