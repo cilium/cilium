@@ -79,7 +79,6 @@
   encryption: 'ipsec'
   key-one: 'rfc4106-gcm-aes'
   key-two: 'rfc4106-gcm-aes'
-  skip-upgrade: 'true'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
 - name: 'ipsec-8'
@@ -108,7 +107,6 @@
   encryption: 'ipsec'
   key-one: 'rfc4106-gcm-aes'
   key-two: 'rfc4106-gcm-aes'
-  skip-upgrade: 'true'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
 - name: 'ipsec-10'

@@ -68,6 +68,5 @@
   tunnel: 'vxlan'
   underlay: 'ipv6'
   encryption: 'wireguard'
-  skip-upgrade: 'true'
   # L7 testing: IPv6-only configuration - covered by other wireguard tests, can skip
   test-l7: 'false'
