@@ -157,7 +157,7 @@ resource like this:
           name: my-pod
         spec:
           serviceAccountName: leia
-          ...
+          # ...
 
 Example
 ^^^^^^^

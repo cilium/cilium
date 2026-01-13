@@ -156,7 +156,7 @@ It can also be done using ``matchExpressions``:
 
 Moreover, multiple ``podSelector`` can be specified:
 
-.. code-block:: yaml
+.. code-block:: text
 
     selectors:
     - podSelector:
