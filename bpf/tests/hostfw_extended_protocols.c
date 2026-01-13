@@ -7,7 +7,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
-#define ENABLE_HOST_FIREWALL		1
 
 #define NODE_IP				v4_node_one
 #define NODE_IP2			v4_node_two
@@ -27,6 +26,7 @@ static volatile const __u8 *dst_mac2 = mac_four;
 #include "lib/policy.h"
 
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, true);
+ASSIGN_CONFIG(bool, enable_host_firewall, true);
 
 /* Send an IGMP packet from host to IGMP destination (allow all egress policy).
  *

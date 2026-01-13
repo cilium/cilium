@@ -35,3 +35,5 @@ NODE_CONFIG(__u8, tracing_ip_option_type, "The IP option type to use for packet 
 NODE_CONFIG(bool, policy_deny_response_enabled, "Enable ICMP responses for policy-denied traffic")
 
 NODE_CONFIG(bool, hybrid_routing_enabled, "Enable hybrid mode routing based on subnet IDs")
+
+NODE_CONFIG(bool, enable_host_firewall, "Enable host network policies")
