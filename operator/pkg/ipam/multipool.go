@@ -13,6 +13,8 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/multipool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipam/types"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -62,7 +64,13 @@ func startMultiPoolAllocator(p multiPoolParams) {
 					p.Logger.With(logfields.LogSubsys, "ip-pool-watcher"),
 				)
 
-				nm := multipool.NewNodeHandler(logger, allocator, &ciliumNodeUpdateImplementation{p.Clientset})
+				nm := multipool.NewNodeHandler(
+					"ipam-multi-pool-sync",
+					logger, allocator, &ciliumNodeUpdateImplementation{p.Clientset},
+					func(cn *v2.CiliumNode) *types.IPAMPoolSpec {
+						return &cn.Spec.IPAM.Pools
+					},
+				)
 
 				p.JobGroup.Add(p.NodeWatcherFactory(nm))
 

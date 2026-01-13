@@ -64,6 +64,10 @@ type mockResult struct {
 	err  error
 }
 
+func GetIPAMPools(cn *v2.CiliumNode) *ipamTypes.IPAMPoolSpec {
+	return &cn.Spec.IPAM.Pools
+}
+
 func TestNodeHandler(t *testing.T) {
 	backend := NewPoolAllocator(hivetest.Logger(t))
 	err := backend.UpsertPool("default", []string{"10.0.0.0/8"}, 24, nil, 0)
@@ -94,7 +98,7 @@ func TestNodeHandler(t *testing.T) {
 			return r.node, r.err
 		},
 	}
-	nh := NewNodeHandler(hivetest.Logger(t), backend, nodeUpdater)
+	nh := NewNodeHandler("test", hivetest.Logger(t), backend, nodeUpdater, GetIPAMPools)
 
 	// wait 1ms instead of default 1s base duration in unit tests
 	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
@@ -236,7 +240,7 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 			return r.node, r.err
 		},
 	}
-	nh := NewNodeHandler(hivetest.Logger(t), backend, nodeUpdater)
+	nh := NewNodeHandler("test", hivetest.Logger(t), backend, nodeUpdater, GetIPAMPools)
 
 	// wait 1ms instead of default 1s base duration in unit tests
 	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
@@ -360,7 +364,7 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 			return r.node, r.err
 		},
 	}
-	nh := NewNodeHandler(hivetest.Logger(t), backend, nodeUpdater)
+	nh := NewNodeHandler("test", hivetest.Logger(t), backend, nodeUpdater, GetIPAMPools)
 
 	// wait 1ms instead of default 1s base duration in unit tests
 	nh.controllerErrorRetryBaseDuration = 1 * time.Millisecond
