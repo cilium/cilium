@@ -66,7 +66,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: generate-cleanup-matrix
     if: ${{ needs.generate-cleanup-matrix.outputs.empty == 'false' }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       matrix: ${{ fromJson(needs.generate-cleanup-matrix.outputs.matrix) }}
       fail-fast: false
