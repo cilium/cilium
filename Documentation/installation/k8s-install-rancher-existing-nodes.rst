@@ -70,31 +70,32 @@ Go to the ``Additional Manifests`` section and paste the following YAML. Add rel
 
 .. code-block:: yaml
 
-    ---
-    apiVersion: catalog.cattle.io/v1
-    kind: ClusterRepo
-    metadata:
-      name: cilium
-    spec:
-      url: https://helm.cilium.io
-    ---
-    apiVersion: helm.cattle.io/v1
-    kind: HelmChart
-    metadata:
-      name: cilium
-      namespace: kube-system
-    spec:
-      targetNamespace: kube-system
-      createNamespace: false
-      version: v1.18.0
-      chart: cilium
-      repo: https://helm.cilium.io
-      bootstrap: true
-      valuesContent: |-
-      # paste your Cilium values here:
-        k8sServiceHost: 127.0.0.1
-        k8sServicePort: 6443
-        kubeProxyReplacement: true
+   apiVersion: catalog.cattle.io/v1
+   kind: ClusterRepo
+   metadata:
+     name: cilium
+   spec:
+     url: https://helm.cilium.io
+
+.. code-block:: yaml
+
+   apiVersion: helm.cattle.io/v1
+   kind: HelmChart
+   metadata:
+     name: cilium
+     namespace: kube-system
+   spec:
+     targetNamespace: kube-system
+     createNamespace: false
+     version: v1.18.0
+     chart: cilium
+     repo: https://helm.cilium.io
+     bootstrap: true
+     valuesContent: |-
+       # paste your Cilium values here:
+       k8sServiceHost: 127.0.0.1
+       k8sServicePort: 6443
+       kubeProxyReplacement: true
 
 .. image:: images/rancher_additional_manifests.png
 
