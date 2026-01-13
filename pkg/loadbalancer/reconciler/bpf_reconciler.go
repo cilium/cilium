@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
@@ -32,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
-	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -1161,9 +1161,14 @@ func (ops *BPFOps) useWildcard(fe *loadbalancer.Frontend) bool {
 			return ops.extCfg.DefaultLBServiceIPAM == lbipamconfig.DefaultLBClassLBIPAM
 		}
 
-		// The service has a loadBalancerClass, so we expicitly exclude the
-		// nodeipam annotation here.
-		return *lbClass != nodeipamconfig.NodeSvcLBClass
+		// The service has a loadBalancerClass, so we only include a wildcard
+		// service entry if it's a class Cilium actively manages, again to avoid
+		// programming wildcard entries for IP addresses we don't manage.
+		//
+		// TODO: improve this in future, perhaps by matching against known
+		// CiliumInternalIPs.
+		return *lbClass == cilium_api_v2alpha1.BGPLoadBalancerClass ||
+			*lbClass == cilium_api_v2alpha1.L2AnnounceLoadBalancerClass
 	}
 	return false
 }
