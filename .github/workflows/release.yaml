@@ -294,6 +294,15 @@ jobs:
               echo "⚠️ Merge attempt $MERGE_ATTEMPTS failed"
               if [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; then
                 echo "🔄 Re-running release tool to update PR..."
+
+                # Reset the charts directory by removing any files
+                # This is a workaround due to left overs made by the generate_helm_release.sh script
+                echo "🧹 Resetting ../charts directory..."
+                cd ../charts
+                git reset --hard HEAD
+                git clean -fdx
+                cd -
+
                 # Re-run the release tool (step from line 127)
                 cd ../release
                 ./release start \
