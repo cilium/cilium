@@ -44,7 +44,7 @@ Address NodePort Primary DeviceName
 
 -- services.table --
 Name        Source   PortNames                      TrafficPolicy   Flags
-test/echo   k8s      dtls=443, http=80, https=443   Cluster         LoadBalancerClass=test
+test/echo   k8s      dtls=443, http=80, https=443   Cluster         
 
 -- frontends.table --
 Address                Type           ServiceName   PortName   Backends                                 RedirectTo   Status
@@ -173,7 +173,6 @@ spec:
   selector:
     name: echo
   sessionAffinity: None
-  loadBalancerClass: "test"
   type: LoadBalancer
 status:
   loadBalancer:
