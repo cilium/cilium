@@ -14,20 +14,42 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
+// The labels below are used by the device managers
+// to tag their devices for advertising ResourceSlices.
+// These attributes may be used to filter and match
+// devices on a resource claim.
 const (
-	KernelIfNameLabel  = "kernelIfName"
-	IfNameLabel        = "ifName"
-	PCIAddrLabel       = "pciAddr"
-	PFNameLabel        = "pfName"
-	VendorLabel        = "vendor"
-	DeviceIDLabel      = "deviceID"
-	DriverLabel        = "driver"
+	// KernelIfNameLabel contains the interface name
+	// assigned by the kernel.
+	KernelIfNameLabel = "kernelIfName"
+	// IfNameLabel contains the name of the device
+	// as assigned by the device managers.
+	// must be unique across all devices on the node.
+	IfNameLabel = "ifName"
+	// PCIAddrLabel contains the PCI address for
+	// the device. Only applicable to PCI based devices.
+	PCIAddrLabel = "pciAddr"
+	// PFNameLabel contains the kernel ifname for the
+	// PF on a VF device. Only applicable to sr-iov
+	// VF devices.
+	PFNameLabel = "pfName"
+	// VendorLabel identifies the vendor of this device
+	// same as /sys/bus/pci/devices/<pciAddr>/vendor
+	VendorLabel = "vendor"
+	// DeviceIDLabel contains a device's device id
+	// same as /sys/bus/pci/devices/<pciAddr>/device
+	DeviceIDLabel = "deviceID"
+	// DriverLabel identifies a device's driver.
+	DriverLabel = "driver"
+	// DeviceManagerLabel identifies which Device Manager
+	// published the device.
 	DeviceManagerLabel = "deviceManager"
-	PoolNameLabel      = "pool"
+	// PoolNameLabel is the pool name.
+	PoolNameLabel = "pool"
 )
 
 var (
-	errUnknownDriverType = errors.New("unknown driver type")
+	errUnknownDeviceManagerType = errors.New("unknown device manager type")
 )
 
 type DeviceManagerType int
@@ -63,7 +85,7 @@ func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 		return json.Marshal(dummyDeviceManagerStr)
 	}
 
-	return nil, errUnknownDriverType
+	return nil, errUnknownDeviceManagerType
 }
 
 func (d *DeviceManagerType) UnmarshalText(text []byte) error {
@@ -79,7 +101,7 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 	case dummyDeviceManagerStr:
 		*d = DeviceManagerTypeDummy
 	default:
-		return errUnknownDriverType
+		return errUnknownDeviceManagerType
 	}
 
 	return nil
