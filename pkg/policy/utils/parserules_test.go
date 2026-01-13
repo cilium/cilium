@@ -4,11 +4,15 @@
 package utils
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
@@ -560,6 +564,104 @@ func TestGetSelector(t *testing.T) {
 			gotEs, gotNode := getSelector(tt.rule)
 			assert.Equal(t, tt.wantEs, gotEs)
 			assert.Equal(t, tt.wantNode, gotNode)
+		})
+	}
+}
+
+func TestEntityLabelSelectorMatch(t *testing.T) {
+	clusterLabel := fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, "cluster1")
+	api.InitEntities("cluster1")
+
+	tests := []struct {
+		entity api.Entity
+		labels []string
+		match  bool
+	}{
+		{api.EntityHost, []string{"reserved:host"}, true},
+		{api.EntityHost, []string{"reserved:host", "id:foo"}, true},
+		{api.EntityHost, []string{"reserved:world"}, false},
+		{api.EntityHost, []string{"reserved:health"}, false},
+		{api.EntityHost, []string{"reserved:unmanaged"}, false},
+		{api.EntityHost, []string{"reserved:none"}, false},
+		{api.EntityHost, []string{"id=foo"}, false},
+
+		{api.EntityAll, []string{"reserved:host"}, true},
+		{api.EntityAll, []string{"reserved:world"}, true},
+		{api.EntityAll, []string{"reserved:health"}, true},
+		{api.EntityAll, []string{"reserved:unmanaged"}, true},
+		{api.EntityAll, []string{"reserved:none"}, true}, // in a white-list model, All trumps None
+		{api.EntityAll, []string{"id=foo"}, true},
+
+		{api.EntityCluster, []string{"reserved:host"}, true},
+		{api.EntityCluster, []string{"reserved:init"}, true},
+		{api.EntityCluster, []string{"reserved:health"}, true},
+		{api.EntityCluster, []string{"reserved:unmanaged"}, true},
+		{api.EntityCluster, []string{"reserved:world"}, false},
+		{api.EntityCluster, []string{"reserved:none"}, false},
+
+		{api.EntityCluster, []string{clusterLabel, "id=foo"}, true},
+		{api.EntityCluster, []string{clusterLabel, "id=foo", "id=bar"}, true},
+		{api.EntityCluster, []string{"id=foo"}, false},
+
+		{api.EntityWorld, []string{"reserved:world"}, true},
+		{api.EntityWorld, []string{"reserved:host"}, false},
+		{api.EntityWorld, []string{"reserved:health"}, false},
+		{api.EntityWorld, []string{"reserved:unmanaged"}, false},
+		{api.EntityWorld, []string{"reserved:none"}, false},
+		{api.EntityWorld, []string{"reserved:init"}, false},
+		{api.EntityWorld, []string{"id=foo"}, false},
+		{api.EntityWorld, []string{"id=foo", "id=bar"}, false},
+
+		{api.EntityNone, []string{"reserved:host"}, false},
+		{api.EntityNone, []string{"reserved:world"}, false},
+		{api.EntityNone, []string{"reserved:health"}, false},
+		{api.EntityNone, []string{"reserved:unmanaged"}, false},
+		{api.EntityNone, []string{"reserved:init"}, false},
+		{api.EntityNone, []string{"id=foo"}, false},
+		{api.EntityNone, []string{clusterLabel, "id=foo", "id=bar"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("Entity '%s' match '%s' [%t]", tt.entity, strings.Join(tt.labels, ", "), tt.match), func(t *testing.T) {
+			labelsToMatch := labels.ParseLabelArray(tt.labels...)
+			selectors := types.ToSelectors(api.EntitySlice{tt.entity}.GetAsEndpointSelectors()...)
+
+			require.Equal(t, tt.match, selectors.Matches(labelsToMatch))
+		})
+	}
+}
+
+func TestEntitySliceLabelSelectorMatch(t *testing.T) {
+	api.InitEntities("cluster1")
+
+	esHostWorld := api.EntitySlice{api.EntityHost, api.EntityWorld}
+	esHostHealth := api.EntitySlice{api.EntityHost, api.EntityHealth}
+
+	tests := []struct {
+		entities api.EntitySlice
+		labels   []string
+		match    bool
+	}{
+		{esHostWorld, []string{"reserved:host"}, true},
+		{esHostWorld, []string{"reserved:world"}, true},
+		{esHostWorld, []string{"reserved:health"}, false},
+		{esHostWorld, []string{"reserved:unmanaged"}, false},
+		{esHostWorld, []string{"reserved:none"}, false},
+		{esHostWorld, []string{"id=foo"}, false},
+
+		{esHostHealth, []string{"reserved:host"}, true},
+		{esHostHealth, []string{"reserved:world"}, false},
+		{esHostHealth, []string{"reserved:health"}, true},
+		{esHostHealth, []string{"reserved:unmanaged"}, false},
+		{esHostHealth, []string{"reserved:none"}, false},
+		{esHostHealth, []string{"id=foo"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("EntitySlice '%#v' match '%s' [%t]", tt.entities, strings.Join(tt.labels, ", "), tt.match), func(t *testing.T) {
+			labelsToMatch := labels.ParseLabelArray(tt.labels...)
+			selectors := types.ToSelectors(tt.entities.GetAsEndpointSelectors()...)
+			require.Equal(t, tt.match, selectors.Matches(labelsToMatch))
 		})
 	}
 }

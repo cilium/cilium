@@ -283,10 +283,10 @@ func sanitizeCNPRules(cnp *CiliumNetworkPolicy) error {
 func TestParseSpec(t *testing.T) {
 	es := api.NewESFromMatchRequirements(
 		map[string]string{
-			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
+			fmt.Sprintf("%s:role", labels.LabelSourceAny): "backend",
 		},
 		[]slim_metav1.LabelSelectorRequirement{{
-			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Key:      fmt.Sprintf("%s:role", labels.LabelSourceAny),
 			Operator: "NotIn",
 			Values:   []string{"production"},
 		}},
@@ -316,11 +316,11 @@ func TestParseSpec(t *testing.T) {
 
 	expectedES := api.NewESFromMatchRequirements(
 		map[string]string{
-			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
-			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
+			fmt.Sprintf("%s:role", labels.LabelSourceAny):                           "backend",
+			fmt.Sprintf("%s:%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
 		},
 		[]slim_metav1.LabelSelectorRequirement{{
-			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Key:      fmt.Sprintf("%s:role", labels.LabelSourceAny),
 			Operator: "NotIn",
 			Values:   []string{"production"},
 		}},
@@ -379,10 +379,10 @@ func TestParseSpec(t *testing.T) {
 func TestParseRules(t *testing.T) {
 	es := api.NewESFromMatchRequirements(
 		map[string]string{
-			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
+			fmt.Sprintf("%s:role", labels.LabelSourceAny): "backend",
 		},
 		[]slim_metav1.LabelSelectorRequirement{{
-			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Key:      fmt.Sprintf("%s:role", labels.LabelSourceAny),
 			Operator: "NotIn",
 			Values:   []string{"production"},
 		}},
@@ -412,11 +412,11 @@ func TestParseRules(t *testing.T) {
 
 	expectedES := api.NewESFromMatchRequirements(
 		map[string]string{
-			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
-			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
+			fmt.Sprintf("%s:role", labels.LabelSourceAny):                           "backend",
+			fmt.Sprintf("%s:%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
 		},
 		[]slim_metav1.LabelSelectorRequirement{{
-			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
+			Key:      fmt.Sprintf("%s:role", labels.LabelSourceAny),
 			Operator: "NotIn",
 			Values:   []string{"production"},
 		}},

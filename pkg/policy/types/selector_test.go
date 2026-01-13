@@ -33,7 +33,7 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 
 			if lbl.Value != "" {
 				ps = &CIDRSelector{
-					key: fmt.Sprintf("&LabelSelector{MatchLabels:map[string]string{%s.%s: %s,},MatchExpressions:[]LabelSelectorRequirement{},}", lbl.Source, lbl.Key, lbl.Value),
+					key: fmt.Sprintf("&LabelSelector{MatchLabels:map[string]string{%s:%s: %s,},MatchExpressions:[]LabelSelectorRequirement{},}", lbl.Source, lbl.Key, lbl.Value),
 					requirements: Requirements{
 						NewEqualsRequirement(lbl),
 					},
@@ -137,7 +137,7 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 				MatchLabels: map[string]v1.MatchLabelsValue{"foo": "bar"},
 			}}, ExceptCIDRs: []api.CIDR{"1.1.1.1/32", "192.168.0.0/16"}},
 			expected: Selectors{&CIDRSelector{
-				key: "&LabelSelector{MatchLabels:map[string]string{cidrgroup.foo: bar,},MatchExpressions:[]LabelSelectorRequirement{},}-[1.1.1.1/32,192.168.0.0/16]",
+				key: "&LabelSelector{MatchLabels:map[string]string{cidrgroup:foo: bar,},MatchExpressions:[]LabelSelectorRequirement{},}-[1.1.1.1/32,192.168.0.0/16]",
 				requirements: Requirements{
 					NewEqualsRequirement(labels.NewLabel("foo", "bar", labels.LabelSourceCIDRGroup)),
 					NewExceptRequirement(labels.NewLabel("1.1.1.1/32", "", labels.LabelSourceCIDR)),
@@ -237,7 +237,7 @@ func TestCIDRRuleToCIDRSelectors(t *testing.T) {
 			option.Config.EnableIPv4 = test.enableIPv4
 
 			if test.rule.CIDRGroupSelector.LabelSelector != nil {
-				test.rule.CIDRGroupSelector.SanitizeWithKeyExtender(labels.GetSourcePrefixKeyExtender(labels.LabelSourceCIDRGroupKeyPrefix))
+				test.rule.CIDRGroupSelector = api.NewESFromK8sLabelSelector(labels.LabelSourceCIDRGroupKeyPrefix, test.rule.CIDRGroupSelector.LabelSelector)
 			}
 			result := ToSelectors(test.rule)
 			require.Equal(t, test.expected, result, test.name)
