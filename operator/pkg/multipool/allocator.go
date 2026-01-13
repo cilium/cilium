@@ -7,28 +7,13 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/ipam/allocator"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 )
-
-var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-multi-pool"}
 
 type Allocator struct {
 	poolAlloc *PoolAllocator
 	logger    *slog.Logger
-}
-
-func (a *Allocator) Init(ctx context.Context, logger *slog.Logger, _ *metrics.Registry) error {
-	a.poolAlloc = NewPoolAllocator(logger)
-	a.logger = logger.With(subsysLogAttr...)
-	return nil
-}
-
-func (a *Allocator) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, _ *metrics.Registry) (allocator.NodeEventHandler, error) {
-	return NewNodeHandler(a.logger, a.poolAlloc, getterUpdater), nil
 }
 
 func (a *Allocator) UpsertPool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error {

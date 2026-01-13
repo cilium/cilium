@@ -6,7 +6,6 @@
 package ipam
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
@@ -49,15 +48,13 @@ func startMultiPoolAllocator(p multiPoolParams) {
 		return
 	}
 
-	allocator := &multipool.Allocator{}
+	logger := p.Logger.With([]any{logfields.LogSubsys, "ipam-allocator-multi-pool"}...)
+
+	allocator := multipool.NewPoolAllocator(logger)
 
 	p.Lifecycle.Append(
 		cell.Hook{
 			OnStart: func(ctx cell.HookContext) error {
-				if err := allocator.Init(ctx, p.Logger, p.MetricsRegistry); err != nil {
-					return fmt.Errorf("unable to init AWS allocator: %w", err)
-				}
-
 				// The following operation will block until all pools are restored, thus it
 				// is safe to continue starting node allocation right after return.
 				multipool.StartIPPoolAllocator(
@@ -65,10 +62,7 @@ func startMultiPoolAllocator(p multiPoolParams) {
 					p.Logger.With(logfields.LogSubsys, "ip-pool-watcher"),
 				)
 
-				nm, err := allocator.Start(ctx, &ciliumNodeUpdateImplementation{p.Clientset}, p.MetricsRegistry)
-				if err != nil {
-					return fmt.Errorf("unable to start AWS allocator: %w", err)
-				}
+				nm := multipool.NewNodeHandler(logger, allocator, &ciliumNodeUpdateImplementation{p.Clientset})
 
 				p.JobGroup.Add(p.NodeWatcherFactory(nm))
 
