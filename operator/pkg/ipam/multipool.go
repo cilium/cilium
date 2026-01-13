@@ -12,8 +12,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
-	"github.com/cilium/cilium/operator/watchers"
-	"github.com/cilium/cilium/pkg/ipam/allocator/multipool"
+	"github.com/cilium/cilium/operator/pkg/multipool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -61,7 +60,7 @@ func startMultiPoolAllocator(p multiPoolParams) {
 
 				// The following operation will block until all pools are restored, thus it
 				// is safe to continue starting node allocation right after return.
-				watchers.StartIPPoolAllocator(
+				multipool.StartIPPoolAllocator(
 					ctx, p.Clientset, allocator, p.CiliumPodIPPools,
 					p.Logger.With(logfields.LogSubsys, "ip-pool-watcher"),
 				)
