@@ -811,9 +811,15 @@ cni:
   # -- Specifies the resources for the cni initContainer
   resources:
     requests:
+      # @schema
+      # type: [integer, string]
+      # @schema
       cpu: 100m
       memory: 10Mi
     limits:
+      # @schema
+      # type: [integer, string]
+      # @schema
       cpu: 1
       memory: 1Gi
   # -- Enable route MTU for pod netns when CNI chaining is used
@@ -3305,6 +3311,9 @@ nodeinit:
   # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
     requests:
+      # @schema
+      # type: [integer, string]
+      # @schema
       cpu: 100m
       memory: 100Mi
   # -- Security context to be added to nodeinit pods.
