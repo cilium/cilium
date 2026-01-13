@@ -1,8 +1,14 @@
+# Generate lockfile with: make -C Documentation update-deps
+# Requires: uv (https://docs.astral.sh/uv/)
+#
+# Docs dependencies pinned per Cilium documentation build requirements
+# Python 3.11 is used (see Dockerfile)
+
 sphinx==7.1.2
 sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
-git+https://github.com/cilium/sphinx_rtd_theme.git@cilium/rebase-2023-09#egg=sphinx-rtd-theme-cilium
+sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@cilium/rebase-2023-09
 
 # We use semver to parse Cilium's version in the config file
 semver==3.0.1

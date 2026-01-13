@@ -69,6 +69,20 @@ jobs:
           entrypoint: ./Documentation/check-build.sh
           args: html
 
+  verify-deps:
+    name: Verify Python lockfile
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - name: Install uv
+        uses: astral-sh/setup-uv@6b9c6063abd6010835644d4c2e1bef4cf5cd0fca # v6.0.1
+      - name: Verify lockfile is in sync
+        run: |
+          make -C Documentation verify-deps
+
   check-generated-documentation:
     name: Check generated documentation
     if: ${{ github.event_name != 'merge_group' }}

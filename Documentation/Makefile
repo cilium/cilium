@@ -5,7 +5,7 @@ include ../Makefile.defs
 include ../Makefile.quiet
 
 HELM_VALUES := helm-values.rst
-REQUIREMENTS_NODEP := requirements-min/requirements.txt
+REQUIREMENTS_IN := requirements.in
 REQUIREMENTS := requirements.txt
 SPHINX_OPTS := "-j=auto"
 
@@ -28,7 +28,7 @@ endef
 ##@ Development Images
 
 DOCS_BASE_IMG ?= cilium/docs-base
-base-image: Dockerfile ## Build the docs-base image for updating the requirements.txt file.
+base-image: Dockerfile ## Build the docs-base image for documentation building.
 	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
 
 DOCS_BUILDER_IMG ?= cilium/docs-builder
@@ -163,10 +163,25 @@ update-redirects: builder-image ## Build and serve the documentation locally.
 
 ##@ Development
 
-update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
-	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
-	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
-		bash -c "export HOME=/tmp && pip install --no-warn-script-location -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
+.PHONY: update-deps
+update-deps: $(REQUIREMENTS_IN) ## Regenerate the requirements.txt lockfile from requirements.in using uv.
+	uv pip compile --upgrade --python-version 3.11 --python-platform linux $(REQUIREMENTS_IN) -o $(REQUIREMENTS)
+
+.PHONY: verify-deps
+verify-deps: $(REQUIREMENTS_IN) $(REQUIREMENTS) ## Verify requirements.txt is in sync with requirements.in.
+	@echo "Verifying requirements.txt is in sync with requirements.in..."
+	$(QUIET)TMP=$$(mktemp) && \
+		TMP_CURRENT=$$(mktemp) && \
+		TMP_NEW=$$(mktemp) && \
+		uv pip compile --upgrade --python-version 3.11 --python-platform linux $(REQUIREMENTS_IN) -o "$$TMP" 2>/dev/null && \
+		grep -v '^#' $(REQUIREMENTS) | grep -v '^\s*#' | grep -v '^\s*$$' > "$$TMP_CURRENT" && \
+		grep -v '^#' "$$TMP" | grep -v '^\s*#' | grep -v '^\s*$$' > "$$TMP_NEW" && \
+		diff -q "$$TMP_CURRENT" "$$TMP_NEW" > /dev/null || \
+		(echo "ERROR: requirements.txt is out of sync with requirements.in" && \
+		 echo "Run 'make -C Documentation update-deps' to regenerate" && \
+		 rm -f "$$TMP" "$$TMP_CURRENT" "$$TMP_NEW" && exit 1) && \
+		rm -f "$$TMP" "$$TMP_CURRENT" "$$TMP_NEW"
+	@echo "requirements.txt is in sync"
 
 clean: ## Clean up all artefacts from documentation.
 	-$(QUIET)rm -rf _build _exts/__pycache__ _preview Pipfile Pipfile.lock
