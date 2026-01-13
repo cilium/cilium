@@ -21,13 +21,15 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var alibabaCloudCell = cell.Module(
-	"alibabacloud-ipam-allocator",
-	"Alibaba Cloud IP Allocator",
+func init() {
+	allocators = append(allocators, cell.Module(
+		"alibabacloud-ipam-allocator",
+		"Alibaba Cloud IP Allocator",
 
-	cell.Config(defaultAlibabaCloudConfig),
-	cell.Invoke(startAlibabaAllocator),
-)
+		cell.Config(defaultAlibabaCloudConfig),
+		cell.Invoke(startAlibabaAllocator),
+	))
+}
 
 type AlibabaCloudConfig struct {
 	AlibabaCloudVPCID            string

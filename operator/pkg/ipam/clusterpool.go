@@ -19,12 +19,14 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var clusterPoolCell = cell.Module(
-	"clusterpool-ipam-allocator",
-	"Cluster Pool IP Allocator",
+func init() {
+	allocators = append(allocators, cell.Module(
+		"clusterpool-ipam-allocator",
+		"Cluster Pool IP Allocator",
 
-	cell.Invoke(startClusterPoolAllocator),
-)
+		cell.Invoke(startClusterPoolAllocator),
+	))
+}
 
 type clusterPoolParams struct {
 	cell.In
