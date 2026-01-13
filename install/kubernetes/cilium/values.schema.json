@@ -1674,7 +1674,10 @@
             "limits": {
               "properties": {
                 "cpu": {
-                  "type": "integer"
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
                 },
                 "memory": {
                   "type": "string"
@@ -1685,7 +1688,10 @@
             "requests": {
               "properties": {
                 "cpu": {
-                  "type": "string"
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
                 },
                 "memory": {
                   "type": "string"
@@ -4665,7 +4671,10 @@
             "requests": {
               "properties": {
                 "cpu": {
-                  "type": "string"
+                  "type": [
+                    "integer",
+                    "string"
+                  ]
                 },
                 "memory": {
                   "type": "string"
