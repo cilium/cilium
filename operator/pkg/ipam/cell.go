@@ -12,21 +12,19 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 )
 
-var Cell = cell.Module(
-	"ip-allocator-provider",
-	"Operator IP allocator provider",
+var allocators []cell.Cell
 
-	cell.Config(defaultConfig),
-	cell.ProvidePrivate(newNodeWatcherJobFactory),
+func Cell() cell.Cell {
+	return cell.Module(
+		"ip-allocator-provider",
+		"Operator IP allocator provider",
 
-	cell.Group(
-		azureCell,
-		clusterPoolCell,
-		multiPoolCell,
-		alibabaCloudCell,
-		awsCell,
-	),
-)
+		cell.Config(defaultConfig),
+		cell.ProvidePrivate(newNodeWatcherJobFactory),
+
+		cell.Group(allocators...),
+	)
+}
 
 type Config struct {
 	ParallelAllocWorkers int64
