@@ -584,7 +584,6 @@ or ``.matchExpressions``.
 
 .. code-block:: yaml
 
-    ---
     apiVersion: cilium.io/v2
     kind: CiliumPodIPPool
     metadata:
@@ -592,7 +591,8 @@ or ``.matchExpressions``.
       labels:
         pool: blue
 
-    ---
+.. code-block:: yaml
+
     apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:

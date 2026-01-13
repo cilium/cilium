@@ -146,50 +146,55 @@ certain node labels.
 
 .. code-block:: yaml
 
-    ---
-    apiVersion: cilium.io/v2alpha1
-    kind: CiliumPodIPPool
-    metadata:
-      name: dc1-pool
-    spec:
-      ipv4:
-        cidrs:
-          - 10.1.0.0/16
-        maskSize: 24
-    ---
-    apiVersion: cilium.io/v2alpha1
-    kind: CiliumPodIPPool
-    metadata:
-      name: dc2-pool
-    spec:
-      ipv4:
-        cidrs:
-          - 10.2.0.0/16
-        maskSize: 24
-    ---
-    apiVersion: cilium.io/v2
-    kind: CiliumNodeConfig
-    metadata:
-      name: ip-pool-dc1
-      namespace: kube-system
-    spec:
-      defaults:
-        ipam-default-ip-pool: dc1-pool
-      nodeSelector:
-        matchLabels:
-          topology.kubernetes.io/zone: dc1
-    ---
-    apiVersion: cilium.io/v2
-    kind: CiliumNodeConfig
-    metadata:
-      name: ip-pool-dc2
-      namespace: kube-system
-    spec:
-      defaults:
-        ipam-default-ip-pool: dc2-pool
-      nodeSelector:
-        matchLabels:
-          topology.kubernetes.io/zone: dc2
+   apiVersion: cilium.io/v2alpha1
+   kind: CiliumPodIPPool
+   metadata:
+     name: dc1-pool
+   spec:
+     ipv4:
+       cidrs:
+         - 10.1.0.0/16
+       maskSize: 24
+
+.. code-block:: yaml
+
+   apiVersion: cilium.io/v2
+   kind: CiliumNodeConfig
+   metadata:
+     name: ip-pool-dc1
+     namespace: kube-system
+   spec:
+     defaults:
+       ipam-default-ip-pool: dc1-pool
+     nodeSelector:
+       matchLabels:
+         topology.kubernetes.io/zone: dc1
+
+.. code-block:: yaml
+
+   apiVersion: cilium.io/v2alpha1
+   kind: CiliumPodIPPool
+   metadata:
+     name: dc2-pool
+   spec:
+     ipv4:
+       cidrs:
+         - 10.2.0.0/16
+       maskSize: 24
+
+.. code-block:: yaml
+
+   apiVersion: cilium.io/v2
+   kind: CiliumNodeConfig
+   metadata:
+     name: ip-pool-dc2
+     namespace: kube-system
+   spec:
+     defaults:
+       ipam-default-ip-pool: dc2-pool
+     nodeSelector:
+       matchLabels:
+         topology.kubernetes.io/zone: dc2
 
 Allocation Parameters
 ---------------------
