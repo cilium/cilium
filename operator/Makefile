@@ -38,7 +38,7 @@ clean:
 
 install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
-	$(foreach target,$(TARGETS), $(QUIET)$(INSTALL) -m 0755 $(target) $(DESTDIR)$(BINDIR);)
+	$(QUIET)$(foreach target,$(TARGETS), $(INSTALL) -m 0755 $(target) $(DESTDIR)$(BINDIR);)
 
 install-generic:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
