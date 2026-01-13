@@ -1,5 +1,5 @@
 # renovate: datasource=docker depName=golangci/golangci-lint
-version: v2.7.2
+version: v2.8.0
 name: golangci-lint-cilium
 destination: ./tools/golangci-lint
 plugins:
