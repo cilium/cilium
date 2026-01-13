@@ -784,17 +784,12 @@ Troubleshooting steps:
 
    When running in :ref:`arch_overlay` mode:
 
-#. Run ``cilium-dbg bpf tunnel list`` and verify that each Cilium node is aware of
-   the other nodes in the cluster.  If not, check the logfile for errors.
-
 #. If nodes are being populated correctly, run ``tcpdump -n -i cilium_vxlan`` on
    each node to verify whether cross node traffic is being forwarded correctly
    between nodes.
 
    If packets are being dropped,
 
-   * verify that the node IP listed in ``cilium-dbg bpf tunnel list`` can reach each
-     other.
    * verify that the firewall on each node allows UDP port 8472.
 
    When running in :ref:`arch_direct_routing` mode:

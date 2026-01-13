@@ -393,7 +393,6 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg bpf auth list",
 		"cilium-dbg bpf bandwidth list",
 		"cilium-dbg bpf config list",
-		"cilium-dbg bpf tunnel list",
 		"cilium-dbg bpf lb list",
 		"cilium-dbg bpf lb list --revnat",
 		"cilium-dbg bpf lb list --frontends",
