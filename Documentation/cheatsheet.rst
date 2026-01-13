@@ -268,12 +268,6 @@ Or you can get the loadbalancer information using bpf list
 eBPF
 ----
 
-List node tunneling mapping information
-
-.. code-block:: shell-session
-
-    cilium-dbg bpf tunnel list
-
 Checking logs for verifier issue
 
 .. code-block:: shell-session
