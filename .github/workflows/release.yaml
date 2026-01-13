@@ -40,6 +40,8 @@ on:
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
+  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.version }}-${{ inputs.step }}
