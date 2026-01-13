@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/statedb/reconciler"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/policy"
@@ -84,7 +84,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 	ctx, cancel := context.WithTimeout(ctx, ops.config.EnvoyConfigTimeout)
 	defer cancel()
 
-	var prevResources envoy.Resources
+	var prevResources xds.Resources
 	if res.ReconciledResources != nil {
 		prevResources = *res.ReconciledResources
 	}
@@ -174,8 +174,8 @@ func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {
 }
 
 type resourceMutator interface {
-	DeleteEnvoyResources(context.Context, envoy.Resources) error
-	UpdateEnvoyResources(context.Context, envoy.Resources, envoy.Resources) error
+	DeleteEnvoyResources(context.Context, xds.Resources) error
+	UpdateEnvoyResources(context.Context, xds.Resources, xds.Resources) error
 }
 
 type policyTrigger interface {

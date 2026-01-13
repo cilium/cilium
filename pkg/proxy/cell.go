@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -135,7 +136,7 @@ type envoyProxyIntegrationParams struct {
 	cell.In
 
 	IptablesManager datapath.IptablesManager
-	XdsServer       envoy.XDSServer
+	XdsServer       xds.XDSServer
 	AdminClient     *envoy.EnvoyAdminClient
 	Cfg             EnvoyProxyIntegrationConfig
 }

@@ -353,7 +353,7 @@ func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-cha
 		}
 
 		prevEndpoints := res.Resources.Endpoints
-		var newEndpoints []*envoy_config_endpoint.ClusterLoadAssignment
+		var newEndpoints map[string]*envoy_config_endpoint.ClusterLoadAssignment
 
 		// Look up the referenced service for the port name to port number mappings.
 		svc, _, watchSvc, found := bs.writer.Services().GetWatch(wtxn, loadbalancer.ServiceByName(res.ClusterServiceName()))
@@ -362,7 +362,7 @@ func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-cha
 			// Look up associated backends and update the load assignments.
 			bes, watchBes := bs.writer.BackendsForService(wtxn, svc.Name)
 			ws.Add(watchBes)
-			newEndpoints = computeLoadAssignments(
+			newEndpoints[svc.Name.String()] = computeLoadAssignments(
 				svc.Name,
 				res.ClusterReferences,
 				svc.PortNames,
@@ -375,7 +375,7 @@ func (bs *backendProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-cha
 		claEqual := func(a, b *envoy_config_endpoint.ClusterLoadAssignment) bool {
 			return proto.Equal(a, b)
 		}
-		endpointsEqual := slices.EqualFunc(prevEndpoints, newEndpoints, claEqual)
+		endpointsEqual := slices.EqualFunc(slices.Collect(maps.Values(prevEndpoints)), slices.Collect(maps.Values(newEndpoints)), claEqual)
 
 		if !endpointsEqual || (res.Status.Kind != reconciler.StatusKindDone && res.Status.Kind != reconciler.StatusKindPending) {
 			res = res.Clone()
