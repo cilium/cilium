@@ -24,6 +24,6 @@ func TestOperatorHive(t *testing.T) {
 		testutils.GoleakIgnoreCurrent(),
 	)
 
-	err := hive.New(Operator).Populate(hivetest.Logger(t))
+	err := hive.New(Operator()).Populate(hivetest.Logger(t))
 	assert.NoError(t, err, "Populate()")
 }
