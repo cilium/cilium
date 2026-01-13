@@ -214,6 +214,7 @@ to prepare for multi-cluster capabilities.
 		"Write non-default Helm values to stdout; without performing the actual upgrade")
 	cmd.Flags().StringVar(&params.HelmRepository, "repository", defaults.HelmRepository, "Helm chart repository to download Cilium charts from")
 	cmd.Flags().IntVar(&params.HelmMaxHistory, "history-max", defaults.HelmMaxHistory, "limit the maximum number of revisions saved per release. Use 0 for no limit")
+	cmd.Flags().BoolVarP(&params.Restart, "restart", "r", false, "Force restart Cilium pods")
 	return cmd
 }
 

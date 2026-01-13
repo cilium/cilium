@@ -38,6 +38,7 @@ cilium upgrade [flags]
       --repository string         Helm chart repository to download Cilium charts from (default "https://helm.cilium.io")
       --reset-then-reuse-values   When upgrading, reset the values to the ones built into the chart, apply the last release's values and merge in any overrides from the command line via --set and -f. If '--reset-values' or '--reuse-values' is specified, this is ignored (default true)
       --reset-values              When upgrading, reset the helm values to the ones built into the chart
+  -r, --restart                   Force restart Cilium pods
       --reuse-values              When upgrading, reuse the helm values from the latest release unless any overrides from are set from other flags. This option takes precedence over HelmResetValues
       --set stringArray           Set helm values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)
       --set-file stringArray      Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)
