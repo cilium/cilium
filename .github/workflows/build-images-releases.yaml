@@ -240,6 +240,10 @@ jobs:
   call-publish-helm:
     if: github.repository_owner == 'cilium'
     name: Publish Helm Chart
+    permissions:
+      contents: read
+      # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
+      id-token: write
     uses: cilium/cilium/.github/workflows/release.yaml@main
     needs: image-digests
     with:
