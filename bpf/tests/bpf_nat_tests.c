@@ -286,6 +286,12 @@ int test_nat4_icmp_error_tcp_rfc1191(__maybe_unused struct __ctx_buff *ctx)
 
 		memcpy(data, pkt, pkt_size);
 	}
+	/* We also need to set the packet size in ctx, since that's what
+	 * the BPF code now checks for this condition.  The verifier prevents
+	 * us from directly writing the len field of the context,
+	 * but there is a BPF helper function for this.
+	 */
+	ctx_change_tail(ctx, pkt_size, 0);
 
 	test_init();
 	/* The test is validating that the function snat_v4_rev_nat()
@@ -804,6 +810,12 @@ int test_nat4_icmp_error_tcp_egress_rfc1191(__maybe_unused struct __ctx_buff *ct
 
 		memcpy(data, pkt, pkt_size);
 	}
+	/* We also need to set the packet size in ctx, since that's what
+	 * the BPF code now checks for this condition.  The verifier prevents
+	 * us from directly writing the len field of the context,
+	 * but there is a BPF helper function for this.
+	 */
+	ctx_change_tail(ctx, pkt_size, 0);
 
 	test_init();
 	/* The test is validating that the function snat_v4_nat()
