@@ -141,7 +141,7 @@ Now you can use the additional metrics in your test, by leveraging regular ``Gen
 For example, Egress Gateway ensures that various percentiles of masquerade latency observed by clients are
 `below specific thresholds <EGW_MASQ_METRICS_>`_. This can be achieved by the following measurement in ClusterLoader2:
 
-.. code-block:: yaml
+.. code-block:: text
 
   - Identifier: MasqueradeDelay{{ .metricsSuffix }}
     Method: GenericPrometheusQuery
