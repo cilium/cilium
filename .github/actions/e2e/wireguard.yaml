@@ -71,7 +71,6 @@
   lb-mode: 'snat'
   ingress-controller: 'true'
   encryption: 'wireguard'
-  skip-upgrade: 'true'
   # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy for HTTP routing
   test-l7: 'true'
 - name: 'wireguard-6'

@@ -85,6 +85,5 @@
   ipv4: 'false'
   tunnel: 'vxlan'
   underlay: 'ipv6'
-  skip-upgrade: 'true'
   # L7 testing: Basic IPv6-only configuration, can skip
   test-l7: 'false'
