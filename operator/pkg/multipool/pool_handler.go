@@ -29,14 +29,6 @@ const (
 	poolKeyIPv6MaskSize = "ipv6-mask-size"
 )
 
-// PooledAllocatorProvider defines the functions of IPAM provider front-end which additionally allow
-// definition of IP pools at runtime.
-// This is implemented by e.g. pkg/ipam/allocator/multipool
-type PooledAllocatorProvider interface {
-	UpsertPool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error
-	DeletePool(ctx context.Context, pool *cilium_v2alpha1.CiliumPodIPPool) error
-}
-
 // parsePoolSpec parses a pool spec string in the form
 // "ipv4-cidrs:172.16.0.0/16,172.17.0.0/16;ipv4-mask-size:24".
 func parsePoolSpec(poolString string) (cilium_v2alpha1.IPPoolSpec, error) {
@@ -141,10 +133,43 @@ func multiPoolAutoCreatePools(ctx context.Context, clientset client.Clientset, p
 	}
 }
 
+func upsertPool(allocator *PoolAllocator, pool *cilium_v2alpha1.CiliumPodIPPool) error {
+	var ipv4CIDRs, ipv6CIDRs []string
+	var ipv4MaskSize, ipv6MaskSize int
+
+	if pool.Spec.IPv4 != nil {
+		ipv4MaskSize = int(pool.Spec.IPv4.MaskSize)
+		ipv4CIDRs = make([]string, len(pool.Spec.IPv4.CIDRs))
+		for i, cidr := range pool.Spec.IPv4.CIDRs {
+			ipv4CIDRs[i] = string(cidr)
+		}
+	}
+
+	if pool.Spec.IPv6 != nil {
+		ipv6MaskSize = int(pool.Spec.IPv6.MaskSize)
+		ipv6CIDRs = make([]string, len(pool.Spec.IPv6.CIDRs))
+		for i, cidr := range pool.Spec.IPv6.CIDRs {
+			ipv6CIDRs[i] = string(cidr)
+		}
+	}
+
+	return allocator.UpsertPool(
+		pool.Name,
+		ipv4CIDRs,
+		ipv4MaskSize,
+		ipv6CIDRs,
+		ipv6MaskSize,
+	)
+}
+
+func deletePool(allocator *PoolAllocator, pool *cilium_v2alpha1.CiliumPodIPPool) error {
+	return allocator.DeletePool(pool.Name)
+}
+
 func StartIPPoolAllocator(
 	ctx context.Context,
 	clientset client.Clientset,
-	allocator PooledAllocatorProvider,
+	allocator *PoolAllocator,
 	ipPools resource.Resource[*cilium_v2alpha1.CiliumPodIPPool],
 	logger *slog.Logger,
 ) {
@@ -163,10 +188,10 @@ func StartIPPoolAllocator(
 			case resource.Sync:
 				close(synced)
 			case resource.Upsert:
-				err = allocator.UpsertPool(ctx, ev.Object)
+				err = upsertPool(allocator, ev.Object)
 				action = "upsert"
 			case resource.Delete:
-				err = allocator.DeletePool(ctx, ev.Object)
+				err = deletePool(allocator, ev.Object)
 				action = "delete"
 			}
 			ev.Done(err)
