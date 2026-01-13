@@ -890,7 +890,7 @@ snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 
 	/* Check if the inner L4 header has checksum */
 	if (tuple.nexthdr == IPPROTO_TCP &&
-	    total_inner_len < iphdr.ihl + TCP_CSUM_OFF + sizeof(__u16))
+	    total_inner_len < ipv4_hdrlen(&iphdr) + TCP_CSUM_OFF + sizeof(__u16))
 		icmp_has_inner_l4_csum = false;
 
 	/* We found SNAT entry to NAT embedded packet. The destination addr
@@ -1115,7 +1115,7 @@ snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 
 	/* Check if the inner L4 header has checksum */
 	if (tuple.nexthdr == IPPROTO_TCP &&
-	    total_inner_len < iphdr.ihl + TCP_CSUM_OFF + sizeof(__u16))
+	    total_inner_len < ipv4_hdrlen(&iphdr) + TCP_CSUM_OFF + sizeof(__u16))
 		icmp_has_inner_l4_csum = false;
 
 	/* For UDP, a checksum value of zero means that no checksum */
