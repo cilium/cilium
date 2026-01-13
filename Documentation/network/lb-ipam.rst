@@ -93,27 +93,29 @@ The pool will allocate to any service if no service selector is specified.
 
 .. code-block:: yaml
 
-    apiVersion: "cilium.io/v2"
-    kind: CiliumLoadBalancerIPPool
-    metadata:
-      name: "blue-pool"
-    spec:
-      blocks:
-      - cidr: "20.0.10.0/24"
-      serviceSelector:
-        matchExpressions:
-          - {key: color, operator: In, values: [blue, cyan]}
-    ---
-    apiVersion: "cilium.io/v2"
-    kind: CiliumLoadBalancerIPPool
-    metadata:
-      name: "red-pool"
-    spec:
-      blocks:
-      - cidr: "20.0.10.0/24"
-      serviceSelector:
-        matchLabels:
-          color: red
+   apiVersion: "cilium.io/v2"
+   kind: CiliumLoadBalancerIPPool
+   metadata:
+     name: "blue-pool"
+   spec:
+     blocks:
+     - cidr: "20.0.10.0/24"
+     serviceSelector:
+       matchExpressions:
+         - {key: color, operator: In, values: [blue, cyan]}
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2"
+   kind: CiliumLoadBalancerIPPool
+   metadata:
+     name: "red-pool"
+   spec:
+     blocks:
+     - cidr: "20.0.10.0/24"
+     serviceSelector:
+       matchLabels:
+         color: red
 
 There are a few special purpose selector fields which don't match on labels but
 instead on other metadata like ``.meta.name`` or ``.meta.namespace``.
@@ -476,7 +478,9 @@ Services that have the same sharing key annotation will share the same IP or set
     type: LoadBalancer
     ports:
     - port: 1234
-  ---
+
+.. code-block:: yaml
+
   apiVersion: v1
   kind: Service
   metadata:

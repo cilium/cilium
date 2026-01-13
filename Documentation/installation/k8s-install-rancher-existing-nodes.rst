@@ -63,8 +63,44 @@ When the ``Create Custom`` page opens, provide at least a name for the cluster.
 Go through the other configuration options and configure the ones that are
 relevant for your setup.
 
-Next to the ``Cluster Options`` section click the box to ``Edit as YAML``.
-The configuration for the cluster will open up in an editor in the window.
+Add ``HelmChart`` manifests to install Cilium using the RKE2 built-in Helm Operator. 
+Go to the ``Additional Manifests`` section and paste the following YAML. Add relevant values for your Cilium installation.
+
+.. code-block:: yaml
+
+   apiVersion: catalog.cattle.io/v1
+   kind: ClusterRepo
+   metadata:
+     name: cilium
+   spec:
+     url: https://helm.cilium.io
+
+.. code-block:: yaml
+
+   apiVersion: helm.cattle.io/v1
+   kind: HelmChart
+   metadata:
+     name: cilium
+     namespace: kube-system
+   spec:
+     targetNamespace: kube-system
+     createNamespace: false
+     version: v1.18.0
+     chart: cilium
+     repo: https://helm.cilium.io
+     bootstrap: true
+     valuesContent: |-
+       # paste your Cilium values here:
+       k8sServiceHost: 127.0.0.1
+       k8sServicePort: 6443
+       kubeProxyReplacement: true
+
+.. note::
+
+    ``k8sServiceHost`` should be set to ``127.0.0.1`` and ``k8sServicePort`` to ``6443``. Cilium Agent running on control plane nodes will use local address for communication with Kubernetes API process.
+    On Control Plane nodes you can verify this by running:
+
+    .. code-block:: shell-session
 
 .. image:: images/rancher_edit_as_yaml.png
 
