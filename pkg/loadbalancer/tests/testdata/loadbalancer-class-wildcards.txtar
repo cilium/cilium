@@ -1,0 +1,676 @@
+#! --lb-test-fault-probability=0.0
+
+# Add some node addresses
+db/insert node-addresses addrv4.yaml
+db/cmp node-addresses nodeaddrs.table
+
+# Start the test application
+hive start
+
+# Add the endpoints and service
+k8s/add endpointslice-default.yaml endpointslice-bgp.yaml endpointslice-l2.yaml endpointslice-nodeipam.yaml endpointslice-other.yaml
+db/cmp backends backends.table
+k8s/add service-default.yaml service-bgp.yaml service-l2.yaml service-nodeipam.yaml service-other.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.expected lbmaps.actual
+
+# Cleanup. Backends first in this test.
+k8s/delete endpointslice-default.yaml endpointslice-bgp.yaml endpointslice-l2.yaml endpointslice-nodeipam.yaml endpointslice-other.yaml
+
+# Backends should now be empty
+* db/empty backends
+db/cmp frontends frontends_nobackends.table
+k8s/delete service-default.yaml service-bgp.yaml service-l2.yaml service-nodeipam.yaml service-other.yaml
+
+# Tables and BPF maps should now be empty
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- nodeaddrs.table --
+Address NodePort Primary DeviceName
+1.1.1.1 true     true    test
+
+-- services.table --
+Name                 Source   PortNames            TrafficPolicy   Flags
+test/echo-bgp        k8s      http=80, https=443   Cluster         LoadBalancerClass=io.cilium/bgp-control-plane
+test/echo-default    k8s      http=80, https=443   Cluster
+test/echo-l2         k8s      http=80, https=443   Cluster         LoadBalancerClass=io.cilium/l2-announcer
+test/echo-nodeipam   k8s      http=80, https=443   Cluster         LoadBalancerClass=io.cilium/node
+test/echo-other      k8s      http=80, https=443   Cluster         LoadBalancerClass=other
+
+-- frontends.table --
+Address                Type           ServiceName          PortName   Backends                                   RedirectTo   Status
+0.0.0.0:30780/TCP      NodePort       test/echo-default    http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP                  Done
+0.0.0.0:30781/TCP      NodePort       test/echo-default    https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP                Done
+0.0.0.0:30782/TCP      NodePort       test/echo-bgp        http       10.244.1.13:80/TCP, 10.244.1.14:80/TCP                  Done
+0.0.0.0:30783/TCP      NodePort       test/echo-bgp        https      10.244.1.13:443/TCP, 10.244.1.14:443/TCP                Done
+0.0.0.0:30784/TCP      NodePort       test/echo-l2         http       10.244.1.15:80/TCP, 10.244.1.16:80/TCP                  Done
+0.0.0.0:30785/TCP      NodePort       test/echo-l2         https      10.244.1.15:443/TCP, 10.244.1.16:443/TCP                Done
+0.0.0.0:30786/TCP      NodePort       test/echo-nodeipam   http       10.244.1.17:80/TCP, 10.244.1.18:80/TCP                  Done
+0.0.0.0:30787/TCP      NodePort       test/echo-nodeipam   https      10.244.1.17:443/TCP, 10.244.1.18:443/TCP                Done
+0.0.0.0:30788/TCP      NodePort       test/echo-other      http       10.244.1.19:80/TCP, 10.244.1.20:80/TCP                  Done
+0.0.0.0:30789/TCP      NodePort       test/echo-other      https      10.244.1.19:443/TCP, 10.244.1.20:443/TCP                Done
+10.96.50.101:80/TCP    ClusterIP      test/echo-default    http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP                  Done
+10.96.50.101:443/TCP   ClusterIP      test/echo-default    https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP                Done
+10.96.50.102:80/TCP    ClusterIP      test/echo-bgp        http       10.244.1.13:80/TCP, 10.244.1.14:80/TCP                  Done
+10.96.50.102:443/TCP   ClusterIP      test/echo-bgp        https      10.244.1.13:443/TCP, 10.244.1.14:443/TCP                Done
+10.96.50.103:80/TCP    ClusterIP      test/echo-l2         http       10.244.1.15:80/TCP, 10.244.1.16:80/TCP                  Done
+10.96.50.103:443/TCP   ClusterIP      test/echo-l2         https      10.244.1.15:443/TCP, 10.244.1.16:443/TCP                Done
+10.96.50.104:80/TCP    ClusterIP      test/echo-nodeipam   http       10.244.1.17:80/TCP, 10.244.1.18:80/TCP                  Done
+10.96.50.104:443/TCP   ClusterIP      test/echo-nodeipam   https      10.244.1.17:443/TCP, 10.244.1.18:443/TCP                Done
+10.96.50.105:80/TCP    ClusterIP      test/echo-other      http       10.244.1.19:80/TCP, 10.244.1.20:80/TCP                  Done
+10.96.50.105:443/TCP   ClusterIP      test/echo-other      https      10.244.1.19:443/TCP, 10.244.1.20:443/TCP                Done
+172.16.1.1:80/TCP      LoadBalancer   test/echo-default    http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP                  Done
+172.16.1.1:443/TCP     LoadBalancer   test/echo-default    https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP                Done
+172.16.1.2:80/TCP      LoadBalancer   test/echo-bgp        http       10.244.1.13:80/TCP, 10.244.1.14:80/TCP                  Done
+172.16.1.2:443/TCP     LoadBalancer   test/echo-bgp        https      10.244.1.13:443/TCP, 10.244.1.14:443/TCP                Done
+172.16.1.3:80/TCP      LoadBalancer   test/echo-l2         http       10.244.1.15:80/TCP, 10.244.1.16:80/TCP                  Done
+172.16.1.3:443/TCP     LoadBalancer   test/echo-l2         https      10.244.1.15:443/TCP, 10.244.1.16:443/TCP                Done
+172.16.1.4:80/TCP      LoadBalancer   test/echo-nodeipam   http       10.244.1.17:80/TCP, 10.244.1.18:80/TCP                  Done
+172.16.1.4:443/TCP     LoadBalancer   test/echo-nodeipam   https      10.244.1.17:443/TCP, 10.244.1.18:443/TCP                Done
+172.16.1.5:80/TCP      LoadBalancer   test/echo-other      http       10.244.1.19:80/TCP, 10.244.1.20:80/TCP                  Done
+172.16.1.5:443/TCP     LoadBalancer   test/echo-other      https      10.244.1.19:443/TCP, 10.244.1.20:443/TCP                Done
+
+-- frontends_nobackends.table --
+Address                Type           ServiceName          PortName   Backends   RedirectTo   Status
+0.0.0.0:30780/TCP      NodePort       test/echo-default    http                               Done
+0.0.0.0:30781/TCP      NodePort       test/echo-default    https                              Done
+0.0.0.0:30782/TCP      NodePort       test/echo-bgp        http                               Done
+0.0.0.0:30783/TCP      NodePort       test/echo-bgp        https                              Done
+0.0.0.0:30784/TCP      NodePort       test/echo-l2         http                               Done
+0.0.0.0:30785/TCP      NodePort       test/echo-l2         https                              Done
+0.0.0.0:30786/TCP      NodePort       test/echo-nodeipam   http                               Done
+0.0.0.0:30787/TCP      NodePort       test/echo-nodeipam   https                              Done
+0.0.0.0:30788/TCP      NodePort       test/echo-other      http                               Done
+0.0.0.0:30789/TCP      NodePort       test/echo-other      https                              Done
+10.96.50.101:80/TCP    ClusterIP      test/echo-default    http                               Done
+10.96.50.101:443/TCP   ClusterIP      test/echo-default    https                              Done
+10.96.50.102:80/TCP    ClusterIP      test/echo-bgp        http                               Done
+10.96.50.102:443/TCP   ClusterIP      test/echo-bgp        https                              Done
+10.96.50.103:80/TCP    ClusterIP      test/echo-l2         http                               Done
+10.96.50.103:443/TCP   ClusterIP      test/echo-l2         https                              Done
+10.96.50.104:80/TCP    ClusterIP      test/echo-nodeipam   http                               Done
+10.96.50.104:443/TCP   ClusterIP      test/echo-nodeipam   https                              Done
+10.96.50.105:80/TCP    ClusterIP      test/echo-other      http                               Done
+10.96.50.105:443/TCP   ClusterIP      test/echo-other      https                              Done
+172.16.1.1:80/TCP      LoadBalancer   test/echo-default    http                               Done
+172.16.1.1:443/TCP     LoadBalancer   test/echo-default    https                              Done
+172.16.1.2:80/TCP      LoadBalancer   test/echo-bgp        http                               Done
+172.16.1.2:443/TCP     LoadBalancer   test/echo-bgp        https                              Done
+172.16.1.3:80/TCP      LoadBalancer   test/echo-l2         http                               Done
+172.16.1.3:443/TCP     LoadBalancer   test/echo-l2         https                              Done
+172.16.1.4:80/TCP      LoadBalancer   test/echo-nodeipam   http                               Done
+172.16.1.4:443/TCP     LoadBalancer   test/echo-nodeipam   https                              Done
+172.16.1.5:80/TCP      LoadBalancer   test/echo-other      http                               Done
+172.16.1.5:443/TCP     LoadBalancer   test/echo-other      https                              Done
+
+-- backends.table --
+Address               Instances                    Shadows   NodeName
+10.244.1.11:80/TCP    test/echo-default (http)               nodeport-worker1
+10.244.1.11:443/TCP   test/echo-default (https)              nodeport-worker1
+10.244.1.12:80/TCP    test/echo-default (http)               nodeport-worker2
+10.244.1.12:443/TCP   test/echo-default (https)              nodeport-worker2
+10.244.1.13:80/TCP    test/echo-bgp (http)                   nodeport-worker1
+10.244.1.13:443/TCP   test/echo-bgp (https)                  nodeport-worker1
+10.244.1.14:80/TCP    test/echo-bgp (http)                   nodeport-worker2
+10.244.1.14:443/TCP   test/echo-bgp (https)                  nodeport-worker2
+10.244.1.15:80/TCP    test/echo-l2 (http)                    nodeport-worker1
+10.244.1.15:443/TCP   test/echo-l2 (https)                   nodeport-worker1
+10.244.1.16:80/TCP    test/echo-l2 (http)                    nodeport-worker2
+10.244.1.16:443/TCP   test/echo-l2 (https)                   nodeport-worker2
+10.244.1.17:80/TCP    test/echo-nodeipam (http)              nodeport-worker1
+10.244.1.17:443/TCP   test/echo-nodeipam (https)             nodeport-worker1
+10.244.1.18:80/TCP    test/echo-nodeipam (http)              nodeport-worker2
+10.244.1.18:443/TCP   test/echo-nodeipam (https)             nodeport-worker2
+10.244.1.19:80/TCP    test/echo-other (http)                 nodeport-worker1
+10.244.1.19:443/TCP   test/echo-other (https)                nodeport-worker1
+10.244.1.20:80/TCP    test/echo-other (http)                 nodeport-worker2
+10.244.1.20:443/TCP   test/echo-other (https)                nodeport-worker2
+
+-- lbmaps.expected --
+BE: ID=1 ADDR=10.244.1.11:80/TCP STATE=active
+BE: ID=10 ADDR=10.244.1.16:80/TCP STATE=active
+BE: ID=11 ADDR=10.244.1.15:443/TCP STATE=active
+BE: ID=12 ADDR=10.244.1.16:443/TCP STATE=active
+BE: ID=13 ADDR=10.244.1.17:80/TCP STATE=active
+BE: ID=14 ADDR=10.244.1.18:80/TCP STATE=active
+BE: ID=15 ADDR=10.244.1.17:443/TCP STATE=active
+BE: ID=16 ADDR=10.244.1.18:443/TCP STATE=active
+BE: ID=17 ADDR=10.244.1.19:80/TCP STATE=active
+BE: ID=18 ADDR=10.244.1.20:80/TCP STATE=active
+BE: ID=19 ADDR=10.244.1.19:443/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.12:80/TCP STATE=active
+BE: ID=20 ADDR=10.244.1.20:443/TCP STATE=active
+BE: ID=3 ADDR=10.244.1.11:443/TCP STATE=active
+BE: ID=4 ADDR=10.244.1.12:443/TCP STATE=active
+BE: ID=5 ADDR=10.244.1.13:80/TCP STATE=active
+BE: ID=6 ADDR=10.244.1.14:80/TCP STATE=active
+BE: ID=7 ADDR=10.244.1.13:443/TCP STATE=active
+BE: ID=8 ADDR=10.244.1.14:443/TCP STATE=active
+BE: ID=9 ADDR=10.244.1.15:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30780
+REV: ID=10 ADDR=1.1.1.1:30782
+REV: ID=11 ADDR=0.0.0.0:30783
+REV: ID=12 ADDR=1.1.1.1:30783
+REV: ID=13 ADDR=10.96.50.102:80
+REV: ID=14 ADDR=10.96.50.102:443
+REV: ID=15 ADDR=172.16.1.2:80
+REV: ID=16 ADDR=172.16.1.2:443
+REV: ID=17 ADDR=0.0.0.0:30784
+REV: ID=18 ADDR=1.1.1.1:30784
+REV: ID=19 ADDR=0.0.0.0:30785
+REV: ID=2 ADDR=1.1.1.1:30780
+REV: ID=20 ADDR=1.1.1.1:30785
+REV: ID=21 ADDR=10.96.50.103:80
+REV: ID=22 ADDR=10.96.50.103:443
+REV: ID=23 ADDR=172.16.1.3:80
+REV: ID=24 ADDR=172.16.1.3:443
+REV: ID=25 ADDR=0.0.0.0:30786
+REV: ID=26 ADDR=1.1.1.1:30786
+REV: ID=27 ADDR=0.0.0.0:30787
+REV: ID=28 ADDR=1.1.1.1:30787
+REV: ID=29 ADDR=10.96.50.104:80
+REV: ID=3 ADDR=0.0.0.0:30781
+REV: ID=30 ADDR=10.96.50.104:443
+REV: ID=31 ADDR=172.16.1.4:80
+REV: ID=32 ADDR=172.16.1.4:443
+REV: ID=33 ADDR=0.0.0.0:30788
+REV: ID=34 ADDR=1.1.1.1:30788
+REV: ID=35 ADDR=0.0.0.0:30789
+REV: ID=36 ADDR=1.1.1.1:30789
+REV: ID=37 ADDR=10.96.50.105:80
+REV: ID=38 ADDR=10.96.50.105:443
+REV: ID=39 ADDR=172.16.1.5:80
+REV: ID=4 ADDR=1.1.1.1:30781
+REV: ID=40 ADDR=172.16.1.5:443
+REV: ID=5 ADDR=10.96.50.101:80
+REV: ID=6 ADDR=10.96.50.101:443
+REV: ID=7 ADDR=172.16.1.1:80
+REV: ID=8 ADDR=172.16.1.1:443
+REV: ID=9 ADDR=0.0.0.0:30782
+SVC: ID=0 ADDR=10.96.50.101:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.96.50.102:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.96.50.103:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=172.16.1.1:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=0 ADDR=172.16.1.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=0 ADDR=172.16.1.3:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30780/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30780/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30780/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=10 ADDR=1.1.1.1:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=10 ADDR=1.1.1.1:30782/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=10 ADDR=1.1.1.1:30782/TCP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=11 ADDR=0.0.0.0:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=11 ADDR=0.0.0.0:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=11 ADDR=0.0.0.0:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=12 ADDR=1.1.1.1:30783/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=12 ADDR=1.1.1.1:30783/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=12 ADDR=1.1.1.1:30783/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=13 ADDR=10.96.50.102:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=13 ADDR=10.96.50.102:80/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=13 ADDR=10.96.50.102:80/TCP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=14 ADDR=10.96.50.102:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=14 ADDR=10.96.50.102:443/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=14 ADDR=10.96.50.102:443/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=15 ADDR=172.16.1.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=15 ADDR=172.16.1.2:80/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=15 ADDR=172.16.1.2:80/TCP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:443/TCP SLOT=1 BEID=7 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=16 ADDR=172.16.1.2:443/TCP SLOT=2 BEID=8 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=17 ADDR=0.0.0.0:30784/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=17 ADDR=0.0.0.0:30784/TCP SLOT=1 BEID=9 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=17 ADDR=0.0.0.0:30784/TCP SLOT=2 BEID=10 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=18 ADDR=1.1.1.1:30784/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=18 ADDR=1.1.1.1:30784/TCP SLOT=1 BEID=9 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=18 ADDR=1.1.1.1:30784/TCP SLOT=2 BEID=10 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=19 ADDR=0.0.0.0:30785/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=19 ADDR=0.0.0.0:30785/TCP SLOT=1 BEID=11 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=19 ADDR=0.0.0.0:30785/TCP SLOT=2 BEID=12 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=2 ADDR=1.1.1.1:30780/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30780/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=2 ADDR=1.1.1.1:30780/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=20 ADDR=1.1.1.1:30785/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=20 ADDR=1.1.1.1:30785/TCP SLOT=1 BEID=11 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=20 ADDR=1.1.1.1:30785/TCP SLOT=2 BEID=12 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=21 ADDR=10.96.50.103:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=21 ADDR=10.96.50.103:80/TCP SLOT=1 BEID=9 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=21 ADDR=10.96.50.103:80/TCP SLOT=2 BEID=10 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=22 ADDR=10.96.50.103:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=22 ADDR=10.96.50.103:443/TCP SLOT=1 BEID=11 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=22 ADDR=10.96.50.103:443/TCP SLOT=2 BEID=12 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=23 ADDR=172.16.1.3:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=23 ADDR=172.16.1.3:80/TCP SLOT=1 BEID=9 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=23 ADDR=172.16.1.3:80/TCP SLOT=2 BEID=10 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=24 ADDR=172.16.1.3:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=24 ADDR=172.16.1.3:443/TCP SLOT=1 BEID=11 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=24 ADDR=172.16.1.3:443/TCP SLOT=2 BEID=12 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=25 ADDR=0.0.0.0:30786/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=25 ADDR=0.0.0.0:30786/TCP SLOT=1 BEID=13 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=25 ADDR=0.0.0.0:30786/TCP SLOT=2 BEID=14 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=26 ADDR=1.1.1.1:30786/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=26 ADDR=1.1.1.1:30786/TCP SLOT=1 BEID=13 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=26 ADDR=1.1.1.1:30786/TCP SLOT=2 BEID=14 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=27 ADDR=0.0.0.0:30787/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=27 ADDR=0.0.0.0:30787/TCP SLOT=1 BEID=15 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=27 ADDR=0.0.0.0:30787/TCP SLOT=2 BEID=16 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=28 ADDR=1.1.1.1:30787/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=28 ADDR=1.1.1.1:30787/TCP SLOT=1 BEID=15 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=28 ADDR=1.1.1.1:30787/TCP SLOT=2 BEID=16 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=29 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=29 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=13 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=29 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=14 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=30 ADDR=10.96.50.104:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=30 ADDR=10.96.50.104:443/TCP SLOT=1 BEID=15 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=30 ADDR=10.96.50.104:443/TCP SLOT=2 BEID=16 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=31 ADDR=172.16.1.4:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=31 ADDR=172.16.1.4:80/TCP SLOT=1 BEID=13 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=31 ADDR=172.16.1.4:80/TCP SLOT=2 BEID=14 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=32 ADDR=172.16.1.4:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=32 ADDR=172.16.1.4:443/TCP SLOT=1 BEID=15 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=32 ADDR=172.16.1.4:443/TCP SLOT=2 BEID=16 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=33 ADDR=0.0.0.0:30788/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=33 ADDR=0.0.0.0:30788/TCP SLOT=1 BEID=17 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=33 ADDR=0.0.0.0:30788/TCP SLOT=2 BEID=18 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=34 ADDR=1.1.1.1:30788/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=34 ADDR=1.1.1.1:30788/TCP SLOT=1 BEID=17 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=34 ADDR=1.1.1.1:30788/TCP SLOT=2 BEID=18 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=35 ADDR=0.0.0.0:30789/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=35 ADDR=0.0.0.0:30789/TCP SLOT=1 BEID=19 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=35 ADDR=0.0.0.0:30789/TCP SLOT=2 BEID=20 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=36 ADDR=1.1.1.1:30789/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=36 ADDR=1.1.1.1:30789/TCP SLOT=1 BEID=19 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=36 ADDR=1.1.1.1:30789/TCP SLOT=2 BEID=20 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=37 ADDR=10.96.50.105:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=37 ADDR=10.96.50.105:80/TCP SLOT=1 BEID=17 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=37 ADDR=10.96.50.105:80/TCP SLOT=2 BEID=18 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=38 ADDR=10.96.50.105:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=38 ADDR=10.96.50.105:443/TCP SLOT=1 BEID=19 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=38 ADDR=10.96.50.105:443/TCP SLOT=2 BEID=20 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=39 ADDR=172.16.1.5:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=39 ADDR=172.16.1.5:80/TCP SLOT=1 BEID=17 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=39 ADDR=172.16.1.5:80/TCP SLOT=2 BEID=18 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=40 ADDR=172.16.1.5:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=40 ADDR=172.16.1.5:443/TCP SLOT=1 BEID=19 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=40 ADDR=172.16.1.5:443/TCP SLOT=2 BEID=20 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=5 ADDR=10.96.50.101:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=10.96.50.101:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=5 ADDR=10.96.50.101:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=10.96.50.101:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=10.96.50.101:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=10.96.50.101:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=7 ADDR=172.16.1.1:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=7 ADDR=172.16.1.1:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=7 ADDR=172.16.1.1:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=8 ADDR=172.16.1.1:443/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=8 ADDR=172.16.1.1:443/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=8 ADDR=172.16.1.1:443/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer
+SVC: ID=9 ADDR=0.0.0.0:30782/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=9 ADDR=0.0.0.0:30782/TCP SLOT=1 BEID=5 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=9 ADDR=0.0.0.0:30782/TCP SLOT=2 BEID=6 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+-- service-default.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo-default
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49a
+spec:
+  clusterIP: 10.96.50.101
+  clusterIPs:
+  - 10.96.50.101
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30780
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30781
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- service-bgp.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo-bgp
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.102
+  clusterIPs:
+  - 10.96.50.102
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30782
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30783
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+  loadBalancerClass: "io.cilium/bgp-control-plane"
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.2
+
+-- service-l2.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo-l2
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49c
+spec:
+  clusterIP: 10.96.50.103
+  clusterIPs:
+  - 10.96.50.103
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30784
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30785
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+  loadBalancerClass: "io.cilium/l2-announcer"
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.3
+
+-- service-nodeipam.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo-nodeipam
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49d
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30786
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30787
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+  loadBalancerClass: "io.cilium/node"
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.4
+
+-- service-other.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo-other
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49e
+spec:
+  clusterIP: 10.96.50.105
+  clusterIPs:
+  - 10.96.50.105
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30788
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    nodePort: 30789
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+  loadBalancerClass: "other"
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.5
+
+-- endpointslice-default.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-default
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-default
+  name: echo-kvlm1
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd7a
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.11
+  nodeName: nodeport-worker1
+- addresses:
+  - 10.244.1.12
+  nodeName: nodeport-worker2
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: https
+  port: 443
+  protocol: TCP
+
+-- endpointslice-bgp.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-bgp
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-bgp
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd7b
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.13
+  nodeName: nodeport-worker1
+- addresses:
+  - 10.244.1.14
+  nodeName: nodeport-worker2
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: https
+  port: 443
+  protocol: TCP
+
+-- endpointslice-l2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-l2
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-l2
+  name: echo-kvlm3
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd7c
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.15
+  nodeName: nodeport-worker1
+- addresses:
+  - 10.244.1.16
+  nodeName: nodeport-worker2
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: https
+  port: 443
+  protocol: TCP
+
+-- endpointslice-nodeipam.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-nodeipam
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-nodeipam
+  name: echo-kvlm4
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd76
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.17
+  nodeName: nodeport-worker1
+- addresses:
+  - 10.244.1.18
+  nodeName: nodeport-worker2
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: https
+  port: 443
+  protocol: TCP
+
+-- endpointslice-other.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-other
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo-other
+  name: echo-kvlm5
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd77
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.19
+  nodeName: nodeport-worker1
+- addresses:
+  - 10.244.1.20
+  nodeName: nodeport-worker2
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+- name: https
+  port: 443
+  protocol: TCP
