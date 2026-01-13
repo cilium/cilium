@@ -120,7 +120,5 @@
   encryption-strict-mode: 'true'
   key-one: 'cbc-aes-sha256'
   key-two: 'cbc-aes-sha256'
-  # no strict mode on v1.18
-  skip-upgrade: 'true'
   # L7 testing: IPsec strict mode especially critical - affects proxy traffic encryption
   test-l7: 'true'
