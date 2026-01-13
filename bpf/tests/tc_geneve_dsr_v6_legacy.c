@@ -98,7 +98,6 @@ int tc_geneve_dsr_v6_legacy_check(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u32 *status_code;
 	struct ct_entry *ct_entry;
-	struct ipv6_nat_entry *nat_entry;
 
 	union v6addr backend_ip = BACKEND_IP;
 	union v6addr client_ip  = CLIENT_IP;
@@ -107,15 +106,6 @@ int tc_geneve_dsr_v6_legacy_check(struct __ctx_buff *ctx)
 		.daddr   = client_ip,
 		.sport   = CLIENT_PORT,
 		.dport   = BACKEND_PORT,
-		.nexthdr = IPPROTO_TCP,
-		.flags   = TUPLE_F_OUT,
-	};
-
-	struct ipv6_ct_tuple expected_tuple_for_nat = {
-		.saddr   = backend_ip,
-		.daddr   = client_ip,
-		.sport   = BACKEND_PORT,
-		.dport   = CLIENT_PORT,
 		.nexthdr = IPPROTO_TCP,
 		.flags   = TUPLE_F_OUT,
 	};
@@ -136,11 +126,6 @@ int tc_geneve_dsr_v6_legacy_check(struct __ctx_buff *ctx)
 	ct_entry = map_lookup_elem(&cilium_ct6_global, &expected_tuple_for_ct);
 	if (!ct_entry)
 		test_fatal("No entry in conntrack map");
-
-	/* Verify that the datapath inserted the SNAT entry */
-	nat_entry = snat_v6_lookup(&expected_tuple_for_nat);
-	if (!nat_entry)
-		test_fatal("No entry in NAT map");
 
 	test_finish();
 }

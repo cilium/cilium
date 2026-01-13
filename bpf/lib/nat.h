@@ -590,37 +590,6 @@ snat_v4_rev_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4
 	return dport < target->min_port || dport > target->max_port;
 }
 
-/* Expects to be called with a nodeport-level CT tuple (ie. CT_EGRESS):
- * - extracted from a request packet,
- * - on CT_NEW (ie. the tuple is reversed)
- */
-static __always_inline __maybe_unused int
-snat_v4_create_dsr(const struct ipv4_ct_tuple *tuple,
-		   __be32 to_saddr, __be16 to_sport, __s8 *ext_err)
-{
-	struct ipv4_ct_tuple tmp = *tuple;
-	struct ipv4_nat_entry state = {};
-	int ret;
-
-	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
-
-	tmp.flags = TUPLE_F_OUT;
-	tmp.sport = tuple->dport;
-	tmp.dport = tuple->sport;
-
-	state.common.created = bpf_mono_now();
-	state.to_saddr = to_saddr;
-	state.to_sport = to_sport;
-
-	ret = map_update_elem(&cilium_snat_v4_external, &tmp, &state, 0);
-	if (ret) {
-		*ext_err = (__s8)ret;
-		return DROP_NAT_NO_MAPPING;
-	}
-
-	return CTX_ACT_OK;
-}
-
 static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
 					       enum nat_dir dir,
 					       struct ipv4_ct_tuple *tuple)
@@ -1681,33 +1650,6 @@ snat_v6_rev_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6
 	__u16 dport = bpf_ntohs(tuple->dport);
 
 	return dport < target->min_port || dport > target->max_port;
-}
-
-static __always_inline __maybe_unused int
-snat_v6_create_dsr(const struct ipv6_ct_tuple *tuple, union v6addr *to_saddr,
-		   __be16 to_sport, __s8 *ext_err)
-{
-	struct ipv6_ct_tuple tmp = *tuple;
-	struct ipv6_nat_entry state = {};
-	int ret;
-
-	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
-
-	tmp.flags = TUPLE_F_OUT;
-	tmp.sport = tuple->dport;
-	tmp.dport = tuple->sport;
-
-	state.common.created = bpf_mono_now();
-	ipv6_addr_copy(&state.to_saddr, to_saddr);
-	state.to_sport = to_sport;
-
-	ret = map_update_elem(&cilium_snat_v6_external, &tmp, &state, 0);
-	if (ret) {
-		*ext_err = (__s8)ret;
-		return DROP_NAT_NO_MAPPING;
-	}
-
-	return CTX_ACT_OK;
 }
 
 static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
