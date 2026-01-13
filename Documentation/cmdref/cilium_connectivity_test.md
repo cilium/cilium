@@ -42,7 +42,7 @@ cilium connectivity test [flags]
       --external-target-ipv6-capable                          External target is IPv6 capable
       --flow-validation string                                Enable Hubble flow validation { disabled | warning | strict } (default "warning")
       --force-deploy                                          Force re-deploying test artifacts
-      --frr-image string                                      Image path to use for FRR (default "quay.io/frrouting/frr:10.5.0@sha256:fc7f887ab4d8da06f481a4f8d59afded88b3c5823f03610a7e808f7eba45eeea")
+      --frr-image string                                      Image path to use for FRR (default "quay.io/frrouting/frr:10.5.1@sha256:848482643a8d6f56452b659ea68f6138472bb57414a4f295a7c4107a0416269c")
       --helm-values-secret-name string                        Secret name to store the auto-generated helm values file. The namespace is the same as where Cilium will be installed (default "cilium-cli-helm-values")
   -h, --help                                                  help for test
       --hubble                                                Automatically use Hubble for flow validation & troubleshooting (default true)
@@ -70,7 +70,7 @@ cilium connectivity test [flags]
       --secondary-network-iface string                        Secondary network iface name (e.g., to test NodePort BPF on multiple networks)
       --service-type string                                   Type of Kubernetes Services created for connectivity tests (default "NodePort")
       --single-node                                           Limit to tests able to run on a single node
-      --socat-image string                                    Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.0.3@sha256:7a52df0b80a62fc9e624bd6c6f3990a842f4632690c76d6ff351587bc8fbde2f")
+      --socat-image string                                    Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.0.3@sha256:1edb826a9432ab0b0f8c865181fc278e48b792fc80bebfa0e19205cda71bbbd1")
       --sysdump-cilium-bugtool-flags stringArray              Optional set of flags to pass to cilium-bugtool command.
       --sysdump-cilium-daemon-set-label-selector string       The labels used to target Cilium daemon set (default "k8s-app=cilium")
       --sysdump-cilium-envoy-label-selector string            The labels used to target Cilium Envoy pods (default "k8s-app=cilium-envoy")
