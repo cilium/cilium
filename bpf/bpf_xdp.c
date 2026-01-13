@@ -117,7 +117,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 			struct genevehdr geneve;
 			__sum16	udp_csum;
 			__be16 dport;
-			__u16 proto;
+			__be16 proto;
 
 			if (ip4->protocol != IPPROTO_UDP)
 				goto no_encap;
@@ -329,7 +329,7 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 static __always_inline int check_filters(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
-	__u16 proto;
+	__be16 proto;
 
 	if (!validate_ethertype(ctx, &proto))
 		return CTX_ACT_OK;

@@ -20,9 +20,9 @@ neigh_resolver_without_nh_available()
 }
 
 static __always_inline int
-add_l2_hdr(struct __ctx_buff *ctx __maybe_unused)
+add_l2_hdr(struct __ctx_buff *ctx)
 {
-	__u16 proto = ctx_get_protocol(ctx);
+	__be16 proto = ctx_get_protocol(ctx);
 
 	if (ctx_change_head(ctx, __ETH_HLEN, 0))
 		return DROP_INVALID;
