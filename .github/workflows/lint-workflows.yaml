@@ -5,8 +5,8 @@ on:
   pull_request: {}
   push:
     branches:
-      - main
-      - ft/main/**
+      - v1.19
+      - ft/v1.19/**
 
 permissions: read-all
 
