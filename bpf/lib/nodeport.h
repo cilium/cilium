@@ -817,9 +817,6 @@ create_ct:
 
 		ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
-		if (!IS_ERR(ret))
-			ret = snat_v6_create_dsr(tuple, addr, port, ext_err);
-
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -2224,10 +2221,6 @@ create_ct:
 
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, ext_err);
-		if (!IS_ERR(ret))
-			/* TODO remove this in v1.20 */
-			ret = snat_v4_create_dsr(tuple, addr, port, ext_err);
-
 		if (IS_ERR(ret))
 			return ret;
 		break;

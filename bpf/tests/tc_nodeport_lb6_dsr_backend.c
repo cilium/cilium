@@ -261,19 +261,10 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 		test_fatal("no CT entry for DSR found");
 	if (!ct_entry->dsr_internal)
 		test_fatal("CT entry doesn't have the .dsr_internal flag set");
-
-	struct ipv6_nat_entry *nat_entry;
-
-	tuple.sport = BACKEND_PORT;
-	tuple.dport = CLIENT_PORT;
-
-	nat_entry = snat_v6_lookup(&tuple);
-	if (!nat_entry)
-		test_fatal("no SNAT entry for DSR found");
-	if (!ipv6_addr_equals((union v6addr *)&nat_entry->to_saddr, &frontend_ip))
-		test_fatal("SNAT entry has wrong address");
-	if (nat_entry->to_sport != FRONTEND_PORT)
-		test_fatal("SNAT entry has wrong port");
+	if (!ipv6_addr_equals(&ct_entry->nat_addr, &frontend_ip))
+		test_fatal("CT entry has wrong RevDNAT address");
+	if (ct_entry->nat_port != FRONTEND_PORT)
+		test_fatal("CT entry has wrong RevDNAT port");
 
 	test_finish();
 }
@@ -382,41 +373,6 @@ int nodeport_dsr_backend_reply_reply_setup(struct __ctx_buff *ctx)
 
 CHECK("tc", "tc_nodeport_dsr_backend_reply")
 int nodeport_dsr_backend_reply_reply_check(const struct __ctx_buff *ctx)
-{
-	return check_reply(ctx);
-}
-
-/* Test that the backend node revDNATs a reply from the
- * DSR backend, and sends the reply back to the client.
- * Even without the NAT entry.
- */
-PKTGEN("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
-int nodeport_dsr_backend_reply2_no_nat_entry_pktgen(struct __ctx_buff *ctx)
-{
-	return build_reply(ctx);
-}
-
-SETUP("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
-int nodeport_dsr_backend_reply2_no_nat_entry_setup(struct __ctx_buff *ctx)
-{
-	struct ipv6_ct_tuple tuple = {
-		.daddr = CLIENT_IP,
-		.saddr = BACKEND_IP,
-		.dport = CLIENT_PORT,
-		.sport = BACKEND_PORT,
-		.nexthdr = IPPROTO_TCP,
-		.flags = CT_EGRESS,
-	};
-
-	/* Delete the NAT entry, fall back to the NAT info in the CT entry. */
-	if (map_delete_elem(&cilium_snat_v6_external, &tuple))
-		return TEST_ERROR;
-
-	return netdev_send_packet(ctx);
-}
-
-CHECK("tc", "tc_nodeport_dsr_backend_reply2_no_nat_entry")
-int nodeport_dsr_backend_reply2_no_nat_entry_check(const struct __ctx_buff *ctx)
 {
 	return check_reply(ctx);
 }
