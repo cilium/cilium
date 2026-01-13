@@ -245,6 +245,7 @@ func defaultLabelPrefixCfg() *labelPrefixCfg {
 		`!controller-uid`,                                               // ignore controller-uid
 		`!annotation.*`,                                                 // ignore all annotation labels
 		`!etcd_node`,                                                    // ignore etcd_node label
+		`!topology\.kubernetes\.io`,                                     // ignore all topology.kubernetes.io labels
 	}
 
 	for _, e := range expressions {

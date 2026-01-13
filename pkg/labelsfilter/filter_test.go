@@ -116,6 +116,8 @@ func TestDefaultFilterLabels(t *testing.T) {
 		"apps.kubernetes.io/pod-index":                              "0",
 		"io.cilium.k8s.policy.cluster":                              "default",
 		"io.cilium.k8s.policy.serviceaccount":                       "luke",
+		"topology.kubernetes.io/zone":                               "us-east-1-a",
+		"topology.kubernetes.io/region":                             "us-east-1",
 	}
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
 	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
