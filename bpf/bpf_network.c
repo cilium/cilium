@@ -19,7 +19,7 @@ int cil_from_network(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 
-	__u16 proto __maybe_unused;
+	__be16 proto __maybe_unused;
 	__u32 ingress_ifindex = ctx->ingress_ifindex;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
