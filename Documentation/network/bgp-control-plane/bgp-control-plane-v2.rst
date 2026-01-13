@@ -475,16 +475,16 @@ or ``.matchExpressions``.
 
 .. code-block:: yaml
 
-    ---
-    apiVersion: cilium.io/v2alpha1
+    apiVersion: cilium.io/v2
     kind: CiliumPodIPPool
     metadata:
       name: default
       labels:
         pool: blue
 
-    ---
-    apiVersion: cilium.io/v2alpha1
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2
     kind: CiliumBGPAdvertisement
     metadata:
       name: pod-ip-pool-advert

@@ -147,7 +147,7 @@ form of comments inside that file under the ``on`` section and enable the
 event type of ``pull_request``. Additionally, the following section also needs
 to be modified:
 
-   .. code-block:: yaml
+   .. code-block:: text
 
         jobs:
           check_changes:
