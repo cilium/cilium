@@ -11,6 +11,9 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	"sigs.k8s.io/yaml"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium/cilium-cli/k8s"
 )
@@ -59,6 +62,22 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Clien
 		}
 		fmt.Println(string(helmValues))
 	}
+	if !k.params.Restart {
+		fmt.Println("⚠️  You maybe need to restart Cilium pods for configmap changes to take effect")
+		return nil
+	}
+
+	if err := k.client.DeletePodCollection(ctx, k.params.Namespace,
+		metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector}); err != nil {
+		return fmt.Errorf("⚠️  unable to restart Cilium pods: %w", err)
+	}
+
+	if err := k.client.DeletePodCollection(ctx, k.params.Namespace,
+		metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.OperatorPodSelector}); err != nil {
+		return fmt.Errorf("⚠️  unable to restart Cilium Operator pods: %w", err)
+	}
+
+	fmt.Println("♻️  Force restarted Cilium pods")
 
 	return err
 }
