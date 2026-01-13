@@ -309,7 +309,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	int __maybe_unused ret;
 	__u32 __maybe_unused identity = UNKNOWN_ID;
 	__s8 __maybe_unused ext_err = 0;
-	__u16 proto = ctx_get_protocol(ctx);
+	__be16 proto = ctx_get_protocol(ctx);
 
 	ctx_skip_nodeport_clear(ctx);
 
@@ -397,8 +397,8 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 {
 	int __maybe_unused ret;
 	__s8 __maybe_unused ext_err = 0;
-	__u16 __maybe_unused proto = ctx_get_protocol(ctx);
-	__u32 __maybe_unused src_sec_identity = UNKNOWN_ID;
+	__be16 proto = ctx_get_protocol(ctx);
+	__u32 src_sec_identity = UNKNOWN_ID;
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
 	struct trace_ctx __maybe_unused trace = {

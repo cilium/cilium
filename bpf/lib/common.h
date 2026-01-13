@@ -70,7 +70,7 @@ union v4addr {
 #define THIS_IS_L3_DEV		(ETH_HLEN == 0)
 
 static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
-						      int l2_off, __u16 *proto)
+						      int l2_off, __be16 *proto)
 {
 	const __u64 tot_len = l2_off + ETH_HLEN;
 	void *data_end = ctx_data_end(ctx);
@@ -96,7 +96,7 @@ static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 }
 
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
-					       __u16 *proto)
+					       __be16 *proto)
 {
 	return validate_ethertype_l2_off(ctx, 0, proto);
 }
@@ -135,7 +135,7 @@ static __always_inline __u32 get_tunnel_id(__u32 identity)
 	return identity;
 }
 
-static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto  __maybe_unused)
+static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __be16 proto  __maybe_unused)
 {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
 	if (tunnel_id == WORLD_ID) {

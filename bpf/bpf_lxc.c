@@ -1650,7 +1650,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 __section_entry
 int cil_from_container(struct __ctx_buff *ctx)
 {
-	__u16 proto = 0;
+	__be16 proto = 0;
 	__u32 sec_label = SECLABEL;
 	__s8 ext_err = 0;
 	int ret;
@@ -2355,7 +2355,7 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__u32 sec_label = SECLABEL;
 	__s8 ext_err = 0;
-	__u16 proto;
+	__be16 proto;
 	int ret;
 
 	if (!validate_ethertype(ctx, &proto)) {
@@ -2408,7 +2408,7 @@ __section_entry
 int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 {
 #if defined(ENABLE_L7_LB)
-	__u16 proto;
+	__be16 proto;
 	int ret;
 	__u32 sec_label = SECLABEL;
 	__s8 ext_err = 0;
@@ -2465,7 +2465,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 	__u32 magic, identity = 0;
 	__u32 sec_label = SECLABEL;
 	__s8 ext_err = 0;
-	__u16 proto;
+	__be16 proto;
 	int ret;
 
 	if (!validate_ethertype(ctx, &proto)) {

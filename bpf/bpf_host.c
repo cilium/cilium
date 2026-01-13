@@ -1012,7 +1012,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 src_sec_identity,
 #endif /* ENABLE_IPV4 */
 
 static __always_inline int
-do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 identity,
+do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 	  enum trace_point obs_point,  const bool __maybe_unused from_host)
 {
 	struct trace_ctx trace = {
@@ -1327,7 +1327,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	__be16 __maybe_unused proto = 0;
+	__be16 proto = 0;
 	__u32 vlan_id;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
@@ -1668,7 +1668,7 @@ __section_entry
 int cil_to_host(struct __ctx_buff *ctx)
 {
 	__u32 magic = ctx_load_meta(ctx, CB_PROXY_MAGIC);
-	__u16 __maybe_unused proto = 0;
+	__be16 proto = 0;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,

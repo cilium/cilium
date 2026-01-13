@@ -111,7 +111,7 @@ set_ipsec_encrypt(struct __ctx_buff *ctx,
 }
 
 static __always_inline int
-do_decrypt(struct __ctx_buff *ctx, __u16 proto)
+do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 {
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
@@ -318,7 +318,7 @@ overlay_encrypt:
 }
 #else
 static __always_inline int
-do_decrypt(struct __ctx_buff __maybe_unused *ctx, __u16 __maybe_unused proto)
+do_decrypt(struct __ctx_buff __maybe_unused *ctx, __be16 __maybe_unused proto)
 {
 	return CTX_ACT_OK;
 }

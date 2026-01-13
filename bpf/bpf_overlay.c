@@ -518,7 +518,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = 0;
 	__s8 ext_err = 0;
-	__u16 proto;
+	__be16 proto;
 	int ret;
 
 	bpf_clear_meta(ctx);
@@ -632,7 +632,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	__u32 src_sec_identity = UNKNOWN_ID;
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
-	__be16 __maybe_unused proto = 0;
+	__be16 proto = 0;
 	__s8 ext_err = 0;
 
 	bpf_clear_meta(ctx);

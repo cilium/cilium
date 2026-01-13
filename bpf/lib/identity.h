@@ -243,7 +243,7 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 		*identity = HOST_ID;
 	} else {
 #if defined ENABLE_IPV4 && defined ENABLE_IPV6
-		__u16 proto = ctx_get_protocol(ctx);
+		__be16 proto = ctx_get_protocol(ctx);
 
 		if (proto == bpf_htons(ETH_P_IP))
 			*identity = WORLD_IPV4_ID;

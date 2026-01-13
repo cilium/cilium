@@ -221,7 +221,7 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
+	__be16 proto;
 	void *data;
 	void *data_end;
 
@@ -335,7 +335,7 @@ int test_nat4_icmp_error_tcp_rfc1191(__maybe_unused struct __ctx_buff *ctx)
 	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
+	__be16 proto;
 	void *data;
 	void *data_end;
 
@@ -453,7 +453,7 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
+	__be16 proto;
 	void *data;
 	void *data_end;
 
@@ -566,7 +566,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
+	__be16 proto;
 	void *data;
 	void *data_end;
 
@@ -744,7 +744,7 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
+	__be16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
@@ -863,7 +863,7 @@ int test_nat4_icmp_error_tcp_egress_rfc1191(__maybe_unused struct __ctx_buff *ct
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
+	__be16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
@@ -986,7 +986,7 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
+	__be16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
@@ -1104,7 +1104,7 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
+	__be16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
@@ -1211,7 +1211,7 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 			  l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
+	__be16 proto;
 	int l3_off;
 	struct icmphdr icmphdr __align_stack_8;
 
