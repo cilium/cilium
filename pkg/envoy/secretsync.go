@@ -12,6 +12,7 @@ import (
 	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_extensions_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -45,10 +46,10 @@ const (
 // via xDS SDS to Envoy.
 type secretSyncer struct {
 	logger         *slog.Logger
-	envoyXdsServer XDSServer
+	envoyXdsServer xds.XDSServer
 }
 
-func newSecretSyncer(logger *slog.Logger, envoyXdsServer XDSServer) *secretSyncer {
+func newSecretSyncer(logger *slog.Logger, envoyXdsServer xds.XDSServer) *secretSyncer {
 	return &secretSyncer{
 		logger:         logger,
 		envoyXdsServer: envoyXdsServer,
@@ -96,7 +97,7 @@ func (r *secretSyncer) upsertK8sSecretV1(ctx context.Context, secret *slim_corev
 		return nil
 	}
 
-	resource := Resources{
+	resource := xds.Resources{
 		Secrets: []*envoy_extensions_tls_v3.Secret{envoySecret},
 	}
 	return r.envoyXdsServer.UpsertEnvoyResources(ctx, resource)
@@ -108,7 +109,7 @@ func (r *secretSyncer) deleteK8sSecretV1(ctx context.Context, key resource.Key) 
 		return errors.New("key has empty namespace and/or name")
 	}
 
-	resource := Resources{
+	resource := xds.Resources{
 		Secrets: []*envoy_extensions_tls_v3.Secret{
 			{
 				// For deletion, only the name is required.
