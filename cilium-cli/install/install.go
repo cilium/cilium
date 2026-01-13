@@ -149,6 +149,9 @@ type Parameters struct {
 
 	// NodesWithoutCilium enables the affinities to avoid scheduling Cilium components on nodes labeled with cilium.io/no-schedule
 	NodesWithoutCilium bool
+
+	//Force restart pods after upgrade
+	Restart bool
 }
 
 func (p *Parameters) IsDryRun() bool {
