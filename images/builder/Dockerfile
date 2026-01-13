@@ -7,13 +7,30 @@ ARG COMPILERS_IMAGE=quay.io/cilium/image-compilers:1764684255-8506ae2@sha256:15e
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:066b426ce13363dbb01c1e85e80556dc81458f6d@sha256:1269022eb18c570795733b59561bc397e83de359f6b61eb10c7c4909e5197ae0
 ARG TESTER_IMAGE=quay.io/cilium/image-tester:1764657220-647ebb1@sha256:97f92a53e06be6242316f1d51ed04c7f46e0ee5503c4f086fd0f3cbdf669ddb3
 ARG GOLANG_IMAGE=docker.io/library/golang:1.25.5@sha256:6cc2338c038bc20f96ab32848da2b5c0641bb9bb5363f2c33e9b7c8838f9a208
-ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:19.1.7-1764684255-8506ae2@sha256:1e15cfb22df7acec7aa28f35fe9163aa99ff423a83ad8e6b68dee568b567ce15
 
 FROM ${COMPILERS_IMAGE} AS compilers-image
 
 FROM ${GOLANG_IMAGE} AS golang-dist
 
-FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
+FROM ${COMPILERS_IMAGE} AS llvm-builder
+
+ARG LLVM_VERSION="llvmorg-19.1.7"
+ADD https://github.com/llvm/llvm-project/archive/${LLVM_VERSION}.tar.gz /tmp/llvm.tar.gz
+WORKDIR /src/llvm
+RUN tar -xf /tmp/llvm.tar.gz --strip-components=1 --directory /src/llvm
+WORKDIR /src/llvm/llvm/build
+RUN cmake .. -G "Ninja" \
+    -DLLVM_TARGETS_TO_BUILD="BPF" \
+    -DLLVM_ENABLE_PROJECTS="clang" \
+    -DBUILD_SHARED_LIBS="OFF" \
+    -DLLVM_BUILD_STATIC="ON" \
+    -DCMAKE_CXX_FLAGS="-s -flto" \
+    -DCMAKE_BUILD_TYPE="Release" \
+    -DLLVM_BUILD_RUNTIME="OFF" \
+    -DCMAKE_INSTALL_PREFIX="/usr/local" \
+    && ninja llvm-objcopy llvm-strip \
+    && strip bin/llvm-objcopy \
+    && strip bin/llvm-strip
 
 FROM ${CILIUM_RUNTIME_IMAGE} AS rootfs
 
@@ -85,7 +102,7 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/b
     ./install-test-formatters.sh
 
 # used to facilitate the verifier tests
-COPY --from=llvm-dist /usr/local/bin/llvm-objcopy /usr/local/bin/llvm-strip /bin/
+COPY --from=llvm-builder /src/llvm/llvm/build/bin/llvm-objcopy /src/llvm/llvm/build/bin/llvm-strip /bin/
 
 # Create a cache directory with 777 so that we can run the builder image and
 # compile golang code from any UID.
