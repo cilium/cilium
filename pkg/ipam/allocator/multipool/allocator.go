@@ -16,7 +16,6 @@ import (
 
 var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-multi-pool"}
 
-// Allocator implements allocator.AllocatorProvider
 type Allocator struct {
 	poolAlloc *PoolAllocator
 	logger    *slog.Logger
