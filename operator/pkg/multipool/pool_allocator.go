@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/types"
-	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -339,7 +338,7 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 	return nil
 }
 
-func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
+func (p *PoolAllocator) AllocateToNode(nodeName string, pools *types.IPAMPoolSpec) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -348,8 +347,8 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 	// handing out the same CIDR twice.
 	var err error
 
-	allocatedSet := make(map[string]map[netip.Prefix]struct{}, len(cn.Spec.IPAM.Pools.Allocated))
-	for _, allocatedPool := range cn.Spec.IPAM.Pools.Allocated {
+	allocatedSet := make(map[string]map[netip.Prefix]struct{}, len(pools.Allocated))
+	for _, allocatedPool := range pools.Allocated {
 		allocatedSet[allocatedPool.Pool] = make(map[netip.Prefix]struct{}, len(allocatedPool.CIDRs))
 
 		for _, cidrStr := range allocatedPool.CIDRs {
@@ -361,13 +360,13 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 			}
 
 			if _, found := p.pools[allocatedPool.Pool]; found {
-				if occupyErr := p.occupyCIDR(cn.Name, allocatedPool.Pool, prefix); occupyErr != nil {
+				if occupyErr := p.occupyCIDR(nodeName, allocatedPool.Pool, prefix); occupyErr != nil {
 					err = errors.Join(err, occupyErr)
 				}
 			} else {
 				// pool cannot be found: it must be a pool deleted before the operator restarted.
 				// Mark the CIDR as orphan to preserve node allocations.
-				p.markOrphan(cn.Name, allocatedPool.Pool, prefix)
+				p.markOrphan(nodeName, allocatedPool.Pool, prefix)
 				err = errors.Join(err,
 					fmt.Errorf("unable to find pool %s, prefix %s is still allocated to the node but is marked as orphan",
 						allocatedPool.Pool, prefix))
@@ -378,15 +377,15 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 	}
 
 	// release any cidrs no longer present in allocatedPool
-	for poolName := range p.nodes[cn.Name] {
-		retainErrs := p.retainCIDRs(cn.Name, poolName, allocatedSet[poolName])
+	for poolName := range p.nodes[nodeName] {
+		retainErrs := p.retainCIDRs(nodeName, poolName, allocatedSet[poolName])
 		if retainErrs != nil {
 			err = errors.Join(err, retainErrs)
 		}
 	}
 	// release any orphan cidrs no longer present in allocatedPool
-	for poolName := range p.orphans[cn.Name] {
-		retainErrs := p.retainOrphanCIDRs(cn.Name, poolName, allocatedSet[poolName])
+	for poolName := range p.orphans[nodeName] {
+		retainErrs := p.retainOrphanCIDRs(nodeName, poolName, allocatedSet[poolName])
 		if retainErrs != nil {
 			err = errors.Join(err, retainErrs)
 		}
@@ -399,27 +398,27 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 		return ErrAllocatorNotReady
 	}
 
-	for _, reqPool := range cn.Spec.IPAM.Pools.Requested {
-		allocatedCIDRs := p.nodes[cn.Name][reqPool.Pool]
+	for _, reqPool := range pools.Requested {
+		allocatedCIDRs := p.nodes[nodeName][reqPool.Pool]
 
 		if option.Config.EnableIPv4 {
 			neededIPv4Addrs := big.NewInt(int64(reqPool.Needed.IPv4Addrs))
 			toAllocate := neededIPv4Addrs.Sub(neededIPv4Addrs, allocatedCIDRs.v4.availableAddrs())
 
-			if allocErr := p.allocateCIDRs(cn.Name, reqPool.Pool, ipam.IPv4, toAllocate); allocErr != nil {
+			if allocErr := p.allocateCIDRs(nodeName, reqPool.Pool, ipam.IPv4, toAllocate); allocErr != nil {
 				err = errors.Join(err,
 					fmt.Errorf("failed to allocate ipv4 address for node %q from pool %q: %w",
-						cn.Name, reqPool.Pool, allocErr))
+						nodeName, reqPool.Pool, allocErr))
 			}
 		}
 		if option.Config.EnableIPv6 {
 			neededIPv6Addrs := big.NewInt(int64(reqPool.Needed.IPv6Addrs))
 			toAllocate := neededIPv6Addrs.Sub(neededIPv6Addrs, allocatedCIDRs.v6.availableAddrs())
 
-			if allocErr := p.allocateCIDRs(cn.Name, reqPool.Pool, ipam.IPv6, toAllocate); allocErr != nil {
+			if allocErr := p.allocateCIDRs(nodeName, reqPool.Pool, ipam.IPv6, toAllocate); allocErr != nil {
 				err = errors.Join(err,
 					fmt.Errorf("failed to allocate ipv6 address for node %q from pool %q: %w",
-						cn.Name, reqPool.Pool, allocErr))
+						nodeName, reqPool.Pool, allocErr))
 			}
 		}
 	}
