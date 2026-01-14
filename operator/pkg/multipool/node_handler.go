@@ -10,12 +10,13 @@ import (
 	"log/slog"
 
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
@@ -28,7 +29,7 @@ type NodeHandler struct {
 	mutex  lock.Mutex
 
 	poolManager       *PoolAllocator
-	nodeUpdater       ipam.CiliumNodeGetterUpdater
+	cnClient          cilium_v2.CiliumNodeInterface
 	poolsFromResource PoolsFromResourceFunc
 
 	name string
@@ -47,13 +48,13 @@ func NewNodeHandler(
 	name string,
 	logger *slog.Logger,
 	manager *PoolAllocator,
-	nodeUpdater ipam.CiliumNodeGetterUpdater,
+	cnClient cilium_v2.CiliumNodeInterface,
 	poolsFromResource PoolsFromResourceFunc,
 ) *NodeHandler {
 	return &NodeHandler{
 		logger:                 logger,
 		poolManager:            manager,
-		nodeUpdater:            nodeUpdater,
+		cnClient:               cnClient,
 		poolsFromResource:      poolsFromResource,
 		name:                   name,
 		nodesPendingAllocation: map[string]*v2.CiliumNode{},
@@ -127,7 +128,7 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 			// If a previous run of the controller failed due to a conflict,
 			// we need to re-fetch the node to make sure we have the latest version.
 			if refetchNode {
-				resource, controllerErr = n.nodeUpdater.Get(resource.Name)
+				resource, controllerErr = n.cnClient.Get(ctx, resource.Name, metav1.GetOptions{})
 				if controllerErr != nil {
 					return controllerErr
 				}
@@ -153,7 +154,7 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 			newPools.Allocated = n.poolManager.AllocatedPools(newResource.Name)
 
 			if !newPools.DeepEqual(pools) {
-				_, err = n.nodeUpdater.Update(resource, newResource)
+				_, err = n.cnClient.Update(ctx, newResource, metav1.UpdateOptions{})
 				if err != nil {
 					controllerErr = errors.Join(controllerErr, fmt.Errorf("failed to update spec: %w", err))
 					if k8sErrors.IsConflict(err) {
@@ -163,7 +164,7 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 			}
 
 			if !newResource.Status.IPAM.OperatorStatus.DeepEqual(&resource.Status.IPAM.OperatorStatus) && !refetchNode {
-				_, err = n.nodeUpdater.UpdateStatus(resource, newResource)
+				_, err = n.cnClient.UpdateStatus(ctx, newResource, metav1.UpdateOptions{})
 				if err != nil {
 					controllerErr = errors.Join(controllerErr, fmt.Errorf("failed to update status: %w", err))
 					if k8sErrors.IsConflict(err) {

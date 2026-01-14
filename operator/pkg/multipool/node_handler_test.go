@@ -4,6 +4,7 @@
 package multipool
 
 import (
+	"context"
 	"errors"
 	"net/netip"
 	"testing"
@@ -13,50 +14,72 @@ import (
 	"github.com/stretchr/testify/assert"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 type k8sNodeMock struct {
-	OnUpdate       func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error)
-	OnUpdateStatus func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error)
-	OnGet          func(node string) (*v2.CiliumNode, error)
-	OnCreate       func(n *v2.CiliumNode) (*v2.CiliumNode, error)
+	OnUpdate       func(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error)
+	OnUpdateStatus func(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error)
+	OnGet          func(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumNode, error)
+	OnCreate       func(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.CreateOptions) (*v2.CiliumNode, error)
 }
 
-func (k *k8sNodeMock) Update(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
-	if k.OnUpdate != nil {
-		return k.OnUpdate(origNode, node)
-	}
-	panic("d.Update should not be called!")
-}
-
-func (k *k8sNodeMock) UpdateStatus(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
-	if k.OnUpdateStatus != nil {
-		return k.OnUpdateStatus(origNode, node)
-	}
-	panic("d.UpdateStatus should not be called!")
-}
-
-func (k *k8sNodeMock) Get(node string) (*v2.CiliumNode, error) {
-	if k.OnGet != nil {
-		return k.OnGet(node)
-	}
-	panic("d.Get should not be called!")
-}
-
-func (k *k8sNodeMock) Create(n *v2.CiliumNode) (*v2.CiliumNode, error) {
+func (k *k8sNodeMock) Create(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.CreateOptions) (*v2.CiliumNode, error) {
 	if k.OnCreate != nil {
-		return k.OnCreate(n)
+		return k.OnCreate(ctx, ciliumNode, opts)
 	}
-	panic("d.Create should not be called!")
+	panic("Create should not be called!")
+}
+
+func (k *k8sNodeMock) Update(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error) {
+	if k.OnUpdate != nil {
+		return k.OnUpdate(ctx, ciliumNode, opts)
+	}
+	panic("Update should not be called!")
+}
+
+func (k *k8sNodeMock) UpdateStatus(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error) {
+	if k.OnUpdateStatus != nil {
+		return k.OnUpdateStatus(ctx, ciliumNode, opts)
+	}
+	panic("UpdateStatus should not be called!")
+}
+
+func (k *k8sNodeMock) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+	panic("Delete should not be called!")
+}
+
+func (k *k8sNodeMock) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	panic("DeleteCollection should not be called!")
+}
+
+func (k *k8sNodeMock) Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumNode, error) {
+	if k.OnGet != nil {
+		return k.OnGet(ctx, name, opts)
+	}
+	panic("Get should not be called!")
+}
+
+func (k *k8sNodeMock) List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumNodeList, error) {
+	panic("List should not be called!")
+}
+
+func (k *k8sNodeMock) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	panic("Watch should not be called!")
+}
+
+func (k *k8sNodeMock) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumNode, err error) {
+	panic("Patch should not be called!")
 }
 
 type mockArgs struct {
-	oldNode *v2.CiliumNode
-	newNode *v2.CiliumNode
+	node *v2.CiliumNode
 }
 
 type mockResult struct {
@@ -82,18 +105,18 @@ func TestNodeHandler(t *testing.T) {
 	onGetArgs := make(chan string)
 	onGetResult := make(chan mockResult)
 	nodeUpdater := &k8sNodeMock{
-		OnUpdate: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
-			onUpdateArgs <- mockArgs{oldNode, newNode}
+		OnUpdate: func(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error) {
+			onUpdateArgs <- mockArgs{ciliumNode}
 			r := <-onUpdateResult
 			return r.node, r.err
 		},
-		OnUpdateStatus: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
-			onUpdateStatusArgs <- mockArgs{oldNode, newNode}
+		OnUpdateStatus: func(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error) {
+			onUpdateStatusArgs <- mockArgs{ciliumNode}
 			r := <-onUpdateStatusResult
 			return r.node, r.err
 		},
-		OnGet: func(node string) (*v2.CiliumNode, error) {
-			onGetArgs <- node
+		OnGet: func(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumNode, error) {
+			onGetArgs <- name
 			r := <-onGetResult
 			return r.node, r.err
 		},
@@ -130,10 +153,10 @@ func TestNodeHandler(t *testing.T) {
 	nh.Resync(t.Context(), time.Time{})
 
 	node1Update := <-onUpdateArgs
-	assert.Equal(t, "node1", node1Update.newNode.Name)
-	assert.Len(t, node1Update.newNode.Spec.IPAM.Pools.Allocated, 1)
-	assert.Equal(t, "default", node1Update.newNode.Spec.IPAM.Pools.Allocated[0].Pool)
-	onUpdateResult <- mockResult{node: node1Update.newNode}
+	assert.Equal(t, "node1", node1Update.node.Name)
+	assert.Len(t, node1Update.node.Spec.IPAM.Pools.Allocated, 1)
+	assert.Equal(t, "default", node1Update.node.Spec.IPAM.Pools.Allocated[0].Pool)
+	onUpdateResult <- mockResult{node: node1Update.node}
 
 	// Tests: Attempt to occupy already in-use CIDR from node1
 	nh.Upsert(&v2.CiliumNode{
@@ -149,28 +172,28 @@ func TestNodeHandler(t *testing.T) {
 							Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 16},
 						},
 					},
-					Allocated: node1Update.newNode.Spec.IPAM.Pools.Allocated,
+					Allocated: node1Update.node.Spec.IPAM.Pools.Allocated,
 				},
 			},
 		},
 	})
 	node2Update := <-onUpdateArgs
-	assert.Equal(t, "node2", node2Update.newNode.Name)
-	assert.Len(t, node2Update.newNode.Spec.IPAM.Pools.Allocated, 1)
-	assert.Equal(t, "default", node2Update.newNode.Spec.IPAM.Pools.Allocated[0].Pool)
-	assert.NotEqual(t, node1Update.newNode.Spec.IPAM.Pools.Allocated[0], node2Update.newNode.Spec.IPAM.Pools.Allocated[0].Pool)
-	onUpdateResult <- mockResult{node: node2Update.newNode}
+	assert.Equal(t, "node2", node2Update.node.Name)
+	assert.Len(t, node2Update.node.Spec.IPAM.Pools.Allocated, 1)
+	assert.Equal(t, "default", node2Update.node.Spec.IPAM.Pools.Allocated[0].Pool)
+	assert.NotEqual(t, node1Update.node.Spec.IPAM.Pools.Allocated[0], node2Update.node.Spec.IPAM.Pools.Allocated[0].Pool)
+	onUpdateResult <- mockResult{node: node2Update.node}
 
 	node2UpdateStatus := <-onUpdateStatusArgs
-	assert.Equal(t, "node2", node2UpdateStatus.newNode.Name)
-	assert.Contains(t, node2Update.newNode.Status.IPAM.OperatorStatus.Error, "unable to reuse from pool default")
-	onUpdateStatusResult <- mockResult{node: node2Update.newNode}
+	assert.Equal(t, "node2", node2UpdateStatus.node.Name)
+	assert.Contains(t, node2Update.node.Status.IPAM.OperatorStatus.Error, "unable to reuse from pool default")
+	onUpdateStatusResult <- mockResult{node: node2Update.node}
 
 	// wait for the controller to retry, this time we reject the update with a conflict error
 	node2Update = <-onUpdateArgs
-	assert.Equal(t, "node2", node2Update.newNode.Name)
-	assert.Len(t, node2Update.newNode.Spec.IPAM.Pools.Allocated, 1)
-	assert.Equal(t, "default", node2Update.newNode.Spec.IPAM.Pools.Allocated[0].Pool)
+	assert.Equal(t, "node2", node2Update.node.Name)
+	assert.Len(t, node2Update.node.Spec.IPAM.Pools.Allocated, 1)
+	assert.Equal(t, "default", node2Update.node.Spec.IPAM.Pools.Allocated[0].Pool)
 	ciliumNodeSchema := schema.GroupResource{Group: v2.CustomResourceDefinitionGroup, Resource: v2.CNKindDefinition}
 	conflictErr := k8sErrors.NewConflict(ciliumNodeSchema, "node2", errors.New("update refused by unit test"))
 	onUpdateResult <- mockResult{err: conflictErr}
@@ -210,15 +233,15 @@ func TestNodeHandler(t *testing.T) {
 	onGetResult <- mockResult{node: updatedNode2}
 
 	node2Update = <-onUpdateArgs
-	assert.Equal(t, "node2", node2Update.newNode.Name)
-	assert.Len(t, node2Update.newNode.Spec.IPAM.Pools.Allocated, 1)
-	assert.Equal(t, "default", node2Update.newNode.Spec.IPAM.Pools.Allocated[0].Pool)
-	assert.NotEqual(t, node1Update.newNode.Spec.IPAM.Pools.Allocated[0], node2Update.newNode.Spec.IPAM.Pools.Allocated[0].Pool)
-	assert.Equal(t, "test-value", node2Update.newNode.Annotations["test-annotation"])
-	onUpdateResult <- mockResult{node: node2Update.newNode}
+	assert.Equal(t, "node2", node2Update.node.Name)
+	assert.Len(t, node2Update.node.Spec.IPAM.Pools.Allocated, 1)
+	assert.Equal(t, "default", node2Update.node.Spec.IPAM.Pools.Allocated[0].Pool)
+	assert.NotEqual(t, node1Update.node.Spec.IPAM.Pools.Allocated[0], node2Update.node.Spec.IPAM.Pools.Allocated[0].Pool)
+	assert.Equal(t, "test-value", node2Update.node.Annotations["test-annotation"])
+	onUpdateResult <- mockResult{node: node2Update.node}
 
-	nh.Delete(node1Update.newNode)
-	nh.Delete(node2Update.newNode)
+	nh.Delete(node1Update.node)
+	nh.Delete(node2Update.node)
 }
 
 func TestOrphanCIDRsAfterRestart(t *testing.T) {
@@ -230,12 +253,12 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	onUpdateStatusResult := make(chan mockResult)
 
 	nodeUpdater := &k8sNodeMock{
-		OnUpdate: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
-			onUpdateArgs <- mockArgs{oldNode, newNode}
+		OnUpdate: func(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error) {
+			onUpdateArgs <- mockArgs{ciliumNode}
 			return nil, nil
 		},
-		OnUpdateStatus: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
-			onUpdateStatusArgs <- mockArgs{oldNode, newNode}
+		OnUpdateStatus: func(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error) {
+			onUpdateStatusArgs <- mockArgs{ciliumNode}
 			r := <-onUpdateStatusResult
 			return r.node, r.err
 		},
@@ -303,9 +326,9 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 
 	// Node should not be updated, since all allocated CIDRs are orphan
 	nodeUpdateStatus := <-onUpdateStatusArgs
-	assert.Equal(t, "node", nodeUpdateStatus.newNode.Name)
-	assert.Contains(t, nodeUpdateStatus.newNode.Status.IPAM.OperatorStatus.Error, "cannot allocate from non-existing pool: test-pool")
-	onUpdateStatusResult <- mockResult{node: nodeUpdateStatus.newNode}
+	assert.Equal(t, "node", nodeUpdateStatus.node.Name)
+	assert.Contains(t, nodeUpdateStatus.node.Status.IPAM.OperatorStatus.Error, "cannot allocate from non-existing pool: test-pool")
+	onUpdateStatusResult <- mockResult{node: nodeUpdateStatus.node}
 
 	select {
 	case <-onUpdateArgs:
@@ -319,9 +342,9 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	nh.Upsert(node2)
 
 	nodeUpdate2Status := <-onUpdateStatusArgs
-	assert.Equal(t, "node", nodeUpdate2Status.newNode.Name)
-	assert.Contains(t, nodeUpdate2Status.newNode.Status.IPAM.OperatorStatus.Error, "cannot allocate from non-existing pool: test-pool")
-	onUpdateStatusResult <- mockResult{node: nodeUpdate2Status.newNode}
+	assert.Equal(t, "node", nodeUpdate2Status.node.Name)
+	assert.Contains(t, nodeUpdate2Status.node.Status.IPAM.OperatorStatus.Error, "cannot allocate from non-existing pool: test-pool")
+	onUpdateStatusResult <- mockResult{node: nodeUpdate2Status.node}
 
 	select {
 	case <-onUpdateArgs:
@@ -358,8 +381,8 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 	onUpdateArgs := make(chan mockArgs)
 	onUpdateResult := make(chan mockResult)
 	nodeUpdater := &k8sNodeMock{
-		OnUpdate: func(oldNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
-			onUpdateArgs <- mockArgs{oldNode, newNode}
+		OnUpdate: func(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error) {
+			onUpdateArgs <- mockArgs{ciliumNode}
 			r := <-onUpdateResult
 			return r.node, r.err
 		},
@@ -392,13 +415,13 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 
 	// CIDRs from test-pool should be allocated to node
 	nodeUpdate := <-onUpdateArgs
-	assert.Equal(t, node.Name, nodeUpdate.newNode.Name)
-	assert.Len(t, nodeUpdate.newNode.Spec.IPAM.Pools.Allocated, 1)
-	assert.Equal(t, "test-pool", nodeUpdate.newNode.Spec.IPAM.Pools.Allocated[0].Pool)
+	assert.Equal(t, node.Name, nodeUpdate.node.Name)
+	assert.Len(t, nodeUpdate.node.Spec.IPAM.Pools.Allocated, 1)
+	assert.Equal(t, "test-pool", nodeUpdate.node.Spec.IPAM.Pools.Allocated[0].Pool)
 	assert.ElementsMatch(t, []ipamTypes.IPAMPodCIDR{
 		"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28",
-	}, nodeUpdate.newNode.Spec.IPAM.Pools.Allocated[0].CIDRs)
-	onUpdateResult <- mockResult{node: nodeUpdate.newNode}
+	}, nodeUpdate.node.Spec.IPAM.Pools.Allocated[0].CIDRs)
+	onUpdateResult <- mockResult{node: nodeUpdate.node}
 
 	assert.Equal(t, cidrSet{
 		netip.MustParsePrefix("10.0.0.0/28"):  {},
