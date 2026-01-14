@@ -111,7 +111,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.image`
      - SPIRE agent image
      - object
-     - ``{"digest":"sha256:5106ac601272a88684db14daf7f54b9a45f31f77bb16a906bd5e87756ee7b97c","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.9.6","useDigest":true}``
+     - ``{"digest":"sha256:77bb87d2c8bfdce4072863a904edfd5af30021a866540c8c0e891c5ba238b16e","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.14.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.labels`
      - SPIRE agent labels
      - object
@@ -199,7 +199,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.server.image`
      - SPIRE server image
      - object
-     - ``{"digest":"sha256:59a0b92b39773515e25e68a46c40d3b931b9c1860bc445a79ceb45a805cab8b4","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.9.6","useDigest":true}``
+     - ``{"digest":"sha256:c0f0aefa9924c4ffdc5a295391a612d88be9270df972869abc6b9d024d507832","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.14.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.initContainers`
      - SPIRE server init containers
      - list
