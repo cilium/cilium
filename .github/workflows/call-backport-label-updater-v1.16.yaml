@@ -2,13 +2,10 @@
   name: Call Backport Label Updater
   on:
     pull_request_target:
+      branches:
+        - v1.16
       types:
         - closed
-      branches:
-        - v[0-9]+.[0-9]+*
-        - '!v1.18'
-        - '!v1.17'
-        - '!v1.16'
 
   jobs:
     call-backport-label-updater:
