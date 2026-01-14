@@ -192,7 +192,7 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 
 	logger.Debug("Loading Collection into kernel",
 		logfields.MapRenames, opts.MapRenames,
-		logfields.Constants, fmt.Sprintf("%#v", opts.Constants),
+		logfields.Constants, printConstants(opts.Constants),
 	)
 
 	// Copy spec so the modifications below don't affect the input parameter,
