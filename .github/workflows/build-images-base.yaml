@@ -74,6 +74,8 @@ jobs:
           cp ./api/v1/Makefile ../cilium-base-branch/api/v1/
           cp ./Makefile.defs ../cilium-base-branch/Makefile.defs
           cp ./Makefile.quiet ../cilium-base-branch/Makefile.quiet
+          mkdir -p ../cilium-base-branch/.github/actions
+          cp -r .github/actions/cosign ../cilium-base-branch/.github/actions/
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
@@ -136,7 +138,7 @@ jobs:
 
       - name: Generate SBOM, Sign, and Attest Runtime Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: ./.github/actions/cosign
+        uses: ./../cilium-base-branch/.github/actions/cosign
         with:
           image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}"
           image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}"
@@ -214,7 +216,7 @@ jobs:
 
       - name: Generate SBOM, Sign, and Attest Builder Image
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: ./.github/actions/cosign
+        uses: ./../cilium-base-branch/.github/actions/cosign
         with:
           image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}"
           image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}"
