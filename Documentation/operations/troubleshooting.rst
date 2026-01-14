@@ -790,6 +790,8 @@ Troubleshooting steps:
 
    If packets are being dropped,
 
+   * verify that the node IP listed in ``cilium-dbg bpf ipcache list`` can reach
+     each other.
    * verify that the firewall on each node allows UDP port 8472.
 
    When running in :ref:`arch_direct_routing` mode:
