@@ -184,6 +184,9 @@ type LocalNodeConfiguration struct {
 	// EncryptNode enables encrypting NodeIP traffic
 	EncryptNode bool
 
+	// Enable per flow (conntrack) statistics
+	EnableConntrackAccounting bool
+
 	// IPv4PodSubnets is a list of IPv4 subnets that pod IPs are assigned from
 	// these are then used when encryption is enabled to configure the node
 	// for encryption over these subnets at node initialization.
