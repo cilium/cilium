@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/stream"
 	"github.com/spf13/pflag"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -30,6 +31,7 @@ var Cell = cell.Module(
 	cell.Provide(newPolicyRepo),
 	cell.Provide(newPolicyUpdater),
 	cell.Provide(newPolicyImporter),
+	cell.Provide(newPolicyCacheOut),
 	cell.Provide(newIdentityUpdater),
 	cell.Provide(newIPCacher),
 	cell.Config(defaultConfig),
@@ -100,6 +102,10 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 	})
 
 	return policyRepo
+}
+
+func newPolicyCacheOut(r policy.PolicyRepository) stream.Observable[policy.PolicyCacheChange] {
+	return r.PolicyCacheObservable()
 }
 
 type policyUpdaterParams struct {
