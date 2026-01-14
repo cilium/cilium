@@ -57,6 +57,7 @@ type ciliumHealthManager struct {
 	healthSpec       *healthApi.Spec
 	sysctl           sysctl.Sysctl
 	loader           datapath.Loader
+	connectorConfig  datapath.ConnectorConfig
 	mtuConfig        mtu.MTU
 	bigTCPConfig     *bigtcp.Configuration
 	endpointCreator  endpointcreator.EndpointCreator
@@ -81,6 +82,7 @@ type ciliumHealthParams struct {
 	HealthSpec             *healthApi.Spec
 	Sysctl                 sysctl.Sysctl
 	Loader                 datapath.Loader
+	ConnectorConfig        datapath.ConnectorConfig
 	MtuConfig              mtu.MTU
 	BigTCPConfig           *bigtcp.Configuration
 	EndpointCreator        endpointcreator.EndpointCreator
@@ -100,6 +102,7 @@ func newCiliumHealthManager(params ciliumHealthParams) CiliumHealthManager {
 		healthSpec:       params.HealthSpec,
 		sysctl:           params.Sysctl,
 		loader:           params.Loader,
+		connectorConfig:  params.ConnectorConfig,
 		mtuConfig:        params.MtuConfig,
 		bigTCPConfig:     params.BigTCPConfig,
 		endpointCreator:  params.EndpointCreator,

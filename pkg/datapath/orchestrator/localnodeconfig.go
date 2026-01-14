@@ -60,6 +60,7 @@ func newLocalNodeConfig(
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgAgent wgTypes.WireguardAgent,
 	ipsecCfg datapath.IPsecConfig,
+	connectorConfig datapath.ConnectorConfig,
 ) (datapath.LocalNodeConfiguration, <-chan struct{}, error) {
 	auxPrefixes := []*cidr.CIDR{}
 
@@ -149,6 +150,8 @@ func newLocalNodeConfig(
 		KPRConfig:                    kprCfg,
 		SvcRouteConfig:               svcCfg,
 		MaglevConfig:                 maglevConfig,
+		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
+		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 	}, common.MergeChannels(watchChans...), nil
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 )
@@ -20,7 +21,7 @@ import (
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the temporary link, the name of the temporary link
 // and error if something fails.
-func SetupNetkit(defaultLogger *slog.Logger, id string, cfg LinkConfig, l2Mode bool, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, string, error) {
+func SetupNetkit(defaultLogger *slog.Logger, id string, cfg types.LinkConfig, l2Mode bool, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, string, error) {
 	if id == "" {
 		return nil, nil, "", fmt.Errorf("invalid: empty ID")
 	}
@@ -35,7 +36,7 @@ func SetupNetkit(defaultLogger *slog.Logger, id string, cfg LinkConfig, l2Mode b
 // SetupNetkitWithNames sets up the net interface, the peer interface and fills up some
 // endpoint fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the
 // created netkit, a pointer for the peer link and error if something fails.
-func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg LinkConfig, l2Mode bool, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
+func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string, cfg types.LinkConfig, l2Mode bool, sysctl sysctl.Sysctl) (*netlink.Netkit, netlink.Link, error) {
 	logger := defaultLogger.With(logfields.LogSubsys, "endpoint-connector")
 	var epHostMAC, epLXCMAC mac.MAC
 	var err error
@@ -133,7 +134,7 @@ func SetupNetkitWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName stri
 
 // validateNetkitPair queries the kernel for a copy of the underlying device attributes
 // for both the lxc host interface and the peer interface.
-func validateNetkitPair(logger *slog.Logger, lxcIfName string, peerIfName string, cfg LinkConfig) (netlink.Link, error) {
+func validateNetkitPair(logger *slog.Logger, lxcIfName string, peerIfName string, cfg types.LinkConfig) (netlink.Link, error) {
 	// Query the kernel for the host link attributes, so we can verify the kernel
 	// has applied the configuration we expected.
 	hostLink, err := safenetlink.LinkByName(lxcIfName)
