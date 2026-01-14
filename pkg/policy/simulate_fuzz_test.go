@@ -26,11 +26,11 @@ import (
 func FuzzDistillPolicy(f *testing.F) {
 	debug := true
 
-	logger := hivetest.Logger(f)
-	td := newTestData(f, logger).withIDs(ruleTestIDs)
-	flows := makeFlows()
-
 	f.Fuzz(func(t *testing.T, inp []byte) {
+		logger := hivetest.Logger(t)
+		td := newTestData(t, logger).withIDs(ruleTestIDs)
+		flows := makeFlows()
+
 		if len(inp) < 2 {
 			return
 		}
@@ -71,7 +71,7 @@ func FuzzDistillPolicy(f *testing.F) {
 			// simulate policy iteratively
 			simulateVerdict, _, _ := testutils.IteratePolicy(entries, flow)
 
-			require.Equal(t, egressEntry.IsAllow(), simulateVerdict.Egress == types.DecisionAllowed, "Flow verdict mismatch %s -> %s (%d) port %d", flow.From.Labels["name"].Value, flow.To.Labels["name"].Value, flow.To.ID, flow.Dport)
+			require.Equal(t, simulateVerdict.Egress == types.DecisionAllowed, egressEntry.IsAllow(), "Flow verdict mismatch %s -> %s (%d) port %d", flow.From.Labels["name"].Value, flow.To.Labels["name"].Value, flow.To.ID, flow.Dport)
 		}
 	})
 }
