@@ -1738,7 +1738,6 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	/* Do not SNAT if this is a localhost endpoint or
 	 * endpoint explicitly disallows it (normally multi-pool IPAM endpoints)
 	 */
-	 /*if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V6))*/
 	if (local_ep && (local_ep->flags & ENDPOINT_MASK_SKIP_MASQ_V6))
 		return NAT_PUNT_TO_STACK;
 
