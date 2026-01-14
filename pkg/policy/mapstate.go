@@ -788,7 +788,7 @@ func (e *mapStateEntry) InheritPassPrecedence(passEntry mapStateEntry) {
 //
 // Incremental changes performed are recorded in 'changes'.
 func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Key, newEntry mapStateEntry, features policyFeatures, changes ChangeState) {
-	if tierPrecedence&0xff != 0xff {
+	if tierPrecedence&0xff != 0 {
 		ms.logger.Error(
 			"invalid tierPrecedence",
 			logfields.Stacktrace, hclog.Stacktrace(),
