@@ -11,13 +11,17 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(4) {
+		for permutation := range permute(5) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
 			cfg.AllowICMPFragNeeded = permutation[1]
 			cfg.EnableICMPRule = permutation[2]
 			cfg.EnableLRP = permutation[3]
+
+			// only one of the enable_arp_* options must be true.
+			cfg.EnableArpPassthrough = permutation[4]
+			cfg.EnableArpResponder = !cfg.EnableArpPassthrough
 
 			if !yield(cfg) {
 				return

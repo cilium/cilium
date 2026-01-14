@@ -56,5 +56,11 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	if option.Config.DatapathMode != datapathOption.DatapathModeNetkit {
+		// only one of the enable_arp_* options must be true.
+		cfg.EnableArpPassthrough = ep.RequireARPPassthrough()
+		cfg.EnableArpResponder = !ep.RequireARPPassthrough()
+	}
+
 	return cfg
 }
