@@ -122,6 +122,8 @@ spec:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
           volumeMounts:
+          - name: tmp-volume
+            mountPath: /tmp
           - name: config
             mountPath: /etc/hubble-relay
             readOnly: true
@@ -164,6 +166,9 @@ spec:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
       volumes:
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 256Mi
       - name: config
         configMap:
           name: hubble-relay-config
