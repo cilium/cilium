@@ -4,17 +4,22 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/cilium/stream"
 )
 
 // policyCache represents a cache of resolved policies for identities.
 type policyCache struct {
 	lock.Mutex
+	// Used to implement the stream.Observable interface.
+	stream.Observable[PolicyCacheChange]
 
 	// repo is a circular reference back to the Repository, but as
 	// we create only one Repository and one PolicyCache for each
@@ -22,13 +27,21 @@ type policyCache struct {
 	// collected.
 	repo     *Repository
 	policies map[identityPkg.NumericIdentity]*cachedSelectorPolicy
+
+	// emitChange is used with the observable embedded in this struct.
+	emitChange func(PolicyCacheChange)
 }
 
 // newPolicyCache creates a new cache of SelectorPolicy.
 func newPolicyCache(repo *Repository, idmgr identitymanager.IDManager) *policyCache {
+	mcast, emit, _ := stream.Multicast[PolicyCacheChange]()
 	cache := &policyCache{
+		Observable: mcast,
+
 		repo:     repo,
 		policies: make(map[identityPkg.NumericIdentity]*cachedSelectorPolicy),
+
+		emitChange: emit,
 	}
 	if idmgr != nil {
 		idmgr.Subscribe(cache)
@@ -77,6 +90,7 @@ func (cache *policyCache) insert(identity *identityPkg.Identity) *cachedSelector
 		cip = newCachedSelectorPolicy(identity)
 		cache.policies[identity.ID] = cip
 	}
+	cache.emitChange(PolicyCacheChange{Kind: PolicyChangeInsert, ID: identity.ID})
 	return cip
 }
 
@@ -94,6 +108,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 			selPolicy.detach(true, 0)
 		}
 	}
+	cache.emitChange(PolicyCacheChange{Kind: PolicyChangeDelete, ID: identity.ID})
 	return ok
 }
 
@@ -153,6 +168,45 @@ func (cache *policyCache) LocalEndpointIdentityAdded(identity *identityPkg.Ident
 // specified Identity.
 func (cache *policyCache) LocalEndpointIdentityRemoved(identity *identityPkg.Identity) {
 	cache.delete(identity)
+}
+
+// Implements stream.Observable. Replays initial state as a sequence of adds.
+func (cache *policyCache) Observe(ctx context.Context, next func(PolicyCacheChange), complete func(error)) {
+	cache.Lock()
+	defer cache.Unlock()
+
+	for id := range cache.policies {
+		select {
+		case <-ctx.Done():
+			complete(ctx.Err())
+			return
+		default:
+		}
+		next(PolicyCacheChange{Kind: PolicyChangeInsert, ID: id})
+	}
+
+	select {
+	case <-ctx.Done():
+		complete(ctx.Err())
+		return
+	default:
+	}
+	next(PolicyCacheChange{Kind: PolicyChangeSync})
+
+	cache.Observable.Observe(ctx, next, complete)
+}
+
+type PolicyChangeKind string
+
+const (
+	PolicyChangeSync   PolicyChangeKind = "sync"
+	PolicyChangeInsert PolicyChangeKind = "Insert"
+	PolicyChangeDelete PolicyChangeKind = "delete"
+)
+
+type PolicyCacheChange struct {
+	Kind PolicyChangeKind
+	ID   identityPkg.NumericIdentity
 }
 
 // getAuthTypes returns the AuthTypes required by the policy between the localID and remoteID, if

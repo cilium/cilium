@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/cilium/stream"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -57,6 +58,8 @@ type PolicyRepository interface {
 	Iterate(f func(rule *types.PolicyEntry))
 	ReplaceByResource(rules types.PolicyEntries, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	Search() (types.PolicyEntries, uint64)
+
+	PolicyCacheObservable() stream.Observable[PolicyCacheChange]
 }
 
 type GetPolicyStatistics interface {
@@ -609,4 +612,8 @@ func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPo
 	defer p.mutex.RUnlock()
 
 	return p.policyCache.GetPolicySnapshot()
+}
+
+func (p *Repository) PolicyCacheObservable() stream.Observable[PolicyCacheChange] {
+	return p.policyCache
 }
