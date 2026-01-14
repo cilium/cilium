@@ -5,6 +5,9 @@ package bpf
 
 import (
 	"fmt"
+	"iter"
+	"reflect"
+	"strings"
 
 	"github.com/cilium/ebpf"
 
@@ -41,4 +44,41 @@ func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
 	}
 
 	return nil
+}
+
+// iterAny returns a sequence that yields the elements of the given object if it
+// is a slice, or the object itself otherwise. Nil values are never yielded.
+func iterAny(obj any) iter.Seq[any] {
+	return func(yield func(any) bool) {
+		if obj == nil {
+			return
+		}
+
+		if reflect.TypeOf(obj).Kind() != reflect.Slice {
+			yield(obj)
+			return
+		}
+
+		rv := reflect.ValueOf(obj)
+		for i := 0; i < rv.Len(); i++ {
+			v := rv.Index(i)
+			if v.IsNil() {
+				continue
+			}
+			if !yield(v.Interface()) {
+				return
+			}
+		}
+	}
+}
+
+// printConstants returns a string representation of a given consts object for
+// logging purposes. Since the input can be a slice of objects, they need to be
+// printed separately for struct field names to show up using %#v.
+func printConstants(objs any) string {
+	var frags []string
+	for obj := range iterAny(objs) {
+		frags = append(frags, fmt.Sprintf("%#v", obj))
+	}
+	return "[" + strings.Join(frags, ", ") + "]"
 }
