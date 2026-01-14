@@ -648,7 +648,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 	// Only merge if both old and new have the same precedence
 	// (ignoring any difference in the proxy port precedence)
 	// Pass entries are always overridden without merging the MapStateEntries,
-	if exists && oldEntry.IsPassEntry() {
+	if exists {
 		// Do nothing if entries are equal
 		if entry.Equal(&oldEntry) {
 			return false // nothing to do
@@ -661,57 +661,30 @@ func (ms *mapState) addKeyWithChanges(key Key, entry mapStateEntry, changes Chan
 		// place!
 		datapathEqual = oldEntry.MapStateEntry == entry.MapStateEntry
 
-		// keep the highest pass precedence
+		// keep the highest pass precedence (0 == not a pass entry)
 		if entry.passPrecedence > oldEntry.passPrecedence {
 			oldEntry.passPrecedence = entry.passPrecedence
 			oldEntry.nextTierPrecedence = entry.nextTierPrecedence
 		}
 
 		// Figure out which MapStateEntry to keep
-		if entry.IsValid() {
-			if oldEntry.IsValid() {
-				// both are valid, choose the one with higher precedence, or merge if equal
-				if oldEntry.Precedence < entry.Precedence {
-					oldEntry.MapStateEntry = entry.MapStateEntry
-				} else if oldEntry.Precedence == entry.Precedence {
-					oldEntry.MapStateEntry.Merge(entry.MapStateEntry)
-				}
-			} else {
+		if !oldEntry.IsValid() {
+			oldEntry.MapStateEntry = entry.MapStateEntry
+		} else if entry.IsValid() {
+			// both are valid
+			if oldEntry.Precedence.ProxyPortPrecedenceMayDiffer(entry.Precedence) {
+				oldEntry.MapStateEntry.Merge(entry.MapStateEntry)
+			} else if oldEntry.Precedence < entry.Precedence {
 				oldEntry.MapStateEntry = entry.MapStateEntry
 			}
 		}
-		oldEntry.derivedFromRules = oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
-		ms.updateExisting(key, oldEntry)
-	} else if exists && oldEntry.Precedence.ProxyPortPrecedenceMayDiffer(entry.Precedence) {
-		// Do nothing if entries are equal
-		if entry.Equal(&oldEntry) {
-			return false // nothing to do
-		}
 
-		// Save old value before any changes, if desired
-		changes.insertOldIfNotExists(key, oldEntry)
-
-		// Compare for datapath equalness before merging, as the old entry is updated in
-		// place!
-		datapathEqual = oldEntry.MapStateEntry == entry.MapStateEntry
-
-		oldEntry.MapStateEntry.Merge(entry.MapStateEntry)
 		oldEntry.derivedFromRules = oldEntry.derivedFromRules.Merge(entry.derivedFromRules)
 
 		ms.updateExisting(key, oldEntry)
-	} else if !exists || entry.Precedence > oldEntry.Precedence {
-		// Insert a new entry if one did not exist or if the new entry is of
-		// a higher precedence.
-		// Save old value before any changes, if any
-		if exists {
-			changes.insertOldIfNotExists(key, oldEntry)
-		}
-
+	} else {
 		// Callers already have cloned the containers, no need to do it again here
 		ms.insert(key, entry)
-	} else {
-		// Do not record and incremental add if nothing was done
-		return false
 	}
 
 	// Record an incremental Add if desired and entry is new or changed
