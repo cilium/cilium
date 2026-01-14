@@ -360,21 +360,6 @@
       ]
     },
     {
-      "matchFileNames": [
-        "install/kubernetes/Makefile.values"
-      ],
-      "matchPackageNames": [
-        "ghcr.io/spiffe/spire-agent",
-        "ghcr.io/spiffe/spire-server"
-      ],
-      "matchBaseBranches": [
-        "main"
-      ],
-      // We need to manually fix some regressions caused by spire, thus we won't
-      // be upgrading to 1.10 until we fix it.
-      "allowedVersions": "<1.10"
-    },
-    {
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
