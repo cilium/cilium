@@ -61,8 +61,12 @@ func (idm *IdentityManager) Add(identity *identity.Identity) {
 	)
 
 	idm.mutex.Lock()
-	defer idm.mutex.Unlock()
 	idm.add(identity)
+	idm.mutex.Unlock()
+
+	for o := range idm.observers {
+		o.LocalEndpointIdentityAdded(identity)
+	}
 }
 
 func (idm *IdentityManager) add(identity *identity.Identity) {
@@ -76,10 +80,6 @@ func (idm *IdentityManager) add(identity *identity.Identity) {
 			identity: identity,
 			refCount: 1,
 		}
-		for o := range idm.observers {
-			o.LocalEndpointIdentityAdded(identity)
-		}
-
 	} else {
 		idMeta.refCount++
 	}
@@ -133,8 +133,12 @@ func (idm *IdentityManager) Remove(identity *identity.Identity) {
 	)
 
 	idm.mutex.Lock()
-	defer idm.mutex.Unlock()
 	idm.remove(identity)
+	idm.mutex.Unlock()
+
+	for o := range idm.observers {
+		o.LocalEndpointIdentityRemoved(identity)
+	}
 }
 
 func (idm *IdentityManager) remove(identity *identity.Identity) {
@@ -153,11 +157,7 @@ func (idm *IdentityManager) remove(identity *identity.Identity) {
 	idMeta.refCount--
 	if idMeta.refCount == 0 {
 		delete(idm.identities, identity.ID)
-		for o := range idm.observers {
-			o.LocalEndpointIdentityRemoved(identity)
-		}
 	}
-
 }
 
 // Get returns the full identity based on the numeric identity. The returned
