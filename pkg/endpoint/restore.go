@@ -48,7 +48,7 @@ type EndpointParser interface {
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser EndpointParser, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser EndpointParser, basePath string, eptsDirNames []string) (map[uint16]*Endpoint, int) {
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 
 	if len(incompleteEPDirNames) > 0 {
@@ -69,6 +69,7 @@ func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser Endpoi
 	}
 
 	possibleEPs := map[uint16]*Endpoint{}
+	failed := 0
 	for _, epDirName := range completeEPDirNames {
 		epDir := filepath.Join(basePath, epDirName)
 
@@ -80,12 +81,14 @@ func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser Endpoi
 		state, err := findEndpointState(scopedLogger, epDir)
 		if err != nil {
 			scopedLogger.Warn("Couldn't find state, ignoring endpoint", logfields.Error, err)
+			failed++
 			continue
 		}
 
 		ep, err := parser.ParseEndpoint(state)
 		if err != nil {
 			scopedLogger.Warn("Unable to parse the C header file", logfields.Error, err)
+			failed++
 			continue
 		}
 		if _, ok := possibleEPs[ep.ID]; ok {
@@ -104,7 +107,8 @@ func ReadEPsFromDirNames(ctx context.Context, logger *slog.Logger, parser Endpoi
 			node.SetEndpointID(ep.GetID())
 		}
 	}
-	return possibleEPs
+
+	return possibleEPs, failed
 }
 
 // findEndpointState finds the JSON representation of an endpoint's state in
