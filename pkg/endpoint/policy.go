@@ -288,15 +288,22 @@ func (e *Endpoint) waitForPolicyComputationResult(
 
 done:
 	for {
-		if retries >= 3 {
-			datapathRegenCtxt.policyResult = result
-			return nil, errors.New("failed to fetch computed policy")
-		}
-
 		var (
 			found, failed bool
 			watch         <-chan struct{}
 		)
+
+		if retries >= 3 {
+			datapathRegenCtxt.policyResult = result
+			if found {
+				return nil, fmt.Errorf(
+					"failed to fetch updated computed policy, got revision %q (wanted: %q)",
+					computeResult.Revision, datapathRegenCtxt.policyRevisionToWaitFor,
+				)
+			}
+			return nil, errors.New("failed to fetch computed policy")
+		}
+
 		computeResult, _, watch, found = e.policyFetcher.GetIdentityPolicyByIdentity(securityIdentity)
 		switch {
 		case found && computeResult.Revision >= datapathRegenCtxt.policyRevisionToWaitFor:
