@@ -364,8 +364,8 @@ type ListenerPriority = types.ListenerPriority
 // 126 - default priority for CRD parser type
 // 127 - reserved (listener priority passed as 0)
 //
-// MapStateEntry stores this reverted in 'ProxyPortPriority' where higher numbers have higher
-// precedence
+// MapStateEntry stores this reverted in the low 8 bits of 'Precedence' where higher numbers have
+// higher precedence
 const (
 	ListenerPriorityNone     ListenerPriority = 0
 	ListenerPriorityHTTP     ListenerPriority = 101
@@ -380,7 +380,7 @@ const (
 func (l7 L7ParserType) defaultPriority() ListenerPriority {
 	switch l7 {
 	case ParserTypeNone:
-		return ListenerPriorityNone // no priority
+		return ListenerPriorityNone // no l7 redirect
 	case ParserTypeHTTP:
 		return ListenerPriorityHTTP
 	case ParserTypeKafka:
