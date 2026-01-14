@@ -3,20 +3,12 @@ name: Image CI Build
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
   pull_request_target:
+    branches:
+      - v1.18
     types:
       - opened
       - synchronize
       - reopened
-    branches-ignore:
-      - v1.18
-      - v1.17
-      - v1.16
-  push:
-    branches:
-      - main
-      - ft/main/**
-  merge_group:
-    types: [checks_requested]
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -107,7 +99,6 @@ jobs:
         run: |
           mkdir -p ../cilium-base-branch
           cp -r .github/actions/set-runtime-image ../cilium-base-branch
-          cp -r .github/actions/cosign ../cilium-base-branch
 
       - name: Check for disk usage and cleanup /mnt
         shell: bash
@@ -116,10 +107,11 @@ jobs:
           df -h
           echo "# Usage for /mnt"
           sudo du --human-readable \
+                --threshold 50m \
                 -- /mnt
           if compgen -G "/mnt/.*" > /dev/null; then
             echo "# Hidden files in /mnt:"
-            sudo du --human-readable -- /mnt/.* 2>/dev/null
+            sudo du --human-readable --threshold 50m -- /mnt/.* 2>/dev/null
           fi
           echo "# Removing all contents of /mnt except /mnt/swapfile"
           sudo find /mnt -mindepth 1 ! -path /mnt/swapfile -exec rm -rf {} + || true
@@ -206,7 +198,7 @@ jobs:
 
       - name: Copy runtime image tag from untrusted branch
         run: |
-          cp -r .github/actions/set-runtime-image/runtime-image*.txt ../cilium-base-branch/set-runtime-image/
+          cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/set-runtime-image/
 
       - name: Set runtime image environment variable
         uses: ./../cilium-base-branch/set-runtime-image
@@ -260,6 +252,9 @@ jobs:
             echo build="true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
       - name: CI Build ${{ matrix.name }}
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: docker_build_ci
@@ -311,31 +306,51 @@ jobs:
             MODIFIERS="NOSTRIP=1"
             OPERATOR_VARIANT=${{ matrix.name }}
 
-      - name: Generate SBOM, Sign, and Attest Main CI Image
-        if: ${{ matrix.name != 'cilium-cli' && steps.check.outputs.build != '' }}
-        uses: ./../cilium-base-branch/cosign
-        with:
-          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}"
-          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}"
-          sbom_name: "ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
+      - name: Sign Container Images
+        if: ${{ steps.check.outputs.build != '' }}
+        run: |
+          cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
+          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
+            cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
+          fi
+          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
+            cosign sign -y quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
+          fi
 
-      - name: Generate SBOM, Sign, and Attest Race Detection Image
+      - name: Generate SBOM
+        if: ${{ matrix.name != 'cilium-cli' }}
+        uses: anchore/sbom-action@0b82b0b1a22399a1c542d4d656f70cd903571b5c # v0.21.1
+        with:
+          artifact-name: sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+
+      - name: Generate SBOM (race)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_detect_race_condition.outcome != 'skipped' }}
-        uses: ./../cilium-base-branch/cosign
+        uses: anchore/sbom-action@0b82b0b1a22399a1c542d4d656f70cd903571b5c # v0.21.1
         with:
-          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}"
-          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race"
-          sbom_name: "ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
-          install_cosign: 'false'
+          artifact-name: sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
 
-      - name: Generate SBOM, Sign, and Attest Unstripped Image
+      - name: Generate SBOM (unstripped)
         if: ${{ matrix.name != 'cilium-cli' && steps.docker_build_ci_unstripped.outcome != 'skipped' }}
-        uses: ./../cilium-base-branch/cosign
+        uses: anchore/sbom-action@0b82b0b1a22399a1c542d4d656f70cd903571b5c # v0.21.1
         with:
-          image: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}"
-          image_tag: "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped"
-          sbom_name: "ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}"
-          install_cosign: 'false'
+          artifact-name: sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          output-file: ./sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json
+          image: quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
+
+      - name: Attach SBOM attestation to container image
+        if: ${{ matrix.name != 'cilium-cli' }}
+        run: |
+          cosign attest -y --predicate sbom_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci.outputs.digest }}
+          if [[ "${{ steps.docker_build_ci_detect_race_condition.outcome }}" != 'skipped' ]]; then
+            cosign attest -y --predicate sbom_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_detect_race_condition.outputs.digest }}
+          fi
+          if [[ "${{ steps.docker_build_ci_unstripped.outcome }}" != 'skipped' ]]; then
+            cosign attest -y --predicate sbom_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx.json --type spdxjson quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_unstripped.outputs.digest }}
+          fi
 
       - name: CI Image Releases digests
         shell: bash
@@ -431,7 +446,7 @@ jobs:
         }}
     steps:
       - name: Generate Github App Token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        uses: actions/create-github-app-token@7e473efe3cb98aa54f8d4bac15400b15fad77d94 # v2.2.0
         id: generate-token
         with:
           app-id: ${{ secrets.AUTO_COMMENT_BOT_APP_ID }}
