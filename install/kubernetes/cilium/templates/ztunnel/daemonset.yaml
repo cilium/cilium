@@ -1,0 +1,164 @@
+{{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") }}
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: ztunnel-cilium
+  namespace: {{ include "cilium.namespace" . }}
+  {{- with .Values.encryption.ztunnel.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    app: ztunnel-cilium
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: ztunnel-cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: ztunnel-cilium
+  {{- with .Values.encryption.ztunnel.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+        {{- with .Values.encryption.ztunnel.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        app: ztunnel-cilium
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: ztunnel-cilium
+        {{- with .Values.commonLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.encryption.ztunnel.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirst
+      containers:
+        - name: istio-proxy
+          image: {{ include "cilium.image" .Values.encryption.ztunnel.image | quote }}
+          imagePullPolicy: {{ .Values.encryption.ztunnel.image.pullPolicy }}
+          args:
+            - proxy
+            - ztunnel
+          env:
+            - name: XDS_ADDRESS
+              value: "https://localhost:15012"
+            - name: XDS_ROOT_CA
+              value: "/etc/ztunnel/bootstrap-root.crt"
+            - name: CA_ROOT_CA
+              value: "/etc/ztunnel/bootstrap-root.crt"
+            - name: CA_ADDRESS
+              value: {{ .Values.encryption.ztunnel.caAddress | quote }}
+            - name: ISTIO_META_DNS_CAPTURE
+              value: "false"
+            - name: INPOD_UDS
+              value: "/var/run/cilium/ztunnel.sock"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.hostIP
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: ISTIO_META_ENABLE_HBONE
+              value: "true"
+            {{- with .Values.encryption.ztunnel.extraEnv }}
+            {{- toYaml . | trim | nindent 12 }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: {{ .Values.encryption.ztunnel.healthPort }}
+              scheme: HTTP
+            initialDelaySeconds: {{ .Values.encryption.ztunnel.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.encryption.ztunnel.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.encryption.ztunnel.readinessProbe.failureThreshold }}
+            successThreshold: 1
+            timeoutSeconds: 1
+          {{- with .Values.encryption.ztunnel.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_ADMIN
+                - NET_RAW
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 1337
+            runAsNonRoot: false
+            runAsUser: 0
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /var/run/cilium
+              name: cilium-dir
+              readOnly: false
+            - mountPath: /etc/ztunnel
+              name: cilium-ztunnel-secrets
+              readOnly: true
+            {{- with .Values.encryption.ztunnel.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      {{- with .Values.encryption.ztunnel.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.encryption.ztunnel.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.encryption.ztunnel.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.encryption.ztunnel.priorityClassName "system-node-critical") }}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: {{ .Values.encryption.ztunnel.terminationGracePeriodSeconds }}
+      {{- if .Values.serviceAccounts.ztunnel.create }}
+      serviceAccountName: {{ .Values.serviceAccounts.ztunnel.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.ztunnel.automount }}
+      {{- else }}
+      automountServiceAccountToken: false
+      {{- end }}
+      volumes:
+        - name: cilium-dir
+          hostPath:
+            path: /var/run/cilium
+            type: DirectoryOrCreate
+        - name: cilium-ztunnel-secrets
+          secret:
+            secretName: cilium-ztunnel-secrets
+            defaultMode: 420
+            items:
+              - key: bootstrap-root.crt
+                path: bootstrap-root.crt
+                mode: 420
+        {{- with .Values.encryption.ztunnel.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}

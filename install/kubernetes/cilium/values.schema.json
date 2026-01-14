@@ -1984,6 +1984,184 @@
             }
           },
           "type": "object"
+        },
+        "ztunnel": {
+          "properties": {
+            "affinity": {
+              "type": "object"
+            },
+            "annotations": {
+              "type": "object"
+            },
+            "caAddress": {
+              "type": "string"
+            },
+            "extraEnv": {
+              "items": {},
+              "type": "array"
+            },
+            "extraVolumeMounts": {
+              "items": {},
+              "type": "array"
+            },
+            "extraVolumes": {
+              "items": {},
+              "type": "array"
+            },
+            "healthPort": {
+              "type": "integer"
+            },
+            "image": {
+              "properties": {
+                "digest": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "override": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "pullPolicy": {
+                  "type": "string"
+                },
+                "repository": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                },
+                "useDigest": {
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
+            },
+            "nodeSelector": {
+              "properties": {
+                "kubernetes.io/os": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "podAnnotations": {
+              "type": "object"
+            },
+            "podLabels": {
+              "type": "object"
+            },
+            "priorityClassName": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "readinessProbe": {
+              "properties": {
+                "failureThreshold": {
+                  "type": "integer"
+                },
+                "initialDelaySeconds": {
+                  "type": "integer"
+                },
+                "periodSeconds": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "resources": {
+              "properties": {
+                "requests": {
+                  "properties": {
+                    "cpu": {
+                      "type": "string"
+                    },
+                    "memory": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            },
+            "secrets": {
+              "properties": {
+                "bootstrapRootCert": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                }
+              },
+              "type": "object"
+            },
+            "terminationGracePeriodSeconds": {
+              "type": "integer"
+            },
+            "tolerations": {
+              "items": {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "effect": {
+                        "type": "string"
+                      },
+                      "operator": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "operator": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "effect": {
+                        "type": "string"
+                      },
+                      "operator": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "updateStrategy": {
+              "properties": {
+                "rollingUpdate": {
+                  "properties": {
+                    "maxSurge": {
+                      "type": "integer"
+                    },
+                    "maxUnavailable": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                },
+                "type": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"
@@ -5989,6 +6167,23 @@
           "type": "object"
         },
         "ui": {
+          "properties": {
+            "annotations": {
+              "type": "object"
+            },
+            "automount": {
+              "type": "boolean"
+            },
+            "create": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "ztunnel": {
           "properties": {
             "annotations": {
               "type": "object"
