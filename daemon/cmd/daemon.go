@@ -202,13 +202,10 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	// Configure and start IPAM without using the configuration yet.
 	configureAndStartIPAM(ctx, params)
 
-	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	err := params.EndpointRestorer.RestoreOldEndpoints()
-	bootstrapStats.restore.EndError(err)
-	if err != nil {
+	if err := params.EndpointRestorer.RestoreOldEndpoints(); err != nil {
 		return err
 	}
 

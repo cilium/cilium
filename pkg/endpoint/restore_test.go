@@ -4,7 +4,6 @@
 package endpoint
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 	"log/slog"
@@ -66,7 +65,7 @@ func (s *EndpointSuite) endpointCreator(t testing.TB, id uint16, secID identity.
 	identity.Sanitize()
 
 	model := newTestEndpointModel(int(id), StateReady)
-	ep, err := NewEndpointFromChangeModel(context.TODO(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
+	ep, err := NewEndpointFromChangeModel(t.Context(), hivetest.Logger(t), nil, &MockEndpointBuildQueue{}, nil, s.orchestrator, nil, nil, nil, identitymanager.NewIDManager(logger), nil, nil, s.repo, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), ctmap.NewFakeGCRunner(), nil, model, fakeTypes.WireguardConfig{}, fakeTypes.IPsecConfig{}, nil, nil, nil)
 	require.NoError(t, err)
 
 	ep.Start(uint16(model.ID))
@@ -138,7 +137,7 @@ func TestReadEPsFromDirNames(t *testing.T) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
+	eps, _ := ReadEPsFromDirNames(t.Context(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
 	require.Len(t, eps, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -201,7 +200,7 @@ func TestReadEPsFromDirNamesWithRestoreFailure(t *testing.T) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epNames)
+	epResult, _ := ReadEPsFromDirNames(t.Context(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epNames)
 	require.Len(t, epResult, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -254,7 +253,7 @@ func BenchmarkReadEPsFromDirNames(b *testing.B) {
 	}
 
 	for b.Loop() {
-		eps := ReadEPsFromDirNames(context.TODO(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
+		eps, _ := ReadEPsFromDirNames(b.Context(), logger, &fakeParser{logger: logger, orchestrator: s.orchestrator, policyRepo: s.repo}, tmpDir, epsNames)
 		require.Len(b, eps, len(epsWanted))
 	}
 }
