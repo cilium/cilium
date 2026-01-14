@@ -23,14 +23,6 @@ const (
 	MaxAllowPrecedence = MaxPrecedence & ^(PrecedenceDeny | PrecedenceProxyPriorityMask)
 )
 
-func (p *Priority) Increment() bool {
-	if *p == MaxPriority {
-		return false
-	}
-	*p++
-	return true
-}
-
 func (p *Priority) IncrementWithRoundup(to Priority) bool {
 	np := *p + 1
 	np = ((np + (to - 1)) / to) * to
