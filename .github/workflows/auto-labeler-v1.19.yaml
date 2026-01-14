@@ -2,14 +2,12 @@ name: PR and Issues Auto Labeler
 
 on:
   pull_request_target:
+    branches:
+      - v1.19
     types:
       - opened
       - reopened
-    branches-ignore:
-      - v1.19
-      - v1.18
-      - v1.17
-      - v1.16
+
 
 jobs:
   external-contributions:
