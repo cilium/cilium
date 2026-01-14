@@ -1404,6 +1404,86 @@
      - Controls WireGuard PersistentKeepalive option. Set 0s to disable.
      - string
      - ``"0s"``
+   * - :spelling:ignore:`encryption.ztunnel`
+     - ztunnel encryption configuration. ztunnel is Istio's purpose-built, per-node proxy for handling L4 traffic in ambient mesh mode. These settings only apply when encryption.type is set to "ztunnel".
+     - object
+     - ``{"affinity":{},"annotations":{},"caAddress":"https://localhost:15012","extraEnv":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":15021,"image":{"digest":null,"override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/istio/ztunnel","tag":"1.28.0-distroless","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"priorityClassName":null,"readinessProbe":{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10},"resources":{"requests":{"cpu":"200m","memory":"512Mi"}},"secrets":{"bootstrapRootCert":null},"terminationGracePeriodSeconds":30,"tolerations":[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}}``
+   * - :spelling:ignore:`encryption.ztunnel.affinity`
+     - Affinity for ztunnel pods.
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.annotations`
+     - Annotations to be added to all ztunnel resources.
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.caAddress`
+     - CA server address for certificate requests.
+     - string
+     - ``"https://localhost:15012"``
+   * - :spelling:ignore:`encryption.ztunnel.extraEnv`
+     - Additional ztunnel container environment variables.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`encryption.ztunnel.extraVolumeMounts`
+     - Additional ztunnel volumeMounts.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`encryption.ztunnel.extraVolumes`
+     - Additional ztunnel volumes.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`encryption.ztunnel.healthPort`
+     - TCP port for the health API.
+     - int
+     - ``15021``
+   * - :spelling:ignore:`encryption.ztunnel.image`
+     - ztunnel container image.
+     - object
+     - ``{"digest":null,"override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/istio/ztunnel","tag":"1.28.0-distroless","useDigest":false}``
+   * - :spelling:ignore:`encryption.ztunnel.nodeSelector`
+     - Node selector for ztunnel pods.
+     - object
+     - ``{"kubernetes.io/os":"linux"}``
+   * - :spelling:ignore:`encryption.ztunnel.podAnnotations`
+     - Annotations to be added to ztunnel pods.
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.podLabels`
+     - Labels to be added to ztunnel pods.
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.priorityClassName`
+     - The priority class to use for ztunnel pods.
+     - string
+     - ``nil``
+   * - :spelling:ignore:`encryption.ztunnel.readinessProbe`
+     - Readiness probe configuration.
+     - object
+     - ``{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10}``
+   * - :spelling:ignore:`encryption.ztunnel.resources`
+     - ztunnel resource limits & requests.
+     - object
+     - ``{"requests":{"cpu":"200m","memory":"512Mi"}}``
+   * - :spelling:ignore:`encryption.ztunnel.secrets`
+     - ztunnel secrets configuration.
+     - object
+     - ``{"bootstrapRootCert":null}``
+   * - :spelling:ignore:`encryption.ztunnel.secrets.bootstrapRootCert`
+     - Base64-encoded bootstrap root certificate content. If not provided, the secret must be created manually before deploying. @schema type: [null, string] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`encryption.ztunnel.terminationGracePeriodSeconds`
+     - Configure termination grace period for ztunnel DaemonSet.
+     - int
+     - ``30``
+   * - :spelling:ignore:`encryption.ztunnel.tolerations`
+     - Node tolerations for ztunnel scheduling.
+     - list
+     - ``[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}]``
+   * - :spelling:ignore:`encryption.ztunnel.updateStrategy`
+     - ztunnel update strategy.
+     - object
+     - ``{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}``
    * - :spelling:ignore:`endpointHealthChecking.enabled`
      - Enable connectivity health checking between virtual endpoints.
      - bool
@@ -3712,6 +3792,10 @@
      - Enabled is temporary until https://github.com/cilium/cilium-cli/issues/1396 is implemented. Cilium CLI doesn't create the SAs for node-init, thus the workaround. Helm is not affected by this issue. Name and automount can be configured, if enabled is set to true. Otherwise, they are ignored. Enabled can be removed once the issue is fixed. Cilium-nodeinit DS must also be fixed.
      - bool
      - ``false``
+   * - :spelling:ignore:`serviceAccounts.ztunnel`
+     - Ztunnel is used if encryption.type=ztunnel
+     - object
+     - ``{"annotations":{},"automount":false,"create":true,"name":"ztunnel-cilium"}``
    * - :spelling:ignore:`serviceNoBackendResponse`
      - Configure what the response should be to traffic for a service without backends. Possible values:  - reject (default)  - drop
      - string
