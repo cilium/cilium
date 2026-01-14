@@ -557,34 +557,6 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 		}
 	}
 
-	endpointsToRegenerate := make([]*endpoint.Endpoint, 0, len(state.restored))
-	for _, ep := range state.restored {
-		if ep.IsHost() && r.ipSecAgent.Enabled() {
-			// To support v1.18 VinE upgrades, we need to restore the host
-			// endpoint before any other endpoint, to ensure a drop-less upgrade.
-			// This is because in v1.18 'bpf_lxc' programs stop issuing IPsec hooks
-			// which trigger encryption.
-			//
-			// Instead, 'bpf_host' is responsible for performing IPsec hooks.
-			// Therefore, we want 'bpf_host' to regenerate BEFORE 'bpf_lxc' so the
-			// IPsec hooks are always present while 'bpf_lxc' programs regen,
-			// ensuring no IPsec leaks occur.
-			//
-			// This can be removed in v1.19.
-			r.logger.Info("Successfully restored Host endpoint. Scheduling regeneration", logfields.EndpointID, ep.ID)
-			if err := ep.RegenerateAfterRestore(r.endpointRegenerator, r.endpointMetadata.FetchK8sMetadataForEndpoint); err != nil {
-				r.logger.Debug(
-					"Error regenerating Host endpoint during restore",
-					logfields.Error, err,
-					logfields.EndpointID, ep.ID,
-				)
-			}
-			continue
-		}
-
-		endpointsToRegenerate = append(endpointsToRegenerate, ep)
-	}
-
 	var endpointCleanupCompleted sync.WaitGroup
 	for _, ep := range state.toClean {
 		endpointCleanupCompleted.Add(1)
@@ -604,7 +576,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	endpointCleanupCompleted.Wait()
 
 	// Trigger regeneration for relevant restored endpoints in a separate goroutine.
-	go r.handleRestoredEndpointsRegeneration(endpointsToRegenerate)
+	go r.handleRestoredEndpointsRegeneration(state.restored)
 
 	go func() {
 		startTime := time.Now()
