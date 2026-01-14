@@ -66,7 +66,7 @@ func startMultiPoolAllocator(p multiPoolParams) {
 
 				nm := multipool.NewNodeHandler(
 					"ipam-multi-pool-sync",
-					logger, allocator, &ciliumNodeUpdateImplementation{p.Clientset},
+					logger, allocator, p.Clientset.CiliumV2().CiliumNodes(),
 					func(cn *v2.CiliumNode) *types.IPAMPoolSpec {
 						return &cn.Spec.IPAM.Pools
 					},
