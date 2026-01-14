@@ -11,16 +11,21 @@ type Priority uint32        // Lower values take precedence, only lower 24 bits 
 type Precedence uint32 // Higher values take precedence
 
 const (
-	MaxListenerPriority                    = 126
-	PrecedenceDeny              Precedence = 1 << 7
-	PrecedenceProxyPriorityMask Precedence = PrecedenceDeny - 1 // 0-127
-	precedencePriorityShift                = 8
-	precedencePriorityBits                 = 32 - precedencePriorityShift
-	MaxPriority                 Priority   = 1<<precedencePriorityBits - 1
+	MaxListenerPriority = 126
 
-	MaxPrecedence      = ^Precedence(0)
-	MaxDenyPrecedence  = MaxPrecedence
-	MaxAllowPrecedence = MaxPrecedence & ^(PrecedenceDeny | PrecedenceProxyPriorityMask)
+	precedencePriorityShift          = 8
+	precedencePriorityBits           = 32 - precedencePriorityShift
+	MaxPriority             Priority = 1<<precedencePriorityBits - 1
+
+	// Precedence low byte values for entries on the same priority level (bytes 1-3)
+	PrecedenceDeny  Precedence = 255 // all low 8 bits set
+	PrecedenceAllow Precedence = 1   // Note: proxy redirects use higher values
+	PrecedencePass  Precedence = 0
+
+	MaxPrecedence         = ^Precedence(0)
+	MaxDenyPrecedence     = MaxPrecedence
+	MaxPriorityPrecedence = (MaxPrecedence & ^(PrecedenceDeny))
+	MaxAllowPrecedence    = (MaxPrecedence & ^(PrecedenceDeny)) + PrecedenceAllow
 )
 
 func (p *Priority) IncrementWithRoundup(to Priority) bool {
@@ -42,9 +47,21 @@ func (p *Priority) Add(add Priority) bool {
 	return true
 }
 
+func (p Precedence) IsDeny() bool {
+	return p&PrecedenceDeny == PrecedenceDeny
+}
+
+func (p Precedence) IsPass() bool {
+	return p&PrecedenceDeny == PrecedencePass
+}
+
+func (p Precedence) IsAllow() bool {
+	return !p.IsDeny() && !p.IsPass()
+}
+
 // ProxyPortPrecedenceMayDiffer returns true if the non-proxy port precedence bits are the same
 func (p Precedence) ProxyPortPrecedenceMayDiffer(o Precedence) bool {
-	return p^o < PrecedenceDeny
+	return p^o <= PrecedenceDeny && p.IsDeny() == o.IsDeny()
 }
 
 func (p Precedence) Priority() Priority {
@@ -87,7 +104,8 @@ func (e MapStateEntry) IsValid() bool {
 
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
-	priority, listenerPriority := e.Priority()
+	priority := MaxPriority - Priority(e.Precedence>>precedencePriorityShift)
+	listenerPriority := ListenerPriority(PrecedenceDeny - (e.Precedence & PrecedenceDeny))
 
 	verdict := "allow"
 	if e.IsDeny() {
@@ -100,9 +118,11 @@ func (e MapStateEntry) String() string {
 
 	var proxyText string
 	if e.ProxyPort != 0 {
-		proxyText = ",ProxyPort=" + strconv.FormatUint(uint64(e.ProxyPort), 10) +
-			"ProxyPortPriority=" + strconv.FormatUint(uint64(listenerPriority), 10)
+		proxyText = ",ProxyPort=" + strconv.FormatUint(uint64(e.ProxyPort), 10)
 	}
+
+	priorityText := ",Priority=" + strconv.FormatUint(uint64(priority), 10) +
+		":" + strconv.FormatUint(uint64(listenerPriority), 10)
 
 	var authText string
 	if e.AuthRequirement != 0 {
@@ -118,8 +138,7 @@ func (e MapStateEntry) String() string {
 		cookieText = ",Cookie=" + strconv.FormatUint(uint64(e.Cookie), 10)
 	}
 
-	return verdictText + ",Priority=" + strconv.FormatUint(uint64(priority), 10) +
-		proxyText + authText + cookieText
+	return verdictText + priorityText + proxyText + authText + cookieText
 }
 
 // Convert API priority to the lowest datapath Precedence for that priority:
@@ -127,16 +146,16 @@ func (e MapStateEntry) String() string {
 //   - Inverted priority is shifted to the upper bits in the 32-bit Precedence to make space for
 //     the deny and proxy port precedence bits in the lower 8 bits.
 //   - low 8 bits are left as zeroes
-func (priority Priority) toPrecedence() Precedence {
+func (priority Priority) toBasePrecedence() Precedence {
 	if priority > MaxPriority {
 		priority = MaxPriority
 	}
 	return Precedence(MaxPriority-priority) << precedencePriorityShift
 }
 
-// PassPrecedence is the highest possible precedence for the given priority
+// PassPrecedence is the precedence with lower 8 bits cleared
 func (priority Priority) ToPassPrecedence() Precedence {
-	return priority.toPrecedence() | PrecedenceDeny | PrecedenceProxyPriorityMask
+	return priority.toBasePrecedence()
 }
 
 // NewMapStateEntry creeates a new MapStateEntry
@@ -153,18 +172,19 @@ func NewMapStateEntry(
 	listenerPriority ListenerPriority,
 	authReq AuthRequirement,
 ) MapStateEntry {
-	precedence := priority.toPrecedence()
-	// Normalize inputs
+	precedence := priority.toBasePrecedence()
+
 	if deny {
+		precedence += PrecedenceDeny
+
+		// Normalize inputs
 		proxyPort = 0
 		listenerPriority = 0
 		authReq = 0
-
-		// Also set all the proxy port priority bits for a deny entry so that the
-		// deny entry on priority 0 gets precedence of all-ones (the highest possible
-		// precedence)
-		precedence |= PrecedenceDeny | PrecedenceProxyPriorityMask
+	} else {
+		precedence += PrecedenceAllow
 	}
+
 	return MapStateEntry{
 		Precedence:      precedence,
 		ProxyPort:       proxyPort,
@@ -172,17 +192,12 @@ func NewMapStateEntry(
 	}.WithListenerPriority(listenerPriority)
 }
 
-func (e MapStateEntry) Priority() (Priority, ListenerPriority) {
-	return MaxPriority - Priority(e.Precedence>>precedencePriorityShift),
-		ListenerPriority(PrecedenceProxyPriorityMask + 1 - (e.Precedence & PrecedenceProxyPriorityMask))
-}
-
 func (e MapStateEntry) IsDeny() bool {
-	return e.Precedence&PrecedenceDeny != 0
+	return e.Precedence.IsDeny()
 }
 
 func (e MapStateEntry) IsAllow() bool {
-	return e.Precedence&PrecedenceDeny == 0
+	return e.Precedence.IsAllow()
 }
 
 // IsRedirectEntry returns true if the entry redirects to a proxy port
@@ -192,7 +207,7 @@ func (e MapStateEntry) IsRedirectEntry() bool {
 
 // AllowPrecedence masks away the impact of redirect (priority) on the precedence
 func (e MapStateEntry) AllowPrecedence() Precedence {
-	return e.Precedence & ^PrecedenceProxyPriorityMask
+	return (e.Precedence & ^PrecedenceDeny) + PrecedenceAllow
 }
 
 // AllowEntry returns a MapStateEntry with maximum precedence for an allow entry without a proxy
@@ -211,9 +226,10 @@ func InvalidEntry() MapStateEntry {
 	return MapStateEntry{invalid: true, Precedence: MaxDenyPrecedence}
 }
 
+// WithPriority is only used for testing
 func (e MapStateEntry) WithPriority(priority Priority) MapStateEntry {
 	e.Precedence &= 1<<precedencePriorityShift - 1 // clear all priority bits
-	e.Precedence |= priority.toPrecedence()
+	e.Precedence |= Precedence(MaxPriority-priority) << precedencePriorityShift
 	return e
 }
 
@@ -221,9 +237,12 @@ func (e MapStateEntry) WithPriority(priority Priority) MapStateEntry {
 // precedence, if any, depending on the value of 'isDeny' parameter
 func (e MapStateEntry) WithDeny(isDeny bool) MapStateEntry {
 	if isDeny {
-		e.Precedence |= PrecedenceDeny
-	} else {
+		if !e.Precedence.IsDeny() {
+			e.Precedence |= PrecedenceDeny
+		}
+	} else if !e.Precedence.IsAllow() {
 		e.Precedence &= ^PrecedenceDeny
+		e.Precedence += PrecedenceAllow
 	}
 	return e
 }
@@ -239,19 +258,22 @@ func (e MapStateEntry) WithDeny(isDeny bool) MapStateEntry {
 // 116 - priority for TLS interception parsers (can be promoted to HTTP/Kafka/proxylib)
 // 121 - priority for DNS parser type
 // 126 - default priority for CRD parser type
-// 127 - reserved (listener priority passed as 0)
+//
+// Note: Only to be called for allow entries where the low byte of the precedence field is
+// initialized to PrecedenceAllow. Does nothing if proxy port is not set.
 func (e MapStateEntry) WithListenerPriority(priority ListenerPriority) MapStateEntry {
 	if e.ProxyPort != 0 {
-		// Clear the proxy precedence bits
-		e.Precedence &= ^(PrecedenceDeny | PrecedenceProxyPriorityMask)
+		// (e.Precedence & PrecedenceDeny) == PrecedenceAllow
 		if priority > 0 {
 			priority = min(priority, MaxListenerPriority)
 
 			// invert the priority so that higher number has the
-			// precedence, priority 1 becomes '127', 100 -> '28', 126 -> '2'
-			// '1' is reserved for a listener priority passed as 0
-			// '0' is reserved for entries without proxy redirect
-			e.Precedence += PrecedenceProxyPriorityMask + 1 - Precedence(priority)
+			// precedence, priority 1 becomes 254, 100 -> 155, 126 -> 129
+			// '255' is reserved for deny entries
+			// '2' is reserved for a listener priority passed as 0
+			// '1' is reserved for allow entries without proxy redirect
+			// '0' is reserved for pass verdicts
+			e.Precedence += PrecedenceDeny - 1 - Precedence(priority)
 		} else {
 			e.Precedence += 1 // proxy port without explicit priority
 		}
@@ -260,23 +282,22 @@ func (e MapStateEntry) WithListenerPriority(priority ListenerPriority) MapStateE
 }
 
 // WithProxyPort return the MapStateEntry with proxy port set at the default precedence
+// Only used for testing
 func (e MapStateEntry) WithProxyPort(proxyPort uint16) MapStateEntry {
-	if proxyPort > 0 {
-		e.ProxyPort = proxyPort
-		e.Precedence &= ^(PrecedenceDeny | PrecedenceProxyPriorityMask)
-		e.Precedence += 1 // proxy port without explicit priority
+	if proxyPort == 0 {
+		panic("zero proxy port")
 	}
+	e.ProxyPort = proxyPort
+	e.Precedence &= ^PrecedenceDeny
+	e.Precedence += PrecedenceAllow // base allow priority, to be updated via WithListenerPriority()
 	return e
 }
 
 // Merge is only called for entries whose precedence may differ only for the proxy port priority
 // value.
 func (e *MapStateEntry) Merge(entry MapStateEntry) {
-	if entry.Precedence^e.Precedence >= PrecedenceDeny {
-		panic("Merge called for incompatible entries")
-	}
 	// Only allow entries have proxy redirection or auth requirement
-	if !e.IsDeny() {
+	if e.IsAllow() && entry.IsAllow() {
 		// Proxy port takes precedence, but may be updated due to priority
 		if entry.IsRedirectEntry() {
 			// Higher number has higher priority, but non-redirects have 0 priority
