@@ -94,8 +94,8 @@ jobs:
 
       - name: Copy scripts to trusted directory
         run: |
-          mkdir -p ../cilium-base-branch
-          cp -r .github/actions/set-runtime-image ../cilium-base-branch
+          mkdir -p ../cilium-base-branch/.github/actions
+          cp -r .github/actions/set-runtime-image ../cilium-base-branch/.github/actions/
 
       - name: Check for disk usage and cleanup /mnt
         shell: bash
@@ -185,10 +185,10 @@ jobs:
 
       - name: Copy runtime image tag from untrusted branch
         run: |
-          cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/set-runtime-image/
+          cp -r .github/actions/set-runtime-image/runtime-image.txt ../cilium-base-branch/.github/actions/set-runtime-image/
 
       - name: Set runtime image environment variable
-        uses: ./../cilium-base-branch/set-runtime-image
+        uses: ./../cilium-base-branch/.github/actions/set-runtime-image
         with:
           repository: ${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}
 
