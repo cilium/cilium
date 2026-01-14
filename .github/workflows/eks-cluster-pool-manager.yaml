@@ -186,6 +186,55 @@ jobs:
             fi
           done
 
+  cleanup-unassociated-eips:
+    name: Cleanup unassociated EIPs
+    runs-on: ubuntu-24.04
+    needs: [generate-cleanup-matrix, cleanup-old-clusters]
+    if: ${{ always() && needs.generate-cleanup-matrix.outputs.empty == 'false' }}
+    timeout-minutes: 20
+    strategy:
+      matrix: ${{ fromJson(needs.generate-cleanup-matrix.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
+          aws-region: ${{ matrix.region }}
+
+      - name: Find and release unassociated EIPs
+        env:
+          REGION: ${{ matrix.region }}
+        run: |
+          set -e
+
+          echo "Checking for unassociated EIPs in region: ${REGION}"
+
+          # Find all unassociated EIPs with names starting with "eksctl-cilium-pool"
+          EIPS_JSON=$(aws ec2 describe-addresses \
+            --region "${REGION}" \
+            --query "Addresses[?AssociationId==\`null\`].[AllocationId,Tags[?Key==\`Name\`].Value|[0]]" \
+            --output json | jq -r '.[] | select(.[1] != null and (.[1] | startswith("eksctl-cilium-pool"))) | @json')
+
+          if [ -z "${EIPS_JSON}" ]; then
+            echo "No unassociated EIPs found with 'eksctl-cilium-pool' prefix in region ${REGION}"
+            exit 0
+          fi
+
+          echo "${EIPS_JSON}" | while read -r eip_info; do
+            if [ -n "${eip_info}" ]; then
+              ALLOCATION_ID=$(echo "${eip_info}" | jq -r '.[0]')
+
+              aws ec2 release-address \
+                --region "${REGION}" \
+                --allocation-id "${ALLOCATION_ID}" || {
+                echo "Failed to release EIP ${ALLOCATION_ID}, continuing..."
+              }
+
+              echo "Successfully released EIP: ${ALLOCATION_ID}"
+            fi
+          done
+
   generate-create-matrix:
     name: Generate Create Matrix
     runs-on: ubuntu-24.04
@@ -313,7 +362,7 @@ jobs:
       id-token: write
     name: Create EKS clusters for pool
     runs-on: ubuntu-24.04
-    needs: [cleanup-old-clusters, generate-create-matrix, ensure-s3-bucket]
+    needs: [cleanup-old-clusters, cleanup-unassociated-eips, generate-create-matrix, ensure-s3-bucket]
     if: ${{ always() && needs.generate-create-matrix.outputs.empty == 'false' }}
     timeout-minutes: 30
     strategy:
@@ -511,7 +560,7 @@ jobs:
   report-status:
     name: Report pool status
     runs-on: ubuntu-24.04
-    needs: [generate-cleanup-matrix, cleanup-old-clusters, create-clusters]
+    needs: [generate-cleanup-matrix, cleanup-old-clusters, cleanup-unassociated-eips, create-clusters]
     if: ${{ always() && needs.generate-cleanup-matrix.outputs.empty == 'false' }}
     timeout-minutes: 10
     strategy:
