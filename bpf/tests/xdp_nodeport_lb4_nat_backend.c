@@ -120,9 +120,9 @@ int nodeport_nat_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert((*meta & XFER_PKT_NO_SVC) == XFER_PKT_NO_SVC);
 
 	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the client MAC")
+		test_fatal("src MAC is not the client MAC");
 	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the LB MAC")
+		test_fatal("dst MAC is not the LB MAC");
 
 	if (l3->saddr != LB_IP)
 		test_fatal("src IP has changed");
