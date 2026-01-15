@@ -210,21 +210,25 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 		},
 	})
 
-	if p.Config.EndpointGCInterval > 0 {
-		ctx, cancel := context.WithCancel(context.Background())
-		p.Lifecycle.Append(cell.Hook{
-			OnStart: func(cell.HookContext) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	p.Lifecycle.Append(cell.Hook{
+		OnStart: func(cell.HookContext) error {
+			if p.Config.EndpointGCInterval > 0 {
 				mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
+			}
+
+			if p.Config.EndpointRegenInterval > 0 {
 				mgr.WithPeriodicEndpointRegeneration(ctx, p.Config.EndpointRegenInterval)
-				return nil
-			},
-			OnStop: func(cell.HookContext) error {
-				cancel()
-				mgr.controllers.RemoveAllAndWait()
-				return nil
-			},
-		})
-	}
+			}
+
+			return nil
+		},
+		OnStop: func(cell.HookContext) error {
+			cancel()
+			mgr.controllers.RemoveAllAndWait()
+			return nil
+		},
+	})
 
 	mgr.InitMetrics(p.MetricsRegistry)
 
