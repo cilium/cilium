@@ -209,6 +209,14 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		identity:         e.getIdentity(),
 		identityRevision: e.identityRevision,
 	}
+
+	// If selector policy is detached _before_ endpoint regeneration has started,
+	// we keep track of the timestamp to check how long it ends up in a detached state.
+	if e.desiredPolicy != nil {
+		if isDetached, t := e.desiredPolicy.SelectorPolicy.IsDetached(); isDetached {
+			stats.policyDetachedTimestamp = &t
+		}
+	}
 	e.unlock()
 
 	e.getLogger().Debug("Starting policy recalculation...")
