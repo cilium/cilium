@@ -3676,22 +3676,6 @@
                   },
                   "type": "object"
                 },
-                "livenessProbe": {
-                  "properties": {
-                    "enabled": {
-                      "type": "boolean"
-                    }
-                  },
-                  "type": "object"
-                },
-                "readinessProbe": {
-                  "properties": {
-                    "enabled": {
-                      "type": "boolean"
-                    }
-                  },
-                  "type": "object"
-                },
                 "resources": {
                   "type": "object"
                 },

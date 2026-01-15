@@ -2452,14 +2452,6 @@
      - Hubble-ui backend image.
      - object
      - ``{"digest":"sha256:db1454e45dc39ca41fbf7cad31eec95d99e5b9949c39daaad0fa81ef29d56953","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.3","useDigest":true}``
-   * - :spelling:ignore:`hubble.ui.backend.livenessProbe.enabled`
-     - Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
-     - bool
-     - ``false``
-   * - :spelling:ignore:`hubble.ui.backend.readinessProbe.enabled`
-     - Enable readiness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
-     - bool
-     - ``false``
    * - :spelling:ignore:`hubble.ui.backend.resources`
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
