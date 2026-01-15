@@ -151,9 +151,23 @@ func isValidArchiveType(archiveType string) bool {
 
 type postProcessFunc func(output []byte) ([]byte, error)
 
+// envoySecretMask defines sensitive fields that must be redacted from bugtool output.
+// SECURITY: API keys and credentials should NEVER be passed as command-line arguments
+// as they would be visible in process listings. Always use environment variables or
+// secure configuration files with restricted permissions (0600) for sensitive data.
 var envoySecretMask = jsonFieldMaskPostProcess([]string{
 	// Cilium LogEntry -> KafkaLogEntry{l7} -> KafkaLogEntry{api_key}
 	"api_key",
+	"apikey",
+	"api-key",
+	// Additional API key variations to ensure comprehensive masking
+	"access_key",
+	"secret_key",
+	"auth_token",
+	"bearer_token",
+	"password",
+	"passwd",
+	"secret",
 	// This could be from one of the following:
 	// - Cilium NetworkPolicy -> PortNetworkPolicy{ingress_per_port_policies, egress_per_port_policies}
 	//	-> PortNetworkPolicyRule{rules} -> TLSContext{downstream_tls_context, upstream_tls_context}
