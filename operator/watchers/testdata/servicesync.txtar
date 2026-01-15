@@ -147,6 +147,13 @@ endpoints:
     serving: true
     terminating: false
   nodeName: nodeport-worker
+- addresses:
+  - 10.244.1.2
+  conditions:
+    ready: false
+    serving: false
+    terminating: false
+  nodeName: nodeport-worker
 ports:
 - name: http
   port: 8080
