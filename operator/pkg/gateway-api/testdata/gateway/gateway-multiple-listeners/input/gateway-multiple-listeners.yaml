@@ -17,7 +17,7 @@ spec:
         from: Selector
         selector:
           matchLabels:
-            kubernetes.io/metadata.name: gateway-conformance-infra
+            kubernetes.io/metadata.name: match-label
     name: http-restrictive
     port: 80
     protocol: HTTP
@@ -41,10 +41,3 @@ spec:
     backendRefs:
     - name: infra-backend-v1
       port: 8080
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: gateway-conformance-infraa
-  labels:
-    gateway-conformance: infra

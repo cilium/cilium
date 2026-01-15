@@ -55,6 +55,7 @@ func groupDerefOr(group *gatewayv1.Group, defaultGroup string) string {
 // isAllowed returns true if the provided Route is allowed to attach to given gateway
 func isAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, route metav1.Object, logger *slog.Logger) bool {
 	for _, listener := range gw.Spec.Listeners {
+
 		// all routes in the same namespace are allowed for this listener
 		if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
 			return route.GetNamespace() == gw.GetNamespace()
@@ -85,6 +86,43 @@ func isAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, rout
 				if ns.Name == route.GetNamespace() {
 					return true
 				}
+			}
+		}
+	}
+	return false
+}
+
+// listenerisAllowed is a single listener check to see if a route and listerner are valid
+func listenerisAllowed(ctx context.Context, c client.Client, gw *gatewayv1.Gateway, listener *gatewayv1.Listener, route metav1.Object, logger *slog.Logger) bool {
+	// all routes in the same namespace are allowed for this listener
+	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil {
+		return route.GetNamespace() == gw.GetNamespace()
+	}
+
+	// check if route is kind-allowed
+	if !isKindAllowed(*listener, route) {
+		return false
+	}
+	// check if route is namespace-allowed
+	switch *listener.AllowedRoutes.Namespaces.From {
+	case gatewayv1.NamespacesFromAll:
+		return true
+	case gatewayv1.NamespacesFromSame:
+		if route.GetNamespace() == gw.GetNamespace() {
+			return true
+		}
+		return false
+	case gatewayv1.NamespacesFromSelector:
+		nsList := &corev1.NamespaceList{}
+		selector, _ := metav1.LabelSelectorAsSelector(listener.AllowedRoutes.Namespaces.Selector)
+		if err := c.List(ctx, nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
+			logger.ErrorContext(ctx, "Unable to list namespaces", logfields.Error, err)
+			return false
+		}
+
+		for _, ns := range nsList.Items {
+			if ns.Name == route.GetNamespace() {
+				return true
 			}
 		}
 	}
