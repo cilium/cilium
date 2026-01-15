@@ -173,6 +173,12 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 			return middleware.NotImplemented("operation policy.GetFqdnCacheID has not yet been implemented")
 		}),
 
+		PolicyGetFqdnGccacheHandler: policy.GetFqdnGccacheHandlerFunc(func(params policy.GetFqdnGccacheParams) middleware.Responder {
+			_ = params
+
+			return middleware.NotImplemented("operation policy.GetFqdnGccache has not yet been implemented")
+		}),
+
 		PolicyGetFqdnNamesHandler: policy.GetFqdnNamesHandlerFunc(func(params policy.GetFqdnNamesParams) middleware.Responder {
 			_ = params
 
@@ -386,6 +392,8 @@ type CiliumAPIAPI struct {
 	PolicyGetFqdnCacheHandler policy.GetFqdnCacheHandler
 	// PolicyGetFqdnCacheIDHandler sets the operation handler for the get fqdn cache ID operation
 	PolicyGetFqdnCacheIDHandler policy.GetFqdnCacheIDHandler
+	// PolicyGetFqdnGccacheHandler sets the operation handler for the get fqdn gccache operation
+	PolicyGetFqdnGccacheHandler policy.GetFqdnGccacheHandler
 	// PolicyGetFqdnNamesHandler sets the operation handler for the get fqdn names operation
 	PolicyGetFqdnNamesHandler policy.GetFqdnNamesHandler
 	// DaemonGetHealthzHandler sets the operation handler for the get healthz operation
@@ -568,6 +576,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.PolicyGetFqdnCacheIDHandler == nil {
 		unregistered = append(unregistered, "policy.GetFqdnCacheIDHandler")
+	}
+	if o.PolicyGetFqdnGccacheHandler == nil {
+		unregistered = append(unregistered, "policy.GetFqdnGccacheHandler")
 	}
 	if o.PolicyGetFqdnNamesHandler == nil {
 		unregistered = append(unregistered, "policy.GetFqdnNamesHandler")
@@ -808,6 +819,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/fqdn/cache/{id}"] = policy.NewGetFqdnCacheID(o.context, o.PolicyGetFqdnCacheIDHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/fqdn/gccache"] = policy.NewGetFqdnGccache(o.context, o.PolicyGetFqdnGccacheHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
