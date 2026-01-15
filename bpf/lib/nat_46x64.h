@@ -28,19 +28,24 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 	return ipv6_addr_equals(&dprobe, &dmasked);
 }
 
+static __always_inline __maybe_unused void nat46x64_prefix_copy_v6(union v6addr *dst)
+{
+	union v4addr nat_prefix = CONFIG(nat_46x64_prefix);
+
+	#pragma unroll
+	for (int i = 0; i < 4; i++)
+		dst->addr[i] = nat_prefix.addr[i];
+}
+
 static __always_inline __maybe_unused bool is_v4_in_v6_rfc6052(const union v6addr *daddr)
 {
-	union v6addr dprobe  = {
-		.addr[0] = NAT_46X64_PREFIX_0,
-		.addr[1] = NAT_46X64_PREFIX_1,
-		.addr[2] = NAT_46X64_PREFIX_2,
-		.addr[3] = NAT_46X64_PREFIX_3,
-	};
+	union v6addr dprobe  = {};
 	union v6addr dmasked = {
 		.d1 = daddr->d1,
 	};
 
 	dmasked.p3 = daddr->p3;
+	nat46x64_prefix_copy_v6(&dprobe);
 	return ipv6_addr_equals(&dprobe, &dmasked);
 }
 
@@ -57,10 +62,7 @@ static __always_inline __maybe_unused
 void build_v4_in_v6_rfc6052(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
-	daddr->addr[0] = NAT_46X64_PREFIX_0;
-	daddr->addr[1] = NAT_46X64_PREFIX_1;
-	daddr->addr[2] = NAT_46X64_PREFIX_2;
-	daddr->addr[3] = NAT_46X64_PREFIX_3;
+	nat46x64_prefix_copy_v6(daddr);
 	daddr->p4 = v4;
 }
 

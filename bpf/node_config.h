@@ -180,13 +180,6 @@ return false;
 #define CIDR_IDENTITY_RANGE_START ((1 << 24) + 1)
 #define CIDR_IDENTITY_RANGE_END   ((1 << 24) + (1<<16) - 1)
 
-#ifndef NAT_46X64_PREFIX_0
-# define NAT_46X64_PREFIX_0 0
-# define NAT_46X64_PREFIX_1 0
-# define NAT_46X64_PREFIX_2 0
-# define NAT_46X64_PREFIX_3 0
-#endif
-
 /*
  *   **** WARNING, THIS FILE IS DEPRECATED, SEE COMMENT AT THE TOP ****
  */
