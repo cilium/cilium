@@ -18,6 +18,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/container/bitlpm"
@@ -31,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -1527,6 +1529,9 @@ type L4Policy struct {
 	// MUST always be taken before this mutex.
 	mutex lock.RWMutex
 	users map[*EndpointPolicy]struct{}
+
+	// detachedTime can be used for users that don't need to grab the lock.
+	detachedTime atomic.Pointer[time.Time]
 }
 
 // NewL4Policy creates a new L4Policy
@@ -1726,6 +1731,7 @@ func (l4 *L4Policy) detach(selectorCache *SelectorCache, isDelete bool, endpoint
 		}
 	}
 	l4.users = nil
+	l4.detachedTime.Store(ptr.To(time.Now()))
 }
 
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
