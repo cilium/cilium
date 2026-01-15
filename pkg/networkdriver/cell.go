@@ -117,6 +117,7 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
 		configCRD:      params.Configs,
 		allocations:    make(map[kube_types.UID]map[kube_types.UID][]allocation),
+		localNodeStore: params.LocalNodeStore,
 	}
 
 	params.Lifecycle.Append(driver)
