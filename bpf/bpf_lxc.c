@@ -59,6 +59,20 @@
 #include "lib/vtep.h"
 #include "lib/subnet.h"
 
+#if defined(ENABLE_DSR)
+struct dsr_nat_info {
+	union v6addr nat_addr;
+	__be16 nat_port;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct dsr_nat_info);
+	__uint(max_entries, 1);
+} cilium_dsr_nat_buffer __section_maps_btf;
+#endif /* ENABLE_DSR */
+
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 static __always_inline int
 lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
@@ -173,6 +187,34 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	lb4_fill_key(&key, &tuple);
 
 	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+#if defined(ENABLE_DSR)
+	if (!svc) {
+		struct ipv4_ct_tuple tmp = tuple;
+
+		/* look up with SCOPE_FORWARD: */
+		__ipv4_ct_tuple_reverse(&tmp);
+
+		/* If a CT_EGRESS entry exists, it indicates the connection was
+		 * established via the legacy path. Preserve this behavior (skip
+		 * wildcard lookup) to maintain consistency for existing flows.
+		 * Wildcard lookup is applied only for new connections.
+		 */
+		if (!ct_has_egress_entry4(get_ct_map4(&tmp), &tmp)) {
+			svc = lb4_lookup_wildcard_nodeport_service(&key);
+			if (svc && !nodeport_uses_dsr4(svc))
+				svc = NULL;
+
+			if (svc) {
+				struct dsr_nat_info nat_info = {};
+				__u32 zero = 0;
+
+				nat_info.nat_addr.p4 = tuple.daddr;
+				nat_info.nat_port = tuple.sport;
+				map_update_elem(&cilium_dsr_nat_buffer, &zero, &nat_info, 0);
+			}
+		}
+	}
+#endif /* ENABLE_DSR */
 	if (svc) {
 		const struct lb4_backend *backend;
 
@@ -323,6 +365,34 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	 * state in the address.
 	 */
 	svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+#if defined(ENABLE_DSR)
+	if (!svc) {
+		struct ipv6_ct_tuple tmp = tuple;
+
+		/* look up with SCOPE_FORWARD: */
+		__ipv6_ct_tuple_reverse(&tmp);
+
+		/* If a CT_EGRESS entry exists, it indicates the connection was
+		 * established via the legacy path. Preserve this behavior (skip
+		 * wildcard lookup) to maintain consistency for existing flows.
+		 * Wildcard lookup is applied only for new connections.
+		 */
+		if (!ct_has_egress_entry6(get_ct_map6(&tmp), &tmp)) {
+			svc = lb6_lookup_wildcard_nodeport_service(&key);
+			if (svc && !nodeport_uses_dsr6(svc))
+				svc = NULL;
+
+			if (svc) {
+				struct dsr_nat_info nat_info = {};
+				__u32 zero = 0;
+
+				ipv6_addr_copy(&nat_info.nat_addr, &tuple.daddr);
+				nat_info.nat_port = tuple.sport;
+				map_update_elem(&cilium_dsr_nat_buffer, &zero, &nat_info, 0);
+			}
+		}
+	}
+#endif /* ENABLE_DSR */
 	if (svc) {
 		const struct lb6_backend *backend;
 
@@ -758,6 +828,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	struct dsr_nat_info *nat_info __maybe_unused;
 	bool __maybe_unused skip_tunnel = false;
 	bool hairpin_flow = false;
 	enum ct_status ct_status;
@@ -818,6 +889,16 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
+#if defined(ENABLE_DSR)
+	nat_info = map_lookup_elem(&cilium_dsr_nat_buffer, &zero);
+	if (nat_info) {
+		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
+		ct_state_new.nat_port = nat_info->nat_port;
+
+		memset(&nat_info->nat_addr, 0, sizeof(nat_info->nat_addr));
+		nat_info->nat_port = 0;
+	}
+#endif /* ENABLE_DSR */
 
 	/* Apply network policy: */
 	switch (ct_status) {
@@ -1287,6 +1368,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	struct dsr_nat_info *nat_info __maybe_unused;
 	bool __maybe_unused skip_tunnel = false;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1345,6 +1427,16 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
 	l4_off = ct_buffer->l4_off;
+#if defined(ENABLE_DSR)
+	nat_info = map_lookup_elem(&cilium_dsr_nat_buffer, &zero);
+	if (nat_info) {
+		ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
+		ct_state_new.nat_port = nat_info->nat_port;
+
+		memset(&nat_info->nat_addr, 0, sizeof(nat_info->nat_addr));
+		nat_info->nat_port = 0;
+	}
+#endif /* ENABLE_DSR */
 
 	/* Apply network policy: */
 	switch (ct_status) {
