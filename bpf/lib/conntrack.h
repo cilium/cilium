@@ -69,6 +69,11 @@ static __always_inline bool ct_state_is_from_l7lb(const struct ct_state *ct_stat
 #endif
 }
 
+struct dsr_nat_info {
+	union v6addr nat_addr;
+	__be16 nat_port;
+};
+
 struct ct_buffer4 {
 	struct ipv4_ct_tuple tuple;
 	struct ct_state ct_state;
