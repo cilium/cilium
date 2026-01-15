@@ -214,16 +214,16 @@ func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resou
 func (driver *Driver) startDRA(ctx context.Context) error {
 	driver.logger.DebugContext(
 		ctx, "starting driver",
-		logfields.DriverName, driver.config.DriverName,
+		logfields.DriverName, driver.config.Spec.DriverName,
 	)
 
 	// create path for our driver plugin socket.
-	if err := os.MkdirAll(driverPluginPath(driver.config.DriverName), 0750); err != nil {
-		return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.config.DriverName), err)
+	if err := os.MkdirAll(driverPluginPath(driver.config.Spec.DriverName), 0750); err != nil {
+		return fmt.Errorf("failed to create plugin path %s: %w", driverPluginPath(driver.config.Spec.DriverName), err)
 	}
 
 	pluginOpts := []kubeletplugin.Option{
-		kubeletplugin.DriverName(driver.config.DriverName),
+		kubeletplugin.DriverName(driver.config.Spec.DriverName),
 		kubeletplugin.NodeName(node_types.GetName()),
 		kubeletplugin.KubeClient(driver.kubeClient),
 	}
@@ -236,8 +236,8 @@ func (driver *Driver) startDRA(ctx context.Context) error {
 	driver.draPlugin = p
 
 	err = wait.PollUntilContextTimeout(
-		ctx, time.Duration(driver.config.DraRegistrationRetryIntervalSeconds)*time.Second,
-		time.Duration(driver.config.DraRegistrationTimeoutSeconds)*time.Second, true,
+		ctx, time.Duration(driver.config.Spec.DraRegistrationRetryIntervalSeconds)*time.Second,
+		time.Duration(driver.config.Spec.DraRegistrationTimeoutSeconds)*time.Second, true,
 		func(context.Context) (bool, error) {
 			registrationStatus := driver.draPlugin.RegistrationStatus()
 			if registrationStatus == nil {
@@ -258,7 +258,7 @@ func (driver *Driver) startDRA(ctx context.Context) error {
 
 	driver.logger.DebugContext(ctx,
 		"DRA plugin registration successful",
-		logfields.DriverName, driver.config.DriverName,
+		logfields.DriverName, driver.config.Spec.DriverName,
 	)
 
 	return nil
