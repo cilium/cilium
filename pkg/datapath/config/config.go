@@ -43,6 +43,16 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 		node.PolicyDenyResponseEnabled = false
 	}
 
+	if option.Config.EnableNat46X64Gateway {
+		base := option.Config.IPv6NAT46x64CIDRBase.AsSlice()
+		if len(base) > 3 {
+			node.NAT46X64Prefix0 = base[0]
+			node.NAT46X64Prefix1 = base[1]
+			node.NAT46X64Prefix2 = base[2]
+			node.NAT46X64Prefix3 = base[3]
+		}
+	}
+
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
 	node.KernelHz = uint32(option.Config.KernelHz)
 

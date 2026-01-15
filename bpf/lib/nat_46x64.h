@@ -13,6 +13,11 @@
 #include "ipv6.h"
 #include "eth.h"
 
+NODE_CONFIG(__u8, nat_46x64_prefix_0, "NAT 46x64 prefix 0")
+NODE_CONFIG(__u8, nat_46x64_prefix_1, "NAT 46x64 prefix 1")
+NODE_CONFIG(__u8, nat_46x64_prefix_2, "NAT 46x64 prefix 2")
+NODE_CONFIG(__u8, nat_46x64_prefix_3, "NAT 46x64 prefix 3")
+
 static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr)
 {
 	/* Check for ::FFFF:<IPv4 address>. */
@@ -31,10 +36,10 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 static __always_inline __maybe_unused bool is_v4_in_v6_rfc6052(const union v6addr *daddr)
 {
 	union v6addr dprobe  = {
-		.addr[0] = NAT_46X64_PREFIX_0,
-		.addr[1] = NAT_46X64_PREFIX_1,
-		.addr[2] = NAT_46X64_PREFIX_2,
-		.addr[3] = NAT_46X64_PREFIX_3,
+		.addr[0] = CONFIG(nat_46x64_prefix_0),
+		.addr[1] = CONFIG(nat_46x64_prefix_1),
+		.addr[2] = CONFIG(nat_46x64_prefix_2),
+		.addr[3] = CONFIG(nat_46x64_prefix_3),
 	};
 	union v6addr dmasked = {
 		.d1 = daddr->d1,
@@ -57,10 +62,10 @@ static __always_inline __maybe_unused
 void build_v4_in_v6_rfc6052(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
-	daddr->addr[0] = NAT_46X64_PREFIX_0;
-	daddr->addr[1] = NAT_46X64_PREFIX_1;
-	daddr->addr[2] = NAT_46X64_PREFIX_2;
-	daddr->addr[3] = NAT_46X64_PREFIX_3;
+	daddr->addr[0] = CONFIG(nat_46x64_prefix_0);
+	daddr->addr[1] = CONFIG(nat_46x64_prefix_1);
+	daddr->addr[2] = CONFIG(nat_46x64_prefix_2);
+	daddr->addr[3] = CONFIG(nat_46x64_prefix_3);
 	daddr->p4 = v4;
 }
 
