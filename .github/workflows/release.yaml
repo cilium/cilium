@@ -357,3 +357,6 @@ jobs:
           image: "quay.io/${{ github.repository_owner }}/charts/cilium@${{ steps.helm_digests.outputs.quay_digest }}"
           generate_sbom: 'false'
           attach_sbom: 'false'
+          registry_username: ${{ secrets.QUAY_USERNAME_HELM_RELEASE_USERNAME }}
+          registry_password: ${{ secrets.QUAY_PASSWORD_HELM_RELEASE_PASSWORD }}
+          registry_url: 'quay.io'
