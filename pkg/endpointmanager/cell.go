@@ -5,17 +5,20 @@ package endpointmanager
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/netip"
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 
 	"github.com/cilium/cilium/api/v1/models"
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -25,6 +28,7 @@ import (
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 // Cell provides the EndpointManager which maintains the collection of locally
@@ -176,6 +180,7 @@ type endpointManagerParams struct {
 
 	Logger *slog.Logger
 
+	JobGroup        job.Group
 	Lifecycle       cell.Lifecycle
 	Config          EndpointManagerConfig
 	Clientset       client.Clientset
@@ -184,6 +189,8 @@ type endpointManagerParams struct {
 	EPSynchronizer  EndpointResourceSynchronizer
 	LocalNodeStore  *node.LocalNodeStore
 	MonitorAgent    monitoragent.Agent
+
+	EPRestorerPromise promise.Promise[endpointstate.Restorer]
 }
 
 type endpointManagerOut struct {
@@ -211,18 +218,32 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	p.JobGroup.Add(job.OneShot("init-periodic-endpoint-controllers", func(jobCtx context.Context, health cell.Health) error {
+		p.Logger.Debug("Waiting for endpoint restoration before registering periodic endpoint controllers (GC/regeneration)")
+		epRestorer, err := p.EPRestorerPromise.Await(jobCtx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for endpoint restorer: %w", err)
+		}
+
+		if err := epRestorer.WaitForEndpointRestore(jobCtx); err != nil {
+			return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
+		}
+
+		if p.Config.EndpointGCInterval > 0 {
+			p.Logger.Debug("Registering periodic endpoint GC controller")
+			mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
+		}
+
+		if p.Config.EndpointRegenInterval > 0 {
+			p.Logger.Debug("Registering periodic endpoint regeneration controller")
+			mgr.WithPeriodicEndpointRegeneration(ctx, p.Config.EndpointRegenInterval)
+		}
+
+		return nil
+	}, job.WithShutdown()))
+
 	p.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			if p.Config.EndpointGCInterval > 0 {
-				mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
-			}
-
-			if p.Config.EndpointRegenInterval > 0 {
-				mgr.WithPeriodicEndpointRegeneration(ctx, p.Config.EndpointRegenInterval)
-			}
-
-			return nil
-		},
 		OnStop: func(cell.HookContext) error {
 			cancel()
 			mgr.controllers.RemoveAllAndWait()
