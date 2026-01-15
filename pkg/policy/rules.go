@@ -91,7 +91,7 @@ func (rules ruleSlice) computeTierPriorities() ([]int, error) {
 
 	// Compute the whole priority range needed for each tier by adding the lower tier priorities
 	// for each pass verdict so that when computing mapstate we can elevate priority of each
-	// passed-to entry to the priority of the pass verdict.
+	// passed-to entry to the priorities following the pass verdict.
 	for tier := int(lastTier) - 1; tier >= 0; tier-- {
 		tierPriorityLevels[tier] += numPassVerdicts[tier] * tierPriorityLevels[tier+1]
 	}
@@ -158,9 +158,11 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 		}
 		state.ruleID++
 
-		// adjust increment to make space after pass verdict for all the lower tier rules
+		// Adjust increment to make space after pass verdict for all the lower tier rules.
+		// + 1 for the pass verdict itself so that there is space for all passed to entries
+		// after the pass entry itself.
 		if r.Verdict == types.Pass && tier < lastTier {
-			increment = types.Priority(tierPriorityLevels[tier+1])
+			increment = types.Priority(tierPriorityLevels[tier+1]) + 1
 		}
 	}
 
