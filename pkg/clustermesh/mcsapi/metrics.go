@@ -29,7 +29,7 @@ func registerMCSAPICollector(registry *metrics.Registry, logger *slog.Logger, cl
 		serviceExportStatusCondition: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceexport_status_condition"),
 			"Status Condition of ServiceExport in the local cluster",
-			[]string{"serviceexport", "namespace", "condition", "status"}, nil),
+			[]string{"serviceexport", "namespace", "condition", "status", "reason"}, nil),
 		serviceImportInfo: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceimport_info"),
 			"Information about ServiceImport in the local cluster",
@@ -37,7 +37,7 @@ func registerMCSAPICollector(registry *metrics.Registry, logger *slog.Logger, cl
 		serviceImportStatusCondition: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceimport_status_condition"),
 			"Status Condition of ServiceImport in the local cluster",
-			[]string{"serviceimport", "namespace", "condition", "status"}, nil),
+			[]string{"serviceimport", "namespace", "condition", "status", "reason"}, nil),
 		serviceImportStatusClusters: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.CiliumOperatorNamespace, subsystem, "serviceimport_status_clusters"),
 			"The number of clusters currently backing a ServiceImport",
@@ -89,7 +89,7 @@ func (c *mcsAPICollector) Collect(ch chan<- prometheus.Metric) {
 				prometheus.GaugeValue,
 				1,
 				svcExport.Name, svcExport.Namespace,
-				string(condition.Type), string(condition.Status),
+				string(condition.Type), string(condition.Status), condition.Reason,
 			)
 			if err != nil {
 				c.logger.Error("Failed to generate ServiceExport metrics", logfields.Error, err)
@@ -134,7 +134,7 @@ func (c *mcsAPICollector) Collect(ch chan<- prometheus.Metric) {
 				prometheus.GaugeValue,
 				1,
 				svcImport.Name, svcImport.Namespace,
-				string(condition.Type), string(condition.Status),
+				string(condition.Type), string(condition.Status), condition.Reason,
 			)
 			if err != nil {
 				c.logger.Error("Failed to generate ServiceImport metrics", logfields.Error, err)
