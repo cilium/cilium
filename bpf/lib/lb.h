@@ -9,6 +9,7 @@
 #include "ipv4.h"
 #include "hash.h"
 #include "eps.h"
+#include "identity.h"
 #include "nat_46x64.h"
 #include "ratelimit.h"
 
@@ -976,6 +977,28 @@ lb6_lookup_service(struct lb6_key *key, const bool east_west)
 	return __lb6_lookup_service(key);
 }
 
+static __always_inline const struct lb6_service *
+lb6_lookup_wildcard_nodeport_service(struct lb6_key *key __maybe_unused)
+{
+#ifdef ENABLE_NODEPORT
+	const struct remote_endpoint_info *info;
+	__u16 service_port;
+
+	service_port = bpf_ntohs(key->dport);
+	if (service_port < CONFIG(nodeport_port_min) || service_port > CONFIG(nodeport_port_max))
+		return NULL;
+
+	info = lookup_ip6_remote_endpoint(&key->address, 0);
+	if (info && identity_is_remote_node(info->sec_identity) &&
+	    !info->flag_remote_cluster) {
+		memset(&key->address, 0, sizeof(key->address));
+		return lb6_lookup_service(key, true);
+	}
+#endif
+
+	return NULL;
+}
+
 static __always_inline const struct lb6_backend *
 __lb6_lookup_backend(__u32 backend_id)
 {
@@ -1305,6 +1328,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			}
 		}
 		if (backend_id == 0) {
+			/* No CT entry has been found, so select a svc endpoint */
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
@@ -1681,6 +1705,28 @@ lb4_lookup_service(struct lb4_key *key, const bool east_west)
 
 	key->scope = LB_LOOKUP_SCOPE_INT;
 	return __lb4_lookup_service(key);
+}
+
+static __always_inline const struct lb4_service *
+lb4_lookup_wildcard_nodeport_service(struct lb4_key *key __maybe_unused)
+{
+#ifdef ENABLE_NODEPORT
+	const struct remote_endpoint_info *info;
+	__u16 service_port;
+
+	service_port = bpf_ntohs(key->dport);
+	if (service_port < CONFIG(nodeport_port_min) || service_port > CONFIG(nodeport_port_max))
+		return NULL;
+
+	info = lookup_ip4_remote_endpoint(key->address, 0);
+	if (info && identity_is_remote_node(info->sec_identity) &&
+	    !info->flag_remote_cluster) {
+		key->address = 0;
+		return lb4_lookup_service(key, true);
+	}
+#endif
+
+	return NULL;
 }
 
 static __always_inline const struct lb4_backend *
