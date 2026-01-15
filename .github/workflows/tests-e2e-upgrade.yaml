@@ -494,8 +494,14 @@ jobs:
             cilium encrypt create-key --auth-algo rfc4106-gcm-aes
           fi
 
+          installFlags=""
+          if [ "${{ matrix.mode }}" = "patch" ]; then
+            # https://github.com/cilium/cilium/pull/42665
+            installFlags="${installFlags} --set-string=extraConfig.ignore-flags-drift-checker=mesh-auth-enabled"
+          fi
+
           if ${{ steps.vars.outputs.skip_upgrade != 'true' }}; then
-            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
+            cilium install ${{ steps.cilium-stable-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id $installFlags
           else
             cilium install ${{ steps.cilium-newest-config.outputs.config }} ${{ steps.kvstore.outputs.config }} --set extraConfig.boot-id-file=/var/run/cilium/boot_id
           fi
