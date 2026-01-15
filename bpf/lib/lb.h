@@ -815,20 +815,35 @@ lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
 /** Perform IPv6 reverse NAT based on reverse NAT index
  * @arg ctx		packet
  * @arg l4_off		offset to L4
- * @arg index		reverse NAT index
+ * @arg rev_nat_index	reverse NAT index
+ * @arg nat_addr	NAT address (NULL if not set)
+ * @arg nat_port	NAT port (0 if not set)
  * @arg loopback	loopback connection
  * @arg tuple		tuple
+ * @arg has_l4_header	packet has L4 header
+ * @arg dir		connection direction
  */
-static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off, __u16 index,
+static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
+				       __u16 rev_nat_index,
+				       const union v6addr *nat_addr, __be16 nat_port,
 				       bool loopback,
 				       struct ipv6_ct_tuple *tuple, bool has_l4_header,
 				       enum ct_dir dir)
 {
-	const struct lb6_reverse_nat *nat;
+	struct lb6_reverse_nat nat_info;
+	const struct lb6_reverse_nat *nat = NULL;
 
-	nat = lb6_lookup_rev_nat_entry(ctx, index);
-	if (nat == NULL)
-		return 0;
+	if (nat_port) {
+		ipv6_addr_copy(&nat_info.address, nat_addr);
+		nat_info.port = nat_port;
+		nat = &nat_info;
+	}
+
+	if (!nat) {
+		nat = lb6_lookup_rev_nat_entry(ctx, rev_nat_index);
+		if (!nat)
+			return 0;
+	}
 
 	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header, dir, loopback);
 }
@@ -1545,19 +1560,32 @@ lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
  * @arg ctx		packet
  * @arg l3_off		offset to L3
  * @arg l4_off		offset to L4
- * @arg index		reverse NAT index
+ * @arg rev_nat_index	reverse NAT index
+ * @arg nat_addr	NAT address (0 if not set)
+ * @arg nat_port	NAT port (0 if not set)
  * @arg loopback	loopback connection
  * @arg tuple		tuple
+ * @arg has_l4_header	packet has L4 header
  */
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-				       __u16 index, bool loopback,
-				       struct ipv4_ct_tuple *tuple, bool has_l4_header)
+				       __u16 rev_nat_index, __be32 nat_addr, __be16 nat_port,
+				       bool loopback, struct ipv4_ct_tuple *tuple,
+				       bool has_l4_header)
 {
-	const struct lb4_reverse_nat *nat;
+	struct lb4_reverse_nat nat_info;
+	const struct lb4_reverse_nat *nat = NULL;
 
-	nat = lb4_lookup_rev_nat_entry(ctx, index);
-	if (nat == NULL)
-		return 0;
+	if (nat_port) {
+		nat_info.address = nat_addr;
+		nat_info.port = nat_port;
+		nat = &nat_info;
+	}
+
+	if (!nat) {
+		nat = lb4_lookup_rev_nat_entry(ctx, rev_nat_index);
+		if (!nat)
+			return 0;
+	}
 
 	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, nat,
 			     loopback, has_l4_header);
