@@ -236,6 +236,9 @@ func (d DefaultClusterServiceConverter) Convert(k8sService *slim_corev1.Service,
 	svc.Backends = map[string]serviceStore.PortConfiguration{}
 	for _, ep := range getEndpoints(svc.Namespace, svc.Name) {
 		for addrCluster, backend := range ep.Backends {
+			if !backend.Conditions.IsReady() && !backend.Conditions.IsServing() {
+				continue
+			}
 			addrString := addrCluster.Addr().String()
 			svc.Backends[addrString] = backend.ToPortConfiguration()
 			if backend.Hostname != "" {
