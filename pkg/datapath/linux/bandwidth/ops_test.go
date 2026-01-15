@@ -28,7 +28,7 @@ func TestPrivilegedOps(t *testing.T) {
 
 	ns := netns.NewNetNS(t)
 	require.NoError(t, ns.Do(func() error {
-		nlh, err = netlink.NewHandle()
+		nlh, err = safenetlink.NewHandle(nil)
 		return err
 	}))
 
