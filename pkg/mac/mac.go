@@ -4,9 +4,7 @@
 package mac
 
 import (
-	"bytes"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"net"
 )
@@ -51,6 +49,8 @@ func ParseMAC(s string) (MAC, error) {
 	if err != nil {
 		return nil, err
 	}
+	// MAC only supports the IEEE 802 MAC-48 address format while [net.HardwareAddress]
+	// supports several other formats, see [net.ParseMAC].
 	if len(ha) != 6 {
 		return nil, fmt.Errorf("invalid MAC address %s", s)
 	}
@@ -85,40 +85,23 @@ func (m MAC) Uint64() (Uint64MAC, error) {
 	return Uint64MAC(res), nil
 }
 
-func (m MAC) MarshalJSON() ([]byte, error) {
-	if len(m) == 0 {
-		return []byte(`""`), nil
-	}
-	if len(m) != 6 {
-		return nil, fmt.Errorf("invalid MAC address length %s", string(m))
-	}
-	return fmt.Appendf(nil, "\"%02x:%02x:%02x:%02x:%02x:%02x\"", m[0], m[1], m[2], m[3], m[4], m[5]), nil
+// MarshalText implements the [encoding.TextMarshaler] interface.
+// The encoding is the same as the one returned by [MAC.String].
+func (m MAC) MarshalText() ([]byte, error) {
+	return []byte(m.String()), nil
 }
 
-func (m MAC) MarshalIndentJSON(prefix, indent string) ([]byte, error) {
-	return m.MarshalJSON()
-}
-
-func (m *MAC) UnmarshalJSON(data []byte) error {
-	if len(data) == len([]byte(`""`)) {
-		if m == nil {
-			m = new(MAC)
-		}
+// UnmarshalText implements the [encoding.TextUnmarshaler] interface.
+func (m *MAC) UnmarshalText(data []byte) error {
+	if len(data) == 0 {
 		*m = MAC{}
 		return nil
 	}
-	if len(data) != 19 {
-		return fmt.Errorf("invalid MAC address length %s", string(data))
+	hw, err := ParseMAC(string(data))
+	if err == nil {
+		*m = MAC(hw)
 	}
-	data = data[1 : len(data)-1]
-	macStr := bytes.ReplaceAll(data, []byte(`:`), []byte(``))
-	if len(macStr) != 12 {
-		return fmt.Errorf("invalid MAC address format")
-	}
-	macByte := make([]byte, len(macStr))
-	hex.Decode(macByte, macStr)
-	*m = MAC{macByte[0], macByte[1], macByte[2], macByte[3], macByte[4], macByte[5]}
-	return nil
+	return err
 }
 
 // GenerateRandMAC generates a random unicast and locally administered MAC address.
