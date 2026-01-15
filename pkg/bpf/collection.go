@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/container/set"
-	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -280,38 +279,6 @@ func renameMaps(coll *ebpf.CollectionSpec, renames map[string]string) error {
 		}
 
 		mapSpec.Name = rename
-	}
-
-	return nil
-}
-
-// applyConstants sets the values of BPF C runtime configurables defined using
-// the DECLARE_CONFIG macro.
-func applyConstants(spec *ebpf.CollectionSpec, obj any) error {
-	if obj == nil {
-		return nil
-	}
-
-	constants, err := config.Map(obj)
-	if err != nil {
-		return fmt.Errorf("converting struct to map: %w", err)
-	}
-
-	for name, value := range constants {
-		constName := config.ConstantPrefix + name
-
-		v, ok := spec.Variables[constName]
-		if !ok {
-			return fmt.Errorf("can't set non-existent Variable %s", name)
-		}
-
-		if v.SectionName != config.Section {
-			return fmt.Errorf("can only set Cilium config variables in section %s (got %s:%s), ", config.Section, v.SectionName, name)
-		}
-
-		if err := v.Set(value); err != nil {
-			return fmt.Errorf("setting Variable %s: %w", name, err)
-		}
 	}
 
 	return nil
