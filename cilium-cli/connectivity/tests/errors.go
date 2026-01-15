@@ -160,11 +160,6 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// Do not check for container restarts for Cilium v1.16 and earlier.
 				ignore := n.ciliumVersion.LT(semver.MustParse("1.17.0"))
 
-				// Ignore Cilium operator restarts for the moment, as they can
-				// legitimately happen in case it loses the leader election due
-				// to temporary control plane blips.
-				ignore = ignore || container == "cilium-operator"
-
 				// The hubble relay container can currently be restarted by the
 				// startup probe if it fails to connect to Cilium. However, this
 				// can legitimately happen when the certificates are generated
@@ -178,17 +173,23 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				if err != nil {
 					a.Fatalf("Error reading Cilium logs: %s", err)
 				}
-				n.checkErrorsInLogs(id, logs.Bytes(), a, &opts)
+				_ = n.checkErrorsInLogs(id, logs.Bytes(), a, &opts)
 
 				if restarts > 0 && !ignore {
-					a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
-
-					logs = bytes.Buffer{}
-					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &logs)
-					if err == nil {
-						n.checkErrorsInLogs(id, logs.Bytes(), a, &prevOpts)
+					shouldFail := true
+					// Fetch previous logs once here and analyze before deciding to fail.
+					var prevLogs bytes.Buffer
+					if err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &prevLogs); err != nil {
+						a.Failf("Error reading previous Cilium logs: %s", err)
 					} else {
-						a.Failf("Error reading Cilium logs: %s", err)
+						legitimate := n.checkErrorsInLogs(id, prevLogs.Bytes(), a, &prevOpts)
+						if container == "cilium-operator" && legitimate {
+							// Only suppress the restart-count failure for legitimate leader handover
+							shouldFail = false
+						}
+					}
+					if shouldFail {
+						a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
 					}
 				}
 			})
@@ -308,11 +309,16 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
 	return containers
 }
 
-func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[string]string) {
+func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[string]string, bool) {
 	uniqueFailures := make(map[string]int)
 	exampleLogLine := make(map[string]string)
+	legitimateOperatorRestart := false
 	for chunk := range bytes.SplitSeq(logs, []byte("\n")) {
 		msg := string(chunk)
+		// Detect legitimate operator leadership handover while scanning logs
+		if strings.Contains(msg, "Leader election lost") {
+			legitimateOperatorRestart = true
+		}
 		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
 			if strings.Contains(msg, fail) {
 				ok := false
@@ -341,7 +347,7 @@ func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[st
 			n.mostCommonFailureLog = exampleLogLine[f]
 		}
 	}
-	return uniqueFailures, exampleLogLine
+	return uniqueFailures, exampleLogLine, legitimateOperatorRestart
 }
 
 func extractValueFromLog(log string, key string) string {
@@ -383,8 +389,8 @@ func extractPackageFromLog(log string) string {
 	return filepath.Clean(result)
 }
 
-func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action, opts *corev1.PodLogOptions) {
-	uniqueFailures, exampleLogLine := n.findUniqueFailures(logs)
+func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Action, opts *corev1.PodLogOptions) bool {
+	uniqueFailures, exampleLogLine, legitimateOperatorRestart := n.findUniqueFailures(logs)
 	if len(uniqueFailures) > 0 {
 		var failures strings.Builder
 		for f, c := range uniqueFailures {
@@ -399,6 +405,7 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Acti
 		}
 		a.Failf("Found %d logs in %s%s matching list of errors that must be investigated:%s", len(uniqueFailures), id, previous, failures.String())
 	}
+	return legitimateOperatorRestart
 }
 
 const (
@@ -489,3 +496,11 @@ var (
 	// For https://github.com/cilium/cilium/issues/39370: Fixed only in cilium version >= 1.18
 	linkNotFound = regexMatcher{regexp.MustCompile(`retrieving device .+\: Link not found`)}
 )
+
+// hasLegitimateOperatorRestartPatterns returns true only for intentional, benign
+// operator restarts. Today, this is identified by the informational log message
+// "Leader election lost" emitted during leader handover.
+func hasLegitimateOperatorRestartPatterns(logs []byte) bool {
+	logStr := string(logs)
+	return strings.Contains(logStr, "Leader election lost")
+}
