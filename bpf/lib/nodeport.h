@@ -1007,8 +1007,9 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
 
-		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index, false,
-				  &tuple, ipfrag_has_l4_header(fraginfo),
+		ret = lb6_rev_nat(ctx, l4_off,
+				  ct_state.rev_nat_index, NULL, 0,
+				  false, &tuple, ipfrag_has_l4_header(fraginfo),
 				  dir);
 		if (IS_ERR(ret))
 			return ret;
@@ -2371,8 +2372,9 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		trace->monitor = monitor;
-		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
-				  &tuple, ipfrag_has_l4_header(fraginfo));
+		ret = lb4_rev_nat(ctx, l3_off, l4_off,
+				  ct_state.rev_nat_index, 0, 0,
+				  false, &tuple, ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
