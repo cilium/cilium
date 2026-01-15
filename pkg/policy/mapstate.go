@@ -733,20 +733,24 @@ func (ms *mapState) revertChanges(changes ChangeState) {
 	}
 }
 
-// InheritPassPrecedence bumps the precedence of the given entry to the given 'passPrecedence',
-// retaining the lowest bits for deny and proxy port precedence.
+// InheritPassPrecedence bumps the precedence of the given entry to follow the given
+// 'passPrecedence', retaining the lowest bits for deny and proxy port precedence.
 // The given passPrecedence is also stored in e.passPrecedence so this entry can safely overwrite
 // the pass entry with the same key.
-func (e *mapStateEntry) InheritPassPrecedence(passEntry mapStateEntry) {
+func (e *mapStateEntry) InheritPassPrecedence(passEntry mapStateEntry, sameKey bool) {
 	// Both passPrecedence and nextTierPrcedence have the low 8 bits all set, so those bits
 	// cancel out and the deny and proxy port precedence bits are retained intact.
 	e.Precedence -= passEntry.nextTierPrecedence
 	e.Precedence += passEntry.passPrecedence
+	// passed to entries are on priority level lower than the pass entry itself
+	e.Precedence -= 0x100
 
 	// Mark pass metadata on the entry to retain them if the pass entry key is overwritten by
 	// any passed-to entry.
-	e.passPrecedence = passEntry.passPrecedence
-	e.nextTierPrecedence = passEntry.nextTierPrecedence
+	if sameKey {
+		e.passPrecedence = passEntry.passPrecedence
+		e.nextTierPrecedence = passEntry.nextTierPrecedence
+	}
 }
 
 // insertWithChanges contains the most important business logic for policy insertions. It inserts a
@@ -814,6 +818,7 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 	} else if newEntry.IsDeny() {
 		bail := false
 		var passEntry mapStateEntry
+		var passKey Key
 		// TODO: This could be simplified if the iterator would iterate in LPM order
 		for k, v := range ms.BroaderOrEqualKeys(newKey) {
 			// Bail if covered by a key of higher precedence.
@@ -823,6 +828,7 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 					if v.passPrecedence > tierPrecedence {
 						// pass by higher tier
 						if v.passPrecedence > passEntry.passPrecedence {
+							passKey = k
 							passEntry = v
 						}
 					} else {
@@ -846,7 +852,7 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 		}
 		if passEntry.passPrecedence > 0 {
 			// This entry is covered by a higher tier rule with a PASS verdict.
-			newEntry.InheritPassPrecedence(passEntry)
+			newEntry.InheritPassPrecedence(passEntry, passKey == newKey)
 		} else if bail {
 			return
 		}
@@ -872,14 +878,16 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 		if features.contains(precedenceFeatures) {
 			bail := false
 			var passEntry mapStateEntry
+			var passKey Key
 			// Bail if covered by a key of a higher precedence.
-			for _, v := range ms.BroaderOrEqualKeys(newKey) {
+			for k, v := range ms.BroaderOrEqualKeys(newKey) {
 				// Bump precedence if covered by a higher tier PASS verdict.
 				if v.IsPassEntry() {
 					if v.passPrecedence > newEntry.Precedence {
 						if v.passPrecedence > tierPrecedence {
 							// pass by higher tier
 							if v.passPrecedence > passEntry.passPrecedence {
+								passKey = k
 								passEntry = v
 							}
 						} else {
@@ -900,7 +908,7 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 			}
 			if passEntry.passPrecedence > 0 {
 				// This entry is covered by a higher tier rule with a PASS verdict.
-				newEntry.InheritPassPrecedence(passEntry)
+				newEntry.InheritPassPrecedence(passEntry, passKey == newKey)
 			} else if bail {
 				return
 			}
