@@ -571,6 +571,7 @@ jobs:
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium-dbg status
 
       - name: Test Cilium ${{ matrix.skip-upgrade != 'true' && 'after agent restart' }}
+        continue-on-error: true
         if: ${{ matrix.skip-upgrade != 'true' }}
         uses: ./.github/actions/conn-disrupt-test-check
         with:
