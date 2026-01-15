@@ -56,12 +56,20 @@ type regenerationStatistics struct {
 	datapathRealization        loaderMetrics.SpanStat
 	mapSync                    spanstat.SpanStat
 	prepareBuild               spanstat.SpanStat
+	// policyDetachedTimestamp tracks the time the selector policy of the endpoint was detached.
+	// This is nil if the selector policy was still attached when the operation (policy update or endpoint regeneration)
+	// started
+	policyDetachedTimestamp *time.Time
 }
 
 // SendMetrics sends the regeneration statistics for this endpoint to
 // Prometheus.
 func (s *regenerationStatistics) SendMetrics() {
 	endpointPolicyStatus.Update(s.endpointID, s.policyStatus)
+
+	if s.policyDetachedTimestamp != nil {
+		metrics.EndpointDetachedSelectorPolicyTimeStats.WithLabelValues("regeneration").Observe(time.Since(*s.policyDetachedTimestamp).Seconds())
+	}
 
 	if !s.success {
 		// Endpoint regeneration failed, increase on failed metrics

@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -364,6 +365,14 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	}
 
 	return calculatedPolicy
+}
+
+func (p *selectorPolicy) IsDetached() (bool, time.Time) {
+	ptr := p.L4Policy.detachedTime.Load()
+	if ptr == nil {
+		return false, time.Time{}
+	}
+	return true, *ptr
 }
 
 var (

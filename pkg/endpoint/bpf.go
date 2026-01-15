@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyapi "github.com/cilium/cilium/pkg/policy/api"
@@ -1076,6 +1077,9 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 
 	e.PolicyDebug("ApplyPolicyMapChanges")
 
+	if isDetached, t := e.desiredPolicy.SelectorPolicy.IsDetached(); isDetached {
+		metrics.EndpointDetachedSelectorPolicyTimeStats.WithLabelValues("incremental-update").Observe(time.Since(t).Seconds())
+	}
 	return e.applyPolicyMapChangesLocked(&regenerationContext{
 		datapathRegenerationContext: &datapathRegenerationContext{
 			proxyWaitGroup: proxyWaitGroup,
