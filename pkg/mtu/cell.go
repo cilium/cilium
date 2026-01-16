@@ -39,7 +39,6 @@ var Cell = cell.Module(
 type MTU interface {
 	GetDeviceMTU() int
 	GetRouteMTU() int
-	GetRoutePostEncryptMTU() int
 	IsEnableRouteMTUForCNIChaining() bool
 	// PacketizationLayerPMTUDMode returns valid plpmtud mode as string (empty means: do not set).
 	PacketizationLayerPMTUDMode() string
@@ -213,12 +212,6 @@ func (m *LatestMTUGetter) GetRouteMTU() int {
 	rtx := m.db.ReadTxn()
 	mtu, _, _ := m.tbl.Get(rtx, MTURouteIndex.Query(DefaultPrefixV4))
 	return mtu.RouteMTU
-}
-
-func (m *LatestMTUGetter) GetRoutePostEncryptMTU() int {
-	rtx := m.db.ReadTxn()
-	mtu, _, _ := m.tbl.Get(rtx, MTURouteIndex.Query(DefaultPrefixV4))
-	return mtu.RoutePostEncryptMTU
 }
 
 func (m *LatestMTUGetter) IsEnableRouteMTUForCNIChaining() bool {
