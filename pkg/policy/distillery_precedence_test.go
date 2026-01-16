@@ -483,7 +483,7 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			expected: mapStateMap{
 				// default allow ingress
 				ingressKey(0, 0, 0, 0):            newAllowEntryWithLabels(LabelsAllowAnyIngress),
-				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 1000),
+				egressKey(identity1111, 0, 0, 0):  newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(1001).withPassPriority(0, 1000),
 				egressKey(identity1111, 6, 80, 0): allowEntry.withLevel(1),
 				// default allow egress
 				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(2000),

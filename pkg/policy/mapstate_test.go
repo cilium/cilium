@@ -55,6 +55,15 @@ func (e mapStateEntry) withPassPriority(priority, nextTierPriority types.Priorit
 	return e
 }
 
+func (e mapStateEntry) withPassPriorityLabels(priority, nextTierPriority types.Priority, lbls labels.LabelArray) mapStateEntry {
+	e.passPrecedence = priority.ToPassPrecedence()
+	e.nextTierPrecedence = nextTierPriority.ToPassPrecedence()
+
+	e.derivedFromRules = e.derivedFromRules.Merge(makeSingleRuleOrigin(lbls, ""))
+
+	return e
+}
+
 func (ms mapState) withState(initMap mapStateMap) mapState {
 	for k, v := range initMap {
 		ms.insert(k, v)
