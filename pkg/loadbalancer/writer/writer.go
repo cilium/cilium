@@ -216,30 +216,40 @@ func (w *Writer) UpsertService(txn WriteTxn, svc *loadbalancer.Service) (old *lo
 }
 
 func (w *Writer) UpsertFrontend(txn WriteTxn, params loadbalancer.FrontendParams) (old *loadbalancer.Frontend, err error) {
-	if err := w.validateFrontends(txn, params); err != nil {
-		return nil, err
-	}
-
-	// Check if a frontend already exists that is associated to a different service.
-	fe, _, found := w.fes.Get(txn, loadbalancer.FrontendByAddress(params.Address))
-	if found && !fe.ServiceName.Equal(params.ServiceName) {
-		return fe, fmt.Errorf("%w: %s is owned by %s", loadbalancer.ErrFrontendConflict, params.Address.StringWithProtocol(), fe.ServiceName)
-	}
-
 	// Lookup the service associated with the frontend. A frontend cannot be added
 	// without the service already existing.
 	svc, _, found := w.svcs.Get(txn, loadbalancer.ServiceByName(params.ServiceName))
 	if !found {
 		return nil, loadbalancer.ErrServiceNotFound
 	}
+
 	return w.upsertFrontendParams(txn, params, svc)
 }
 
-func (w *Writer) DeleteFrontend(txn WriteTxn, addr loadbalancer.L3n4Addr) {
+func (w *Writer) DeleteFrontend(txn WriteTxn, svcName loadbalancer.ServiceName, addr loadbalancer.L3n4Addr) error {
 	fe, _, found := w.fes.Get(txn, loadbalancer.FrontendByAddress(addr))
 	if found {
-		w.fes.Delete(txn, fe)
+		return w.deleteFrontend(txn, svcName, fe)
 	}
+	return nil
+}
+
+func (w *Writer) deleteFrontend(txn WriteTxn, svcName loadbalancer.ServiceName, fe *loadbalancer.Frontend) (err error) {
+	if fe.ServiceName == svcName {
+		if fe.Redirect != nil && fe.Redirect.Shadows != nil {
+			// Restore the shadow'd frontend
+			fe = fe.Redirect.Shadows.Clone()
+			w.refreshFrontend(txn, fe)
+			_, _, err = w.fes.Insert(txn, fe)
+		} else {
+			_, _, err = w.fes.Delete(txn, fe)
+		}
+	} else if fe.Redirect != nil && fe.Redirect.Shadows != nil && fe.Redirect.Shadows.ServiceName.Equal(svcName) {
+		fe = fe.Clone()
+		fe.Redirect = nil
+		_, _, err = w.fes.Insert(txn, fe)
+	}
+	return
 }
 
 func (w *Writer) UpdateBackendHealth(txn WriteTxn, serviceName loadbalancer.ServiceName, backend loadbalancer.L3n4Addr, healthy bool) (bool, error) {
@@ -274,34 +284,33 @@ func (w *Writer) upsertFrontendParams(txn WriteTxn, params loadbalancer.Frontend
 	}
 	var found bool
 	if old, _, found = w.fes.Get(txn, loadbalancer.FrontendByAddress(params.Address)); found {
+		// Check if a frontend already exists that is associated to a different service
+		if !old.ServiceName.Equal(fe.ServiceName) {
+			if old.Type == loadbalancer.SVCTypeLocalRedirect && params.Type != loadbalancer.SVCTypeLocalRedirect {
+				// This is an update to the frontend shadowed by LRP. Update [Frontend.Shadows].
+				old = old.Clone()
+				old.Redirect = &loadbalancer.RedirectParams{Shadows: fe}
+				fe = old
+			} else if old.Type != loadbalancer.SVCTypeLocalRedirect && params.Type == loadbalancer.SVCTypeLocalRedirect {
+				// This is a transition to a LRP frontend. Remember the shadowed frontend.
+				fe.Redirect = &loadbalancer.RedirectParams{Shadows: old}
+			} else {
+				// Overlapping frontends are only allowed for LRP
+				return nil, fmt.Errorf("%w: %s is owned by %s (%s)", loadbalancer.ErrFrontendConflict, params.Address.StringWithProtocol(), old.ServiceName, old.Type)
+			}
+		} else {
+			fe.Redirect = old.Redirect
+		}
 		fe.ID = old.ID
-		fe.RedirectTo = old.RedirectTo
 	}
 	w.refreshFrontend(txn, fe)
 	_, _, err = w.fes.Insert(txn, fe)
 	return
 }
 
-// validateFrontends checks that the frontends being added are not already owned by other
-// services.
-func (w *Writer) validateFrontends(txn WriteTxn, fes ...loadbalancer.FrontendParams) error {
-	// Validate that the frontends are not owned by other services.
-	for _, params := range fes {
-		fe, _, found := w.fes.Get(txn, loadbalancer.FrontendByAddress(params.Address))
-		if found && !fe.ServiceName.Equal(params.ServiceName) {
-			return fmt.Errorf("%w: %s is owned by %s", loadbalancer.ErrFrontendConflict, params.Address.StringWithProtocol(), fe.ServiceName)
-		}
-	}
-	return nil
-}
-
 // UpsertServiceAndFrontends upserts the service and updates the set of associated frontends.
 // Any frontends that do not exist in the new set are deleted.
 func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *loadbalancer.Service, fes ...loadbalancer.FrontendParams) error {
-	if err := w.validateFrontends(txn, fes...); err != nil {
-		return err
-	}
-
 	_, _, err := w.svcs.Insert(txn, svc)
 	if err != nil {
 		return err
@@ -328,6 +337,25 @@ func (w *Writer) UpsertServiceAndFrontends(txn WriteTxn, svc *loadbalancer.Servi
 			}
 		}
 	}
+	// Delete also the orphan shadowed frontends. These are frontends for which an
+	// address-based local redirect policy exists that overwrites it.
+	for fe := range w.fes.List(txn, loadbalancer.ShadowedFrontendByServiceName(svc.Name)) {
+		// We can't check [minFrontendRevision] since we don't know the exact revision at
+		// which [fe.Redirect.Shadows] was updated.
+		// Since these are very rare we'll just iterate over the frontends to see if this is an orphan.
+		orphan := true
+		for _, fep := range fes {
+			if fep.Address == fe.Address {
+				orphan = false
+				break
+			}
+		}
+		if orphan {
+			fe = fe.Clone()
+			fe.Redirect = nil
+			w.fes.Insert(txn, fe)
+		}
+	}
 
 	return nil
 }
@@ -347,9 +375,9 @@ func (w *Writer) updateServiceReferences(txn WriteTxn, svc *loadbalancer.Service
 func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *loadbalancer.Frontend) {
 	fe.Status = reconciler.StatusPending()
 	svc := fe.Service
-	if fe.RedirectTo != nil {
+	if fe.Redirect != nil && fe.Redirect.ServiceName != nil {
 		var found bool
-		svc, _, found = w.svcs.Get(txn, loadbalancer.ServiceByName(*fe.RedirectTo))
+		svc, _, found = w.svcs.Get(txn, loadbalancer.ServiceByName(*fe.Redirect.ServiceName))
 		if !found {
 			return
 		}
@@ -406,7 +434,7 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[loadba
 	}
 	if w.config.EnableServiceTopology &&
 		thisZone != nil &&
-		fe != nil && fe.RedirectTo == nil &&
+		fe != nil && fe.Redirect == nil &&
 		fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose {
 		// Topology-aware routing enabled. See if we can find any backends fitting
 		// for our zone. If we don't find any we fall back to default behaviour.
@@ -477,7 +505,15 @@ func (w *Writer) DeleteServiceAndFrontends(txn WriteTxn, name loadbalancer.Servi
 func (w *Writer) deleteService(txn WriteTxn, svc *loadbalancer.Service) error {
 	// Delete the frontends
 	for fe := range w.fes.List(txn, loadbalancer.FrontendByServiceName(svc.Name)) {
-		if _, _, err := w.fes.Delete(txn, fe); err != nil {
+		if err := w.deleteFrontend(txn, svc.Name, fe); err != nil {
+			return err
+		}
+	}
+	// Drop the shadowed frontends if any
+	for fe := range w.fes.List(txn, loadbalancer.ShadowedFrontendByServiceName(svc.Name)) {
+		fe = fe.Clone()
+		fe.Redirect = nil
+		if _, _, err := w.fes.Insert(txn, fe); err != nil {
 			return err
 		}
 	}
@@ -708,16 +744,20 @@ func (w *Writer) ReleaseBackends(txn WriteTxn, name loadbalancer.ServiceName, ad
 }
 
 func (w *Writer) SetRedirectTo(txn WriteTxn, fe *loadbalancer.Frontend, to *loadbalancer.ServiceName) {
-	if to == nil && fe.RedirectTo == nil {
+	if to == nil && fe.Redirect == nil {
 		return
 	}
 
-	if to != nil && fe.RedirectTo != nil && to.Equal(*fe.RedirectTo) {
+	if to != nil && fe.Redirect != nil && fe.Redirect.ServiceName != nil && to.Equal(*fe.Redirect.ServiceName) {
 		return
 	}
 
 	fe = fe.Clone()
-	fe.RedirectTo = to
+	if to == nil {
+		fe.Redirect = nil
+	} else {
+		fe.Redirect = &loadbalancer.RedirectParams{ServiceName: to}
+	}
 	w.refreshFrontend(txn, fe)
 	w.fes.Insert(txn, fe)
 }

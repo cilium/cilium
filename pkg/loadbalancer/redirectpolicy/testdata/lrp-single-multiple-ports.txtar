@@ -33,7 +33,7 @@ db/cmp services services.table
 db/cmp frontends frontends.table
 
 -- frontends-empty.table --
-Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
+Address                    Type        ServiceName   PortName   Backends              Redirect                    Status
 
 -- lrp-empty.table --
 Name           Type     FrontendType                Frontends
@@ -42,9 +42,9 @@ Name           Type     FrontendType                Frontends
 Name                          Source
 
 -- frontends.table --
-Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
-192.168.10.10:8080/TCP     ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
-[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:80/TCP      test/lrp-svc:local-redirect   Done
+Address                    Type        ServiceName   PortName   Backends              Redirect                    Status
+192.168.10.10:8080/TCP     ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:80/TCP      test/lrp-svc:local-redirect Done
 
 -- lrp.table --
 Name           Type     FrontendType                Frontends

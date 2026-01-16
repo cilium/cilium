@@ -323,16 +323,19 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 			if len(pods) == 0 {
 				// No pods exist to redirect the traffic to. Remove the frontend to let the traffic
 				// be handled normally.
-				c.p.Writer.DeleteFrontend(wtxn, feM.feAddr)
+				c.p.Writer.DeleteFrontend(wtxn, lrpServiceName, feM.feAddr)
 			} else {
 				fe, _, found := c.p.Writer.Frontends().Get(wtxn, lb.FrontendByAddress(feM.feAddr))
 				if found {
-					if fe.Type != lb.SVCTypeLocalRedirect {
-						c.p.Log.Error("LocalRedirectPolicy matches an address owned by an existing service => refusing to override",
-							logfields.Address, feM.feAddr,
-							logfields.ServiceName, fe.ServiceName)
+					if fe.Type == lb.SVCTypeLocalRedirect {
+						// Already exists and since the LRP is immutable we don't need to do anything.
+						continue
 					}
-					continue
+
+					// A non-LRP frontend already exists for this address. Let's go ahead and
+					// overwrite it. [UpsertFrontend] will store it as a shadow and restores
+					// it if the LRP is removed.
+
 				}
 				_, err := c.p.Writer.UpsertFrontend(
 					wtxn,
@@ -602,7 +605,7 @@ func (c *lrpController) frontendsToSkip(txn statedb.ReadTxn, ws *statedb.WatchSe
 	ws.Add(watch)
 
 	for fe := range fes {
-		if lrp.LRPType == lrpConfigTypeAddr || fe.RedirectTo != nil {
+		if lrp.LRPType == lrpConfigTypeAddr || fe.Redirect != nil {
 			feAddrs = append(feAddrs, fe.Address)
 		}
 	}

@@ -53,10 +53,10 @@ Name                  Source
 kube-system/kube-dns  k8s
 
 -- frontends-before.table --
-Address                    Type        ServiceName           PortName   RedirectTo   Status  Backends
-10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp                 Done    10.244.1.51:53/TCP, 10.244.1.68:53/TCP
-10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns                     Done    10.244.1.51:53/UDP, 10.244.1.68:53/UDP
-10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics                 Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP
+Address                    Type        ServiceName           PortName   Redirect   Status  Backends
+10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp               Done    10.244.1.51:53/TCP, 10.244.1.68:53/TCP
+10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns                   Done    10.244.1.51:53/UDP, 10.244.1.68:53/UDP
+10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics               Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP
 
 -- services-after.table --
 Name                                     Source
@@ -64,13 +64,13 @@ kube-system/kube-dns                     k8s
 kube-system/nodelocaldns:local-redirect  k8s
 
 -- frontends-after.table --
-Address                    Type        ServiceName           PortName   RedirectTo                               Status  Backends
+Address                    Type        ServiceName           PortName   Redirect                                 Status  Backends
 10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp    kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/TCP, 10.244.0.226:53/TCP
 10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns        kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/UDP, 10.244.0.226:53/UDP
 10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics                                             Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP
 
 -- frontends-no-pod2.table --
-Address                    Type        ServiceName           PortName   RedirectTo                               Status  Backends
+Address                    Type        ServiceName           PortName   Redirect                                 Status  Backends
 10.96.0.10:53/TCP          ClusterIP   kube-system/kube-dns  dns-tcp    kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/TCP
 10.96.0.10:53/UDP          ClusterIP   kube-system/kube-dns  dns        kube-system/nodelocaldns:local-redirect  Done    10.244.0.225:53/UDP
 10.96.0.10:9153/TCP        ClusterIP   kube-system/kube-dns  metrics                                             Done    10.244.1.51:9153/TCP, 10.244.1.68:9153/TCP

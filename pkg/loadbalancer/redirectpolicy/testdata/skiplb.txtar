@@ -157,14 +157,14 @@ test/echo                     k8s
 test/lrp-svc:local-redirect   k8s   
 
 -- frontends.table --
-Address                    Type        ServiceName   PortName   Backends              RedirectTo                    Status
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
-[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2002::2]:80/TCP      test/lrp-svc:local-redirect   Done
+Address                    Type        ServiceName   PortName   Backends              Redirect                    Status
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2002::2]:80/TCP      test/lrp-svc:local-redirect Done
 
 -- frontends-noredirect.table --
-Address                    Type        ServiceName   PortName   Backends              RedirectTo        Status
-169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                     Done
-[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:8080/TCP                      Done
+Address                    Type        ServiceName   PortName   Backends              Redirect        Status
+169.254.169.254:8080/TCP   ClusterIP   test/echo     tcp        10.244.1.1:8080/TCP                   Done
+[1001::1]:8080/TCP         ClusterIP   test/echo     tcp        [2001::1]:8080/TCP                    Done
 
 -- maps-case1-pre.expected --
 BE: ID=1 ADDR=10.244.1.1:8080/TCP STATE=active

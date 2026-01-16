@@ -46,6 +46,32 @@ type FrontendParams struct {
 	ServicePort uint16
 }
 
+type RedirectParams struct {
+	// ServiceName if set selects the backends from this service name instead
+	// of that of [FrontendParams.ServiceName]. This is used to implement the
+	// local redirect policies where traffic going to a specific service/frontend
+	// is redirected to a local pod instead.
+	ServiceName *ServiceName
+
+	// Shadows points to a frontend that this frontend shadows over.
+	// It is mainly used to allow address-based local redirect policies to
+	// override a frontend of a k8s service.
+	Shadows *Frontend
+}
+
+func (rp *RedirectParams) String() string {
+	if rp == nil {
+		return ""
+	}
+	if rp.ServiceName != nil {
+		return rp.ServiceName.String()
+	}
+	if rp.Shadows != nil {
+		return rp.Shadows.ServiceName.String() + " (shadows)"
+	}
+	return ""
+}
+
 type Frontend struct {
 	FrontendParams
 
@@ -67,11 +93,9 @@ type Frontend struct {
 	// [Status] is set to done.
 	ID ServiceID
 
-	// RedirectTo if set selects the backends from this service name instead
-	// of that of [FrontendParams.ServiceName]. This is used to implement the
-	// local redirect policies where traffic going to a specific service/frontend
-	// is redirected to a local pod instead.
-	RedirectTo *ServiceName
+	// Redirect is set if this frontend is redirected to another service or
+	// if this frontend is shadowed by a LRP frontend.
+	Redirect *RedirectParams
 
 	// Service associated with the frontend. If service is updated
 	// this pointer to the service will update as well and the
@@ -103,7 +127,7 @@ func (fe *Frontend) TableHeader() []string {
 		"ServiceName",
 		"PortName",
 		"Backends",
-		"RedirectTo",
+		"Redirect",
 		"Status",
 		"Since",
 		"Error",
@@ -111,17 +135,13 @@ func (fe *Frontend) TableHeader() []string {
 }
 
 func (fe *Frontend) TableRow() []string {
-	redirectTo := ""
-	if fe.RedirectTo != nil {
-		redirectTo = fe.RedirectTo.String()
-	}
 	return []string{
 		fe.Address.StringWithProtocol(),
 		string(fe.Type),
 		fe.ServiceName.String(),
 		string(fe.PortName),
 		showBackends(fe.Backends),
-		redirectTo,
+		fe.Redirect.String(),
 		fe.Status.Kind.String(),
 		duration.HumanDuration(time.Since(fe.Status.UpdatedAt)),
 		fe.Status.GetError(),
@@ -152,7 +172,7 @@ func (fe *Frontend) ToModel() *models.Service {
 		},
 	}
 
-	if fe.RedirectTo != nil {
+	if fe.Redirect != nil {
 		spec.Flags.Type = string(SVCTypeLocalRedirect)
 	}
 
@@ -239,6 +259,21 @@ var (
 	}
 
 	FrontendByServiceName = frontendServiceIndex.Query
+
+	frontendShadowedIndex = statedb.Index[*Frontend, ServiceName]{
+		Name: "shadowed",
+		FromObject: func(fe *Frontend) index.KeySet {
+			if fe.Redirect == nil || fe.Redirect.Shadows == nil {
+				return index.KeySet{}
+			}
+			return index.NewKeySet(fe.Redirect.Shadows.ServiceName.Key())
+		},
+		FromKey:    ServiceName.Key,
+		FromString: index.FromString,
+		Unique:     false,
+	}
+
+	ShadowedFrontendByServiceName = frontendShadowedIndex.Query
 )
 
 // LookupFrontendByTuple looks up a frontend with an address without constructing a L3n4Addr.
@@ -271,5 +306,6 @@ func NewFrontendsTable(cfg Config, db *statedb.DB) (statedb.RWTable[*Frontend], 
 		FrontendTableName,
 		frontendAddressIndex,
 		frontendServiceIndex,
+		frontendShadowedIndex,
 	)
 }
