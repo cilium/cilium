@@ -4964,6 +4964,15 @@
         },
         "podSecurityContext": {
           "properties": {
+            "runAsGroup": {
+              "type": "integer"
+            },
+            "runAsNonRoot": {
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "type": "integer"
+            },
             "seccompProfile": {
               "properties": {
                 "type": {
