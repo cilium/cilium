@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
@@ -269,6 +270,29 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 		value: mapValue,
 		group: name,
 	}
+}
+
+// NewMapFromRegistry pulls an [ebpf.MapSpec] from the given registry and
+// returns a new [Map] based on the resulting spec.
+func NewMapFromRegistry(reg *registry.MapRegistry, name string, mapKey MapKey, mapValue MapValue) (*Map, error) {
+	// slogloggercheck: it's safe to use the default logger here as it has been initialized by the program up to this point.
+	defaultSlogLogger := logging.DefaultSlogLogger
+
+	spec, err := reg.Get(name)
+	if err != nil {
+		return nil, fmt.Errorf("get map from registry: %w", err)
+	}
+
+	return &Map{
+		Logger: defaultSlogLogger.With(
+			logfields.BPFMapName, spec.Name,
+		),
+		spec:  spec,
+		name:  spec.Name,
+		key:   mapKey,
+		value: mapValue,
+		group: spec.Name,
+	}, nil
 }
 
 // NewMapWithInnerSpec creates a new Map instance - object representing a BPF map with an inner map specification
