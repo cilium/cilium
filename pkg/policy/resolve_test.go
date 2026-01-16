@@ -1107,7 +1107,7 @@ func TestEndpointPolicy_GetRuleMeta(t *testing.T) {
 
 	// test non-empty mapstate
 	p.policyMapState = emptyMapState(log).withState(mapStateMap{
-		key1: newMapStateEntry(0, types.MaxPriority, makeSingleRuleOrigin(lbls, logstr), 0, 0, types.Allow, NoAuthRequirement),
+		key1: newMapStateEntry(0, types.HighestPriority, types.LowestPriority, makeSingleRuleOrigin(lbls, logstr), 0, 0, types.Allow, NoAuthRequirement),
 	})
 
 	rm, err := p.GetRuleMeta(key1)

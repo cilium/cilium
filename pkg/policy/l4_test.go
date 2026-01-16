@@ -620,7 +620,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 			b.StartTimer()
 
 			for _, filter := range testL4Filters {
-				filter.toMapState(logger, 0, types.MaxPriority, epPolicy, 0, ChangeState{})
+				filter.toMapState(logger, types.HighestPriority, types.LowestPriority, epPolicy, 0, ChangeState{})
 			}
 		}
 	})
@@ -641,7 +641,7 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 					psp := filter.PerSelectorPolicies
 					filter.PerSelectorPolicies = L7DataMap{ws: nil}
 
-					filter.toMapState(logger, 0, types.MaxPriority, epPolicy, 0, ChangeState{})
+					filter.toMapState(logger, types.HighestPriority, types.LowestPriority, epPolicy, 0, ChangeState{})
 					filter.PerSelectorPolicies = psp
 				}
 			}

@@ -152,7 +152,7 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 		if r.Tier != tier {
 			// Bump priority for the new tier, based on the calculated levels needed
 			priority = result.tierBasePriority[tier] + types.Priority(tierPriorityLevels[tier])
-			if priority > types.MaxPriority {
+			if priority > types.LowestPriority {
 				return result, ErrTooManyPriorityLevels
 			}
 			tier = r.Tier
