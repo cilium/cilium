@@ -140,8 +140,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableIPv4 {
 		ipv4GW := cfg.CiliumInternalIPv4
-		cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW))
-
+		if ipv4GW == nil && len(ipv4GW.To4()) != 4 {
+			h.log.Warn("CiliumInternalIPv4 is nil or invalid, using fallback value for IPV4_GATEWAY", "ip", ipv4GW)
+			cDefinesMap["IPV4_GATEWAY"] = "0"
+		} else {
+			cDefinesMap["IPV4_GATEWAY"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(ipv4GW))
+		}
 		if option.Config.EnableIPv4FragmentsTracking {
 			cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
 		}
