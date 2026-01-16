@@ -51,10 +51,6 @@ func (f *fakeMTU) GetRouteMTU() int {
 	return 1500
 }
 
-func (f *fakeMTU) GetRoutePostEncryptMTU() int {
-	return 1500
-}
-
 var mtuMock = fakeMTU{}
 
 func TestAllocatedIPDump(t *testing.T) {
