@@ -157,12 +157,10 @@ func (be *Backend) GetInstanceForFrontend(fe *Frontend) *BackendParams {
 	return be.GetInstance(serviceName)
 }
 
-func (be *Backend) GetInstanceFromSource(name ServiceName, src source.Source) *BackendParams {
-	for k, inst := range be.Instances.Prefix(BackendInstanceKey{ServiceName: name}) {
-		if k.ServiceName == name && inst.Source == src {
-			return &inst
-		}
-		break
+func (be *Backend) GetInstanceFromSource(name ServiceName, srcPriority uint8) *BackendParams {
+	inst, found := be.Instances.Get(BackendInstanceKey{ServiceName: name, SourcePriority: srcPriority})
+	if found {
+		return &inst
 	}
 	return nil
 }

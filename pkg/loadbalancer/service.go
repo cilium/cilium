@@ -25,6 +25,8 @@ import (
 // service are a set of frontends that receive the traffic, and a set of backends to which
 // the traffic is directed. A single frontend can map to a partial subset of backends depending
 // on its properties.
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type Service struct {
 	// Name is the fully qualified service name, e.g. (<cluster>/)<namespace>/<name>.
 	Name ServiceName
@@ -71,6 +73,7 @@ type Service struct {
 
 	// ProxyRedirect if non-nil redirects the traffic going to the frontends
 	// towards a locally running proxy.
+	// +deepequal-gen=false
 	ProxyRedirect *ProxyRedirect
 
 	// HealthCheckNodePort defines on which port the node runs a HTTP health
@@ -85,6 +88,7 @@ type Service struct {
 
 	// SourceRanges if non-empty will restrict access to the service to the specified
 	// client addresses.
+	// +deepequal-gen=false
 	SourceRanges []netip.Prefix
 
 	// PortNames maps a port name to a port number.
@@ -105,6 +109,15 @@ const (
 	// that is to backends that are in the same zone.
 	TrafficDistributionPreferClose = TrafficDistribution("PreferClose")
 )
+
+func (svc *Service) DeepEqual(other *Service) bool {
+	return svc.deepEqual(other) &&
+		svc.ProxyRedirect.Equal(other.ProxyRedirect) &&
+		slices.EqualFunc(svc.SourceRanges, other.SourceRanges,
+			func(a, b netip.Prefix) bool {
+				return a == b
+			})
+}
 
 func (svc *Service) GetLBAlgorithmAnnotation() SVCLoadBalancingAlgorithm {
 	return ToSVCLoadBalancingAlgorithm(svc.Annotations[annotation.ServiceLoadBalancingAlgorithm])
