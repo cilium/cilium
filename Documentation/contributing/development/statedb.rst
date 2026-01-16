@@ -170,9 +170,9 @@ The ``show`` command prints out the table using the *TableRow* and *TableHeader*
 .. code-block:: shell-session
 
     root@kind-worker:/home/cilium# cilium-dbg shell -- db/show mtu
-    Prefix      DeviceMTU   RouteMTU   RoutePostEncryptMTU
-    ::/0        1500        1450       1450
-    0.0.0.0/0   1500        1450       1450
+    Prefix      DeviceMTU   RouteMTU
+    ::/0        1500        1450
+    0.0.0.0/0   1500        1450
 
 The ``db/get``, ``db/prefix``, ``db/list`` and ``db/lowerbound`` allow querying a table, provided that the ``Index.FromString`` method has
 been defined:
@@ -214,9 +214,9 @@ The shell session can also be run interactively:
     ...
 
     cilium> db/show mtu
-    Prefix      DeviceMTU   RouteMTU   RoutePostEncryptMTU
-    ::/0        1500        1450       1450
-    0.0.0.0/0   1500        1450       1450
+    Prefix      DeviceMTU   RouteMTU
+    ::/0        1500        1450
+    0.0.0.0/0   1500        1450
 
     cilium> db/show --out=/tmp/devices.json --format=json devices
     ...

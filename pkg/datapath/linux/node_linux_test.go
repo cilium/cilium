@@ -128,7 +128,6 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 		EnableIPv6:          s.enableIPv6,
 		DeviceMTU:           s.mtuCalc.DeviceMTU,
 		RouteMTU:            s.mtuCalc.RouteMTU,
-		RoutePostEncryptMTU: s.mtuCalc.RoutePostEncryptMTU,
 	}
 
 	return s

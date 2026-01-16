@@ -107,12 +107,6 @@ type LocalNodeConfiguration struct {
 	// subsequent calls to NodeConfigurationChanged().
 	RouteMTU int
 
-	// RoutePostEncryptMTU is the MTU without the encryption overhead
-	// included.
-	// This field is immutable at runtime. The value will not change in
-	// subsequent calls to NodeConfigurationChanged().
-	RoutePostEncryptMTU int
-
 	// AuxiliaryPrefixes is the list of auxiliary prefixes that should be
 	// configured in addition to the node PodCIDR
 	//

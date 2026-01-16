@@ -203,9 +203,6 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 	if in.RouteMTU != other.RouteMTU {
 		return false
 	}
-	if in.RoutePostEncryptMTU != other.RoutePostEncryptMTU {
-		return false
-	}
 	if ((in.AuxiliaryPrefixes != nil) && (other.AuxiliaryPrefixes != nil)) || ((in.AuxiliaryPrefixes == nil) != (other.AuxiliaryPrefixes == nil)) {
 		in, other := &in.AuxiliaryPrefixes, &other.AuxiliaryPrefixes
 		if other == nil {
