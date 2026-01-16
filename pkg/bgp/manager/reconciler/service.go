@@ -613,15 +613,36 @@ func (r *ServiceReconciler) getLoadBalancerIPPaths(p ReconcileParams, svc *loadb
 		return desiredRoutes
 	}
 
+	// Check if this service has a local proxy (Envoy) handling its traffic.
+	// ProxyRedirect is non-nil when the local Envoy proxy is running and configured
+	// to handle this service (e.g., Gateway API or Ingress services).
+	// This handles deployments where cilium-envoy has a nodeSelector that excludes some nodes.
+	hasLocalProxy := svc.ProxyRedirect != nil
+
 	for _, fe := range frontends {
 		if fe.Type != loadbalancer.SVCTypeLoadBalancer {
 			continue
 		}
 
 		hasBackends, hasLocalBackends := hasBackends(p, fe)
-		// Ignore externalTrafficPolicy == Local && no local EPs or ignore when there are no backends and EnableNoServiceEndpointsRoutable == false.
-		if (fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends) || (!r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends) {
-			continue
+
+		// For services with real backends, respect externalTrafficPolicy: Local by skipping
+		// advertisement when there are no local endpoints.
+		// For proxy-redirected services (Gateway API/Ingress), advertise if the local
+		// proxy is handling traffic, since backends are managed by the proxy.
+		if fe.Service.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !hasLocalBackends {
+			if !hasLocalProxy {
+				continue
+			}
+		}
+
+		// Respect EnableNoServiceEndpointsRoutable for services with zero backends.
+		// However, proxy-redirected services should be advertised even with zero
+		// backends, as traffic is handled by the local proxy.
+		if !r.routesConfig.EnableNoServiceEndpointsRoutable && !hasBackends {
+			if !hasLocalProxy {
+				continue
+			}
 		}
 
 		addr := fe.Address.Addr()

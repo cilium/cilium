@@ -35,8 +35,8 @@ import (
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	lbcell "github.com/cilium/cilium/pkg/loadbalancer/cell"
-	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/source"
@@ -87,6 +87,7 @@ func TestPrivilegedScript(t *testing.T) {
 	setup := func(t testing.TB, args []string) *script.Engine {
 		var err error
 		var bgpMgr agent.BGPRouterManager
+		var lbWriter *writer.Writer
 
 		// parse the shebang arguments in the script
 		flags := pflag.NewFlagSet("test-flags", pflag.ContinueOnError)
@@ -129,16 +130,15 @@ func TestPrivilegedScript(t *testing.T) {
 			node.LocalNodeStoreTestCell,
 			cell.Config(envoyCfg.SecretSyncConfig{}),
 
-			// LB cell to populate LB tables from k8s services / endpoints
-			lbcell.Cell,
-			maglev.Cell,
+			// Load-balancer writer (provides Frontend table) and reflectors (populate from K8s services)
+			loadbalancer.ConfigCell,
+			writer.Cell,
+			reflectors.Cell,
 			lbipamconfig.Cell,
 			nodeipamconfig.Cell,
-			cell.Provide(source.NewSources),
-			cell.Config(loadbalancer.TestConfig{}),
-			cell.Provide(
-				func(cfg loadbalancer.TestConfig) *loadbalancer.TestConfig { return &cfg }, // newLBMaps expects *TestConfig
-			),
+
+			// Provide source.Sources for loadbalancer writer
+			cell.Provide(func() source.Sources { return source.Sources{} }),
 
 			cell.Provide(
 				func() *option.DaemonConfig {
@@ -161,6 +161,9 @@ func TestPrivilegedScript(t *testing.T) {
 			cell.Invoke(func(m agent.BGPRouterManager) {
 				bgpMgr = m
 				m.(*manager.BGPRouterManager).DestroyRouterOnStop(true) // fully destroy GoBGP server on Stop()
+			}),
+			cell.Invoke(func(w *writer.Writer) {
+				lbWriter = w
 			}),
 		)
 
@@ -202,6 +205,7 @@ func TestPrivilegedScript(t *testing.T) {
 		maps.Insert(cmds, maps.All(script.DefaultCmds()))
 		maps.Insert(cmds, maps.All(commands.GoBGPScriptCmds(gobgpCmdCtx)))
 		maps.Insert(cmds, maps.All(commands.BGPScriptCmds(bgpMgr)))
+		maps.Insert(cmds, maps.All(commands.SvcScriptCmds(lbWriter)))
 
 		return &script.Engine{
 			Cmds: cmds,
