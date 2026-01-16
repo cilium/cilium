@@ -4,6 +4,7 @@
 package builder
 
 import (
+	"context"
 	_ "embed"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
@@ -19,12 +20,21 @@ func (t ztunnelPodToPodEncryption) build(ct *check.ConnectivityTest, _ map[strin
 	newTest("ztunnel-pod-to-pod-encryption", ct).
 		WithCondition(func() bool { return !ct.Params().SingleNode }).
 		WithFeatureRequirements(features.RequireEnabled(features.Ztunnel)).
-		WithCondition(func() bool {
-			// this test only runs post v1.19.0 clusters
-			// return versioncheck.MustCompile(">=1.19.0")(ct.CiliumVersion)
-			return true
+		WithSetupFunc(func(ctx context.Context, t *check.Test, testCtx *check.ConnectivityTest) error {
+			return nil
 		}).
 		WithScenarios(
-			tests.ZTunnelPodToPodEncryption(),
+			tests.ZTunnelEnrolledToEnrolledSameNode(),
+			tests.ZTunnelEnrolledToEnrolledDifferentNode(),
+			tests.ZTunnelUnenrolledToUnenrolledSameNode(),
+			tests.ZTunnelUnenrolledToUnenrolledDifferentNode(),
+			tests.ZTunnelEnrolledToUnenrolledSameNode(),
+			tests.ZTunnelEnrolledToUnenrolledDifferentNode(),
+			tests.ZTunnelUnenrolledToEnrolledSameNode(),
+			tests.ZTunnelUnenrolledToEnrolledDifferentNode(),
+			tests.ZTunnelEnrolledToEnrolledCrossNamespaceSameNode(),
+			tests.ZTunnelEnrolledToEnrolledCrossNamespaceDifferentNode(),
+			tests.ZTunnelUnenrolledToEnrolledCrossNamespaceSameNode(),
+			tests.ZTunnelUnenrolledToEnrolledCrossNamespaceDifferentNode(),
 		)
 }
