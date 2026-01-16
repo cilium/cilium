@@ -14,7 +14,7 @@ struct {
 	__type(key, struct auth_key);
 	__type(value, struct auth_info);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, AUTH_MAP_SIZE);
+	__uint(max_entries, 524288);
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } cilium_auth_map __section_maps_btf;
 
