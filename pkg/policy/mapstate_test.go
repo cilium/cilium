@@ -8,6 +8,7 @@ import (
 	"iter"
 	"net/netip"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -21,6 +22,211 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+func TestPassMetasCollect(t *testing.T) {
+	type testcase struct {
+		p    passMeta
+		m, e passMetas
+	}
+
+	tests := []testcase{{
+		// zero passMeta is not valid, nothing added
+		p: passMeta{},
+		m: passMetas{},
+		e: passMetas{},
+	}, {
+		// priority 0, next tier priority 1000
+		p: passMeta{precedence: 4294967040, tierMaxPrecedence: 4294967295, tierMinPrecedence: 4294711140},
+		m: passMetas{},
+		e: passMetas{{precedence: 4294967040, tierMaxPrecedence: 4294967295, tierMinPrecedence: 4294711140}},
+	}, {
+		// precedence > nextTierPrecedence == valid, added
+		p: passMeta{21, 29, 20},
+		m: passMetas{},
+		e: passMetas{{21, 29, 20}},
+	}, {
+		// same precedence, same next tier, no change
+		p: passMeta{21, 29, 20},
+		m: passMetas{{21, 29, 20}},
+		e: passMetas{{21, 29, 20}},
+	}, {
+		// lower precedence, same next tier, no change
+		p: passMeta{21, 29, 20},
+		m: passMetas{{25, 29, 20}},
+		e: passMetas{{25, 29, 20}},
+	}, {
+		// same tier, higher precedence => updated
+		p: passMeta{22, 29, 20},
+		m: passMetas{{21, 29, 20}},
+		e: passMetas{{22, 29, 20}},
+	}, {
+		// new higher tier (different nextTierPrecedence) => added
+		p: passMeta{31, 39, 30},
+		m: passMetas{{21, 29, 20}},
+		e: passMetas{{21, 29, 20}, {31, 39, 30}},
+	}, {
+		// new lower tier (different nextTierPrecedence) => added
+		p: passMeta{21, 29, 20},
+		m: passMetas{{31, 39, 30}},
+		e: passMetas{{21, 29, 20}, {31, 39, 30}},
+	}, {
+		// new lower tier (different nextTierPrecedence) => added
+		p: passMeta{6, 9, 5},
+		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
+		e: passMetas{{6, 9, 5}, {11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
+	}, {
+		// existing tier, higher precedence => updated
+		p: passMeta{12, 14, 10},
+		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
+		e: passMetas{{12, 14, 10}, {21, 24, 20}, {31, 34, 30}},
+	}, {
+		// new middle tier (different nextTierPrecedence) => added
+		p: passMeta{16, 19, 15},
+		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
+		e: passMetas{{11, 14, 10}, {16, 19, 15}, {21, 24, 20}, {31, 34, 30}},
+	}, {
+		// existing tier, higher precedence => updated
+		p: passMeta{22, 24, 20},
+		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
+		e: passMetas{{11, 14, 10}, {22, 24, 20}, {31, 34, 30}},
+	}, {
+		// new middle tier (different nextTierPrecedence) => added
+		p: passMeta{26, 29, 25},
+		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
+		e: passMetas{{11, 14, 10}, {21, 24, 20}, {26, 29, 25}, {31, 34, 30}},
+	}, {
+		// existing tier, higher precedence => updated
+		p: passMeta{32, 34, 30},
+		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
+		e: passMetas{{11, 14, 10}, {21, 24, 20}, {32, 34, 30}},
+	}, {
+		// new higher tier (different nextTierPrecedence) => added
+		p: passMeta{36, 39, 35},
+		m: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}},
+		e: passMetas{{11, 14, 10}, {21, 24, 20}, {31, 34, 30}, {36, 39, 35}},
+	}}
+
+	for i, tt := range tests {
+		t.Log(strconv.Itoa(i))
+		m := tt.m
+		m.Collect(tt.p)
+		require.Equal(t, tt.e, m)
+	}
+}
+
+func TestPassMetasMerge(t *testing.T) {
+	type testcase struct {
+		a, b, e passMetas
+	}
+
+	tests := []testcase{{
+		a: passMetas{},
+		b: passMetas{},
+		e: passMetas{},
+	}, {
+		a: passMetas{{21, 24, 20}},
+		b: passMetas{{21, 24, 20}},
+		e: passMetas{{21, 24, 20}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}},
+		b: passMetas{{21, 24, 20}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}},
+	}, {
+		a: passMetas{{31, 34, 30}},
+		b: passMetas{{21, 24, 20}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}},
+	}, {
+		a: passMetas{{21, 24, 20}},
+		b: passMetas{{31, 34, 30}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}},
+		b: passMetas{{31, 34, 30}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}},
+	}, {
+		a: passMetas{{21, 24, 20}, {41, 44, 40}},
+		b: passMetas{{31, 34, 30}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{31, 34, 30}},
+		b: passMetas{{21, 24, 20}, {41, 44, 40}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{21, 24, 20}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{31, 34, 30}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{41, 44, 40}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{51, 54, 50}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}, {51, 54, 50}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{10, 14, 10}},
+		e: passMetas{{10, 14, 10}, {21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{21, 24, 20}},
+		b: passMetas{{22, 24, 20}},
+		e: passMetas{{22, 24, 20}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}},
+		b: passMetas{{21, 24, 20}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}},
+	}, {
+		a: passMetas{{31, 34, 30}},
+		b: passMetas{{21, 24, 20}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}},
+	}, {
+		a: passMetas{{21, 24, 20}},
+		b: passMetas{{31, 34, 30}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}},
+		b: passMetas{{31, 34, 30}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}},
+	}, {
+		a: passMetas{{21, 24, 20}, {41, 44, 40}},
+		b: passMetas{{31, 34, 30}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{31, 34, 30}},
+		b: passMetas{{21, 24, 20}, {41, 44, 40}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{21, 24, 20}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{31, 34, 30}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{41, 44, 40}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{51, 54, 50}},
+		e: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}, {51, 54, 50}},
+	}, {
+		a: passMetas{{21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+		b: passMetas{{10, 14, 10}},
+		e: passMetas{{10, 14, 10}, {21, 24, 20}, {31, 34, 30}, {41, 44, 40}},
+	}}
+
+	for i, tt := range tests {
+		t.Log(strconv.Itoa(i))
+		m := tt.a.Merge(tt.b)
+		require.Equal(t, tt.e, m)
+	}
+}
 
 func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
 	e.derivedFromRules = makeRuleOrigin(lbls, nil)
@@ -49,9 +255,16 @@ func (e mapStateEntry) withLevel(priority types.Priority) mapStateEntry {
 	return e
 }
 
-func (e mapStateEntry) withPassPriority(priority, nextTierPriority types.Priority) mapStateEntry {
-	e.passPrecedence = priority.ToPassPrecedence()
-	e.nextTierPrecedence = nextTierPriority.ToPassPrecedence()
+func (e mapStateEntry) withPassPriority(priority, tierPriority, nextTierPriority types.Priority) mapStateEntry {
+	if e.passes == nil {
+		pass := make(passMetas, 0, 1)
+		e.passes = &pass
+	}
+	*e.passes = append(*e.passes, passMeta{
+		precedence:        priority.ToPassPrecedence(),
+		tierMaxPrecedence: tierPriority.ToTierMaxPrecedence(),
+		tierMinPrecedence: nextTierPriority.ToPassPrecedence() + 0x100,
+	})
 	return e
 }
 
@@ -824,7 +1037,7 @@ func TestMapState_insertWithChanges(t *testing.T) {
 		})
 
 		entry := NewMapStateEntry(tt.args.entry).withLabels(labels.LabelArrayList{nil})
-		ms.insertWithChanges(types.Priority(0).ToPassPrecedence(), tt.args.key, entry, denyRules, changes)
+		ms.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), tt.args.key, entry, denyRules, changes)
 		ms.validatePortProto(t)
 		require.Truef(t, ms.Equal(&tt.want), "%s: MapState mismatch:\n%s", tt.name, ms.diff(&tt.want))
 		require.Equalf(t, tt.wantAdds, changes.Adds, "%s: Adds mismatch", tt.name)
@@ -873,8 +1086,8 @@ func allowEntry() mapStateEntry {
 	return NewMapStateEntry(AllowEntry).withLabels(labels.LabelArrayList{nil})
 }
 
-func passEntry(priority, nextTierPriority types.Priority) mapStateEntry {
-	return PassEntry(priority, nextTierPriority, NilRuleOrigin).withLabels(labels.LabelArrayList{nil})
+func passEntry(priority, tierPriority, nextTierPriority types.Priority) mapStateEntry {
+	return PassEntry(priority, tierPriority, nextTierPriority, NilRuleOrigin).withLabels(labels.LabelArrayList{nil})
 }
 
 func proxyEntryHTTP(proxyPort uint16) mapStateEntry {
@@ -1220,7 +1433,7 @@ func TestMapState_AccumulateMapChangesDeny(t *testing.T) {
 			if x.deny {
 				verdict = types.Deny
 			}
-			value := newMapStateEntry(0, types.MaxPriority, NilRuleOrigin, proxyPort, priority, verdict, NoAuthRequirement)
+			value := newMapStateEntry(0, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, NoAuthRequirement)
 			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
@@ -1768,7 +1981,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.deny {
 				verdict = types.Deny
 			}
-			value := newMapStateEntry(x.level, types.MaxPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
+			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
 			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
@@ -1811,7 +2024,7 @@ func TestMapState_AccumulateMapChanges(t *testing.T) {
 			if x.deny {
 				verdict = types.Deny
 			}
-			value := newMapStateEntry(x.level, types.MaxPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
+			value := newMapStateEntry(x.level, types.HighestPriority, types.LowestPriority, NilRuleOrigin, proxyPort, priority, verdict, x.authReq)
 			policyMaps.AccumulateMapChanges(0, 0, adds, deletes, []Key{key}, value)
 		}
 		policyMaps.SyncMapChanges(types.MockSelectorSnapshot())
@@ -2190,15 +2403,15 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
 		}
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 
@@ -2209,14 +2422,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		for _, idB := range tt.bIdentities {
 			bKey := IngressKey().WithIdentity(idB).WithPortProto(tt.bProto, tt.bPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
 		}
 		for _, idA := range tt.aIdentities {
 			aKey := IngressKey().WithIdentity(idA).WithPortProto(tt.aProto, tt.aPort)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s (in reverse) (MapState):\n%s\nExpected:\n%s\nObtained:\n%s\n", tt.name, outcomeKeys.diff(&expectedKeys), expectedKeys, outcomeKeys)
@@ -2257,14 +2470,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 
 		changes := ChangeState{}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
 		}
 		for _, bKey := range bKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
@@ -2273,14 +2486,14 @@ func TestMapState_denyPreferredInsertWithSubnets(t *testing.T) {
 		outcomeKeys = emptyMapState(hivetest.Logger(t))
 
 		for _, bKey := range bKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), bKey, bEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), bKey, bEntry, allFeatures, changes)
 		}
 		for _, aKey := range aKeys {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), aKey, aEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), aKey, aEntry, allFeatures, changes)
 		}
 		if tt.withAllowAll {
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
-			outcomeKeys.insertWithChanges(types.Priority(0).ToPassPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyEgressKey, allowEntry, allFeatures, changes)
+			outcomeKeys.insertWithChanges(types.Priority(0).ToTierMaxPrecedence(), anyIngressKey, allowEntry, allFeatures, changes)
 		}
 		outcomeKeys.validatePortProto(t)
 		require.True(t, expectedKeys.Equal(&outcomeKeys), "%s different traffic directions (in reverse) (MapState):\n%s", tt.name, outcomeKeys.diff(&expectedKeys))
@@ -2329,7 +2542,7 @@ func (msA *mapState) equalsMapState(msB mapStateMap) bool {
 	}
 	return msA.forEach(func(kA Key, vA mapStateEntry) bool {
 		vB, ok := msB[kA]
-		return ok && vB == vA
+		return ok && vB.Equal(vA)
 	})
 }
 
@@ -2337,7 +2550,7 @@ func (obtained *mapState) diffMapState(expected mapStateMap) (res string) {
 	res += "Missing (-), Unexpected (+):\n"
 	for kE, vE := range expected {
 		if vO, ok := obtained.get(kE); ok {
-			if vO != vE {
+			if !vO.Equal(vE) {
 				res += "- " + kE.String() + ": " + vE.String() + "\n"
 				res += "+ " + kE.String() + ": " + vO.String() + "\n"
 			}
@@ -2855,7 +3068,7 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			basePriority: 0,
 			entries: []keyEntry{
 				// HTTP PASS verdict on 1.1.1.1
-				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(0, 1000)},
+				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(0, 0, 1000)},
 				// deny 1.1.1.1
 				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
 			},
@@ -2867,7 +3080,7 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			},
 		}},
 		want: mapStateMap{
-			egressKey(identity1111, 0, 0, 0):  passEntry(0, 1000),
+			egressKey(identity1111, 0, 0, 0):  passEntry(0, 0, 1000),
 			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1),
 		},
 		probes: []probe{},
@@ -2875,6 +3088,7 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Log(tt.name)
+		features := orderedRules | denyRules
 
 		// create tierEntries and permutations for each tier
 		var tierEntries [][]keyEntry
@@ -2884,6 +3098,9 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 			entries := slices.Clone(tier.entries)
 			idx := make([]int, 0, len(entries))
 			for i := range entries {
+				if entries[i].entry.passes != nil {
+					features |= passRules
+				}
 				entries[i].entry.MapStateEntry = entries[i].entry.MapStateEntry.WithPriority(tier.basePriority + types.Priority(i))
 				idx = append(idx, i)
 			}
@@ -2932,8 +3149,8 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 				// insert entries tier-by-tier, using the given permutation on each tier
 				for tier, perm := range tierPermutation {
 					for _, i := range tierPermutations[tier][perm] {
-						tierBasePrecedence := tt.tiers[tier].basePriority.ToPassPrecedence()
-						ms.insertWithChanges(tierBasePrecedence, tierEntries[tier][i].key, tierEntries[tier][i].entry, orderedRules|denyRules, changes)
+						tierMaxPrecedence := tt.tiers[tier].basePriority.ToTierMaxPrecedence()
+						ms.insertWithChanges(tierMaxPrecedence, tierEntries[tier][i].key, tierEntries[tier][i].entry, features, changes)
 					}
 				}
 
@@ -2989,7 +3206,7 @@ func TestMapState_passValidation(t *testing.T) {
 			basePriority: 0,
 			entries: []keyEntry{
 				// PASS verdict on 1.1.1.1
-				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(0, 1000)},
+				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(0, 0, 1000)},
 				// wildcard deny
 				{key: egressKey(0, 0, 0, 0), entry: denyEntry()},
 			},
@@ -3001,7 +3218,7 @@ func TestMapState_passValidation(t *testing.T) {
 			},
 		}},
 		want: mapStateMap{
-			egressKey(identity1111, 0, 0, 0):  passEntry(0, 1000),
+			egressKey(identity1111, 0, 0, 0):  passEntry(0, 0, 1000),
 			egressKey(0, 0, 0, 0):             denyEntry().withLevel(100),
 			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1),
 		},
@@ -3015,7 +3232,7 @@ func TestMapState_passValidation(t *testing.T) {
 			basePriority: 0,
 			entries: []keyEntry{
 				// wildcard PASS
-				{key: egressKey(0, 0, 0, 0), entry: passEntry(0, 1000)},
+				{key: egressKey(0, 0, 0, 0), entry: passEntry(0, 0, 1000)},
 				// deny 1.1.1.1 (should be shadowed by the pass entry above)
 				{key: egressKey(identity1111, 0, 0, 0), entry: denyEntry()},
 			},
@@ -3027,7 +3244,7 @@ func TestMapState_passValidation(t *testing.T) {
 			},
 		}},
 		want: mapStateMap{
-			egressKey(0, 0, 0, 0):             passEntry(0, 1000),
+			egressKey(0, 0, 0, 0):             passEntry(0, 0, 1000),
 			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1),
 		},
 		probes: []probe{},
@@ -3046,7 +3263,7 @@ func TestMapState_passValidation(t *testing.T) {
 			basePriority: 1000,
 			entries: []keyEntry{
 				// HTTP PASS verdict on 1.1.1.1
-				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(1000, 2000)},
+				{key: egressKey(identity1111, 0, 0, 0), entry: passEntry(1000, 1000, 2000)},
 				// wildcard deny
 				{key: egressKey(0, 0, 0, 0), entry: denyEntry()},
 			},
@@ -3061,7 +3278,7 @@ func TestMapState_passValidation(t *testing.T) {
 		}},
 		want: mapStateMap{
 			egressKey(0, 6, 81, 0):             denyEntry().withLevel(0),
-			egressKey(identity1111, 0, 0, 0):   passEntry(1000, 2000),
+			egressKey(identity1111, 0, 0, 0):   passEntry(1000, 1000, 2000),
 			egressKey(0, 0, 0, 0):              denyEntry().withLevel(1100),
 			egressKey(identity1111, 6, 90, 0):  denyEntry().withLevel(1001),
 			egressKey(identity1111, 6, 80, 12): allowEntry().withLevel(1002),
@@ -3094,6 +3311,8 @@ func TestMapState_passValidation(t *testing.T) {
 				policyMapChanges: MapChanges{logger: hivetest.Logger(t)},
 			}
 
+			features := orderedRules | denyRules | redirectRules
+
 			for tier := range tt.tiers {
 				nPassEntries := types.Priority(0)
 				basePriority := tt.tiers[tier].basePriority
@@ -3106,6 +3325,7 @@ func TestMapState_passValidation(t *testing.T) {
 						entry = entry.withLevel(basePriority + types.Priority(i) + nPassEntries*99)
 					}
 					if entry.IsPassEntry() {
+						features |= passRules
 						nPassEntries++
 					}
 
@@ -3115,7 +3335,7 @@ func TestMapState_passValidation(t *testing.T) {
 				}
 			}
 			epPolicy.policyMapChanges.SyncMapChanges(types.MockSelectorSnapshot())
-			_, changes := epPolicy.policyMapChanges.consumeMapChanges(epPolicy, denyRules|redirectRules)
+			_, changes := epPolicy.policyMapChanges.consumeMapChanges(epPolicy, features)
 
 			// validate mapState
 			epPolicy.policyMapState.validatePortProto(t)

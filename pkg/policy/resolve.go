@@ -361,7 +361,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	p.L4Policy.Egress.toMapState(logger, calculatedPolicy)
 
 	if !policyOwner.IsHost() {
-		calculatedPolicy.policyMapState.determineAllowLocalhostIngress()
+		calculatedPolicy.policyMapState.determineAllowLocalhostIngress(p.L4Policy.Ingress.features)
 	}
 
 	return calculatedPolicy
@@ -528,7 +528,7 @@ func (p *EndpointPolicy) RevertChanges(changes ChangeState) {
 func (l4policy L4DirectionPolicy) toMapState(logger *slog.Logger, p *EndpointPolicy) {
 	for tier := range l4policy.PortRules {
 		basePriority := l4policy.tierBasePriority[tier]
-		nextTierPriority := types.MaxPriority
+		nextTierPriority := types.LowestPriority
 		if len(l4policy.tierBasePriority) > int(tier)+1 {
 			nextTierPriority = l4policy.tierBasePriority[tier+1]
 		}
