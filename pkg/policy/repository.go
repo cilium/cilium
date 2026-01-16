@@ -5,11 +5,18 @@ package policy
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"maps"
+	"os"
+	"strconv"
 	"sync/atomic"
 
+	"github.com/cilium/hive/script"
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/cilium/stream"
+	"github.com/davecgh/go-spew/spew"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -20,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -36,13 +45,18 @@ type PolicyRepository interface {
 	GetAuthTypes(localID identity.NumericIdentity, remoteID identity.NumericIdentity) AuthTypes
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool)
 
-	// GetSelectorPolicy computes the SelectorPolicy for a given identity.
+	// GetSelectorPolicy computes the SelectorPolicy for a given identity. It
+	// is only used in unit tests.
 	//
 	// It returns nil if skipRevision is >= than the already calculated version.
 	// This is used to skip policy calculation when a certain revision delta is
 	// known to not affect the given identity. Pass a skipRevision of 0 to force
 	// calculation.
 	GetSelectorPolicy(id *identity.Identity, skipRevision uint64, stats GetPolicyStatistics, endpointID uint64) (SelectorPolicy, uint64, error)
+
+	// ComputeSelectorPolicy computes the SelectorPolicy for a given identity,
+	// if it needs recomputing.
+	ComputeSelectorPolicy(id *identity.Identity, skipRevision uint64) (SelectorPolicy, uint64, SelectorPolicy, bool, error)
 
 	// GetPolicySnapshot returns a map of all the SelectorPolicies in the repository.
 	GetPolicySnapshot() map[identity.NumericIdentity]SelectorPolicy
@@ -52,6 +66,8 @@ type PolicyRepository interface {
 	Iterate(f func(rule *types.PolicyEntry))
 	ReplaceByResource(rules types.PolicyEntries, resource ipcachetypes.ResourceID) (affectedIDs *set.Set[identity.NumericIdentity], rev uint64, oldRevCnt int)
 	Search() (types.PolicyEntries, uint64)
+
+	PolicyCacheObservable() stream.Observable[PolicyCacheChange]
 }
 
 type GetPolicyStatistics interface {
@@ -505,7 +521,8 @@ func wildcardRule(subject *identity.Identity, lbls labels.LabelArray, ingress bo
 	}
 }
 
-// GetSelectorPolicy computes the SelectorPolicy for a given identity.
+// GetSelectorPolicy computes the SelectorPolicy for a given identity. It is
+// only used in unit tests.
 //
 // It returns nil if skipRevision is >= than the already calculated version.
 // This is used to skip policy calculation when a certain revision delta is
@@ -528,7 +545,7 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 	stats.SelectorPolicyCalculation().Start()
 	// This may call back in to the (locked) repository to generate the
 	// selector policy
-	sp, updated, err := r.policyCache.updateSelectorPolicy(id, endpointID)
+	sp, _, updated, err := r.policyCache.updateSelectorPolicy(id, endpointID)
 	stats.SelectorPolicyCalculation().EndError(err)
 
 	// If we hit cache, reset the statistics.
@@ -537,6 +554,21 @@ func (r *Repository) GetSelectorPolicy(id *identity.Identity, skipRevision uint6
 	}
 
 	return sp, rev, err
+}
+
+// ComputeSelectorPolicy computes the SelectorPolicy for a given identity, if
+// it needs recomputing.
+func (r *Repository) ComputeSelectorPolicy(id *identity.Identity, skipRevision uint64) (SelectorPolicy, uint64, SelectorPolicy, bool, error) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	rev := r.GetRevision()
+	sp, old, release, err := r.policyCache.updateSelectorPolicy(id, 0)
+	if err != nil {
+		return nil, 0, nil, release, err
+	}
+
+	return sp, rev, old, release, err
 }
 
 // ReplaceByResource replaces all rules by resource, returning the complete set of affected endpoints.
@@ -588,4 +620,93 @@ func (p *Repository) GetPolicySnapshot() map[identity.NumericIdentity]SelectorPo
 	defer p.mutex.RUnlock()
 
 	return p.policyCache.GetPolicySnapshot()
+}
+
+func (p *Repository) PolicyCacheObservable() stream.Observable[PolicyCacheChange] {
+	return p.policyCache
+}
+
+func RepositoryScriptCmds(p *Repository) map[string]script.Cmd {
+	return map[string]script.Cmd{
+		"policyrepo/list": script.Command(
+			script.CmdUsage{
+				Summary: "List all policies in the policy repository",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					policies := p.GetRulesList()
+					return string(policies.Policy), "", nil
+				}, nil
+			},
+		),
+		"policyrepo/selectorcache": script.Command(
+			script.CmdUsage{
+				Summary: "List all policies in the policy repository",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					model := p.GetSelectorCache().GetModel()
+					return spew.Sprint(model), "", nil
+				}, nil
+			},
+		),
+		"policyrepo/add": script.Command(
+			script.CmdUsage{
+				Summary: "Add a policy to the policy repository",
+				Args:    "'policy'",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					file := []string(args)[0]
+
+					b, err := os.ReadFile(s.Path(file))
+					if err != nil {
+						b, err = os.ReadFile(file)
+					}
+					if err != nil {
+						return "", "", fmt.Errorf("failed to read %s: %w", file, err)
+					}
+					obj, _, err := testutils.DecodeObjectGVK(b)
+					if err != nil {
+						return "", "", fmt.Errorf("decode: %w", err)
+					}
+					robj, _ := testutils.DecodeObject(b)
+					objMeta, err := meta.Accessor(obj)
+					if err != nil {
+						return "", "", fmt.Errorf("accessor: %w", err)
+					}
+
+					var (
+						rules api.Rules
+						rev   uint64
+					)
+					if objMeta.GetNamespace() == "" {
+						ccnp := robj.(*v2.CiliumClusterwideNetworkPolicy)
+						rules, err = ccnp.Parse(p.logger, "")
+						if err != nil {
+							return "", "", fmt.Errorf("ccnp parse: %w", err)
+						}
+					} else {
+						cnp := robj.(*v2.CiliumNetworkPolicy)
+						rules, err = cnp.Parse(p.logger, "")
+						if err != nil {
+							return "", "", fmt.Errorf("cnp parse: %w", err)
+						}
+					}
+					_, rev = p.MustAddList(rules)
+					return fmt.Sprintf("Added rules, revision=%d\n", rev), "", nil
+				}, nil
+			},
+		),
+		"policyrepo/bump-revision": script.Command(
+			script.CmdUsage{
+				Summary: "Bump revision of the policy repository",
+			},
+			func(s *script.State, args ...string) (script.WaitFunc, error) {
+				return func(s *script.State) (stdout string, stderr string, err error) {
+					return "Bumped revision to " + strconv.FormatUint(p.BumpRevision(), 10) + "\n", "", nil
+				}, nil
+			},
+		),
+	}
 }

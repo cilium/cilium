@@ -1311,11 +1311,47 @@ type L4PolicyMap struct {
 	NamedPortMap map[string]*L4Filter
 	// RangePortMap is a map of all L4Filters indexed by their port-
 	// protocol.
-	RangePortMap map[portProtoKey]*L4Filter
+	RangePortMap rangePortMap
 	// RangePortIndex is an index of all L4Filters so that
 	// L4Filters that have overlapping port ranges can be looked up
 	// by with a single port.
 	RangePortIndex *bitlpm.UintTrie[uint32, map[portProtoKey]struct{}]
+}
+
+type rangePortMap map[portProtoKey]*L4Filter
+
+func (r rangePortMap) MarshalJSON() ([]byte, error) {
+	if r == nil || len(r) == 0 {
+		return []byte{'{', '}'}, nil
+	}
+
+	first := true
+	buffer := bytes.NewBufferString("{")
+	for ppk, filter := range r {
+		if !first {
+			buffer.WriteRune(',')
+		}
+		first = false
+
+		buffer.WriteRune('"')
+		buffer.WriteString(strconv.FormatUint(uint64(ppk.Port), 10))
+		buffer.WriteRune('-')
+		buffer.WriteString(strconv.FormatUint(uint64(ppk.EndPort), 10))
+		buffer.WriteRune('/')
+		buffer.WriteString(strconv.FormatUint(uint64(ppk.Proto), 10))
+		buffer.WriteRune('"')
+
+		buffer.WriteRune(':')
+
+		b, err := json.Marshal(filter)
+		if err != nil {
+			return nil, err
+		}
+		buffer.Write(b)
+	}
+	buffer.WriteRune('}')
+
+	return buffer.Bytes(), nil
 }
 
 func parsePortProtocol(port, protocol string) (uint16, uint8) {
@@ -1570,7 +1606,7 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 
 // removeUser removes a user that no longer needs incremental updates
 // from the L4Policy.
-func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
+func (l4 *L4Policy) removeUser(user *EndpointPolicy) (last bool) {
 	// 'users' is set to nil when the policy is detached. This
 	// happens to the old policy when it is being replaced with a
 	// new one, or when the last endpoint using this policy is
@@ -1578,8 +1614,10 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 	l4.mutex.Lock()
 	if l4.users != nil {
 		delete(l4.users, user)
+		last = len(l4.users) == 0
 	}
 	l4.mutex.Unlock()
+	return last
 }
 
 // AccumulateMapChanges distributes the given changes to the registered users.

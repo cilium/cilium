@@ -93,13 +93,13 @@ func TestCachePopulation(t *testing.T) {
 	cip1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
-	policy1, updated, err := cache.updateSelectorPolicy(identity1, ep1.Id)
+	policy1, _, updated, err := cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NoError(t, err)
 	require.True(t, updated)
-	_, updated, err = cache.updateSelectorPolicy(identity1, ep1.Id)
+	_, _, updated, err = cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NoError(t, err)
 	require.False(t, updated)
-	policy3, _, _ := cache.updateSelectorPolicy(identity1, ep1.Id)
+	policy3, _, _, _ := cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.NotNil(t, policy1)
 	require.Same(t, policy1, policy3)
 	cip2, ok := cache.lookup(identity1)
@@ -109,17 +109,17 @@ func TestCachePopulation(t *testing.T) {
 	// Remove the identity and observe that it is no longer available
 	cacheCleared := cache.delete(identity1)
 	require.True(t, cacheCleared)
-	_, _, err = cache.updateSelectorPolicy(identity1, ep1.Id)
+	_, _, _, err = cache.updateSelectorPolicy(identity1, ep1.Id)
 	require.Error(t, err)
 
 	// Attempt to update policy for non-cached endpoint and observe failure
 	ep3 := testutils.NewTestEndpoint(t)
 	ep3.SetIdentity(1234, true)
-	_, _, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
+	_, _, _, err = cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
 	require.Error(t, err)
 
 	cache.insert(ep3.GetSecurityIdentity())
-	policy4, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
+	policy4, _, updated, err := cache.updateSelectorPolicy(ep3.GetSecurityIdentity(), ep3.Id)
 
 	// policy4 must be different from ep1, ep2
 	require.NoError(t, err)
@@ -132,9 +132,9 @@ func TestCachePopulation(t *testing.T) {
 	idp1 := policy5.getPolicy()
 	require.Nil(t, idp1)
 
-	_, updated, err = cache.updateSelectorPolicy(identity1, ep1.GetID())
-	require.NoError(t, err)
+	_, _, updated, err = cache.updateSelectorPolicy(identity1, ep1.GetID())
 	require.True(t, updated)
+	require.NoError(t, err)
 
 	idp1 = policy5.getPolicy()
 	require.NotNil(t, idp1)
@@ -142,13 +142,13 @@ func TestCachePopulation(t *testing.T) {
 	identity3 := ep3.GetSecurityIdentity()
 	policy6 := cache.insert(identity3)
 	require.NotEqual(t, policy5, policy6)
-	idp3, updated, err := cache.updateSelectorPolicy(identity3, ep3.GetID())
+	idp3, _, updated, err := cache.updateSelectorPolicy(identity3, ep3.GetID())
 	require.NoError(t, err)
 	require.False(t, updated)
 	require.Equal(t, idp1, idp3)
 
 	repo.revision.Store(43)
-	idp3, updated, err = cache.updateSelectorPolicy(identity3, ep3.GetID())
+	idp3, _, updated, err = cache.updateSelectorPolicy(identity3, ep3.GetID())
 	require.NoError(t, err)
 	require.True(t, updated)
 	idp1 = policy5.getPolicy()

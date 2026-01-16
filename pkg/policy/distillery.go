@@ -4,17 +4,22 @@
 package policy
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
+
+	"github.com/cilium/stream"
 )
 
 // policyCache represents a cache of resolved policies for identities.
 type policyCache struct {
 	lock.Mutex
+	// Used to implement the stream.Observable interface.
+	stream.Observable[PolicyCacheChange]
 
 	// repo is a circular reference back to the Repository, but as
 	// we create only one Repository and one PolicyCache for each
@@ -22,13 +27,21 @@ type policyCache struct {
 	// collected.
 	repo     *Repository
 	policies map[identityPkg.NumericIdentity]*cachedSelectorPolicy
+
+	// emitChange is used with the observable embedded in this struct.
+	emitChange func(PolicyCacheChange)
 }
 
 // newPolicyCache creates a new cache of SelectorPolicy.
 func newPolicyCache(repo *Repository, idmgr identitymanager.IDManager) *policyCache {
+	mcast, emit, _ := stream.Multicast[PolicyCacheChange]()
 	cache := &policyCache{
+		Observable: mcast,
+
 		repo:     repo,
 		policies: make(map[identityPkg.NumericIdentity]*cachedSelectorPolicy),
+
+		emitChange: emit,
 	}
 	if idmgr != nil {
 		idmgr.Subscribe(cache)
@@ -77,6 +90,7 @@ func (cache *policyCache) insert(identity *identityPkg.Identity) *cachedSelector
 		cip = newCachedSelectorPolicy(identity)
 		cache.policies[identity.ID] = cip
 	}
+	cache.emitChange(PolicyCacheChange{Kind: PolicyChangeInsert, ID: identity.ID})
 	return cip
 }
 
@@ -94,6 +108,7 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 			selPolicy.detach(true, 0)
 		}
 	}
+	cache.emitChange(PolicyCacheChange{Kind: PolicyChangeDelete, ID: identity.ID})
 	return ok
 }
 
@@ -111,10 +126,10 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 // is still referring to the old identity.
 //
 // Must be called with repo.Mutex held for reading.
-func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, bool, error) {
+func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, *selectorPolicy, bool, error) {
 	cip, ok := cache.lookup(identity)
 	if !ok {
-		return nil, false, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
+		return nil, nil, false, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
 	}
 
 	// As long as UpdatePolicy() is triggered from endpoint
@@ -131,18 +146,16 @@ func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, e
 
 	// Don't resolve policy if it was already done for this or later revision.
 	if selPolicy := cip.getPolicy(); selPolicy != nil && selPolicy.Revision >= cache.repo.GetRevision() {
-		return selPolicy, false, nil
+		return selPolicy, nil, false, nil
 	}
 
 	// Resolve the policies, which could fail
 	selPolicy, err := cache.repo.resolvePolicyLocked(identity)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
-	cip.setPolicy(selPolicy, endpointID)
-
-	return selPolicy, true, nil
+	return selPolicy, cip.setPolicy(selPolicy, endpointID), true, nil
 }
 
 // LocalEndpointIdentityAdded creates a SelectorPolicy cache entry for the
@@ -155,6 +168,45 @@ func (cache *policyCache) LocalEndpointIdentityAdded(identity *identityPkg.Ident
 // specified Identity.
 func (cache *policyCache) LocalEndpointIdentityRemoved(identity *identityPkg.Identity) {
 	cache.delete(identity)
+}
+
+// Implements stream.Observable. Replays initial state as a sequence of adds.
+func (cache *policyCache) Observe(ctx context.Context, next func(PolicyCacheChange), complete func(error)) {
+	cache.Lock()
+	defer cache.Unlock()
+
+	for id := range cache.policies {
+		select {
+		case <-ctx.Done():
+			complete(ctx.Err())
+			return
+		default:
+		}
+		next(PolicyCacheChange{Kind: PolicyChangeInsert, ID: id})
+	}
+
+	select {
+	case <-ctx.Done():
+		complete(ctx.Err())
+		return
+	default:
+	}
+	next(PolicyCacheChange{Kind: PolicyChangeSync})
+
+	cache.Observable.Observe(ctx, next, complete)
+}
+
+type PolicyChangeKind string
+
+const (
+	PolicyChangeSync   PolicyChangeKind = "sync"
+	PolicyChangeInsert PolicyChangeKind = "Insert"
+	PolicyChangeDelete PolicyChangeKind = "delete"
+)
+
+type PolicyCacheChange struct {
+	Kind PolicyChangeKind
+	ID   identityPkg.NumericIdentity
 }
 
 // getAuthTypes returns the AuthTypes required by the policy between the localID and remoteID, if
@@ -225,10 +277,11 @@ func (cip *cachedSelectorPolicy) getPolicy() *selectorPolicy {
 // the endpoint that initiated the old selector policy detach. Since detach
 // can trigger endpoint regenerations of all it users, this ensures
 // that endpoints do not continuously update themselves.
-func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) {
+func (cip *cachedSelectorPolicy) setPolicy(policy *selectorPolicy, endpointID uint64) *selectorPolicy {
 	oldPolicy := cip.policy.Swap(policy)
 	if oldPolicy != nil {
 		// Release the references the previous policy holds on the selector cache.
 		oldPolicy.detach(false, endpointID)
 	}
+	return oldPolicy
 }
