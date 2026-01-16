@@ -79,7 +79,6 @@
   encryption: 'ipsec'
   key-one: 'rfc4106-gcm-aes'
   key-two: 'rfc4106-gcm-aes'
-  skip-upgrade: 'true'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
 - name: 'ipsec-8'
@@ -108,7 +107,6 @@
   encryption: 'ipsec'
   key-one: 'rfc4106-gcm-aes'
   key-two: 'rfc4106-gcm-aes'
-  skip-upgrade: 'true'
   # L7 testing: IPsec encryption has complex interaction with L7 proxy
   test-l7: 'true'
 - name: 'ipsec-10'
@@ -122,7 +120,5 @@
   encryption-strict-mode: 'true'
   key-one: 'cbc-aes-sha256'
   key-two: 'cbc-aes-sha256'
-  # no strict mode on v1.18
-  skip-upgrade: 'true'
   # L7 testing: IPsec strict mode especially critical - affects proxy traffic encryption
   test-l7: 'true'
