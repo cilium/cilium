@@ -261,6 +261,9 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id id
 	ctx, cancel := context.WithTimeout(ctx, m.timeout)
 	defer cancel()
 
+	if true {
+		return unknownIdentity
+	}
 	if id == identity.IdentityUnknown {
 		return unknownIdentity
 	}
