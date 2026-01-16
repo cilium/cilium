@@ -131,7 +131,7 @@ func newCiliumAuthMapSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Key:        anyTypeByName(btf, "auth_key"),
 		ValueSize:  8,
 		Value:      anyTypeByName(btf, "auth_info"),
-		MaxEntries: 512000,
+		MaxEntries: 524288,
 		Flags:      unix.BPF_F_NO_PREALLOC,
 		Pinning:    ebpf.PinByName,
 	}

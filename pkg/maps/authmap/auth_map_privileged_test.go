@@ -7,12 +7,16 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/ebpf"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/maps/registry"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -26,10 +30,22 @@ func setup(tb testing.TB) {
 
 func TestPrivilegedAuthMap(t *testing.T) {
 	setup(t)
-	authMap := newMap(hivetest.Logger(t), 10)
-	err := authMap.init()
+	var authMap Map
+	h := hive.New(
+		Cell,
+		registry.Cell,
+		cell.Provide(func() *option.DaemonConfig {
+			return &option.DaemonConfig{
+				AuthMapEntries: 1024,
+			}
+		}),
+		cell.Invoke(func(mapArg Map) {
+			authMap = mapArg
+		}),
+	)
+	err := h.Start(hivetest.Logger(t), t.Context())
 	require.NoError(t, err)
-	defer authMap.bpfMap.Unpin()
+	defer h.Stop(hivetest.Logger(t), t.Context())
 
 	testKey := AuthKey{
 		LocalIdentity:  1,
