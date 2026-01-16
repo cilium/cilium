@@ -21,14 +21,24 @@ type TypeID = sys.TypeID
 
 // Type represents a type described by BTF.
 //
-// Identity of Type follows the [Go specification]: two Types are considered
-// equal if they have the same concrete type and the same dynamic value, aka
-// they point at the same location in memory. This means that the following
-// Types are considered distinct even though they have the same "shape".
+// A Type has three properties where compared to other Types.
+//
+// Identity: follows the [Go specification], two Types are considered identical
+// if they have the same concrete type and the same dynamic value, aka they point
+// at the same location in memory. This means that the following Types are
+// considered distinct even though they have the same "shape".
 //
 //	a := &Int{Size: 1}
 //	b := &Int{Size: 1}
 //	a != b
+//
+// Equivalence: two Types are considered equivalent if they have the same shape
+// and thus are functionally interchangeable, even if they are located at different
+// memory addresses. The above two Int types are equivalent.
+//
+// Compatibility: two Types are considered compatible according to the rules of CO-RE
+// see [coreAreTypesCompatible] for details. This is a non-commutative property,
+// so A may be compatible with B, but B not compatible with A.
 //
 // [Go specification]: https://go.dev/ref/spec#Comparison_operators
 type Type interface {
@@ -50,7 +60,7 @@ type Type interface {
 	// Make a copy of the type, without copying Type members.
 	copy() Type
 
-	// New implementations must update walkType.
+	// New implementations must update children, deduper.typeHash, and typesEquivalent.
 }
 
 var (
