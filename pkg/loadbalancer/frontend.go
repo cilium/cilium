@@ -25,6 +25,7 @@ import (
 // FrontendParams defines the static parameters of a frontend.
 // This is separate from [Frontend] to clearly separate which fields
 // can be manipulated and which are internally managed by [Writer].
+// +deepequal-gen=true
 type FrontendParams struct {
 	// Frontend address and port
 	Address L3n4Addr
@@ -77,6 +78,12 @@ type Frontend struct {
 	// this pointer to the service will update as well and the
 	// frontend is marked for reconciliation.
 	Service *Service `json:"-" yaml:"-"`
+}
+
+// IsFrontendUpdated returns true if the frontend needs to be updated given
+// the new parameters and service.
+func IsFrontendUpdated(fe *Frontend, newParams FrontendParams, newService *Service) bool {
+	return !newParams.DeepEqual(&fe.FrontendParams) || fe.Service != newService
 }
 
 // BackendsSeq2 is an iterator for sequence of backends that is also JSON and YAML
