@@ -9,15 +9,14 @@ import (
 	"fmt"
 
 	"github.com/vishvananda/netlink"
-
-	"github.com/cilium/cilium/pkg/mtu"
 )
 
 // errUnsupportedOp is a common error
 var errUnsupportedOp = fmt.Errorf("Route operations not supported on Darwin")
 
 // Replace is not supported on Darwin and will return an error at runtime.
-func Replace(route Route, mtuConfig mtu.Configuration) error {
+// The mtuConfig parameter is ignored as this is a stub implementation.
+func Replace(route Route, mtuConfig any) error {
 	return errUnsupportedOp
 }
 
