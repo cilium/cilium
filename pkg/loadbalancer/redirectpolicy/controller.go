@@ -275,6 +275,9 @@ func (c *lrpController) processRedirectPolicy(wtxn writer.WriteTxn, lrpID lb.Ser
 			// Stop when we hit a different namespace, e.g. prefix search hit a longer name.
 			break
 		}
+		if k8sUtils.GetLatestPodReadiness(pod.Status) != slim_corev1.ConditionTrue {
+			continue
+		}
 		if lrp.BackendSelector.Matches(labels.Set(pod.Labels)) {
 			matchingPods = append(matchingPods, getPodInfo(pod))
 		}
@@ -336,7 +339,7 @@ func (c *lrpController) updateRedirects(wtxn writer.WriteTxn, ws *statedb.WatchS
 						Type:        lb.SVCTypeLocalRedirect,
 						ServiceName: lrpServiceName,
 						ServicePort: feM.feAddr.Port(),
-						//if we only have one frontend mapping, we dont need the frontend port name so it will not check the port name in the backend ports
+						// if we only have one frontend mapping, we dont need the frontend port name so it will not check the port name in the backend ports
 						PortName: func() lb.FEPortName {
 							if len(lrp.FrontendMappings) > 1 {
 								return feM.fePort

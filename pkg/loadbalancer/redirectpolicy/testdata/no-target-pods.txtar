@@ -96,6 +96,11 @@ status:
   - ip: 2001::1
   qosClass: BestEffort
   startTime: "2024-07-10T16:20:42Z"
+  conditions:
+  - lastProbeTime: null
+    type: Ready
+    status: "True"
+
 
 -- service.yaml --
 apiVersion: v1
