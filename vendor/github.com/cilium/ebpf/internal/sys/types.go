@@ -162,6 +162,7 @@ const (
 	BPF_SOCK_OPS_VOID                          = 0
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB              = 15
 	BPF_SOCK_OPS_WRITE_HDR_OPT_CB_FLAG         = 64
+	BPF_STREAM_MAX_CAPACITY                    = 100000
 	BPF_TASK_ITER_ALL_PROCS                    = 0
 	BPF_TASK_ITER_ALL_THREADS                  = 1
 	BPF_TASK_ITER_PROC_THREADS                 = 2
@@ -296,7 +297,8 @@ const (
 	BPF_LINK_DETACH                 Cmd = 34
 	BPF_PROG_BIND_MAP               Cmd = 35
 	BPF_TOKEN_CREATE                Cmd = 36
-	__MAX_BPF_CMD                   Cmd = 37
+	BPF_PROG_STREAM_READ_BY_FD      Cmd = 37
+	__MAX_BPF_CMD                   Cmd = 38
 )
 
 type FunctionId uint32
@@ -748,6 +750,9 @@ type MapInfo struct {
 	BtfValueTypeId        TypeID
 	BtfVmlinuxId          uint32
 	MapExtra              uint64
+	Hash                  uint64
+	HashSize              uint32
+	_                     [4]byte
 }
 
 type ProgInfo struct {
@@ -1137,6 +1142,9 @@ type MapCreateAttr struct {
 	MapExtra              uint64
 	ValueTypeBtfObjFd     int32
 	MapTokenFd            int32
+	ExclProgHash          uint64
+	ExclProgHashSize      uint32
+	_                     [4]byte
 }
 
 func MapCreate(attr *MapCreateAttr) (*FD, error) {
@@ -1459,6 +1467,9 @@ type ProgLoadAttr struct {
 	LogTrueSize        uint32
 	ProgTokenFd        int32
 	FdArrayCnt         uint32
+	Signature          uint64
+	SignatureSize      uint32
+	KeyringId          int32
 }
 
 func ProgLoad(attr *ProgLoadAttr) (*FD, error) {
@@ -1633,7 +1644,9 @@ type RawTracepointLinkInfo struct {
 	_         [4]byte
 	TpName    TypedPointer[uint8]
 	TpNameLen uint32
-	_         [36]byte
+	_         [4]byte
+	Cookie    uint64
+	_         [24]byte
 }
 
 type TcxLinkInfo struct {
@@ -1656,7 +1669,9 @@ type TracingLinkInfo struct {
 	AttachType  AttachType
 	TargetObjId uint32
 	TargetBtfId TypeID
-	_           [36]byte
+	_           [4]byte
+	Cookie      uint64
+	_           [24]byte
 }
 
 type XDPLinkInfo struct {
