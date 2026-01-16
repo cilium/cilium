@@ -174,3 +174,55 @@ var _ Link = (*uprobeMultiLink)(nil)
 func (kml *uprobeMultiLink) Update(_ *ebpf.Program) error {
 	return fmt.Errorf("update uprobe_multi: %w", ErrNotSupported)
 }
+
+func (kml *uprobeMultiLink) Info() (*Info, error) {
+	var info sys.UprobeMultiLinkInfo
+	if err := sys.ObjInfo(kml.fd, &info); err != nil {
+		return nil, fmt.Errorf("uprobe multi link info: %s", err)
+	}
+	var (
+		path          = make([]byte, info.PathSize)
+		refCtrOffsets = make([]uint64, info.Count)
+		addrs         = make([]uint64, info.Count)
+		cookies       = make([]uint64, info.Count)
+	)
+	info = sys.UprobeMultiLinkInfo{
+		Path:          sys.SlicePointer(path),
+		PathSize:      uint32(len(path)),
+		Offsets:       sys.SlicePointer(addrs),
+		RefCtrOffsets: sys.SlicePointer(refCtrOffsets),
+		Cookies:       sys.SlicePointer(cookies),
+		Count:         uint32(len(addrs)),
+	}
+	if err := sys.ObjInfo(kml.fd, &info); err != nil {
+		return nil, fmt.Errorf("uprobe multi link info: %s", err)
+	}
+	if info.Path.IsNil() {
+		path = nil
+	}
+	if info.Cookies.IsNil() {
+		cookies = nil
+	}
+	if info.Offsets.IsNil() {
+		addrs = nil
+	}
+	if info.RefCtrOffsets.IsNil() {
+		refCtrOffsets = nil
+	}
+	extra := &UprobeMultiInfo{
+		Count:         info.Count,
+		Flags:         info.Flags,
+		pid:           info.Pid,
+		offsets:       addrs,
+		cookies:       cookies,
+		refCtrOffsets: refCtrOffsets,
+		File:          unix.ByteSliceToString(path),
+	}
+
+	return &Info{
+		info.Type,
+		info.Id,
+		ebpf.ProgramID(info.ProgId),
+		extra,
+	}, nil
+}
