@@ -42,6 +42,12 @@ const (
 	DeviceIDLabel = "deviceID"
 	// DriverLabel identifies a device's driver.
 	DriverLabel = "driver"
+	// HWAddrLabel contains the MAC address of the device.
+	HWAddrLabel = "mac_address"
+	// MTULabel contains the MTU value set for the device.
+	MTULabel = "mtu"
+	// FlagsLabel contains the flags set for the device.
+	FlagsLabel = "flags"
 	// DeviceManagerLabel identifies which Device Manager
 	// published the device.
 	DeviceManagerLabel = "deviceManager"
