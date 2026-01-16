@@ -37,6 +37,8 @@ var (
 	allHealth              bool
 	brief                  bool
 	requireK8sConnectivity bool
+	requireBGPConnectivity bool
+	bgpReadinessMode       string
 	timeout                time.Duration
 	healthLines            = 10
 	allNodes               = false
@@ -52,6 +54,8 @@ func init() {
 	statusCmd.Flags().BoolVar(&allHealth, "all-health", false, "Show all health status, not just failing")
 	statusCmd.Flags().BoolVar(&brief, "brief", false, "Only print a one-line status message")
 	statusCmd.Flags().BoolVar(&requireK8sConnectivity, "require-k8s-connectivity", true, "If true, when the cilium-agent cannot access the Kubernetes control plane, this status command returns a non-zero exit status.")
+	statusCmd.Flags().BoolVar(&requireBGPConnectivity, "require-bgp-connectivity", false, "If true, BGP connectivity will be required for the agent to report healthy status.")
+	statusCmd.Flags().StringVar(&bgpReadinessMode, "bgp-readiness-mode", "any", "BGP readiness mode when require-bgp-connectivity is true. Valid values are 'any' (at least one session established) or 'all' (all sessions established).")
 	statusCmd.Flags().BoolVar(&verbose, "verbose", false, "Equivalent to --all-addresses --all-controllers --all-nodes --all-redirects --all-clusters --all-health")
 	statusCmd.Flags().DurationVar(&timeout, "timeout", 30*time.Second, "Sets the timeout to use when querying for health")
 	command.AddOutputOption(statusCmd)
@@ -65,6 +69,19 @@ func statusDaemon() {
 		}
 
 		return false
+	}
+
+	// BGP readiness validation function
+	isBGPUnhealthy := func(sr *models.StatusResponse) bool {
+		if !requireBGPConnectivity {
+			return false
+		}
+		if sr.BgpStatus == nil {
+			return true // No BGP status available when required
+		}
+		// For now, we check if BGP is in failure state
+		// In the future, we could extend this to check the mode (any/all)
+		return sr.BgpStatus.State == models.BGPStatusStateFailure
 	}
 
 	if verbose {
@@ -97,7 +114,7 @@ func statusDaemon() {
 	} else if brief {
 		sr := resp.Payload
 		pkg.FormatStatusResponseBrief(os.Stdout, sr)
-		if isUnhealthy(sr) {
+		if isUnhealthy(sr) || isBGPUnhealthy(sr) {
 			os.Exit(1)
 		}
 	} else {
@@ -105,7 +122,7 @@ func statusDaemon() {
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 		pkg.FormatStatusResponse(w, sr, statusDetails)
 
-		if isUnhealthy(sr) {
+		if isUnhealthy(sr) || isBGPUnhealthy(sr) {
 			w.Flush()
 			os.Exit(1)
 		}
