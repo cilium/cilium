@@ -19,7 +19,8 @@ const (
 
 	precedencePriorityShift          = 8
 	precedencePriorityBits           = 32 - precedencePriorityShift
-	MaxPriority             Priority = 1<<precedencePriorityBits - 1
+	HighestPriority         Priority = 0
+	LowestPriority          Priority = 1<<precedencePriorityBits - 1
 
 	// Precedence low byte values for entries on the same priority level (bytes 1-3)
 	precedenceByteMask  Precedence = 255
@@ -27,6 +28,7 @@ const (
 	precedenceByteAllow Precedence = 1 // Note: proxy redirects use values 2-254
 	precedenceBytePass  Precedence = 0
 
+	MinPrecedence      = Precedence(0)
 	MaxPrecedence      = ^Precedence(0)
 	MaxDenyPrecedence  = MaxPrecedence
 	MaxBasePrecedence  = (MaxPrecedence & ^(precedenceByteMask))
@@ -42,7 +44,7 @@ func Roundup[E constraints.Integer](n, to E) E {
 
 func (p *Priority) IncrementWithRoundup(to Priority) bool {
 	np := Roundup(*p+1, to)
-	if np > MaxPriority || np < *p {
+	if np > LowestPriority || np < *p {
 		return false
 	}
 	*p = np
@@ -51,7 +53,7 @@ func (p *Priority) IncrementWithRoundup(to Priority) bool {
 
 func (p *Priority) Add(add Priority) bool {
 	np := *p + add
-	if np > MaxPriority || np < *p {
+	if np > LowestPriority || np < *p {
 		return false
 	}
 	*p = np
@@ -113,7 +115,7 @@ func (p Precedence) ProxyPortPrecedenceMayDiffer(o Precedence) bool {
 }
 
 func (p Precedence) Priority() Priority {
-	return MaxPriority - Priority(p>>precedencePriorityShift)
+	return LowestPriority - Priority(p>>precedencePriorityShift)
 }
 
 // MapStateEntry is the configuration associated with a Key in a
@@ -152,7 +154,7 @@ func (e MapStateEntry) IsValid() bool {
 
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
-	priority := MaxPriority - Priority(e.Precedence>>precedencePriorityShift)
+	priority := LowestPriority - Priority(e.Precedence>>precedencePriorityShift)
 	listenerPriority := ListenerPriority(precedenceByteMask - (e.Precedence & precedenceByteMask))
 
 	verdict := "allow"
@@ -195,15 +197,20 @@ func (e MapStateEntry) String() string {
 //     the deny and proxy port precedence bits in the lower 8 bits.
 //   - low 8 bits are left as zeroes
 func (priority Priority) toBasePrecedence() Precedence {
-	if priority > MaxPriority {
-		priority = MaxPriority
+	if priority > LowestPriority {
+		priority = LowestPriority
 	}
-	return Precedence(MaxPriority-priority) << precedencePriorityShift
+	return Precedence(LowestPriority-priority) << precedencePriorityShift
 }
 
 // PassPrecedence is the precedence with lower 8 bits cleared
 func (priority Priority) ToPassPrecedence() Precedence {
 	return priority.toBasePrecedence()
+}
+
+// ToTierMaxPrecedence is the precedence with lower 8 bits cleared
+func (priority Priority) ToTierMaxPrecedence() Precedence {
+	return priority.toBasePrecedence() | 0xff
 }
 
 // NewMapStateEntry creeates a new MapStateEntry
@@ -277,7 +284,7 @@ func InvalidEntry() MapStateEntry {
 // WithPriority is only used for testing
 func (e MapStateEntry) WithPriority(priority Priority) MapStateEntry {
 	e.Precedence &= 1<<precedencePriorityShift - 1 // clear all priority bits
-	e.Precedence |= Precedence(MaxPriority-priority) << precedencePriorityShift
+	e.Precedence |= Precedence(LowestPriority-priority) << precedencePriorityShift
 	return e
 }
 
