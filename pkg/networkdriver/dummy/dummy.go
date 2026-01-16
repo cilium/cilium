@@ -91,10 +91,10 @@ type DummyDevice struct {
 
 func (d DummyDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
 	result := make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
-	result["interface_name"] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.IfName())}
-	result["mac_address"] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.HWAddr)}
-	result["mtu"] = resourceapi.DeviceAttribute{IntValue: ptr.To(int64(d.MTU))}
-	result["flags"] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.Flags)}
+	result[types.IfNameLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.IfName())}
+	result[types.HWAddrLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.HWAddr)}
+	result[types.MTULabel] = resourceapi.DeviceAttribute{IntValue: ptr.To(int64(d.MTU))}
+	result[types.FlagsLabel] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.Flags)}
 
 	return result
 }
