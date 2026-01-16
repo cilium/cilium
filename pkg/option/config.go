@@ -1004,6 +1004,12 @@ const (
 	// BGP router-id allocation IP pool
 	BGPRouterIDAllocationIPPool = "bgp-router-id-allocation-ip-pool"
 
+	// BGPReadinessEnabled enables BGP readiness probe
+	BGPReadinessEnabled = "bgp-readiness-enabled"
+
+	// BGPReadinessMode sets the BGP readiness mode ('any' or 'all')
+	BGPReadinessMode = "bgp-readiness-mode"
+
 	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
 	// fragmentation-needed replies to the client (when needed).
 	EnablePMTUDiscovery = "enable-pmtu-discovery"
@@ -1941,6 +1947,12 @@ type DaemonConfig struct {
 	// BGPRouterIDAllocationIPPool is the IP pool to allocate the BGP router-id from.
 	BGPRouterIDAllocationIPPool string
 
+	// BGPReadinessEnabled enables BGP readiness probe
+	BGPReadinessEnabled bool
+
+	// BGPReadinessMode sets the BGP readiness mode ('any' or 'all')
+	BGPReadinessMode string
+
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
 	BPFMapEventBuffers          map[string]string
@@ -2062,6 +2074,8 @@ var (
 
 		EnableVTEP:                           defaults.EnableVTEP,
 		EnableBGPControlPlane:                defaults.EnableBGPControlPlane,
+		BGPReadinessEnabled:                  false,
+		BGPReadinessMode:                     "any",
 		EnableK8sNetworkPolicy:               defaults.EnableK8sNetworkPolicy,
 		EnableCiliumNetworkPolicy:            defaults.EnableCiliumNetworkPolicy,
 		EnableCiliumClusterwideNetworkPolicy: defaults.EnableCiliumClusterwideNetworkPolicy,
@@ -3042,6 +3056,10 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	// BGP router-id allocation mode
 	c.BGPRouterIDAllocationMode = vp.GetString(BGPRouterIDAllocationMode)
 	c.BGPRouterIDAllocationIPPool = vp.GetString(BGPRouterIDAllocationIPPool)
+
+	// BGP readiness configuration
+	c.BGPReadinessEnabled = vp.GetBool(BGPReadinessEnabled)
+	c.BGPReadinessMode = vp.GetString(BGPReadinessMode)
 
 	// Support failure-mode for policy map overflow
 	c.EnableEndpointLockdownOnPolicyOverflow = vp.GetBool(EnableEndpointLockdownOnPolicyOverflow)

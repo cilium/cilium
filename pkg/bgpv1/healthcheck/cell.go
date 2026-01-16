@@ -9,7 +9,8 @@ import (
 )
 
 type Config struct {
-	BGPReadinessEnabled bool `mapstructure:"bgp-readiness-enabled"`
+	BGPReadinessEnabled bool   `mapstructure:"bgp-readiness-enabled"`
+	BGPReadinessMode    string `mapstructure:"bgp-readiness-mode"`
 }
 
 var Cell = cell.Module(
@@ -22,9 +23,11 @@ var Cell = cell.Module(
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("bgp-readiness-enabled", def.BGPReadinessEnabled, "Enables BGP readiness probe")
+	flags.String("bgp-readiness-mode", def.BGPReadinessMode, "BGP readiness mode: 'any' (at least one session) or 'all' (all sessions)")
 
 }
 
 var defaultConfig = Config{
 	BGPReadinessEnabled: false,
+	BGPReadinessMode:    "any",
 }

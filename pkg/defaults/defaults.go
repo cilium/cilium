@@ -517,6 +517,9 @@ const (
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
 
+	// Enable BGP readiness probe.
+	BGPReadinessEnabled = false
+
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy = true
 

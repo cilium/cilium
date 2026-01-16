@@ -39,6 +39,7 @@ import (
 
 type StatusCollector interface {
 	GetStatus(brief bool, requireK8sConnectivity bool) models.StatusResponse
+	GetStatusWithBGP(brief bool, requireK8sConnectivity bool, requireBGPConnectivity bool, bgpMode string) models.StatusResponse
 }
 
 type statusCollector struct {
@@ -275,22 +276,38 @@ func (d *statusCollector) getCNIChainingStatus() *models.CNIChainingStatus {
 }
 
 func (d *statusCollector) getBGPStatus(ctx context.Context) *models.BGPStatus {
+	return d.getBGPStatusWithMode(ctx, d.statusParams.DaemonConfig.BGPReadinessMode, d.statusParams.DaemonConfig.BGPReadinessEnabled)
+}
+
+func (d *statusCollector) getBGPStatusWithMode(ctx context.Context, mode string, requireBGP bool) *models.BGPStatus {
 	if !d.statusParams.DaemonConfig.EnableBGPControlPlane {
 		return &models.BGPStatus{
-			Mode: models.BGPStatusStateDisabled,
-			Msg:  "BGP control plane is disabled",
+			State: models.StatusStateDisabled,
+			Msg:   "BGP control plane is disabled",
+			Mode:  mode,
 		}
 	}
-	healthy, msg := d.statusParams.BGPStatusGetter.GetBGPPeerStatus(ctx)
-	var mode string
+
+	// Validate BGP status getter is available
+	if d.statusParams.BGPStatusGetter == nil {
+		return &models.BGPStatus{
+			State: models.StatusStateFailure,
+			Msg:   "BGP status getter not available",
+			Mode:  mode,
+		}
+	}
+
+	healthy, msg := d.statusParams.BGPStatusGetter.GetBGPPeerStatusWithMode(ctx, mode, requireBGP)
+	var state string
 	if healthy {
-		mode = models.BGPStatusStateOk
+		state = models.StatusStateOk
 	} else {
-		mode = models.BGPStatusStateFailure
+		state = models.StatusStateFailure
 	}
 	return &models.BGPStatus{
-		Mode: mode,
-		Msg:  msg,
+		State: state,
+		Msg:   msg,
+		Mode:  mode,
 	}
 }
 
@@ -659,12 +676,115 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 	case d.statusResponse.BgpStatus != nil && d.statusResponse.BgpStatus.State == models.StatusStateFailure:
-		msg := "BGP readiness check failed:" + d.statusResponse.BgpStatus.Msg
+		msg := "BGP readiness check failed: " + d.statusResponse.BgpStatus.Msg
 		sr.Cilium = &models.Status{
 			State: models.StatusStateFailure,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
 
+	default:
+		sr.Cilium = &models.Status{
+			State: models.StatusStateOk,
+			Msg:   ciliumVer,
+		}
+	}
+
+	return sr
+}
+
+// GetStatusWithBGP returns the daemon status with flexible BGP readiness control.
+func (d *statusCollector) GetStatusWithBGP(brief bool, requireK8sConnectivity bool, requireBGPConnectivity bool, bgpMode string) models.StatusResponse {
+	staleProbes := d.statusCollector.GetStaleProbes()
+	stale := make(map[string]strfmt.DateTime, len(staleProbes))
+	for probe, startTime := range staleProbes {
+		stale[probe] = strfmt.DateTime(startTime)
+	}
+
+	d.statusCollectMutex.RLock()
+	defer d.statusCollectMutex.RUnlock()
+
+	var sr models.StatusResponse
+	if brief {
+		csCopy := new(models.ClusterStatus)
+		if d.statusResponse.Cluster != nil && d.statusResponse.Cluster.CiliumHealth != nil {
+			in, out := &d.statusResponse.Cluster.CiliumHealth, &csCopy.CiliumHealth
+			*out = new(models.Status)
+			**out = **in
+		}
+		var minimalControllers models.ControllerStatuses
+		if d.statusResponse.Controllers != nil {
+			for _, c := range d.statusResponse.Controllers {
+				if c.Status == nil {
+					continue
+				}
+			}
+		}
+		sr = models.StatusResponse{
+			Cluster:     csCopy,
+			Controllers: minimalControllers,
+		}
+	} else {
+		sr = d.statusResponse
+	}
+
+	// Get BGP status with custom parameters
+	if d.statusParams.DaemonConfig.EnableBGPControlPlane {
+		sr.BgpStatus = d.getBGPStatusWithMode(context.TODO(), bgpMode, requireBGPConnectivity)
+	}
+
+	sr.Stale = stale
+
+	// CiliumVersion definition
+	ver := version.GetCiliumVersion()
+	ciliumVer := fmt.Sprintf("%s (v%s-%s)", ver.Version, ver.Version, ver.Revision)
+
+	switch {
+	case !d.allProbesInitialized:
+		sr.Cilium = &models.Status{
+			State: models.StatusStateWarning,
+			Msg:   "Not all probes executed at least once",
+		}
+	case len(sr.Stale) > 0:
+		msg := "Stale status data"
+		sr.Cilium = &models.Status{
+			State: models.StatusStateWarning,
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
+		}
+	case d.statusResponse.Kvstore != nil &&
+		d.statusResponse.Kvstore.State != models.StatusStateOk &&
+		d.statusResponse.Kvstore.State != models.StatusStateDisabled:
+		msg := "Kvstore service is not ready: " + d.statusResponse.Kvstore.Msg
+		sr.Cilium = &models.Status{
+			State: d.statusResponse.Kvstore.State,
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
+		}
+	case d.statusResponse.ContainerRuntime != nil && d.statusResponse.ContainerRuntime.State != models.StatusStateOk:
+		msg := "Container runtime is not ready: " + d.statusResponse.ContainerRuntime.Msg
+		if d.statusResponse.ContainerRuntime.State == models.StatusStateDisabled {
+			msg = "Container runtime is disabled"
+		}
+		sr.Cilium = &models.Status{
+			State: d.statusResponse.ContainerRuntime.State,
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
+		}
+	case d.statusParams.Clientset.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk && requireK8sConnectivity:
+		msg := "Kubernetes service is not ready: " + d.statusResponse.Kubernetes.Msg
+		sr.Cilium = &models.Status{
+			State: d.statusResponse.Kubernetes.State,
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
+		}
+	case d.statusResponse.CniFile != nil && d.statusResponse.CniFile.State == models.StatusStateFailure:
+		msg := "Could not write CNI config file: " + d.statusResponse.CniFile.Msg
+		sr.Cilium = &models.Status{
+			State: models.StatusStateFailure,
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
+		}
+	case sr.BgpStatus != nil && sr.BgpStatus.State == models.StatusStateFailure:
+		msg := "BGP readiness check failed: " + sr.BgpStatus.Msg
+		sr.Cilium = &models.Status{
+			State: models.StatusStateFailure,
+			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
+		}
 	default:
 		sr.Cilium = &models.Status{
 			State: models.StatusStateOk,
