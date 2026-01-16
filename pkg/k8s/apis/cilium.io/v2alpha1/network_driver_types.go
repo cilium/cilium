@@ -5,6 +5,8 @@ package v2alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -38,6 +40,13 @@ type CiliumNetworkDriverConfig struct {
 	Spec CiliumNetworkDriverConfigSpec `json:"spec"`
 }
 type CiliumNetworkDriverConfigSpec struct {
+	// NodeSelector selects a group of nodes where this configuration
+	// should be applied
+	// If empty / nil this config applies to all nodes.
+	//
+	// +kubebuilder:validation:Optional
+	NodeSelector *slimv1.LabelSelector `json:"nodeSelector,omitempty"`
+
 	// Interval between DRA registration retries
 	//
 	// +kubebuilder:validation:Optional

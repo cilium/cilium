@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -33,11 +34,12 @@ var Cell = cell.Module(
 type networkDriverParams struct {
 	cell.In
 
-	Log       *slog.Logger
-	Lifecycle cell.Lifecycle
-	ClientSet k8sClient.Clientset
-	JobGroup  job.Group
-	Configs   resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
+	Log            *slog.Logger
+	Lifecycle      cell.Lifecycle
+	ClientSet      k8sClient.Clientset
+	JobGroup       job.Group
+	Configs        resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
+	LocalNodeStore *node.LocalNodeStore
 }
 
 func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, daemonCfg *option.DaemonConfig) resource.Resource[*v2alpha1.CiliumNetworkDriverConfig] {
@@ -62,6 +64,7 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		deviceManagers: make(map[types.DeviceManagerType]types.DeviceManager),
 		configCRD:      params.Configs,
 		allocations:    make(map[kube_types.UID]map[kube_types.UID][]allocation),
+		localNodeStore: params.LocalNodeStore,
 	}
 
 	params.Lifecycle.Append(driver)
