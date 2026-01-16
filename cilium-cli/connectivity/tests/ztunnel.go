@@ -7,126 +7,404 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
-	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
-var _ check.Scenario = (*ztunnelPodToPodEncryption)(nil)
+// Test scenario configuration constants
+const (
+	enrolledNamespace0  = "cilium-test-ztunnel-enrolled-0"
+	enrolledNamespace1  = "cilium-test-ztunnel-enrolled-1"
+	unenrolledNamespace = "cilium-test-ztunnel-unenrolled"
+	ztunnelInboundPort  = 15008
+	echoServerPort      = 8080
+	ztunnelAdminPort    = "15000"
+	maxCurlRetries      = 5
+	curlRetryDelay      = 2 * time.Second
 
-// ZTunnelPodToPodEncryption is a test which verifies ztunnel mTLS encryption behavior.
-//
-// This test enables mTLS encryption by labeling the namespace with mtls-enabled=true,
-// then verifies:
-//  1. Encrypted traffic is present on port 15008 (ztunnel inbound port)
-//  2. Plain text HTTP traffic is NOT present on the application port (8080)
-//  3. Ztunnel pods have proper workload state information
-//
-// How ztunnel encryption works:
-// - Pod sends traffic to remote pod IP on application port (e.g., 8080)
-// - When mtls-enabled=true label is present, local ztunnel intercepts and redirects to itself on port 15008
-// - Traffic is wrapped in HTTP/2 CONNECT (HBONE) with mTLS
-// - Remote ztunnel unwraps and forwards to destination pod
-//
-// The test uses two sets of sniffers:
-// - Sniffer 1 (ModeSanity): Expects to see encrypted traffic on port 15008
-// - Sniffer 2 (ModeAssert): Expects to NOT see plain HTTP traffic on port 8080
-func ZTunnelPodToPodEncryption() check.Scenario {
-	return &ztunnelPodToPodEncryption{
-		ScenarioBase: check.NewScenarioBase(),
-	}
+	// Namespace enrollment label for Cilium's ztunnel mTLS
+	mtlsEnabledLabel = "mtls-enabled"
+)
+
+// podLocation defines whether pods are on the same or different nodes
+type podLocation int
+
+const (
+	SameNode podLocation = iota
+	DifferentNode
+)
+
+// enrollmentStatus defines whether a pod is enrolled in ztunnel mTLS
+type enrollmentStatus int
+
+const (
+	Enrolled enrollmentStatus = iota
+	Unenrolled
+)
+
+// scenarioConfig defines the configuration for a ztunnel test scenario
+type scenarioConfig struct {
+	name             string
+	clientEnrollment enrollmentStatus
+	serverEnrollment enrollmentStatus
+	location         podLocation
+	sameNamespace    bool
+	expectEncryption bool
 }
 
-type ztunnelPodToPodEncryption struct {
+// ztunnelTestBase provides shared functionality for all ztunnel test scenarios
+type ztunnelTestBase struct {
 	check.ScenarioBase
 
-	ct *check.ConnectivityTest
+	config scenarioConfig
+	ct     *check.ConnectivityTest
 
 	namespace string
 
-	// client pod used to generate traffic
+	// pods under test
 	client *check.Pod
-	// server pod which receives and responds to client traffic
 	server *check.Pod
-	// pod on client's node providing access to host network namespace
+
+	// host network namespace pods
 	clientHostNS *check.Pod
-	// pod on server's node providing access to host network namespace
 	serverHostNS *check.Pod
-	// ZTunnel pod running on the client's node
+
+	// ztunnel pods
 	clientZTunnel *check.Pod
-	// ZTunnel pod running on the server's node
 	serverZTunnel *check.Pod
 
+	// feature flags
 	encryptMode features.Status
 	ipv4Enabled features.Status
 	ipv6Enabled features.Status
 
+	// finalizers to clean up resources
 	finalizers []func() error
 }
 
-func (s *ztunnelPodToPodEncryption) Name() string {
-	return "ztunnel-pod-to-pod-encryption"
+// ================================================================================
+// Factory Functions for All Test Scenarios
+// ================================================================================
+
+// ZTunnelEnrolledToEnrolledSameNode tests mTLS encryption between enrolled pods on same node
+func ZTunnelEnrolledToEnrolledSameNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "enrolled-to-enrolled-same-node",
+		clientEnrollment: Enrolled,
+		serverEnrollment: Enrolled,
+		location:         SameNode,
+		sameNamespace:    true,
+		expectEncryption: true,
+	})
 }
 
-// waitOnZTunnelDS waits for the ztunnel daemonset to be ready and ensure tests
-// do not begin until it is.
-func (s *ztunnelPodToPodEncryption) waitOnZTunnelDS(ctx context.Context, t *check.Test) {
-	// wait for ztunnel-cilium daemonset to be ready
-	if err := check.WaitForDaemonSet(ctx, t, s.ct.K8sClient(), s.namespace, "ztunnel-cilium"); err != nil {
-		t.Fatalf("Failed to wait for ztunnel-cilium daemonset: %s", err)
+// ZTunnelEnrolledToEnrolledDifferentNode tests mTLS encryption between enrolled pods on different nodes
+func ZTunnelEnrolledToEnrolledDifferentNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "enrolled-to-enrolled-different-node",
+		clientEnrollment: Enrolled,
+		serverEnrollment: Enrolled,
+		location:         DifferentNode,
+		sameNamespace:    true,
+		expectEncryption: true,
+	})
+}
+
+// ZTunnelUnenrolledToUnenrolledSameNode tests plain traffic between unenrolled pods on same node
+func ZTunnelUnenrolledToUnenrolledSameNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "unenrolled-to-unenrolled-same-node",
+		clientEnrollment: Unenrolled,
+		serverEnrollment: Unenrolled,
+		location:         SameNode,
+		sameNamespace:    true,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelUnenrolledToUnenrolledDifferentNode tests plain traffic between unenrolled pods on different nodes
+func ZTunnelUnenrolledToUnenrolledDifferentNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "unenrolled-to-unenrolled-different-node",
+		clientEnrollment: Unenrolled,
+		serverEnrollment: Unenrolled,
+		location:         DifferentNode,
+		sameNamespace:    true,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelEnrolledToUnenrolledSameNode tests traffic from enrolled to unenrolled pod on same node
+func ZTunnelEnrolledToUnenrolledSameNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "enrolled-to-unenrolled-same-node",
+		clientEnrollment: Enrolled,
+		serverEnrollment: Unenrolled,
+		location:         SameNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelEnrolledToUnenrolledDifferentNode tests traffic from enrolled to unenrolled pod on different nodes
+func ZTunnelEnrolledToUnenrolledDifferentNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "enrolled-to-unenrolled-different-node",
+		clientEnrollment: Enrolled,
+		serverEnrollment: Unenrolled,
+		location:         DifferentNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelUnenrolledToEnrolledSameNode tests traffic from unenrolled to enrolled pod on same node
+func ZTunnelUnenrolledToEnrolledSameNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "unenrolled-to-enrolled-same-node",
+		clientEnrollment: Unenrolled,
+		serverEnrollment: Enrolled,
+		location:         SameNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelUnenrolledToEnrolledDifferentNode tests traffic from unenrolled to enrolled pod on different nodes
+func ZTunnelUnenrolledToEnrolledDifferentNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "unenrolled-to-enrolled-different-node",
+		clientEnrollment: Unenrolled,
+		serverEnrollment: Enrolled,
+		location:         DifferentNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelEnrolledToEnrolledCrossNamespaceSameNode tests mTLS between enrolled pods in different namespaces on same node
+func ZTunnelEnrolledToEnrolledCrossNamespaceSameNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "enrolled-to-enrolled-cross-ns-same-node",
+		clientEnrollment: Enrolled,
+		serverEnrollment: Enrolled,
+		location:         SameNode,
+		sameNamespace:    false,
+		expectEncryption: true,
+	})
+}
+
+// ZTunnelEnrolledToEnrolledCrossNamespaceDifferentNode tests mTLS between enrolled pods in different namespaces on different nodes
+func ZTunnelEnrolledToEnrolledCrossNamespaceDifferentNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "enrolled-to-enrolled-cross-ns-different-node",
+		clientEnrollment: Enrolled,
+		serverEnrollment: Enrolled,
+		location:         DifferentNode,
+		sameNamespace:    false,
+		expectEncryption: true,
+	})
+}
+
+// ZTunnelUnenrolledToEnrolledCrossNamespaceSameNode tests traffic from unenrolled to enrolled pod in different namespaces on same node
+func ZTunnelUnenrolledToEnrolledCrossNamespaceSameNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "unenrolled-to-enrolled-cross-ns-same-node",
+		clientEnrollment: Unenrolled,
+		serverEnrollment: Enrolled,
+		location:         SameNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
+// ZTunnelUnenrolledToEnrolledCrossNamespaceDifferentNode tests traffic from unenrolled to enrolled pod in different namespaces on different nodes
+func ZTunnelUnenrolledToEnrolledCrossNamespaceDifferentNode() check.Scenario {
+	return newZTunnelTest(scenarioConfig{
+		name:             "unenrolled-to-enrolled-cross-ns-different-node",
+		clientEnrollment: Unenrolled,
+		serverEnrollment: Enrolled,
+		location:         DifferentNode,
+		sameNamespace:    false,
+		expectEncryption: false,
+	})
+}
+
+// newZTunnelTest creates a new ztunnel test with the given configuration
+func newZTunnelTest(config scenarioConfig) check.Scenario {
+	return &ztunnelTestBase{
+		ScenarioBase: check.NewScenarioBase(),
+		config:       config,
 	}
 }
 
-// getClientAndServerPods acquires the client and server pods to be used in the test.
-// The server pod must be on a different host to the client pod (or same host for now).
+func (s *ztunnelTestBase) Name() string {
+	return s.config.name
+}
+
+// ================================================================================
+// Pod Selection Logic
+// ================================================================================
+
+// getNamespaceForEnrollment determines which namespace to use based on enrollment and pod type.
 //
-// It also acquires host namespace pods on the client and server nodes to allow
-// access to the host network namespaces.
-func (s *ztunnelPodToPodEncryption) getClientAndServerPods(t *check.Test) {
-	// grab client and server pod, server must be on another host
-	s.client = s.ct.RandomClientPod()
-	if s.client == nil {
-		t.Fatalf("Failed to acquire a client pod\n")
+// Namespace distribution strategy:
+// - All 3 test namespaces (enrolled-0, enrolled-1, unenrolled) start without the mtls-enabled label
+// - During test execution, namespaces are dynamically labeled based on enrollment requirements
+// - Unenrolled pods use "cilium-test-ztunnel-unenrolled"
+// - Enrolled pods in same-namespace tests use "cilium-test-ztunnel-enrolled-0"
+// - Enrolled pods in cross-namespace tests:
+//   - Client pods → "cilium-test-ztunnel-enrolled-0"
+//   - Server pods → "cilium-test-ztunnel-enrolled-1"
+//
+// This ensures we test both intra-namespace and inter-namespace mTLS scenarios.
+func (s *ztunnelTestBase) getNamespaceForEnrollment(enrollment enrollmentStatus, podType string) string {
+	if enrollment == Unenrolled {
+		return unenrolledNamespace
 	}
 
-	for _, pod := range s.ct.EchoPods() {
-		if pod.Pod.Status.HostIP != s.client.Pod.Status.HostIP {
-			s.server = &pod
-			break
+	// For same namespace tests, always use enrolled-0
+	if s.config.sameNamespace {
+		return enrolledNamespace0
+	}
+
+	// For cross-namespace tests, client goes to enrolled-0, server to enrolled-1
+	if podType == "client" {
+		return enrolledNamespace0
+	}
+	return enrolledNamespace1
+}
+
+// getPod retrieves a pod matching the specified enrollment status, node location, and type.
+//
+// Pod type can be:
+// - "client": The client pod that initiates HTTP requests
+// - "echo-same-node": Echo server pod with node affinity to be on the same node as client
+// - "echo-other-node": Echo server pod with anti-affinity to be on a different node
+//
+// Deployments are labeled with "name=<deployment-name>", so we list all pods with that label
+// and then filter by node location requirements:
+// - SameNode: Pod must be on the same node as referenceNode
+// - DifferentNode: Pod must be on a different node than referenceNode
+func (s *ztunnelTestBase) getPod(ctx context.Context, t *check.Test, enrollment enrollmentStatus, podType string, referenceNode string, location podLocation) *check.Pod {
+	namespace := s.getNamespaceForEnrollment(enrollment, podType)
+
+	// Determine label selector based on pod type
+	// The deployment creates pods with label "name=<deployment-name>"
+	var labelSelector string
+	if podType == "client" {
+		labelSelector = "name=client"
+	} else {
+		// For echo pods, use the full deployment name
+		labelSelector = fmt.Sprintf("name=%s", podType)
+	}
+
+	pods, err := s.ct.K8sClient().ListPods(ctx, namespace, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		t.Fatalf("Failed to list %s pods in namespace %s with selector %s: %v", podType, namespace, labelSelector, err)
+	}
+
+	if len(pods.Items) == 0 {
+		t.Fatalf("No %s pods found in namespace %s with selector %s", podType, namespace, labelSelector)
+	}
+
+	// Debug: log all found pods
+	t.Debugf("Found %d pods for selector %s in namespace %s:", len(pods.Items), labelSelector, namespace)
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		t.Debugf("  - %s on node %s (phase: %s)", pod.Name, pod.Spec.NodeName, pod.Status.Phase)
+	}
+
+	// Find a pod matching the location requirements
+	pod := s.filterPodsByLocation(&pods.Items, referenceNode, location)
+	if pod == nil {
+		t.Fatalf("Failed to find %s pod matching node location requirements in namespace %s (selector: %s, referenceNode: %s, location: %s, found %d pods)",
+			podType, namespace, labelSelector, referenceNode, locationName(location), len(pods.Items))
+	}
+
+	return &check.Pod{
+		K8sClient: s.ct.K8sClient(),
+		Pod:       pod,
+	}
+}
+
+// filterPodsByLocation finds the first pod matching the specified node location constraint.
+// Returns nil if no matching pod is found.
+func (s *ztunnelTestBase) filterPodsByLocation(pods *[]corev1.Pod, referenceNode string, location podLocation) *corev1.Pod {
+	for i := range *pods {
+		pod := &(*pods)[i]
+		if location == SameNode && referenceNode != "" {
+			if pod.Spec.NodeName == referenceNode {
+				return pod
+			}
+		} else if location == DifferentNode && referenceNode != "" {
+			if pod.Spec.NodeName != referenceNode {
+				return pod
+			}
+		} else {
+			// No location constraint, return first pod
+			return pod
 		}
 	}
-	if s.server == nil {
-		t.Fatalf("Failed to acquire a server pod")
-	}
-
-	// grab host namespace pods for accessing the network namespaces of client
-	// and server pods.
-	if clientHostNS, ok := s.ct.HostNetNSPodsByNode()[s.client.Pod.Spec.NodeName]; !ok {
-		t.Fatalf("Failed to acquire host namespace pod on %s (client's node)", s.client.Pod.Spec.NodeName)
-	} else {
-		s.clientHostNS = &clientHostNS
-	}
-
-	if serverHostNS, ok := s.ct.HostNetNSPodsByNode()[s.server.Pod.Spec.NodeName]; !ok {
-		t.Fatalf("Failed to acquire host namespace pod on %s (server's node)", s.server.Pod.Spec.NodeName)
-	} else {
-		s.serverHostNS = &serverHostNS
-	}
+	return nil
 }
 
-// getZTunnelPods acquires the ztunnel pods running on the same nodes as the client
-// and server pods respectively.
+// setupTestPods configures client and server pods based on test configuration
+func (s *ztunnelTestBase) setupTestPods(ctx context.Context, t *check.Test) {
+	// Get client pod
+	s.client = s.getPod(ctx, t, s.config.clientEnrollment, "client", "", SameNode)
+
+	// Get server pod based on location and enrollment
+	serverPodType := "echo-same-node"
+	if s.config.location == DifferentNode {
+		serverPodType = "echo-other-node"
+	}
+
+	s.server = s.getPod(ctx, t, s.config.serverEnrollment, serverPodType, s.client.Pod.Spec.NodeName, s.config.location)
+
+	t.Debugf("Selected pods: client=%s (node=%s, ns=%s), server=%s (node=%s, ns=%s)",
+		s.client.Pod.Name, s.client.Pod.Spec.NodeName, s.client.Pod.Namespace,
+		s.server.Pod.Name, s.server.Pod.Spec.NodeName, s.server.Pod.Namespace)
+}
+
+// ================================================================================
+// Host Network and Ztunnel Pod Helpers
+// ================================================================================
+
+// getHostNSPods acquires host namespace pods for packet capture on client and server nodes.
 //
-// This is required to later validate that ztunnel received both client and server
-// workload state information prior to running the test.
-func (s *ztunnelPodToPodEncryption) getZTunnelPods(ctx context.Context, t *check.Test) {
-	// get ztunnel pods
+// Ztunnel runs as a DaemonSet in the host network namespace, so encrypted traffic between
+// nodes flows through the host network stack, not the pod network. To capture this traffic
+// with tcpdump, we need pods with:
+// 1. Host network access (hostNetwork: true)
+// 2. NET_ADMIN capability to run tcpdump
+//
+// These host network pods are deployed by the connectivity test framework.
+func (s *ztunnelTestBase) getHostNSPods(t *check.Test) {
+	clientHostNS, ok := s.ct.HostNetNSPodsByNode()[s.client.Pod.Spec.NodeName]
+	if !ok {
+		t.Fatalf("Failed to acquire host namespace pod on %s (client's node)", s.client.Pod.Spec.NodeName)
+	}
+	s.clientHostNS = &clientHostNS
+
+	serverHostNS, ok := s.ct.HostNetNSPodsByNode()[s.server.Pod.Spec.NodeName]
+	if !ok {
+		t.Fatalf("Failed to acquire host namespace pod on %s (server's node)", s.server.Pod.Spec.NodeName)
+	}
+	s.serverHostNS = &serverHostNS
+}
+
+// getZTunnelPods acquires ztunnel pods running on the same nodes as client and server
+func (s *ztunnelTestBase) getZTunnelPods(ctx context.Context, t *check.Test) {
 	ztunnelPods, err := s.ct.K8sClient().ListPods(ctx, s.namespace, metav1.ListOptions{
 		LabelSelector: "app=ztunnel-cilium",
 	})
@@ -134,11 +412,9 @@ func (s *ztunnelPodToPodEncryption) getZTunnelPods(ctx context.Context, t *check
 		t.Fatalf("Failed to list ztunnel pods: %s", err)
 	}
 	if len(ztunnelPods.Items) == 0 {
-		t.Fatalf("No ztunnel pods found in namespace %s with label app=ztunnel", s.namespace)
+		t.Fatalf("No ztunnel pods found in namespace %s", s.namespace)
 	}
-	t.Debugf("Found %d ztunnel pods", len(ztunnelPods.Items))
 
-	// get ztunnel pods running on the same nodes as client and server respectively
 	for i := range ztunnelPods.Items {
 		pod := &ztunnelPods.Items[i]
 		if pod.Status.HostIP == s.client.Pod.Status.HostIP {
@@ -148,6 +424,7 @@ func (s *ztunnelPodToPodEncryption) getZTunnelPods(ctx context.Context, t *check
 			s.serverZTunnel = &check.Pod{Pod: pod}
 		}
 	}
+
 	if s.clientZTunnel == nil {
 		t.Fatalf("Failed to acquire ztunnel pod on client node")
 	}
@@ -155,6 +432,10 @@ func (s *ztunnelPodToPodEncryption) getZTunnelPods(ctx context.Context, t *check
 		t.Fatalf("Failed to acquire ztunnel pod on server node")
 	}
 }
+
+// ================================================================================
+// Ztunnel State Validation
+// ================================================================================
 
 // workload represents a workload in the ztunnel dump_config output
 type workload struct {
@@ -172,34 +453,26 @@ type ztunnelDumpConfig struct {
 	Workloads []workload `json:"workloads"`
 }
 
-// validateZTunnelState checks that both client and server ztunnel has received
-// workload information for both the server and client.
-//
-// We also confirm that the client and server pods have ztunnel sockets
-// configured.
-//
-// Polling will occur until the provided ctx is canceled.
-func (s *ztunnelPodToPodEncryption) validateZTunnelState(ctx context.Context, t *check.Test) {
-	const ztunnelAdminPort = "15000"
+// validateZTunnelState checks that ztunnels have workload information for enrolled pods
+func (s *ztunnelTestBase) validateZTunnelState(ctx context.Context, t *check.Test) {
+	// Skip validation if neither pod is enrolled
+	if s.config.clientEnrollment == Unenrolled && s.config.serverEnrollment == Unenrolled {
+		t.Debugf("Skipping ztunnel state validation - no enrolled pods")
+		return
+	}
 
-	// Fetch and parse ztunnel workloads from a ztunnel pod
 	fetchWorkloads := func(hostNS *check.Pod) ([]workload, error) {
-		// Execute curl to get dump_config from ztunnel
 		stdout, err := hostNS.K8sClient.ExecInPod(
 			ctx,
 			hostNS.Pod.Namespace,
 			hostNS.Pod.Name,
-			"", // empty container name means first container
+			"",
 			[]string{"curl", "-s", fmt.Sprintf("http://localhost:%s/config_dump", ztunnelAdminPort)},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute curl in ztunnel pod: %w", err)
 		}
 
-		// Debug: dump the raw response
-		t.Debugf("=== Raw ztunnel dump_config response from %s ===\nLength: %d bytes\n%s\n=== End response ===", hostNS.Pod.Name, stdout.Len(), stdout.String())
-
-		// Parse JSON response
 		var config ztunnelDumpConfig
 		if err := json.Unmarshal(stdout.Bytes(), &config); err != nil {
 			return nil, fmt.Errorf("failed to parse ztunnel dump_config JSON: %w", err)
@@ -210,361 +483,362 @@ func (s *ztunnelPodToPodEncryption) validateZTunnelState(ctx context.Context, t 
 
 	validated := false
 	for ctx.Err() == nil {
-		// Fetch workloads from both ztunnels
 		clientWorkloads, err := fetchWorkloads(s.clientHostNS)
 		if err != nil {
 			t.Fatalf("Failed to fetch workloads from client ztunnel: %v", err)
 		}
 
-		serverWorkloads, err := fetchWorkloads(s.serverHostNS)
-		if err != nil {
-			t.Fatalf("Failed to fetch workloads from server ztunnel: %v", err)
-		}
-
-		t.Debugf("Client ztunnel has %v workloads", clientWorkloads)
-		t.Debugf("Server ztunnel has %v workloads", serverWorkloads)
-
-		// ensure client workloads contain both client and server pods
-		clientHasClient := false
-		clientHasServer := false
-		for _, wl := range clientWorkloads {
-			if wl.UID == string(s.client.Pod.UID) {
-				clientHasClient = true
+		// Check for enrolled client
+		if s.config.clientEnrollment == Enrolled {
+			found := false
+			for _, wl := range clientWorkloads {
+				if wl.UID == string(s.client.Pod.UID) {
+					found = true
+					break
+				}
 			}
-			if wl.UID == string(s.server.Pod.UID) {
-				clientHasServer = true
+			if !found {
+				t.Debugf("Client ztunnel missing client workload, retrying")
+				time.Sleep(1 * time.Second)
+				continue
 			}
 		}
 
-		if !clientHasClient || !clientHasServer {
-			t.Debugf("Client ztunnel missing workload information: hasClient=%v hasServer=%v, retrying", clientHasClient, clientHasServer)
-			goto retry
+		// Check for enrolled server
+		if s.config.serverEnrollment == Enrolled {
+			found := false
+			for _, wl := range clientWorkloads {
+				if wl.UID == string(s.server.Pod.UID) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Debugf("Client ztunnel missing server workload, retrying")
+				time.Sleep(1 * time.Second)
+				continue
+			}
 		}
 
 		validated = true
-
 		break
-	retry:
-		time.Sleep(1 * time.Second)
-		continue
 	}
 
 	if !validated {
-		t.Fatalf("Timed out waiting for ztunnel pods to receive workload information for client and server pods")
+		t.Fatalf("Timed out waiting for ztunnel workload information")
 	}
-	t.Debugf("Both ztunnel pods have workload information for client and server pods, and sockets are configured")
+	t.Debugf("Ztunnel workload validation complete")
 }
 
-// labelNamespace adds or removes the mtls-enabled label from the test namespace
-func (s *ztunnelPodToPodEncryption) labelNamespace(ctx context.Context, t *check.Test, enableMTLS bool) error {
-	// Get the first available client from the context
-	var client *k8s.Client
-	for _, c := range s.ct.Clients() {
-		client = c
-		break
-	}
+// ================================================================================
+// Namespace Enrollment Management
+// ================================================================================
 
-	if client == nil {
-		return fmt.Errorf("no Kubernetes client available")
-	}
+// enrollNamespace adds the mtls-enabled label to a namespace to enroll it in ztunnel mTLS.
+func (s *ztunnelTestBase) enrollNamespace(ctx context.Context, t *check.Test, namespace string) error {
+	t.Debugf("Enrolling namespace %s in ztunnel mTLS", namespace)
 
-	// Create patch to add or remove the mtls-enabled label
-	var patch map[string]any
-	if enableMTLS {
-		patch = map[string]any{
-			"metadata": map[string]any{
-				"labels": map[string]any{
-					"mtls-enabled": "true",
-				},
-			},
-		}
-		t.Infof("Labeling namespace %s with 'mtls-enabled=true'", s.ct.Params().TestNamespace)
-	} else {
-		patch = map[string]any{
-			"metadata": map[string]any{
-				"labels": map[string]any{
-					"mtls-enabled": nil,
-				},
-			},
-		}
-		t.Infof("Removing 'mtls-enabled' label from namespace %s", s.ct.Params().TestNamespace)
-	}
-
-	patchBytes, err := json.Marshal(patch)
+	ns, err := s.ct.K8sClient().GetNamespace(ctx, namespace, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to marshal patch: %w", err)
-	}
-
-	_, err = client.Clientset.CoreV1().Namespaces().Patch(
-		ctx,
-		s.ct.Params().TestNamespace,
-		types.StrategicMergePatchType,
-		patchBytes,
-		metav1.PatchOptions{},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to patch namespace: %w", err)
-	}
-
-	return nil
-}
-
-// verifyNamespaceLabel checks the current state of the mtls-enabled label
-func (s *ztunnelPodToPodEncryption) verifyNamespaceLabel(ctx context.Context, t *check.Test, expectedValue string) error {
-	var client *k8s.Client
-	for _, c := range s.ct.Clients() {
-		client = c
-		break
-	}
-
-	if client == nil {
-		return fmt.Errorf("no Kubernetes client available")
-	}
-
-	ns, err := client.GetNamespace(ctx, s.ct.Params().TestNamespace, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get namespace %s: %w", s.ct.Params().TestNamespace, err)
+		return fmt.Errorf("failed to get namespace %s: %w", namespace, err)
 	}
 
 	if ns.Labels == nil {
-		if expectedValue == "" {
-			return nil
-		}
-		return fmt.Errorf("namespace %s has no labels", s.ct.Params().TestNamespace)
+		ns.Labels = make(map[string]string)
+	}
+	ns.Labels[mtlsEnabledLabel] = "true"
+
+	_, err = s.ct.K8sClient().Clientset.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update namespace %s with enrollment label: %w", namespace, err)
 	}
 
-	mtlsEnabled, exists := ns.Labels["mtls-enabled"]
-	if !exists {
-		if expectedValue == "" {
-			return nil
-		}
-		return fmt.Errorf("namespace %s is missing 'mtls-enabled' label", s.ct.Params().TestNamespace)
-	}
-
-	if mtlsEnabled != expectedValue {
-		return fmt.Errorf("namespace %s has 'mtls-enabled=%s' but expected '%s'",
-			s.ct.Params().TestNamespace, mtlsEnabled, expectedValue)
-	}
-
-	t.Debugf("✓ Namespace %s has label 'mtls-enabled=%s'", s.ct.Params().TestNamespace, expectedValue)
+	t.Debugf("Namespace %s enrolled", namespace)
 	return nil
 }
 
-// plainTextHTTPFilter creates tcpdump filters to capture plain text HTTP traffic
-func (s *ztunnelPodToPodEncryption) plainTextHTTPFilter(ctx context.Context, srcIP, dstIP string) (string, error) {
-	if ctx.Err() != nil {
-		return "", fmt.Errorf("context already cancelled")
+// disenrollNamespace removes the mtls-enabled label from a namespace to disenroll it from ztunnel mTLS.
+func (s *ztunnelTestBase) disenrollNamespace(ctx context.Context, t *check.Test, namespace string) error {
+	t.Debugf("Disenrolling namespace %s from ztunnel mTLS", namespace)
+
+	ns, err := s.ct.K8sClient().GetNamespace(ctx, namespace, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get namespace %s: %w", namespace, err)
 	}
 
-	// Filter for TCP traffic on port 8080 (echo server port) between specific src and dst
-	// This captures unencrypted HTTP traffic between the two specific pods
-	filter := fmt.Sprintf("tcp and port 8080 and ((src host %s and dst host %s) or (src host %s and dst host %s))",
-		srcIP, dstIP, dstIP, srcIP)
+	if ns.Labels != nil {
+		delete(ns.Labels, mtlsEnabledLabel)
+	}
 
-	return filter, nil
+	_, err = s.ct.K8sClient().Clientset.CoreV1().Namespaces().Update(ctx, ns, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update namespace %s to remove enrollment label: %w", namespace, err)
+	}
+
+	t.Debugf("Namespace %s disenrolled", namespace)
+	return nil
 }
 
-// ztunnelTCPDumpFilters creates tcpdump filters to capture traffic to port 15008
-func (s *ztunnelPodToPodEncryption) ztunnelTCPDumpFilters(ctx context.Context, srcIP, dstIP string) (string, error) {
-	if ctx.Err() != nil {
-		return "", fmt.Errorf("context already cancelled")
+// ================================================================================
+// Traffic Filters and Sniffers
+// ================================================================================
+
+// createTrafficFiltersForFamily creates tcpdump filters for a specific IP family and port.
+// For same-node scenarios, it creates bidirectional filters since both pods share the same host network.
+// For different-node scenarios, it creates separate client and server filters for directional traffic.
+func createTrafficFiltersForFamily(clientIP, serverIP, suffix string, port int, sameNode bool) map[string]string {
+	filters := make(map[string]string)
+
+	if sameNode {
+		// Same node: bidirectional traffic filter
+		filters["client-"+suffix] = fmt.Sprintf(
+			"tcp and port %d and ((src host %s and dst host %s) or (src host %s and dst host %s))",
+			port, clientIP, serverIP, serverIP, clientIP)
+	} else {
+		// Different nodes: outbound from client
+		filters["client-"+suffix] = fmt.Sprintf(
+			"tcp and dst port %d and src host %s and dst host %s",
+			port, clientIP, serverIP)
+		// Different nodes: inbound to server
+		filters["server-"+suffix] = fmt.Sprintf(
+			"tcp and dst port %d and src host %s and dst host %s",
+			port, clientIP, serverIP)
 	}
 
-	// Filter for TCP traffic to port 15008 (ztunnel inbound traffic)
-	// This captures encrypted HBONE traffic between ztunnels
-	filter := fmt.Sprintf("tcp and port 15008 and (host %s or host %s)", srcIP, dstIP)
-
-	return filter, nil
+	return filters
 }
 
-// startSniffers starts tcpdump on both client and server pod veth interfaces
-func (s *ztunnelPodToPodEncryption) startSniffers(ctx context.Context, t *check.Test, mode sniff.Mode, filters map[string]string, name string) (map[string]*sniff.Sniffer, error) {
-	if ctx.Err() != nil {
-		return nil, fmt.Errorf("context already cancelled")
-	}
+// createTrafficFilters creates tcpdump filters for encrypted and plain text traffic.
+//
+// We create two sets of filters to prove encryption:
+// 1. Encrypted filters: Detect traffic on port 15008 (ztunnel HBONE proxy port)
+// 2. Plain text filters: Detect traffic on port 8080 (direct HTTP to echo server)
+//
+// Based on enrollment status, tests assert:
+// - Enrolled→Enrolled: MUST see port 15008, MUST NOT see port 8080
+// - Other scenarios: MUST NOT see port 15008, MUST see port 8080
+func (s *ztunnelTestBase) createTrafficFilters() (encrypted, plainText map[string]string, err error) {
+	encrypted = make(map[string]string)
+	plainText = make(map[string]string)
 
-	sniffers := make(map[string]*sniff.Sniffer)
-	captureInterface := "any"
-
-	var err error
-	var cancel func() error
+	sameNode := s.clientHostNS.Pod.Name == s.serverHostNS.Pod.Name
 
 	if s.ipv4Enabled.Enabled {
-		clientFilter := filters["client-ipv4"]
-		serverFilter := filters["server-ipv4"]
+		clientIPv4 := s.client.Address(features.IPFamilyV4)
+		serverIPv4 := s.server.Address(features.IPFamilyV4)
 
-		sniffers["client-ipv4"], cancel, err = sniff.Sniff(ctx, name, s.clientHostNS, captureInterface, clientFilter, mode, sniff.SniffKillTimeout, t)
-		if err != nil {
-			return nil, fmt.Errorf("failed to start sniffer on client: %w", err)
-		}
-		s.finalizers = append(s.finalizers, cancel)
-		t.Debugf("started client tcpdump sniffer: [client: %s] [node: %s] [interface: %s] [filter: %s] [mode: %s]",
-			s.client.Pod.Name, s.client.Pod.Spec.NodeName, captureInterface, clientFilter, mode)
+		// Create filters for encrypted traffic (port 15008)
+		maps.Copy(encrypted, createTrafficFiltersForFamily(clientIPv4, serverIPv4, "ipv4", ztunnelInboundPort, sameNode))
 
-		sniffers["server-ipv4"], cancel, err = sniff.Sniff(ctx, name, s.serverHostNS, captureInterface, serverFilter, mode, sniff.SniffKillTimeout, t)
-		if err != nil {
-			return nil, fmt.Errorf("failed to start sniffer on server: %w", err)
-		}
-		s.finalizers = append(s.finalizers, cancel)
-		t.Debugf("started server tcpdump sniffer: [server: %s] [node: %s] [interface: %s] [filter: %s] [mode: %s]",
-			s.server.Pod.Name, s.server.Pod.Spec.NodeName, captureInterface, serverFilter, mode)
+		// Create filters for plain text traffic (port 8080)
+		maps.Copy(plainText, createTrafficFiltersForFamily(clientIPv4, serverIPv4, "ipv4", echoServerPort, sameNode))
 	}
 
 	if s.ipv6Enabled.Enabled {
-		nameIPv6 := fmt.Sprintf("%s-ipv6", name)
-		clientFilter := filters["client-ipv6"]
-		serverFilter := filters["server-ipv6"]
+		clientIPv6 := s.client.Address(features.IPFamilyV6)
+		serverIPv6 := s.server.Address(features.IPFamilyV6)
 
-		sniffers["client-ipv6"], cancel, err = sniff.Sniff(ctx, nameIPv6, s.clientHostNS, captureInterface, clientFilter, mode, sniff.SniffKillTimeout, t)
+		// Create filters for encrypted traffic (port 15008)
+		maps.Copy(encrypted, createTrafficFiltersForFamily(clientIPv6, serverIPv6, "ipv6", ztunnelInboundPort, sameNode))
+
+		// Create filters for plain text traffic (port 8080)
+		maps.Copy(plainText, createTrafficFiltersForFamily(clientIPv6, serverIPv6, "ipv6", echoServerPort, sameNode))
+	}
+
+	return encrypted, plainText, nil
+}
+
+// startSnifferForFamily starts tcpdump sniffers for a specific IP family.
+// Returns a map of sniffers keyed by "client-<suffix>" and "server-<suffix>".
+// For same-node scenarios, the server sniffer reuses the client sniffer since both pods
+// share the same host network namespace.
+func (s *ztunnelTestBase) startSnifferForFamily(ctx context.Context, t *check.Test, mode sniff.Mode,
+	filters map[string]string, name, suffix string, sameNode bool,
+) (map[string]*sniff.Sniffer, error) {
+	sniffers := make(map[string]*sniff.Sniffer)
+	captureInterface := "any"
+
+	clientKey := "client-" + suffix
+	serverKey := "server-" + suffix
+	clientFilter := filters[clientKey]
+	serverFilter := filters[serverKey]
+
+	// Start client sniffer (always needed)
+	if clientFilter != "" {
+		sniffer, cancel, err := sniff.Sniff(ctx, name, s.clientHostNS, captureInterface, clientFilter, mode, sniff.SniffKillTimeout, t)
 		if err != nil {
-			return nil, fmt.Errorf("failed to start sniffer on client for IPv6: %w", err)
+			return nil, fmt.Errorf("failed to start client sniffer for %s: %w", suffix, err)
 		}
 		s.finalizers = append(s.finalizers, cancel)
-		t.Debugf("started client tcpdump sniffer for IPv6: [client: %s] [node: %s] [interface: %s] [filter: %s] [mode: %s]",
-			s.client.Pod.Name, s.client.Pod.Spec.NodeName, captureInterface, clientFilter, mode)
+		sniffers[clientKey] = sniffer
+	}
 
-		sniffers["server-ipv6"], cancel, err = sniff.Sniff(ctx, nameIPv6, s.serverHostNS, captureInterface, serverFilter, mode, sniff.SniffKillTimeout, t)
+	// Start server sniffer only if on different node
+	if !sameNode && serverFilter != "" {
+		sniffer, cancel, err := sniff.Sniff(ctx, name, s.serverHostNS, captureInterface, serverFilter, mode, sniff.SniffKillTimeout, t)
 		if err != nil {
-			return nil, fmt.Errorf("failed to start sniffer on server for IPv6: %w", err)
+			return nil, fmt.Errorf("failed to start server sniffer for %s: %w", suffix, err)
 		}
 		s.finalizers = append(s.finalizers, cancel)
-		t.Debugf("started server tcpdump sniffer for IPv6: [server: %s] [node: %s] [interface: %s] [filter: %s] [mode: %s]",
-			s.server.Pod.Name, s.server.Pod.Spec.NodeName, captureInterface, serverFilter, mode)
+		sniffers[serverKey] = sniffer
+	} else if sameNode && serverFilter != "" {
+		// For same node, reuse the client sniffer for server validation.
+		// This works because both pods are on the same node and share the host network namespace,
+		// so a single capture point sees traffic in both directions.
+		sniffers[serverKey] = sniffers[clientKey]
 	}
 
 	return sniffers, nil
 }
 
-// clientToServerTestWithRetry performs a curl from client to server with retry mechanism
-func (s *ztunnelPodToPodEncryption) clientToServerTestWithRetry(ctx context.Context, t *check.Test, encryptedSniffers, plainTextSniffers map[string]*sniff.Sniffer) {
-	if ctx.Err() != nil {
-		t.Fatalf("Context already cancelled")
-	}
+// startSniffers starts tcpdump on both client and server host network pods
+func (s *ztunnelTestBase) startSniffers(ctx context.Context, t *check.Test, mode sniff.Mode, filters map[string]string, name string) (map[string]*sniff.Sniffer, error) {
+	allSniffers := make(map[string]*sniff.Sniffer)
 
-	const maxRetries = 5
-	const retryDelay = 2 * time.Second
+	// Check if client and server are on the same node (same host network pod)
+	sameNode := s.clientHostNS.Pod.Name == s.serverHostNS.Pod.Name
 
 	if s.ipv4Enabled.Enabled {
-		t.Debugf("performing client->server curl with retry: [client: %s] [server: %s] [family: ipv4]", s.client.Pod.Name, s.server.Pod.Name)
-
-		// Retry loop for the curl command execution
-		var lastErr error
-		for attempt := 1; attempt <= maxRetries; attempt++ {
-			if attempt > 1 {
-				t.Infof("Retry attempt %d/%d after mTLS enrollment...", attempt, maxRetries)
-				time.Sleep(retryDelay)
-			}
-
-			// Try to execute curl
-			output, err := s.client.K8sClient.ExecInPod(ctx,
-				s.client.Pod.Namespace, s.client.Pod.Name, s.client.Pod.Labels["name"],
-				[]string{"curl", "-sS", "--fail", "--connect-timeout", "5", "--max-time", "10",
-					fmt.Sprintf("http://%s:%d/", s.server.Address(features.IPFamilyV4), s.server.Port())})
-
-			if err == nil && output.Len() > 0 {
-				t.Infof("✓ Curl succeeded on attempt %d", attempt)
-				lastErr = nil
-				break
-			}
-
-			lastErr = err
-			if attempt < maxRetries {
-				t.Debugf("Curl attempt %d failed: %v, retrying...", attempt, err)
-			}
+		sniffers, err := s.startSnifferForFamily(ctx, t, mode, filters, name, "ipv4", sameNode)
+		if err != nil {
+			return nil, err
 		}
-
-		if lastErr != nil {
-			t.Fatalf("Curl failed after %d attempts: %v", maxRetries, lastErr)
-		}
-
-		// Now run the action to validate sniffers
-		action := t.NewAction(s, fmt.Sprintf("curl-%s", features.IPFamilyV4), s.client, s.server, features.IPFamilyV4)
-		action.Run(func(a *check.Action) {
-			// Validate encrypted traffic sniffers
-			if sniffer, ok := encryptedSniffers["client-ipv4"]; ok {
-				sniffer.Validate(a)
-			}
-			if sniffer, ok := encryptedSniffers["server-ipv4"]; ok {
-				sniffer.Validate(a)
-			}
-			// Validate plain text traffic sniffers
-			if sniffer, ok := plainTextSniffers["client-ipv4"]; ok {
-				sniffer.Validate(a)
-			}
-			if sniffer, ok := plainTextSniffers["server-ipv4"]; ok {
-				sniffer.Validate(a)
-			}
-		})
+		maps.Copy(allSniffers, sniffers)
 	}
 
 	if s.ipv6Enabled.Enabled {
-		t.Debugf("performing client->server curl with retry: [client: %s] [server: %s] [family: ipv6]", s.client.Pod.Name, s.server.Pod.Name)
-
-		// Retry loop for the curl command execution
-		var lastErr error
-		for attempt := 1; attempt <= maxRetries; attempt++ {
-			if attempt > 1 {
-				t.Infof("Retry attempt %d/%d after mTLS enrollment...", attempt, maxRetries)
-				time.Sleep(retryDelay)
-			}
-
-			// Try to execute curl
-			output, err := s.client.K8sClient.ExecInPod(ctx,
-				s.client.Pod.Namespace, s.client.Pod.Name, s.client.Pod.Labels["name"],
-				[]string{"curl", "-sS", "--fail", "--connect-timeout", "5", "--max-time", "10",
-					fmt.Sprintf("http://[%s]:%d/", s.server.Address(features.IPFamilyV6), s.server.Port())})
-
-			if err == nil && output.Len() > 0 {
-				t.Infof("✓ Curl succeeded on attempt %d", attempt)
-				lastErr = nil
-				break
-			}
-
-			lastErr = err
-			if attempt < maxRetries {
-				t.Debugf("Curl attempt %d failed: %v, retrying...", attempt, err)
-			}
+		nameIPv6 := fmt.Sprintf("%s-ipv6", name)
+		sniffers, err := s.startSnifferForFamily(ctx, t, mode, filters, nameIPv6, "ipv6", sameNode)
+		if err != nil {
+			return nil, err
 		}
+		maps.Copy(allSniffers, sniffers)
+	}
 
-		if lastErr != nil {
-			t.Fatalf("Curl failed after %d attempts: %v", maxRetries, lastErr)
-		}
+	return allSniffers, nil
+}
 
-		// Now run the action to validate sniffers
-		action := t.NewAction(s, fmt.Sprintf("curl-%s", features.IPFamilyV6), s.client, s.server, features.IPFamilyV6)
-		action.Run(func(a *check.Action) {
-			// Validate encrypted traffic sniffers
-			if sniffer, ok := encryptedSniffers["client-ipv6"]; ok {
-				sniffer.Validate(a)
-			}
-			if sniffer, ok := encryptedSniffers["server-ipv6"]; ok {
-				sniffer.Validate(a)
-			}
-			// Validate plain text traffic sniffers
-			if sniffer, ok := plainTextSniffers["client-ipv6"]; ok {
-				sniffer.Validate(a)
-			}
-			if sniffer, ok := plainTextSniffers["server-ipv6"]; ok {
-				sniffer.Validate(a)
-			}
-		})
+// ================================================================================
+// Traffic Generation and Validation
+// ================================================================================
+
+// executeTrafficTest performs curl from client to server with retry and validates sniffers
+func (s *ztunnelTestBase) executeTrafficTest(ctx context.Context, t *check.Test,
+	encryptedSniffers, plainTextSniffers map[string]*sniff.Sniffer,
+) {
+	if s.ipv4Enabled.Enabled {
+		s.executeTrafficForIPFamily(ctx, t, features.IPFamilyV4,
+			encryptedSniffers, plainTextSniffers)
+	}
+
+	if s.ipv6Enabled.Enabled {
+		s.executeTrafficForIPFamily(ctx, t, features.IPFamilyV6,
+			encryptedSniffers, plainTextSniffers)
 	}
 }
 
-func (s *ztunnelPodToPodEncryption) Run(ctx context.Context, t *check.Test) {
+// executeTrafficForIPFamily performs curl and validates sniffers for a specific IP family
+func (s *ztunnelTestBase) executeTrafficForIPFamily(ctx context.Context, t *check.Test, ipFamily features.IPFamily,
+	encryptedSniffers, plainTextSniffers map[string]*sniff.Sniffer,
+) {
+	var url string
+	if ipFamily == features.IPFamilyV4 {
+		url = fmt.Sprintf("http://%s:%d/", s.server.Address(ipFamily), echoServerPort)
+	} else {
+		url = fmt.Sprintf("http://[%s]:%d/", s.server.Address(ipFamily), echoServerPort)
+	}
+
+	// Retry loop for curl command
+	var lastErr error
+	for attempt := 1; attempt <= maxCurlRetries; attempt++ {
+		if attempt > 1 {
+			t.Debugf("Retry attempt %d/%d...", attempt, maxCurlRetries)
+			time.Sleep(curlRetryDelay)
+		}
+
+		output, err := s.client.K8sClient.ExecInPod(ctx,
+			s.client.Pod.Namespace, s.client.Pod.Name, s.client.Pod.Labels["name"],
+			[]string{"curl", "-sS", "--fail", "--connect-timeout", "5", "--max-time", "10", url})
+
+		if err == nil && output.Len() > 0 {
+			t.Debugf("Curl succeeded on attempt %d", attempt)
+			lastErr = nil
+			break
+		}
+
+		lastErr = err
+	}
+
+	if lastErr != nil {
+		t.Fatalf("Curl failed after %d attempts: %v", maxCurlRetries, lastErr)
+	}
+
+	// Validate sniffers
+	suffix := "ipv4"
+	if ipFamily == features.IPFamilyV6 {
+		suffix = "ipv6"
+	}
+
+	action := t.NewAction(s, fmt.Sprintf("curl-%s", ipFamily), s.client, s.server, ipFamily)
+	action.Run(func(a *check.Action) {
+		// Track validated sniffers to avoid validating the same sniffer twice
+		validated := make(map[*sniff.Sniffer]bool)
+
+		// Validate encrypted traffic sniffers (port 15008)
+		if sniffer, ok := encryptedSniffers["client-"+suffix]; ok && sniffer != nil && !validated[sniffer] {
+			t.Debugf("[%s] Validating encrypted traffic sniffer: client-%s", ipFamily, suffix)
+			sniffer.Validate(a)
+			validated[sniffer] = true
+		}
+		if sniffer, ok := encryptedSniffers["server-"+suffix]; ok && sniffer != nil && !validated[sniffer] {
+			t.Debugf("[%s] Validating encrypted traffic sniffer: server-%s", ipFamily, suffix)
+			sniffer.Validate(a)
+			validated[sniffer] = true
+		}
+
+		// Validate plain text traffic sniffers (port 8080)
+		if sniffer, ok := plainTextSniffers["client-"+suffix]; ok && sniffer != nil && !validated[sniffer] {
+			t.Debugf("[%s] Validating plain text traffic sniffer: client-%s", ipFamily, suffix)
+			sniffer.Validate(a)
+			validated[sniffer] = true
+		}
+		if sniffer, ok := plainTextSniffers["server-"+suffix]; ok && sniffer != nil && !validated[sniffer] {
+			t.Debugf("[%s] Validating plain text traffic sniffer: server-%s", ipFamily, suffix)
+			sniffer.Validate(a)
+			validated[sniffer] = true
+		}
+	})
+}
+
+// ================================================================================
+// Daemonset Wait Helper
+// ================================================================================
+
+// waitOnZTunnelDS waits for the ztunnel daemonset to be ready
+func (s *ztunnelTestBase) waitOnZTunnelDS(ctx context.Context, t *check.Test) {
+	if err := check.WaitForDaemonSet(ctx, t, s.ct.K8sClient(), s.namespace, "ztunnel-cilium"); err != nil {
+		t.Fatalf("Failed to wait for ztunnel-cilium daemonset: %s", err)
+	}
+}
+
+// ================================================================================
+// Main Test Run Method
+// ================================================================================
+
+func (s *ztunnelTestBase) Run(ctx context.Context, t *check.Test) {
 	s.ct = t.Context()
 	s.namespace = s.ct.Params().CiliumNamespace
 
-	// on exit, run registered finalizers
+	// Cleanup on exit
 	defer func() {
 		for _, f := range s.finalizers {
 			if err := f(); err != nil {
-				t.Infof("Failed to run finalizer: %v", err)
+				t.Debugf("Failed to run finalizer: %v", err)
 			}
 		}
 	}()
 
-	// grab the features influencing this test
+	// Get feature flags
 	var ok bool
 	s.ipv4Enabled, ok = s.ct.Feature(features.IPv4)
 	if !ok {
@@ -583,94 +857,125 @@ func (s *ztunnelPodToPodEncryption) Run(ctx context.Context, t *check.Test) {
 		t.Fatalf("Test requires at least one IP family to be enabled")
 	}
 
+	t.Infof("==== Ztunnel Scenario: %s ====", s.config.name)
+	t.Infof("Configuration: client=%s, server=%s, location=%v, expectEncryption=%v",
+		enrollmentName(s.config.clientEnrollment),
+		enrollmentName(s.config.serverEnrollment),
+		locationName(s.config.location),
+		s.config.expectEncryption)
+
+	// Setup
 	s.waitOnZTunnelDS(ctx, t)
-	s.getClientAndServerPods(t)
+	s.setupTestPods(ctx, t)
+
+	// Dynamically enroll namespaces based on test configuration
+	// All namespaces start unenrolled, we label them here to enroll
+	namespacesToEnroll := make(map[string]bool)
+	namespacesToDisenroll := make([]string, 0)
+
+	if s.config.clientEnrollment == Enrolled {
+		ns := s.client.Pod.Namespace
+		if !namespacesToEnroll[ns] {
+			t.Infof("Enrolling client namespace: %s", ns)
+			if err := s.enrollNamespace(ctx, t, ns); err != nil {
+				t.Fatalf("Failed to enroll client namespace %s: %v", ns, err)
+			}
+			namespacesToEnroll[ns] = true
+			namespacesToDisenroll = append(namespacesToDisenroll, ns)
+		}
+	}
+
+	if s.config.serverEnrollment == Enrolled {
+		ns := s.server.Pod.Namespace
+		if !namespacesToEnroll[ns] {
+			t.Infof("Enrolling server namespace: %s", ns)
+			if err := s.enrollNamespace(ctx, t, ns); err != nil {
+				t.Fatalf("Failed to enroll server namespace %s: %v", ns, err)
+			}
+			namespacesToEnroll[ns] = true
+			namespacesToDisenroll = append(namespacesToDisenroll, ns)
+		}
+	}
+
+	// Add cleanup to disenroll namespaces at the end of the test
+	defer func() {
+		if len(namespacesToDisenroll) > 0 {
+			t.Infof("Cleaning up: disenrolling %d namespace(s)", len(namespacesToDisenroll))
+
+			// Disenroll all namespaces
+			for _, ns := range namespacesToDisenroll {
+				t.Debugf("Disenrolling namespace: %s", ns)
+				if err := s.disenrollNamespace(ctx, t, ns); err != nil {
+					t.Debugf("Failed to disenroll namespace %s: %v", ns, err)
+				}
+			}
+		}
+	}()
+
+	s.getHostNSPods(t)
 	s.getZTunnelPods(ctx, t)
-
-	t.Log("==== Ztunnel Encryption Test: Verify mTLS encrypted traffic ====")
-
-	// Enable mTLS by adding the label to namespace
-	if err := s.labelNamespace(ctx, t, true); err != nil {
-		t.Fatalf("Failed to add mtls-enabled label: %v", err)
-	}
-
-	// Verify label is present
-	if err := s.verifyNamespaceLabel(ctx, t, "true"); err != nil {
-		t.Fatalf("Namespace label verification failed: %v", err)
-	}
 
 	timeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 	s.validateZTunnelState(timeout, t)
 
-	// Create filters for encrypted ztunnel traffic (port 15008)
-	encryptedFilters := make(map[string]string)
-	var err error
-
-	if s.ipv4Enabled.Enabled {
-		encryptedFilters["client-ipv4"], err = s.ztunnelTCPDumpFilters(ctx, s.client.Address(features.IPFamilyV4), s.server.Address(features.IPFamilyV4))
-		if err != nil {
-			t.Fatalf("Failed to create ztunnel filter: %v", err)
-		}
-		encryptedFilters["server-ipv4"], err = s.ztunnelTCPDumpFilters(ctx, s.server.Address(features.IPFamilyV4), s.client.Address(features.IPFamilyV4))
-		if err != nil {
-			t.Fatalf("Failed to create ztunnel filter: %v", err)
-		}
+	// Create traffic filters
+	encryptedFilters, plainTextFilters, err := s.createTrafficFilters()
+	if err != nil {
+		t.Fatalf("Failed to create traffic filters: %v", err)
 	}
 
-	if s.ipv6Enabled.Enabled {
-		encryptedFilters["client-ipv6"], err = s.ztunnelTCPDumpFilters(ctx, s.client.Address(features.IPFamilyV6), s.server.Address(features.IPFamilyV6))
-		if err != nil {
-			t.Fatalf("Failed to create ztunnel filter for IPv6: %v", err)
-		}
-		encryptedFilters["server-ipv6"], err = s.ztunnelTCPDumpFilters(ctx, s.server.Address(features.IPFamilyV6), s.client.Address(features.IPFamilyV6))
-		if err != nil {
-			t.Fatalf("Failed to create ztunnel filter for IPv6: %v", err)
-		}
+	// Determine sniffer modes based on expected encryption
+	var encryptedMode, plainTextMode sniff.Mode
+	if s.config.expectEncryption {
+		// When encryption is expected:
+		// - encrypted traffic (port 15008) should be present (ModeSanity)
+		// - plain text traffic (port 8080) should NOT be present (ModeAssert)
+		encryptedMode = sniff.ModeSanity
+		plainTextMode = sniff.ModeAssert
+		t.Info("Expecting encrypted traffic on port 15008, no plain text on port 8080")
+	} else {
+		// When encryption is NOT expected:
+		// - encrypted traffic (port 15008) should NOT be present (ModeAssert)
+		// - plain text traffic (port 8080) should be present (ModeSanity)
+		encryptedMode = sniff.ModeAssert
+		plainTextMode = sniff.ModeSanity
+		t.Info("Expecting plain text traffic on port 8080, no encrypted traffic on port 15008")
 	}
 
-	// Create filters for plain text HTTP traffic (port 8080)
-	plainTextFilters := make(map[string]string)
-
-	if s.ipv4Enabled.Enabled {
-		plainTextFilters["client-ipv4"], err = s.plainTextHTTPFilter(ctx, s.client.Address(features.IPFamilyV4), s.server.Address(features.IPFamilyV4))
-		if err != nil {
-			t.Fatalf("Failed to create plain text filter: %v", err)
-		}
-		plainTextFilters["server-ipv4"], err = s.plainTextHTTPFilter(ctx, s.server.Address(features.IPFamilyV4), s.client.Address(features.IPFamilyV4))
-		if err != nil {
-			t.Fatalf("Failed to create plain text filter: %v", err)
-		}
-	}
-
-	if s.ipv6Enabled.Enabled {
-		plainTextFilters["client-ipv6"], err = s.plainTextHTTPFilter(ctx, s.client.Address(features.IPFamilyV6), s.server.Address(features.IPFamilyV6))
-		if err != nil {
-			t.Fatalf("Failed to create plain text filter for IPv6: %v", err)
-		}
-		plainTextFilters["server-ipv6"], err = s.plainTextHTTPFilter(ctx, s.server.Address(features.IPFamilyV6), s.client.Address(features.IPFamilyV6))
-		if err != nil {
-			t.Fatalf("Failed to create plain text filter for IPv6: %v", err)
-		}
-	}
-
-	// Start sniffers for encrypted traffic (expect to see packets - ModeSanity)
-	t.Info("Starting packet capture to verify encrypted traffic on port 15008...")
-	encryptedSniffers, err := s.startSniffers(ctx, t, sniff.ModeSanity, encryptedFilters, "ztunnel-encrypted")
+	// Start sniffers for encrypted traffic (port 15008)
+	encryptedSniffers, err := s.startSniffers(ctx, t, encryptedMode, encryptedFilters, "ztunnel-encrypted")
 	if err != nil {
 		t.Fatalf("Failed to start encrypted traffic sniffers: %s", err)
 	}
 
-	// Start sniffers for plain text traffic (expect to NOT see packets - ModeAssert)
-	t.Info("Starting packet capture to verify absence of plain text HTTP traffic on port 8080...")
-	plainTextSniffers, err := s.startSniffers(ctx, t, sniff.ModeAssert, plainTextFilters, "ztunnel-plaintext")
+	// Start sniffers for plain text traffic (port 8080)
+	plainTextSniffers, err := s.startSniffers(ctx, t, plainTextMode, plainTextFilters, "ztunnel-plaintext")
 	if err != nil {
 		t.Fatalf("Failed to start plain text traffic sniffers: %s", err)
 	}
 
-	// Run the test with retry mechanism
-	t.Info("Sending HTTP request with mTLS encryption enabled (with retry)...")
-	s.clientToServerTestWithRetry(ctx, t, encryptedSniffers, plainTextSniffers)
+	// Execute traffic test
+	t.Info("Sending HTTP request...")
+	s.executeTrafficTest(ctx, t, encryptedSniffers, plainTextSniffers)
 
-	t.Info("✓ Test complete: Encrypted traffic verified on port 15008, no plain text traffic on port 8080")
+	t.Info("Test complete")
+}
+
+// ================================================================================
+// Helper Functions
+// ================================================================================
+
+func enrollmentName(e enrollmentStatus) string {
+	if e == Enrolled {
+		return "enrolled"
+	}
+	return "unenrolled"
+}
+
+func locationName(l podLocation) string {
+	if l == SameNode {
+		return "same-node"
+	}
+	return "different-node"
 }
