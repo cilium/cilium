@@ -182,6 +182,12 @@ spec:
             httpHeaders:
             - name: "brief"
               value: "true"
+            {{- if and .Values.bgpControlPlane.enabled .Values.bgpControlPlane.bgpReadiness.enabled }}
+            - name: "require-bgp-connectivity"
+              value: "true"
+            - name: "bgp-readiness-mode"
+              value: {{ .Values.bgpControlPlane.bgpReadiness.mode | quote }}
+            {{- end }}
           {{- end }}
           periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
           successThreshold: 1

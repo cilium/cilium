@@ -499,6 +499,8 @@ bgpControlPlane:
   bgpReadiness:
     # -- Enable/Disable BGP readiness.
     enabled: false
+    # -- BGP readiness mode: 'any' (at least one peer established) or 'all' (all peers established)
+    mode: "any"
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.

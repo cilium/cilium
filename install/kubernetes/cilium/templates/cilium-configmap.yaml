@@ -1216,6 +1216,7 @@ data:
   bgp-router-id-allocation-mode: {{ .Values.bgpControlPlane.routerIDAllocation.mode | quote }}
   bgp-router-id-allocation-ip-pool: {{ .Values.bgpControlPlane.routerIDAllocation.ipPool | quote }}
   bgp-readiness-enabled: {{ .Values.bgpControlPlane.bgpReadiness.enabled | quote }}
+  bgp-readiness-mode: {{ .Values.bgpControlPlane.bgpReadiness.mode | quote }}
 {{- end }}
 
 {{- if .Values.pmtuDiscovery.enabled }}

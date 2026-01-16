@@ -502,7 +502,9 @@ bgpControlPlane:
   bgpReadiness:
     # -- Enable/Disable BGP readiness.
     # When enabled, Cilium pods will not be marked as Ready until configured BGP sessions have been established
-    enabled: false 
+    enabled: false
+    # -- BGP readiness mode. Valid values are 'any' (at least one session) or 'all' (all sessions)
+    mode: "any" 
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
   # the client.
