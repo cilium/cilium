@@ -1325,23 +1325,23 @@ func setClustersInValues(release *release.Release, client *k8s.Client, clusters 
 	return nil
 }
 
-func updateCABundleInValues(client *k8s.Client, release *release.Release, clustersCA map[string]string) error {
+func updateCABundleInValues(client *k8s.Client, release *release.Release, clustersCA map[string]string) (bool, error) {
 	caBundleRaw, found, err := unstructured.NestedFieldCopy(release.Config, "tls", "caBundle")
 	if err != nil {
-		return fmt.Errorf("existing tls.caBundle is invalid")
+		return false, fmt.Errorf("existing tls.caBundle is invalid")
 	}
 	if !found || caBundleRaw == nil {
 		caBundleRaw = map[string]any{}
 	}
 	caBundle, ok := caBundleRaw.(map[string]any)
 	if !ok {
-		return fmt.Errorf("existing tls.caBundle values are invalid for cluster %s", client.ClusterName())
+		return false, fmt.Errorf("existing tls.caBundle values are invalid for cluster %s", client.ClusterName())
 	}
 	content := ""
 	if contentRaw, ok := caBundle["content"]; ok {
 		content, ok = contentRaw.(string)
 		if !ok {
-			return fmt.Errorf("existing tls.caBundle.content values are invalid for cluster %s", client.ClusterName())
+			return false, fmt.Errorf("existing tls.caBundle.content values are invalid for cluster %s", client.ClusterName())
 		}
 	}
 	content = strings.TrimSpace(content)
@@ -1356,7 +1356,7 @@ func updateCABundleInValues(client *k8s.Client, release *release.Release, cluste
 
 	newContent = strings.TrimSpace(newContent)
 	if content == newContent {
-		return nil
+		return false, nil
 	}
 
 	if _, ok := release.Config["tls"]; !ok {
@@ -1364,7 +1364,7 @@ func updateCABundleInValues(client *k8s.Client, release *release.Release, cluste
 	}
 	tlsValues, ok := release.Config["tls"].(map[string]any)
 	if !ok {
-		return fmt.Errorf("existing tls values are invalid for cluster %s", client.ClusterName())
+		return false, fmt.Errorf("existing tls values are invalid for cluster %s", client.ClusterName())
 	}
 
 	if _, ok := tlsValues["caBundle"]; !ok {
@@ -1372,12 +1372,16 @@ func updateCABundleInValues(client *k8s.Client, release *release.Release, cluste
 	}
 	caBundleValues, ok := tlsValues["caBundle"].(map[string]any)
 	if !ok {
-		return fmt.Errorf("existing tls.caBundle values are invalid for cluster %s", client.ClusterName())
+		return false, fmt.Errorf("existing tls.caBundle values are invalid for cluster %s", client.ClusterName())
 	}
 
 	caBundleValues["enabled"] = true
 	caBundleValues["content"] = newContent
-	return nil
+
+	// Return true only if we're updating an existing CA bundle as
+	// initializing a CA bundle already restart most pods so we don't need to
+	// additionally restart the clustermesh-apiserver pods
+	return content != "", nil
 }
 
 func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Client, clusters, disabledClusters map[string]any, clustersCA map[string]string) error {
@@ -1410,8 +1414,9 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	}
 
 	// Update CA bundle if CA are provided / any mismatching CA was detected
+	shouldRestart := false
 	if len(clustersCA) > 0 {
-		err = updateCABundleInValues(client, release, clustersCA)
+		shouldRestart, err = updateCABundleInValues(client, release, clustersCA)
 		if err != nil {
 			return err
 		}
@@ -1428,6 +1433,17 @@ func (k *K8sClusterMesh) helmUpgradeClusters(ctx context.Context, client *k8s.Cl
 	if err != nil {
 		return err
 	}
+
+	// If the CA bundle was updated, restart the clustermesh-apiserver pods
+	// so that they pick up the new CA bundle for server-side TLS verification
+	if shouldRestart {
+		k.Log("♻️  Restarting clustermesh-apiserver pods in cluster %s to apply CA bundle changes...", client.ClusterName())
+		if err := client.DeletePodCollection(ctx, k.params.Namespace,
+			metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.ClusterMeshPodSelector}); err != nil {
+			return fmt.Errorf("unable to restart clustermesh-apiserver pods: %w", err)
+		}
+	}
+
 	return nil
 }
 

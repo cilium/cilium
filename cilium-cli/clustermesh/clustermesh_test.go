@@ -793,18 +793,21 @@ func TestUpdateCABundleInValues(t *testing.T) {
 		releaseConfig   map[string]any
 		clustersCA      map[string]string
 		expectedContent string
+		shouldRestart   bool
 		expectErr       bool
 	}{
 		{
 			name:          "empty clustersCA",
 			releaseConfig: map[string]any{},
 			clustersCA:    map[string]string{},
+			shouldRestart: false,
 		},
 		{
 			name:            "add CA to empty bundle",
 			releaseConfig:   map[string]any{},
 			clustersCA:      map[string]string{"c1": ca1},
 			expectedContent: ca1,
+			shouldRestart:   false,
 		},
 		{
 			name: "add CA to existing bundle",
@@ -815,6 +818,7 @@ func TestUpdateCABundleInValues(t *testing.T) {
 			},
 			clustersCA:      map[string]string{"c2": ca2},
 			expectedContent: ca1 + "\n" + ca2,
+			shouldRestart:   true,
 		},
 		{
 			name: "CA already in bundle",
@@ -823,7 +827,8 @@ func TestUpdateCABundleInValues(t *testing.T) {
 					"caBundle": map[string]any{"content": ca1},
 				},
 			},
-			clustersCA: map[string]string{"c1": ca1},
+			clustersCA:    map[string]string{"c1": ca1},
+			shouldRestart: false,
 		},
 		{
 			name: "existing CAs are preserved",
@@ -834,6 +839,7 @@ func TestUpdateCABundleInValues(t *testing.T) {
 			},
 			clustersCA:      map[string]string{"c3": ca3},
 			expectedContent: ca1 + "\n" + ca2 + "\n" + ca3,
+			shouldRestart:   true,
 		},
 		{
 			name: "invalid caBundle content type",
@@ -866,13 +872,14 @@ func TestUpdateCABundleInValues(t *testing.T) {
 			client := &k8s.Client{Clientset: fake.NewSimpleClientset()}
 			rel := &release.Release{Config: tt.releaseConfig}
 
-			err := updateCABundleInValues(client, rel, tt.clustersCA)
+			shouldRestart, err := updateCABundleInValues(client, rel, tt.clustersCA)
 
 			if tt.expectErr {
 				assert.Error(t, err)
 				return
 			}
 			assert.NoError(t, err)
+			assert.Equal(t, tt.shouldRestart, shouldRestart)
 
 			if tt.expectedContent == "" {
 				return
