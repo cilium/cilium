@@ -25,7 +25,6 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -1047,7 +1046,8 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 
 				ln, err := e.localNodeStore.Get(ctx)
 				if err != nil {
-					logging.Fatal(logger, "getLocalNode: unexpected error", logfields.Error, err)
+					e.runlock()
+					return controller.NewExitReason("Failed to get local node")
 				}
 
 				ID := e.SecurityIdentity.ID
