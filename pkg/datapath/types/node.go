@@ -21,7 +21,6 @@ import (
 type MTUConfiguration interface {
 	GetDeviceMTU() int
 	GetRouteMTU() int
-	GetRoutePostEncryptMTU() int
 }
 
 // LocalNodeConfiguration represents the configuration of the local node

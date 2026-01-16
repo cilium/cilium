@@ -15,11 +15,6 @@ func (*MTU) GetRouteMTU() int {
 	return 1500
 }
 
-// GetRoutePostEncryptMTU implements mtu.MTU.
-func (*MTU) GetRoutePostEncryptMTU() int {
-	return 1420
-}
-
 func (*MTU) IsEnableRouteMTUForCNIChaining() bool {
 	return false
 }
