@@ -176,6 +176,9 @@ const (
 	// ProxyStreamIdleTimeoutSeconds is the stream timeout for proxy connections to upstream clusters
 	ProxyStreamIdleTimeoutSeconds = "proxy-stream-idle-timeout-seconds"
 
+	// EnableEnvoyHTTP3 enables HTTP/3 (QUIC) support for Ingress and Gateway API HTTPS listeners
+	EnableEnvoyHTTP3 = "enable-envoy-http3"
+
 	// EnableGatewayAPI enables support of Gateway API
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableGatewayAPI = "enable-gateway-api"
@@ -368,6 +371,9 @@ type OperatorConfig struct {
 	// ProxyStreamIdleTimeoutSeconds is the stream idle timeout for the proxy to upstream cluster
 	ProxyStreamIdleTimeoutSeconds int
 
+	// EnableEnvoyHTTP3 enables HTTP/3 (QUIC) support for Ingress and Gateway API HTTPS listeners
+	EnableEnvoyHTTP3 bool
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace string
 
@@ -418,6 +424,7 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	if c.ProxyStreamIdleTimeoutSeconds == 0 {
 		c.ProxyStreamIdleTimeoutSeconds = DefaultProxyStreamIdleTimeoutSeconds
 	}
+	c.EnableEnvoyHTTP3 = vp.GetBool(EnableEnvoyHTTP3)
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
 	c.TaintSyncWorkers = vp.GetInt(TaintSyncWorkers)
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)

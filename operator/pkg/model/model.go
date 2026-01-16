@@ -544,6 +544,27 @@ func (m *Model) AllPorts() []uint32 {
 	return slices.SortedUnique(ports)
 }
 
+// HasHTTPSPort returns true if the model has an HTTPS listener on the specified port.
+func (m *Model) HasHTTPSPort(port uint32) bool {
+	for _, l := range m.HTTP {
+		if l.Port == port && len(l.TLS) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// HTTPSPorts returns a list of unique ports for HTTPS listeners (HTTP listeners with TLS).
+func (m *Model) HTTPSPorts() []uint32 {
+	var ports []uint32
+	for _, l := range m.HTTP {
+		if len(l.TLS) > 0 {
+			ports = append(ports, l.Port)
+		}
+	}
+	return slices.SortedUnique(ports)
+}
+
 // TLSBackendsToHostnames returns a map of TLS backends to hostnames.
 // This is only for TLS Passthrough listeners.
 func (m *Model) TLSBackendsToHostnames() map[string][]string {

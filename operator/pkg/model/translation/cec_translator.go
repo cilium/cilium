@@ -78,6 +78,10 @@ type Config struct {
 	ClusterConfig             ClusterConfig             `json:"cluster_config"`
 	RouteConfig               RouteConfig               `json:"route_config"`
 	OriginalIPDetectionConfig OriginalIPDetectionConfig `json:"original_ip_detection_config"`
+
+	// HTTP3Enabled enables HTTP/3 (QUIC) support for HTTPS listeners.
+	// When enabled, UDP listeners will be created alongside TCP listeners for HTTPS ports.
+	HTTP3Enabled bool `json:"http3_enabled,omitempty"`
 }
 
 // cecTranslator is the translator from model to CiliumEnvoyConfig
