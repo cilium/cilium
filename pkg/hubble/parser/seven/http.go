@@ -4,60 +4,58 @@
 package seven
 
 import (
-	"fmt"
 	"maps"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
 )
 
-func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts *options.Options) *flowpb.Layer7_Http {
-	var headers []*flowpb.HTTPHeader
+func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts *options.Options) ir.HTTP {
+	var headers []ir.HTTPHeader
+	if len(http.Headers) > 0 {
+		headers = make([]ir.HTTPHeader, 0, len(http.Headers))
+	}
 	for _, key := range slices.Sorted(maps.Keys(http.Headers)) {
 		for _, value := range http.Headers[key] {
 			filteredValue := filterHeader(key, value, opts.HubbleRedactSettings)
-			headers = append(headers, &flowpb.HTTPHeader{Key: key, Value: filteredValue})
+			headers = append(headers, ir.HTTPHeader{Key: key, Value: filteredValue})
 		}
 	}
 	uri := filteredURL(http.URL, opts.HubbleRedactSettings)
 
 	if flowType == accesslog.TypeRequest {
 		// Set only fields that are relevant for requests.
-		return &flowpb.Layer7_Http{
-			Http: &flowpb.HTTP{
-				Method:   http.Method,
-				Protocol: http.Protocol,
-				Url:      uri.String(),
-				Headers:  headers,
-			},
+		return ir.HTTP{
+			Method:   http.Method,
+			Protocol: http.Protocol,
+			URL:      uri.String(),
+			Headers:  headers,
 		}
 	}
 
-	return &flowpb.Layer7_Http{
-		Http: &flowpb.HTTP{
-			Code:     uint32(http.Code),
-			Method:   http.Method,
-			Protocol: http.Protocol,
-			Url:      uri.String(),
-			Headers:  headers,
-		},
+	return ir.HTTP{
+		Code:     uint32(http.Code),
+		Method:   http.Method,
+		Protocol: http.Protocol,
+		URL:      uri.String(),
+		Headers:  headers,
 	}
 }
 
-func (p *Parser) httpSummary(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, flow *flowpb.Flow) string {
+func (p *Parser) httpSummary(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, flow *ir.Flow) string {
 	uri := filteredURL(http.URL, p.opts.HubbleRedactSettings)
-	httpRequest := http.Method + " " + uri.String()
 	switch flowType {
 	case accesslog.TypeRequest:
-		return fmt.Sprintf("%s %s", http.Protocol, httpRequest)
+		return http.Protocol + " " + http.Method + " " + uri.String()
 	case accesslog.TypeResponse:
-		return fmt.Sprintf("%s %d %dms (%s)", http.Protocol, http.Code, uint64(time.Duration(flow.GetL7().LatencyNs)/time.Millisecond), httpRequest)
+		return http.Protocol + " " + strconv.Itoa(http.Code) + " " + strconv.FormatUint(uint64(time.Duration(flow.L7.LatencyNs)/time.Millisecond), 10) + "ms " + http.Method + " " + uri.String()
 	}
 	return ""
 }
@@ -99,11 +97,11 @@ func filterHeader(key string, value string, redactSettings options.HubbleRedactS
 // Hubble redact settings.
 // If configured and user info exists, it removes the password from the flow.
 // If configured, it removes the URL's query parts from the flow.
-func filteredURL(uri *url.URL, redactSettings options.HubbleRedactSettings) *url.URL {
+func filteredURL(uri *url.URL, redactSettings options.HubbleRedactSettings) (u url.URL) {
 	if uri == nil {
 		// NOTE: return a non-nil URL so that we can always call String() on
 		// it.
-		return &url.URL{}
+		return
 	}
 	u2 := cloneURL(uri)
 	if redactSettings.RedactHTTPUserInfo && u2.User != nil {
@@ -115,7 +113,7 @@ func filteredURL(uri *url.URL, redactSettings options.HubbleRedactSettings) *url
 		u2.RawQuery = ""
 		u2.Fragment = ""
 	}
-	return u2
+	return *u2
 }
 
 // cloneURL return a copy of the given URL. Copied from src/net/http/clone.go.

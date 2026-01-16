@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -52,40 +53,40 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 	parser, err := New(hivetest.Logger(t), dnsGetter, ipGetter, serviceGetter, endpointGetter)
 	require.NoError(t, err)
 
-	f := &flowpb.Flow{}
-	err = parser.Decode(lr, f)
+	var f ir.Flow
+	err = parser.Decode(lr, &f)
 	require.NoError(t, err)
 
-	ts := f.GetTime().AsTime()
+	ts := f.CreatedOn
 	assert.Equal(t, fakeTimestamp, ts.Format(time.RFC3339Nano))
 
-	assert.Equal(t, fakeSourceEndpoint.IPv6, f.GetIP().GetDestination())
-	assert.Equal(t, uint32(56789), f.GetL4().GetUDP().GetDestinationPort())
-	assert.Equal(t, []string(nil), f.GetDestinationNames())
-	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.GetDestination().GetLabels())
-	assert.Empty(t, f.GetDestination().GetNamespace())
-	assert.Empty(t, f.GetDestination().GetPodName())
-	assert.Empty(t, f.GetDestinationService().GetNamespace())
-	assert.Empty(t, f.GetDestinationService().GetName())
+	assert.Equal(t, fakeSourceEndpoint.IPv6, f.IP.Destination.To16().String())
+	assert.Equal(t, uint32(56789), f.L4.UDP.DestinationPort)
+	assert.Equal(t, []string(nil), f.DestinationNames)
+	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.Destination.Labels)
+	assert.Empty(t, f.Destination.Namespace)
+	assert.Empty(t, f.Destination.PodName)
+	assert.Empty(t, f.DestinationService.Namespace)
+	assert.Empty(t, f.DestinationService.Name)
 
-	assert.Equal(t, fakeDestinationEndpoint.IPv6, f.GetIP().GetSource())
-	assert.Equal(t, uint32(53), f.GetL4().GetUDP().GetSourcePort())
-	assert.Equal(t, []string(nil), f.GetSourceNames())
-	assert.Equal(t, fakeDestinationEndpoint.Labels.GetModel(), f.GetSource().GetLabels())
-	assert.Empty(t, f.GetSource().GetNamespace())
-	assert.Empty(t, f.GetSource().GetPodName())
-	assert.Empty(t, f.GetSourceService().GetNamespace())
-	assert.Empty(t, f.GetSourceService().GetName())
+	assert.Equal(t, fakeDestinationEndpoint.IPv6, f.IP.Source.To16().String())
+	assert.Equal(t, uint32(53), f.L4.UDP.SourcePort)
+	assert.Equal(t, []string(nil), f.SourceNames)
+	assert.Equal(t, fakeDestinationEndpoint.Labels.GetModel(), f.Source.Labels)
+	assert.Empty(t, f.Source.Namespace)
+	assert.Empty(t, f.Source.PodName)
+	assert.Empty(t, f.SourceService.Namespace)
+	assert.Empty(t, f.SourceService.Name)
 
-	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
+	assert.Equal(t, flowpb.Verdict_FORWARDED, f.Verdict)
 
-	assert.Equal(t, &flowpb.DNS{
+	assert.Equal(t, ir.DNS{
 		Query:             "deathstar.empire.svc.cluster.local.",
 		Ips:               []string{"1.2.3.4"},
-		Ttl:               5,
+		TTL:               5,
 		ObservationSource: string(accesslog.DNSSourceProxy),
-		Rcode:             0,
+		RCode:             0,
 		Qtypes:            []string{"A"},
-		Rrtypes:           []string{"A"},
-	}, f.GetL7().GetDns())
+		Rtypes:            []string{"A"},
+	}, f.L7.DNS)
 }

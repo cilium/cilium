@@ -14,12 +14,15 @@ import (
 )
 
 func FilterCIDRLabels(log *slog.Logger, labels []string) []string {
+	if len(labels) == 0 {
+		return nil
+	}
 	// Cilium might return a bunch of cidr labels with different prefix length. Filter out all
 	// but the longest prefix cidr label, which can be useful for troubleshooting. This also
 	// relies on the fact that when a Cilium security identity has multiple CIDR labels, longer
 	// prefix is always a subset of shorter prefix.
-	cidrPrefix := "cidr:"
-	var filteredLabels []string
+	const cidrPrefix = "cidr:"
+	filteredLabels := make([]string, 0, len(labels))
 	var maxSize int
 	var maxStr string
 	for _, label := range labels {

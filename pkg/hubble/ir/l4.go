@@ -198,6 +198,7 @@ func (s SCTP) toProto() *flow.SCTP {
 	return &flow.SCTP{
 		SourcePort:      s.SourcePort,
 		DestinationPort: s.DestinationPort,
+		ChunkType:       s.ChunkType,
 	}
 }
 
@@ -209,6 +210,7 @@ func protoToSCTP(i *flow.SCTP) SCTP {
 	return SCTP{
 		SourcePort:      i.SourcePort,
 		DestinationPort: i.DestinationPort,
+		ChunkType:       i.ChunkType,
 	}
 }
 
