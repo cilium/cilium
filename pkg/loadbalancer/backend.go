@@ -151,8 +151,8 @@ func (be *Backend) GetInstancesOfService(name ServiceName) iter.Seq2[BackendInst
 
 func (be *Backend) GetInstanceForFrontend(fe *Frontend) *BackendParams {
 	serviceName := fe.ServiceName
-	if fe.RedirectTo != nil {
-		serviceName = *fe.RedirectTo
+	if fe.Redirect != nil && fe.Redirect.ServiceName != nil {
+		serviceName = *fe.Redirect.ServiceName
 	}
 	return be.GetInstance(serviceName)
 }

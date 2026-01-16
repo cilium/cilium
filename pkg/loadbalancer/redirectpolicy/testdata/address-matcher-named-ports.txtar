@@ -69,9 +69,9 @@ Name                              Source
 test/lrp-addr:local-redirect      k8s
 
 -- frontends.table --
-Address                    Type          ServiceName                       Backends            RedirectTo  Status
-169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:50/TCP               Done
-169.254.169.254:5051/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:51/TCP               Done
+Address                    Type          ServiceName                       Backends            Redirect  Status
+169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:50/TCP             Done
+169.254.169.254:5051/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:51/TCP             Done
 
 -- backends.table --
 Address             Instances
@@ -95,12 +95,12 @@ Name                                     Source
 test/lrp-addr-unnamed:local-redirect     k8s
 
 -- frontends-single.table --
-Address                    Type          ServiceName                              Backends            RedirectTo  Status
-169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr-single:local-redirect      10.244.2.1:50/TCP               Done
+Address                    Type          ServiceName                              Backends            Redirect  Status
+169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr-single:local-redirect      10.244.2.1:50/TCP             Done
 
 -- frontends-unnamed.table --
-Address                    Type          ServiceName                              Backends            RedirectTo  Status
-169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr-unnamed:local-redirect     10.244.2.1:50/TCP               Done
+Address                    Type          ServiceName                              Backends            Redirect  Status
+169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr-unnamed:local-redirect     10.244.2.1:50/TCP             Done
 
 -- backends-single.table --
 Address             Instances

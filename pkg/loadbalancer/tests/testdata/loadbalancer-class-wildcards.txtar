@@ -51,70 +51,70 @@ test/echo-nodeipam   k8s      http=80, https=443   Cluster         LoadBalancerC
 test/echo-other      k8s      http=80, https=443   Cluster         LoadBalancerClass=other
 
 -- frontends.table --
-Address                Type           ServiceName          PortName   Backends                                   RedirectTo   Status
-0.0.0.0:30780/TCP      NodePort       test/echo-default    http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP                  Done
-0.0.0.0:30781/TCP      NodePort       test/echo-default    https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP                Done
-0.0.0.0:30782/TCP      NodePort       test/echo-bgp        http       10.244.1.13:80/TCP, 10.244.1.14:80/TCP                  Done
-0.0.0.0:30783/TCP      NodePort       test/echo-bgp        https      10.244.1.13:443/TCP, 10.244.1.14:443/TCP                Done
-0.0.0.0:30784/TCP      NodePort       test/echo-l2         http       10.244.1.15:80/TCP, 10.244.1.16:80/TCP                  Done
-0.0.0.0:30785/TCP      NodePort       test/echo-l2         https      10.244.1.15:443/TCP, 10.244.1.16:443/TCP                Done
-0.0.0.0:30786/TCP      NodePort       test/echo-nodeipam   http       10.244.1.17:80/TCP, 10.244.1.18:80/TCP                  Done
-0.0.0.0:30787/TCP      NodePort       test/echo-nodeipam   https      10.244.1.17:443/TCP, 10.244.1.18:443/TCP                Done
-0.0.0.0:30788/TCP      NodePort       test/echo-other      http       10.244.1.19:80/TCP, 10.244.1.20:80/TCP                  Done
-0.0.0.0:30789/TCP      NodePort       test/echo-other      https      10.244.1.19:443/TCP, 10.244.1.20:443/TCP                Done
-10.96.50.101:80/TCP    ClusterIP      test/echo-default    http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP                  Done
-10.96.50.101:443/TCP   ClusterIP      test/echo-default    https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP                Done
-10.96.50.102:80/TCP    ClusterIP      test/echo-bgp        http       10.244.1.13:80/TCP, 10.244.1.14:80/TCP                  Done
-10.96.50.102:443/TCP   ClusterIP      test/echo-bgp        https      10.244.1.13:443/TCP, 10.244.1.14:443/TCP                Done
-10.96.50.103:80/TCP    ClusterIP      test/echo-l2         http       10.244.1.15:80/TCP, 10.244.1.16:80/TCP                  Done
-10.96.50.103:443/TCP   ClusterIP      test/echo-l2         https      10.244.1.15:443/TCP, 10.244.1.16:443/TCP                Done
-10.96.50.104:80/TCP    ClusterIP      test/echo-nodeipam   http       10.244.1.17:80/TCP, 10.244.1.18:80/TCP                  Done
-10.96.50.104:443/TCP   ClusterIP      test/echo-nodeipam   https      10.244.1.17:443/TCP, 10.244.1.18:443/TCP                Done
-10.96.50.105:80/TCP    ClusterIP      test/echo-other      http       10.244.1.19:80/TCP, 10.244.1.20:80/TCP                  Done
-10.96.50.105:443/TCP   ClusterIP      test/echo-other      https      10.244.1.19:443/TCP, 10.244.1.20:443/TCP                Done
-172.16.1.1:80/TCP      LoadBalancer   test/echo-default    http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP                  Done
-172.16.1.1:443/TCP     LoadBalancer   test/echo-default    https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP                Done
-172.16.1.2:80/TCP      LoadBalancer   test/echo-bgp        http       10.244.1.13:80/TCP, 10.244.1.14:80/TCP                  Done
-172.16.1.2:443/TCP     LoadBalancer   test/echo-bgp        https      10.244.1.13:443/TCP, 10.244.1.14:443/TCP                Done
-172.16.1.3:80/TCP      LoadBalancer   test/echo-l2         http       10.244.1.15:80/TCP, 10.244.1.16:80/TCP                  Done
-172.16.1.3:443/TCP     LoadBalancer   test/echo-l2         https      10.244.1.15:443/TCP, 10.244.1.16:443/TCP                Done
-172.16.1.4:80/TCP      LoadBalancer   test/echo-nodeipam   http       10.244.1.17:80/TCP, 10.244.1.18:80/TCP                  Done
-172.16.1.4:443/TCP     LoadBalancer   test/echo-nodeipam   https      10.244.1.17:443/TCP, 10.244.1.18:443/TCP                Done
-172.16.1.5:80/TCP      LoadBalancer   test/echo-other      http       10.244.1.19:80/TCP, 10.244.1.20:80/TCP                  Done
-172.16.1.5:443/TCP     LoadBalancer   test/echo-other      https      10.244.1.19:443/TCP, 10.244.1.20:443/TCP                Done
+Address                Type           ServiceName          PortName   Backends                                   Status
+0.0.0.0:30780/TCP      NodePort       test/echo-default    http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP     Done
+0.0.0.0:30781/TCP      NodePort       test/echo-default    https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP   Done
+0.0.0.0:30782/TCP      NodePort       test/echo-bgp        http       10.244.1.13:80/TCP, 10.244.1.14:80/TCP     Done
+0.0.0.0:30783/TCP      NodePort       test/echo-bgp        https      10.244.1.13:443/TCP, 10.244.1.14:443/TCP   Done
+0.0.0.0:30784/TCP      NodePort       test/echo-l2         http       10.244.1.15:80/TCP, 10.244.1.16:80/TCP     Done
+0.0.0.0:30785/TCP      NodePort       test/echo-l2         https      10.244.1.15:443/TCP, 10.244.1.16:443/TCP   Done
+0.0.0.0:30786/TCP      NodePort       test/echo-nodeipam   http       10.244.1.17:80/TCP, 10.244.1.18:80/TCP     Done
+0.0.0.0:30787/TCP      NodePort       test/echo-nodeipam   https      10.244.1.17:443/TCP, 10.244.1.18:443/TCP   Done
+0.0.0.0:30788/TCP      NodePort       test/echo-other      http       10.244.1.19:80/TCP, 10.244.1.20:80/TCP     Done
+0.0.0.0:30789/TCP      NodePort       test/echo-other      https      10.244.1.19:443/TCP, 10.244.1.20:443/TCP   Done
+10.96.50.101:80/TCP    ClusterIP      test/echo-default    http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP     Done
+10.96.50.101:443/TCP   ClusterIP      test/echo-default    https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP   Done
+10.96.50.102:80/TCP    ClusterIP      test/echo-bgp        http       10.244.1.13:80/TCP, 10.244.1.14:80/TCP     Done
+10.96.50.102:443/TCP   ClusterIP      test/echo-bgp        https      10.244.1.13:443/TCP, 10.244.1.14:443/TCP   Done
+10.96.50.103:80/TCP    ClusterIP      test/echo-l2         http       10.244.1.15:80/TCP, 10.244.1.16:80/TCP     Done
+10.96.50.103:443/TCP   ClusterIP      test/echo-l2         https      10.244.1.15:443/TCP, 10.244.1.16:443/TCP   Done
+10.96.50.104:80/TCP    ClusterIP      test/echo-nodeipam   http       10.244.1.17:80/TCP, 10.244.1.18:80/TCP     Done
+10.96.50.104:443/TCP   ClusterIP      test/echo-nodeipam   https      10.244.1.17:443/TCP, 10.244.1.18:443/TCP   Done
+10.96.50.105:80/TCP    ClusterIP      test/echo-other      http       10.244.1.19:80/TCP, 10.244.1.20:80/TCP     Done
+10.96.50.105:443/TCP   ClusterIP      test/echo-other      https      10.244.1.19:443/TCP, 10.244.1.20:443/TCP   Done
+172.16.1.1:80/TCP      LoadBalancer   test/echo-default    http       10.244.1.11:80/TCP, 10.244.1.12:80/TCP     Done
+172.16.1.1:443/TCP     LoadBalancer   test/echo-default    https      10.244.1.11:443/TCP, 10.244.1.12:443/TCP   Done
+172.16.1.2:80/TCP      LoadBalancer   test/echo-bgp        http       10.244.1.13:80/TCP, 10.244.1.14:80/TCP     Done
+172.16.1.2:443/TCP     LoadBalancer   test/echo-bgp        https      10.244.1.13:443/TCP, 10.244.1.14:443/TCP   Done
+172.16.1.3:80/TCP      LoadBalancer   test/echo-l2         http       10.244.1.15:80/TCP, 10.244.1.16:80/TCP     Done
+172.16.1.3:443/TCP     LoadBalancer   test/echo-l2         https      10.244.1.15:443/TCP, 10.244.1.16:443/TCP   Done
+172.16.1.4:80/TCP      LoadBalancer   test/echo-nodeipam   http       10.244.1.17:80/TCP, 10.244.1.18:80/TCP     Done
+172.16.1.4:443/TCP     LoadBalancer   test/echo-nodeipam   https      10.244.1.17:443/TCP, 10.244.1.18:443/TCP   Done
+172.16.1.5:80/TCP      LoadBalancer   test/echo-other      http       10.244.1.19:80/TCP, 10.244.1.20:80/TCP     Done
+172.16.1.5:443/TCP     LoadBalancer   test/echo-other      https      10.244.1.19:443/TCP, 10.244.1.20:443/TCP   Done
 
 -- frontends_nobackends.table --
-Address                Type           ServiceName          PortName   Backends   RedirectTo   Status
-0.0.0.0:30780/TCP      NodePort       test/echo-default    http                               Done
-0.0.0.0:30781/TCP      NodePort       test/echo-default    https                              Done
-0.0.0.0:30782/TCP      NodePort       test/echo-bgp        http                               Done
-0.0.0.0:30783/TCP      NodePort       test/echo-bgp        https                              Done
-0.0.0.0:30784/TCP      NodePort       test/echo-l2         http                               Done
-0.0.0.0:30785/TCP      NodePort       test/echo-l2         https                              Done
-0.0.0.0:30786/TCP      NodePort       test/echo-nodeipam   http                               Done
-0.0.0.0:30787/TCP      NodePort       test/echo-nodeipam   https                              Done
-0.0.0.0:30788/TCP      NodePort       test/echo-other      http                               Done
-0.0.0.0:30789/TCP      NodePort       test/echo-other      https                              Done
-10.96.50.101:80/TCP    ClusterIP      test/echo-default    http                               Done
-10.96.50.101:443/TCP   ClusterIP      test/echo-default    https                              Done
-10.96.50.102:80/TCP    ClusterIP      test/echo-bgp        http                               Done
-10.96.50.102:443/TCP   ClusterIP      test/echo-bgp        https                              Done
-10.96.50.103:80/TCP    ClusterIP      test/echo-l2         http                               Done
-10.96.50.103:443/TCP   ClusterIP      test/echo-l2         https                              Done
-10.96.50.104:80/TCP    ClusterIP      test/echo-nodeipam   http                               Done
-10.96.50.104:443/TCP   ClusterIP      test/echo-nodeipam   https                              Done
-10.96.50.105:80/TCP    ClusterIP      test/echo-other      http                               Done
-10.96.50.105:443/TCP   ClusterIP      test/echo-other      https                              Done
-172.16.1.1:80/TCP      LoadBalancer   test/echo-default    http                               Done
-172.16.1.1:443/TCP     LoadBalancer   test/echo-default    https                              Done
-172.16.1.2:80/TCP      LoadBalancer   test/echo-bgp        http                               Done
-172.16.1.2:443/TCP     LoadBalancer   test/echo-bgp        https                              Done
-172.16.1.3:80/TCP      LoadBalancer   test/echo-l2         http                               Done
-172.16.1.3:443/TCP     LoadBalancer   test/echo-l2         https                              Done
-172.16.1.4:80/TCP      LoadBalancer   test/echo-nodeipam   http                               Done
-172.16.1.4:443/TCP     LoadBalancer   test/echo-nodeipam   https                              Done
-172.16.1.5:80/TCP      LoadBalancer   test/echo-other      http                               Done
-172.16.1.5:443/TCP     LoadBalancer   test/echo-other      https                              Done
+Address                Type           ServiceName          PortName   Backends   Status
+0.0.0.0:30780/TCP      NodePort       test/echo-default    http                  Done
+0.0.0.0:30781/TCP      NodePort       test/echo-default    https                 Done
+0.0.0.0:30782/TCP      NodePort       test/echo-bgp        http                  Done
+0.0.0.0:30783/TCP      NodePort       test/echo-bgp        https                 Done
+0.0.0.0:30784/TCP      NodePort       test/echo-l2         http                  Done
+0.0.0.0:30785/TCP      NodePort       test/echo-l2         https                 Done
+0.0.0.0:30786/TCP      NodePort       test/echo-nodeipam   http                  Done
+0.0.0.0:30787/TCP      NodePort       test/echo-nodeipam   https                 Done
+0.0.0.0:30788/TCP      NodePort       test/echo-other      http                  Done
+0.0.0.0:30789/TCP      NodePort       test/echo-other      https                 Done
+10.96.50.101:80/TCP    ClusterIP      test/echo-default    http                  Done
+10.96.50.101:443/TCP   ClusterIP      test/echo-default    https                 Done
+10.96.50.102:80/TCP    ClusterIP      test/echo-bgp        http                  Done
+10.96.50.102:443/TCP   ClusterIP      test/echo-bgp        https                 Done
+10.96.50.103:80/TCP    ClusterIP      test/echo-l2         http                  Done
+10.96.50.103:443/TCP   ClusterIP      test/echo-l2         https                 Done
+10.96.50.104:80/TCP    ClusterIP      test/echo-nodeipam   http                  Done
+10.96.50.104:443/TCP   ClusterIP      test/echo-nodeipam   https                 Done
+10.96.50.105:80/TCP    ClusterIP      test/echo-other      http                  Done
+10.96.50.105:443/TCP   ClusterIP      test/echo-other      https                 Done
+172.16.1.1:80/TCP      LoadBalancer   test/echo-default    http                  Done
+172.16.1.1:443/TCP     LoadBalancer   test/echo-default    https                 Done
+172.16.1.2:80/TCP      LoadBalancer   test/echo-bgp        http                  Done
+172.16.1.2:443/TCP     LoadBalancer   test/echo-bgp        https                 Done
+172.16.1.3:80/TCP      LoadBalancer   test/echo-l2         http                  Done
+172.16.1.3:443/TCP     LoadBalancer   test/echo-l2         https                 Done
+172.16.1.4:80/TCP      LoadBalancer   test/echo-nodeipam   http                  Done
+172.16.1.4:443/TCP     LoadBalancer   test/echo-nodeipam   https                 Done
+172.16.1.5:80/TCP      LoadBalancer   test/echo-other      http                  Done
+172.16.1.5:443/TCP     LoadBalancer   test/echo-other      https                 Done
 
 -- backends.table --
 Address               Instances                    Shadows   NodeName

@@ -841,7 +841,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 	}
 
 	svcType := fe.Type
-	if fe.RedirectTo != nil {
+	if fe.Redirect != nil && fe.Redirect.ServiceName != nil {
 		svcType = loadbalancer.SVCTypeLocalRedirect
 	}
 
