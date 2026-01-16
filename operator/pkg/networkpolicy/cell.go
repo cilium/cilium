@@ -26,6 +26,7 @@ import (
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 var Cell = cell.Module(
@@ -38,14 +39,20 @@ var Cell = cell.Module(
 
 type Config struct {
 	ValidateNetworkPolicy bool `mapstructure:"validate-network-policy"`
+
+	MeshAuthEnabled bool `mapstructure:"mesh-auth-enabled"`
 }
 
 var defaultConfig = Config{
 	ValidateNetworkPolicy: true,
+
+	MeshAuthEnabled: false,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("validate-network-policy", def.ValidateNetworkPolicy, "Whether to enable or disable the informational network policy validator")
+
+	flags.Bool("mesh-auth-enabled", def.MeshAuthEnabled, "Enable authentication processing & garbage collection (beta)")
 }
 
 type PolicyParams struct {
@@ -116,9 +123,11 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	var errs error
 	if newPol.Spec != nil {
 		errs = errors.Join(errs, newPol.Spec.Sanitize())
+		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
 	}
 
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
@@ -167,9 +176,11 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	var errs error
 	if newPol.Spec != nil {
 		errs = errors.Join(errs, newPol.Spec.Sanitize())
+		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
 	}
 
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
@@ -196,6 +207,20 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 	}
 
 	return err
+}
+
+func (pv *policyValidator) checkMutalAuthUsage(spec *api.Rule) error {
+	for _, r := range spec.Ingress {
+		if r.Authentication != nil && !pv.params.Cfg.MeshAuthEnabled {
+			return errors.New("mutual auth feature is disabled but an ingress auth rule is defined in policy")
+		}
+	}
+	for _, r := range spec.Egress {
+		if r.Authentication != nil && !pv.params.Cfg.MeshAuthEnabled {
+			return errors.New("mutual auth feature is disabled but an egress auth rule is defined in policy")
+		}
+	}
+	return nil
 }
 
 // updateCondition creates or updates the policy validation condition in Conditions, setting
