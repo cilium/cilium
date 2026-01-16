@@ -42,7 +42,7 @@ gobgp/routes -o routes.actual
 # Update endpoints for the LB service (local endpoint exists)
 k8s/update endpoints-local.yaml
 
-# Validate that all svc IPs are advertised again
+# Validate that all svc IPs are advertised now
 gobgp/routes -o routes.actual
 * cmp gobgp-routes-all.expected routes.actual
 
