@@ -51,6 +51,7 @@ var Cell = cell.Module(
 		GatewayAPIServiceExternalTrafficPolicy: "Cluster",
 		GatewayAPISecretsNamespace:             "cilium-secrets",
 		GatewayAPIXffNumTrustedHops:            0,
+		GatewayAPIServerHeaderTransformation:   "OVERWRITE",
 
 		GatewayAPIHostnetworkEnabled:           false,
 		GatewayAPIHostnetworkNodelabelselector: "",
@@ -115,6 +116,10 @@ func newGatewayAPIPreconditions(params preconditionParams) (*gatewayAPIPrecondit
 		return nil, err
 	}
 
+	if err := validateServerHeaderTransformation(params.GatewayApiConfig, params.Logger); err != nil {
+		return nil, err
+	}
+
 	params.Logger.Info(
 		"Checking for required and optional GatewayAPI resources",
 		logfields.RequiredGVK, requiredGVKs,
@@ -174,6 +179,7 @@ type gatewayApiConfig struct {
 	GatewayAPIServiceExternalTrafficPolicy string
 	GatewayAPISecretsNamespace             string
 	GatewayAPIXffNumTrustedHops            uint32
+	GatewayAPIServerHeaderTransformation   string
 
 	GatewayAPIHostnetworkEnabled           bool
 	GatewayAPIHostnetworkNodelabelselector string
@@ -185,6 +191,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-gateway-api-app-protocol", r.EnableGatewayAPIAppProtocol, "Enables Backend Protocol selection (GEP-1911) for Gateway API via appProtocol")
 	flags.Bool("enable-gateway-api-alpn", r.EnableGatewayAPIAlpn, "Enables exposing ALPN with HTTP2 and HTTP/1.1 support for Gateway API")
 	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
+	flags.String("gateway-api-server-header-transformation", r.GatewayAPIServerHeaderTransformation, "Sets Envoy's server_header_transformation for Gateway API. Options: OVERWRITE (default), APPEND_IF_ABSENT, PASS_THROUGH.")
 	flags.String("gateway-api-service-externaltrafficpolicy", r.GatewayAPIServiceExternalTrafficPolicy, "Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
@@ -242,9 +249,10 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 			IPv6Enabled: params.AgentConfig.EnableIPv6,
 		},
 		ListenerConfig: translation.ListenerConfig{
-			UseProxyProtocol:         params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
-			UseAlpn:                  params.GatewayApiConfig.EnableGatewayAPIAlpn,
-			StreamIdleTimeoutSeconds: params.OperatorConfig.ProxyStreamIdleTimeoutSeconds,
+			UseProxyProtocol:           params.GatewayApiConfig.EnableGatewayAPIProxyProtocol,
+			UseAlpn:                    params.GatewayApiConfig.EnableGatewayAPIAlpn,
+			StreamIdleTimeoutSeconds:   params.OperatorConfig.ProxyStreamIdleTimeoutSeconds,
+			ServerHeaderTransformation: params.GatewayApiConfig.GatewayAPIServerHeaderTransformation,
 		},
 		ClusterConfig: translation.ClusterConfig{
 			IdleTimeoutSeconds: params.OperatorConfig.ProxyIdleTimeoutSeconds,
@@ -266,6 +274,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		gatewayAPITranslator,
 		params.Logger,
 		installedKinds,
+		params.GatewayApiConfig,
 	); err != nil {
 		return fmt.Errorf("failed to create gateway controller: %w", err)
 	}
@@ -315,6 +324,16 @@ func validateExternalTrafficPolicy(cfg gatewayApiConfig, logger *slog.Logger) er
 		return nil
 	}
 	return fmt.Errorf("invalid externalTrafficPolicy: %s", cfg.GatewayAPIServiceExternalTrafficPolicy)
+}
+
+func validateServerHeaderTransformation(cfg gatewayApiConfig, logger *slog.Logger) error {
+	if cfg.GatewayAPIServerHeaderTransformation == "" ||
+		cfg.GatewayAPIServerHeaderTransformation == "OVERWRITE" ||
+		cfg.GatewayAPIServerHeaderTransformation == "APPEND_IF_ABSENT" ||
+		cfg.GatewayAPIServerHeaderTransformation == "PASS_THROUGH" {
+		return nil
+	}
+	return fmt.Errorf("invalid serverHeaderTransformation: %s", cfg.GatewayAPIServerHeaderTransformation)
 }
 
 // isTransientError returns true if the error is temporary and retryable
@@ -397,12 +416,12 @@ func checkCRDs(ctx context.Context, clientset k8sClient.Clientset, logger *slog.
 
 // registerReconcilers registers Gateway API reconcilers to the controller-runtime library manager.
 // optionalKinds are previously autodetected based on what CRDs are present in the cluster.
-func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) error {
+func registerReconcilers(mgr ctrlRuntime.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind, gatewayApiConfig gatewayApiConfig) error {
 	requiredReconcilers := []interface {
 		SetupWithManager(mgr ctrlRuntime.Manager) error
 	}{
 		newGatewayClassReconciler(mgr, logger),
-		newGatewayReconciler(mgr, translator, logger, installedCRDs),
+		newGatewayReconciler(mgr, translator, logger, installedCRDs, gatewayApiConfig),
 		newGammaReconciler(mgr, translator, logger),
 		newGatewayClassConfigReconciler(mgr, logger),
 	}
