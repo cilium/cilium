@@ -35,14 +35,13 @@ var DefaultPrefixV4 = netip.MustParsePrefix("0.0.0.0/0")
 var DefaultPrefixV6 = netip.MustParsePrefix("::/0")
 
 type RouteMTU struct {
-	Prefix              netip.Prefix
-	DeviceMTU           int
-	RouteMTU            int
-	RoutePostEncryptMTU int
+	Prefix    netip.Prefix
+	DeviceMTU int
+	RouteMTU  int
 }
 
 func (RouteMTU) TableHeader() []string {
-	return []string{"Prefix", "DeviceMTU", "RouteMTU", "RoutePostEncryptMTU"}
+	return []string{"Prefix", "DeviceMTU", "RouteMTU"}
 }
 
 func (r RouteMTU) TableRow() []string {
@@ -50,6 +49,5 @@ func (r RouteMTU) TableRow() []string {
 		r.Prefix.String(),
 		strconv.Itoa(r.DeviceMTU),
 		strconv.Itoa(r.RouteMTU),
-		strconv.Itoa(r.RoutePostEncryptMTU),
 	}
 }

@@ -128,7 +128,6 @@ func setupLinuxPrivilegedBaseTestSuite(tb testing.TB, addressing datapath.NodeAd
 		EnableIPv6:          s.enableIPv6,
 		DeviceMTU:           s.mtuCalc.DeviceMTU,
 		RouteMTU:            s.mtuCalc.RouteMTU,
-		RoutePostEncryptMTU: s.mtuCalc.RoutePostEncryptMTU,
 	}
 
 	return s
@@ -1206,32 +1205,6 @@ func lookupIPSecXFRMPoliciesOut(t *testing.T, family int, prefixes []*cidr.CIDR)
 	require.ElementsMatch(t, dests, prefixes)
 }
 
-func lookupIPSecOutRoutes(t *testing.T, family int, extDev string, prefixes []*cidr.CIDR) {
-	link, err := safenetlink.LinkByName(extDev)
-	require.NoError(t, err)
-
-	routes, err := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
-		//nolint:forbidigo
-		return safenetlink.RouteListFiltered(
-			family,
-			&netlink.Route{
-				LinkIndex: link.Attrs().Index,
-				Table:     linux_defaults.RouteTableIPSec,
-				Protocol:  linux_defaults.RTProto,
-			},
-			netlink.RT_FILTER_OIF|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_PROTOCOL,
-		)
-	})
-
-	require.NoError(t, err, "RouteListFiltered")
-	require.Len(t, routes, len(prefixes))
-	dests := make([]*cidr.CIDR, 0, len(routes))
-	for _, route := range routes {
-		dests = append(dests, &cidr.CIDR{IPNet: route.Dst})
-	}
-	require.ElementsMatch(t, dests, prefixes)
-}
-
 func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) {
 	remoteNode1IPv4, remoteNode1IPv6 := net.ParseIP("4.4.4.4"), net.ParseIP("face::1")
 	remoteNode1Device := "remote_node_1"
@@ -1350,11 +1323,9 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) 
 	err = linuxNodeHandler.NodeAdd(remoteNode1V1)
 	require.NoError(t, err)
 	if s.enableIPv4 {
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, remoteNode1IPv4AllocCIDRsV1)
 		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V4, remoteNode1IPv4AllocCIDRsV1)
 	}
 	if s.enableIPv6 {
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, remoteNode1IPv6AllocCIDRsV1)
 		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V6, remoteNode1IPv6AllocCIDRsV1)
 	}
 
@@ -1387,12 +1358,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) 
 	require.NoError(t, err)
 	if s.enableIPv4 {
 		expectedCIDRs := slices.Concat(remoteNode1IPv4AllocCIDRsV1, remoteNode2IPv4AllocCIDRsV1)
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, expectedCIDRs)
 		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V4, expectedCIDRs)
 	}
 	if s.enableIPv6 {
 		expectedCIDRs := slices.Concat(remoteNode1IPv6AllocCIDRsV1, remoteNode2IPv6AllocCIDRsV1)
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, expectedCIDRs)
 		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V6, expectedCIDRs)
 	}
 
@@ -1416,12 +1385,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodePodCIDRsChurnIPSec(t *testing.T) 
 	require.NoError(t, err)
 	if s.enableIPv4 {
 		expectedCIDRs := slices.Concat(remoteNode1IPv4AllocCIDRsV1, remoteNode2IPv4AllocCIDRsV2)
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V4, dummyHostDeviceName, expectedCIDRs)
 		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V4, expectedCIDRs)
 	}
 	if s.enableIPv6 {
 		expectedCIDRs := slices.Concat(remoteNode1IPv6AllocCIDRsV1, remoteNode2IPv6AllocCIDRsV2)
-		lookupIPSecOutRoutes(t, netlink.FAMILY_V6, dummyHostDeviceName, expectedCIDRs)
 		lookupIPSecXFRMPoliciesOut(t, netlink.FAMILY_V6, expectedCIDRs)
 	}
 }

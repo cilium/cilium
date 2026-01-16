@@ -104,9 +104,8 @@ func NewConfiguration(authKeySize int, encryptEnabled, encapEnabled, wireguardEn
 
 func (c Configuration) Calculate(baseMTU int) RouteMTU {
 	return RouteMTU{
-		DeviceMTU:           c.getDeviceMTU(baseMTU),
-		RouteMTU:            c.getRouteMTU(baseMTU),
-		RoutePostEncryptMTU: c.getDeviceMTU(baseMTU),
+		DeviceMTU: c.getDeviceMTU(baseMTU),
+		RouteMTU:  c.getRouteMTU(baseMTU),
 	}
 }
 

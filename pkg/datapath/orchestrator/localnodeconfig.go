@@ -129,7 +129,6 @@ func newLocalNodeConfig(
 		HostEndpointID:               node.GetEndpointID(),
 		DeviceMTU:                    mtuRoute.DeviceMTU,
 		RouteMTU:                     mtuRoute.RouteMTU,
-		RoutePostEncryptMTU:          mtuRoute.RoutePostEncryptMTU,
 		AuxiliaryPrefixes:            auxPrefixes,
 		EnableIPv4:                   config.EnableIPv4,
 		EnableIPv6:                   config.EnableIPv6,

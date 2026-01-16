@@ -27,13 +27,12 @@ var (
 	fakeNodeAddressing = fakeTypes.NewNodeAddressing()
 
 	nodeConfig = datapath.LocalNodeConfiguration{
-		NodeIPv4:            fakeNodeAddressing.IPv4().PrimaryExternal(),
-		NodeIPv6:            fakeNodeAddressing.IPv6().PrimaryExternal(),
-		CiliumInternalIPv4:  fakeNodeAddressing.IPv4().Router(),
-		CiliumInternalIPv6:  fakeNodeAddressing.IPv6().Router(),
-		DeviceMTU:           calcMtu.DeviceMTU,
-		RouteMTU:            calcMtu.RouteMTU,
-		RoutePostEncryptMTU: calcMtu.RoutePostEncryptMTU,
+		NodeIPv4:           fakeNodeAddressing.IPv4().PrimaryExternal(),
+		NodeIPv6:           fakeNodeAddressing.IPv6().PrimaryExternal(),
+		CiliumInternalIPv4: fakeNodeAddressing.IPv4().Router(),
+		CiliumInternalIPv6: fakeNodeAddressing.IPv6().Router(),
+		DeviceMTU:          calcMtu.DeviceMTU,
+		RouteMTU:           calcMtu.RouteMTU,
 	}
 	mtuConfig = mtu.NewConfiguration(0, false, false, false, false)
 	calcMtu   = mtuConfig.Calculate(100)
