@@ -6,12 +6,14 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
 	"github.com/mitchellh/go-wordwrap"
+	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
 
@@ -42,6 +44,33 @@ var stylized = map[string]string{
 	"ifindex": "IfIndex",
 	"arp":     "ARP",
 	"lb":      "LB",
+}
+
+func runConfig(cmd *cobra.Command, args []string) error {
+	spec, err := ebpf.LoadCollectionSpec(inPath)
+	if err != nil {
+		return fmt.Errorf("loading spec: %w", err)
+	}
+
+	comment := fmt.Sprintf("%s is a configuration struct for a Cilium datapath object. "+
+		"Warning: do not instantiate directly! Always use [New%s] to ensure the default "+
+		"values configured in the ELF are honored.", name, name)
+	s, err := varsToStruct(spec, name, kind, comment, embeds)
+	if err != nil {
+		return fmt.Errorf("generating config struct: %w", err)
+	}
+
+	var b strings.Builder
+	if err := writeCopyrightHeader(&b); err != nil {
+		return fmt.Errorf("writing copyright header: %w", err)
+	}
+
+	b.WriteString("package config\n\n")
+	b.WriteString(s)
+
+	os.WriteFile(out, []byte(b.String()), 0644)
+
+	return nil
 }
 
 // varsToStruct generates a Go struct from the configuration variables in the
