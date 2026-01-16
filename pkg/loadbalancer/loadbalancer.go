@@ -536,6 +536,17 @@ type ServiceName struct {
 	clusterEndPos uint16
 }
 
+func (s *ServiceName) DeepEqual(other *ServiceName) bool {
+	switch {
+	case s == nil && other == nil:
+		return true
+	case s != nil && other != nil:
+		return *s == *other
+	default:
+		return false
+	}
+}
+
 func (s ServiceName) Cluster() string {
 	if s.clusterEndPos > 0 {
 		return s.str[:s.clusterEndPos-1]
