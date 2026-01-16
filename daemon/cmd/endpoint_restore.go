@@ -509,6 +509,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	// account for the new identity during the grace period. For this
 	// purpose, all endpoints being restored must already be in the
 	// endpoint list.
+	starTimeRestore := time.Now()
 	for i := len(state.restored) - 1; i >= 0; i-- {
 		ep := state.restored[i]
 
@@ -523,6 +524,12 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 			state.restored = slices.Delete(state.restored, i, i+1)
 		}
 	}
+
+	r.logger.Debug(
+		"Successfully restored endpoints into endpoint manager",
+		logfields.Endpoints, len(state.restored),
+		logfields.Duration, time.Since(starTimeRestore),
+	)
 
 	endpointsToRegenerate := make([]*endpoint.Endpoint, 0, len(state.restored))
 	for _, ep := range state.restored {
@@ -552,6 +559,7 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 		endpointsToRegenerate = append(endpointsToRegenerate, ep)
 	}
 
+	starTimeCleanup := time.Now()
 	var endpointCleanupCompleted sync.WaitGroup
 	for _, ep := range state.toClean {
 		endpointCleanupCompleted.Add(1)
@@ -570,7 +578,13 @@ func (r *endpointRestorer) regenerateRestoredEndpoints(state *endpointRestoreSta
 	}
 	endpointCleanupCompleted.Wait()
 
-	// Trigger regeneration for relevant restored endopints in a separate goroutine.
+	r.logger.Debug(
+		"Successfully cleaned up endpoints that weren't possible to restore",
+		logfields.Endpoints, len(state.toClean),
+		logfields.Duration, time.Since(starTimeCleanup),
+	)
+
+	// Trigger regeneration for relevant restored endpoints in a separate goroutine.
 	go r.handleRestoredEndpointsRegeneration(endpointsToRegenerate)
 
 	go func() {
