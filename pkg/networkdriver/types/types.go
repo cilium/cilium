@@ -4,6 +4,7 @@
 package types
 
 import (
+	"encoding"
 	"encoding/json"
 	"errors"
 	"net/netip"
@@ -41,6 +42,12 @@ const (
 	DeviceIDLabel = "deviceID"
 	// DriverLabel identifies a device's driver.
 	DriverLabel = "driver"
+	// HWAddrLabel contains the MAC address of the device.
+	HWAddrLabel = "mac_address"
+	// MTULabel contains the MTU value set for the device.
+	MTULabel = "mtu"
+	// FlagsLabel contains the flags set for the device.
+	FlagsLabel = "flags"
 	// DeviceManagerLabel identifies which Device Manager
 	// published the device.
 	DeviceManagerLabel = "deviceManager"
@@ -108,6 +115,9 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 }
 
 type Device interface {
+	encoding.BinaryMarshaler
+	encoding.BinaryUnmarshaler
+
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
 	Setup(cfg DeviceConfig) error
 	Free(cfg DeviceConfig) error
@@ -117,7 +127,9 @@ type Device interface {
 }
 
 type DeviceManager interface {
+	Type() DeviceManagerType
 	ListDevices() ([]Device, error)
+	RestoreDevice([]byte) (Device, error)
 }
 
 type DeviceManagerConfig interface {
@@ -138,4 +150,10 @@ func (d *DeviceConfig) Empty() bool {
 	return d.Ipv4Addr == (netip.Prefix{}) &&
 		d.Routes == nil &&
 		d.Vlan == 0
+}
+
+type SerializedDevice struct {
+	Manager DeviceManagerType
+	Dev     json.RawMessage
+	Config  DeviceConfig
 }

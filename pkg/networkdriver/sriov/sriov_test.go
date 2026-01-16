@@ -90,13 +90,13 @@ func TestSriov(t *testing.T) {
 		require.NotNil(t, device)
 
 		expectedDevice := PciDevice{
-			addr:         "0000:02:00.1",
-			pfName:       "mypf",
-			driver:       "mydriver",
-			vfID:         1,
-			kernelIfName: "myvf",
-			deviceID:     "mydeviceid",
-			vendor:       "myvendor",
+			Addr:            "0000:02:00.1",
+			PfName:          "mypf",
+			Driver:          "mydriver",
+			VfID:            1,
+			KernelIfaceName: "myvf",
+			DeviceID:        "mydeviceid",
+			Vendor:          "myvendor",
 		}
 
 		require.Equal(t, expectedDevice, *device)
