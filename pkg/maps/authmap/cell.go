@@ -4,11 +4,10 @@
 package authmap
 
 import (
-	"log/slog"
-
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -23,17 +22,17 @@ var Cell = cell.Module(
 	cell.Provide(newAuthMap),
 )
 
-func newAuthMap(lifecycle cell.Lifecycle, logger *slog.Logger) bpf.MapOut[Map] {
-	authMap := newMap(logger, option.Config.AuthMapEntries)
+func newAuthMap(lifecycle cell.Lifecycle, config *option.DaemonConfig, reg *registry.MapRegistry) (bpf.MapOut[Map], error) {
+	if err := reg.Modify(MapName, func(m *registry.MapSpecPatch) {
+		m.MaxEntries = uint32(config.AuthMapEntries)
+	}); err != nil {
+		return bpf.MapOut[Map]{}, err
+	}
 
-	lifecycle.Append(cell.Hook{
-		OnStart: func(context cell.HookContext) error {
-			return authMap.init()
-		},
-		OnStop: func(context cell.HookContext) error {
-			return authMap.close()
-		},
-	})
+	m := &authMap{
+		reg: reg,
+	}
+	lifecycle.Append(m)
 
-	return bpf.NewMapOut(Map(authMap))
+	return bpf.NewMapOut(Map(m)), nil
 }
