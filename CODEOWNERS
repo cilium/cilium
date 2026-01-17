@@ -143,8 +143,7 @@
 #   constructs, serialization and restore from disk.
 # - @cilium/envoy:
 #   Maintain the L7 proxy integration with Envoy. This includes the
-#   configurations for Envoy via xDS protocols as well as the extensible
-#   proxylib framework for Go-based layer 7 filters.
+#   configurations for Envoy via xDS protocols.
 # - @cilium/egress-gateway:
 #   Maintain the egress gateway control plane and datapath logic.
 # - @cilium/fqdn:
@@ -707,7 +706,6 @@ Makefile* @cilium/build
 /test/runtime/monitor.go @cilium/sig-hubble @cilium/ci-structure
 # L7 proxy tests
 /test/k8s/fqdn.go @cilium/fqdn @cilium/ci-structure
-/test/k8s/kafka_policies.go @cilium/envoy @cilium/ci-structure
 # BIG TCP tests
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests

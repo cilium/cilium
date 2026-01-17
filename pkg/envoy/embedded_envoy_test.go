@@ -27,7 +27,6 @@ import (
 // - `cilium-envoy-starter` and `cilium-envoy` must exist in the PATH
 //   - if these were left running from a previous test, these must be killed
 //     - `pkill -9 cilium-envoy`
-// - `proxylib.so` must exist in the library path (e.g., `/usr/lib`)
 // - `cilium-envoy-starter` must have capabilities CAP_NET_ADMIN and CAP_BPF
 //   - e.g., `sudo setcap 'cap_net_admin,cap_bpf+pe' cilium-envoy-starter`
 
