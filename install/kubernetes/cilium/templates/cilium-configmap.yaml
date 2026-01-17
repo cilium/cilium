@@ -1303,9 +1303,7 @@ data:
   enable-pmtu-discovery: "true"
 {{- end }}
 
-{{- if not .Values.pmtuDiscovery.packetizationLayerPMTUD.enabled }}
-  enable-packetization-layer-pmtud: "false"
-{{- end }}
+  packetization-layer-pmtud-mode: {{ .Values.pmtuDiscovery.packetizationLayerPMTUDMode | quote }}
 
 {{- if not .Values.securityContext.privileged }}
   procfs: "/host/proc"

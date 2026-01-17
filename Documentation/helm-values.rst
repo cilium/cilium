@@ -3408,10 +3408,10 @@
      - Enable path MTU discovery to send ICMP fragmentation-needed replies to the client.
      - bool
      - ``false``
-   * - :spelling:ignore:`pmtuDiscovery.packetizationLayerPMTUD`
-     - Enable kernel probing path MTU discovery for Pods which uses different message sizes to search for correct MTU value.
-     - object
-     - ``{"enabled":true}``
+   * - :spelling:ignore:`pmtuDiscovery.packetizationLayerPMTUDMode`
+     - Enable kernel probing path MTU discovery for Pods which uses different message sizes to search for correct MTU value. Valid values are: always, blackhole, disabled and unset (or empty). If value is 'unset' or left empty then will not try to override setting.
+     - string
+     - ``"blackhole"``
    * - :spelling:ignore:`podAnnotations`
      - Annotations to be added to agent pods
      - object
