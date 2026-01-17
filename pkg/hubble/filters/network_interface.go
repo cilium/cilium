@@ -32,7 +32,7 @@ func filterByNetworkInterface(ifaces []*flowpb.NetworkInterface) FilterFunc {
 // NetworkInterfaceFilter implements filtering based on flow network interface.
 type NetworkInterfaceFilter struct{}
 
-// OnBuildFilter builds a a flow network interface filter.
+// OnBuildFilter builds a flow network interface filter.
 func (e *NetworkInterfaceFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
