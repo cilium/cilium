@@ -309,7 +309,7 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		} else if err != nil {
 			exitCode, _ := a.extractExitCode(err)
 			if exitCode == ExitInvalidCode {
-				a.Debugf("retrying command %s to to command execution error", cmdStr)
+				a.Debugf("retrying command %s to command execution error", cmdStr)
 				continue
 			}
 		}

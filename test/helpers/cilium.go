@@ -216,7 +216,7 @@ func (s *SSHMeta) GetEndpointsIDMap() (map[string]string, error) {
 	return endpoints.KVOutput(), nil
 }
 
-// GetAllEndpointsIds returns a mapping of all Docker container name to to its
+// GetAllEndpointsIds returns a mapping of all Docker container name to its
 // corresponding endpoint ID, and an error if the list of endpoints cannot be
 // retrieved via the Cilium CLI.
 func (s *SSHMeta) GetAllEndpointsIds() (map[string]string, error) {
@@ -229,7 +229,7 @@ func (s *SSHMeta) GetAllEndpointsIds() (map[string]string, error) {
 	return endpoints.KVOutput(), nil
 }
 
-// GetEndpointsIds returns a mapping of a Docker container name to to its
+// GetEndpointsIds returns a mapping of a Docker container name to its
 // corresponding endpoint ID, and an error if the list of endpoints cannot be
 // retrieved via the Cilium CLI.
 func (s *SSHMeta) GetEndpointsIds() (map[string]string, error) {
