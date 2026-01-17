@@ -23,7 +23,7 @@ func TestBackendInstanceKey(t *testing.T) {
 	}
 
 	assert.True(t, bytes.Equal(key.Key(), append(name.Key(), ' ')), "BackendInstanceKey with prio 0 is the ServiceName key + ' '")
-	assert.False(t, bytes.HasPrefix(key.Key(), keyExtended.Key()), "BackendInstanceKey with prio 0 should not have the the same prefix if the prefix of one service is the name of another service")
+	assert.False(t, bytes.HasPrefix(key.Key(), keyExtended.Key()), "BackendInstanceKey with prio 0 should not have the same prefix if the prefix of one service is the name of another service")
 	key.SourcePriority = 1
 	assert.True(t, bytes.HasPrefix(key.Key(), name.Key()), "BackendInstanceKey with prio 1 has ServiceName key as prefix")
 

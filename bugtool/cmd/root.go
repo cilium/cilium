@@ -210,7 +210,7 @@ func runTool() {
 
 	// Check if there is a non-empty user supplied configuration
 	if config, _ := loadConfigFile(configPath); config != nil && len(config.Commands) > 0 {
-		// All of of the commands run are from the configuration file
+		// All of the commands run are from the configuration file
 		commands = config.Commands
 	}
 

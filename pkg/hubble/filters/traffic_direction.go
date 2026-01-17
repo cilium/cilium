@@ -25,7 +25,7 @@ func filterByTrafficDirection(directions []flowpb.TrafficDirection) FilterFunc {
 // (e.g. ingress or egress).
 type TrafficDirectionFilter struct{}
 
-// OnBuildFilter builds a a flow traffic direction filter.
+// OnBuildFilter builds a flow traffic direction filter.
 func (e *TrafficDirectionFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
