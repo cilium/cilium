@@ -24,6 +24,6 @@ func (*MTU) IsEnableRouteMTUForCNIChaining() bool {
 	return false
 }
 
-func (*MTU) IsEnablePacketizationLayerPMTUD() bool {
-	return false
+func (*MTU) PacketizationLayerPMTUDMode() string {
+	return ""
 }

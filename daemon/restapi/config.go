@@ -423,7 +423,7 @@ func (h *getConfigHandler) Handle(params daemonapi.GetConfigParams) middleware.R
 		EnableBBRHostNamespaceOnly:          h.bandwidthConfig.EnableBBRHostnsOnly,
 		DeviceHeadroom:                      int64(h.connectorConfig.GetPodDeviceHeadroom()),
 		DeviceTailroom:                      int64(h.connectorConfig.GetPodDeviceTailroom()),
-		EnablePacketizationLayerPMTUD:       h.mtuConfig.IsEnablePacketizationLayerPMTUD(),
+		PacketizationLayerPMTUDMode:         h.mtuConfig.PacketizationLayerPMTUDMode(),
 	}
 
 	cfg := &models.DaemonConfiguration{

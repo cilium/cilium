@@ -2425,10 +2425,6 @@ func init() {
           "description": "True if BBR is enabled only in the host network namespace",
           "type": "boolean"
         },
-        "enablePacketizationLayerPMTUD": {
-          "description": "Enable PLPMTUD probing on the pod netns",
-          "type": "boolean"
-        },
         "enableRouteMTUForCNIChaining": {
           "description": "Enable route MTU for pod netns when CNI chaining is used",
           "type": "boolean"
@@ -2478,6 +2474,10 @@ func init() {
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
+        },
+        "packetizationLayerPMTUDMode": {
+          "description": "Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).",
+          "type": "string"
         },
         "realized": {
           "description": "Currently applied configuration",
@@ -7807,10 +7807,6 @@ func init() {
           "description": "True if BBR is enabled only in the host network namespace",
           "type": "boolean"
         },
-        "enablePacketizationLayerPMTUD": {
-          "description": "Enable PLPMTUD probing on the pod netns",
-          "type": "boolean"
-        },
         "enableRouteMTUForCNIChaining": {
           "description": "Enable route MTU for pod netns when CNI chaining is used",
           "type": "boolean"
@@ -7860,6 +7856,10 @@ func init() {
         "nodeMonitor": {
           "description": "Status of the node monitor",
           "$ref": "#/definitions/MonitorStatus"
+        },
+        "packetizationLayerPMTUDMode": {
+          "description": "Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).",
+          "type": "string"
         },
         "realized": {
           "description": "Currently applied configuration",
