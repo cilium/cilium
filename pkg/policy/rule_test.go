@@ -1114,6 +1114,112 @@ func TestIPProtocolsWithNoTransportPorts(t *testing.T) {
 	td.policyMapEquals(t, expectedIn, expectedOut, &rule1)
 }
 
+func TestTunnelProtocolsWithNoTransportPorts(t *testing.T) {
+	old := option.Config.EnableExtendedIPProtocols
+	option.Config.EnableExtendedIPProtocols = true
+	t.Cleanup(func() {
+		option.Config.EnableExtendedIPProtocols = old
+	})
+	td := newTestData(t, hivetest.Logger(t))
+
+	// Test tunnel/encapsulation protocols: GRE, IPIP, IPV6, ESP, AH
+	rule1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Ingress: []api.IngressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{
+							{Protocol: api.ProtoGRE},
+							{Protocol: api.ProtoIPIP},
+							{Protocol: api.ProtoIPv6},
+							{Protocol: api.ProtoESP},
+							{Protocol: api.ProtoAH},
+						},
+					},
+				},
+			},
+		},
+		Egress: []api.EgressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{
+							{Protocol: api.ProtoGRE},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	expectedIn := NewL4PolicyMapWithValues(map[string]*L4Filter{
+		"0/gre": {
+			Port:     0,
+			Protocol: api.ProtoGRE,
+			U8Proto:  u8proto.ProtoIDs["gre"],
+			Ingress:  true,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+		},
+		"0/ipip": {
+			Port:     0,
+			Protocol: api.ProtoIPIP,
+			U8Proto:  u8proto.ProtoIDs["ipip"],
+			Ingress:  true,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+		},
+		"0/ipv6": {
+			Port:     0,
+			Protocol: api.ProtoIPv6,
+			U8Proto:  u8proto.ProtoIDs["ipv6"],
+			Ingress:  true,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+		},
+		"0/esp": {
+			Port:     0,
+			Protocol: api.ProtoESP,
+			U8Proto:  u8proto.ProtoIDs["esp"],
+			Ingress:  true,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+		},
+		"0/ah": {
+			Port:     0,
+			Protocol: api.ProtoAH,
+			U8Proto:  u8proto.ProtoIDs["ah"],
+			Ingress:  true,
+			wildcard: td.wildcardCachedSelector,
+			PerSelectorPolicies: L7DataMap{
+				td.wildcardCachedSelector: nil,
+			},
+		},
+	})
+
+	expectedOut := NewL4PolicyMapWithValues(map[string]*L4Filter{"0/egress": {
+		Port:     0,
+		Protocol: api.ProtoGRE,
+		U8Proto:  u8proto.ProtoIDs["gre"],
+		Ingress:  false,
+		wildcard: td.wildcardCachedSelector,
+		PerSelectorPolicies: L7DataMap{
+			td.wildcardCachedSelector: nil,
+		},
+	}})
+
+	td.policyMapEquals(t, expectedIn, expectedOut, &rule1)
+}
+
 // Tests the restrictions of combining certain label-based L3 and L4 policies.
 // This ensures that the user is informed of policy combinations that are not
 // implemented in the datapath.
