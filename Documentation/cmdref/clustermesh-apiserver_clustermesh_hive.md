@@ -17,7 +17,7 @@ clustermesh-apiserver clustermesh hive [flags]
       --cluster-users-enabled                        Enable the management of etcd users for remote clusters
       --clustermesh-enable-mcs-api                   Enable Cluster Mesh MCS-API support
       --clustermesh-mcs-api-install-crds             Install and manage the MCS API CRDs. Only applicable if MCS API support is enabled. (default true)
-      --controller-group-metrics strings             List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
+      --controller-group-metrics strings             List of controller group names for which to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                    Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                        Enable debugging mode
       --enable-cilium-endpoint-slice                 Enables the CiliumEndpointSlice feature

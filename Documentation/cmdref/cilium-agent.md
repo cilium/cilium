@@ -89,7 +89,7 @@ cilium-agent [flags]
       --conntrack-gc-interval duration                            Overwrite the connection-tracking garbage collection interval
       --conntrack-gc-max-interval duration                        Set the maximum interval for the connection-tracking garbage collection
       --container-ip-local-reserved-ports string                  Instructs the Cilium CNI plugin to reserve the provided comma-separated list of ports in the container network namespace. Prevents the container from using these ports as ephemeral source ports (see Linux ip_local_reserved_ports). Use this flag if you observe port conflicts between transparent DNS proxy requests and host network namespace services. Value "auto" reserves the WireGuard and VXLAN ports used by Cilium (default "auto")
-      --controller-group-metrics strings                          List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
+      --controller-group-metrics strings                          List of controller group names for which to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --crd-wait-timeout duration                                 Cilium will exit if CRDs are not available within this duration upon startup (default 5m0s)
       --datapath-mode string                                      Datapath mode name (auto, veth, netkit, netkit-l2) (default "veth")
   -D, --debug                                                     Enable debugging mode

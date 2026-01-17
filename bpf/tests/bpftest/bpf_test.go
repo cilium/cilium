@@ -630,7 +630,7 @@ func (l *Log) FmtString() string {
 				break loop
 			}
 		}
-		// Advance to to next char
+		// Advance to next char
 		i++
 
 		// No argument left over to print for the current verb.
