@@ -9,51 +9,48 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	daemonCmd "github.com/cilium/cilium/daemon/cmd"
 	operatorCmd "github.com/cilium/cilium/operator/cmd"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func validateConfigmapCmd() *cobra.Command {
-	var filename string
+	var configMapDir string
 	cmd := &cobra.Command{
 		Use:   "validate-configmap",
-		Short: "Validate cilium-configmap.yaml for unrecognized keys in the daemon and operator.",
+		Short: "Validate Cilium ConfigMap for unrecognized keys in the daemon and operator.",
 		Long: `Before upgrading Cilium, it is recommended to run this validation checker to 
 ensure that the deployed Cilium ConfigMap is valid. The validator verifies that all configuration
 keys are recognized by both the deamon and the operator. If any unrecognized keys are found, an
 error is printed and the command exits with a non-zero status code.`,
 	}
 
-	cmd.Flags().StringVar(&filename, "filename", "", "Path to the cilium-configmap.yaml")
+	cmd.Flags().StringVar(&configMapDir, "configmap-dir", "",
+		"Path to a directory mounted from a Kubernetes ConfigMap; all files in this directory will be loaded as configuration")
 	cmd.Run = func(cmd *cobra.Command, args []string) {
-		if err := validateUnrecognizedKeys(filename); err != nil {
-			Fatalf(err.Error())
+		if err := validateUnrecognizedKeys(configMapDir); err != nil {
+			Fatalf("%s", err)
 		}
 	}
 	return cmd
 }
 
-func validateUnrecognizedKeys(filename string) error {
-	var cm corev1.ConfigMap
+func validateUnrecognizedKeys(configMapDir string) error {
+	var err error
+	var cm map[string]any
 	dh := hive.New(daemonCmd.Agent)
 	oh := hive.New(operatorCmd.Operator)
 	recognizedKeys := make(map[string]struct{})
 
-	file, err := os.Open(filename)
-	if err != nil {
-		return fmt.Errorf("open %q failed: %v", filename, err)
+	if _, err := os.Stat(configMapDir); os.IsNotExist(err) {
+		return fmt.Errorf("non-existent configuration directory %s", configMapDir)
 	}
-	defer file.Close()
-
-	if err := yaml.NewYAMLOrJSONDecoder(file, 4096).Decode(&cm); err != nil {
-		return fmt.Errorf("decode %q failed: %v", filename, err)
+	if cm, err = option.ReadDirConfig(log, configMapDir); err != nil {
+		return err
 	}
 
 	daemonCmd.InitGlobalFlags(logging.DefaultSlogLogger, &cobra.Command{}, dh.Viper())
@@ -70,7 +67,7 @@ func validateUnrecognizedKeys(filename string) error {
 	}
 
 	var unrecognized []string
-	for k := range cm.Data {
+	for k := range cm {
 		if _, ok := recognizedKeys[k]; !ok {
 			unrecognized = append(unrecognized, k)
 		}
