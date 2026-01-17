@@ -21,6 +21,14 @@ type Node struct {
 	HybridRoutingEnabled bool `config:"hybrid_routing_enabled"`
 	// Number of timer ticks per second.
 	KernelHz uint32 `config:"kernel_hz"`
+	// NAT 46x64 prefix 0.
+	NAT46X64Prefix0 uint8 `config:"nat_46x64_prefix_0"`
+	// NAT 46x64 prefix 1.
+	NAT46X64Prefix1 uint8 `config:"nat_46x64_prefix_1"`
+	// NAT 46x64 prefix 2.
+	NAT46X64Prefix2 uint8 `config:"nat_46x64_prefix_2"`
+	// NAT 46x64 prefix 3.
+	NAT46X64Prefix3 uint8 `config:"nat_46x64_prefix_3"`
 	// Enable ICMP responses for policy-denied traffic.
 	PolicyDenyResponseEnabled bool `config:"policy_deny_response_enabled"`
 	// Internal IPv6 router address assigned to the cilium_host interface.
@@ -40,7 +48,7 @@ type Node struct {
 }
 
 func NewNode() *Node {
-	return &Node{0x0, 0xff, 0x0, false, false, 0x0, false,
+	return &Node{0x0, 0xff, 0x0, false, false, 0x0, 0x0, 0x0, 0x0, 0x0, false,
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
