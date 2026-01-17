@@ -78,3 +78,17 @@ func (*NopHooks) AddConnectivityTests(...*check.ConnectivityTest) error         
 func (*NopHooks) DetectFeatures(context.Context, *check.ConnectivityTest) error   { return nil }
 func (*NopHooks) SetupAndValidate(context.Context, *check.ConnectivityTest) error { return nil }
 func (*NopHooks) InitializeCommand(*cobra.Command)                                {}
+
+// StatusOutputHooks allows downstreams to modify the rendered status output
+// without changing status.Status.
+type StatusOutputHooks interface {
+	TransformSummary(string) string
+	TransformJSON([]byte) ([]byte, error)
+}
+
+type NopStatusOutputHooks struct{}
+
+var _ StatusOutputHooks = &NopStatusOutputHooks{}
+
+func (*NopStatusOutputHooks) TransformSummary(s string) string       { return s }
+func (*NopStatusOutputHooks) TransformJSON(b []byte) ([]byte, error) { return b, nil }

@@ -122,7 +122,7 @@ Perform a connectivity test
 		newCmdEncrypt(),
 		newCmdHubble(),
 		newCmdMulticast(),
-		newCmdStatus(),
+		newCmdStatus(&api.NopStatusOutputHooks{}),
 		newCmdSysdump(hooks),
 		newCmdVersion(),
 		newCmdInstallWithHelm(),
