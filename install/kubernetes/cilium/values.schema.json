@@ -5404,13 +5404,8 @@
         "enabled": {
           "type": "boolean"
         },
-        "packetizationLayerPMTUD": {
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            }
-          },
-          "type": "object"
+        "packetizationLayerPMTUDMode": {
+          "type": "string"
         }
       },
       "type": "object"

@@ -530,8 +530,9 @@ pmtuDiscovery:
   enabled: false
   # -- Enable kernel probing path MTU discovery for Pods which uses different message
   # sizes to search for correct MTU value.
-  packetizationLayerPMTUD:
-    enabled: true
+  # Valid values are: always, blackhole, disabled and unset (or empty). If value
+  # is 'unset' or left empty then will not try to override setting.
+  packetizationLayerPMTUDMode: "blackhole"
 bpf:
   autoMount:
     # -- Enable automatic mount of BPF filesystem
