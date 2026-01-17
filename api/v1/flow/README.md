@@ -1179,6 +1179,7 @@ here.
 | DROP_EP_NOT_READY | 203 | A BPF program wants to tail call some endpoint&#39;s policy program in cilium_call_policy, but the program is not available. |
 | DROP_NO_EGRESS_IP | 204 | An Egress Gateway node matched a packet against an Egress Gateway policy that didn&#39;t select a valid Egress IP. |
 | DROP_PUNT_PROXY | 205 | Punt packet to a user space proxy. |
+| DROP_NO_DEVICE | 206 | A BPF program wants to redirect a packet to an output interface, but source MAC couldn&#39;t be resolved. |
 
 
 
