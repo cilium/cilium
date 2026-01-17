@@ -413,8 +413,8 @@ The following options have been introduced in this version of Cilium:
   WireGuard and tunneling to be enabled. When you enable this feature, there
   may be temporary disruption to packet delivery between nodes until the nodes
   are all running with the feature enabled.
-* The agent flag ``enable-endpoint-packet-layer-pmtud`` introduces packet layer
-  path MTU discovery by default for all Cilium-managed endpoints.
+* The agent flag ``packetization-layer-pmtud-mode`` introduces packet layer
+  path MTU discovery on blackhole detected by default for all Cilium-managed endpoints.
 
 Changed Options
 ###############
