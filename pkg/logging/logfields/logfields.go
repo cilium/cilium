@@ -1859,4 +1859,7 @@ const (
 	ReloadCAError = "reloadCAError"
 
 	ExtendedMessage = "extendedMessage"
+
+	// IsGlobalNamespace indicates whether a namespace is global for ClusterMesh.
+	IsGlobalNamespace = "isGlobalNamespace"
 )
