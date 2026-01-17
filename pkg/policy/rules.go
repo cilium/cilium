@@ -91,7 +91,7 @@ func (rules ruleSlice) computeTierPriorities() ([]int, error) {
 
 	// Compute the whole priority range needed for each tier by adding the lower tier priorities
 	// for each pass verdict so that when computing mapstate we can elevate priority of each
-	// passed-to entry to the priority of the pass verdict.
+	// passed-to entry to the priorities following the pass verdict.
 	for tier := int(lastTier) - 1; tier >= 0; tier-- {
 		tierPriorityLevels[tier] += numPassVerdicts[tier] * tierPriorityLevels[tier+1]
 	}
@@ -121,8 +121,10 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 	lastTier := types.Tier(len(tierPriorityLevels) - 1)
 
 	// add rules, computing the absolute priority for each rule,
-	// making sufficient gaps after each pass verdict
+	// making sufficient gaps after each pass verdict, but keeping entries with the same
+	// priority at the same absolute priority
 	priority := types.Priority(0)
+	increment := types.Priority(1) // default increment
 	tier := types.Tier(0)
 	lastPrio := rules[0].Priority
 	for _, r := range rules {
@@ -135,14 +137,16 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 			}
 			result.tierBasePriority[tier] = priority
 
+			increment = types.Priority(1) // reset increment to default
 			lastPrio = r.Priority
 		} else if r.Priority != lastPrio {
 			// This rule's priority is greater than that of the previous, so we bump
 			// level.  This has the effect of "flattening" an arbitrary float ordering
 			// of rules in to a single integer sequence of levels.
-			if !priority.Increment() {
+			if !priority.Add(increment) {
 				return result, ErrTooManyPriorityLevels
 			}
+			increment = types.Priority(1) // reset increment to default
 			lastPrio = r.Priority
 		}
 
@@ -154,12 +158,11 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 		}
 		state.ruleID++
 
-		// make space after each pass verdict for all the lower tier rules
+		// Adjust increment to make space after pass verdict for all the lower tier rules.
+		// + 1 for the pass verdict itself so that there is space for all passed to entries
+		// after the pass entry itself.
 		if r.Verdict == types.Pass && tier < lastTier {
-			// one less due to the reuse of the priority of the pass verdict itself
-			if !priority.Add(types.Priority(tierPriorityLevels[tier+1]) - 1) {
-				return result, ErrTooManyPriorityLevels
-			}
+			increment = types.Priority(tierPriorityLevels[tier+1]) + 1
 		}
 	}
 

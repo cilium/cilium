@@ -510,7 +510,7 @@ func TestNewEntryFromPolicyEntry(t *testing.T) {
 					PrefixLen: 24,
 				}),
 				ProxyPortNetwork: byteorder.HostToNetwork16(1337),
-				Precedence:       policyTypes.MaxAllowPrecedence | 128 - 42, //prio is inverted
+				Precedence:       policyTypes.MaxPriorityPrecedence | policyTypes.PrecedenceDeny - 42, //prio is inverted
 			},
 		},
 
@@ -524,7 +524,7 @@ func TestNewEntryFromPolicyEntry(t *testing.T) {
 					PrefixLen: 22,
 				}),
 				ProxyPortNetwork: byteorder.HostToNetwork16(1337),
-				Precedence:       policyTypes.MaxAllowPrecedence | 128 - 42, //prio is inverted
+				Precedence:       policyTypes.MaxPriorityPrecedence | policyTypes.PrecedenceDeny - 42, //prio is inverted
 			},
 		},
 	}
