@@ -4,7 +4,9 @@
 package mtu
 
 import (
+	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -39,7 +41,8 @@ type MTU interface {
 	GetRouteMTU() int
 	GetRoutePostEncryptMTU() int
 	IsEnableRouteMTUForCNIChaining() bool
-	IsEnablePacketizationLayerPMTUD() bool
+	// PacketizationLayerPMTUDMode returns valid plpmtud mode as string (empty means: do not set).
+	PacketizationLayerPMTUDMode() string
 }
 
 type mtuParams struct {
@@ -65,23 +68,39 @@ type Config struct {
 	// Enable route MTU for pod netns when CNI chaining is used
 	EnableRouteMTUForCNIChaining bool
 	MTU                          int
-	// EnablePacketizationLayerPMTUD configures kernel packetization layer path mtu discovery on Pod netns.
-	EnablePacketizationLayerPMTUD bool
+	// PacketizationLayerPMTUDMode configures kernel packetization layer path mtu discovery on Pod netns.
+	PacketizationLayerPMTUDMode string
 }
 
 var defaultConfig = Config{
-	EnableRouteMTUForCNIChaining:  false,
-	MTU:                           0,
-	EnablePacketizationLayerPMTUD: true,
+	EnableRouteMTUForCNIChaining: false,
+	MTU:                          0,
+	PacketizationLayerPMTUDMode:  "1",
 }
 
 func (c Config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("enable-route-mtu-for-cni-chaining", c.EnableRouteMTUForCNIChaining, "Enable route MTU for pod netns when CNI chaining is used")
 	flags.Int("mtu", c.MTU, "Overwrite auto-detected MTU of underlying network")
-	flags.Bool("enable-packetization-layer-pmtud", c.EnablePacketizationLayerPMTUD, "Enables kernel packetization layer path mtu discovery on Pod netns")
+	flags.String("packetization-layer-pmtud-mode", c.PacketizationLayerPMTUDMode, "Enables kernel packetization layer path mtu discovery on Pod netns (if empty will use host setting)")
+}
+
+func parsePLPMTUDMode(cc Config) error {
+	val, err := strconv.Atoi(cc.PacketizationLayerPMTUDMode)
+	if err != nil {
+		return fmt.Errorf("packetization-layer-pmtud-mode value %q must be empty or integer: %w", val, err)
+	}
+
+	if val < 0 || val > 2 {
+		return fmt.Errorf("invalid packetization-layer-pmtud-mode value (must be either empty or {0,1,2}")
+	}
+	return nil
 }
 
 func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
+	if err := parsePLPMTUDMode(cc); err != nil {
+		return nil, err
+	}
+
 	c := &Configuration{}
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
@@ -140,20 +159,20 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 	})
 
 	return &LatestMTUGetter{
-		tbl:                             p.MTUTable,
-		db:                              p.DB,
-		isEnableRouteMTUForCNIChaining:  cc.EnableRouteMTUForCNIChaining,
-		isEnablePacketizationLayerPMTUD: cc.EnablePacketizationLayerPMTUD,
+		tbl:                            p.MTUTable,
+		db:                             p.DB,
+		isEnableRouteMTUForCNIChaining: cc.EnableRouteMTUForCNIChaining,
+		packetizationLayerPMTUDMode:    cc.PacketizationLayerPMTUDMode,
 	}, nil
 }
 
 var _ MTU = (*LatestMTUGetter)(nil)
 
 type LatestMTUGetter struct {
-	tbl                             statedb.Table[RouteMTU]
-	db                              *statedb.DB
-	isEnableRouteMTUForCNIChaining  bool
-	isEnablePacketizationLayerPMTUD bool
+	tbl                            statedb.Table[RouteMTU]
+	db                             *statedb.DB
+	isEnableRouteMTUForCNIChaining bool
+	packetizationLayerPMTUDMode    string
 }
 
 func (m *LatestMTUGetter) GetDeviceMTU() int {
@@ -178,6 +197,7 @@ func (m *LatestMTUGetter) IsEnableRouteMTUForCNIChaining() bool {
 	return m.isEnableRouteMTUForCNIChaining
 }
 
-func (m *LatestMTUGetter) IsEnablePacketizationLayerPMTUD() bool {
-	return m.isEnablePacketizationLayerPMTUD
+func (m *LatestMTUGetter) PacketizationLayerPMTUDMode() string {
+	fmt.Println("[tom-debug] plmpmtud-mode->", m.packetizationLayerPMTUDMode)
+	return m.packetizationLayerPMTUDMode
 }
