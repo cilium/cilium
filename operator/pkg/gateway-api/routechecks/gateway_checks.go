@@ -123,7 +123,14 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReferen
 				Message: routeGVK.Kind + " is not allowed to attach to this Gateway due to route kind restrictions",
 			})
 
-			return false, nil
+		} else {
+			input.SetParentCondition(parentRef, metav1.Condition{
+				Type:    string(gatewayv1.RouteConditionAccepted),
+				Status:  metav1.ConditionTrue,
+				Reason:  string(gatewayv1.RouteReasonAccepted),
+				Message: "Accepted " + routeGVK.Kind,
+			})
+			//return true, nil
 		}
 	}
 
