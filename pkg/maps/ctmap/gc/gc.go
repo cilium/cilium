@@ -409,6 +409,13 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 			maps = append(maps, &gcMap{m: m, openCloseRequired: true})
 		}
 	}
+
+	// Track per-cluster maps that were successfully opened so we can close them
+	// after GC and NAT purge operations complete. This avoids the defer-in-loop
+	// bug where deferred Close() calls would accumulate until function return,
+	// causing file descriptor exhaustion in large ClusterMesh deployments.
+	var openedPerClusterMaps []*ctmap.Map
+
 	for _, gcMap := range maps {
 		m := gcMap.m
 		if gcMap.openCloseRequired {
@@ -429,7 +436,7 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 				}
 				continue
 			}
-			defer m.Close()
+			openedPerClusterMaps = append(openedPerClusterMaps, m)
 		}
 
 		deleted, err := m.GC(filter, gc.next4, gc.next6)
@@ -473,6 +480,13 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 				)
 			}
 		}
+	}
+
+	// Close all per-cluster maps that were opened during this GC run.
+	// This must happen after the NAT purge section since PurgeOrphanNATEntries
+	// requires the maps to still be open.
+	for _, m := range openedPerClusterMaps {
+		m.Close()
 	}
 
 	return
