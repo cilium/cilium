@@ -1340,14 +1340,14 @@ const (
 	// Based on recommendation in https://datatracker.ietf.org/doc/html/rfc4821.
 	mtuProbeBaseMSS = 1024
 	mtuProbeFloor   = 48
-	mtuProbeAlways  = 2
 )
 
 // configurePacketPathMTUDiscovery configures netns to use plpmtud for mtu discovery.
 // When using connection based transport protocols such as tcp, this adjusts message
 // size to discover a working MTU for network path in case of a black hole.
 func configurePacketizationLayerPMTUD(logger *slog.Logger, conf *models.DaemonConfigurationStatus, sysctl sysctl.Sysctl) {
-	if !conf.EnablePacketizationLayerPMTUD {
+	// If empty just inherit host setting rather than overriding.
+	if conf.PacketizationLayerPMTUDMode == "" {
 		return
 	}
 
@@ -1360,7 +1360,7 @@ func configurePacketizationLayerPMTUD(logger *slog.Logger, conf *models.DaemonCo
 	}
 	// Note: These setting apply to both IPv4 and IPv6.
 	if err = sysctl.ApplySettings([]tables.Sysctl{
-		{Name: []string{"net", "ipv4", "tcp_mtu_probing"}, Val: strconv.Itoa(mtuProbeAlways)},
+		{Name: []string{"net", "ipv4", "tcp_mtu_probing"}, Val: conf.PacketizationLayerPMTUDMode},
 		{Name: []string{"net", "ipv4", "tcp_mtu_probe_floor"}, Val: strconv.Itoa(mtuProbeFloor)},
 	}); err != nil {
 		logger.Warn("could not enable mtu probing",
