@@ -47,10 +47,9 @@ spec:
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/sh"]
           args:
-          - -ec
+          - -c
           - |
-            cilium-dbg preflight validate-cnp;
-            touch /tmp/ready-validate-cnp;
+            cilium-dbg preflight validate-cnp && touch /tmp/ready-validate-cnp;
             sleep 1h;
           readinessProbe:
             exec:
@@ -92,10 +91,9 @@ spec:
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
           command: ["/bin/sh"]
           args:
-          - -ec
+          - -c
           - |
-            cilium-dbg preflight validate-configmap --configmap-dir /tmp/cilium/config-map ;
-            touch /tmp/ready-validate-configmap;
+            cilium-dbg preflight validate-configmap --configmap-dir /tmp/cilium/config-map && touch /tmp/ready-validate-configmap;
             sleep 1h;
           readinessProbe:
             exec:
