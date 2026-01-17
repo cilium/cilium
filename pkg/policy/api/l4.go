@@ -20,7 +20,13 @@ const (
 	ProtoICMPv6 L4Proto = "ICMPV6"
 	ProtoVRRP   L4Proto = "VRRP"
 	ProtoIGMP   L4Proto = "IGMP"
-	ProtoAny    L4Proto = "ANY"
+	// Tunnel/Encapsulation protocols (no transport-layer ports)
+	ProtoGRE  L4Proto = "GRE"  // Generic Routing Encapsulation (protocol 47)
+	ProtoIPIP L4Proto = "IPIP" // IP-in-IP Encapsulation (protocol 4)
+	ProtoIPv6 L4Proto = "IPV6" // IPv6 Encapsulation / 6in4 (protocol 41)
+	ProtoESP  L4Proto = "ESP"  // Encapsulating Security Payload / IPsec (protocol 50)
+	ProtoAH   L4Proto = "AH"   // Authentication Header / IPsec (protocol 51)
+	ProtoAny  L4Proto = "ANY"
 
 	PortProtocolAny = "0/ANY"
 )
@@ -54,14 +60,19 @@ type PortProtocol struct {
 	// Protocol is the L4 protocol. If "ANY", omitted or empty, any protocols
 	// with transport ports (TCP, UDP, SCTP) match.
 	//
-	// Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "ANY"
+	// Accepted values: "TCP", "UDP", "SCTP", "VRRP", "IGMP", "GRE", "IPIP",
+	// "IPV6", "ESP", "AH", "ANY"
+	//
+	// Tunnel/encapsulation protocols (GRE, IPIP, IPV6, ESP, AH) and other
+	// extended IP protocols (VRRP, IGMP) require the --enable-extended-ip-protocols
+	// flag to be set. These protocols do not use transport-layer ports.
 	//
 	// Matching on ICMP is not supported.
 	//
 	// Named port specified for a container may narrow this down, but may not
 	// contradict this.
 	//
-	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;VRRP;IGMP;ANY
+	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;VRRP;IGMP;GRE;IPIP;IPV6;ESP;AH;ANY
 	// +kubebuilder:validation:Optional
 	Protocol L4Proto `json:"protocol,omitempty"`
 }

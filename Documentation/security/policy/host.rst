@@ -70,9 +70,19 @@ the label ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379
 To reuse this policy, replace the ``port:`` values with ports used in your
 environment.
 
-In order to allow protocols such as VRRP and IGMP that don't have any transport-layer
-ports, set ``--enable-extended-ip-protocols`` flag to true. By default, such traffic is
-dropped with ``DROP_CT_UNKNOWN_PROTO`` error.
+In order to allow protocols such as VRRP, IGMP, and tunnel/encapsulation protocols
+that don't have any transport-layer ports, set ``--enable-extended-ip-protocols``
+flag to true. By default, such traffic is dropped with ``DROP_CT_UNKNOWN_PROTO`` error.
+
+Supported extended protocols include:
+
+- **VRRP** (protocol 112) - Virtual Router Redundancy Protocol
+- **IGMP** (protocol 2) - Internet Group Management Protocol
+- **GRE** (protocol 47) - Generic Routing Encapsulation
+- **IPIP** (protocol 4) - IP-in-IP Encapsulation (RFC 2003)
+- **IPV6** (protocol 41) - IPv6 Encapsulation / 6in4 (RFC 4213)
+- **ESP** (protocol 50) - Encapsulating Security Payload / IPsec (RFC 4303)
+- **AH** (protocol 51) - Authentication Header / IPsec (RFC 4302)
 
 As an example, the following policy allows egress traffic on any node with
 the label ``type=egress-worker`` on TCP ports 22, 6443/443 (kube-apiserver), 2379
