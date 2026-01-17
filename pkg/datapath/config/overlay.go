@@ -33,5 +33,8 @@ func Overlay(lnc *datapath.LocalNodeConfiguration, link netlink.Link) any {
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
+
 	return cfg
 }

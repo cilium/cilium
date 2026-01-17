@@ -14,7 +14,6 @@
 #define DSR_ENCAP_GENEVE 3
 #define DSR_ENCAP_MODE DSR_ENCAP_GENEVE
 
-#define TUNNEL_PROTOCOL TUNNEL_PROTOCOL_GENEVE
 #define ENCAP_IFINDEX 42
 #define TUNNEL_MODE
 
@@ -52,6 +51,8 @@ int mock_skb_get_tunnel_opt(__maybe_unused struct __sk_buff *skb,
 #include "lib/bpf_overlay.h"
 
 #include "lib/endpoint.h"
+
+ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
 
 PKTGEN("tc", "tc_geneve_dsr_v4_legacy")
 int tc_geneve_dsr_v4_legacy_pktgen(struct __ctx_buff *ctx)

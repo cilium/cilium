@@ -30,6 +30,10 @@ type BPFWireguard struct {
 	NATIPv4Masquerade [4]byte `config:"nat_ipv4_masquerade"`
 	// Masquerade address for IPv6 traffic.
 	NATIPv6Masquerade [16]byte `config:"nat_ipv6_masquerade"`
+	// Tunnel port.
+	TunnelPort uint16 `config:"tunnel_port"`
+	// Tunnel protocol.
+	TunnelProtocol uint8 `config:"tunnel_protocol"`
 
 	Node
 }
@@ -38,5 +42,5 @@ func NewBPFWireguard(node Node) *BPFWireguard {
 	return &BPFWireguard{0x5dc, false, false, false, false, 0x0, 0x0, [8]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 		[4]byte{0x0, 0x0, 0x0, 0x0},
 		[16]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
-		node}
+		0x0, 0x0, node}
 }

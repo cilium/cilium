@@ -55,6 +55,9 @@ func CiliumHost(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfig
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
+
 	return cfg
 }
 
@@ -93,6 +96,9 @@ func CiliumNet(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigu
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
 
 	return cfg
 }
@@ -152,6 +158,9 @@ func Netdev(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigurat
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
 
 	return cfg
 }

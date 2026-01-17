@@ -56,5 +56,8 @@ func Endpoint(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfigur
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
+
 	return cfg
 }
