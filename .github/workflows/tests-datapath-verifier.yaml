@@ -118,17 +118,17 @@ jobs:
           KERNEL="${{ matrix.kernel }}"
           case "$KERNEL" in
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "rhel8.10") FULL_KERNEL="rhel8.10-20260109.091250" ;;
+            "rhel8.10") FULL_KERNEL="rhel8.10-20260116.011106" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.10") FULL_KERNEL="5.10-20260109.091250" ;;
+            "5.10") FULL_KERNEL="5.10-20260116.011106" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "5.15") FULL_KERNEL="5.15-20260109.091250" ;;
+            "5.15") FULL_KERNEL="5.15-20260116.011106" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.1") FULL_KERNEL="6.1-20260109.091250" ;;
+            "6.1") FULL_KERNEL="6.1-20260116.011106" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.6") FULL_KERNEL="6.6-20260109.091250" ;;
+            "6.6") FULL_KERNEL="6.6-20260116.011106" ;;
             # renovate: datasource=docker depName=quay.io/lvh-images/complexity-test
-            "6.12") FULL_KERNEL="6.12-20260109.091250" ;;
+            "6.12") FULL_KERNEL="6.12-20260116.011106" ;;
             *) FULL_KERNEL="$KERNEL" ;;
           esac
           echo "full=${FULL_KERNEL}" >> $GITHUB_OUTPUT
