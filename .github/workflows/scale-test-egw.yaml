@@ -71,7 +71,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.5
+  go_version: 1.25.6
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.221.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
