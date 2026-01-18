@@ -267,6 +267,10 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		ip.Encrypted = tn.IsEncrypted()
 	}
 
+	if tn != nil {
+		srcPort = applyTraceNotifyOrigPort(decoded.L4, tn, srcPort)
+	}
+
 	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn, pvn)
 	datapathContext := common.DatapathContext{
 		SrcIP:                 srcIP,
@@ -541,6 +545,33 @@ func decodeIPv6(ipv6 *layers.IPv6) (ip *pb.IP, src, dst netip.Addr) {
 		Destination: ipv6.DstIP.String(),
 		IpVersion:   pb.IPVersion_IPv6,
 	}, src, dst
+}
+
+func applyTraceNotifyOrigPort(l4 *pb.Layer4, tn *monitor.TraceNotify, srcPort uint16) uint16 {
+	if l4 == nil || tn == nil {
+		return srcPort
+	}
+	if tn.Version < monitor.TraceNotifyVersion3 {
+		return srcPort
+	}
+
+	origPort := tn.OrigPort
+	if origPort == 0 || origPort == srcPort {
+		return srcPort
+	}
+
+	switch proto := l4.GetProtocol().(type) {
+	case *pb.Layer4_TCP:
+		tcp := proto.TCP
+		tcp.SourcePortXlated = tcp.GetSourcePort()
+		tcp.SourcePort = uint32(origPort)
+	case *pb.Layer4_UDP:
+		udp := proto.UDP
+		udp.SourcePortXlated = udp.GetSourcePort()
+		udp.SourcePort = uint32(origPort)
+	}
+
+	return origPort
 }
 
 func decodeTCP(tcp *layers.TCP) (l4 *pb.Layer4, src, dst uint16) {

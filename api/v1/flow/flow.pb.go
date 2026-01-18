@@ -2544,8 +2544,12 @@ type TCP struct {
 	SourcePort      uint32                 `protobuf:"varint,1,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
 	DestinationPort uint32                 `protobuf:"varint,2,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty"`
 	Flags           *TCPFlags              `protobuf:"bytes,3,opt,name=flags,proto3" json:"flags,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// source_port_xlated is the post-translation source port when the flow was
+	// SNATed. When "source_port_xlated" is set, the "source_port" field is
+	// populated with the pre-translation source port.
+	SourcePortXlated uint32 `protobuf:"varint,4,opt,name=source_port_xlated,json=sourcePortXlated,proto3" json:"source_port_xlated,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *TCP) Reset() {
@@ -2597,6 +2601,13 @@ func (x *TCP) GetFlags() *TCPFlags {
 		return x.Flags
 	}
 	return nil
+}
+
+func (x *TCP) GetSourcePortXlated() uint32 {
+	if x != nil {
+		return x.SourcePortXlated
+	}
+	return 0
 }
 
 type IP struct {
@@ -2844,8 +2855,12 @@ type UDP struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	SourcePort      uint32                 `protobuf:"varint,1,opt,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
 	DestinationPort uint32                 `protobuf:"varint,2,opt,name=destination_port,json=destinationPort,proto3" json:"destination_port,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// source_port_xlated is the post-translation source port when the flow was
+	// SNATed. When "source_port_xlated" is set, the "source_port" field is
+	// populated with the pre-translation source port.
+	SourcePortXlated uint32 `protobuf:"varint,3,opt,name=source_port_xlated,json=sourcePortXlated,proto3" json:"source_port_xlated,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UDP) Reset() {
@@ -2888,6 +2903,13 @@ func (x *UDP) GetSourcePort() uint32 {
 func (x *UDP) GetDestinationPort() uint32 {
 	if x != nil {
 		return x.DestinationPort
+	}
+	return 0
+}
+
+func (x *UDP) GetSourcePortXlated() uint32 {
+	if x != nil {
+		return x.SourcePortXlated
 	}
 	return 0
 }
@@ -5536,12 +5558,13 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\tworkloads\x18\x06 \x03(\v2\x0e.flow.WorkloadR\tworkloads\"2\n" +
 	"\bWorkload\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04kind\x18\x02 \x01(\tR\x04kind\"w\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\"\xa5\x01\n" +
 	"\x03TCP\x12\x1f\n" +
 	"\vsource_port\x18\x01 \x01(\rR\n" +
 	"sourcePort\x12)\n" +
 	"\x10destination_port\x18\x02 \x01(\rR\x0fdestinationPort\x12$\n" +
-	"\x05flags\x18\x03 \x01(\v2\x0e.flow.TCPFlagsR\x05flags\"\xb0\x01\n" +
+	"\x05flags\x18\x03 \x01(\v2\x0e.flow.TCPFlagsR\x05flags\x12,\n" +
+	"\x12source_port_xlated\x18\x04 \x01(\rR\x10sourcePortXlated\"\xb0\x01\n" +
 	"\x02IP\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12#\n" +
 	"\rsource_xlated\x18\x05 \x01(\tR\fsourceXlated\x12 \n" +
@@ -5560,11 +5583,12 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\x03URG\x18\x06 \x01(\bR\x03URG\x12\x10\n" +
 	"\x03ECE\x18\a \x01(\bR\x03ECE\x12\x10\n" +
 	"\x03CWR\x18\b \x01(\bR\x03CWR\x12\x0e\n" +
-	"\x02NS\x18\t \x01(\bR\x02NS\"Q\n" +
+	"\x02NS\x18\t \x01(\bR\x02NS\"\x7f\n" +
 	"\x03UDP\x12\x1f\n" +
 	"\vsource_port\x18\x01 \x01(\rR\n" +
 	"sourcePort\x12)\n" +
-	"\x10destination_port\x18\x02 \x01(\rR\x0fdestinationPort\"R\n" +
+	"\x10destination_port\x18\x02 \x01(\rR\x0fdestinationPort\x12,\n" +
+	"\x12source_port_xlated\x18\x03 \x01(\rR\x10sourcePortXlated\"R\n" +
 	"\x04SCTP\x12\x1f\n" +
 	"\vsource_port\x18\x01 \x01(\rR\n" +
 	"sourcePort\x12)\n" +

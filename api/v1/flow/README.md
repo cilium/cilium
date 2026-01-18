@@ -815,6 +815,7 @@ that happened before the events were captured by Hubble.
 | source_port | [uint32](#uint32) |  |  |
 | destination_port | [uint32](#uint32) |  |  |
 | flags | [TCPFlags](#flow-TCPFlags) |  |  |
+| source_port_xlated | [uint32](#uint32) |  | source_port_xlated is the post-translation source port when the flow was SNATed. When &#34;source_port_xlated&#34; is set, the &#34;source_port&#34; field is populated with the pre-translation source port. |
 
 
 
@@ -919,6 +920,7 @@ TraceParent identifies the incoming request in a tracing system.
 | ----- | ---- | ----- | ----------- |
 | source_port | [uint32](#uint32) |  |  |
 | destination_port | [uint32](#uint32) |  |  |
+| source_port_xlated | [uint32](#uint32) |  | source_port_xlated is the post-translation source port when the flow was SNATed. When &#34;source_port_xlated&#34; is set, the &#34;source_port&#34; field is populated with the pre-translation source port. |
 
 
 
