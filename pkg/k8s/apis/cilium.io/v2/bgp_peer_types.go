@@ -126,7 +126,7 @@ type CiliumBGPPeerConfigStatus struct {
 }
 
 // Conditions for CiliumBGPPeerConfig. When you add a new condition, don't
-// forget to to update the below AllBGPPeerConfigConditions list as well.
+// forget to update the below AllBGPPeerConfigConditions list as well.
 const (
 	// Referenced auth secret is missing
 	BGPPeerConfigConditionMissingAuthSecret = "cilium.io/MissingAuthSecret"

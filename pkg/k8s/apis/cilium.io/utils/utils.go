@@ -115,7 +115,7 @@ func addClusterFilterByDefault(es *api.EndpointSelector, clusterName string) {
 // adding the relevant matches for namespaces and clusters based on the provided options.
 // If no namespace is provided then it is assumed that the selector is global to the cluster
 // this is when translating selectors for CiliumClusterwideNetworkPolicy.
-// If a clusterName is provided then is is assumed that the selector is scoped to the local
+// If a clusterName is provided then is assumed that the selector is scoped to the local
 // cluster by default in a ClusterMesh environment.
 func getEndpointSelector(clusterName, namespace string, labelSelector *slim_metav1.LabelSelector, matchesInit bool) api.EndpointSelector {
 	es := api.NewESFromK8sLabelSelector("", labelSelector)

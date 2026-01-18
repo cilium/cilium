@@ -24,7 +24,7 @@ func filterByUUID(uuids []string) FilterFunc {
 // UUIDFilter implements filtering based on flow identifiers.
 type UUIDFilter struct{}
 
-// OnBuildFilter builds a a flow identifier filter.
+// OnBuildFilter builds a flow identifier filter.
 func (e *UUIDFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
