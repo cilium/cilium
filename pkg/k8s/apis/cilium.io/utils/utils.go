@@ -76,7 +76,7 @@ func GetPolicyLabels(ns, name string, uid types.UID, derivedFrom string) labels.
 //
 // This function supports namespaced and cluster-scoped resources.
 func GetPolicyFromLabels(policyLabels []string, revision uint64) *flow.Policy {
-	f := &flow.Policy{
+	f := flow.Policy{
 		Labels:   policyLabels,
 		Revision: revision,
 	}
@@ -93,14 +93,14 @@ func GetPolicyFromLabels(policyLabels []string, revision uint64) *flow.Policy {
 					f.Kind = value
 				default:
 					if f.Kind != "" && f.Name != "" && f.Namespace != "" {
-						return f
+						return &f
 					}
 				}
 			}
 		}
 	}
 
-	return f
+	return &f
 }
 
 // addClusterFilterByDefault attempt to add a cluster filter if the cluster name
