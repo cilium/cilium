@@ -65,7 +65,7 @@ env:
   test_name: scale-100
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 551.0.0
+  gcloud_version: 552.0.0
 
 jobs:
   echo-inputs:
@@ -198,7 +198,7 @@ jobs:
           images: cilium-ci operator-generic-ci hubble-relay-ci
 
       - name: Install Go
-        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           go-version: ${{ env.go_version }}
 
