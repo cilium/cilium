@@ -46,6 +46,53 @@ func (n *noIPsecXfrmErrors) Name() string {
 	return "no-ipsec-xfrm-error"
 }
 
+func NoIPsecXfrmErrorsFinal(expectedErrors []string) check.Scenario {
+	return &noIPsecXfrmErrorsFinal{
+		expectedErrors: features.ComputeFailureExceptions(defaults.ExpectedXFRMErrors, expectedErrors),
+		ScenarioBase:   check.NewScenarioBase(),
+	}
+}
+
+type noIPsecXfrmErrorsFinal struct {
+	check.ScenarioBase
+
+	expectedErrors []string
+}
+
+func (n *noIPsecXfrmErrorsFinal) Name() string {
+	return "no-ipsec-xfrm-error"
+}
+
+func (n *noIPsecXfrmErrorsFinal) Run(ctx context.Context, t *check.Test) {
+	ct := t.Context()
+	cmd := []string{"cilium", "metrics", "list", "-ojson", "-pcilium_ipsec_xfrm_error"}
+
+	for _, pod := range ct.CiliumPods() {
+		t.NewGenericAction(n, fmt.Sprintf("%s/%s", pod.K8sClient.ClusterName(), pod.NodeName())).Run(func(a *check.Action) {
+			encryptStatus, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
+			if err != nil {
+				a.Fatalf("Unable to get cilium ipsec xfrm error metrics: %s", err)
+			}
+
+			xfrmMetrics := []ciliumMetricsXfrmError{}
+			if err := json.Unmarshal(encryptStatus.Bytes(), &xfrmMetrics); err != nil {
+				a.Fatalf("Unable to unmarshal cilium ipsec xfrm error metrics: %s", err)
+			}
+
+			for _, xfrmMetric := range xfrmMetrics {
+				if xfrmMetric.Value == 0 {
+					continue
+				}
+				name := fmt.Sprintf("%s_%s", xfrmMetric.Labels.Type, xfrmMetric.Labels.Error)
+				if slices.Contains(n.expectedErrors, name) && xfrmMetric.Value < maxExpectedErrors {
+					continue
+				}
+				a.Failf("Found unexpected XFRM error %s: %d", name, xfrmMetric.Value)
+			}
+		})
+	}
+}
+
 func (n *noIPsecXfrmErrors) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	crtXfrmErrors := n.collectXfrmErrors(ctx, t)
