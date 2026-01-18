@@ -31,6 +31,9 @@ type SelectorIdentityMapping struct {
 	// string form of selector
 	Selector string `json:"selector,omitempty"`
 
+	// usage of selector
+	Usage string `json:"usage,omitempty"`
+
 	// number of users of this selector in the cache
 	Users int64 `json:"users,omitempty"`
 }

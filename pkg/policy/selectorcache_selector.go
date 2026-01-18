@@ -226,6 +226,28 @@ func (i *identitySelector) numUsers() int {
 	return len(i.users)
 }
 
+func (i *identitySelector) Usage() string {
+	var hasPeer, hasSubject bool
+	for user := range i.users {
+		if user.IsPeerSelector() {
+			hasPeer = true
+		} else {
+			hasSubject = true
+		}
+	}
+
+	switch {
+	case hasPeer && hasSubject:
+		return "peer and subject"
+	case hasPeer:
+		return "peer"
+	case hasSubject:
+		return "subject"
+	default:
+		return ""
+	}
+}
+
 // updateSelections updates the immutable slice representation of the
 // cached selections after the cached selections have been changed.
 //

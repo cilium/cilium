@@ -2683,6 +2683,9 @@ definitions:
       users:
         description: number of users of this selector in the cache
         type: integer
+      usage:
+        description: usage of selector
+        type: string
   Srv6:
     description: |-
       Status of the SRv6
@@ -3894,3 +3897,4 @@ definitions:
     type: array
     items:
       "$ref": "#/definitions/Label"
+

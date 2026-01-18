@@ -318,6 +318,7 @@ func (sc *SelectorCache) GetModel() models.SelectorCache {
 			Identities: ids,
 			Users:      int64(sel.numUsers()),
 			Labels:     labelArrayToModel(sel.GetMetadataLabels()),
+			Usage:      sel.Usage(),
 		}
 		selCacheMdl = append(selCacheMdl, selMdl)
 	}
