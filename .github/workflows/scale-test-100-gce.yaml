@@ -59,7 +59,7 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.24.11
+  go_version: 1.24.12
   # Adding k8s.local to the end makes kops happy-
   # has stricter DNS naming requirements.
   test_name: scale-100
