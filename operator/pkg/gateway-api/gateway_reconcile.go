@@ -160,16 +160,23 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	tlsRoutes := r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items)
 	grpcRoutes := r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items)
 
+	gatewayClassConfig := r.getGatewayClassConfig(ctx, gwc)
+	serverHeaderTransformation := r.gatewayApiConfig.GatewayAPIServerHeaderTransformation
+	if gatewayClassConfig != nil && gatewayClassConfig.Spec.Envoy != nil && gatewayClassConfig.Spec.Envoy.ServerHeaderTransformation != nil {
+		serverHeaderTransformation = *gatewayClassConfig.Spec.Envoy.ServerHeaderTransformation
+	}
+
 	httpListeners, tlsPassthroughListeners := ingestion.GatewayAPI(ingestion.Input{
-		GatewayClass:       *gwc,
-		GatewayClassConfig: r.getGatewayClassConfig(ctx, gwc),
-		Gateway:            *gw,
-		HTTPRoutes:         httpRoutes,
-		TLSRoutes:          tlsRoutes,
-		GRPCRoutes:         grpcRoutes,
-		Services:           servicesList.Items,
-		ServiceImports:     serviceImportsList.Items,
-		ReferenceGrants:    grants.Items,
+		GatewayClass:               *gwc,
+		GatewayClassConfig:         gatewayClassConfig,
+		ServerHeaderTransformation: serverHeaderTransformation,
+		Gateway:                    *gw,
+		HTTPRoutes:                 httpRoutes,
+		TLSRoutes:                  tlsRoutes,
+		GRPCRoutes:                 grpcRoutes,
+		Services:                   servicesList.Items,
+		ServiceImports:             serviceImportsList.Items,
+		ReferenceGrants:            grants.Items,
 	})
 
 	validListener, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList)

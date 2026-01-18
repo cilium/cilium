@@ -48,6 +48,7 @@ type ListenerConfig struct {
 	UseAlpn                  bool `json:"use_alpn,omitempty"`
 	UseProxyProtocol         bool `json:"use_proxy_protocol,omitempty"`
 	StreamIdleTimeoutSeconds int  `json:"stream_idle_timeout_seconds,omitempty"`
+	ServerHeaderTransformation string `json:"server_header_transformation,omitempty"`
 }
 
 type ClusterConfig struct {

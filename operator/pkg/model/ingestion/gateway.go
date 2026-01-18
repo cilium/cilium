@@ -29,6 +29,7 @@ const (
 type Input struct {
 	GatewayClass       gatewayv1.GatewayClass
 	GatewayClassConfig *v2alpha1.CiliumGatewayClassConfig
+	ServerHeaderTransformation string
 
 	Gateway         gatewayv1.Gateway
 	HTTPRoutes      []gatewayv1.HTTPRoute
@@ -43,6 +44,8 @@ type Input struct {
 func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListener) {
 	var resHTTP []model.HTTPListener
 	var resTLSPassthrough []model.TLSPassthroughListener
+
+	serverHeaderTransformation := input.ServerHeaderTransformation
 
 	labels := make(map[string]string)
 	annotations := make(map[string]string)
@@ -100,12 +103,13 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSPassthroughListen
 					UID:       string(input.Gateway.GetUID()),
 				},
 			},
-			Port:           uint32(l.Port),
-			Hostname:       toHostname(l.Hostname),
-			TLS:            toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
-			Routes:         httpRoutes,
-			Infrastructure: infra,
-			Service:        toServiceModel(input.GatewayClassConfig),
+			Port:                       uint32(l.Port),
+			Hostname:                   toHostname(l.Hostname),
+			TLS:                        toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
+			Routes:                     httpRoutes,
+			Infrastructure:             infra,
+			Service:                    toServiceModel(input.GatewayClassConfig),
+			ServerHeaderTransformation: serverHeaderTransformation,
 		})
 
 		resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{

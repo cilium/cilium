@@ -61,6 +61,23 @@ spec:
                   with more details.
                 maxLength: 64
                 type: string
+              envoy:
+                description: |-
+                  Envoy specifies proxy configuration options.
+                  These settings control Envoy-specific behavior that is not part of the Gateway API standard.
+                properties:
+                  serverHeaderTransformation:
+                    description: |-
+                      ServerHeaderTransformation controls the HTTP "Server" header.
+                      OVERWRITE force header to "envoy" (default).
+                      APPEND_IF_ABSENT use "envoy" only if backend omits header.
+                      PASS_THROUGH keep backend header or omit entirely if missing.
+                    enum:
+                    - OVERWRITE
+                    - APPEND_IF_ABSENT
+                    - PASS_THROUGH
+                    type: string
+                type: object
               service:
                 description: |-
                   Service specifies the configuration for the generated Service.
