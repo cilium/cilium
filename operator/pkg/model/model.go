@@ -18,6 +18,9 @@ import (
 type Model struct {
 	HTTP           []HTTPListener           `json:"http,omitempty"`
 	TLSPassthrough []TLSPassthroughListener `json:"tls_passthrough,omitempty"`
+	// CircuitBreakers maps Service keys (format: "namespace/name:port") to CiliumEnvoyCircuitBreaker CRDs
+	// This field is populated from Service annotations and used during cluster creation.
+	CircuitBreakers map[string]interface{} `json:"circuit_breakers,omitempty"`
 }
 
 func (m *Model) GetListeners() []Listener {
