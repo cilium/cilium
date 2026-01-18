@@ -17,6 +17,10 @@ cilium-operator-azure hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
+      --azure-resource-group string                          Resource group to use for Azure IPAM
+      --azure-subscription-id string                         Subscription ID to access Azure API
+      --azure-use-primary-address                            Use Azure IP address from interface's primary IPConfigurations
+      --azure-user-assigned-identity-id string               ID of the user assigned identity used to auth with the Azure API
       --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                               Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --cluster-id uint32                                    Unique identifier of the cluster
@@ -104,6 +108,7 @@ cilium-operator-azure hive dot-graph [flags]
       --operator-prometheus-tls-cert-file string             Path to TLS certificate file for prometheus server. The file must contain PEM encoded data
       --operator-prometheus-tls-client-ca-files strings      Path to one or more TLS client CA certificates files to use for TLS with mutual authentication (mTLS) for prometheus server. The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
       --operator-prometheus-tls-key-file string              Path to TLS private key file for prometheus server. The file must contain PEM encoded data.
+      --parallel-alloc-workers int                           Maximum number of parallel IPAM workers (default 50)
       --policy-default-local-cluster                         Control whether policy rules assume by default the local cluster if not explicitly selected (default true)
       --policy-secrets-namespace string                      Namespace where secrets used in TLS Interception will be synced to. (default "cilium-secrets")
       --shell-sock-path string                               Path to the shell UNIX socket (default "/var/run/cilium/shell.sock")
