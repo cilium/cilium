@@ -205,6 +205,7 @@ rules:
   resources:
   - ciliumendpointslices
   - ciliumenvoyconfigs
+  - ciliumgatewayl4configs
   - ciliumbgppeerconfigs
   - ciliumbgpadvertisements
   - ciliumbgpnodeconfigs
@@ -251,6 +252,7 @@ rules:
   - ciliumendpoints.cilium.io
   - ciliumendpointslices.cilium.io
   - ciliumenvoyconfigs.cilium.io
+  - ciliumgatewayl4configs.cilium.io
   - ciliumidentities.cilium.io
   - ciliumlocalredirectpolicies.cilium.io
   - ciliumnetworkpolicies.cilium.io
@@ -321,6 +323,8 @@ rules:
   resources:
   - gatewayclasses
   - gateways
+  - tcproutes
+  - udproutes
   - tlsroutes
   - httproutes
   - grpcroutes
@@ -344,6 +348,8 @@ rules:
   - httproutes/status
   - grpcroutes/status
   - tlsroutes/status
+  - tcproutes/status
+  - udproutes/status
   verbs:
   - update
   - patch

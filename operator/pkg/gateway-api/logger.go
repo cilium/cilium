@@ -10,6 +10,8 @@ const (
 	httpRoute          = "httpRoute"
 	grpcRoute          = "grpcRoute"
 	tlsRoute           = "tlsRoute"
+	tcpRoute           = "tcpRoute"
+	udpRoute           = "udpRoute"
 	referenceGrant     = "referenceGrant"
 	namespacedName     = "NamespacedName"
 	validGammaServices = "validGammaServices"

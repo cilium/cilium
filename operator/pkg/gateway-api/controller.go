@@ -44,6 +44,18 @@ const (
 	// Indexes TLSRoutes by all the Gateway parents referenced in the object.
 	gatewayTLSRouteIndex = "gatewayTLSRouteIndex"
 
+	// Indexes TCPRoutes by all the backend Services referenced in the object.
+	backendServiceTCPRouteIndex = "backendServiceTCPRouteIndex"
+
+	// Indexes TCPRoutes by all the Gateway parents referenced in the object.
+	gatewayTCPRouteIndex = "gatewayTCPRouteIndex"
+
+	// Indexes UDPRoutes by all the backend Services referenced in the object.
+	backendServiceUDPRouteIndex = "backendServiceUDPRouteIndex"
+
+	// Indexes UDPRoutes by all the Gateway parents referenced in the object.
+	gatewayUDPRouteIndex = "gatewayUDPRouteIndex"
+
 	// Indexes GRPCRoutes by all the backend Services referenced in the object.
 	backendServiceGRPCRouteIndex = "backendServiceGRPCRouteIndex"
 
