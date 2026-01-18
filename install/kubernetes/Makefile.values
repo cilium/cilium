@@ -57,10 +57,10 @@ export SPIRE_INIT_DIGEST:=sha256:2383baad1860bbe9d8a7a843775048fd07d8afe292b94bd
 
 # renovate: datasource=docker
 export SPIRE_SERVER_REPO:=ghcr.io/spiffe/spire-server
-export SPIRE_SERVER_VERSION:=1.14.0
-export SPIRE_SERVER_DIGEST:=sha256:c0f0aefa9924c4ffdc5a295391a612d88be9270df972869abc6b9d024d507832
+export SPIRE_SERVER_VERSION:=1.14.1
+export SPIRE_SERVER_DIGEST:=sha256:46a740705d5e15839552b1307aff44ef5ac42d9b444d073b4ccefd87c5269283
 
 # renovate: datasource=docker
 export SPIRE_AGENT_REPO:=ghcr.io/spiffe/spire-agent
-export SPIRE_AGENT_VERSION:=1.14.0
-export SPIRE_AGENT_DIGEST:=sha256:77bb87d2c8bfdce4072863a904edfd5af30021a866540c8c0e891c5ba238b16e
+export SPIRE_AGENT_VERSION:=1.14.1
+export SPIRE_AGENT_DIGEST:=sha256:7bb8469af28f00908a96a8a51fb36cbbcdfb85efe78e94b492f949f33284bf4d
