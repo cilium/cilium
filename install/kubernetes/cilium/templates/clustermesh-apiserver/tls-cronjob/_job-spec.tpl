@@ -1,6 +1,13 @@
 {{- define "clustermesh-apiserver-generate-certs.job.spec" }}
 {{- $certValidityStr := printf "%dh" (mul .Values.clustermesh.apiserver.tls.auto.certValidityDuration 24) -}}
 spec:
+  # manualSelector and explicit selector prevent Kubernetes from auto-generating
+  # an immutable selector, avoiding patch failures during Helm upgrades.
+  # See: https://kubernetes.io/docs/concepts/workloads/controllers/job/#specifying-your-own-pod-selector
+  manualSelector: true
+  selector:
+    matchLabels:
+      k8s-app: clustermesh-apiserver-generate-certs
   template:
     metadata:
       labels:
