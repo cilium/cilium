@@ -1,6 +1,13 @@
 {{- define "hubble-generate-certs.job.spec" }}
 {{- $certValidityStr := printf "%dh" (mul .Values.hubble.tls.auto.certValidityDuration 24) -}}
 spec:
+  # manualSelector and explicit selector prevent Kubernetes from auto-generating
+  # an immutable selector, avoiding patch failures during Helm upgrades.
+  # See: https://kubernetes.io/docs/concepts/workloads/controllers/job/#specifying-your-own-pod-selector
+  manualSelector: true
+  selector:
+    matchLabels:
+      k8s-app: hubble-generate-certs
   template:
     metadata:
       labels:
