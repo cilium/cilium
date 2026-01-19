@@ -18,11 +18,13 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/sockets"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -91,8 +93,14 @@ type netnsOps struct {
 type socketDestroyerFactory func(socketTerminationParams) (sockets.SocketDestroyer, error)
 
 func makeSocketDestroyer(p socketTerminationParams) (sockets.SocketDestroyer, error) {
+	// Open BPF token for socket termination programs (same pattern as loader)
+	tokenFD, err := bpf.OpenBPFToken(option.Config.BPFTokenPath)
+	if err != nil {
+		p.Log.Debug("BPF token not available for socket destroyer", "error", err)
+	}
+
 	sockRevNat4, sockRevNat6 := p.LBMaps.SockRevNat()
-	sd, err := sockets.NewSocketDestroyer(p.Log, sockRevNat4, sockRevNat6)
+	sd, err := sockets.NewSocketDestroyer(p.Log, sockRevNat4, sockRevNat6, tokenFD)
 	if err != nil {
 		return nil, err
 	}

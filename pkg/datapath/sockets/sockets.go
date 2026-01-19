@@ -220,8 +220,8 @@ type bpfSocketDestroyer struct {
 	filterSetter loader.FilterSetter
 }
 
-func newBPFSocketDestroyer(logger *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfSocketDestroyer, error) {
-	progs, filterSetter, err := loader.LoadSockTerm(logger, sockRevNat4, sockRevNat6)
+func newBPFSocketDestroyer(logger *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map, tokenFD int) (*bpfSocketDestroyer, error) {
+	progs, filterSetter, err := loader.LoadSockTerm(logger, sockRevNat4, sockRevNat6, tokenFD)
 	if err != nil {
 		return nil, err
 	}
@@ -329,10 +329,10 @@ func (sd *bpfSocketDestroyer) Destroy(logger *slog.Logger, f SocketFilter) error
 //
 // sockRevNat4 and sockRevNat6 must be provided to use the BPF-based strategy;
 // otherwise, initialization falls back to Netlink.
-func NewSocketDestroyer(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (SocketDestroyer, error) {
+func NewSocketDestroyer(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map, tokenFD int) (SocketDestroyer, error) {
 	if sockRevNat4 != nil || sockRevNat6 != nil {
 		l.Info("Creating BPF socket destroyer")
-		bpfSD, err := newBPFSocketDestroyer(l, sockRevNat4, sockRevNat6)
+		bpfSD, err := newBPFSocketDestroyer(l, sockRevNat4, sockRevNat6, tokenFD)
 		if errors.Is(err, ebpf.ErrNotSupported) {
 			l.Info("bpf_sock_destroy is not supported on the current kernel. Falling back to netlink-based socket destroyer")
 		} else if err != nil {
