@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -13,6 +14,28 @@ import (
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
+
+// probeTokenFD holds the BPF token file descriptor to use for feature probing.
+// A value <= 0 means no token is used.
+// Deprecated: Use SetGlobalToken/GetGlobalToken instead.
+var probeTokenFD atomic.Int32
+
+// SetProbeTokenFD sets the BPF token file descriptor to use for feature probing.
+// This allows feature detection to work in user namespaces with BPF delegation.
+// Call with fd <= 0 to disable token usage.
+// Deprecated: Use SetGlobalToken instead.
+func SetProbeTokenFD(fd int) {
+	probeTokenFD.Store(int32(fd))
+	// Also set the global token for consistency
+	SetGlobalToken(fd)
+}
+
+// GetProbeTokenFD returns the BPF token file descriptor used for feature probing.
+// Returns 0 if no token is set.
+// Deprecated: Use GetGlobalToken instead.
+func GetProbeTokenFD() int {
+	return int(probeTokenFD.Load())
+}
 
 // HaveProgramType probes the running kernel for the availability of the specified program type.
 //
@@ -28,9 +51,15 @@ func probeProgram(spec *ebpf.ProgramSpec) error {
 			asm.Return(),
 		}
 	}
-	prog, err := ebpf.NewProgramWithOptions(spec, ebpf.ProgramOptions{
+	opts := ebpf.ProgramOptions{
 		LogDisabled: true,
-	})
+	}
+	// Use global BPF token if available
+	tokenFD := GetGlobalToken()
+	if tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	prog, err := ebpf.NewProgramWithOptions(spec, opts)
 	if err == nil {
 		prog.Close()
 	}
@@ -42,6 +71,11 @@ func probeProgram(spec *ebpf.ProgramSpec) error {
 	// to support the given prog type.
 	case errors.Is(err, unix.EINVAL), errors.Is(err, unix.E2BIG):
 		err = ebpf.ErrNotSupported
+	// EPERM with a BPF token means the kernel knows about this program type
+	// but the token doesn't grant permission - treat as supported for feature
+	// detection. Without a token, EPERM is a real permission error.
+	case tokenFD > 0 && errors.Is(err, unix.EPERM):
+		err = nil
 	}
 
 	return err
@@ -133,14 +167,16 @@ var haveProgramTypeMatrix = internal.FeatureMatrix[ebpf.ProgramType]{
 			}
 
 			// create target prog
+			opts := ebpf.ProgramOptions{LogDisabled: true}
+			if tokenFD := GetGlobalToken(); tokenFD > 0 {
+				opts.TokenFD = tokenFD
+			}
 			prog, err := ebpf.NewProgramWithOptions(
 				&ebpf.ProgramSpec{
 					Type:         ebpf.XDP,
 					Instructions: insns,
 				},
-				ebpf.ProgramOptions{
-					LogDisabled: true,
-				},
+				opts,
 			)
 			if err != nil {
 				return err
@@ -269,9 +305,13 @@ func haveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 		spec.AttachType = ebpf.AttachNetfilter
 	}
 
-	prog, err := ebpf.NewProgramWithOptions(spec, ebpf.ProgramOptions{
+	opts := ebpf.ProgramOptions{
 		LogLevel: 1,
-	})
+	}
+	if tokenFD := GetGlobalToken(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	prog, err := ebpf.NewProgramWithOptions(spec, opts)
 	if err == nil {
 		prog.Close()
 	}

@@ -42,6 +42,10 @@ type MapOptions struct {
 	// error is returned.
 	PinPath        string
 	LoadPinOptions LoadPinOptions
+
+	// TokenFD is the file descriptor for a BPF token to use for map creation.
+	// If > 0, the token will be used for map creation with BPF_F_TOKEN_FD flag.
+	TokenFD int
 }
 
 // MapID represents the unique ID of an eBPF map
@@ -439,7 +443,7 @@ func newMapWithOptions(spec *MapSpec, opts MapOptions, c *btf.Cache) (_ *Map, er
 			return nil, errors.New("inner maps cannot be pinned")
 		}
 
-		template, err := spec.InnerMap.createMap(nil, c)
+		template, err := spec.InnerMap.createMap(nil, c, opts.TokenFD)
 		if err != nil {
 			return nil, fmt.Errorf("inner map: %w", err)
 		}
@@ -451,7 +455,7 @@ func newMapWithOptions(spec *MapSpec, opts MapOptions, c *btf.Cache) (_ *Map, er
 		innerFd = template.fd
 	}
 
-	m, err := spec.createMap(innerFd, c)
+	m, err := spec.createMap(innerFd, c, opts.TokenFD)
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +550,7 @@ func (m *Map) memorySize() (int, error) {
 
 // createMap validates the spec's properties and creates the map in the kernel
 // using the given opts. It does not populate or freeze the map.
-func (spec *MapSpec) createMap(inner *sys.FD, c *btf.Cache) (_ *Map, err error) {
+func (spec *MapSpec) createMap(inner *sys.FD, c *btf.Cache, tokenFD int) (_ *Map, err error) {
 	closeOnError := func(closer io.Closer) {
 		if err != nil {
 			closer.Close()
@@ -638,6 +642,12 @@ func (spec *MapSpec) createMap(inner *sys.FD, c *btf.Cache) (_ *Map, err error) 
 			attr.BtfKeyTypeId = 0
 			attr.BtfValueTypeId = 0
 		}
+	}
+
+	// Set BPF token for map creation if provided
+	if tokenFD > 0 {
+		attr.MapTokenFd = int32(tokenFD)
+		attr.MapFlags |= 1 << 16 // BPF_F_TOKEN_FD
 	}
 
 	fd, err := sys.MapCreate(&attr)

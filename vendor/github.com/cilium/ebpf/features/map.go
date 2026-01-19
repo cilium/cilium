@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
@@ -11,6 +12,21 @@ import (
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
+
+// probeMapTokenFD holds the BPF token file descriptor to use for map feature probing.
+// A value <= 0 means no token is used.
+// Deprecated: Use SetGlobalToken/GetGlobalToken instead.
+var probeMapTokenFD atomic.Int32
+
+// SetProbeMapTokenFD sets the BPF token file descriptor to use for map feature probing.
+// This allows feature detection to work in user namespaces with BPF delegation.
+// Call with fd <= 0 to disable token usage.
+// Deprecated: Use SetGlobalToken instead.
+func SetProbeMapTokenFD(fd int) {
+	probeMapTokenFD.Store(int32(fd))
+	// Also set the global token for consistency
+	SetGlobalToken(fd)
+}
 
 // HaveMapType probes the running kernel for the availability of the specified map type.
 //
@@ -77,6 +93,10 @@ func probeMap(attr *sys.MapCreateAttr) error {
 }
 
 func createMap(attr *sys.MapCreateAttr) error {
+	if tokenFD := GetGlobalToken(); tokenFD > 0 {
+		attr.MapTokenFd = int32(tokenFD)
+		attr.MapFlags |= 1 << 16 // BPF_F_TOKEN_FD
+	}
 	fd, err := sys.MapCreate(attr)
 	if err == nil {
 		fd.Close()
@@ -300,6 +320,10 @@ func probeMapFlag(attr *sys.MapCreateAttr) error {
 	attr.ValueSize = 4
 	attr.MaxEntries = 1
 
+	if tokenFD := GetGlobalToken(); tokenFD > 0 {
+		attr.MapTokenFd = int32(tokenFD)
+		attr.MapFlags |= 1 << 16 // BPF_F_TOKEN_FD
+	}
 	fd, err := sys.MapCreate(attr)
 	if err == nil {
 		fd.Close()

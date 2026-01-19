@@ -100,6 +100,10 @@ type ProgramOptions struct {
 	// pass BTF information for kernel modules when it's not present on
 	// KernelTypes.
 	ExtraRelocationTargets []*btf.Spec
+
+	// TokenFD is the file descriptor for a BPF token to use for loading.
+	// If > 0, the token will be used for program loading with BPF_F_TOKEN_FD flag.
+	TokenFD int
 }
 
 // ProgramSpec defines a Program.
@@ -435,6 +439,12 @@ func newProgramWithOptions(spec *ProgramSpec, opts ProgramOptions, c *btf.Cache)
 
 	if platform.IsWindows && opts.LogLevel != 0 {
 		return nil, fmt.Errorf("log level: %w", internal.ErrNotSupportedOnOS)
+	}
+
+	// Set BPF token for program loading if provided
+	if opts.TokenFD > 0 {
+		attr.ProgTokenFd = int32(opts.TokenFD)
+		attr.ProgFlags |= 1 << 16 // BPF_F_TOKEN_FD
 	}
 
 	var logBuf []byte
