@@ -247,3 +247,4 @@ func (k LPMKey) BitValueAt(i uint) uint8 {
 }
 
 type Keys map[Key]struct{}
+type LPMKeys map[LPMKey]struct{}
