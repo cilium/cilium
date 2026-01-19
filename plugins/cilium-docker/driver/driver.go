@@ -440,6 +440,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 			GROIPv4MaxSize: int(driver.conf.GROIPV4MaxSize),
 			GSOIPv4MaxSize: int(driver.conf.GSOIPV4MaxSize),
 			DeviceMTU:      int(driver.conf.DeviceMTU),
+			IPv4Enabled:    driver.conf.Addressing.IPV4 != nil && driver.conf.Addressing.IPV4.Enabled,
 		}
 		var veth *netlink.Veth
 		var peer netlink.Link
