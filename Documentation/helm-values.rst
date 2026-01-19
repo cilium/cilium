@@ -111,7 +111,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.image`
      - SPIRE agent image
      - object
-     - ``{"digest":"sha256:77bb87d2c8bfdce4072863a904edfd5af30021a866540c8c0e891c5ba238b16e","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.14.0","useDigest":true}``
+     - ``{"digest":"sha256:7bb8469af28f00908a96a8a51fb36cbbcdfb85efe78e94b492f949f33284bf4d","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.14.1","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.labels`
      - SPIRE agent labels
      - object
@@ -199,7 +199,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.server.image`
      - SPIRE server image
      - object
-     - ``{"digest":"sha256:c0f0aefa9924c4ffdc5a295391a612d88be9270df972869abc6b9d024d507832","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.14.0","useDigest":true}``
+     - ``{"digest":"sha256:46a740705d5e15839552b1307aff44ef5ac42d9b444d073b4ccefd87c5269283","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.14.1","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.initContainers`
      - SPIRE server init containers
      - list
@@ -1587,7 +1587,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:81398e449f2d3d0a6a70527e4f641aaa685d3156bea0bb30712fae3fd8822b86","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767794330-db497dd19e346b39d81d7b5c0dedf6c812bcc5c9","useDigest":true}``
+     - ``{"digest":"sha256:c0d2fbd63c3576d0c397e6c84fe149056e2bbb940d538ab3baebb86f703642d3","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1768567475-cb4965cbd69f290aef785c42dfadf6159adca553","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -2452,14 +2452,6 @@
      - Hubble-ui backend image.
      - object
      - ``{"digest":"sha256:db1454e45dc39ca41fbf7cad31eec95d99e5b9949c39daaad0fa81ef29d56953","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.13.3","useDigest":true}``
-   * - :spelling:ignore:`hubble.ui.backend.livenessProbe.enabled`
-     - Enable liveness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
-     - bool
-     - ``false``
-   * - :spelling:ignore:`hubble.ui.backend.readinessProbe.enabled`
-     - Enable readiness probe for Hubble-ui backend (requires Hubble-ui 0.12+)
-     - bool
-     - ``false``
    * - :spelling:ignore:`hubble.ui.backend.resources`
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
@@ -3467,7 +3459,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:81398e449f2d3d0a6a70527e4f641aaa685d3156bea0bb30712fae3fd8822b86","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1767794330-db497dd19e346b39d81d7b5c0dedf6c812bcc5c9","useDigest":true}``
+     - ``{"digest":"sha256:c0d2fbd63c3576d0c397e6c84fe149056e2bbb940d538ab3baebb86f703642d3","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1768567475-cb4965cbd69f290aef785c42dfadf6159adca553","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list

@@ -114,7 +114,9 @@
     "^make -C Documentation update-requirements$",
     "^make generate-k8s-api$",
     "^make manifests$",
-    "^make GO='contrib/scripts/builder.sh go' generate-apis$"
+    "^make GO='contrib/scripts/builder.sh go' generate-apis$",
+    "^go mod tidy$",
+    "^go mod vendor$"
   ],
   "assignAutomerge": true,
   "packageRules": [
@@ -230,6 +232,13 @@
         // update source import paths on major updates
         "gomodUpdateImportPaths"
       ],
+      "postUpgradeTasks": {
+        "commands": [
+          "go mod tidy",
+          "go mod vendor"
+        ],
+        "executionMode": "update"
+      },
       "matchBaseBranches": [
         "main"
       ]
@@ -789,9 +798,25 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.35\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
-        "main",
         "v1.19",
         "v1.18"
+      ]
+    },
+    {
+      // cilium-envoy is referenced in both images/cilium/Dockerfile and
+      // install/kubernetes/Makefile.values. Without explicit grouping,
+      // Renovate creates separate PRs for each manager. The groupSlug ensures
+      // both updates use the same branch name and get combined into a single
+      // PR.
+      "groupName": "cilium-envoy",
+      "groupSlug": "cilium-envoy",
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
+      "allowedVersions": "/^v1\\.36\\.([0-9]+)-([0-9]+)-.*$/",
+      "matchBaseBranches": [
+        "main",
       ]
     },
     {

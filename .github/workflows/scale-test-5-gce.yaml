@@ -61,13 +61,13 @@ concurrency:
 
 env:
   # renovate: datasource=golang-version depName=go
-  go_version: 1.25.5
+  go_version: 1.25.6
   # Adding k8s.local to the end makes kops happy-
   # has stricter DNS naming requirements.
   test_name: scale-5
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 551.0.0
+  gcloud_version: 552.0.0
 
 jobs:
   echo-inputs:
@@ -163,7 +163,7 @@ jobs:
           done
 
       - name: Install Go
-        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           go-version: ${{ env.go_version }}
 
@@ -238,7 +238,7 @@ jobs:
           cluster_name: ${{ steps.vars.outputs.cluster_name }}
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e875161a362b9092ff3e1110eccf52a9fdb17c0a # v0.18.9
+        uses: cilium/cilium-cli@eb32911890466ddec93da63cf83f5bcb2ae23e26 # v0.19.0
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}

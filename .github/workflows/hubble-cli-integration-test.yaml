@@ -133,7 +133,7 @@ jobs:
       # Build hubble CLI before setting up the cluster and waiting on images to
       # save time on failures.
       - name: Setup go
-        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           go-version-file: 'go.mod'
 
@@ -161,7 +161,7 @@ jobs:
           done
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@e875161a362b9092ff3e1110eccf52a9fdb17c0a # v0.18.9
+        uses: cilium/cilium-cli@eb32911890466ddec93da63cf83f5bcb2ae23e26 # v0.19.0
         with:
           skip-build: ${{ env.CILIUM_CLI_SKIP_BUILD }}
           image-repo: ${{ env.CILIUM_CLI_IMAGE_REPO }}
