@@ -37,7 +37,7 @@ func FuzzResolvePolicy(f *testing.F) {
 		if err != nil {
 			return
 		}
-		sp.DistillPolicy(logger, &EndpointInfo{ID: uint64(idA.ID)}, nil)
+		sp.DistillPolicy(logger, &endpointInfo{ID: uint64(idA.ID)}, nil)
 	})
 }
 
