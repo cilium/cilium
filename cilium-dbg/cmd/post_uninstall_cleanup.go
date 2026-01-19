@@ -60,16 +60,15 @@ const (
 )
 
 const (
-	ciliumLinkPrefix  = "cilium_"
-	ciliumNetNSPrefix = "cilium-"
-	hostLinkPrefix    = "lxc"
-	hostLinkLen       = len(hostLinkPrefix + "XXXXX")
-	cniPath           = "/etc/cni/net.d"
-	cniConfigV1       = cniPath + "/10-cilium-cni.conf"
-	cniConfigV2       = cniPath + "/00-cilium-cni.conf"
-	cniConfigV3       = cniPath + "/05-cilium-cni.conf"
-	cniConfigV4       = cniPath + "/05-cilium.conf"
-	cniConfigV5       = cniPath + "/05-cilium.conflist"
+	ciliumLinkPrefix = "cilium_"
+	hostLinkPrefix   = "lxc"
+	hostLinkLen      = len(hostLinkPrefix + "XXXXX")
+	cniPath          = "/etc/cni/net.d"
+	cniConfigV1      = cniPath + "/10-cilium-cni.conf"
+	cniConfigV2      = cniPath + "/00-cilium-cni.conf"
+	cniConfigV3      = cniPath + "/05-cilium-cni.conf"
+	cniConfigV4      = cniPath + "/05-cilium.conf"
+	cniConfigV5      = cniPath + "/05-cilium.conflist"
 )
 
 func init() {
