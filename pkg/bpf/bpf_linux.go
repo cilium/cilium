@@ -25,6 +25,11 @@ func createMap(spec *ebpf.MapSpec, opts *ebpf.MapOptions) (*ebpf.Map, error) {
 		opts = &ebpf.MapOptions{}
 	}
 
+	// Use global BPF token if available
+	if tokenFD := GetGlobalToken(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+
 	var duration *spanstat.SpanStat
 	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
