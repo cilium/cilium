@@ -29,6 +29,7 @@ import (
 // lest ye find yourself with hundreds of unnecessary imports.
 type Key = types.Key
 type Keys = types.Keys
+type LPMKeys = types.LPMKeys
 type MapStateEntry = types.MapStateEntry
 type MapStateMap = types.MapStateMap
 
@@ -98,6 +99,8 @@ type mapState struct {
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
 	trie bitlpm.Trie[types.LPMKey, IDSet]
+	// idIndex indexes entries by ID
+	byId map[identity.NumericIdentity]LPMKeys
 }
 
 type IDSet map[identity.NumericIdentity]struct{}
@@ -126,6 +129,16 @@ func (ms *mapState) upsert(k Key, e mapStateEntry) {
 			ms.trie.Upsert(k.PrefixLength(), k.LPMKey, idSet)
 		}
 		idSet[k.Identity] = struct{}{}
+
+		// update byId if in use
+		if ms.byId != nil {
+			keys := ms.byId[k.Identity]
+			if keys == nil {
+				keys = make(LPMKeys)
+				ms.byId[k.Identity] = keys
+			}
+			keys[k.LPMKey] = struct{}{}
+		}
 	}
 }
 
@@ -139,6 +152,16 @@ func (ms *mapState) delete(k Key) {
 			delete(idSet, k.Identity)
 			if len(idSet) == 0 {
 				ms.trie.Delete(k.PrefixLength(), k.LPMKey)
+			}
+		}
+
+		if ms.byId != nil {
+			keys := ms.byId[k.Identity]
+			if keys != nil {
+				delete(keys, k.LPMKey)
+				if len(keys) == 0 {
+					delete(ms.byId, k.Identity)
+				}
 			}
 		}
 	}
@@ -396,6 +419,25 @@ func (ms *mapState) Len() int {
 	return len(ms.entries)
 }
 
+// Skeleton returns a preallocated mapState, allocating map capacities for the new mapState from the
+// map lengths of the current 'ms'.
+func (ms *mapState) Skeleton() mapState {
+	sk := mapState{
+		logger:  ms.logger,
+		entries: make(mapStateMap, len(ms.entries)),
+		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
+	}
+	if ms.byId != nil {
+		sk.byId = make(map[identity.NumericIdentity]LPMKeys, len(ms.byId))
+
+		// preallocate id index keysets to their current sizes
+		for k, v := range ms.byId {
+			sk.byId[k] = make(LPMKeys, len(v))
+		}
+	}
+	return sk
+}
+
 // mapStateEntry is the entry type with additional internal bookkeping of the relation between
 // explicitly and implicitly added entries.
 type mapStateEntry struct {
@@ -480,15 +522,24 @@ func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 }
 
 func emptyMapState(logger *slog.Logger) mapState {
-	return newMapState(logger, 0)
+	return newMapState(logger, mapState{}, 0)
 }
 
-func newMapState(logger *slog.Logger, size int) mapState {
-	return mapState{
-		logger:  logger,
-		entries: make(mapStateMap, size),
-		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
+func newMapState(logger *slog.Logger, ms mapState, features policyFeatures) mapState {
+	// replace skeleton if entries map is nil
+	if ms.entries == nil {
+		ms = mapState{
+			logger:  logger,
+			entries: make(mapStateMap),
+			trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
+		}
 	}
+
+	// initialize byId index if needed for pass verdict processing
+	if features&passRules != 0 {
+		ms.byId = make(map[identity.NumericIdentity]LPMKeys)
+	}
+	return ms
 }
 
 // Get the MapStateEntry that matches the Key.

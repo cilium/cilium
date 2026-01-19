@@ -43,9 +43,9 @@ var (
 	syncAddressIdentityMappingControllerGroup   = controller.NewGroup("sync-address-identity-mapping")
 )
 
-// MapStateSize returns the size of the current desired policy map
-func (e *Endpoint) MapStateSize() int {
-	return e.desiredPolicy.Len()
+// EmptyMapState returns an empty policy.MapState with preallocated maps
+func (e *Endpoint) EmptyMapState() policy.MapState {
+	return e.desiredPolicy.Skeleton()
 }
 
 // GetNamedPort returns the port for the given name.

@@ -172,8 +172,8 @@ func GenerateMatchAllRules(numRules int) (api.Rules, identity.IdentityMap) {
 }
 
 type DummyOwner struct {
-	logger       *slog.Logger
-	mapStateSize int
+	logger   *slog.Logger
+	skeleton mapState
 }
 
 func (d DummyOwner) CreateRedirects(*L4Filter) {
@@ -195,8 +195,8 @@ func (d DummyOwner) IsHost() bool {
 	return false
 }
 
-func (d DummyOwner) MapStateSize() int {
-	return d.mapStateSize
+func (d DummyOwner) EmptyMapState() MapState {
+	return d.skeleton
 }
 
 func (_ DummyOwner) RegenerateIfAlive(_ *regeneration.ExternalRegenerationMetadata) <-chan bool {
@@ -256,15 +256,18 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	td.bootstrapRepo(GenerateCIDRRules, 1000, b)
 	ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
 	owner := DummyOwner{logger: hivetest.Logger(b)}
+	mapStateSize := 0
 	b.ReportAllocs()
 
 	for b.Loop() {
 		epPolicy := ip.DistillPolicy(hivetest.Logger(b), owner, nil)
-		owner.mapStateSize = epPolicy.policyMapState.Len()
+		mapStateSize = epPolicy.policyMapState.Len()
+		owner.skeleton = epPolicy.policyMapState.Skeleton()
 		epPolicy.Ready()
 	}
 	ip.detach(true, 0)
-	b.Logf("Number of MapState entries: %d\n", owner.mapStateSize)
+	b.Logf("Number of MapState entries: %d\n", mapStateSize)
+	b.Logf("Number of MapState identities: %d\n", len(owner.skeleton.byId))
 }
 
 func BenchmarkResolveL3IngressPolicyRules(b *testing.B) {

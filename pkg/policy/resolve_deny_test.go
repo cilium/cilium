@@ -187,15 +187,20 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 	ip, err := td.repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(b, err)
 	owner := DummyOwner{logger: logger}
+	mapStateSize := 0
 	b.ReportAllocs()
 
 	for b.Loop() {
 		epPolicy := ip.DistillPolicy(logger, owner, nil)
-		owner.mapStateSize = epPolicy.policyMapState.Len()
+		mapStateSize = epPolicy.policyMapState.Len()
+		owner.skeleton = epPolicy.policyMapState.Skeleton()
 		epPolicy.Ready()
 	}
 	ip.detach(true, 0)
-	assert.Equal(b, 117515, owner.mapStateSize)
+	assert.Equal(b, 117515, mapStateSize)
+	if owner.skeleton.byId != nil {
+		assert.Len(b, owner.skeleton.byId, 1269)
+	}
 }
 
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
@@ -207,10 +212,14 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	owner := DummyOwner{logger: logger}
 
 	epPolicy := ip.DistillPolicy(logger, owner, nil)
-	owner.mapStateSize = epPolicy.policyMapState.Len()
+	mapStateSize := epPolicy.policyMapState.Len()
+	owner.skeleton = epPolicy.policyMapState.Skeleton()
 	epPolicy.Ready()
 	ip.detach(true, 0)
-	assert.Equal(t, 117515, owner.mapStateSize)
+	assert.Equal(t, 117515, mapStateSize)
+	if owner.skeleton.byId != nil {
+		assert.Len(t, owner.skeleton.byId, 1269)
+	}
 }
 
 func TestL3WithIngressDenyWildcard(t *testing.T) {
