@@ -3,7 +3,9 @@
 
 package features
 
-import "github.com/cilium/ebpf/internal/token"
+import (
+	"github.com/cilium/ebpf/internal/token"
+)
 
 // SetGlobalToken sets the global BPF token file descriptor for feature probes.
 // This should be called early during initialization before any feature probes run.
