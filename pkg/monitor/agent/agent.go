@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
@@ -329,6 +330,21 @@ func (a *agent) handleEvents(stopCtx context.Context) {
 	bufferSize := int(a.Pagesize * a.Npages)
 	monitorEvents, err := perf.NewReader(a.events, bufferSize)
 	if err != nil {
+		// In user namespaces or with BPF tokens, perf_event_open may not be available.
+		// Instead of crashing, log a warning and disable the monitor functionality.
+		// This allows Cilium to continue operating without event monitoring.
+		// Check for EPERM/EACCES both directly and in wrapped errors, and also
+		// check the error message as a fallback since error wrapping may vary.
+		isPermissionDenied := errors.Is(err, unix.EPERM) || errors.Is(err, unix.EACCES) ||
+			errors.Is(err, os.ErrPermission) ||
+			strings.Contains(err.Error(), "permission denied")
+		if isPermissionDenied {
+			a.logger.Warn("Cannot initialise BPF perf ring buffer (permission denied, likely running in user namespace). Monitor/Hubble event collection disabled.",
+				logfields.Error, err,
+				logfields.StartTime, tNow,
+			)
+			return
+		}
 		logging.Fatal(a.logger, "Cannot initialise BPF perf ring buffer sockets",
 			logfields.Error, err,
 			logfields.StartTime, tNow,

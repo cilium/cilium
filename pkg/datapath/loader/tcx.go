@@ -145,6 +145,11 @@ func hasCiliumTCXLinks(device netlink.Link, attach ebpf.AttachType) (bool, error
 		// Attach type likely not supported, kernel doesn't support tcx.
 		return false, nil
 	}
+	if errors.Is(err, unix.EPERM) {
+		// In user namespaces, BPF_PROG_QUERY may return EPERM.
+		// Assume programs are loaded to avoid false positive watchdog triggers.
+		return true, nil
+	}
 	if err != nil {
 		return false, fmt.Errorf("querying %s tcx programs for device %s: %w", attach, device.Attrs().Name, err)
 	}

@@ -34,10 +34,22 @@ func attachSKBProgram(logger *slog.Logger, device netlink.Link, prog *ebpf.Progr
 		// supported, therefore use netkit instead of tcx. For all others like
 		// host devices, rely on tcx.
 		if device.Type() == "netkit" {
-			if err := upsertNetkitProgram(logger, device, prog, progName, bpffsDir, parent); err != nil {
+			err := upsertNetkitProgram(logger, device, prog, progName, bpffsDir, parent)
+			if err == nil {
+				return nil
+			}
+			// In user namespaces, netkit attachment may fail with EPERM due to
+			// missing CAP_NET_ADMIN. Fall back to tcx in this case.
+			// Check for multiple forms of permission denied error.
+			isPermissionDenied := errors.Is(err, unix.EPERM) || errors.Is(err, os.ErrPermission) ||
+				strings.Contains(err.Error(), "permission denied")
+			if !isPermissionDenied && !errors.Is(err, link.ErrNotSupported) {
 				return fmt.Errorf("attaching netkit program %s: %w", progName, err)
 			}
-			return nil
+			logger.Info("Netkit attachment failed, falling back to tcx",
+				logfields.Error, err,
+				logfields.ProgName, progName,
+			)
 		}
 
 		// Attach using tcx if available. This is seamless on interfaces with
