@@ -307,7 +307,7 @@ jobs:
             --action ALLOW \
             --rules esp \
             --priority 1000 \
-            --source-ranges 0.0.0.0/0 \
+            --source-tags $cluster_node_target_tag \
             --target-tags $cluster_node_target_tag
 
       - name: Get cluster credentials
