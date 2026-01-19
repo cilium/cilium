@@ -124,6 +124,12 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/bpf_xdp.h"
 #include "lib/lb.h"
 
+/* Set port ranges to have deterministic source port selection */
+ASSIGN_CONFIG(__u16, nodeport_port_min, 30000)
+ASSIGN_CONFIG(__u16, nodeport_port_max, 32767)
+ASSIGN_CONFIG(__u16, nodeport_port_min_nat, 32768)
+ASSIGN_CONFIG(__u16, nodeport_port_max_nat, 65535)
+
 static __always_inline int
 generate_packet(struct __ctx_buff *ctx, int client_id, __u16 src_port)
 {

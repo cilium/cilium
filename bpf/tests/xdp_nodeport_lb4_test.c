@@ -24,6 +24,12 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/bpf_xdp.h"
 #include "lib/nodeport.h"
 
+/* Set port ranges to have deterministic source port selection */
+ASSIGN_CONFIG(__u16, nodeport_port_min, 30000)
+ASSIGN_CONFIG(__u16, nodeport_port_max, 32767)
+ASSIGN_CONFIG(__u16, nodeport_port_min_nat, 32768)
+ASSIGN_CONFIG(__u16, nodeport_port_max_nat, 65535)
+
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 
 #include "lib/lb.h"

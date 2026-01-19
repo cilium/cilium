@@ -9,6 +9,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+const NodePortMaxNAT = 65535
+
 func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 	node := *NewNode()
 	node.ClusterIDMax = option.Config.MaxConnectedClusters
@@ -41,6 +43,13 @@ func NodeConfig(lnc *datapath.LocalNodeConfiguration) Node {
 		node.PolicyDenyResponseEnabled = true
 	} else {
 		node.PolicyDenyResponseEnabled = false
+	}
+
+	if lnc.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade {
+		node.NodeportPortMin = lnc.LBConfig.NodePortMin
+		node.NodeportPortMax = lnc.LBConfig.NodePortMax
+		node.NodeportPortMinNAT = lnc.LBConfig.NodePortMax + 1
+		node.NodeportPortMaxNAT = NodePortMaxNAT
 	}
 
 	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
