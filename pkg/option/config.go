@@ -421,6 +421,9 @@ const (
 	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
 	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
 
+	// BPFTokenPath is the path to BPFFS mount for creating BPF tokens
+	BPFTokenPath = "bpf-token-path"
+
 	// EnableSocketLBPodConnectionTermination enables termination of pod connections
 	// to deleted service backends when socket-LB is enabled.
 	EnableSocketLBPodConnectionTermination = "bpf-lb-sock-terminate-pod-connections"
@@ -1401,6 +1404,7 @@ type DaemonConfig struct {
 	// CLI options
 
 	BPFRoot                       string
+	BPFTokenPath                  string
 	CGroupRoot                    string
 	BPFCompileDebug               string
 	ConfigFile                    string
@@ -2398,6 +2402,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
 	c.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
+	c.BPFTokenPath = vp.GetString(BPFTokenPath)
 	c.UnsafeDaemonConfigOption.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.UnsafeDaemonConfigOption.EnableSocketLBPodConnectionTermination = vp.GetBool(EnableSocketLBPodConnectionTermination)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
