@@ -497,7 +497,7 @@ func (m *Manager) Start(ctx cell.HookContext) error {
 		}
 	}
 	if !m.haveIp6tables {
-		if m.sharedCfg.EnableIPv6 {
+		if m.sharedCfg.EnableIPv6 && m.sharedCfg.InstallIptRules {
 			return fmt.Errorf("IPv6 is enabled, but the needed ip6tables tables are unavailable (try disabling IPv6 in Cilium or installing ip6tables and kernel modules: ip6_tables, ip6table_mangle, ip6table_raw, ip6table_filter)")
 		}
 	} else {
