@@ -83,7 +83,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 	if ep.IsHost() {
 		// Reload bpf programs on cilium_host and cilium_net.
 		stats.BpfLoadProg.Start()
-		err = reloadHostEndpoint(l.logger, ep, lnc, spec)
+		err = reloadHostEndpoint(l.logger, ep, lnc, spec, l.tokenFD)
 		stats.BpfLoadProg.End(err == nil)
 
 		l.hostDpInitializedOnce.Do(func() {
@@ -96,7 +96,7 @@ func (l *loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, lnc *
 
 	// Reload an lxc endpoint program.
 	stats.BpfLoadProg.Start()
-	err = reloadEndpoint(l.logger, l.db, l.devices, l.routeManager, ep, lnc, spec)
+	err = reloadEndpoint(l.logger, l.db, l.devices, l.routeManager, ep, lnc, spec, l.tokenFD)
 	stats.BpfLoadProg.End(err == nil)
 	return hash, err
 }
@@ -181,7 +181,7 @@ func endpointMapRenames(ep datapath.EndpointConfiguration) map[string]string {
 // it if necessary.
 func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 	devices statedb.Table[*tables.Device], rm *routeReconciler.DesiredRouteManager,
-	ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+	ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec, tokenFD int) error {
 
 	var obj lxcObjects
 	commit, err := bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
@@ -191,6 +191,7 @@ func reloadEndpoint(logger *slog.Logger, db *statedb.DB,
 		Constants:      endpointConfiguration(ep, lnc),
 		MapRenames:     endpointMapRenames(ep),
 		ConfigDumpPath: filepath.Join(ep.StateDir(), endpointConfig),
+		TokenFD:        tokenFD,
 	})
 	if err != nil {
 		return err
