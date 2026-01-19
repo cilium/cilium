@@ -143,10 +143,9 @@ func (ei *endpointInfo) IsHost() bool {
 	return false
 }
 
-// MapStateSize returns the size of the current desired policy map, used for preallocation of the
-// new map. Return 0 here as this is only used for testing.
-func (ei *endpointInfo) MapStateSize() int {
-	return 0
+// PreviousMapState returns an empty mapstate
+func (ei *endpointInfo) PreviousMapState() *MapState {
+	return nil
 }
 
 // RegenerateIfAlive returns immediately as there is nothing to regenerate
