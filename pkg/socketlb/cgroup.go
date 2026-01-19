@@ -211,6 +211,16 @@ func detachAll(logger *slog.Logger, attach ebpf.AttachType, cgroupRoot string) e
 	if errors.Is(err, unix.EINVAL) {
 		err = fmt.Errorf("%w: %w", err, link.ErrNotSupported)
 	}
+	// EPERM can occur in user namespace mode when we don't have permission
+	// to query certain cgroup BPF attach types. Treat this as if no programs
+	// are attached since we can't manage them anyway.
+	if errors.Is(err, unix.EPERM) {
+		logger.Debug("Permission denied querying cgroup, skipping detach",
+			logfields.Root, cgroupRoot,
+			logfields.Type, attach,
+		)
+		return nil
+	}
 	// Even though the cgroup exists, QueryPrograms will return EBADF
 	// on a cgroupv1.
 	if errors.Is(err, unix.EBADF) {
