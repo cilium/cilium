@@ -114,7 +114,9 @@
     "^make -C Documentation update-requirements$",
     "^make generate-k8s-api$",
     "^make manifests$",
-    "^make GO='contrib/scripts/builder.sh go' generate-apis$"
+    "^make GO='contrib/scripts/builder.sh go' generate-apis$",
+    "^go mod tidy$",
+    "^go mod vendor$"
   ],
   "assignAutomerge": true,
   "packageRules": [
@@ -230,6 +232,13 @@
         // update source import paths on major updates
         "gomodUpdateImportPaths"
       ],
+      "postUpgradeTasks": {
+        "commands": [
+          "go mod tidy",
+          "go mod vendor"
+        ],
+        "executionMode": "update"
+      },
       "matchBaseBranches": [
         "main"
       ]
