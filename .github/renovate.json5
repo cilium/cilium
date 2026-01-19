@@ -48,6 +48,7 @@
     ".github/ISSUE_TEMPLATE/bug_report.yaml",
     "Documentation/requirements-min/requirements.txt",
     "cilium-cli/**",
+    "pkg/azure/**",
     "images/**",
     "examples/hubble/*",
     "go.mod",
