@@ -2079,8 +2079,8 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, sourceFilter string, identi
 	e.getLogger().Debug(
 		"Refreshing labels of endpoint",
 		logfields.SourceFilter, sourceFilter,
-		logfields.IdentityLabels, identityLabels,
-		logfields.InfoLabels, infoLabels,
+		logfields.IdentityLabels, map[string]labels.Label(identityLabels),
+		logfields.InfoLabels, map[string]labels.Label(infoLabels),
 	)
 
 	if err := e.lockAlive(); err != nil {
@@ -2139,7 +2139,7 @@ func (e *Endpoint) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source s
 
 	e.getLogger().Debug(
 		"Updated endpoint with new labels",
-		logfields.Labels, newIdtyLabels,
+		logfields.Labels, map[string]labels.Label(newIdtyLabels),
 	)
 	return nil
 }

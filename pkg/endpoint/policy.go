@@ -1155,7 +1155,7 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) (identityToReleas
 			"Identity of endpoint changed",
 			logfields.IdentityNew, identity.StringID(),
 			logfields.IdentityOld, oldIdentity,
-			logfields.IdentityLabels, identity.Labels,
+			logfields.IdentityLabels, map[string]labels.Label(identity.Labels),
 		)
 	}
 	e.UpdateLogger(map[string]any{
