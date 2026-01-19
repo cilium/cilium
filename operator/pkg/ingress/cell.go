@@ -61,6 +61,7 @@ type IngressConfig struct {
 	IngressHostnetworkEnabled            bool
 	IngressHostnetworkSharedListenerPort uint32
 	IngressHostnetworkNodelabelselector  string
+	IngressUseRemoteAddress              bool
 	IngressDefaultXffNumTrustedHops      uint32
 }
 
@@ -80,6 +81,7 @@ func (r IngressConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint32("ingress-hostnetwork-shared-listener-port", r.IngressHostnetworkSharedListenerPort, "Port on the host network that gets used for the shared listener (HTTP, HTTPS & TLS passthrough)")
 	flags.String("ingress-hostnetwork-nodelabelselector", r.IngressHostnetworkNodelabelselector, "Label selector that matches the nodes where the ingress listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
 	flags.Uint32("ingress-default-xff-num-trusted-hops", r.IngressDefaultXffNumTrustedHops, "The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
+	flags.Bool("ingress-use-remote-address", r.IngressUseRemoteAddress, "Use the immediate client's IP address as the origin client's IP address.")
 }
 
 // IsEnabled returns true if the Ingress Controller is enabled.
@@ -130,6 +132,7 @@ func registerReconciler(params ingressParams) error {
 		},
 		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 			XFFNumTrustedHops: params.IngressConfig.IngressDefaultXffNumTrustedHops,
+			UseRemoteAddress:  params.IngressConfig.IngressUseRemoteAddress,
 		},
 	})
 
