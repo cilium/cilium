@@ -1039,6 +1039,11 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		}
 
 		if (CONFIG(enable_l2_announcements) && ip6->nexthdr == NEXTHDR_ICMP) {
+			ctx_pull_data(ctx, (__u32)ctx_full_len(ctx));
+			if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+				ret = DROP_INVALID;
+				goto drop_err_ingress;
+			}
 			ret = handle_l2_announcement(ctx, ip6);
 			if (IS_ERR(ret))
 				goto drop_err_egress;
