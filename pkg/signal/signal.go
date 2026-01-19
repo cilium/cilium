@@ -13,7 +13,7 @@ import (
 	"os"
 	"sync/atomic"
 
-	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/ringbuf"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/lock"
@@ -69,10 +69,10 @@ type signalManager struct {
 	logger    *slog.Logger
 	signalmap signalmap.Map
 	handlers  [SignalTypeMax]SignalHandler
-	events    signalmap.PerfReader
+	events    signalmap.RingBufReader
 	done      chan struct{}
 
-	// mutex is needed to sync mute/unmute with events Pause/Resume
+	// mutex is needed to sync mute/unmute with events
 	// Atomic Uint64 is used to allow reading active signal bits without
 	// taking the mutex
 	mutex         lock.Mutex
@@ -104,12 +104,8 @@ func (sm *signalManager) setMuted(signals signalSet) {
 	new := old &^ uint64(signals)
 	sm.activeSignals.Store(new)
 
-	if old != 0 && new == 0 && sm.events != nil {
-		// If all signals are muted, then we can turn off perf
-		// RB notifications from kernel side, which is much more efficient as
-		// no new message is pushed into the RB.
-		sm.events.Pause()
-	}
+	// Note: ringbuf doesn't support Pause/Resume like perf events.
+	// Muted signals are filtered in userspace at signalReceive().
 }
 
 func (sm *signalManager) setUnmuted(signals signalSet) {
@@ -120,18 +116,15 @@ func (sm *signalManager) setUnmuted(signals signalSet) {
 	new := old | uint64(signals)
 	sm.activeSignals.Store(new)
 
-	if old == 0 && new != 0 && sm.events != nil {
-		// If any of the signals are unmuted, then we must turn on perf
-		// RB notifications from kernel side.
-		sm.events.Resume()
-	}
+	// Note: ringbuf doesn't support Pause/Resume like perf events.
+	// Signals are always read; muted ones are filtered in signalReceive().
 }
 
 func signalCollectMetrics(signalType, signalData, signalStatus string) {
 	metrics.SignalsHandled.WithLabelValues(signalType, signalData, signalStatus).Inc()
 }
 
-func (sm *signalManager) signalReceive(msg *perf.Record) {
+func (sm *signalManager) signalReceive(msg *ringbuf.Record) {
 	var which SignalType
 	reader := bytes.NewReader(msg.RawSample)
 	if err := binary.Read(reader, byteorder.Native, &which); err != nil {
@@ -263,7 +256,12 @@ func (sm *signalManager) start() error {
 
 	sm.events, err = sm.signalmap.NewReader()
 	if err != nil {
-		return fmt.Errorf("cannot open %s map! Ignoring signals: %w", sm.signalmap.MapName(), err)
+		// Signal handling is not critical - log and continue without signals.
+		// This can happen when the BPF programs haven't been loaded yet.
+		sm.logger.Warn("Cannot open signal map, signal handling disabled",
+			logfields.BPFMapName, sm.signalmap.MapName(),
+			logfields.Error, err)
+		return nil
 	}
 
 	go func() {
@@ -283,10 +281,8 @@ func (sm *signalManager) start() error {
 				continue
 			}
 
-			if record.LostSamples > 0 {
-				signalCollectMetrics("", "", "lost")
-				continue
-			}
+			// Note: ringbuf doesn't report lost samples like perf events.
+			// If the ring buffer is full, samples are silently dropped.
 			sm.signalReceive(&record)
 		}
 		sm.logger.Info("Datapath signal listener exiting")
@@ -307,6 +303,9 @@ func (sm *signalManager) start() error {
 
 // stop closes all signal channels
 func (sm *signalManager) stop() error {
+	if sm.events == nil {
+		return nil
+	}
 	err := sm.events.Close()
 	if err == nil {
 		<-sm.done

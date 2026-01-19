@@ -4,11 +4,9 @@
 package signalmap
 
 import (
-	"fmt"
 	"log/slog"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -22,26 +20,20 @@ var Cell = cell.Module(
 	cell.Provide(newMap),
 )
 
-// PerfReader is an interface for reading from perf records. Implementations need to be safe to call
-// from multiple goroutines.
-type PerfReader interface {
-	Read() (perf.Record, error)
-	Pause() error
-	Resume() error
+// RingBufReader is an interface for reading from ring buffer records.
+// Implementations need to be safe to call from multiple goroutines.
+type RingBufReader interface {
+	Read() (ringbuf.Record, error)
 	Close() error
 }
 
 type Map interface {
-	NewReader() (PerfReader, error)
+	NewReader() (RingBufReader, error)
 	MapName() string
 }
 
 func newMap(lifecycle cell.Lifecycle, logger *slog.Logger) (bpf.MapOut[Map], error) {
-	possibleCPUs, err := ebpf.PossibleCPU()
-	if err != nil {
-		return bpf.MapOut[Map]{}, fmt.Errorf("failed to get number of possible CPUs: %w", err)
-	}
-	signalmap := initMap(logger, possibleCPUs)
+	signalmap := initMap(logger)
 
 	lifecycle.Append(cell.Hook{
 		OnStart: func(startCtx cell.HookContext) error {

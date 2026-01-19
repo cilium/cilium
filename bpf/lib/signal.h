@@ -6,10 +6,12 @@
 #include <bpf/api.h>
 #include <lib/common.h>
 
+/* Signal ring buffer size - 256KB should be plenty for signal messages */
+#define SIGNAL_RINGBUF_SIZE (256 * 1024)
+
 struct {
-	__uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(value_size, sizeof(__u32));
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, SIGNAL_RINGBUF_SIZE);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 } cilium_signals __section_maps_btf;
 
@@ -38,6 +40,8 @@ struct signal_msg {
  * SEND_SIGNAL sets a single union MEMBER to VALUE and only includes that
  * member (and signal_nr) in message size. Used to avoid referencing
  * uninitialized memory if trying to send the whole msg.
+ *
+ * Uses BPF ring buffer for BPF token compatibility (no perf_event_open needed).
  */
 #define SEND_SIGNAL(CTX, SIGNAL, MEMBER, VALUE)				\
   {									\
@@ -45,23 +49,23 @@ struct signal_msg {
 		.signal_nr	= (SIGNAL),				\
 		.MEMBER		= (VALUE),				\
 	};								\
-	ctx_event_output((CTX), &cilium_signals, BPF_F_CURRENT_CPU, &msg,	\
-			 sizeof(msg.signal_nr) + sizeof(msg.MEMBER));	\
+	ringbuf_output(&cilium_signals, &msg,				\
+		       sizeof(msg.signal_nr) + sizeof(msg.MEMBER), 0);	\
   }
 
-static __always_inline void send_signal_nat_fill_up(struct __ctx_buff *ctx,
+static __always_inline void send_signal_nat_fill_up(struct __ctx_buff *ctx __maybe_unused,
 						    __u32 proto)
 {
 	SEND_SIGNAL(ctx, SIGNAL_NAT_FILL_UP, proto, proto);
 }
 
-static __always_inline void send_signal_ct_fill_up(struct __ctx_buff *ctx,
+static __always_inline void send_signal_ct_fill_up(struct __ctx_buff *ctx __maybe_unused,
 						   __u32 proto)
 {
 	SEND_SIGNAL(ctx, SIGNAL_CT_FILL_UP, proto, proto);
 }
 
-static __always_inline void send_signal_auth_required(struct __ctx_buff *ctx,
+static __always_inline void send_signal_auth_required(struct __ctx_buff *ctx __maybe_unused,
 						      const struct auth_key *auth)
 {
 	SEND_SIGNAL(ctx, SIGNAL_AUTH_REQUIRED, auth, *auth);

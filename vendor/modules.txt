@@ -292,6 +292,7 @@ github.com/cilium/ebpf/internal/tracefs
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/link
 github.com/cilium/ebpf/perf
+github.com/cilium/ebpf/ringbuf
 github.com/cilium/ebpf/rlimit
 # github.com/cilium/endpointslice v0.29.4-0.20240409195643-982ad68ab7ba
 ## explicit; go 1.21

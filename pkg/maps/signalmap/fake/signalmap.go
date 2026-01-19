@@ -6,7 +6,7 @@ package fake
 import (
 	"os"
 
-	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/ringbuf"
 
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/time"
@@ -24,25 +24,18 @@ func NewFakeSignalMap(messages [][]byte, interval time.Duration) *fakeSignalMap 
 	}
 }
 
-type fakePerfReader struct {
+type fakeRingBufReader struct {
 	index    int
 	messages [][]byte
 	interval time.Duration
-	pause    chan bool
 	closed   chan struct{}
 }
 
-func (r *fakePerfReader) Read() (perf.Record, error) {
-	paused := false
-
+func (r *fakeRingBufReader) Read() (ringbuf.Record, error) {
 	for {
 		select {
 		case <-r.closed:
-			return perf.Record{}, os.ErrClosed
-		case paused = <-r.pause:
-			if paused {
-				continue
-			}
+			return ringbuf.Record{}, os.ErrClosed
 		// Block for the given interval between messages
 		case <-time.After(r.interval):
 		}
@@ -50,33 +43,23 @@ func (r *fakePerfReader) Read() (perf.Record, error) {
 			r.index = 0
 		}
 		if r.index < len(r.messages) {
-			return perf.Record{RawSample: r.messages[r.index]}, nil
-		} else {
-			return perf.Record{LostSamples: 1}, nil
+			msg := r.messages[r.index]
+			r.index++
+			return ringbuf.Record{RawSample: msg}, nil
 		}
+		// No messages, just return empty record (will loop again)
 	}
 }
 
-func (r *fakePerfReader) Pause() error {
-	r.pause <- true
-	return nil
-}
-
-func (r *fakePerfReader) Resume() error {
-	r.pause <- false
-	return nil
-}
-
-func (r *fakePerfReader) Close() error {
+func (r *fakeRingBufReader) Close() error {
 	close(r.closed)
 	return nil
 }
 
-func (f fakeSignalMap) NewReader() (signalmap.PerfReader, error) {
-	return &fakePerfReader{
+func (f fakeSignalMap) NewReader() (signalmap.RingBufReader, error) {
+	return &fakeRingBufReader{
 		messages: f.messages,
 		interval: f.interval,
-		pause:    make(chan bool, 100),
 		closed:   make(chan struct{}),
 	}, nil
 }

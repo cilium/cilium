@@ -116,3 +116,4 @@ static long BPF_FUNC(loop, __u32 nr_loops, void *callback_fn, void *callback_ctx
 static void *BPF_FUNC(ringbuf_reserve, void *ringbuf, __u64 size, __u64 flags);
 static void BPF_FUNC(ringbuf_submit, void *data, __u64 flags);
 static void BPF_FUNC(ringbuf_discard, void *data, __u64 flags);
+static long BPF_FUNC(ringbuf_output, void *ringbuf, void *data, __u64 size, __u64 flags);
