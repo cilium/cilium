@@ -29,6 +29,7 @@ import (
 // lest ye find yourself with hundreds of unnecessary imports.
 type Key = types.Key
 type Keys = types.Keys
+type LPMKeys = types.LPMKeys
 type MapStateEntry = types.MapStateEntry
 type MapStateMap = types.MapStateMap
 
@@ -98,6 +99,8 @@ type mapState struct {
 	// trie is a Trie that indexes policy Keys without their identity
 	// and stores the identities in an associated builtin map.
 	trie bitlpm.Trie[types.LPMKey, IDSet]
+	// idIndex indexes entries by ID
+	byId map[identity.NumericIdentity]LPMKeys
 }
 
 type IDSet map[identity.NumericIdentity]struct{}
@@ -126,6 +129,16 @@ func (ms *mapState) upsert(k Key, e mapStateEntry) {
 			ms.trie.Upsert(k.PrefixLength(), k.LPMKey, idSet)
 		}
 		idSet[k.Identity] = struct{}{}
+
+		// update byId if in use
+		if ms.byId != nil {
+			keys := ms.byId[k.Identity]
+			if keys == nil {
+				keys = make(LPMKeys)
+				ms.byId[k.Identity] = keys
+			}
+			keys[k.LPMKey] = struct{}{}
+		}
 	}
 }
 
@@ -139,6 +152,16 @@ func (ms *mapState) delete(k Key) {
 			delete(idSet, k.Identity)
 			if len(idSet) == 0 {
 				ms.trie.Delete(k.PrefixLength(), k.LPMKey)
+			}
+		}
+
+		if ms.byId != nil {
+			keys := ms.byId[k.Identity]
+			if keys != nil {
+				delete(keys, k.LPMKey)
+				if len(keys) == 0 {
+					delete(ms.byId, k.Identity)
+				}
 			}
 		}
 	}
@@ -480,15 +503,36 @@ func NewMapStateEntry(e MapStateEntry) mapStateEntry {
 }
 
 func emptyMapState(logger *slog.Logger) mapState {
-	return newMapState(logger, 0)
+	return newMapState(logger, nil, 0)
 }
 
-func newMapState(logger *slog.Logger, size int) mapState {
-	return mapState{
+// newMapState returns a new mapState with capacities from the given old mapState (if non-nil),
+// according to the given policy features.
+func newMapState(logger *slog.Logger, old *mapState, features policyFeatures) mapState {
+	var nEntries int
+
+	if old != nil {
+		nEntries = len(old.entries)
+	}
+
+	ms := mapState{
 		logger:  logger,
-		entries: make(mapStateMap, size),
+		entries: make(mapStateMap, nEntries),
 		trie:    bitlpm.NewTrie[types.LPMKey, IDSet](types.MapStatePrefixLen),
 	}
+
+	if features&passRules != 0 {
+		if old == nil {
+			ms.byId = make(map[identity.NumericIdentity]LPMKeys)
+		} else {
+			ms.byId = make(map[identity.NumericIdentity]LPMKeys, len(old.byId))
+			// preallocate id index keysets to their current sizes, if any
+			for k, v := range old.byId {
+				ms.byId[k] = make(LPMKeys, len(v))
+			}
+		}
+	}
+	return ms
 }
 
 // Get the MapStateEntry that matches the Key.
