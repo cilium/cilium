@@ -22,15 +22,15 @@ var supportedFeatures = features.AllFeatures
 
 var gatewayClassSupportedFeatures = getSupportedFeatures()
 
+// exemptFeatures lists Gateway API features that Cilium does not support.
+// These features will not be advertised in GatewayClass.status.supportedFeatures.
+// Keep in sync with exempt-features in .github/workflows/conformance-gateway-api.yaml
 var exemptFeatures = []features.Feature{
 	features.HTTPRouteParentRefPortFeature,
 	features.MeshConsumerRouteFeature,
-	features.BackendTLSPolicyFeature,
-	features.HTTPRouteCORS,
 }
 
-// List of Gateway API features supported by Cilium.
-// The same should stay in sync with GHA CI in .github/workflows/conformance-gateway-api.yaml
+// getSupportedFeatures returns the list of Gateway API features supported by Cilium.
 func getSupportedFeatures() []gatewayv1.SupportedFeature {
 	for _, feature := range exemptFeatures {
 		supportedFeatures.Delete(feature)
