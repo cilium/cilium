@@ -1,50 +1,49 @@
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
-  name: same-namespace
+  name: httproute-hostname-intersection-all
   namespace: gateway-conformance-infra
-  resourceVersion: "1000"
 spec:
   gatewayClassName: cilium
   listeners:
-    - allowedRoutes:
-        namespaces:
-          from: Same
-      name: http
+    - name: listener-1
       port: 80
       protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
 status:
   conditions:
-    - lastTransitionTime: "2025-07-01T14:29:32Z"
+    - lastTransitionTime: "2025-08-18T04:34:43Z"
       message: Gateway successfully scheduled
       reason: Accepted
       status: "True"
       type: Accepted
-    - lastTransitionTime: "2025-07-01T05:06:15Z"
+    - lastTransitionTime: "2025-08-18T04:35:05Z"
       message: Gateway waiting for address
       reason: AddressNotAssigned
       status: "False"
       type: Programmed
   listeners:
-    - attachedRoutes: 0
+    - attachedRoutes: 1
       conditions:
-        - lastTransitionTime: "2025-07-01T14:29:32Z"
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
           message: Resolved Refs
           reason: ResolvedRefs
           status: "True"
           type: ResolvedRefs
-        - lastTransitionTime: "2025-07-01T14:29:32Z"
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
           message: Listener Accepted
           reason: Accepted
           status: "True"
           type: Accepted
-        - lastTransitionTime: "2025-07-01T14:29:32Z"
+        - lastTransitionTime: "2025-08-18T04:35:05Z"
           message: Address not ready yet
           reason: Pending
           status: "False"
           type: Programmed
-      name: http
+      name: listener-1
       supportedKinds:
         - group: gateway.networking.k8s.io
           kind: HTTPRoute

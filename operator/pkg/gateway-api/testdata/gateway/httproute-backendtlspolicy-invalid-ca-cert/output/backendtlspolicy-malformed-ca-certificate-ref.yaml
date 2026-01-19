@@ -1,0 +1,36 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: malformed-ca-certificate-ref
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: "backendtlspolicy-malformed-ca-certificate-ref-test"
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: "malformed-ca-certificate"
+    hostname: "abc.example.com"
+status:
+  ancestors:
+    - controllerName: io.cilium/gateway-controller
+      ancestorRef:
+        group: "gateway.networking.k8s.io"
+        kind: "Gateway"
+        namespace: gateway-conformance-infra
+        name: same-namespace
+      conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: "CA Certificate ConfigMap does not contain a `ca.crt` key"
+          reason: NoValidCACertificate
+          status: "False"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: "CA Certificate ConfigMap does not contain a `ca.crt` key"
+          reason: InvalidCACertificateRef
+          status: "False"
+          type: ResolvedRefs

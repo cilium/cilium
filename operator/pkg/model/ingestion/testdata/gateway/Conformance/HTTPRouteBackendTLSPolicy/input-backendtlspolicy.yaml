@@ -1,0 +1,23 @@
+policies:
+  - svcName: gateway-conformance-infra/backendtlspolicy-test
+    valid:
+      "btls":
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: BackendTLSPolicy
+        metadata:
+          name: normative-test
+          namespace: gateway-conformance-infra
+        spec:
+          targetRefs:
+            - group: ""
+              kind: Service
+              name: "backendtlspolicy-test"
+              sectionName: "btls"
+          validation:
+            caCertificateRefs:
+              - group: ""
+                kind: ConfigMap
+                # This ConfigMap is generated dynamically by the test suite.
+                # It contains the CA certificate used to sign the tls-backend serving certificate.
+                name: "tls-checks-ca-certificate"
+            hostname: "abc.example.com"

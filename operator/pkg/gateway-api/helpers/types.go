@@ -19,6 +19,7 @@ const (
 	kindService       = "Service"
 	kindServiceImport = "ServiceImport"
 	kindSecret        = "Secret"
+	kindConfigMap     = "ConfigMap"
 
 	GatewayClassKind      string = "gatewayclasses"
 	GatewayKind           string = "gateways"
@@ -84,6 +85,14 @@ func IsServiceImport(be gatewayv1.BackendObjectReference) bool {
 
 func IsSecret(secret gatewayv1.SecretObjectReference) bool {
 	return (secret.Kind == nil || *secret.Kind == kindSecret) && (secret.Group == nil || *secret.Group == corev1.GroupName)
+}
+
+func IsConfigMap(certRef gatewayv1.LocalObjectReference) bool {
+	return certRef.Kind == kindConfigMap && certRef.Group == corev1.GroupName
+}
+
+func IsServiceTargetRef(tr gatewayv1.LocalPolicyTargetReferenceWithSectionName) bool {
+	return tr.Kind == kindService && tr.Group == corev1.GroupName
 }
 
 // getConcreteObject returns an instance of a concrete object type based on the
