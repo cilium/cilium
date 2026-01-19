@@ -272,7 +272,7 @@ type PolicyOwner interface {
 	GetNamedPort(ingress bool, name string, proto u8proto.U8proto) uint16
 	PolicyDebug(msg string, attrs ...any)
 	IsHost() bool
-	MapStateSize() int
+	PreviousMapState() *MapState
 	RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool
 }
 
@@ -332,10 +332,11 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	//   ConsumeMapChanges().
 	p.SelectorCache.WithRLock(func(sc *SelectorCache) {
 		selectors := sc.GetSelectorSnapshot()
+		features := p.L4Policy.Ingress.features | p.L4Policy.Egress.features
 		calculatedPolicy = &EndpointPolicy{
 			SelectorPolicy: p,
 			selectors:      selectors,
-			policyMapState: newMapState(logger, policyOwner.MapStateSize()),
+			policyMapState: newMapState(logger, policyOwner.PreviousMapState(), features),
 			policyMapChanges: MapChanges{
 				logger:   logger,
 				firstRev: selectors.Revision,
@@ -404,6 +405,13 @@ func (p *EndpointPolicy) Detach(logger *slog.Logger) {
 
 func (p *EndpointPolicy) Len() int {
 	return p.policyMapState.Len()
+}
+
+type MapState = mapState
+
+// GetMapState returns a pointer to the current mapstate.
+func (p *EndpointPolicy) GetMapState() *MapState {
+	return &p.policyMapState
 }
 
 func (p *EndpointPolicy) Get(key Key) (MapStateEntry, bool) {
