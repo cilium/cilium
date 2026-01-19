@@ -153,14 +153,19 @@ func HaveV3ISA(logger *slog.Logger) error {
 }
 
 func newProgram(progType ebpf.ProgramType) (*ebpf.Program, error) {
-	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+	opts := ebpf.ProgramOptions{LogDisabled: true}
+	tokenFD := features.GetGlobalToken()
+	if tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	prog, err := ebpf.NewProgramWithOptions(&ebpf.ProgramSpec{
 		Type: progType,
 		Instructions: asm.Instructions{
 			asm.Mov.Imm(asm.R0, 0),
 			asm.Return(),
 		},
 		License: "Apache-2.0",
-	})
+	}, opts)
 	if err != nil {
 		return nil, fmt.Errorf("loading bpf program: %w: %w", err, ErrNotSupported)
 	}
@@ -341,7 +346,11 @@ func HaveSKBAdjustRoomL2RoomMACSupport(logger *slog.Logger) (err error) {
 		asm.FnSkbAdjustRoom.Call(),
 		asm.Return(),
 	}
-	prog, err := ebpf.NewProgram(progSpec)
+	opts := ebpf.ProgramOptions{LogDisabled: true}
+	if tokenFD := features.GetGlobalToken(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	prog, err := ebpf.NewProgramWithOptions(progSpec, opts)
 	if err != nil {
 		return err
 	}
@@ -401,7 +410,11 @@ func HaveDeadCodeElim() error {
 		},
 	}
 
-	prog, err := ebpf.NewProgram(&spec)
+	opts := ebpf.ProgramOptions{LogDisabled: true}
+	if tokenFD := features.GetGlobalToken(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	prog, err := ebpf.NewProgramWithOptions(&spec, opts)
 	if err != nil {
 		return fmt.Errorf("loading program: %w", err)
 	}

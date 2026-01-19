@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/ebpf/features"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -985,6 +986,15 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	}
 	if _, err := os.Stat(option.Config.BpfDir); os.IsNotExist(err) {
 		logging.Fatal(scopedLog, "BPF template directory: NOT OK. Please run 'make install-bpf'", logfields.Error, err)
+	}
+
+	// Open BPF token and set it for feature probing before header probes.
+	// This enables feature detection to work in user namespaces with BPF delegation.
+	if tokenFD, err := bpf.OpenBPFToken(option.Config.BPFTokenPath); err != nil {
+		scopedLog.Debug("BPF token not available for feature probing", "error", err)
+	} else if tokenFD > 0 {
+		features.SetProbeTokenFD(tokenFD)
+		features.SetProbeMapTokenFD(tokenFD)
 	}
 
 	if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes(scopedLog)); err != nil {

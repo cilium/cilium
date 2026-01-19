@@ -50,9 +50,11 @@ func HaveAttachType(pt ebpf.ProgramType, at ebpf.AttachType) (err error) {
 		},
 	}
 
-	prog, err := ebpf.NewProgramWithOptions(spec, ebpf.ProgramOptions{
-		LogDisabled: true,
-	})
+	opts := ebpf.ProgramOptions{LogDisabled: true}
+	if tokenFD := features.GetProbeTokenFD(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	prog, err := ebpf.NewProgramWithOptions(spec, opts)
 	if err == nil {
 		prog.Close()
 	}
