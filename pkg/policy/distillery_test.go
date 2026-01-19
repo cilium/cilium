@@ -2231,11 +2231,7 @@ func TestEgressPortRangePrecedence(t *testing.T) {
 			for _, rt := range tt.rangeTests {
 				for i := rt.startPort; i <= rt.endPort; i++ {
 					flow.Dport = i
-					verdict := api.Denied
-					if rt.isAllow {
-						verdict = api.Allowed
-					}
-					checkFlow(t, td.repo, td.identityManager, flow, verdict)
+					checkFlow(t, td.repo, td.identityManager, flow, rt.isAllow)
 				}
 			}
 		})
