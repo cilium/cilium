@@ -131,6 +131,7 @@ func registerReconciler(params ingressParams) error {
 		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 			XFFNumTrustedHops: params.IngressConfig.IngressDefaultXffNumTrustedHops,
 		},
+		HTTP3Enabled: params.OperatorConfig.EnableEnvoyHTTP3,
 	})
 
 	dedicatedIngressTranslator := ingressTranslation.NewDedicatedIngressTranslator(params.Logger, cecTranslator, params.IngressConfig.IngressHostnetworkEnabled)

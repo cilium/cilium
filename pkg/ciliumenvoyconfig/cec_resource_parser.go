@@ -21,6 +21,7 @@ import (
 	envoy_config_healthcheck "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_config_quic "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_config_upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	envoy_config_types "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -54,6 +55,9 @@ const (
 	quicUpstreamTransportTypeURL = "type.googleapis.com/envoy.extensions.transport_sockets.quic.v3.QuicUpstreamTransport"
 	upstreamTlsContextTypeURL    = "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext"
 	ciliumL7FilterTypeURL        = "type.googleapis.com/cilium.L7Policy"
+
+	// QUIC/HTTP3 transport socket type URLs
+	quicDownstreamTransportTypeURL = "type.googleapis.com/envoy.extensions.transport_sockets.quic.v3.QuicDownstreamTransport"
 )
 
 type CECResourceParser struct {
@@ -468,33 +472,41 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 
 			// Inject Cilium bpf metadata listener filter, if not already present.
 			// This must be done after listener address/port is already set.
-			found := false
-			for _, lf := range listener.ListenerFilters {
-				if lf.Name == ciliumBPFMetadataListenerFilterName {
-					found = true
-					break
+			// Skip bpf_metadata for UDP listeners (e.g., QUIC/HTTP3) as it only works with TCP.
+			isUDPListener := listener.GetUdpListenerConfig() != nil ||
+				(listener.GetAddress() != nil &&
+					listener.GetAddress().GetSocketAddress() != nil &&
+					listener.GetAddress().GetSocketAddress().GetProtocol() == envoy_config_core.SocketAddress_UDP)
+
+			if !isUDPListener {
+				found := false
+				for _, lf := range listener.ListenerFilters {
+					if lf.Name == ciliumBPFMetadataListenerFilterName {
+						found = true
+						break
+					}
 				}
-			}
-			if !found {
-				// Get the listener port from the listener's (main) address
-				port := uint16(listener.GetAddress().GetSocketAddress().GetPortValue())
-				// Only use zero linger for HTTP listener
-				isHTTPListener := func() bool {
-					for _, fc := range listener.FilterChains {
-						for _, filter := range fc.Filters {
-							tc := filter.GetTypedConfig()
-							if tc == nil {
-								continue
-							}
-							if tc.GetTypeUrl() == envoy.HttpConnectionManagerTypeURL {
-								return true
+				if !found {
+					// Get the listener port from the listener's (main) address
+					port := uint16(listener.GetAddress().GetSocketAddress().GetPortValue())
+					// Only use zero linger for HTTP listener
+					isHTTPListener := func() bool {
+						for _, fc := range listener.FilterChains {
+							for _, filter := range fc.Filters {
+								tc := filter.GetTypedConfig()
+								if tc == nil {
+									continue
+								}
+								if tc.GetTypeUrl() == envoy.HttpConnectionManagerTypeURL {
+									return true
+								}
 							}
 						}
-					}
-					return false
-				}()
+						return false
+					}()
 
-				listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port, isHTTPListener))
+					listener.ListenerFilters = append(listener.ListenerFilters, r.getBPFMetadataListenerFilter(useOriginalSourceAddr, isL7LB, port, isHTTPListener))
+				}
 			}
 		}
 
@@ -950,6 +962,24 @@ func fillInTransportSocketXDS(cecNamespace string, cecName string, ts *envoy_con
 				if fillInTlsContextXDS(cecNamespace, cecName, tls.CommonTlsContext) {
 					updated = toAny(tls)
 				}
+			case *envoy_config_quic.QuicDownstreamTransport:
+				// QUIC Downstream Transport wraps a DownstreamTlsContext
+				if tls.DownstreamTlsContext != nil && tls.DownstreamTlsContext.CommonTlsContext != nil {
+					wasUpdated := fillInTlsContextXDS(cecNamespace, cecName, tls.DownstreamTlsContext.CommonTlsContext)
+					if tls.DownstreamTlsContext.GetSessionTicketKeysSdsSecretConfig() != nil {
+						wasUpdated = qualifySdsSecretConfig(tls.DownstreamTlsContext.GetSessionTicketKeysSdsSecretConfig(), cecNamespace, cecName) || wasUpdated
+					}
+					if wasUpdated {
+						updated = toAny(tls)
+					}
+				}
+			case *envoy_config_quic.QuicUpstreamTransport:
+				// QUIC Upstream Transport wraps an UpstreamTlsContext
+				if tls.UpstreamTlsContext != nil && tls.UpstreamTlsContext.CommonTlsContext != nil {
+					if fillInTlsContextXDS(cecNamespace, cecName, tls.UpstreamTlsContext.CommonTlsContext) {
+						updated = toAny(tls)
+					}
+				}
 			}
 			if updated != nil {
 				ts.ConfigType = &envoy_config_core.TransportSocket_TypedConfig{
@@ -1012,7 +1042,16 @@ func UseOriginalSourceAddress(meta *metav1.ObjectMeta) bool {
 // InjectCiliumEnvoyFilters returns true if the given object indicates that Cilium Envoy Network- and L7 filters
 // should be added to all non-internal Listeners.
 // This can be an explicit annotation or the implicit presence of a L7LB service via the Services property.
+// For Gateway API CEC, Cilium filters are NOT injected as Gateway API uses its own policy mechanism.
 func InjectCiliumEnvoyFilters(meta *metav1.ObjectMeta, spec *cilium_v2.CiliumEnvoyConfigSpec) bool {
+	// For Gateway API CEC (with OwnerReference Gateway), do NOT inject Cilium filters
+	// Gateway API uses its own policy mechanism and doesn't need Cilium L7 policy filter
+	for _, owner := range meta.OwnerReferences {
+		if owner.Kind == "Gateway" {
+			return false
+		}
+	}
+
 	if meta.GetAnnotations() != nil {
 		if v, ok := meta.GetAnnotations()[annotation.CECInjectCiliumFilters]; ok {
 			if boolValue, err := strconv.ParseBool(v); err == nil {

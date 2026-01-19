@@ -935,6 +935,9 @@ envoyConfig:
   # -- Enable CiliumEnvoyConfig CRD
   # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
   enabled: false
+  # -- Enable HTTP/3 (QUIC) support for both Ingress and Gateway API HTTPS listeners.
+  # When enabled, UDP listeners will be created alongside TCP listeners for HTTPS ports.
+  enableHttp3: false
   # -- SecretsNamespace is the namespace in which envoy SDS will retrieve secrets from.
   secretsNamespace:
     # -- Create secrets namespace for CiliumEnvoyConfig CRDs.

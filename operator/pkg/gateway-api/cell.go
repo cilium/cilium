@@ -256,6 +256,7 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 		OriginalIPDetectionConfig: translation.OriginalIPDetectionConfig{
 			XFFNumTrustedHops: params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
 		},
+		HTTP3Enabled: params.OperatorConfig.EnableEnvoyHTTP3,
 	}
 	cecTranslator := translation.NewCECTranslator(cfg)
 
