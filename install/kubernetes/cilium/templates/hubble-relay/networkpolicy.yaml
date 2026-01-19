@@ -1,0 +1,53 @@
+﻿{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled .Values.hubble.relay.networkPolicy.enabled }}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: hubble-relay
+  namespace: {{ include "cilium.namespace" . }}
+  labels:
+    k8s-app: hubble-relay
+    app.kubernetes.io/name: hubble-relay
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: hubble-relay
+  ingress:
+    # Allow gRPC from any source (hubble-ui, hubble CLI, external clients)
+    - toPorts:
+        - ports:
+            - port: {{ .Values.hubble.relay.listenPort | quote }}
+              protocol: TCP
+    {{- if .Values.hubble.relay.prometheus.enabled }}
+    # Allow Prometheus metrics scraping
+    - toPorts:
+        - ports:
+            - port: {{ .Values.hubble.relay.prometheus.port | quote }}
+              protocol: TCP
+    {{- end }}
+  egress:
+    # Allow connection to cilium-agent hubble-peer service
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: cilium
+      toPorts:
+        - ports:
+            - port: {{ .Values.hubble.peerService.targetPort | quote }}
+              protocol: TCP
+    # Allow DNS resolution
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+{{- end }}
