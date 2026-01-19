@@ -191,11 +191,11 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 
 	for b.Loop() {
 		epPolicy := ip.DistillPolicy(logger, owner, nil)
-		owner.mapStateSize = epPolicy.policyMapState.Len()
+		owner.previousMap = epPolicy.GetMapState()
 		epPolicy.Ready()
 	}
 	ip.detach(true, 0)
-	assert.Equal(b, 117515, owner.mapStateSize)
+	assert.Equal(b, 117515, owner.previousMap.Len())
 }
 
 func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
@@ -207,10 +207,10 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	owner := DummyOwner{logger: logger}
 
 	epPolicy := ip.DistillPolicy(logger, owner, nil)
-	owner.mapStateSize = epPolicy.policyMapState.Len()
+	owner.previousMap = epPolicy.GetMapState()
 	epPolicy.Ready()
 	ip.detach(true, 0)
-	assert.Equal(t, 117515, owner.mapStateSize)
+	assert.Equal(t, 117515, owner.previousMap.Len())
 }
 
 func TestL3WithIngressDenyWildcard(t *testing.T) {

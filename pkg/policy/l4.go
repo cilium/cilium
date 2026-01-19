@@ -1145,6 +1145,10 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 				features.setFeature(denyRules)
 			}
 
+			if sp.Verdict == types.Pass {
+				features.setFeature(passRules)
+			}
+
 			explicit, authType := getAuthType(sp.Authentication)
 			if explicit {
 				features.setFeature(authRules)
@@ -1430,10 +1434,11 @@ const (
 	redirectRules
 	orderedRules
 	authRules
+	passRules
 
 	// if any of the precedenceFeatures is set, then we need to scan for policy overrides due to
 	// precedence differences between rules.
-	precedenceFeatures policyFeatures = denyRules | redirectRules | orderedRules
+	precedenceFeatures policyFeatures = denyRules | redirectRules | orderedRules | passRules
 
 	allFeatures policyFeatures = ^policyFeatures(0)
 )
