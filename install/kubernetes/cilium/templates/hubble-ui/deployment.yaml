@@ -125,16 +125,20 @@ spec:
         {{- end }}
         {{- if .Values.hubble.ui.backend.livenessProbe.enabled }}
         livenessProbe:
-          httpGet:
-            path: /healthz
+          grpc:
             port: 8090
         {{- end }}
         {{- if .Values.hubble.ui.backend.readinessProbe.enabled }}
         readinessProbe:
-          httpGet:
-            path: /healthz
+          grpc:
             port: 8090
         {{- end }}
+        startupProbe:
+          grpc:
+            port: 8090
+          initialDelaySeconds: 5
+          failureThreshold: 20
+          periodSeconds: 3
         ports:
         - name: grpc
           containerPort: 8090
