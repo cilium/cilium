@@ -860,17 +860,11 @@ func (ms *mapState) insertIfNotCovered(key Key, entry mapStateEntry, changes Cha
 			return
 		}
 	}
-	ms.logger.Error("QUEUING PASS ENTRY",
-		"key", key.String(),
-		"entry", entry.String())
 	ms.inserts = append(ms.inserts, L34Entry{key: key, entry: entry})
 }
 
 func (ms *mapState) addInserts(changes ChangeState) {
 	for _, kv := range ms.inserts {
-		ms.logger.Error("INSERTING QUEUED ENTRY",
-			"key", kv.key.String(),
-			"entry", kv.entry.String())
 		ms.addKeyWithChanges(kv.key, kv.entry, changes)
 	}
 	// reslice to clear without releasing capacity
@@ -937,10 +931,6 @@ func (ms *mapState) maybeBailEntry(tierPrecedence types.Precedence, key Key, ent
 	if passMeta.passPrecedence > 0 && passMeta.passPrecedence > bailPrecedence {
 		// This entry is covered by a higher tier rule with a PASS verdict.
 		*entry = entry.InheritPassPrecedence(passMeta, passKey == key)
-		ms.logger.Error("PASSED TO",
-			"key", key.String(),
-			"entry", entry.String(),
-			"bail", bailPrecedence > 0)
 		return false
 	}
 
@@ -984,17 +974,10 @@ func (ms *mapState) pruneNarrower(bail bool, tierPrecedence types.Precedence, ke
 			}
 		}
 
-		ms.logger.Error("DENY/ALLOW-LOOK",
-			"key", k.String(),
-			"entry", v.String())
-
 		// higher precedence pass entry on a higher tier?
 		if key.Identity == 0 &&
 			v.IsPassEntry() && v.passPrecedence > entry.Precedence &&
 			v.passPrecedence > tierPrecedence {
-			ms.logger.Error("DENY/ALLOW-MAYBEPASS",
-				"key", k.String(),
-				"entry", entry.InheritPassPrecedence(v.passMeta, k == key).String())
 			ms.insertIfNotCovered(k, entry.InheritPassPrecedence(v.passMeta, k == key), changes)
 		}
 	}
@@ -1062,10 +1045,6 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 	}
 	bail := false
 	if newEntry.IsPassEntry() {
-		ms.logger.Error("PASS",
-			"key", newKey.String(),
-			"entry", newEntry.String())
-
 		// Bail if covered by a key of a higher precedence (pass or not)
 		for k, v := range ms.BroaderOrEqualKeys(newKey) {
 			// skip non-covering keys
@@ -1106,26 +1085,15 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 			}
 		}
 	} else if newEntry.IsDeny() {
-		ms.logger.Error("DENY",
-			"key", newKey.String(),
-			"entry", newEntry.String())
-
 		bail = ms.maybeBailEntry(tierPrecedence, newKey, &newEntry, changes)
 		ms.pruneNarrower(bail, tierPrecedence, newKey, &newEntry, changes)
 	} else {
 		// authPreferredInsert takes care for precedence and auth
 		if features.contains(authRules) {
-			ms.logger.Error("ALLOW-AUTH",
-				"key", newKey.String(),
-				"entry", newEntry.String())
 			ms.authPreferredInsert(newKey, newEntry, features, changes)
 			ms.addInserts(changes)
 			return
 		}
-
-		ms.logger.Error("ALLOW",
-			"key", newKey.String(),
-			"entry", newEntry.String())
 
 		// No pruning of allow rules if all rules have the same precedence level.
 		if features.contains(precedenceFeatures) {
