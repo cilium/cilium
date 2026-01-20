@@ -399,7 +399,7 @@ spec:
                               description: CIDRs contains a list of pod CIDRs currently
                                 allocated from this pool
                               items:
-                                description: IPAMPodCIDR is a pod CIDR
+                                description: IPAMCIDR is a CIDR used for IPAM
                                 format: cidr
                                 type: string
                               type: array

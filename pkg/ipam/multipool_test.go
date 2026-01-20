@@ -84,16 +84,16 @@ func Test_MultiPoolManager(t *testing.T) {
 					Allocated: []types.IPAMPoolAllocation{
 						{
 							Pool: "default",
-							CIDRs: []types.IPAMPodCIDR{
-								types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
-								types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+							CIDRs: []types.IPAMCIDR{
+								types.IPAMCIDR(defaultIPv4CIDR1.String()),
+								types.IPAMCIDR(defaultIPv6CIDR1.String()),
 							},
 						},
 						{
 							Pool: "mars",
-							CIDRs: []types.IPAMPodCIDR{
-								types.IPAMPodCIDR(marsIPv4CIDR1.String()),
-								types.IPAMPodCIDR(marsIPv6CIDR1.String()),
+							CIDRs: []types.IPAMCIDR{
+								types.IPAMCIDR(marsIPv4CIDR1.String()),
+								types.IPAMCIDR(marsIPv6CIDR1.String()),
 							},
 						},
 					},
@@ -145,16 +145,16 @@ func Test_MultiPoolManager(t *testing.T) {
 		[]types.IPAMPoolAllocation{
 			{
 				Pool: "default",
-				CIDRs: []types.IPAMPodCIDR{
-					types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
-					types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+				CIDRs: []types.IPAMCIDR{
+					types.IPAMCIDR(defaultIPv4CIDR1.String()),
+					types.IPAMCIDR(defaultIPv6CIDR1.String()),
 				},
 			},
 			{
 				Pool: "mars",
-				CIDRs: []types.IPAMPodCIDR{
-					types.IPAMPodCIDR(marsIPv4CIDR1.String()),
-					types.IPAMPodCIDR(marsIPv6CIDR1.String()),
+				CIDRs: []types.IPAMCIDR{
+					types.IPAMCIDR(marsIPv4CIDR1.String()),
+					types.IPAMCIDR(marsIPv6CIDR1.String()),
 				},
 			},
 		},
@@ -168,23 +168,23 @@ func Test_MultiPoolManager(t *testing.T) {
 	allocatedPools := []types.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
-				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(defaultIPv4CIDR1.String()),
+				types.IPAMCIDR(defaultIPv6CIDR1.String()),
 			},
 		},
 		{
 			Pool: "mars",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
-				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(marsIPv4CIDR1.String()),
+				types.IPAMCIDR(marsIPv6CIDR1.String()),
 			},
 		},
 		{
 			Pool: "unused",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(unusedIPv4CIDR1.String()),
-				types.IPAMPodCIDR(unusedIPv6CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(unusedIPv4CIDR1.String()),
+				types.IPAMCIDR(unusedIPv6CIDR1.String()),
 			},
 		},
 	}
@@ -279,30 +279,30 @@ func Test_MultiPoolManager(t *testing.T) {
 	currentNode.Spec.IPAM.Pools.Allocated = []types.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
-				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(defaultIPv6CIDR1.String()),
+				types.IPAMCIDR(defaultIPv4CIDR1.String()),
 			},
 		},
 		{
 			Pool: "jupiter",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(jupiterIPv4CIDR.String()),
-				types.IPAMPodCIDR(juptierIPv6CIDR.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(jupiterIPv4CIDR.String()),
+				types.IPAMCIDR(juptierIPv6CIDR.String()),
 			},
 		},
 		{
 			Pool: "mars",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
-				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(marsIPv6CIDR1.String()),
+				types.IPAMCIDR(marsIPv4CIDR1.String()),
 			},
 		},
 		{
 			Pool: "unused",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(unusedIPv4CIDR1.String()),
-				types.IPAMPodCIDR(unusedIPv6CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(unusedIPv4CIDR1.String()),
+				types.IPAMCIDR(unusedIPv6CIDR1.String()),
 			},
 		},
 	}
@@ -351,16 +351,16 @@ func Test_MultiPoolManager(t *testing.T) {
 		Allocated: []types.IPAMPoolAllocation{
 			{
 				Pool: "default",
-				CIDRs: []types.IPAMPodCIDR{
-					types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
-					types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+				CIDRs: []types.IPAMCIDR{
+					types.IPAMCIDR(defaultIPv4CIDR1.String()),
+					types.IPAMCIDR(defaultIPv6CIDR1.String()),
 				},
 			},
 			{
 				Pool: "mars",
-				CIDRs: []types.IPAMPodCIDR{
-					types.IPAMPodCIDR(marsIPv4CIDR1.String()),
-					types.IPAMPodCIDR(marsIPv6CIDR1.String()),
+				CIDRs: []types.IPAMCIDR{
+					types.IPAMCIDR(marsIPv4CIDR1.String()),
+					types.IPAMCIDR(marsIPv6CIDR1.String()),
 				},
 			},
 		},
@@ -431,17 +431,17 @@ func Test_MultiPoolManager(t *testing.T) {
 	currentNode.Spec.IPAM.Pools.Allocated = []types.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
-				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(defaultIPv4CIDR1.String()),
+				types.IPAMCIDR(defaultIPv6CIDR1.String()),
 			},
 		},
 		{
 			Pool: "mars",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
-				types.IPAMPodCIDR(marsIPv4CIDR2.String()),
-				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(marsIPv4CIDR1.String()),
+				types.IPAMCIDR(marsIPv4CIDR2.String()),
+				types.IPAMCIDR(marsIPv6CIDR1.String()),
 			},
 		},
 	}
@@ -481,16 +481,16 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.Equal(t, []types.IPAMPoolAllocation{
 		{
 			Pool: "default",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(defaultIPv4CIDR1.String()),
-				types.IPAMPodCIDR(defaultIPv6CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(defaultIPv4CIDR1.String()),
+				types.IPAMCIDR(defaultIPv6CIDR1.String()),
 			},
 		},
 		{
 			Pool: "mars",
-			CIDRs: []types.IPAMPodCIDR{
-				types.IPAMPodCIDR(marsIPv4CIDR2.String()),
-				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
+			CIDRs: []types.IPAMCIDR{
+				types.IPAMCIDR(marsIPv4CIDR2.String()),
+				types.IPAMCIDR(marsIPv6CIDR1.String()),
 			},
 		},
 	}, currentNode.Spec.IPAM.Pools.Allocated)
@@ -567,11 +567,11 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 				Pools: types.IPAMPoolSpec{
 					Allocated: []types.IPAMPoolAllocation{{
 						Pool: "default",
-						CIDRs: []types.IPAMPodCIDR{
-							types.IPAMPodCIDR(cidr1.String()),
-							types.IPAMPodCIDR(cidr2.String()),
-							types.IPAMPodCIDR(cidrv61.String()),
-							types.IPAMPodCIDR(cidrv62.String()),
+						CIDRs: []types.IPAMCIDR{
+							types.IPAMCIDR(cidr1.String()),
+							types.IPAMCIDR(cidr2.String()),
+							types.IPAMCIDR(cidrv61.String()),
+							types.IPAMCIDR(cidrv62.String()),
 						},
 					}},
 				},
@@ -627,9 +627,9 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	assert.Len(t, alloc, 1, "expected only one pool allocation entry")
 	assert.Equal(t, "default", alloc[0].Pool)
 	assert.ElementsMatch(t,
-		[]types.IPAMPodCIDR{
-			types.IPAMPodCIDR(cidr1.String()),
-			types.IPAMPodCIDR(cidrv61.String()),
+		[]types.IPAMCIDR{
+			types.IPAMCIDR(cidr1.String()),
+			types.IPAMCIDR(cidrv61.String()),
 		},
 		alloc[0].CIDRs,
 		"unused CIDRs should have been released",
@@ -672,15 +672,15 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	// Create 10 distinct IPv4 /32 and IPv6 /128 CIDRs
 	v4Cidrs := make([]*cidr.CIDR, 10)
 	v6Cidrs := make([]*cidr.CIDR, 10)
-	cidrPodCIDRs := make([]types.IPAMPodCIDR, 0, 20)
+	cidrPodCIDRs := make([]types.IPAMCIDR, 0, 20)
 	for i := 0; i < 10; i++ {
 		c4 := cidr.MustParseCIDR(fmt.Sprintf("10.0.100.%d/32", i))
 		v4Cidrs[i] = c4
-		cidrPodCIDRs = append(cidrPodCIDRs, types.IPAMPodCIDR(c4.String()))
+		cidrPodCIDRs = append(cidrPodCIDRs, types.IPAMCIDR(c4.String()))
 
 		c6 := cidr.MustParseCIDR(fmt.Sprintf("fd00:100::%d/128", i))
 		v6Cidrs[i] = c6
-		cidrPodCIDRs = append(cidrPodCIDRs, types.IPAMPodCIDR(c6.String()))
+		cidrPodCIDRs = append(cidrPodCIDRs, types.IPAMCIDR(c6.String()))
 	}
 
 	initialNode := &ciliumv2.CiliumNode{
@@ -987,10 +987,10 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 			IPAM: types.IPAMSpec{
 				Pools: types.IPAMPoolSpec{
 					Allocated: []types.IPAMPoolAllocation{
-						{Pool: "default", CIDRs: []types.IPAMPodCIDR{"10.0.0.0/24"}},
-						{Pool: "blue", CIDRs: []types.IPAMPodCIDR{"10.0.1.0/24"}},
-						{Pool: "red", CIDRs: []types.IPAMPodCIDR{"10.0.2.0/24"}},
-						{Pool: "green", CIDRs: []types.IPAMPodCIDR{"10.0.3.0/24"}},
+						{Pool: "default", CIDRs: []types.IPAMCIDR{"10.0.0.0/24"}},
+						{Pool: "blue", CIDRs: []types.IPAMCIDR{"10.0.1.0/24"}},
+						{Pool: "red", CIDRs: []types.IPAMCIDR{"10.0.2.0/24"}},
+						{Pool: "green", CIDRs: []types.IPAMCIDR{"10.0.3.0/24"}},
 					},
 				},
 			},

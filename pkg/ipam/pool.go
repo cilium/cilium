@@ -126,17 +126,17 @@ func (p *podCIDRPool) inUseIPCount() (count int) {
 	return count
 }
 
-func (p *podCIDRPool) inUsePodCIDRs() []types.IPAMPodCIDR {
+func (p *podCIDRPool) inUsePodCIDRs() []types.IPAMCIDR {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	return p.inUsePodCIDRsLocked()
 }
 
-func (p *podCIDRPool) inUsePodCIDRsLocked() []types.IPAMPodCIDR {
-	podCIDRs := make([]types.IPAMPodCIDR, 0, len(p.ipAllocators))
+func (p *podCIDRPool) inUsePodCIDRsLocked() []types.IPAMCIDR {
+	podCIDRs := make([]types.IPAMCIDR, 0, len(p.ipAllocators))
 	for _, ipAllocator := range p.ipAllocators {
 		ipnet := ipAllocator.CIDR()
-		podCIDRs = append(podCIDRs, types.IPAMPodCIDR(ipnet.String()))
+		podCIDRs = append(podCIDRs, types.IPAMCIDR(ipnet.String()))
 	}
 	return podCIDRs
 }
