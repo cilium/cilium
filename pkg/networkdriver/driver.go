@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"path"
+	"slices"
 
 	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/cell"
@@ -192,7 +193,7 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan *v2alpha1.CiliumNe
 
 		var (
 			synced, handled bool
-			cfg             *v2alpha1.CiliumNetworkDriverConfig
+			cfgs            = make(map[kube_types.UID]*v2alpha1.CiliumNetworkDriverConfig)
 		)
 
 		if driver.configCRD == nil {
@@ -211,19 +212,11 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan *v2alpha1.CiliumNe
 			case resource.Sync:
 				synced = true
 			case resource.Delete:
-				// not doing anything on delete
+				delete(cfgs, ev.Object.GetUID())
 				continue
-
 			case resource.Upsert:
-				if ev.Object == nil {
-					// nil object?
-				}
-
 				if ev.Object.Spec.NodeSelector == nil {
-					if cfg == nil {
-						driver.logger.Debug("using configuration with no selector")
-						cfg = ev.Object.DeepCopy()
-					}
+					cfgs[ev.Object.GetUID()] = ev.Object.DeepCopy()
 				} else {
 					thisNode, err := driver.localNodeStore.Get(ctx)
 					if err != nil {
@@ -246,22 +239,15 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan *v2alpha1.CiliumNe
 						continue
 					}
 
-					if cfg != nil && cfg.Spec.NodeSelector != nil {
-						driver.logger.Warn(
-							"received another candidate configuration after we picked a valid configuration, ignoring",
-							logfields.Config, cfg.ObjectMeta.Name,
-						)
+					driver.logger.Debug("configuration selector matches this node", logfields.Config, ev.Object.ObjectMeta.Name)
 
-						continue
-					}
-
-					cfg = ev.Object.DeepCopy()
+					cfgs[ev.Object.GetUID()] = ev.Object.DeepCopy()
 				}
 
 			}
 
 			// wait for sync and upsert before reading the config
-			if !synced || cfg == nil {
+			if !synced {
 				continue
 			}
 
@@ -274,8 +260,13 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan *v2alpha1.CiliumNe
 				continue
 			}
 
-			handled = true
+			cfg := selectConfig(slices.Collect(maps.Values(cfgs)))
 
+			if cfg != nil {
+				driver.logger.Debug("configuration selected", logfields.Config, cfg.ObjectMeta.Name)
+			}
+
+			handled = true
 			ch <- cfg
 		}
 	}()

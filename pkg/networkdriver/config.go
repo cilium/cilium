@@ -81,3 +81,27 @@ func labelsMatch(config *v2alpha1.CiliumNetworkDriverConfig, nodeLabels map[stri
 
 	return selector.Matches(l), nil
 }
+
+// selectConfig decides which config to choose among a set of configs
+// 1- selects most specific match - configuration with more selectors wins
+// 2- if two configs have the same amount of selectors, choose the oldest one
+// 3- fallback to config with no selectors
+func selectConfig(configs []*v2alpha1.CiliumNetworkDriverConfig) *v2alpha1.CiliumNetworkDriverConfig {
+	var selected *v2alpha1.CiliumNetworkDriverConfig
+
+	for _, c := range configs {
+		switch {
+		case selected == nil:
+			selected = c.DeepCopy()
+		case c.Spec.NodeSelector.Size() > selected.Spec.NodeSelector.Size():
+			selected = c.DeepCopy()
+		case c.Spec.NodeSelector.Size() == selected.Spec.NodeSelector.Size():
+			// it's a tie? get the oldest
+			if c.GetCreationTimestamp().Time.Before(selected.GetCreationTimestamp().Time) {
+				selected = c.DeepCopy()
+			}
+		}
+	}
+
+	return selected
+}
