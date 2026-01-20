@@ -26,10 +26,10 @@ import (
 var (
 	redPoolCIDRv4        = v2alpha1.PoolCIDR("10.0.0.0/16")
 	redPoolCIDRv6        = v2alpha1.PoolCIDR("2001:db8::/64")
-	redPoolNodePrefix1v4 = ipamtypes.IPAMPodCIDR("10.0.1.0/24")
-	redPoolNodePrefix2v4 = ipamtypes.IPAMPodCIDR("10.0.2.0/24")
-	redPoolNodePrefix1v6 = ipamtypes.IPAMPodCIDR("2001:db8:0:0:1234::/96")
-	redPoolNodePrefix2v6 = ipamtypes.IPAMPodCIDR("2001:db8:0:0:1235::/96")
+	redPoolNodePrefix1v4 = ipamtypes.IPAMCIDR("10.0.1.0/24")
+	redPoolNodePrefix2v4 = ipamtypes.IPAMCIDR("10.0.2.0/24")
+	redPoolNodePrefix1v6 = ipamtypes.IPAMCIDR("2001:db8:0:0:1234::/96")
+	redPoolNodePrefix2v6 = ipamtypes.IPAMCIDR("2001:db8:0:0:1235::/96")
 
 	redPoolName       = "red-pool"
 	redLabelSelector  = slimv1.LabelSelector{MatchLabels: map[string]string{"pool": "red"}}
@@ -122,14 +122,14 @@ var (
 	}
 
 	bluePoolCIDR1v4       = v2alpha1.PoolCIDR("10.1.0.0/16")
-	bluePoolNodePrefix1v4 = ipamtypes.IPAMPodCIDR("10.1.1.0/24")
+	bluePoolNodePrefix1v4 = ipamtypes.IPAMCIDR("10.1.1.0/24")
 	bluePoolCIDR2v4       = v2alpha1.PoolCIDR("10.2.0.0/16")
-	bluePoolNodePrefix2v4 = ipamtypes.IPAMPodCIDR("10.2.1.0/24")
+	bluePoolNodePrefix2v4 = ipamtypes.IPAMCIDR("10.2.1.0/24")
 	bluePoolCIDR3v4       = v2alpha1.PoolCIDR("10.3.0.0/16")
 	bluePoolCIDR1v6       = v2alpha1.PoolCIDR("2001:db8:1::/64")
-	bluePoolNodePrefix1v6 = ipamtypes.IPAMPodCIDR("2001:db8:1:0:1234::/96")
+	bluePoolNodePrefix1v6 = ipamtypes.IPAMCIDR("2001:db8:1:0:1234::/96")
 	bluePoolCIDR2v6       = v2alpha1.PoolCIDR("2001:db8:2::/64")
-	bluePoolNodePrefix2v6 = ipamtypes.IPAMPodCIDR("2001:db8:2:0:1234::/96")
+	bluePoolNodePrefix2v6 = ipamtypes.IPAMCIDR("2001:db8:2:0:1234::/96")
 	bluePoolCIDR3v6       = v2alpha1.PoolCIDR("2001:db8:3::/64")
 
 	bluePoolName       = "blue-pool"
@@ -270,7 +270,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool: redPoolName,
-									CIDRs: []ipamtypes.IPAMPodCIDR{
+									CIDRs: []ipamtypes.IPAMCIDR{
 										redPoolNodePrefix1v4,
 										redPoolNodePrefix2v4,
 										redPoolNodePrefix1v6,
@@ -279,7 +279,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 								},
 								{
 									Pool: bluePoolName,
-									CIDRs: []ipamtypes.IPAMPodCIDR{
+									CIDRs: []ipamtypes.IPAMCIDR{
 										bluePoolNodePrefix1v4,
 										bluePoolNodePrefix2v4,
 										bluePoolNodePrefix1v6,
@@ -356,7 +356,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool: redPoolName,
-									CIDRs: []ipamtypes.IPAMPodCIDR{
+									CIDRs: []ipamtypes.IPAMCIDR{
 										redPoolNodePrefix1v4,
 										redPoolNodePrefix2v4,
 										redPoolNodePrefix1v6,
@@ -365,7 +365,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 								},
 								{
 									Pool: bluePoolName,
-									CIDRs: []ipamtypes.IPAMPodCIDR{
+									CIDRs: []ipamtypes.IPAMCIDR{
 										bluePoolNodePrefix1v4,
 										bluePoolNodePrefix2v4,
 										bluePoolNodePrefix1v6,
@@ -441,7 +441,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool: redPoolName,
-									CIDRs: []ipamtypes.IPAMPodCIDR{
+									CIDRs: []ipamtypes.IPAMCIDR{
 										redPoolNodePrefix1v4,
 										redPoolNodePrefix2v4,
 										redPoolNodePrefix1v6,
@@ -450,7 +450,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 								},
 								{
 									Pool: bluePoolName,
-									CIDRs: []ipamtypes.IPAMPodCIDR{
+									CIDRs: []ipamtypes.IPAMCIDR{
 										bluePoolNodePrefix1v4,
 										bluePoolNodePrefix2v4,
 										bluePoolNodePrefix1v6,
@@ -495,11 +495,11 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool:  redPoolName,
-									CIDRs: []ipamtypes.IPAMPodCIDR{},
+									CIDRs: []ipamtypes.IPAMCIDR{},
 								},
 								{
 									Pool:  bluePoolName,
-									CIDRs: []ipamtypes.IPAMPodCIDR{},
+									CIDRs: []ipamtypes.IPAMCIDR{},
 								},
 							},
 						},
@@ -559,7 +559,7 @@ func Test_PodIPPoolAdvertisements(t *testing.T) {
 							Allocated: []ipamtypes.IPAMPoolAllocation{
 								{
 									Pool: redPoolName,
-									CIDRs: []ipamtypes.IPAMPodCIDR{
+									CIDRs: []ipamtypes.IPAMCIDR{
 										redPoolNodePrefix1v4,
 										redPoolNodePrefix2v4,
 										redPoolNodePrefix1v6,
