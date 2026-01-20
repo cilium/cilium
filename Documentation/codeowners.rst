@@ -36,6 +36,8 @@ repository in the Cilium project:
   These owners are a stand-in for the user community to bring a user
   perspective to the review process. Consider how information is presented,
   consistency of flags and options.
+- `@cilium/committers <https://github.com/orgs/cilium/teams/committers>`__:
+  Cilium contributors with commit access.
 - `@cilium/ci-structure <https://github.com/orgs/cilium/teams/ci-structure>`__:
   Provide guidance around the best use of Cilium project continuous
   integration and testing infrastructure, including GitHub actions, VM
