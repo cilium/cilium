@@ -1375,7 +1375,7 @@ func TestDefaultAllow(t *testing.T) {
 	type testCase struct {
 		rules           policytypes.PolicyEntries
 		ingress, egress bool
-		ruleC           int // count of rules; indicates wildcard
+		ruleC           int // count of rules; includes wildcard rules
 	}
 
 	ingressCases := []testCase{

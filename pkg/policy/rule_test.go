@@ -1326,8 +1326,11 @@ func TestL3RuleLabels(t *testing.T) {
 						for sel := range filter.PerSelectorPolicies {
 							cidrLabels := labels.ParseLabelArray("cidr:" + cidr)
 							t.Logf("Testing %+v", cidrLabels)
-							if matches = sel.(*identitySelector).source.(*types.CIDRSelector).Matches(cidrLabels); matches {
-								break
+							cidr, ok := sel.(*identitySelector).source.(*types.CIDRSelector)
+							if ok {
+								if matches = cidr.Matches(cidrLabels); matches {
+									break
+								}
 							}
 						}
 						require.True(t, matches, "%s: expected cidr %s to match filter %+v", test.description, cidr, filter)
