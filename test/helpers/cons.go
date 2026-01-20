@@ -195,7 +195,6 @@ const (
 	failedToReleaseLock        = "Failed to release lock:"
 	errorCreatingInitialLeader = "error initially creating leader election record:"
 	cantEnableJIT              = "bpf_jit_enable: no such file or directory"                             // Because we run tests in Kind.
-	delMissingService          = "Deleting no longer present service"                                    // cf. https://github.com/cilium/cilium/issues/29679
 	podCIDRUnavailable         = " PodCIDR not available"                                                // cf. https://github.com/cilium/cilium/issues/29680
 	unableGetNode              = "Unable to get node resource"                                           // cf. https://github.com/cilium/cilium/issues/29710
 	objectHasBeenModified      = "the object has been modified; please apply your changes"               // cf. https://github.com/cilium/cilium/issues/29712
@@ -255,8 +254,8 @@ var badLogMessages = map[string][]string{
 	logutils.ErrorLogs: {opCantBeFulfilled, initLeaderElection, globalDataSupport,
 		failedToListCRDs, retrieveResLock, failedToRelLockEmptyName, failedToUpdateLock,
 		failedToReleaseLock, errorCreatingInitialLeader},
-	logutils.WarningLogs: {cantEnableJIT, delMissingService, podCIDRUnavailable,
-		unableGetNode, objectHasBeenModified, etcdTimeout, endpointRestoreFailed,
+	logutils.WarningLogs: {cantEnableJIT, podCIDRUnavailable, unableGetNode,
+		objectHasBeenModified, etcdTimeout, endpointRestoreFailed,
 		cantFindIdentityInCache, keyAllocFailedFoundMaster, cantRecreateMasterKey,
 		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs, mutationDetector},
 }
