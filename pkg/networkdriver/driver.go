@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"path"
+	"slices"
 
 	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/cell"
@@ -30,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -53,13 +55,14 @@ type Driver struct {
 	pods           resource.Resource[*corev1.Pod]
 
 	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
-	config    *v2alpha1.CiliumNetworkDriverConfigSpec
+	config    *v2alpha1.CiliumNetworkDriverConfig
 
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
 	allocations map[kube_types.UID]map[kube_types.UID][]allocation
 	// manager_type: devices
-	devices map[types.DeviceManagerType][]types.Device
+	devices        map[types.DeviceManagerType][]types.Device
+	localNodeStore *node.LocalNodeStore
 }
 
 type allocation struct {
@@ -110,9 +113,9 @@ func (driver *Driver) getDevicePools(ctx context.Context) (map[string]resourcesl
 		}
 	}
 
-	pools := make(map[string]resourceslice.Pool, len(driver.config.Pools))
+	pools := make(map[string]resourceslice.Pool, len(driver.config.Spec.Pools))
 
-	for _, p := range driver.config.Pools {
+	for _, p := range driver.config.Spec.Pools {
 		if p.Filter == nil {
 			// no filter specified, this shouldn't happen
 			driver.logger.ErrorContext(
@@ -182,18 +185,15 @@ func (driver *Driver) publish(ctx context.Context) error {
 
 // watchConfig blocks until the first configuration is found (from the CRD). Update attempts are logged but not passed
 // to the channel
-func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNetworkDriverConfigSpec {
-	ch := make(chan v2alpha1.CiliumNetworkDriverConfigSpec)
+func (driver *Driver) watchConfig(ctx context.Context) <-chan *v2alpha1.CiliumNetworkDriverConfig {
+	ch := make(chan *v2alpha1.CiliumNetworkDriverConfig)
 
 	go func() {
 		defer close(ch)
 
 		var (
-			cfg *v2alpha1.CiliumNetworkDriverConfigSpec
-
-			synced   bool
-			upserted bool
-			handled  bool
+			synced, handled bool
+			cfgs            = make(map[kube_types.UID]*v2alpha1.CiliumNetworkDriverConfig)
 		)
 
 		if driver.configCRD == nil {
@@ -201,19 +201,54 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 			return
 		}
 
+		// Upon starting, we expect to receive all the current CRDs in events
+		// of kind "upsert", followed by an event of kind "sync".
+		// we collect all the configs, and on every update we evaluate
+		// the selector to determine if an update is necessary or not.
 		for ev := range driver.configCRD.Events(ctx) {
 			ev.Done(nil)
 
 			switch ev.Kind {
-			case resource.Delete:
-				cfg = nil
-				upserted = false
-				continue
 			case resource.Sync:
 				synced = true
+			case resource.Delete:
+				delete(cfgs, ev.Object.GetUID())
+				continue
 			case resource.Upsert:
-				cfg = ev.Object.Spec.DeepCopy()
-				upserted = true
+				if ev.Object.Spec.NodeSelector == nil {
+					cfgs[ev.Object.GetUID()] = ev.Object.DeepCopy()
+				} else {
+					thisNode, err := driver.localNodeStore.Get(ctx)
+					if err != nil {
+						driver.logger.ErrorContext(
+							ctx, "failed to retrieve node labels",
+							logfields.Error, err,
+						)
+
+						continue
+					}
+
+					match, err := labelsMatch(ev.Object, thisNode.Labels)
+					if err != nil {
+						driver.logger.Error("failed to match node labels to selector", logfields.Error, err)
+						continue
+					}
+
+					if !match {
+						driver.logger.Debug("configuration selector does not match this node", logfields.Config, ev.Object.ObjectMeta.Name)
+						continue
+					}
+
+					driver.logger.Debug("configuration selector matches this node", logfields.Config, ev.Object.ObjectMeta.Name)
+
+					cfgs[ev.Object.GetUID()] = ev.Object.DeepCopy()
+				}
+
+			}
+
+			// wait for sync and upsert before reading the config
+			if !synced {
+				continue
 			}
 
 			// discard updates if we already handled a config
@@ -221,18 +256,18 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 				driver.logger.InfoContext(
 					ctx, "config received, but we already have one",
 				)
+
 				continue
 			}
 
-			// wait for sync and upsert before reading the config
-			if !synced || !upserted {
-				continue
-			}
+			cfg := selectConfig(slices.Collect(maps.Values(cfgs)))
 
-			driver.logger.DebugContext(ctx, "network driver configuration found")
+			if cfg != nil {
+				driver.logger.Debug("configuration selected", logfields.Config, cfg.ObjectMeta.Name)
+			}
 
 			handled = true
-			ch <- *cfg
+			ch <- cfg
 		}
 	}()
 
@@ -266,7 +301,7 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim) 
 	var errs []error
 
 	for _, devStatus := range claim.Status.Devices {
-		if devStatus.Driver != driver.config.DriverName {
+		if devStatus.Driver != driver.config.Spec.DriverName {
 			continue
 		}
 
@@ -360,7 +395,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			return nil
 		}
 
-		driver.config = &cfg
+		driver.config = cfg
 
 		if driver.config == nil {
 			// not found, we wont start the driver
@@ -374,14 +409,10 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 		driver.logger.DebugContext(
 			ctx, "Starting network driver...",
 			logfields.K8sAPIVersion, version.Version(),
-			logfields.DriverName, driver.config.DriverName,
+			logfields.DriverName, driver.config.Spec.DriverName,
 		)
 
-		driver.logger.DebugContext(ctx,
-			"starting driver with config",
-			logfields.Config, driver.config)
-
-		if err := validateConfig(driver.config); err != nil {
+		if err := validateConfig(&driver.config.Spec); err != nil {
 			driver.logger.ErrorContext(
 				ctx, "invalid configuration",
 				logfields.Error, err,
@@ -390,7 +421,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			return err
 		}
 
-		mgrs, err := devicemanagers.InitManagers(driver.logger, driver.config.DeviceManagerConfigs)
+		mgrs, err := devicemanagers.InitManagers(driver.logger, driver.config.Spec.DeviceManagerConfigs)
 		if err != nil {
 			return err
 		}
@@ -434,7 +465,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			job.Timer(
 				"network-driver-dra-publish-resources",
 				driver.publish,
-				time.Duration(driver.config.PublishIntervalSeconds)*time.Second,
+				time.Duration(driver.config.Spec.PublishIntervalSeconds)*time.Second,
 				job.WithTrigger(trigger),
 			),
 		)

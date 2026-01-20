@@ -9,6 +9,8 @@ import (
 	"slices"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // validateFilters ensures that we do not have more than one filter matching the same device.
@@ -67,4 +69,39 @@ func validateConfig(c *v2alpha1.CiliumNetworkDriverConfigSpec) error {
 	}
 
 	return nil
+}
+
+func labelsMatch(config *v2alpha1.CiliumNetworkDriverConfig, nodeLabels map[string]string) (bool, error) {
+	l := labels.Set(nodeLabels)
+
+	selector, err := metav1.LabelSelectorAsSelector(config.Spec.NodeSelector)
+	if err != nil {
+		return false, err
+	}
+
+	return selector.Matches(l), nil
+}
+
+// selectConfig decides which config to choose among a set of configs
+// 1- selects most specific match - configuration with more selectors wins
+// 2- if two configs have the same amount of selectors, choose the oldest one
+// 3- fallback to config with no selectors
+func selectConfig(configs []*v2alpha1.CiliumNetworkDriverConfig) *v2alpha1.CiliumNetworkDriverConfig {
+	var selected *v2alpha1.CiliumNetworkDriverConfig
+
+	for _, c := range configs {
+		switch {
+		case selected == nil:
+			selected = c.DeepCopy()
+		case c.Spec.NodeSelector.Size() > selected.Spec.NodeSelector.Size():
+			selected = c.DeepCopy()
+		case c.Spec.NodeSelector.Size() == selected.Spec.NodeSelector.Size():
+			// it's a tie? get the oldest
+			if c.GetCreationTimestamp().Time.Before(selected.GetCreationTimestamp().Time) {
+				selected = c.DeepCopy()
+			}
+		}
+	}
+
+	return selected
 }

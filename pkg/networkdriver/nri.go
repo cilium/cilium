@@ -180,14 +180,14 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 func (driver *Driver) startNRI(ctx context.Context) error {
 	// register the NRI plugin
 	nriOptions := []stub.Option{
-		stub.WithPluginName(driver.config.DriverName),
+		stub.WithPluginName(driver.config.Spec.DriverName),
 		stub.WithPluginIdx("00"),
 		// https://github.com/containerd/nri/pull/173
 		// Otherwise it silently exits the program
 		stub.WithOnClose(func() {
 			driver.logger.WarnContext(
 				ctx, "NRI plugin closed",
-				logfields.DriverName, driver.config.DriverName,
+				logfields.DriverName, driver.config.Spec.DriverName,
 			)
 		}),
 	}
@@ -205,14 +205,14 @@ func (driver *Driver) startNRI(ctx context.Context) error {
 				driver.logger.ErrorContext(
 					ctx, "NRI plugin failed",
 					logfields.Error, err,
-					logfields.Name, driver.config.DriverName,
+					logfields.Name, driver.config.Spec.DriverName,
 				)
 			}
 			select {
 			case <-ctx.Done():
 				return nil
 			case <-time.After(time.Second):
-				driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.config.DriverName)
+				driver.logger.DebugContext(ctx, "Restarting NRI plugin", logfields.Name, driver.config.Spec.DriverName)
 			}
 		}
 	}))
