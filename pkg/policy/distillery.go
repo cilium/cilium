@@ -112,21 +112,28 @@ func (cache *policyCache) delete(identity *identityPkg.Identity) bool {
 //
 // Must be called with repo.Mutex held for reading.
 func (cache *policyCache) updateSelectorPolicy(identity *identityPkg.Identity, endpointID uint64) (*selectorPolicy, bool, error) {
-	cip, ok := cache.lookup(identity)
+	// Hold the cache lock through the cip.Lock() acquisition to prevent a race
+	// with delete(). Without this, the following race can occur:
+	//   1. lookup() returns cip and releases cache lock
+	//   2. delete() acquires cache lock, removes cip from cache, detaches policy
+	//   3. cip.Lock() acquires lock on an orphaned entry no longer in cache
+	//   4. Policy is resolved and stored in orphaned cip
+	// The result is an endpoint with a policy that won't receive incremental
+	// updates, causing silent policy staleness.
+	//
+	// By holding the cache lock until after cip.Lock() is acquired, we ensure
+	// the entry is still in the cache when we lock it. If delete() runs after
+	// we release the cache lock, the new policy computed here will still be
+	// properly attached to the selector cache, and if the endpoint's identity
+	// changed, setDesiredPolicy() will detect this and reject the computation.
+	cache.Lock()
+	cip, ok := cache.lookupLocked(identity)
 	if !ok {
+		cache.Unlock()
 		return nil, false, fmt.Errorf("SelectorPolicy not found in cache for ID %d", identity.ID)
 	}
-
-	// As long as UpdatePolicy() is triggered from endpoint
-	// regeneration, it's possible for two endpoints with the
-	// *same* identity to race to update the policy here. Such
-	// racing would lead to first of the endpoints using a
-	// selectorPolicy that is already detached from the selector
-	// cache, and thus not getting any incremental updates.
-	//
-	// Lock the 'cip' for the duration of the revision check and
-	// the possible policy update.
 	cip.Lock()
+	cache.Unlock()
 	defer cip.Unlock()
 
 	// Don't resolve policy if it was already done for this or later revision.
