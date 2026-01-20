@@ -3106,6 +3106,9 @@ operator:
   hostUsers: true
   # -- Security context to be added to cilium-operator pods
   podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65000
+    runAsGroup: 65000
     seccompProfile:
       type: RuntimeDefault
   # -- Annotations to be added to cilium-operator pods
@@ -3149,7 +3152,6 @@ operator:
       drop:
       - ALL
     allowPrivilegeEscalation: false
-  # runAsUser: 0
 
   # -- Interval for endpoint garbage collection.
   endpointGCInterval: "5m0s"

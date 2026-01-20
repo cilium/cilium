@@ -222,6 +222,10 @@ spec:
           timeoutSeconds: 3
           failureThreshold: 5
         volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: var-run-cilium-volume
+          mountPath: /var/run/cilium
         - name: cilium-config-path
           mountPath: /tmp/cilium/config-map
           readOnly: true
@@ -327,9 +331,15 @@ spec:
       {{- if hasKey .Values "agentNotReadyTaintKey" }}
         - key: {{ .Values.agentNotReadyTaintKey }}
           operator: Exists
-      {{ end}}
-      {{- end}}
+      {{ end }}
+      {{- end }}
       volumes:
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 256Mi
+      - name: var-run-cilium-volume
+        emptyDir:
+          sizeLimit: 256Mi
         # To read the configuration from the config map
       - name: cilium-config-path
         configMap:

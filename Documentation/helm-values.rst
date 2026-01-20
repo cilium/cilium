@@ -3263,7 +3263,7 @@
    * - :spelling:ignore:`operator.podSecurityContext`
      - Security context to be added to cilium-operator pods
      - object
-     - ``{"seccompProfile":{"type":"RuntimeDefault"}}``
+     - ``{"runAsGroup":65000,"runAsNonRoot":true,"runAsUser":65000,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`operator.pprof.address`
      - Configure pprof listen address for cilium-operator
      - string
