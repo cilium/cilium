@@ -123,6 +123,11 @@ func (m *Map) OpenOrCreate() error {
 		PinPath: bpf.TCGlobalsPath(),
 	}
 
+	// Use global BPF token if available for user namespace support
+	if tokenFD := bpf.GetGlobalToken(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+
 	m.spec.Flags |= bpf.GetMapMemoryFlags(m.spec.Type)
 
 	path := bpf.MapPath(m.logger, m.spec.Name)

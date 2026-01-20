@@ -241,10 +241,14 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	// Collection. ebpf-go will reject maps with pins it doesn't recognize.
 	toReplace := consumePinReplace(spec)
 
-	// Set BPF token FD for program and map loading if provided
+	// Set BPF token FD for program and map loading if provided, or use global token
 	if opts.TokenFD > 0 {
 		opts.CollectionOptions.Programs.TokenFD = opts.TokenFD
 		opts.CollectionOptions.Maps.TokenFD = opts.TokenFD
+	} else if tokenFD := GetGlobalToken(); tokenFD > 0 {
+		// Use global token if no explicit token provided
+		opts.CollectionOptions.Programs.TokenFD = tokenFD
+		opts.CollectionOptions.Maps.TokenFD = tokenFD
 	}
 
 	// Attempt to load the Collection.
