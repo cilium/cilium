@@ -343,7 +343,7 @@ func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 		ESN:          true,
 		Spi:          int(keys.Spi),
 		Reqid:        keys.ReqID,
-		ReplayWindow: 1024,
+		ReplayWindow: 0,
 	}
 	if keys.Aead != nil {
 		state.Aead = keys.Aead

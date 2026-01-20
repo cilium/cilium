@@ -271,9 +271,6 @@ func (h *Handle) xfrmStateAddOrUpdate(state *XfrmState, nlProto int) error {
 	msg := xfrmUsersaInfoFromXfrmState(state)
 
 	if state.ESN {
-		if state.ReplayWindow == 0 {
-			return fmt.Errorf("ESN flag set without ReplayWindow")
-		}
 		msg.Flags |= nl.XFRM_STATE_ESN
 		msg.ReplayWindow = 0
 	}
