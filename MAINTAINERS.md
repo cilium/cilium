@@ -36,6 +36,7 @@ to learn how to level up through the project.
  * [Louis DeLosSantos] (Isovalent)
  * [Maciej Kwiek] (Isovalent)
  * [Marcel Zięba] (Isovalent)
+ * [Marco Hofstetter] (Isovalent)
  * [Marco Iorio] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
  * [Michi Mutsuzaki] (Isovalent)
@@ -110,6 +111,7 @@ project.
 [Louis DeLosSantos]: https://github.com/ldelossa
 [Maciej Kwiek]: https://github.com/nebril
 [Marcel Zięba]: https://github.com/marseel
+[Marco Hofstetter]: https://github.com/mhofstetter
 [Marco Iorio]: https://github.com/giorio94
 [Martynas Pumputis]: https://github.com/brb
 [Michal Rostecki]: https://github.com/vadorovsky
