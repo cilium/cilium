@@ -1387,6 +1387,11 @@ func Test_AllowAll(t *testing.T) {
 	}
 }
 
+// newDenyEntryWithLabels creates an deny entry with the specified labels.
+func newDenyEntryWithLabels(lbls labels.LabelArray) mapStateEntry {
+	return newMapStateEntry(0, types.MaxPriority, makeSingleRuleOrigin(lbls, ""), 0, 0, types.Deny, NoAuthRequirement)
+}
+
 var (
 	ruleAllowAllIngress = api.NewRule().WithIngressRules([]api.IngressRule{{
 		IngressCommonRule: api.IngressCommonRule{

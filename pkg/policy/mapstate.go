@@ -64,14 +64,20 @@ const (
 	LabelKeyPolicyDerivedFrom  = "io.cilium.policy.derived-from"
 	LabelAllowLocalHostIngress = "allow-localhost-ingress"
 	LabelAllowAnyIngress       = "allow-any-ingress"
+	LabelDenyAnyIngress        = "deny-any-ingress"
 	LabelAllowAnyEgress        = "allow-any-egress"
+	LabelDenyAnyEgress         = "deny-any-egress"
 )
 
 var (
 	LabelsAllowAnyIngress = labels.LabelArray{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved)}
+	LabelsDenyAnyIngress = labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelDenyAnyIngress, labels.LabelSourceReserved)}
 	LabelsAllowAnyEgress = labels.LabelArray{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved)}
+	LabelsDenyAnyEgress = labels.LabelArray{
+		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelDenyAnyEgress, labels.LabelSourceReserved)}
 	LabelsLocalHostIngress = labels.LabelArray{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved)}
 )
