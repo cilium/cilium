@@ -821,6 +821,64 @@ type GalleryInVMAccessControlProfilesClientUpdateResponse struct {
 	GalleryInVMAccessControlProfile
 }
 
+// GalleryScriptVersionsClientCreateOrUpdateResponse contains the response from method GalleryScriptVersionsClient.BeginCreateOrUpdate.
+type GalleryScriptVersionsClientCreateOrUpdateResponse struct {
+	// Concrete tracked resource types can be created by aliasing this type using a specific property type.
+	GalleryScriptVersion
+}
+
+// GalleryScriptVersionsClientDeleteResponse contains the response from method GalleryScriptVersionsClient.BeginDelete.
+type GalleryScriptVersionsClientDeleteResponse struct {
+	// placeholder for future response values
+}
+
+// GalleryScriptVersionsClientGetResponse contains the response from method GalleryScriptVersionsClient.Get.
+type GalleryScriptVersionsClientGetResponse struct {
+	// Concrete tracked resource types can be created by aliasing this type using a specific property type.
+	GalleryScriptVersion
+}
+
+// GalleryScriptVersionsClientListByGalleryScriptResponse contains the response from method GalleryScriptVersionsClient.NewListByGalleryScriptPager.
+type GalleryScriptVersionsClientListByGalleryScriptResponse struct {
+	// Paged collection of GalleryScriptVersion items
+	GalleryScriptVersionList
+}
+
+// GalleryScriptVersionsClientUpdateResponse contains the response from method GalleryScriptVersionsClient.BeginUpdate.
+type GalleryScriptVersionsClientUpdateResponse struct {
+	// Concrete tracked resource types can be created by aliasing this type using a specific property type.
+	GalleryScriptVersion
+}
+
+// GalleryScriptsClientCreateOrUpdateResponse contains the response from method GalleryScriptsClient.BeginCreateOrUpdate.
+type GalleryScriptsClientCreateOrUpdateResponse struct {
+	// Specifies information about the gallery Script Definition that you want to create or update.
+	GalleryScript
+}
+
+// GalleryScriptsClientDeleteResponse contains the response from method GalleryScriptsClient.BeginDelete.
+type GalleryScriptsClientDeleteResponse struct {
+	// placeholder for future response values
+}
+
+// GalleryScriptsClientGetResponse contains the response from method GalleryScriptsClient.Get.
+type GalleryScriptsClientGetResponse struct {
+	// Specifies information about the gallery Script Definition that you want to create or update.
+	GalleryScript
+}
+
+// GalleryScriptsClientListByGalleryResponse contains the response from method GalleryScriptsClient.NewListByGalleryPager.
+type GalleryScriptsClientListByGalleryResponse struct {
+	// The List Gallery Script operation response.
+	GalleryScriptList
+}
+
+// GalleryScriptsClientUpdateResponse contains the response from method GalleryScriptsClient.BeginUpdate.
+type GalleryScriptsClientUpdateResponse struct {
+	// Specifies information about the gallery Script Definition that you want to create or update.
+	GalleryScript
+}
+
 // GallerySharingProfileClientUpdateResponse contains the response from method GallerySharingProfileClient.BeginUpdate.
 type GallerySharingProfileClientUpdateResponse struct {
 	// Specifies information about the gallery sharing profile update.

@@ -113,7 +113,7 @@ func PossibleAlternativeTypeValues() []AlternativeType {
 	}
 }
 
-// Architecture - The architecture of the image. Applicable to OS disks only.
+// Architecture - CPU architecture supported by an OS disk.
 type Architecture string
 
 const (
@@ -1035,6 +1035,34 @@ func PossibleGalleryProvisioningStateValues() []GalleryProvisioningState {
 	}
 }
 
+// GalleryScriptParameterType - Specifies the type of the Gallery Script parameter. Possible values are: String, Int, Double,
+// Boolean, Enum
+type GalleryScriptParameterType string
+
+const (
+	// GalleryScriptParameterTypeBoolean - Boolean gallery script parameter type
+	GalleryScriptParameterTypeBoolean GalleryScriptParameterType = "Boolean"
+	// GalleryScriptParameterTypeDouble - Double gallery script parameter type
+	GalleryScriptParameterTypeDouble GalleryScriptParameterType = "Double"
+	// GalleryScriptParameterTypeEnum - Enum gallery script parameter type
+	GalleryScriptParameterTypeEnum GalleryScriptParameterType = "Enum"
+	// GalleryScriptParameterTypeInt - Int gallery script parameter type
+	GalleryScriptParameterTypeInt GalleryScriptParameterType = "Int"
+	// GalleryScriptParameterTypeString - String gallery script parameter type
+	GalleryScriptParameterTypeString GalleryScriptParameterType = "String"
+)
+
+// PossibleGalleryScriptParameterTypeValues returns the possible values for the GalleryScriptParameterType const type.
+func PossibleGalleryScriptParameterTypeValues() []GalleryScriptParameterType {
+	return []GalleryScriptParameterType{
+		GalleryScriptParameterTypeBoolean,
+		GalleryScriptParameterTypeDouble,
+		GalleryScriptParameterTypeEnum,
+		GalleryScriptParameterTypeInt,
+		GalleryScriptParameterTypeString,
+	}
+}
+
 // GallerySharingPermissionTypes - This property allows you to specify the permission of sharing gallery. Possible values
 // are: Private, Groups, Community.
 type GallerySharingPermissionTypes string
@@ -1458,8 +1486,7 @@ func PossibleOperatingSystemTypeValues() []OperatingSystemType {
 	}
 }
 
-// OperatingSystemTypes - This property allows you to specify the supported type of the OS that application is built for.
-// Possible values are: Windows, Linux.
+// OperatingSystemTypes - The Operating System type.
 type OperatingSystemTypes string
 
 const (
@@ -2408,6 +2435,28 @@ func PossibleStatusLevelTypesValues() []StatusLevelTypes {
 		StatusLevelTypesError,
 		StatusLevelTypesInfo,
 		StatusLevelTypesWarning,
+	}
+}
+
+// StorageAccountStrategy - Specifies the strategy to be used when selecting the storage account type. Cannot be specified
+// along with storageAccountType, but can be overridden per region by specifying
+// targetRegions[].storageAccountType. This property is not updatable.
+type StorageAccountStrategy string
+
+const (
+	// StorageAccountStrategyDefaultStandardLRS - Choose Standard_LRS storage unless overridden by specifying regional storageAccountType.
+	StorageAccountStrategyDefaultStandardLRS StorageAccountStrategy = "DefaultStandard_LRS"
+	// StorageAccountStrategyPreferStandardZRS - Choose Standard_ZRS storage if the region supports it, else choose Standard_LRS
+	// storage, unless overridden by specifying regional storageAccountType. If no storageAccountStrategy is specified, this is
+	// the default strategy (from API version 2025-03-03 onwards).
+	StorageAccountStrategyPreferStandardZRS StorageAccountStrategy = "PreferStandard_ZRS"
+)
+
+// PossibleStorageAccountStrategyValues returns the possible values for the StorageAccountStrategy const type.
+func PossibleStorageAccountStrategyValues() []StorageAccountStrategy {
+	return []StorageAccountStrategy{
+		StorageAccountStrategyDefaultStandardLRS,
+		StorageAccountStrategyPreferStandardZRS,
 	}
 }
 
