@@ -225,6 +225,22 @@ func (c *ClientFactory) NewGalleryInVMAccessControlProfilesClient() *GalleryInVM
 	}
 }
 
+// NewGalleryScriptVersionsClient creates a new instance of GalleryScriptVersionsClient.
+func (c *ClientFactory) NewGalleryScriptVersionsClient() *GalleryScriptVersionsClient {
+	return &GalleryScriptVersionsClient{
+		subscriptionID: c.subscriptionID,
+		internal:       c.internal,
+	}
+}
+
+// NewGalleryScriptsClient creates a new instance of GalleryScriptsClient.
+func (c *ClientFactory) NewGalleryScriptsClient() *GalleryScriptsClient {
+	return &GalleryScriptsClient{
+		subscriptionID: c.subscriptionID,
+		internal:       c.internal,
+	}
+}
+
 // NewGallerySharingProfileClient creates a new instance of GallerySharingProfileClient.
 func (c *ClientFactory) NewGallerySharingProfileClient() *GallerySharingProfileClient {
 	return &GallerySharingProfileClient{

@@ -1,5 +1,40 @@
 # Release History
 
+## 7.3.0 (2026-01-23)
+### Features Added
+
+- New enum type `GalleryScriptParameterType` with values `GalleryScriptParameterTypeBoolean`, `GalleryScriptParameterTypeDouble`, `GalleryScriptParameterTypeEnum`, `GalleryScriptParameterTypeInt`, `GalleryScriptParameterTypeString`
+- New enum type `StorageAccountStrategy` with values `StorageAccountStrategyDefaultStandardLRS`, `StorageAccountStrategyPreferStandardZRS`
+- New function `*ClientFactory.NewGalleryScriptVersionsClient() *GalleryScriptVersionsClient`
+- New function `*ClientFactory.NewGalleryScriptsClient() *GalleryScriptsClient`
+- New function `NewGalleryScriptVersionsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*GalleryScriptVersionsClient, error)`
+- New function `*GalleryScriptVersionsClient.BeginCreateOrUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScriptVersionName string, galleryScriptVersion GalleryScriptVersion, options *GalleryScriptVersionsClientBeginCreateOrUpdateOptions) (*runtime.Poller[GalleryScriptVersionsClientCreateOrUpdateResponse], error)`
+- New function `*GalleryScriptVersionsClient.BeginDelete(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScriptVersionName string, options *GalleryScriptVersionsClientBeginDeleteOptions) (*runtime.Poller[GalleryScriptVersionsClientDeleteResponse], error)`
+- New function `*GalleryScriptVersionsClient.Get(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScriptVersionName string, options *GalleryScriptVersionsClientGetOptions) (GalleryScriptVersionsClientGetResponse, error)`
+- New function `*GalleryScriptVersionsClient.NewListByGalleryScriptPager(resourceGroupName string, galleryName string, galleryScriptName string, options *GalleryScriptVersionsClientListByGalleryScriptOptions) *runtime.Pager[GalleryScriptVersionsClientListByGalleryScriptResponse]`
+- New function `*GalleryScriptVersionsClient.BeginUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScriptVersionName string, galleryScriptVersion GalleryScriptVersionUpdate, options *GalleryScriptVersionsClientBeginUpdateOptions) (*runtime.Poller[GalleryScriptVersionsClientUpdateResponse], error)`
+- New function `NewGalleryScriptsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*GalleryScriptsClient, error)`
+- New function `*GalleryScriptsClient.BeginCreateOrUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScript GalleryScript, options *GalleryScriptsClientBeginCreateOrUpdateOptions) (*runtime.Poller[GalleryScriptsClientCreateOrUpdateResponse], error)`
+- New function `*GalleryScriptsClient.BeginDelete(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, options *GalleryScriptsClientBeginDeleteOptions) (*runtime.Poller[GalleryScriptsClientDeleteResponse], error)`
+- New function `*GalleryScriptsClient.Get(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, options *GalleryScriptsClientGetOptions) (GalleryScriptsClientGetResponse, error)`
+- New function `*GalleryScriptsClient.NewListByGalleryPager(resourceGroupName string, galleryName string, options *GalleryScriptsClientListByGalleryOptions) *runtime.Pager[GalleryScriptsClientListByGalleryResponse]`
+- New function `*GalleryScriptsClient.BeginUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryScriptName string, galleryScript GalleryScriptUpdate, options *GalleryScriptsClientBeginUpdateOptions) (*runtime.Poller[GalleryScriptsClientUpdateResponse], error)`
+- New struct `GalleryScript`
+- New struct `GalleryScriptList`
+- New struct `GalleryScriptParameter`
+- New struct `GalleryScriptProperties`
+- New struct `GalleryScriptUpdate`
+- New struct `GalleryScriptVersion`
+- New struct `GalleryScriptVersionList`
+- New struct `GalleryScriptVersionProperties`
+- New struct `GalleryScriptVersionPublishingProfile`
+- New struct `GalleryScriptVersionSafetyProfile`
+- New struct `GalleryScriptVersionUpdate`
+- New struct `ScriptSource`
+- New field `StorageAccountStrategy` in struct `GalleryApplicationVersionPublishingProfile`
+- New field `StorageAccountStrategy` in struct `GalleryImageVersionPublishingProfile`
+
+
 ## 7.2.0 (2025-11-21)
 ### Features Added
 

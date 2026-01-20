@@ -27,7 +27,7 @@ type CommunityGalleriesClient struct {
 // NewCommunityGalleriesClient creates a new instance of CommunityGalleriesClient with the specified values.
 //   - subscriptionID - The ID of the target subscription.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
-//   - options - pass nil to accept the default values.
+//   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewCommunityGalleriesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*CommunityGalleriesClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
@@ -43,7 +43,7 @@ func NewCommunityGalleriesClient(subscriptionID string, credential azcore.TokenC
 // Get - Get a community gallery by gallery public name.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 //   - location - The name of Azure region.
 //   - publicGalleryName - The public name of the community gallery.
 //   - options - CommunityGalleriesClientGetOptions contains the optional parameters for the CommunityGalleriesClient.Get method.
@@ -89,7 +89,7 @@ func (client *CommunityGalleriesClient) getCreateRequest(ctx context.Context, lo
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-03-03")
+	reqQP.Set("api-version", "2025-03-03")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

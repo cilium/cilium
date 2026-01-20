@@ -27,7 +27,7 @@ type GalleryApplicationsClient struct {
 // NewGalleryApplicationsClient creates a new instance of GalleryApplicationsClient with the specified values.
 //   - subscriptionID - The ID of the target subscription.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
-//   - options - pass nil to accept the default values.
+//   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewGalleryApplicationsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*GalleryApplicationsClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
@@ -43,7 +43,7 @@ func NewGalleryApplicationsClient(subscriptionID string, credential azcore.Token
 // BeginCreateOrUpdate - Create or update a gallery Application Definition.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - galleryApplicationName - The name of the gallery Application Definition to be retrieved.
@@ -71,7 +71,7 @@ func (client *GalleryApplicationsClient) BeginCreateOrUpdate(ctx context.Context
 // CreateOrUpdate - Create or update a gallery Application Definition.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 func (client *GalleryApplicationsClient) createOrUpdate(ctx context.Context, resourceGroupName string, galleryName string, galleryApplicationName string, galleryApplication GalleryApplication, options *GalleryApplicationsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "GalleryApplicationsClient.BeginCreateOrUpdate"
@@ -117,7 +117,7 @@ func (client *GalleryApplicationsClient) createOrUpdateCreateRequest(ctx context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-03-03")
+	reqQP.Set("api-version", "2025-03-03")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, galleryApplication); err != nil {
@@ -129,7 +129,7 @@ func (client *GalleryApplicationsClient) createOrUpdateCreateRequest(ctx context
 // BeginDelete - Delete a gallery Application.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - galleryApplicationName - The name of the gallery Application Definition to be retrieved.
@@ -156,7 +156,7 @@ func (client *GalleryApplicationsClient) BeginDelete(ctx context.Context, resour
 // Delete - Delete a gallery Application.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 func (client *GalleryApplicationsClient) deleteOperation(ctx context.Context, resourceGroupName string, galleryName string, galleryApplicationName string, options *GalleryApplicationsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "GalleryApplicationsClient.BeginDelete"
@@ -202,7 +202,7 @@ func (client *GalleryApplicationsClient) deleteCreateRequest(ctx context.Context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-03-03")
+	reqQP.Set("api-version", "2025-03-03")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -211,7 +211,7 @@ func (client *GalleryApplicationsClient) deleteCreateRequest(ctx context.Context
 // Get - Retrieves information about a gallery Application Definition.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - galleryApplicationName - The name of the gallery Application Definition to be retrieved.
@@ -262,7 +262,7 @@ func (client *GalleryApplicationsClient) getCreateRequest(ctx context.Context, r
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-03-03")
+	reqQP.Set("api-version", "2025-03-03")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -279,7 +279,7 @@ func (client *GalleryApplicationsClient) getHandleResponse(resp *http.Response) 
 
 // NewListByGalleryPager - List gallery Application Definitions in a gallery.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - options - GalleryApplicationsClientListByGalleryOptions contains the optional parameters for the GalleryApplicationsClient.NewListByGalleryPager
@@ -327,7 +327,7 @@ func (client *GalleryApplicationsClient) listByGalleryCreateRequest(ctx context.
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-03-03")
+	reqQP.Set("api-version", "2025-03-03")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -345,7 +345,7 @@ func (client *GalleryApplicationsClient) listByGalleryHandleResponse(resp *http.
 // BeginUpdate - Update a gallery Application Definition.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - galleryName - The name of the Shared Image Gallery.
 //   - galleryApplicationName - The name of the gallery Application Definition to be retrieved.
@@ -373,7 +373,7 @@ func (client *GalleryApplicationsClient) BeginUpdate(ctx context.Context, resour
 // Update - Update a gallery Application Definition.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 func (client *GalleryApplicationsClient) update(ctx context.Context, resourceGroupName string, galleryName string, galleryApplicationName string, galleryApplication GalleryApplicationUpdate, options *GalleryApplicationsClientBeginUpdateOptions) (*http.Response, error) {
 	var err error
 	const operationName = "GalleryApplicationsClient.BeginUpdate"
@@ -419,7 +419,7 @@ func (client *GalleryApplicationsClient) updateCreateRequest(ctx context.Context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-03-03")
+	reqQP.Set("api-version", "2025-03-03")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, galleryApplication); err != nil {

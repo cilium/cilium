@@ -27,7 +27,7 @@ type CommunityGalleryImagesClient struct {
 // NewCommunityGalleryImagesClient creates a new instance of CommunityGalleryImagesClient with the specified values.
 //   - subscriptionID - The ID of the target subscription.
 //   - credential - used to authorize requests. Usually a credential from azidentity.
-//   - options - pass nil to accept the default values.
+//   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewCommunityGalleryImagesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*CommunityGalleryImagesClient, error) {
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
@@ -43,7 +43,7 @@ func NewCommunityGalleryImagesClient(subscriptionID string, credential azcore.To
 // Get - Get a community gallery image.
 // If the operation fails it returns an *azcore.ResponseError type.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 //   - location - The name of Azure region.
 //   - publicGalleryName - The public name of the community gallery.
 //   - galleryImageName - The name of the community gallery image definition.
@@ -95,7 +95,7 @@ func (client *CommunityGalleryImagesClient) getCreateRequest(ctx context.Context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-03-03")
+	reqQP.Set("api-version", "2025-03-03")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -112,7 +112,7 @@ func (client *CommunityGalleryImagesClient) getHandleResponse(resp *http.Respons
 
 // NewListPager - List community gallery images inside a gallery.
 //
-// Generated from API version 2024-03-03
+// Generated from API version 2025-03-03
 //   - location - The name of Azure region.
 //   - publicGalleryName - The public name of the community gallery.
 //   - options - CommunityGalleryImagesClientListOptions contains the optional parameters for the CommunityGalleryImagesClient.NewListPager
@@ -160,7 +160,7 @@ func (client *CommunityGalleryImagesClient) listCreateRequest(ctx context.Contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", "2024-03-03")
+	reqQP.Set("api-version", "2025-03-03")
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
