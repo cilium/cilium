@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -80,6 +81,7 @@ func TestScript(t *testing.T) {
 			cell.Provide(func() ServiceSyncConfig {
 				return ServiceSyncConfig{Enabled: true}
 			}),
+			cmnamespace.Cell,
 			ServiceSyncCell,
 
 			cell.Provide(
