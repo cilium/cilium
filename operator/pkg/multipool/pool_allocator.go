@@ -32,7 +32,7 @@ type cidrPool struct {
 
 type cidrSet map[netip.Prefix]struct{}
 
-func (c cidrSet) PodCIDRSlice() []types.IPAMCIDR {
+func (c cidrSet) CIDRSlice() []types.IPAMCIDR {
 	cidrs := make([]types.IPAMCIDR, 0, len(c))
 	for cidr := range c {
 		cidrs = append(cidrs, types.IPAMCIDR(cidr.String()))
@@ -478,8 +478,8 @@ func (p *PoolAllocator) AllocatedPools(targetNode string) (pools []types.IPAMPoo
 	}
 
 	for poolName, cidrs := range poolToCIDRs {
-		v4CIDRs := cidrs.v4.PodCIDRSlice()
-		v6CIDRs := cidrs.v6.PodCIDRSlice()
+		v4CIDRs := cidrs.v4.CIDRSlice()
+		v6CIDRs := cidrs.v6.CIDRSlice()
 
 		pools = append(pools, types.IPAMPoolAllocation{
 			Pool:  poolName,
