@@ -26,9 +26,6 @@ const (
 	// RemoteEndpointMap.
 	MaxEntries = 512000
 
-	// OldName is the canonical name for the v1 IPCache map on the filesystem.
-	OldName = "cilium_ipcache"
-
 	// Name is the canonical name for the IPCache map on the filesystem.
 	Name = "cilium_ipcache_v2"
 )
@@ -195,23 +192,6 @@ func (v *RemoteEndpointInfo) GetTunnelEndpoint() net.IP {
 
 func (v *RemoteEndpointInfo) New() bpf.MapValue { return &RemoteEndpointInfo{} }
 
-// RemoteEndpointInfoV1 implements the bpf.MapValue interface for the v1
-// ipcache map value.
-type RemoteEndpointInfoV1 struct {
-	SecurityIdentity uint32     `align:"sec_identity"`
-	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
-	_                uint16
-	Key              uint8                   `align:"key"`
-	Flags            RemoteEndpointInfoFlags `align:"flag_skip_tunnel"`
-}
-
-func (v *RemoteEndpointInfoV1) String() string {
-	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s flags=%s",
-		v.SecurityIdentity, v.Key, v.TunnelEndpoint, v.Flags)
-}
-
-func (v *RemoteEndpointInfoV1) New() bpf.MapValue { return &RemoteEndpointInfoV1{} }
-
 // NewValue returns a RemoteEndpointInfo based on the provided security
 // identity, tunnel endpoint IP, IPsec key, and flags. The address family is
 // automatically detected.
@@ -252,16 +232,6 @@ func newIPCacheMap(name string) *bpf.Map {
 		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG)
 }
 
-func newIPCacheMapV1(name string) *bpf.Map {
-	return bpf.NewMap(
-		name,
-		ebpf.LPMTrie,
-		&Key{},
-		&RemoteEndpointInfoV1{},
-		MaxEntries,
-		unix.BPF_F_NO_PREALLOC)
-}
-
 // NewMap instantiates a Map.
 func NewMap(registry *metrics.Registry, name string) *Map {
 	return &Map{
@@ -276,9 +246,6 @@ var (
 	// It is a singleton; there is only one such map per agent.
 	ipcache *Map
 	once    = &sync.Once{}
-
-	oldIPcache     *Map
-	onceOldIPcache = &sync.Once{}
 )
 
 // IPCacheMap gets the ipcache Map singleton. If it has not already been done,
@@ -288,15 +255,4 @@ func IPCacheMap(registry *metrics.Registry) *Map {
 		ipcache = NewMap(registry, Name)
 	})
 	return ipcache
-}
-
-// IPCacheMapV1 does the same as IPCacheMap but for the v1 ipcache map,
-// from v1.18.
-func IPCacheMapV1() *Map {
-	onceOldIPcache.Do(func() {
-		oldIPcache = &Map{
-			Map: *newIPCacheMapV1(OldName),
-		}
-	})
-	return oldIPcache
 }
