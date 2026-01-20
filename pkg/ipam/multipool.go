@@ -581,7 +581,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	for poolName, pool := range m.pools {
 		neededIPs := neededIPsPerPool[poolName]
 
-		cidrs := []types.IPAMPodCIDR{}
+		cidrs := []types.IPAMCIDR{}
 		if v4Pool := pool.v4; v4Pool != nil {
 			if m.isRestoreFinishedLocked(IPv4) {
 				// releaseExcessCIDRsMultiPool interprets neededIPs as how many
@@ -641,7 +641,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	return nil
 }
 
-func (m *multiPoolManager) upsertPoolLocked(poolName Pool, podCIDRs []types.IPAMPodCIDR) {
+func (m *multiPoolManager) upsertPoolLocked(poolName Pool, podCIDRs []types.IPAMCIDR) {
 	pool, ok := m.pools[poolName]
 	if !ok {
 		pool = &poolPair{}

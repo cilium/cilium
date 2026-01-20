@@ -285,7 +285,7 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 					Allocated: []ipamTypes.IPAMPoolAllocation{
 						{
 							Pool: "test-pool",
-							CIDRs: []ipamTypes.IPAMPodCIDR{
+							CIDRs: []ipamTypes.IPAMCIDR{
 								"10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24",
 							},
 						},
@@ -418,7 +418,7 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 	assert.Equal(t, node.Name, nodeUpdate.node.Name)
 	assert.Len(t, nodeUpdate.node.Spec.IPAM.Pools.Allocated, 1)
 	assert.Equal(t, "test-pool", nodeUpdate.node.Spec.IPAM.Pools.Allocated[0].Pool)
-	assert.ElementsMatch(t, []ipamTypes.IPAMPodCIDR{
+	assert.ElementsMatch(t, []ipamTypes.IPAMCIDR{
 		"10.0.0.0/28", "10.0.0.16/28", "10.0.0.32/28", "10.0.0.48/28",
 	}, nodeUpdate.node.Spec.IPAM.Pools.Allocated[0].CIDRs)
 	onUpdateResult <- mockResult{node: nodeUpdate.node}
@@ -453,7 +453,7 @@ func TestOrphanCIDRsReleased(t *testing.T) {
 	}}
 	node.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{{
 		Pool:  "test-pool",
-		CIDRs: []ipamTypes.IPAMPodCIDR{"10.0.0.0/28", "10.0.0.16/28"},
+		CIDRs: []ipamTypes.IPAMCIDR{"10.0.0.0/28", "10.0.0.16/28"},
 	}}
 	nh.Upsert(node)
 

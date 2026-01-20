@@ -32,10 +32,10 @@ type cidrPool struct {
 
 type cidrSet map[netip.Prefix]struct{}
 
-func (c cidrSet) PodCIDRSlice() []types.IPAMPodCIDR {
-	cidrs := make([]types.IPAMPodCIDR, 0, len(c))
+func (c cidrSet) PodCIDRSlice() []types.IPAMCIDR {
+	cidrs := make([]types.IPAMCIDR, 0, len(c))
 	for cidr := range c {
-		cidrs = append(cidrs, types.IPAMPodCIDR(cidr.String()))
+		cidrs = append(cidrs, types.IPAMCIDR(cidr.String()))
 	}
 	slices.Sort(cidrs)
 	return cidrs
