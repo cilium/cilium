@@ -11131,7 +11131,10 @@ type IpamPolicyDocument struct {
 // The Amazon Web Services Organizations target for an IPAM policy.
 type IpamPolicyOrganizationTarget struct {
 
-	// The ID of a Amazon Web Services Organizations target for an IPAM policy.
+	// The ID of the Amazon Web Services Organizations target.
+	//
+	// A target can be an individual Amazon Web Services account or an entity within
+	// an Amazon Web Services Organization to which an IPAM policy can be applied.
 	OrganizationTargetId *string
 
 	noSmithyDocumentSerde

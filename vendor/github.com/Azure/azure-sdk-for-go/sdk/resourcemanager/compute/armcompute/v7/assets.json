@@ -2,5 +2,5 @@
   "AssetsRepo": "Azure/azure-sdk-assets",
   "AssetsRepoPrefixPath": "go",
   "TagPrefix": "go/resourcemanager/compute/armcompute",
-  "Tag": "go/resourcemanager/compute/armcompute_d97be26185"
+  "Tag": "go/resourcemanager/compute/armcompute_afcafafb1a"
 }

@@ -1,3 +1,7 @@
+# v1.279.2 (2026-01-15)
+
+* **Documentation**: This release includes documentation updates to support up to four Elastic Volume modifications per Amazon EBS volume within a rolling 24-hour period.
+
 # v1.279.1 (2026-01-09)
 
 * **Dependency Update**: Updated to the latest SDK module versions
