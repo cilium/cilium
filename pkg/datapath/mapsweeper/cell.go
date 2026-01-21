@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package maps
+package mapsweeper
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 )
 
 var Cell = cell.Module(
-	"maps-cleanup",
+	"map-sweeper",
 	"Cleanup of stale and disabled BPF maps",
 	cell.Invoke(registerMapSweeper),
 )
