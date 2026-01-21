@@ -359,7 +359,7 @@ Deprecated Metrics
 Removed Metrics
 ###############
 
-* TODO
+* ``cilium_agent_bootstrap_seconds`` has been removed. Please use ``cilium_hive_jobs_oneshot_last_run_duration_seconds`` of respective job instead.
 
 .. _1.19_upgrade_notes:
 

@@ -1567,8 +1567,6 @@ const (
 
 	BootTime = "bootTime"
 
-	BootstrapTime = "bootstrapTime"
-
 	Socket = "socket"
 
 	Filter = "filter"
