@@ -220,13 +220,19 @@ func (gc *GC) enableWithConfig(
 				// alive during idle periods of upto ToFQDNsIdleConnectionGracePeriod.
 				aliveTime = gcStart.Add(option.Config.ToFQDNsIdleConnectionGracePeriod)
 
-				emitEntryCB = func(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) {
+				emitEntryCB = func(srcIP, dstIP ctmap.NetAddr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) {
 					// FQDN related connections can only be outbound
 					if flags != ctmap.TUPLE_F_OUT {
 						return
 					}
-					if ep, exists := epsMap[srcIP]; exists {
-						ep.MarkDNSCTEntry(dstIP, aliveTime)
+
+					// Only consider IP addresses in default network
+					if srcIP.NetID != 0 || dstIP.NetID != 0 {
+						return
+					}
+
+					if ep, exists := epsMap[srcIP.Addr]; exists {
+						ep.MarkDNSCTEntry(dstIP.Addr, aliveTime)
 					}
 				}
 

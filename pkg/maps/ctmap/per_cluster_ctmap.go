@@ -284,8 +284,7 @@ func newPerClusterCTMap(m mapType) *PerClusterCTMap {
 
 func (om *PerClusterCTMap) newInnerMap(clusterID uint32) *Map {
 	name := ClusterInnerMapName(om.m, clusterID)
-	im := newMap(name, om.m, nil)
-	im.clusterID = clusterID
+	im := newMap(name, om.m, WithClusterID(clusterID))
 	return im
 }
 
