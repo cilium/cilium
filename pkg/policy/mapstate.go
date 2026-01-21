@@ -682,7 +682,7 @@ func (e *mapStateEntry) Equal(o *mapStateEntry) bool {
 		return e == o
 	}
 
-	return e.MapStateEntry == o.MapStateEntry && e.derivedFromRules == o.derivedFromRules && e.passPrecedence == o.passPrecedence && e.nextTierPrecedence == o.nextTierPrecedence
+	return *e == *o
 }
 
 // String returns a string representation of the MapStateEntry
