@@ -907,6 +907,7 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 // WireGuard agent and update the `AllowedIPs` list of known peers
 // accordingly.
 type peerConfig struct {
+	lock.Mutex
 	pubKey             wgtypes.Key
 	endpoint           *net.UDPAddr
 	nodeIPv4, nodeIPv6 net.IP
@@ -934,6 +935,9 @@ func (p *peerConfig) lazyInitMaps() {
 // current state of p.allowedIPs, so callers should use hasAllowedIP to
 // avoid unnecessary updates.
 func (p *peerConfig) queueAllowedIPsInsert(ips ...net.IPNet) {
+	p.Lock()
+	defer p.Unlock()
+
 	p.lazyInitMaps()
 
 	for _, ip := range ips {
@@ -948,6 +952,9 @@ func (p *peerConfig) queueAllowedIPsInsert(ips ...net.IPNet) {
 // current state of p.allowedIPs, so callers should use hasAllowedIP to
 // avoid unnecessary updates.
 func (p *peerConfig) queueAllowedIPsRemove(ips ...net.IPNet) {
+	p.Lock()
+	defer p.Unlock()
+
 	p.lazyInitMaps()
 
 	for _, ip := range ips {
@@ -961,6 +968,9 @@ func (p *peerConfig) queueAllowedIPsRemove(ips ...net.IPNet) {
 // that are currently pending. If enableAllowedIPRemovals has not yet been
 // called, this method will not return any removals.
 func (p *peerConfig) queuedAllowedIPUpdates() (insert []net.IPNet, remove []net.IPNet) {
+	p.Lock()
+	defer p.Unlock()
+
 	for _, ip := range p.needsInsert {
 		insert = append(insert, ip)
 	}
@@ -974,6 +984,9 @@ func (p *peerConfig) queuedAllowedIPUpdates() (insert []net.IPNet, remove []net.
 
 // hasAllowedIP returns true if ip has been synced to this peer on the device.
 func (p *peerConfig) hasAllowedIP(ip net.IPNet) bool {
+	p.Lock()
+	defer p.Unlock()
+
 	_, exists := p.allowedIPs[ipnetToPrefix(ip)]
 
 	return exists
@@ -983,6 +996,9 @@ func (p *peerConfig) hasAllowedIP(ip net.IPNet) bool {
 // been processed and synced to the device. This removes these ips from the
 // update queues.
 func (p *peerConfig) finishAllowedIPSync(ips []net.IPNet) {
+	p.Lock()
+	defer p.Unlock()
+
 	for _, ip := range ips {
 		pfx := ipnetToPrefix(ip)
 		if aip, exists := p.needsInsert[pfx]; exists {
