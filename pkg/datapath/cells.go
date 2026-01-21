@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/ebpf/features"
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/act"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
@@ -39,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 )
 
@@ -165,6 +168,17 @@ var Cell = cell.Module(
 func initDatapath(rootLogger *slog.Logger, lifecycle cell.Lifecycle) {
 	lifecycle.Append(cell.Hook{
 		OnStart: func(cell.HookContext) error {
+			// Open BPF token and set it for feature probing before requirements check.
+			// This enables feature detection to work in user namespaces with BPF delegation.
+			tokenFD, err := bpf.OpenBPFToken(option.Config.BPFTokenPath)
+			if err != nil {
+				rootLogger.Debug("BPF token not available for feature probing", "error", err)
+			}
+			if tokenFD > 0 {
+				features.SetProbeTokenFD(tokenFD)
+				features.SetProbeMapTokenFD(tokenFD)
+			}
+
 			if err := linuxdatapath.CheckRequirements(rootLogger); err != nil {
 				return fmt.Errorf("requirements failed: %w", err)
 			}

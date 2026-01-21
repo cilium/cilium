@@ -36,7 +36,7 @@ func encryptionConfiguration(lnc *datapath.LocalNodeConfiguration) (configs []an
 	return configs
 }
 
-func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, links []netlink.Link) error {
+func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, links []netlink.Link, tokenFD int) error {
 	if err := compileNetwork(ctx, logger); err != nil {
 		return fmt.Errorf("compiling encrypt program: %w", err)
 	}
@@ -55,6 +55,7 @@ func replaceEncryptionDatapath(ctx context.Context, logger *slog.Logger, lnc *da
 		// A single bpf_network.o Collection is attached to multiple devices, only
 		// store a single config at the root of the bpf statedir.
 		ConfigDumpPath: bpfStateDeviceDir(networkConfig),
+		TokenFD:        tokenFD,
 	})
 	if err != nil {
 		return err

@@ -250,7 +250,7 @@ func newTestBPFSocketDestroyer(tb testing.TB) socketDestroyerTester {
 		0,
 	)
 	require.NoError(tb, sockRevNat6Map.OpenOrCreate())
-	progs, filterSetter, err := loader.LoadSockTerm(hivetest.Logger(tb), sockRevNat4Map, sockRevNat6Map)
+	progs, filterSetter, err := loader.LoadSockTerm(hivetest.Logger(tb), sockRevNat4Map, sockRevNat6Map, -1)
 	require.NoError(tb, err)
 	tb.Cleanup(func() {
 		progs.CilSockUdpDestroyV4.Close()

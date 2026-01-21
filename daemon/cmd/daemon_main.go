@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/ebpf/features"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -267,6 +268,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.BPFSocketLBHostnsOnly, false, "Skip socket LB for services when inside a pod namespace, in favor of service LB at the pod interface. Socket LB is still used when in the host namespace. Required by service mesh (e.g., Istio, Linkerd).")
 	option.BindEnv(vp, option.BPFSocketLBHostnsOnly)
+
+	flags.String(option.BPFTokenPath, "", "Path to BPFFS mount for creating BPF tokens for unprivileged BPF operations (auto-detected if not set)")
+	option.BindEnv(vp, option.BPFTokenPath)
 
 	flags.Bool(option.EnableSocketLBPodConnectionTermination, true, "Enable terminating connections to deleted service backends when socket-LB is enabled")
 	flags.MarkHidden(option.EnableSocketLBPodConnectionTermination)
@@ -982,6 +986,15 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	}
 	if _, err := os.Stat(option.Config.BpfDir); os.IsNotExist(err) {
 		logging.Fatal(scopedLog, "BPF template directory: NOT OK. Please run 'make install-bpf'", logfields.Error, err)
+	}
+
+	// Open BPF token and set it for feature probing before header probes.
+	// This enables feature detection to work in user namespaces with BPF delegation.
+	if tokenFD, err := bpf.OpenBPFToken(option.Config.BPFTokenPath); err != nil {
+		scopedLog.Debug("BPF token not available for feature probing", "error", err)
+	} else if tokenFD > 0 {
+		features.SetProbeTokenFD(tokenFD)
+		features.SetProbeMapTokenFD(tokenFD)
 	}
 
 	if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes(scopedLog)); err != nil {

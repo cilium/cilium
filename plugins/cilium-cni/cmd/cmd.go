@@ -676,6 +676,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 			DeviceMTU:      int(conf.DeviceMTU),
 			DeviceHeadroom: uint16(conf.DeviceHeadroom),
 			DeviceTailroom: uint16(conf.DeviceTailroom),
+			IPv4Enabled:    ipv4IsEnabled(ipam),
 		}
 
 		for _, hook := range cmd.onLinkConfigReady {

@@ -29,7 +29,7 @@ type FilterSetter func(af uint8, addr net.IP, port uint16) error
 // LoadSockTerm loads the cil_sock_udp_destroy_v4, cil_sock_tcp_destroy_v4,
 // cil_sock_tcp_destroy_v6, and cil_sock_udp_destroy_v6 programs. It returns a
 // handle to the programs and a function that sets the socket filter.
-func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.SockTermPrograms, FilterSetter, error) {
+func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map, tokenFD int) (*bpfgen.SockTermPrograms, FilterSetter, error) {
 	spec, err := bpfgen.LoadSockTerm()
 	if err != nil {
 		return nil, nil, fmt.Errorf("load eBPF ELF: %w", err)
@@ -77,6 +77,7 @@ func LoadSockTerm(l *slog.Logger, sockRevNat4, sockRevNat6 *bpf.Map) (*bpfgen.So
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		MapReplacements: mapReplacements,
+		TokenFD:         tokenFD,
 	})
 
 	if err != nil {

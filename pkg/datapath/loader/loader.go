@@ -57,6 +57,10 @@ type loader struct {
 	db           *statedb.DB
 	devices      statedb.Table[*tables.Device]
 	routeManager *routeReconciler.DesiredRouteManager
+
+	// tokenFD is the file descriptor for BPF token used for loading
+	// programs in user namespaces.
+	tokenFD int
 }
 
 type Params struct {
@@ -83,6 +87,13 @@ type Params struct {
 // newLoader returns a new loader.
 func newLoader(p Params) *loader {
 	registerRouteInitializer(p)
+
+	// Try to open a BPF token for loading programs in user namespaces
+	tokenFD, err := bpf.OpenBPFToken(option.Config.BPFTokenPath)
+	if err != nil {
+		p.Logger.Debug("BPF token not available", "error", err)
+	}
+
 	return &loader{
 		logger:             p.Logger,
 		templateCache:      newObjectCache(p.Logger, p.ConfigWriter, filepath.Join(option.Config.StateDir, defaults.TemplatesDir)),
@@ -93,6 +104,7 @@ func newLoader(p Params) *loader {
 		configWriter:       p.ConfigWriter,
 		nodeConfigNotifier: p.NodeConfigNotifier,
 		routeManager:       p.RouteManager,
+		tokenFD:            tokenFD,
 
 		db:      p.DB,
 		devices: p.Devices,

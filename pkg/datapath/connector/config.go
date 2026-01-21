@@ -29,6 +29,10 @@ type LinkConfig struct {
 	DeviceMTU      int
 	DeviceHeadroom uint16
 	DeviceTailroom uint16
+
+	// IPv4Enabled indicates whether IPv4 is enabled. Used to skip IPv4-only
+	// sysctls like rp_filter when running in IPv6-only mode.
+	IPv4Enabled bool
 }
 
 // Connector configuration. As per BIGTCP, the values here will not be calculated

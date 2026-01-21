@@ -296,6 +296,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		GROIPv4MaxSize: bigTCPConfig.GetGROIPv4MaxSize(),
 		GSOIPv4MaxSize: bigTCPConfig.GetGSOIPv4MaxSize(),
 		DeviceMTU:      mtuConfig.GetDeviceMTU(),
+		IPv4Enabled:    option.Config.EnableIPv4,
 	}
 
 	var hostLink, epLink netlink.Link

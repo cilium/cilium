@@ -333,7 +333,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 		},
 	}
 
-	sd, err := sockets.NewSocketDestroyer(log, nil, nil)
+	sd, err := sockets.NewSocketDestroyer(log, nil, nil, -1)
 	require.NoError(t, err)
 
 	lbmap.UpdateSockRevNat(uint64(cookie), net.IP{127, 0, 0, 1}, 30000, 0)

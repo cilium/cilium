@@ -85,9 +85,12 @@ func SetupVethWithNames(defaultLogger *slog.Logger, lxcIfName, peerIfName string
 	// Disable reverse path filter on the host side veth peer to allow
 	// container addresses to be used as source address when the linux
 	// stack performs routing.
-	err = DisableRpFilter(sysctl, lxcIfName)
-	if err != nil {
-		return nil, nil, err
+	// Only needed for IPv4 - rp_filter is an IPv4-only sysctl.
+	if cfg.IPv4Enabled {
+		err = DisableRpFilter(sysctl, lxcIfName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to disable rp_filter: %w", err)
+		}
 	}
 
 	peer, err := safenetlink.LinkByName(peerIfName)

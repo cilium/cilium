@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
+	"github.com/cilium/ebpf/features"
 	"github.com/cilium/ebpf/link"
 	"golang.org/x/sys/unix"
 )
@@ -32,9 +33,11 @@ var HaveAttachCgroup = sync.OnceValue(func() error {
 		},
 	}
 
-	p, err := ebpf.NewProgramWithOptions(spec, ebpf.ProgramOptions{
-		LogDisabled: true,
-	})
+	opts := ebpf.ProgramOptions{LogDisabled: true}
+	if tokenFD := features.GetProbeTokenFD(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	p, err := ebpf.NewProgramWithOptions(spec, opts)
 	if err != nil {
 		return fmt.Errorf("create cgroup program: %w: %w", err, ebpf.ErrNotSupported)
 	}

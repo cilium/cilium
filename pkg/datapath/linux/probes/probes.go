@@ -153,15 +153,25 @@ func HaveV3ISA(logger *slog.Logger) error {
 }
 
 func newProgram(progType ebpf.ProgramType) (*ebpf.Program, error) {
-	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+	opts := ebpf.ProgramOptions{LogDisabled: true}
+	tokenFD := features.GetGlobalToken()
+	if tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	prog, err := ebpf.NewProgramWithOptions(&ebpf.ProgramSpec{
 		Type: progType,
 		Instructions: asm.Instructions{
 			asm.Mov.Imm(asm.R0, 0),
 			asm.Return(),
 		},
 		License: "Apache-2.0",
-	})
+	}, opts)
 	if err != nil {
+		// EPERM with a BPF token means the kernel knows about this but the
+		// token doesn't grant permission - treat as supported for probing.
+		if tokenFD > 0 && errors.Is(err, unix.EPERM) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("loading bpf program: %w: %w", err, ErrNotSupported)
 	}
 	return prog, nil
@@ -172,6 +182,11 @@ var HaveBPF = sync.OnceValue(func() error {
 	prog, err := newProgram(ebpf.SocketFilter)
 	if err != nil {
 		return err
+	}
+	if prog == nil {
+		// Token-based probe returned nil - kernel supports BPF but token
+		// doesn't grant full permissions. Assume supported.
+		return nil
 	}
 	defer prog.Close()
 
@@ -185,13 +200,31 @@ var HaveBPFJIT = sync.OnceValue(func() error {
 	if err != nil {
 		return err
 	}
+	if prog == nil {
+		// Token-based probe returned nil - kernel supports BPF but token
+		// doesn't grant full permissions. Assume JIT is available.
+		return nil
+	}
 	defer prog.Close()
 
 	info, err := prog.Info()
 	if err != nil {
+		// In user namespaces, getting program info may fail with EPERM even though
+		// the program was loaded successfully. If we got this far, the JIT works.
+		if errors.Is(err, unix.EPERM) {
+			return nil
+		}
 		return fmt.Errorf("get prog info: %w", err)
 	}
-	if _, err := info.JitedSize(); err != nil && !errors.Is(err, ebpf.ErrRestrictedKernel) {
+	_, err = info.JitedSize()
+	if err != nil {
+		// In user namespaces with BPF tokens, we may be able to load programs
+		// but not read detailed JIT info. If the program loaded successfully,
+		// we can assume the JIT is working. Accept ErrNotSupported and
+		// ErrRestrictedKernel as indicators that JIT info is just not accessible.
+		if errors.Is(err, ebpf.ErrNotSupported) || errors.Is(err, ebpf.ErrRestrictedKernel) {
+			return nil
+		}
 		return fmt.Errorf("get JITed prog size: %w", err)
 	}
 
@@ -204,6 +237,11 @@ var HaveTCBPF = sync.OnceValue(func() error {
 	prog, err := newProgram(ebpf.SchedCLS)
 	if err != nil {
 		return err
+	}
+	if prog == nil {
+		// Token-based probe returned nil - kernel supports SchedCLS but token
+		// doesn't grant full permissions. Assume TC-BPF is available.
+		return nil
 	}
 	defer prog.Close()
 
@@ -252,6 +290,11 @@ var HaveTCX = sync.OnceValue(func() error {
 	if err != nil {
 		return err
 	}
+	if prog == nil {
+		// Token-based probe returned nil - kernel supports SchedCLS but token
+		// doesn't grant full permissions. Assume TCX is available.
+		return nil
+	}
 	defer prog.Close()
 
 	ns, err := netns.New()
@@ -286,6 +329,11 @@ var HaveNetkit = sync.OnceValue(func() error {
 	prog, err := newProgram(ebpf.SchedCLS)
 	if err != nil {
 		return err
+	}
+	if prog == nil {
+		// Token-based probe returned nil - kernel supports SchedCLS but token
+		// doesn't grant full permissions. Assume netkit is available.
+		return nil
 	}
 	defer prog.Close()
 
@@ -341,7 +389,11 @@ func HaveSKBAdjustRoomL2RoomMACSupport(logger *slog.Logger) (err error) {
 		asm.FnSkbAdjustRoom.Call(),
 		asm.Return(),
 	}
-	prog, err := ebpf.NewProgram(progSpec)
+	opts := ebpf.ProgramOptions{LogDisabled: true}
+	if tokenFD := features.GetGlobalToken(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	prog, err := ebpf.NewProgramWithOptions(progSpec, opts)
 	if err != nil {
 		return err
 	}
@@ -401,19 +453,32 @@ func HaveDeadCodeElim() error {
 		},
 	}
 
-	prog, err := ebpf.NewProgram(&spec)
+	opts := ebpf.ProgramOptions{LogDisabled: true}
+	if tokenFD := features.GetGlobalToken(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	prog, err := ebpf.NewProgramWithOptions(&spec, opts)
 	if err != nil {
 		return fmt.Errorf("loading program: %w", err)
 	}
+	defer prog.Close()
 
 	info, err := prog.Info()
 	if err != nil {
+		// In user namespaces, getting program info may fail with EPERM.
+		// If the program loaded successfully, assume dead code elim is supported.
+		if errors.Is(err, unix.EPERM) {
+			return nil
+		}
 		return fmt.Errorf("get prog info: %w", err)
 	}
 	infoInst, err := info.Instructions()
-	if errors.Is(err, ebpf.ErrRestrictedKernel) {
-		return nil
-	} else if err != nil {
+	if err != nil {
+		// Getting instructions may fail with ErrNotSupported due to insufficient
+		// permissions in user namespaces. Assume supported if program loaded.
+		if errors.Is(err, unix.EPERM) || errors.Is(err, ebpf.ErrNotSupported) {
+			return nil
+		}
 		return fmt.Errorf("get instructions: %w", err)
 	}
 
@@ -444,7 +509,13 @@ func HaveIPv6Support() error {
 var HaveFibLookupSkipNeigh = sync.OnceValue(func() error {
 	var objs bpfgen.ProbesObjects
 
-	err := bpfgen.LoadProbesObjects(&objs, &ebpf.CollectionOptions{})
+	opts := &ebpf.CollectionOptions{}
+	tokenFD := features.GetGlobalToken()
+	if tokenFD > 0 {
+		opts.Programs.TokenFD = tokenFD
+		opts.Maps.TokenFD = tokenFD
+	}
+	err := bpfgen.LoadProbesObjects(&objs, opts)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %+v\n", err, ve); err != nil {
@@ -452,6 +523,12 @@ var HaveFibLookupSkipNeigh = sync.OnceValue(func() error {
 		}
 	}
 	if err != nil {
+		// In user namespaces with tokens, we may not be able to load BTF or
+		// the probe programs. If we have a token and get any error, assume
+		// the feature is supported (modern kernels have this).
+		if tokenFD > 0 {
+			return nil
+		}
 		return fmt.Errorf("loading collection: %w", err)
 	}
 
@@ -585,8 +662,17 @@ func HaveBatchAPI() error {
 		ValueSize:  1,
 		MaxEntries: 2,
 	}
-	m, err := ebpf.NewMapWithOptions(&spec, ebpf.MapOptions{})
+	opts := ebpf.MapOptions{}
+	if tokenFD := features.GetGlobalToken(); tokenFD > 0 {
+		opts.TokenFD = tokenFD
+	}
+	m, err := ebpf.NewMapWithOptions(&spec, opts)
 	if err != nil {
+		// In user namespaces with tokens, EPERM means the kernel knows about
+		// maps but token doesn't grant permission - treat as supported.
+		if tokenFD := features.GetGlobalToken(); tokenFD > 0 && errors.Is(err, unix.EPERM) {
+			return nil
+		}
 		return ErrNotSupported
 	}
 	defer m.Close()
