@@ -280,9 +280,29 @@ communicating via the proxy must reconnect to re-establish connections.
 
 1.19 Upgrade Notes
 ------------------
-* MCS-API CoreDNS configuration recommendation has been updated. See :ref:`clustermesh_mcsapi_prereqs` for more details.
-* The ``v2alpha1`` version of ``CiliumLoadBalancerIPPool`` CRD has been deprecated in favor of the ``v2`` version. Please change ``apiVersion: cilium.io/v2alpha1``
-  to ``apiVersion: cilium.io/v2`` in your manifests for all ``CiliumLoadBalancerIPPool`` resources.
+
+Action Required
+~~~~~~~~~~~~~~~
+
+If you are using Network Policies or Cluster Mesh in your environment, then
+you may need to take action because of changes to the behavior of these
+features. Read the notes carefully below to understand what to do during upgrade.
+
+Network Policy
+##############
+
+* DNS Policies match pattern now support a wildcard prefix(``**.``) to match multilevel subdomains as pattern prefix. For usage see :ref:`DNS based` policies.
+  This change introduces a difference in behavior for existing policies with ``**.`` wildcard prefix in match patterns.
+  This pattern now selects all cascaded subdomains in prefix as opposed to just a single level. For example: ``**.cilium.io`` now selects both ``app.cilium.io`` and ``test.app.cilium.io`` as
+  opposed to just ``app.cilium.io`` previously.
+* The `CiliumNetworkPolicy` and `CiliumClusterwideNetworkPolicy` CRDs now
+  enforce that the ``FromRequires`` and ``ToRequires`` fields are empty.
+  These fields were previously deprecated and can no longer be used.
+* Kafka Network Policy support is deprecated and will be removed in Cilium v1.20.
+
+Cluster Mesh
+############
+
 * In a Cluster Mesh environment, network policy ingress and egress selectors currently select by default
   endpoints from all clusters unless one or more clusters are explicitly specified in the policy itself.
   The ``policy-default-local-cluster`` flag allows to change this behavior, and only select endpoints
@@ -291,10 +311,32 @@ communicating via the proxy must reconnect to re-establish connections.
   you need to take action to update your network policies to avoid this change from breaking connectivity for applications
   across different clusters. See :ref:`change_policy_default_local_cluster` for more details and migration recommendations
   to update your network policies.
-* Kafka Network Policy support is deprecated and will be removed in Cilium v1.20.
+* The ``clustermesh.apiserver.tls.authMode`` option is set by default to ``migration`` as
+  a first step to transition to ``cluster`` in a future release. If you are using
+  ``clustermesh.useAPIServer=true``  and ``clustermesh.config.enabled=false``
+  you should either create the ``clustermesh-remote-users`` ConfigMap in addition
+  to the existing ClusterMesh secrets or set ``clustermesh.apiserver.tls.authMode=legacy``.
+  If you have a different configuration, you are not expected to take any action and the
+  transition to ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
+
+Custom Resource Versions
+########################
+
+* The ``v2alpha1`` version of ``CiliumLoadBalancerIPPool`` CRD has been deprecated in favor of the ``v2`` version. Please change ``apiVersion: cilium.io/v2alpha1``
+  to ``apiVersion: cilium.io/v2`` in your manifests for all ``CiliumLoadBalancerIPPool`` resources.
+* The previously deprecated ``CiliumBGPPeeringPolicy`` CRD and its control plane (BGPv1) has been removed.
+  Please migrate to ``cilium.io/v2`` CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``,
+  ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) before upgrading.
+* Cilium will stop reporting its local cluster name and node name in metrics. Users relying on those
+  should configure their metrics collection system to add similar labels instead.
+
+Informational Notes
+~~~~~~~~~~~~~~~~~~~
+
+General Notes
+#############
+
 * Hubble field mask support was stabilized. In the Observer gRPC API, ``GetFlowsRequest.Experimental.field_mask`` was removed in favor of ``GetFlowsRequest.field_mask``. In the Hubble CLI, the ``--experimental-field-mask`` has been renamed to ``--field-mask`` and ``--experimental-use-default-field-mask`` renamed to ``-use-default-field-mask`` (now ``true`` by default).
-* Cilium-agent ClusterMesh status will no longer report the global services count. When using the CLI
-  with a version lower than 1.19, the global services count will be reported as 0.
 * ``enable-remote-node-masquerade`` config option is introduced.
   To masquerade traffic to remote nodes in BPF masquerading mode,
   use the option ``enable-remote-node-masquerade: "true"``.
@@ -304,18 +346,24 @@ communicating via the proxy must reconnect to re-establish connections.
   This flag currently masquerades traffic to node ``InternalIP`` addresses.
   This may change in future. See :gh-issue:`35823`
   and :gh-issue:`17177` for further discussion on this topic.
-* If MCS-API support is enabled, Cilium now installs and manages MCS-API CRDs by default.
-  You can set ``clustermesh.mcsapi.installCRDs`` to ``false`` to opt-out.
-* Cilium will stop reporting its local cluster name and node name in metrics. Users relying on those
-  should configure their metrics collection system to add similar labels instead.
-* The previously deprecated ``CiliumBGPPeeringPolicy`` CRD and its control plane (BGPv1) has been removed.
-  Please migrate to ``cilium.io/v2`` CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``,
-  ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) before upgrading.
 * If running Cilium with IPsec, Kube-Proxy Replacement, and BPF Masquerading enabled,
   `eBPF_Host_Routing` will be automatically enabled. That was already the case when running without
   IPsec. Running BPF Host Routing with IPsec however requires
   `a kernel bugfix <`https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=c4327229948879814229b46aa26a750718888503>`_.
   You can disable BPF Host Routing with ``--enable-host-legacy-routing=true``.
+* This release introduces enabling packet layer path MTU discovery by default on CNI Pod endpoints, this is controlled via the ``enable-endpoint-packet-layer-pmtud`` flag.
+* The Socket LB tracing message format has been updated, you might briefly see parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
+* Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
+  (previously this was a RHEL8.6-compatible kernel).
+
+Cluster Mesh
+############
+
+* MCS-API CoreDNS configuration recommendation has been updated. See :ref:`clustermesh_mcsapi_prereqs` for more details.
+* Cilium-agent ClusterMesh status will no longer report the global services count. When using the CLI
+  with a version lower than 1.19, the global services count will be reported as 0.
+* If MCS-API support is enabled, Cilium now installs and manages MCS-API CRDs by default.
+  You can set ``clustermesh.mcsapi.installCRDs`` to ``false`` to opt-out.
 * Certificate generation with the CronJob method for Hubble and ClusterMesh has
   changed. The Job resource to generate certificates is now created like any other
   resource and is no longer part of Helm post-install or post-upgrade hooks. This
@@ -325,88 +373,31 @@ communicating via the proxy must reconnect to re-establish connections.
 * Adding ClusterMesh certificates and keys in Helm values is deprecated.
   You are now expected to pre-create those secrets outside of the Cilium Helm chart
   when setting ``clustermesh.apiserver.tls.auto.enabled=false``.
-* Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
-  (previously this was a RHEL8.6-compatible kernel).
-* The `CiliumNetworkPolicy` and `CiliumClusterwideNetworkPolicy` CRDs now
-  enforce that the ``FromRequires`` and ``ToRequires`` fields are empty.
-  These fields were previously deprecated and can no longer be used.
-* This release introduces enabling packet layer path MTU discovery by default on CNI Pod endpoints, this is controlled via the ``enable-endpoint-packet-layer-pmtud`` flag.
-* The ``clustermesh.apiserver.tls.authMode`` option is set by default to ``migration`` as
-  a first step to transition to ``cluster`` in a future release. If you are using
-  ``clustermesh.useAPIServer=true``  and ``clustermesh.config.enabled=false``
-  you should either create the ``clustermesh-remote-users`` ConfigMap in addition
-  to the existing ClusterMesh secrets or set ``clustermesh.apiserver.tls.authMode=legacy``.
-  If you have a different configuration, you are not expected to take any action and the
-  transition to ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
-* The Socket LB tracing message format has been updated, you might briefly see parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
 * The Cilium MCS-API implementation now raise a port conflict when any exported
   Service has ports that do not exactly match the oldest exported Service.
-* DNS Policies match pattern now support a wildcard prefix(``**.``) to match multilevel subdomains as pattern prefix. For usage see :ref:`DNS based` policies.
-  This change introduces a difference in behavior for existing policies with ``**.`` wildcard prefix in match patterns.
-  This pattern now selects all cascaded subdomains in prefix as opposed to just a single level. For example: ``**.cilium.io`` now selects both ``app.cilium.io`` and ``test.app.cilium.io`` as
-  opposed to just ``app.cilium.io`` previously.
 
-Removed Options
-~~~~~~~~~~~~~~~
-* The previously deprecated ``--bpf-lb-proto-diff`` flag has been removed.
-* The previously deprecated PCAP recorder feature and its accompanying flags (``--enable-recorder``,
-  ``--hubble-recorder-*``) have been removed.
-* The previously deprecated ``--enable-session-affinity``, ``--enable-internal-traffic-policy``, and
-  ``--enable-svc-source-range-check`` flags have been removed. Their corresponding features are
-  enabled by default.
-* The previously deprecated ``--enable-node-port``, ``--enable-host-port``, and ``--enable-external-ips``
-  flags have been removed. To enable the corresponding features, users must set ``--kube-proxy-replacement=true``.
-* The previously deprecated custom calls feature (``--enable-custom-calls``) has been removed.
-* The previously deprecated ``--enable-ipv4-egress-gateway`` flag has been removed. To enable the
-  corresponding features, users must set ``--enable-egress-gateway=true``.
-* The previously deprecated ``--egress-multi-home-ip-rule-compat`` flag has been removed. If you are running ENI IPAM
-  mode and had this flag explicitly set to ``true``, please unset it and let Cilium v1.18 migrate your rules prior
-  to the upgrade to Cilium v1.19. Azure IPAM users are unaffected by this change, as Cilium continues to use
-  old-style IP rules with Azure IPAM.
-* The previously deprecated ``--l2-pod-announcements-interface`` flag has been removed. The
-  ``--l2-pod-announcements-interface-pattern`` flag should be used instead.
+Changes to Features
+~~~~~~~~~~~~~~~~~~~
 
-Deprecated Options
-~~~~~~~~~~~~~~~~~~
-* The ``--enable-ipsec-encrypted-overlay`` flag has no effect and will be removed in Cilium 1.20. Starting from
-  Cilium 1.18 the IPsec encryption is always applied after overlay encapsulation, and therefore this special opt-in
-  flag is no longer needed.
-* The ``--aws-pagination-enabled`` flag for cilium-operator is now deprecated in favor of the more flexible
-  ``--aws-max-results-per-call`` flag. The new flag defaults to ``0`` (unpaginated, letting AWS determine optimal
-  page size), which provides better performance in most environments. If AWS returns an ``OperationNotPermitted``
-  error indicating too many results, the operator will automatically switch to paginated requests
-  (``MaxResults=1000``) for all future API calls. Users with very large AWS accounts can set
-  ``--aws-max-results-per-call=1000`` upfront to force pagination from the start. The deprecated flag still works
-  during the deprecation period (``true`` maps to ``1000``, ``false`` maps to ``0``) and will be removed in Cilium 1.20.
-* The flags ``--enable-encryption-strict-mode``, ``--encryption-strict-mode-cidr`` and
-  ``--encryption-strict-mode-allow-remote-node-identities`` have been deprecated and will be removed in
-  Cilium 1.20. Use the egress-specific options ``--enable-encryption-strict-mode-egress``,
-  ``--encryption-strict-egress-cidr`` and ``--encryption-strict-egress-allow-remote-node-identities``
-  instead.
+New Options
+###########
 
-Helm Options
-~~~~~~~~~~~~
-* The Helm option ``clustermesh.enableMCSAPISupport`` has been deprecated in favor of ``clustermesh.mcsapi.enabled``
-  and will be removed in Cilium 1.20.
-* The Helm option ``clustermesh.config.clusters`` now support a new format based on a dict
-  in addition to the previous list format. The new format is recommended for users installing
-  Cilium ClusterMesh without Cilium CLI and could allow you to organize your clusters definition
-  in multiple Helm value files. See the Cilium Helm chart documentation or value file for more details.
+The following options have been introduced in this version of Cilium:
 
-* The Helm options ``encryption.strictMode.enabled``, ``encryption.strictMode.cidr`` and
-  ``encryption.strictMode.allowRemoteNodeIdentities`` have been deprecated and will be removed in
-  Cilium 1.20. Use the egress-specific options ``encryption.strictMode.egress.enabled``,
-  ``encryption.strictMode.egress.cidr`` and ``encryption.strictMode.egress.allowRemoteNodeIdentities``
-  instead.
-
-Agent Options
-~~~~~~~~~~~~~
 * The new agent flag ``encryption-strict-mode-ingress`` allows dropping any pod-to-pod traffic that hasn't been encrypted. It
   is only available when WireGuard and tunneling are enabled as well. It should be noted that enabling this feature directly
   with the upgrade can lead to intermittent packet drops.
 
-Operator Options
-~~~~~~~~~~~~~~~~
+Changed Options
+###############
+
+The following options have been modified in this version of Cilium to behave
+differently than in prior releases:
+
+* The Helm option ``clustermesh.config.clusters`` now supports a new format based on a dict
+  in addition to the previous list format. The new format is recommended for users installing
+  Cilium ClusterMesh without Cilium CLI and could allow you to organize your clusters definition
+  in multiple Helm value files. See the Cilium Helm chart documentation or value file for more details.
 
 * The ``--unmanaged-pod-watcher-interval`` flag type has been changed from ``int`` (seconds)
   to ``time.Duration`` for improved usability and consistency with other Cilium configuration
@@ -425,27 +416,75 @@ Operator Options
   accepts both integers (for backward compatibility) and duration strings. Numeric values
   will be automatically converted to duration strings (e.g., ``15`` becomes ``"15s"``).
 
-Cluster Mesh API Server Options
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Deprecated Options
+##################
 
+The following options have been deprecated in this version of Cilium. A future
+version of Cilium will remove these options, so if you use these options then
+you may need to take action to migrate to an alternative.
 
-Bugtool Options
-~~~~~~~~~~~~~~~
+* The ``--aws-pagination-enabled`` flag for cilium-operator is now deprecated in favor of the more flexible
+  ``--aws-max-results-per-call`` flag. The new flag defaults to ``0`` (unpaginated, letting AWS determine optimal
+  page size), which provides better performance in most environments. If AWS returns an ``OperationNotPermitted``
+  error indicating too many results, the operator will automatically switch to paginated requests
+  (``MaxResults=1000``) for all future API calls. Users with very large AWS accounts can set
+  ``--aws-max-results-per-call=1000`` upfront to force pagination from the start. The deprecated flag still works
+  during the deprecation period (``true`` maps to ``1000``, ``false`` maps to ``0``) and will be removed in Cilium 1.20.
 
+* The ``--enable-ipsec-encrypted-overlay`` flag has no effect and will be removed in Cilium 1.20. Starting from
+  Cilium 1.18 the IPsec encryption is always applied after overlay encapsulation, and therefore this special opt-in
+  flag is no longer needed.
+
+* The flags ``--enable-encryption-strict-mode``, ``--encryption-strict-mode-cidr`` and
+  ``--encryption-strict-mode-allow-remote-node-identities`` have been deprecated and will be removed in
+  Cilium 1.20. Use the egress-specific options ``--enable-encryption-strict-mode-egress``,
+  ``--encryption-strict-egress-cidr`` and ``--encryption-strict-egress-allow-remote-node-identities``
+  instead.
+
+* The Helm option ``clustermesh.enableMCSAPISupport`` has been deprecated in favor of ``clustermesh.mcsapi.enabled``
+  and will be removed in Cilium 1.20.
+
+* The Helm options ``encryption.strictMode.enabled``, ``encryption.strictMode.cidr`` and
+  ``encryption.strictMode.allowRemoteNodeIdentities`` have been deprecated and will be removed in
+  Cilium 1.20. Use the egress-specific options ``encryption.strictMode.egress.enabled``,
+  ``encryption.strictMode.egress.cidr`` and ``encryption.strictMode.egress.allowRemoteNodeIdentities``
+  instead.
+
+Removed Options
+###############
+
+The following options were previously deprecated, and they are now removed
+from Cilium.
+
+* The previously deprecated ``--bpf-lb-proto-diff`` flag has been removed.
+* The previously deprecated PCAP recorder feature and its accompanying flags (``--enable-recorder``,
+  ``--hubble-recorder-*``) have been removed.
+* The previously deprecated ``--enable-session-affinity``, ``--enable-internal-traffic-policy``, and
+  ``--enable-svc-source-range-check`` flags have been removed. Their corresponding features are
+  enabled by default.
+* The previously deprecated ``--enable-node-port``, ``--enable-host-port``, and ``--enable-external-ips``
+  flags have been removed. To enable the corresponding features, users must set ``--kube-proxy-replacement=true``.
+* The previously deprecated custom calls feature (``--enable-custom-calls``) has been removed.
+* The previously deprecated ``--enable-ipv4-egress-gateway`` flag has been removed. To enable the
+  corresponding features, users must set ``--enable-egress-gateway=true``.
+* The previously deprecated ``--egress-multi-home-ip-rule-compat`` flag has been removed. If you are running ENI IPAM
+  mode and had this flag explicitly set to ``true``, please unset it and let Cilium v1.18 migrate your rules prior
+  to the upgrade to Cilium v1.19. Azure IPAM users are unaffected by this change, as Cilium continues to use
+  old-style IP rules with Azure IPAM.
+* The previously deprecated ``--l2-pod-announcements-interface`` flag has been removed. The
+  ``--l2-pod-announcements-interface-pattern`` flag should be used instead.
+
+Changes to Metrics
+~~~~~~~~~~~~~~~~~~
 
 Added Metrics
-~~~~~~~~~~~~~
+#############
+
 * ``cilium_agent_clustermesh_remote_cluster_endpoints`` was added and report
   the total number of endpoints per remote cluster in a ClusterMesh environment.
 
-Removed Metrics
-~~~~~~~~~~~~~~~
-
-* ``k8s_internal_traffic_policy_enabled`` has been removed, because the corresponding feature is enabled by default.
-* ``endpoint_max_ifindex`` has been removed, because the corresponding datapath limitation no longer applies.
-
 Changed Metrics
-~~~~~~~~~~~~~~~
+###############
 
 The following metrics previously had instances (i.e. for some watcher K8s resource type labels) under ``workqueue_``.
 In this release any such metrics have been renamed and combined into the correct metric name prefixed with ``cilium_operator_``.
@@ -486,11 +525,17 @@ The following metrics no longer reports a ``source_cluster`` and a ``source_node
 * ``*_remote_cluster_endpoints``
 * ``cilium_operator_clustermesh_remote_cluster_service_exports``
 
-
 Deprecated Metrics
-~~~~~~~~~~~~~~~~~~
+##################
 
 * ``cilium_agent_bootstrap_seconds`` is now deprecated. Please use ``cilium_hive_jobs_oneshot_last_run_duration_seconds`` of respective job instead.
+
+Removed Metrics
+###############
+
+* ``k8s_internal_traffic_policy_enabled`` has been removed, because the corresponding feature is enabled by default.
+* ``endpoint_max_ifindex`` has been removed, because the corresponding datapath limitation no longer applies.
+
 
 Advanced
 ========
