@@ -316,10 +316,8 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
-#ifdef ENABLE_IDENTITY_MARK
 	/* mark packet as decrypted by wireguard */
 	set_decrypt_mark(ctx, 0);
-#endif
 
 #if defined(TUNNEL_MODE) && !(defined(ENABLE_NODEPORT) && defined(ENABLE_NODE_ENCRYPTION))
 	/* In native routing mode we want to deliver packets to local endpoints
