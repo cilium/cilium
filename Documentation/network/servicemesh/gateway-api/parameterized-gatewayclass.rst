@@ -66,6 +66,28 @@ unchanged for all Gateways using a parameterized GatewayClass, set ``httpOptions
         grpcWebTranslation:
           enabled: false
 
+Server header transformations
+=============================
+
+Cilium Gateway API allows for controlling server response headers. Using Envoy's ``ServerHeaderTransformation``, header server manipulations can be:
+
+* ``OVERWRITE`` (default)
+* ``APPEND_IF_ABSENT``
+* ``PASS_THROUGH``
+
+Here is an example ``CiliumGatewayClassConfig`` with ``ServerHeaderTransformation`` set to ``PASS_THROUGH``:
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2alpha1
+    kind: CiliumGatewayClassConfig
+    metadata:
+      name: test-gateway-config
+      namespace: default
+    spec:
+      envoy:
+        serverHeaderTransformation: PASS_THROUGH
+
 Reference
 =========
 

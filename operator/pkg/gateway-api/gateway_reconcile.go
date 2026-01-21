@@ -340,22 +340,27 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		scopedLog.ErrorContext(ctx, "Unable to update BackendTLSPolicy Status", logfields.Error, err)
 		return controllerruntime.Fail(err)
 	}
-
+	gatewayClassConfig := r.getGatewayClassConfig(ctx, gwc)
+	var serverHeaderTransformation model.ServerHeaderTransformation
+	if gatewayClassConfig != nil && gatewayClassConfig.Spec.Envoy != nil && gatewayClassConfig.Spec.Envoy.ServerHeaderTransformation != nil {
+		serverHeaderTransformation = model.ServerHeaderTransformation(*gatewayClassConfig.Spec.Envoy.ServerHeaderTransformation)
+	}
 	m := ingestion.GatewayAPI(scopedLog, ingestion.Input{
-		GatewayClass:        *gwc,
-		GatewayClassConfig:  r.getGatewayClassConfig(ctx, gwc),
-		Gateway:             *gw,
-		HTTPRoutes:          httpRoutes,
-		TLSRoutes:           tlsRoutes,
-		GRPCRoutes:          grpcRoutes,
-		TCPRoutes:           tcpRoutes,
-		UDPRoutes:           udpRoutes,
-		Namespaces:          namespaces,
-		Services:            servicesList.Items,
-		ServiceImports:      serviceImportsList.Items,
-		ReferenceGrants:     grants.Items,
-		BackendTLSPolicyMap: btlspMap,
-		MergedListeners:     mergedListeners,
+		GatewayClass:               *gwc,
+		GatewayClassConfig:         gatewayClassConfig,
+		ServerHeaderTransformation: serverHeaderTransformation,
+		Gateway:                    *gw,
+		HTTPRoutes:                 httpRoutes,
+		TLSRoutes:                  tlsRoutes,
+		GRPCRoutes:                 grpcRoutes,
+		TCPRoutes:                  tcpRoutes,
+		UDPRoutes:                  udpRoutes,
+		Namespaces:                 namespaces,
+		Services:                   servicesList.Items,
+		ServiceImports:             serviceImportsList.Items,
+		ReferenceGrants:            grants.Items,
+		BackendTLSPolicyMap:        btlspMap,
+		MergedListeners:            mergedListeners,
 	})
 
 	listenersStatus, err := r.setListenerStatus(ctx, gw, httpRouteList, tlsRouteList, grpcRouteList, tcpRouteList, udpRouteList, namespaceLabels)

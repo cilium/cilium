@@ -1,0 +1,20 @@
+http:
+- hostname: '*'
+  name: prod-web-gw
+  port: 80
+  server_header_transformation: PASS_THROUGH
+  routes:
+  - backends:
+    - name: my-service
+      namespace: default
+      port:
+        port: 8080
+    path_match:
+      prefix: /bar
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1
