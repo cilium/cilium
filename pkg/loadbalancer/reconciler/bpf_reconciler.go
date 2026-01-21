@@ -898,7 +898,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 	// Update backends that are new or changed.
 	slotID := 1
-	for i, be := range orderedBackends {
+	for _, be := range orderedBackends {
 		var beID loadbalancer.BackendID
 		if s, ok := ops.backendStates[be.Address]; ok && s.id != 0 {
 			beID = s.id
@@ -946,7 +946,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 
 		svcVal.SetBackendID(beID)
 		svcVal.SetRevNat(int(feID))
-		svcKey.SetBackendSlot(i + 1)
+		svcKey.SetBackendSlot(slotID)
 		if err := ops.upsertService(svcKey, svcVal); err != nil {
 			return fmt.Errorf("upsert service: %w", err)
 		}
