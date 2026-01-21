@@ -49,19 +49,21 @@ type gatewayReconciler struct {
 	Scheme     *runtime.Scheme
 	translator translation.Translator
 
-	logger        *slog.Logger
-	installedCRDs []schema.GroupVersionKind
+	logger           *slog.Logger
+	installedCRDs    []schema.GroupVersionKind
+	gatewayApiConfig gatewayApiConfig
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, installedCRDs []schema.GroupVersionKind, gatewayApiConfig gatewayApiConfig) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 
 	return &gatewayReconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		translator:    translator,
-		logger:        scopedLog,
-		installedCRDs: installedCRDs,
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		translator:       translator,
+		logger:           scopedLog,
+		installedCRDs:    installedCRDs,
+		gatewayApiConfig: gatewayApiConfig,
 	}
 }
 
