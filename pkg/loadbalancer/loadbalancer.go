@@ -95,6 +95,20 @@ func ToSVCForwardingMode(s string, proto ...uint8) SVCForwardingMode {
 	}
 }
 
+type SVCScope string
+
+const (
+	SVCScopeNone         = SVCScope("none")
+	SVCScopeExternalOnly = SVCScope("external-only")
+)
+
+func ToSVCScope(s string) SVCScope {
+	if SVCScope(s) == SVCScopeExternalOnly {
+		return SVCScopeExternalOnly
+	}
+	return SVCScopeNone
+}
+
 type SVCLoadBalancingAlgorithm uint8
 
 const (

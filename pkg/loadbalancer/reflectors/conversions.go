@@ -58,6 +58,13 @@ func getAnnotationServiceForwardingMode(cfg loadbalancer.Config, svc *slim_corev
 	return loadbalancer.SVCForwardingModeUndef, nil
 }
 
+func getAnnotationServiceScope(svc *slim_corev1.Service) loadbalancer.SVCScope {
+	if value, ok := annotation.Get(svc, annotation.ServiceScopeExposure); ok {
+		return loadbalancer.ToSVCScope(strings.ToLower(value))
+	}
+	return loadbalancer.SVCScopeNone
+}
+
 func isHeadless(svc *slim_corev1.Service) bool {
 	_, headless := svc.Labels[corev1.IsHeadlessService]
 	if strings.ToLower(svc.Spec.ClusterIP) == "none" {
@@ -85,6 +92,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 		HealthCheckNodePort: uint16(svc.Spec.HealthCheckNodePort),
 		ForwardingMode:      loadbalancer.SVCForwardingModeUndef,
 		LoadBalancerClass:   svc.Spec.LoadBalancerClass,
+		SVCScope:            getAnnotationServiceScope(svc),
 	}
 
 	if cfg.LBModeAnnotation {
@@ -227,6 +235,9 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 			expType.CanExpose(slim_corev1.ServiceTypeNodePort) {
 
 			for _, scope := range scopes {
+				if s.SVCScope == loadbalancer.SVCScopeExternalOnly && scope == loadbalancer.ScopeInternal {
+					continue
+				}
 				for _, family := range getIPFamilies(svc) {
 					if (!extCfg.EnableIPv6 && family == slim_corev1.IPv6Protocol) ||
 						(!extCfg.EnableIPv4 && family == slim_corev1.IPv4Protocol) {
@@ -299,6 +310,9 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 			}
 
 			for _, scope := range scopes {
+				if s.SVCScope == loadbalancer.SVCScopeExternalOnly && scope == loadbalancer.ScopeInternal {
+					continue
+				}
 				for _, port := range svc.Spec.Ports {
 					fe := loadbalancer.FrontendParams{
 						Type:        loadbalancer.SVCTypeLoadBalancer,

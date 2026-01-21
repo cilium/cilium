@@ -1,0 +1,128 @@
+#! --lb-test-fault-probability=0.0
+
+# Start the test application
+hive start
+
+# Add the endpoints and service
+k8s/add endpointslice.yaml
+k8s/add service.yaml
+db/cmp frontends frontends-all.table
+db/cmp services services.table
+
+# Set "service.cilium.io/scope=external-only"
+k8s/update service-external-only.yaml
+db/cmp frontends frontends-external.table
+db/cmp services services.table
+
+#####
+
+-- services.table --
+Name         Source   PortNames   TrafficPolicy           Flags
+test/echo    k8s      http=80     Ext=Local, Int=Cluster
+
+-- frontends-all.table --
+Address               Type         ServiceName   PortName   Status  Backends
+1.2.19.98:80/TCP      LoadBalancer test/echo     http       Done    10.244.1.1:80/TCP
+1.2.19.98:80/TCP/i    LoadBalancer test/echo     http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+10.96.19.98:80/TCP    ClusterIP    test/echo     http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+
+-- frontends-external.table --
+Address               Type         ServiceName   PortName   Status  Backends
+1.2.19.98:80/TCP      LoadBalancer test/echo     http       Done    10.244.1.1:80/TCP
+10.96.19.98:80/TCP    ClusterIP    test/echo     http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  allocateLoadBalancerNodePorts: false
+  clusterIP: 10.96.19.98
+  clusterIPs:
+  - 10.96.19.98
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+      - ip: 1.2.19.98
+
+-- service-external-only.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  name: echo
+  namespace: test
+  resourceVersion: "742"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+  annotations:
+    service.cilium.io/scope: external-only
+spec:
+  allocateLoadBalancerNodePorts: false
+  clusterIP: 10.96.19.98
+  clusterIPs:
+  - 10.96.19.98
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+      - ip: 1.2.19.98
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  annotations:
+  creationTimestamp: "2022-09-13T11:11:26Z"
+  generateName: echo-
+  generation: 3
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  nodeName: testnode
+- addresses:
+  - 10.244.1.2
+  nodeName: othernode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
