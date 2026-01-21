@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -925,9 +924,9 @@ func (e *Endpoint) deleteMaps() []error {
 // scrubIPsInConntrackTableLocked will run the CTMap garbagecollector with the endpoint IPs.
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
 	e.ctMapGC.Run(ctmap.GCFilter{
-		MatchIPs: map[netip.Addr]struct{}{
-			e.IPv4: {},
-			e.IPv6: {},
+		MatchIPs: map[ctmap.NetAddr]struct{}{
+			{Addr: e.IPv4}: {},
+			{Addr: e.IPv6}: {},
 		},
 	})
 }

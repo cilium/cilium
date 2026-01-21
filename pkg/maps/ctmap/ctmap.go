@@ -145,6 +145,19 @@ type Map struct {
 	// This field indicates which cluster this ctmap is. Zero for global
 	// maps and non-zero for per-cluster maps.
 	clusterID uint32
+
+	// networkID indicates what network this connection tracking map
+	// belongs to. IPs from different networks may overlap.
+	// The default network has ID zero.
+	// Maps which have this non-zero are assumed to not have a
+	// corresponding NAT map.
+	networkID uint32
+}
+
+// NetAddr is an IP address that belongs to a particular network
+type NetAddr struct {
+	Addr  netip.Addr
+	NetID uint32
 }
 
 // GCFilter contains the necessary fields to filter the CT maps.
@@ -158,7 +171,7 @@ type GCFilter struct {
 	Time uint32
 
 	// MatchIPs is the list of IPs to remove from the conntrack table
-	MatchIPs map[netip.Addr]struct{}
+	MatchIPs map[NetAddr]struct{}
 
 	// EmitCTEntry is called, when non-nil, if filtering by ValidIPs and MatchIPs
 	// passes. It has no impact on CT GC, but can be used to iterate over valid
@@ -167,7 +180,7 @@ type GCFilter struct {
 }
 
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
-type EmitCTEntryCBFunc func(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
+type EmitCTEntryCBFunc func(srcIP, dstIP NetAddr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
 // TODO: GH-33557: Remove this hack once ctmap is migrated to a cell.
 type PurgeHook interface {
@@ -290,8 +303,31 @@ func OpenCTMap(m CtMap) (path string, err error) {
 	return
 }
 
+type MapOption func(*Map)
+
+// WithRegistry enables pressure metrics for this CT map
+func WithRegistry(registry *metrics.Registry) MapOption {
+	return func(m *Map) {
+		m.Map.WithPressureMetric(registry)
+	}
+}
+
+// WithNetworkID marks this CT map as belonging to a particular network
+func WithNetworkID(networkID uint32) MapOption {
+	return func(m *Map) {
+		m.networkID = networkID
+	}
+}
+
+// WithClusterID marks this CT map as belonging to a particular cluster
+func WithClusterID(clusterID uint32) MapOption {
+	return func(m *Map) {
+		m.clusterID = clusterID
+	}
+}
+
 // newMap creates a new CT map of the specified type with the specified name.
-func newMap(mapName string, m mapType, registry *metrics.Registry) *Map {
+func newMap(mapName string, m mapType, opts ...MapOption) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			ebpf.LRUHash,
@@ -299,9 +335,13 @@ func newMap(mapName string, m mapType, registry *metrics.Registry) *Map {
 			m.value(),
 			m.maxEntries(),
 			0,
-		).WithPressureMetric(registry),
+		),
 		mapType: m,
 	}
+	for _, opt := range opts {
+		opt(result)
+	}
+
 	return result
 }
 
@@ -315,7 +355,7 @@ func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bo
 
 	var natMap *nat.Map
 
-	if m.clusterID == 0 {
+	if m.clusterID == 0 && m.networkID == 0 {
 		// global map handling
 		ctMap := mapInfo[m.mapType]
 		if ctMap.natMapLock != nil {
@@ -323,7 +363,7 @@ func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bo
 			defer ctMap.natMapLock.Unlock()
 		}
 		natMap = ctMap.natMap
-	} else {
+	} else if m.networkID == 0 {
 		// per-cluster map handling
 		natm, err := nat.GetClusterNATMap(m.clusterID, family)
 		if err != nil {
@@ -424,7 +464,9 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 		// the destination of the packet received, therefore it's the packet's
 		// destination IP
-		action := filter.doFiltering(tupleKey.GetDestAddr(), tupleKey.GetSourceAddr(),
+		srcIP := NetAddr{Addr: tupleKey.GetDestAddr(), NetID: m.networkID}
+		dstIP := NetAddr{Addr: tupleKey.GetSourceAddr(), NetID: m.networkID}
+		action := filter.doFiltering(srcIP, dstIP,
 			tupleKey.GetDestPort(), tupleKey.GetSourcePort(),
 			uint8(tupleKey.GetNextHeader()), tupleKey.GetFlags(), entry)
 
@@ -453,7 +495,7 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 	}
 }
 
-func (f GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
+func (f GCFilter) doFiltering(srcIP, dstIP NetAddr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
 	if f.RemoveExpired && entry.Lifetime < f.Time {
 		return deleteEntry
 	}
@@ -519,7 +561,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
-	if ctMapTCP.clusterID == 0 {
+	if ctMapTCP.clusterID == 0 && ctMapTCP.networkID == 0 {
 		// global map handling
 		ctMap := mapInfo[ctMapTCP.mapType]
 		if ctMap.natMapLock != nil {
@@ -527,7 +569,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 			defer ctMap.natMapLock.Unlock()
 		}
 		natMap = ctMap.natMap
-	} else {
+	} else if ctMapTCP.networkID == 0 {
 		// per-cluster map handling
 		family := nat.IPv4
 		if ctMapTCP.mapType.isIPv6() {
@@ -638,12 +680,12 @@ func (m *Map) Flush(next4, next6 func(GCEvent)) int {
 func Maps(ipv4, ipv6 bool) []*Map {
 	result := make([]*Map, 0, mapCount)
 	if ipv4 {
-		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal, nil))
-		result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal, nil))
+		result = append(result, newMap(MapNameTCP4Global, mapTypeIPv4TCPGlobal))
+		result = append(result, newMap(MapNameAny4Global, mapTypeIPv4AnyGlobal))
 	}
 	if ipv6 {
-		result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal, nil))
-		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal, nil))
+		result = append(result, newMap(MapNameTCP6Global, mapTypeIPv6TCPGlobal))
+		result = append(result, newMap(MapNameAny6Global, mapTypeIPv6AnyGlobal))
 	}
 	return result
 }
