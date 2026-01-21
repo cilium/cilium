@@ -106,6 +106,12 @@ type HTTPListener struct {
 	// the final rendered Envoy Config.
 	ForceHTTPtoHTTPSRedirect bool `json:"force_http_to_https_redirect,omitempty"`
 
+	// ServerHeaderTransformation controls the HTTP "Server" header.
+	// OVERWRITE (default): Overwrite any Server header with "envoy".
+	// APPEND_IF_ABSENT: If no Server header is present, append Server "envoy". If a Server header is present, pass it through.
+	// PASS_THROUGH: Pass through the value of the server header, and do not append a header if none is present.
+	ServerHeaderTransformation ServerHeaderTransformation `json:"server_header_transformation,omitempty"`
+
 	// Gamma is an indicator if this listener is a gamma listener
 	Gamma bool `json:"gamma,omitempty"`
 }
@@ -724,6 +730,16 @@ type HTTPRetry struct {
 	// Backoff specifies the minimum duration a Gateway should wait between
 	// retry attempts
 	Backoff *time.Duration `json:"backoff,omitempty"`
+}
+
+// GetServerHeaderTransformation returns the first non-empty server header transformation from HTTP listeners.
+func (m *Model) GetServerHeaderTransformation() ServerHeaderTransformation {
+	for _, l := range m.HTTP {
+		if l.ServerHeaderTransformation != "" {
+			return l.ServerHeaderTransformation
+		}
+	}
+	return ServerHeaderTransformationOverwrite
 }
 
 // IsEmpty returns true if the model has no HTTP, TLS Passthrough or L4 listeners.

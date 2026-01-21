@@ -80,6 +80,11 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "httproute_external_auth_shared_and_no_auth"},
 		{name: "tcproute_basic"},
 		{name: "udproute_basic"},
+
+		// Server header related tests
+		{name: "server_header_append_if_absent"},
+		{name: "server_header_pass_through"},
+		{name: "server_header_overwrite"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
