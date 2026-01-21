@@ -130,7 +130,7 @@ func TestPrivilegedPerClusterCTMaps(t *testing.T) {
 
 	// Basic get all
 	ims := maps.GetAllClusterCTMaps()
-	require.Len(t, ims, 8, "Retrieved an unexpected number of maps")
+	require.Len(t, ims, 4, "Retrieved an unexpected number of maps")
 
 	// Basic delete
 	require.NoError(t, maps.DeleteClusterCTMaps(1), "Failed to delete maps")

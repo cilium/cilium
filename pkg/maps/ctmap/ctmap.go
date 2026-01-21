@@ -196,6 +196,11 @@ type GCEvent struct {
 	NatMap *nat.Map
 }
 
+type MapPair struct {
+	TCP *Map
+	Any *Map
+}
+
 type natDeleteFunc func(natMap *nat.Map, key tuple.TupleKey) error
 
 func NatMapNext4(event GCEvent) {
