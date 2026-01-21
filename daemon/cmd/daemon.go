@@ -97,6 +97,16 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 		return fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
+	// NodePort/BPF masquerade features require iptables rules to be installed
+	// so locally generated traffic is marked appropriately.
+	//
+	// The NodePort code must identify locally generated traffic to avoid
+	// NAT port allocation conflicts.
+	if (params.KPRConfig.KubeProxyReplacement || params.DaemonConfig.EnableBPFMasquerade) && !params.DaemonConfig.InstallIptRules {
+		return fmt.Errorf("kube-proxy replacement (--%s) or BPF masquerade (--%s) requires iptables rules (--%s=\"true\")",
+			option.KubeProxyReplacement, option.EnableBPFMasquerade, option.InstallIptRules)
+	}
+
 	if params.K8sClientConfig.IsEnabled() {
 		// Kubernetes demands that the localhost can always reach local
 		// pods. Therefore unless the AllowLocalhost policy is set to a
