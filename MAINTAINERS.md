@@ -13,7 +13,6 @@ to learn how to level up through the project.
  * [André Martins] (Isovalent)
  * [Arthur Outhenin-Chalandre] (Ledger)
  * [Bill Mulligan] (Isovalent)
- * [Bruno M. Custódio] (Isovalent)
  * [Casey Callendrello] (Isovalent)
  * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
@@ -39,7 +38,6 @@ to learn how to level up through the project.
  * [Marco Iorio] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
  * [Michi Mutsuzaki] (Isovalent)
- * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
  * [Nick Young] (Isovalent)
  * [Nicolas Busseneau] (Isovalent)
@@ -49,7 +47,6 @@ to learn how to level up through the project.
  * [Robin Hahling] (Isovalent)
  * [Sebastian Wicki] (Isovalent)
  * [Tam Mach] (Isovalent)
- * [Thomas Graf] (Isovalent)
  * [Timo Beckers] (Isovalent)
  * [Tobias Klauser] (Isovalent)
  * [Tom Hadlaw] (Isovalent)
@@ -61,6 +58,7 @@ to learn how to level up through the project.
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
  * [Beatriz Martínez] (Isovalent)
+ * [Bruno M. Custódio] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
  * [Eloy Coto] (Red Hat)
  * [Gilberto Bertin]
@@ -68,7 +66,9 @@ We would like to acknowledge previous committers and their huge contributions to
  * [Ilya Dmitrichenko] (Docker)
  * [Lorenz Bauer]
  * [Michal Rostecki] (Anza)
+ * [Natália Réka Ivánkó] (Isovalent)
  * [Ray Bejjani]
+ * [Thomas Graf] (Isovalent)
  * [Tom Payne]
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
