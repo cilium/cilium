@@ -15,8 +15,8 @@ spec:
             - --fail-fast=true
             - --exclude=
             - --include=upstream-e2e
-            - --perturbation-wait-seconds=10
-            - --retries=5
+            - --perturbation-wait-seconds=20
+            - --retries=7
             - --noisy=true
             - --ignore-loopback=true
             - --cleanup-namespaces=false
