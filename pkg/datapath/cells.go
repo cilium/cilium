@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/loader"
-	datapathmaps "github.com/cilium/cilium/pkg/datapath/maps"
+	"github.com/cilium/cilium/pkg/datapath/mapsweeper"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/datapath/node"
 	"github.com/cilium/cilium/pkg/datapath/orchestrator"
@@ -55,8 +55,8 @@ var Cell = cell.Module(
 	// Provides all BPF Map which are already provided by via hive cell.
 	maps.Cell,
 
-	// Cleanup of stale and disabled BPF maps
-	datapathmaps.Cell,
+	// Cleanup of stale and disabled BPF maps.
+	mapsweeper.Cell,
 
 	// Utime synchronizes utime from userspace to datapath via configmap.Map.
 	utime.Cell,
