@@ -741,7 +741,6 @@ Agent
 ================================ ================================ ========== ========================================================
 Name                             Labels                           Default    Description
 ================================ ================================ ========== ========================================================
-``agent_bootstrap_seconds``      ``scope``, ``outcome``           Enabled    Deprecated, will be removed in Cilium 1.20 - use ``cilium_hive_jobs_oneshot_last_run_duration_seconds`` of respective job instead. Duration of various bootstrap phases
 ``api_process_time_seconds``                                      Enabled    Processing time of all the API calls made to the cilium-agent, labeled by API method, API path and returned HTTP code.
 ================================ ================================ ========== ========================================================
 

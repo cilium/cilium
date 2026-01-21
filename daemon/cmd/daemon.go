@@ -144,7 +144,6 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 
 func configureDaemon(ctx context.Context, params daemonParams) error {
 	if params.Clientset.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
 		// context deadline or if the context has been cancelled, the context's
 		// error will be returned. Otherwise, it succeeded.
@@ -165,8 +164,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 		if err := params.LocalNodeStore.WaitForNodeInformation(ctx); err != nil {
 			return fmt.Errorf("failed to wait for node information: %w", err)
 		}
-
-		bootstrapStats.k8sInit.End(true)
 	}
 
 	// The kube-proxy replacement and host-fw devices detection should happen after
@@ -202,9 +199,7 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
-	bootstrapStats.k8sInit.Start()
 	params.K8sWatcher.InitK8sSubsystem(ctx)
-	bootstrapStats.k8sInit.End(true)
 
 	// Configure and start IPAM without using the configuration yet.
 	configureAndStartIPAM(ctx, params)
@@ -265,9 +260,6 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 			return fmt.Errorf("postinit failed: %w", err)
 		}
 	}
-
-	bootstrapStats.overall.End(true)
-	bootstrapStats.updateMetrics()
 
 	return nil
 }
