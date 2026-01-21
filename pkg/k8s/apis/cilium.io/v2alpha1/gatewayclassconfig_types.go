@@ -65,6 +65,24 @@ const (
 	LoadBalancerSourceRangesPolicyDeny LoadBalancerSourceRangesPolicyType = "Deny"
 )
 
+// ServerHeaderTransformationType controls how Envoy handles the HTTP Server header.
+//
+// +kubebuilder:validation:Enum=OVERWRITE;APPEND_IF_ABSENT;PASS_THROUGH
+type ServerHeaderTransformationType string
+
+const (
+	// ServerHeaderTransformationOverwrite overwrites any Server header with "envoy".
+	ServerHeaderTransformationOverwrite ServerHeaderTransformationType = "OVERWRITE"
+
+	// ServerHeaderTransformationAppendIfAbsent appends Server "envoy" if no Server header is present.
+	// If a Server header is present, passes it through.
+	ServerHeaderTransformationAppendIfAbsent ServerHeaderTransformationType = "APPEND_IF_ABSENT"
+
+	// ServerHeaderTransformationPassThrough passes through the value of the server header,
+	// and does not append a header if none is present.
+	ServerHeaderTransformationPassThrough ServerHeaderTransformationType = "PASS_THROUGH"
+)
+
 type ServiceConfig struct {
 	// Sets the Service.Spec.Type in generated Service objects to the given value.
 	// Only LoadBalancer and NodePort are supported.
@@ -121,6 +139,18 @@ type ServiceConfig struct {
 	TrafficDistribution *string `json:"trafficDistribution,omitempty"`
 }
 
+// EnvoyConfig specifies proxy configuration options for Cilium-managed Gateways.
+// These settings control Envoy-specific behavior that is not part of the Gateway API standard.
+// +deepequal-gen=true
+type EnvoyConfig struct {
+	// ServerHeaderTransformation controls the HTTP "Server" response header.
+	// Defaults to OVERWRITE.
+	//
+	// +kubebuilder:default="OVERWRITE"
+	// +kubebuilder:validation:Optional
+	ServerHeaderTransformation *ServerHeaderTransformationType `json:"serverHeaderTransformation,omitempty"`
+}
+
 // CiliumGatewayClassConfigSpec specifies all the configuration options for a
 // Cilium managed GatewayClass.
 type CiliumGatewayClassConfigSpec struct {
@@ -135,6 +165,12 @@ type CiliumGatewayClassConfigSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	Service *ServiceConfig `json:"service,omitempty"`
+
+	// Envoy specifies proxy configuration options.
+	// These settings control Envoy-specific behavior that is not part of the Gateway API standard.
+	//
+	// +kubebuilder:validation:Optional
+	Envoy *EnvoyConfig `json:"envoy,omitempty"`
 }
 
 // +deepequal-gen=false

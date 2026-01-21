@@ -68,6 +68,11 @@ func Test_translator_Translate(t *testing.T) {
 		{name: "conformance/gamma/mesh_frontend"},
 		{name: "conformance/gamma/mesh_ports"},
 		{name: "conformance/gamma/mesh_splits"},
+
+		// Server header related tests
+		{name: "server_header_append_if_absent"},
+		{name: "server_header_pass_through"},
+		{name: "server_header_overwrite"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

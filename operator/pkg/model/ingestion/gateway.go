@@ -30,8 +30,9 @@ const (
 
 // Input is the input for GatewayAPI.
 type Input struct {
-	GatewayClass       gatewayv1.GatewayClass
-	GatewayClassConfig *v2alpha1.CiliumGatewayClassConfig
+	GatewayClass               gatewayv1.GatewayClass
+	GatewayClassConfig         *v2alpha1.CiliumGatewayClassConfig
+	ServerHeaderTransformation model.ServerHeaderTransformation
 
 	Gateway             gatewayv1.Gateway
 	HTTPRoutes          []gatewayv1.HTTPRoute
@@ -108,12 +109,13 @@ func GatewayAPI(log *slog.Logger, input Input) ([]model.HTTPListener, []model.TL
 					UID:       string(input.Gateway.GetUID()),
 				},
 			},
-			Port:           uint32(l.Port),
-			Hostname:       toHostname(l.Hostname),
-			TLS:            toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
-			Routes:         httpRoutes,
-			Infrastructure: infra,
-			Service:        toServiceModel(input.GatewayClassConfig),
+			Port:                       uint32(l.Port),
+			Hostname:                   toHostname(l.Hostname),
+			TLS:                        toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
+			Routes:                     httpRoutes,
+			Infrastructure:             infra,
+			Service:                    toServiceModel(input.GatewayClassConfig),
+			ServerHeaderTransformation: input.ServerHeaderTransformation,
 		})
 
 		resTLSPassthrough = append(resTLSPassthrough, model.TLSPassthroughListener{
