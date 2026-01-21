@@ -320,22 +320,21 @@ Cluster Mesh
   more details and migration recommendations to update your network policies.
 * The ``clustermesh.apiserver.tls.authMode`` option is set by default to ``migration`` as
   a first step to transition to ``cluster`` in a future release. If you are using
-  ``clustermesh.useAPIServer=true``  and ``clustermesh.config.enabled=false``
-  you should either create the ``clustermesh-remote-users`` ConfigMap in addition
-  to the existing ClusterMesh secrets or set ``clustermesh.apiserver.tls.authMode=legacy``.
+  ``clustermesh.useAPIServer=true``  and ``clustermesh.config.enabled=false``,
+  create the ``clustermesh-remote-users`` ConfigMap in addition to the existing
+  ClusterMesh secrets, or set ``clustermesh.apiserver.tls.authMode=legacy``.
   If you have a different configuration, you are not expected to take any action and the
   transition to ``clustermesh.apiserver.tls.authMode=cluster`` should be fully transparent for you.
 
 Custom Resource Versions
 ########################
 
-* The ``v2alpha1`` version of ``CiliumLoadBalancerIPPool`` CRD has been deprecated in favor of the ``v2`` version. Please change ``apiVersion: cilium.io/v2alpha1``
-  to ``apiVersion: cilium.io/v2`` in your manifests for all ``CiliumLoadBalancerIPPool`` resources.
+* The ``v2alpha1`` version of ``CiliumLoadBalancerIPPool`` CRD has been
+  deprecated in favor of the ``v2`` version. Change ``apiVersion: cilium.io/v2alpha1``
+  to ``apiVersion: cilium.io/v2`` in your manifests for all ``CiliumLoadBalancerIPPool`` resources before upgrading.
 * The previously deprecated ``CiliumBGPPeeringPolicy`` CRD and its control plane (BGPv1) has been removed.
   Please migrate to ``cilium.io/v2`` CRDs (``CiliumBGPClusterConfig``, ``CiliumBGPPeerConfig``,
   ``CiliumBGPAdvertisement``, ``CiliumBGPNodeConfigOverride``) before upgrading.
-* Cilium will stop reporting its local cluster name and node name in metrics. Users relying on those
-  should configure their metrics collection system to add similar labels instead.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
@@ -343,23 +342,27 @@ Informational Notes
 General Notes
 #############
 
-* Hubble field mask support was stabilized. In the Observer gRPC API, ``GetFlowsRequest.Experimental.field_mask`` was removed in favor of ``GetFlowsRequest.field_mask``. In the Hubble CLI, the ``--experimental-field-mask`` has been renamed to ``--field-mask`` and ``--experimental-use-default-field-mask`` renamed to ``-use-default-field-mask`` (now ``true`` by default).
-* ``enable-remote-node-masquerade`` config option is introduced.
-  To masquerade traffic to remote nodes in BPF masquerading mode,
-  use the option ``enable-remote-node-masquerade: "true"``.
-  This option requires ``enable-bpf-masquerade: "true"`` and also either
-  ``enable-ipv4-masquerade: "true"`` or ``enable-ipv6-masquerade: "true"``
-  to SNAT traffic for IPv4 and IPv6, respectively.
-  This flag currently masquerades traffic to node ``InternalIP`` addresses.
-  This may change in future. See :gh-issue:`35823`
-  and :gh-issue:`17177` for further discussion on this topic.
-* If running Cilium with IPsec, Kube-Proxy Replacement, and BPF Masquerading enabled,
+* If you run Cilium with IPsec, Kube-Proxy Replacement, and BPF Masquerading enabled,
   `eBPF_Host_Routing` will be automatically enabled. That was already the case when running without
   IPsec. Running BPF Host Routing with IPsec however requires
   `a kernel bugfix <`https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=c4327229948879814229b46aa26a750718888503>`_.
+  The tracking identifier for this bugfix is CVE-2025-37959. Ensure that your
+  kernel is up to date with the fix for this bug.
   You can disable BPF Host Routing with ``--enable-host-legacy-routing=true``.
-* This release introduces enabling packet layer path MTU discovery by default on CNI Pod endpoints, this is controlled via the ``enable-endpoint-packet-layer-pmtud`` flag.
-* The Socket LB tracing message format has been updated, you might briefly see parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
+* Certificate generation with the CronJob method for Hubble and ClusterMesh has
+  changed. The Job resource to generate certificates is now created like any other
+  resource and is no longer part of Helm post-install or post-upgrade hooks. This
+  makes it compatible by default with the Helm ``--wait`` option or through ArgoCD.
+  You are no longer expected to create a Job manually or as part of your own
+  automation when bootstrapping your clusters.
+* The Socket LB tracing message format has been updated. You might briefly see
+  parsing errors or malformed trace-sock events during the upgrade to Cilium v1.19.
+* Hubble field mask API was stabilized. In the Observer gRPC API,
+  ``GetFlowsRequest.Experimental.field_mask`` was removed in favor of
+  ``GetFlowsRequest.field_mask``. In the Hubble CLI, the
+  ``--experimental-field-mask`` has been renamed to ``--field-mask`` and
+  ``--experimental-use-default-field-mask`` renamed to
+  ``-use-default-field-mask`` (now ``true`` by default).
 * Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
   (previously this was a RHEL8.6-compatible kernel).
 
@@ -371,12 +374,6 @@ Cluster Mesh
   with a version lower than 1.19, the global services count will be reported as 0.
 * If MCS-API support is enabled, Cilium now installs and manages MCS-API CRDs by default.
   You can set ``clustermesh.mcsapi.installCRDs`` to ``false`` to opt-out.
-* Certificate generation with the CronJob method for Hubble and ClusterMesh has
-  changed. The Job resource to generate certificates is now created like any other
-  resource and is no longer part of Helm post-install or post-upgrade hooks. This
-  makes it compatible by default with the Helm ``--wait`` option or through ArgoCD.
-  You are no longer expected to create a Job manually or as part of your own
-  automation when bootstrapping your clusters.
 * Adding ClusterMesh certificates and keys in Helm values is deprecated.
   You are now expected to pre-create those secrets outside of the Cilium Helm chart
   when setting ``clustermesh.apiserver.tls.auto.enabled=false``.
@@ -391,9 +388,20 @@ New Options
 
 The following options have been introduced in this version of Cilium:
 
+* The new agent flag ``enable-remote-node-masquerade`` has been introduced.
+  To masquerade traffic to remote nodes in BPF masquerading mode,
+  use the option ``enable-remote-node-masquerade: "true"``.
+  This option requires ``enable-bpf-masquerade: "true"`` and also either
+  ``enable-ipv4-masquerade: "true"`` or ``enable-ipv6-masquerade: "true"``
+  to SNAT traffic for IPv4 and IPv6, respectively.
+  This flag currently masquerades traffic to node ``InternalIP`` addresses.
+  This may change in future. See :gh-issue:`35823`
+  and :gh-issue:`17177` for further discussion on this topic.
 * The new agent flag ``encryption-strict-mode-ingress`` allows dropping any pod-to-pod traffic that hasn't been encrypted. It
   is only available when WireGuard and tunneling are enabled as well. It should be noted that enabling this feature directly
   with the upgrade can lead to intermittent packet drops.
+* The agent flag ``enable-endpoint-packet-layer-pmtud`` introduces packet layer
+  path MTU discovery by default for all Cilium-managed endpoints.
 
 Changed Options
 ###############
@@ -531,6 +539,9 @@ The following metrics no longer reports a ``source_cluster`` and a ``source_node
 * ``*_remote_cluster_services``
 * ``*_remote_cluster_endpoints``
 * ``cilium_operator_clustermesh_remote_cluster_service_exports``
+
+If you rely on the cluster or node name labels, configure your metrics
+collection system to add the labels rather than configuring Cilium.
 
 Deprecated Metrics
 ##################
