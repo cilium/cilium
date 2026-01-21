@@ -255,6 +255,7 @@ jobs:
 
       # Sequentially kill kube-apiserver pods to verify cilium agent pods fail over to an active instance.
       - name: Test kube-apiserver high availability
+        timeout-minutes: 10
         run: |
           PORT=6443
           NAMESPACE="kube-system"
