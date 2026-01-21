@@ -397,9 +397,11 @@ The following options have been introduced in this version of Cilium:
   This flag currently masquerades traffic to node ``InternalIP`` addresses.
   This may change in future. See :gh-issue:`35823`
   and :gh-issue:`17177` for further discussion on this topic.
-* The new agent flag ``encryption-strict-mode-ingress`` allows dropping any pod-to-pod traffic that hasn't been encrypted. It
-  is only available when WireGuard and tunneling are enabled as well. It should be noted that enabling this feature directly
-  with the upgrade can lead to intermittent packet drops.
+* The new agent flag ``encryption-strict-mode-ingress`` allows dropping any
+  pod-to-pod traffic that hasn't been encrypted. This feature requires
+  WireGuard and tunneling to be enabled. When you enable this feature, there
+  may be temporary disruption to packet delivery between nodes until the nodes
+  are all running with the feature enabled.
 * The agent flag ``enable-endpoint-packet-layer-pmtud`` introduces packet layer
   path MTU discovery by default for all Cilium-managed endpoints.
 
