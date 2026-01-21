@@ -36,18 +36,9 @@ func (p *policyWatcher) onUpsertCIDRGroup(
 	p.applyCIDRGroup(name)
 }
 
-// applyCIDRGroup inserts / removes prefixes in the ipcache
-// labelled as belonging to the CIDR group.
-//
-// If the CIDRGroup in question is not referenced by any policies,
-// this treats it as being deleted.
-func (p *policyWatcher) applyCIDRGroup(name string) {
-	oldCIDRs, ok := p.cidrGroupCIDRs[name]
-	if !ok {
-		oldCIDRs = make(sets.Set[netip.Prefix])
-	}
+func (p *policyWatcher) cidrsAndLabelsForCIDRGroup(name string) (sets.Set[netip.Prefix], labels.Labels) {
 	newCIDRs := make(sets.Set[netip.Prefix])
-	lbls := labels.Labels{}
+	var lbls labels.Labels
 
 	// If CIDRGroup isn't deleted; populate newCIDRs
 	if cidrGroup, ok := p.cidrGroupCache[name]; ok {
@@ -70,6 +61,21 @@ func (p *policyWatcher) applyCIDRGroup(name string) {
 		}
 	}
 
+	return newCIDRs, lbls
+}
+
+// applyCIDRGroup inserts / removes prefixes in the ipcache
+// labelled as belonging to the CIDR group.
+//
+// If the CIDRGroup in question is not referenced by any policies,
+// this treats it as being deleted.
+func (p *policyWatcher) applyCIDRGroup(name string) {
+	oldCIDRs, ok := p.cidrGroupCIDRs[name]
+	if !ok {
+		oldCIDRs = make(sets.Set[netip.Prefix])
+	}
+
+	newCIDRs, lbls := p.cidrsAndLabelsForCIDRGroup(name)
 	if len(newCIDRs) == 0 {
 		delete(p.cidrGroupCIDRs, name)
 	} else {
