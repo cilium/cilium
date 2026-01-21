@@ -2,6 +2,7 @@ allowed-teams:
   - organization-members
 
 triggers:
+  # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
   /test\s*:
     workflows:
     - conformance-aws-cni.yaml
@@ -111,6 +112,7 @@ triggers:
     workflows:
     - l7-perf.yaml
 
+# This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
 schedule:
   nightly:
     workflows:
