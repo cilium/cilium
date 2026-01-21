@@ -427,8 +427,8 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
 				{key: egressKey(identity1111, 6, 80, 16), found: true, entry: AllowEntry},
 				{key: egressKey(identity1111, 6, 81, 16), found: true, entry: AllowEntry},
-				//{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
-				//{key: egressKey(identityWorld, 6, 82, 16), found: true, entry: AllowEntry},
+				{key: egressKey(identity1111, 6, 82, 16), found: true, entry: AllowEntry},
+				{key: egressKey(identityWorld, 6, 82, 16), found: true, entry: AllowEntry},
 			},
 		}, {
 			name: "PASS 1.1.1.1 over deny",
@@ -498,6 +498,32 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			},
 			probes: []probe{},
 		}, {
+			name:            "PASS 1.1.1.1 to lower-tier deny with non-consecutive tiers",
+			skipDefaultDeny: true,
+			entries: types.PolicyEntries{
+				&types.PolicyEntry{
+					Tier:     0,
+					Priority: 10,
+					L3:       selectors1111,
+					Verdict:  types.Pass,
+				},
+				&types.PolicyEntry{
+					Tier:     2,
+					Priority: 10,
+					L3:       selectors1111,
+					Verdict:  types.Deny,
+				},
+			},
+			expected: mapStateMap{
+				// default allow ingress
+				ingressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyIngress),
+
+				egressKey(identity1111, 0, 0, 0): denyEntry.withLevel(1).withPassPriority(0, 0, 3000),
+				// default allow egress
+				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(4000),
+			},
+			probes: []probe{},
+		}, {
 			name: "allow 1.1.1.1, deny 1.1.1.1",
 			// 0: allow 1.1.1.1
 			// 0: deny 1.1.1.1
@@ -525,9 +551,7 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				{key: egressKey(identity1111, 6, 81, 16), found: true, entry: DenyEntry},
 				{key: egressKey(identity1111, 6, 82, 16), found: true, entry: DenyEntry},
 			},
-		},
-
-		{
+		}, {
 			name: "allow 1.1.1.1, deny 1.1.1.1 (override)",
 			// -1. allow 1.1.1.1
 			// 1. deny 1.1.1.1
