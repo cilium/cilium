@@ -61,12 +61,13 @@ func (rules ruleSlice) computeTierPriorities() ([]int, error) {
 			if r.Tier < lastTier {
 				return nil, ErrUnorderedTiers
 			}
-			// Keep the needed priority levels for the previous tier,
+			// Keep the needed priority levels for the previous tiers,
 			// rounding up to next 10 to reduce policy map churn.
-			ensureSlice(&tierPriorityLevels, lastTier)
-			tierPriorityLevels[lastTier] = roundUp(levels, 10)
-
-			ensureSlice(&numPassVerdicts, r.Tier)
+			for t := lastTier; t < r.Tier; t++ {
+				ensureSlice(&tierPriorityLevels, t)
+				tierPriorityLevels[t] = roundUp(levels, 10)
+				ensureSlice(&numPassVerdicts, t)
+			}
 
 			// reset counting priority levels for the next tier
 			lastTier = r.Tier

@@ -808,11 +808,11 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 			if v.GetPrecedence() > newEntry.passPrecedence {
 				return
 			}
-			// Delete covered entries of lower precedence levels.
-			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
-				if v.GetPrecedence() < newEntry.passPrecedence {
-					ms.deleteExistingWithChanges(k, v, changes)
-				}
+		}
+		// Delete covered entries of lower precedence levels.
+		for k, v := range ms.NarrowerOrEqualKeys(newKey) {
+			if v.GetPrecedence() < newEntry.passPrecedence {
+				ms.deleteExistingWithChanges(k, v, changes)
 			}
 		}
 	} else if newEntry.IsDeny() {
@@ -879,6 +879,24 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 			bail := false
 			var passEntry mapStateEntry
 			var passKey Key
+
+			// Resolve covered pass entries.
+			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
+				if v.IsValid() {
+					continue
+				}
+				// 'v' is an unresolved PASS entry.
+				// Only resolve if the PASS entry has higher precedence.
+				if v.passPrecedence > newEntry.Precedence {
+					// Inherit all fields from PASS entry, but set verdict to Allow.
+					// Inherit derivedFromRules from the covered rule.
+					resolvedEntry := newEntry
+					resolvedEntry.MapStateEntry = newEntry.WithDeny(false)
+					resolvedEntry.InheritPassPrecedence(v, k == newKey)
+					ms.updateExisting(k, resolvedEntry)
+				}
+			}
+
 			// Bail if covered by a key of a higher precedence.
 			for k, v := range ms.BroaderOrEqualKeys(newKey) {
 				// Bump precedence if covered by a higher tier PASS verdict.
@@ -912,7 +930,6 @@ func (ms *mapState) insertWithChanges(tierPrecedence types.Precedence, newKey Ke
 			} else if bail {
 				return
 			}
-
 			// Delete covered entries of lower precedence levels
 			for k, v := range ms.NarrowerOrEqualKeys(newKey) {
 				if v.GetPrecedence() < newEntry.Precedence {
