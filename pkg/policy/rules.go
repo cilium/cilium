@@ -58,6 +58,9 @@ const perTierRoundUp = 1000
 // Full range of the remaining tiers must be included so that we know to leave sufficient space
 // after each pass verdict for the rules promoted from the remaining tiers.
 //
+// Note that since the the full range of remaining tiers is included, the returned range for
+// tiers without any rules is the same as the next tier.
+//
 // Since the full range of the remaining tiers is included, the base priority of each tier can be
 // calculated as follows (range is the returned slice):
 //
@@ -155,8 +158,11 @@ func (rules ruleSlice) resolveL4Policy(policyCtx PolicyContext) (L4DirectionPoli
 			if priority > types.LowestPriority {
 				return result, ErrTooManyPriorityLevels
 			}
-			tier = r.Tier
-			priority -= types.Priority(tierPriorityLevels[tier])
+			priority -= types.Priority(tierPriorityLevels[r.Tier])
+			for tier++; tier < r.Tier; tier++ {
+				// fill in the same base priority for all skipped tiers
+				result.tierBasePriority[tier] = priority
+			}
 			result.tierBasePriority[tier] = priority
 
 			increment = types.Priority(1) // reset increment to default
