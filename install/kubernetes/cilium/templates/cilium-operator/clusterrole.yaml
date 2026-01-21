@@ -78,6 +78,17 @@ rules:
   - get
   - list
   - watch
+{{- if .Values.clustermesh.enableEndpointSliceSynchronization }}
+- apiGroups:
+  - ""
+  resources:
+  # The controller needs to be able to set a service's finalizers to be able to create an EndpointSlice
+  # resource that is owned by the service and sets blockOwnerDeletion=true in its ownerRef.
+  # This is required when the admission plugin OwnerReferencesPermissionEnforcement is activated.
+  - services/finalizers
+  verbs:
+  - update
+{{- end }}
 - apiGroups:
   - ""
   resources:
