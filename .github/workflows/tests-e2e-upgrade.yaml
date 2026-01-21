@@ -41,6 +41,26 @@ on:
         type: boolean
         default: false
 
+  # workflow_dispatch is only used for scheduled runs in stable branches by ariane
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
   # Run every 8 hours
   schedule:
     - cron:  '0 5/8 * * *'
@@ -125,6 +145,7 @@ jobs:
           # When test-l7-only is true: filter to only test-l7: true configs
           # When test-l7-only is false (default):
           #   - On schedule (direct trigger, not workflow_call): include all configs (with L3/L4 AND L7)
+          #   - On workflow_dispatch (used on stable branches where GH scheduled doesn't work and ariane does it): include all configs (with L3/L4 AND L7)
           #   - Otherwise: include only test-l7: false configs (L3/L4 only)
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
             jq '[.[] | select(.["test-l7"] == "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
@@ -134,6 +155,11 @@ jobs:
             jq '[.[] | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # workflow_dispatch is only used on stable branches where GH scheduled doesn't work and ariane does it
+            jq '[.[] | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
+            CONFIG_COUNT=$(jq 'length' matrix.json)
+            echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - workflow_dispatch run with full test suite)"
           else
             jq '[.[] | select(.["test-l7"] != "true") | del(."key-one", ."key-two", ."test-l7") | . as $entry | [$entry + {mode: "minor"}, $entry + {mode: "patch"}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
