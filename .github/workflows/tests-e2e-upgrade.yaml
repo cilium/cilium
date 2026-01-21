@@ -276,6 +276,7 @@ jobs:
 
       - name: Resolve full kernel version
         id: kernel-version
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         uses: ./.github/actions/resolve-kernel-version
         with:
           kernel: ${{ matrix.kernel }}
@@ -363,6 +364,7 @@ jobs:
 
       - name: Set up job variables for connectivity tests
         id: vars-conn
+        if: ${{ steps.vars.outputs.downgrade_version != '' }}
         run: |
           EXTRA_CLI_FLAGS=(
             "--external-target=${{ steps.lvh-kind.outputs.external_target_name }}"
