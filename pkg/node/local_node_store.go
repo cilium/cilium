@@ -23,6 +23,7 @@ import (
 type LocalNodeSynchronizer interface {
 	InitLocalNode(context.Context, *LocalNode) error
 	SyncLocalNode(context.Context, *LocalNodeStore)
+	WaitForNodeInformation(context.Context) error
 }
 
 // LocalNodeStoreCell provides the LocalNodeStore instance.
@@ -58,6 +59,7 @@ type LocalNodeStoreParams struct {
 type LocalNodeStore struct {
 	db    *statedb.DB
 	nodes statedb.RWTable[*LocalNode]
+	sync  LocalNodeSynchronizer
 }
 
 func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
@@ -84,7 +86,7 @@ func NewLocalNodeStore(params LocalNodeStoreParams) (*LocalNodeStore, error) {
 		})
 	wtxn.Commit()
 
-	s := &LocalNodeStore{params.DB, params.Nodes}
+	s := &LocalNodeStore{params.DB, params.Nodes, params.Sync}
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
@@ -212,6 +214,10 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 	txn.Commit()
 }
 
+func (s *LocalNodeStore) WaitForNodeInformation(ctx context.Context) error {
+	return s.sync.WaitForNodeInformation(ctx)
+}
+
 func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 	db := statedb.New()
 	tbl, err := NewLocalNodeTable(db)
@@ -224,7 +230,7 @@ func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 	txn := db.WriteTxn(tbl)
 	tbl.Insert(txn, &mockNode)
 	txn.Commit()
-	return &LocalNodeStore{db, tbl}
+	return &LocalNodeStore{db, tbl, nil}
 }
 
 // LocalNodeStoreTestCell is a convenience for tests that provides a no-op
@@ -246,9 +252,13 @@ func (n nopLocalNodeSynchronizer) InitLocalNode(context.Context, *LocalNode) err
 func (n nopLocalNodeSynchronizer) SyncLocalNode(context.Context, *LocalNodeStore) {
 }
 
+// WaitForNodeInformation implements [LocalNodeSynchronizer].
+func (n nopLocalNodeSynchronizer) WaitForNodeInformation(context.Context) error {
+	return nil
+}
+
 var _ LocalNodeSynchronizer = nopLocalNodeSynchronizer{}
 
 func NewNopLocalNodeSynchronizer() LocalNodeSynchronizer {
 	return nopLocalNodeSynchronizer{}
-
 }

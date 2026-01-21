@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
@@ -153,8 +152,8 @@ func configureDaemon(ctx context.Context, params daemonParams) error {
 			params.NodeDiscovery.UpdateCiliumNodeResource()
 		}
 
-		if err := agentK8s.WaitForNodeInformation(ctx, params.Logger, params.LocalNodeRes, params.LocalCiliumNodeRes); err != nil {
-			return fmt.Errorf("unable to connect to get node spec from apiserver: %w", err)
+		if err := params.LocalNodeStore.WaitForNodeInformation(ctx); err != nil {
+			return fmt.Errorf("failed to wait for node information: %w", err)
 		}
 
 		bootstrapStats.k8sInit.End(true)
