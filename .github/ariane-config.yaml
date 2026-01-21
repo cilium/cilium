@@ -117,6 +117,7 @@ schedule:
     - conformance-aks.yaml
     - conformance-gateway-api.yaml
     - conformance-gke.yaml
+    - tests-e2e-upgrade.yaml
 
 workflows:
   conformance-aks.yaml:
