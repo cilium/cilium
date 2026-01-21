@@ -449,7 +449,7 @@ func kvstoreExtraOptions(in struct {
 	ClientSet   k8sClient.Clientset
 	Resolver    dial.Resolver
 },
-) (kvstore.ExtraOptions, kvstore.BootstrapStat) {
+) kvstore.ExtraOptions {
 	goopts := kvstore.ExtraOptions{
 		ClusterSizeDependantInterval: in.NodeManager.ClusterSizeDependantInterval,
 	}
@@ -463,7 +463,7 @@ func kvstoreExtraOptions(in struct {
 		}
 	}
 
-	return goopts, &bootstrapStats.kvstore
+	return goopts
 }
 
 // kvstoreLocksGC registers the kvstore locks GC logic.

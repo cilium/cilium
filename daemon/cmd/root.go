@@ -19,7 +19,6 @@ import (
 )
 
 func NewAgentCmd(hfn func() *hive.Hive) *cobra.Command {
-	bootstrapStats.overall.Start()
 	h := hfn()
 
 	rootCmd := &cobra.Command{

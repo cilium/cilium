@@ -63,9 +63,7 @@ func configureAndStartIPAM(ctx context.Context, params daemonParams) {
 	}
 
 	// start
-	bootstrapStats.ipam.Start()
 	params.Logger.Info("Initializing node addressing")
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	params.IPAM.ConfigureAllocator()
-	bootstrapStats.ipam.End(true)
 }

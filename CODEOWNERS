@@ -390,7 +390,6 @@ Makefile* @cilium/build
 /contrib/scripts/verifier_diff.py @cilium/sig-datapath
 /daemon/ @cilium/sig-agent
 /daemon/cmd/endpoint* @cilium/endpoint
-/daemon/cmd/bootstrap_statistics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
 /daemon/cmd/cells*.go @cilium/sig-foundations
 /daemon/infraendpoints/ @cilium/sig-agent @cilium/endpoint
