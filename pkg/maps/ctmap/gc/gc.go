@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"os"
+	"slices"
 	stdtime "time"
 
 	"github.com/cilium/ebpf"
@@ -44,7 +45,13 @@ type EndpointManager interface {
 	GetEndpoints() []*endpoint.Endpoint
 }
 
-type PerClusterCTMapsRetriever func() []*ctmap.Map
+type AdditionalCTMapsFunc func() []ctmap.MapPair
+
+type AdditionalCTMapsOut struct {
+	cell.Out
+
+	AdditionalCTMaps AdditionalCTMapsFunc `group:"ct-additional-maps"`
+}
 
 type parameters struct {
 	cell.In
@@ -62,10 +69,9 @@ type parameters struct {
 	SignalManager           SignalHandler
 	CTMaps                  ctmap.CTMaps
 
-	// PerClusterCTMapsRetriever is an optional function that, if provided, is
-	// used to retrieve the per-cluster CT maps. The slice of maps returned by
-	// the function must contain consecutive (TCP, ANY) pairs.
-	PerClusterCTMapsRetriever PerClusterCTMapsRetriever `optional:"true"`
+	// AdditionalCTMaps contains optional additional CT maps that should be garbage collected.
+	// Provide a AdditionalCTMapsOut struct to inject them.
+	AdditionalCTMaps []AdditionalCTMapsFunc `group:"ct-additional-maps"`
 }
 
 type config struct {
@@ -91,8 +97,8 @@ type GC struct {
 	endpointsManager EndpointManager
 	signalHandler    SignalHandler
 
-	perClusterCTMapsRetriever PerClusterCTMapsRetriever
-	controllerManager         *controller.Manager
+	additionalCTMapsFns []AdditionalCTMapsFunc
+	controllerManager   *controller.Manager
 
 	ctMaps ctmap.CTMaps
 
@@ -122,7 +128,12 @@ func newGC(params parameters) *GC {
 
 		controllerManager: controller.NewManager(),
 
-		perClusterCTMapsRetriever: params.PerClusterCTMapsRetriever,
+		additionalCTMapsFns: slices.DeleteFunc(
+			params.AdditionalCTMaps,
+			func(mapsFunc AdditionalCTMapsFunc) bool {
+				return mapsFunc == nil
+			},
+		),
 	}
 
 	gc.observable4, gc.next4, gc.complete4 = stream.Multicast[ctmap.GCEvent]()
@@ -408,13 +419,15 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 		maps = append(maps, &gcMap{m: m, openCloseRequired: false})
 	}
 
-	// We treat per-cluster CT Maps as global maps. When we don't enable
-	// cluster-aware addressing, perClusterCTMapsRetriever is nil (default).
-	if gc.perClusterCTMapsRetriever != nil {
-		for _, m := range gc.perClusterCTMapsRetriever() {
-			maps = append(maps, &gcMap{m: m, openCloseRequired: true})
+	// Inject additional maps (e.g. per cluster ID maps)
+	for _, getMapPairs := range gc.additionalCTMapsFns {
+		for _, mapPair := range getMapPairs() {
+			maps = append(maps,
+				&gcMap{m: mapPair.TCP, openCloseRequired: true},
+				&gcMap{m: mapPair.Any, openCloseRequired: true})
 		}
 	}
+
 	for _, gcMap := range maps {
 		m := gcMap.m
 		if gcMap.openCloseRequired {
@@ -460,8 +473,8 @@ func (gc *GC) runGC(ipv4, ipv6, triggeredBySignal bool, filter ctmap.GCFilter) (
 
 	if triggeredBySignal {
 		// This works under the assumption that [maps] contains consecutive pairs
-		// of CT maps, respectively of TCP and ANY type, which is currently true
-		// both for global and per-cluster maps.
+		// of CT maps, respectively of TCP and ANY type, which is enforced for
+		// additional maps injected above
 		for i := 0; i+1 < len(maps); i += 2 {
 			startTime := time.Now()
 			ctMapTCP, ctMapAny := maps[i], maps[i+1]
