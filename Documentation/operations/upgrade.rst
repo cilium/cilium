@@ -291,26 +291,33 @@ features. Read the notes carefully below to understand what to do during upgrade
 Network Policy
 ##############
 
-* DNS Policies match pattern now support a wildcard prefix(``**.``) to match multilevel subdomains as pattern prefix. For usage see :ref:`DNS based` policies.
-  This change introduces a difference in behavior for existing policies with ``**.`` wildcard prefix in match patterns.
-  This pattern now selects all cascaded subdomains in prefix as opposed to just a single level. For example: ``**.cilium.io`` now selects both ``app.cilium.io`` and ``test.app.cilium.io`` as
-  opposed to just ``app.cilium.io`` previously.
+* DNS patterns as used by :ref:`Layer-3 DNS-based policy <DNS based>` and
+  :ref:`Layer-7 DNS policy <dns_discovery>` now support extended subdomain
+  matching via the ``**`` wildcard. Previously, ``**`` was allowed as a
+  wildcard but treated the same as ``*``. If you have any existing patterns that
+  start with ``**.``, they will now match multiple subdomains. Check that your
+  DNS wildcards match the subdomains you intend to be allowed.
 * The `CiliumNetworkPolicy` and `CiliumClusterwideNetworkPolicy` CRDs now
   enforce that the ``FromRequires`` and ``ToRequires`` fields are empty.
-  These fields were previously deprecated and can no longer be used.
+  These fields were previously deprecated and can no longer be used. If you
+  are using this feature, remove these fields from your policies before upgrade.
 * Kafka Network Policy support is deprecated and will be removed in Cilium v1.20.
 
 Cluster Mesh
 ############
 
-* In a Cluster Mesh environment, network policy ingress and egress selectors currently select by default
-  endpoints from all clusters unless one or more clusters are explicitly specified in the policy itself.
-  The ``policy-default-local-cluster`` flag allows to change this behavior, and only select endpoints
-  from the local cluster, unless explicitly specified, to improve the default security posture.
-  This option is now enabled by default in Cilium v1.19. If you are using Cilium ClusterMesh and network policies,
-  you need to take action to update your network policies to avoid this change from breaking connectivity for applications
-  across different clusters. See :ref:`change_policy_default_local_cluster` for more details and migration recommendations
-  to update your network policies.
+* In a Cluster Mesh environment, network policy ingress and egress selectors
+  previously selected endpoints from all clusters unless one or more clusters
+  are explicitly specified in the policy itself. In Cilium v1.19 this behavior
+  has changed to only select endpoints from the local cluster by default. The
+  change is made to improve the default security posture. You can change this
+  behavior with the ``policy-default-local-cluster`` flag, for instance by
+  setting it to ``false`` to retain the previous behavior. This option is now
+  enabled by default in Cilium v1.19.
+  If you are using Cilium ClusterMesh and network policies, update your network
+  policies to avoid this change from breaking connectivity for applications
+  across different clusters. See :ref:`change_policy_default_local_cluster` for
+  more details and migration recommendations to update your network policies.
 * The ``clustermesh.apiserver.tls.authMode`` option is set by default to ``migration`` as
   a first step to transition to ``cluster`` in a future release. If you are using
   ``clustermesh.useAPIServer=true``  and ``clustermesh.config.enabled=false``
