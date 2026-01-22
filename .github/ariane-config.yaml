@@ -84,6 +84,7 @@ schedule:
   nightly:
     workflows:
     - conformance-gke.yaml
+    - tests-ces-migrate.yaml
 
 workflows:
   conformance-aks.yaml:
