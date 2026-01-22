@@ -388,12 +388,6 @@ func (c *OperatorConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	} else {
 		c.IPAMInstanceTags = m
 	}
-
-	if m, err := command.GetStringMapStringE(vp, IPAMAutoCreateCiliumPodIPPools); err != nil {
-		logging.Fatal(logger, fmt.Sprintf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err))
-	} else {
-		c.IPAMAutoCreateCiliumPodIPPools = m
-	}
 }
 
 // Config represents the operator configuration.
