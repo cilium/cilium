@@ -700,7 +700,8 @@ bpf:
   # type: [null, boolean]
   # @schema
   # -- (bool) Configure the eBPF-based TPROXY (beta) to reduce reliance on iptables rules
-  # for implementing Layer 7 policy.
+  # for implementing Layer 7 policy. Note this is incompatible with netkit (`bpf.datapathMode=netkit`,
+  # `bpf.datapathMode=netkit-l2`).
   # @default -- `false`
   tproxy: ~
   # @schema
@@ -726,7 +727,8 @@ bpf:
   # supported kernels.
   # @default -- `true`
   enableTCX: true
-  # -- (string) Mode for Pod devices for the core datapath (auto, veth, netkit, netkit-l2)
+  # -- (string) Mode for Pod devices for the core datapath (auto, veth, netkit, netkit-l2).
+  # Note netkit is incompatible with TPROXY (`bpf.tproxy`).
   # @default -- `veth`
   datapathMode: veth
 # -- Enable BPF clock source probing for more efficient tick retrieval.
