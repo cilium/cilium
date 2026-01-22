@@ -3889,7 +3889,7 @@
      - string
      - 0-0 to let the kernel driver decide the range
    * - :spelling:ignore:`underlayProtocol`
-     - IP family for the underlay.
+     - IP family for the underlay. Possible values:   - "ipv4"   - "ipv6"
      - string
      - ``"ipv4"``
    * - :spelling:ignore:`updateStrategy`
