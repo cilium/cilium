@@ -331,6 +331,28 @@ func WithClusterID(clusterID uint32) MapOption {
 	}
 }
 
+type MapConfig struct {
+	IPv6 bool
+	TCP  bool
+}
+
+// NewGlobalMap allows the creation of additional global CT map.
+// This is intended to be used to register additional CT maps for GC with gc.AdditionalCTMapsFunc.
+func NewGlobalMap(name string, cfg MapConfig, opts ...MapOption) *Map {
+	var newMapType mapType
+	switch {
+	case cfg.IPv6 && cfg.TCP:
+		newMapType = mapTypeIPv6TCPGlobal
+	case cfg.IPv6 && !cfg.TCP:
+		newMapType = mapTypeIPv6AnyGlobal
+	case !cfg.IPv6 && cfg.TCP:
+		newMapType = mapTypeIPv4TCPGlobal
+	case !cfg.IPv6 && !cfg.TCP:
+		newMapType = mapTypeIPv4AnyGlobal
+	}
+	return newMap(name, newMapType, opts...)
+}
+
 // newMap creates a new CT map of the specified type with the specified name.
 func newMap(mapName string, m mapType, opts ...MapOption) *Map {
 	result := &Map{
