@@ -15,7 +15,7 @@ on:
         required: true
       base-SHA:
         description: "SHA of the base branch (target branch of the PR)."
-        required: true
+        required: false
       extra-args:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
