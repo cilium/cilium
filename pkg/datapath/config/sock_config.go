@@ -11,6 +11,10 @@ package config
 type BPFSock struct {
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
+	// Enable IPv4 fragments tracking.
+	EnableIPv4Fragments bool `config:"enable_ipv4_fragments"`
+	// Enable IPv6 fragments tracking.
+	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable support for Local Redirect Policy.
 	EnableLRP bool `config:"enable_lrp"`
 	// Enable routes when service has 0 endpoints.
@@ -20,5 +24,5 @@ type BPFSock struct {
 }
 
 func NewBPFSock(node Node) *BPFSock {
-	return &BPFSock{false, false, false, node}
+	return &BPFSock{false, false, false, false, false, node}
 }
