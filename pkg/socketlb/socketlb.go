@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -64,7 +65,8 @@ var configDumpPath = filepath.Join(option.Config.StateDir, "bpf", socketConfig)
 // options have changed.
 // It expects bpf_sock.c to be compiled previously, so that bpf_sock.o is present
 // in the Runtime dir.
-func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration) error {
+func Enable(logger *slog.Logger, reg *registry.MapRegistry,
+	sysctl sysctl.Sysctl, lnc *datapath.LocalNodeConfiguration) error {
 	if err := os.MkdirAll(cgroupLinkPath(), 0777); err != nil {
 		return fmt.Errorf("create bpffs link directory: %w", err)
 	}
@@ -82,6 +84,7 @@ func Enable(logger *slog.Logger, sysctl sysctl.Sysctl, lnc *datapath.LocalNodeCo
 	cfg.TunnelPort = lnc.TunnelPort
 
 	coll, commit, err := bpf.LoadCollection(logger, spec, &bpf.CollectionOptions{
+		MapRegistry: reg,
 		Constants:   cfg,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
