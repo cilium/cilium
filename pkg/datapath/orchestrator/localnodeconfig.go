@@ -127,10 +127,6 @@ func newLocalNodeConfig(
 	if !ok {
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
 	}
-	ciliumNetMAC, err := mac.ParseMAC(ciliumNetDevice.HardwareAddr.String())
-	if err != nil {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to parse hardware address of '%s': %w", defaults.SecondHostDevice, err)
-	}
 
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
@@ -138,7 +134,6 @@ func newLocalNodeConfig(
 		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
 		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
 		CiliumNetIfIndex:             uint32(ciliumNetDevice.Index),
-		CiliumNetMAC:                 ciliumNetMAC,
 		CiliumHostIfIndex:            uint32(ciliumHostDevice.Index),
 		CiliumHostMAC:                ciliumHostMAC,
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
