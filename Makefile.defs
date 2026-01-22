@@ -183,6 +183,9 @@ ifneq ($(wildcard $(ROOT_DIR)/images/cilium/Dockerfile),)
     endif
 endif
 
+# Set the ztunnel image if provided
+GO_BUILD_LDFLAGS += $(if $(ZTUNNEL_IMAGE),-X "github.com/cilium/cilium/operator/pkg/ztunnel.ztunnelImage=$(ZTUNNEL_IMAGE)")
+
 # Use git only if in a Git repo, otherwise find the files from the file system
 BPF_SRCFILES_IGNORE = bpf/.gitignore bpf/tests/% bpf/complexity-tests/% bpf/custom/% bpf/Makefile bpf/Makefile.bpf
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git/HEAD),)
