@@ -83,9 +83,6 @@ func (in *LocalNodeConfiguration) DeepEqual(other *LocalNodeConfiguration) bool 
 		}
 	}
 
-	if in.CiliumHostIfIndex != other.CiliumHostIfIndex {
-		return false
-	}
 	if in.CiliumNetIfIndex != other.CiliumNetIfIndex {
 		return false
 	}
