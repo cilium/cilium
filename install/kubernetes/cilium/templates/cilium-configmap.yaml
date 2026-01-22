@@ -1498,6 +1498,7 @@ data:
   clustermesh-enable-endpoint-sync: {{ .Values.clustermesh.enableEndpointSliceSynchronization | quote }}
   clustermesh-enable-mcs-api: {{ .Values.clustermesh.mcsapi.enabled | quote }}
   clustermesh-mcs-api-install-crds: {{ .Values.clustermesh.mcsapi.installCRDs | quote }}
+  clustermesh-default-global-namespace: {{ .Values.clustermesh.defaultGlobalNamespace | quote }}
   policy-default-local-cluster: {{ .Values.clustermesh.policyDefaultLocalCluster | quote }}
 
   nat-map-stats-entries: {{ .Values.nat.mapStatsEntries | quote }}

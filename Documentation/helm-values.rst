@@ -992,6 +992,10 @@
      - Enable the Clustermesh explicit configuration. If set to false, you need to provide the following resources yourself: - (Secret) cilium-clustermesh (used by cilium-agent/cilium-operator to connect to   the local etcd instance if KVStoreMesh is enabled or the remote clusters   if KVStoreMesh is disabled) - (Secret) cilium-kvstoremesh (used by KVStoreMesh to connect to the remote clusters) - (ConfigMap) clustermesh-remote-users (used to create one etcd user per remote cluster   if clustermesh-apiserver is used and ``clustermesh.apiserver.tls.authMode`` is not   set to ``legacy``\ )
      - bool
      - ``false``
+   * - :spelling:ignore:`clustermesh.defaultGlobalNamespace`
+     - Default behavior of namespaces in Clustermesh. If set to true, all namespaces are considered global unless annotated with clustermesh.cilium.io/global=false. If set to false, all namespaces are considered local unless annotated with clustermesh.cilium.io/global=true. Defaults to true.
+     - bool
+     - ``true``
    * - :spelling:ignore:`clustermesh.enableEndpointSliceSynchronization`
      - Enable the synchronization of Kubernetes EndpointSlices corresponding to the remote endpoints of appropriately-annotated global services through ClusterMesh
      - bool
