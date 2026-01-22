@@ -1522,6 +1522,9 @@
           },
           "type": "object"
         },
+        "defaultGlobalNamespace": {
+          "type": "boolean"
+        },
         "enableEndpointSliceSynchronization": {
           "type": "boolean"
         },

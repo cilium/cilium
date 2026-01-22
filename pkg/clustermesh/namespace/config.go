@@ -20,5 +20,4 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 		cfg.GlobalNamespacesByDefault,
 		"Mark all namespaces as global by default unless overridden by annotation",
 	)
-	flags.MarkHidden("clustermesh-default-global-namespace")
 }
