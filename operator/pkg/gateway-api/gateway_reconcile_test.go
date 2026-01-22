@@ -190,6 +190,7 @@ func Test_Conformance(t *testing.T) {
 		{name: "grpcroute-listener-hostname-matching", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "grpcroute-listener-hostname-matching", Namespace: "gateway-conformance-infra"}}}},
 		{name: "httproute-backend-protocol-h2c", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-backend-protocol-websocket", gateway: []gwDetails{gatewaySameNamespace}},
+		{name: "httproute-circuit-breaker", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-cross-namespace", gateway: []gwDetails{gatewayBackendNamespace}},
 		{
 			name:    "httproute-disallowed-kind",

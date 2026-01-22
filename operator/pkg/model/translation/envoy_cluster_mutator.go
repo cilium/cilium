@@ -9,6 +9,7 @@ import (
 	envoy_upstreams_http_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type ClusterMutator func(*envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster
@@ -100,6 +101,57 @@ func withProtocol(protocolVersion HTTPVersionType) ClusterMutator {
 		cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			httpProtocolOptionsType: toAny(options),
 		}
+		return cluster
+	}
+}
+
+func withCircuitBreaker(thresholds []*CircuitBreakerThreshold, circuitBreakerName string) ClusterMutator {
+	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
+		if cluster == nil {
+			return cluster
+		}
+
+		if thresholds == nil || len(thresholds) == 0 {
+			return cluster
+		}
+
+		envoyThresholds := []*envoy_config_cluster_v3.CircuitBreakers_Thresholds{}
+
+		for _, t := range thresholds {
+			var priority envoy_config_core_v3.RoutingPriority
+			switch t.Priority {
+			case "HIGH":
+				priority = envoy_config_core_v3.RoutingPriority_HIGH
+			case "DEFAULT":
+				priority = envoy_config_core_v3.RoutingPriority_DEFAULT
+			default:
+				priority = envoy_config_core_v3.RoutingPriority_DEFAULT
+			}
+
+			envoyThreshold := &envoy_config_cluster_v3.CircuitBreakers_Thresholds{
+				Priority: priority,
+			}
+
+			if t.MaxConnections != nil {
+				envoyThreshold.MaxConnections = wrapperspb.UInt32(*t.MaxConnections)
+			}
+			if t.MaxPendingRequests != nil {
+				envoyThreshold.MaxPendingRequests = wrapperspb.UInt32(*t.MaxPendingRequests)
+			}
+			if t.MaxRequests != nil {
+				envoyThreshold.MaxRequests = wrapperspb.UInt32(*t.MaxRequests)
+			}
+			if t.MaxRetries != nil {
+				envoyThreshold.MaxRetries = wrapperspb.UInt32(*t.MaxRetries)
+			}
+
+			envoyThresholds = append(envoyThresholds, envoyThreshold)
+		}
+
+		cluster.CircuitBreakers = &envoy_config_cluster_v3.CircuitBreakers{
+			Thresholds: envoyThresholds,
+		}
+
 		return cluster
 	}
 }

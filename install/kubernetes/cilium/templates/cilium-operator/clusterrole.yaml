@@ -216,6 +216,7 @@ rules:
   resources:
   - ciliumendpointslices
   - ciliumenvoyconfigs
+  - ciliumenvoycircuitbreakers
   - ciliumbgppeerconfigs
   - ciliumbgpadvertisements
   - ciliumbgpnodeconfigs
@@ -262,6 +263,7 @@ rules:
   - ciliumendpoints.cilium.io
   - ciliumendpointslices.cilium.io
   - ciliumenvoyconfigs.cilium.io
+  - ciliumenvoycircuitbreakers.cilium.io
   - ciliumidentities.cilium.io
   - ciliumlocalredirectpolicies.cilium.io
   - ciliumnetworkpolicies.cilium.io
@@ -279,6 +281,7 @@ rules:
   - ciliumbgpclusterconfigs
   - ciliumbgpnodeconfigoverrides
   - ciliumbgppeerconfigs
+  - ciliumenvoycircuitbreakers
   verbs:
   - get
   - list
