@@ -781,7 +781,6 @@
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
       "allowedVersions": "/^v1\\.34\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
-        "v1.17",
         "v1.16"
       ]
     },
@@ -800,7 +799,8 @@
       "allowedVersions": "/^v1\\.35\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "v1.19",
-        "v1.18"
+        "v1.18",
+        "v1.17"
       ]
     },
     {
