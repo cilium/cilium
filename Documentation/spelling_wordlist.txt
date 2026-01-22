@@ -160,9 +160,9 @@ allocatable
 allocateLoadBalancerNodePorts
 allocator
 allocators
+allowRemoteNodeIdentities
 allowedConfigOverrides
 allowlist
-allowRemoteNodeIdentities
 amd
 ansible
 api
@@ -203,7 +203,7 @@ behaviour
 benchmarking
 besteffort
 bgp
-blackholing
+blackhole
 blockedConfigOverrides
 bnxt
 bookinfo

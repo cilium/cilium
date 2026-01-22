@@ -88,36 +88,57 @@ has been specifically designed for Cilium's needs and replaces the old-style vet
 device type. See also the `KubeCon talk on netkit <https://sched.co/1R2s5>`__ for
 more details.
 
-Cilium utilizes netkit in L3 device mode with blackholing traffic from the Pods
-when there is no BPF program attached. The Pod specific BPF programs are attached
-inside the netkit peer device, and can only be managed from the host namespace
-through Cilium. netkit in combination with eBPF-based host-routing achieves a
-fast network namespace switch for off-node traffic ingressing into the Pod or
-leaving the Pod. When netkit is enabled, Cilium also utilizes tcx for all
-attachments to non-netkit devices. This is done for higher efficiency as well
-as utilizing BPF links for all Cilium attachments. netkit is available for kernel
-6.8 and onwards and it also supports BIG TCP. Once the base kernels become more
-ubiquitous, the veth device mode of Cilium will be deprecated.
+netkit devices can operate at either Layer3 or Layer2 mode depending on your
+requirements. Layer3 mode is recommended because it removes the need for Cilium
+to process ARP packets. See :ref:`datapath_config` for further details.
 
-To validate whether your installation is running with netkit, run ``cilium status``
-in any of the Cilium Pods and look for the line reporting the status for
-"Device Mode" which should state "netkit". Also, ensure to have eBPF host
-routing enabled - the reporting status under "Host Routing" must state "BPF".
+The Pod specific BPF programs are attached inside the netkit peer device, and can
+only be managed from the host namespace through Cilium. Cilium will configure peer
+devices to blackhole traffic in the unlikely event there is no BPF program attached.
+
+netkit in combination with eBPF-based host-routing achieves a fast network namespace
+switch for off-node traffic ingressing into the Pod or leaving the Pod. When netkit
+is enabled, Cilium also utilizes tcx for all attachments to non-netkit devices. This
+is done for higher efficiency as well as utilizing BPF links for all Cilium attachments.
+
+netkit is available for kernel 6.8 and onwards and it also supports BIG TCP. Once the
+base kernels become more ubiquitous, the veth device mode of Cilium will be deprecated.
 
 .. warning::
     This is a beta feature. Please provide feedback and file a GitHub issue if
     you experience any problems. Known issues with this feature are tracked
     `here <https://github.com/cilium/cilium/issues?q=is%3Aissue%20label%3Afeature%2Fnetkit%20>`_.
 
+.. _datapath_config:
+
+netkit configuration
+--------------------
+
+netkit can be enabled by modifying ``bpf.datapathMode`` to one of the following
+values.
+
+======================= =======================================================================================
+Datapath Mode Value     Description
+======================= =======================================================================================
+``veth`` (default)      Use veth devices operating at Layer2.
+``netkit``              Use netkit in Layer3 mode. Cilium will error on startup if unsupported.
+``netkit-l2``           Use netkit in Layer2 mode. Cilium will error on startup if unsupported.
+``auto``                Auto-detect at runtime: use netkit (Layer3) if kernel support is present, fallback to veth.
+======================= =======================================================================================
+
 .. note::
     In-place upgrade by just enabling netkit on an existing cluster is not
     possible since the CNI plugin cannot simply replace veth with netkit after
-    Pod creation. Also, running both flavors in parallel is currently not
-    supported.
+    Pod creation. Also, running both flavors in parallel is currently not supported.
+
+    This restriction also applies to auto-detection: if you have existing
+    Pods using veth, then switch to ``bpf.datapathMode=auto`` and netkit support
+    is detected when restarting, Cilium will error.
 
     The best way to consume this for an existing cluster is to utilize per-node
     configuration for enabling netkit on newly spawned nodes which join the
-    cluster. See the :ref:`per-node-configuration` page for more details.
+    cluster. Alternatively, cordon and drain existing nodes before modifying
+    the configuration. See the :ref:`per-node-configuration` page for more details.
 
 **Requirements:**
 
@@ -136,6 +157,14 @@ To enable netkit device mode with eBPF host-routing:
                 bpf.datapathMode=netkit
                 bpf.masquerade=true
                 kubeProxyReplacement=true
+
+To validate whether your installation is running with netkit, run ``cilium status``
+in any of the Cilium Pods and look for the line reporting the status for "Device Mode".
+This represents the current operational datapath mode. When ``bpf.datapathMode=auto``
+is set, the configured mode is visible as well.
+
+netkit also requires eBPF host routing. The reporting status under "Host Routing" must
+state "BPF".
 
 .. _eBPF_Host_Routing:
 
