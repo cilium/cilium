@@ -23,7 +23,10 @@ import (
 
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/ztunnel/pb"
+	"github.com/cilium/cilium/pkg/ztunnel/table"
 
 	v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -71,6 +74,9 @@ type Server struct {
 	epManager                 endpointmanager.EndpointManager
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
 	caCert                    *x509.Certificate
+	db                        *statedb.DB
+	enrolledNamespaceTable    statedb.RWTable[*table.EnrolledNamespace]
+	endpointEventChan         chan *EndpointEvent
 	// cache the PEM encoded certificate, we return this as the trust anchor
 	// on zTunnel certificate creation requests.
 	caCertPEM string
@@ -79,13 +85,21 @@ type Server struct {
 	v3.UnimplementedAggregatedDiscoveryServiceServer
 }
 
-func newServer(log *slog.Logger, EPManager endpointmanager.EndpointManager, k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher) (*Server, error) {
-	x := &Server{
+func newServer(
+	log *slog.Logger,
+	db *statedb.DB,
+	EPManager endpointmanager.EndpointManager,
+	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher,
+	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace],
+) *Server {
+	return &Server{
 		log:                       log,
 		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
 		epManager:                 EPManager,
+		endpointEventChan:         make(chan *EndpointEvent, 1024),
+		db:                        db,
+		enrolledNamespaceTable:    enrolledNamespaceTable,
 	}
-	return x, nil
 }
 
 // initCA performs the required action to initialize the certificate authority
@@ -376,9 +390,11 @@ func (x *Server) DeltaAggregatedResources(stream v3.AggregatedDiscoveryService_D
 	params := StreamProcessorParams{
 		Stream:                    stream,
 		StreamRecv:                make(chan *v3.DeltaDiscoveryRequest, 1),
-		EndpointEventRecv:         make(chan *EndpointEvent, 1024),
+		EndpointEventRecv:         x.endpointEventChan,
 		K8sCiliumEndpointsWatcher: x.k8sCiliumEndpointsWatcher,
 		Log:                       x.log,
+		EnrolledNamespaceTable:    x.enrolledNamespaceTable,
+		DB:                        x.db,
 	}
 
 	x.log.Debug("begin processing DeltaAggregatedResources stream")
