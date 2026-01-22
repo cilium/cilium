@@ -32,7 +32,7 @@ func TestBackendNeighborSync(t *testing.T) {
 			statedb.RWTable[*loadbalancer.Backend].ToTable,
 		),
 		neighbor.ForwardableIPCell,
-		cell.Provide(neighbor.NewCommonTestConfig(true, false)),
+		cell.Provide(neighbor.NewCommonTestConfig(true, false, 100)),
 		linux.BackendNeighborSyncCell,
 		cell.Invoke(func(db_ *statedb.DB, backends_ statedb.RWTable[*loadbalancer.Backend], forwardableIPs_ statedb.Table[*neighbor.ForwardableIP]) {
 			db = db_

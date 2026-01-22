@@ -149,7 +149,7 @@ func setupDaemonEtcdSuite(tb testing.TB) *DaemonSuite {
 		fakeDatapath.Cell,
 		neighbor.ForwardableIPCell,
 		reconciler.TableCell,
-		cell.Provide(neighbor.NewCommonTestConfig(true, false)),
+		cell.Provide(neighbor.NewCommonTestConfig(true, false, 100)),
 		prefilter.Cell,
 		monitorAgent.Cell,
 		dial.ServiceResolverCell,

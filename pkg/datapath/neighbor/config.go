@@ -22,6 +22,8 @@ func (c neighborConfig) Flags(fs *pflag.FlagSet) {
 type CommonConfig struct {
 	Enabled              bool
 	ARPPingKernelManaged func() error
+
+	NeighborCalculatorRatelimit int64
 }
 
 func newCommonConfig(
@@ -30,8 +32,9 @@ func newCommonConfig(
 	lifecycle cell.Lifecycle,
 ) *CommonConfig {
 	return &CommonConfig{
-		Enabled:              config.EnableL2NeighDiscovery || !xdpConfig.Disabled(),
-		ARPPingKernelManaged: probes.HaveManagedNeighbors,
+		Enabled:                     config.EnableL2NeighDiscovery || !xdpConfig.Disabled(),
+		ARPPingKernelManaged:        probes.HaveManagedNeighbors,
+		NeighborCalculatorRatelimit: 1,
 	}
 }
 
@@ -39,6 +42,7 @@ func newCommonConfig(
 func NewCommonTestConfig(
 	enableL2NeighDiscovery bool,
 	arpPingKernelManaged bool,
+	neighborCalcRatelimit int64,
 ) func() *CommonConfig {
 	return func() *CommonConfig {
 		return &CommonConfig{
@@ -50,6 +54,7 @@ func NewCommonTestConfig(
 
 				return probes.ErrNotSupported
 			},
+			NeighborCalculatorRatelimit: neighborCalcRatelimit,
 		}
 	}
 }
