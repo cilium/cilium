@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -229,15 +230,27 @@ type params struct {
 	DaemonConfig *option.DaemonConfig
 	UserConfig   types.BigTCPUserConfig
 	IPsecConfig  types.IPsecConfig
+	LBConfig     loadbalancer.Config
 	DB           *statedb.DB
 	Devices      statedb.Table[*tables.Device]
 }
 
-func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig) error {
+func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, ipsecCfg types.IPsecConfig, dsrDispatch string) error {
 	if cfg.EnableIPv6BIGTCP || cfg.EnableIPv4BIGTCP {
-		if daemonCfg.TunnelingEnabled() && !cfg.EnableTunnelBIGTCP {
-			return errors.New("BIG TCP in tunneling mode requires pending kernel support and needs to be enabled by enable-tunnel-big-tcp")
+		// Check all configurations where Cilium creates tunnel devices
+		// that don't support BIG TCP.
+		if dsrDispatch == loadbalancer.DSRDispatchIPIP {
+			return errors.New("bpf-lb-dsr-dispatch ipip creates IPIP tunnels that aren't compatible with BIG TCP")
 		}
+		if !cfg.EnableTunnelBIGTCP {
+			if daemonCfg.TunnelingEnabled() {
+				return errors.New("BIG TCP in tunneling mode requires pending kernel support and needs to be enabled by enable-tunnel-big-tcp")
+			}
+			if dsrDispatch != loadbalancer.DSRDispatchOption {
+				return errors.New("bpf-lb-dsr-dispatch geneve requires pending kernel support and needs to be enabled by enable-tunnel-big-tcp")
+			}
+		}
+
 		if ipsecCfg.Enabled() {
 			return errors.New("BIG TCP is not supported with encryption enabled")
 		}
@@ -249,7 +262,7 @@ func validateConfig(cfg types.BigTCPUserConfig, daemonCfg *option.DaemonConfig, 
 }
 
 func newBIGTCP(lc cell.Lifecycle, p params) (*Configuration, error) {
-	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig); err != nil {
+	if err := validateConfig(p.UserConfig, p.DaemonConfig, p.IPsecConfig, p.LBConfig.DSRDispatch); err != nil {
 		return nil, err
 	}
 	cfg := newDefaultConfiguration(p.UserConfig)
