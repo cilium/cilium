@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -42,17 +43,18 @@ const (
 
 // reloadHostEndpoint (re)attaches programs from bpf_host.c to cilium_host,
 // cilium_net and external (native) devices.
-func reloadHostEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func reloadHostEndpoint(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint,
+	lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	// Replace programs on cilium_host.
-	if err := attachCiliumHost(logger, ep, lnc, spec); err != nil {
+	if err := attachCiliumHost(logger, reg, ep, lnc, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
-	if err := attachCiliumNet(logger, ep, lnc, spec); err != nil {
+	if err := attachCiliumNet(logger, reg, ep, lnc, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
-	if err := attachNetworkDevices(logger, ep, lnc, spec); err != nil {
+	if err := attachNetworkDevices(logger, reg, ep, lnc, spec); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
@@ -93,7 +95,8 @@ func defaultCiliumHostMapRenames(ep datapath.EndpointConfiguration, lnc *datapat
 
 // attachCiliumHost inserts the host endpoint's policy program into the global
 // cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
-func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func attachCiliumHost(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint,
+	lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	host, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
@@ -101,6 +104,7 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 
 	var hostObj hostObjects
 	commit, err := bpf.LoadAndAssign(logger, &hostObj, spec, &bpf.CollectionOptions{
+		MapRegistry: reg,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -170,7 +174,8 @@ func defaultCiliumNetMapRenames(ep datapath.EndpointConfiguration, lnc *datapath
 }
 
 // attachCiliumNet attaches programs from bpf_host.c to cilium_net.
-func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func attachCiliumNet(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint,
+	lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	net, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", defaults.SecondHostDevice, err)
@@ -178,6 +183,7 @@ func attachCiliumNet(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.Lo
 
 	var netObj hostNetObjects
 	commit, err := bpf.LoadAndAssign(logger, &netObj, spec, &bpf.CollectionOptions{
+		MapRegistry: reg,
 		CollectionOptions: ebpf.CollectionOptions{
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
@@ -240,7 +246,7 @@ func defaultNetdevMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.Lo
 // attachNetworkDevices attaches programs from bpf_host.c to externally-facing
 // devices and the wireguard device. Attaches cil_from_netdev to ingress and
 // optionally cil_to_netdev to egress if enabled features require it.
-func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
+func attachNetworkDevices(logger *slog.Logger, reg *registry.MapRegistry, ep datapath.Endpoint, lnc *datapath.LocalNodeConfiguration, spec *ebpf.CollectionSpec) error {
 	devices := lnc.DeviceNames()
 
 	// Selectively attach bpf_host to cilium_ipip{4,6} in order to have a
@@ -275,6 +281,7 @@ func attachNetworkDevices(logger *slog.Logger, ep datapath.Endpoint, lnc *datapa
 
 		var netdevObj hostNetdevObjects
 		commit, err := bpf.LoadAndAssign(logger, &netdevObj, spec, &bpf.CollectionOptions{
+			MapRegistry: reg,
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
