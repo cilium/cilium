@@ -215,6 +215,7 @@ spec:
         {{- if .Values.ciliumEndpointSlice.enabled }}
         - --enable-cilium-endpoint-slice
         {{- end }}
+        - --clustermesh-default-global-namespace={{ .Values.clustermesh.defaultGlobalNamespace }}
         {{- include "clustermesh.apiserver.args.extra" . | nindent 8 }}
         {{- with .Values.clustermesh.apiserver.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
