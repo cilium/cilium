@@ -303,7 +303,12 @@ New Options
 
 The following options have been introduced in this version of Cilium:
 
-* TODO
+* ``bpf.datapathMode=auto`` config option has been introduced. If set, Cilium will probe
+  the underlying host for netkit support and, if found, netkit mode will be selected at
+  runtime. Otherwise, Cilium will default back to the standard veth mode. This has the
+  side effect of splitting the datapath-mode into "configured mode" and "operational mode"
+  in status outputs, where they differ. The default remains ``bpf.datapathMode=veth``
+  but may change in future releases.
 
 Changed Options
 ###############
