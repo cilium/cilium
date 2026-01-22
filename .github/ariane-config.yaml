@@ -103,6 +103,7 @@ schedule:
     - conformance-aks.yaml
     - conformance-gateway-api.yaml
     - conformance-gke.yaml
+    - tests-ces-migrate.yaml
 
 workflows:
   conformance-aks.yaml:
