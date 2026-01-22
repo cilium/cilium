@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
+	zconfig "github.com/cilium/cilium/pkg/ztunnel/config"
 )
 
 type SpireDelegateClient struct {
@@ -64,9 +65,9 @@ var Cell = cell.Module(
 	cell.Config(SpireDelegateConfig{}),
 )
 
-func newSpireDelegateClient(lc cell.Lifecycle, cfg SpireDelegateConfig, log *slog.Logger) certs.CertificateProvider {
-	if cfg.SpireAdminSocketPath == "" {
-		log.Info("Spire Delegate API Client is disabled as no socket path is configured")
+func newSpireDelegateClient(lc cell.Lifecycle, cfg SpireDelegateConfig, log *slog.Logger, zcfg zconfig.Config) certs.CertificateProvider {
+	if cfg.SpireAdminSocketPath == "" || zcfg.EnableZTunnel {
+		log.Info("Spire Delegate API Client is disabled as no socket path is configured or ztunnel is enabled")
 		return nil
 	}
 	client := &SpireDelegateClient{
