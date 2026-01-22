@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -113,14 +114,14 @@ func newLocalNodeConfig(
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
 
-	ciliumHostDevice, _, ok := devices.Get(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
-	if !ok {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
+	ciliumHostLink, err := safenetlink.LinkByName(defaults.HostDevice)
+	if err != nil {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
 	}
 
-	ciliumNetDevice, _, ok := devices.Get(txn, tables.DeviceNameIndex.Query(defaults.SecondHostDevice))
-	if !ok {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
+	ciliumNetLink, err := safenetlink.LinkByName(defaults.SecondHostDevice)
+	if err != nil {
+		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
 	}
 
 	return datapath.LocalNodeConfiguration{
@@ -128,8 +129,8 @@ func newLocalNodeConfig(
 		NodeIPv6:                     localNode.GetNodeIP(true),
 		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
 		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
-		CiliumNetIfIndex:             uint32(ciliumNetDevice.Index),
-		CiliumHostIfIndex:            uint32(ciliumHostDevice.Index),
+		CiliumNetIfIndex:             uint32(ciliumNetLink.Attrs().Index),
+		CiliumHostIfIndex:            uint32(ciliumHostLink.Attrs().Index),
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
