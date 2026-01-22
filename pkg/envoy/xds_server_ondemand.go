@@ -9,13 +9,14 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/time"
 )
 
 type onDemandXdsStarter struct {
-	XDSServer
+	xds.XDSServer
 
 	logger                         *slog.Logger
 	runDir                         string
@@ -37,7 +38,7 @@ type onDemandXdsStarter struct {
 	envoyOnce sync.Once
 }
 
-var _ XDSServer = &onDemandXdsStarter{}
+var _ xds.XDSServer = &onDemandXdsStarter{}
 
 func (o *onDemandXdsStarter) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
 	if err := o.startEmbeddedEnvoy(nil); err != nil {
@@ -49,7 +50,7 @@ func (o *onDemandXdsStarter) AddListener(name string, kind policy.L7ParserType, 
 	return o.XDSServer.AddListener(name, kind, port, isIngress, mayUseOriginalSourceAddr, wg, cb)
 }
 
-func (o *onDemandXdsStarter) UpsertEnvoyResources(ctx context.Context, resources Resources) error {
+func (o *onDemandXdsStarter) UpsertEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	if err := o.startEmbeddedEnvoy(nil); err != nil {
 		o.logger.Error("Envoy: Failed to start embedded Envoy proxy on demand",
 			logfields.Error, err,
@@ -59,7 +60,7 @@ func (o *onDemandXdsStarter) UpsertEnvoyResources(ctx context.Context, resources
 	return o.XDSServer.UpsertEnvoyResources(ctx, resources)
 }
 
-func (o *onDemandXdsStarter) UpdateEnvoyResources(ctx context.Context, old, new Resources) error {
+func (o *onDemandXdsStarter) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources) error {
 	if err := o.startEmbeddedEnvoy(nil); err != nil {
 		o.logger.Error("Envoy: Failed to start embedded Envoy proxy on demand",
 			logfields.Error, err,

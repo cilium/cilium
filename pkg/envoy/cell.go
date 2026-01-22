@@ -17,6 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	config "github.com/cilium/cilium/pkg/envoy/config"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
+	util "github.com/cilium/cilium/pkg/envoy/util"
+
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -78,7 +80,7 @@ type xdsServerParams struct {
 	Metrics       *xds.XDSMetrics
 }
 
-func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
+func newEnvoyXDSServer(params xdsServerParams) (xds.XDSServer, error) {
 	// Override the default value before bootstrap is created for embedded envoy, or
 	// the xDS ConfigSource is used for CEC/CCEC.
 	CiliumXDSConfigSource.InitialFetchTimeout.Seconds = int64(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)
@@ -89,7 +91,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		params.IPCache,
 		params.LocalEndpointStore,
 		xdsServerConfig{
-			envoySocketDir:                GetSocketDir(option.Config.RunDir),
+			envoySocketDir:                util.GetSocketDir(option.Config.RunDir),
 			proxyGID:                      int(params.EnvoyProxyConfig.ProxyGID),
 			httpRequestTimeout:            int(params.EnvoyProxyConfig.HTTPRequestTimeout),
 			httpIdleTimeout:               params.EnvoyProxyConfig.ProxyIdleTimeoutSeconds,
@@ -152,7 +154,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 }
 
 func newEnvoyAdminClient(logger *slog.Logger, envoyProxyConfig config.ProxyConfig) *EnvoyAdminClient {
-	return NewEnvoyAdminClientForSocket(logger, GetSocketDir(option.Config.RunDir), envoyProxyConfig.EnvoyDefaultLogLevel)
+	return NewEnvoyAdminClientForSocket(logger, util.GetSocketDir(option.Config.RunDir), envoyProxyConfig.EnvoyDefaultLogLevel)
 }
 
 type accessLogServerParams struct {
@@ -175,7 +177,7 @@ func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 	accessLogServer := newAccessLogServer(
 		params.Logger,
 		params.AccessLogger,
-		GetSocketDir(option.Config.RunDir),
+		util.GetSocketDir(option.Config.RunDir),
 		params.EnvoyProxyConfig.ProxyGID,
 		params.LocalEndpointStore,
 		params.EnvoyProxyConfig.EnvoyAccessLogBufferSize,
@@ -275,7 +277,7 @@ type syncerParams struct {
 	K8sClientset client.Clientset
 
 	Config        config.SecretSyncConfig
-	XdsServer     XDSServer
+	XdsServer     xds.XDSServer
 	SecretManager certificatemanager.SecretManager
 
 	MetricsProvider workqueue.MetricsProvider

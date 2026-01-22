@@ -18,6 +18,8 @@ import (
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
+	util "github.com/cilium/cilium/pkg/envoy/util"
+
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -39,7 +41,7 @@ func newAccessLogServer(logger *slog.Logger, accessLogger accesslog.ProxyAccessL
 	return &AccessLogServer{
 		logger:             logger,
 		accessLogger:       accessLogger,
-		socketPath:         getAccessLogSocketPath(envoySocketDir),
+		socketPath:         util.GetAccessLogSocketPath(envoySocketDir),
 		proxyGID:           proxyGID,
 		localEndpointStore: localEndpointStore,
 		bufferSize:         bufferSize,

@@ -400,7 +400,7 @@ type fakeXdsServer struct {
 	nrOfUpserts   int
 }
 
-var _ XDSServer = &fakeXdsServer{}
+var _ xds.XDSServer = &fakeXdsServer{}
 
 func (r *fakeXdsServer) Reset() {
 	r.nrOfUpdates = 0
@@ -408,7 +408,7 @@ func (r *fakeXdsServer) Reset() {
 	r.nrOfDeletions = 0
 }
 
-func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old Resources, new Resources) error {
+func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to update envoy resources")
 	}
@@ -417,7 +417,7 @@ func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old Resources,
 	return nil
 }
 
-func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources Resources) error {
+func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to delete envoy resources")
 	}
@@ -426,7 +426,7 @@ func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources Reso
 	return nil
 }
 
-func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources Resources) error {
+func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to upsert envoy resources")
 	}

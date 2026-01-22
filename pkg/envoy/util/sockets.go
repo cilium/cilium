@@ -9,14 +9,14 @@ func GetSocketDir(runDir string) string {
 	return filepath.Join(runDir, "envoy", "sockets")
 }
 
-func getAccessLogSocketPath(socketDir string) string {
+func GetAccessLogSocketPath(socketDir string) string {
 	return filepath.Join(socketDir, "access_log.sock")
 }
 
-func getXDSSocketPath(socketDir string) string {
+func GetXDSSocketPath(socketDir string) string {
 	return filepath.Join(socketDir, "xds.sock")
 }
 
-func getAdminSocketPath(socketDir string) string {
+func GetAdminSocketPath(socketDir string) string {
 	return filepath.Join(socketDir, "admin.sock")
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
+	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/logging"
@@ -50,6 +51,38 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 	return err
 }
 
+// func TestEnvoyAds(t *testing.T) {
+// 	s := setupEnvoySuite(t)
+// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// 	defer cancel()
+
+// 	s.waitGroup = completion.NewWaitGroup(ctx)
+
+// 	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+// 		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+// 	}
+
+// 	logging.SetLogLevelToDebug()
+// 	flowdebug.Enable()
+
+// 	testRunDir, err := os.MkdirTemp("", "envoy_ads_go_test")
+// 	require.NoError(t, err)
+
+// 	t.Logf("run directory: %s", testRunDir)
+
+// 	localEndpointStore := newLocalEndpointStore()
+
+// 	logger := hivetest.Logger(t)
+
+// 	xdsServer := newADSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
+// 		xdsServerConfig{
+// 			envoySocketDir:    GetSocketDir(testRunDir),
+// 			proxyGID:          1337,
+// 			httpNormalizePath: true,
+// 		}, nil)
+// 	require.NotNil(t, xdsServer)
+// }
+
 func TestEnvoy(t *testing.T) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -75,7 +108,7 @@ func TestEnvoy(t *testing.T) {
 
 	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
-			envoySocketDir:    GetSocketDir(testRunDir),
+			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
 		},
@@ -193,7 +226,7 @@ func TestEnvoyNACK(t *testing.T) {
 
 	xdsServer := newXDSServer(logger, nil, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
-			envoySocketDir:    GetSocketDir(testRunDir),
+			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
 			httpNormalizePath: true,
 		}, nil)

@@ -292,6 +292,8 @@
         "github.com/cilium/proxy",
         // We update this dependency manually together with conformance test changes
         "sigs.k8s.io/gateway-api",
+      ],
+      "matchPackagePatterns": [
         // We can't update these libraries until github.com/shoenig/go-m1cpu
         // is added as an exception to the list of licenses into CNCF.
         "/.*google/gops/*/",
