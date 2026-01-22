@@ -123,6 +123,8 @@ func NewEndpointFromChangeModel(ctx context.Context, logger *slog.Logger, dnsRul
 		}
 	}
 
+	ep.NetNsFile = model.NetnsFile
+
 	if model.Addressing != nil {
 		if ip := model.Addressing.IPV6; ip != "" {
 			ip6, err := netipx.ParsePrefixOrAddr(ip)

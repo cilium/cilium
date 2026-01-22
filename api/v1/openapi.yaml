@@ -1236,6 +1236,9 @@ definitions:
       netns-cookie:
         description: Network namespace cookie
         type: string
+      netns-file:
+        description: Network namespace file
+        type: string
       datapath-configuration:
         "$ref": "#/definitions/EndpointDatapathConfiguration"
       properties:

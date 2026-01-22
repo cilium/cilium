@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/vishvananda/netlink"
@@ -86,6 +87,7 @@ func (c *defaultEndpointConfiguration) PrepareEndpoint(ipam *models.IPAMResponse
 		K8sNamespace:           string(c.CniArgs.K8S_POD_NAMESPACE),
 		K8sUID:                 string(c.CniArgs.K8S_POD_UID),
 		ContainerInterfaceName: c.Args.IfName,
+		NetnsFile:              filepath.Base(c.Args.Netns),
 		DatapathConfiguration:  &models.EndpointDatapathConfiguration{},
 		Properties:             make(map[string]any),
 	}

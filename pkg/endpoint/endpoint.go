@@ -482,6 +482,10 @@ type Endpoint struct {
 	// NetNsCookie is the network namespace cookie of the Endpoint.
 	NetNsCookie uint64
 
+	// NetNSFile is the network namespace filename. The absolute path can be constructed
+	// with [defaults.NetNsPath].
+	NetNsFile string
+
 	ctMapGC ctmap.GCRunner
 }
 

@@ -2678,6 +2678,10 @@ func init() {
           "description": "Network namespace cookie",
           "type": "string"
         },
+        "netns-file": {
+          "description": "Network namespace file",
+          "type": "string"
+        },
         "parent-interface-index": {
           "description": "Index of network device from which an IP was used as endpoint IP. Only relevant for ENI environments.",
           "type": "integer"
@@ -8065,6 +8069,10 @@ func init() {
         },
         "netns-cookie": {
           "description": "Network namespace cookie",
+          "type": "string"
+        },
+        "netns-file": {
+          "description": "Network namespace file",
           "type": "string"
         },
         "parent-interface-index": {

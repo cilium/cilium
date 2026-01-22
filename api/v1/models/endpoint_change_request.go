@@ -83,6 +83,9 @@ type EndpointChangeRequest struct {
 	// Network namespace cookie
 	NetnsCookie string `json:"netns-cookie,omitempty"`
 
+	// Network namespace file
+	NetnsFile string `json:"netns-file,omitempty"`
+
 	// Index of network device from which an IP was used as endpoint IP. Only relevant for ENI environments.
 	ParentInterfaceIndex int64 `json:"parent-interface-index,omitempty"`
 
