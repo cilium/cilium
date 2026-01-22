@@ -91,6 +91,7 @@ schedule:
     workflows:
     - conformance-aks.yaml
     - conformance-gke.yaml
+    - tests-ces-migrate.yaml
 
 workflows:
   conformance-aks.yaml:
