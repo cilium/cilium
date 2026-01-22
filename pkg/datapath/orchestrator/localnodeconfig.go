@@ -113,11 +113,6 @@ func newLocalNodeConfig(
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
 
-	ciliumHostLink, err := safenetlink.LinkByName(defaults.HostDevice)
-	if err != nil {
-		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s': %w", defaults.HostDevice, err)
-	}
-
 	ciliumNetLink, err := safenetlink.LinkByName(defaults.SecondHostDevice)
 	if err != nil {
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("failed to look up link '%s': %w", defaults.SecondHostDevice, err)
@@ -129,7 +124,6 @@ func newLocalNodeConfig(
 		CiliumInternalIPv4:           localNode.GetCiliumInternalIP(false),
 		CiliumInternalIPv6:           localNode.GetCiliumInternalIP(true),
 		CiliumNetIfIndex:             uint32(ciliumNetLink.Attrs().Index),
-		CiliumHostIfIndex:            uint32(ciliumHostLink.Attrs().Index),
 		AllocCIDRIPv4:                localNode.IPv4AllocCIDR,
 		AllocCIDRIPv6:                localNode.IPv6AllocCIDR,
 		NativeRoutingCIDRIPv4:        datapath.RemoteSNATDstAddrExclusionCIDRv4(localNode),
