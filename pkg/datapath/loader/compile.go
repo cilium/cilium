@@ -59,6 +59,10 @@ const (
 	wireguardProg   = wireguardPrefix + "." + string(outputSource)
 	wireguardObj    = wireguardPrefix + ".o"
 	wireguardConfig = wireguardPrefix + ".json"
+
+	socketPrefix = "bpf_sock"
+	socketProg   = socketPrefix + "." + string(outputSource)
+	socketObj    = socketPrefix + ".o"
 )
 
 var (
