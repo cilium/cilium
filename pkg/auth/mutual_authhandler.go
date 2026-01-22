@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/time"
+	zconfig "github.com/cilium/cilium/pkg/ztunnel/config"
 )
 
 type endpointGetter interface {
@@ -39,8 +40,8 @@ type mutualAuthParams struct {
 	EndpointManager endpointmanager.EndpointManager
 }
 
-func newMutualAuthHandler(logger *slog.Logger, lc cell.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams) authHandlerResult {
-	if cfg.MutualAuthListenerPort == 0 {
+func newMutualAuthHandler(logger *slog.Logger, lc cell.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams, zcfg zconfig.Config) authHandlerResult {
+	if cfg.MutualAuthListenerPort == 0 || zcfg.EnableZTunnel {
 		logger.Info("Mutual authentication handler is disabled as no port is configured")
 		return authHandlerResult{}
 	}
