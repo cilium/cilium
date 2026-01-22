@@ -23,6 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/maps/registry"
+
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -143,7 +145,9 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode 
 }
 
 // compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
-func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapath.LocalNodeConfiguration, xdpDev string, xdpMode xdp.Mode) error {
+func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger,
+	reg *registry.MapRegistry, lnc *datapath.LocalNodeConfiguration,
+	xdpDev string, xdpMode xdp.Mode) error {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -174,7 +178,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger, lnc *datapa
 		return fmt.Errorf("loading eBPF ELF %s: %w", objPath, err)
 	}
 
-	if err := loadAssignAttach(logger, xdpMode, iface, spec, lnc); err != nil {
+	if err := loadAssignAttach(logger, reg, xdpMode, iface, spec, lnc); err != nil {
 		return err
 	}
 
@@ -225,7 +229,9 @@ func xdpPermutations(spec *ebpf.CollectionSpec) iter.Seq2[int, *ebpf.CollectionS
 	}
 }
 
-func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec, lnc *datapath.LocalNodeConfiguration) error {
+func loadAssignAttach(logger *slog.Logger, reg *registry.MapRegistry,
+	xdpMode xdp.Mode, iface netlink.Link, spec *ebpf.CollectionSpec,
+	lnc *datapath.LocalNodeConfiguration) error {
 	var (
 		obj    xdpObjects
 		commit func() error
@@ -233,8 +239,9 @@ func loadAssignAttach(logger *slog.Logger, xdpMode xdp.Mode, iface netlink.Link,
 	)
 	for i, spec := range xdpPermutations(spec) {
 		commit, err = bpf.LoadAndAssign(logger, &obj, spec, &bpf.CollectionOptions{
-			Constants:  xdpConfiguration(lnc, iface),
-			MapRenames: xdpMapRenames(lnc, iface),
+			MapRegistry: reg,
+			Constants:   xdpConfiguration(lnc, iface),
+			MapRenames:  xdpMapRenames(lnc, iface),
 			CollectionOptions: ebpf.CollectionOptions{
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
