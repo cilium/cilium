@@ -4,16 +4,12 @@
 package multipool
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
 	"net/netip"
 	"strconv"
 	"strings"
 
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
@@ -90,28 +86,28 @@ func ParsePoolSpec(poolString string) (*cilium_v2alpha1.IPv4PoolSpec, *cilium_v2
 	return v4PoolSpec, v6PoolSpec, nil
 }
 
-func upsertPool(allocator *PoolAllocator, pool *cilium_v2alpha1.CiliumPodIPPool) error {
+func UpsertPool(allocator *PoolAllocator, name string, v4Spec *cilium_v2alpha1.IPv4PoolSpec, v6Spec *cilium_v2alpha1.IPv6PoolSpec) error {
 	var ipv4CIDRs, ipv6CIDRs []string
 	var ipv4MaskSize, ipv6MaskSize int
 
-	if pool.Spec.IPv4 != nil {
-		ipv4MaskSize = int(pool.Spec.IPv4.MaskSize)
-		ipv4CIDRs = make([]string, len(pool.Spec.IPv4.CIDRs))
-		for i, cidr := range pool.Spec.IPv4.CIDRs {
+	if v4Spec != nil {
+		ipv4MaskSize = int(v4Spec.MaskSize)
+		ipv4CIDRs = make([]string, len(v4Spec.CIDRs))
+		for i, cidr := range v4Spec.CIDRs {
 			ipv4CIDRs[i] = string(cidr)
 		}
 	}
 
-	if pool.Spec.IPv6 != nil {
-		ipv6MaskSize = int(pool.Spec.IPv6.MaskSize)
-		ipv6CIDRs = make([]string, len(pool.Spec.IPv6.CIDRs))
-		for i, cidr := range pool.Spec.IPv6.CIDRs {
+	if v6Spec != nil {
+		ipv6MaskSize = int(v6Spec.MaskSize)
+		ipv6CIDRs = make([]string, len(v6Spec.CIDRs))
+		for i, cidr := range v6Spec.CIDRs {
 			ipv6CIDRs[i] = string(cidr)
 		}
 	}
 
 	return allocator.UpsertPool(
-		pool.Name,
+		name,
 		ipv4CIDRs,
 		ipv4MaskSize,
 		ipv6CIDRs,
@@ -119,44 +115,6 @@ func upsertPool(allocator *PoolAllocator, pool *cilium_v2alpha1.CiliumPodIPPool)
 	)
 }
 
-func deletePool(allocator *PoolAllocator, pool *cilium_v2alpha1.CiliumPodIPPool) error {
-	return allocator.DeletePool(pool.Name)
-}
-
-func StartIPPoolAllocator(
-	ctx context.Context,
-	allocator *PoolAllocator,
-	ipPools resource.Resource[*cilium_v2alpha1.CiliumPodIPPool],
-	logger *slog.Logger,
-) {
-	logger.InfoContext(ctx, "Starting CiliumPodIPPool allocator watcher")
-
-	synced := make(chan struct{})
-
-	go func() {
-		for ev := range ipPools.Events(ctx) {
-			var err error
-			var action string
-
-			switch ev.Kind {
-			case resource.Sync:
-				close(synced)
-			case resource.Upsert:
-				err = upsertPool(allocator, ev.Object)
-				action = "upsert"
-			case resource.Delete:
-				err = deletePool(allocator, ev.Object)
-				action = "delete"
-			}
-			ev.Done(err)
-			if err != nil {
-				logger.ErrorContext(ctx, fmt.Sprintf("failed to %s pool %q", action, ev.Key), logfields.Error, err)
-			}
-		}
-	}()
-
-	// Block until all pools are restored, so callers can safely start node allocation
-	// right after return.
-	<-synced
-	logger.InfoContext(ctx, "All CiliumPodIPPool resources synchronized")
+func DeletePool(allocator *PoolAllocator, name string) error {
+	return allocator.DeletePool(name)
 }
