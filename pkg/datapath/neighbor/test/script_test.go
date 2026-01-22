@@ -90,7 +90,7 @@ func TestPrivilegedScript(t *testing.T) {
 				cell.Provide(func() *option.DaemonConfig { return &option.DaemonConfig{} }),
 				cell.Config(UseKernelManagedARPPing{}),
 				cell.DecorateAll(func(testConfig UseKernelManagedARPPing) *neighbor.CommonConfig {
-					return neighbor.NewCommonTestConfig(true, testConfig.ARPPingKernelManaged)()
+					return neighbor.NewCommonTestConfig(true, testConfig.ARPPingKernelManaged, 100)()
 				}),
 				cell.Provide(forwardableIPInitializers),
 			}
