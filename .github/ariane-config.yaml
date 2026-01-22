@@ -120,6 +120,7 @@ schedule:
     - conformance-gateway-api.yaml
     - conformance-gke.yaml
     - conformance-ipsec.yaml
+    - tests-ces-migrate.yaml
     - tests-e2e-upgrade.yaml
 
 workflows:
