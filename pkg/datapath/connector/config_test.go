@@ -47,19 +47,40 @@ var (
 
 	// DaemonConfigs
 	daemonConfigVeth = option.DaemonConfig{
-		DatapathMode: datapathOption.DatapathModeVeth,
-		EnableIPv4:   true,
-		EnableIPv6:   true,
+		DatapathMode:    datapathOption.DatapathModeVeth,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: false,
+	}
+	daemonConfigVethTproxy = option.DaemonConfig{
+		DatapathMode:    datapathOption.DatapathModeVeth,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: true,
 	}
 	daemonConfigNetkit = option.DaemonConfig{
-		DatapathMode: datapathOption.DatapathModeNetkit,
-		EnableIPv4:   true,
-		EnableIPv6:   true,
+		DatapathMode:    datapathOption.DatapathModeNetkit,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: false,
+	}
+	daemonConfigNetkitTproxy = option.DaemonConfig{
+		DatapathMode:    datapathOption.DatapathModeNetkit,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: true,
 	}
 	daemonConfigNetkitL2 = option.DaemonConfig{
-		DatapathMode: datapathOption.DatapathModeNetkitL2,
-		EnableIPv4:   true,
-		EnableIPv6:   true,
+		DatapathMode:    datapathOption.DatapathModeNetkitL2,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: false,
+	}
+	daemonConfigNetkitL2Tproxy = option.DaemonConfig{
+		DatapathMode:    datapathOption.DatapathModeNetkitL2,
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: true,
 	}
 
 	// WireguardConfigs
@@ -159,6 +180,14 @@ func TestNewConfig(t *testing.T) {
 			shouldError:    false,
 		},
 		{
+			name:           "datapath-veth+tproxy",
+			daemonConfig:   &daemonConfigVethTproxy,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigVeth,
+			shouldError:    false,
+		},
+		{
 			name:           "datapath-netkit",
 			daemonConfig:   &daemonConfigNetkit,
 			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
@@ -167,12 +196,28 @@ func TestNewConfig(t *testing.T) {
 			shouldError:    !hostSupportsNetkit(),
 		},
 		{
+			name:           "datapath-netkit+tproxy",
+			daemonConfig:   &daemonConfigNetkitTproxy,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigNetkit,
+			shouldError:    true,
+		},
+		{
 			name:           "datapath-netkit-l2",
 			daemonConfig:   &daemonConfigNetkitL2,
 			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigNetkitL2,
 			shouldError:    !hostSupportsNetkit(),
+		},
+		{
+			name:           "datapath-netkit-l2+tproxy",
+			daemonConfig:   &daemonConfigNetkitL2Tproxy,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigNetkitL2,
+			shouldError:    true,
 		},
 	}
 
