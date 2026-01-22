@@ -24,7 +24,7 @@ func TestForwardableIPManager(t *testing.T) {
 
 	h := hive.New(
 		ForwardableIPCell,
-		cell.Provide(NewCommonTestConfig(true, false)),
+		cell.Provide(NewCommonTestConfig(true, false, 100)),
 		cell.Invoke(func(
 			fim_ *ForwardableIPManager,
 			fip_ statedb.Table[*ForwardableIP],

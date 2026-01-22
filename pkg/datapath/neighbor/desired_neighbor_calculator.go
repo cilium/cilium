@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -79,7 +80,22 @@ func (c *desiredNeighborCalculator) Run(ctx context.Context, health cell.Health)
 	const resyncInterval = 5 * time.Minute
 	resyncTimer := time.NewTimer(resyncInterval)
 
+	// Limit the rate of reconciliation. Interval was fairly arbitrarily chosen,
+	// it seems a good balance between frequent updates and resource usage.
+	limit := rate.NewLimiter(15*time.Second, c.Config.NeighborCalculatorRatelimit)
+
 	for {
+		// Block until the rate limiter allows us to proceed
+		err := limit.Wait(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				// If the context was canceled, we are shutting down, so stop the loop
+				return nil
+			}
+
+			return err
+		}
+
 		rx := c.DB.ReadTxn()
 
 		// Get inserted or updated forwardable IPs since the last revision processed
