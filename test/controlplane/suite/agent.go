@@ -85,7 +85,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		fakeDatapath.Cell,
 		neighbor.ForwardableIPCell,
 		reconciler.TableCell,
-		cell.Provide(neighbor.NewCommonTestConfig(true, false)),
+		cell.Provide(neighbor.NewCommonTestConfig(true, false, 100)),
 		prefilter.Cell,
 		monitorAgent.Cell,
 		metrics.Cell,
