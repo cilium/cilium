@@ -109,6 +109,27 @@ type connectorParams struct {
 	TunnelConfig tunnel.Config
 }
 
+func canUseNetkit(p connectorParams) error {
+	if err := probes.HaveNetkit(); err != nil {
+		return fmt.Errorf("netkit device probe failed, requires kernel 6.7.0+ and CONFIG_NETKIT")
+	}
+
+	// bpf.tproxy requires use of bpf_sk_assign() helper, which at the time of
+	// writing can only be called from TC ingress. However, netkit programs
+	// run at TC egress, so the helper returns -ENOTSUPP and tproxy cannot
+	// assign skbs to proxy listener sockets.
+	//
+	// Until this is resolved we don't tolerate tproxy and netkit.
+	//
+	// GH issue: https://github.com/cilium/cilium/issues/39892
+
+	if p.DaemonConfig.EnableBPFTProxy {
+		return fmt.Errorf("netkit devices cannot be used with --%s=true", option.EnableBPFTProxy)
+	}
+
+	return nil
+}
+
 // newConnectorConfig initialises a new ConnectorConfig object with default parameters.
 func newConfig(p connectorParams) (*ConnectorConfig, error) {
 	var configuredMode, operationalMode types.ConnectorMode
@@ -119,16 +140,17 @@ func newConfig(p connectorParams) (*ConnectorConfig, error) {
 		return nil, fmt.Errorf("invalid datapath mode: %s", p.DaemonConfig.DatapathMode)
 
 	case types.ConnectorModeAuto:
-		if err := probes.HaveNetkit(); err != nil {
-			p.Log.Info("netkit probe failed, falling back to veth connector", logfields.Error, err)
+		if err := canUseNetkit(p); err != nil {
+			p.Log.Warn("datapath autodiscovery failed, reverting from netkit to veth",
+				logfields.Error, err)
 			operationalMode = types.ConnectorModeVeth
 		} else {
 			operationalMode = types.ConnectorModeNetkit
 		}
 
 	case types.ConnectorModeNetkit, types.ConnectorModeNetkitL2:
-		if err := probes.HaveNetkit(); err != nil {
-			return nil, fmt.Errorf("netkit connector needs kernel 6.7.0+ and CONFIG_NETKIT")
+		if err := canUseNetkit(p); err != nil {
+			return nil, fmt.Errorf("netkit connector not available: %w", err)
 		}
 
 		fallthrough
