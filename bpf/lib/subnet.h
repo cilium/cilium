@@ -51,10 +51,21 @@ struct {
 #define V6_SUBNET_KEY_LEN (sizeof(union v6addr) * 8)
 
 static __always_inline __maybe_unused __u32
+subnet_lookup(const void *map, const struct subnet_key *key)
+{
+	const struct subnet_value *value;
+
+	value = map_lookup_elem(map, key);
+	if (!value)
+		return 0;
+
+	return value->identity;
+}
+
+static __always_inline __maybe_unused __u32
 subnet_lookup6(const void *map, const union v6addr *addr)
 {
 	__u32 prefix = V6_SUBNET_KEY_LEN;
-    struct subnet_value *value;
 	struct subnet_key key = {
 		.lpm_key = { SUBNET_PREFIX_LEN(prefix), {} },
 		.family = ENDPOINT_KEY_IPV6,
@@ -67,11 +78,8 @@ subnet_lookup6(const void *map, const union v6addr *addr)
 	 * However, it is included for completeness and future-proofing.
 	 */
 	ipv6_addr_clear_suffix(&key.ip6, prefix);
-	value = (struct subnet_value *)map_lookup_elem(map, &key);
-	if (!value)
-		return 0;
 
-    return value->identity;
+	return subnet_lookup(map, &key);
 }
 
 #define V4_SUBNET_KEY_LEN (sizeof(__u32) * 8)
@@ -80,7 +88,6 @@ static __always_inline __maybe_unused __u32
 subnet_lookup4(const void *map, __be32 addr)
 {
 	__u32 prefix = V4_SUBNET_KEY_LEN;
-    struct subnet_value *value;
 	struct subnet_key key = {
 		.lpm_key = { SUBNET_PREFIX_LEN(prefix), {} },
 		.family = ENDPOINT_KEY_IPV4,
@@ -91,11 +98,8 @@ subnet_lookup4(const void *map, __be32 addr)
 	 * Clear the lower bits of the IPv4 address according to the prefix length.
 	 */
 	key.ip4 &= GET_PREFIX(prefix);
-	value = (struct subnet_value *)map_lookup_elem(map, &key);
-	if (!value)
-		return 0;
 
-	return value->identity;
+	return subnet_lookup(map, &key);
 }
 
 #define lookup_ip6_subnet_id(addr) \
