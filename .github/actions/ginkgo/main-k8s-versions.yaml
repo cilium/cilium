@@ -27,4 +27,4 @@ include:
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.29.14@sha256:8703bd94ee24e51b778d5556ae310c6c0fa67d761fae6379c8e0bb480e6fea29"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "5.4-20260116.011106"
+    kernel: "5.4-20260123.112111"
