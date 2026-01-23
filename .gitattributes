@@ -23,7 +23,6 @@ pkg/k8s/client/listers/** linguist-generated
 #
 # This will configure Git to use the appropriate merge drivers for each file pattern.
 #
-go.mod merge=go-mod-tidy
 go.sum merge=go-mod-tidy
 vendor/** merge=go-mod-tidy
 install/kubernetes/cilium/values.yaml merge=kubernetes-update
