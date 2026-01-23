@@ -18,7 +18,7 @@ import (
 func TestDecodeTraceNotify(t *testing.T) {
 	// This check on the struct length constant is there to ensure that this
 	// test is updated when the struct changes.
-	require.Equal(t, 56, traceNotifyV2Len)
+	require.Equal(t, 64, traceNotifyV3Len)
 
 	in := TraceNotify{
 		Type:     0x00,
@@ -27,7 +27,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 		Hash:     0x05_06_07_08,
 		OrigLen:  0x09_0a_0b_0c,
 		CapLen:   0x0d_0e,
-		Version:  TraceNotifyVersion2,
+		Version:  TraceNotifyVersion3,
 		SrcLabel: identity.NumericIdentity(0x11_12_13_14),
 		DstLabel: identity.NumericIdentity(0x15_16_17_18),
 		DstID:    0x19_1a,
@@ -41,6 +41,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 			0x2d, 0x2e, 0x2f, 0x30,
 		},
 		IPTraceID: 0x2b_2c_2d_2e_2f_30_31_32,
+		OrigPort:  0x00_50,
 	}
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, byteorder.Native, in)
@@ -64,6 +65,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.Equal(t, in.Ifindex, out.Ifindex)
 	require.Equal(t, in.OrigIP, out.OrigIP)
 	require.Equal(t, in.IPTraceID, out.IPTraceID)
+	require.Equal(t, in.OrigPort, out.OrigPort)
 }
 
 func TestDecodeTraceNotifyExtension(t *testing.T) {
