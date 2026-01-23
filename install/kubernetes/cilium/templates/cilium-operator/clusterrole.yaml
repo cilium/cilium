@@ -324,6 +324,10 @@ rules:
   - networking.k8s.io
   resources:
   - ingresses/status # To update ingress status with load balancer IP.
+  # The controller needs to be able to set ingress finalizers to be able to create a CiliumEnvoyConfig
+  # resource that is owned by the ingress, and set blockOwnerDeletion=true in its ownerRef.
+  # This is required when the admission plugin OwnerReferencesPermissionEnforcement is activated.
+  - ingresses/finalizers
   verbs:
   - update
 {{- end }}
