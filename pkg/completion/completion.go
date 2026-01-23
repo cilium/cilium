@@ -28,9 +28,9 @@ type WaitGroup struct {
 }
 
 // NewWaitGroup returns a new WaitGroup using the given context.
-func NewWaitGroup(ctx context.Context) *WaitGroup {
+func NewWaitGroup(ctx context.Context) (*WaitGroup, context.CancelFunc) {
 	ctx2, cancel := context.WithCancel(ctx)
-	return &WaitGroup{ctx: ctx2, cancel: cancel}
+	return &WaitGroup{ctx: ctx2, cancel: cancel}, cancel
 }
 
 // Context returns the context of all the Completions in the wait group.

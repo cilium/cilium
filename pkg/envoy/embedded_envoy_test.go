@@ -55,7 +55,8 @@ func TestEnvoy(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	s.waitGroup = completion.NewWaitGroup(ctx)
+	s.waitGroup, cancel = completion.NewWaitGroup(ctx)
+	defer cancel()
 
 	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
 		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
@@ -112,7 +113,8 @@ func TestEnvoy(t *testing.T) {
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	t.Log("completed adding metrics listener")
-	s.waitGroup = completion.NewWaitGroup(ctx)
+	s.waitGroup, cancel = completion.NewWaitGroup(ctx)
+	defer cancel()
 
 	t.Log("adding listener1")
 	xdsServer.AddListener("listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
@@ -126,7 +128,8 @@ func TestEnvoy(t *testing.T) {
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	t.Log("completed adding listener1, listener2, listener3")
-	s.waitGroup = completion.NewWaitGroup(ctx)
+	s.waitGroup, cancel = completion.NewWaitGroup(ctx)
+	defer cancel()
 
 	// Remove listener3
 	t.Log("removing listener 3")
@@ -135,7 +138,8 @@ func TestEnvoy(t *testing.T) {
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	t.Log("completed removing listener 3")
-	s.waitGroup = completion.NewWaitGroup(ctx)
+	s.waitGroup, cancel = completion.NewWaitGroup(ctx)
+	defer cancel()
 
 	// Add listener3 again
 	t.Log("adding listener 3")
@@ -152,7 +156,8 @@ func TestEnvoy(t *testing.T) {
 	require.True(t, cbCalled)
 	require.NoError(t, cbErr)
 	t.Log("completed adding listener 3")
-	s.waitGroup = completion.NewWaitGroup(ctx)
+	s.waitGroup, cancel = completion.NewWaitGroup(ctx)
+	defer cancel()
 
 	t.Log("stopping Envoy")
 	err = envoyProxy.Stop()
@@ -174,7 +179,8 @@ func TestEnvoyNACK(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 	defer cancel()
 
-	s.waitGroup = completion.NewWaitGroup(ctx)
+	s.waitGroup, cancel = completion.NewWaitGroup(ctx)
+	cancel()
 
 	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
 		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
@@ -240,7 +246,8 @@ func TestEnvoyNACK(t *testing.T) {
 	require.Equal(t, err, cbErr)
 	require.EqualValues(t, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '127.0.0.1:22': Address already in use\n"}, err)
 
-	s.waitGroup = completion.NewWaitGroup(ctx)
+	s.waitGroup, cancel = completion.NewWaitGroup(ctx)
+	defer cancel()
 	// Remove listener1
 	t.Log("removing ", rName)
 	xdsServer.RemoveListener(rName, s.waitGroup)

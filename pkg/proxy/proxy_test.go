@@ -93,7 +93,8 @@ func TestCreateOrUpdateRedirectMissingListener(t *testing.T) {
 	l4 := &fakeProxyPolicy{policy.ParserTypeCRD}
 
 	ctx := t.Context()
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 
 	proxyPort, err, revertFunc := p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
 	require.Equal(t, uint16(0), proxyPort)
@@ -122,7 +123,8 @@ func TestCreateOrUpdateRedirectMissingListenerWithUseOriginalSourceAddrFlagEnabl
 	l4 := &fakeProxyPolicy{policy.ParserTypeHTTP}
 
 	ctx := t.Context()
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 
 	p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
 	require.True(t, envoyIntegration.proxyUseOriginalSourceAddress)
@@ -149,7 +151,8 @@ func TestCreateOrUpdateRedirectMissingListenerWithUseOriginalSourceAddrFlagDisab
 	l4 := &fakeProxyPolicy{policy.ParserTypeHTTP}
 
 	ctx := t.Context()
-	wg := completion.NewWaitGroup(ctx)
+	wg, cancel := completion.NewWaitGroup(ctx)
+	defer cancel()
 
 	p.CreateOrUpdateRedirect(ctx, l4, "dummy-proxy-id", 1000, wg)
 	require.False(t, envoyIntegration.proxyUseOriginalSourceAddress)

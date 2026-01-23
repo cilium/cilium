@@ -24,7 +24,7 @@ func TestNoCompletion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	wg := NewWaitGroup(ctx)
+	wg, _ := NewWaitGroup(ctx)
 
 	// Wait should return immediately, since there are no completions.
 	err = wg.Wait()
@@ -37,7 +37,7 @@ func TestCompletionBeforeWait(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	wg := NewWaitGroup(ctx)
+	wg, _ := NewWaitGroup(ctx)
 
 	comp := wg.AddCompletion()
 
@@ -54,7 +54,7 @@ func TestCompletionAfterWait(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	wg := NewWaitGroup(ctx)
+	wg, _ := NewWaitGroup(ctx)
 
 	comp := wg.AddCompletion()
 
@@ -74,7 +74,7 @@ func TestCompletionBeforeAndAfterWait(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
 
-	wg := NewWaitGroup(ctx)
+	wg, _ := NewWaitGroup(ctx)
 
 	comp1 := wg.AddCompletion()
 
@@ -101,7 +101,7 @@ func TestCompletionTimeout(t *testing.T) {
 	// Set a shorter timeout to shorten the test duration.
 	wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
 	defer cancel()
-	wg := NewWaitGroup(wgCtx)
+	wg, _ := NewWaitGroup(wgCtx)
 
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		// Callback gets called with context.DeadlineExceeded if the WaitGroup times out
@@ -127,7 +127,7 @@ func TestCompletionMultipleCompleteCalls(t *testing.T) {
 	defer cancel()
 
 	// Set a shorter timeout to shorten the test duration.
-	wg := NewWaitGroup(ctx)
+	wg, _ := NewWaitGroup(ctx)
 
 	comp := wg.AddCompletion()
 
@@ -149,7 +149,7 @@ func TestCompletionWithCallback(t *testing.T) {
 	defer cancel()
 
 	// Set a shorter timeout to shorten the test duration.
-	wg := NewWaitGroup(ctx)
+	wg, _ := NewWaitGroup(ctx)
 
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		if err == nil {
@@ -181,7 +181,7 @@ func TestCompletionWithCallbackError(t *testing.T) {
 	err2 := errors.New("Error2")
 
 	// Set a shorter timeout to shorten the test duration.
-	wg := NewWaitGroup(ctx)
+	wg, _ := NewWaitGroup(ctx)
 
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		callbackCount++
@@ -221,7 +221,7 @@ func TestCompletionWithCallbackOtherError(t *testing.T) {
 	err2 := errors.New("Error2")
 
 	// Set a shorter timeout to shorten the test duration.
-	wg := NewWaitGroup(ctx)
+	wg, _ := NewWaitGroup(ctx)
 
 	wg.AddCompletionWithCallback(func(err error) {
 		callbackCount++
@@ -257,7 +257,7 @@ func TestCompletionWithCallbackTimeout(t *testing.T) {
 	// Set a shorter timeout to shorten the test duration.
 	wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
 	defer cancel()
-	wg := NewWaitGroup(wgCtx)
+	wg, _ := NewWaitGroup(wgCtx)
 
 	comp := wg.AddCompletionWithCallback(func(err error) {
 		if err == nil {

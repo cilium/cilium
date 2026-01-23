@@ -56,16 +56,17 @@ func ParseExternalRegenerationMetadata(ctx context.Context, logger *slog.Logger,
 // datapathRegenerationContext contains information related to regenerating the
 // datapath (BPF, proxy, etc.).
 type datapathRegenerationContext struct {
-	policyResult       *policyGenerateResult
-	bpfHeaderfilesHash string
-	epInfoCache        *epInfoCache
-	proxyWaitGroup     *completion.WaitGroup
-	ctCleaned          chan struct{}
-	completionCtx      context.Context
-	completionCancel   context.CancelFunc
-	currentDir         string
-	nextDir            string
-	regenerationLevel  regeneration.DatapathRegenerationLevel
+	policyResult         *policyGenerateResult
+	bpfHeaderfilesHash   string
+	epInfoCache          *epInfoCache
+	proxyWaitGroup       *completion.WaitGroup
+	proxyWaitGroupCancel context.CancelFunc
+	ctCleaned            chan struct{}
+	completionCtx        context.Context
+	completionCancel     context.CancelFunc
+	currentDir           string
+	nextDir              string
+	regenerationLevel    regeneration.DatapathRegenerationLevel
 
 	policyMapSyncDone bool
 	policyMapDump     policy.MapStateMap
@@ -76,7 +77,7 @@ type datapathRegenerationContext struct {
 
 func (ctx *datapathRegenerationContext) prepareForProxyUpdates(parentCtx context.Context) {
 	completionCtx, completionCancel := context.WithTimeout(parentCtx, EndpointGenerationTimeout)
-	ctx.proxyWaitGroup = completion.NewWaitGroup(completionCtx)
+	ctx.proxyWaitGroup, ctx.proxyWaitGroupCancel = completion.NewWaitGroup(completionCtx)
 	ctx.completionCtx = completionCtx
 	ctx.completionCancel = completionCancel
 }
