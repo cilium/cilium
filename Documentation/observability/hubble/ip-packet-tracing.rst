@@ -81,7 +81,7 @@ Manual Verification
 ===================
 
 To verify the feature, manually inject a known Trace ID into packets using ``nping``.
-The following examples uses a payload of 4 bytes to meet the strict length requirements.
+The following examples uses a payload of 4 bytes:
 
 #. Deploy Client and Server Pods
    Deploy an ``nginx`` server and a ``netshoot`` client (containing ``nping``):
@@ -112,13 +112,15 @@ The following examples uses a payload of 4 bytes to meet the strict length requi
        # 2. Run nping with Option 136 (0x88)
        # Format: \x88 (Type 136) \x04 (Data + header length) \x34\x21 (Data/ID)
        # The data 0x3421 corresponds to decimal 13345.
-       # Note: Length must be exactly 2, 4 or 8 bytes of payload. Length 4 for the message indicates 2 bytes of payload
+       # Note: Supports up to 8 bytes of payload. If the provided data exceeds 
+       # this limit, it is automatically truncated. In this example, we use 4 bytes of data.
        kubectl exec deployment/client -- nping --tcp -p 80 --ip-options '\x88\x04\x34\x21' -c 3 ${server_ip}
 
 Observing with Hubble
 =====================
 
-With traffic flowing, use the Hubble CLI to observe the extracted data.
+With traffic flowing, use the Hubble CLI to observe and filter the extracted data. 
+Hubble provides two flags to filter flows based on IP Options metadata.
 
 #. Build and Connect Hubble
 
@@ -128,12 +130,27 @@ With traffic flowing, use the Hubble CLI to observe the extracted data.
        make hubble
        cilium hubble port-forward &
 
-#. Filter by Trace ID
+#. Filter and Observe Data
 
-   Filter specifically for the injected ID ``13345`` (hex ``0x3421``):
+   You can filter your observation based on a specific ID value or by the IP Option type itself.
+
+   **Filter by Trace ID**
+   
+   Use the ``--ip-trace-id`` flag to look for a specific value. This is useful when you have a 
+   known ID from an application log and want to find the corresponding network flow.
 
    .. code-block:: shell-session
 
        ./hubble observe -f --ip-trace-id 13345
 
-   Verify that flows between the ``client`` and ``server`` pods appear with the matching ID.
+   **Filter by Option Type**
+   
+   Use the ``--ip-trace-option`` flag to observe any traffic that contains a specific IP Option type, 
+   regardless of the ID value. This is the preferred method for verifying that your sidecars or 
+   devices are correctly injecting metadata.
+
+   .. code-block:: shell-session
+
+       ./hubble observe -f --ip-trace-option 136
+
+   Verify that flows between the ``client`` and ``server`` pods appear with the expected metadata.
