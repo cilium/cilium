@@ -1898,9 +1898,6 @@
     "enableNonDefaultDenyPolicies": {
       "type": "boolean"
     },
-    "enableTunnelBIGTCP": {
-      "type": "boolean"
-    },
     "enableXTSocketFallback": {
       "type": "boolean"
     },

@@ -26,6 +26,8 @@ import (
 
 	bpfgen "github.com/cilium/cilium/pkg/datapath/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
@@ -626,6 +628,63 @@ var HaveBIGTCPIPv6 = sync.OnceValue(func() error {
 	// Kernel commit 89527be8d8d6 ("net: add IFLA_TSO_{MAX_SIZE|SEGS} attributes").
 	// Patch 01/13 of the series "tcp: BIG TCP implementation".
 	if link.Attrs().TSOMaxSize > 0 {
+		return nil
+	} else {
+		return ErrNotSupported
+	}
+})
+
+// Probes whether the kernel supports BIG TCP for VXLAN and GENEVE.
+var HaveBIGTCPTunnel = sync.OnceValue(func() error {
+	ns, err := netns.New()
+	if err != nil {
+		return fmt.Errorf("create netns: %w", err)
+	}
+	defer ns.Close()
+
+	var h *netlink.Handle
+	if err := ns.Do(func() (err error) {
+		h, err = netlink.NewHandle()
+		return err
+	}); err != nil {
+		return fmt.Errorf("create netlink handle: %w", err)
+	}
+	defer h.Close()
+
+	const probeNetdev = "probe"
+
+	dev := &netlink.Geneve{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: probeNetdev,
+		},
+		Dport: defaults.TunnelPortGeneve,
+	}
+
+	if err := h.LinkAdd(dev); err != nil {
+		return fmt.Errorf("failed to create a probe GENEVE device: %w", err)
+	}
+
+	link, err := safenetlink.WithRetryResult(func() (netlink.Link, error) {
+		//nolint:forbidigo
+		return h.LinkByName(probeNetdev)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the probe GENEVE device: %w", err)
+	}
+
+	// (Pending) Kernel commit XXXXXXXXXXXX ("geneve: Enable BIG TCP packets").
+	//
+	// VXLAN tunnels are less suitable as a probe, because they may call
+	// netif_inherit_tso_max() and inherit tso_max_size from the physical
+	// device, which is likely to be bigger than 64k, even before the kernel
+	// support for BIG TCP for VXLAN has been added. Setting gso_max_size
+	// to a bigger value on such kernels doesn't make it work, but leads to
+	// packet drops instead.
+	//
+	// GENEVE, on the other hand, doesn't do netif_inherit_tso_max(), so we
+	// can reliably check its tso_max_size (65536 meaning pre BIG TCP
+	// support; 524280 meaning post BIG TCP support).
+	if link.Attrs().TSOMaxSize > types.GROGSOLegacyMaxSize {
 		return nil
 	} else {
 		return ErrNotSupported

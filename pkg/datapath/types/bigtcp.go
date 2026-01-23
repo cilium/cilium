@@ -8,9 +8,12 @@ import (
 )
 
 const (
-	EnableIPv4BIGTCPFlag   = "enable-ipv4-big-tcp"
-	EnableIPv6BIGTCPFlag   = "enable-ipv6-big-tcp"
-	EnableTunnelBIGTCPFlag = "enable-tunnel-big-tcp"
+	EnableIPv4BIGTCPFlag = "enable-ipv4-big-tcp"
+	EnableIPv6BIGTCPFlag = "enable-ipv6-big-tcp"
+
+	// Corresponds to the value of GRO_LEGACY_MAX_SIZE and GSO_LEGACY_MAX_SIZE in
+	// the kernel. This is the maximum aggregation size of a packet pre BIG TCP.
+	GROGSOLegacyMaxSize = 65536
 )
 
 // BigTCPUserConfig are the configuration flags that the user can modify.
@@ -20,15 +23,11 @@ type BigTCPUserConfig struct {
 
 	// EnableIPv4BIGTCP enables IPv4 BIG TCP (larger GSO/GRO limits) for the node including pods.
 	EnableIPv4BIGTCP bool
-
-	// EnableTunnelBIGTCP enables BIG TCP (larger GSO/GRO limits) in tunneling mode for VXLAN and GENEVE tunnels.
-	EnableTunnelBIGTCP bool
 }
 
 func (def BigTCPUserConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(EnableIPv4BIGTCPFlag, def.EnableIPv4BIGTCP, "Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4")
 	flags.Bool(EnableIPv6BIGTCPFlag, def.EnableIPv6BIGTCP, "Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6")
-	flags.Bool(EnableTunnelBIGTCPFlag, def.EnableTunnelBIGTCP, "Enable BIG TCP in tunneling mode and increase maximum GRO/GSO limits for VXLAN/GENEVE tunnels")
 }
 
 func (def BigTCPUserConfig) IsIPv4Enabled() bool {
@@ -39,14 +38,9 @@ func (def BigTCPUserConfig) IsIPv6Enabled() bool {
 	return def.EnableIPv6BIGTCP
 }
 
-func (def BigTCPUserConfig) IsTunnelEnabled() bool {
-	return def.EnableTunnelBIGTCP
-}
-
 type BigTCPConfig interface {
 	IsIPv4Enabled() bool
 	IsIPv6Enabled() bool
-	IsTunnelEnabled() bool
 }
 
 type BigTCPConfiguration interface {

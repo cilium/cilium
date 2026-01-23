@@ -121,3 +121,9 @@ func TestBIGTCPIPv6(t *testing.T) {
 	testutils.SkipOnOldKernel(t, "5.19", "BIG TCP IPv6")
 	assert.NoError(t, HaveBIGTCPIPv6())
 }
+
+func TestPrivilegedBIGTCPTunnel(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "6.20", "BIG TCP for UDP tunnels")
+	assert.NoError(t, HaveBIGTCPTunnel())
+}
