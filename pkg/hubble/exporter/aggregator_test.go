@@ -327,6 +327,34 @@ func TestAggregateAdd(t *testing.T) {
 	})
 }
 
+func TestAggregateTimeEnrichment(t *testing.T) {
+
+	t.Run("time enriched despite not in fieldmask", func(t *testing.T) {
+		// Field Aggregate excludes time, but the processed flow is enriched anyway.
+		fieldMask, err := fieldmaskpb.New(&flowpb.Flow{}, "verdict")
+		require.NoError(t, err)
+
+		fieldAgg, err := fieldaggregate.New(fieldMask)
+		require.NoError(t, err)
+
+		aggregator := NewAggregatorWithFields(fieldAgg, hivetest.Logger(t))
+		testTimestamp := &timestamp.Timestamp{Seconds: 1692369601, Nanos: 123456789}
+		aggregator.Add(&v1.Event{
+			Event: &flowpb.Flow{
+				Time:             testTimestamp,
+				Verdict:          flowpb.Verdict_FORWARDED,
+				TrafficDirection: flowpb.TrafficDirection_INGRESS,
+			},
+		})
+
+		require.Len(t, aggregator.m, 1)
+		// Verify time is populated even though not in field mask.
+		for _, value := range aggregator.m {
+			assert.Equal(t, testTimestamp, value.ProcessedFlow.Time)
+		}
+	})
+}
+
 func TestAggregatorRunFunction(t *testing.T) {
 	t.Run("processes events and resets map", func(t *testing.T) {
 		exporter, buf := testExporterWithAggregation(t, 100*time.Millisecond, []string{"verdict"})
