@@ -7,7 +7,10 @@ git config merge.go-mod-tidy.driver "go mod tidy && go mod vendor"
 
 # Configure Kubernetes update driver
 git config merge.kubernetes-update.name "Kubernetes Update Merge Driver"
-git config merge.kubernetes-update.driver "make -C install/kubernetes && make -C Documentation update-helm-values"
+# Intead of running the default target in install/k8s, we just run targets that
+# completely regenerate files in the helm charts, and we avoid linting the template
+# files as this will not solve merge conflicts there.
+git config merge.kubernetes-update.driver "make -C install/kubernetes update-versions cilium/values.yaml docs && make -C Documentation update-helm-values"
 
 # Configure Helm values update driver
 git config merge.helm-values-update.name "Helm Values Update Merge Driver"
