@@ -683,6 +683,9 @@ message FlowFilter {
     // When set to false, only unencrypted flows are returned.
     repeated bool encrypted = 40;
 
+    // ip_trace_option filters flows by IP option type
+    repeated uint32 ip_trace_option = 41;
+
     // Experimental contains filters that are not stable yet. Support for
     // experimental features is always optional and subject to change.
     message Experimental {
