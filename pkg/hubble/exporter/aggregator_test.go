@@ -251,6 +251,80 @@ func TestAggregateAdd(t *testing.T) {
 		assert.Equal(t, 0, value.UnknownDirectionFlowCount)
 		assert.NotNil(t, value.ProcessedFlow)
 	})
+
+	t.Run("oneof field mask with mixed protocols", func(t *testing.T) {
+		// Test that field mask correctly handles oneof variants (e.g., TCP vs UDP, HTTP vs DNS),
+		// when multiple variants are specified in the field mask.
+		fieldMask, err := fieldmaskpb.New(&flowpb.Flow{},
+			"source.namespace",
+			"l4.TCP.destination_port",
+			"l4.UDP.destination_port", // Both TCP and UDP specified.
+			"l7.http.code",
+			"l7.dns.rcode", // Both HTTP and DNS specified.
+		)
+		require.NoError(t, err)
+
+		fieldAgg, err := fieldaggregate.New(fieldMask)
+		require.NoError(t, err)
+
+		aggregator := NewAggregatorWithFields(fieldAgg, hivetest.Logger(t))
+
+		// Create 2 identical TCP+HTTP flows.
+		flow1 := &flowpb.Flow{
+			Source: &flowpb.Endpoint{Namespace: "default"},
+			L4: &flowpb.Layer4{
+				Protocol: &flowpb.Layer4_TCP{
+					TCP: &flowpb.TCP{
+						SourcePort:      33001,
+						DestinationPort: 443,
+					},
+				},
+			},
+			L7: &flowpb.Layer7{
+				Type: flowpb.L7FlowType_RESPONSE,
+				Record: &flowpb.Layer7_Http{
+					Http: &flowpb.HTTP{
+						Code: 200,
+					},
+				},
+			},
+			TrafficDirection: flowpb.TrafficDirection_INGRESS,
+		}
+
+		flow2 := &flowpb.Flow{
+			Source: &flowpb.Endpoint{Namespace: "default"},
+			L4: &flowpb.Layer4{
+				Protocol: &flowpb.Layer4_TCP{
+					TCP: &flowpb.TCP{
+						SourcePort:      33002, // Different source port (not in mask).
+						DestinationPort: 443,
+					},
+				},
+			},
+			L7: &flowpb.Layer7{
+				Type: flowpb.L7FlowType_RESPONSE,
+				Record: &flowpb.Layer7_Http{
+					Http: &flowpb.HTTP{
+						Code: 200,
+					},
+				},
+			},
+			TrafficDirection: flowpb.TrafficDirection_INGRESS,
+		}
+
+		aggregator.Add(&v1.Event{Event: flow1})
+		aggregator.Add(&v1.Event{Event: flow2})
+
+		// Should have exactly 1 aggregation (both flows are identical after masking).
+		// Previously without the oneof fix, this would create 2 aggregations because
+		// the field mask would create spurious UDP and DNS structures.
+		assert.Len(t, aggregator.m, 1, "should have exactly 1 aggregation, not one per spurious oneof variant")
+
+		for _, value := range aggregator.m {
+			assert.Equal(t, 2, value.IngressFlowCount)
+			assert.Equal(t, 0, value.EgressFlowCount)
+		}
+	})
 }
 
 func TestAggregatorRunFunction(t *testing.T) {
