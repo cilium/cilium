@@ -28,8 +28,23 @@ git config merge.cmdref-update.driver "make -C Documentation update-cmdref"
 git config merge.schema-permissions.name "Schema Permissions Merge Driver"
 git config merge.schema-permissions.driver "chmod 644 install/kubernetes/cilium/values.schema.json"
 
-# Configure API generation driver
-git config merge.generate-apis.name "API Generation Merge Driver"
-git config merge.generate-apis.driver "make generate-apis"
+# Configure API generation drivers
+git config merge.generate-api.name "OpenAPI REST API Generation Merge Driver"
+git config merge.generate-api.driver "make generate-api"
+
+git config merge.generate-health-api.name "Health API Generation Merge Driver"
+git config merge.generate-health-api.driver "make generate-health-api"
+
+git config merge.generate-kvstoremesh-api.name "KVStoreMesh API Generation Merge Driver"
+git config merge.generate-kvstoremesh-api.driver "make generate-kvstoremesh-api"
+
+git config merge.generate-hubble-api.name "Hubble API Generation Merge Driver"
+git config merge.generate-hubble-api.driver "make generate-hubble-api"
+
+git config merge.generate-operator-api.name "Operator API Generation Merge Driver"
+git config merge.generate-operator-api.driver "make generate-hubble-api"
+
+git config merge.generate-sdp-api.name "Operator API Generation Merge Driver"
+git config merge.generate-sdp-api.driver "make generate-sdp-api"
 
 echo "Git merge drivers configured successfully!"
