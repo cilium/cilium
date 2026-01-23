@@ -10,6 +10,14 @@ debug: export NOOPT=1 ## Builds Cilium by disabling inlining, compiler optimizat
 debug: export NOSTRIP=1
 debug: all
 
+# using $(MAKE) in mac-os for commands wrapped in a
+# linux container propagate a non existing path.
+# if mac-os, fall back to simply using `make`
+MAKE_CONTAINER=$(MAKE)
+ifeq ($(shell uname -s),Darwin)
+	MAKE_CONTAINER="make"
+endif
+
 include Makefile.defs
 
 SUBDIRS_CILIUM_CONTAINER := cilium-dbg daemon cilium-health bugtool hubble tools/mount tools/sysctlfix plugins/cilium-cni
@@ -386,12 +394,12 @@ generate-k8s-api-local:
 .PHONY: generate-k8s-api
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
 	contrib/scripts/builder.sh \
-		$(MAKE) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local
+		$(MAKE_CONTAINER) -C /go/src/github.com/cilium/cilium/ generate-k8s-api-local
 
 .PHONY: generate-bpf
 generate-bpf: ## Generate config structs from BPF objects using dpgen and Go skeletons with bpf2go
 	contrib/scripts/builder.sh \
-		$(MAKE) -C /go/src/github.com/cilium/cilium/bpf generate
+		$(MAKE_CONTAINER) -C /go/src/github.com/cilium/cilium/bpf generate
 
 check-k8s-clusterrole: ## Ensures there is no diff between preflight's clusterrole and runtime's clusterrole.
 	./contrib/scripts/check-preflight-clusterrole.sh
