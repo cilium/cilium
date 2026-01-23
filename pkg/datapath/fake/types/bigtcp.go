@@ -10,9 +10,6 @@ type BigTCPUserConfig struct {
 
 	// EnableIPv4BIGTCP enables IPv4 BIG TCP (larger GSO/GRO limits) for the node including pods.
 	EnableIPv4BIGTCP bool
-
-	// EnableTunnelBIGTCP enables BIG TCP (larger GSO/GRO limits) in tunneling mode for VXLAN and GENEVE tunnels.
-	EnableTunnelBIGTCP bool
 }
 
 func (def BigTCPUserConfig) IsIPv4Enabled() bool {
@@ -21,8 +18,4 @@ func (def BigTCPUserConfig) IsIPv4Enabled() bool {
 
 func (def BigTCPUserConfig) IsIPv6Enabled() bool {
 	return def.EnableIPv6BIGTCP
-}
-
-func (def BigTCPUserConfig) IsTunnelEnabled() bool {
-	return def.EnableTunnelBIGTCP
 }
