@@ -109,6 +109,8 @@ type LocalRedirectPolicy struct {
 	// SkipRedirectFromBackend is the flag that enables/disables redirection
 	// for traffic matching the policy frontend(s) from the backends selected by the policy
 	SkipRedirectFromBackend bool
+	// NodeSelector is a selector to determine if the policy applies to the node.
+	NodeSelector api.EndpointSelector
 }
 
 func (lrp *LocalRedirectPolicy) TableHeader() []string {
@@ -315,6 +317,11 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 	// Get an EndpointSelector from the passed policy labelSelector for optimized matching.
 	sel := policytypes.NewLabelSelector(api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, &redirectTo.LocalEndpointSelector))
 
+	var nodeSelector api.EndpointSelector
+	if spec.NodeSelector != nil {
+		nodeSelector = api.NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, spec.NodeSelector)
+	}
+
 	return &LocalRedirectPolicy{
 		UID:                     uid,
 		ServiceID:               k8sSvc,
@@ -326,5 +333,6 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		FrontendType:            frontendType,
 		SkipRedirectFromBackend: spec.SkipRedirectFromBackend,
 		ID:                      lb.NewServiceName(namespace, name),
+		NodeSelector:            nodeSelector,
 	}, nil
 }
