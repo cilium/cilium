@@ -131,8 +131,8 @@ type remoteCluster struct {
 	metricTotalCacheRevocations prometheus.Gauge
 }
 
-// parseCiliumConfig reads Cilium specific fields from the etcd client config.
-func parseCiliumConfig(path string, cfg *CiliumEtcdConfig) error {
+// ParseCiliumConfig reads Cilium specific fields from the etcd client config.
+func ParseCiliumConfig(path string, cfg *CiliumEtcdConfig) error {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %w", err)
