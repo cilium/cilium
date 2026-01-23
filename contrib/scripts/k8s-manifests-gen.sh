@@ -43,7 +43,7 @@ CRDS_CILIUM_V2ALPHA1="ciliumendpointslices \
 
 TMPDIR=$(mktemp -d -t cilium.tmpXXXXXXXX)
 go tool sigs.k8s.io/controller-tools/cmd/controller-gen ${CRD_OPTIONS} paths="${CRD_PATHS}" output:crd:artifacts:config="${TMPDIR}"
-go run ${SCRIPT_ROOT}/../../tools/crdcheck "${TMPDIR}"
+go run ./tools/crdcheck "${TMPDIR}"
 
 # Clean up old CRD state and start with a blank state.
 for path in ${CRDS_CILIUM_PATHS}; do
