@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -220,4 +221,214 @@ func readGatewayInput(t *testing.T, testName string) Input {
 	input.BackendTLSPolicyMap = btlspMap
 
 	return input
+}
+
+func TestToFrontendTLSValidation(t *testing.T) {
+	tests := map[string]struct {
+		gateway      gatewayv1.Gateway
+		listenerPort gatewayv1.PortNumber
+		want         *model.FrontendTLSValidation
+	}{
+		"no tls config": {
+			gateway: gatewayv1.Gateway{},
+			want:    nil,
+		},
+		"no frontend config": {
+			gateway: gatewayv1.Gateway{
+				Spec: gatewayv1.GatewaySpec{
+					TLS: &gatewayv1.GatewayTLSConfig{},
+				},
+			},
+			want: nil,
+		},
+		"default validation with AllowValidOnly mode": {
+			gateway: gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+				},
+				Spec: gatewayv1.GatewaySpec{
+					TLS: &gatewayv1.GatewayTLSConfig{
+						Frontend: &gatewayv1.FrontendTLSConfig{
+							Default: gatewayv1.TLSConfig{
+								Validation: &gatewayv1.FrontendTLSValidation{
+									CACertificateRefs: []gatewayv1.ObjectReference{
+										{
+											Group: "",
+											Kind:  "ConfigMap",
+											Name:  "ca-cert",
+										},
+									},
+									Mode: gatewayv1.AllowValidOnly,
+								},
+							},
+						},
+					},
+				},
+			},
+			listenerPort: 443,
+			want: &model.FrontendTLSValidation{
+				CACertRefs: []model.FullyQualifiedResource{
+					{
+						Group:     "",
+						Kind:      "ConfigMap",
+						Name:      "ca-cert",
+						Namespace: "default",
+					},
+				},
+				RequireClientCertificate: true,
+			},
+		},
+		"default validation with AllowInsecureFallback mode": {
+			gateway: gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+				},
+				Spec: gatewayv1.GatewaySpec{
+					TLS: &gatewayv1.GatewayTLSConfig{
+						Frontend: &gatewayv1.FrontendTLSConfig{
+							Default: gatewayv1.TLSConfig{
+								Validation: &gatewayv1.FrontendTLSValidation{
+									CACertificateRefs: []gatewayv1.ObjectReference{
+										{
+											Group: "",
+											Kind:  "ConfigMap",
+											Name:  "ca-cert",
+										},
+									},
+									Mode: gatewayv1.AllowInsecureFallback,
+								},
+							},
+						},
+					},
+				},
+			},
+			listenerPort: 443,
+			want: &model.FrontendTLSValidation{
+				CACertRefs: []model.FullyQualifiedResource{
+					{
+						Group:     "",
+						Kind:      "ConfigMap",
+						Name:      "ca-cert",
+						Namespace: "default",
+					},
+				},
+				RequireClientCertificate: false,
+			},
+		},
+		"per-port override": {
+			gateway: gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+				},
+				Spec: gatewayv1.GatewaySpec{
+					TLS: &gatewayv1.GatewayTLSConfig{
+						Frontend: &gatewayv1.FrontendTLSConfig{
+							Default: gatewayv1.TLSConfig{
+								Validation: &gatewayv1.FrontendTLSValidation{
+									CACertificateRefs: []gatewayv1.ObjectReference{
+										{
+											Group: "",
+											Kind:  "ConfigMap",
+											Name:  "default-ca",
+										},
+									},
+									Mode: gatewayv1.AllowValidOnly,
+								},
+							},
+							PerPort: []gatewayv1.TLSPortConfig{
+								{
+									Port: 8443,
+									TLS: gatewayv1.TLSConfig{
+										Validation: &gatewayv1.FrontendTLSValidation{
+											CACertificateRefs: []gatewayv1.ObjectReference{
+												{
+													Group: "",
+													Kind:  "ConfigMap",
+													Name:  "port-specific-ca",
+												},
+											},
+											Mode: gatewayv1.AllowInsecureFallback,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			listenerPort: 8443,
+			want: &model.FrontendTLSValidation{
+				CACertRefs: []model.FullyQualifiedResource{
+					{
+						Group:     "",
+						Kind:      "ConfigMap",
+						Name:      "port-specific-ca",
+						Namespace: "default",
+					},
+				},
+				RequireClientCertificate: false,
+			},
+		},
+		"per-port override not matched falls back to default": {
+			gateway: gatewayv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+				},
+				Spec: gatewayv1.GatewaySpec{
+					TLS: &gatewayv1.GatewayTLSConfig{
+						Frontend: &gatewayv1.FrontendTLSConfig{
+							Default: gatewayv1.TLSConfig{
+								Validation: &gatewayv1.FrontendTLSValidation{
+									CACertificateRefs: []gatewayv1.ObjectReference{
+										{
+											Group: "",
+											Kind:  "ConfigMap",
+											Name:  "default-ca",
+										},
+									},
+									Mode: gatewayv1.AllowValidOnly,
+								},
+							},
+							PerPort: []gatewayv1.TLSPortConfig{
+								{
+									Port: 8443,
+									TLS: gatewayv1.TLSConfig{
+										Validation: &gatewayv1.FrontendTLSValidation{
+											CACertificateRefs: []gatewayv1.ObjectReference{
+												{
+													Group: "",
+													Kind:  "ConfigMap",
+													Name:  "port-specific-ca",
+												},
+											},
+											Mode: gatewayv1.AllowInsecureFallback,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			listenerPort: 443,
+			want: &model.FrontendTLSValidation{
+				CACertRefs: []model.FullyQualifiedResource{
+					{
+						Group:     "",
+						Kind:      "ConfigMap",
+						Name:      "default-ca",
+						Namespace: "default",
+					},
+				},
+				RequireClientCertificate: true,
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := toFrontendTLSValidation(&tc.gateway, tc.listenerPort, nil)
+			assert.Equal(t, tc.want, result)
+		})
+	}
 }
