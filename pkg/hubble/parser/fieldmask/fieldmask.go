@@ -55,16 +55,37 @@ func (f FieldMask) Copy(dst, src protoreflect.Message) {
 	for name, next := range f {
 		fd := fds.ByName(protoreflect.Name(name))
 		if len(next) == 0 {
+			// Leaf node - copy the field value directly.
 			if src.Has(fd) {
 				dst.Set(fd, src.Get(fd))
 			} else {
 				dst.Clear(fd)
 			}
 		} else {
-			if sub := dst.Get(fd); sub.Message().IsValid() {
-				next.Copy(sub.Message(), src.Get(fd).Message())
+			// Has sub-fields - need to recursively copy.
+			// Recursion is bounded by the protobuf schema depth (typically 2-4 levels for Flow messages).
+			// Check if this field is part of a oneof (e.g., Layer4.Protocol can be TCP, UDP, SCTP, or ICMPv4/v6).
+			if fd.ContainingOneof() != nil {
+				// This field is part of a oneof group.
+				// Only copy if this variant is actually set in the source.
+				whichOneof := src.WhichOneof(fd.ContainingOneof())
+
+				if whichOneof != nil && whichOneof.Name() == fd.Name() {
+					// This is the active oneof variant in source - copy it.
+					if sub := dst.Get(fd); sub.Message().IsValid() {
+						next.Copy(sub.Message(), src.Get(fd).Message())
+					} else {
+						next.Copy(dst.Mutable(fd).Message(), src.Get(fd).Message())
+					}
+				}
+				// If not the active variant, skip it (don't create spurious structures).
 			} else {
-				next.Copy(dst.Mutable(fd).Message(), src.Get(fd).Message())
+				// Not a oneof field - copy normally.
+				if sub := dst.Get(fd); sub.Message().IsValid() {
+					next.Copy(sub.Message(), src.Get(fd).Message())
+				} else {
+					next.Copy(dst.Mutable(fd).Message(), src.Get(fd).Message())
+				}
 			}
 		}
 	}
