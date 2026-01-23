@@ -72,9 +72,8 @@ func (m mockFeaturesParams) DatapathOperationalMode() string {
 }
 
 type bigTCPMock struct {
-	ipv4Enabled   bool
-	ipv6Enabled   bool
-	tunnelEnabled bool
+	ipv4Enabled bool
+	ipv6Enabled bool
 }
 
 func (b bigTCPMock) IsIPv4Enabled() bool {
@@ -83,10 +82,6 @@ func (b bigTCPMock) IsIPv4Enabled() bool {
 
 func (b bigTCPMock) IsIPv6Enabled() bool {
 	return b.ipv6Enabled
-}
-
-func (b bigTCPMock) IsTunnelEnabled() bool {
-	return b.tunnelEnabled
 }
 
 func TestUpdateNetworkMode(t *testing.T) {
@@ -1266,7 +1261,6 @@ func TestUpdateBigTCPProtocol(t *testing.T) {
 		name             string
 		enableIPv4       bool
 		enableIPv6       bool
-		enableTunnel     bool
 		expectedProtocol string
 	}{
 		{
@@ -1305,9 +1299,8 @@ func TestUpdateBigTCPProtocol(t *testing.T) {
 			params := mockFeaturesParams{
 				CNIChainingMode: defaultChainingModes[0],
 				bigTCPMock: bigTCPMock{
-					ipv4Enabled:   tt.enableIPv4,
-					ipv6Enabled:   tt.enableIPv6,
-					tunnelEnabled: tt.enableTunnel,
+					ipv4Enabled: tt.enableIPv4,
+					ipv6Enabled: tt.enableIPv6,
 				},
 			}
 
