@@ -22,7 +22,6 @@ to learn how to level up through the project.
  * [Dorde Lapcevic] (Google)
  * [Dylan Reimerink] (Isovalent)
  * [Fabio Falzoi] (Isovalent)
- * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
  * [Hemanth Malla] (Microsoft)
  * [Jarno Rajahalme] (Isovalent)
@@ -64,6 +63,7 @@ We would like to acknowledge previous committers and their huge contributions to
  * [Beatriz Martínez] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
  * [Eloy Coto] (Red Hat)
+ * [Gilberto Bertin]
  * [Ian Vernon]
  * [Ilya Dmitrichenko] (Docker)
  * [Lorenz Bauer]
