@@ -64,6 +64,10 @@ func (a *Aggregator) Add(ev *v1.Event) {
 
 	k := generateAggregationKey(processedFlow)
 
+	// Enrich the processed flow with timestamp after key generation.
+	// This ensures timestamp doesn't affect aggregation, but preserves temporal context.
+	processedFlow.Time = f.GetTime()
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
