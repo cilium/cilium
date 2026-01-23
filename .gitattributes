@@ -27,12 +27,13 @@ pkg/datapath/config/*_config.go linguist-generated
 go.mod merge=go-mod-tidy
 go.sum merge=go-mod-tidy
 vendor/** merge=go-mod-tidy
-install/kubernetes/** merge=kubernetes-update
+install/kubernetes/cilium/values.yaml merge=kubernetes-update
+install/kubernetes/cilium/README.md merge=kubernetes-update
+install/kubernetes/cilium/values.schema.json merge=schema-permissions
 Documentation/helm-values.rst merge=helm-values-update
 images/cilium/Dockerfile merge=images-update
 images/operator/Dockerfile merge=images-update
 images/hubble-relay/Dockerfile merge=images-update
 .devcontainer/devcontainer.json merge=images-update
 Documentation/cmdref/** merge=cmdref-update
-install/kubernetes/cilium/values.schema.json merge=schema-permissions
 api/** merge=generate-apis
