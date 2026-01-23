@@ -20,7 +20,8 @@
 
 #ifdef ENABLE_IPV6
 static __always_inline bool
-nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
+nodeport_has_nat_conflict_ipv6(struct __ctx_buff *ctx __maybe_unused,
+			       const struct ipv6hdr *ip6 __maybe_unused,
 			       struct ipv6_nat_target *target __maybe_unused)
 {
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
@@ -34,16 +35,44 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(IS_BPF_HOST)
-	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
+	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+	const struct endpoint_info *ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
+	/* Detect if this is traffic generated from a local process or a
+	 * pod with host networking, including egress proxy traffic.
+	 *
+	 * If it is we want to either reserve the port to avoid conflicting
+	 * with pod egress NAT translation or translate if the source port is
+	 * already reserved.
+	 */
+	if (magic == MARK_MAGIC_HOST)
+		goto needs_ct;
 
-	/* See comment in nodeport_has_nat_conflict_ipv4(). */
-	if (CONFIG(direct_routing_dev_ifindex) == CONFIG(interface_ifindex) &&
-	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
-		ipv6_addr_copy(&target->addr, &dr_addr);
-		target->needs_ct = true;
-
-		return true;
+	/* Egress proxy traffic may be non-transparent and conflict with NAT
+	 * port allocations.
+	 *
+	 * If we detect this is egress proxy traffic we must also determine if
+	 * the egress traffic is transparent or not. When it is not we also
+	 * need to avoid a NAT conflict for the non-transparent traffic using
+	 * a host IP.
+	 */
+#if !defined(TUNNEL_MODE) && defined(ENABLE_IPSEC)
+	/* when IPSec is enabled in native routing mode we send egress proxy
+	 * traffic through cilium_host for MTU adjustment, this clobbers mark
+	 * but sets the tc index.
+	 */
+	if (tc_index_from_egress_proxy(ctx)) {
+#else
+	if (magic == MARK_MAGIC_PROXY_EGRESS) {
+#endif
+		if (!ep || (ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
+			goto needs_ct;
 	}
+
+	return false;
+needs_ct:
+	ipv6_addr_copy(&target->addr, (union v6addr *)&ip6->saddr);
+	target->needs_ct = true;
+	return true;
 #endif /* IS_BPF_HOST */
 
 	return false;
@@ -76,7 +105,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	l4_off = ETH_HLEN + hdrlen;
 
 	if (lb_is_svc_proto(tuple.nexthdr) &&
-	    nodeport_has_nat_conflict_ipv6(ip6, &target))
+	    nodeport_has_nat_conflict_ipv6(ctx, ip6, &target))
 		goto apply_snat;
 
 	ret = snat_v6_needs_masquerade(ctx, &tuple, ip6, fraginfo, l4_off, &target);
@@ -283,7 +312,8 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPV4
 static __always_inline bool
-nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
+nodeport_has_nat_conflict_ipv4(struct __ctx_buff *ctx __maybe_unused,
+			       const struct iphdr *ip4 __maybe_unused,
 			       struct ipv4_nat_target *target __maybe_unused)
 {
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
@@ -296,17 +326,44 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(IS_BPF_HOST)
-	/* direct_routing_dev_ifindex == interface_ifindex cannot be moved into
-	 * preprocessor, as the values are known only during load time (templating).
-	 * This checks whether bpf_host is running on the direct routing device.
+	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+	const struct endpoint_info *ep = __lookup_ip4_endpoint(ip4->saddr);
+	/* Detect if this is traffic generated from a local process or a
+	 * pod with host networking, including egress proxy traffic.
+	 *
+	 * If it is we want to either reserve the port to avoid conflicting
+	 * with pod egress NAT translation or translate if the source port is
+	 * already reserved.
 	 */
-	if (CONFIG(direct_routing_dev_ifindex) == CONFIG(interface_ifindex) &&
-	    ip4->saddr == IPV4_DIRECT_ROUTING) {
-		target->addr = IPV4_DIRECT_ROUTING;
-		target->needs_ct = true;
+	if (magic == MARK_MAGIC_HOST)
+		goto needs_ct;
 
-		return true;
+	/* Egress proxy traffic may be non-transparent and conflict with NAT
+	 * port allocations.
+	 *
+	 * If we detect this is egress proxy traffic we must also determine if
+	 * the egress traffic is transparent or not. When it is not we also
+	 * need to avoid a NAT conflict for the non-transparent traffic using
+	 * a host IP.
+	 */
+#if !defined(TUNNEL_MODE) && defined(ENABLE_IPSEC)
+	/* when IPSec is enabled in native routing mode we send egress proxy
+	 * traffic through cilium_host for MTU adjustment, this clobbers mark
+	 * but sets the tc index.
+	 */
+	if (tc_index_from_egress_proxy(ctx)) {
+#else
+	if (magic == MARK_MAGIC_PROXY_EGRESS) {
+#endif
+		if (!ep || (ep->flags & ENDPOINT_MASK_HOST_DELIVERY))
+			goto needs_ct;
 	}
+
+	return false;
+needs_ct:
+	target->addr = ip4->saddr;
+	target->needs_ct = true;
+	return true;
 #endif /* IS_BPF_HOST */
 
 	return false;
@@ -361,7 +418,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	}
 
 	if (lb_is_svc_proto(tuple.nexthdr) &&
-	    nodeport_has_nat_conflict_ipv4(ip4, &target))
+	    nodeport_has_nat_conflict_ipv4(ctx, ip4, &target))
 		goto apply_snat;
 
 	ret = snat_v4_needs_masquerade(ctx, &tuple, ip4, fraginfo, l4_off, &target);
