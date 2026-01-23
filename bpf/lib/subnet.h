@@ -37,7 +37,7 @@ struct {
 	__type(value, struct subnet_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SUBNET_MAP_SIZE);
-	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_subnet_map __section_maps_btf;
 
 /* SUBNET_STATIC_PREFIX gets sizeof non-IP, non-prefix part of subnet_key */
