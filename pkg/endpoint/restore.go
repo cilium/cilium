@@ -215,7 +215,8 @@ func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator, resolveMetad
 	e.RunRestoredMetadataResolver(resolveMetadata)
 
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "syncing state to host",
+		Reason:            regeneration.ReasonEndpointRestore,
+		Message:           "syncing state to host",
 		RegenerationLevel: regeneration.RegenerateWithDatapath,
 	}
 	if buildSuccess := <-e.Regenerate(regenerationMetadata); !buildSuccess {

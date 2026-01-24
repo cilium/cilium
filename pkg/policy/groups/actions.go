@@ -13,7 +13,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var (
@@ -138,7 +137,6 @@ func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset cli
 	}
 
 	if derivativeErr != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		scopedLog.Error("Cannot create derivative rule. Installing deny-all rule.", logfields.Error, derivativeErr)
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), derivativeErr, clusterScoped)
 		if statusErr != nil {
@@ -157,12 +155,10 @@ func addDerivativePolicy(ctx context.Context, logger *slog.Logger, clientset cli
 	if err != nil {
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), err, clusterScoped)
 		if statusErr != nil {
-			metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 			scopedLog.Error("Cannot update status for derivative policy", logfields.Error, err)
 		}
 		return statusErr
 	}
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 
 	err = updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), nil, clusterScoped)
 	if err != nil {

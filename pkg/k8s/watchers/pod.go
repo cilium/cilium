@@ -413,7 +413,8 @@ func (k *K8sPodWatcher) updateK8sPodV1(ctx context.Context, oldK8sPod, newK8sPod
 
 func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "annotations updated",
+		Reason:            regeneration.ReasonAnnotationsUpdate,
+		Message:           "annotations updated",
 		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 	// No need to log an error if the state transition didn't succeed,
