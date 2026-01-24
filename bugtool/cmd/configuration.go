@@ -387,6 +387,7 @@ func ciliumDbgCommands(cmdDir string) []string {
 		"cilium-dbg shell -- metrics/html",
 		"cilium-dbg bpf metrics list",
 		"cilium-dbg fqdn cache list",
+		"cilium-dbg fqdn gccache list -o json",
 		"cilium-dbg config -a",
 		"cilium-dbg encrypt status",
 		"cilium-dbg endpoint list",

@@ -84,6 +84,7 @@ type apiParams struct {
 	EndpointGetEndpointIDLogHandler      endpoint.GetEndpointIDLogHandler
 	PolicyGetFqdnCacheHandler            policy.GetFqdnCacheHandler
 	PolicyGetFqdnCacheIDHandler          policy.GetFqdnCacheIDHandler
+	PolicyGetFqdnGccacheHandler          policy.GetFqdnGccacheHandler
 	PolicyGetFqdnNamesHandler            policy.GetFqdnNamesHandler
 	DaemonGetHealthzHandler              daemon.GetHealthzHandler
 	PolicyGetIPHandler                   policy.GetIPHandler
@@ -134,6 +135,7 @@ func newAPI(p apiParams) *restapi.CiliumAPIAPI {
 	api.EndpointGetEndpointIDLogHandler = p.EndpointGetEndpointIDLogHandler
 	api.PolicyGetFqdnCacheHandler = p.PolicyGetFqdnCacheHandler
 	api.PolicyGetFqdnCacheIDHandler = p.PolicyGetFqdnCacheIDHandler
+	api.PolicyGetFqdnGccacheHandler = p.PolicyGetFqdnGccacheHandler
 	api.PolicyGetFqdnNamesHandler = p.PolicyGetFqdnNamesHandler
 	api.DaemonGetHealthzHandler = p.DaemonGetHealthzHandler
 	api.PolicyGetIPHandler = p.PolicyGetIPHandler

@@ -820,6 +820,18 @@ paths:
           description: Invalid request (error parsing parameters)
           schema:
             "$ref": "#/definitions/Error"
+  "/fqdn/gccache":
+    get:
+      summary: List recently garbage-collected FQDN entries
+      tags:
+      - policy
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/FQDNGCCacheEntry"
   "/ip":
     get:
       summary: Lists information about known IP addresses
@@ -3419,6 +3431,17 @@ definitions:
       source:
         description: The reason this FQDN IP association exists. Either a DNS lookup or an ongoing connection to an IP that was created by a DNS lookup.
         type: string
+  FQDNGCCacheEntry:
+    description: A recently garbage-collected FQDN entry
+    type: object
+    properties:
+      fqdn:
+        description: FQDN that was garbage collected
+        type: string
+      garbage-collection-time:
+        description: The time when this FQDN was garbage collected
+        type: string
+        format: date-time
   NodeID:
     description: Node ID with associated node IP addresses
     type: object
