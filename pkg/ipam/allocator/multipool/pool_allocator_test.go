@@ -442,10 +442,76 @@ func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
 	err = p.DeletePool("saturn")
 	assert.ErrorContains(t, err, `pool "saturn" requested for deletion doesn't exist`)
 
-	// Deleting an existing pool removes it completely
+	// Deleting an existing pool removes it completely (jupiter has no allocations)
 	err = p.DeletePool("jupiter")
 	assert.NoError(t, err)
 	_, exists = p.pools["jupiter"]
+	assert.False(t, exists)
+}
+
+func TestDeletePoolWithNodeAllocations(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t))
+
+	// Create a pool
+	err := p.UpsertPool("test-pool",
+		[]string{"10.200.0.0/16"}, 24,
+		[]string{"fd00:200::/80"}, 96,
+	)
+	assert.NoError(t, err)
+
+	// Mark as ready
+	p.RestoreFinished()
+
+	// Create node that requests allocations from test-pool
+	node := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node1",
+		},
+		Spec: v2.NodeSpec{
+			IPAM: ipamTypes.IPAMSpec{
+				Pools: ipamTypes.IPAMPoolSpec{
+					Requested: []ipamTypes.IPAMPoolRequest{
+						{
+							Pool: "test-pool",
+							Needed: ipamTypes.IPAMPoolDemand{
+								IPv4Addrs: 10,
+								IPv6Addrs: 10,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Allocate to node
+	err = p.AllocateToNode(node)
+	assert.NoError(t, err)
+
+	// Verify allocations exist
+	pools := p.AllocatedPools(node.Name)
+	assert.Len(t, pools, 1)
+	assert.Equal(t, "test-pool", pools[0].Pool)
+	assert.Len(t, pools[0].CIDRs, 2) // one v4, one v6
+
+	// Attempt to delete pool while node is using it. should fail
+	err = p.DeletePool("test-pool")
+	assert.ErrorContains(t, err, "cannot delete pool")
+	assert.ErrorContains(t, err, "still in use by nodes")
+	assert.ErrorContains(t, err, "node1")
+
+	// Verify pool still exists
+	_, exists := p.pools["test-pool"]
+	assert.True(t, exists)
+
+	// Release node allocations
+	err = p.ReleaseNode(node.Name)
+	assert.NoError(t, err)
+
+	// Now pool deletion should succeed
+	err = p.DeletePool("test-pool")
+	assert.NoError(t, err)
+	_, exists = p.pools["test-pool"]
 	assert.False(t, exists)
 }
 
@@ -581,22 +647,29 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 		},
 	}, p.AllocatedPools(node.Name))
 
-	// remove v4 CIDRs from "test-pool"
+	// Attempt to remove v4 CIDRs from "test-pool" - should fail because CIDR is in use
 	err = p.UpsertPool("test-pool",
 		nil, 24,
 		[]string{"fd00:100::/80"}, 96,
 	)
-	assert.NoError(t, err)
+	assert.ErrorContains(t, err, "cannot remove in-use CIDRs from pool")
+	assert.ErrorContains(t, err, "10.100.0.0/24")
 
-	// "10.100.0.0/24" should not be allocated to the node anymore
-	assert.Equal(t, map[string]poolToCIDRs{
-		node.Name: {
-			"test-pool": {
-				v4: cidrSet{},
-				v6: cidrSet{netip.MustParsePrefix("fd00:100::/96"): {}},
+	// Verify the pool still has the v4 CIDR
+	testPool, exists = p.pools["test-pool"]
+	assert.True(t, exists)
+	assert.True(t, testPool.hasCIDR(netip.MustParsePrefix("10.100.0.0/16")))
+
+	// Verify node still has both v4 and v6 allocations
+	assert.Equal(t, []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []ipamTypes.IPAMPodCIDR{
+				"10.100.0.0/24",
+				"fd00:100::/96",
 			},
 		},
-	}, p.nodes)
+	}, p.AllocatedPools(node.Name))
 }
 
 func TestOrphanCIDRs(t *testing.T) {
