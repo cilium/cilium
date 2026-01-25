@@ -89728,6 +89728,23 @@ func awsEc2query_deserializeDocumentEbsBlockDevice(v **types.EbsBlockDevice, dec
 				sv.DeleteOnTermination = ptr.Bool(xtv)
 			}
 
+		case strings.EqualFold("EbsCardIndex", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.EbsCardIndex = ptr.Int32(int32(i64))
+			}
+
 		case strings.EqualFold("encrypted", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -90036,6 +90053,229 @@ func awsEc2query_deserializeDocumentEbsBlockDeviceResponse(v **types.EbsBlockDev
 	return nil
 }
 
+func awsEc2query_deserializeDocumentEbsCardInfo(v **types.EbsCardInfo, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv *types.EbsCardInfo
+	if *v == nil {
+		sv = &types.EbsCardInfo{}
+	} else {
+		sv = *v
+	}
+
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		originalDecoder := decoder
+		decoder = smithyxml.WrapNodeDecoder(originalDecoder.Decoder, t)
+		switch {
+		case strings.EqualFold("baselineBandwidthInMbps", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.BaselineBandwidthInMbps = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("baselineIops", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.BaselineIops = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("baselineThroughputInMBps", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				f64, err := strconv.ParseFloat(xtv, 64)
+				if err != nil {
+					return err
+				}
+				sv.BaselineThroughputInMBps = ptr.Float64(f64)
+			}
+
+		case strings.EqualFold("ebsCardIndex", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.EbsCardIndex = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("maximumBandwidthInMbps", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.MaximumBandwidthInMbps = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("maximumIops", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.MaximumIops = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("maximumThroughputInMBps", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				f64, err := strconv.ParseFloat(xtv, 64)
+				if err != nil {
+					return err
+				}
+				sv.MaximumThroughputInMBps = ptr.Float64(f64)
+			}
+
+		default:
+			// Do nothing and ignore the unexpected tag element
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentEbsCardInfoList(v *[]types.EbsCardInfo, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []types.EbsCardInfo
+	if *v == nil {
+		sv = make([]types.EbsCardInfo, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col types.EbsCardInfo
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			destAddr := &col
+			if err := awsEc2query_deserializeDocumentEbsCardInfo(&destAddr, nodeDecoder); err != nil {
+				return err
+			}
+			col = *destAddr
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentEbsCardInfoListUnwrapped(v *[]types.EbsCardInfo, decoder smithyxml.NodeDecoder) error {
+	var sv []types.EbsCardInfo
+	if *v == nil {
+		sv = make([]types.EbsCardInfo, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv types.EbsCardInfo
+		t := decoder.StartEl
+		_ = t
+		nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		destAddr := &mv
+		if err := awsEc2query_deserializeDocumentEbsCardInfo(&destAddr, nodeDecoder); err != nil {
+			return err
+		}
+		mv = *destAddr
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
 func awsEc2query_deserializeDocumentEbsInfo(v **types.EbsInfo, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -90069,6 +90309,12 @@ func awsEc2query_deserializeDocumentEbsInfo(v **types.EbsInfo, decoder smithyxml
 			{
 				xtv := string(val)
 				sv.AttachmentLimitType = types.AttachmentLimitType(xtv)
+			}
+
+		case strings.EqualFold("ebsCardSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentEbsCardInfoList(&sv.EbsCards, nodeDecoder); err != nil {
+				return err
 			}
 
 		case strings.EqualFold("ebsOptimizedInfo", t.Name.Local):
@@ -90118,6 +90364,23 @@ func awsEc2query_deserializeDocumentEbsInfo(v **types.EbsInfo, decoder smithyxml
 					return err
 				}
 				sv.MaximumEbsAttachments = ptr.Int32(int32(i64))
+			}
+
+		case strings.EqualFold("maximumEbsCards", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.MaximumEbsCards = ptr.Int32(int32(i64))
 			}
 
 		case strings.EqualFold("nvmeSupport", t.Name.Local):
@@ -90213,6 +90476,23 @@ func awsEc2query_deserializeDocumentEbsInstanceBlockDevice(v **types.EbsInstance
 					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
 				}
 				sv.DeleteOnTermination = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("ebsCardIndex", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.EbsCardIndex = ptr.Int32(int32(i64))
 			}
 
 		case strings.EqualFold("operator", t.Name.Local):
@@ -96800,6 +97080,40 @@ func awsEc2query_deserializeDocumentGpuDeviceInfo(v **types.GpuDeviceInfo, decod
 				sv.Count = ptr.Int32(int32(i64))
 			}
 
+		case strings.EqualFold("gpuPartitionSize", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				f64, err := strconv.ParseFloat(xtv, 64)
+				if err != nil {
+					return err
+				}
+				sv.GpuPartitionSize = ptr.Float64(f64)
+			}
+
+		case strings.EqualFold("logicalGpuCount", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.LogicalGpuCount = ptr.Int32(int32(i64))
+			}
+
 		case strings.EqualFold("manufacturer", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -96830,6 +97144,12 @@ func awsEc2query_deserializeDocumentGpuDeviceInfo(v **types.GpuDeviceInfo, decod
 			{
 				xtv := string(val)
 				sv.Name = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("workloadSet", t.Name.Local):
+			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+			if err := awsEc2query_deserializeDocumentWorkloadsList(&sv.Workloads, nodeDecoder); err != nil {
+				return err
 			}
 
 		default:
@@ -119516,6 +119836,23 @@ func awsEc2query_deserializeDocumentLaunchTemplateEbsBlockDevice(v **types.Launc
 					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", val)
 				}
 				sv.DeleteOnTermination = ptr.Bool(xtv)
+			}
+
+		case strings.EqualFold("ebsCardIndex", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.EbsCardIndex = ptr.Int32(int32(i64))
 			}
 
 		case strings.EqualFold("encrypted", t.Name.Local):
@@ -166765,6 +167102,23 @@ func awsEc2query_deserializeDocumentVolumeAttachment(v **types.VolumeAttachment,
 				sv.Device = ptr.String(xtv)
 			}
 
+		case strings.EqualFold("ebsCardIndex", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.EbsCardIndex = ptr.Int32(int32(i64))
+			}
+
 		case strings.EqualFold("instanceId", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
@@ -172653,6 +173007,86 @@ func awsEc2query_deserializeDocumentVpnTunnelLogOptions(v **types.VpnTunnelLogOp
 	return nil
 }
 
+func awsEc2query_deserializeDocumentWorkloadsList(v *[]string, decoder smithyxml.NodeDecoder) error {
+	if v == nil {
+		return fmt.Errorf("unexpected nil of type %T", v)
+	}
+	var sv []string
+	if *v == nil {
+		sv = make([]string, 0)
+	} else {
+		sv = *v
+	}
+
+	originalDecoder := decoder
+	for {
+		t, done, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		if done {
+			break
+		}
+		memberDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
+		decoder = memberDecoder
+		switch {
+		case strings.EqualFold("item", t.Name.Local):
+			var col string
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				col = xtv
+			}
+			sv = append(sv, col)
+
+		default:
+			err = decoder.Decoder.Skip()
+			if err != nil {
+				return err
+			}
+
+		}
+		decoder = originalDecoder
+	}
+	*v = sv
+	return nil
+}
+
+func awsEc2query_deserializeDocumentWorkloadsListUnwrapped(v *[]string, decoder smithyxml.NodeDecoder) error {
+	var sv []string
+	if *v == nil {
+		sv = make([]string, 0)
+	} else {
+		sv = *v
+	}
+
+	switch {
+	default:
+		var mv string
+		t := decoder.StartEl
+		_ = t
+		val, err := decoder.Value()
+		if err != nil {
+			return err
+		}
+		if val == nil {
+			break
+		}
+		{
+			xtv := string(val)
+			mv = xtv
+		}
+		sv = append(sv, mv)
+	}
+	*v = sv
+	return nil
+}
 func awsEc2query_deserializeOpDocumentAcceptAddressTransferOutput(v **AcceptAddressTransferOutput, decoder smithyxml.NodeDecoder) error {
 	if v == nil {
 		return fmt.Errorf("unexpected nil of type %T", v)
@@ -174633,6 +175067,23 @@ func awsEc2query_deserializeOpDocumentAttachVolumeOutput(v **AttachVolumeOutput,
 			{
 				xtv := string(val)
 				sv.Device = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("ebsCardIndex", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.EbsCardIndex = ptr.Int32(int32(i64))
 			}
 
 		case strings.EqualFold("instanceId", t.Name.Local):
@@ -194877,6 +195328,23 @@ func awsEc2query_deserializeOpDocumentDetachVolumeOutput(v **DetachVolumeOutput,
 			{
 				xtv := string(val)
 				sv.Device = ptr.String(xtv)
+			}
+
+		case strings.EqualFold("ebsCardIndex", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				i64, err := strconv.ParseInt(xtv, 10, 64)
+				if err != nil {
+					return err
+				}
+				sv.EbsCardIndex = ptr.Int32(int32(i64))
 			}
 
 		case strings.EqualFold("instanceId", t.Name.Local):

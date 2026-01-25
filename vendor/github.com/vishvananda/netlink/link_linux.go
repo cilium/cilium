@@ -699,7 +699,7 @@ func (h *Handle) LinkSetVfVlanQosProto(link Link, vf, vlan, qos, proto int) erro
 			Vlan: uint32(vlan),
 			Qos:  uint32(qos),
 		},
-		VlanProto: (uint16(proto)>>8)&0xFF | (uint16(proto)&0xFF)<<8,
+		VlanProto: nl.Swap16(uint16(proto)),
 	}
 
 	vfVlanList.AddRtAttr(nl.IFLA_VF_VLAN_INFO, vfmsg.Serialize())
