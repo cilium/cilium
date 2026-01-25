@@ -35,6 +35,11 @@ ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, { .addr = v6_node_one_addr})
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
+#include "test_helpers.h"
+
+/* Set port ranges to have deterministic source port selection */
+ASSIGN_NODEPORT_DEFAULTS();
+
 /* Host-originating UDP should be tracked by BPF Masq. */
 PKTGEN("tc", "host_bpf_masq_v4_1_udp")
 int host_bpf_masq_v4_1_udp_pktgen(struct __ctx_buff *ctx)

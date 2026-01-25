@@ -19,6 +19,10 @@
 #include <lib/time.h>
 
 #include "bpf_nat_tuples.h"
+#include "test_helpers.h"
+
+/* Set port ranges to have deterministic source port selection */
+ASSIGN_NODEPORT_DEFAULTS();
 
 #define IP_ENDPOINT 1
 #define IP_HOST     2

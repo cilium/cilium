@@ -24,6 +24,11 @@
 
 #include "lib/ipcache.h"
 
+#include "test_helpers.h"
+
+/* Set port ranges to have deterministic source port selection */
+ASSIGN_NODEPORT_DEFAULTS();
+
 enum {
 	NODEPORT_LOOKUP = 0,
 	HOSTPORT_LOOKUP = 1,

@@ -28,13 +28,14 @@
 /* Inter-cluster SNAT is mandatory for overlapping PodCIDR support for now */
 #define ENABLE_INTER_CLUSTER_SNAT
 
-/* Overwrite the default port range defined in node.h
- * to have deterministic source port selection.
- */
-#define NODEPORT_PORT_MAX_NAT_OVERRIDE 32768
-
 /* Import map definitions and some default values */
 #include <bpf/config/node.h>
+
+#define NODEPORT_PORT_MAX_NAT 32768
+#include "test_helpers.h"
+
+/* Set port ranges to have deterministic source port selection */
+ASSIGN_NODEPORT_DEFAULTS();
 
 /*
  * Test configurations

@@ -19,6 +19,10 @@
 
 #include "bpf_nat_tuples.h"
 #include "scapy.h"
+#include "test_helpers.h"
+
+/* Set port ranges to have deterministic source port selection */
+ASSIGN_NODEPORT_DEFAULTS();
 
 /* IP addresses mapping to Scapy definitions (in host byte order):
  * v4_node_one   = "10.0.10.1"  -> IP_ENDPOINT (node/endpoint)
