@@ -394,7 +394,7 @@ contributors across the globe, there is almost always someone available to help.
 | envoy.httpRetryCount | int | `3` | Maximum number of retries for each HTTP request |
 | envoy.httpUpstreamLingerTimeout | string | `nil` | Time in seconds to block Envoy worker thread while an upstream HTTP connection is closing. If set to 0, the connection is closed immediately (with TCP RST). If set to -1, the connection is closed asynchronously in the background. |
 | envoy.idleTimeoutDurationSeconds | int | `60` | Set Envoy upstream HTTP idle connection timeout seconds. Does not apply to connections with pending requests. Default 60s |
-| envoy.image | object | `{"digest":"sha256:fa2e805e501fd7f179705d0835158b5af92d3fdded7c7ee5b3c9170d18dae87e","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1768610924-2528359430c6adba1ab20fc8396b4effe491ed96","useDigest":true}` | Envoy container image. |
+| envoy.image | object | `{"digest":"sha256:696582a3391ce05a62edb4140e6a99f774351f363f5b5d7f1581f3a244430249","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1768828720-c6e4827ebca9c47af2a3a6540c563c30947bae29","useDigest":true}` | Envoy container image. |
 | envoy.initialFetchTimeoutSeconds | int | `30` | Time in seconds after which the initial fetch on an xDS stream is considered timed out |
 | envoy.livenessProbe.enabled | bool | `true` | Enable liveness probe for cilium-envoy |
 | envoy.livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
@@ -842,7 +842,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for cilium-preflight |
 | preflight.annotations | object | `{}` | Annotations to be added to all top-level preflight objects (resources under templates/cilium-preflight) |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
-| preflight.envoy.image | object | `{"digest":"sha256:fa2e805e501fd7f179705d0835158b5af92d3fdded7c7ee5b3c9170d18dae87e","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1768610924-2528359430c6adba1ab20fc8396b4effe491ed96","useDigest":true}` | Envoy pre-flight image. |
+| preflight.envoy.image | object | `{"digest":"sha256:696582a3391ce05a62edb4140e6a99f774351f363f5b5d7f1581f3a244430249","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.35.9-1768828720-c6e4827ebca9c47af2a3a6540c563c30947bae29","useDigest":true}` | Envoy pre-flight image. |
 | preflight.extraEnv | list | `[]` | Additional preflight environment variables. |
 | preflight.extraVolumeMounts | list | `[]` | Additional preflight volumeMounts. |
 | preflight.extraVolumes | list | `[]` | Additional preflight volumes. |
