@@ -10,7 +10,9 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #include <bpf/config/global.h>
-#include <bpf/config/node.h>
+
+/* Set port ranges to have deterministic source port selection */
+#include "nodeport_defaults.h"
 
 #define DEBUG
 

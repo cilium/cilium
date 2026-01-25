@@ -22,7 +22,8 @@
 #define SERVER_IP_V6			v6_ext_node_one
 #define SERVER_PORT			bpf_htons(80)
 
-#include <bpf/config/node.h>
+/* Set port ranges to have deterministic source port selection */
+#include "nodeport_defaults.h"
 
 static volatile const __u8 *node_mac = mac_one;
 static volatile const __u8 *server_mac = mac_two;

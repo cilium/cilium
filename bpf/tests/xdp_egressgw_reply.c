@@ -41,6 +41,9 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 
+/* Set port ranges to have deterministic source port selection */
+#include "nodeport_defaults.h"
+
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
 		  __u32 flags __maybe_unused)
