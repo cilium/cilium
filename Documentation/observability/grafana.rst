@@ -80,6 +80,22 @@ Deploy Cilium via Helm as follows to enable all metrics:
          hubble.metrics.enableOpenMetrics=true
          hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,httpV2:exemplars=true;labelsContext=source_ip\\,source_namespace\\,source_workload\\,destination_ip\\,destination_namespace\\,destination_workload\\,traffic_direction}"
 
+Configure Operator Prometheus TLS
+---------------------------------
+
+To enable TLS on Operator Prometheus, you must first create a secret containing keys ``tls.crt`` and ``tls.key``. Then, add the following flags to your Helm command to enable TLS:
+
+::
+
+    --set operator.prometheus.tls.enabled=true                      # Enable TLS on Operator Prometheus
+    --set operator.prometheus.tls.server.existingSecret=secret-name # TLS secret name
+
+If you also want to enable mTLS, add key ``ca.crt`` to above secret. Then, add the following Helm flag to your list of options:
+
+::
+
+    --set operator.prometheus.tls.server.mtls.enabled=true # Use ca.crt of secret to verify client certificates
+
 .. note::
 
    You can combine the above Helm options with any of the other installation
