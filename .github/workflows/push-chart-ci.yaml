@@ -49,7 +49,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
     steps:
     - name: Checkout GitHub main
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         ref: ${{ github.event.repository.default_branch }}
         persist-credentials: false
@@ -87,7 +87,7 @@ jobs:
         description: Helm push in progress
 
     - name: Checkout Source Code
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         persist-credentials: false
         ref: ${{ steps.get-sha.outputs.sha }}
@@ -109,7 +109,7 @@ jobs:
     needs: setup-charts
     steps:
     - name: Checkout GitHub Actions definitions
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         persist-credentials: false
         ref: ${{ github.event.repository.default_branch }}
@@ -119,7 +119,7 @@ jobs:
       uses: ./.github/actions/set-env-variables
 
     - name: Checkout Feature Branch Code
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         persist-credentials: false
         ref: ${{ needs.setup-charts.outputs.github-sha }}
@@ -172,7 +172,7 @@ jobs:
       - push-charts
     steps:
     - name: Checkout GitHub Actions definitions
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         persist-credentials: false
         ref: ${{ github.event.repository.default_branch }}
