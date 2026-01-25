@@ -215,26 +215,36 @@ var nodeAddressTests = []struct {
 	},
 
 	{
-		name: "node IP preferred",
+		// Test that K8s Node IP is prioritized within its category (public/private)
+		// but doesn't override the public/private preference itself.
+		// - testNodeIPv4 (172.16.0.1) is private, should be prioritized among private IPs
+		// - testNodeIPv6 (2222::1) is public, should be prioritized among public IPs
+		name: "k8s node IP prioritized within category",
 		addrs: []DeviceAddress{
+			// IPv4: multiple private IPs + one public
 			{
-				Addr:  netip.MustParseAddr("10.0.0.1"),
+				Addr:  netip.MustParseAddr("10.0.0.1"), // private, but not K8s IP
 				Scope: RT_SCOPE_UNIVERSE,
 			},
 			{
-				Addr:  netip.MustParseAddr("1.1.1.1"),
+				Addr:  netip.MustParseAddr("1.1.1.1"), // public
 				Scope: RT_SCOPE_UNIVERSE,
 			},
 			{
-				Addr:  testNodeIPv4,
+				Addr:  testNodeIPv4, // private K8s Node IP (172.16.0.1)
+				Scope: RT_SCOPE_UNIVERSE,
+			},
+			// IPv6: multiple public IPs + one private
+			{
+				Addr:  netip.MustParseAddr("2001:db8::1"), // private (documentation prefix)
 				Scope: RT_SCOPE_UNIVERSE,
 			},
 			{
-				Addr:  netip.MustParseAddr("2001:db8::1"),
+				Addr:  netip.MustParseAddr("2600:beef::1"), // public, but not K8s IP
 				Scope: RT_SCOPE_UNIVERSE,
 			},
 			{
-				Addr:  testNodeIPv6,
+				Addr:  testNodeIPv6, // public K8s Node IP (2222::1)
 				Scope: RT_SCOPE_UNIVERSE,
 			},
 		},
@@ -244,20 +254,23 @@ var nodeAddressTests = []struct {
 			ciliumHostIPLinkScoped,
 			netip.MustParseAddr("10.0.0.1"),
 			netip.MustParseAddr("1.1.1.1"),
-			netip.MustParseAddr("2001:db8::1"),
 			testNodeIPv4,
+			netip.MustParseAddr("2001:db8::1"),
+			netip.MustParseAddr("2600:beef::1"),
 			testNodeIPv6,
 		},
 
+		// Primary prefers public; among public IPs, K8s Node IP is prioritized
 		wantPrimary: []netip.Addr{
 			ciliumHostIP,
-			testNodeIPv4,
-			testNodeIPv6,
+			netip.MustParseAddr("1.1.1.1"), // IPv4: only public IP
+			testNodeIPv6,                   // IPv6: K8s Node IP prioritized among public
 		},
 
+		// NodePort prefers private; among private IPs, K8s Node IP is prioritized
 		wantNodePort: []netip.Addr{
-			testNodeIPv4,
-			testNodeIPv6,
+			testNodeIPv4,                       // IPv4: K8s Node IP prioritized among private
+			netip.MustParseAddr("2001:db8::1"), // IPv6: only private IP
 		},
 	},
 }

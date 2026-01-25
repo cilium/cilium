@@ -493,9 +493,17 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device, k8sIPv4, k8s
 		isPublic := ip.IsPublicAddr(addr.Addr.AsSlice())
 		if addr.Addr.Is4() {
 			if addr.Addr.Unmap() == k8sIPv4.Unmap() {
-				// Address matches the K8s Node IP. Force this to be picked.
-				ipv4PublicIndex = index
-				ipv4PrivateIndex = index
+				// Address matches the K8s Node IP. Prioritize it within its
+				// category (public or private) for NodePort address selection.
+				// We don't force it to both categories, as that would break
+				// the "prefer public over private" logic for Primary address
+				// selection used by BPF masquerading.
+				// See: https://github.com/cilium/cilium/issues/41866
+				if isPublic {
+					ipv4PublicIndex = index
+				} else {
+					ipv4PrivateIndex = index
+				}
 			}
 			if ipv4PublicIndex < 0 && isPublic {
 				ipv4PublicIndex = index
@@ -507,9 +515,17 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device, k8sIPv4, k8s
 
 		if addr.Addr.Is6() {
 			if addr.Addr == k8sIPv6 {
-				// Address matches the K8s Node IP. Force this to be picked.
-				ipv6PublicIndex = index
-				ipv6PrivateIndex = index
+				// Address matches the K8s Node IP. Prioritize it within its
+				// category (public or private) for NodePort address selection.
+				// We don't force it to both categories, as that would break
+				// the "prefer public over private" logic for Primary address
+				// selection used by BPF masquerading.
+				// See: https://github.com/cilium/cilium/issues/41866
+				if isPublic {
+					ipv6PublicIndex = index
+				} else {
+					ipv6PrivateIndex = index
+				}
 			}
 			if ipv6PublicIndex < 0 && isPublic {
 				ipv6PublicIndex = index
