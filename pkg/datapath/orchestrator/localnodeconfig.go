@@ -114,6 +114,8 @@ func newLocalNodeConfig(
 		return datapath.LocalNodeConfiguration{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
 
+	hostEndpointID, _ := node.GetEndpointID()
+
 	return datapath.LocalNodeConfiguration{
 		NodeIPv4:                     localNode.GetNodeIP(false),
 		NodeIPv6:                     localNode.GetNodeIP(true),
@@ -129,7 +131,7 @@ func newLocalNodeConfig(
 		NodeAddresses:                statedb.Collect(nodeAddrsIter),
 		DirectRoutingDevice:          directRoutingDevice,
 		DeriveMasqIPAddrFromDevice:   masqInterface,
-		HostEndpointID:               node.GetEndpointID(),
+		HostEndpointID:               hostEndpointID,
 		DeviceMTU:                    mtuRoute.DeviceMTU,
 		RouteMTU:                     mtuRoute.RouteMTU,
 		RoutePostEncryptMTU:          mtuRoute.RoutePostEncryptMTU,
