@@ -11,6 +11,18 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// IFA_PROTO is a netlink attribute for address protocol/origin (kernel 5.18+).
+// It indicates which component/protocol added the address.
+const IFA_PROTO = 0xb // 11
+
+// Address protocol values for IFA_PROTO attribute.
+const (
+	IFAPROT_UNSPEC    = 0 // unspecified
+	IFAPROT_KERNEL_LO = 1 // loopback
+	IFAPROT_KERNEL_RA = 2 // set by kernel from router announcement
+	IFAPROT_KERNEL_LL = 3 // link-local set by kernel
+)
+
 // AddrAdd will add an IP address to a link device.
 //
 // Equivalent to: `ip addr add $addr dev $link`
@@ -162,6 +174,12 @@ func (h *Handle) addrHandle(link Link, addr *Addr, req *nl.NetlinkRequest) error
 		req.AddData(nl.NewRtAttr(unix.IFA_CACHEINFO, cachedata.Serialize()))
 	}
 
+	// Add IFA_PROTO if set (kernel 5.18+). This marks the address origin/owner.
+	// On older kernels, this attribute will be silently ignored.
+	if addr.Protocol != 0 {
+		req.AddData(nl.NewRtAttr(IFA_PROTO, []byte{uint8(addr.Protocol)}))
+	}
+
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
 	return err
 }
@@ -265,6 +283,10 @@ func parseAddr(m []byte) (addr Addr, family int, err error) {
 			ci := nl.DeserializeIfaCacheInfo(attr.Value)
 			addr.PreferedLft = int(ci.Prefered)
 			addr.ValidLft = int(ci.Valid)
+		case IFA_PROTO:
+			if len(attr.Value) > 0 {
+				addr.Protocol = int(attr.Value[0])
+			}
 		}
 	}
 
