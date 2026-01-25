@@ -50,18 +50,6 @@ NODE_CONFIG(bool, enable_conntrack_accounting, "Enable per flow (conntrack) stat
 NODE_CONFIG(bool, debug_lb, "Enable debugging trace statements for load balancer")
 
 NODE_CONFIG(__u16, nodeport_port_min, "Nodeport minimum port value.")
-ASSIGN_CONFIG(__u16, nodeport_port_min, 30000)
-
 NODE_CONFIG(__u16, nodeport_port_max, "Nodeport maximum port value.")
-#define NODEPORT_PORT_MAX_DEFAULT 32767
-ASSIGN_CONFIG(__u16, nodeport_port_max, NODEPORT_PORT_MAX_DEFAULT)
-
 NODE_CONFIG(__u16, nodeport_port_min_nat, "Nodeport NAT minimum port value.")
-ASSIGN_CONFIG(__u16, nodeport_port_min_nat, NODEPORT_PORT_MAX_DEFAULT + 1)
-
 NODE_CONFIG(__u16, nodeport_port_max_nat, "Nodeport NAT maximum port value.")
-#ifndef NODEPORT_PORT_MAX_NAT_OVERRIDE
-ASSIGN_CONFIG(__u16, nodeport_port_max_nat, 65535)
-#else
-ASSIGN_CONFIG(__u16, nodeport_port_max_nat, NODEPORT_PORT_MAX_NAT_OVERRIDE)
-#endif
