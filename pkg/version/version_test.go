@@ -55,6 +55,28 @@ func TestStructIsSet(t *testing.T) {
 				AuthorDate:       "2018-01-09T22:32:37+01:00",
 			},
 		},
+		// With a GOEXPERIMENT
+		{
+			"1.18.6 9589669 2026-01-13T11:40:01+01:00 go version go1.25.6 X:jsonv2 darwin/arm64",
+			CiliumVersion{
+				Version:          "1.18.6",
+				Revision:         "9589669",
+				GoRuntimeVersion: "go1.25.6 X:jsonv2",
+				Arch:             "darwin/arm64",
+				AuthorDate:       "2026-01-13T11:40:01+01:00",
+			},
+		},
+		// With multiple GOEXPERIMENTs
+		{
+			"1.18.6 9589669 2026-01-13T11:40:01+01:00 go version go1.25.6 X:jsonv2,randautoseed linux/amd64",
+			CiliumVersion{
+				Version:          "1.18.6",
+				Revision:         "9589669",
+				GoRuntimeVersion: "go1.25.6 X:jsonv2,randautoseed",
+				Arch:             "linux/amd64",
+				AuthorDate:       "2026-01-13T11:40:01+01:00",
+			},
+		},
 		// Unformatted string should return empty struct
 		{
 			"0.13.90 7330b8d linux/arm",
