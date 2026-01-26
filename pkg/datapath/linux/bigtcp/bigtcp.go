@@ -20,13 +20,8 @@ import (
 )
 
 const (
-	defaultMaxSize    = 65536
-	defaultGROMaxSize = 65536
-	defaultGSOMaxSize = 65536
-
-	bigTCPMaxSize    = 196608
-	bigTCPGROMaxSize = 196608
-	bigTCPGSOMaxSize = 196608
+	defaultMaxSize = 65536
+	bigTCPMaxSize  = 196608
 
 	probeDevice = "lo"
 )
@@ -289,9 +284,29 @@ func startBIGTCP(p params, cfg *Configuration) error {
 		p.UserConfig.EnableIPv6BIGTCP = false
 	}
 
+	// Apply the following logic to set GSO and GRO max sizes for native
+	// devices. Apply it separately for IPv6 and IPv4, IPv6 being first,
+	// because backwards compatibility in the kernel adjusts the IPv4 values
+	// if the IPv6 ones are set to 65536 or less.
+	//
+	// * If BIG TCP is enabled, find the smallest GSO/GRO IPv4/IPv6 limits
+	// across all devices, additionally cap them at bigTCPMaxSize, and set
+	// the max sizes to the resulting limits. Store them to be used by
+	// tunnel netdevs later.
+	//
+	// * If BIG TCP is disabled, ensure that no devices have GSO/GRO
+	// IPv4/IPv6 max sizes set to values bigger than 65536. That is, if it's
+	// already bigger, lower it to 65536; if it's smaller, keep it at
+	// admin's discretion, but find the lowest and store it to be used by
+	// tunnel netdevs later.
+
 	origParams := []netdevParams{}
 	bigtcpGSOLimit := bigTCPMaxSize
 	bigtcpGROLimit := bigTCPMaxSize
+	lowestGSOMaxSizeIPv6 := defaultMaxSize
+	lowestGSOMaxSizeIPv4 := defaultMaxSize
+	lowestGROMaxSizeIPv6 := defaultMaxSize
+	lowestGROMaxSizeIPv4 := defaultMaxSize
 	for _, device := range deviceNames {
 		gsoMaxSizeIPv6, gsoMaxSizeIPv4, gsoLimit := getGSOMaxSize(p.Log, device)
 		groMaxSizeIPv6, groMaxSizeIPv4, groLimit := getGROMaxSize(p.Log, device)
@@ -311,64 +326,146 @@ func startBIGTCP(p params, cfg *Configuration) error {
 		if groLimit < bigtcpGROLimit {
 			bigtcpGROLimit = groLimit
 		}
+
+		// In case of non-BIG TCP, store the lowest max sizes to be used by the tunnel.
+		if gsoMaxSizeIPv6 < lowestGSOMaxSizeIPv6 {
+			lowestGSOMaxSizeIPv6 = gsoMaxSizeIPv6
+		}
+		if gsoMaxSizeIPv4 < lowestGSOMaxSizeIPv4 {
+			lowestGSOMaxSizeIPv4 = gsoMaxSizeIPv4
+		}
+		if groMaxSizeIPv6 < lowestGROMaxSizeIPv6 {
+			lowestGROMaxSizeIPv6 = groMaxSizeIPv6
+		}
+		if groMaxSizeIPv4 < lowestGROMaxSizeIPv4 {
+			lowestGROMaxSizeIPv4 = groMaxSizeIPv4
+		}
 	}
 
+	// Start modifying on the second pass, when the target value for BIG TCP
+	// is known. Technically, the modifications for non-BIG TCP are possible
+	// on the first pass, but we want to avoid adding the device to
+	// modifiedParams twice if BIG TCP is enabled for one address family.
 	modifiedParams := []netdevParams{}
-	for _, param := range origParams {
-		device := param.name
+	for _, device := range origParams {
+		modified := false
 
-		// We always add the device because we might do only a partial
-		// modification and end up with an error, so best to be conservative
-		// and always reset all on error.
-		modifiedParams = append(modifiedParams, param)
+		gsoMaxSizeIPv6 := device.gsoMaxSizeIPv6
+		gsoMaxSizeIPv4 := device.gsoMaxSizeIPv4
+		groMaxSizeIPv6 := device.groMaxSizeIPv6
+		groMaxSizeIPv4 := device.groMaxSizeIPv4
 
-		// For compatibility, the kernel will also update the net device's
-		// {gso,gro}_ipv4_max_size, if the new size of {gso,gro}_max_size
-		// isn't greater than 64KB. So it needs to set the IPv6 one first
-		// as otherwise the IPv4 BIG TCP value will be reset.
+		// For BIG TCP: set max sizes to the ones calculated above.
+		// Roll back the changes on any failure, because we couldn't
+		// enable the feature.
+		// For non-BIG TCP: don't change max sizes set by the admin,
+		// unless they are bigger than 65536. Continue on failures,
+		// because we are not enabling BIG TCP.
+
 		if p.UserConfig.EnableIPv6BIGTCP {
-			err = SetGROGSOIPv6MaxSize(p.Log, device,
-				bigtcpGROLimit, bigtcpGSOLimit)
-			if err != nil {
-				p.Log.Warn("Could not modify IPv6 gro_max_size and gso_max_size",
-					logfields.Device, device,
-					logfields.Error, err)
-				break
-			}
-			p.Log.Info("Setting IPv6",
-				logfields.Device, device,
-				logfields.GsoMaxSize, cfg.gsoIPv6MaxSize,
-				logfields.GroMaxSize, cfg.groIPv6MaxSize,
+			p.Log.Info("Enabling BIG TCP IPv6",
+				logfields.Device, device.name,
+				logfields.GroMaxSize, bigtcpGROLimit,
+				logfields.GsoMaxSize, bigtcpGSOLimit,
 			)
-		}
-		if p.UserConfig.EnableIPv4BIGTCP {
-			err = SetGROGSOIPv4MaxSize(p.Log, device,
-				bigtcpGROLimit, bigtcpGSOLimit)
+			modified = true
+			err = SetGROGSOIPv6MaxSize(p.Log, device.name, bigtcpGROLimit, bigtcpGSOLimit)
 			if err != nil {
-				msg := "Could not modify IPv4 gro_max_size and gso_max_size"
-				p.Log.Warn(msg,
-					logfields.Device, device,
+				p.Log.Warn("Could not change IPv6 gro_max_size and gso_max_size",
+					logfields.Device, device.name,
 					logfields.Error, err,
 				)
-				break
+				goto out
 			}
-			p.Log.Info("Setting IPv4",
-				logfields.Device, device,
-				logfields.GsoMaxSize, cfg.gsoIPv4MaxSize,
-				logfields.GroMaxSize, cfg.groIPv4MaxSize,
+		} else {
+			change := false
+			if gsoMaxSizeIPv6 > defaultMaxSize {
+				gsoMaxSizeIPv6 = defaultMaxSize
+				change = true
+			}
+			if groMaxSizeIPv6 > defaultMaxSize {
+				groMaxSizeIPv6 = defaultMaxSize
+				change = true
+			}
+			if change {
+				p.Log.Info("BIG TCP IPv6 is disabled, but gro_max_size or gso_max_size is bigger than 65536: lowering",
+					logfields.Device, device.name,
+					logfields.GroMaxSize, device.groMaxSizeIPv6,
+					logfields.GsoMaxSize, device.gsoMaxSizeIPv6,
+				)
+				modified = true
+				err = SetGROGSOIPv6MaxSize(p.Log, device.name, groMaxSizeIPv6, gsoMaxSizeIPv6)
+				if err != nil {
+					p.Log.Warn("Could not change IPv6 gro_max_size and gso_max_size",
+						logfields.Device, device.name,
+						logfields.Error, err,
+					)
+					// Treat it as non-critical: we are not enabling BIG TCP.
+					err = nil
+				}
+			}
+		}
+
+		if p.UserConfig.EnableIPv4BIGTCP {
+			p.Log.Info("Enabling BIG TCP IPv4",
+				logfields.Device, device.name,
+				logfields.GroMaxSize, bigtcpGROLimit,
+				logfields.GsoMaxSize, bigtcpGSOLimit,
 			)
+			modified = true
+			err = SetGROGSOIPv4MaxSize(p.Log, device.name, bigtcpGROLimit, bigtcpGSOLimit)
+			if err != nil {
+				p.Log.Warn("Could not change IPv4 gro_ipv4_max_size and gso_ipv4_max_size",
+					logfields.Device, device.name,
+					logfields.Error, err,
+				)
+				goto out
+			}
+		} else {
+			change := false
+			if gsoMaxSizeIPv4 > defaultMaxSize {
+				gsoMaxSizeIPv4 = defaultMaxSize
+				change = true
+			}
+			if groMaxSizeIPv4 > defaultMaxSize {
+				groMaxSizeIPv4 = defaultMaxSize
+				change = true
+			}
+			if change {
+				p.Log.Info("BIG TCP IPv4 is disabled, but gro_ipv4_max_size or gso_ipv4_max_size is bigger than 65536: lowering",
+					logfields.Device, device.name,
+					logfields.GroMaxSize, device.groMaxSizeIPv4,
+					logfields.GsoMaxSize, device.gsoMaxSizeIPv4,
+				)
+				modified = true
+				err = SetGROGSOIPv4MaxSize(p.Log, device.name, groMaxSizeIPv4, gsoMaxSizeIPv4)
+				if err != nil {
+					p.Log.Warn("Could not change IPv4 gro_ipv4_max_size or gso_ipv4_max_size",
+						logfields.Device, device.name,
+						logfields.Error, err,
+					)
+					// Treat it as non-critical: we are not enabling BIG TCP.
+					err = nil
+				}
+			}
+		}
+
+	out:
+		if modified {
+			// Append once even if modified twice.
+			modifiedParams = append(modifiedParams, device)
+		}
+		if err != nil {
+			break
 		}
 	}
 
 	if err != nil {
-		if p.UserConfig.EnableIPv4BIGTCP {
-			cfg.groIPv4MaxSize = defaultGROMaxSize
-			cfg.gsoIPv4MaxSize = defaultGSOMaxSize
-		}
-		if p.UserConfig.EnableIPv6BIGTCP {
-			cfg.groIPv6MaxSize = defaultGROMaxSize
-			cfg.gsoIPv6MaxSize = defaultGSOMaxSize
-		}
+		p.Log.Info("An error occurred: trying to restore the original settings")
+
+		p.UserConfig.EnableIPv6BIGTCP = false
+		p.UserConfig.EnableIPv4BIGTCP = false
+
 		for _, device := range slices.Backward(modifiedParams) {
 			p.Log.Info("Restoring IPv6 gro_max_size and gso_max_size",
 				logfields.Device, device.name,
@@ -406,16 +503,16 @@ func startBIGTCP(p params, cfg *Configuration) error {
 		cfg.groIPv6MaxSize = bigtcpGROLimit
 		cfg.gsoIPv6MaxSize = bigtcpGSOLimit
 	} else {
-		cfg.groIPv6MaxSize = defaultGROMaxSize
-		cfg.gsoIPv6MaxSize = defaultGSOMaxSize
+		cfg.groIPv6MaxSize = lowestGROMaxSizeIPv6
+		cfg.gsoIPv6MaxSize = lowestGSOMaxSizeIPv6
 	}
 	if p.UserConfig.EnableIPv4BIGTCP {
 		cfg.groIPv4MaxSize = bigtcpGROLimit
 		cfg.gsoIPv4MaxSize = bigtcpGSOLimit
 	} else {
-		cfg.groIPv4MaxSize = defaultGROMaxSize
-		cfg.gsoIPv4MaxSize = defaultGSOMaxSize
+		cfg.groIPv4MaxSize = lowestGROMaxSizeIPv4
+		cfg.gsoIPv4MaxSize = lowestGSOMaxSizeIPv4
 	}
 
-	return nil
+	return err
 }
