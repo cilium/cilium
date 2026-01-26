@@ -13,7 +13,6 @@
 #define DEBUG
 #endif
 #define DROP_NOTIFY
-#define TRACE_NOTIFY
 
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK_ACCOUNTING
