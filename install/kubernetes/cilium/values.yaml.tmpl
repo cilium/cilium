@@ -1391,6 +1391,16 @@ certgen:
 hubble:
   # -- Enable Hubble (true by default).
   enabled: true
+
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- (bool) Enable hostUsers for Hubble.
+  # This will allow use of user-namespaces for hubble components. Not all
+  # clusters support user-namespaces.
+  # See: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+  hostUsers: ~
+
   # -- Annotations to be added to all top-level hubble objects (resources under templates/hubble)
   annotations: {}
   # -- Buffer size of the channel Hubble uses to receive monitor events. If this
