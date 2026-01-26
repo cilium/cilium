@@ -88,7 +88,7 @@ given node with the following commands:
     $ CILIUM_NAMESPACE=kube-system
     $ CILIUM_POD_NAME=$(kubectl -n $CILIUM_NAMESPACE get pods -l "k8s-app=cilium" -o jsonpath="{.items[?(@.spec.nodeName=='$NODE_NAME')].metadata.name}")
     $ alias kexec="kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME --"
-    $ HOST_EP_ID=$(kexec cilium-dbg endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}')
+    $ HOST_EP_ID=$(kexec cilium-dbg endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}'
     $ kexec cilium-dbg status | grep 'Host firewall'
     Host firewall:           Enabled   [eth0]
     $ kexec cilium-dbg endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
