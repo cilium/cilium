@@ -2068,6 +2068,10 @@
      - - Defines max file size of output file before it gets rotated.
      - int
      - ``10``
+   * - :spelling:ignore:`hubble.hostUsers`
+     - Enable hostUsers for Hubble. This will allow use of user-namespaces for hubble components. Not all clusters support user-namespaces. See: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+     - bool
+     - ``nil``
    * - :spelling:ignore:`hubble.listenAddress`
      - An additional address for Hubble to listen to. Set this field ":4244" if you are enabling Hubble Relay, as it assumes that Hubble is listening on port 4244.
      - string
