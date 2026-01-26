@@ -1,0 +1,64 @@
+netns/create otherns
+link/add eth0 veth --peername veth0 --peerns otherns
+link/set veth0 --netns otherns up
+link/set eth0 up
+
+hive/start
+
+add-device owner1 eth0.10.yaml
+add-device owner1 eth0.20.yaml
+
+# validate tables are populated correctly
+db/cmp desired-devices desired-device.1.table
+db/cmp devices devices.1.table
+
+# Stop and re-create the hive to simulate a restart
+hive/stop
+hive/recreate
+
+# Add initializer for the owner before starting the hive
+add-initializer owner1
+
+# Start the hive so the device table is populated
+hive/start
+
+# Add device again after restart, but only eth0.10 device
+add-device owner1 eth0.10.yaml
+
+# Mark initializer as finished so pruning can proceed
+finish-initializer owner1
+
+db/cmp desired-devices desired-device.2.table
+db/cmp devices devices.2.table
+
+-- eth0.10.yaml --
+name: eth0.10
+parentDevice: eth0
+vlanID: 10
+
+-- eth0.20.yaml --
+name: eth0.20
+parentDevice: eth0
+vlanID: 20
+
+-- desired-device.1.table --
+Owner  Name      Properties
+owner1 eth0.10   Type=vlan, ParentDevice=eth0, VlanID=10
+owner1 eth0.20   Type=vlan, ParentDevice=eth0, VlanID=20
+
+-- devices.1.table --
+Name      Type     MTU     OperStatus
+lo        device   65536   down
+eth0      veth     1500    up
+eth0.10   vlan     1500    up
+eth0.20   vlan     1500    up
+
+-- desired-device.2.table --
+Owner  Name      Properties
+owner1 eth0.10   Type=vlan, ParentDevice=eth0, VlanID=10
+
+-- devices.2.table --
+Name      Type     MTU     OperStatus
+lo        device   65536   down
+eth0      veth     1500    up
+eth0.10   vlan     1500    up
