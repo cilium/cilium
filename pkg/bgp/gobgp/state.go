@@ -5,6 +5,7 @@ package gobgp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
@@ -61,6 +62,14 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateRespo
 			peerState.PeerAddress = peer.Conf.NeighborAddress
 			peerState.PeerAsn = int64(peer.Conf.PeerAsn)
 			peerState.TCPPasswordEnabled = peer.Conf.AuthPassword != ""
+			if peer.Conf.Description != "" {
+				pd := peerDescription{}
+				if err := json.Unmarshal([]byte(peer.Conf.Description), &pd); err == nil {
+					// If unmarshal is not successful, we
+					// ignore and do not set Name field.
+					peerState.Name = pd.Name
+				}
+			}
 		}
 
 		if peer.State != nil {

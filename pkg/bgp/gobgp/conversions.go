@@ -5,6 +5,7 @@ package gobgp
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -570,12 +571,32 @@ func ToGoBGPPeer(n *types.Neighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
 	return newPeer
 }
 
+type peerDescription struct {
+	Name string `json:"name"`
+}
+
 func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
 	conf := &gobgp.PeerConf{}
 
 	// Inherit the default values from existing peer configuration
 	if oldPeer != nil && oldPeer.Conf != nil {
 		conf = oldPeer.Conf
+	}
+
+	// Encode neighbor name (inherited from the CRD) into the description
+	// field as JSON (for future extensibility). This is useful for the
+	// discovered peers where we cannot obtain IP address from the CRD.
+	if n.Name != "" {
+		pd := peerDescription{
+			Name: n.Name,
+		}
+		desc, err := json.Marshal(pd)
+		if err == nil {
+			// We ignore error here because this field is not
+			// critical for operation. Caller should handle the
+			// case when description is not set.
+			conf.Description = string(desc)
+		}
 	}
 
 	if n.Address.IsValid() {
