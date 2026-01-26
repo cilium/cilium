@@ -4,7 +4,8 @@
 package internal
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -45,25 +46,10 @@ type SortableMutex interface {
 // Once Lock() is called it must not be mutated!
 type SortableMutexes []SortableMutex
 
-// Len implements sort.Interface.
-func (s SortableMutexes) Len() int {
-	return len(s)
-}
-
-// Less implements sort.Interface.
-func (s SortableMutexes) Less(i int, j int) bool {
-	return s[i].Seq() < s[j].Seq()
-}
-
-// Swap implements sort.Interface.
-func (s SortableMutexes) Swap(i int, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
 // Lock sorts the mutexes, and then locks them in order. If any lock cannot be acquired,
 // this will block while holding the locks with a lower sequence number.
 func (s SortableMutexes) Lock() {
-	sort.Sort(s)
+	slices.SortFunc(s, func(a, b SortableMutex) int { return cmp.Compare(a.Seq(), b.Seq()) })
 	for _, mu := range s {
 		mu.Lock()
 	}
@@ -75,8 +61,6 @@ func (s SortableMutexes) Unlock() {
 		mu.Unlock()
 	}
 }
-
-var _ sort.Interface = SortableMutexes{}
 
 func NewSortableMutex() SortableMutex {
 	seq := sortableMutexSeq.Add(1)

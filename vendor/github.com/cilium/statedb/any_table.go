@@ -6,6 +6,8 @@ package statedb
 import (
 	"fmt"
 	"iter"
+
+	"github.com/cilium/statedb/index"
 )
 
 // AnyTable allows any-typed access to a StateDB table. This is intended
@@ -16,8 +18,7 @@ type AnyTable struct {
 }
 
 func (t AnyTable) NumObjects(txn ReadTxn) int {
-	indexTxn := txn.mustIndexReadTxn(t.Meta, PrimaryIndexPos)
-	return indexTxn.Len()
+	return txn.mustIndexReadTxn(t.Meta, PrimaryIndexPos).len()
 }
 
 func (t AnyTable) All(txn ReadTxn) iter.Seq2[any, Revision] {
@@ -27,7 +28,12 @@ func (t AnyTable) All(txn ReadTxn) iter.Seq2[any, Revision] {
 
 func (t AnyTable) AllWatch(txn ReadTxn) (iter.Seq2[any, Revision], <-chan struct{}) {
 	indexTxn := txn.mustIndexReadTxn(t.Meta, PrimaryIndexPos)
-	return partSeq[any](indexTxn.Iterator()), indexTxn.RootWatch()
+	iter, watch := indexTxn.all()
+	return func(yield func(any, Revision) bool) {
+		iter.All(func(_ []byte, iobj object) bool {
+			return yield(iobj.data, iobj.revision)
+		})
+	}, watch
 }
 
 func (t AnyTable) UnmarshalYAML(data []byte) (any, error) {
@@ -36,7 +42,7 @@ func (t AnyTable) UnmarshalYAML(data []byte) (any, error) {
 
 func (t AnyTable) Insert(txn WriteTxn, obj any) (old any, hadOld bool, err error) {
 	var iobj object
-	iobj, hadOld, _, err = txn.getTxn().insert(t.Meta, Revision(0), obj)
+	iobj, hadOld, _, err = txn.unwrap().insert(t.Meta, Revision(0), obj)
 	if hadOld {
 		old = iobj.data
 	}
@@ -45,7 +51,7 @@ func (t AnyTable) Insert(txn WriteTxn, obj any) (old any, hadOld bool, err error
 
 func (t AnyTable) Delete(txn WriteTxn, obj any) (old any, hadOld bool, err error) {
 	var iobj object
-	iobj, hadOld, err = txn.getTxn().delete(t.Meta, Revision(0), obj)
+	iobj, hadOld, err = txn.unwrap().delete(t.Meta, Revision(0), obj)
 	if hadOld {
 		old = iobj.data
 	}
@@ -57,21 +63,9 @@ func (t AnyTable) Get(txn ReadTxn, index string, key string) (any, Revision, boo
 	if err != nil {
 		return nil, 0, false, err
 	}
-	if itxn.unique {
-		obj, _, ok := itxn.Get(rawKey)
-		return obj.data, obj.revision, ok, nil
-	}
-	// For non-unique indexes we need to prefix search and make sure to fully
-	// match the secondary key.
-	iter, _ := itxn.Prefix(rawKey)
-	for {
-		k, obj, ok := iter.Next()
-		if !ok {
-			break
-		}
-		if nonUniqueKey(k).secondaryLen() == len(rawKey) {
-			return obj.data, obj.revision, true, nil
-		}
+	obj, _, found := itxn.get(rawKey)
+	if found {
+		return obj.data, obj.revision, found, nil
 	}
 	return nil, 0, false, nil
 }
@@ -81,11 +75,8 @@ func (t AnyTable) Prefix(txn ReadTxn, index string, key string) (iter.Seq2[any, 
 	if err != nil {
 		return nil, err
 	}
-	iter, _ := itxn.Prefix(rawKey)
-	if itxn.unique {
-		return partSeq[any](iter), nil
-	}
-	return nonUniqueSeq[any](iter, true, rawKey), nil
+	iter, _ := itxn.prefix(rawKey)
+	return objSeq[any](iter), nil
 }
 
 func (t AnyTable) LowerBound(txn ReadTxn, index string, key string) (iter.Seq2[any, Revision], error) {
@@ -93,11 +84,8 @@ func (t AnyTable) LowerBound(txn ReadTxn, index string, key string) (iter.Seq2[a
 	if err != nil {
 		return nil, err
 	}
-	iter := itxn.LowerBound(rawKey)
-	if itxn.unique {
-		return partSeq[any](iter), nil
-	}
-	return nonUniqueLowerBoundSeq[any](iter, rawKey), nil
+	iter, _ := itxn.lowerBound(rawKey)
+	return objSeq[any](iter), nil
 }
 
 func (t AnyTable) List(txn ReadTxn, index string, key string) (iter.Seq2[any, Revision], error) {
@@ -105,28 +93,18 @@ func (t AnyTable) List(txn ReadTxn, index string, key string) (iter.Seq2[any, Re
 	if err != nil {
 		return nil, err
 	}
-	iter, _ := itxn.Prefix(rawKey)
-	if itxn.unique {
-		// Unique index means that there can be only a single matching object.
-		// Doing a Get() is more efficient than constructing an iterator.
-		value, _, ok := itxn.Get(rawKey)
-		return func(yield func(any, Revision) bool) {
-			if ok {
-				yield(value.data, value.revision)
-			}
-		}, nil
-	}
-	return nonUniqueSeq[any](iter, false, rawKey), nil
+	iter, _ := itxn.list(rawKey)
+	return objSeq[any](iter), nil
 }
 
-func (t AnyTable) queryIndex(txn ReadTxn, index string, key string) (indexReadTxn, []byte, error) {
+func (t AnyTable) queryIndex(txn ReadTxn, index string, key string) (tableIndexReader, index.Key, error) {
 	indexer := t.Meta.getIndexer(index)
 	if indexer == nil {
-		return indexReadTxn{}, nil, fmt.Errorf("invalid index %q", index)
+		return nil, nil, fmt.Errorf("invalid index %q", index)
 	}
 	rawKey, err := indexer.fromString(key)
 	if err != nil {
-		return indexReadTxn{}, nil, err
+		return nil, nil, err
 	}
 	itxn, err := txn.indexReadTxn(t.Meta, indexer.pos)
 	return itxn, rawKey, err

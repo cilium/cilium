@@ -4,7 +4,6 @@
 package statedb
 
 import (
-	"errors"
 	"io"
 	"iter"
 
@@ -79,6 +78,14 @@ type Table[Obj any] interface {
 	Changes(WriteTxn) (ChangeIterator[Obj], error)
 }
 
+// ByRevision constructs a revision query. Applicable to any table.
+func ByRevision[Obj any](rev uint64) Query[Obj] {
+	return Query[Obj]{
+		index: RevisionIndex,
+		key:   index.Uint64(rev),
+	}
+}
+
 // Change is either an update or a delete of an object. Used by Changes() and
 // the Observable().
 // The 'Revision' is carried also in the Change object so that it is also accessible
@@ -101,9 +108,14 @@ type ChangeIterator[Obj any] interface {
 	// The returned sequence is a single-use sequence and subsequent calls will return
 	// an empty sequence.
 	//
-	// If the transaction given to Next is a WriteTxn the modifications made in the
-	// transaction are not observed, that is, only committed changes can be observed.
+	// Next will panic if called with a WriteTxn that has locked the target table.
 	Next(ReadTxn) (iter.Seq2[Change[Obj], Revision], <-chan struct{})
+
+	// Close the change iterator. Once all change iterators for a given table are closed
+	// deleted objects for that table are no longer set aside for the change iterators.
+	//
+	// Calling this method is optional as each iterator has a finalizer that closes it.
+	Close()
 }
 
 // RWTable provides methods for modifying the table under a write transaction
@@ -238,30 +250,9 @@ type TableMeta interface {
 	tableInternal
 }
 
-type tableInternal interface {
-	tableEntry() tableEntry
-	tablePos() int
-	setTablePos(int)
-	indexPos(string) int
-	tableKey() []byte // The radix key for the table in the root tree
-	getIndexer(name string) *anyIndexer
-	primary() anyIndexer                   // The untyped primary indexer for the table
-	secondary() map[string]anyIndexer      // Secondary indexers (if any)
-	sortableMutex() internal.SortableMutex // The sortable mutex for locking the table for writing
-	anyChanges(txn WriteTxn) (anyChangeIterator, error)
-	typeName() string                       // Returns the 'Obj' type as string
-	unmarshalYAML(data []byte) (any, error) // Unmarshal the data into 'Obj'
-	numDeletedObjects(txn ReadTxn) int      // Number of objects in graveyard
-	acquired(*writeTxnState)
-	released()
-	getAcquiredInfo() string
-	tableHeader() []string
-	tableRowAny(any) []string
-}
-
 type ReadTxn interface {
-	indexReadTxn(meta TableMeta, indexPos int) (indexReadTxn, error)
-	mustIndexReadTxn(meta TableMeta, indexPos int) indexReadTxn
+	indexReadTxn(meta TableMeta, indexPos int) (tableIndexReader, error)
+	mustIndexReadTxn(meta TableMeta, indexPos int) tableIndexReader
 	getTableEntry(meta TableMeta) *tableEntry
 	root() dbRoot
 
@@ -270,8 +261,6 @@ type ReadTxn interface {
 }
 
 type WriteTxn interface {
-	getTxn() *writeTxnState
-
 	// WriteTxn is always also a ReadTxn
 	ReadTxn
 
@@ -290,6 +279,9 @@ type WriteTxn interface {
 	// This is a no-op if Abort() or Commit() has already been called.
 	// Returns a ReadTxn for reading the database at the time of commit.
 	Commit() ReadTxn
+
+	// unwrap returns the internal state
+	unwrap() *writeTxnState
 }
 
 type Query[Obj any] struct {
@@ -297,117 +289,22 @@ type Query[Obj any] struct {
 	key   index.Key
 }
 
-// ByRevision constructs a revision query. Applicable to any table.
-func ByRevision[Obj any](rev uint64) Query[Obj] {
-	return Query[Obj]{
-		index: RevisionIndex,
-		key:   index.Uint64(rev),
-	}
-}
-
-// Index implements the indexing of objects (FromObjects) and querying of objects from the index (FromKey)
-type Index[Obj any, Key any] struct {
-	// Name of the index
-	Name string
-
-	// FromObject extracts key(s) from the object. The key set
-	// can contain 0, 1 or more keys. Must contain exactly one
-	// key for primary indices.
-	FromObject func(obj Obj) index.KeySet
-
-	// FromKey converts the index key into a raw key.
-	// With this we can perform Query() against this index with
-	// the [Key] type.
-	FromKey func(key Key) index.Key
-
-	// FromString is an optional conversion from string to a raw key.
-	// If implemented allows script commands to query with this index.
-	FromString func(key string) (index.Key, error)
-
-	// Unique marks the index as unique. Primary index must always be
-	// unique. A secondary index may be non-unique in which case a single
-	// key may map to multiple objects.
-	Unique bool
-}
-
-var _ Indexer[struct{}] = &Index[struct{}, bool]{}
-
-// The nolint:unused below are needed due to linter not seeing
-// the use-sites due to generics.
-
-//nolint:unused
-func (i Index[Key, Obj]) indexName() string {
-	return i.Name
-}
-
-//nolint:unused
-func (i Index[Obj, Key]) fromObject(obj Obj) index.KeySet {
-	return i.FromObject(obj)
-}
-
-var errFromStringNil = errors.New("FromString not defined")
-
-//nolint:unused
-func (i Index[Obj, Key]) fromString(s string) (index.Key, error) {
-	if i.FromString == nil {
-		return index.Key{}, errFromStringNil
-	}
-	k, err := i.FromString(s)
-	k = i.encodeKey(k)
-	return k, err
-}
-
-//nolint:unused
-func (i Index[Obj, Key]) isUnique() bool {
-	return i.Unique
-}
-
-func (i Index[Obj, Key]) encodeKey(key []byte) []byte {
-	if !i.Unique {
-		return encodeNonUniqueBytes(key)
-	}
-	return key
-}
-
-// Query constructs a query against this index from a key.
-func (i Index[Obj, Key]) Query(key Key) Query[Obj] {
-	return Query[Obj]{
-		index: i.Name,
-		key:   i.encodeKey(i.FromKey(key)),
-	}
-}
-
-func (i Index[Obj, Key]) QueryFromObject(obj Obj) Query[Obj] {
-	return Query[Obj]{
-		index: i.Name,
-		key:   i.encodeKey(i.FromObject(obj).First()),
-	}
-}
-
-// QueryFromKey constructs a query against the index using the given
-// user-supplied key. Be careful when using this and prefer [Index.Query]
-// over this if possible.
-func (i Index[Obj, Key]) QueryFromKey(key index.Key) Query[Obj] {
-	return Query[Obj]{
-		index: i.Name,
-		key:   key,
-	}
-}
-
-func (i Index[Obj, Key]) ObjectToKey(obj Obj) index.Key {
-	return i.encodeKey(i.FromObject(obj).First())
-}
-
-// Indexer is the "FromObject" subset of Index[Obj, Key]
-// without the 'Key' constraint.
 type Indexer[Obj any] interface {
-	indexName() string
-	isUnique() bool
-	fromObject(Obj) index.KeySet
-	fromString(string) (index.Key, error)
-
-	ObjectToKey(Obj) index.Key
+	// QueryFromObject constructs a query from an object against the
+	// primary index.
 	QueryFromObject(Obj) Query[Obj]
+
+	// ObjectToKey returns the primary key of the object.
+	ObjectToKey(Obj) index.Key
+
+	// isIndexerOf is a marker method to constrain the indexer to the 'Obj'
+	// type which enforces that indexer of a wrong type is not used.
+	isIndexerOf(Obj)
+
+	isUnique() bool
+	indexName() string
+	fromString(string) (index.Key, error)
+	newTableIndex() tableIndex
 }
 
 // TableWritable is a constraint for objects that implement tabular
@@ -440,8 +337,8 @@ const (
 
 // object is the format in which data is stored in the tables.
 type object struct {
-	revision uint64
 	data     any
+	revision uint64
 }
 
 // anyIndexer is an untyped indexer. The user-defined 'Index[Obj,Key]'
@@ -457,10 +354,7 @@ type anyIndexer struct {
 	// fromString converts string into a key. Optional.
 	fromString func(string) (index.Key, error)
 
-	// unique if true will index the object solely on the
-	// values returned by fromObject. If false the primary
-	// key of the object will be appended to the key.
-	unique bool
+	newTableIndex func() tableIndex
 
 	// pos is the position of the index in [tableEntry.indexes]
 	pos int
@@ -472,51 +366,102 @@ type anyDeleteTracker interface {
 	close()
 }
 
-type indexEntry struct {
-	tree *part.Tree[object]
-
-	// txn for mutating the index
-	txn *part.Txn[object]
-
-	// clone is the latest memoized clone of [txn] for reading that won't
-	// be invalidated by future writes. Cleared on write.
-	clone  part.Ops[object]
-	unique bool
+type tableInternal interface {
+	tableEntry() *tableEntry
+	tablePos() int
+	setTablePos(int)
+	indexPos(string) int
+	getIndexer(name string) *anyIndexer
+	secondary() []anyIndexer               // Secondary indexers (if any)
+	sortableMutex() internal.SortableMutex // The sortable mutex for locking the table for writing
+	anyChanges(txn WriteTxn) (anyChangeIterator, error)
+	typeName() string                       // Returns the 'Obj' type as string
+	unmarshalYAML(data []byte) (any, error) // Unmarshal the data into 'Obj'
+	numDeletedObjects(txn ReadTxn) int      // Number of objects in graveyard
+	acquired(*writeTxnState)
+	released()
+	getAcquiredInfo() string
+	tableHeader() []string
+	tableRowAny(any) []string
 }
 
-func (ie *indexEntry) getClone() part.Ops[object] {
-	if ie.clone == nil {
-		if ie.txn == nil {
-			ie.clone = ie.tree
-		} else {
-			ie.clone = ie.txn.Clone()
-		}
-	}
-	return ie.clone
+// tableIndexIterator for iterating over keys and objects in an index.
+// This is not a straight up iter.Seq2 as this way we avoid a heap allocation
+// for a function closure.
+type tableIndexIterator interface {
+	All(yield func(key []byte, obj object) bool)
 }
 
+type tableIndexReader interface {
+	len() int
+	get(key index.Key) (object, <-chan struct{}, bool)
+	prefix(key index.Key) (tableIndexIterator, <-chan struct{})
+	lowerBound(key index.Key) (tableIndexIterator, <-chan struct{})
+	lowerBoundNext(key index.Key) (func() ([]byte, object, bool), <-chan struct{})
+	list(key index.Key) (tableIndexIterator, <-chan struct{})
+	all() (tableIndexIterator, <-chan struct{})
+	rootWatch() <-chan struct{}
+	objectToKey(obj object) index.Key
+}
+
+type tableIndex interface {
+	tableIndexReader
+	txn() (tableIndexTxn, bool)
+	commit() (idx tableIndex, txn tableIndexTxnNotify)
+}
+
+type tableIndexTxn interface {
+	tableIndex
+
+	insert(key index.Key, obj object) (old object, hadOld bool, watch <-chan struct{})
+	modify(key index.Key, obj object, mod func(old, new object) object) (old object, hadOld bool, watch <-chan struct{})
+	delete(key index.Key) (old object, hadOld bool)
+	reindex(primaryKey index.Key, old object, new object)
+}
+
+type tableIndexTxnNotify interface {
+	notify()
+}
+
+type tableInitialization struct {
+	// watch channel which is closed when the table becomes initialized,
+	// e.g. when all [pending] initializers are marked done.
+	watch chan struct{}
+
+	// pending initializers.
+	pending []string
+}
+
+// tableEntry contains the table state. The database is a slice of
+// these table entries.
 type tableEntry struct {
-	meta                TableMeta
-	indexes             []indexEntry
-	deleteTrackers      *part.Tree[anyDeleteTracker]
-	revision            uint64
-	pendingInitializers []string
-	initialized         bool
-	initWatchChan       chan struct{}
+	// meta is the metadata about the table
+	meta TableMeta
+
+	// deleteTrackers are the open Changes() iterators for which
+	// we set aside deleted objects.
+	deleteTrackers *part.Tree[anyDeleteTracker]
+
+	// init if not nil marks the table as not initialized.
+	// When the last registered initializer is done this is
+	// set to nil and the [init.watch] is closed.
+	init *tableInitialization
+
+	// indexes are the table indexes that store the objects
+	indexes []tableIndex
+
+	// revision is the current table revision. It's the same
+	// as the revision of the last inserted object.
+	revision uint64
+
+	// locked marks the table locked for writes.
+	locked bool
 }
 
 func (t *tableEntry) numObjects() int {
-	indexEntry := t.indexes[RevisionIndexPos]
-	if indexEntry.txn != nil {
-		return indexEntry.txn.Len()
-	}
-	return indexEntry.tree.Len()
+	return t.indexes[RevisionIndexPos].len()
 }
 
 func (t *tableEntry) numDeletedObjects() int {
-	indexEntry := t.indexes[GraveyardIndexPos]
-	if indexEntry.txn != nil {
-		return indexEntry.txn.Len()
-	}
-	return indexEntry.tree.Len()
+	return t.indexes[GraveyardIndexPos].len()
 }
