@@ -57,22 +57,22 @@ to learn how to level up through the project.
 
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
- * [Beatriz Martínez] (Isovalent)
- * [Bruno M. Custódio] (Isovalent)
- * [Dan Wendlandt] (Isovalent)
- * [Eloy Coto] (Red Hat)
+ * [Beatriz Martínez]
+ * [Bruno M. Custódio]
+ * [Dan Wendlandt]
+ * [Eloy Coto]
  * [Gilberto Bertin]
  * [Ian Vernon]
- * [Ilya Dmitrichenko] (Docker)
+ * [Ilya Dmitrichenko]
  * [Lorenz Bauer]
- * [Michal Rostecki] (Anza)
- * [Natália Réka Ivánkó] (Isovalent)
+ * [Michal Rostecki]
+ * [Natália Réka Ivánkó]
  * [Ray Bejjani]
- * [Thomas Graf] (Isovalent)
+ * [Thomas Graf]
  * [Tom Payne]
- * [Weilong Cui] (Google)
- * [Yongkun Gui] (Google)
- * [Zang Li] (Google)
+ * [Weilong Cui]
+ * [Yongkun Gui]
+ * [Zang Li]
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
 project.
