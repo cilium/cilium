@@ -2721,21 +2721,11 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return fmt.Errorf("no client pod available")
 		}
 
-		// Wait for NodePorts to be ready on all node IP addresses.
-		// Tests iterate through all addresses in node.Status.Addresses[], which can include
-		// both IPv4 and IPv6 in dual-stack clusters. Validating only HostIP (typically IPv4)
-		// would leave IPv6 addresses unchecked, causing timeouts when tests try them.
-		for _, node := range ct.Nodes() {
-			for _, addr := range node.Status.Addresses {
-				// Only check IP addresses (skip DNS names, hostnames)
-				if addr.Type != slimcorev1.NodeInternalIP && addr.Type != slimcorev1.NodeExternalIP {
-					continue
-				}
-
-				for _, s := range ct.echoServices {
-					if err := WaitForNodePorts(ctx, ct, *client, addr.Address, s); err != nil {
-						return err
-					}
+		for _, ciliumPod := range ct.ciliumPods {
+			hostIP := ciliumPod.Pod.Status.HostIP
+			for _, s := range ct.echoServices {
+				if err := WaitForNodePorts(ctx, ct, *client, hostIP, s); err != nil {
+					return err
 				}
 			}
 		}
