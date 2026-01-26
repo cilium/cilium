@@ -157,6 +157,11 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 
+#include "test_helpers.h"
+
+/* Set port ranges to have deterministic source port selection */
+ASSIGN_NODEPORT_DEFAULTS();
+
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
  * - gets redirected by TC (as ENABLE_HOST_ROUTING is set)

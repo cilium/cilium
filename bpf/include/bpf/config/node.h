@@ -33,3 +33,8 @@ NODE_CONFIG(bool, supports_fib_lookup_skip_neigh,
 NODE_CONFIG(__u8, tracing_ip_option_type, "The IP option type to use for packet tracing")
 
 NODE_CONFIG(bool, policy_deny_response_enabled, "Enable ICMP responses for policy-denied traffic")
+
+NODE_CONFIG(__u16, nodeport_port_min, "Nodeport minimum port value.")
+NODE_CONFIG(__u16, nodeport_port_max, "Nodeport maximum port value.")
+NODE_CONFIG(__u16, nodeport_port_min_nat, "Nodeport NAT minimum port value.")
+NODE_CONFIG(__u16, nodeport_port_max_nat, "Nodeport NAT maximum port value.")
