@@ -11,7 +11,7 @@ import (
 
 func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 	return func(yield func(*config.BPFLXC) bool) {
-		for permutation := range permute(5) {
+		for permutation := range permute(6) {
 			cfg := config.NewBPFLXC(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.Node.PolicyDenyResponseEnabled = permutation[0]
@@ -19,6 +19,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 			cfg.EnableICMPRule = permutation[2]
 			cfg.EnableLRP = permutation[3]
 			cfg.HybridRoutingEnabled = permutation[4]
+			cfg.EnablePolicyAccounting = permutation[5]
 
 			if !yield(cfg) {
 				return
@@ -29,7 +30,7 @@ func lxcLoadPermutations() iter.Seq[*config.BPFLXC] {
 
 func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 	return func(yield func(*config.BPFHost) bool) {
-		for permutation := range permute(6) {
+		for permutation := range permute(7) {
 			cfg := config.NewBPFHost(*config.NewNode())
 			cfg.Node.TracingIPOptionType = 1
 			cfg.EnableRemoteNodeMasquerade = permutation[0]
@@ -42,6 +43,7 @@ func hostLoadPermutations() iter.Seq[*config.BPFHost] {
 			cfg.AllowICMPFragNeeded = permutation[3]
 			cfg.EnableICMPRule = permutation[4]
 			cfg.HybridRoutingEnabled = permutation[5]
+			cfg.EnablePolicyAccounting = permutation[6]
 
 			if !yield(cfg) {
 				return
