@@ -2739,6 +2739,15 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 					continue
 				}
 
+				// On GKE, ExternalIP is not reachable from inside a cluster.
+				// Skip validation for external IPs in GKE to match the actual test behavior.
+				if addr.Type == slimcorev1.NodeExternalIP {
+					if f, ok := ct.Feature(features.Flavor); ok && f.Enabled && f.Mode == "gke" {
+						ct.Debugf("Skipping NodePort validation for external IP %s on GKE", addr.Address)
+						continue
+					}
+				}
+
 				for _, s := range ct.echoServices {
 					if err := WaitForNodePorts(ctx, ct, *client, addr.Address, s); err != nil {
 						return err
