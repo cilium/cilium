@@ -289,6 +289,7 @@ func ToAgentFamily(fam v2.CiliumBGPFamily) Family {
 func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, password string) *Neighbor {
 	neighbor := &Neighbor{}
 
+	neighbor.Name = np.Name
 	neighbor.Address = toPeerAddressV2(*np.PeerAddress)
 	neighbor.ASN = uint32(*np.PeerASN)
 	neighbor.AuthPassword = password

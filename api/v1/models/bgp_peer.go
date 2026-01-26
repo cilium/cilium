@@ -66,6 +66,9 @@ type BgpPeer struct {
 	// Capabilities announced by the local peer
 	LocalCapabilities []*BgpCapabilities `json:"local-capabilities"`
 
+	// Name of peer
+	Name string `json:"name,omitempty"`
+
 	// IP Address of peer
 	PeerAddress string `json:"peer-address,omitempty"`
 
