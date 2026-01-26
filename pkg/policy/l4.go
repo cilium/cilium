@@ -364,8 +364,8 @@ type ListenerPriority = types.ListenerPriority
 // 126 - default priority for CRD parser type
 // 127 - reserved (listener priority passed as 0)
 //
-// MapStateEntry stores this reverted in 'ProxyPortPriority' where higher numbers have higher
-// precedence
+// MapStateEntry stores this reverted in the low 8 bits of 'Precedence' where higher numbers have
+// higher precedence
 const (
 	ListenerPriorityNone     ListenerPriority = 0
 	ListenerPriorityHTTP     ListenerPriority = 101
@@ -380,7 +380,7 @@ const (
 func (l7 L7ParserType) defaultPriority() ListenerPriority {
 	switch l7 {
 	case ParserTypeNone:
-		return ListenerPriorityNone // no priority
+		return ListenerPriorityNone // no l7 redirect
 	case ParserTypeHTTP:
 		return ListenerPriorityHTTP
 	case ParserTypeKafka:
@@ -1145,6 +1145,10 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) (policyFeature
 				features.setFeature(denyRules)
 			}
 
+			if sp.Verdict == types.Pass {
+				features.setFeature(passRules)
+			}
+
 			explicit, authType := getAuthType(sp.Authentication)
 			if explicit {
 				features.setFeature(authRules)
@@ -1440,10 +1444,11 @@ const (
 	redirectRules
 	orderedRules
 	authRules
+	passRules
 
 	// if any of the precedenceFeatures is set, then we need to scan for policy overrides due to
 	// precedence differences between rules.
-	precedenceFeatures policyFeatures = denyRules | redirectRules | orderedRules
+	precedenceFeatures policyFeatures = denyRules | redirectRules | orderedRules | passRules
 
 	allFeatures policyFeatures = ^policyFeatures(0)
 )

@@ -55,6 +55,15 @@ func (e mapStateEntry) withPassPriority(priority, nextTierPriority types.Priorit
 	return e
 }
 
+func (e mapStateEntry) withPassPriorityLabels(priority, nextTierPriority types.Priority, lbls labels.LabelArray) mapStateEntry {
+	e.passPrecedence = priority.ToPassPrecedence()
+	e.nextTierPrecedence = nextTierPriority.ToPassPrecedence()
+
+	e.derivedFromRules = e.derivedFromRules.Merge(makeSingleRuleOrigin(lbls, ""))
+
+	return e
+}
+
 func (ms mapState) withState(initMap mapStateMap) mapState {
 	for k, v := range initMap {
 		ms.insert(k, v)
@@ -2868,7 +2877,7 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 		}},
 		want: mapStateMap{
 			egressKey(identity1111, 0, 0, 0):  passEntry(0, 1000),
-			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(0).withPassPriority(0, 1000),
+			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1),
 		},
 		probes: []probe{},
 	}}
@@ -3003,7 +3012,7 @@ func TestMapState_passValidation(t *testing.T) {
 		want: mapStateMap{
 			egressKey(identity1111, 0, 0, 0):  passEntry(0, 1000),
 			egressKey(0, 0, 0, 0):             denyEntry().withLevel(100),
-			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(0).withPassPriority(0, 1000),
+			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1),
 		},
 		probes: []probe{},
 	}, {
@@ -3028,7 +3037,7 @@ func TestMapState_passValidation(t *testing.T) {
 		}},
 		want: mapStateMap{
 			egressKey(0, 0, 0, 0):             passEntry(0, 1000),
-			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(0).withPassPriority(0, 1000),
+			egressKey(identity1111, 6, 80, 0): allowEntry().withLevel(1),
 		},
 		probes: []probe{},
 	}, {
@@ -3063,8 +3072,8 @@ func TestMapState_passValidation(t *testing.T) {
 			egressKey(0, 6, 81, 0):             denyEntry().withLevel(0),
 			egressKey(identity1111, 0, 0, 0):   passEntry(1000, 2000),
 			egressKey(0, 0, 0, 0):              denyEntry().withLevel(1100),
-			egressKey(identity1111, 6, 90, 0):  denyEntry().withLevel(1000).withPassPriority(1000, 2000),
-			egressKey(identity1111, 6, 80, 12): allowEntry().withLevel(1001).withPassPriority(1000, 2000),
+			egressKey(identity1111, 6, 90, 0):  denyEntry().withLevel(1001),
+			egressKey(identity1111, 6, 80, 12): allowEntry().withLevel(1002),
 		},
 		probes: []probe{
 			{key: egressKey(2, 6, 80, 16), found: true, entry: DenyEntry},
