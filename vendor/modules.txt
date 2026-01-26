@@ -329,11 +329,12 @@ github.com/cilium/lumberjack/v2
 ## explicit; go 1.23.0
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/statedb v0.5.6
-## explicit; go 1.24
+# github.com/cilium/statedb v0.6.1
+## explicit; go 1.25
 github.com/cilium/statedb
 github.com/cilium/statedb/index
 github.com/cilium/statedb/internal
+github.com/cilium/statedb/lpm
 github.com/cilium/statedb/part
 github.com/cilium/statedb/reconciler
 # github.com/cilium/stream v0.0.1

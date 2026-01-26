@@ -9,6 +9,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/cilium/statedb/index"
 	"golang.org/x/time/rate"
 )
 
@@ -35,8 +36,7 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 
 		cleaningTimes := make(map[string]time.Duration)
 
-		type deadObjectRevisionKey = []byte
-		toBeDeleted := map[TableMeta][]deadObjectRevisionKey{}
+		toBeDeleted := map[TableMeta][]index.Key{}
 
 		// Do a lockless read transaction to find potential dead objects.
 		rtxn := db.ReadTxn()
@@ -63,8 +63,8 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 			// to the low watermark.
 			indexTree := rtxn.mustIndexReadTxn(table.meta, GraveyardRevisionIndexPos)
 
-			objIter := indexTree.Iterator()
-			for key, obj, ok := objIter.Next(); ok; key, obj, ok = objIter.Next() {
+			iter, _ := indexTree.all()
+			for key, obj := range iter.All {
 				if obj.revision > lowWatermark {
 					break
 				}
@@ -86,17 +86,17 @@ func graveyardWorker(db *DB, ctx context.Context, gcRateLimitInterval time.Durat
 		// Dead objects found, do a write transaction against all tables with dead objects in them.
 		tablesToModify := slices.Collect(maps.Keys(toBeDeleted))
 		wtxn := db.WriteTxn(tablesToModify...)
-		txn := wtxn.getTxn()
+		txn := wtxn.unwrap()
 		for meta, deadObjs := range toBeDeleted {
 			tableName := meta.Name()
 			start := time.Now()
 			for _, key := range deadObjs {
-				oldObj, existed := txn.mustIndexWriteTxn(meta, GraveyardRevisionIndexPos).Delete(key)
+				oldObj, existed := txn.mustIndexWriteTxn(meta, GraveyardRevisionIndexPos).delete(key)
 				if existed {
 					// The dead object still existed (and wasn't replaced by a create->delete),
 					// delete it from the primary index.
-					key = meta.primary().fromObject(oldObj).First()
-					txn.mustIndexWriteTxn(meta, GraveyardIndexPos).Delete(key)
+					graveyard := txn.mustIndexWriteTxn(meta, GraveyardIndexPos)
+					graveyard.delete(graveyard.objectToKey(oldObj))
 				}
 			}
 			cleaningTimes[tableName] = time.Since(start)
@@ -126,7 +126,7 @@ func (db *DB) graveyardIsEmpty() bool {
 	txn := db.ReadTxn()
 	for _, table := range txn.root() {
 		indexEntry := table.indexes[table.meta.indexPos(GraveyardIndex)]
-		if indexEntry.tree.Len() != 0 {
+		if indexEntry.len() != 0 {
 			return false
 		}
 	}

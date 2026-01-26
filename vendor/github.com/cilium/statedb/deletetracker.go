@@ -35,11 +35,10 @@ func (dt *deleteTracker[Obj]) getRevision() uint64 {
 // Deleted returns an iterator for deleted objects in this table starting from
 // 'minRevision'. The deleted objects are not garbage-collected unless 'Mark' is
 // called!
-func (dt *deleteTracker[Obj]) deleted(txn ReadTxn, minRevision Revision) Iterator[Obj] {
+func (dt *deleteTracker[Obj]) deleted(txn ReadTxn, minRevision Revision) *iterator[Obj] {
 	indexEntry := txn.root()[dt.table.tablePos()].indexes[GraveyardRevisionIndexPos]
-	indexTxn := indexReadTxn{indexEntry.tree, indexEntry.unique}
-	iter := indexTxn.LowerBound(index.Uint64(minRevision))
-	return &iterator[Obj]{iter}
+	objs, _ := indexEntry.lowerBoundNext(index.Uint64(minRevision))
+	return &iterator[Obj]{objs}
 }
 
 // Mark the revision up to which deleted objects have been processed. This sets
@@ -60,14 +59,15 @@ func (dt *deleteTracker[Obj]) close() {
 
 	// Remove the delete tracker from the table.
 	wtxn := dt.db.WriteTxn(dt.table)
-	txn := wtxn.getTxn()
+	txn := wtxn.unwrap()
 	dt.db = nil
 	db := txn.db
-	table := txn.modifiedTables[dt.table.tablePos()]
-	if table == nil {
-		panic("BUG: Table missing from write transaction")
+	table := txn.tableEntries[dt.table.tablePos()]
+	if !table.locked {
+		panic("BUG: Table not locked")
 	}
-	_, _, table.deleteTrackers = table.deleteTrackers.Delete([]byte(dt.trackerName))
+	_, _, updated := table.deleteTrackers.Delete([]byte(dt.trackerName))
+	table.deleteTrackers = &updated
 	wtxn.Commit()
 
 	db.metrics.DeleteTrackerCount(dt.table.Name(), table.deleteTrackers.Len())

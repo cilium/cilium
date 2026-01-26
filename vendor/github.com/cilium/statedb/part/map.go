@@ -20,8 +20,9 @@ import (
 // keys that are not []byte.
 type Map[K, V any] struct {
 	bytesFromKeyFunc func(K) []byte
-	tree             *Tree[mapKVPair[K, V]]
 	singleton        *mapKVPair[K, V]
+	tree             Tree[mapKVPair[K, V]]
+	hasTree          bool
 }
 
 type mapKVPair[K, V any] struct {
@@ -59,8 +60,9 @@ func FromMap[K comparable, V any](m Map[K, V], hm map[K]V) Map[K, V] {
 // it is. The whole nil tree thing is to make sure that creating
 // an empty map does not allocate anything.
 func (m *Map[K, V]) ensureTree() {
-	if m.tree == nil {
+	if !m.hasTree {
 		m.tree = New[mapKVPair[K, V]](RootOnlyWatch)
+		m.hasTree = true
 	}
 }
 
@@ -70,7 +72,7 @@ func (m Map[K, V]) Get(key K) (value V, found bool) {
 		return m.singleton.Value, true
 	}
 
-	if m.tree == nil {
+	if !m.hasTree {
 		return
 	}
 	kv, _, found := m.tree.Get(m.keyToBytes(key))
@@ -81,7 +83,7 @@ func (m Map[K, V]) Get(key K) (value V, found bool) {
 // Original map is unchanged.
 func (m Map[K, V]) Set(key K, value V) Map[K, V] {
 	keyBytes := m.keyToBytes(key)
-	if m.tree == nil && m.singleton == nil || m.singleton != nil && bytes.Equal(keyBytes, m.keyToBytes(m.singleton.Key)) {
+	if !m.hasTree && m.singleton == nil || m.singleton != nil && bytes.Equal(keyBytes, m.keyToBytes(m.singleton.Key)) {
 		m.singleton = &mapKVPair[K, V]{key, value}
 		return m
 	}
@@ -113,16 +115,19 @@ func (m Map[K, V]) Delete(key K) Map[K, V] {
 		}
 		return m
 	}
-	if m.tree != nil {
+	if m.hasTree {
 		txn := m.tree.Txn()
 		txn.Delete(m.keyToBytes(key))
 		switch txn.Len() {
 		case 0:
-			m.tree = nil
+			m.tree = Tree[mapKVPair[K, V]]{}
+			m.hasTree = false
 		case 1:
-			_, kv, _ := txn.Iterator().Next()
-			m.singleton = &kv
-			m.tree = nil
+			for _, v := range txn.Iterator().All {
+				m.singleton = &v
+				m.tree = Tree[mapKVPair[K, V]]{}
+				m.hasTree = false
+			}
 		default:
 			m.tree = txn.Commit()
 		}
@@ -130,13 +135,9 @@ func (m Map[K, V]) Delete(key K) Map[K, V] {
 	return m
 }
 
-func toSeq2[K, V any](iter *Iterator[mapKVPair[K, V]]) iter.Seq2[K, V] {
+func toSeq2[K, V any](iter Iterator[mapKVPair[K, V]]) iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
-		if iter == nil {
-			return
-		}
-		iter = iter.Clone()
-		for _, kv, ok := iter.Next(); ok; _, kv, ok = iter.Next() {
+		for _, kv := range iter.All {
 			if !yield(kv.Key, kv.Value) {
 				break
 			}
@@ -152,8 +153,8 @@ func (m Map[K, V]) LowerBound(from K) iter.Seq2[K, V] {
 			return m.singletonIter()
 		}
 	}
-	if m.tree == nil {
-		return toSeq2[K, V](nil)
+	if !m.hasTree {
+		return toSeq2[K, V](Iterator[mapKVPair[K, V]]{})
 	}
 	return toSeq2(m.tree.LowerBound(m.keyToBytes(from)))
 }
@@ -174,8 +175,8 @@ func (m Map[K, V]) Prefix(prefix K) iter.Seq2[K, V] {
 			return m.singletonIter()
 		}
 	}
-	if m.tree == nil {
-		return toSeq2[K, V](nil)
+	if !m.hasTree {
+		return toSeq2[K, V](Iterator[mapKVPair[K, V]]{})
 	}
 	iter, _ := m.tree.Prefix(m.keyToBytes(prefix))
 	return toSeq2(iter)
@@ -188,8 +189,8 @@ func (m Map[K, V]) All() iter.Seq2[K, V] {
 	if m.singleton != nil {
 		return m.singletonIter()
 	}
-	if m.tree == nil {
-		return toSeq2[K, V](nil)
+	if !m.hasTree {
+		return toSeq2[K, V](Iterator[mapKVPair[K, V]]{})
 	}
 	return toSeq2(m.tree.Iterator())
 }
@@ -201,7 +202,7 @@ func (m Map[K, V]) EqualKeys(other Map[K, V]) bool {
 		return false
 	case m.singleton != nil && other.singleton != nil:
 		return bytes.Equal(m.keyToBytes(m.singleton.Key), other.keyToBytes(other.singleton.Key))
-	case m.tree == nil && other.tree == nil:
+	case !m.hasTree && !other.hasTree:
 		return true
 	default:
 		iter1 := m.tree.Iterator()
@@ -231,7 +232,7 @@ func (m Map[K, V]) SlowEqual(other Map[K, V]) bool {
 	case m.singleton != nil && other.singleton != nil:
 		return bytes.Equal(m.keyToBytes(m.singleton.Key), other.keyToBytes(other.singleton.Key)) &&
 			reflect.DeepEqual(m.singleton.Value, other.singleton.Value)
-	case m.tree == nil && other.tree == nil:
+	case !m.hasTree && !other.hasTree:
 		return true
 	default:
 		iter1 := m.tree.Iterator()
@@ -256,14 +257,14 @@ func (m Map[K, V]) Len() int {
 	if m.singleton != nil {
 		return 1
 	}
-	if m.tree == nil {
+	if !m.hasTree {
 		return 0
 	}
 	return m.tree.size
 }
 
 func (m Map[K, V]) MarshalJSON() ([]byte, error) {
-	if m.tree == nil && m.singleton == nil {
+	if !m.hasTree && m.singleton == nil {
 		return []byte("[]"), nil
 	}
 
@@ -414,10 +415,15 @@ func (txn MapTxn[K, V]) Commit() (m Map[K, V]) {
 	switch txn.txn.Len() {
 	case 0:
 	case 1:
-		_, kv, _ := txn.txn.Iterator().Next()
+		iter := txn.txn.Iterator()
+		_, kv, _ := iter.Next()
 		m.singleton = &kv
 	default:
 		m.tree = txn.txn.Commit()
+		m.hasTree = true
+	}
+	if m.singleton != nil {
+		m.hasTree = false
 	}
 	return
 }

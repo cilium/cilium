@@ -574,6 +574,93 @@ by the query methods.
   onlyIds = statedb.ToSeq(ids)
 ```
 
+### Longest Prefix Match (LPM) index
+
+In addition to the radix tree based indexes StateDB also supports bitwise
+Longest Prefix Match (LPM) indexes. These are useful for example for finding
+the object with the closest IP prefix for a given IP address.
+
+The `NetIPPrefixIndex` is an LPM index specialized for `netip.Prefix`:
+
+```go
+  type MyObject struct {
+    ID uint64
+    Prefix netip.Prefix
+  }
+
+  // prefixIndex indexes object by its IP prefix.
+  prefixIndex := statedb.NetIPPrefixIndex[*MyObject]{
+    Name: "Prefix",
+    FromObject: func(obj *MyObject) iter.Seq[netip.Prefix] {
+      return statedb.Just(obj.Prefix)
+    },
+    Unique: true,
+  }
+  myObjects, err := statedb.NewTable(db, "my-objects", IDIndex, prefixIndex)
+
+  // Insert an object with a prefix
+  txn := db.WriteTxn(myObjects)
+  myObjects.Insert(txn, &MyObject{ID: 1, Prefix: netip.MustParsePrefix("10.0.0.0/8")})
+  txn.Commit()
+
+  // Look up object with the longest prefix matching the address
+  obj, rev, found := myObjects.Get(db.ReadTxn(), prefixIndex.Query(netip.MustParseAddr("10.0.0.1")))
+
+  // Look up objects contained by the search prefix
+  for obj := range myObjects.Prefix(db.ReadTxn(), prefixIndex.QueryPrefix(netip.MustParsePrefix("10.1.0.0/16"))) {
+    ...
+  }
+
+  // Look up objects where the address part of the prefix is equal or higher than
+  // search address.
+  for obj := range myObjects.LowerBound(db.ReadTxn(), prefixIndex.Query(netip.MustParseAddr("10.0.0.1"))) {
+    ...
+  }
+```
+
+The `LPMIndex` allows defining an index for an arbitrary bit prefix:
+
+```go
+  type MyObject struct {
+    ID uint64
+    PortPrefix uint16
+    PortBits uint8
+  }
+
+  portIndex := statedb.LPMIndex[*MyObject]{
+    Name: "port",
+    Unique: true,
+    FromObject: func(obj *MyObject) iter.Seq2[[]byte, statedb.PrefixLen] {
+      return func(yield(data []byte, prefixLen statedb.PrefixLen)) {
+        yield(
+          binary.BigEndian.AppendUint16(nil, obj.PortPrefix),
+          statedb.PrefixLen(obj.PortBits),
+        )
+      }
+    },
+    FromString: func(key string) ([]byte, PrefixLen, error) { ... },
+  }
+
+  myObjects, err := statedb.NewTable(db, "my-objects", IDIndex, prefixIndex)
+
+  // Insert an object with a prefix
+  txn := db.WriteTxn(myObjects)
+  myObjects.Insert(txn, &MyObject{
+    ID: 1,
+    // Ports in range 4096-8192
+    PortPrefix: binary.BigEndian.AppendUint16(nil, 0b0001_0000_0000_0000),
+    PortBits: 8,
+  })
+  txn.Commit()
+
+  // Find the object that matches port 5000
+  obj, rev, found := myObjects.Get(db.ReadTxn(),
+    portIndex.Query(
+      binary.BigEndian.AppendUint16(5000),
+      statedb.PrefixLen(16),
+    ))
+```
+
 ### Performance considerations
 
 Needless to say, one should keep the duration of the write transactions
@@ -698,4 +785,3 @@ or waiting for an object to be reconciled. On failures the reconciler will retry
 the operation at a later time. Reconciler supports health reporting and metrics.
 
 See the example application in `reconciler/example` for more information.
-

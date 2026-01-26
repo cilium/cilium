@@ -373,13 +373,12 @@ func (s *statedbObjectTracker) Delete(gvr schema.GroupVersionResource, ns string
 		logfields.K8sNamespace, ns,
 		logfields.Name, name)
 
-	obj := object{deleted: true, objectId: newObjectId(s.domain, gvr, ns, name)}
 	wtxn := s.db.WriteTxn(s.tbl)
-	_, found, _ := s.tbl.Modify(wtxn, obj, func(old, new object) object {
-		old.deleted = true
-		return old
-	})
-	if !found {
+	obj, _, found := s.tbl.Get(wtxn, objectIndex.Query(newObjectId(s.domain, gvr, ns, name)))
+	if found {
+		obj.deleted = true
+		s.tbl.Insert(wtxn, obj)
+	} else {
 		wtxn.Abort()
 		err := apierrors.NewNotFound(gvr.GroupResource(), name)
 		log.Debug("Delete", logfields.Error, err)
