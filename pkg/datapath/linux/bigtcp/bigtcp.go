@@ -150,26 +150,28 @@ func SetGROGSOIPv4MaxSize(log *slog.Logger, device string, GROMaxSize, GSOMaxSiz
 	return netlink.LinkSetGSOIPv4MaxSize(link, GSOMaxSize)
 }
 
-func haveIPv4MaxSize() bool {
+// Probes whether the kernel supports BIG TCP IPv4.
+func supportsBIGTCPIPv4(log *slog.Logger) bool {
 	link, err := safenetlink.LinkByName(probeDevice)
 	if err != nil {
+		log.Warn("Failed to probe kernel support for BIG TCP IPv4")
 		return false
 	}
-	if link.Attrs().GROIPv4MaxSize > 0 && link.Attrs().GSOIPv4MaxSize > 0 {
-		return true
-	}
-	return false
+	// Kernel commit 9eefedd58ae1 ("net: add gso_ipv4_max_size and gro_ipv4_max_size per device").
+	// Patch 09/10 of the series "net: support ipv4 big tcp".
+	return link.Attrs().GROIPv4MaxSize > 0 && link.Attrs().GSOIPv4MaxSize > 0
 }
 
-func haveIPv6MaxSize() bool {
+// Probes whether the kernel supports BIG TCP IPv6.
+func supportsBIGTCPIPv6(log *slog.Logger) bool {
 	link, err := safenetlink.LinkByName(probeDevice)
 	if err != nil {
+		log.Warn("Failed to probe kernel support for BIG TCP IPv6")
 		return false
 	}
-	if link.Attrs().TSOMaxSize > 0 {
-		return true
-	}
-	return false
+	// Kernel commit 89527be8d8d6 ("net: add IFLA_TSO_{MAX_SIZE|SEGS} attributes").
+	// Patch 01/13 of the series "tcp: BIG TCP implementation".
+	return link.Attrs().TSOMaxSize > 0
 }
 
 func probeTSOMaxSize(log *slog.Logger, devices []string) int {
@@ -247,8 +249,8 @@ func startBIGTCP(p params, cfg *Configuration) error {
 		return nil
 	}
 
-	haveIPv4 := haveIPv4MaxSize()
-	haveIPv6 := haveIPv6MaxSize()
+	haveIPv4 := supportsBIGTCPIPv4(p.Log)
+	haveIPv6 := supportsBIGTCPIPv6(p.Log)
 
 	if !haveIPv4 {
 		if p.UserConfig.EnableIPv4BIGTCP {
