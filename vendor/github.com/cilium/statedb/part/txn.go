@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sync/atomic"
 )
 
 // Txn is a transaction against a tree. It allows doing efficient
@@ -16,17 +17,21 @@ type Txn[T any] struct {
 	root      *header[T]
 	oldRoot   *header[T]
 	rootWatch chan struct{}
+	prevTxn   *atomic.Pointer[Txn[T]]
 
 	dirty bool
 
 	opts options
-	size int // the number of objects in the tree
 
-	// mutated is the set of nodes mutated in this transaction
-	// that we can keep mutating without cloning them again.
-	// It is cleared if the transaction is cloned or iterated
-	// upon.
-	mutated *nodeMutated[T]
+	// the number of objects in the tree
+	size int
+
+	// txnID is a monotonically increasing integer that is assigned when the Txn
+	// is created from a [Tree] and is used to detect whether a node has been
+	// cloned during this transaction or not to allow mutating it in place.
+	// txnID is also incremented when returning an iterator in order to not
+	// mutate the tree used by the iterator as that would mess up iteration.
+	txnID uint64
 
 	// watches contains the channels of cloned nodes that should be closed
 	// when transaction is committed.
@@ -42,17 +47,25 @@ func (txn *Txn[T]) Len() int {
 	return txn.size
 }
 
+func (txn *Txn[T]) All(yield func([]byte, T) bool) {
+	// Bump txnID in order to freeze the current tree.
+	txn.txnID++
+	Iterator[T]{start: txn.root}.All(yield)
+}
+
 // Clone returns a clone of the transaction for reading. The clone is unaffected
 // by any future changes done with the original transaction.
-func (txn *Txn[T]) Clone() Ops[T] {
-	// Clear the mutated nodes so that the returned clone won't be changed by
+func (txn *Txn[T]) Clone() Tree[T] {
+	// Invalidate in-place mutations so the returned clone won't be changed by
 	// further modifications in this transaction.
-	txn.mutated.clear()
-	return &Tree[T]{
+	txn.txnID++
+	return Tree[T]{
 		opts:      txn.opts,
 		root:      txn.root,
 		rootWatch: txn.rootWatch,
 		size:      txn.size,
+		prevTxn:   txn.prevTxn,
+		nextTxnID: txn.txnID,
 	}
 }
 
@@ -68,7 +81,7 @@ func (txn *Txn[T]) Insert(key []byte, value T) (old T, hadOld bool) {
 // key changes again.
 func (txn *Txn[T]) InsertWatch(key []byte, value T) (old T, hadOld bool, watch <-chan struct{}) {
 	old, hadOld, watch, txn.root = txn.insert(txn.root, key, value)
-	validateTree(txn.root, nil, txn.watches)
+	validateTree(txn.root, nil, txn.watches, txn.txnID)
 	if !hadOld {
 		txn.size++
 	}
@@ -78,12 +91,11 @@ func (txn *Txn[T]) InsertWatch(key []byte, value T) (old T, hadOld bool, watch <
 	return
 }
 
-// Modify a value in the tree. If the key does not exist the modify
-// function is called with the zero value for T. It is up to the
+// Modify a value in the tree. It is up to the
 // caller to not mutate the value in-place and to return a clone.
 // Returns the old value if it exists.
-func (txn *Txn[T]) Modify(key []byte, mod func(T) T) (old T, hadOld bool) {
-	old, hadOld, _ = txn.ModifyWatch(key, mod)
+func (txn *Txn[T]) Modify(key []byte, value T, mod func(T, T) T) (old T, hadOld bool) {
+	old, hadOld, _ = txn.ModifyWatch(key, value, mod)
 	return
 }
 
@@ -92,9 +104,9 @@ func (txn *Txn[T]) Modify(key []byte, mod func(T) T) (old T, hadOld bool) {
 // caller to not mutate the value in-place and to return a clone.
 // Returns the old value if it exists and a watch channel that closes
 // when the key changes again.
-func (txn *Txn[T]) ModifyWatch(key []byte, mod func(T) T) (old T, hadOld bool, watch <-chan struct{}) {
-	old, hadOld, watch, txn.root = txn.modify(txn.root, key, mod)
-	validateTree(txn.root, nil, txn.watches)
+func (txn *Txn[T]) ModifyWatch(key []byte, value T, mod func(T, T) T) (old T, hadOld bool, watch <-chan struct{}) {
+	old, hadOld, watch, txn.root = txn.modify(txn.root, key, value, mod)
+	validateTree(txn.root, nil, txn.watches, txn.txnID)
 	if !hadOld {
 		txn.size++
 	}
@@ -108,7 +120,7 @@ func (txn *Txn[T]) ModifyWatch(key []byte, mod func(T) T) (old T, hadOld bool, w
 // Returns the old value if it exists.
 func (txn *Txn[T]) Delete(key []byte) (old T, hadOld bool) {
 	old, hadOld, txn.root = txn.delete(txn.root, key)
-	validateTree(txn.root, nil, txn.watches)
+	validateTree(txn.root, nil, txn.watches, txn.txnID)
 	if hadOld {
 		txn.size--
 	}
@@ -134,27 +146,30 @@ func (txn *Txn[T]) Get(key []byte) (T, <-chan struct{}, bool) {
 // Prefix returns an iterator for all objects that starts with the
 // given prefix, and a channel that closes when any objects matching
 // the given prefix are upserted or deleted.
-func (txn *Txn[T]) Prefix(key []byte) (*Iterator[T], <-chan struct{}) {
-	txn.mutated.clear()
+func (txn *Txn[T]) Prefix(key []byte) (Iterator[T], <-chan struct{}) {
+	// Bump txnID in order to freeze the current tree.
+	txn.txnID++
 	return prefixSearch(txn.root, txn.rootWatch, key)
 }
 
 // LowerBound returns an iterator for all objects that have a
 // key equal or higher than the given 'key'.
-func (txn *Txn[T]) LowerBound(key []byte) *Iterator[T] {
-	txn.mutated.clear()
+func (txn *Txn[T]) LowerBound(key []byte) Iterator[T] {
+	// Bump txnID in order to freeze the current tree.
+	txn.txnID++
 	return lowerbound(txn.root, key)
 }
 
 // Iterator returns an iterator for all objects.
-func (txn *Txn[T]) Iterator() *Iterator[T] {
-	txn.mutated.clear()
+func (txn *Txn[T]) Iterator() Iterator[T] {
+	// Bump txnID in order to freeze the current tree.
+	txn.txnID++
 	return newIterator(txn.root)
 }
 
 // CommitAndNotify commits the transaction and notifies by
 // closing the watch channels of all modified nodes.
-func (txn *Txn[T]) CommitAndNotify() *Tree[T] {
+func (txn *Txn[T]) CommitAndNotify() Tree[T] {
 	txn.Notify()
 	return txn.Commit()
 }
@@ -163,20 +178,22 @@ func (txn *Txn[T]) CommitAndNotify() *Tree[T] {
 // watch channels. Returns the new tree.
 // To close the watch channels call Notify(). You must call Notify() before
 // Tree.Txn().
-func (txn *Txn[T]) Commit() *Tree[T] {
+func (txn *Txn[T]) Commit() Tree[T] {
 	newRootWatch := txn.rootWatch
 	if txn.dirty {
 		newRootWatch = make(chan struct{})
-		validateTree(txn.oldRoot, nil, nil)
-		validateTree(txn.root, nil, txn.watches)
+		validateTree(txn.oldRoot, nil, nil, txn.txnID)
+		validateTree(txn.root, nil, txn.watches, txn.txnID)
 	}
-	t := &Tree[T]{
+	txn.txnID++
+	t := Tree[T]{
 		opts:      txn.opts,
 		root:      txn.root,
 		rootWatch: newRootWatch,
 		size:      txn.size,
+		prevTxn:   txn.prevTxn,
+		nextTxnID: txn.txnID,
 	}
-	txn.mutated.clear()
 	// Store this txn in the tree to reuse the allocation next time.
 	t.prevTxn.Store(txn)
 	return t
@@ -213,34 +230,36 @@ func (txn *Txn[T]) PrintTree() {
 }
 
 func (txn *Txn[T]) cloneNode(n *header[T]) *header[T] {
-	if txn.mutated.exists(n) {
+	if n.txnID() == txn.txnID {
+		// The node was already cloned during this transaction and can
+		// be mutated in-place.
 		return n
 	}
 	if n.watch != nil {
 		txn.watches[n.watch] = struct{}{}
 	}
 	n = n.clone(!txn.opts.rootOnlyWatch())
-	txn.mutated.set(n)
+	n.setTxnID(txn.txnID)
 	return n
 }
 
 func (txn *Txn[T]) insert(root *header[T], key []byte, value T) (oldValue T, hadOld bool, watch <-chan struct{}, newRoot *header[T]) {
-	return txn.modify(root, key, func(_ T) T { return value })
+	return txn.modify(root, key, value, nil)
 }
 
-func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue T, hadOld bool, watch <-chan struct{}, newRoot *header[T]) {
+func (txn *Txn[T]) modify(root *header[T], key []byte, newValue T, mod func(T, T) T) (oldValue T, hadOld bool, watch <-chan struct{}, newRoot *header[T]) {
 	txn.dirty = true
 	fullKey := key
 
 	if root == nil {
-		var zero T
-		leaf := newLeaf(txn.opts, key, fullKey, mod(zero))
-		return zero, false, leaf.watch, leaf.self()
+		leaf := newLeaf(txn.opts, key, fullKey, newValue)
+		return oldValue, false, leaf.watch, leaf.self()
 	}
 
 	// Start recursing from the root to find the insertion point.
 	// Point [thisp] to the root we're returning. It'll be replaced by a clone of the root when we recurse into it.
 	this := root
+	newRoot = root
 	thisp := &newRoot
 
 	// Try to insert the key into the tree. If we find a free slot into which to insert
@@ -264,14 +283,12 @@ func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue 
 				if this.watch != nil {
 					txn.watches[this.watch] = struct{}{}
 				}
-				this = this.promote()
-				txn.mutated.set(this)
+				this = this.promote(txn.txnID)
 			} else {
 				// Node is big enough, clone it so we can mutate it
 				this = txn.cloneNode(this)
 			}
-			var zero T
-			leaf := newLeaf(txn.opts, key, fullKey, mod(zero))
+			leaf := newLeaf(txn.opts, key, fullKey, newValue)
 			this.insert(idx, leaf.self())
 			*thisp = this
 			watch = leaf.watch
@@ -305,11 +322,14 @@ func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue 
 				this.setLeaf(leaf)
 			}
 			watch = leaf.watch
-			leaf.value = mod(oldValue)
+			if mod != nil {
+				leaf.value = mod(oldValue, newValue)
+			} else {
+				leaf.value = newValue
+			}
 		} else {
 			// Set the leaf
-			var zero T
-			leaf := newLeaf(txn.opts, this.prefix(), fullKey, mod(zero))
+			leaf := newLeaf(txn.opts, this.prefix(), fullKey, newValue)
 			watch = leaf.watch
 			this.setLeaf(leaf)
 		}
@@ -330,10 +350,10 @@ func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue 
 	this.setPrefix(this.prefix()[len(common):])
 	key = key[len(common):]
 
-	var zero T
-	newLeaf := newLeaf(txn.opts, key, fullKey, mod(zero))
+	newLeaf := newLeaf(txn.opts, key, fullKey, newValue)
 	watch = newLeaf.watch
 	newNode := &node4[T]{}
+	newNode.txnID = txn.txnID
 	newNode.setPrefix(common)
 	newNode.setKind(nodeKind4)
 	if !txn.opts.rootOnlyWatch() {
@@ -371,7 +391,6 @@ func (txn *Txn[T]) modify(root *header[T], key []byte, mod func(T) T) (oldValue 
 		newNode.setSize(2)
 	}
 	*thisp = newNode.self()
-	txn.mutated.set(newNode.self())
 
 	return
 }
@@ -395,6 +414,7 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 		txn.deleteParentsCache = make([]deleteParent[T], 0, 32)
 	}
 	parents := txn.deleteParentsCache[:1] // Placeholder for root
+	parents[0].node = root
 
 	newRoot = root
 	target := root
@@ -429,7 +449,7 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 	oldValue = leaf.value
 	hadOld = true
 
-	// Mark the watch channel of the target for closing if not mutated already.
+	// Mark the watch channel of the target for closing.
 	if leaf.watch != nil {
 		txn.watches[leaf.watch] = struct{}{}
 	}
@@ -462,10 +482,11 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 	}
 
 	// The target was found, rebuild the tree from the leaf upwards to the root.
-	parents[0].node = root
 	index := len(parents) - 1
 	this := &parents[index]
 	parent := &parents[index-1]
+	index--
+	oldParent := parent.node
 	if this.node.size() == 1 {
 		// The target node is not a leaf node and has only a single
 		// child. Shift the child up.
@@ -493,18 +514,34 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 		}
 		parent.node = txn.removeChild(parent.node, this.index)
 	}
-	index--
+
+	if parent.node == oldParent && parent.node.txnID() == txn.txnID {
+		// The parent had already been cloned during this transaction so no need to
+		// rebuild the root as we're already pointing to new nodes.
+		newRoot = parents[0].node
+		return
+	}
 
 	// Update the child pointers all the way up to the root.
 	for index > 0 {
 		parent = &parents[index-1]
 		this = &parents[index]
+		oldParent = parent.node
 		if this.node == nil {
 			// Node is gone, can remove it completely.
 			parent.node = txn.removeChild(parent.node, this.index)
 		} else {
-			parent.node = txn.cloneNode(parent.node)
-			parent.node.children()[this.index] = this.node
+			children := parent.node.children()
+			if children[this.index] != this.node {
+				parent.node = txn.cloneNode(parent.node)
+				parent.node.children()[this.index] = this.node
+			}
+		}
+		if parent.node == oldParent && parent.node.txnID() == txn.txnID {
+			// The parent had already been cloned during this transaction so no need to
+			// rebuild the root as we're already pointing to new nodes.
+			newRoot = parents[0].node
+			return
 		}
 		index--
 	}
@@ -533,7 +570,7 @@ func (txn *Txn[T]) removeChild(parent *header[T], index int) (newParent *header[
 
 		child := parent.node4().children[remainingIndex]
 		// Clone for prefix adjustment, but leave watch alone.
-		// The node must not be marked as mutated since we didn't clone
+		// The node must not be treated as writable since we didn't clone
 		// the watch.
 		childClone := child.clone(false)
 		childClone.watch = child.watch
@@ -547,6 +584,7 @@ func (txn *Txn[T]) removeChild(parent *header[T], index int) (newParent *header[
 		}
 		demoted.setKind(nodeKind48)
 		demoted.setSize(size - 1)
+		demoted.setTxnID(txn.txnID)
 		n48 := demoted.node48()
 		n48.leaf = parent.getLeaf()
 		children := n48.children[:0]
@@ -564,6 +602,7 @@ func (txn *Txn[T]) removeChild(parent *header[T], index int) (newParent *header[
 		}
 		demoted.setKind(nodeKind16)
 		demoted.setSize(size - 1)
+		demoted.setTxnID(txn.txnID)
 		n16 := demoted.node16()
 		n16.leaf = parent.getLeaf()
 		idx := 0
@@ -582,6 +621,7 @@ func (txn *Txn[T]) removeChild(parent *header[T], index int) (newParent *header[
 		}
 		demoted.setKind(nodeKind4)
 		demoted.setSize(size - 1)
+		demoted.setTxnID(txn.txnID)
 		n16 := parent.node16()
 		n4 := demoted.node4()
 		n4.leaf = n16.leaf
@@ -602,15 +642,14 @@ func (txn *Txn[T]) removeChild(parent *header[T], index int) (newParent *header[
 	if parent.watch != nil {
 		txn.watches[parent.watch] = struct{}{}
 	}
-	txn.mutated.set(newParent)
 	return newParent
 }
 
-var runValidation = os.Getenv("PART_VALIDATE") != ""
+var runValidation = os.Getenv("STATEDB_VALIDATE") != ""
 
 // validateTree checks that the resulting tree is well-formed and panics
 // if it is not.
-func validateTree[T any](node *header[T], parents []*header[T], watches map[chan struct{}]struct{}) {
+func validateTree[T any](node *header[T], parents []*header[T], watches map[chan struct{}]struct{}, maxTxnID uint64) {
 	if !runValidation {
 		return
 	}
@@ -645,6 +684,19 @@ func validateTree[T any](node *header[T], parents []*header[T], watches map[chan
 				assert(found, "node's watch channel not marked for closing when leaf is")
 			}
 		}
+	}
+
+	// txnID must never exceed the max seen in this transaction.
+	if maxTxnID > 0 {
+		nodeTxnID := node.txnID()
+		assert(nodeTxnID <= maxTxnID, "node txnID %d exceeds max %d", nodeTxnID, maxTxnID)
+	}
+
+	if len(parents) > 0 {
+		parent := parents[len(parents)-1]
+		parentTxnID := parent.txnID()
+		nodeTxnID := node.txnID()
+		assert(parentTxnID >= nodeTxnID, "parent txnID %d < child txnID %d", parentTxnID, nodeTxnID)
 	}
 
 	// Nodes without a leaf must have size 2 or greater.
@@ -697,7 +749,7 @@ func validateTree[T any](node *header[T], parents []*header[T], watches map[chan
 
 	for _, child := range node.children() {
 		if child != nil {
-			validateTree(child, parents, watches)
+			validateTree(child, parents, watches, maxTxnID)
 		}
 	}
 }

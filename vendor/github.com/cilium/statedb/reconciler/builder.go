@@ -78,6 +78,7 @@ func Register[Obj comparable](
 		retries:              newRetries(cfg.RetryBackoffMinDuration, cfg.RetryBackoffMaxDuration, objectToKey),
 		externalPruneTrigger: make(chan struct{}, 1),
 		primaryIndexer:       idx,
+		progress:             newProgressTracker(),
 	}
 
 	params.JobGroup.Add(job.OneShot("reconcile", r.reconcileLoop))

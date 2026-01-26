@@ -331,9 +331,7 @@ func newNeighborRefresher(
 				// reconciler to refresh them.
 				tx := db.WriteTxn(desiredNeighbors)
 				for _, neighbor := range toRefresh {
-					_, _, err := desiredNeighbors.Modify(tx, neighbor, func(old, new *DesiredNeighbor) *DesiredNeighbor {
-						return new.SetStatus(reconciler.StatusRefreshing())
-					})
+					_, _, err := desiredNeighbors.Insert(tx, neighbor.SetStatus(reconciler.StatusRefreshing()))
 					errs = errors.Join(errs, err)
 				}
 				tx.Commit()
