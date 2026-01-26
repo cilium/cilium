@@ -5,6 +5,7 @@ Alibaba
 Aquantia
 Attestor
 Bertin
+Beyla
 Blanco
 Borkmann
 Brenden
@@ -159,9 +160,9 @@ allocatable
 allocateLoadBalancerNodePorts
 allocator
 allocators
+allowRemoteNodeIdentities
 allowedConfigOverrides
 allowlist
-allowRemoteNodeIdentities
 amd
 ansible
 api

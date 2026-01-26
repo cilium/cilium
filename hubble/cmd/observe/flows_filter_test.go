@@ -1178,6 +1178,55 @@ func TestIpTraceId(t *testing.T) {
 	}
 }
 
+func TestIpTraceOption(t *testing.T) {
+	tt := []struct {
+		name    string
+		flags   []string
+		filters []*flowpb.FlowFilter
+		err     string
+	}{
+		{
+			name:    "error",
+			flags:   []string{"--ip-trace-option", "foo"},
+			filters: []*flowpb.FlowFilter{},
+			err:     "invalid --ip-trace-option value",
+		},
+		{
+			name:  "single",
+			flags: []string{"--ip-trace-option", "100"},
+			filters: []*flowpb.FlowFilter{
+				{IpTraceOption: []uint32{100}},
+			},
+		},
+		{
+			name:  "multiple",
+			flags: []string{"--ip-trace-option", "100", "--ip-trace-option", "200"},
+			filters: []*flowpb.FlowFilter{
+				{IpTraceOption: []uint32{100, 200}},
+			},
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFlowFilter()
+			cmd := newFlowsCmdWithFilter(viper.New(), f)
+			err := cmd.Flags().Parse(tc.flags)
+			if tc.err != "" {
+				require.ErrorContains(t, err, tc.err)
+				return
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Nil(t, f.blacklist)
+			got := f.whitelist.flowFilters()
+			diff := cmp.Diff(tc.filters, got, cmpopts.IgnoreUnexported(flowpb.FlowFilter{}))
+			if diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestCELExpression(t *testing.T) {
 	tt := []struct {
 		name    string

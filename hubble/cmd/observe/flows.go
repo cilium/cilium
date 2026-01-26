@@ -427,6 +427,10 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 		"Show only flows which match this IP trace ID"))
 
 	filterFlags.Var(filterVar(
+		"ip-trace-option", ofilter,
+		"Show only flows which match this IP trace option type"))
+
+	filterFlags.Var(filterVar(
 		"from-fqdn", ofilter,
 		`Show all flows originating at the given fully qualified domain name (e.g. "*.cilium.io").`))
 	filterFlags.Var(filterVar(

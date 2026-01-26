@@ -85,6 +85,83 @@ func TestIPTraceIDFilter(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "option_match",
+			f: []*flowpb.FlowFilter{
+				{IpTraceOption: []uint32{100}},
+			},
+			ev: &v1.Event{
+				Event: &flowpb.Flow{
+					IpTraceId: &flowpb.IPTraceID{
+						TraceId:      123,
+						IpOptionType: 100,
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "option_mismatch",
+			f: []*flowpb.FlowFilter{
+				{IpTraceOption: []uint32{100}},
+			},
+			ev: &v1.Event{
+				Event: &flowpb.Flow{
+					IpTraceId: &flowpb.IPTraceID{
+						TraceId:      123,
+						IpOptionType: 200,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "option_match_but_no_trace_id",
+			f: []*flowpb.FlowFilter{
+				{IpTraceOption: []uint32{100}},
+			},
+			ev: &v1.Event{
+				Event: &flowpb.Flow{
+					IpTraceId: &flowpb.IPTraceID{
+						IpOptionType: 100,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "option_match_trace_id_zero",
+			f: []*flowpb.FlowFilter{
+				{IpTraceOption: []uint32{100}},
+			},
+			ev: &v1.Event{
+				Event: &flowpb.Flow{
+					IpTraceId: &flowpb.IPTraceID{
+						TraceId:      0,
+						IpOptionType: 100,
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "option_and_id_match",
+			f: []*flowpb.FlowFilter{
+				{
+					IpTraceId:     []uint64{123},
+					IpTraceOption: []uint32{100},
+				},
+			},
+			ev: &v1.Event{
+				Event: &flowpb.Flow{
+					IpTraceId: &flowpb.IPTraceID{
+						TraceId:      123,
+						IpOptionType: 100,
+					},
+				},
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

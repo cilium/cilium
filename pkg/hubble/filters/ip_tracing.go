@@ -18,6 +18,17 @@ func filterByIPTraceID(tids []uint64) FilterFunc {
 	}
 }
 
+func filterByIPTraceOption(options []uint32) FilterFunc {
+	return func(ev *v1.Event) bool {
+		tid := ev.GetFlow().GetIpTraceId()
+		if tid == nil || tid.GetTraceId() == 0 {
+			return false
+		}
+		opt := tid.GetIpOptionType()
+		return slices.Contains(options, opt)
+	}
+}
+
 // TraceIDFilter implements filtering based on IP trace IDs.
 type IPTraceIDFilter struct{}
 
@@ -26,6 +37,9 @@ func (t *IPTraceIDFilter) OnBuildFilter(_ context.Context, ff *flowpb.FlowFilter
 	var fs []FilterFunc
 	if ids := ff.GetIpTraceId(); len(ids) > 0 {
 		fs = append(fs, filterByIPTraceID(ids))
+	}
+	if opts := ff.GetIpTraceOption(); len(opts) > 0 {
+		fs = append(fs, filterByIPTraceOption(opts))
 	}
 	return fs, nil
 }

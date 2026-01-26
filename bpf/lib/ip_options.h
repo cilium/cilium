@@ -3,23 +3,8 @@
 
 #include "common.h"
 
-/* Length of the initial supported IPv4 trace_id option (4 bytes).
- * IPv4 IP options consist of 2 fixed bytes for the type and length,
- * followed by a variable-length data field. An option length of 4 bytes
- * indicates 2 fixed bytes for the type and length fields, and 2 bytes of
- * ip_trace_id data.
- */
-#define OPT16_LEN 4
-
-/* Length of the second supported IPv4 trace_id option (6 bytes).
- * Indicates 4 bytes of ip_trace_id data.
- */
-#define OPT32_LEN 6
-
-/* Length of the third supported IPv4 trace_id option (10 bytes).
- * Indicates 8 bytes of ip_trace_id data.
- */
-#define OPT64_LEN 10
+/* Max supported payload for our current storage (u64) */
+#define MAX_TRACE_ID_SIZE 8
 
 /* Maximum number of IPv4 options to process. */
 #define MAX_IPV4_OPTS 3
@@ -76,66 +61,61 @@ trace_id_from_ip4(struct __ctx_buff *ctx, __s64 *value,
 
 #pragma unroll(MAX_IPV4_OPTS)
 	for (i = 0; i < MAX_IPV4_OPTS && offset < end; i++) {
-		/* We load the option header 1 field at a time since different types
-		 * have different formats.
-		 *
-		 * "Options 0 and 1 are exactly one octet which is their type field. All
-		 * other options have their one octet type field, followed by a one
-		 * octet length field, followed by length-2 octets of option data."
-		 *
-		 * Ref: https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
-		 */
-
+		/* 1. Load Option Type */
 		if (ctx_load_bytes(ctx, offset, &opt_type, 1) < 0)
 			return TRACE_ID_ERROR;
 
-		if (opt_type == IPOPT_END)
-			break;
-
+		if (opt_type == IPOPT_END) break;
 		if (opt_type == IPOPT_NOOP) {
 			offset++;
 			continue;
 		}
 
+		/* 2. Load Option Length */
 		if (ctx_load_bytes(ctx, offset + 1, &optlen, 1) < 0)
 			return TRACE_ID_ERROR;
+
+		/* Standard sanity check: Length includes Type(1) + Len(1) = 2 bytes min */
+		if (optlen < 2)
+			return TRACE_ID_INVALID;
 
 		if (opt_type != trace_ip_opt_type) {
 			offset += optlen;
 			continue;
 		}
 
-		if (optlen != OPT16_LEN && optlen != OPT32_LEN && optlen != OPT64_LEN)
-			return TRACE_ID_INVALID;
+		/* Calculate actual payload size */
+		__u8 payload_len = optlen - 2;
 
-		switch (optlen) {
-			case OPT16_LEN: {
-				__s16 temp;
-
-				if (ctx_load_bytes(ctx, offset + 2, &temp, sizeof(temp)) < 0)
-					return TRACE_ID_ERROR;
-				*value = bpf_ntohs(temp);
-				return 0;
-			}
-			case OPT32_LEN: {
-				__s32 temp;
-
-				if (ctx_load_bytes(ctx, offset + 2, &temp, sizeof(temp)) < 0)
-					return TRACE_ID_ERROR;
-				*value = bpf_ntohl(temp);
-				return 0;
-			}
-			case OPT64_LEN: {
-				__s64 temp;
-
-				if (ctx_load_bytes(ctx, offset + 2, &temp, sizeof(temp)) < 0)
-					return TRACE_ID_ERROR;
-				*value = __bpf_be64_to_cpu(temp);
-				return 0;
-			}
-		default:
-			return TRACE_ID_UNSUPPORTED_LENGTH_ERROR;
+		/* If payload is 0, we found the tag but it's empty. Return 0. */
+		if (payload_len == 0) {
+			*value = 0;
+			return 0;
 		}
+
+		__u8 read_len = payload_len;
+
+		if (read_len > MAX_TRACE_ID_SIZE)
+			read_len = MAX_TRACE_ID_SIZE;
+
+		__u64 accumulator = 0;
+
+		#pragma unroll
+		for (int j = 0; j < MAX_TRACE_ID_SIZE; j++) {
+			if (j < read_len) {
+				__u8 byte;
+				/* Load byte: offset + Type(1) + Len(1) + Index(j) */
+				if (ctx_load_bytes(ctx, offset + 2 + j, &byte, 1) < 0)
+					return TRACE_ID_ERROR;
+
+				/* Shift left and add new byte (Big Endian construction) */
+				accumulator = (accumulator << 8) | byte;
+			}
+		}
+
+		/* Cast back to __s64 as required by the function signature */
+		*value = (__s64)accumulator;
+		return 0;
 	}
 	return TRACE_ID_NOT_FOUND;
 }

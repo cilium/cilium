@@ -527,6 +527,15 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 			f.IpTraceId = append(f.GetIpTraceId(), traceID)
 		})
 
+	case "ip-trace-option":
+		opt, err := strconv.ParseUint(val, 10, 32)
+		if err != nil {
+			return fmt.Errorf("invalid --ip-trace-option value: %w", err)
+		}
+		f.apply(func(f *flowpb.FlowFilter) {
+			f.IpTraceOption = append(f.GetIpTraceOption(), uint32(opt))
+		})
+
 	case "verdict":
 		if wipe {
 			f.apply(func(f *flowpb.FlowFilter) {
