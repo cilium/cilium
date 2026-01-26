@@ -2732,13 +2732,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 					continue
 				}
 
-				// Skip IP addresses of families which are not enabled in Cilium
-				addrFamily := features.GetIPFamily(addr.Address)
-				if (addrFamily == features.IPFamilyV4 && !ct.Features[features.IPv4].Enabled) ||
-					(addrFamily == features.IPFamilyV6 && !ct.Features[features.IPv6].Enabled) {
-					continue
-				}
-
 				for _, s := range ct.echoServices {
 					if err := WaitForNodePorts(ctx, ct, *client, addr.Address, s); err != nil {
 						return err
