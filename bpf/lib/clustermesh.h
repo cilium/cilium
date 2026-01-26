@@ -2,17 +2,9 @@
 
 #pragma once
 
+#include <bpf/config/node.h>
+
 #include "lib/utils.h"
-
-NODE_CONFIG(__u32, cluster_id, "Cluster ID")
-
-/* Allow to override the assigned value in tests */
-#ifndef DEFAULT_CLUSTER_ID_BITS
-#define DEFAULT_CLUSTER_ID_BITS 8
-#endif
-
-NODE_CONFIG(__u32, cluster_id_bits, "Number of bits of the identity reserved for the Cluster ID")
-ASSIGN_CONFIG(__u32, cluster_id_bits, DEFAULT_CLUSTER_ID_BITS)
 
 /*
  * Non node-local identity is 24 bits total. cluster_id_bits selects how many
