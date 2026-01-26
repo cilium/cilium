@@ -1786,6 +1786,10 @@ func init() {
             "$ref": "#/definitions/BgpCapabilities"
           }
         },
+        "name": {
+          "description": "Name of peer",
+          "type": "string"
+        },
         "peer-address": {
           "description": "IP Address of peer",
           "type": "string"
@@ -7098,6 +7102,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/BgpCapabilities"
           }
+        },
+        "name": {
+          "description": "Name of peer",
+          "type": "string"
         },
         "peer-address": {
           "description": "IP Address of peer",

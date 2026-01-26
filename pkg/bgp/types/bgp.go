@@ -66,6 +66,7 @@ type Path struct {
 // of GoBGP's Peer object, but only contains minimal fields required for Cilium
 // usecases.
 type Neighbor struct {
+	Name            string
 	Address         netip.Addr
 	ASN             uint32
 	AuthPassword    string

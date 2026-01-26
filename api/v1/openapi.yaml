@@ -3608,6 +3608,9 @@ definitions:
 
       +k8s:deepcopy-gen=true
     properties:
+      name:
+        description: Name of peer
+        type: string
       local-asn:
         description: Local AS Number
         type: integer
