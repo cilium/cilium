@@ -47,7 +47,6 @@ var (
 	}
 
 	specTraceNotify = Option{
-		Define:      "TRACE_NOTIFY",
 		Description: "Enable trace notifications",
 	}
 
