@@ -373,6 +373,9 @@ General Notes
   ``-use-default-field-mask`` (now ``true`` by default).
 * Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
   (previously this was a RHEL8.6-compatible kernel).
+* The Cilium datapath will now drop TCP/UDP traffic towards a LoadBalancer or
+  ClusterIP allocated by LB-IPAM in the north-south direction if the destination
+  port does not match a provisioned service.
 
 Cluster Mesh
 ############
