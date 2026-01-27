@@ -2375,7 +2375,7 @@
    * - :spelling:ignore:`hubble.relay.securityContext`
      - hubble-relay container security context
      - object
-     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532,"seccompProfile":{"type":"RuntimeDefault"}}``
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532,"seccompProfile":{"type":"RuntimeDefault"}}``
    * - :spelling:ignore:`hubble.relay.service`
      - hubble-relay service configuration.
      - object
