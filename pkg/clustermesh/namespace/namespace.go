@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/cell"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -87,4 +88,17 @@ func (m *manager) IsGlobalNamespaceByName(ns string) (bool, error) {
 		return false, fmt.Errorf("namespace %s does not exist in store", ns)
 	}
 	return m.IsGlobalNamespaceByObject(obj), nil
+}
+
+// IsGlobalNamespace determines whether the given namespace should be treated as a global
+// namespace based on its annotations and the provided default value.
+func IsGlobalNamespace(ns *corev1.Namespace, globalByDefault bool) bool {
+	if ns == nil {
+		return false
+	}
+	annotations := ns.GetAnnotations()
+	if value, ok := annotations[annotation.GlobalNamespace]; ok {
+		return strings.ToLower(value) == "true"
+	}
+	return globalByDefault
 }

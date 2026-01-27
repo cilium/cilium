@@ -29,9 +29,20 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+)
+
+const (
+	// ServiceExportReasonNamespaceNotGlobal is used with the "Valid" condition
+	// when the namespace is not marked as global for clustermesh.
+	ServiceExportReasonNamespaceNotGlobal mcsapiv1alpha1.ServiceExportConditionReason = "NamespaceNotGlobal"
+
+	// ServiceImportReasonNamespaceNotGlobal is used with the "Ready" condition
+	// when the namespace is not marked as global for clustermesh.
+	ServiceImportReasonNamespaceNotGlobal mcsapiv1alpha1.ServiceImportConditionReason = "NamespaceNotGlobal"
 )
 
 // mcsAPIServiceImportReconciler is a controller that automatically creates
@@ -48,9 +59,11 @@ type mcsAPIServiceImportReconciler struct {
 
 	enableIPv4 bool
 	enableIPv6 bool
+
+	namespaceConfig cmnamespace.Config
 }
 
-func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, enableIPv4, enableIPv6 bool) *mcsAPIServiceImportReconciler {
+func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, cluster string, globalServiceExports *operator.GlobalServiceExportCache, remoteClusterServiceSource *remoteClusterServiceExportSource, enableIPv4, enableIPv6 bool, namespaceConfig cmnamespace.Config) *mcsAPIServiceImportReconciler {
 	return &mcsAPIServiceImportReconciler{
 		Client:                     mgr.GetClient(),
 		Logger:                     logger,
@@ -59,6 +72,7 @@ func newMCSAPIServiceImportReconciler(mgr ctrl.Manager, logger *slog.Logger, clu
 		remoteClusterServiceSource: remoteClusterServiceSource,
 		enableIPv4:                 enableIPv4,
 		enableIPv6:                 enableIPv6,
+		namespaceConfig:            namespaceConfig,
 	}
 }
 
@@ -94,14 +108,18 @@ func (r *mcsAPIServiceImportReconciler) getLocalService(ctx context.Context, req
 	return &svc, nil
 }
 
-func (r *mcsAPIServiceImportReconciler) doesNamespaceExist(ctx context.Context, req ctrl.Request) (bool, error) {
+func (r *mcsAPIServiceImportReconciler) getNamespace(ctx context.Context, name string) (*corev1.Namespace, error) {
 	var ns corev1.Namespace
-	key := types.NamespacedName{Name: req.Namespace}
+	key := types.NamespacedName{Name: name}
 
 	if err := r.Client.Get(ctx, key, &ns); err != nil {
-		return false, client.IgnoreNotFound(err)
+		return nil, client.IgnoreNotFound(err)
 	}
-	return true, nil
+	return &ns, nil
+}
+
+func (r *mcsAPIServiceImportReconciler) isNamespaceGlobal(ns *corev1.Namespace) bool {
+	return cmnamespace.IsGlobalNamespace(ns, r.namespaceConfig.GlobalNamespacesByDefault)
 }
 
 func fromServiceToMCSAPIServiceSpec(svc *corev1.Service, cluster string, svcExport *mcsapiv1alpha1.ServiceExport) *mcsapitypes.MCSAPIServiceSpec {
@@ -509,11 +527,11 @@ func checkLocalSlimSvcValidForExport(localSvc *slim_corev1.Service) bool {
 }
 
 func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	nsExists, err := r.doesNamespaceExist(ctx, req)
+	ns, err := r.getNamespace(ctx, req.Namespace)
 	if err != nil {
 		return controllerruntime.Fail(err)
 	}
-	if !nsExists {
+	if ns == nil {
 		return controllerruntime.Success()
 	}
 
@@ -526,7 +544,23 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 		return controllerruntime.Fail(err)
 	}
 
+	isGlobal := r.isNamespaceGlobal(ns)
+
+	if !isGlobal && svcExport != nil {
+		if setInvalidStatus(
+			&svcExport.Status.Conditions,
+			ServiceExportReasonNamespaceNotGlobal,
+			"Namespace is not global, Service cannot be exported",
+		) {
+			if err := r.Client.Status().Update(ctx, svcExport); err != nil {
+				return controllerruntime.Fail(err)
+			}
+		}
+		svcExport = nil
+	}
+
 	svcExportByCluster := r.globalServiceExports.GetServiceExportByCluster(req.NamespacedName)
+
 	if len(svcExportByCluster) == 0 && svcExport == nil {
 		if svcImportExists {
 			return controllerruntime.Fail(r.Client.Delete(ctx, svcImport))
@@ -657,7 +691,14 @@ func (r *mcsAPIServiceImportReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	svcImportStatusOriginal := svcImport.Status.DeepCopy()
 	svcImport.Status.Clusters = getClustersStatus(svcExportByCluster)
-	if len(supportedIPFamilies) == 0 {
+	if !isGlobal {
+		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
+			mcsapiv1alpha1.ServiceImportConditionReady,
+			metav1.ConditionFalse,
+			ServiceImportReasonNamespaceNotGlobal,
+			"Namespace is not global, service cannot be imported",
+		))
+	} else if len(supportedIPFamilies) == 0 {
 		meta.SetStatusCondition(&svcImport.Status.Conditions, mcsapiv1alpha1.NewServiceImportCondition(
 			mcsapiv1alpha1.ServiceImportConditionReady,
 			metav1.ConditionFalse,
@@ -718,14 +759,55 @@ func (r *mcsAPIServiceImportReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Watches(&mcsapiv1alpha1.ServiceExport{}, &handler.EnqueueRequestForObject{}).
 		// Watch for changes to Services
 		Watches(&corev1.Service{}, &handler.EnqueueRequestForObject{}).
-		// Watch for changes to Namespace to requeue remote service exports
+		// Watch for changes to Namespace to requeue service imports and exports
 		Watches(&corev1.Namespace{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []ctrl.Request {
 			requests := []ctrl.Request{}
-			for _, name := range r.globalServiceExports.GetServiceExportsName(obj.GetName()) {
+			nsName := obj.GetName()
+
+			// Requeue remote service exports
+			for _, name := range r.globalServiceExports.GetServiceExportsName(nsName) {
 				requests = append(requests, ctrl.Request{
 					NamespacedName: types.NamespacedName{
-						Namespace: obj.GetName(),
+						Namespace: nsName,
 						Name:      name,
+					},
+				})
+			}
+
+			// Requeue local service exports
+			var svcExportList mcsapiv1alpha1.ServiceExportList
+			if err := r.Client.List(ctx, &svcExportList, client.InNamespace(nsName)); err != nil {
+				r.Logger.Warn(
+					"Failed to list ServiceExports for namespace",
+					logfields.K8sNamespace, nsName,
+					logfields.Error, err,
+				)
+				return requests
+			}
+			for _, svcExport := range svcExportList.Items {
+				requests = append(requests, ctrl.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: nsName,
+						Name:      svcExport.Name,
+					},
+				})
+			}
+
+			// Requeue local service imports
+			var svcImportList mcsapiv1alpha1.ServiceImportList
+			if err := r.Client.List(ctx, &svcImportList, client.InNamespace(nsName)); err != nil {
+				r.Logger.Warn(
+					"Failed to list ServiceImports for namespace",
+					logfields.K8sNamespace, nsName,
+					logfields.Error, err,
+				)
+				return requests
+			}
+			for _, svcImport := range svcImportList.Items {
+				requests = append(requests, ctrl.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: nsName,
+						Name:      svcImport.Name,
 					},
 				})
 			}
