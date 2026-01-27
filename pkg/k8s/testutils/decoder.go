@@ -7,6 +7,7 @@ import (
 	"os"
 	"sync"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -17,7 +18,6 @@ import (
 	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
 
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
-	slim_apiextclientsetscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/scheme"
 	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
 )
 
@@ -61,7 +61,7 @@ func init() {
 	slim_fake.AddToScheme(Scheme)
 
 	// Add apiextensionsv1
-	slim_apiextclientsetscheme.AddToScheme(Scheme)
+	apiextensionsv1.AddToScheme(Scheme)
 
 	// Add ciliumv2 and ciliumv2alpha1
 	cilium_fake.AddToScheme(Scheme)
