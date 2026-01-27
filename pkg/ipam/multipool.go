@@ -14,12 +14,13 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -31,13 +32,9 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
-	"github.com/cilium/cilium/pkg/trigger"
 )
 
 const (
-	multiPoolControllerName = "ipam-sync-multi-pool"
-	multiPoolTriggerName    = "ipam-sync-multi-pool-trigger"
-
 	waitForPoolTimeout = 3 * time.Minute
 
 	// pendingAllocationTTL is how long we wait for pending allocation to
@@ -66,8 +63,6 @@ func (e *ErrPoolNotReadyYet) Is(err error) bool {
 	_, ok := err.(*ErrPoolNotReadyYet)
 	return ok
 }
-
-var multiPoolControllerGroup = controller.NewGroup(multiPoolControllerName)
 
 type poolPair struct {
 	v4 *podCIDRPool
@@ -238,6 +233,7 @@ type MultiPoolManagerParams struct {
 	Owner                     Owner
 	LocalNodeStore            *node.LocalNodeStore
 	Clientset                 nodeUpdater
+	JobGroup                  job.Group
 	DB                        *statedb.DB
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
 	OnlyMasqueradeDefaultPool bool
@@ -256,8 +252,8 @@ type multiPoolManager struct {
 
 	node *ciliumv2.CiliumNode
 
-	controller     *controller.Manager
-	k8sUpdater     *trigger.Trigger
+	jobGroup       job.Group
+	k8sUpdater     job.Trigger
 	localNodeStore *node.LocalNodeStore
 	nodeUpdater    nodeUpdater
 
@@ -280,18 +276,6 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		logging.Fatal(p.Logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
 	}
 
-	k8sController := controller.NewManager()
-	k8sUpdater, err := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: p.Conf.IPAMCiliumNodeUpdateRate,
-		TriggerFunc: func(reasons []string) {
-			k8sController.TriggerController(multiPoolControllerName)
-		},
-		Name: multiPoolTriggerName,
-	})
-	if err != nil {
-		logging.Fatal(p.Logger, "Unable to initialize CiliumNode synchronization trigger", logfields.Error, err)
-	}
-
 	localNodeSynced := make(chan struct{})
 	c := &multiPoolManager{
 		logger:                 p.Logger,
@@ -303,8 +287,8 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		pools:                  map[Pool]*poolPair{},
 		poolsUpdated:           make(chan struct{}, 1),
 		node:                   nil,
-		controller:             k8sController,
-		k8sUpdater:             k8sUpdater,
+		jobGroup:               p.JobGroup,
+		k8sUpdater:             job.NewTrigger(job.WithDebounce(p.Conf.IPAMCiliumNodeUpdateRate)),
 		localNodeStore:         p.LocalNodeStore,
 		nodeUpdater:            p.Clientset,
 		finishedRestore:        map[Family]bool{},
@@ -317,15 +301,33 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		onlyMasqueradeDefaultPool: p.OnlyMasqueradeDefaultPool,
 	}
 
-	// We don't have a context to use here (as a lot of IPAM doesn't really
-	// carry contexts). Before being refactored to using a resource, the event
-	// handling callbacks were called via the (now removed) CiliumNodeChain,
-	// which was in turn invoked by an informer. While we'd ideally stop this
-	// resource and it's processing if IPAM and other subsytems are being
-	// stopped, there appears to be no such signal available here. Also, don't
-	// retry events - the downstream code isn't setup to handle retries.
-	evs := p.Node.Events(context.TODO(), resource.WithErrorHandler(resource.RetryUpTo(0)))
-	go c.ciliumNodeEventLoop(evs)
+	c.jobGroup.Add(
+		job.OneShot(
+			"multi-pool-cilium-node-events-handler",
+			func(ctx context.Context, health cell.Health) error {
+				for ev := range p.Node.Events(ctx) {
+					switch ev.Kind {
+					case resource.Upsert:
+						c.ciliumNodeUpdated(ev.Object)
+					case resource.Delete:
+						c.logger.Debug(
+							"Local CiliumNode deleted. IPAM will continue on last seen version",
+							logfields.Node, ev.Object,
+						)
+					}
+					ev.Done(nil)
+				}
+				return nil
+			},
+		),
+		job.Timer(
+			"multi-pool-cilium-node-updater",
+			c.updateLocalNode,
+			refreshPoolInterval,
+			job.WithTrigger(c.k8sUpdater),
+		),
+	)
+
 	p.Owner.UpdateCiliumNodeResource()
 
 	c.waitForAllPools()
@@ -338,21 +340,6 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		case <-time.After(5 * time.Second):
 			p.Logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
 		}
-	}
-}
-
-func (m *multiPoolManager) ciliumNodeEventLoop(evs <-chan resource.Event[*ciliumv2.CiliumNode]) {
-	for ev := range evs {
-		switch ev.Kind {
-		case resource.Upsert:
-			m.ciliumNodeUpdated(ev.Object)
-		case resource.Delete:
-			m.logger.Debug(
-				"Local CiliumNode deleted. IPAM will continue on last seen version",
-				logfields.Node, ev.Object,
-			)
-		}
-		ev.Done(nil)
 	}
 }
 
@@ -430,20 +417,14 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	// m.node will only be nil the first time this callback is invoked
-	if m.node == nil {
-		// This enables the upstream sync controller. It requires m.node to be populated.
-		// Note: The controller will only run after m.mutex is unlocked
-		m.controller.UpdateController(multiPoolControllerName,
-			controller.ControllerParams{
-				Group:       multiPoolControllerGroup,
-				DoFunc:      m.updateLocalNode,
-				RunInterval: refreshPoolInterval,
-			})
-	}
-
 	for _, pool := range newNode.Spec.IPAM.Pools.Allocated {
 		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs)
+	}
+
+	// m.node will only be nil the first time this callback is invoked
+	// Note: The job will only run after m.mutex is unlocked
+	if m.node == nil {
+		m.k8sUpdater.Trigger()
 	}
 
 	m.node = newNode
@@ -560,6 +541,12 @@ func (m *multiPoolManager) updateLocalNodeStore(newNode *ciliumv2.CiliumNode) {
 
 func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	m.mutex.Lock()
+
+	if m.node == nil {
+		m.mutex.Unlock()
+		return nil
+	}
+
 	newNode := m.node.DeepCopy()
 	requested := []types.IPAMPoolRequest{}
 	allocated := []types.IPAMPoolAllocation{}
@@ -738,7 +725,7 @@ func (m *multiPoolManager) allocateNext(owner string, poolName Pool, family Fami
 
 	defer func() {
 		if syncUpstream {
-			m.k8sUpdater.TriggerWithReason("allocation of next IP")
+			m.k8sUpdater.Trigger()
 		}
 	}()
 
@@ -780,7 +767,7 @@ func (m *multiPoolManager) allocateIP(ip net.IP, owner string, poolName Pool, fa
 
 	defer func() {
 		if syncUpstream {
-			m.k8sUpdater.TriggerWithReason("allocation of specific IP")
+			m.k8sUpdater.Trigger()
 		}
 	}()
 
@@ -811,7 +798,7 @@ func (m *multiPoolManager) releaseIP(ip net.IP, poolName Pool, family Family, up
 
 	pool.release(ip)
 	if upstreamSync {
-		m.k8sUpdater.TriggerWithReason("release of IP")
+		m.k8sUpdater.Trigger()
 	}
 	return nil
 }

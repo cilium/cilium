@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
@@ -84,6 +85,8 @@ type NewIPAMParams struct {
 	Sysctl         sysctl.Sysctl
 	IPMasqAgent    *ipmasq.IPMasqAgent
 
+	JobGroup job.Group
+
 	DB                        *statedb.DB
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
 	OnlyMasqueradeDefaultPool bool
@@ -107,6 +110,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		metadata:                  params.Metadata,
 		sysctl:                    params.Sysctl,
 		ipMasqAgent:               params.IPMasqAgent,
+		jg:                        params.JobGroup,
 		db:                        params.DB,
 		podIPPools:                params.PodIPPools,
 		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
@@ -142,6 +146,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 			Owner:                     ipam.nodeDiscovery,
 			LocalNodeStore:            ipam.localNodeStore,
 			Clientset:                 ipam.clientset.CiliumV2().CiliumNodes(),
+			JobGroup:                  ipam.jg,
 			DB:                        ipam.db,
 			PodIPPools:                ipam.podIPPools,
 			OnlyMasqueradeDefaultPool: ipam.onlyMasqueradeDefaultPool,
