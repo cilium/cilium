@@ -111,7 +111,7 @@ rules:
   - ciliuml2announcementpolicies
   - ciliumpodippools
   - ciliumdatapathplugins
-  - ciliumnetworkdriverconfigs
+  - ciliumnetworkdrivernodeconfigs
   verbs:
   - list
   - watch

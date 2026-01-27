@@ -94,12 +94,19 @@ const (
 	CDPPKindDefinition = "CiliumDatapathPlugin"
 	CDPPName           = CDPPPluralName + "." + CustomResourceDefinitionGroup
 
-	// CiliumNetworkDriverConfig
-	CiliumNetworkDriverConfigSingularName   = "ciliumnetworkdriverconfig"
-	CiliumNetworkDriverConfigPluralName     = "ciliumnetworkdriverconfigs"
-	CiliumNetworkDriverConfigKindDefinition = "CiliumNetworkDriverConfig"
+	// CiliumNetworkDriverClusterConfig
+	CiliumNetworkDriverClusterConfigSingularName   = "ciliumnetworkdriverclusterconfig"
+	CiliumNetworkDriverClusterConfigPluralName     = "ciliumnetworkdriverclusterconfigs"
+	CiliumNetworkDriverClusterConfigKindDefinition = "CiliumNetworkDriverClusterConfig"
 
-	CiliumNetworkDriverConfigName = CiliumNetworkDriverConfigPluralName + "." + CustomResourceDefinitionGroup
+	CiliumNetworkDriverClusterConfigName = CiliumNetworkDriverClusterConfigPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumNetworkDriverNodeConfig
+	CiliumNetworkDriverNodeConfigSingularName   = "ciliumnetworkdrivernodeconfig"
+	CiliumNetworkDriverNodeConfigPluralName     = "ciliumnetworkdrivernodeconfigs"
+	CiliumNetworkDriverNodeConfigKindDefinition = "CiliumNetworkDriverNodeConfig"
+
+	CiliumNetworkDriverNodeConfigName = CiliumNetworkDriverNodeConfigPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -169,8 +176,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 
 		&CiliumDatapathPlugin{},
 
-		&CiliumNetworkDriverConfig{},
-		&CiliumNetworkDriverConfigList{},
+		&CiliumNetworkDriverClusterConfig{},
+		&CiliumNetworkDriverClusterConfigList{},
+		&CiliumNetworkDriverNodeConfig{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
