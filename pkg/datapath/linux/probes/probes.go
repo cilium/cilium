@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/netns"
 )
 
@@ -318,6 +319,66 @@ var HaveNetkit = sync.OnceValue(func() error {
 		}
 
 		return fmt.Errorf("unexpected success: %w", err)
+	})
+})
+
+// HaveNetkitTunableBufferMargins returns nil if the running kernel supports
+// configuring tuned buffer margins on netkit devices.
+var HaveNetkitTunableBufferMargins = sync.OnceValue(func() error {
+	ns, err := netns.New()
+	if err != nil {
+		return fmt.Errorf("create netns: %w", err)
+	}
+	defer ns.Close()
+
+	return ns.Do(func() error {
+		hostIfName := "tmpnktbm0"
+		peerIfName := "tmpnktbm1"
+		headroom := uint16(42)
+		tailroom := uint16(24)
+
+		var hostMac, peerMac mac.MAC
+		netkit := &netlink.Netkit{
+			LinkAttrs: netlink.LinkAttrs{
+				Name:         hostIfName,
+				TxQLen:       1000,
+				HardwareAddr: net.HardwareAddr(hostMac),
+			},
+			Mode:            netlink.NETKIT_MODE_L3,
+			Policy:          netlink.NETKIT_POLICY_FORWARD,
+			PeerPolicy:      netlink.NETKIT_POLICY_BLACKHOLE,
+			Scrub:           netlink.NETKIT_SCRUB_NONE,
+			PeerScrub:       netlink.NETKIT_SCRUB_DEFAULT,
+			DesiredHeadroom: headroom,
+			DesiredTailroom: tailroom,
+		}
+		netkit.SetPeerAttrs(&netlink.LinkAttrs{
+			Name:         peerIfName,
+			HardwareAddr: net.HardwareAddr(peerMac),
+		})
+
+		err = netlink.LinkAdd(netkit)
+		if err != nil {
+			return fmt.Errorf("create link: %w", err)
+		}
+		hostLink, err := safenetlink.LinkByName(hostIfName)
+		if err != nil {
+			return fmt.Errorf("query link: %w", err)
+		}
+		defer func() {
+			netlink.LinkDel(hostLink)
+		}()
+
+		hostNetkit, ok := hostLink.(*netlink.Netkit)
+		if !ok || hostNetkit == nil {
+			return fmt.Errorf("expected link of type *netlink.Netkit")
+		}
+
+		if hostNetkit.Headroom != headroom || hostNetkit.Tailroom != tailroom {
+			return fmt.Errorf("tunable buffer margins not supported")
+		}
+
+		return nil
 	})
 })
 

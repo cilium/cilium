@@ -137,6 +137,11 @@ func hostSupportsNetkit() bool {
 	return err == nil
 }
 
+func hostSupportsNetkitTunedBufferMargins() bool {
+	err := probes.HaveNetkitTunableBufferMargins()
+	return err == nil
+}
+
 func TestNewConfig(t *testing.T) {
 	logger := hivetest.Logger(t)
 
