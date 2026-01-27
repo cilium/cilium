@@ -52,8 +52,8 @@ type Driver struct {
 	resourceClaims resource.Resource[*resourceapi.ResourceClaim]
 	pods           resource.Resource[*corev1.Pod]
 
-	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
-	config    *v2alpha1.CiliumNetworkDriverConfigSpec
+	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
+	config    *v2alpha1.CiliumNetworkDriverNodeConfigSpec
 
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
 	// pod.UID: claim.UID: allocation
@@ -182,14 +182,14 @@ func (driver *Driver) publish(ctx context.Context) error {
 
 // watchConfig blocks until the first configuration is found (from the CRD). Update attempts are logged but not passed
 // to the channel
-func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNetworkDriverConfigSpec {
-	ch := make(chan v2alpha1.CiliumNetworkDriverConfigSpec)
+func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNetworkDriverNodeConfigSpec {
+	ch := make(chan v2alpha1.CiliumNetworkDriverNodeConfigSpec)
 
 	go func() {
 		defer close(ch)
 
 		var (
-			cfg *v2alpha1.CiliumNetworkDriverConfigSpec
+			cfg *v2alpha1.CiliumNetworkDriverNodeConfigSpec
 
 			synced   bool
 			upserted bool

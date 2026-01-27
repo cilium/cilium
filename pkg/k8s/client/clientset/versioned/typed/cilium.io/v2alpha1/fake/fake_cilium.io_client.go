@@ -59,8 +59,12 @@ func (c *FakeCiliumV2alpha1) CiliumLoadBalancerIPPools() v2alpha1.CiliumLoadBala
 	return newFakeCiliumLoadBalancerIPPools(c)
 }
 
-func (c *FakeCiliumV2alpha1) CiliumNetworkDriverConfigs() v2alpha1.CiliumNetworkDriverConfigInterface {
-	return newFakeCiliumNetworkDriverConfigs(c)
+func (c *FakeCiliumV2alpha1) CiliumNetworkDriverClusterConfigs() v2alpha1.CiliumNetworkDriverClusterConfigInterface {
+	return newFakeCiliumNetworkDriverClusterConfigs(c)
+}
+
+func (c *FakeCiliumV2alpha1) CiliumNetworkDriverNodeConfigs() v2alpha1.CiliumNetworkDriverNodeConfigInterface {
+	return newFakeCiliumNetworkDriverNodeConfigs(c)
 }
 
 func (c *FakeCiliumV2alpha1) CiliumPodIPPools() v2alpha1.CiliumPodIPPoolInterface {

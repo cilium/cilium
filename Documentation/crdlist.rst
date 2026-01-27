@@ -16,7 +16,8 @@
 - CiliumL2AnnouncementPolicy
 - CiliumLoadBalancerIPPool
 - CiliumLocalRedirectPolicy
-- CiliumNetworkDriverConfig
+- CiliumNetworkDriverClusterConfig
+- CiliumNetworkDriverNodeConfig
 - :ref:`CiliumNetworkPolicy<CiliumNetworkPolicy>`
 - CiliumNode
 - CiliumNodeConfig
