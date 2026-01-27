@@ -26,6 +26,7 @@ import (
 	controllerruntime "github.com/cilium/cilium/operator/pkg/controller-runtime"
 	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 )
 
 // mcsAPIServiceReconciler is a controller that creates a derived service from
@@ -34,13 +35,15 @@ import (
 // the existing clustermesh features for the MCS API Support.
 type mcsAPIServiceReconciler struct {
 	client.Client
-	Logger *slog.Logger
+	Logger          *slog.Logger
+	NamespaceConfig cmnamespace.Config
 }
 
-func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger *slog.Logger) *mcsAPIServiceReconciler {
+func newMCSAPIServiceReconciler(mgr ctrl.Manager, logger *slog.Logger, namespaceConfig cmnamespace.Config) *mcsAPIServiceReconciler {
 	return &mcsAPIServiceReconciler{
-		Client: mgr.GetClient(),
-		Logger: logger,
+		Client:          mgr.GetClient(),
+		Logger:          logger,
+		NamespaceConfig: namespaceConfig,
 	}
 }
 
@@ -202,6 +205,16 @@ func (r *mcsAPIServiceReconciler) getSvcImport(ctx context.Context, req ctrl.Req
 	return &svcImport, nil
 }
 
+func (r *mcsAPIServiceReconciler) getNamespace(ctx context.Context, name string) (*corev1.Namespace, error) {
+	var ns corev1.Namespace
+	key := types.NamespacedName{Name: name}
+
+	if err := r.Client.Get(ctx, key, &ns); err != nil {
+		return nil, client.IgnoreNotFound(err)
+	}
+	return &ns, nil
+}
+
 func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	svcImport, err := r.getSvcImport(ctx, req)
 	if err != nil {
@@ -215,6 +228,19 @@ func (r *mcsAPIServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	svc, svcExists, err := r.getBaseDerivedService(ctx, req, derivedServiceName, svcImport)
 	if err != nil {
 		return controllerruntime.Fail(err)
+	}
+
+	// Fetch namespace directly to avoid stale data from resource store.
+	// No Namespace watch needed since ServiceImport controller updates trigger reconciliation.
+	ns, err := r.getNamespace(ctx, req.Namespace)
+	if err != nil {
+		return controllerruntime.Fail(err)
+	}
+	if !cmnamespace.IsGlobalNamespace(ns, r.NamespaceConfig.GlobalNamespacesByDefault) {
+		if svcExists {
+			return controllerruntime.Fail(r.Client.Delete(ctx, svc))
+		}
+		return controllerruntime.Success()
 	}
 
 	if val, ok := svcImport.Annotations[annotation.SupportedIPFamilies]; val == "" && ok {

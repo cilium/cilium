@@ -24,7 +24,9 @@ import (
 	mcsapicontrollers "sigs.k8s.io/mcs-api/controllers"
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 )
 
@@ -415,6 +417,54 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 					TrafficDistribution: ptr.To(corev1.ServiceTrafficDistributionPreferClose),
 				},
 			},
+
+			// Non-global namespace fixtures
+			&corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "non-global-ns",
+					Annotations: map[string]string{
+						annotation.GlobalNamespace: "false",
+					},
+				},
+			},
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "non-global-svc",
+					Namespace:         "non-global-ns",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "non-global-svc",
+					Namespace: "non-global-ns",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{{
+						Port: 8080,
+					}},
+				},
+			},
+			&mcsapiv1alpha1.ServiceExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "remote-in-non-global",
+					Namespace:         "non-global-ns",
+					CreationTimestamp: nowTime,
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "remote-in-non-global",
+					Namespace: "non-global-ns",
+				},
+				Spec: corev1.ServiceSpec{
+					SessionAffinity: corev1.ServiceAffinityNone,
+					Ports: []corev1.ServicePort{{
+						Port: 9090,
+					}},
+				},
+			},
 		}
 		remoteSvcImportTestFixtures = []*mcsapitypes.MCSAPIServiceSpec{
 			{
@@ -604,6 +654,17 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 				Ports:                   []mcsapiv1alpha1.ServicePort{},
 				Type:                    mcsapiv1alpha1.ClusterSetIP,
 			},
+			{
+				Cluster:                 remoteClusterName,
+				Name:                    "remote-in-non-global",
+				Namespace:               "non-global-ns",
+				ExportCreationTimestamp: olderTime,
+				Ports: []mcsapiv1alpha1.ServicePort{{
+					Port: 9090,
+				}},
+				Type:            mcsapiv1alpha1.ClusterSetIP,
+				SessionAffinity: corev1.ServiceAffinityNone,
+			},
 		}
 	)
 
@@ -626,6 +687,7 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		globalServiceExports:       globalServiceExports,
 		remoteClusterServiceSource: remoteClusterServiceSource,
 		enableIPv4:                 true,
+		namespaceConfig:            cmnamespace.Config{GlobalNamespacesByDefault: true},
 	}
 
 	t.Run("Service import creation with local-only", func(t *testing.T) {
@@ -947,6 +1009,61 @@ func Test_mcsServiceImport_Reconcile(t *testing.T) {
 		require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionReady)))
 		require.True(t, meta.IsStatusConditionTrue(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
 		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionConflict)))
+	})
+
+	t.Run("ServiceExport in non-global namespace", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "non-global-svc",
+			Namespace: "non-global-ns",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		_, err = getServiceImport(c, key)
+		require.True(t, k8sApiErrors.IsNotFound(err), "ServiceImport should not exist for non-global namespace with no remote exports")
+
+		svcExport, err := getServiceExport(c, key)
+		require.NoError(t, err)
+		require.NotNil(t, svcExport)
+
+		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionReady)))
+		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
+
+		validCondition := meta.FindStatusCondition(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid))
+		require.NotNil(t, validCondition)
+		require.Equal(t, string(ServiceExportReasonNamespaceNotGlobal), validCondition.Reason)
+		require.Contains(t, validCondition.Message, "not global")
+	})
+
+	t.Run("ServiceImport in non-global namespace with remote exports", func(t *testing.T) {
+		key := types.NamespacedName{
+			Name:      "remote-in-non-global",
+			Namespace: "non-global-ns",
+		}
+		result, err := r.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: key,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
+
+		svcImport, err := getServiceImport(c, key)
+		require.NoError(t, err)
+		require.NotNil(t, svcImport)
+
+		readyCondition := meta.FindStatusCondition(svcImport.Status.Conditions, string(mcsapiv1alpha1.ServiceImportConditionReady))
+		require.NotNil(t, readyCondition)
+		require.Equal(t, metav1.ConditionFalse, readyCondition.Status)
+		require.Equal(t, string(ServiceImportReasonNamespaceNotGlobal), readyCondition.Reason)
+
+		svcExport, err := getServiceExport(c, key)
+		require.NoError(t, err)
+		require.NotNil(t, svcExport)
+		require.True(t, meta.IsStatusConditionFalse(svcExport.Status.Conditions, string(mcsapiv1alpha1.ServiceExportConditionValid)))
 	})
 
 	conflictTests := []struct {
