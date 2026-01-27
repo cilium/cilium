@@ -35,23 +35,23 @@ func (zc *ztunnelConn) Close() error {
 	return zc.conn.Close()
 }
 
-func (zc *ztunnelConn) readHello() (*pb.ZdsHello, error) {
+func (zc *ztunnelConn) readHello(s *Server) (*pb.ZdsHello, error) {
 	hello := &pb.ZdsHello{}
-	if err := zc.readMsg(hello); err != nil {
+	if err := zc.readMsg(hello, s); err != nil {
 		return nil, err
 	}
 	return hello, nil
 }
 
-func (zc *ztunnelConn) readResponse() (*pb.WorkloadResponse, error) {
+func (zc *ztunnelConn) readResponse(s *Server) (*pb.WorkloadResponse, error) {
 	resp := &pb.WorkloadResponse{}
-	if err := zc.readMsg(resp); err != nil {
+	if err := zc.readMsg(resp, s); err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (zc *ztunnelConn) readMsg(msg proto.Message) error {
+func (zc *ztunnelConn) readMsg(msg proto.Message, s *Server) error {
 	var buf [1024]byte
 	// Use ReadMsgUnix to detect message truncation
 	n, _, flags, _, err := zc.conn.ReadMsgUnix(buf[:], nil)
@@ -82,7 +82,7 @@ func (zc *ztunnelConn) sendMsg(req *pb.WorkloadRequest, ns *netns.NetNS) error {
 	return err
 }
 
-func (zc *ztunnelConn) sendAndWaitForAck(req *pb.WorkloadRequest, netnsPath string) error {
+func (zc *ztunnelConn) sendAndWaitForAck(req *pb.WorkloadRequest, netnsPath string, s *Server) error {
 	var ns *netns.NetNS
 	if netnsPath != "" {
 		var err error
@@ -97,7 +97,7 @@ func (zc *ztunnelConn) sendAndWaitForAck(req *pb.WorkloadRequest, netnsPath stri
 		return err
 	}
 
-	resp, err := zc.readResponse()
+	resp, err := zc.readResponse(s)
 	if err != nil {
 		return err
 	}
@@ -135,6 +135,7 @@ type serverParams struct {
 	Lifecycle cell.Lifecycle
 	Logger    *slog.Logger
 	Config    config.Config
+	Metrics   *Metrics
 
 	EndpointManager endpointmanager.EndpointManager
 }
@@ -155,8 +156,9 @@ type EndpointEnroller interface {
 var _ EndpointEnroller = &Server{}
 
 type Server struct {
-	l      *net.UnixListener
-	logger *slog.Logger
+	l       *net.UnixListener
+	logger  *slog.Logger
+	metrics *Metrics
 
 	endpointCache      map[uint16]*endpoint.Endpoint
 	endpointCacheMutex lock.Mutex
@@ -180,6 +182,7 @@ func newZDSServer(p serverParams) serverOut {
 	}
 	server := &Server{
 		logger:                p.Logger,
+		metrics:               p.Metrics,
 		updates:               make(chan zdsUpdate, 100),
 		endpointCache:         make(map[uint16]*endpoint.Endpoint),
 		initialSnapshotSeeded: make(chan struct{}),
@@ -255,6 +258,8 @@ func (s *Server) Serve(ctx context.Context) {
 			return
 		}
 
+		s.metrics.ConnectionActive.Set(1)
+
 		// Cancel the previous connection if it exists.
 		// This causes the old handleConn to exit immediately via context.Done()
 		// Only one connection will be actively reading from s.updates at a time.
@@ -270,6 +275,7 @@ func (s *Server) Serve(ctx context.Context) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer s.metrics.ConnectionActive.Set(0)
 			if err := s.handleConn(connCtx, zc); err != nil {
 				s.logger.Error("failed to handle connection", logfields.Error, err)
 			}
@@ -282,7 +288,7 @@ func (s *Server) handleConn(ctx context.Context, zc *ztunnelConn) error {
 
 	s.logger.Info("new ztunnel connection")
 
-	hello, err := zc.readHello()
+	hello, err := zc.readHello(s)
 	if err != nil {
 		return fmt.Errorf("failed to read hello from ztunnel: %w", err)
 	}
@@ -302,7 +308,7 @@ func (s *Server) handleConn(ctx context.Context, zc *ztunnelConn) error {
 	for {
 		select {
 		case update := <-s.updates:
-			err := zc.sendAndWaitForAck(update.request, update.netnsPath)
+			err := zc.sendAndWaitForAck(update.request, update.netnsPath, s)
 			if update.errCh != nil {
 				update.errCh <- err
 				close(update.errCh)
@@ -330,19 +336,21 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 	}
 	s.endpointCacheMutex.Unlock()
 
-	ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
+	netnsHandle, err := netns.OpenPinned(ep.GetContainerNetnsPath())
 	if err != nil {
 		s.logger.Error("failed to open netns file",
 			logfields.EndpointID, ep.GetID16(),
 			logfields.Error, err,
 		)
+		s.metrics.EnrollmentFailures.WithLabelValues("netns_failed").Inc()
 		return err
 	}
-	defer ns.Close()
+	defer netnsHandle.Close()
 
-	if err = ns.Do(func() error {
+	if err = netnsHandle.Do(func() error {
 		return iptables.CreateInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
 	}); err != nil {
+		s.metrics.EnrollmentFailures.WithLabelValues("iptables_failed").Inc()
 		return fmt.Errorf("unable to setup iptable rules for ztunnel inpod mode: %w", err)
 	}
 
@@ -352,6 +360,7 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 			logfields.EndpointID, ep.GetID16(),
 			logfields.Error, err,
 		)
+		s.metrics.EnrollmentFailures.WithLabelValues("conversion_failed").Inc()
 		return err
 	}
 
@@ -369,6 +378,7 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 
 	s.updates <- update
 	if err := <-update.errCh; err != nil {
+		s.metrics.EnrollmentFailures.WithLabelValues("send_failed").Inc()
 		return fmt.Errorf("sending update failed: %w", err)
 	}
 
@@ -376,13 +386,14 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 	s.endpointCacheMutex.Lock()
 	s.endpointCache[ep.GetID16()] = ep
 	s.endpointCacheMutex.Unlock()
+
 	return nil
 }
 
 func (s *Server) DisenrollEndpoint(ep *endpoint.Endpoint) error {
 	s.logger.Info("disenrolling endpoint from ztunnel", logfields.EndpointID, ep.GetID16())
 
-	ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
+	netnsHandle, err := netns.OpenPinned(ep.GetContainerNetnsPath())
 	if err != nil {
 		s.logger.Error("failed to open netns file",
 			logfields.EndpointID, ep.GetID16(),
@@ -390,9 +401,9 @@ func (s *Server) DisenrollEndpoint(ep *endpoint.Endpoint) error {
 		)
 		return err
 	}
-	defer ns.Close()
+	defer netnsHandle.Close()
 
-	if err = ns.Do(func() error {
+	if err = netnsHandle.Do(func() error {
 		return iptables.DeleteInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
 	}); err != nil {
 		return fmt.Errorf("unable to remove iptable rules for ztunnel inpod mode: %w", err)
@@ -489,7 +500,7 @@ func (s *Server) sendInitialSnapshot(zc *ztunnelConn) error {
 			},
 		}
 
-		if err := zc.sendAndWaitForAck(req, ep.GetContainerNetnsPath()); err != nil {
+		if err := zc.sendAndWaitForAck(req, ep.GetContainerNetnsPath(), s); err != nil {
 			return fmt.Errorf("failed to send endpoint message: %w", err)
 		}
 	}
@@ -500,7 +511,7 @@ func (s *Server) sendInitialSnapshot(zc *ztunnelConn) error {
 		},
 	}
 
-	if err := zc.sendAndWaitForAck(req, ""); err != nil {
+	if err := zc.sendAndWaitForAck(req, "", s); err != nil {
 		return fmt.Errorf("failed to send snapshot message: %w", err)
 	}
 

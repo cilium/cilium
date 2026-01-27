@@ -72,7 +72,7 @@ func expectSnapshotAndAck(t *testing.T, clientZC *ztunnelConn, conn net.Conn, ac
 	t.Helper()
 
 	req := &pb.WorkloadRequest{}
-	err := clientZC.readMsg(req)
+	err := clientZC.readMsg(req, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req.GetSnapshotSent(), "Expected SnapshotSent, got %T", req.Payload)
 
@@ -191,7 +191,7 @@ func TestPrivilegedZDSConnHandlerEndpointUpdate(t *testing.T) {
 
 	// Read and ACK the enrollment message
 	req := &pb.WorkloadRequest{}
-	err := clientZC.readMsg(req)
+	err := clientZC.readMsg(req, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req.GetAdd(), "Expected Add, got %T", req.Payload)
 	require.Equal(t, testUID, req.GetAdd().GetUid(), "Expected Add UID %s, got %s", testUID, req.GetAdd().GetUid())
@@ -217,7 +217,7 @@ func TestPrivilegedZDSConnHandlerEndpointUpdate(t *testing.T) {
 
 	// Read and ACK the disenrollment message
 	req = &pb.WorkloadRequest{}
-	err = clientZC.readMsg(req)
+	err = clientZC.readMsg(req, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req.GetDel(), "Expected Del, got %T", req.Payload)
 	require.Equal(t, testUID, req.GetDel().GetUid(), "Expected Del UID %s, got %s", testUID, req.GetDel().GetUid())
@@ -264,7 +264,7 @@ func TestPrivilegedZDSRollingUpdate(t *testing.T) {
 
 	// Read and ACK the enrollment message
 	req := &pb.WorkloadRequest{}
-	err := oldClientZC.readMsg(req)
+	err := oldClientZC.readMsg(req, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req.GetAdd(), "Expected Add, got %T", req.Payload)
 	require.Equal(t, "workload-1", req.GetAdd().GetUid())
@@ -290,7 +290,7 @@ func TestPrivilegedZDSRollingUpdate(t *testing.T) {
 		enrollDone <- server.EnrollEndpoint(ep2)
 	}()
 
-	err = oldClientZC.readMsg(req)
+	err = oldClientZC.readMsg(req, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req.GetAdd(), "Expected Add, got %T", req.Payload)
 	require.Equal(t, "workload-2", req.GetAdd().GetUid())
@@ -311,14 +311,14 @@ func TestPrivilegedZDSRollingUpdate(t *testing.T) {
 	// Note: The order may not be deterministic due to map iteration
 	receivedUIDs := make(map[string]bool)
 
-	err = newClientZC.readMsg(req)
+	err = newClientZC.readMsg(req, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req.GetAdd(), "Expected Add in snapshot, got %T", req.Payload)
 	receivedUIDs[req.GetAdd().GetUid()] = true
 	_, err = newConn.Write(ackData)
 	require.NoError(t, err)
 
-	err = newClientZC.readMsg(req)
+	err = newClientZC.readMsg(req, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req.GetAdd(), "Expected Add in snapshot, got %T", req.Payload)
 	receivedUIDs[req.GetAdd().GetUid()] = true
@@ -330,7 +330,7 @@ func TestPrivilegedZDSRollingUpdate(t *testing.T) {
 	require.True(t, receivedUIDs["workload-2"], "Expected to receive workload-2 in snapshot")
 
 	// Snapshot sent marker
-	err = newClientZC.readMsg(req)
+	err = newClientZC.readMsg(req, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req.GetSnapshotSent(), "Expected SnapshotSent, got %T", req.Payload)
 	_, err = newConn.Write(ackData)
@@ -343,7 +343,7 @@ func TestPrivilegedZDSRollingUpdate(t *testing.T) {
 		enrollDone <- server.EnrollEndpoint(ep3)
 	}()
 
-	err = newClientZC.readMsg(req)
+	err = newClientZC.readMsg(req, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req.GetAdd(), "Expected Add, got %T", req.Payload)
 	require.Equal(t, "workload-3", req.GetAdd().GetUid())
@@ -356,6 +356,6 @@ func TestPrivilegedZDSRollingUpdate(t *testing.T) {
 	// Old connection should be cancelled and return an error when trying to read
 	// Note: the old connection may already be closed by the time we try to read
 	// This is expected behavior during a rolling update
-	err = oldClientZC.readMsg(req)
+	err = oldClientZC.readMsg(req, nil)
 	require.Error(t, err)
 }
