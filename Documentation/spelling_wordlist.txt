@@ -132,6 +132,7 @@ Telco
 Terraform
 Tierney
 ToR
+Triager
 Triagers
 Twilio
 Uncompress
@@ -369,6 +370,7 @@ fieldAggregate
 filesystem
 filesystems
 firewalling
+fixup
 fortio
 fqdn
 fromCIDR
@@ -702,6 +704,7 @@ reStructuredText
 reachability
 readSecretsOnlyFromSecretsNamespace
 rebase
+rebases
 rebased
 rebasing
 recompiles
@@ -831,6 +834,7 @@ tracepoint
 tracepoints
 tracestate
 transpiling
+triaging
 tsne
 tunables
 tunings
