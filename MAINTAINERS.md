@@ -13,7 +13,6 @@ to learn how to level up through the project.
  * [André Martins] (Isovalent)
  * [Arthur Outhenin-Chalandre] (Ledger)
  * [Bill Mulligan] (Isovalent)
- * [Bruno M. Custódio] (Isovalent)
  * [Casey Callendrello] (Isovalent)
  * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
@@ -22,7 +21,6 @@ to learn how to level up through the project.
  * [Dorde Lapcevic] (Google)
  * [Dylan Reimerink] (Isovalent)
  * [Fabio Falzoi] (Isovalent)
- * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
  * [Hemanth Malla] (Microsoft)
  * [Jarno Rajahalme] (Isovalent)
@@ -40,7 +38,6 @@ to learn how to level up through the project.
  * [Marco Iorio] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
  * [Michi Mutsuzaki] (Isovalent)
- * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
  * [Nick Young] (Isovalent)
  * [Nicolas Busseneau] (Isovalent)
@@ -50,7 +47,6 @@ to learn how to level up through the project.
  * [Robin Hahling] (Isovalent)
  * [Sebastian Wicki] (Isovalent)
  * [Tam Mach] (Isovalent)
- * [Thomas Graf] (Isovalent)
  * [Timo Beckers] (Isovalent)
  * [Tobias Klauser] (Isovalent)
  * [Tom Hadlaw] (Isovalent)
@@ -61,18 +57,22 @@ to learn how to level up through the project.
 
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
- * [Beatriz Martínez] (Isovalent)
- * [Dan Wendlandt] (Isovalent)
- * [Eloy Coto] (Red Hat)
+ * [Beatriz Martínez]
+ * [Bruno M. Custódio]
+ * [Dan Wendlandt]
+ * [Eloy Coto]
+ * [Gilberto Bertin]
  * [Ian Vernon]
- * [Ilya Dmitrichenko] (Docker)
+ * [Ilya Dmitrichenko]
  * [Lorenz Bauer]
- * [Michal Rostecki] (Anza)
+ * [Michal Rostecki]
+ * [Natália Réka Ivánkó]
  * [Ray Bejjani]
+ * [Thomas Graf]
  * [Tom Payne]
- * [Weilong Cui] (Google)
- * [Yongkun Gui] (Google)
- * [Zang Li] (Google)
+ * [Weilong Cui]
+ * [Yongkun Gui]
+ * [Zang Li]
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
 project.

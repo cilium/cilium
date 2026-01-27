@@ -595,7 +595,7 @@ Although this provides a more robust way of discovery path MTU, it comes at the 
 initially using sub-optimal MSS resulting in lower network performance.
 In the case where the correct MTU is known, disabling this feature may provide some improved network throughput on TCP connections.
 
-This feature can be disabled via the helm value: ``pmtuDiscovery.packetizationLayerPMTUD.enabled=false``.
+This feature can be disabled via the helm value: ``pmtuDiscovery.packetizationLayerPMTUDMode=disabled``.
 
 Bandwidth Manager
 =================

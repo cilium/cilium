@@ -384,6 +384,14 @@ Network Policy
   These fields were previously deprecated and can no longer be used. If you
   are using this feature, remove these fields from your policies before upgrade.
 * Kafka Network Policy support is deprecated and will be removed in Cilium v1.20.
+* The mesh auth flag ``mesh-auth-enabled`` (Helm ``authentication.enabled``) is
+  now disabled by default. Ensure that the flag is explicitly configured to
+  turn the feature back in especially if you are using the feature in your
+  network policies. If the flag is not explicitly configured and you are using
+  the feature in your policies, then the feature will forward the traffic
+  without authentication and the policy will be updated with a validation
+  warning to inform you that the authentication rules are ineffective.
+  Enable this flag if you are using :ref:`gs_mutual_authentication`.
 
 Cluster Mesh
 ############
@@ -447,6 +455,9 @@ General Notes
   ``-use-default-field-mask`` (now ``true`` by default).
 * Testing for RHEL8 compatibility now uses a RHEL8.10-compatible kernel
   (previously this was a RHEL8.6-compatible kernel).
+* The Cilium datapath will now drop TCP/UDP traffic towards a LoadBalancer or
+  ClusterIP allocated by LB-IPAM in the north-south direction if the destination
+  port does not match a provisioned service.
 
 Cluster Mesh
 ############
@@ -484,8 +495,8 @@ The following options have been introduced in this version of Cilium:
   WireGuard and tunneling to be enabled. When you enable this feature, there
   may be temporary disruption to packet delivery between nodes until the nodes
   are all running with the feature enabled.
-* The agent flag ``enable-endpoint-packet-layer-pmtud`` introduces packet layer
-  path MTU discovery by default for all Cilium-managed endpoints.
+* The agent flag ``packetization-layer-pmtud-mode`` introduces packet layer
+  path MTU discovery on blackhole detected by default for all Cilium-managed endpoints.
 
 Changed Options
 ###############

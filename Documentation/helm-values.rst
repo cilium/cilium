@@ -67,7 +67,7 @@
    * - :spelling:ignore:`authentication.enabled`
      - Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
      - bool
-     - ``true``
+     - ``false``
    * - :spelling:ignore:`authentication.gcInterval`
      - Interval for garbage collection of auth map entries.
      - string
@@ -1404,6 +1404,86 @@
      - Controls WireGuard PersistentKeepalive option. Set 0s to disable.
      - string
      - ``"0s"``
+   * - :spelling:ignore:`encryption.ztunnel`
+     - ztunnel encryption configuration. ztunnel is Istio's purpose-built, per-node proxy for handling L4 traffic in ambient mesh mode. These settings only apply when encryption.type is set to "ztunnel".
+     - object
+     - ``{"affinity":{},"annotations":{},"caAddress":"https://localhost:15012","extraEnv":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":15021,"image":{"digest":null,"override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/istio/ztunnel","tag":"1.28.0-distroless","useDigest":false},"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"priorityClassName":null,"readinessProbe":{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10},"resources":{"requests":{"cpu":"200m","memory":"512Mi"}},"secrets":{"bootstrapRootCert":null},"terminationGracePeriodSeconds":30,"tolerations":[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}}``
+   * - :spelling:ignore:`encryption.ztunnel.affinity`
+     - Affinity for ztunnel pods.
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.annotations`
+     - Annotations to be added to all ztunnel resources.
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.caAddress`
+     - CA server address for certificate requests.
+     - string
+     - ``"https://localhost:15012"``
+   * - :spelling:ignore:`encryption.ztunnel.extraEnv`
+     - Additional ztunnel container environment variables.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`encryption.ztunnel.extraVolumeMounts`
+     - Additional ztunnel volumeMounts.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`encryption.ztunnel.extraVolumes`
+     - Additional ztunnel volumes.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`encryption.ztunnel.healthPort`
+     - TCP port for the health API.
+     - int
+     - ``15021``
+   * - :spelling:ignore:`encryption.ztunnel.image`
+     - ztunnel container image.
+     - object
+     - ``{"digest":null,"override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/istio/ztunnel","tag":"1.28.0-distroless","useDigest":false}``
+   * - :spelling:ignore:`encryption.ztunnel.nodeSelector`
+     - Node selector for ztunnel pods.
+     - object
+     - ``{"kubernetes.io/os":"linux"}``
+   * - :spelling:ignore:`encryption.ztunnel.podAnnotations`
+     - Annotations to be added to ztunnel pods.
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.podLabels`
+     - Labels to be added to ztunnel pods.
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.priorityClassName`
+     - The priority class to use for ztunnel pods.
+     - string
+     - ``nil``
+   * - :spelling:ignore:`encryption.ztunnel.readinessProbe`
+     - Readiness probe configuration.
+     - object
+     - ``{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10}``
+   * - :spelling:ignore:`encryption.ztunnel.resources`
+     - ztunnel resource limits & requests.
+     - object
+     - ``{"requests":{"cpu":"200m","memory":"512Mi"}}``
+   * - :spelling:ignore:`encryption.ztunnel.secrets`
+     - ztunnel secrets configuration.
+     - object
+     - ``{"bootstrapRootCert":null}``
+   * - :spelling:ignore:`encryption.ztunnel.secrets.bootstrapRootCert`
+     - Base64-encoded bootstrap root certificate content. If not provided, the secret must be created manually before deploying. @schema type: [null, string] @schema
+     - string
+     - ``nil``
+   * - :spelling:ignore:`encryption.ztunnel.terminationGracePeriodSeconds`
+     - Configure termination grace period for ztunnel DaemonSet.
+     - int
+     - ``30``
+   * - :spelling:ignore:`encryption.ztunnel.tolerations`
+     - Node tolerations for ztunnel scheduling.
+     - list
+     - ``[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}]``
+   * - :spelling:ignore:`encryption.ztunnel.updateStrategy`
+     - ztunnel update strategy.
+     - object
+     - ``{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}``
    * - :spelling:ignore:`endpointHealthChecking.enabled`
      - Enable connectivity health checking between virtual endpoints.
      - bool
@@ -1587,7 +1667,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:c0d2fbd63c3576d0c397e6c84fe149056e2bbb940d538ab3baebb86f703642d3","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1768567475-cb4965cbd69f290aef785c42dfadf6159adca553","useDigest":true}``
+     - ``{"digest":"sha256:27d5429bb59dc6463dec15f0824065fafdce2fe0c214f17416fc1cb0b2e9b6f1","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1768916005-32e6b51b774e6e90c980dcbba1d4cb607f2d43f3","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -2176,6 +2256,18 @@
      - Port to listen to.
      - string
      - ``"4245"``
+   * - :spelling:ignore:`hubble.relay.logOptions`
+     - Logging configuration for hubble-relay.
+     - object
+     - ``{"format":null,"level":null}``
+   * - :spelling:ignore:`hubble.relay.logOptions.format`
+     - Log format for hubble-relay. Valid values are: text, text-ts, json, json-ts.
+     - string
+     - text-ts
+   * - :spelling:ignore:`hubble.relay.logOptions.level`
+     - Log level for hubble-relay. Valid values are: debug, info, warn, error.
+     - string
+     - info
    * - :spelling:ignore:`hubble.relay.nodeSelector`
      - Node labels for pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -3392,10 +3484,10 @@
      - Enable path MTU discovery to send ICMP fragmentation-needed replies to the client.
      - bool
      - ``false``
-   * - :spelling:ignore:`pmtuDiscovery.packetizationLayerPMTUD`
-     - Enable kernel probing path MTU discovery for Pods which uses different message sizes to search for correct MTU value.
-     - object
-     - ``{"enabled":true}``
+   * - :spelling:ignore:`pmtuDiscovery.packetizationLayerPMTUDMode`
+     - Enable kernel probing path MTU discovery for Pods which uses different message sizes to search for correct MTU value. Valid values are: always, blackhole, disabled and unset (or empty). If value is 'unset' or left empty then will not try to override setting.
+     - string
+     - ``"blackhole"``
    * - :spelling:ignore:`podAnnotations`
      - Annotations to be added to agent pods
      - object
@@ -3459,7 +3551,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:c0d2fbd63c3576d0c397e6c84fe149056e2bbb940d538ab3baebb86f703642d3","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1768567475-cb4965cbd69f290aef785c42dfadf6159adca553","useDigest":true}``
+     - ``{"digest":"sha256:27d5429bb59dc6463dec15f0824065fafdce2fe0c214f17416fc1cb0b2e9b6f1","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.36.5-1768916005-32e6b51b774e6e90c980dcbba1d4cb607f2d43f3","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
@@ -3700,6 +3792,10 @@
      - Enabled is temporary until https://github.com/cilium/cilium-cli/issues/1396 is implemented. Cilium CLI doesn't create the SAs for node-init, thus the workaround. Helm is not affected by this issue. Name and automount can be configured, if enabled is set to true. Otherwise, they are ignored. Enabled can be removed once the issue is fixed. Cilium-nodeinit DS must also be fixed.
      - bool
      - ``false``
+   * - :spelling:ignore:`serviceAccounts.ztunnel`
+     - Ztunnel is used if encryption.type=ztunnel
+     - object
+     - ``{"annotations":{},"automount":false,"create":true,"name":"ztunnel-cilium"}``
    * - :spelling:ignore:`serviceNoBackendResponse`
      - Configure what the response should be to traffic for a service without backends. Possible values:  - reject (default)  - drop
      - string
@@ -3873,7 +3969,7 @@
      - string
      - 0-0 to let the kernel driver decide the range
    * - :spelling:ignore:`underlayProtocol`
-     - IP family for the underlay.
+     - IP family for the underlay. Possible values:   - "ipv4"   - "ipv6"
      - string
      - ``"ipv4"``
    * - :spelling:ignore:`updateStrategy`

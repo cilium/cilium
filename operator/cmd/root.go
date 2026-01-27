@@ -708,7 +708,8 @@ func kvstoreExtraOptions(in struct {
 
 	ClientSet k8sClient.Clientset
 	Resolver  dial.Resolver
-}) kvstore.ExtraOptions {
+},
+) kvstore.ExtraOptions {
 	var goopts kvstore.ExtraOptions
 
 	// If K8s is enabled we can do the service translation automagically by

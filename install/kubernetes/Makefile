@@ -94,11 +94,10 @@ lint:
 		|| (echo -e "$$crd not found in $(CHART_FILE).\nPlease update the chart to include $$crd."; exit 1); \
 	done
 	$(QUIET)$(HELM) lint --with-subcharts --values ./cilium/values.yaml ./cilium
-	$(QUIET)echo -e "non-idempotent secrets:"; \
 	for rand_secret in $(RAND_SECRETS); do \
-                grep -l -e "cilium.io/helm-template-non-idempotent" $$rand_secret \
+                grep -q -l -e "cilium.io/helm-template-non-idempotent" $$rand_secret \
                 || (echo -e "$$rand_secret missing label \"cilium.io/helm-template-non-idempotent\".\nPlease add the label to it."; exit 1); \
-                grep -l -e "nonIdempotentAnnotations" $$rand_secret \
+                grep -q -l -e "nonIdempotentAnnotations" $$rand_secret \
                 || (echo -e "$$rand_secret missing annotations placeholder \"nonIdempotentAnnotations\".\nPlease add it."; exit 1); \
 	done
 

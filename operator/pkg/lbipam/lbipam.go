@@ -455,6 +455,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 		}
 
 		// Remove all ingress IPs and conditions, cleaning up the service for reuse by another controller
+		ipam.logger.Info("Removing all Ingress IPs and conditions", logfields.ServiceName, sv.Key)
 		sv.Status.LoadBalancer.Ingress = nil
 		slim_meta.RemoveStatusCondition(&sv.Status.Conditions, ciliumSvcRequestSatisfiedCondition)
 
@@ -751,6 +752,17 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 
 	// Check if we have removed any ingresses
 	if len(sv.Status.LoadBalancer.Ingress) != len(newIngresses) {
+		removedIPs := map[string]struct{}{}
+		for _, lbi := range sv.Status.LoadBalancer.Ingress {
+			removedIPs[lbi.IP] = struct{}{}
+		}
+		for _, lbi := range newIngresses {
+			delete(removedIPs, lbi.IP)
+		}
+		ipam.logger.Info("Removing Ingress IPs",
+			logfields.ServiceName, sv.Key,
+			logfields.IPAddrs, slices.Collect(maps.Keys(removedIPs)),
+		)
 		statusModified = true
 	}
 
@@ -887,6 +899,10 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 			return addr.Compare(alloc.IP) == 0
 		}) == -1 {
 			// We allocated a new IP, add it to the ingress list
+			ipam.logger.Info("Assigning Ingress IP",
+				logfields.ServiceName, sv.Key,
+				logfields.IPAddr, alloc.IP,
+			)
 			sv.Status.LoadBalancer.Ingress = append(sv.Status.LoadBalancer.Ingress, slim_core_v1.LoadBalancerIngress{
 				IP: alloc.IP.String(),
 			})

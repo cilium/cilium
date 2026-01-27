@@ -47,17 +47,21 @@ func init() {
 // FromString converts a version string into struct
 func FromString(versionString string) CiliumVersion {
 	// string to parse: "0.13.90 a722bdb 2018-01-09T22:32:37+01:00 go version go1.9 linux/amd64"
+	// With GOEXPERIMENTs: "1.18.6 9589669 2026-01-13T11:40:01+01:00 go version go1.24.11 X:jsonv2 linux/amd64"
 	fields := strings.Split(versionString, " ")
-	if len(fields) != 7 {
+	if len(fields) < 7 {
 		return CiliumVersion{}
 	}
 
 	cver := CiliumVersion{
-		Version:          fields[0],
-		Revision:         fields[1],
-		AuthorDate:       fields[2],
-		GoRuntimeVersion: fields[5],
-		Arch:             fields[6],
+		Version:    fields[0],
+		Revision:   fields[1],
+		AuthorDate: fields[2],
+		// Last field is always GOOS/GOARCH
+		Arch: fields[len(fields)-1],
+		// Everything between "version" keyword and ARCH is the Go version
+		// This handles cases like "go1.24.11 X:jsonv2" where runtime.Version() contains spaces
+		GoRuntimeVersion: strings.Join(fields[5:len(fields)-1], " "),
 	}
 	return cver
 }

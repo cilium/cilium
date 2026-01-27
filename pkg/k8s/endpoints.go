@@ -225,7 +225,7 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 			es.GetNamespace(),
 			es.GetLabels()[slim_discovery_v1.LabelServiceName],
 		),
-		EndpointSliceName: es.GetName(),
+		EndpointSliceName: es.GetNamespace() + "/" + es.GetName(),
 	}
 }
 

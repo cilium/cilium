@@ -210,6 +210,12 @@ serviceAccounts:
     name: cilium-coredns-mcsapi-autoconfig
     automount: true
     annotations: {}
+  # -- Ztunnel is used if encryption.type=ztunnel
+  ztunnel:
+    create: true
+    name: ztunnel-cilium
+    automount: false
+    annotations: {}
 # -- Configure termination grace period for cilium-agent DaemonSet.
 terminationGracePeriodSeconds: 1
 # -- Install the cilium agent resources.
@@ -521,8 +527,9 @@ pmtuDiscovery:
   enabled: false
   # -- Enable kernel probing path MTU discovery for Pods which uses different message
   # sizes to search for correct MTU value.
-  packetizationLayerPMTUD:
-    enabled: true
+  # Valid values are: always, blackhole, disabled and unset (or empty). If value
+  # is 'unset' or left empty then will not try to override setting.
+  packetizationLayerPMTUDMode: "blackhole"
 bpf:
   autoMount:
     # -- Enable automatic mount of BPF filesystem
@@ -1134,6 +1141,84 @@ encryption:
   wireguard:
     # -- Controls WireGuard PersistentKeepalive option. Set 0s to disable.
     persistentKeepalive: 0s
+  # -- ztunnel encryption configuration.
+  # ztunnel is Istio's purpose-built, per-node proxy for handling L4 traffic in ambient mesh mode.
+  # These settings only apply when encryption.type is set to "ztunnel".
+  ztunnel:
+    # -- ztunnel container image.
+    image:
+      # @schema
+      # type: [null, string]
+      # @schema
+      override: ~
+      repository: "docker.io/istio/ztunnel"
+      tag: "1.28.0-distroless"
+      pullPolicy: "IfNotPresent"
+      # @schema
+      # type: [null, string]
+      # @schema
+      digest: ~
+      useDigest: false
+    # -- CA server address for certificate requests.
+    caAddress: "https://localhost:15012"
+    # -- TCP port for the health API.
+    healthPort: 15021
+    # -- ztunnel resource limits & requests.
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+    # -- ztunnel update strategy.
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+    # -- Configure termination grace period for ztunnel DaemonSet.
+    terminationGracePeriodSeconds: 30
+    # -- Readiness probe configuration.
+    readinessProbe:
+      initialDelaySeconds: 0
+      periodSeconds: 10
+      failureThreshold: 3
+    # -- Node selector for ztunnel pods.
+    nodeSelector:
+      kubernetes.io/os: linux
+    # -- Node tolerations for ztunnel scheduling.
+    tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+    # -- Affinity for ztunnel pods.
+    affinity: {}
+    # @schema
+    # type: [null, string]
+    # @schema
+    # -- The priority class to use for ztunnel pods.
+    priorityClassName: ~
+    # -- Annotations to be added to all ztunnel resources.
+    annotations: {}
+    # -- Annotations to be added to ztunnel pods.
+    podAnnotations: {}
+    # -- Labels to be added to ztunnel pods.
+    podLabels: {}
+    # -- Additional ztunnel container environment variables.
+    extraEnv: []
+    # -- Additional ztunnel volumes.
+    extraVolumes: []
+    # -- Additional ztunnel volumeMounts.
+    extraVolumeMounts: []
+    # -- ztunnel secrets configuration.
+    secrets:
+      # -- Base64-encoded bootstrap root certificate content.
+      # If not provided, the secret must be created manually before deploying.
+      # @schema
+      # type: [null, string]
+      # @schema
+      bootstrapRootCert: ~
 endpointHealthChecking:
   # -- Enable connectivity health checking between virtual endpoints.
   enabled: true
@@ -1817,6 +1902,20 @@ hubble:
       mutexProfileFraction: 0
       # -- Enable goroutine blocking profiling for hubble-relay and set the rate of sampled events in nanoseconds (set to 1 to sample all events [warning: performance overhead])
       blockProfileRate: 0
+    # -- Logging configuration for hubble-relay.
+    logOptions:
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Log format for hubble-relay. Valid values are: text, text-ts, json, json-ts.
+      # @default -- text-ts
+      format: ~
+      # @schema
+      # type: [null, string]
+      # @schema
+      # -- Log level for hubble-relay. Valid values are: debug, info, warn, error.
+      # @default -- info
+      level: ~
   ui:
     # -- Whether to enable the Hubble UI.
     enabled: false
@@ -2607,9 +2706,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.36.5-1768567475-cb4965cbd69f290aef785c42dfadf6159adca553"
+    tag: "v1.36.5-1768916005-32e6b51b774e6e90c980dcbba1d4cb607f2d43f3"
     pullPolicy: "Always"
-    digest: "sha256:c0d2fbd63c3576d0c397e6c84fe149056e2bbb940d538ab3baebb86f703642d3"
+    digest: "sha256:27d5429bb59dc6463dec15f0824065fafdce2fe0c214f17416fc1cb0b2e9b6f1"
     useDigest: true
   # -- Init containers added to the cilium Envoy DaemonSet.
   initContainers: []
@@ -2934,6 +3033,9 @@ tls:
 # @default -- `"vxlan"`
 tunnelProtocol: ""
 # -- IP family for the underlay.
+# Possible values:
+#   - "ipv4"
+#   - "ipv6"
 # @default -- `"ipv4"`
 underlayProtocol: ""
 # -- Enable native-routing mode or tunneling mode.
@@ -3339,9 +3441,9 @@ preflight:
       # @schema
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
-      tag: "v1.36.5-1768567475-cb4965cbd69f290aef785c42dfadf6159adca553"
+      tag: "v1.36.5-1768916005-32e6b51b774e6e90c980dcbba1d4cb607f2d43f3"
       pullPolicy: "Always"
-      digest: "sha256:c0d2fbd63c3576d0c397e6c84fe149056e2bbb940d538ab3baebb86f703642d3"
+      digest: "sha256:27d5429bb59dc6463dec15f0824065fafdce2fe0c214f17416fc1cb0b2e9b6f1"
       useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
@@ -4084,7 +4186,7 @@ authentication:
   # -- Enable authentication processing and garbage collection.
   # Note that if disabled, policy enforcement will still block requests that require authentication.
   # But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
-  enabled: true
+  enabled: false
   # -- Buffer size of the channel Cilium uses to receive authentication events from the signal map.
   queueSize: 1024
   # -- Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.
