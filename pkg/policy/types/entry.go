@@ -3,7 +3,11 @@
 
 package types
 
-import "strconv"
+import (
+	"strconv"
+
+	"golang.org/x/exp/constraints"
+)
 
 type ListenerPriority uint8 // Lower values take precedence
 type Priority uint32        // Lower values take precedence, only lower 24 bits are used
@@ -29,9 +33,15 @@ const (
 	MaxAllowPrecedence = (MaxPrecedence & ^(precedenceByteMask)) + precedenceByteAllow
 )
 
+func Roundup[E constraints.Integer](n, to E) E {
+	if r := n % to; r != 0 {
+		return n + (to - r)
+	}
+	return n
+}
+
 func (p *Priority) IncrementWithRoundup(to Priority) bool {
-	np := *p + 1
-	np = ((np + (to - 1)) / to) * to
+	np := Roundup(*p+1, to)
 	if np > MaxPriority || np < *p {
 		return false
 	}
