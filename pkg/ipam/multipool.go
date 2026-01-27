@@ -231,7 +231,6 @@ type MultiPoolManagerParams struct {
 	PreAllocPools        map[string]string
 
 	Node           agentK8s.LocalCiliumNodeResource
-	Owner          Owner
 	LocalNodeStore *node.LocalNodeStore
 	CNClient       cilium_v2.CiliumNodeInterface
 	JobGroup       job.Group
@@ -243,7 +242,6 @@ type MultiPoolManagerParams struct {
 
 type multiPoolManager struct {
 	mutex *lock.Mutex
-	owner Owner
 
 	ipv4Enabled bool
 	ipv6Enabled bool
@@ -285,7 +283,6 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 	c := &multiPoolManager{
 		logger:                 p.Logger,
 		mutex:                  &lock.Mutex{},
-		owner:                  p.Owner,
 		ipv4Enabled:            p.IPv4Enabled,
 		ipv6Enabled:            p.IPv6Enabled,
 		preallocatedIPsPerPool: preallocMap,
@@ -333,9 +330,6 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 			job.WithTrigger(c.k8sUpdater),
 		),
 	)
-
-	// FIXME: specific to pod IPAM
-	p.Owner.UpdateCiliumNodeResource()
 
 	c.waitForAllPools()
 
