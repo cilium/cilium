@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Family is the type describing all address families support by the IP
@@ -154,6 +155,9 @@ func (ipam *IPAM) ConfigureAllocator() {
 			OnlyMasqueradeDefaultPool: ipam.onlyMasqueradeDefaultPool,
 		})
 
+		// wait for local node to be updated to avoid propagating spurious updates.
+		waitForLocalNodeUpdate(ipam.logger, manager)
+
 		if ipam.config.IPv6Enabled() {
 			ipam.ipv6Allocator = manager.Allocator(IPv6)
 		}
@@ -239,4 +243,15 @@ func PoolOrDefault(pool string) Pool {
 // PoolDefault returns the default pool
 func PoolDefault() Pool {
 	return Pool(option.Config.IPAMDefaultIPPool)
+}
+
+func waitForLocalNodeUpdate(logger *slog.Logger, mgr *multiPoolManager) {
+	for {
+		select {
+		case <-mgr.localNodeUpdated():
+			return
+		case <-time.After(5 * time.Second):
+			logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
+		}
+	}
 }

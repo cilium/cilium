@@ -1083,5 +1083,7 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 		OnlyMasqueradeDefaultPool: onlyMasqDefault,
 	})
 
+	waitForLocalNodeUpdate(tlog, mgr)
+
 	return mgr
 }
