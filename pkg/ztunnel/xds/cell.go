@@ -48,6 +48,7 @@ func NewServer(params xdsServerParams) *Server {
 		params.EPManager,
 		params.K8sWatcher.GetK8sCiliumEndpointsWatcher(),
 		params.EnrolledNamespaceTable,
+		params.Config.XDSUnixAddr,
 	)
 
 	params.Lifecycle.Append(cell.Hook{

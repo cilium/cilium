@@ -58,9 +58,7 @@ spec:
             - ztunnel
           env:
             - name: XDS_ADDRESS
-              value: "https://localhost:15012"
-            - name: XDS_ROOT_CA
-              value: "/etc/ztunnel/bootstrap-root.crt"
+              value: "unix://localhost/var/run/cilium/xds.sock"
             {{- if .Values.authentication.mutual.spire.enabled }}
             - name: SPIRE_ENABLED
               value: "true"
@@ -72,7 +70,7 @@ spec:
             - name: CA_ROOT_CA
               value: "/etc/ztunnel/bootstrap-root.crt"
             - name: CA_ADDRESS
-              value: {{ .Values.encryption.ztunnel.caAddress | quote }}
+              value: "unix://localhost/var/run/cilium/xds.sock"
             {{- end }}
             - name: ISTIO_META_DNS_CAPTURE
               value: "false"

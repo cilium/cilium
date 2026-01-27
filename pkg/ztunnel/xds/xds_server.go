@@ -19,8 +19,6 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/cilium/statedb"
@@ -38,12 +36,6 @@ import (
 )
 
 const (
-	// bootstrapKeyPath is the private key used to boostrap ZTunnel to CA
-	// TLS connection.
-	bootstrapKeyPath = "/etc/ztunnel/bootstrap-private.key"
-	// bootstrapCertPath is the certificate used to boostrap ZTunnel to CA
-	// TLS connection.
-	bootstrapCertPath = "/etc/ztunnel/bootstrap-root.crt"
 	// caKeyPath is the private key used to sign client certificates.
 	caKeyPath = "/etc/ztunnel/ca-private.key"
 	// caCertPath is the root certificate trust anchor for issued client
@@ -77,6 +69,8 @@ type Server struct {
 	db                        *statedb.DB
 	enrolledNamespaceTable    statedb.RWTable[*table.EnrolledNamespace]
 	endpointEventChan         chan *EndpointEvent
+	// xdsUnixAddr is the unix socket path for the XDS server.
+	xdsUnixAddr string
 	// cache the PEM encoded certificate, we return this as the trust anchor
 	// on zTunnel certificate creation requests.
 	caCertPEM string
@@ -91,6 +85,7 @@ func newServer(
 	EPManager endpointmanager.EndpointManager,
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher,
 	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace],
+	xdsUnixAddr string,
 ) *Server {
 	return &Server{
 		log:                       log,
@@ -99,6 +94,7 @@ func newServer(
 		endpointEventChan:         make(chan *EndpointEvent, 1024),
 		db:                        db,
 		enrolledNamespaceTable:    enrolledNamespaceTable,
+		xdsUnixAddr:               xdsUnixAddr,
 	}
 }
 
@@ -211,16 +207,11 @@ func (x *Server) Serve() error {
 		return fmt.Errorf("failed to initialize CA: %w", err)
 	}
 
-	creds, err := credentials.NewServerTLSFromFile(bootstrapCertPath, bootstrapKeyPath)
-	if err != nil {
-		return fmt.Errorf("failed to create gRPC TLS credentials: %w", err)
-	}
-
 	// keepalive options match config values from:
 	// https://github.com/istio/istio/blob/b68cd04f9f132c1361d62eb14125e915e8011428/pkg/keepalive/options.go#L45
 	// Without these, our grpc server will eventually send a Go Away message to ztunnel, killing the connection.
 	grpcOptions := []grpc.ServerOption{
-		grpc.Creds(creds),
+		// No TLS credentials needed for Unix Domain Sockets as they are local
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime: 15 * time.Second,
 		}),
@@ -237,12 +228,17 @@ func (x *Server) Serve() error {
 	pb.RegisterIstioCertificateServiceServer(x.g, x)
 	v3.RegisterAggregatedDiscoveryServiceServer(x.g, x)
 
-	x.l, err = net.Listen("tcp", "127.0.0.1:15012")
-	if err != nil {
-		return err
+	// Remove existing socket file if it exists to avoid "address already in use" errors
+	if err = os.Remove(x.xdsUnixAddr); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove existing unix socket %s: %w", x.xdsUnixAddr, err)
 	}
 
-	x.log.Info("zTunnel xDS server started")
+	x.l, err = net.Listen("unix", x.xdsUnixAddr)
+	if err != nil {
+		return fmt.Errorf("failed to listen on unix socket %s: %w", x.xdsUnixAddr, err)
+	}
+
+	x.log.Info("zTunnel xDS server started", "socket", x.xdsUnixAddr)
 	go func() {
 		if err = x.g.Serve(x.l); err != nil {
 			x.log.Error("gRPC server error", logfields.Error, err)
