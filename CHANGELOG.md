@@ -1,5 +1,72 @@
 # Changelog
 
+## v1.19.0-rc.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* auth: Disable by default (Backport PR cilium/cilium#44003, Upstream PR cilium/cilium#42665, @christarazi)
+* Exclude topology.kubernetes.io labels from security labels by default (Backport PR cilium/cilium#43780, Upstream PR cilium/cilium#43725, @moscicky)
+* hubble-relay: Add `hubble.relay.logOptions.format` and `hubble.relay.logOptions.level` Helm values to configure log format (text, text-ts, json, json-ts) and level (debug, info, warn, error) (Backport PR cilium/cilium#44003, Upstream PR cilium/cilium#43644, @puwun)
+* Split selector cache to reduce cpu usage and reduce lock contention in the selector cache (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#42580, @odinuge)
+
+**Bugfixes:**
+* Add support for specifying plpmtud (mtu discovery) settings for Pod endpoints, with the default now being "1" (blackhole-detected). (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#43710, @tommyp1ckles)
+* bpf: Correct refinement of inner packet L4 checksum detection (Backport PR cilium/cilium#43922, Upstream PR cilium/cilium#43868, @br4243)
+* bpf: Fix marker to skip nodeport when punting to proxy (Backport PR cilium/cilium#43866, Upstream PR cilium/cilium#43069, @borkmann)
+* clustermesh: correctly phase out not ready/not service endpoints from global services (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#43807, @MrFreezeex)
+* endpoint/manager: wait for completed endpoint restoration before starting periodic GC & regeneration controllers (Backport PR cilium/cilium#43866, Upstream PR cilium/cilium#43776, @mhofstetter)
+* endpoint/mgr: don't register periodic regeneration if interval is 0 (Backport PR cilium/cilium#43866, Upstream PR cilium/cilium#43790, @mhofstetter)
+* Fix a bug where removed addresses from EndpointSlices might be missed if multiple EndpointSlices share the same name (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#43999, @EmilyShepherd)
+* fix: incorrect schema entries for cpu limits (Backport PR cilium/cilium#43780, Upstream PR cilium/cilium#43735, @jcpunk)
+* gateway api: fix for multiple listeners on a gateway check (Backport PR cilium/cilium#43922, Upstream PR cilium/cilium#43802, @xtineskim)
+* Hubble Export FieldMask - Introduce functionality to specify multiple 'oneof' variants like l4.TCP/l4.UDP Hubble Export Aggregation - Enrich aggregated flow logs with timestamp to preserve temporal context (Backport PR cilium/cilium#44003, Upstream PR cilium/cilium#43924, @mereta)
+* Make BIG TCP initialization flow more robust and fix bugs. (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#43891, @gentoo-root)
+
+**CI Changes:**
+* .github/ariane-config: schedule runs on conformance-ipsec.yaml (Backport PR cilium/cilium#44003, Upstream PR cilium/cilium#43907, @aanm)
+* .github/workflows: k8s-kind-network-e2e: add shorter timeout (Backport PR cilium/cilium#43922, Upstream PR cilium/cilium#43908, @aanm)
+* .github/workflows: re-add workflow_dispatch to tests-e2e-upgrade (Backport PR cilium/cilium#43922, Upstream PR cilium/cilium#43906, @aanm)
+* ci: fix tests-datapath-verifier on 1.19 (Backport PR cilium/cilium#44003, Upstream PR cilium/cilium#43931, @marseel)
+* cyclonus: add higher timeout and retries to avoid flakes (Backport PR cilium/cilium#44003, Upstream PR cilium/cilium#43909, @aanm)
+* gateway-api: Skip MeshHTTPRouteMatching to stabilize CI (Backport PR cilium/cilium#44003, Upstream PR cilium/cilium#43890, @joestringer)
+* gh: e2e-upgrade: test patch releases (Backport PR cilium/cilium#43751, Upstream PR cilium/cilium#43627, @julianwiedmann)
+* gha: let CiliumEndpointSlice migration be run nightly on stable branches (Backport PR cilium/cilium#44003, Upstream PR cilium/cilium#43921, @giorio94)
+* gke: lower scope of ESP firewall rule (Backport PR cilium/cilium#43866, Upstream PR cilium/cilium#43691, @marseel)
+
+**Misc Changes:**
+* .github/actions: login with cosign to sign helm OCI charts (Backport PR cilium/cilium#43866, Upstream PR cilium/cilium#43782, @aanm)
+* bpf: subnet: make subnet map read-only (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#43948, @julianwiedmann)
+* chore(deps): update all github action dependencies (v1.19) (cilium/cilium#43838, @cilium-renovate[bot])
+* chore(deps): update all github action dependencies (v1.19) (cilium/cilium#43978, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.19) (cilium/cilium#43833, @cilium-renovate[bot])
+* chore(deps): update all-dependencies (v1.19) (cilium/cilium#43972, @cilium-renovate[bot])
+* chore(deps): update base-images (v1.19) (cilium/cilium#43834, @cilium-renovate[bot])
+* chore(deps): update base-images (v1.19) (cilium/cilium#43977, @cilium-renovate[bot])
+* chore(deps): update docker.io/library/busybox:1.37.0 docker digest to e226d63 (v1.19) (cilium/cilium#43973, @cilium-renovate[bot])
+* chore(deps): update module sigs.k8s.io/kube-api-linter to v0.0.0-20260114104534-18147eee9c49 (v1.19) (cilium/cilium#43835, @cilium-renovate[bot])
+* chore(deps): update module sigs.k8s.io/kube-api-linter to v0.0.0-20260123105127-470c3a315f3a (v1.19) (cilium/cilium#43974, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1768610924-2528359430c6adba1ab20fc8396b4effe491ed96 (v1.19) (cilium/cilium#43836, @cilium-renovate[bot])
+* chore(deps): update quay.io/cilium/cilium-envoy docker tag to v1.35.9-1768828720-c6e4827ebca9c47af2a3a6540c563c30947bae29 (v1.19) (cilium/cilium#43975, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.19) (patch) (cilium/cilium#43837, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.19) (patch) (cilium/cilium#43976, @cilium-renovate[bot])
+* Clarify the upgrade notes for v1.19 (Backport PR cilium/cilium#43957, Upstream PR cilium/cilium#43913, @joestringer)
+* clustermesh: add missing reason in mcs condition metrics (Backport PR cilium/cilium#43866, Upstream PR cilium/cilium#43775, @MrFreezeex)
+* daemon: fix version for deprecated encryption strict egress mode flags (Backport PR cilium/cilium#43866, Upstream PR cilium/cilium#43731, @rgo3)
+* docs(observability): Add tutorial for IP option tracing (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#43961, @Bigdelle)
+* docs: add helm underlayProtocol value to documentation (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#43934, @aanm)
+* docs: add operator prometheus TLS (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#43997, @phuhung273)
+* docs: Add upgrade note about wildcard service entries. (Backport PR cilium/cilium#44025, Upstream PR cilium/cilium#44013, @ajmmm)
+* docs: adjust URL to latest stable Hubble CLI version (Backport PR cilium/cilium#43780, Upstream PR cilium/cilium#43745, @tklauser)
+* endpoint/restore: introduce metrics (Backport PR cilium/cilium#43866, Upstream PR cilium/cilium#43748, @mhofstetter)
+* endpoint/restore: remove special handling for host endpoint in case of ipsec (Backport PR cilium/cilium#43922, Upstream PR cilium/cilium#43757, @mhofstetter)
+* Fix BPF IPv6 neighbor discovery code to fully pull in skb data into linear section. (Backport PR cilium/cilium#43922, Upstream PR cilium/cilium#43873, @borkmann)
+* install: Quieten noisy build output (Backport PR cilium/cilium#44003, Upstream PR cilium/cilium#43960, @joestringer)
+
+**Other Changes:**
+* install: Update image digests for v1.19.0-rc.0 (cilium/cilium#43772, @cilium-release-bot[bot])
+
 ## v1.19.0-rc.0
 
 Summary of Changes
