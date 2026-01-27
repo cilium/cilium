@@ -116,6 +116,18 @@ var (
 		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
 	}
+	// redSvcExtTPLocalWithProxy is a service with eTP=Local and ProxyRedirect set,
+	// simulating a Gateway API / Ingress service where local Envoy handles traffic.
+	redSvcExtTPLocalWithProxy = &loadbalancer.Service{
+		Name:             redSvcName,
+		Labels:           redSvcLabels,
+		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
+		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+		ProxyRedirect: &loadbalancer.ProxyRedirect{
+			ProxyPort: 10000,
+			Ports:     []uint16{80, 443},
+		},
+	}
 	redSvc2TPCluster = &loadbalancer.Service{
 		Name:             redSvc2Name,
 		Labels:           redSvcLabels,
@@ -952,6 +964,46 @@ func Test_ServiceLBReconciler(t *testing.T) {
 			expectedMetadata: ServiceReconcilerMetadata{
 				ServicePaths:         ResourceAFPathsMap{},
 				ServiceRoutePolicies: ResourceRoutePolicyMap{},
+				ServiceAdvertisements: PeerAdvertisements{
+					testPeerID: PeerFamilyAdvertisements{
+						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+						{Afi: "ipv6", Safi: "unicast"}: []v2.BGPAdvertisement{
+							lbSvcAdvertWithSelector(redSvcSelector),
+						},
+					},
+				},
+			},
+		},
+		// Test that Gateway API / Ingress services with ProxyRedirect are advertised
+		// even with eTP=Local and no local backends, because traffic is handled by
+		// the local Envoy proxy.
+		{
+			name:        "Service (LB) with advertisement(LB) - matching labels (eTP=local, no backends, ProxyRedirect set)",
+			peerConfigs: []*v2.CiliumBGPPeerConfig{redPeerConfig},
+			frontends:   []*loadbalancer.Frontend{svcLBFrontend(redSvcExtTPLocalWithProxy, ingressV4), svcLBFrontend(redSvcExtTPLocalWithProxy, ingressV6)},
+			backends:    nil, // no backends
+			advertisements: []*v2.CiliumBGPAdvertisement{
+				redSvcAdvertWithAdvertisements(lbSvcAdvertWithSelector(redSvcSelector)),
+			},
+			expectedMetadata: ServiceReconcilerMetadata{
+				ServicePaths: ResourceAFPathsMap{
+					redSvcKey: AFPathsMap{
+						{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+							ingressV4Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV4Prefix)),
+						},
+						{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+							ingressV6Prefix: types.NewPathForPrefix(netip.MustParsePrefix(ingressV6Prefix)),
+						},
+					},
+				},
+				ServiceRoutePolicies: ResourceRoutePolicyMap{
+					redSvcKey: RoutePolicyMap{
+						redPeer65001v4LBRPName: redPeer65001v4LBRP,
+						redPeer65001v6LBRPName: redPeer65001v6LBRP,
+					},
+				},
 				ServiceAdvertisements: PeerAdvertisements{
 					testPeerID: PeerFamilyAdvertisements{
 						{Afi: "ipv4", Safi: "unicast"}: []v2.BGPAdvertisement{
