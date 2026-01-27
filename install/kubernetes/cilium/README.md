@@ -823,6 +823,7 @@ contributors across the globe, there is almost always someone available to help.
 | loadBalancer.l7.ports | list | `[]` | List of ports from service to be automatically redirected to above backend. Any service exposing one of these ports will be automatically redirected. Fine-grained control can be achieved by using the service annotation. |
 | localRedirectPolicies.addressMatcherCIDRs | string | `nil` | Limit the allowed addresses in Address Matcher rule of Local Redirect Policies to the given CIDRs. @schema@ type: [null, array] @schema@ |
 | localRedirectPolicies.enabled | bool | `false` | Enable local redirect policies. |
+| localRedirectPolicies.toIPRange | string | `169.254.0.0/16` | Limit the allowed IP range for Local Redirect Policies for ToIP field. @schema@ type: [null, string] @schema@ |
 | localRedirectPolicy | bool | `false` | Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead) |
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |

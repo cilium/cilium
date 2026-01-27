@@ -3092,6 +3092,10 @@
      - Enable local redirect policies.
      - bool
      - ``false``
+   * - :spelling:ignore:`localRedirectPolicies.toIPRange`
+     - Limit the allowed IP range for Local Redirect Policies for ToIP field. @schema@ type: [null, string] @schema@
+     - string
+     - ``169.254.0.0/16``
    * - :spelling:ignore:`localRedirectPolicy`
      - Enable Local Redirect Policy (deprecated, please use 'localRedirectPolicies.enabled' instead)
      - bool
