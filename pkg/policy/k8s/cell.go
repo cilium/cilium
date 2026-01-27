@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/statedb"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -26,6 +28,7 @@ import (
 
 const (
 	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
+	k8sAPIGroupPolicyNetworkingV1Alpha2         = "policy.networking.k8s.io/v1alpha2::ClusterNetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
 	k8sAPIGroupCiliumCIDRGroupV2                = "cilium/v2::CiliumCIDRGroup"
@@ -68,6 +71,7 @@ type PolicyWatcherParams struct {
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_v2.CiliumClusterwideNetworkPolicy]
 	CiliumCIDRGroups                 resource.Resource[*cilium_v2.CiliumCIDRGroup]
 	NetworkPolicies                  resource.Resource[*slim_networking_v1.NetworkPolicy]
+	ClusterNetworkPolicies           resource.Resource[*policyv1alpha2.ClusterNetworkPolicy]
 
 	MetricsManager CNPMetrics
 }
@@ -96,6 +100,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		ciliumClusterwideNetworkPolicies: params.CiliumClusterwideNetworkPolicies,
 		ciliumCIDRGroups:                 params.CiliumCIDRGroups,
 		networkPolicies:                  params.NetworkPolicies,
+		clusterNetworkPolicies:           params.ClusterNetworkPolicies,
 
 		cnpCache:       make(map[resource.Key]*types.SlimCNP),
 		cidrGroupCache: make(map[string]*cilium_v2.CiliumCIDRGroup),
@@ -128,6 +133,12 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		p.knpSyncPending.Store(1)
 		p.registerResourceWithSyncFn(ctx, k8sAPIGroupNetworkingV1Core, func() bool {
 			return p.knpSyncPending.Load() == 0
+		})
+	}
+	if params.Config.EnableK8sClusterNetworkPolicy {
+		p.kcnpSyncPending.Store(1)
+		p.registerResourceWithSyncFn(ctx, k8sAPIGroupPolicyNetworkingV1Alpha2, func() bool {
+			return p.kcnpSyncPending.Load() == 0
 		})
 	}
 	if params.Config.EnableCiliumNetworkPolicy {

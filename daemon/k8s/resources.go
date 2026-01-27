@@ -33,6 +33,7 @@ var (
 		LocalNodeCell,
 		cell.Provide(
 			k8s.NetworkPolicyResource,
+			k8s.ClusterNetworkPolicyResource,
 			k8s.CiliumNetworkPolicyResource,
 			k8s.CiliumClusterwideNetworkPolicyResource,
 			k8s.CiliumCIDRGroupResource,
