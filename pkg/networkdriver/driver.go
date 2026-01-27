@@ -198,6 +198,10 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 
 		if driver.configCRD == nil {
 			// disabled
+			driver.logger.DebugContext(
+				ctx, "resource listener is nil",
+			)
+
 			return
 		}
 
