@@ -586,7 +586,7 @@ jobs:
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-sequential
           tests: ${{ steps.vars.outputs.sequential_connectivity_tests }}
-          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: "${{ steps.vars-conn.outputs.connectivity_test_defaults }} --test host-firewall"
 
       - name: Run concurrent Cilium tests
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
@@ -595,7 +595,7 @@ jobs:
           job-name: cilium-upgrade-${{ matrix.name }}-concurrent
           tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
           test-concurrency: ${{ env.test_concurrency }}
-          extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+          extra-connectivity-test-flags: "${{ steps.vars-conn.outputs.connectivity_test_defaults }} --test host-firewall"
 
       - name: Check for unexpected packet drops during connectivity tests
         if: ${{ steps.vars.outputs.downgrade_version != '' }}
