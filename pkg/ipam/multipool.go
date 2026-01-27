@@ -259,8 +259,8 @@ type multiPoolManager struct {
 	localNodeStore *node.LocalNodeStore
 	cnClient       cilium_v2.CiliumNodeInterface
 
-	localNodeSynced   chan struct{}
-	localNodeSyncedFn func()
+	localNodeUpdate   chan struct{}
+	localNodeUpdateFn func()
 
 	finishedRestore map[Family]bool
 	logger          *slog.Logger
@@ -278,8 +278,8 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		logging.Fatal(p.Logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
 	}
 
-	localNodeSynced := make(chan struct{})
-	c := &multiPoolManager{
+	localNodeUpdated := make(chan struct{})
+	mgr := &multiPoolManager{
 		logger:                 p.Logger,
 		mutex:                  &lock.Mutex{},
 		ipv4Enabled:            p.IPv4Enabled,
@@ -294,25 +294,25 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		localNodeStore:         p.LocalNodeStore,
 		cnClient:               p.CNClient,
 		finishedRestore:        map[Family]bool{},
-		localNodeSynced:        localNodeSynced,
-		localNodeSyncedFn: sync.OnceFunc(func() {
-			close(localNodeSynced)
+		localNodeUpdate:        localNodeUpdated,
+		localNodeUpdateFn: sync.OnceFunc(func() {
+			close(localNodeUpdated)
 		}),
 		db:                        p.DB,
 		podIPPools:                p.PodIPPools,
 		onlyMasqueradeDefaultPool: p.OnlyMasqueradeDefaultPool,
 	}
 
-	c.jobGroup.Add(
+	mgr.jobGroup.Add(
 		job.OneShot(
 			"multi-pool-cilium-node-events-handler",
 			func(ctx context.Context, health cell.Health) error {
 				for ev := range p.Node.Events(ctx) {
 					switch ev.Kind {
 					case resource.Upsert:
-						c.ciliumNodeUpdated(ev.Object)
+						mgr.ciliumNodeUpdated(ev.Object)
 					case resource.Delete:
-						c.logger.Debug(
+						mgr.logger.Debug(
 							"Local CiliumNode deleted. IPAM will continue on last seen version",
 							logfields.Node, ev.Object,
 						)
@@ -324,23 +324,15 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		),
 		job.Timer(
 			"multi-pool-cilium-node-updater",
-			c.updateLocalNode,
+			mgr.updateLocalNode,
 			refreshPoolInterval,
-			job.WithTrigger(c.k8sUpdater),
+			job.WithTrigger(mgr.k8sUpdater),
 		),
 	)
 
-	c.waitForAllPools()
+	mgr.waitForAllPools()
 
-	// wait for local node to be synced to avoid propagating spurious updates.
-	for {
-		select {
-		case <-c.localNodeSynced:
-			return c
-		case <-time.After(5 * time.Second):
-			p.Logger.Info("Waiting for local CiliumNode resource to synchronize local node store")
-		}
-	}
+	return mgr
 }
 
 // waitForAllPools waits for all pools in preallocatedIPsPerPool to have IPs available.
@@ -428,6 +420,10 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	}
 
 	m.node = newNode
+}
+
+func (m *multiPoolManager) localNodeUpdated() <-chan struct{} {
+	return m.localNodeUpdate
 }
 
 // neededIPCeil rounds up numIPs to the next but one multiple of preAlloc.
@@ -623,7 +619,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 		}
 	}
 
-	m.localNodeSyncedFn()
+	m.localNodeUpdateFn()
 
 	return nil
 }
