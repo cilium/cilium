@@ -60,6 +60,17 @@ spec:
                   RedirectBackend specifies backend configuration to redirect traffic to.
                   It can not be empty.
                 properties:
+                  forceRedirectOrDrop:
+                    default: false
+                    description: |-
+                      ForceRedirectOrDrop indicates whether traffic matching RedirectFrontend should be
+                      redirected/dropped even if no backends match LocalEndpointSelector.
+
+                      If false (default): If no backends are found, the redirect is removed and traffic
+                      proceeds to the original destination.
+
+                      If true: If no backends are found, traffic is dropped.
+                    type: boolean
                   localEndpointSelector:
                     description: LocalEndpointSelector selects node local pod(s) where
                       traffic is redirected to.

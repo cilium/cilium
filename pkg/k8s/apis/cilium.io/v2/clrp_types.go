@@ -152,6 +152,18 @@ type RedirectBackend struct {
 	//
 	// +kubebuilder:validation:Required
 	ToPorts []PortInfo `json:"toPorts"`
+
+	// ForceRedirectOrDrop indicates whether traffic matching RedirectFrontend should be
+	// redirected/dropped even if no backends match LocalEndpointSelector.
+	//
+	// If false (default): If no backends are found, the redirect is removed and traffic
+	// proceeds to the original destination.
+	//
+	// If true: If no backends are found, traffic is dropped.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	ForceRedirectOrDrop bool `json:"forceRedirectOrDrop,omitempty"`
 }
 
 // CiliumLocalRedirectPolicySpec specifies the configurations for redirecting traffic
