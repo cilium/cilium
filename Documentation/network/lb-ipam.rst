@@ -48,6 +48,12 @@ A basic IP Pools with both an IPv4 and IPv6 range looks like this:
       - start: "20.0.20.100"
         stop: "20.0.20.200"
 
+.. caution::
+
+    Pay attention to the dashes in the YAML file: the ``start`` and ``stop``
+    fields together define a single, independent block and must be specified as
+    one item in the ``blocks`` sequence.
+
 After adding the pool to the cluster, it appears like so.
 
 .. code-block:: shell-session
