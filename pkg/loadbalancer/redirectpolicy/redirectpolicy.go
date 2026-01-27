@@ -316,6 +316,9 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		if err != nil {
 			return nil, fmt.Errorf("invalid ToIP: %s", redirectTo.ToIP)
 		}
+		if !cfg.ToIPRange.Contains(ip) {
+			return nil, fmt.Errorf("ToIP %s is not within the allowed range %s", redirectTo.ToIP, cfg.ToIPRange)
+		}
 		backendIP = ip
 	}
 	// When a single port is specified in the LRP frontend, the protocol for frontend and
