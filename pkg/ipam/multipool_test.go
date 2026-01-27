@@ -19,6 +19,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -126,7 +129,7 @@ func Test_MultiPoolManager(t *testing.T) {
 		Node:           fakeK8sCiliumNodeAPI,
 		Owner:          fakeOwner,
 		LocalNodeStore: fakeLocalNodeStore,
-		Clientset:      fakeK8sCiliumNodeAPI,
+		CNClient:       fakeK8sCiliumNodeAPI,
 		JobGroup:       jg,
 		DB:             db,
 		PodIPPools:     poolsTbl,
@@ -601,7 +604,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		Node:           fakeK8sAPI,
 		Owner:          fakeOwner,
 		LocalNodeStore: fakeLocalNodeStore,
-		Clientset:      fakeK8sAPI,
+		CNClient:       fakeK8sAPI,
 		JobGroup:       jg,
 		DB:             db,
 		PodIPPools:     poolsTbl,
@@ -724,7 +727,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 		Node:           fakeK8sAPI,
 		Owner:          fakeOwner,
 		LocalNodeStore: fakeLocalNodeStore,
-		Clientset:      fakeK8sAPI,
+		CNClient:       fakeK8sAPI,
 		JobGroup:       jg,
 		DB:             db,
 		PodIPPools:     poolsTbl,
@@ -856,9 +859,37 @@ type fakeK8sCiliumNodeAPIResource struct {
 	onDeleteEvent func(err error)
 }
 
+func (k *fakeK8sCiliumNodeAPIResource) Create(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts v1.CreateOptions) (*ciliumv2.CiliumNode, error) {
+	panic("unimplemented")
+}
+
 func (f *fakeK8sCiliumNodeAPIResource) Update(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
 	err := f.updateNode(ciliumNode)
 	return ciliumNode, err
+}
+
+func (k *fakeK8sCiliumNodeAPIResource) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+	panic("unimplemented")
+}
+
+func (k *fakeK8sCiliumNodeAPIResource) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	panic("unimplemented")
+}
+
+func (k *fakeK8sCiliumNodeAPIResource) Get(ctx context.Context, name string, opts v1.GetOptions) (*ciliumv2.CiliumNode, error) {
+	panic("unimplemented")
+}
+
+func (k *fakeK8sCiliumNodeAPIResource) List(ctx context.Context, opts v1.ListOptions) (*ciliumv2.CiliumNodeList, error) {
+	panic("unimplemented")
+}
+
+func (k *fakeK8sCiliumNodeAPIResource) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	panic("unimplemented")
+}
+
+func (k *fakeK8sCiliumNodeAPIResource) Patch(ctx context.Context, name string, pt k8sTypes.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *ciliumv2.CiliumNode, err error) {
+	panic("unimplemented")
 }
 
 func (f *fakeK8sCiliumNodeAPIResource) UpdateStatus(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
@@ -1033,7 +1064,7 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 		Node:                      fakeK8sAPI,
 		Owner:                     fakeOwner,
 		LocalNodeStore:            fakeLocalNodeStore,
-		Clientset:                 fakeK8sAPI,
+		CNClient:                  fakeK8sAPI,
 		JobGroup:                  jg,
 		DB:                        db,
 		PodIPPools:                pools,
