@@ -58,7 +58,6 @@ func Test_MultiPoolManager(t *testing.T) {
 		"default": "16",
 		"mars":    "8",
 	}
-	fakeOwner := &ownerMock{}
 	fakeLocalNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	events := make(chan string, 1)
 	cnEvents := make(chan resource.Event[*ciliumv2.CiliumNode])
@@ -130,7 +129,6 @@ func Test_MultiPoolManager(t *testing.T) {
 		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
 		PreAllocPools:        fakeConfig.IPAMMultiPoolPreAllocation,
 		Node:                 fakeK8sCiliumNodeAPI,
-		Owner:                fakeOwner,
 		LocalNodeStore:       fakeLocalNodeStore,
 		CNClient:             fakeK8sCiliumNodeAPI,
 		JobGroup:             jg,
@@ -552,7 +550,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	fakeConfig := testConfiguration
 	// disable pre-allocation
 	fakeConfig.IPAMMultiPoolPreAllocation = map[string]string{}
-	fakeOwner := &ownerMock{}
 	fakeLocalNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	events := make(chan string, 2)
 	cnEvents := make(chan resource.Event[*ciliumv2.CiliumNode])
@@ -608,7 +605,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
 		PreAllocPools:        fakeConfig.IPAMMultiPoolPreAllocation,
 		Node:                 fakeK8sAPI,
-		Owner:                fakeOwner,
 		LocalNodeStore:       fakeLocalNodeStore,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
@@ -674,7 +670,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 		"default": "1",
 	}
 
-	fakeOwner := &ownerMock{}
 	fakeLocalNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	events := make(chan string, 2)
 	cnEvents := make(chan resource.Event[*ciliumv2.CiliumNode])
@@ -734,7 +729,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
 		PreAllocPools:        fakeConfig.IPAMMultiPoolPreAllocation,
 		Node:                 fakeK8sAPI,
-		Owner:                fakeOwner,
 		LocalNodeStore:       fakeLocalNodeStore,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
@@ -1030,7 +1024,6 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 
 	fakeConfig := testConfiguration
 	fakeConfig.IPAMMultiPoolPreAllocation = map[string]string{}
-	fakeOwner := &ownerMock{}
 	fakeLocalNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
 	cnEvents := make(chan resource.Event[*ciliumv2.CiliumNode])
 	fakeK8sAPI := &fakeK8sCiliumNodeAPIResource{
@@ -1074,7 +1067,6 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 		CiliumNodeUpdateRate:      fakeConfig.IPAMCiliumNodeUpdateRate,
 		PreAllocPools:             fakeConfig.IPAMMultiPoolPreAllocation,
 		Node:                      fakeK8sAPI,
-		Owner:                     fakeOwner,
 		LocalNodeStore:            fakeLocalNodeStore,
 		CNClient:                  fakeK8sAPI,
 		JobGroup:                  jg,
