@@ -43,10 +43,6 @@ type kprInitializer struct {
 }
 
 func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
-	if !r.kprCfg.KubeProxyReplacement {
-		option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = true
-	}
-
 	if !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting {
 		msg := ""
 		switch {
