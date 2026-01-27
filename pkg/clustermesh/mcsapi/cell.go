@@ -18,6 +18,7 @@ import (
 	mcsapiv1alpha1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	cmnamespace "github.com/cilium/cilium/pkg/clustermesh/namespace"
 	"github.com/cilium/cilium/pkg/clustermesh/operator"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s/apis"
@@ -60,6 +61,8 @@ type mcsAPIParams struct {
 	Logger          *slog.Logger
 	JobGroup        job.Group
 	MetricsRegistry *metrics.Registry
+
+	NamespaceConfig cmnamespace.Config
 }
 
 var requiredGVK = []schema.GroupVersionKind{
@@ -123,7 +126,7 @@ func registerMCSAPIController(params mcsAPIParams) error {
 		return err
 	}
 
-	if err := newMCSAPIServiceReconciler(params.CtrlRuntimeManager, params.Logger).SetupWithManager(params.CtrlRuntimeManager); err != nil {
+	if err := newMCSAPIServiceReconciler(params.CtrlRuntimeManager, params.Logger, params.NamespaceConfig).SetupWithManager(params.CtrlRuntimeManager); err != nil {
 		return fmt.Errorf("Failed to register MCSAPIServiceReconciler: %w", err)
 	}
 
@@ -142,6 +145,7 @@ func registerMCSAPIController(params mcsAPIParams) error {
 		params.CtrlRuntimeManager, params.Logger, params.ClusterInfo.Name,
 		params.ClusterMesh.GlobalServiceExports(), remoteClusterServiceSource,
 		params.AgentConfig.EnableIPv4, params.AgentConfig.EnableIPv6,
+		params.NamespaceConfig,
 	)
 
 	params.JobGroup.Add(job.OneShot("mcsapi-main", func(ctx context.Context, health cell.Health) error {
