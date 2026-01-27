@@ -120,6 +120,18 @@ const (
 	// interfering with that bit.
 	MagicMarkDecryptedOverlay = 0x1D00
 
+	// MagicMarkIPIPHealthCheck indicates to the datapath that the packet
+	// came from the host namespace where a socket set MARK_MAGIC_HEALTH
+	// when connecting to a service.
+	//
+	// That packet is then pushed to an IPIP device. So it ends up twice
+	// on the phys device, and going through iptables.
+	//
+	// The second time marked as MARK_MAGIC_HEALTH (0x0d00) |
+	// MARK_MAGIC_HEALTH_IPIP_DONE (0x0300) resulting in 0x0f00.
+	// See also lb_handle_health() in the BPF code.
+	MagicMarkIPIPHealthCheck = 0x0F00
+
 	// MagicMarkEncrypt is the packet mark to use to indicate datapath
 	// needs to encrypt a packet.
 	MagicMarkEncrypt = 0x0E00
