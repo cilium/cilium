@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: ciliumnetworkdriverconfigs.cilium.io
+  name: ciliumnetworkdrivernodeconfigs.cilium.io
 spec:
   group: cilium.io
   names:
     categories:
     - cilium
-    kind: CiliumNetworkDriverConfig
-    listKind: CiliumNetworkDriverConfigList
-    plural: ciliumnetworkdriverconfigs
+    kind: CiliumNetworkDriverNodeConfig
+    listKind: CiliumNetworkDriverNodeConfigList
+    plural: ciliumnetworkdrivernodeconfigs
     shortNames:
-    - ndc
-    singular: ciliumnetworkdriverconfig
+    - ndnc
+    singular: ciliumnetworkdrivernodeconfig
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -26,7 +26,7 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          CiliumNetworkDriverConfig is a Kubernetes third-party resource used to
+          CiliumNetworkDriverNodeConfig is a Kubernetes third-party resource used to
           configure the Cilium Network Driver feature.
         properties:
           apiVersion:
@@ -75,10 +75,16 @@ spec:
                               default: 0
                               description: Number of VF to be spawned for this PF.
                               type: integer
+                              x-kubernetes-validations:
+                              - message: VfCount is immutable
+                                rule: self == oldSelf
                           required:
                           - ifName
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - ifName
+                        x-kubernetes-list-type: map
                       sysBusPCIDevPath:
                         type: string
                     type: object
