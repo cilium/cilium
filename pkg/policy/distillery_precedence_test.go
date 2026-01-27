@@ -366,8 +366,8 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				// default allow ingress
 				ingressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyIngress),
 
-				egressKey(0, 0, 0, 0):            denyEntry.withLevel(11),
-				egressKey(identity1111, 0, 0, 0): allowEntry.withLevel(1).withPassPriority(0, 1000),
+				egressKey(0, 0, 0, 0):            denyEntry.withLevel(2001),
+				egressKey(identity1111, 0, 0, 0): allowEntry.withLevel(1).withPassPriority(0, 3000),
 			},
 			probes: []probe{
 				{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -414,10 +414,10 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			expected: mapStateMap{
 				// default allow ingress
 				ingressKey(0, 0, 0, 0):           newAllowEntryWithLabels(LabelsAllowAnyIngress),
-				egressKey(0, 6, 80, 0):           denyEntry.withLevel(11),
-				egressKey(identity1111, 0, 0, 0): allowEntry.withLevel(1).withPassPriority(0, 1000),
-				egressKey(identity1100, 0, 0, 0): denyEntry.withLevel(2).withPassPriority(0, 1000),
-				egressKey(0, 0, 0, 0):            denyEntry.withLevel(2000),
+				egressKey(0, 6, 80, 0):           denyEntry.withLevel(3001),
+				egressKey(identity1111, 0, 0, 0): allowEntry.withLevel(1).withPassPriority(0, 4000),
+				egressKey(identity1100, 0, 0, 0): denyEntry.withLevel(2).withPassPriority(0, 4000),
+				egressKey(0, 0, 0, 0):            denyEntry.withLevel(5000),
 			},
 			probes: []probe{
 				{key: egressKey(identityWorld, 6, 80, 16), found: true, entry: DenyEntry},
@@ -454,9 +454,9 @@ func TestOrderedPolicyValidation(t *testing.T) {
 				ingressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyIngress),
 
 				// default deny egress
-				egressKey(0, 0, 0, 0): newDenyEntryWithLabels(LabelsDenyAnyEgress).withLevel(2000),
+				egressKey(0, 0, 0, 0): newDenyEntryWithLabels(LabelsDenyAnyEgress).withLevel(4000),
 
-				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 1000),
+				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 3000),
 				egressKey(identity1111, 6, 80, 0): allowEntry.withLevel(1),
 			},
 			probes: []probe{},
@@ -487,10 +487,10 @@ func TestOrderedPolicyValidation(t *testing.T) {
 			expected: mapStateMap{
 				// default allow ingress
 				ingressKey(0, 0, 0, 0):            newAllowEntryWithLabels(LabelsAllowAnyIngress),
-				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 1000),
+				egressKey(identity1111, 0, 0, 0):  passEntry.withPassPriority(0, 3000),
 				egressKey(identity1111, 6, 80, 0): allowEntry.withLevel(1),
 				// default allow egress
-				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(2000),
+				egressKey(0, 0, 0, 0): newAllowEntryWithLabels(LabelsAllowAnyEgress).withLevel(4000),
 			},
 			probes: []probe{},
 		}, {
