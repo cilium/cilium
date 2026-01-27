@@ -98,7 +98,7 @@ CILIUM_AGENT_SELECTORS="-selector k8s:ns:{{ include "cilium.namespace" . }} -sel
 CILIUM_OPERATOR_SPIFFE_ID="spiffe://{{ .Values.authentication.mutual.spire.trustDomain }}/cilium-operator"
 CILIUM_OPERATOR_SELECTORS="-selector k8s:ns:{{ include "cilium.namespace" . }} -selector k8s:sa:{{ .Values.serviceAccounts.operator.name }}"
 ZTUNNEL_SPIFFE_ID="spiffe://{{ .Values.authentication.mutual.spire.trustDomain }}/ztunnel"
-ZTUNNEL_SELECTORS="-selector k8s:ns:{{ include "cilium.namespace" . }} -selector k8s:sa:ztunnel"
+ZTUNNEL_SELECTORS="-selector k8s:ns:{{ include "cilium.namespace" . }} -selector k8s:sa:{{ .Values.serviceAccounts.ztunnel.name }}"
 
 # Function to execute spire entry operations with retry on PID change
 execute_spire_entry() {

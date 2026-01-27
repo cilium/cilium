@@ -61,10 +61,19 @@ spec:
               value: "https://localhost:15012"
             - name: XDS_ROOT_CA
               value: "/etc/ztunnel/bootstrap-root.crt"
+            {{- if .Values.authentication.mutual.spire.enabled }}
+            - name: SPIRE_ENABLED
+              value: "true"
+            - name: SPIRE_ADMIN_ENDPOINT_SOCKET
+              value: {{ printf "unix://%s" .Values.authentication.mutual.spire.adminSocketPath | quote }}
+            - name: CA_ROOT_CA
+              value: "/run/spire/bundle/bundle.crt"
+            {{- else }}
             - name: CA_ROOT_CA
               value: "/etc/ztunnel/bootstrap-root.crt"
             - name: CA_ADDRESS
               value: {{ .Values.encryption.ztunnel.caAddress | quote }}
+            {{- end }}
             - name: ISTIO_META_DNS_CAPTURE
               value: "false"
             - name: INPOD_UDS
@@ -121,6 +130,17 @@ spec:
             - mountPath: /etc/ztunnel
               name: cilium-ztunnel-secrets
               readOnly: true
+            {{- if .Values.authentication.mutual.spire.enabled }}
+            - name: spire-agent-socket
+              mountPath: {{ dir .Values.authentication.mutual.spire.adminSocketPath }}
+              readOnly: false
+            - name: spire-bundle
+              mountPath: /run/spire/bundle
+              readOnly: true
+            - name: container-runtime-socket
+              mountPath: /run/containerd/containerd.sock
+              readOnly: true
+            {{- end }}
             {{- with .Values.encryption.ztunnel.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -158,6 +178,19 @@ spec:
               - key: bootstrap-root.crt
                 path: bootstrap-root.crt
                 mode: 420
+        {{- if .Values.authentication.mutual.spire.enabled }}
+        - name: spire-agent-socket
+          hostPath:
+            path: {{ dir .Values.authentication.mutual.spire.adminSocketPath }}
+            type: DirectoryOrCreate
+        - name: spire-bundle
+          configMap:
+            name: spire-bundle
+        - name: container-runtime-socket
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
+        {{- end }}
         {{- with .Values.encryption.ztunnel.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
