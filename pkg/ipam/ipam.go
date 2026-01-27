@@ -147,13 +147,14 @@ func (ipam *IPAM) ConfigureAllocator() {
 			CiliumNodeUpdateRate:      ipam.config.IPAMCiliumNodeUpdateRate,
 			PreAllocPools:             ipam.config.IPAMMultiPoolPreAllocation,
 			Node:                      ipam.nodeResource,
-			LocalNodeStore:            ipam.localNodeStore,
 			CNClient:                  ipam.clientset.CiliumV2().CiliumNodes(),
 			JobGroup:                  ipam.jg,
 			DB:                        ipam.db,
 			PodIPPools:                ipam.podIPPools,
 			OnlyMasqueradeDefaultPool: ipam.onlyMasqueradeDefaultPool,
 		})
+
+		startLocalNodeAllocCIDRsSync(ipam.config.EnableIPv4, ipam.config.EnableIPv6, ipam.jg, ipam.nodeResource, ipam.localNodeStore)
 
 		// wait for local node to be updated to avoid propagating spurious updates.
 		waitForLocalNodeUpdate(ipam.logger, manager)
