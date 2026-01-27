@@ -52,7 +52,7 @@ type Driver struct {
 	resourceClaims resource.Resource[*resourceapi.ResourceClaim]
 	pods           resource.Resource[*corev1.Pod]
 
-	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverConfig]
+	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
 	config    *v2alpha1.CiliumNetworkDriverConfigSpec
 
 	deviceManagers map[types.DeviceManagerType]types.DeviceManager
