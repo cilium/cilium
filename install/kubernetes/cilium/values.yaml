@@ -2493,8 +2493,7 @@ loadBalancer:
 
   # -- serviceTopology enables K8s Topology Aware Hints -based service
   # endpoints filtering
-  # serviceTopology: false
-
+  serviceTopology: false
   # -- L7 LoadBalancer
   l7:
     # -- Enable L7 service load balancing via envoy proxy.
