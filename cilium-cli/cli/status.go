@@ -12,11 +12,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/cilium-cli/api"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/status"
 )
 
-func newCmdStatus() *cobra.Command {
+func newCmdStatus(hooks api.StatusOutputHooks) *cobra.Command {
 	var params = status.K8sStatusParameters{}
 
 	cmd := &cobra.Command{
@@ -35,19 +36,24 @@ func newCmdStatus() *cobra.Command {
 			s, err := collector.Status(context.Background())
 			if err != nil {
 				// Report the most recent status even if an error occurred.
-				fmt.Fprint(os.Stderr, s.Format())
+				fmt.Fprint(os.Stderr, statusFormattedOutput(hooks, s))
 				fatalf("Unable to determine status:  %s", err)
 			}
 			if params.Output == status.OutputJSON {
 				jsonStatus, err := json.MarshalIndent(s, "", " ")
 				if err != nil {
 					// Report the most recent status even if an error occurred.
-					fmt.Fprint(os.Stderr, s.Format())
+					fmt.Fprint(os.Stderr, statusFormattedOutput(hooks, s))
 					fatalf("Unable to marshal status to JSON:  %s", err)
+				}
+				jsonStatus, err = hooks.TransformJSON(jsonStatus)
+				if err != nil {
+					fmt.Fprint(os.Stderr, statusFormattedOutput(hooks, s))
+					fatalf("Unable to transform status JSON:  %s", err)
 				}
 				fmt.Println(string(jsonStatus))
 			} else {
-				fmt.Print(s.Format())
+				fmt.Print(statusFormattedOutput(hooks, s))
 			}
 
 			if len(s.CollectionErrors) > 0 {
@@ -71,4 +77,8 @@ func newCmdStatus() *cobra.Command {
 	cmd.Flags().BoolVar(&params.Verbose, "verbose", false, "Print more verbose error / log messages")
 
 	return cmd
+}
+
+func statusFormattedOutput(hooks api.StatusOutputHooks, s *status.Status) string {
+	return hooks.TransformSummary(s.Format())
 }
