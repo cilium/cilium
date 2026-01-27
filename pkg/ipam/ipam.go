@@ -146,7 +146,6 @@ func (ipam *IPAM) ConfigureAllocator() {
 			CiliumNodeUpdateRate:      ipam.config.IPAMCiliumNodeUpdateRate,
 			PreAllocPools:             ipam.config.IPAMMultiPoolPreAllocation,
 			Node:                      ipam.nodeResource,
-			Owner:                     ipam.nodeDiscovery,
 			LocalNodeStore:            ipam.localNodeStore,
 			CNClient:                  ipam.clientset.CiliumV2().CiliumNodes(),
 			JobGroup:                  ipam.jg,
