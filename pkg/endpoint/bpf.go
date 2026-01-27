@@ -1090,6 +1090,17 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) e
 func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext, hasNewPolicy bool) error {
 	e.PolicyDebug("applyPolicyMapChanges")
 
+	// desiredPolicy can be nil if this endpoint hasn't completed its first
+	// regeneration yet. This can happen when identity updates trigger
+	// UpdatePolicyMaps() on all endpoints, including newly created ones that
+	// are exposed in the endpoint manager but haven't had regeneratePolicy()
+	// complete yet. In this case, skip incremental updates - the endpoint
+	// will get its full policy on first regeneration.
+	if e.desiredPolicy == nil {
+		e.getLogger().Debug("Skipping policy map changes: endpoint policy not yet initialized")
+		return nil
+	}
+
 	// Always update Envoy if policy has changed
 	updateEnvoy := hasNewPolicy
 
