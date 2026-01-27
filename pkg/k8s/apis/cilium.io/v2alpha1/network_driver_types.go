@@ -5,28 +5,30 @@ package v2alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=false
 // +deepequal-gen=false
-type CiliumNetworkDriverConfigList struct {
+type CiliumNetworkDriverClusterConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []CiliumNetworkDriverConfig `json:"items"`
+	Items []CiliumNetworkDriverClusterConfig `json:"items"`
 }
 
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:categories={cilium},singular="ciliumnetworkdriverconfig",path="ciliumnetworkdriverconfigs",scope="Cluster",shortName={ndc}
+// +kubebuilder:resource:categories={cilium},singular="ciliumnetworkdriverclusterconfig",path="ciliumnetworkdriverclusterconfigs",scope="Cluster",shortName={ndcc}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
 
-// CiliumNetworkDriverConfig is a Kubernetes third-party resource used to
+// CiliumNetworkDriverClusterConfig is a Kubernetes third-party resource used to
 // configure the Cilium Network Driver feature.
-type CiliumNetworkDriverConfig struct {
+type CiliumNetworkDriverClusterConfig struct {
 	// +deepequal-gen=false
 	// +kubebuilder:validation:Optional
 	metav1.TypeMeta `json:",inline"`
@@ -35,9 +37,52 @@ type CiliumNetworkDriverConfig struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// +kubebuilder:validation:Required
-	Spec CiliumNetworkDriverConfigSpec `json:"spec"`
+	Spec CiliumNetworkDriverClusterConfigSpec `json:"spec"`
 }
-type CiliumNetworkDriverConfigSpec struct {
+
+type CiliumNetworkDriverClusterConfigSpec struct {
+	// NodeSelector selects a group of nodes where this configuration
+	// should be applied
+	// If empty / nil this config applies to all nodes.
+	//
+	// +kubebuilder:validation:Optional
+	NodeSelector *slimv1.LabelSelector `json:"nodeSelector,omitempty"`
+
+	// +kubebuilder:validation:Required
+	Spec CiliumNetworkDriverNodeConfigSpec `json:"spec"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=false
+// +deepequal-gen=false
+type CiliumNetworkDriverNodeConfigList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []CiliumNetworkDriverNodeConfig `json:"items"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium},singular="ciliumnetworkdrivernodeconfig",path="ciliumnetworkdrivernodeconfigs",scope="Cluster",shortName={ndnc}
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:storageversion
+
+// CiliumNetworkDriverNodeConfig is a Kubernetes third-party resource used to
+// configure the Cilium Network Driver feature.
+type CiliumNetworkDriverNodeConfig struct {
+	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
+	metav1.ObjectMeta `json:"metadata"`
+
+	// +kubebuilder:validation:Required
+	Spec CiliumNetworkDriverNodeConfigSpec `json:"spec"`
+}
+type CiliumNetworkDriverNodeConfigSpec struct {
 	// Interval between DRA registration retries
 	//
 	// +kubebuilder:validation:Optional
@@ -141,6 +186,8 @@ type SRIOVDeviceManagerConfig struct {
 	SysPciDevicesPath string `json:"sysBusPCIDevPath,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=ifName
 	Ifaces []SRIOVDeviceConfig `json:"ifaces,omitempty"`
 }
 
@@ -150,6 +197,7 @@ type SRIOVDeviceConfig struct {
 	//
 	// +kubebuilder:default=0
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="VfCount is immutable"
 	VfCount int `json:"vfCount"`
 
 	// Kernel ifname

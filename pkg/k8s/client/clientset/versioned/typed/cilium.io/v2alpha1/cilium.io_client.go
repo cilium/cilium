@@ -26,7 +26,8 @@ type CiliumV2alpha1Interface interface {
 	CiliumGatewayClassConfigsGetter
 	CiliumL2AnnouncementPoliciesGetter
 	CiliumLoadBalancerIPPoolsGetter
-	CiliumNetworkDriverConfigsGetter
+	CiliumNetworkDriverClusterConfigsGetter
+	CiliumNetworkDriverNodeConfigsGetter
 	CiliumPodIPPoolsGetter
 }
 
@@ -79,8 +80,12 @@ func (c *CiliumV2alpha1Client) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPP
 	return newCiliumLoadBalancerIPPools(c)
 }
 
-func (c *CiliumV2alpha1Client) CiliumNetworkDriverConfigs() CiliumNetworkDriverConfigInterface {
-	return newCiliumNetworkDriverConfigs(c)
+func (c *CiliumV2alpha1Client) CiliumNetworkDriverClusterConfigs() CiliumNetworkDriverClusterConfigInterface {
+	return newCiliumNetworkDriverClusterConfigs(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumNetworkDriverNodeConfigs() CiliumNetworkDriverNodeConfigInterface {
+	return newCiliumNetworkDriverNodeConfigs(c)
 }
 
 func (c *CiliumV2alpha1Client) CiliumPodIPPools() CiliumPodIPPoolInterface {
