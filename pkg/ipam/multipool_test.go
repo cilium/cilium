@@ -7,11 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
@@ -28,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/trigger"
 )
 
 var (
@@ -45,6 +48,8 @@ func Test_MultiPoolManager(t *testing.T) {
 	insertPool(t, db, poolsTbl, "jupiter", false)
 
 	fakeConfig := testConfiguration
+	// disable debounce interval to trigger CiliumNode update at each test step
+	fakeConfig.IPAMCiliumNodeUpdateRate = 1 * time.Nanosecond
 	// set custom preAllocMap for unit tests
 	fakeConfig.IPAMMultiPoolPreAllocation = map[string]string{
 		"default": "16",
@@ -106,6 +111,15 @@ func Test_MultiPoolManager(t *testing.T) {
 	// waiting for initial local node sync and return
 	go fakeK8sCiliumNodeAPI.updateNode(currentNode)
 
+	var jg job.Group
+	h := hive.New(
+		cell.Invoke(func(jg_ job.Group) { jg = jg_ }),
+	)
+
+	tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+	assert.NoError(t, h.Start(tlog, t.Context()))
+	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
+
 	c := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:         hivetest.Logger(t),
 		Conf:           fakeConfig,
@@ -113,20 +127,10 @@ func Test_MultiPoolManager(t *testing.T) {
 		Owner:          fakeOwner,
 		LocalNodeStore: fakeLocalNodeStore,
 		Clientset:      fakeK8sCiliumNodeAPI,
+		JobGroup:       jg,
 		DB:             db,
 		PodIPPools:     poolsTbl,
 	})
-
-	// For testing, we want every trigger to run the controller once
-	k8sUpdater, err := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: 0,
-		TriggerFunc: func(reasons []string) {
-			c.controller.TriggerController(multiPoolControllerName)
-		},
-		Name: multiPoolTriggerName,
-	})
-	assert.NoError(t, err)
-	c.k8sUpdater = k8sUpdater
 
 	// assert initial CiliumNode upsert has been sent to the events chan
 	assert.Equal(t, "upsert", <-events)
@@ -582,6 +586,15 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	// Feed initial node to the fake API so that newMultiPoolManager returns immediately
 	go fakeK8sAPI.updateNode(initialNode)
 
+	var jg job.Group
+	h := hive.New(
+		cell.Invoke(func(jg_ job.Group) { jg = jg_ }),
+	)
+
+	tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+	assert.NoError(t, h.Start(tlog, t.Context()))
+	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
+
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:         logger,
 		Conf:           fakeConfig,
@@ -589,18 +602,13 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		Owner:          fakeOwner,
 		LocalNodeStore: fakeLocalNodeStore,
 		Clientset:      fakeK8sAPI,
+		JobGroup:       jg,
 		DB:             db,
 		PodIPPools:     poolsTbl,
 	})
 
 	// Trigger controller immediately when requested by the IPAM trigger
-	triggerNow, err := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: 0,
-		TriggerFunc: func(_ []string) { mgr.controller.TriggerController(multiPoolControllerName) },
-		Name:        "test-trigger",
-	})
-	assert.NoError(t, err)
-	mgr.k8sUpdater = triggerNow
+	mgr.k8sUpdater = job.NewTrigger()
 
 	<-events // first upsert (initial node)
 
@@ -627,6 +635,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	assert.Len(t, alloc, 1, "expected only one pool allocation entry")
 	assert.Equal(t, "default", alloc[0].Pool)
 	assert.ElementsMatch(t,
+
 		[]types.IPAMCIDR{
 			types.IPAMCIDR(cidr1.String()),
 			types.IPAMCIDR(cidrv61.String()),
@@ -700,6 +709,15 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	// Feed initial node so that newMultiPoolManager returns immediately
 	go fakeK8sAPI.updateNode(initialNode)
 
+	var jg job.Group
+	h := hive.New(
+		cell.Invoke(func(jg_ job.Group) { jg = jg_ }),
+	)
+
+	tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+	assert.NoError(t, h.Start(tlog, t.Context()))
+	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
+
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:         logger,
 		Conf:           fakeConfig,
@@ -707,18 +725,13 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 		Owner:          fakeOwner,
 		LocalNodeStore: fakeLocalNodeStore,
 		Clientset:      fakeK8sAPI,
+		JobGroup:       jg,
 		DB:             db,
 		PodIPPools:     poolsTbl,
 	})
 
 	// Trigger controller immediately when requested
-	triggerNow, err := trigger.NewTrigger(trigger.Parameters{
-		MinInterval: 0,
-		TriggerFunc: func(_ []string) { mgr.controller.TriggerController(multiPoolControllerName) },
-		Name:        "test-trigger-prealloc",
-	})
-	assert.NoError(t, err)
-	mgr.k8sUpdater = triggerNow
+	mgr.k8sUpdater = job.NewTrigger()
 
 	<-events // first upsert (initial node)
 
@@ -861,6 +874,12 @@ func (f *fakeK8sCiliumNodeAPIResource) Events(ctx context.Context, _ ...resource
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
+	// close events channel when the context is done
+	go func() {
+		<-ctx.Done()
+		close(f.c)
+	}()
+
 	return f.c
 }
 
@@ -999,6 +1018,15 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 
 	go fakeK8sAPI.updateNode(initialNode)
 
+	var jg job.Group
+	h := hive.New(
+		cell.Invoke(func(jg_ job.Group) { jg = jg_ }),
+	)
+
+	tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+	assert.NoError(t, h.Start(tlog, t.Context()))
+	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
+
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:                    hivetest.Logger(t),
 		Conf:                      fakeConfig,
@@ -1006,6 +1034,7 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 		Owner:                     fakeOwner,
 		LocalNodeStore:            fakeLocalNodeStore,
 		Clientset:                 fakeK8sAPI,
+		JobGroup:                  jg,
 		DB:                        db,
 		PodIPPools:                pools,
 		OnlyMasqueradeDefaultPool: onlyMasqDefault,
