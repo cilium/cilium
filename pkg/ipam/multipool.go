@@ -230,10 +230,9 @@ type MultiPoolManagerParams struct {
 	CiliumNodeUpdateRate time.Duration
 	PreAllocPools        map[string]string
 
-	Node           agentK8s.LocalCiliumNodeResource
-	LocalNodeStore *node.LocalNodeStore
-	CNClient       cilium_v2.CiliumNodeInterface
-	JobGroup       job.Group
+	Node     agentK8s.LocalCiliumNodeResource
+	CNClient cilium_v2.CiliumNodeInterface
+	JobGroup job.Group
 
 	DB                        *statedb.DB
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
@@ -254,10 +253,9 @@ type multiPoolManager struct {
 
 	node *ciliumv2.CiliumNode
 
-	jobGroup       job.Group
-	k8sUpdater     job.Trigger
-	localNodeStore *node.LocalNodeStore
-	cnClient       cilium_v2.CiliumNodeInterface
+	jobGroup   job.Group
+	k8sUpdater job.Trigger
+	cnClient   cilium_v2.CiliumNodeInterface
 
 	localNodeUpdate   chan struct{}
 	localNodeUpdateFn func()
@@ -291,7 +289,6 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		node:                   nil,
 		jobGroup:               p.JobGroup,
 		k8sUpdater:             job.NewTrigger(job.WithDebounce(p.CiliumNodeUpdateRate)),
-		localNodeStore:         p.LocalNodeStore,
 		cnClient:               p.CNClient,
 		finishedRestore:        map[Family]bool{},
 		localNodeUpdate:        localNodeUpdated,
@@ -402,10 +399,6 @@ func (m *multiPoolManager) waitForPool(ctx context.Context, family Family, poolN
 }
 
 func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
-	// Once allocations are processed update the local node state with the allocated
-	// CIDRs.
-	defer m.updateLocalNodeStore(newNode)
-
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -519,20 +512,6 @@ func (m *multiPoolManager) restoreFinished(family Family) {
 
 func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
 	return m.finishedRestore[family]
-}
-
-func (m *multiPoolManager) updateLocalNodeStore(newNode *ciliumv2.CiliumNode) {
-	no := nodeTypes.ParseCiliumNode(newNode)
-	m.localNodeStore.Update(func(n *node.LocalNode) {
-		if option.Config.EnableIPv4 && no.IPv4AllocCIDR != nil {
-			n.IPv4AllocCIDR = no.IPv4AllocCIDR
-			n.IPv4SecondaryAllocCIDRs = no.IPv4SecondaryAllocCIDRs
-		}
-		if option.Config.EnableIPv6 && no.IPv6AllocCIDR != nil {
-			n.IPv6AllocCIDR = no.IPv6AllocCIDR
-			n.IPv6SecondaryAllocCIDRs = no.IPv6SecondaryAllocCIDRs
-		}
-	})
 }
 
 func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
@@ -855,4 +834,39 @@ func (c *multiPoolAllocator) Capacity() uint64 {
 
 func (c *multiPoolAllocator) RestoreFinished() {
 	c.manager.restoreFinished(c.family)
+}
+
+func startLocalNodeAllocCIDRsSync(
+	enableIPv4, enableIPv6 bool,
+	jobGroup job.Group,
+	localNode agentK8s.LocalCiliumNodeResource,
+	localNodeStore *node.LocalNodeStore,
+) {
+	jobGroup.Add(
+		job.Observer(
+			"multi-pool-local-node-syncer",
+			func(ctx context.Context, ev resource.Event[*ciliumv2.CiliumNode]) error {
+				defer ev.Done(nil)
+
+				if ev.Kind != resource.Upsert {
+					return nil
+				}
+
+				no := nodeTypes.ParseCiliumNode(ev.Object)
+				localNodeStore.Update(func(n *node.LocalNode) {
+					if enableIPv4 && no.IPv4AllocCIDR != nil {
+						n.IPv4AllocCIDR = no.IPv4AllocCIDR
+						n.IPv4SecondaryAllocCIDRs = no.IPv4SecondaryAllocCIDRs
+					}
+					if enableIPv6 && no.IPv6AllocCIDR != nil {
+						n.IPv6AllocCIDR = no.IPv6AllocCIDR
+						n.IPv6SecondaryAllocCIDRs = no.IPv6SecondaryAllocCIDRs
+					}
+				})
+
+				return nil
+			},
+			localNode,
+		),
+	)
 }
