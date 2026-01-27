@@ -124,15 +124,18 @@ func Test_MultiPoolManager(t *testing.T) {
 	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
 
 	c := newMultiPoolManager(MultiPoolManagerParams{
-		Logger:         hivetest.Logger(t),
-		Conf:           fakeConfig,
-		Node:           fakeK8sCiliumNodeAPI,
-		Owner:          fakeOwner,
-		LocalNodeStore: fakeLocalNodeStore,
-		CNClient:       fakeK8sCiliumNodeAPI,
-		JobGroup:       jg,
-		DB:             db,
-		PodIPPools:     poolsTbl,
+		Logger:               hivetest.Logger(t),
+		IPv4Enabled:          fakeConfig.EnableIPv4,
+		IPv6Enabled:          fakeConfig.EnableIPv6,
+		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
+		PreAllocPools:        fakeConfig.IPAMMultiPoolPreAllocation,
+		Node:                 fakeK8sCiliumNodeAPI,
+		Owner:                fakeOwner,
+		LocalNodeStore:       fakeLocalNodeStore,
+		CNClient:             fakeK8sCiliumNodeAPI,
+		JobGroup:             jg,
+		DB:                   db,
+		PodIPPools:           poolsTbl,
 	})
 
 	// assert initial CiliumNode upsert has been sent to the events chan
@@ -599,15 +602,18 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
 
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
-		Logger:         logger,
-		Conf:           fakeConfig,
-		Node:           fakeK8sAPI,
-		Owner:          fakeOwner,
-		LocalNodeStore: fakeLocalNodeStore,
-		CNClient:       fakeK8sAPI,
-		JobGroup:       jg,
-		DB:             db,
-		PodIPPools:     poolsTbl,
+		Logger:               logger,
+		IPv4Enabled:          fakeConfig.EnableIPv4,
+		IPv6Enabled:          fakeConfig.EnableIPv6,
+		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
+		PreAllocPools:        fakeConfig.IPAMMultiPoolPreAllocation,
+		Node:                 fakeK8sAPI,
+		Owner:                fakeOwner,
+		LocalNodeStore:       fakeLocalNodeStore,
+		CNClient:             fakeK8sAPI,
+		JobGroup:             jg,
+		DB:                   db,
+		PodIPPools:           poolsTbl,
 	})
 
 	// Trigger controller immediately when requested by the IPAM trigger
@@ -722,15 +728,18 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
 
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
-		Logger:         logger,
-		Conf:           fakeConfig,
-		Node:           fakeK8sAPI,
-		Owner:          fakeOwner,
-		LocalNodeStore: fakeLocalNodeStore,
-		CNClient:       fakeK8sAPI,
-		JobGroup:       jg,
-		DB:             db,
-		PodIPPools:     poolsTbl,
+		Logger:               logger,
+		IPv4Enabled:          fakeConfig.EnableIPv4,
+		IPv6Enabled:          fakeConfig.EnableIPv6,
+		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
+		PreAllocPools:        fakeConfig.IPAMMultiPoolPreAllocation,
+		Node:                 fakeK8sAPI,
+		Owner:                fakeOwner,
+		LocalNodeStore:       fakeLocalNodeStore,
+		CNClient:             fakeK8sAPI,
+		JobGroup:             jg,
+		DB:                   db,
+		PodIPPools:           poolsTbl,
 	})
 
 	// Trigger controller immediately when requested
@@ -1060,7 +1069,10 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:                    hivetest.Logger(t),
-		Conf:                      fakeConfig,
+		IPv4Enabled:               fakeConfig.EnableIPv4,
+		IPv6Enabled:               fakeConfig.EnableIPv6,
+		CiliumNodeUpdateRate:      fakeConfig.IPAMCiliumNodeUpdateRate,
+		PreAllocPools:             fakeConfig.IPAMMultiPoolPreAllocation,
 		Node:                      fakeK8sAPI,
 		Owner:                     fakeOwner,
 		LocalNodeStore:            fakeLocalNodeStore,

@@ -223,13 +223,19 @@ func (p pendingAllocationsPerOwner) pendingForFamily(family Family) int {
 }
 
 type MultiPoolManagerParams struct {
-	Logger                    *slog.Logger
-	Conf                      *option.DaemonConfig
-	Node                      agentK8s.LocalCiliumNodeResource
-	Owner                     Owner
-	LocalNodeStore            *node.LocalNodeStore
-	CNClient                  cilium_v2.CiliumNodeInterface
-	JobGroup                  job.Group
+	Logger *slog.Logger
+
+	IPv4Enabled          bool
+	IPv6Enabled          bool
+	CiliumNodeUpdateRate time.Duration
+	PreAllocPools        map[string]string
+
+	Node           agentK8s.LocalCiliumNodeResource
+	Owner          Owner
+	LocalNodeStore *node.LocalNodeStore
+	CNClient       cilium_v2.CiliumNodeInterface
+	JobGroup       job.Group
+
 	DB                        *statedb.DB
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
 	OnlyMasqueradeDefaultPool bool
@@ -237,8 +243,10 @@ type MultiPoolManagerParams struct {
 
 type multiPoolManager struct {
 	mutex *lock.Mutex
-	conf  *option.DaemonConfig
 	owner Owner
+
+	ipv4Enabled bool
+	ipv6Enabled bool
 
 	preallocatedIPsPerPool preAllocatePerPool
 	pendingIPsPerPool      *pendingAllocationsPerPool
@@ -267,7 +275,7 @@ type multiPoolManager struct {
 var _ Allocator = (*multiPoolAllocator)(nil)
 
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
-	preallocMap, err := parseMultiPoolPreAllocMap(p.Conf.IPAMMultiPoolPreAllocation)
+	preallocMap, err := parseMultiPoolPreAllocMap(p.PreAllocPools)
 	if err != nil {
 		logging.Fatal(p.Logger, fmt.Sprintf("Invalid %s flag value", option.IPAMMultiPoolPreAllocation), logfields.Error, err)
 	}
@@ -277,14 +285,15 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		logger:                 p.Logger,
 		mutex:                  &lock.Mutex{},
 		owner:                  p.Owner,
-		conf:                   p.Conf,
+		ipv4Enabled:            p.IPv4Enabled,
+		ipv6Enabled:            p.IPv6Enabled,
 		preallocatedIPsPerPool: preallocMap,
 		pendingIPsPerPool:      newPendingAllocationsPerPool(p.Logger),
 		pools:                  map[Pool]*poolPair{},
 		poolsUpdated:           make(chan struct{}, 1),
 		node:                   nil,
 		jobGroup:               p.JobGroup,
-		k8sUpdater:             job.NewTrigger(job.WithDebounce(p.Conf.IPAMCiliumNodeUpdateRate)),
+		k8sUpdater:             job.NewTrigger(job.WithDebounce(p.CiliumNodeUpdateRate)),
 		localNodeStore:         p.LocalNodeStore,
 		cnClient:               p.CNClient,
 		finishedRestore:        map[Family]bool{},
@@ -349,10 +358,10 @@ func (m *multiPoolManager) waitForAllPools() {
 		allPoolsReady = true
 		for pool := range m.preallocatedIPsPerPool {
 			ctx, cancel := context.WithTimeout(context.Background(), waitForPoolTimeout)
-			if m.conf.IPv4Enabled() {
+			if m.ipv4Enabled {
 				allPoolsReady = m.waitForPool(ctx, IPv4, pool) && allPoolsReady
 			}
-			if m.conf.IPv6Enabled() {
+			if m.ipv6Enabled {
 				allPoolsReady = m.waitForPool(ctx, IPv6, pool) && allPoolsReady
 			}
 			cancel()
@@ -494,11 +503,11 @@ func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPo
 	// + preAllocIPs
 	for poolName, preAlloc := range m.preallocatedIPsPerPool {
 		ipv4Addrs := demand[poolName].IPv4Addrs
-		if m.conf.IPv4Enabled() {
+		if m.ipv4Enabled {
 			ipv4Addrs = neededIPCeil(ipv4Addrs, preAlloc)
 		}
 		ipv6Addrs := demand[poolName].IPv6Addrs
-		if m.conf.IPv6Enabled() {
+		if m.ipv6Enabled {
 			ipv6Addrs = neededIPCeil(ipv6Addrs, preAlloc)
 		}
 
@@ -628,10 +637,10 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, podCIDRs []types.IPAM
 	pool, ok := m.pools[poolName]
 	if !ok {
 		pool = &poolPair{}
-		if m.conf.IPv4Enabled() {
+		if m.ipv4Enabled {
 			pool.v4 = newPodCIDRPool(m.logger)
 		}
-		if m.conf.IPv6Enabled() {
+		if m.ipv6Enabled {
 			pool.v6 = newPodCIDRPool(m.logger)
 		}
 	}

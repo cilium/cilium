@@ -141,7 +141,10 @@ func (ipam *IPAM) ConfigureAllocator() {
 		ipam.logger.Info("Initializing MultiPool IPAM")
 		manager := newMultiPoolManager(MultiPoolManagerParams{
 			Logger:                    ipam.logger,
-			Conf:                      ipam.config,
+			IPv4Enabled:               ipam.config.IPv4Enabled(),
+			IPv6Enabled:               ipam.config.IPv6Enabled(),
+			CiliumNodeUpdateRate:      ipam.config.IPAMCiliumNodeUpdateRate,
+			PreAllocPools:             ipam.config.IPAMMultiPoolPreAllocation,
 			Node:                      ipam.nodeResource,
 			Owner:                     ipam.nodeDiscovery,
 			LocalNodeStore:            ipam.localNodeStore,
