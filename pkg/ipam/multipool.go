@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -221,18 +222,13 @@ func (p pendingAllocationsPerOwner) pendingForFamily(family Family) int {
 	return len(p[family])
 }
 
-type nodeUpdater interface {
-	Update(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts metav1.UpdateOptions) (*ciliumv2.CiliumNode, error)
-	UpdateStatus(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts metav1.UpdateOptions) (*ciliumv2.CiliumNode, error)
-}
-
 type MultiPoolManagerParams struct {
 	Logger                    *slog.Logger
 	Conf                      *option.DaemonConfig
 	Node                      agentK8s.LocalCiliumNodeResource
 	Owner                     Owner
 	LocalNodeStore            *node.LocalNodeStore
-	Clientset                 nodeUpdater
+	CNClient                  cilium_v2.CiliumNodeInterface
 	JobGroup                  job.Group
 	DB                        *statedb.DB
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
@@ -255,7 +251,7 @@ type multiPoolManager struct {
 	jobGroup       job.Group
 	k8sUpdater     job.Trigger
 	localNodeStore *node.LocalNodeStore
-	nodeUpdater    nodeUpdater
+	cnClient       cilium_v2.CiliumNodeInterface
 
 	localNodeSynced   chan struct{}
 	localNodeSyncedFn func()
@@ -290,7 +286,7 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		jobGroup:               p.JobGroup,
 		k8sUpdater:             job.NewTrigger(job.WithDebounce(p.Conf.IPAMCiliumNodeUpdateRate)),
 		localNodeStore:         p.LocalNodeStore,
-		nodeUpdater:            p.Clientset,
+		cnClient:               p.CNClient,
 		finishedRestore:        map[Family]bool{},
 		localNodeSynced:        localNodeSynced,
 		localNodeSyncedFn: sync.OnceFunc(func() {
@@ -617,7 +613,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	m.mutex.Unlock()
 
 	if !newNode.Spec.IPAM.DeepEqual(&m.node.Spec.IPAM) {
-		_, err := m.nodeUpdater.Update(ctx, newNode, metav1.UpdateOptions{})
+		_, err := m.cnClient.Update(ctx, newNode, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to update node spec: %w", err)
 		}
