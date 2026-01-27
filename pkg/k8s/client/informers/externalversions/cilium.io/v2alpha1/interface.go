@@ -31,8 +31,10 @@ type Interface interface {
 	CiliumL2AnnouncementPolicies() CiliumL2AnnouncementPolicyInformer
 	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
 	CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer
-	// CiliumNetworkDriverConfigs returns a CiliumNetworkDriverConfigInformer.
-	CiliumNetworkDriverConfigs() CiliumNetworkDriverConfigInformer
+	// CiliumNetworkDriverClusterConfigs returns a CiliumNetworkDriverClusterConfigInformer.
+	CiliumNetworkDriverClusterConfigs() CiliumNetworkDriverClusterConfigInformer
+	// CiliumNetworkDriverNodeConfigs returns a CiliumNetworkDriverNodeConfigInformer.
+	CiliumNetworkDriverNodeConfigs() CiliumNetworkDriverNodeConfigInformer
 	// CiliumNodeConfigs returns a CiliumNodeConfigInformer.
 	CiliumNodeConfigs() CiliumNodeConfigInformer
 	// CiliumPodIPPools returns a CiliumPodIPPoolInformer.
@@ -100,9 +102,14 @@ func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
 	return &ciliumLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumNetworkDriverConfigs returns a CiliumNetworkDriverConfigInformer.
-func (v *version) CiliumNetworkDriverConfigs() CiliumNetworkDriverConfigInformer {
-	return &ciliumNetworkDriverConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// CiliumNetworkDriverClusterConfigs returns a CiliumNetworkDriverClusterConfigInformer.
+func (v *version) CiliumNetworkDriverClusterConfigs() CiliumNetworkDriverClusterConfigInformer {
+	return &ciliumNetworkDriverClusterConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumNetworkDriverNodeConfigs returns a CiliumNetworkDriverNodeConfigInformer.
+func (v *version) CiliumNetworkDriverNodeConfigs() CiliumNetworkDriverNodeConfigInformer {
+	return &ciliumNetworkDriverNodeConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumNodeConfigs returns a CiliumNodeConfigInformer.

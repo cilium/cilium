@@ -169,9 +169,15 @@ annotations:
       displayName: Cilium Gateway Class Config
       description: |
         CiliumGatewayClassConfig defines a configuration for Gateway API GatewayClass.
-    - kind: CiliumNetworkDriverConfig
+    - kind: CiliumNetworkDriverNodeConfig
       version: v2alpha1
-      name: ciliumnetworkdriverconfigs.cilium.io
-      displayName: Cilium Network Driver Config
+      name: ciliumnetworkdrivernodeconfigs.cilium.io
+      displayName: Cilium Network Driver Node Config
       description: |
-        CiliumNetworkDriverConfig defines a configuration for the Cilium Network Driver module.
+        CiliumNetworkDriverNodeConfig defines a configuration for the Cilium Network Driver module on a single node.
+    - kind: CiliumNetworkDriverClusterConfig
+      version: v2alpha1
+      name: ciliumnetworkdriverclusterconfigs.cilium.io
+      displayName: Cilium Network Driver Cluster Config
+      description: |
+        CiliumNetworkDriverClusterConfig defines a configuration for the Cilium Network Driver module.

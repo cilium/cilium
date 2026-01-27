@@ -90,7 +90,8 @@ func agentCRDResourceNames() []string {
 	result = append(result,
 		CRDResourceName(v2.LBIPPoolName),
 		CRDResourceName(v2alpha1.L2AnnouncementName),
-		CRDResourceName(v2alpha1.CiliumNetworkDriverConfigName),
+		CRDResourceName(v2alpha1.CiliumNetworkDriverClusterConfigName),
+		CRDResourceName(v2alpha1.CiliumNetworkDriverNodeConfigName),
 	)
 
 	return result
