@@ -45,6 +45,12 @@ var (
 	}
 
 	// DaemonConfigs
+	daemonConfigCarrierPigeon = option.DaemonConfig{
+		DatapathMode:    "carrier-pigeon",
+		EnableIPv4:      true,
+		EnableIPv6:      true,
+		EnableBPFTProxy: false,
+	}
 	daemonConfigVeth = option.DaemonConfig{
 		DatapathMode:    datapathOption.DatapathModeVeth,
 		EnableIPv4:      true,
@@ -143,6 +149,15 @@ func TestNewConfig(t *testing.T) {
 		shouldError    bool
 		shouldSkip     bool
 	}{
+		{
+			name:           "datapath-carrier-pigeon",
+			daemonConfig:   &daemonConfigCarrierPigeon,
+			wgAgent:        fakeTypes.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigVeth,
+			shouldError:    true,
+			shouldSkip:     false,
+		},
 		{
 			name:           "datapath-veth",
 			daemonConfig:   &daemonConfigVeth,
