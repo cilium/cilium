@@ -44,6 +44,7 @@ type Server struct {
 	l                         net.Listener
 	g                         *grpc.Server
 	log                       *slog.Logger
+	metrics                   *Metrics
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher
 	db                        *statedb.DB
 	enrolledNamespaceTable    statedb.RWTable[*table.EnrolledNamespace]
@@ -59,9 +60,11 @@ func newServer(
 	k8sCiliumEndpointsWatcher *watchers.K8sCiliumEndpointsWatcher,
 	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace],
 	xdsUnixAddr string,
+	metrics *Metrics,
 ) *Server {
 	return &Server{
 		log:                       log,
+		metrics:                   metrics,
 		k8sCiliumEndpointsWatcher: k8sCiliumEndpointsWatcher,
 		endpointEventChan:         make(chan *EndpointEvent, 1024),
 		db:                        db,

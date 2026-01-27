@@ -5,6 +5,8 @@ package zds
 
 import (
 	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 // Cell implements the ztunnel server.
@@ -12,4 +14,5 @@ var Cell = cell.Module(
 	"cilium-zds-server",
 	"Workload discovery server for ztunnel",
 	cell.Provide(newZDSServer),
+	metrics.Metric(NewMetrics),
 )
