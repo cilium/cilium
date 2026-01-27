@@ -29,6 +29,10 @@ var (
 	TestEndpointTmpIfName   = string("tmpd34db")
 	TestEndpointFinalIfName = string("linkpeertest0")
 
+	// Buffer Margin values
+	TestHeadroom = uint16(16)
+	TestTailroom = uint16(32)
+
 	// MTU values
 	TestStandardMTU = int(1500)
 	TestSmallMTU    = int(1200)
@@ -41,6 +45,13 @@ var (
 		HostIfName: TestHostIfName,
 		PeerIfName: TestPeerIfName,
 		DeviceMTU:  TestStandardMTU,
+	}
+	NamedLinkConfigTBM = types.LinkConfig{
+		HostIfName:     TestHostIfName,
+		PeerIfName:     TestPeerIfName,
+		DeviceMTU:      TestStandardMTU,
+		DeviceHeadroom: TestHeadroom,
+		DeviceTailroom: TestTailroom,
 	}
 	EndpointLinkConfig = types.LinkConfig{
 		EndpointID: TestEndpointID,
