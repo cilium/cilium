@@ -538,6 +538,12 @@ Users (Alphabetically)
       L: https://github.com/xiaods/k8e
       Q: @xds2000
 
+    * N: Labyrinth Labs
+      D: One stop shop for Cloud, AWS, Kubernetes
+      U: Networking, network policies, Hubble for network visibility
+      L: https://lablabs.io
+      Q: @mliner
+
     * N: LinkPool
       D: LinkPool is a professional Web3 infrastructure provider.
       U: LinkPool is using Cilium as the CNI for its on-premise production clusters
