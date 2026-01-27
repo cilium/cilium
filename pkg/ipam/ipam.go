@@ -145,7 +145,7 @@ func (ipam *IPAM) ConfigureAllocator() {
 			Node:                      ipam.nodeResource,
 			Owner:                     ipam.nodeDiscovery,
 			LocalNodeStore:            ipam.localNodeStore,
-			Clientset:                 ipam.clientset.CiliumV2().CiliumNodes(),
+			CNClient:                  ipam.clientset.CiliumV2().CiliumNodes(),
 			JobGroup:                  ipam.jg,
 			DB:                        ipam.db,
 			PodIPPools:                ipam.podIPPools,
