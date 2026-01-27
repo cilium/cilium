@@ -167,6 +167,10 @@ type RedirectBackend struct {
 type CiliumLocalRedirectPolicySpec struct {
 	// RedirectFrontend specifies frontend configuration to redirect traffic from.
 	// It can not be empty.
+	// RedirectFrontend specifies the frontend configuration. Traffic is translated
+	// only if the address family (IPv4/IPv6) matches the RedirectBackend.
+	// Translation is unsupported if families differ.
+	// Example: IPv4 services are translated only if the backend is also IPv4.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="redirectFrontend is immutable"
