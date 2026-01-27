@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"maps"
 	"math/big"
+	"net"
 	"net/netip"
 	"slices"
 	"sort"
@@ -29,6 +30,82 @@ type cidrPool struct {
 	v6         []cidralloc.CIDRAllocator
 	v4MaskSize int
 	v6MaskSize int
+}
+
+type metricsAPI interface {
+	SetRemainingIPs(poolName, family string, remaining *big.Int)
+}
+
+func (p *PoolAllocator) getRemainingIPs() {
+	// Quick exit when no metrics are configured.
+	if p.metricsAPI == nil {
+		return
+	}
+
+	setRemainingIPs := func(poolName, family string, available, allocated *big.Int) {
+		remaining := new(big.Int).Sub(available, allocated)
+		if remaining.Sign() < 0 {
+			remaining = big.NewInt(0)
+		}
+		p.metricsAPI.SetRemainingIPs(poolName, family, remaining)
+	}
+
+	for poolName, pool := range p.pools {
+		availablev4 := pool.GetAvailableAddrsV4()
+		allocatedv4 := pool.allocatedV4()
+		setRemainingIPs(poolName, "ipv4", availablev4, allocatedv4)
+
+		availablev6 := pool.GetAvailableAddrsV6()
+		allocatedv6 := pool.allocatedV6()
+		setRemainingIPs(poolName, "ipv6", availablev6, allocatedv6)
+	}
+}
+
+func (p *PoolAllocator) SetMetricsAPI(metrics metricsAPI) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	p.metricsAPI = metrics
+}
+
+func (c cidrPool) allocatedV4() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v4 {
+		cidrBlock := f.Prefix()
+		count, err := c.countAllocatedIPsInPrefix(cidrBlock, false)
+		if err == nil {
+			total.Add(total, count)
+		}
+	}
+	return total
+}
+
+func (c cidrPool) allocatedV6() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v6 {
+		cidrBlock := f.Prefix()
+		count, err := c.countAllocatedIPsInPrefix(cidrBlock, true)
+		if err == nil {
+			total.Add(total, count)
+		}
+	}
+	return total
+
+}
+
+func (c cidrPool) GetAvailableAddrsV4() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v4 {
+		total.Add(total, addrsInPrefix(f.Prefix()))
+	}
+	return total
+}
+
+func (c cidrPool) GetAvailableAddrsV6() *big.Int {
+	total := big.NewInt(0)
+	for _, f := range c.v6 {
+		total.Add(total, addrsInPrefix(f.Prefix()))
+	}
+	return total
 }
 
 type cidrSet map[netip.Prefix]struct{}
@@ -86,8 +163,9 @@ func addrsInPrefix(p netip.Prefix) *big.Int {
 		return addrs
 	}
 
-	// subtract network and broadcast address, which are not available for
-	// allocation in the cilium/ipam library for now
+	// For both IPv4 and IPv6, subtract network and broadcast-like reserved addresses
+	// IPv4: network and broadcast addresses are not available
+	// IPv6: network (::) and broadcast-like address are reserved
 	addrs.Sub(addrs, two)
 	if addrs.Sign() < 0 {
 		return big.NewInt(0)
@@ -97,12 +175,13 @@ func addrsInPrefix(p netip.Prefix) *big.Int {
 }
 
 type PoolAllocator struct {
-	logger  *slog.Logger
-	mutex   lock.RWMutex
-	pools   map[string]cidrPool    // poolName -> pool
-	nodes   map[string]poolToCIDRs // nodeName -> pool -> cidrs
-	orphans map[string]poolToCIDRs // nodeName -> pool -> list of orphaned CIDRs (CIDRs allocated to nodes but missing their parent pool)
-	ready   bool
+	logger     *slog.Logger
+	mutex      lock.RWMutex
+	pools      map[string]cidrPool    // poolName -> pool
+	nodes      map[string]poolToCIDRs // nodeName -> pool -> cidrs
+	orphans    map[string]poolToCIDRs // nodeName -> pool -> list of orphaned CIDRs (CIDRs allocated to nodes but missing their parent pool)
+	ready      bool
+	metricsAPI metricsAPI
 }
 
 func NewPoolAllocator(logger *slog.Logger) *PoolAllocator {
@@ -149,6 +228,7 @@ func (p *PoolAllocator) unorphanCIDR(isV6 bool, node, pool string, cidr netip.Pr
 	} else {
 		delete(p.orphans[node][pool].v4, cidr)
 	}
+	p.getRemainingIPs()
 	return nil
 }
 
@@ -301,6 +381,7 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4Mask
 		v6MaskSize: ipv6MaskSize,
 	}
 
+	p.getRemainingIPs()
 	return p.reconcileOrphanCIDRs(poolName, v4, v6)
 }
 
@@ -336,6 +417,7 @@ func (p *PoolAllocator) DeletePool(poolName string) error {
 	}
 
 	delete(p.pools, poolName)
+	p.getRemainingIPs()
 	return nil
 }
 
@@ -423,6 +505,7 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 			}
 		}
 	}
+	p.getRemainingIPs()
 	return err
 }
 
@@ -450,7 +533,7 @@ func (p *PoolAllocator) ReleaseNode(nodeName string) error {
 
 	// Remove bookkeeping for this node
 	delete(p.nodes, nodeName)
-
+	p.getRemainingIPs()
 	return err
 }
 
@@ -769,4 +852,63 @@ func (p *PoolAllocator) releaseOrphanCIDR(targetNode, sourcePool string, cidr ne
 	p.markReleasedOrphan(targetNode, sourcePool, cidr)
 
 	return nil
+}
+
+func (c *cidrPool) countAllocatedIPsInPrefix(cidr netip.Prefix, isV6 bool) (*big.Int, error) {
+	getIndices := func(cidr netip.Prefix, maskSize int) (begin, end int, err error) {
+		if !cidr.IsValid() {
+			return -1, -1, fmt.Errorf("invalid CIDR: %v", cidr)
+		}
+
+		prefixBits := cidr.Bits()
+		if prefixBits < maskSize {
+			return -1, -1, fmt.Errorf("CIDR mask size %d is smaller than the pool mask size %d", prefixBits, maskSize)
+		}
+
+		begin = 0
+		end = (1 << (prefixBits - maskSize)) - 1
+		return begin, end, nil
+	}
+
+	cidrSet := c.v4
+	maskSize := c.v4MaskSize
+	if isV6 {
+		cidrSet = c.v6
+		maskSize = c.v6MaskSize
+	}
+
+	total := big.NewInt(0)
+	for _, allocator := range cidrSet {
+		allocatorPrefix := allocator.Prefix()
+		if !allocatorPrefix.Contains(cidr.Addr()) {
+			continue
+		}
+
+		begin, end, err := getIndices(cidr, maskSize)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := begin; i <= end; i++ {
+			ip := cidr.Addr()
+			for j := 0; j < i; j++ {
+				ip = ip.Next()
+			}
+
+			ipNet := &net.IPNet{
+				IP:   ip.AsSlice(),
+				Mask: net.CIDRMask(cidr.Bits(), ip.BitLen()),
+			}
+
+			allocated, err := allocator.IsAllocated(ipNet)
+			if err != nil {
+				return nil, err
+			}
+			if allocated {
+				total.Add(total, big.NewInt(1))
+			}
+		}
+	}
+
+	return total, nil
 }
