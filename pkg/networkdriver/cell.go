@@ -60,7 +60,11 @@ func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle
 
 	return resource.New[*v2alpha1.CiliumNetworkDriverNodeConfig](
 		lc,
-		utils.ListerWatcherFromTyped(cs.CiliumV2alpha1().CiliumNetworkDriverNodeConfigs()),
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped(cs.CiliumV2alpha1().CiliumNetworkDriverNodeConfigs()),
+			func(opts *metav1.ListOptions) {
+				opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodetypes.GetName()).String()
+			}),
 		mp,
 		resource.WithMetric("CiliumNetworkDriverConfig"),
 	)
