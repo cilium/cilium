@@ -4662,6 +4662,9 @@
             }
           },
           "type": "object"
+        },
+        "serviceTopology": {
+          "type": "boolean"
         }
       },
       "type": "object"
