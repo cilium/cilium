@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"strings"
+	"time"
 
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 
@@ -142,6 +143,34 @@ type ResetAllNeighborsRequest struct {
 	Soft               bool
 	SoftResetDirection SoftResetDirection
 	AdminCommunication string
+}
+
+// PeerState contains status information for a BGP peer
+type PeerState struct {
+	// Name of the peer
+	Name string
+
+	// BGP peer operational state as described here
+	// https://www.rfc-editor.org/rfc/rfc4271#section-8.2.2
+	SessionState SessionState
+
+	// BGP peer connection uptime. The precision depends on the underlying
+	// router implementation.
+	Uptime time.Duration
+
+	// BGP peer address family states
+	Families []PeerFamilyState
+}
+
+// PeerFamilyState contains status information for a specific address family.
+// The Family field identifies the address family enabled for the peer. When
+// the address family is not enabled on the peer side, all other fields are
+// zeroed.
+type PeerFamilyState struct {
+	Family
+	ReceivedRoutes   uint64
+	AcceptedRoutes   uint64
+	AdvertisedRoutes uint64
 }
 
 // PathRequest contains parameters for advertising or withdrawing a Path
