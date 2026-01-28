@@ -85,6 +85,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/svcrouteconfig"
+	"github.com/cilium/cilium/pkg/vteppolicy"
 	"github.com/cilium/cilium/pkg/ztunnel"
 )
 
@@ -366,6 +367,9 @@ var (
 
 		// Instantiates an xDS server used for zTunnel integration.
 		ztunnel.Cell,
+
+		// VTEP Policy allows two-way communication with an external VXLAN gateway
+		vteppolicy.Cell,
 	)
 )
 

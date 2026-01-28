@@ -45,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/vtep"
+	"github.com/cilium/cilium/pkg/maps/vtep_policy"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -533,6 +534,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	cDefinesMap["VTEP_MAP_SIZE"] = fmt.Sprintf("%d", vtep.MaxEntries)
+	cDefinesMap["VTEP_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", vtep_policy.MaxEntries)
 
 	vlanFilter, err := vlanFilterMacros(nativeDevices)
 	if err != nil {
