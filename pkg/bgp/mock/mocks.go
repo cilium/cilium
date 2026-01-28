@@ -37,7 +37,7 @@ var _ agent.BGPRouterManager = (*MockBGPRouterManager)(nil)
 
 type MockBGPRouterManager struct {
 	ReconcileInstances_ func(ctx context.Context, bgpnc *v2.CiliumBGPNodeConfig, ciliumNode *v2.CiliumNode) error
-	GetPeers_           func(ctx context.Context) ([]*models.BgpPeer, error)
+	GetPeersLegacy_     func(ctx context.Context) ([]*models.BgpPeer, error)
 	GetRoutes_          func(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error)
 	GetRoutePolicies_   func(ctx context.Context, params restapi.GetBgpRoutePoliciesParams) ([]*models.BgpRoutePolicy, error)
 	Stop_               func(cell.HookContext) error
@@ -47,8 +47,8 @@ func (m *MockBGPRouterManager) ReconcileInstances(ctx context.Context, bgpnc *v2
 	return m.ReconcileInstances_(ctx, bgpnc, ciliumNode)
 }
 
-func (m *MockBGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, error) {
-	return m.GetPeers_(ctx)
+func (m *MockBGPRouterManager) GetPeersLegacy(ctx context.Context) ([]*models.BgpPeer, error) {
+	return m.GetPeersLegacy_(ctx)
 }
 
 func (m *MockBGPRouterManager) GetRoutes(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {

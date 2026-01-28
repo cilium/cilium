@@ -534,7 +534,7 @@ func setupNeighbors(t *testing.T, peers []PeerData) (NeighborReconcilerIn, *v2.C
 }
 
 func getRunningPeers(req *require.Assertions, instance *instance.BGPInstance) []PeerData {
-	getPeerResp, err := instance.Router.GetPeerState(context.Background())
+	getPeerResp, err := instance.Router.GetPeerStateLegacy(context.Background())
 	req.NoError(err)
 
 	var runningPeers []PeerData

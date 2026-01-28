@@ -32,7 +32,7 @@ func (h *getPeerHandler) Handle(params restapi.GetBgpPeersParams) middleware.Res
 	if h.controller == nil {
 		return api.Error(http.StatusNotImplemented, agent.ErrBGPControlPlaneDisabled)
 	}
-	peers, err := h.controller.BGPMgr.GetPeers(params.HTTPRequest.Context())
+	peers, err := h.controller.BGPMgr.GetPeersLegacy(params.HTTPRequest.Context())
 	if err != nil {
 		return api.Error(http.StatusInternalServerError, fmt.Errorf("failed to get peers: %w", err))
 	}

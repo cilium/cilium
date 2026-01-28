@@ -83,7 +83,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	// revisit this timeout when the metrics collection starts to involve a
 	// network communication.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	peers, err := c.in.RouterManager.GetPeers(ctx)
+	peers, err := c.in.RouterManager.GetPeersLegacy(ctx)
 	cancel()
 	if err != nil {
 		c.in.Logger.Error("Failed to retrieve BGP peer information. Metrics is not collected.", logfields.Error, err)
