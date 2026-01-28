@@ -32,7 +32,7 @@ inputs:
     description: 'KPR acceleration'
     default: ''
   encryption:
-    description: '"ipsec", "wireguard" or empty'
+    description: '"ipsec", "wireguard", "ztunnel" or empty'
     default: ''
   encryption-node:
     description: 'Enable node-to-node encryption (WireGuard only)'
