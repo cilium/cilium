@@ -8,8 +8,6 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"io"
-
-	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 // Below constants are based on the ones from <linux/perf_event.h>.
@@ -42,12 +40,12 @@ func (meta *Meta) MarshalBinary() ([]byte, error) {
 
 // ReadBinary reads the metadata from its binary representation.
 func (meta *Meta) ReadBinary(r io.Reader) error {
-	return binary.Read(r, byteorder.Native, meta)
+	return binary.Read(r, binary.NativeEndian, meta)
 }
 
 // WriteBinary writes the metadata into its binary representation.
 func (meta *Meta) WriteBinary(w io.Writer) error {
-	return binary.Write(w, byteorder.Native, meta)
+	return binary.Write(w, binary.NativeEndian, meta)
 }
 
 // Payload is the structure used when copying events from the main monitor.

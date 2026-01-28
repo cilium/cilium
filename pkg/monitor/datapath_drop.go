@@ -5,10 +5,10 @@ package monitor
 
 import (
 	"bufio"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -143,25 +143,25 @@ func (n *DropNotify) Decode(data []byte) error {
 		if l := len(data); l < dropNotifyV3Len {
 			return fmt.Errorf("unexpected DropNotify data length (version %d), expected at least %d but got %d", version, dropNotifyV3Len, l)
 		}
-		n.IPTraceID = byteorder.Native.Uint64(data[40:48])
+		n.IPTraceID = binary.NativeEndian.Uint64(data[40:48])
 	}
 
 	// Decode logic for version >= v0/v1.
 	n.Type = data[0]
 	n.SubType = data[1]
-	n.Source = byteorder.Native.Uint16(data[2:4])
-	n.Hash = byteorder.Native.Uint32(data[4:8])
-	n.OrigLen = byteorder.Native.Uint32(data[8:12])
-	n.CapLen = byteorder.Native.Uint16(data[12:14])
+	n.Source = binary.NativeEndian.Uint16(data[2:4])
+	n.Hash = binary.NativeEndian.Uint32(data[4:8])
+	n.OrigLen = binary.NativeEndian.Uint32(data[8:12])
+	n.CapLen = binary.NativeEndian.Uint16(data[12:14])
 	n.Version = version
 	n.ExtVersion = data[15]
-	n.SrcLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
-	n.DstLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[20:24]))
-	n.DstID = byteorder.Native.Uint32(data[24:28])
-	n.Line = byteorder.Native.Uint16(data[28:30])
+	n.SrcLabel = identity.NumericIdentity(binary.NativeEndian.Uint32(data[16:20]))
+	n.DstLabel = identity.NumericIdentity(binary.NativeEndian.Uint32(data[20:24]))
+	n.DstID = binary.NativeEndian.Uint32(data[24:28])
+	n.Line = binary.NativeEndian.Uint16(data[28:30])
 	n.File = data[30]
 	n.ExtError = int8(data[31])
-	n.Ifindex = byteorder.Native.Uint32(data[32:36])
+	n.Ifindex = binary.NativeEndian.Uint32(data[32:36])
 
 	return nil
 }

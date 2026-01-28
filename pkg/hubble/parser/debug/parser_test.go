@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
@@ -24,7 +23,7 @@ import (
 
 func encodeDebugEvent(msg *monitor.DebugMsg) []byte {
 	buf := &bytes.Buffer{}
-	if err := binary.Write(buf, byteorder.Native, msg); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, msg); err != nil {
 		panic(fmt.Sprintf("failed to encode debug event: %s", err))
 	}
 	return buf.Bytes()

@@ -4,10 +4,10 @@
 package monitor
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -71,9 +71,9 @@ func (t *TraceSockNotify) Decode(data []byte) error {
 	t.XlatePoint = data[1]
 	t.L4Proto = data[2]
 	t.Flags = data[3]
-	t.DstPort = byteorder.Native.Uint16(data[4:6])
-	t.SockCookie = byteorder.Native.Uint64(data[8:16])
-	t.CgroupId = byteorder.Native.Uint64(data[16:24])
+	t.DstPort = binary.NativeEndian.Uint16(data[4:6])
+	t.SockCookie = binary.NativeEndian.Uint64(data[8:16])
+	t.CgroupId = binary.NativeEndian.Uint64(data[16:24])
 	copy(t.DstIP[:], data[24:40])
 
 	return nil

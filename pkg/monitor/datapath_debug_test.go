@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 func TestDecodeDebugCapture(t *testing.T) {
@@ -29,7 +27,7 @@ func TestDecodeDebugCapture(t *testing.T) {
 	}
 
 	buf := bytes.NewBuffer(nil)
-	err := binary.Write(buf, byteorder.Native, input)
+	err := binary.Write(buf, binary.NativeEndian, input)
 	require.NoError(t, err)
 
 	output := &DebugCapture{}
@@ -110,18 +108,18 @@ func TestDecodeDebugCaptureExt(t *testing.T) {
 
 	for _, tc := range tcs {
 		buf := bytes.NewBuffer(nil)
-		err := binary.Write(buf, byteorder.Native, tc.dc)
+		err := binary.Write(buf, binary.NativeEndian, tc.dc)
 		require.NoError(t, err)
-		err = binary.Write(buf, byteorder.Native, tc.extension)
+		err = binary.Write(buf, binary.NativeEndian, tc.extension)
 		require.NoError(t, err)
-		err = binary.Write(buf, byteorder.Native, uint32(0xDEADBEEF))
+		err = binary.Write(buf, binary.NativeEndian, uint32(0xDEADBEEF))
 		require.NoError(t, err)
 
 		output := &DebugCapture{}
 		err = output.Decode(buf.Bytes())
 		require.NoError(t, err)
 
-		require.Equal(t, uint32(0xDEADBEEF), byteorder.Native.Uint32(buf.Bytes()[output.DataOffset():]))
+		require.Equal(t, uint32(0xDEADBEEF), binary.NativeEndian.Uint32(buf.Bytes()[output.DataOffset():]))
 	}
 }
 
@@ -129,7 +127,7 @@ func BenchmarkNewDecodeDebugCapture(b *testing.B) {
 	input := &DebugCapture{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -147,7 +145,7 @@ func BenchmarkOldDecodeDebugCapture(b *testing.B) {
 	input := &DebugCapture{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -155,7 +153,7 @@ func BenchmarkOldDecodeDebugCapture(b *testing.B) {
 
 	for b.Loop() {
 		dbg := &DebugCapture{}
-		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), byteorder.Native, dbg); err != nil {
+		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), binary.NativeEndian, dbg); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -177,7 +175,7 @@ func TestDecodeDebugMsg(t *testing.T) {
 	}
 
 	buf := bytes.NewBuffer(nil)
-	err := binary.Write(buf, byteorder.Native, input)
+	err := binary.Write(buf, binary.NativeEndian, input)
 	require.NoError(t, err)
 
 	output := &DebugMsg{}
@@ -197,7 +195,7 @@ func BenchmarkNewDecodeDebugMsg(b *testing.B) {
 	input := &DebugMsg{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -215,7 +213,7 @@ func BenchmarkOldDecodeDebugMsg(b *testing.B) {
 	input := &DebugMsg{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -223,7 +221,7 @@ func BenchmarkOldDecodeDebugMsg(b *testing.B) {
 
 	for b.Loop() {
 		dbg := &DebugMsg{}
-		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), byteorder.Native, dbg); err != nil {
+		if err := binary.Read(bytes.NewBuffer(buf.Bytes()), binary.NativeEndian, dbg); err != nil {
 			b.Fatal(err)
 		}
 	}

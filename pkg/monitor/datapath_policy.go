@@ -5,9 +5,9 @@ package monitor
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
@@ -106,19 +106,19 @@ func (n *PolicyVerdictNotify) Decode(data []byte) error {
 
 	n.Type = data[0]
 	n.SubType = data[1]
-	n.Source = byteorder.Native.Uint16(data[2:4])
-	n.Hash = byteorder.Native.Uint32(data[4:8])
-	n.OrigLen = byteorder.Native.Uint32(data[8:12])
-	n.CapLen = byteorder.Native.Uint16(data[12:14])
+	n.Source = binary.NativeEndian.Uint16(data[2:4])
+	n.Hash = binary.NativeEndian.Uint32(data[4:8])
+	n.OrigLen = binary.NativeEndian.Uint32(data[8:12])
+	n.CapLen = binary.NativeEndian.Uint16(data[12:14])
 	n.Version = data[14]
 	n.ExtVersion = data[15]
-	n.RemoteLabel = identity.NumericIdentity(byteorder.Native.Uint32(data[16:20]))
-	n.Verdict = int32(byteorder.Native.Uint32(data[20:24]))
-	n.DstPort = byteorder.Native.Uint16(data[24:26])
+	n.RemoteLabel = identity.NumericIdentity(binary.NativeEndian.Uint32(data[16:20]))
+	n.Verdict = int32(binary.NativeEndian.Uint32(data[20:24]))
+	n.DstPort = binary.NativeEndian.Uint16(data[24:26])
 	n.Proto = data[26]
 	n.Flags = data[27]
 	n.AuthType = data[28]
-	n.Cookie = byteorder.Native.Uint32(data[32:36])
+	n.Cookie = binary.NativeEndian.Uint32(data[32:36])
 
 	return nil
 }

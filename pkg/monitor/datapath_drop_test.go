@@ -10,8 +10,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cilium/cilium/pkg/byteorder"
 )
 
 func TestDropNotifyV1_Decode(t *testing.T) {
@@ -49,7 +47,7 @@ func TestDropNotifyV1_Decode(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
-			if err := binary.Write(buf, byteorder.Native, tc.input); err != nil {
+			if err := binary.Write(buf, binary.NativeEndian, tc.input); err != nil {
 				t.Fatalf("Unexpected error from Write(...); got: %v", err)
 			}
 
@@ -103,7 +101,7 @@ func TestDropNotify_Decode(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
-			if err := binary.Write(buf, byteorder.Native, tc.input); err != nil {
+			if err := binary.Write(buf, binary.NativeEndian, tc.input); err != nil {
 				t.Fatalf("Unexpected error from Write(...); got: %v", err)
 			}
 
@@ -190,7 +188,7 @@ func TestDecodeDropNotify(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			buf := bytes.NewBuffer(nil)
-			if err := binary.Write(buf, byteorder.Native, tc.input); err != nil {
+			if err := binary.Write(buf, binary.NativeEndian, tc.input); err != nil {
 				t.Fatalf("Unexpected error from Write(...); got: %v", err)
 			}
 
@@ -271,18 +269,18 @@ func TestDecodeDropNotifyExtension(t *testing.T) {
 
 	for _, tc := range tcs {
 		buf := bytes.NewBuffer(nil)
-		err := binary.Write(buf, byteorder.Native, tc.dn)
+		err := binary.Write(buf, binary.NativeEndian, tc.dn)
 		require.NoError(t, err)
-		err = binary.Write(buf, byteorder.Native, tc.extension)
+		err = binary.Write(buf, binary.NativeEndian, tc.extension)
 		require.NoError(t, err)
-		err = binary.Write(buf, byteorder.Native, uint32(0xDEADBEEF))
+		err = binary.Write(buf, binary.NativeEndian, uint32(0xDEADBEEF))
 		require.NoError(t, err)
 
 		output := &DropNotify{}
 		err = output.Decode(buf.Bytes())
 		require.NoError(t, err)
 
-		require.Equal(t, uint32(0xDEADBEEF), byteorder.Native.Uint32(buf.Bytes()[output.DataOffset():]))
+		require.Equal(t, uint32(0xDEADBEEF), binary.NativeEndian.Uint32(buf.Bytes()[output.DataOffset():]))
 	}
 }
 
@@ -290,7 +288,7 @@ func BenchmarkNewDropNotifyV1_Decode(b *testing.B) {
 	input := DropNotify{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -308,7 +306,7 @@ func BenchmarkOldDropNotifyV1_Decode(b *testing.B) {
 	input := DropNotify{}
 	buf := bytes.NewBuffer(nil)
 
-	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+	if err := binary.Write(buf, binary.NativeEndian, input); err != nil {
 		b.Fatal(err)
 	}
 
@@ -316,7 +314,7 @@ func BenchmarkOldDropNotifyV1_Decode(b *testing.B) {
 
 	for b.Loop() {
 		dn := &DropNotify{}
-		if err := binary.Read(bytes.NewReader(buf.Bytes()), byteorder.Native, dn); err != nil {
+		if err := binary.Read(bytes.NewReader(buf.Bytes()), binary.NativeEndian, dn); err != nil {
 			b.Fatal(err)
 		}
 	}

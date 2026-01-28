@@ -552,7 +552,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 			}
 
 			buf := &bytes.Buffer{}
-			err := binary.Write(buf, byteorder.Native, &tn)
+			err := binary.Write(buf, binary.NativeEndian, &tn)
 			require.NoError(t, err)
 			buffer := gopacket.NewSerializeBuffer()
 			err = gopacket.SerializeLayers(buffer, gopacket.SerializeOptions{}, lay...)
@@ -712,7 +712,7 @@ func TestDecodeDropNotify(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			n := tc.dn
 			buf := &bytes.Buffer{}
-			if err := binary.Write(buf, byteorder.Native, n); err != nil {
+			if err := binary.Write(buf, binary.NativeEndian, n); err != nil {
 				t.Fatalf("Write(...) %T to buffer: %v", n, err)
 			}
 

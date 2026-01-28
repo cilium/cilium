@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/byteorder"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
@@ -451,7 +450,7 @@ func TestDecodeSockEvent(t *testing.T) {
 			data := tc.rawMsg
 			if data == nil {
 				buf := &bytes.Buffer{}
-				err := binary.Write(buf, byteorder.Native, &tc.msg)
+				err := binary.Write(buf, binary.NativeEndian, &tc.msg)
 				assert.NoError(t, err)
 				data = buf.Bytes()
 			}

@@ -5,12 +5,7 @@
 
 package byteorder
 
-import (
-	"encoding/binary"
-	"math/bits"
-)
-
-var Native binary.ByteOrder = binary.LittleEndian
+import "math/bits"
 
 func HostToNetwork16(u uint16) uint16 { return bits.ReverseBytes16(u) }
 func HostToNetwork32(u uint32) uint32 { return bits.ReverseBytes32(u) }
