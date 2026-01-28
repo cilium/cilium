@@ -3036,7 +3036,8 @@ tunnelProtocol: ""
 # Possible values:
 #   - "ipv4"
 #   - "ipv6"
-# @default -- `"ipv4"`
+#   - "auto"
+# @default -- `"auto"`
 underlayProtocol: ""
 # -- Enable native-routing mode or tunneling mode.
 # Possible values:

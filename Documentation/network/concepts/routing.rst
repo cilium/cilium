@@ -85,7 +85,9 @@ The following options can be used to configure encapsulation:
 * ``tunnel-protocol``: Set the encapsulation protocol to ``vxlan`` or
   ``geneve``, defaults to ``vxlan``.
 * ``underlay-protocol``: Set the IP family for the underlay. Defaults to
-  ``ipv4``. The underlying network must support that protocol.
+  ``auto``: Cilium will automatically select the appropriate underlay protocol
+  based on the daemon configuration, prioritizing IPv4 if both IPv4 and IPv6
+  are enabled. The underlying network must support that protocol.
 * ``tunnel-port``: Set the port for the encapsulation protocol. Defaults
   to ``8472`` for ``vxlan`` and ``6081`` for ``geneve``.
 

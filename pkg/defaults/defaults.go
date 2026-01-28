@@ -443,7 +443,7 @@ const (
 	TunnelSourcePortRange = "0-0"
 
 	// UnderlayProtocol is the default IP family for the underlay.
-	UnderlayProtocol = "ipv4"
+	UnderlayProtocol = "auto"
 
 	// ServiceNoBackendResponse is the default response for services without backends
 	ServiceNoBackendResponse = "reject"

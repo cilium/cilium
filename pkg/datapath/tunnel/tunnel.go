@@ -5,6 +5,7 @@ package tunnel
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cilium/hive/cell"
@@ -13,6 +14,7 @@ import (
 	dpcfgdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // EncapProtocol represents the valid types of encapsulation protocols.
@@ -33,6 +35,7 @@ const (
 
 	IPv4 UnderlayProtocol = "ipv4"
 	IPv6 UnderlayProtocol = "ipv6"
+	Auto UnderlayProtocol = "auto"
 )
 
 func (tp EncapProtocol) String() string { return string(tp) }
@@ -66,11 +69,14 @@ type newConfigIn struct {
 
 	Cfg      userCfg
 	Enablers []enabler `group:"request-enable-tunneling"`
+
+	Logger    *slog.Logger
+	DaemonCfg *option.DaemonConfig
 }
 
 var (
 	configDisabled = Config{
-		underlay:       IPv4,
+		underlay:       Auto,
 		protocol:       Disabled,
 		port:           0,
 		srcPortLow:     0,
@@ -87,14 +93,25 @@ func newConfig(in newConfigIn) (Config, error) {
 		return configDisabled, fmt.Errorf("invalid tunnel protocol %q", in.Cfg.TunnelProtocol)
 	}
 
-	switch UnderlayProtocol(in.Cfg.UnderlayProtocol) {
+	selectedUnderlay := UnderlayProtocol(in.Cfg.UnderlayProtocol)
+	switch selectedUnderlay {
+	case Auto:
+		switch {
+		case in.DaemonCfg.EnableIPv4:
+			selectedUnderlay = IPv4
+		case in.DaemonCfg.EnableIPv6:
+			selectedUnderlay = IPv6
+		default:
+			return configDisabled, fmt.Errorf("underlay protocol set to auto, but neither IPv4 nor IPv6 is enabled")
+		}
+		in.Logger.Info(fmt.Sprintf("Underlay protocol %s automatically selected", selectedUnderlay))
 	case IPv4, IPv6:
 	default:
 		return configDisabled, fmt.Errorf("invalid IP family for underlay %q", in.Cfg.UnderlayProtocol)
 	}
 
 	cfg := Config{
-		underlay:       UnderlayProtocol(in.Cfg.UnderlayProtocol),
+		underlay:       selectedUnderlay,
 		protocol:       EncapProtocol(in.Cfg.TunnelProtocol),
 		port:           in.Cfg.TunnelPort,
 		srcPortLow:     0,
@@ -121,8 +138,13 @@ func newConfig(in newConfigIn) (Config, error) {
 		}
 	}
 
+	// Even with tunneling disabled, return a config containing the resolved
+	// protocol in case of `underlay: auto`. This ensures pkg/mtu has the necessary
+	// data for accurate MTU calculations.
 	if !enabled {
-		return configDisabled, nil
+		ret := configDisabled
+		ret.underlay = selectedUnderlay
+		return ret, nil
 	}
 
 	switch cfg.protocol {
@@ -280,7 +302,7 @@ func (def userCfg) Flags(flags *pflag.FlagSet) {
 	flags.String("tunnel-protocol", def.TunnelProtocol, "Encapsulation protocol to use for the overlay (\"vxlan\" or \"geneve\")")
 	flags.Uint16("tunnel-port", def.TunnelPort, fmt.Sprintf("Tunnel port (default %d for \"vxlan\" and %d for \"geneve\")", defaults.TunnelPortVXLAN, defaults.TunnelPortGeneve))
 	flags.String("tunnel-source-port-range", def.TunnelSourcePortRange, fmt.Sprintf("Tunnel source port range hint (default %s)", defaults.TunnelSourcePortRange))
-	flags.String("underlay-protocol", def.UnderlayProtocol, "IP family for the underlay (\"ipv4\" or \"ipv6\")")
+	flags.String("underlay-protocol", def.UnderlayProtocol, "IP family for the underlay (\"ipv4\", \"ipv6\", or \"auto\")")
 }
 
 var defaultConfig = userCfg{

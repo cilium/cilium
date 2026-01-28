@@ -273,7 +273,7 @@ cilium-agent hive [flags]
       --tunnel-port uint16                                        Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --tunnel-source-port-range string                           Tunnel source port range hint (default 0-0) (default "0-0")
-      --underlay-protocol string                                  IP family for the underlay ("ipv4" or "ipv6") (default "ipv4")
+      --underlay-protocol string                                  IP family for the underlay ("ipv4", "ipv6", or "auto") (default "auto")
       --use-full-tls-context                                      If enabled, persist ca.crt keys into the Envoy config even in a terminatingTLS block on an L7 Cilium Policy. This is to enable compatibility with previously buggy behaviour. This flag is deprecated and will be removed in a future release.
       --vtep-cidr strings                                         List of VTEP CIDRs that will be routed towards VTEPs for traffic cluster egress
       --vtep-endpoint strings                                     List of VTEP IP addresses
