@@ -230,7 +230,7 @@ func ParseEndpointsID(ep *slim_corev1.Endpoints) EndpointSliceID {
 			ep.ObjectMeta.Namespace,
 			ep.ObjectMeta.Name,
 		),
-		EndpointSliceName: ep.ObjectMeta.Name,
+		EndpointSliceName: ep.ObjectMeta.Namespace + "/" + ep.ObjectMeta.Name,
 	}
 }
 
@@ -287,7 +287,7 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 			es.GetNamespace(),
 			es.GetLabels()[slim_discovery_v1.LabelServiceName],
 		),
-		EndpointSliceName: es.GetName(),
+		EndpointSliceName: es.GetNamespace() + "/" + es.GetName(),
 	}
 }
 

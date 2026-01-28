@@ -1,0 +1,106 @@
+#
+# Regression test case for checking that the EndpointSlice names are allowed to overlap across
+# namespaces. https://github.com/cilium/cilium/pull/43999.
+#
+
+# Start the test application
+hive/start
+
+# Make the test-b variants of the Service and EndpointSlice
+cp service-a.yaml service-b.yaml
+sed 'namespace: test-a' 'namespace: test-b' service-b.yaml
+sed '10.96.50.104' '10.96.50.105' service-b.yaml
+cp endpointslice-a.yaml endpointslice-b.yaml
+sed 'namespace: test-a' 'namespace: test-b' endpointslice-b.yaml
+sed '10.244.1.' '10.245.1.' endpointslice-b.yaml
+
+# 1. Add the test-a Service and EndpointSlice.
+k8s/add service-a.yaml endpointslice-a.yaml
+db/cmp frontends frontends-1.table
+db/cmp backends backends-1.table
+
+# 2. Add the test-b Service and EndpointSlice. Both EndpointSlices have
+# the same name, but exist in different namespaces, so should not collide.
+k8s/add service-b.yaml endpointslice-b.yaml
+db/cmp frontends frontends-2.table
+db/cmp backends backends-2.table
+
+# 3. Update test-a EndpointSlice - remove an address.
+sed '.*- 10.244.1.2' '' endpointslice-a.yaml
+k8s/update endpointslice-a.yaml
+db/cmp frontends frontends-3.table
+db/cmp backends backends-3.table
+
+-- frontends-1.table --
+Address               Type        ServiceName      PortName   Backends                             Status   Error
+10.96.50.104:80/TCP   ClusterIP   test-a/service   http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP Done
+
+-- backends-1.table --
+Address             Instances               Shadows   NodeName
+10.244.1.1:80/TCP   test-a/service (http)             nodeport-worker
+10.244.1.2:80/TCP   test-a/service (http)             nodeport-worker
+
+-- frontends-2.table --
+Address               Type        ServiceName      PortName   Backends                             Status   Error
+10.96.50.104:80/TCP   ClusterIP   test-a/service   http       10.244.1.1:80/TCP, 10.244.1.2:80/TCP Done
+10.96.50.105:80/TCP   ClusterIP   test-b/service   http       10.245.1.1:80/TCP, 10.245.1.2:80/TCP Done
+
+-- backends-2.table --
+Address             Instances               Shadows   NodeName
+10.244.1.1:80/TCP   test-a/service (http)             nodeport-worker
+10.244.1.2:80/TCP   test-a/service (http)             nodeport-worker
+10.245.1.1:80/TCP   test-b/service (http)             nodeport-worker
+10.245.1.2:80/TCP   test-b/service (http)             nodeport-worker
+
+-- frontends-3.table --
+Address               Type        ServiceName      PortName   Backends                             Status   Error
+10.96.50.104:80/TCP   ClusterIP   test-a/service   http       10.244.1.1:80/TCP                    Done
+10.96.50.105:80/TCP   ClusterIP   test-b/service   http       10.245.1.1:80/TCP, 10.245.1.2:80/TCP Done
+
+-- backends-3.table --
+Address             Instances               Shadows   NodeName
+10.244.1.1:80/TCP   test-a/service (http)             nodeport-worker
+10.245.1.1:80/TCP   test-b/service (http)             nodeport-worker
+10.245.1.2:80/TCP   test-b/service (http)             nodeport-worker
+
+-- service-a.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: service
+  namespace: test-a
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  type: ClusterIP
+  sessionAffinity: ClientIP
+
+-- endpointslice-a.yaml --
+# Initial EndpointSlice has two addresses
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: service
+  name: service
+  namespace: test-a
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 10.244.1.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
