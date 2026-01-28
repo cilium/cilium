@@ -2942,6 +2942,9 @@
           },
           "type": "object"
         },
+        "useRemoteAddress": {
+          "type": "boolean"
+        },
         "xffNumTrustedHops": {
           "type": "integer"
         }
@@ -4321,6 +4324,12 @@
             }
           },
           "type": "object"
+        },
+        "useRemoteAddress": {
+          "type": "boolean"
+        },
+        "xffNumTrustedHops": {
+          "type": "integer"
         }
       },
       "type": "object"
