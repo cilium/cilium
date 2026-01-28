@@ -68,7 +68,8 @@ func Test_Conformance(t *testing.T) {
 			IdleTimeoutSeconds: 60,
 		},
 	})
-	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, translation.Config{
+	gl4cTranslator := translation.NewGL4CTranslator()
+	gatewayAPITranslator := gatewayApiTranslation.NewTranslator(cecTranslator, gl4cTranslator, translation.Config{
 		ServiceConfig: translation.ServiceConfig{
 			ExternalTrafficPolicy: string(corev1.ServiceExternalTrafficPolicyCluster),
 		},
