@@ -6,6 +6,7 @@ package loader
 import (
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"path/filepath"
 
@@ -25,6 +26,7 @@ import (
 
 func init() {
 	ciliumHostConfigs.register(config.CiliumHost)
+	ciliumHostRenames.register(defaultCiliumHostMapRenames)
 	ciliumNetConfigs.register(config.CiliumNet)
 	netdevConfigs.register(config.Netdev)
 }
@@ -60,6 +62,9 @@ func reloadHostEndpoint(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath
 // cilium_host.
 var ciliumHostConfigs funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration) any]
 
+// ciliumHostRenames holds functions that yield BPF map renames for cilium_host.
+var ciliumHostRenames funcRegistry[func(datapath.EndpointConfiguration, *datapath.LocalNodeConfiguration) map[string]string]
+
 // ciliumHostConfiguration returns a slice of host configuration objects yielded
 // by all registered config providers of [ciliumHostConfigs].
 func ciliumHostConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (configs []any) {
@@ -69,7 +74,16 @@ func ciliumHostConfiguration(ep datapath.EndpointConfiguration, lnc *datapath.Lo
 	return configs
 }
 
-func ciliumHostMapRenames(ep datapath.EndpointConfiguration) map[string]string {
+// ciliumHostMapRenames returns the merged map of host map renames yielded by all registered rename providers.
+func ciliumHostMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) (renames map[string]string) {
+	renames = make(map[string]string)
+	for f := range ciliumHostRenames.all() {
+		maps.Copy(renames, f(ep, lnc))
+	}
+	return renames
+}
+
+func defaultCiliumHostMapRenames(ep datapath.EndpointConfiguration, lnc *datapath.LocalNodeConfiguration) map[string]string {
 	return map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
 		"cilium_calls":     bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
@@ -91,7 +105,7 @@ func attachCiliumHost(logger *slog.Logger, ep datapath.Endpoint, lnc *datapath.L
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:      ciliumHostConfiguration(ep, lnc),
-		MapRenames:     ciliumHostMapRenames(ep),
+		MapRenames:     ciliumHostMapRenames(ep, lnc),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(ep.InterfaceName()), hostEndpointConfig),
 	})
 	if err != nil {
