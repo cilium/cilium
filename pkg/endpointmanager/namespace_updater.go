@@ -57,10 +57,26 @@ func getNamespaceLabels(ns daemonk8s.Namespace) labels.Labels {
 }
 
 func (u *namespaceUpdater) run(ctx context.Context, health cell.Health) error {
+	// Use Changes() instead of AllWatch() to properly track namespace deletions.
+	// This ensures the oldIdtyLabels and oldSIPAllowAnno maps are cleaned up
+	// when namespaces are deleted, preventing memory leaks and stale data issues.
+	wtxn := u.db.WriteTxn(u.namespaces)
+	changeIter, err := u.namespaces.Changes(wtxn)
+	wtxn.Commit()
+	if err != nil {
+		return err
+	}
+
 	for {
-		namespaces, watch := u.namespaces.AllWatch(u.db.ReadTxn())
-		for ns := range namespaces {
-			u.update(ns)
+		changes, watch := changeIter.Next(u.db.ReadTxn())
+		for change := range changes {
+			if change.Deleted {
+				// Clean up tracking maps when namespace is deleted
+				delete(u.oldIdtyLabels, change.Object.Name)
+				delete(u.oldSIPAllowAnno, change.Object.Name)
+			} else {
+				u.update(change.Object)
+			}
 		}
 
 		select {
