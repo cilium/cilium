@@ -40,13 +40,6 @@ import (
 )
 
 func Test_MultiPoolManager(t *testing.T) {
-	db := statedb.New()
-	poolsTbl, err := podippool.NewTable(db)
-	require.NoError(t, err)
-	insertPool(t, db, poolsTbl, "default", false)
-	insertPool(t, db, poolsTbl, "mars", false)
-	insertPool(t, db, poolsTbl, "jupiter", false)
-
 	fakeConfig := testConfiguration
 	// disable debounce interval to trigger CiliumNode update at each test step
 	fakeConfig.IPAMCiliumNodeUpdateRate = 1 * time.Nanosecond
@@ -130,8 +123,6 @@ func Test_MultiPoolManager(t *testing.T) {
 		Node:                 fakeK8sCiliumNodeAPI,
 		CNClient:             fakeK8sCiliumNodeAPI,
 		JobGroup:             jg,
-		DB:                   db,
-		PodIPPools:           poolsTbl,
 	})
 
 	// assert initial CiliumNode upsert has been sent to the events chan
@@ -476,11 +467,6 @@ func Test_MultiPoolManager(t *testing.T) {
 func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	logger := hivetest.Logger(t)
 
-	db := statedb.New()
-	poolsTbl, err := podippool.NewTable(db)
-	require.NoError(t, err)
-	insertPool(t, db, poolsTbl, "default", false)
-
 	fakeConfig := testConfiguration
 	// disable pre-allocation
 	fakeConfig.IPAMMultiPoolPreAllocation = map[string]string{}
@@ -543,8 +529,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		Node:                 fakeK8sAPI,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
-		DB:                   db,
-		PodIPPools:           poolsTbl,
 	})
 
 	// Trigger controller immediately when requested by the IPAM trigger
@@ -593,11 +577,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 //   - preAlloc = 1  => neededIPs = 5 (in-use) + 1 (buffer) = 6
 func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 	logger := hivetest.Logger(t)
-
-	db := statedb.New()
-	poolsTbl, err := podippool.NewTable(db)
-	require.NoError(t, err)
-	insertPool(t, db, poolsTbl, "default", false)
 
 	// preAlloc buffer of 1 for pool "default"
 	fakeConfig := testConfiguration
@@ -668,8 +647,6 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 		Node:                 fakeK8sAPI,
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
-		DB:                   db,
-		PodIPPools:           poolsTbl,
 	})
 
 	// Trigger controller immediately when requested
@@ -1066,7 +1043,7 @@ func (f *fakeK8sCiliumNodeAPIResource) updateNode(newNode *ciliumv2.CiliumNode) 
 	return nil
 }
 
-func TestAllocateNextFamily_SkipMasquerade(t *testing.T) {
+func TestAllocateNext_SkipMasquerade(t *testing.T) {
 	db := statedb.New()
 	poolsTbl, err := podippool.NewTable(db)
 	require.NoError(t, err)
@@ -1078,31 +1055,31 @@ func TestAllocateNextFamily_SkipMasquerade(t *testing.T) {
 
 	// onlyMasqueradeDefaultPool = true, non-default pool
 	mgr := createSkipMasqTestManager(t, db, poolsTbl, true)
-	res, err := mgr.allocateNext("ns/pod", "blue", IPv4, false)
+	res, err := mgr.AllocateNextWithoutSyncUpstream("ns/pod", "blue")
 	require.NoError(t, err)
 	require.True(t, res.SkipMasquerade, "SkipMasquerade should be true for non-default pools when onlyMasqueradeDefaultPool is set")
 
 	// onlyMasqueradeDefaultPool = true, default pool
-	res, err = mgr.allocateNext("ns/pod", "default", IPv4, false)
+	res, err = mgr.AllocateNextWithoutSyncUpstream("ns/pod", "default")
 	require.NoError(t, err)
 	require.False(t, res.SkipMasquerade, "default pool should always be masqueraded even if global flag set")
 
 	// onlyMasqueradeDefaultPool = false but pool annotated with skip-masquerade
 	mgr = createSkipMasqTestManager(t, db, poolsTbl, false)
-	res, err = mgr.allocateNext("ns/pod", "red", IPv4, false)
+	res, err = mgr.AllocateNextWithoutSyncUpstream("ns/pod", "red")
 	require.NoError(t, err)
 	require.True(t, res.SkipMasquerade, "SkipMasquerade should be true based on pool annotation")
 
 	// honour annotation on default pool also
 	insertPool(t, db, poolsTbl, "default", true)
 	mgr = createSkipMasqTestManager(t, db, poolsTbl, false)
-	res, err = mgr.allocateNext("ns/pod", "default", IPv4, false)
+	res, err = mgr.AllocateNextWithoutSyncUpstream("ns/pod", "default")
 	require.NoError(t, err)
 	require.True(t, res.SkipMasquerade, "default pool should not be masqueraded if annotation set")
 
 	// neither flag nor annotation set
 	mgr = createSkipMasqTestManager(t, db, poolsTbl, false)
-	res, err = mgr.allocateNext("ns/pod", "green", IPv4, false)
+	res, err = mgr.AllocateNextWithoutSyncUpstream("ns/pod", "green")
 	require.NoError(t, err)
 	require.False(t, res.SkipMasquerade, "SkipMasquerade should default to false")
 }
@@ -1129,18 +1106,11 @@ func insertPool(t *testing.T, db *statedb.DB, tbl statedb.RWTable[podippool.Loca
 	w.Commit()
 }
 
-func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table[podippool.LocalPodIPPool], onlyMasqDefault bool) *multiPoolManager {
+func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table[podippool.LocalPodIPPool], onlyMasqDefault bool) Allocator {
 	t.Helper()
 
 	fakeConfig := testConfiguration
 	fakeConfig.IPAMMultiPoolPreAllocation = map[string]string{}
-	cnEvents := make(chan resource.Event[*ciliumv2.CiliumNode])
-	fakeK8sAPI := &fakeK8sCiliumNodeAPIResource{
-		c:             cnEvents,
-		node:          &ciliumv2.CiliumNode{},
-		onUpsertEvent: func(err error) {},
-		onDeleteEvent: func(err error) {},
-	}
 
 	initialNode := &ciliumv2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: nodeTypes.GetName()},
@@ -1158,35 +1128,53 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 		},
 	}
 
-	go fakeK8sAPI.updateNode(initialNode)
-
-	var jg job.Group
+	var (
+		jg             job.Group
+		localNode      k8s.LocalCiliumNodeResource
+		localNodeStore *node.LocalNodeStore
+		clientset      *k8sClient.FakeClientset
+	)
 	h := hive.New(
-		cell.Invoke(func(jg_ job.Group) { jg = jg_ }),
+		k8s.ResourcesCell,
+		k8sClient.FakeClientCell(),
+		cell.Provide(func() *node.LocalNodeStore { return node.NewTestLocalNodeStore(node.LocalNode{}) }),
+		cell.Invoke(
+			func(
+				jg_ job.Group,
+				localNode_ k8s.LocalCiliumNodeResource,
+				localNodeStore_ *node.LocalNodeStore,
+				clientset_ *k8sClient.FakeClientset,
+			) {
+				jg = jg_
+				localNode = localNode_
+				localNodeStore = localNodeStore_
+				clientset = clientset_
+			},
+		),
 	)
 
 	tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
 	assert.NoError(t, h.Start(tlog, t.Context()))
-	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
+	t.Cleanup(func() { h.Stop(tlog, t.Context()) })
 
-	preallocMap, err := ParseMultiPoolPreAllocMap(fakeConfig.IPAMMultiPoolPreAllocation)
+	// create local node
+	_, err := clientset.CiliumV2().CiliumNodes().Create(t.Context(), initialNode, metav1.CreateOptions{})
 	assert.NoError(t, err)
 
-	mgr := newMultiPoolManager(MultiPoolManagerParams{
+	v4Alloc, _ := newMultiPoolAllocators(MultiPoolAllocatorParams{
 		Logger:                    hivetest.Logger(t),
 		IPv4Enabled:               fakeConfig.EnableIPv4,
 		IPv6Enabled:               fakeConfig.EnableIPv6,
 		CiliumNodeUpdateRate:      fakeConfig.IPAMCiliumNodeUpdateRate,
-		PreallocMap:               preallocMap,
-		Node:                      fakeK8sAPI,
-		CNClient:                  fakeK8sAPI,
+		PreAllocPools:             fakeConfig.IPAMMultiPoolPreAllocation,
+		Node:                      localNode,
+		LocalNodeStore:            localNodeStore,
+		CNClient:                  clientset.CiliumV2().CiliumNodes(),
 		JobGroup:                  jg,
 		DB:                        db,
 		PodIPPools:                pools,
 		OnlyMasqueradeDefaultPool: onlyMasqDefault,
 	})
 
-	waitForLocalNodeUpdate(tlog, mgr)
-
-	return mgr
+	return v4Alloc
 }
